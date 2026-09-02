@@ -1,0 +1,39 @@
+#+title: gerbil-parser
+
+=gerbil-parser= is a pure Gerbil Scheme programmable syntax engine built on
+hygienic macros, POO composition, parser-flow normalization, and AOT-compiled
+parser artifacts.
+
+Language grammars belong to downstream repositories.  POO and =poo-flow= are
+used only while compiling grammar object graphs; generated parser hot paths do
+not perform dynamic POO dispatch.
+
+The repository contains no Rust runtime or downstream CST dependency.  Rust,
+Rowan, native FFI, and other consumers bind the emitted artifact from their own
+repositories.  The first executable reference grammar proves the complete
+boundary from hygienic declarations through normalized grammar and parser IR
+to the pure Scheme parser runtime and AOT artifact.
+
+* Native command
+
+=build.ss= is the sole AOT entry.  It discovers library modules, declares the
+exact runtime closure of the executable, and asks Gerbil to build =gparse=; no
+shell launcher or second command implementation is involved.
+
+#+begin_src sh
+GERBIL_BUILD_CORES=12 gxi build.ss compile
+.gerbil/bin/gparse help
+.gerbil/bin/gparse check "1 + 2 * value"
+#+end_src
+
+=src/main.ss= owns only =:std/getopt= declarations and dispatch.
+=src/cli.ss= is the thin command adapter.  Grammar compilation,
+lexing, parsing, receipts, and diagnostics remain in their library owners.
+
+* Package layout
+
+The parser module follows the POO Flow package roles: =objects.ss= owns POO
+grammar object families, =types.ss= owns schema identities, =funcs.ss= owns
+small performance-sensitive parser functions, and =config.ss= owns the
+hygienic grammar-to-parser declaration.  General list utilities stay at the
+package utility boundary rather than becoming parser-module miscellany.

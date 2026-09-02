@@ -1,0 +1,44 @@
+#+title: Pure Gerbil Parser Compiler Architecture
+
+* Authority
+
+=gerbil-parser= is a pure Gerbil Scheme project. A parser module follows the
+POO Flow layout: =objects.ss= owns composable grammar objects, =types.ss= owns
+stable contracts, =funcs.ss= owns compilation and runtime functions, and
+=config.ss= provides hygienic module assembly.
+
+#+begin_src mermaid
+flowchart LR
+  S[syntax-rules and syntax-case] --> O[POO module objects]
+  O --> G[Grammar IR v1]
+  G --> P[Parser IR v1]
+  P --> M[Macro-generated match branches]
+  M --> R[Pure Scheme parser runtime]
+  R --> A[build.ss AOT]
+  A --> D[Downstream bindings]
+#+end_src
+
+* Formal contract
+
+POO composition is a compilation concern. The generated runtime machine uses
+direct operator branches and preserves every source byte as a token.
+
+#+begin_src typst
+#let Role = $R$
+#let GrammarIR = $G$
+#let ParserIR = $P$
+$
+  "normalize": "List"(Role) -> GrammarIR \
+  "compile": GrammarIR -> ParserIR \
+  forall r_1, r_2 in Role, "key"(r_1) = "key"(r_2)
+    => (r_1 = r_2 or "reject") \
+  "joinTokens"("parse"(P, s)) = s
+$
+#+end_src
+
+* Boundary
+
+This repository owns no Rust, Rowan, language-specific AST, semantic analysis,
+or backend authority. Downstream projects own those bindings and consume the
+AOT artifact. =gparse= remains a thin adapter over the same Scheme API exercised
+by =t/*=.

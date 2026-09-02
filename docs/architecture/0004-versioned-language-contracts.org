@@ -20,11 +20,13 @@ flowchart LR
   D[Downstream DSL declaration] --> C[defparser-config]
   C --> N[Canonical Grammar IR v1]
   C --> M[Hygienic native machine]
+  M --> E[deflanguage-parser-entry]
   S[Source bytes] --> M
   M --> A[ParseArtifact v1]
   A --> R[Replay-only CST sinks]
   V[Versioned language contract] --> D
   F[Native syntax files] --> X[defsyntax-fixture expansion]
+  C1[defsyntax-corpus manifest] --> X
   X --> T[Source-level conformance tests]
   V --> X
 #+end_src
@@ -32,6 +34,14 @@ flowchart LR
 Language references are conformance fixtures, not runtime authorities.  A
 downstream package defines its own grammar with the same public macro and owns
 its language version, coverage statement, corpus, and diagnostic policy.
+
+The engine and language packs are physically separate.  =src/= contains only
+language-neutral compiler, runtime, grammar algebra, and entry macros.  A
+supported language owns one directory at
+=languages/<language>/<version>/=.  Its =grammar.ss=, =parser.ss=,
+=fixtures.ss=, =parser-test.ss=, and =corpus/= are colocated.  The parser module
+declares its public boundary with =deflanguage-parser-entry=; it does not add a
+language switch to the engine.
 
 Native examples are real source files, not Scheme string fragments.  A
 downstream test declares =defsyntax-fixture= with an immutable logical fixture
@@ -41,25 +51,35 @@ declaration, embeds its bytes, and computes its source digest.  Runtime parsing
 does not open files and neither absolute path nor working directory enters an
 artifact identity.
 
+=defsyntax-corpus= is the multi-file declaration boundary.  It expands to
+individual content-addressed fixtures and one immutable manifest value; it does
+not add runtime directory walking or path identity.  A versioned language pack
+therefore reviews grammar, parser entry, complete admitted example set, tests,
+and corpus in one directory.
+
 * Fixed reference identities
 
 The configuration-language contract is pinned to HashiCorp HCL native syntax
 =v2.24.0= at commit
 =6b5068090eef06b1f127f61529db5ba0be7ed343=.  Its admitted identity is
-=hcl-native-v2.24.0-structural-core.v1=.  The implemented slice covers ordered
-bodies, attributes, labeled and nested blocks, line and block comments, quoted
-strings, numeric and identifier literals, absolute traversals, tuples, objects,
-and one-line single-attribute bodies.  Templates, heredocs, operators,
-conditionals, calls, index and splat expressions, for-expressions, schema
-evaluation, and Terraform semantics are not claimed.
+=hcl-native-v2.24.0.v1=.  The executable corpus vendors all 15 raw =.hcl=
+sources in HashiCorp's v2.24.0 specsuite: 12 syntax-accepted inputs and three
+syntax-rejected inputs.  The parser admits ordered bodies, attributes, labeled
+and nested blocks, all three comment forms, empty files, quoted strings,
+heredocs, decimal literals, identifiers, traversals, tuples, objects, unary and
+binary operators, conditionals, calls, indexes, and splats.  Schema decoding,
+expression evaluation, Terraform semantics, and productions absent from the
+fixed specsuite remain outside this corpus claim.
 
 The graph-query contract is pinned to =ISO/IEC 39075:2024=, edition 1,
 published 2024-04.  Its admitted identity is
-=iso-iec-39075-2024-graph-pattern-core.v1=.  The implemented slice covers
-MATCH and OPTIONAL MATCH clause sequences, node and edge patterns, labels,
-property maps, bounded edge quantifiers, equality predicates, property access,
-and RETURN projection aliases.  It does not claim the complete 610-page
-standard, PGQL, openCypher, SQL/PGQ, or the 2026 corrigendum.
+=iso-iec-39075-2024.opengql-examples.v1=.  Its reference grammar is openGQL
+1.9.0 at commit
+=16ea71bd320ad07fd2c46a3066afbaef7d226922=.  The executable corpus vendors
+all 14 upstream sample programs and admits their complete CREATE SCHEMA,
+CREATE GRAPH, INSERT, MATCH/INSERT, EXISTS, RETURN, and SESSION SET forms with
+lossless CST structure.  It does not claim every production in the complete
+standard, PGQL, openCypher, SQL/PGQ, or a later corrigendum.
 
 Version identities are never inferred from a current branch or latest release.
 Changing an upstream edition, tag, commit, corrigendum, or admitted production
@@ -82,6 +102,7 @@ $
     "parse"("expand"(g), x) = A(g, x) \
   "grammarDigest"(A(g, x)) = "sha256"("canonical"(g)) \
   "roundtrip"(A(g, x)) = x \
+  forall f in "PinnedCorpus", "roundtrip"("parse"(g, f)) = f \
   partial "parse" / partial "languageName" = 0 \
   partial "parse" / partial "filesystemPath" = 0
 $
@@ -101,17 +122,32 @@ connected, and the entrypoint yields exactly one unfielded root.  The author
 does not modify =runtime/parser.ss=, =runtime/combinator.ss=, or
 =compiler/machine.ss=.
 
-The author's source-level scenarios use =defsyntax-fixture=.  The same fixture
+The language's =parser.ss= then declares exactly one public entry:
+
+#+begin_src scheme
+(deflanguage-parser-entry hcl-v2-24-language
+  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract-v1+)
+  (machine hcl-v2-24-parser-machine)
+  (parse parse-hcl-v2-24))
+#+end_src
+
+The entry metadata does not own or copy the machine.  The generated parse
+function is lexically bound to the sole machine from =grammar.ss=.
+
+The author's source-level scenarios use =defsyntax-fixture=, or
+=defsyntax-corpus= when a fixed upstream example set contains multiple files.
+The same fixture
 value can feed focused conformance tests and benchmarks, so expected version,
 contract, terminal status, content digest, lossless roundtrip, root kind, and
 required structural kinds remain one declaration.  Adding a new DSL requires
 new declarations and native files; it never adds a language branch to the
 engine.
 
-Language-specific scanners that cannot be represented by admitted LexicalExpr
-constructors require a separately versioned external-scanner state contract.
-Bash heredocs and lexer modes belong to that feature; they are not hidden in a
-fallback branch.
+LexicalExpr v1 includes deterministic decimal-number, multi-delimiter quoted
+string, and HCL-style heredoc primitives.  Language-specific scanners that
+cannot be represented by admitted LexicalExpr constructors require a separately
+versioned external-scanner state contract.  Bash heredocs and lexer modes
+belong to that later feature; they are not hidden in a fallback branch.
 
 * Rejected designs
 
@@ -122,6 +158,7 @@ fallback branch.
   production-language admission.
 - Embedding representative language programs as large Scheme string literals
   or opening corpus files on every test invocation.
+- Placing language fixtures or parser tests under the engine's =src/= tree.
 - Shipping dormant operator tables, recovery variants, or compatibility paths.
 - Updating a pinned contract because an upstream project published a new tag.
 

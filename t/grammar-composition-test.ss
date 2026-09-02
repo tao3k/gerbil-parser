@@ -10,7 +10,7 @@
         :gerbil-parser/src/runtime/recognition
         :gerbil-parser/src/runtime/token
         :gerbil-parser/src/compiler/machine
-        :gerbil-parser/src/reference/arithmetic-v1)
+        :gerbil-parser/languages/arithmetic/v1/parser)
 
 (defgrammar-role conflicting-lexical-role
   (syntax-kinds

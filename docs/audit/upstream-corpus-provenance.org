@@ -1,0 +1,42 @@
+#+title: Upstream Corpus Provenance
+#+startup: overview
+
+* Immutable sources
+
+The HCL corpus is copied byte-for-byte from HashiCorp HCL =v2.24.0= at commit
+=6b5068090eef06b1f127f61529db5ba0be7ed343=.  It contains all 15 raw =.hcl=
+inputs under =specsuite/tests=.  HashiCorp HCL is distributed under MPL-2.0.
+
+The GQL corpus is copied byte-for-byte from openGQL grammar =1.9.0= at commit
+=16ea71bd320ad07fd2c46a3066afbaef7d226922=.  It contains all 14 =.gql=
+files under =samples=.  openGQL grammar is distributed under Apache-2.0.
+
+#+begin_src mermaid
+flowchart LR
+  H[HCL v2.24.0 specsuite: 15 files] --> HM[defsyntax-corpus]
+  G[openGQL 1.9.0 samples: 14 files] --> GM[defsyntax-corpus]
+  HM --> D[Expansion-time SHA-256 identity]
+  GM --> D
+  D --> P[Lossless ParseArtifact v1 tests]
+#+end_src
+
+* Admission invariant
+
+The corpus file path is compilation input only.  Runtime identity is derived
+from the embedded source bytes, language version, and v1 contract.
+
+#+begin_src typst
+#let H = $"HCLCorpus"_("v2.24.0")$
+#let G = $"openGQLCorpus"_("1.9.0")$
+#let digest(x) = $"sha256"(x)$
+$
+  |H| = 15 quad and quad |G| = 14 \
+  forall f in H union G,
+    "fixtureDigest"(f) = digest("bytes"(f)) \
+  "roundtrip"("parse"(f)) = "bytes"(f) \
+  partial "fixtureDigest" / partial "absolutePath" = 0
+$
+#+end_src
+
+The corpus gate proves the complete fixed example sets above.  It does not turn
+the example count into a claim of complete language-standard conformance.

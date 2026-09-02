@@ -3,8 +3,7 @@
 
 (import ./compiler/parser-ir
         ./runtime/artifact
-        ./runtime/parser
-        ./reference/arithmetic-v1)
+        :gerbil-parser/languages/arithmetic/v1/parser)
 (export gparse-build
         gparse-inspect
         gparse-check
@@ -23,7 +22,7 @@
   0)
 
 (def (gparse-check source)
-  (let (artifact (parse-source arithmetic-parser source))
+  (let (artifact (parse-arithmetic-v1 source))
     (write-line artifact)
     (if (parse-artifact-success? artifact) 0 1)))
 

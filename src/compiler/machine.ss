@@ -41,7 +41,8 @@
    (parser-expression expression)))
 
 (defrules lexical-end
-  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ identifier
+  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
+   heredoc
    quoted-string line-comment block-comment literals fallback)
   ((_ source offset (whitespace+))
    (scan-whitespace source offset))
@@ -51,10 +52,14 @@
    (scan-newline source offset))
   ((_ source offset (decimal-digit+))
    (scan-decimal-digits source offset))
+  ((_ source offset (number))
+   (scan-number-literal source offset))
   ((_ source offset (identifier))
    (scan-identifier source offset))
-  ((_ source offset (quoted-string delimiter))
-   (scan-quoted-string source offset delimiter))
+  ((_ source offset (quoted-string delimiter ...))
+   (scan-quoted-strings source offset (list delimiter ...)))
+  ((_ source offset (heredoc))
+   (scan-heredoc source offset))
   ((_ source offset (line-comment start ...))
    (scan-line-comment source offset (list start ...)))
   ((_ source offset (block-comment opening closing))

@@ -131,17 +131,18 @@
     (let (result (parser tokens))
       (and result
            (let (children (reverse! (parser-match-children result)))
-             (and (pair? children)
-                  (matched
-                   (list
-                    (make-recognition-child
-                     #f
-                     (make-recognition-node
-                      kind
-                      (children-start children)
-                      (children-end children)
-                      children)))
-                   (parser-match-rest result))))))))
+             (let ((start (if (pair? children)
+                            (children-start children)
+                            (if (pair? tokens) (token-start (car tokens)) 0)))
+                   (end (if (pair? children)
+                          (children-end children)
+                          (if (pair? tokens) (token-start (car tokens)) 0))))
+               (matched
+                (list
+                 (make-recognition-child
+                  #f
+                  (make-recognition-node kind start end children)))
+                (parser-match-rest result))))))))
 
 (def (parser-run parser tokens)
   (let (result (parser tokens))

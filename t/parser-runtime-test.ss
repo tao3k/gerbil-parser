@@ -6,7 +6,7 @@
         :gerbil-parser/src/runtime/cst
         :gerbil-parser/src/runtime/parser
         :gerbil-parser/src/runtime/token
-        :gerbil-parser/src/reference/arithmetic-v1)
+        :gerbil-parser/languages/arithmetic/v1/parser)
 
 (def (artifact-token-events artifact)
   (let loop ((rest (parse-artifact-events artifact)) (found '()))

@@ -15,12 +15,10 @@
   (and (list? value)
        (case (car value)
          ((whitespace+ horizontal-whitespace+ newline+
-           decimal-digit+ identifier fallback)
+           decimal-digit+ number identifier heredoc fallback)
           (null? (cdr value)))
          ((quoted-string)
-          (and (= (length value) 2)
-               (string? (cadr value))
-               (positive? (string-length (cadr value)))))
+          (and (pair? (cdr value)) (strings? (cdr value))))
          ((line-comment)
           (and (pair? (cdr value)) (strings? (cdr value))))
          ((block-comment)
@@ -32,7 +30,7 @@
 
 (def (lexical-primitive kind)
   (unless (memq kind '(whitespace+ horizontal-whitespace+ newline+
-                       decimal-digit+ identifier fallback))
+                       decimal-digit+ number identifier heredoc fallback))
     (error "unknown lexical primitive" kind))
   (list kind))
 
@@ -42,7 +40,8 @@
   (cons 'literals values))
 
 (defrules lexical-expression
-  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ identifier
+  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
+   heredoc
    quoted-string line-comment block-comment literals fallback)
   ((_ (whitespace+))
    (lexical-primitive 'whitespace+))
@@ -52,10 +51,14 @@
    (lexical-primitive 'newline+))
   ((_ (decimal-digit+))
    (lexical-primitive 'decimal-digit+))
+  ((_ (number))
+   (lexical-primitive 'number))
   ((_ (identifier))
    (lexical-primitive 'identifier))
-  ((_ (quoted-string delimiter))
-   (list 'quoted-string delimiter))
+  ((_ (quoted-string delimiter ...))
+   (cons 'quoted-string (list delimiter ...)))
+  ((_ (heredoc))
+   (lexical-primitive 'heredoc))
   ((_ (line-comment start ...))
    (cons 'line-comment (list start ...)))
   ((_ (block-comment start finish))

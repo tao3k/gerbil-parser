@@ -5,7 +5,7 @@
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
         :gerbil-parser/src/runtime/parser
-        :gerbil-parser/src/reference/arithmetic-v1)
+        :gerbil-parser/languages/arithmetic/v1/parser)
 
 (def (artifact-replace artifact key value)
   (map (lambda (row)

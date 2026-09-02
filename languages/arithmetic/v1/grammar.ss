@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Small generic-grammar fixture for precedence expressed as grammar levels.
 
-(import ../modules/parser/config)
+(import :gerbil-parser/src/modules/parser/config)
 (export arithmetic-grammar
         arithmetic-parser-ir
         arithmetic-parser)

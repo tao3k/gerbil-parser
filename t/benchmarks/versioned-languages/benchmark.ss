@@ -16,7 +16,7 @@
   ((name . collect-after) (durationMs . 0))
   ((name . policy-before) (durationMs . 10))
   ((name . policy-after) (durationMs . 0)))
- (targetRationale . "twenty-five HCL and twenty-five GQL documents must publish lossless ParseArtifacts within the cross-language budget")
+ (targetRationale . "all 12 accepted HCL specsuite sources and all 14 openGQL examples must publish lossless ParseArtifacts within the cross-language budget")
  (maxRssMb . 512)
  (memoryMetric . resident-set-size)
  (memoryUnit . "MB")
@@ -25,7 +25,7 @@
  (rule . GERBIL-PARSER-VERSIONED-LANGUAGES)
  (feature . versioned-language-contracts)
  (optimizationFocus . "one generic generated machine across configuration and graph-query syntax families")
- (inputShape . "twenty-five native-file HCL documents and twenty-five representative GQL queries per sample")
+ (inputShape . "the complete admitted official corpus: 12 HCL v2.24.0 specsuite sources and 14 openGQL 1.9.0 examples per sample")
  (expectedOutcome . "both pinned language contracts roundtrip with no runtime language dispatch")
  (measurementPhases collect-before collect-after policy-before policy-after
                     assert-time-gate assert-memory-gate)

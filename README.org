@@ -4,9 +4,11 @@
 hygienic macros, POO composition, parser-flow normalization, and AOT-compiled
 parser artifacts.
 
-Language grammars belong to downstream repositories.  POO and =poo-flow= are
-used only while compiling grammar object graphs; generated parser hot paths do
-not perform dynamic POO dispatch.
+The language-neutral engine lives under =src/=.  Bundled and downstream
+language packs live under =languages/<language>/<version>/=; grammar, parser
+entry, fixtures, tests, and native corpus stay together.  POO and =poo-flow=
+are used only while compiling grammar object graphs; generated parser hot paths
+do not perform dynamic POO dispatch.
 
 The repository contains no Rust runtime or downstream CST dependency.  Rust,
 Rowan, native FFI, and other consumers bind the emitted artifact from their own
@@ -37,11 +39,34 @@ ParseArtifact events, and diagnostics remain in their library owners.
 
 * Package layout
 
-The parser module follows the POO Flow package roles: =objects.ss= owns POO
+The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
 grammar object families, =types.ss= owns schema identities, =funcs.ss= owns
 small performance-sensitive parser functions, and =config.ss= owns the
 hygienic grammar-to-parser declaration.  General list utilities stay at the
 package utility boundary rather than becoming parser-module miscellany.
+
+A supported language uses one colocated package surface:
+
+#+begin_src text
+languages/hcl/v2-24/
+  grammar.ss
+  parser.ss
+  fixtures.ss
+  parser-test.ss
+  corpus/
+#+end_src
+
+=grammar.ss= owns only the versioned grammar and generated machine.
+=parser.ss= uses =deflanguage-parser-entry= to declare the immutable language,
+version, contract, machine binding, and public parse function.  Fixtures and
+tests never move into =src/= and do not enter the =gparse= executable closure.
+=defsyntax-corpus= declares all files in one expansion-time manifest.  The HCL
+pack vendors all 15 raw =.hcl= inputs from the v2.24.0 official specsuite; the
+GQL pack vendors all 14 sample programs from openGQL grammar 1.9.0.  Tests
+assert content digest, typed terminal, structural CST kinds, and byte-exact
+roundtrip for each file.  This is complete coverage of those fixed upstream
+example sets, not a claim that every production in either language standard is
+already admitted.
 
 * Architecture RFCs
 
@@ -58,5 +83,6 @@ package utility boundary rather than becoming parser-module miscellany.
 - =docs/architecture/0004-versioned-language-contracts.org= defines fixed HCL
   v2.24.0 and ISO/IEC 39075:2024 conformance identities plus the public
   downstream DSL grammar boundary.  =defsyntax-fixture= embeds versioned native
-  syntax files at macro expansion, so downstream conformance tests and
+  syntax files at macro expansion, while =defsyntax-corpus= owns multi-file
+  manifests, so downstream conformance tests and
   benchmarks share one declarative source contract without runtime file I/O.

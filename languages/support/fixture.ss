@@ -2,8 +2,9 @@
 ;;; Compile-time inclusion of versioned native-syntax fixtures.
 
 (import (for-syntax :std/misc/ports)
-        ../runtime/identity)
+        :gerbil-parser/src/runtime/identity)
 (export defsyntax-fixture
+        defsyntax-corpus
         syntax-fixture?
         syntax-fixture-id
         syntax-fixture-language
@@ -32,8 +33,6 @@
         (expect expected-status root-kind (required-kind ...)))
      (and (identifier? #'binding)
           (stx-string? #'fixture-id)
-          (stx-string? #'language)
-          (stx-string? #'version)
           (stx-string? #'path)
           (memq (stx-e #'expected-status) '(accepted rejected))
           (if (eq? (stx-e #'expected-status) 'accepted)
@@ -54,3 +53,28 @@
               'root-kind
               '(required-kind ...))))))
     (_ (raise-syntax-error #f "invalid native-syntax fixture declaration" stx))))
+
+;; A corpus declaration is an expansion-time manifest. Every path remains
+;; explicit and reviewable, while the resulting runtime value contains only
+;; immutable, content-addressed fixtures.
+(defsyntax (defsyntax-corpus stx)
+  (syntax-case stx (identity accepted rejected)
+    ((_ binding
+        (identity language-value version-value contract-value)
+        (accepted
+         (fixture-id accepted-binding path root-kind
+                     (required-kind ...)) ...)
+        (rejected
+         (rejected-id rejected-binding rejected-path) ...))
+     #'(begin
+         (defsyntax-fixture accepted-binding
+           (identity fixture-id language-value version-value contract-value)
+           (source path)
+           (expect accepted root-kind (required-kind ...))) ...
+         (defsyntax-fixture rejected-binding
+           (identity rejected-id language-value version-value contract-value)
+           (source rejected-path)
+           (expect rejected #f ())) ...
+         (def binding
+           (list accepted-binding ... rejected-binding ...))))
+    (_ (raise-syntax-error #f "invalid native-syntax corpus declaration" stx))))

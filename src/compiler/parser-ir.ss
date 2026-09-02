@@ -1,7 +1,8 @@
 ;;; Grammar IR to immutable parser-machine IR compilation.
 
 (import ./normalize
-        ../grammar/algebra)
+        ../grammar/algebra
+        ../grammar/lexical-algebra)
 (export compile-parser
         parser-ir-ref
         parser-ir-canonical)
@@ -33,6 +34,17 @@
          (error "terminal syntax kind must be categorized as token"
                 (car terminal) kind))))
    terminals))
+
+(def (validate-lexical-rules lexical-rules terminals)
+  (let ((lexical-names (row-names lexical-rules))
+        (terminal-names (row-names terminals)))
+    (require-known lexical-names terminal-names 'lexical-rules)
+    (require-known terminal-names lexical-names 'terminals)
+    (for-each
+     (lambda (row)
+       (unless (lexical-expression? (cadr row))
+         (error "invalid normalized lexical expression" (car row))))
+     lexical-rules)))
 
 (def (validate-rules rules terminals)
   (when (null? rules)
@@ -77,11 +89,13 @@
   (let* ((grammar-ir (compile-grammar grammar))
          (syntax-kinds (grammar-ir-ref grammar-ir 'syntax-kinds))
          (terminals (grammar-ir-ref grammar-ir 'terminals))
+         (lexical-rules (grammar-ir-ref grammar-ir 'lexical-rules))
          (rules (grammar-ir-ref grammar-ir 'rules))
          (extras (grammar-ir-ref grammar-ir 'extras))
          (entrypoints (grammar-ir-ref grammar-ir 'parser-entrypoints))
          (flow (grammar-ir-ref grammar-ir 'flow)))
     (validate-terminals terminals syntax-kinds)
+    (validate-lexical-rules lexical-rules terminals)
     (validate-rules rules terminals)
     (validate-extras extras terminals)
     (unless (flow-connected? flow)
@@ -93,6 +107,7 @@
      (cons 'root-rule (require-entrypoint entrypoints rules))
      (cons 'syntax-kinds syntax-kinds)
      (cons 'terminals terminals)
+     (cons 'lexical-rules lexical-rules)
      (cons 'rules rules)
      (cons 'extras extras)
      (cons 'keywords (grammar-ir-ref grammar-ir 'keywords))

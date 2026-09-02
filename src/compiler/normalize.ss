@@ -7,7 +7,7 @@
         grammar-ir-canonical)
 
 (def table-slots
-  '(syntax-kinds terminals rules extras keywords prefix-operators
+  '(syntax-kinds terminals lexical-rules rules extras keywords prefix-operators
     binary-operators parser-entrypoints recoveries))
 
 (def (section-row-key section)

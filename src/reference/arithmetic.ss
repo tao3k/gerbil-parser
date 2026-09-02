@@ -24,7 +24,14 @@
    (identifier Identifier)
    (number Number)
    (whitespace Whitespace)
-   (punctuation Punctuation))
+   (punctuation Punctuation)
+   (unknown Unknown))
+  (lexical-rules
+   (whitespace (whitespace+))
+   (number (decimal-digit+))
+   (identifier (identifier))
+   (punctuation (literals "+" "-" "*" "**" "/" "(" ")"))
+   (unknown (fallback)))
   (rules
    (source-file
     (alias SourceFile

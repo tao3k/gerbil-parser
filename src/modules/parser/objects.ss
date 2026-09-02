@@ -2,7 +2,8 @@
 
 (import :clan/poo/object
         :poo-flow/src/core/object-syntax
-        ../../grammar/algebra)
+        ../../grammar/algebra
+        ../../grammar/lexical-algebra)
 (export +grammar-role-kind+
         +grammar-kind+
         defgrammar-role
@@ -33,12 +34,13 @@
 
 (defsyntax (defgrammar-role stx)
   (syntax-case stx
-      (syntax-kinds terminals rules extras keywords
+      (syntax-kinds terminals lexical-rules rules extras keywords
                     prefix-operators binary-operators parser-entrypoints
                     recoveries flow)
     ((_ binding
         (syntax-kinds (kind-name kind-category (field-name ...)) ...)
         (terminals (terminal-name terminal-kind) ...)
+        (lexical-rules (lexical-name lexical-expression-value) ...)
         (rules (rule-name rule-expression) ...)
         (extras extra-name ...)
         (keywords (keyword-name keyword-text) ...)
@@ -59,6 +61,9 @@
              (list (list 'kind-name 'kind-category (list 'field-name ...)) ...))
             (terminals
              (list (list 'terminal-name 'terminal-kind) ...))
+            (lexical-rules
+             (list (list 'lexical-name
+                         (lexical-expression lexical-expression-value)) ...))
             (rules
              (list (list 'rule-name
                          (grammar-expression rule-expression)) ...))
@@ -107,6 +112,7 @@
         (cons 'name (.ref value 'name))
         (cons 'syntax-kinds (.ref value 'syntax-kinds))
         (cons 'terminals (.ref value 'terminals))
+        (cons 'lexical-rules (.ref value 'lexical-rules))
         (cons 'rules (.ref value 'rules))
         (cons 'extras (.ref value 'extras))
         (cons 'keywords (.ref value 'keywords))

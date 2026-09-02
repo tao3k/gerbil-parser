@@ -22,9 +22,14 @@ shell launcher or second command implementation is involved.
 
 #+begin_src sh
 GERBIL_BUILD_CORES=12 gxi build.ss compile
-.gerbil/bin/gparse help
-.gerbil/bin/gparse check "1 + 2 * value"
+gparse help
+gparse check "1 + 2 * value"
 #+end_src
+
+The package manager exposes =framework-build-bindir= on =PATH= for the bare
+command.  Before package activation, the same native artifact can be invoked
+directly from that build-support-owned directory; the repository does not own a
+second shell launcher.
 
 =src/main.ss= owns only =:std/getopt= declarations and dispatch.
 =src/cli.ss= is the thin command adapter.  Grammar compilation,
@@ -43,6 +48,7 @@ package utility boundary rather than becoming parser-module miscellany.
 - =docs/architecture/0001-parser-compiler.org= fixes the pure Gerbil/AOT
   authority boundary.
 - =docs/architecture/0002-typed-structural-algebras.org= defines distinct
-  GrammarExpr, QueryPattern, and ProjectionPlan feature contracts.  The current
-  implementation admits GrammarExpr v1; later features require independent
-  executable evidence rather than directory presence.
+  LexicalExpr, GrammarExpr, QueryPattern, and ProjectionPlan feature contracts.
+  The current implementation admits LexicalExpr v1 and the canonical
+  expression specialization of GrammarExpr v1; later features require
+  independent executable evidence rather than directory presence.

@@ -23,12 +23,15 @@
     "src/compiler/normalize"
     "src/compiler/parser-ir"
     "src/grammar/algebra"
+    "src/grammar/lexical-algebra"
     "src/modules/parser/config"
     "src/modules/parser/funcs"
     "src/modules/parser/objects"
     "src/reference/arithmetic"
+    "src/runtime/cst"
     "src/runtime/lexer"
     "src/runtime/parser"
+    "src/runtime/scan"
     "src/runtime/token"
     "src/utilities/lists"))
 

@@ -3,6 +3,7 @@
 
 (import :std/test
         :gerbil-parser/src/grammar/algebra
+        :gerbil-parser/src/grammar/lexical-algebra
         :gerbil-parser/src/compiler/normalize
         :gerbil-parser/src/compiler/parser-ir
         :gerbil-parser/src/modules/parser/objects
@@ -11,8 +12,12 @@
         :gerbil-parser/src/reference/arithmetic)
 
 (defgrammar-role conflicting-operator-role
-  (syntax-kinds)
-  (terminals)
+  (syntax-kinds
+   (Punctuation token (text)))
+  (terminals
+   (punctuation Punctuation))
+  (lexical-rules
+   (punctuation (literals "+" "-" "*" "/" "(" ")")))
   (rules)
   (extras)
   (keywords)
@@ -28,8 +33,12 @@
 
 (defgrammar-role unresolved-reference-role
   (syntax-kinds
-   (SourceFile node ()))
-  (terminals)
+   (SourceFile node ())
+   (Unknown token (text)))
+  (terminals
+   (unknown Unknown))
+  (lexical-rules
+   (unknown (fallback)))
   (rules
    (source-file (reference missing-rule)))
   (extras)
@@ -52,6 +61,8 @@
    (SourceFile node (value)))
   (terminals
    (value SourceFile))
+  (lexical-rules
+   (value (identifier)))
   (rules
    (source-file
     (alias SourceFile (field value (token value)))))
@@ -70,6 +81,31 @@
   (supers)
   (roles invalid-terminal-kind-role))
 
+(defgrammar-role missing-lexical-rule-role
+  (syntax-kinds
+   (SourceFile node (value))
+   (Identifier token (text)))
+  (terminals
+   (identifier Identifier))
+  (lexical-rules)
+  (rules
+   (source-file
+    (alias SourceFile (field value (token identifier)))))
+  (extras)
+  (keywords)
+  (prefix-operators)
+  (binary-operators)
+  (parser-entrypoints
+   (source-file parse pure))
+  (recoveries)
+  (flow
+   (source lexical)
+   (lexical cst)))
+
+(defgrammar missing-lexical-rule-grammar
+  (supers)
+  (roles missing-lexical-rule-role))
+
 (def grammar-composition-tests
   (test-suite "grammar composition"
     (test-case "normalization is deterministic"
@@ -86,7 +122,8 @@
       (check (length (parser-ir-ref arithmetic-parser-ir 'prefix-operators)) => 2))
     (test-case "grammar algebra preserves productions and entrypoint"
       (check (parser-ir-ref arithmetic-parser-ir 'root-rule) => 'source-file)
-      (check (length (parser-ir-ref arithmetic-parser-ir 'terminals)) => 4)
+      (check (length (parser-ir-ref arithmetic-parser-ir 'terminals)) => 5)
+      (check (length (parser-ir-ref arithmetic-parser-ir 'lexical-rules)) => 5)
       (check (length (parser-ir-ref arithmetic-parser-ir 'rules)) => 6)
       (check (parser-ir-ref arithmetic-parser-ir 'extras)
              => '((whitespace)))
@@ -100,6 +137,14 @@
       (check-exception
        (grammar-expression
         (repeat (optional (token identifier))))
+       true))
+    (test-case "lexical literals reject empty spellings"
+      (check-exception
+       (lexical-expression (literals ""))
+       true))
+    (test-case "every terminal requires exactly one lexical rule"
+      (check-exception
+       (compile-parser missing-lexical-rule-grammar)
        true))
     (test-case "unresolved production references are rejected"
       (check-exception
@@ -119,6 +164,13 @@
              => '(punctuation "+" 30 right))
       (check ((parser-machine-binary arithmetic-parser)
               (make-token 'identifier "value" 0 5))
+             => #f))
+    (test-case "extras generate the sole trivia predicate"
+      (check ((parser-machine-trivia arithmetic-parser)
+              (make-token 'whitespace " " 0 1))
+             => '(whitespace))
+      (check ((parser-machine-trivia arithmetic-parser)
+              (make-token 'punctuation "+" 0 1))
              => #f))))
 
 (run-tests! grammar-composition-tests)

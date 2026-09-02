@@ -1,0 +1,150 @@
+#+title: RFC 0002 — Typed Structural Algebras
+#+startup: overview
+
+* Status
+
+Accepted.  This RFC specifies feature ownership for programmable syntax
+compilation.  It does not define a delivery schedule.  Each feature is admitted
+only by its executable contracts.
+
+* Decision
+
+=gerbil-parser= provides one hygienic Gerbil surface over three distinct,
+strongly separated algebras:
+
+- =GrammarExpr v1= accepts source and constructs a lossless CST.
+- =QueryPattern v1= matches an already constructed CST without mutation.
+- =ProjectionPlan v1= consumes completed query bindings and emits typed values
+  with explicit provenance.
+
+They share only structural identities such as node kind, token kind, field,
+cardinality, and byte span.  There is no universal pattern IR and no operation
+may cross phase authority implicitly.
+
+#+begin_src mermaid
+flowchart TD
+  S[Gerbil hygienic syntax] --> G[GrammarExpr v1]
+  S --> Q[QueryPattern v1]
+  S --> P[ProjectionPlan v1]
+  G --> N[Normalized Grammar IR v1]
+  N --> A[LR and selective GLR analysis]
+  A --> O[Generated parser machine]
+  O --> T[ParseArtifact v1]
+  T --> E[CST event projection]
+  E --> R[Rowan or Gerbil or custom sink]
+  T --> Q
+  Q --> P
+#+end_src
+
+* Formal invariants
+
+Grammar recognition, tree matching, and projection have different codomains
+and effect budgets.  A successful parse covers the complete source interval;
+query evaluation is pure; projection begins only after a complete match.
+
+#+begin_src typst
+#let G = $"GrammarExpr"_1$
+#let T = $"ParseArtifact"_1$
+#let Q = $"QueryPattern"_1$
+#let B = $"Bindings"_1$
+#let P = $"ProjectionPlan"_1$
+$
+  "parse": G times "Source" -> T \
+  "match": Q times T -> "List"(B) \
+  "project": P times B -> "List"("Value") \
+  forall t in T, "coveredBytes"(t) = [0, "sourceBytes"(t)) \
+  forall q in Q, t in T, "effects"("match"(q, t)) = emptyset \
+  "commit"("project"(p, b)) => "complete"(b)
+$
+#+end_src
+
+* GrammarExpr v1
+
+The canonical constructors are:
+
+#+begin_src scheme
+(empty)
+(literal "+")
+(token identifier)
+(reference expression)
+(seq expression ...)
+(choice expression ...)
+(optional expression)
+(repeat expression)
+(repeat1 expression)
+(field name expression)
+(alias NodeKind expression)
+(prec left 10 expression)
+#+end_src
+
+Constructors lower immediately to validated canonical data.  =repeat= and
+=repeat1= reject nullable operands.  Rule references and token references must
+resolve in the same normalized grammar.  Every terminal kind must resolve to a
+SyntaxKind categorized as =token=.  =extras= is the sole trivia authority;
+terminal rows do not duplicate that policy.  Duplicate role rows with
+different values are rejected before parser generation.
+
+POO and POO Flow own grammar role composition only.  The normalized Grammar IR
+is frozen data; generated lexer, parser, CST sink, and query hot paths perform
+no POO lookup.
+
+* Parser machine boundary
+
+The general parser is generated from GrammarExpr.  Canonical LR analysis is the
+correctness owner; selective GLR is enabled only for declared ambiguity.  Pratt
+parsing is permitted only as an optimization derived from the same grammar and
+must produce identical CST events and diagnostics to the general machine.
+
+External scanners implement a deterministic typed transition whose state is
+bounded and serializable.  Scanner identity and implementation digest are part
+of the grammar identity.  Arbitrary runtime Scheme procedures are not scanner
+contracts.
+
+* ParseArtifact and CST events
+
+The parser owns a backend-neutral immutable parse artifact so incremental reuse
+does not depend on Rowan.  Consumers receive a projection of well-bracketed
+events:
+
+#+begin_src scheme
+(start-node kind span)
+(token kind span)
+(missing-token expected-kind offset)
+(skipped-token actual-kind span)
+(error-node code span expected-set)
+(reuse-node identity span)
+(finish-node kind span)
+#+end_src
+
+Every source byte belongs to a token or skipped token.  Missing tokens are
+zero-width.  A parse request publishes exactly one typed terminal receipt.
+
+* QueryPattern and ProjectionPlan
+
+QueryPattern may use node, field, alternation, quantifier, hygienic capture,
+anchor, negated field, and registered pure predicates.  Capture identifiers are
+lexically scoped by the macro; a textual prefix is never the canonical binding
+identity.
+
+ProjectionPlan is not executed during matcher backtracking.  Matches are first
+completed, deterministically ordered, and then projected with provenance.
+External or semantic effects belong to the projection owner, never the query
+matcher.
+
+* Rejected designs
+
+- A universal algebra containing parse, capture, predicate, and emit nodes.
+- A handwritten language parser hidden behind a declarative grammar facade.
+- Runtime S-expression, JSON, or YAML grammar interpretation.
+- POO dispatch in generated parser or matcher hot paths.
+- Pratt parsing as a second grammar authority.
+- Query predicates that execute arbitrary effects during matching.
+- Rowan ownership inside =gerbil-parser=.
+
+* Executable feature contracts
+
+GrammarExpr is admitted when canonical construction, reference resolution,
+nullable-repeat rejection, deterministic normalization, and grammar inheritance
+conflict tests pass.  Parser-machine, ParseArtifact, QueryPattern, and
+ProjectionPlan are admitted independently by their own owner tests; existence
+of this RFC or a source directory is not evidence of implementation.

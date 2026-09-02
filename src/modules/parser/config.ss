@@ -6,10 +6,13 @@
 (export defparser-config)
 
 (defrules defparser-config
-  (syntax-kinds keywords prefix-operators binary-operators
-   parser-entrypoints recoveries flow)
+  (syntax-kinds terminals rules extras keywords prefix-operators
+   binary-operators parser-entrypoints recoveries flow)
   ((_ role-binding grammar-binding ir-binding parser-binding
       (syntax-kinds syntax-row ...)
+      (terminals terminal-row ...)
+      (rules rule-row ...)
+      (extras extra-name ...)
       (keywords keyword-row ...)
       (prefix-operators prefix-row ...)
       (binary-operators binary-row ...)
@@ -19,6 +22,9 @@
    (begin
      (defgrammar-role role-binding
        (syntax-kinds syntax-row ...)
+       (terminals terminal-row ...)
+       (rules rule-row ...)
+       (extras extra-name ...)
        (keywords keyword-row ...)
        (prefix-operators prefix-row ...)
        (binary-operators binary-row ...)

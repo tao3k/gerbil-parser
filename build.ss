@@ -22,6 +22,7 @@
     "src/compiler/generate"
     "src/compiler/normalize"
     "src/compiler/parser-ir"
+    "src/grammar/algebra"
     "src/modules/parser/config"
     "src/modules/parser/funcs"
     "src/modules/parser/objects"

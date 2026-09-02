@@ -7,8 +7,8 @@
         grammar-ir-canonical)
 
 (def table-slots
-  '(syntax-kinds keywords prefix-operators binary-operators
-    parser-entrypoints recoveries))
+  '(syntax-kinds terminals rules extras keywords prefix-operators
+    binary-operators parser-entrypoints recoveries))
 
 (def (section-row-key section)
   (if (memq section '(prefix-operators binary-operators))

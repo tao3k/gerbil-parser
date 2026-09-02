@@ -37,3 +37,12 @@ grammar object families, =types.ss= owns schema identities, =funcs.ss= owns
 small performance-sensitive parser functions, and =config.ss= owns the
 hygienic grammar-to-parser declaration.  General list utilities stay at the
 package utility boundary rather than becoming parser-module miscellany.
+
+* Architecture RFCs
+
+- =docs/architecture/0001-parser-compiler.org= fixes the pure Gerbil/AOT
+  authority boundary.
+- =docs/architecture/0002-typed-structural-algebras.org= defines distinct
+  GrammarExpr, QueryPattern, and ProjectionPlan feature contracts.  The current
+  implementation admits GrammarExpr v1; later features require independent
+  executable evidence rather than directory presence.

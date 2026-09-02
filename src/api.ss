@@ -1,13 +1,15 @@
 ;;; Stable library boundary for grammar authors and downstream bindings.
 
-(import ./modules/parser/objects
+(import ./grammar/algebra
+        ./modules/parser/objects
         ./compiler/normalize
         ./compiler/parser-ir
         ./compiler/generate
         ./runtime/token
         ./runtime/lexer
         ./runtime/parser)
-(export (import: ./modules/parser/objects)
+(export (import: ./grammar/algebra)
+        (import: ./modules/parser/objects)
         (import: ./compiler/normalize)
         (import: ./compiler/parser-ir)
         (import: ./compiler/generate)

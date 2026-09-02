@@ -1,7 +1,8 @@
 ;;; POO-backed grammar object families and hygienic declarations.
 
 (import :clan/poo/object
-        :poo-flow/src/core/object-syntax)
+        :poo-flow/src/core/object-syntax
+        ../../grammar/algebra)
 (export +grammar-role-kind+
         +grammar-kind+
         defgrammar-role
@@ -32,10 +33,14 @@
 
 (defsyntax (defgrammar-role stx)
   (syntax-case stx
-      (syntax-kinds keywords prefix-operators binary-operators
-                    parser-entrypoints recoveries flow)
+      (syntax-kinds terminals rules extras keywords
+                    prefix-operators binary-operators parser-entrypoints
+                    recoveries flow)
     ((_ binding
         (syntax-kinds (kind-name kind-category (field-name ...)) ...)
+        (terminals (terminal-name terminal-kind) ...)
+        (rules (rule-name rule-expression) ...)
+        (extras extra-name ...)
         (keywords (keyword-name keyword-text) ...)
         (prefix-operators
          ((prefix-kind prefix-lexeme) prefix-precedence prefix-associativity) ...)
@@ -52,6 +57,12 @@
             (name 'binding)
             (syntax-kinds
              (list (list 'kind-name 'kind-category (list 'field-name ...)) ...))
+            (terminals
+             (list (list 'terminal-name 'terminal-kind) ...))
+            (rules
+             (list (list 'rule-name
+                         (grammar-expression rule-expression)) ...))
+            (extras (list (list 'extra-name) ...))
             (keywords (list (list 'keyword-name keyword-text) ...))
             (prefix-operators
              (list (list 'prefix-kind prefix-lexeme
@@ -95,6 +106,9 @@
   (list (cons 'kind (.ref value 'kind))
         (cons 'name (.ref value 'name))
         (cons 'syntax-kinds (.ref value 'syntax-kinds))
+        (cons 'terminals (.ref value 'terminals))
+        (cons 'rules (.ref value 'rules))
+        (cons 'extras (.ref value 'extras))
         (cons 'keywords (.ref value 'keywords))
         (cons 'prefix-operators (.ref value 'prefix-operators))
         (cons 'binary-operators (.ref value 'binary-operators))

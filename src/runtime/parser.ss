@@ -1,48 +1,39 @@
 ;;; -*- Gerbil -*-
-;;; Thin execution boundary over an AOT-generated parser machine.
+;;; Thin request boundary over generated machines and ParseArtifact admission.
 
 (import ../compiler/parser-ir
-        ../compiler/generate
+        ../compiler/machine
         ../modules/parser/funcs
-        ./token
-        ./lexer)
-(export parse-source parse-receipt-ref parse-success? parse-roundtrip)
-
-(def (parse-receipt-ref receipt key)
-  (let (entry (assq key receipt))
-    (and entry (cdr entry))))
+        ./artifact
+        ./lexer
+        ./token)
+(export parse-source)
 
 (def (diagnostic machine condition)
   (let* ((recoveries (parser-ir-ref (parser-machine-ir machine) 'recoveries))
          (row (and (pair? recoveries) (car recoveries))))
-    (list (cons 'schema "gerbil-parser.diagnostic.v1")
+    (list (cons 'schema +diagnostic-schema-v1+)
           (cons 'code (if row (cadr row) "GERBIL-PARSER-ERROR"))
+          (cons 'reasonKind 'parse-rejected)
           (cons 'message (error-message condition)))))
 
 (def (parse-source machine source)
-  (let (tokens (lex-source machine source))
+  (unless (string? source)
+    (error "parse source must be a string" source))
+  (let ((grammar-digest (parser-machine-grammar-digest machine))
+        (tokens '()))
     (with-catch
      (lambda (condition)
-       (list (cons 'schema "gerbil-parser.parse-receipt.v1")
-             (cons 'source source)
-             (cons 'tokens tokens)
-             (cons 'tree #f)
-             (cons 'diagnostics (list (diagnostic machine condition)))))
+       (make-failure-parse-artifact
+        grammar-digest source tokens (diagnostic machine condition)))
      (lambda ()
+       (set! tokens (lex-source machine source))
        (let-values
-           (((tree rest)
+           (((root rest)
              ((parser-machine-parse machine)
               (parser-significant-tokens machine tokens))))
          (unless (null? rest)
            (error "unexpected trailing token" (token-lexeme (car rest))))
-         (list (cons 'schema "gerbil-parser.parse-receipt.v1")
-               (cons 'source source)
-               (cons 'tokens tokens)
-               (cons 'tree tree)
-               (cons 'diagnostics '())))))))
-
-(def (parse-success? receipt)
-  (null? (parse-receipt-ref receipt 'diagnostics)))
-
-(def (parse-roundtrip receipt)
-  (tokens-source (parse-receipt-ref receipt 'tokens)))
+         (make-success-parse-artifact
+          grammar-digest source tokens root
+          (parser-machine-trivia machine)))))))

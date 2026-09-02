@@ -1,0 +1,135 @@
+#+title: RFC 0004 — Versioned Language Contracts and Downstream DSL Grammars
+#+startup: overview
+
+* Status
+
+Accepted.  This RFC defines the executable language-contract feature.  It does
+not define a milestone, schedule, or compatibility period.
+
+* Decision
+
+The parser engine is language-neutral.  A language contract supplies immutable
+SyntaxKind, terminal, LexicalExpr, GrammarExpr, entrypoint, diagnostic, and flow
+rows to =defparser-config=.  Hygienic expansion creates mutually recursive native
+parser closures and direct scanner branches during AOT compilation.  A parse
+request never interprets grammar S-expressions, dispatches on a language name,
+or consults POO.
+
+#+begin_src mermaid
+flowchart LR
+  D[Downstream DSL declaration] --> C[defparser-config]
+  C --> N[Canonical Grammar IR v1]
+  C --> M[Hygienic native machine]
+  S[Source bytes] --> M
+  M --> A[ParseArtifact v1]
+  A --> R[Replay-only CST sinks]
+  V[Versioned language contract] --> D
+  F[Native syntax files] --> X[defsyntax-fixture expansion]
+  X --> T[Source-level conformance tests]
+  V --> X
+#+end_src
+
+Language references are conformance fixtures, not runtime authorities.  A
+downstream package defines its own grammar with the same public macro and owns
+its language version, coverage statement, corpus, and diagnostic policy.
+
+Native examples are real source files, not Scheme string fragments.  A
+downstream test declares =defsyntax-fixture= with an immutable logical fixture
+identity, language version, contract identity, expected terminal state, root,
+and structural kinds.  Macro expansion resolves the file relative to the
+declaration, embeds its bytes, and computes its source digest.  Runtime parsing
+does not open files and neither absolute path nor working directory enters an
+artifact identity.
+
+* Fixed reference identities
+
+The configuration-language contract is pinned to HashiCorp HCL native syntax
+=v2.24.0= at commit
+=6b5068090eef06b1f127f61529db5ba0be7ed343=.  Its admitted identity is
+=hcl-native-v2.24.0-structural-core.v1=.  The implemented slice covers ordered
+bodies, attributes, labeled and nested blocks, line and block comments, quoted
+strings, numeric and identifier literals, absolute traversals, tuples, objects,
+and one-line single-attribute bodies.  Templates, heredocs, operators,
+conditionals, calls, index and splat expressions, for-expressions, schema
+evaluation, and Terraform semantics are not claimed.
+
+The graph-query contract is pinned to =ISO/IEC 39075:2024=, edition 1,
+published 2024-04.  Its admitted identity is
+=iso-iec-39075-2024-graph-pattern-core.v1=.  The implemented slice covers
+MATCH and OPTIONAL MATCH clause sequences, node and edge patterns, labels,
+property maps, bounded edge quantifiers, equality predicates, property access,
+and RETURN projection aliases.  It does not claim the complete 610-page
+standard, PGQL, openCypher, SQL/PGQ, or the 2026 corrigendum.
+
+Version identities are never inferred from a current branch or latest release.
+Changing an upstream edition, tag, commit, corrigendum, or admitted production
+set creates a new explicit contract and executable corpus; it does not mutate a
+v1 identity in place.
+
+* Generic machine invariant
+
+Let =expand= be hygienic macro expansion, =G= a normalized grammar, and =x= a
+source.  Generated parser behavior depends only on =G= and =x=, never on a
+language tag or filesystem path.
+
+#+begin_src typst
+#let G = $"GrammarIR"_1$
+#let M = $"NativeMachine"_1$
+#let A = $"ParseArtifact"_1$
+$
+  "expand": G -> M \
+  forall g in G, x in "Source",
+    "parse"("expand"(g), x) = A(g, x) \
+  "grammarDigest"(A(g, x)) = "sha256"("canonical"(g)) \
+  "roundtrip"(A(g, x)) = x \
+  partial "parse" / partial "languageName" = 0 \
+  partial "parse" / partial "filesystemPath" = 0
+$
+#+end_src
+
+Rule references are lexical bindings introduced by the macro.  Choice may
+backtrack to the same immutable token suffix.  Repetition must consume input.
+Fields and aliases construct private recognition values; only the completed
+ParseArtifact event stream is published.
+
+* Downstream author contract
+
+A downstream DSL author declares one =defparser-config= form and may compose POO
+grammar roles before normalization.  Every terminal has exactly one lexical
+rule, every reference resolves, repetitions are non-nullable, the flow is
+connected, and the entrypoint yields exactly one unfielded root.  The author
+does not modify =runtime/parser.ss=, =runtime/combinator.ss=, or
+=compiler/machine.ss=.
+
+The author's source-level scenarios use =defsyntax-fixture=.  The same fixture
+value can feed focused conformance tests and benchmarks, so expected version,
+contract, terminal status, content digest, lossless roundtrip, root kind, and
+required structural kinds remain one declaration.  Adding a new DSL requires
+new declarations and native files; it never adds a language branch to the
+engine.
+
+Language-specific scanners that cannot be represented by admitted LexicalExpr
+constructors require a separately versioned external-scanner state contract.
+Bash heredocs and lexer modes belong to that feature; they are not hidden in a
+fallback branch.
+
+* Rejected designs
+
+- A handwritten HCL, GQL, PGQL, openCypher, or Bash branch in the runtime.
+- Runtime interpretation of normalized grammar S-expressions.
+- One unversioned graph-query fixture standing for several standards.
+- Treating a directory, grammar declaration, or successful micro-expression as
+  production-language admission.
+- Embedding representative language programs as large Scheme string literals
+  or opening corpus files on every test invocation.
+- Shipping dormant operator tables, recovery variants, or compatibility paths.
+- Updating a pinned contract because an upstream project published a new tag.
+
+* Executable admission
+
+Each fixed contract must prove byte-exact ParseArtifact roundtrip, structural
+node and field presence, deterministic grammar identity, and exactly one typed
+rejected terminal for malformed source.  The engine must compile arithmetic,
+HCL, and GQL through the same =normalize -> parser-ir -> machine ->
+ParseArtifact= path, and a source audit must find no language-name dispatch in
+runtime or compiler owners.

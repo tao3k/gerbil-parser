@@ -19,7 +19,7 @@
 ;; library facades intentionally stay outside this runtime closure.
 (def +gparse-runtime-modules+
   '("src/cli"
-    "src/compiler/generate"
+    "src/compiler/machine"
     "src/compiler/normalize"
     "src/compiler/parser-ir"
     "src/grammar/algebra"
@@ -27,10 +27,14 @@
     "src/modules/parser/config"
     "src/modules/parser/funcs"
     "src/modules/parser/objects"
-    "src/reference/arithmetic"
-    "src/runtime/cst"
+    "src/modules/parser/types"
+    "src/reference/arithmetic-v1"
+    "src/runtime/artifact"
+    "src/runtime/combinator"
+    "src/runtime/identity"
     "src/runtime/lexer"
     "src/runtime/parser"
+    "src/runtime/recognition"
     "src/runtime/scan"
     "src/runtime/token"
     "src/utilities/lists"))

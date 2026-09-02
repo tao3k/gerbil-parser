@@ -1,6 +1,6 @@
 ;;; Thin execution boundary over an AOT-generated lexer machine.
 
-(import ../compiler/generate)
+(import ../compiler/machine)
 (export lex-source)
 
 (def (lex-source machine source)

@@ -7,11 +7,12 @@
         :gerbil-parser/src/compiler/normalize
         :gerbil-parser/src/compiler/parser-ir
         :gerbil-parser/src/modules/parser/objects
+        :gerbil-parser/src/runtime/recognition
         :gerbil-parser/src/runtime/token
-        :gerbil-parser/src/compiler/generate
-        :gerbil-parser/src/reference/arithmetic)
+        :gerbil-parser/src/compiler/machine
+        :gerbil-parser/src/reference/arithmetic-v1)
 
-(defgrammar-role conflicting-operator-role
+(defgrammar-role conflicting-lexical-role
   (syntax-kinds
    (Punctuation token (text)))
   (terminals
@@ -21,15 +22,13 @@
   (rules)
   (extras)
   (keywords)
-  (prefix-operators ((punctuation "+") 99 left))
-  (binary-operators)
   (parser-entrypoints)
   (recoveries)
   (flow))
 
 (defgrammar conflicting-arithmetic-grammar
   (supers arithmetic-grammar)
-  (roles conflicting-operator-role))
+  (roles conflicting-lexical-role))
 
 (defgrammar-role unresolved-reference-role
   (syntax-kinds
@@ -43,8 +42,6 @@
    (source-file (reference missing-rule)))
   (extras)
   (keywords)
-  (prefix-operators)
-  (binary-operators)
   (parser-entrypoints
    (source-file parse pure))
   (recoveries)
@@ -68,8 +65,6 @@
     (alias SourceFile (field value (token value)))))
   (extras)
   (keywords)
-  (prefix-operators)
-  (binary-operators)
   (parser-entrypoints
    (source-file parse pure))
   (recoveries)
@@ -93,8 +88,6 @@
     (alias SourceFile (field value (token identifier)))))
   (extras)
   (keywords)
-  (prefix-operators)
-  (binary-operators)
   (parser-entrypoints
    (source-file parse pure))
   (recoveries)
@@ -117,14 +110,17 @@
              => "gerbil-parser.parser-ir.v1")
       (check (parser-ir-ref arithmetic-parser-ir 'flow)
              => '((source lexical) (lexical expression) (expression cst))))
-    (test-case "operator configuration generated canonical IR"
-      (check (length (parser-ir-ref arithmetic-parser-ir 'binary-operators)) => 4)
-      (check (length (parser-ir-ref arithmetic-parser-ir 'prefix-operators)) => 2))
+    (test-case "precedence is expressed by generic grammar levels"
+      (let (rules (parser-ir-ref arithmetic-parser-ir 'rules))
+        (check (grammar-expression-kind (cadr (assq 'expression rules)))
+               => 'alias)
+        (check (grammar-expression-kind (cadr (assq 'term rules)))
+               => 'alias)))
     (test-case "grammar algebra preserves productions and entrypoint"
       (check (parser-ir-ref arithmetic-parser-ir 'root-rule) => 'source-file)
       (check (length (parser-ir-ref arithmetic-parser-ir 'terminals)) => 5)
       (check (length (parser-ir-ref arithmetic-parser-ir 'lexical-rules)) => 5)
-      (check (length (parser-ir-ref arithmetic-parser-ir 'rules)) => 6)
+      (check (length (parser-ir-ref arithmetic-parser-ir 'rules)) => 8)
       (check (parser-ir-ref arithmetic-parser-ir 'extras)
              => '((whitespace)))
       (let* ((rules (parser-ir-ref arithmetic-parser-ir 'rules))
@@ -154,17 +150,16 @@
       (check-exception
        (compile-parser invalid-terminal-kind-grammar)
        true))
-    (test-case "same operator identity with a different definition is rejected"
+    (test-case "same lexical identity with a different definition is rejected"
       (check-exception
        (compile-grammar conflicting-arithmetic-grammar)
        true))
-    (test-case "operator lookup is generated as direct machine behavior"
-      (check ((parser-machine-prefix arithmetic-parser)
-              (make-token 'punctuation "+" 0 1))
-             => '(punctuation "+" 30 right))
-      (check ((parser-machine-binary arithmetic-parser)
-              (make-token 'identifier "value" 0 5))
-             => #f))
+    (test-case "the generic machine executes the declared entrypoint"
+      (let-values (((root rest)
+                    ((parser-machine-parse arithmetic-parser)
+                     (list (make-token 'number "1" 0 1)))))
+        (check (recognition-node-kind root) => 'SourceFile)
+        (check rest => '())))
     (test-case "extras generate the sole trivia predicate"
       (check ((parser-machine-trivia arithmetic-parser)
               (make-token 'whitespace " " 0 1))

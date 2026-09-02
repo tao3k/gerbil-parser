@@ -2,8 +2,9 @@
 ;;; main.ss and parser implementation remains in runtime/parser.ss.
 
 (import ./compiler/parser-ir
+        ./runtime/artifact
         ./runtime/parser
-        ./reference/arithmetic)
+        ./reference/arithmetic-v1)
 (export gparse-build
         gparse-inspect
         gparse-check
@@ -22,9 +23,9 @@
   0)
 
 (def (gparse-check source)
-  (let (receipt (parse-source arithmetic-parser source))
-    (write-line receipt)
-    (if (parse-success? receipt) 0 1)))
+  (let (artifact (parse-source arithmetic-parser source))
+    (write-line artifact)
+    (if (parse-artifact-success? artifact) 0 1)))
 
 (def (gparse-test)
   (gparse-check "1 + 2 * value"))

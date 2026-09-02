@@ -3,8 +3,13 @@
 
 (import ./token)
 (export scan-whitespace
+        scan-horizontal-whitespace
+        scan-newline
         scan-decimal-digits
         scan-identifier
+        scan-quoted-string
+        scan-line-comment
+        scan-block-comment
         scan-longest-literal
         scan-emit)
 
@@ -25,6 +30,20 @@
   (and (char-whitespace? (string-ref source start))
        (scan-while source start char-whitespace?)))
 
+(def (horizontal-whitespace? ch)
+  (or (char=? ch #\space) (char=? ch #\tab)))
+
+(def (scan-horizontal-whitespace source start)
+  (and (horizontal-whitespace? (string-ref source start))
+       (scan-while source start horizontal-whitespace?)))
+
+(def (newline? ch)
+  (or (char=? ch #\newline) (char=? ch #\return)))
+
+(def (scan-newline source start)
+  (and (newline? (string-ref source start))
+       (scan-while source start newline?)))
+
 (def (scan-decimal-digits source start)
   (and (char-numeric? (string-ref source start))
        (scan-while source start char-numeric?)))
@@ -33,11 +52,46 @@
   (and (identifier-start? (string-ref source start))
        (scan-while source start identifier-rest?)))
 
+(def (scan-quoted-string source start delimiter)
+  (let ((length (string-length source))
+        (delimiter-length (string-length delimiter)))
+    (and (literal-at? source start delimiter)
+         (let loop ((offset (+ start delimiter-length)) (escaped? #f))
+           (cond
+            ((>= offset length) #f)
+            (escaped? (loop (+ offset 1) #f))
+            ((char=? (string-ref source offset) #\\)
+             (loop (+ offset 1) #t))
+            ((literal-at? source offset delimiter)
+             (+ offset delimiter-length))
+            (else (loop (+ offset 1) #f)))))))
+
+(def (scan-line-comment source start prefixes)
+  (let (prefix (scan-longest-literal source start prefixes))
+    (and prefix
+         (scan-while source (+ start (string-length prefix))
+                     (lambda (ch) (not (newline? ch)))))))
+
+(def (scan-block-comment source start opening closing)
+  (let ((length (string-length source))
+        (closing-length (string-length closing)))
+    (and (literal-at? source start opening)
+         (let loop ((offset (+ start (string-length opening))))
+           (cond
+            ((>= offset length) #f)
+            ((literal-at? source offset closing)
+             (+ offset closing-length))
+            (else (loop (+ offset 1))))))))
+
 (def (literal-at? source start literal)
   (let ((source-length (string-length source))
         (literal-length (string-length literal)))
     (and (<= (+ start literal-length) source-length)
-         (string=? (substring source start (+ start literal-length)) literal))))
+         (let loop ((index 0))
+           (or (= index literal-length)
+               (and (char=? (string-ref source (+ start index))
+                            (string-ref literal index))
+                    (loop (+ index 1))))))))
 
 (def (scan-longest-literal source start literals)
   (let loop ((rest literals) (selected #f))

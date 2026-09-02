@@ -35,8 +35,7 @@
 (defsyntax (defgrammar-role stx)
   (syntax-case stx
       (syntax-kinds terminals lexical-rules rules extras keywords
-                    prefix-operators binary-operators parser-entrypoints
-                    recoveries flow)
+                    parser-entrypoints recoveries flow)
     ((_ binding
         (syntax-kinds (kind-name kind-category (field-name ...)) ...)
         (terminals (terminal-name terminal-kind) ...)
@@ -44,10 +43,6 @@
         (rules (rule-name rule-expression) ...)
         (extras extra-name ...)
         (keywords (keyword-name keyword-text) ...)
-        (prefix-operators
-         ((prefix-kind prefix-lexeme) prefix-precedence prefix-associativity) ...)
-        (binary-operators
-         ((binary-kind binary-lexeme) binary-precedence binary-associativity) ...)
         (parser-entrypoints (entry-keyword entry-action entry-effect) ...)
         (recoveries (recovery-site recovery-code recovery-strategy) ...)
         (flow (flow-source flow-target) ...))
@@ -69,12 +64,6 @@
                          (grammar-expression rule-expression)) ...))
             (extras (list (list 'extra-name) ...))
             (keywords (list (list 'keyword-name keyword-text) ...))
-            (prefix-operators
-             (list (list 'prefix-kind prefix-lexeme
-                         prefix-precedence 'prefix-associativity) ...))
-            (binary-operators
-             (list (list 'binary-kind binary-lexeme
-                         binary-precedence 'binary-associativity) ...))
             (parser-entrypoints
              (list (list 'entry-keyword 'entry-action 'entry-effect) ...))
             (recoveries
@@ -116,8 +105,6 @@
         (cons 'rules (.ref value 'rules))
         (cons 'extras (.ref value 'extras))
         (cons 'keywords (.ref value 'keywords))
-        (cons 'prefix-operators (.ref value 'prefix-operators))
-        (cons 'binary-operators (.ref value 'binary-operators))
         (cons 'parser-entrypoints (.ref value 'parser-entrypoints))
         (cons 'recoveries (.ref value 'recoveries))
         (cons 'flow (.ref value 'flow))))

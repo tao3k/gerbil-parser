@@ -32,8 +32,8 @@ directly from that build-support-owned directory; the repository does not own a
 second shell launcher.
 
 =src/main.ss= owns only =:std/getopt= declarations and dispatch.
-=src/cli.ss= is the thin command adapter.  Grammar compilation,
-lexing, parsing, receipts, and diagnostics remain in their library owners.
+=src/cli.ss= is the thin command adapter.  Grammar compilation, lexing, parsing,
+ParseArtifact events, and diagnostics remain in their library owners.
 
 * Package layout
 
@@ -50,5 +50,13 @@ package utility boundary rather than becoming parser-module miscellany.
 - =docs/architecture/0002-typed-structural-algebras.org= defines distinct
   LexicalExpr, GrammarExpr, QueryPattern, and ProjectionPlan feature contracts.
   The current implementation admits LexicalExpr v1 and the canonical
-  expression specialization of GrammarExpr v1; later features require
-  independent executable evidence rather than directory presence.
+  generic hygienic GrammarExpr machine plus fixed HCL v2.24.0 and ISO/IEC
+  39075:2024 reference contracts; later features require independent executable
+  evidence rather than directory presence.
+- =docs/architecture/0003-parse-artifact.org= establishes ParseArtifact v1 as
+  the sole parse publication, with lossless CST events and replay-only sinks.
+- =docs/architecture/0004-versioned-language-contracts.org= defines fixed HCL
+  v2.24.0 and ISO/IEC 39075:2024 conformance identities plus the public
+  downstream DSL grammar boundary.  =defsyntax-fixture= embeds versioned native
+  syntax files at macro expansion, so downstream conformance tests and
+  benchmarks share one declarative source contract without runtime file I/O.

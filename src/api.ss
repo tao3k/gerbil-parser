@@ -5,7 +5,8 @@
         ./modules/parser/objects
         ./compiler/normalize
         ./compiler/parser-ir
-        ./compiler/generate
+        ./compiler/machine
+        ./runtime/artifact
         ./runtime/cst
         ./runtime/token
         ./runtime/lexer
@@ -15,7 +16,8 @@
         (import: ./modules/parser/objects)
         (import: ./compiler/normalize)
         (import: ./compiler/parser-ir)
-        (import: ./compiler/generate)
+        (import: ./compiler/machine)
+        (import: ./runtime/artifact)
         (import: ./runtime/cst)
         (import: ./runtime/token)
         (import: ./runtime/lexer)

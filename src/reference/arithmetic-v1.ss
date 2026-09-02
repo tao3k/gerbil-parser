@@ -1,4 +1,5 @@
-;;; Executable reference grammar proving object-family composition and generation.
+;;; -*- Gerbil -*-
+;;; Small generic-grammar fixture for precedence expressed as grammar levels.
 
 (import ../modules/parser/config)
 (export arithmetic-grammar
@@ -11,8 +12,10 @@
   arithmetic-parser
   (syntax-kinds
    (SourceFile node (expression))
+   (Expression node (left operator right))
+   (Term node (left operator right))
+   (GroupedExpression node (expression))
    (PrefixExpression node (operator operand))
-   (BinaryExpression node (left operator right))
    (NameExpression node (name))
    (NumberExpression node (value))
    (Identifier token (text))
@@ -37,31 +40,38 @@
     (alias SourceFile
       (field expression (reference expression))))
    (expression
+    (alias Expression
+      (seq
+       (field left (reference term))
+       (repeat
+        (seq
+         (field operator (choice (literal "+") (literal "-")))
+         (field right (reference term)))))))
+   (term
+    (alias Term
+      (seq
+       (field left (reference primary))
+       (repeat
+        (seq
+         (field operator (choice (literal "*") (literal "/")))
+         (field right (reference primary)))))))
+   (primary
     (choice
      (reference prefix-expression)
-     (reference binary-expression)
+     (reference grouped-expression)
      (reference name-expression)
-     (reference number-expression)
-     (seq (literal "(")
-          (reference expression)
-          (literal ")"))))
+     (reference number-expression)))
+   (grouped-expression
+    (alias GroupedExpression
+      (seq
+       (literal "(")
+       (field expression (reference expression))
+       (literal ")"))))
    (prefix-expression
     (alias PrefixExpression
       (seq
-       (field operator
-         (choice (literal "+") (literal "-")))
-       (field operand (reference expression)))))
-   (binary-expression
-    (alias BinaryExpression
-      (seq
-       (field left (reference expression))
-       (field operator
-         (choice
-          (literal "+")
-          (literal "-")
-          (literal "*")
-          (literal "/")))
-       (field right (reference expression)))))
+       (field operator (choice (literal "+") (literal "-")))
+       (field operand (reference primary)))))
    (name-expression
     (alias NameExpression
       (field name (token identifier))))
@@ -70,14 +80,6 @@
       (field value (token number)))))
   (extras whitespace)
   (keywords)
-  (prefix-operators
-   ((punctuation "+") 30 right)
-   ((punctuation "-") 30 right))
-  (binary-operators
-   ((punctuation "+") 10 left)
-   ((punctuation "-") 10 left)
-   ((punctuation "*") 20 left)
-   ((punctuation "/") 20 left))
   (parser-entrypoints
    (source-file parse pure))
   (recoveries

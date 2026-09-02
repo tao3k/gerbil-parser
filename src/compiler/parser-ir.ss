@@ -111,8 +111,6 @@
      (cons 'rules rules)
      (cons 'extras extras)
      (cons 'keywords (grammar-ir-ref grammar-ir 'keywords))
-     (cons 'prefix-operators (grammar-ir-ref grammar-ir 'prefix-operators))
-     (cons 'binary-operators (grammar-ir-ref grammar-ir 'binary-operators))
      (cons 'parser-entrypoints entrypoints)
      (cons 'recoveries (grammar-ir-ref grammar-ir 'recoveries))
      (cons 'flow flow))))

@@ -12,7 +12,7 @@
   (def inspect-command
     (command 'inspect help: "inspect the canonical reference Parser IR"))
   (def check-command
-    (command 'check help: "parse source and emit a typed receipt"
+    (command 'check help: "parse source and emit a typed ParseArtifact"
       (argument 'source help: "source text to parse")))
   (def test-command
     (command 'test help: "run the installed CLI smoke parse"))

@@ -7,13 +7,10 @@
         grammar-ir-canonical)
 
 (def table-slots
-  '(syntax-kinds terminals lexical-rules rules extras keywords prefix-operators
-    binary-operators parser-entrypoints recoveries))
+  '(syntax-kinds terminals lexical-rules rules extras keywords
+    parser-entrypoints recoveries))
 
-(def (section-row-key section)
-  (if (memq section '(prefix-operators binary-operators))
-    (lambda (row) (list (car row) (cadr row)))
-    car))
+(def (section-row-key _section) car)
 
 (def (collect-roles grammar (active '()))
   (when (memq grammar active)

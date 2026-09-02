@@ -115,15 +115,16 @@ token spans use UTF-8 byte offsets, including for Unicode identifiers.
 
 * Parser machine boundary
 
-The currently admitted machine is the canonical expression specialization: a
-hygienic macro recognizes its GrammarExpr shape and emits direct Pratt branches
-from the declared token, literal, field, node, precedence, and associativity
-identities.  The runtime wrapper contains no arithmetic language knowledge.
+The admitted machine is a generic hygienic expansion of GrammarExpr and
+LexicalExpr.  Every rule becomes a lexically bound native parser closure; every
+lexical row becomes a direct scanner branch.  Rule references are delayed
+lexical calls, so mutually recursive declarations require no symbol-table lookup
+on the request path.  Precedence is expressed by ordinary grammar levels rather
+than a dormant operator table or a second Pratt authority.
 
-A future general machine requires independently executable LR contracts;
-selective GLR additionally requires declared-ambiguity contracts.  Neither is
-claimed merely by this RFC.  When admitted, a Pratt specialization must produce
-identical CST events and diagnostics to that canonical general machine.
+The current deterministic choice machine supports non-left-recursive grammars.
+LR and selective GLR require independent conflict, state-table, ambiguity, and
+performance contracts; neither is claimed by the existence of this RFC.
 
 External scanners implement a deterministic typed transition whose state is
 bounded and serializable.  Scanner identity and implementation digest are part
@@ -132,22 +133,22 @@ contracts.
 
 * ParseArtifact and CST events
 
-The parser owns a backend-neutral immutable parse artifact so incremental reuse
-does not depend on Rowan.  Consumers receive a projection of well-bracketed
-events:
+The parser owns a backend-neutral immutable parse artifact so structural truth
+does not depend on Rowan.  RFC 0003 owns the admitted event algebra, identity,
+failure boundary, validator, and replay projection.  Only implemented variants
+belong to v1:
 
 #+begin_src scheme
 (start-node kind span)
 (token kind span)
-(missing-token expected-kind offset)
-(skipped-token actual-kind span)
-(error-node code span expected-set)
-(reuse-node identity span)
+(start-field name span)
+(finish-field name span)
 (finish-node kind span)
 #+end_src
 
-Every source byte belongs to a token or skipped token.  Missing tokens are
-zero-width.  A parse request publishes exactly one typed terminal receipt.
+Every source byte belongs to exactly one token event.  A parse request publishes
+exactly one typed ParseArtifact terminal.  Recovery and incremental reuse require
+independent implemented feature contracts; they are not dormant event variants.
 
 * QueryPattern and ProjectionPlan
 

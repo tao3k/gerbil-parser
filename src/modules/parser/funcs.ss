@@ -2,14 +2,12 @@
 
 (import ../../compiler/normalize
         ../../compiler/parser-ir
-        ../../compiler/generate
-        ../../runtime/cst
+        ../../compiler/machine
         ../../runtime/token
         ../../runtime/lexer)
 (export (import: ../../compiler/normalize)
         (import: ../../compiler/parser-ir)
-        (import: ../../compiler/generate)
-        (import: ../../runtime/cst)
+        (import: ../../compiler/machine)
         (import: ../../runtime/token)
         (import: ../../runtime/lexer)
         parser-significant-tokens)

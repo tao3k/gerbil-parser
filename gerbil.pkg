@@ -1,5 +1,5 @@
 (package:
  gerbil-parser
  depend:
- ("github.com/tao3k/poo-flow@377eeda30578ee5a65d21b23d0c457980a62ee69"
+ ("github.com/tao3k/poo-flow@e302e608704806b50aa51cd48dd8e8e325a1d7fd"
   "github.com/tao3k/asp-gerbil-scheme@bfe1c6122cd414a55a7ffcbb306a65afb4a75bb3"))

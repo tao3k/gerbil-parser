@@ -77,6 +77,13 @@ macro expansion.  The openCypher 2024.1 pack currently validates and structures
 all 352 productions from the official BNF; that source-catalog admission is not
 yet a claim that its complete executable query grammar or TCK semantics pass.
 
+The TLA+ =1.5.0= pack exercises the same native generation path for module
+envelopes, declarations, operator-definition lines, theorem lines, comments,
+and nested block comments.  It pins =tree-sitter-tlaplus 1.5.0= as a grammar
+oracle and a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
+repository.  PlusCal, proof syntax, and the full upstream corpus remain explicit
+future contracts rather than fallback parsing.
+
 * Architecture RFCs
 
 - =docs/architecture/0001-parser-compiler.org= fixes the pure Gerbil/AOT

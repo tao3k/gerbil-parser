@@ -117,6 +117,17 @@ CREATE GRAPH, INSERT, MATCH/INSERT, EXISTS, RETURN, and SESSION SET forms with
 lossless CST structure.  It does not claim every production in the complete
 standard, PGQL, openCypher, SQL/PGQ, or a later corrigendum.
 
+The TLA+ contract is pinned to the =tree-sitter-tlaplus 1.5.0= grammar oracle
+at commit =8a8413f1d08e7ee40b347206d26eac4324db9fd9= and the TLA+ Foundation
+Examples corpus at commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=.  Its admitted
+identity is =tla-plus.module-core.v1=.  The first executable slice covers module
+envelopes, EXTENDS, constant and variable declarations, single-line operator
+definitions, theorem declarations, ASCII operator tokens, strings, line
+comments, and nested block comments.  It includes the byte-exact official
+=HourClock.tla= source plus focused module and nested-comment contracts.  It
+does not yet claim PlusCal, TLAPS proof syntax, multiline definitions, or the
+complete 1.5.0 tree-sitter corpus.
+
 Version identities are never inferred from a current branch or latest release.
 Changing an upstream edition, tag, commit, corrigendum, or admitted production
 set creates a new explicit contract and executable corpus; it does not mutate a
@@ -179,8 +190,9 @@ required structural kinds remain one declaration.  Adding a new DSL requires
 new declarations and native files; it never adds a language branch to the
 engine.
 
-LexicalExpr v1 includes deterministic decimal-number, multi-delimiter quoted
-string, and HCL-style heredoc primitives.  Language-specific scanners that
+LexicalExpr v1 includes deterministic choice, decimal-number, multi-delimiter
+quoted string, nested block comment, and HCL-style heredoc primitives.
+Language-specific scanners that
 cannot be represented by admitted LexicalExpr constructors require a separately
 versioned external-scanner state contract.  Bash heredocs and lexer modes
 belong to that later feature; they are not hidden in a fallback branch.

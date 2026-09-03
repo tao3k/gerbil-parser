@@ -11,6 +11,12 @@
              (positive? (string-length (car rest)))
              (loop (cdr rest))))))
 
+(def (lexical-expressions? values)
+  (let loop ((rest values))
+    (or (null? rest)
+        (and (lexical-expression? (car rest))
+             (loop (cdr rest))))))
+
 (def (lexical-expression? value)
   (and (list? value)
        (case (car value)
@@ -21,11 +27,14 @@
           (and (pair? (cdr value)) (strings? (cdr value))))
          ((line-comment)
           (and (pair? (cdr value)) (strings? (cdr value))))
-         ((block-comment)
+         ((block-comment nested-block-comment)
           (and (= (length value) 3) (strings? (cdr value))))
          ((literals)
           (and (pair? (cdr value))
                (strings? (cdr value))))
+         ((choice)
+          (and (pair? (cdr value))
+               (lexical-expressions? (cdr value))))
          (else #f))))
 
 (def (lexical-primitive kind)
@@ -42,7 +51,8 @@
 (defrules lexical-expression
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
    heredoc
-   quoted-string line-comment block-comment literals fallback)
+   quoted-string line-comment block-comment nested-block-comment
+   choice literals fallback)
   ((_ (whitespace+))
    (lexical-primitive 'whitespace+))
   ((_ (horizontal-whitespace+))
@@ -63,6 +73,10 @@
    (cons 'line-comment (list start ...)))
   ((_ (block-comment start finish))
    (list 'block-comment start finish))
+  ((_ (nested-block-comment start finish))
+   (list 'nested-block-comment start finish))
+  ((_ (choice expression ...))
+   (cons 'choice (list (lexical-expression expression) ...)))
   ((_ (literals value ...))
    (lexical-literals (list value ...)))
   ((_ (fallback))

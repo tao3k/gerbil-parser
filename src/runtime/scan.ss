@@ -13,6 +13,7 @@
         scan-heredoc
         scan-line-comment
         scan-block-comment
+        scan-nested-block-comment
         scan-longest-literal
         scan-emit)
 
@@ -161,6 +162,22 @@
             ((literal-at? source offset closing)
              (+ offset closing-length))
             (else (loop (+ offset 1))))))))
+
+(def (scan-nested-block-comment source start opening closing)
+  (let ((length (string-length source))
+        (opening-length (string-length opening))
+        (closing-length (string-length closing)))
+    (and (literal-at? source start opening)
+         (let loop ((offset (+ start opening-length)) (depth 1))
+           (cond
+            ((>= offset length) #f)
+            ((literal-at? source offset opening)
+             (loop (+ offset opening-length) (+ depth 1)))
+            ((literal-at? source offset closing)
+             (let ((next (+ offset closing-length))
+                   (remaining (- depth 1)))
+               (if (zero? remaining) next (loop next remaining))))
+            (else (loop (+ offset 1) depth)))))))
 
 (def (literal-at? source start literal)
   (let ((source-length (string-length source))

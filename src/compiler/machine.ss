@@ -43,7 +43,8 @@
 (defrules lexical-end
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
    heredoc
-   quoted-string line-comment block-comment literals fallback)
+   quoted-string line-comment block-comment nested-block-comment
+   choice literals fallback)
   ((_ source offset (whitespace+))
    (scan-whitespace source offset))
   ((_ source offset (horizontal-whitespace+))
@@ -64,11 +65,22 @@
    (scan-line-comment source offset (list start ...)))
   ((_ source offset (block-comment opening closing))
    (scan-block-comment source offset opening closing))
+  ((_ source offset (nested-block-comment opening closing))
+   (scan-nested-block-comment source offset opening closing))
+  ((_ source offset (choice expression ...))
+   (lexical-choice source offset (expression ...)))
   ((_ source offset (literals value ...))
    (let (matched (scan-longest-literal source offset (list value ...)))
      (and matched (+ offset (string-length matched)))))
   ((_ source offset (fallback))
    (+ offset 1)))
+
+(defrules lexical-choice
+  ()
+  ((_ source offset ()) #f)
+  ((_ source offset (expression rest ...))
+   (or (lexical-end source offset expression)
+       (lexical-choice source offset (rest ...)))))
 
 (defrules lexical-dispatch
   ()

@@ -8,6 +8,8 @@
         :gerbil-parser/languages/support/fixture
         :gerbil-parser/languages/gql/iso-39075-2024/fixtures
         :gerbil-parser/languages/gql/iso-39075-2024/parser
+        :gerbil-parser/languages/tla-plus/1-5/fixtures
+        :gerbil-parser/languages/tla-plus/1-5/parser
         :gerbil-parser/src/runtime/artifact)
 
 (def benchmark-path "t/benchmarks/versioned-languages/benchmark.ss")
@@ -24,11 +26,12 @@
                   (syntax-fixture-id fixture)))))
      fixtures))
   (parse-corpus parse-hcl-v2-24 hcl-v2-24-official-accepted-fixtures)
-  (parse-corpus parse-gql-iso-39075-2024 gql-iso-official-fixtures))
+  (parse-corpus parse-gql-iso-39075-2024 gql-iso-official-fixtures)
+  (parse-corpus parse-tla-plus-1-5 tla-plus-1-5-fixtures))
 
 (def versioned-language-benchmark-tests
   (test-suite "versioned language benchmark"
-    (test-case "HCL and GQL share the generic parser performance contract"
+    (test-case "HCL, GQL, and TLA+ share the generic parser performance contract"
       (check (benchmark-contract-valid? benchmark-path) => #t)
       (parse-language-batch)
       (##gc)

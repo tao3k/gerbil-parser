@@ -4,17 +4,17 @@
 
 (import :std/make
         :clan/building
-        (only-in :std/misc/path path-strip-extension)
-        (only-in :std/misc/ports read-all-as-lines)
-        (only-in :std/misc/process run-process)
-        (only-in :std/sort sort)
+        :clan/poo/object
         (only-in :std/srfi/13 string-prefix? string-suffix?)
+        (only-in :asp-gerbil-scheme/src/build-api/builder-profile
+                 asp-gerbil-scheme-production-builder-profile
+                 asp-gerbil-scheme-builder-profile-modules)
         (only-in :asp-gerbil-scheme/src/build-api/package-spec
                  asp-gerbil-scheme-package-spec!
                  asp-gerbil-scheme-library-package-prototype
                  asp-gerbil-scheme-package-build-profile)
-        (only-in :asp-gerbil-scheme/src/build-api/policy-build-spec
-                 asp-gerbil-scheme-package-build-spec)
+        (only-in :asp-gerbil-scheme/src/build-api/profile-build-spec
+                 asp-gerbil-scheme-package-profiled-build-spec)
         (only-in :asp-gerbil-scheme/src/building/build-script
                  defbuild-script
                  framework-build-bindir))
@@ -45,18 +45,16 @@
     "src/runtime/significant"
     "src/runtime/token"))
 
+(.def (gerbil-parser-builder-profile
+        @ asp-gerbil-scheme-production-builder-profile)
+  (name 'gerbil-parser)
+  ;; Tests and performance scenarios are declared package sources; Git ignore
+  ;; remains the catalog exclusion authority for generated/reference trees.
+  (default-project-excludes? #f))
+
 (def (discover-project-modules)
-  ;; Git is the checkout source-catalog authority: tracked Scheme sources and
-  ;; untracked, non-ignored Scheme sources participate in the build.  This
-  ;; consumes the complete .gitignore rule set instead of duplicating directory
-  ;; names here or traversing ignored reference checkouts.
-  (map path-strip-extension
-       (sort
-        (run-process
-         ["git" "ls-files" "--cached" "--others" "--exclude-standard"
-          "--" "*.ss"]
-         coprocess: read-all-as-lines)
-        string<?)))
+  (asp-gerbil-scheme-builder-profile-modules
+   gerbil-parser-builder-profile))
 
 (def +project-modules+ (discover-project-modules))
 
@@ -111,7 +109,7 @@
  ;; Parser latency is an admission contract, so the canonical package build
  ;; uses the framework's platform-correct optimized profile.  On Darwin this
  ;; remains GCC multi-unit AOT; it does not request the slow SINGLE_HOST mode.
- (profile 'production)
+ (profile gerbil-parser-builder-profile)
  (roots ["src" "languages" "t"])
  (runtime-roots ["src" "languages/arithmetic/v1"])
  (native-spec
@@ -122,6 +120,6 @@
           (test-support-modules))))
 
 (defbuild-script
- (asp-gerbil-scheme-package-build-spec gerbil-parser-package-spec)
+ (asp-gerbil-scheme-package-profiled-build-spec gerbil-parser-package-spec)
  profile: (asp-gerbil-scheme-package-build-profile gerbil-parser-package-spec)
  bindir: (framework-build-bindir))

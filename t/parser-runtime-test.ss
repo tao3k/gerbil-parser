@@ -25,6 +25,10 @@
       (car rest))
      (else (loop (cdr rest))))))
 
+(def (node-field-value node name)
+  (let (field (find-field (syntax-node-children node) name))
+    (and field (car (syntax-field-children field)))))
+
 (def parser-runtime-tests
   (test-suite "parser runtime"
     (test-case "ParseArtifact is lossless and CST is an event projection"
@@ -65,6 +69,35 @@
         (check (parse-artifact-roundtrip artifact) => source)
         (check (map token-event-lexeme (artifact-token-events artifact))
                => '("-" "(" "1" " " "+" " " "2" ")"))))
+    (test-case "LR precedence and left associativity determine CST shape"
+      (let* ((precedence-root
+              (parse-artifact->cst
+               (parse-source arithmetic-parser "1 + 2 * 3")))
+             (precedence-expression
+              (node-field-value precedence-root 'expression))
+             (precedence-right
+              (node-field-value precedence-expression 'right))
+             (associative-root
+              (parse-artifact->cst
+               (parse-source arithmetic-parser "1 - 2 - 3")))
+             (associative-expression
+              (node-field-value associative-root 'expression))
+             (associative-left
+              (node-field-value associative-expression 'left)))
+        (check (syntax-node-kind precedence-expression) => 'Expression)
+        (check (token-lexeme
+                (node-field-value precedence-expression 'operator))
+               => "+")
+        (check (syntax-node-kind precedence-right) => 'Expression)
+        (check (token-lexeme (node-field-value precedence-right 'operator))
+               => "*")
+        (check (syntax-node-kind associative-expression) => 'Expression)
+        (check (token-lexeme
+                (node-field-value associative-expression 'operator))
+               => "-")
+        (check (syntax-node-kind associative-left) => 'Expression)
+        (check (token-lexeme (node-field-value associative-left 'operator))
+               => "-")))
     (test-case "Unicode English identifiers use UTF-8 byte spans"
       (let* ((english-name (string #\n #\a #\x00ef #\v #\e))
              (source (string-append english-name " + 1"))

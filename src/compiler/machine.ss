@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
-;;; Hygienic GrammarExpr and LexicalExpr expansion into native parser closures.
+;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import ../runtime/combinator
+(import ./lr
         ../runtime/identity
         ../runtime/scan
         ../runtime/token)
@@ -15,30 +15,6 @@
 
 (defstruct parser-machine (ir grammar-digest lex trivia parse)
   transparent: #t)
-
-(defrules parser-expression
-  (empty literal token reference seq choice optional repeat repeat1
-   field alias prec none left right dynamic)
-  ((_ (empty)) parser-empty)
-  ((_ (literal value)) (parser-literal value))
-  ((_ (token name)) (parser-token-kind 'name))
-  ((_ (reference name)) (lambda (tokens) (name tokens)))
-  ((_ (seq expression ...))
-   (parser-sequence (list (parser-expression expression) ...)))
-  ((_ (choice expression ...))
-   (parser-choice (list (parser-expression expression) ...)))
-  ((_ (optional expression))
-   (parser-optional (parser-expression expression)))
-  ((_ (repeat expression))
-   (parser-repeat (parser-expression expression)))
-  ((_ (repeat1 expression))
-   (parser-repeat1 (parser-expression expression)))
-  ((_ (field name expression))
-   (parser-field 'name (parser-expression expression)))
-  ((_ (alias name expression))
-   (parser-alias 'name (parser-expression expression)))
-  ((_ (prec direction rank expression))
-   (parser-expression expression)))
 
 (defrules lexical-end
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
@@ -117,13 +93,13 @@
       (parser-entrypoints
        (root-rule root-action root-effect) entry-row ...))
    (def binding
-     (letrec ((rule-name (parser-expression rule-expression)) ...)
-       (make-parser-machine
-        parser-ir
-        (sha256-text
-         (call-with-output-string
-          (lambda (port) (write parser-ir port))))
-        (generated-lexer (lexical-rules lexical-row ...))
-        (lambda (input-token)
-          (memq (token-kind input-token) '(extra-name ...)))
-        (lambda (tokens) (parser-run root-rule tokens)))))))
+     (make-parser-machine
+      parser-ir
+      (sha256-text
+       (call-with-output-string
+        (lambda (port) (write parser-ir port))))
+      (generated-lexer (lexical-rules lexical-row ...))
+      (lambda (input-token)
+        (memq (token-kind input-token) '(extra-name ...)))
+      (lambda (tokens)
+        (lr-parse (cdr (assq 'lr-spec parser-ir)) tokens))))))

@@ -7,6 +7,19 @@ Accepted.  This RFC specifies feature ownership for programmable syntax
 compilation.  It does not define a delivery schedule.  Each feature is admitted
 only by its executable contracts.
 
+* Version authority
+
+All public structural contracts in this repository remain =v1= until an
+actual v1 release has established an external compatibility boundary.  An
+internal representation change is migrated atomically across language packs,
+generated machines, fixtures, and downstream bindings; it does not create a
+=v2= name, compatibility alias, or legacy execution path.
+
+Language-standard identities such as HCL 2.24 and upstream-oracle release
+identities are provenance, not parser-contract major versions.  A future v2
+requires a released v1, a proven incompatible public-contract change, and an
+accepted RFC decision.
+
 * Decision
 
 =gerbil-parser= provides one hygienic Gerbil surface over four distinct,
@@ -30,8 +43,9 @@ flowchart TD
   S --> P[ProjectionPlan v1]
   L --> N[Normalized Grammar IR v1]
   G --> N
-  N --> A[LR and selective GLR analysis]
-  A --> O[Generated parser machine]
+  N --> A[Deterministic LALR(1) analysis]
+  A --> F[Explicit selective GLR forks]
+  F --> O[Generated parser machine]
   O --> T[ParseArtifact v1]
   T --> E[CST event projection]
   E --> R[Rowan or Gerbil or custom sink]
@@ -89,9 +103,37 @@ SyntaxKind categorized as =token=.  =extras= is the sole trivia authority;
 terminal rows do not duplicate that policy.  Duplicate role rows with
 different values are rejected before parser generation.
 
-POO and POO Flow own grammar role composition only.  The normalized Grammar IR
-is frozen data; generated lexer, parser, CST sink, and query hot paths perform
-no POO lookup.
+=prec= is a canonical GrammarExpr v1 constructor admitted by the sole
+LALR(1) compiler.  Static =left=, =right=, and =none= declarations resolve only
+the conflicting shift and reduction owned by that production.  Equal-rank
+=none= produces a deterministic runtime rejection instead of silently choosing
+an associativity.  Unranked conflicts fail compilation under the default
+=reject= policy.  The explicit =selective-glr= policy records both actions and
+has an executable immutable-stack branch contract.  =dynamic= still fails
+closed; silently erasing =direction= or =rank= is forbidden.
+
+#+begin_src typst
+#let Expr = $"GrammarExpr"_1$
+#let Machine = $"ParserMachine"_1$
+$
+  "compileLALR1": Expr -> Machine \
+  forall e in Expr,
+    "staticPrec"(e) => "deterministic"("compileLALR1"(e)) \
+  "unresolvedConflict"(e) and "policy" = "reject"
+    => "compileLALR1"(e) = "reject" \
+  "unresolvedConflict"(e) and "policy" = "selective-glr"
+    => "compileLALR1"(e) = "fork" \
+  "dynamicPrec"(e) => "compileLALR1"(e) = "reject" \
+  "compileLALR1"(e) != "erasePrecedence"(e)
+$
+#+end_src
+
+POO and POO Flow own the optional grammar-role composition API only.  That API
+must publish canonical Grammar IR before =compile-parser=.  A direct
+=deflanguage-grammar= declaration emits the same immutable IR without placing
+POO objects, normalization, or role initialization in the generated runtime
+closure.  Generated lexer, LR parser, CST sink, and query hot paths perform no
+POO lookup.
 
 * LexicalExpr v1
 
@@ -115,16 +157,14 @@ token spans use UTF-8 byte offsets, including for Unicode identifiers.
 
 * Parser machine boundary
 
-The admitted machine is a generic hygienic expansion of GrammarExpr and
-LexicalExpr.  Every rule becomes a lexically bound native parser closure; every
-lexical row becomes a direct scanner branch.  Rule references are delayed
-lexical calls, so mutually recursive declarations require no symbol-table lookup
-on the request path.  Precedence is expressed by ordinary grammar levels rather
-than a dormant operator table or a second Pratt authority.
-
-The current deterministic choice machine supports non-left-recursive grammars.
-LR and selective GLR require independent conflict, state-table, ambiguity, and
-performance contracts; neither is claimed by the existence of this RFC.
+The admitted machine has one generated lexer and one deterministic LALR(1)
+parser.  GrammarExpr is lowered to deterministic BNF, nullable and FIRST sets,
+integer-packed item closures, core-merged states, state-indexed action/goto
+tables, and semantic reductions.  It supports direct left recursion and
+preserves =field= and =alias= ownership in the lossless recognition tree.
+Explicit selective GLR forks immutable state/value stacks and commits only a
+successful branch.  There is no recursive-descent, Pratt, language-specific
+fallback parser, or implicit conflict policy.
 
 External scanners implement a deterministic typed transition whose state is
 bounded and serializable.  Scanner identity and implementation digest are part
@@ -178,7 +218,8 @@ LexicalExpr is admitted when terminal coverage, non-empty literal validation,
 longest-match dispatch, lossless Unicode roundtrip, UTF-8 byte spans, and
 grammar-derived trivia tests pass.  GrammarExpr is admitted when canonical
 construction, reference resolution,
-nullable-repeat rejection, deterministic normalization, and grammar inheritance
-conflict tests pass.  Parser-machine, ParseArtifact, QueryPattern, and
+nullable-repeat rejection, deterministic normalization, canonical LR state-table
+identity, left/right/non-associative precedence, unresolved-conflict rejection,
+and grammar inheritance conflict tests pass.  Parser-machine, ParseArtifact, QueryPattern, and
 ProjectionPlan are admitted independently by their own owner tests; existence
 of this RFC or a source directory is not evidence of implementation.

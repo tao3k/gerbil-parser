@@ -83,8 +83,7 @@
       (seq
        (field name (token identifier))
        (literal "=")
-       (field value (reference expression))
-       (optional (token newline)))))
+       (field value (reference expression)))))
    (block
     (alias Block
       (seq
@@ -92,10 +91,8 @@
        (repeat
         (field label (choice (token string) (token identifier))))
        (literal "{")
-       (optional (token newline))
        (field body (reference body))
-       (literal "}")
-       (optional (token newline)))))
+       (literal "}"))))
    (expression (reference conditional-expression))
    (conditional-expression
     (alias ConditionalExpression
@@ -175,16 +172,19 @@
       (seq
        (literal "[")
        (repeat (token newline))
-       (optional
-        (seq
-         (field element (reference expression))
-         (repeat
-          (seq
-           (choice (literal ",") (token newline))
-           (field element (reference expression))))
-         (optional (literal ","))))
-       (repeat (token newline))
+       (optional (reference tuple-elements))
        (literal "]"))))
+   (tuple-elements
+    (seq
+     (field element (reference expression))
+     (optional (reference tuple-tail))))
+   (tuple-tail
+    (choice
+     (seq (literal ",")
+          (repeat (token newline))
+          (optional (reference tuple-elements)))
+     (seq (repeat1 (token newline))
+          (optional (reference tuple-elements)))))
    (object-expression
     (alias ObjectExpression
       (seq
@@ -200,8 +200,7 @@
        (field key (choice (token identifier) (token string)))
        (choice (literal "=") (literal ":"))
        (field value (reference expression))
-       (optional (literal ","))
-       (optional (token newline))))))
+       (optional (literal ","))))))
   (extras horizontal-whitespace comment block-comment-token)
   (keywords)
   (parser-entrypoints

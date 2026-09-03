@@ -1,6 +1,6 @@
 ;;; Grammar IR to immutable parser-machine IR compilation.
 
-(import ./normalize
+(import ./lr
         ../grammar/algebra
         ../grammar/lexical-algebra)
 (export compile-parser
@@ -86,14 +86,23 @@
     root-rule))
 
 (def (compile-parser grammar)
-  (let* ((grammar-ir (compile-grammar grammar))
-         (syntax-kinds (grammar-ir-ref grammar-ir 'syntax-kinds))
-         (terminals (grammar-ir-ref grammar-ir 'terminals))
-         (lexical-rules (grammar-ir-ref grammar-ir 'lexical-rules))
-         (rules (grammar-ir-ref grammar-ir 'rules))
-         (extras (grammar-ir-ref grammar-ir 'extras))
-         (entrypoints (grammar-ir-ref grammar-ir 'parser-entrypoints))
-         (flow (grammar-ir-ref grammar-ir 'flow)))
+  (unless (and (list? grammar)
+               (equal? (let (row (assq 'schema grammar))
+                         (and row (cdr row)))
+                       "gerbil-parser.grammar-ir.v1"))
+    (error "compile-parser requires canonical Grammar IR v1" grammar))
+  (let* ((grammar-ir grammar)
+         (syntax-kinds (parser-ir-ref grammar-ir 'syntax-kinds))
+         (terminals (parser-ir-ref grammar-ir 'terminals))
+         (lexical-rules (parser-ir-ref grammar-ir 'lexical-rules))
+         (rules (parser-ir-ref grammar-ir 'rules))
+         (extras (parser-ir-ref grammar-ir 'extras))
+         (entrypoints (parser-ir-ref grammar-ir 'parser-entrypoints))
+         (flow (parser-ir-ref grammar-ir 'flow))
+         (conflict-policy
+          (or (parser-ir-ref grammar-ir 'conflict-policy) 'reject))
+         (case-insensitive?
+          (if (parser-ir-ref grammar-ir 'case-insensitive?) #t #f)))
     (validate-terminals terminals syntax-kinds)
     (validate-lexical-rules lexical-rules terminals)
     (validate-rules rules terminals)
@@ -102,17 +111,22 @@
       (error "parser flow must connect source through lexical to cst"))
     (list
      (cons 'schema "gerbil-parser.parser-ir.v1")
-     (cons 'grammar (grammar-ir-ref grammar-ir 'grammar))
+     (cons 'grammar (parser-ir-ref grammar-ir 'grammar))
      (cons 'root-kind (require-root syntax-kinds))
      (cons 'root-rule (require-entrypoint entrypoints rules))
+     (cons 'lr-spec
+           (compile-lr-spec rules (require-entrypoint entrypoints rules)
+                            conflict-policy case-insensitive?))
+     (cons 'conflict-policy conflict-policy)
+     (cons 'case-insensitive? case-insensitive?)
      (cons 'syntax-kinds syntax-kinds)
      (cons 'terminals terminals)
      (cons 'lexical-rules lexical-rules)
      (cons 'rules rules)
      (cons 'extras extras)
-     (cons 'keywords (grammar-ir-ref grammar-ir 'keywords))
+     (cons 'keywords (parser-ir-ref grammar-ir 'keywords))
      (cons 'parser-entrypoints entrypoints)
-     (cons 'recoveries (grammar-ir-ref grammar-ir 'recoveries))
+     (cons 'recoveries (parser-ir-ref grammar-ir 'recoveries))
      (cons 'flow flow))))
 
 (def (parser-ir-ref ir key)

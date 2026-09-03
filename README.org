@@ -58,18 +58,18 @@ languages/hcl/v2-24/
   corpus/
 #+end_src
 
-=grammar.ss= owns the versioned identity and one =deflanguage-grammar=
-declaration.  =parser.ss= uses =deflanguage-parser= with that descriptor to
+=grammar.ss= owns the versioned identity and one =deflanguage-grammar= or
+=deflanguage-antlr4-grammar= declaration.  =parser.ss= uses
+=deflanguage-parser= with that descriptor to
 generate the public parse function; it cannot repeat or replace the identity,
 contract, or machine.  Fixtures and tests never move into =src/= and do not
 enter the =gparse= executable closure.
 =defsyntax-corpus= declares all files in one expansion-time manifest.  The HCL
-pack vendors all 15 raw =.hcl= inputs from the v2.24.0 official specsuite; the
-GQL pack vendors all 14 sample programs from openGQL grammar 1.9.0.  Tests
-assert content digest, typed terminal, structural CST kinds, and byte-exact
-roundtrip for each file.  This is complete coverage of those fixed upstream
-example sets, not a claim that every production in either language standard is
-already admitted.
+pack vendors all 15 raw =.hcl= inputs from the v2.24.0 official specsuite.  The
+GQL pack pins OpenGQL grammar 1.9.0 by commit and SHA-256 digest, validates all
+1,018 source rules, and AOT-materializes all 574 parser rules with 444 lexer or
+fragment rules.  Its 14 upstream sample programs then prove typed terminals,
+structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
 
 Grammar-source formats are language-side adapters.  ISO WG3 BNF support lives
 under =languages/support/=, not =src/=, and embeds the pinned upstream source at

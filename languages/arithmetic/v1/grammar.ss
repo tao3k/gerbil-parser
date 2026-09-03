@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Small generic-grammar fixture for precedence expressed as grammar levels.
+;;; Canonical left-recursive arithmetic grammar for LR precedence admission.
 
 (import :gerbil-parser/src/language/grammar)
 (export +arithmetic-language-version+
@@ -18,7 +18,6 @@
   (syntax-kinds
    (SourceFile node (expression))
    (Expression node (left operator right))
-   (Term node (left operator right))
    (GroupedExpression node (expression))
    (PrefixExpression node (operator operand))
    (NameExpression node (name))
@@ -45,24 +44,20 @@
     (alias SourceFile
       (field expression (reference expression))))
    (expression
-    (alias Expression
-      (seq
-       (field left (reference term))
-       (repeat
-        (seq
-         (field operator (choice (literal "+") (literal "-")))
-         (field right (reference term)))))))
-   (term
-    (alias Term
-      (seq
-       (field left (reference primary))
-       (repeat
-        (seq
-         (field operator (choice (literal "*") (literal "/")))
-         (field right (reference primary)))))))
-   (primary
     (choice
-     (reference prefix-expression)
+     (prec left 10
+      (alias Expression
+       (seq
+        (field left (reference expression))
+        (field operator (choice (literal "+") (literal "-")))
+        (field right (reference expression)))))
+     (prec left 20
+      (alias Expression
+       (seq
+        (field left (reference expression))
+        (field operator (choice (literal "*") (literal "/")))
+        (field right (reference expression)))))
+     (prec right 30 (reference prefix-expression))
      (reference grouped-expression)
      (reference name-expression)
      (reference number-expression)))
@@ -73,10 +68,11 @@
        (field expression (reference expression))
        (literal ")"))))
    (prefix-expression
-    (alias PrefixExpression
-      (seq
-       (field operator (choice (literal "+") (literal "-")))
-       (field operand (reference primary)))))
+    (prec right 30
+     (alias PrefixExpression
+       (seq
+        (field operator (choice (literal "+") (literal "-")))
+        (field operand (reference expression))))))
    (name-expression
     (alias NameExpression
       (field name (token identifier))))

@@ -10,14 +10,18 @@ not define a milestone, schedule, or compatibility period.
 
 The parser engine is language-neutral.  A language contract supplies immutable
 SyntaxKind, terminal, LexicalExpr, GrammarExpr, entrypoint, diagnostic, and flow
-rows to =deflanguage-grammar=.  Hygienic expansion creates mutually recursive native
-parser closures and direct scanner branches during AOT compilation.  A parse
+rows to =deflanguage-grammar=, or pins a native ANTLR4 source with
+=deflanguage-antlr4-grammar=.  Hygienic expansion creates deterministic
+LALR(1) tables, explicitly admitted selective GLR actions, and direct scanner
+branches during AOT compilation.  A parse
 request never interprets grammar S-expressions, dispatches on a language name,
 or consults POO.
 
 #+begin_src mermaid
 flowchart LR
   D[Downstream DSL declaration] --> C[deflanguage-grammar]
+  NATIVE[Pinned native grammar plus digest] --> CA[deflanguage-antlr4-grammar]
+  CA --> C
   C --> N[Canonical Grammar IR v1]
   C --> M[Hygienic native machine]
   M --> E[deflanguage-parser]
@@ -109,13 +113,16 @@ fixed specsuite remain outside this corpus claim.
 
 The graph-query contract is pinned to =ISO/IEC 39075:2024=, edition 1,
 published 2024-04.  Its admitted identity is
-=iso-iec-39075-2024.opengql-examples.v1=.  Its reference grammar is openGQL
-1.9.0 at commit
-=16ea71bd320ad07fd2c46a3066afbaef7d226922=.  The executable corpus vendors
-all 14 upstream sample programs and admits their complete CREATE SCHEMA,
-CREATE GRAPH, INSERT, MATCH/INSERT, EXISTS, RETURN, and SESSION SET forms with
-lossless CST structure.  It does not claim every production in the complete
-standard, PGQL, openCypher, SQL/PGQ, or a later corrigendum.
+=iso-iec-39075-2024.opengql-1.9.0-syntax.v1=.  Its source grammar is OpenGQL
+1.9.0 at commit =16ea71bd320ad07fd2c46a3066afbaef7d226922= with
+content digest
+=sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf=.
+Macro expansion validates 1,018 source rules, lowers all 574 parser rules and
+444 lexer or fragment rules, and AOT-materializes the sole language machine.
+The executable corpus additionally proves all 14 upstream sample programs,
+lowercase keyword recognition, structural CST kinds, byte roundtrip, and typed
+malformed-source rejection.  This contract is GQL only; it does not identify
+PGQL, openCypher, SQL/PGQ, or a later corrigendum as the same language.
 
 The TLA+ contract is pinned to the =tree-sitter-tlaplus 1.5.0= grammar oracle
 at commit =8a8413f1d08e7ee40b347206d26eac4324db9fd9= and the TLA+ Foundation
@@ -155,19 +162,25 @@ $
 $
 #+end_src
 
-Rule references are lexical bindings introduced by the macro.  Choice may
-backtrack to the same immutable token suffix.  Repetition must consume input.
+Rule references become canonical nonterminal identities.  Choice, optional,
+and repetition lower once to BNF; request-time parsing never interprets
+GrammarExpr.  A language must explicitly select =selective-glr= before an
+unranked conflict can become a fork action.  Each branch owns immutable stacks;
+a failed branch publishes nothing and the first successful declared branch is
+the sole result.  Repetition must consume input.
 Fields and aliases construct private recognition values; only the completed
 ParseArtifact event stream is published.
 
 * Downstream author contract
 
-A downstream DSL author declares one =deflanguage-grammar= form and may compose POO
-grammar roles before normalization.  Every terminal has exactly one lexical
-rule, every reference resolves, repetitions are non-nullable, the flow is
-connected, and the entrypoint yields exactly one unfielded root.  The author
-does not modify =runtime/parser.ss=, =runtime/combinator.ss=, or
-=compiler/machine.ss=.
+A downstream DSL author normally declares one =deflanguage-grammar= form.  An
+advanced author may instead compose POO grammar roles through the compiler-only
+API, but must call =compile-grammar= to cross into canonical Grammar IR before
+=compile-parser=.  POO modules are absent from the generated native runtime
+closure.  Every terminal has exactly one lexical rule, every reference
+resolves, repetitions are non-nullable, the flow is connected, and the
+entrypoint yields exactly one unfielded root.  The author does not modify
+=runtime/parser.ss=, =compiler/lr.ss=, or =compiler/machine.ss=.
 
 The language's =parser.ss= then declares exactly one public entry:
 
@@ -215,6 +228,6 @@ belong to that later feature; they are not hidden in a fallback branch.
 Each fixed contract must prove byte-exact ParseArtifact roundtrip, structural
 node and field presence, deterministic grammar identity, and exactly one typed
 rejected terminal for malformed source.  The engine must compile arithmetic,
-HCL, and GQL through the same =normalize -> parser-ir -> machine ->
-ParseArtifact= path, and a source audit must find no language-name dispatch in
-runtime or compiler owners.
+HCL, and GQL through the same =Grammar IR -> parser IR -> AOT machine ->
+ParseArtifact= boundary, and a source audit must find no language-name dispatch
+in runtime or compiler owners.

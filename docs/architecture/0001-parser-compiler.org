@@ -1,44 +1,65 @@
-#+title: Pure Gerbil Parser Compiler Architecture
+#+title: RFC 0001 — Pure Gerbil Parser Compiler Architecture
+#+startup: overview
+
+* Status
+
+Accepted.  This RFC defines the implemented v1 compiler and runtime ownership
+boundary.  It is a feature contract, not an execution plan.
 
 * Authority
 
-=gerbil-parser= is a pure Gerbil Scheme project. A parser module follows the
-POO Flow layout: =objects.ss= owns composable grammar objects, =types.ss= owns
-stable contracts, =funcs.ss= owns compilation and runtime functions, and
-=config.ss= provides hygienic module assembly.
+=gerbil-parser= is a pure Gerbil Scheme project.  =src/= owns only the
+language-neutral grammar algebra, AOT compiler, generated-machine support, and
+lossless runtime.  Versioned grammars, fixtures, and tests live under
+=languages/<language>/<version>/=.  POO Flow roles may compose a grammar before
+the canonical boundary, but POO, grammar normalization, and parser-table
+construction are absent from the runtime closure.
 
 #+begin_src mermaid
 flowchart LR
-  S[syntax-rules and syntax-case] --> O[POO module objects]
-  O --> G[Grammar IR v1]
-  G --> P[Parser IR v1]
-  P --> M[Macro-generated match branches]
-  M --> R[Pure Scheme parser runtime]
-  R --> A[build.ss AOT]
-  A --> D[Downstream bindings]
+  D[Hygienic language declaration] --> G[Grammar IR v1]
+  S[Pinned native grammar and digest] --> X[Expansion-time source macro]
+  X --> G
+  G --> L[Deterministic LALR analysis]
+  L --> F[Explicit selective GLR actions]
+  F --> I[Parser IR v1]
+  I --> A[AOT native machine]
+  B[Source bytes] --> A
+  A --> P[ParseArtifact v1]
+  P --> C[Lossless CST projection]
 #+end_src
 
 * Formal contract
 
-POO composition is a compilation concern. The generated runtime machine uses
-direct operator branches and preserves every source byte as a token.
+Macro expansion is the sole table-publication boundary.  Runtime parsing reads
+an immutable generated machine and publishes exactly one accepted or rejected
+ParseArtifact.  Failed selective branches do not mutate or publish partial CST
+state.
 
 #+begin_src typst
-#let Role = $R$
-#let GrammarIR = $G$
-#let ParserIR = $P$
+#let D = $"Declaration"_1$
+#let G = $"GrammarIR"_1$
+#let I = $"ParserIR"_1$
+#let M = $"NativeMachine"_1$
+#let A = $"ParseArtifact"_1$
 $
-  "normalize": "List"(Role) -> GrammarIR \
-  "compile": GrammarIR -> ParserIR \
-  forall r_1, r_2 in Role, "key"(r_1) = "key"(r_2)
-    => (r_1 = r_2 or "reject") \
-  "joinTokens"("parse"(P, s)) = s
+  "expand": D -> (G, I, M) \
+  "runtimeTableBuilds"(M) = 0 \
+  forall s in "Source", "parse"(M, s) in {"accepted"(A), "rejected"(A)} \
+  "accepted"(A) => "coveredBytes"(A) = [0, "sourceBytes"(s)) \
+  "failedBranch" => "publishedPartialState" = 0
 $
 #+end_src
 
-* Boundary
+* Build and entry boundary
 
-This repository owns no Rust, Rowan, language-specific AST, semantic analysis,
-or backend authority. Downstream projects own those bindings and consume the
-AOT artifact. =gparse= remains a thin adapter over the same Scheme API exercised
-by =t/*=.
+=build.ss= discovers Gerbil modules and owns AOT staging.  A language's
+=grammar.ss= contains one declaration that generates grammar, parser IR,
+machine, and descriptor bindings.  Its =parser.ss= contains only the public
+=deflanguage-parser= entry.  Tests live under =t/= or beside a versioned
+language pack and benchmarks use the ASP Gerbil Scheme benchmark API.
+
+The repository owns no Rust, Rowan, language-specific AST, semantic-analysis,
+or backend authority.  Downstream systems consume ParseArtifact v1.  =gparse=
+is a thin command adapter over the same public Scheme parser API; it never owns
+grammar or parser implementation.

@@ -35,33 +35,33 @@
    ("opengql/match-and-insert"
     gql-match-and-insert
     "corpus/opengql-1.9.0/match_and_insert_example.gql"
-    GqlProgram (MatchClause InsertStatement))
+    GqlProgram (MatchStatement InsertStatement))
    ("opengql/exists-braces"
     gql-exists-braces
     "corpus/opengql-1.9.0/match_with_exists_predicate_braces.gql"
-    GqlProgram (MatchClause ExistsPredicate ReturnClause))
+    GqlProgram (MatchStatement ExistsPredicate ReturnStatement))
    ("opengql/exists-parentheses"
     gql-exists-parentheses
     "corpus/opengql-1.9.0/match_with_exists_predicate_parentheses.gql"
-    GqlProgram (MatchClause ExistsPredicate ReturnClause))
+    GqlProgram (MatchStatement ExistsPredicate ReturnStatement))
    ("opengql/exists-nested-match"
     gql-exists-nested-match
     "corpus/opengql-1.9.0/match_with_exists_predicate_nested_match.gql"
-    GqlProgram (MatchClause ExistsPredicate ReturnClause))
+    GqlProgram (MatchStatement ExistsPredicate ReturnStatement))
    ("opengql/session-current-graph"
     gql-session-current-graph
     "corpus/opengql-1.9.0/session_set_graph_to_current_graph.gql"
-    GqlProgram (SessionSetStatement))
+    GqlProgram (SessionSetCommand))
    ("opengql/session-current-property-graph"
     gql-session-current-property-graph
     "corpus/opengql-1.9.0/session_set_graph_to_current_property_graph.gql"
-    GqlProgram (SessionSetStatement))
+    GqlProgram (SessionSetCommand))
    ("opengql/session-property-value"
     gql-session-property-value
     "corpus/opengql-1.9.0/session_set_property_as_value.gql"
-    GqlProgram (SessionSetStatement))
+    GqlProgram (SessionSetCommand))
    ("opengql/session-time-zone"
     gql-session-time-zone
     "corpus/opengql-1.9.0/session_set_time_zone.gql"
-    GqlProgram (SessionSetStatement)))
+    GqlProgram (SessionSetCommand)))
   (rejected))

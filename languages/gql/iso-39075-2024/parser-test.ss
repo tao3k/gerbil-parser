@@ -19,7 +19,7 @@
    (else '())))
 
 (def gql-iso-39075-2024-parser-test
-  (test-suite "ISO/IEC 39075:2024 openGQL official examples"
+  (test-suite "ISO/IEC 39075:2024 OpenGQL 1.9.0 syntax"
     (test-case "the GQL standard identity is immutable"
       (check +gql-standard-reference+ => "ISO/IEC 39075:2024")
       (check +gql-standard-edition+ => "edition-1-2024-04")
@@ -27,7 +27,15 @@
       (check +gql-opengql-reference-commit+
              => "16ea71bd320ad07fd2c46a3066afbaef7d226922")
       (check +gql-syntax-contract-v1+
-             => "iso-iec-39075-2024.opengql-examples.v1")
+             => "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
+      (check +gql-antlr4-digest+
+             => "sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf")
+      (check (length (cdr (assq 'rules gql-iso-parser-ir))) => 574)
+      (check (cdr (assq 'materialization gql-iso-parser-ir))
+             => 'aot-expansion)
+      (check (cdr (assq 'conflict-policy gql-iso-parser-ir))
+             => 'selective-glr)
+      (check (cdr (assq 'case-insensitive? gql-iso-parser-ir)) => #t)
       (check (length gql-iso-official-fixtures) => 14))
     (test-case "the generic machine parses multi-clause GQL losslessly"
       (let* ((artifact (parse-gql-iso-39075-2024 +gql-representative-query+))
@@ -37,12 +45,19 @@
         (check (parse-artifact-valid? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => +gql-representative-query+)
         (check (syntax-node-kind root) => 'GqlProgram)
-        (check (= (length (filter (cut eq? <> 'MatchClause) kinds)) 2) => #t)
+        (check (= (length (filter (cut eq? <> 'MatchStatement) kinds)) 2)
+               => #t)
         (check (member 'NodePattern kinds) ? values)
         (check (member 'EdgePattern kinds) ? values)
-        (check (member 'PropertyMap kinds) ? values)
-        (check (member 'Predicate kinds) ? values)
-        (check (member 'ReturnClause kinds) ? values)))
+        (check (member 'ElementPropertySpecification kinds) ? values)
+        (check (member 'PropertyKeyValuePair kinds) ? values)
+        (check (member 'ReturnStatement kinds) ? values)))
+    (test-case "GQL keywords are case-insensitive without changing source"
+      (let* ((source "match (n) return n\n")
+             (artifact (parse-gql-iso-39075-2024 source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)))
     (test-case "all openGQL 1.9.0 official examples parse losslessly"
       (for-each
        (lambda (fixture)
@@ -73,6 +88,4 @@
            (check (parse-artifact-success? artifact) => #f)
            (check (parse-artifact-valid? artifact) => #t)
            (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))
-       '("MATCH (n RETURN n\n"
-         "MATCH (n)-[r]-> RETURN n\n"
-         "MATCH (n {name: \"Ada\"}) WHERE n.name RETURN n\n")))))
+       '("MATCH\n" "CREATE\n" "SESSION\n")))))

@@ -55,7 +55,11 @@
             (append-unique merged (car found)))))))))
 
 (def (compile-grammar grammar)
-  (let* ((roles (collect-roles grammar))
+  (if (and (list? grammar)
+           (let (row (assq 'schema grammar))
+             (and row (equal? (cdr row) "gerbil-parser.grammar-ir.v1"))))
+    grammar
+    (let* ((roles (collect-roles grammar))
          (tables
           (map (lambda (section)
                  (cons section (normalize-keyed-table roles section)))
@@ -64,7 +68,7 @@
      (list (cons 'schema "gerbil-parser.grammar-ir.v1")
            (cons 'grammar (grammar-name grammar)))
      tables
-     (list (cons 'flow (normalize-flow roles))))))
+     (list (cons 'flow (normalize-flow roles)))))))
 
 (def (grammar-ir-ref ir key)
   (let (entry (assq key ir))

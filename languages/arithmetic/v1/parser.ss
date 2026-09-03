@@ -7,7 +7,6 @@
         arithmetic-v1-language
         parse-arithmetic-v1)
 
-(deflanguage-parser-entry arithmetic-v1-language
-  (identity "arithmetic" "v1" "arithmetic-expression.v1")
-  (machine arithmetic-parser)
+(deflanguage-parser arithmetic-v1-language
+  (grammar arithmetic-language-grammar)
   (parse parse-arithmetic-v1))

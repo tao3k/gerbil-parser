@@ -11,12 +11,23 @@ The GQL corpus is copied byte-for-byte from openGQL grammar =1.9.0= at commit
 =16ea71bd320ad07fd2c46a3066afbaef7d226922=.  It contains all 14 =.gql=
 files under =samples=.  openGQL grammar is distributed under Apache-2.0.
 
+The openCypher grammar source is copied byte-for-byte from the official
+=2024.1= release at commit
+=30b451d3b7c94ee5a84a0fdc223947a442dd9493=.  Its 352-production ISO WG3 BNF
+file has SHA-256
+=c0b5454f001b59b401756158bf88e27847c8ace71f1abc8df1e05f8b710b9f50=.
+Macro expansion parses every right-hand side into a structural AST and rejects
+digest drift, duplicate production identities, and unresolved references.
+
 #+begin_src mermaid
 flowchart LR
   H[HCL v2.24.0 specsuite: 15 files] --> HM[defsyntax-corpus]
   G[openGQL 1.9.0 samples: 14 files] --> GM[defsyntax-corpus]
+  C[openCypher 2024.1 BNF: 352 productions] --> CM[defsyntax-iso-bnf-source]
   HM --> D[Expansion-time SHA-256 identity]
   GM --> D
+  CM --> D
+  CM --> B[Structural BNF AST validation]
   D --> P[Lossless ParseArtifact v1 tests]
 #+end_src
 
@@ -28,12 +39,14 @@ from the embedded source bytes, language version, and v1 contract.
 #+begin_src typst
 #let H = $"HCLCorpus"_("v2.24.0")$
 #let G = $"openGQLCorpus"_("1.9.0")$
+#let C = $"openCypherBNF"_("2024.1")$
 #let digest(x) = $"sha256"(x)$
 $
-  |H| = 15 quad and quad |G| = 14 \
+  |H| = 15 quad and quad |G| = 14 quad and quad |C| = 352 \
   forall f in H union G,
     "fixtureDigest"(f) = digest("bytes"(f)) \
   "roundtrip"("parse"(f)) = "bytes"(f) \
+  "catalogDigest"(C) = digest("bytes"(C)) \
   partial "fixtureDigest" / partial "absolutePath" = 0
 $
 #+end_src

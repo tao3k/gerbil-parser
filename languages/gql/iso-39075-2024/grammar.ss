@@ -1,13 +1,14 @@
 ;;; -*- Gerbil -*-
 ;;; Version-pinned ISO GQL grammar exercised by the openGQL 1.9.0 examples.
 
-(import :gerbil-parser/src/modules/parser/config)
+(import :gerbil-parser/src/language/grammar)
 (export +gql-standard-reference+
         +gql-standard-edition+
         +gql-opengql-reference-version+
         +gql-opengql-reference-commit+
         +gql-syntax-contract-v1+
         +gql-representative-query+
+        gql-iso-language-grammar
         gql-iso-grammar
         gql-iso-parser-ir
         gql-iso-parser)
@@ -26,10 +27,8 @@
    "OPTIONAL MATCH (friend)-[:WORKS_AT]->(company:Company) "
    "RETURN person.name AS source, friend.name AS target\n"))
 
-(defparser-config gql-iso-role
-  gql-iso-grammar
-  gql-iso-parser-ir
-  gql-iso-parser
+(deflanguage-grammar gql-iso
+  (identity "gql" +gql-standard-edition+ +gql-syntax-contract-v1+)
   (syntax-kinds
    (GqlProgram node (statement))
    (GqlQuery node (match return))

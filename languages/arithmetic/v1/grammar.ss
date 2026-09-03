@@ -1,15 +1,20 @@
 ;;; -*- Gerbil -*-
 ;;; Small generic-grammar fixture for precedence expressed as grammar levels.
 
-(import :gerbil-parser/src/modules/parser/config)
-(export arithmetic-grammar
+(import :gerbil-parser/src/language/grammar)
+(export +arithmetic-language-version+
+        +arithmetic-syntax-contract-v1+
+        arithmetic-language-grammar
+        arithmetic-grammar
         arithmetic-parser-ir
         arithmetic-parser)
 
-(defparser-config arithmetic-lexical-role
-  arithmetic-grammar
-  arithmetic-parser-ir
-  arithmetic-parser
+(def +arithmetic-language-version+ "v1")
+(def +arithmetic-syntax-contract-v1+ "arithmetic-expression.v1")
+
+(deflanguage-grammar arithmetic
+  (identity "arithmetic" +arithmetic-language-version+
+            +arithmetic-syntax-contract-v1+)
   (syntax-kinds
    (SourceFile node (expression))
    (Expression node (left operator right))

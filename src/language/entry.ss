@@ -1,8 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Declarative public entry boundary for a versioned language parser.
 
-(import ../runtime/parser)
-(export deflanguage-parser-entry
+(import ../runtime/parser
+        ./descriptor)
+(export deflanguage-parser
         +language-parser-entry-schema-v1+
         language-parser-entry-ref)
 
@@ -13,18 +14,18 @@
   (let (row (assq key entry))
     (and row (cdr row))))
 
-(defrules deflanguage-parser-entry
-  (identity machine parse)
+(defrules deflanguage-parser
+  (grammar parse)
   ((_ binding
-      (identity language-value version-value contract-value)
-      (machine parser-machine)
+      (grammar language-grammar-value)
       (parse parse-binding))
    (begin
      (def binding
        (list
         (cons 'schema +language-parser-entry-schema-v1+)
-        (cons 'language language-value)
-        (cons 'version version-value)
-        (cons 'contract contract-value)))
+        (cons 'language (language-grammar-language language-grammar-value))
+        (cons 'version (language-grammar-version language-grammar-value))
+        (cons 'contract (language-grammar-contract language-grammar-value))))
      (def (parse-binding source)
-       (parse-source parser-machine source)))))
+       (parse-source (language-grammar-machine language-grammar-value)
+                     source)))))

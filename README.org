@@ -40,10 +40,12 @@ ParseArtifact events, and diagnostics remain in their library owners.
 * Package layout
 
 The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
-grammar object families, =types.ss= owns schema identities, =funcs.ss= owns
-small performance-sensitive parser functions, and =config.ss= owns the
-hygienic grammar-to-parser declaration.  General list utilities stay at the
-package utility boundary rather than becoming parser-module miscellany.
+grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
+small performance-sensitive parser functions.  The single public authoring
+boundary is =src/language/grammar.ss=; its =deflanguage-grammar= macro expands
+one declaration into the grammar object, canonical Parser IR, native machine,
+and immutable language descriptor.  General list utilities stay at the package
+utility boundary rather than becoming parser-module miscellany.
 
 A supported language uses one colocated package surface:
 
@@ -56,10 +58,11 @@ languages/hcl/v2-24/
   corpus/
 #+end_src
 
-=grammar.ss= owns only the versioned grammar and generated machine.
-=parser.ss= uses =deflanguage-parser-entry= to declare the immutable language,
-version, contract, machine binding, and public parse function.  Fixtures and
-tests never move into =src/= and do not enter the =gparse= executable closure.
+=grammar.ss= owns the versioned identity and one =deflanguage-grammar=
+declaration.  =parser.ss= uses =deflanguage-parser= with that descriptor to
+generate the public parse function; it cannot repeat or replace the identity,
+contract, or machine.  Fixtures and tests never move into =src/= and do not
+enter the =gparse= executable closure.
 =defsyntax-corpus= declares all files in one expansion-time manifest.  The HCL
 pack vendors all 15 raw =.hcl= inputs from the v2.24.0 official specsuite; the
 GQL pack vendors all 14 sample programs from openGQL grammar 1.9.0.  Tests
@@ -67,6 +70,12 @@ assert content digest, typed terminal, structural CST kinds, and byte-exact
 roundtrip for each file.  This is complete coverage of those fixed upstream
 example sets, not a claim that every production in either language standard is
 already admitted.
+
+Grammar-source formats are language-side adapters.  ISO WG3 BNF support lives
+under =languages/support/=, not =src/=, and embeds the pinned upstream source at
+macro expansion.  The openCypher 2024.1 pack currently validates and structures
+all 352 productions from the official BNF; that source-catalog admission is not
+yet a claim that its complete executable query grammar or TCK semantics pass.
 
 * Architecture RFCs
 

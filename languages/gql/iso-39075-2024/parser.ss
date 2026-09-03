@@ -7,7 +7,6 @@
         gql-iso-39075-2024-language
         parse-gql-iso-39075-2024)
 
-(deflanguage-parser-entry gql-iso-39075-2024-language
-  (identity "gql" +gql-standard-edition+ +gql-syntax-contract-v1+)
-  (machine gql-iso-parser)
+(deflanguage-parser gql-iso-39075-2024-language
+  (grammar gql-iso-language-grammar)
   (parse parse-gql-iso-39075-2024))

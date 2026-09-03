@@ -7,7 +7,6 @@
         hcl-v2-24-language
         parse-hcl-v2-24)
 
-(deflanguage-parser-entry hcl-v2-24-language
-  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract-v1+)
-  (machine hcl-v2-24-parser-machine)
+(deflanguage-parser hcl-v2-24-language
+  (grammar hcl-v2-24-language-grammar)
   (parse parse-hcl-v2-24))

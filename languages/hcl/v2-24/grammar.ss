@@ -1,23 +1,22 @@
 ;;; -*- Gerbil -*-
 ;;; Version-pinned HCL native syntax grammar owner.
 
-(import :gerbil-parser/src/modules/parser/config)
+(import :gerbil-parser/src/language/grammar)
 (export +hcl-native-syntax-version+
         +hcl-native-syntax-commit+
         +hcl-syntax-contract-v1+
+        hcl-v2-24-language-grammar
         hcl-v2-24-grammar
         hcl-v2-24-parser-ir
-        hcl-v2-24-parser-machine)
+        hcl-v2-24-parser)
 
 (def +hcl-native-syntax-version+ "v2.24.0")
 (def +hcl-native-syntax-commit+
   "6b5068090eef06b1f127f61529db5ba0be7ed343")
 (def +hcl-syntax-contract-v1+ "hcl-native-v2.24.0.v1")
 
-(defparser-config hcl-v2-24-role
-  hcl-v2-24-grammar
-  hcl-v2-24-parser-ir
-  hcl-v2-24-parser-machine
+(deflanguage-grammar hcl-v2-24
+  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract-v1+)
   (syntax-kinds
    (HclFile node (item))
    (Body node (item))

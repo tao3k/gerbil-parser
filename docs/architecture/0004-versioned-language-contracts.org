@@ -1,0 +1,233 @@
+#+title: RFC 0004 — Versioned Language Contracts and Downstream DSL Grammars
+#+startup: overview
+
+* Status
+
+Accepted.  This RFC defines the executable language-contract feature.  It does
+not define a milestone, schedule, or compatibility period.
+
+* Decision
+
+The parser engine is language-neutral.  A language contract supplies immutable
+SyntaxKind, terminal, LexicalExpr, GrammarExpr, entrypoint, diagnostic, and flow
+rows to =deflanguage-grammar=, or pins a native ANTLR4 source with
+=deflanguage-antlr4-grammar=.  Hygienic expansion creates deterministic
+LALR(1) tables, explicitly admitted selective GLR actions, and direct scanner
+branches during AOT compilation.  A parse
+request never interprets grammar S-expressions, dispatches on a language name,
+or consults POO.
+
+#+begin_src mermaid
+flowchart LR
+  D[Downstream DSL declaration] --> C[deflanguage-grammar]
+  NATIVE[Pinned native grammar plus digest] --> CA[deflanguage-antlr4-grammar]
+  CA --> C
+  C --> N[Canonical Grammar IR v1]
+  C --> M[Hygienic native machine]
+  M --> E[deflanguage-parser]
+  S[Source bytes] --> M
+  M --> A[ParseArtifact v1]
+  A --> R[Replay-only CST sinks]
+  V[Versioned language contract] --> D
+  F[Native syntax files] --> X[defsyntax-fixture expansion]
+  C1[defsyntax-corpus manifest] --> X
+  X --> T[Source-level conformance tests]
+  V --> X
+#+end_src
+
+Language references are conformance fixtures, not runtime authorities.  A
+downstream package defines its own grammar with the same public macro and owns
+its language version, coverage statement, corpus, and diagnostic policy.
+
+** Declaration-first generation
+
+Declaration density is the primary authoring objective.  A language author
+provides one symbolic prefix, one identity tuple, and the syntax tables.  The
+macro hygienically derives the role, grammar, canonical IR, parser machine, and
+language descriptor bindings; an =artifacts= naming stanza is neither required
+nor accepted.  The separate =parser.ss= entry names only the descriptor and its
+public parse function.  This is stronger than a grammar-only generator because
+the same declaration fixes artifact identity and the public runtime authority.
+
+#+begin_src scheme
+(deflanguage-grammar example-v1
+  (identity "example" "v1" "example-syntax.v1")
+  (syntax-kinds (SourceFile node (item)) ...)
+  (terminals (identifier Identifier) ...)
+  (lexical-rules (identifier (identifier)) ...)
+  (rules (source-file (alias SourceFile ...)) ...)
+  (extras whitespace)
+  (keywords)
+  (parser-entrypoints (source-file parse pure))
+  (recoveries (source-file "EXAMPLE-SYNTAX" preserve-source))
+  (flow (source lexical) (lexical syntax) (syntax cst)))
+#+end_src
+
+#+begin_src typst
+#let declaration = $D$
+#let generated = $(G, I, M, L)$
+$
+  "expand"(D) = (G, I, M, L) \
+  "authority"(L) = M \
+  forall M' != M, "entry"(L, M') = "rejected" \
+  partial "runtime" / partial D = 0
+$
+#+end_src
+
+The engine and language packs are physically separate.  =src/= contains only
+language-neutral compiler, runtime, grammar algebra, and entry macros.  A
+supported language owns one directory at
+=languages/<language>/<version>/=.  Its =grammar.ss=, =parser.ss=,
+=fixtures.ss=, =parser-test.ss=, and =corpus/= are colocated.  The parser module
+declares its public boundary with =deflanguage-parser= and consumes the sole
+descriptor emitted by =grammar.ss=; it cannot introduce a second language
+identity, contract, machine, or language switch.
+
+Native examples are real source files, not Scheme string fragments.  A
+downstream test declares =defsyntax-fixture= with an immutable logical fixture
+identity, language version, contract identity, expected terminal state, root,
+and structural kinds.  Macro expansion resolves the file relative to the
+declaration, embeds its bytes, and computes its source digest.  Runtime parsing
+does not open files and neither absolute path nor working directory enters an
+artifact identity.
+
+=defsyntax-corpus= is the multi-file declaration boundary.  It expands to
+individual content-addressed fixtures and one immutable manifest value; it does
+not add runtime directory walking or path identity.  A versioned language pack
+therefore reviews grammar, parser entry, complete admitted example set, tests,
+and corpus in one directory.
+
+* Fixed reference identities
+
+The configuration-language contract is pinned to HashiCorp HCL native syntax
+=v2.24.0= at commit
+=6b5068090eef06b1f127f61529db5ba0be7ed343=.  Its admitted identity is
+=hcl-native-v2.24.0.v1=.  The executable corpus vendors all 15 raw =.hcl=
+sources in HashiCorp's v2.24.0 specsuite: 12 syntax-accepted inputs and three
+syntax-rejected inputs.  The parser admits ordered bodies, attributes, labeled
+and nested blocks, all three comment forms, empty files, quoted strings,
+heredocs, decimal literals, identifiers, traversals, tuples, objects, unary and
+binary operators, conditionals, calls, indexes, and splats.  Schema decoding,
+expression evaluation, Terraform semantics, and productions absent from the
+fixed specsuite remain outside this corpus claim.
+
+The graph-query contract is pinned to =ISO/IEC 39075:2024=, edition 1,
+published 2024-04.  Its admitted identity is
+=iso-iec-39075-2024.opengql-1.9.0-syntax.v1=.  Its source grammar is OpenGQL
+1.9.0 at commit =16ea71bd320ad07fd2c46a3066afbaef7d226922= with
+content digest
+=sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf=.
+Macro expansion validates 1,018 source rules, lowers all 574 parser rules and
+444 lexer or fragment rules, and AOT-materializes the sole language machine.
+The executable corpus additionally proves all 14 upstream sample programs,
+lowercase keyword recognition, structural CST kinds, byte roundtrip, and typed
+malformed-source rejection.  This contract is GQL only; it does not identify
+PGQL, openCypher, SQL/PGQ, or a later corrigendum as the same language.
+
+The TLA+ contract is pinned to the =tree-sitter-tlaplus 1.5.0= grammar oracle
+at commit =8a8413f1d08e7ee40b347206d26eac4324db9fd9= and the TLA+ Foundation
+Examples corpus at commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=.  Its admitted
+identity is =tla-plus.module-core.v1=.  The first executable slice covers module
+envelopes, EXTENDS, constant and variable declarations, single-line operator
+definitions, theorem declarations, ASCII operator tokens, strings, line
+comments, and nested block comments.  It includes the byte-exact official
+=HourClock.tla= source plus focused module and nested-comment contracts.  It
+does not yet claim PlusCal, TLAPS proof syntax, multiline definitions, or the
+complete 1.5.0 tree-sitter corpus.
+
+Version identities are never inferred from a current branch or latest release.
+Changing an upstream edition, tag, commit, corrigendum, or admitted production
+set creates a new explicit contract and executable corpus; it does not mutate a
+v1 identity in place.
+
+* Generic machine invariant
+
+Let =expand= be hygienic macro expansion, =G= a normalized grammar, and =x= a
+source.  Generated parser behavior depends only on =G= and =x=, never on a
+language tag or filesystem path.
+
+#+begin_src typst
+#let G = $"GrammarIR"_1$
+#let M = $"NativeMachine"_1$
+#let A = $"ParseArtifact"_1$
+$
+  "expand": G -> M \
+  forall g in G, x in "Source",
+    "parse"("expand"(g), x) = A(g, x) \
+  "grammarDigest"(A(g, x)) = "sha256"("canonical"(g)) \
+  "roundtrip"(A(g, x)) = x \
+  forall f in "PinnedCorpus", "roundtrip"("parse"(g, f)) = f \
+  partial "parse" / partial "languageName" = 0 \
+  partial "parse" / partial "filesystemPath" = 0
+$
+#+end_src
+
+Rule references become canonical nonterminal identities.  Choice, optional,
+and repetition lower once to BNF; request-time parsing never interprets
+GrammarExpr.  A language must explicitly select =selective-glr= before an
+unranked conflict can become a fork action.  Each branch owns immutable stacks;
+a failed branch publishes nothing and the first successful declared branch is
+the sole result.  Repetition must consume input.
+Fields and aliases construct private recognition values; only the completed
+ParseArtifact event stream is published.
+
+* Downstream author contract
+
+A downstream DSL author normally declares one =deflanguage-grammar= form.  An
+advanced author may instead compose POO grammar roles through the compiler-only
+API, but must call =compile-grammar= to cross into canonical Grammar IR before
+=compile-parser=.  POO modules are absent from the generated native runtime
+closure.  Every terminal has exactly one lexical rule, every reference
+resolves, repetitions are non-nullable, the flow is connected, and the
+entrypoint yields exactly one unfielded root.  The author does not modify
+=runtime/parser.ss=, =compiler/lr.ss=, or =compiler/machine.ss=.
+
+The language's =parser.ss= then declares exactly one public entry:
+
+#+begin_src scheme
+(deflanguage-parser hcl-v2-24-language
+  (grammar hcl-v2-24-language-grammar)
+  (parse parse-hcl-v2-24))
+#+end_src
+
+The entry metadata does not own or copy the machine.  Identity and machine are
+read from the immutable descriptor generated by =grammar.ss=, and the public
+parse function is bound to that sole machine.
+
+The author's source-level scenarios use =defsyntax-fixture=, or
+=defsyntax-corpus= when a fixed upstream example set contains multiple files.
+The same fixture
+value can feed focused conformance tests and benchmarks, so expected version,
+contract, terminal status, content digest, lossless roundtrip, root kind, and
+required structural kinds remain one declaration.  Adding a new DSL requires
+new declarations and native files; it never adds a language branch to the
+engine.
+
+LexicalExpr v1 includes deterministic choice, decimal-number, multi-delimiter
+quoted string, nested block comment, and HCL-style heredoc primitives.
+Language-specific scanners that
+cannot be represented by admitted LexicalExpr constructors require a separately
+versioned external-scanner state contract.  Bash heredocs and lexer modes
+belong to that later feature; they are not hidden in a fallback branch.
+
+* Rejected designs
+
+- A handwritten HCL, GQL, PGQL, openCypher, or Bash branch in the runtime.
+- Runtime interpretation of normalized grammar S-expressions.
+- One unversioned graph-query fixture standing for several standards.
+- Treating a directory, grammar declaration, or successful micro-expression as
+  production-language admission.
+- Embedding representative language programs as large Scheme string literals
+  or opening corpus files on every test invocation.
+- Placing language fixtures or parser tests under the engine's =src/= tree.
+- Shipping dormant operator tables, recovery variants, or compatibility paths.
+- Updating a pinned contract because an upstream project published a new tag.
+
+* Executable admission
+
+Each fixed contract must prove byte-exact ParseArtifact roundtrip, structural
+node and field presence, deterministic grammar identity, and exactly one typed
+rejected terminal for malformed source.  The engine must compile arithmetic,
+HCL, and GQL through the same =Grammar IR -> parser IR -> AOT machine ->
+ParseArtifact= boundary, and a source audit must find no language-name dispatch
+in runtime or compiler owners.

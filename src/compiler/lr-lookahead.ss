@@ -3,10 +3,9 @@
 
 (import (prefix-in :std/misc/queue stdq-)
         (only-in ./funcs
-                 compiler-terminal-set-add
-                 compiler-terminal-set-difference compiler-terminal-set-empty?
-                 compiler-terminal-set-for-each
-                 compiler-terminal-set-singleton compiler-terminal-set-union)
+                 compiler-index-set-add
+                 compiler-index-set-difference compiler-index-set-empty?
+                 compiler-index-set-singleton compiler-index-set-union)
         (only-in ./lr
                  +lr-eof+ nonterminal-name nonterminal-symbol? production-id
                  production-rhs production-terminal-catalog sequence-first
@@ -18,12 +17,24 @@
                  materialize-transitions))
 (export build-states-via-lr0)
 
+(def (trace-lookahead-phase phase count started trace?)
+  (when trace?
+    (display "[gerbil-parser-lr] phase=")
+    (display phase)
+    (display " count=")
+    (display count)
+    (display " elapsed-ms=")
+    (displayln
+     (inexact->exact
+      (floor (* 1000.0 (- (##current-time-point) started)))))
+    (force-output)))
+
 ;; lookahead-mask->list
 ;; : (-> Fixnum List)
 ;; : (-> List Table Integer)
 (def (terminal-list->mask terminals terminal-index)
   (foldl (lambda (terminal mask)
-           (compiler-terminal-set-add
+           (compiler-index-set-add
             mask (table-ref terminal-index terminal)))
          0 terminals))
 
@@ -54,79 +65,151 @@
         (production-loop (+ production-id 1))))
     (values first-masks nullable-tails)))
 
+;; Assign every admitted (state, core-item) pair one dense node id.  The fixed
+;; point then uses vectors for its mutable state; the packed-key table is paid
+;; only while constructing the immutable propagation graph.
+;; : (-> Vector Fixnum Fixnum (values Vector Vector Vector Table Fixnum))
+(def (index-lr0-items states state-count item-space)
+  (let ((offsets (make-vector (+ state-count 1) 0))
+        (node-count 0))
+    (let count-states ((state 0))
+      (when (< state state-count)
+        (vector-set! offsets state node-count)
+        (set! node-count
+              (+ node-count (length (vector-ref states state))))
+        (count-states (+ state 1))))
+    (vector-set! offsets state-count node-count)
+    (let ((node-items (make-vector node-count 0))
+          (node-states (make-vector node-count 0))
+          (node-index (make-table test: eq?)))
+      (let index-states ((state 0))
+        (when (< state state-count)
+          (let ((node (vector-ref offsets state)))
+            (for-each
+             (lambda (item)
+               (vector-set! node-items node item)
+               (vector-set! node-states node state)
+               (table-set! node-index (+ item (* item-space state)) node)
+               (set! node (+ node 1)))
+             (vector-ref states state)))
+          (index-states (+ state 1))))
+      (values offsets node-items node-states node-index node-count))))
+
+;; Resolve the immutable propagation graph once through the packed-key index.
+;; Fixed-point updates then touch vectors only.
+(def (make-lookahead-propagation-graph
+      state-transitions productions-by-lhs core-symbols layout item-space
+      node-items node-states node-index)
+  (let* ((node-count (vector-length node-items))
+         (closure-targets (make-vector node-count '()))
+         (shift-targets (make-vector node-count #f)))
+    (let node-loop ((node 0))
+      (when (< node node-count)
+        (let* ((state (vector-ref node-states node))
+               (item (vector-ref node-items node))
+               (symbol (vector-ref core-symbols item)))
+          (when (and symbol (nonterminal-symbol? symbol))
+            (vector-set!
+             closure-targets node
+             (map (lambda (production)
+                    (let* ((target-item
+                            (make-core-item
+                             (production-id production) 0 layout))
+                           (target
+                            (table-ref node-index
+                                       (+ target-item (* item-space state)) #f)))
+                      (unless target
+                        (error "LR(0) closure target is not indexed"
+                               state item target-item))
+                      target))
+                  (table-ref productions-by-lhs
+                             (nonterminal-name symbol) '()))))
+          (when symbol
+            (let (transition
+                  (assoc symbol (vector-ref state-transitions state)))
+              (unless transition
+                (error "LR(0) transition missing during lookahead indexing"
+                       state item symbol))
+              (let (target
+                    (table-ref node-index
+                               (+ (+ item 1) (* item-space (cdr transition)))
+                               #f))
+                (unless target
+                  (error "LR(0) shift target is not indexed"
+                         state item symbol (cdr transition)))
+                (vector-set! shift-targets node target))))
+          (node-loop (+ node 1)))))
+    (values closure-targets shift-targets)))
+
 ;;; Propagates terminal masks to a fixed point over the interned LR(0) graph.
-;;; Queue membership coalesces repeated evidence; output waits for a full drain.
+;;; Dense vectors replace three hash tables and quotient/modulo decoding. A
+;;; single packed-key index is retained only to resolve immutable graph edges.
 ;; propagate-lalr-lookaheads
 ;; : (-> Vector Vector Fixnum Table Vector Vector Table Table Vector Table Pair List)
 (def (propagate-lalr-lookaheads states state-transitions state-count
                                 productions-by-lhs table core-symbols
                                 tail-first-masks nullable-tails
                                 terminal-index layout)
-  (let ((lookaheads (make-table test: eq?))
-        (pending (make-table test: eq?))
-        (queued (make-table test: eq?))
-        (queue (stdq-make-queue))
-        (item-space (* (cdr layout) (vector-length table)))
-        (processed-count 0)
-        (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")))
-    (def (item-key state item) (+ item (* item-space state)))
-    (def (enqueue-mask! state item evidence)
-      (let* ((key (item-key state item))
-             (known (table-ref lookaheads key 0))
-             (novel
-              (compiler-terminal-set-difference evidence known)))
-        (unless (compiler-terminal-set-empty? novel)
-          (table-set! lookaheads key
-                      (compiler-terminal-set-union known novel))
-          (table-set! pending key
-                      (compiler-terminal-set-union
-                       (table-ref pending key 0) novel))
-          (unless (table-ref queued key #f)
-            (table-set! queued key #t)
-            (stdq-enqueue! queue key)))))
-    (enqueue-mask!
-     0 (make-core-item 0 0 layout)
-     (compiler-terminal-set-singleton
-      (table-ref terminal-index +lr-eof+)))
-    (let loop ()
-      (unless (stdq-queue-empty? queue)
-        (let (key (stdq-dequeue! queue))
-          (table-set! queued key #f)
-          (let* ((state (quotient key item-space))
-                 (item (modulo key item-space))
-                 (delta (table-ref pending key 0))
-                 (symbol (vector-ref core-symbols item)))
-            (table-set! pending key 0)
-            (set! processed-count (+ processed-count 1))
-            (when (and trace? (zero? (modulo processed-count 10000)))
-              (display "[gerbil-parser-lr] lookahead-items=")
-              (displayln processed-count)
-              (force-output))
-            (when (and symbol (nonterminal-symbol? symbol))
-              (let (evidence
-                    (if (vector-ref nullable-tails item)
-                      (compiler-terminal-set-union
-                       (vector-ref tail-first-masks item) delta)
-                      (vector-ref tail-first-masks item)))
-                (let production-loop
-                    ((productions
-                      (table-ref productions-by-lhs
-                                 (nonterminal-name symbol) '())))
-                  (unless (null? productions)
-                    (let (target-item
-                          (make-core-item
-                           (production-id (car productions)) 0 layout))
-                      (enqueue-mask! state target-item evidence))
-                    (production-loop (cdr productions))))))
-            (when symbol
-              (let (transition
-                    (assoc symbol (vector-ref state-transitions state)))
-                (unless transition
-                  (error "LR(0) transition missing during lookahead propagation"
-                         state item symbol))
-                (enqueue-mask! (cdr transition) (+ item 1) delta))))
-          (loop))))
-    (values lookaheads item-space processed-count)))
+  (let* ((item-space (* (cdr layout) (vector-length table)))
+         (queue (stdq-make-queue))
+         (processed-count 0)
+         (started (##current-time-point))
+         (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")))
+    (let-values (((offsets node-items node-states node-index node-count)
+                  (index-lr0-items states state-count item-space)))
+      (trace-lookahead-phase 'lookahead-index node-count started trace?)
+      (let-values (((closure-targets shift-targets)
+                    (make-lookahead-propagation-graph
+                     state-transitions productions-by-lhs core-symbols layout
+                     item-space node-items node-states node-index)))
+       (trace-lookahead-phase 'lookahead-graph node-count started trace?)
+       (let ((lookaheads (make-vector node-count 0))
+             (pending (make-vector node-count 0))
+             (queued (make-vector node-count #f)))
+        (def (enqueue-mask! node evidence)
+          (let* ((known (vector-ref lookaheads node))
+                 (novel
+                  (compiler-index-set-difference evidence known)))
+            (unless (compiler-index-set-empty? novel)
+              (vector-set! lookaheads node
+                           (compiler-index-set-union known novel))
+              (vector-set! pending node
+                           (compiler-index-set-union
+                            (vector-ref pending node) novel))
+              (unless (vector-ref queued node)
+                (vector-set! queued node #t)
+                (stdq-enqueue! queue node)))))
+        (enqueue-mask!
+         (table-ref node-index (make-core-item 0 0 layout))
+         (compiler-index-set-singleton
+          (table-ref terminal-index +lr-eof+)))
+        (let loop ()
+          (unless (stdq-queue-empty? queue)
+            (let* ((node (stdq-dequeue! queue))
+                   (item (vector-ref node-items node))
+                   (delta (vector-ref pending node)))
+              (vector-set! queued node #f)
+              (vector-set! pending node 0)
+              (set! processed-count (+ processed-count 1))
+              (when (and trace? (zero? (modulo processed-count 10000)))
+                (display "[gerbil-parser-lr] lookahead-items=")
+                (displayln processed-count)
+                (force-output))
+              (unless (null? (vector-ref closure-targets node))
+                (let (evidence
+                      (if (vector-ref nullable-tails item)
+                        (compiler-index-set-union
+                         (vector-ref tail-first-masks item) delta)
+                        (vector-ref tail-first-masks item)))
+                  (for-each
+                   (lambda (target) (enqueue-mask! target evidence))
+                   (vector-ref closure-targets node))))
+              (let (target (vector-ref shift-targets node))
+                (when target (enqueue-mask! target delta)))
+            (loop))))
+        (trace-lookahead-phase
+         'lookahead-propagation processed-count started trace?)
+        (values lookaheads offsets processed-count))))))
 
 ;;; Materializes LALR state identity and lookahead evidence in one transaction.
 ;; build-states-via-lr0
@@ -153,7 +236,7 @@
            (inexact->exact
             (floor (* 1000.0 (- (##current-time-point) started)))))
           (force-output))
-        (let-values (((lookaheads item-space lookahead-item-visit-count)
+        (let-values (((lookaheads lookahead-offsets lookahead-item-visit-count)
                       (propagate-lalr-lookaheads
                        states state-transitions state-count productions-by-lhs
                        table core-symbols tail-first-masks nullable-tails
@@ -166,7 +249,7 @@
              (inexact->exact
               (floor (* 1000.0 (- (##current-time-point) started)))))
             (force-output))
-          (values states state-count lookaheads item-space
+          (values states state-count lookaheads lookahead-offsets
                   (materialize-transitions state-transitions state-count)
                   terminal-values layout core-symbols
                   lr0-state-visit-count lookahead-item-visit-count)))))))

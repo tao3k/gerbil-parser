@@ -2,7 +2,7 @@
 ;;; LR conflict resolution and canonical parser-table publication.
 
 (import (only-in :std/iter for in-range)
-        (only-in ./funcs compiler-terminal-set-for-each)
+        (only-in ./funcs compiler-index-set-for-each)
         (only-in ./lr
                  compute-first compute-nullable
                  lower-rules nonterminal-name nonterminal-symbol?
@@ -125,9 +125,9 @@
     indexed))
 
 ;; build-actions
-;; : (-> Vector Fixnum Table Fixnum List Vector Vector Pair Vector Symbol
+;; : (-> Vector Fixnum Vector Vector List Vector Vector Pair Vector Symbol
 ;;        (values Vector Fixnum))
-(def (build-actions states state-count lookaheads item-space transitions table
+(def (build-actions states state-count lookaheads lookahead-offsets transitions table
                     terminal-values layout core-symbols conflict-policy)
   (let ((actions (make-vector state-count '()))
         (transitions (transition-index transitions))
@@ -144,7 +144,8 @@
          (error "LR action state is not an item list"
                  state-id state-items))
        (let ((state-actions (make-table test: equal?))
-             (terminal-order '()))
+             (terminal-order '())
+             (lookahead-node (vector-ref lookahead-offsets state-id)))
          (def (install! terminal action)
            (let (current (table-ref state-actions terminal #f))
              (if current
@@ -172,12 +173,12 @@
                       (if (= production-id 0)
                         '(accept)
                         (list 'reduce production-id)))
-                  (compiler-terminal-set-for-each
-                   (table-ref
-                    lookaheads (+ item (* item-space state-id)) 0)
+                  (compiler-index-set-for-each
+                   (vector-ref lookaheads lookahead-node)
                    (lambda (lookahead)
                      (install! (vector-ref terminal-values lookahead)
-                               action))))))))
+                               action)))))))
+            (set! lookahead-node (+ lookahead-node 1)))
           state-items)
          (vector-set!
           actions state-id
@@ -240,7 +241,7 @@
       (let-values (((first first-index)
                     (compute-first productions nullable-index)))
         (trace-lr-phase 'first (length first) started)
-        (let-values (((states state-count lookaheads item-space transitions
+        (let-values (((states state-count lookaheads lookahead-offsets transitions
                               terminal-values layout core-symbols
                              lr0-state-visit-count lookahead-item-visit-count)
                       (build-states-via-lr0
@@ -248,7 +249,7 @@
           (trace-lr-phase 'states state-count started)
           (let-values (((actions action-state-publication-count)
                         (build-actions
-                         states state-count lookaheads item-space transitions
+                         states state-count lookaheads lookahead-offsets transitions
                          table terminal-values layout core-symbols
                          conflict-policy)))
             (unless (= action-state-publication-count state-count)

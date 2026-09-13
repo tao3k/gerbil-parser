@@ -3,9 +3,9 @@
 
 (import (only-in :std/sort sort)
         (only-in ./funcs
-                 compiler-terminal-set->ordered-list
-                 compiler-terminal-set-singleton
-                 compiler-terminal-set-union))
+                 compiler-index-set->ordered-values
+                 compiler-index-set-singleton
+                 compiler-index-set-union))
 (export +lr-eof+
         compute-first
         compute-nullable
@@ -473,7 +473,7 @@
       (def (symbol-first-mask symbol)
         (let (symbol (base-symbol symbol))
           (if (terminal-symbol? symbol)
-            (compiler-terminal-set-singleton
+            (compiler-index-set-singleton
              (table-ref terminal-index symbol))
             (table-ref first-masks (nonterminal-name symbol) 0))))
       (def (sequence-first-mask symbols)
@@ -482,7 +482,7 @@
             mask
             (let* ((symbol (car rest))
                    (next
-                    (compiler-terminal-set-union
+                    (compiler-index-set-union
                      mask (symbol-first-mask symbol))))
               (if (symbol-nullable? symbol nullable)
                 (loop (cdr rest) next)
@@ -494,7 +494,7 @@
              (let* ((lhs (production-lhs production))
                     (before (table-ref first-masks lhs 0))
                     (after
-                     (compiler-terminal-set-union
+                     (compiler-index-set-union
                       before
                       (sequence-first-mask (production-rhs production)))))
                (unless (= before after)
@@ -507,7 +507,7 @@
               (for-each
                (lambda (name)
                  (table-set! first name
-                             (compiler-terminal-set->ordered-list
+                             (compiler-index-set->ordered-values
                               (table-ref first-masks name 0)
                               terminal-values)))
                names)

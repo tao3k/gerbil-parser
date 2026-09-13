@@ -8,6 +8,8 @@
         grammar-expression-references
         grammar-expression-terminals)
 
+;; grammar-expression?
+;; : (-> Datum Boolean)
 (def (grammar-expression? value)
   (and (list? value)
        (pair? value)
@@ -38,70 +40,98 @@
                (grammar-expression? (cadddr value))))
          (else #f))))
 
+;; grammar-expressions?
+;; : (-> List Boolean)
 (def (grammar-expressions? expressions)
   (let loop ((rest expressions))
     (or (null? rest)
         (and (grammar-expression? (car rest))
              (loop (cdr rest))))))
 
+;; require-expression
+;; : (-> Datum Symbol List)
 (def (require-expression expression owner)
   (unless (grammar-expression? expression)
     (error "invalid grammar expression" owner expression))
   expression)
 
+;; grammar-empty
+;; : (-> List)
 (def (grammar-empty)
   '(empty))
 
+;; grammar-literal
+;; : (-> String List)
 (def (grammar-literal value)
   (unless (and (string? value) (positive? (string-length value)))
     (error "grammar literal must be a non-empty string" value))
   (list 'literal value))
 
+;; grammar-token
+;; : (-> Symbol List)
 (def (grammar-token name)
   (unless (symbol? name)
     (error "grammar token reference must be a symbol" name))
   (list 'token name))
 
+;; grammar-reference
+;; : (-> Symbol List)
 (def (grammar-reference name)
   (unless (symbol? name)
     (error "grammar rule reference must be a symbol" name))
   (list 'reference name))
 
+;; grammar-sequence
+;; : (-> List List)
 (def (grammar-sequence expressions)
   (unless (and (pair? expressions) (grammar-expressions? expressions))
     (error "grammar sequence requires one or more expressions" expressions))
   (cons 'sequence expressions))
 
+;; grammar-choice
+;; : (-> List List)
 (def (grammar-choice expressions)
   (unless (and (pair? expressions) (grammar-expressions? expressions))
     (error "grammar choice requires one or more expressions" expressions))
   (cons 'choice expressions))
 
+;; grammar-optional
+;; : (-> List List)
 (def (grammar-optional expression)
   (list 'optional (require-expression expression 'optional)))
 
+;; grammar-repeat
+;; : (-> List List)
 (def (grammar-repeat expression)
   (require-expression expression 'repeat)
   (when (grammar-expression-nullable? expression)
     (error "grammar repeat operand must consume input" expression))
   (list 'repeat expression))
 
+;; grammar-repeat1
+;; : (-> List List)
 (def (grammar-repeat1 expression)
   (require-expression expression 'repeat1)
   (when (grammar-expression-nullable? expression)
     (error "grammar repeat1 operand must consume input" expression))
   (list 'repeat1 expression))
 
+;; grammar-field
+;; : (-> Symbol List List)
 (def (grammar-field name expression)
   (unless (symbol? name)
     (error "grammar field name must be a symbol" name))
   (list 'field name (require-expression expression 'field)))
 
+;; grammar-alias
+;; : (-> Symbol List List)
 (def (grammar-alias name expression)
   (unless (symbol? name)
     (error "grammar alias must be a symbol" name))
   (list 'alias name (require-expression expression 'alias)))
 
+;; grammar-precedence
+;; : (-> Symbol Integer List List)
 (def (grammar-precedence direction rank expression)
   (unless (memq direction '(none left right dynamic))
     (error "unknown grammar precedence direction" direction))
@@ -110,6 +140,20 @@
   (list 'precedence direction rank
         (require-expression expression 'precedence)))
 
+;;; Expands the closed grammar algebra while preserving declared child order.
+;;; Each template delegates validation and runtime data construction to ordinary helpers.
+;; grammar-expression
+;;   : (-> Syntax Syntax)
+;;   | doc m%
+;;       `grammar-expression` expands one declarative grammar expression.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (grammar-expression (seq (token Identifier)))
+;;       ;; => canonical sequence expression
+;;       ```
+;;     %
 (defrules grammar-expression
   (empty literal token reference seq choice optional repeat repeat1
    field alias prec none left right dynamic)
@@ -144,9 +188,23 @@
   ((_ (prec dynamic rank expression))
    (grammar-precedence 'dynamic rank (grammar-expression expression))))
 
+;; grammar-expression-kind
+;; : (-> List Symbol)
 (def (grammar-expression-kind expression)
   (car (require-expression expression 'kind)))
 
+;; grammar-expression-nullable?
+;;   : (-> List Boolean)
+;;   | doc m%
+;;       `grammar-expression-nullable?` decides whether an expression accepts empty input.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (grammar-expression-nullable? (grammar-empty))
+;;       ;; => #t
+;;       ```
+;;     %
 (def (grammar-expression-nullable? expression)
   (require-expression expression 'nullable)
   (case (car expression)
@@ -166,6 +224,8 @@
     ((repeat1) (grammar-expression-nullable? (cadr expression)))
     (else #f)))
 
+;; grammar-expression-collect
+;; : (-> List Symbol List)
 (def (grammar-expression-collect expression wanted)
   (require-expression expression 'collect)
   (case (car expression)
@@ -184,8 +244,12 @@
      (grammar-expression-collect (cadddr expression) wanted))
     (else '())))
 
+;; grammar-expression-references
+;; : (-> List List)
 (def (grammar-expression-references expression)
   (grammar-expression-collect expression 'reference))
 
+;; grammar-expression-terminals
+;; : (-> List List)
 (def (grammar-expression-terminals expression)
   (grammar-expression-collect expression 'token))

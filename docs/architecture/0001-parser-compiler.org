@@ -8,9 +8,12 @@ boundary.  It is a feature contract, not an execution plan.
 
 * Authority
 
-=gerbil-parser= is a pure Gerbil Scheme project.  =src/= owns only the
-language-neutral grammar algebra, AOT compiler, generated-machine support, and
-lossless runtime.  Versioned grammars, fixtures, and tests live under
+=gerbil-parser= is a pure Gerbil Scheme project.  =src/= owns the
+language-neutral grammar algebra, AOT compiler, generated-machine support,
+language-import adapters, and lossless runtime.  The top-level
+=language-support.ss= facade beside =build.ss= exports the stable
+=:gerbil-parser/language-support= API without exposing the physical =src/=
+layout.  Versioned grammars, fixtures, and tests live under
 =languages/<language>/<version>/=.  POO Flow roles may compose a grammar before
 the canonical boundary, but POO, grammar normalization, and parser-table
 construction are absent from the runtime closure.

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Private recognition values produced by generated parser machines.
 
-(import ./token)
+(import (only-in ./token token? token-end token-start))
 (export make-recognition-node
         recognition-node?
         recognition-node-kind
@@ -25,6 +25,7 @@
 (defstruct recognition-fragment (start end children) transparent: #t)
 (defstruct recognition-child (field value) transparent: #t)
 
+;; : (-> RecognitionValue Nat)
 (def (recognition-value-start value)
   (cond
    ((token? value) (token-start value))
@@ -32,6 +33,7 @@
    ((recognition-fragment? value) (recognition-fragment-start value))
    (else (error "invalid recognition value" value))))
 
+;; : (-> RecognitionValue Nat)
 (def (recognition-value-end value)
   (cond
    ((token? value) (token-end value))

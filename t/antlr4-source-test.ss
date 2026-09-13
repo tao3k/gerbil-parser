@@ -2,9 +2,13 @@
 ;;; -*- Gerbil -*-
 
 (import :std/test
-        :gerbil-parser/languages/support/antlr4-source
+        :gerbil-parser/language-support
+        (only-in :gerbil-parser/languages/gql/iso-39075-2024/grammar
+                 gql-iso-parser-ir)
         :gerbil-parser/languages/gql/iso-39075-2024/source
-        :gerbil-parser/src/compiler/lr)
+        (only-in :gerbil-parser/src/compiler/parser-ir parser-ir-ref)
+        :gerbil-parser/src/compiler/lr
+        (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec))
 
 (def tiny-grammar
   (string-append
@@ -34,6 +38,8 @@
         "grammar Tiny; program : missingRule EOF;\n")
        true))
     (test-case "the complete OpenGQL 1.9.0 grammar catalog is immutable"
+      (check (parser-ir-ref gql-iso-parser-ir 'schema)
+             => "gerbil-parser.parser-ir.v1")
       (check (antlr4-source-digest gql-iso-antlr4-source)
              => +gql-antlr4-digest+)
       (check (antlr4-source-name gql-iso-antlr4-source) => "GQL")
@@ -60,7 +66,7 @@
       (let* ((rules
               (antlr4-source-parser-grammar-rules gql-iso-antlr4-source))
              (spec (compile-lr-spec rules 'gqlProgram 'selective-glr)))
-        (check (cdr (assq 'schema spec)) => "gerbil-parser.lr-spec.v1")
-        (check (> (cdr (assq 'state-count spec)) 0) => #t)))))
+        (check (lr-spec-ref spec 'schema) => "gerbil-parser.lr-spec.v1")
+        (check (> (lr-spec-ref spec 'state-count) 0) => #t)))))
 
 (run-tests! antlr4-source-tests)

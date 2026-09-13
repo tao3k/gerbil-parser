@@ -16,15 +16,37 @@
         syntax-fixture-root-kind
         syntax-fixture-required-kinds)
 
+;; syntax-fixture
+;;   : (forall (k) (-> String String String String String String Symbol k (List Symbol) SyntaxFixture))
+;;   : (-> FixtureId Language Version Contract Digest Source Status RootKind (List Symbol) SyntaxFixture)
+;;   | type SyntaxFixture = immutable native-syntax fixture evidence
+;;   | doc m%
+;;       Stores source identity, expected admission state, and CST obligations.
+;;     %
+;; : (-> FixtureId LanguageId VersionId ContractId Digest SourceText Status RootKind (List Symbol) SyntaxFixture)
 (defstruct syntax-fixture
   (id language version contract source-digest source
       expected-status root-kind required-kinds)
   transparent: #t)
 
-;; The source file is resolved relative to the declaration and embedded while
-;; the module is expanded. Runtime parsing therefore has no filesystem or
-;; working-directory dependency. The declared path is deliberately absent from
-;; the fixture value and from every content identity.
+;;; Expansion resolves the source relative to its declaration. Runtime parsing
+;;; therefore has no filesystem dependency, and content identity excludes paths.
+;; defsyntax-fixture
+;;   : (-> Syntax Syntax)
+;;   | doc m%
+;;       Embeds one digest-bound syntax fixture at expansion time.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (defsyntax-fixture sample
+;;         (identity "sample" "lang" "v1" "contract.v1")
+;;         (source "sample.txt")
+;;         (expect accepted Root (Child)))
+;;       ;; => immutable syntax-fixture binding
+;;       ```
+;;       Result: the binding contains source bytes and their SHA-256 identity.
+;;     %
 (defsyntax (defsyntax-fixture stx)
   (syntax-case stx (identity source expect)
     ((_ binding
@@ -54,9 +76,24 @@
               '(required-kind ...))))))
     (_ (raise-syntax-error #f "invalid native-syntax fixture declaration" stx))))
 
-;; A corpus declaration is an expansion-time manifest. Every path remains
-;; explicit and reviewable, while the resulting runtime value contains only
-;; immutable, content-addressed fixtures.
+;;; A corpus is an expansion-time manifest: paths stay reviewable in source,
+;;; while the runtime list contains only immutable content-addressed fixtures.
+;; defsyntax-corpus
+;;   : (-> Syntax Syntax)
+;;   | doc m%
+;;       Expands accepted and rejected fixture rows into one ordered corpus.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (defsyntax-corpus samples
+;;         (identity "lang" "v1" "contract.v1")
+;;         (accepted ("ok" ok "ok.txt" Root ()))
+;;         (rejected ("bad" bad "bad.txt")))
+;;       ;; => ordered list of immutable syntax-fixture values
+;;       ```
+;;       Result: accepted rows precede rejected rows exactly as declared.
+;;     %
 (defsyntax (defsyntax-corpus stx)
   (syntax-case stx (identity accepted rejected)
     ((_ binding

@@ -5,6 +5,7 @@
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
         :gerbil-parser/src/runtime/parser
+        :gerbil-parser/src/runtime/scan
         :gerbil-parser/src/runtime/token
         :gerbil-parser/languages/arithmetic/v1/parser)
 
@@ -29,6 +30,13 @@
   (let (field (find-field (syntax-node-children node) name))
     (and field (car (syntax-field-children field)))))
 
+;; diagnostic-ref
+;; : (forall (a) (-> [(Pair Symbol a)] Symbol a))
+;; : (-> Diagnostic Symbol Datum)
+(def (diagnostic-ref diagnostic key)
+  (alet (entry (assq key diagnostic))
+    (cdr entry)))
+
 (def parser-runtime-tests
   (test-suite "parser runtime"
     (test-case "ParseArtifact is lossless and CST is an event projection"
@@ -43,7 +51,7 @@
              (right-field
               (find-field (syntax-node-children expression) 'right)))
         (check (parse-artifact-ref artifact 'schema)
-               => +parse-artifact-schema-v1+)
+               => +parse-artifact-schema+)
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-valid? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)
@@ -123,6 +131,34 @@
         (check (parse-artifact-success? artifact) => #f)
         (check (parse-artifact-valid? artifact) => #t)
         (check (length diagnostics) => 1)))
+    (test-case "quoted scanners admit doubled ISO delimiters losslessly"
+      (check (scan-quoted-string "`a``b`" 0 "`") => 6)
+      (check (scan-quoted-string "'Ada''s graph'" 0 "'") => 14)
+      (check (scan-quoted-string "`unterminated" 0 "`") => #f))
+    (test-case "profiled numeric scanners preserve declared radix boundaries"
+      (let ((prefixes '("0x" "0o" "0b"))
+            (suffixes '("M" "F" "D")))
+        (check (scan-number-literal/profile
+                "0xCA_FE" 0 prefixes "_" suffixes #t #t)
+               => 7)
+        (check (scan-number-literal/profile
+                "0o7_55" 0 prefixes "_" suffixes #t #t)
+               => 6)
+        (check (scan-number-literal/profile
+                "0b10_01" 0 prefixes "_" suffixes #t #t)
+               => 7)
+        (check (scan-number-literal/profile
+                "1_000.5E+2F" 0 prefixes "_" suffixes #t #t)
+               => 11)
+        (check (scan-number-literal/profile
+                ".5M" 0 prefixes "_" suffixes #t #t)
+               => 3)
+        (check (scan-number-literal/profile
+                "0x" 0 prefixes "_" suffixes #t #t)
+               => 1)
+        (check (scan-number-literal/profile
+                "1." 0 prefixes "_" suffixes #t #f)
+               => 1)))
     (test-case "failure emits one typed terminal and no partial CST"
       (let* ((source "1 + @")
              (artifact (parse-source arithmetic-parser source))
@@ -133,12 +169,20 @@
         (check (parse-artifact-roundtrip artifact) => source)
         (check (map event-kind events) => '(token token token token token))
         (check (length diagnostics) => 1)
-        (check (cdr (assq 'schema (car diagnostics)))
-               => +diagnostic-schema-v1+)
-        (check (cdr (assq 'code (car diagnostics)))
+        (check (diagnostic-ref (car diagnostics) 'schema)
+               => +diagnostic-schema+)
+        (check (diagnostic-ref (car diagnostics) 'code)
                => "GERBIL-PARSER-EXPRESSION")
-        (check (cdr (assq 'reasonKind (car diagnostics)))
+        (check (diagnostic-ref (car diagnostics) 'reasonKind)
                => 'parse-rejected)
+        (check (diagnostic-ref (car diagnostics) 'failureKind)
+               => 'lr-no-action)
+        (check (diagnostic-ref (car diagnostics) 'byteOffset) => 4)
+        (check (diagnostic-ref (car diagnostics) 'tokenKind) => 'unknown)
+        (check (diagnostic-ref (car diagnostics) 'tokenLexeme) => "@")
+        (check (pair? (diagnostic-ref
+                       (car diagnostics) 'expectedTerminals))
+               => #t)
         (check-exception (parse-artifact->cst artifact) true)))))
 
 (run-tests! parser-runtime-tests)

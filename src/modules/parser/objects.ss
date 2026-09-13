@@ -1,135 +1,103 @@
-;;; POO-backed grammar object families and hygienic declarations.
+;;; -*- Gerbil -*-
+;;; Boundary: checked POO grammar objects and their open behavior protocol.
+;;; Invariant: constructors extend contract-owned prototypes; section lookup
+;;; dispatches through a prototype method rather than a representation helper.
 
-(import :clan/poo/object
-        :poo-flow/src/core/object-syntax
-        ../../grammar/algebra
-        ../../grammar/lexical-algebra)
+(import (only-in :clan/poo/object .o .ref)
+        (only-in :clan/poo/mop .defgeneric element? validate)
+        (only-in :poo-flow/src/module-system/object-family/interface
+                 defpoo-object-family)
+        (only-in ./types
+                 +grammar-role-kind+
+                 +grammar-kind+
+                 +grammar-schema+
+                 GrammarRoleContract
+                 GrammarContract))
 (export +grammar-role-kind+
         +grammar-kind+
-        defgrammar-role
-        defgrammar
+        GrammarRole.
+        Grammar.
+        make-grammar-role
+        make-grammar
         grammar-role?
         grammar-role-name
         grammar-role-ref
-        grammar-role->alist
         grammar?
+        grammar-schema
         grammar-name
         grammar-parents
         grammar-roles
-        grammar->alist)
+        grammar-composition)
 
-(def +grammar-role-kind+ 'gerbil-parser-grammar-role)
-(def +grammar-kind+ 'gerbil-parser-grammar)
+;;; Boundary: role section behavior is an open POO protocol owned by the receiver.
+;; : (forall (a) (-> GrammarRole Symbol a))
+(.defgeneric (grammar-role-ref role field) slot: .section)
 
-(def grammar-role-prototype
-  (poo-core-role-object
-   (slots ((kind +grammar-role-kind+)))
-   (supers)))
+;; Resolve the contract prototype once at owner load.  POO Flow Observability
+;; treats prototype lookup inside repeated .o composition as a cold-boundary
+;; authoring defect.
+;; : PooObject
+(def GrammarRoleContract. (.ref GrammarRoleContract 'proto))
 
-(def grammar-prototype
-  (poo-core-role-object
-   (slots ((kind +grammar-kind+)
-           (schema "gerbil-parser.grammar.v1")))
-   (supers)))
+;; : PooObject
+(def GrammarRole.
+  (.o (:: self GrammarRoleContract.)
+      (.section (lambda (field) (.ref self field)))))
 
-(defsyntax (defgrammar-role stx)
-  (syntax-case stx
-      (syntax-kinds terminals lexical-rules rules extras keywords
-                    parser-entrypoints recoveries flow)
-    ((_ binding
-        (syntax-kinds (kind-name kind-category (field-name ...)) ...)
-        (terminals (terminal-name terminal-kind) ...)
-        (lexical-rules (lexical-name lexical-expression-value) ...)
-        (rules (rule-name rule-expression) ...)
-        (extras extra-name ...)
-        (keywords (keyword-name keyword-text) ...)
-        (parser-entrypoints (entry-keyword entry-action entry-effect) ...)
-        (recoveries (recovery-site recovery-code recovery-strategy) ...)
-        (flow (flow-source flow-target) ...))
-     (identifier? #'binding)
-     #'(def binding
-         (poo-core-role-object
-          (slots
-           ((kind +grammar-role-kind+)
-            (name 'binding)
-            (syntax-kinds
-             (list (list 'kind-name 'kind-category (list 'field-name ...)) ...))
-            (terminals
-             (list (list 'terminal-name 'terminal-kind) ...))
-            (lexical-rules
-             (list (list 'lexical-name
-                         (lexical-expression lexical-expression-value)) ...))
-            (rules
-             (list (list 'rule-name
-                         (grammar-expression rule-expression)) ...))
-            (extras (list (list 'extra-name) ...))
-            (keywords (list (list 'keyword-name keyword-text) ...))
-            (parser-entrypoints
-             (list (list 'entry-keyword 'entry-action 'entry-effect) ...))
-            (recoveries
-             (list (list 'recovery-site recovery-code 'recovery-strategy) ...))
-            (flow (list (list 'flow-source 'flow-target) ...))))
-          (supers grammar-role-prototype))))
-    (_ (raise-syntax-error #f "invalid grammar role declaration" stx))))
+;; : PooObject
+(def Grammar. (.ref GrammarContract 'proto))
 
-(defsyntax (defgrammar stx)
-  (syntax-case stx (supers roles)
-    ((_ binding (supers parent ...) (roles role ...))
-     (identifier? #'binding)
-     #'(def binding
-         (poo-core-role-object
-          (slots
-           ((kind +grammar-kind+)
-            (name 'binding)
-            (parents (list parent ...))
-            (roles (list role ...))))
-          (supers grammar-prototype))))
-    (_ (raise-syntax-error #f "invalid grammar declaration" stx))))
+;; : (-> Symbol List List List List List List List List List List GrammarRole)
+(def (make-grammar-role name-value syntax-kinds-value terminals-value
+                        lexical-rules-value rules-value extras-value
+                        keywords-value parser-entrypoints-value
+                        recoveries-value flow-value)
+  (validate
+   GrammarRoleContract
+   (.o (:: @ GrammarRole.)
+       kind: +grammar-role-kind+
+       name: name-value
+       syntax-kinds: syntax-kinds-value
+       terminals: terminals-value
+       lexical-rules: lexical-rules-value
+       rules: rules-value
+       extras: extras-value
+       keywords: keywords-value
+       parser-entrypoints: parser-entrypoints-value
+       recoveries: recoveries-value
+       flow: flow-value)))
 
+;; : (-> Symbol (List Grammar) (List GrammarRole) Grammar)
+(def (make-grammar name-value parent-values role-values
+                   (composition-values '()))
+  (validate
+   GrammarContract
+   (.o (:: @ Grammar.)
+       kind: +grammar-kind+
+       schema: +grammar-schema+
+       name: name-value
+       parents: parent-values
+       roles: role-values
+       composition: composition-values)))
+
+(defpoo-object-family
+  (accessors
+   (grammar-role-name name))
+  (projections))
+
+;; : (-> Object Boolean)
 (def (grammar-role? value)
-  (and (object? value)
-       (with-catch
-        (lambda (_failure) #f)
-        (lambda ()
-          (eq? (.ref value 'kind) +grammar-role-kind+)))))
+  (element? GrammarRoleContract value))
 
-(def (grammar-role-name value)
-  (.ref value 'name))
+(defpoo-object-family
+  (accessors
+   (grammar-schema schema)
+   (grammar-name name)
+   (grammar-parents parents)
+   (grammar-roles roles)
+   (grammar-composition composition))
+  (projections))
 
-(def (grammar-role->alist value)
-  (list (cons 'kind (.ref value 'kind))
-        (cons 'name (.ref value 'name))
-        (cons 'syntax-kinds (.ref value 'syntax-kinds))
-        (cons 'terminals (.ref value 'terminals))
-        (cons 'lexical-rules (.ref value 'lexical-rules))
-        (cons 'rules (.ref value 'rules))
-        (cons 'extras (.ref value 'extras))
-        (cons 'keywords (.ref value 'keywords))
-        (cons 'parser-entrypoints (.ref value 'parser-entrypoints))
-        (cons 'recoveries (.ref value 'recoveries))
-        (cons 'flow (.ref value 'flow))))
-
-(def (grammar-role-ref role field)
-  (.ref role field))
-
+;; : (-> Object Boolean)
 (def (grammar? value)
-  (and (object? value)
-       (with-catch
-        (lambda (_failure) #f)
-        (lambda ()
-          (eq? (.ref value 'kind) +grammar-kind+)))))
-
-(def (grammar-name value)
-  (.ref value 'name))
-
-(def (grammar-parents value)
-  (.ref value 'parents))
-
-(def (grammar-roles value)
-  (.ref value 'roles))
-
-(def (grammar->alist value)
-  (list (cons 'schema (.ref value 'schema))
-        (cons 'name (.ref value 'name))
-        (cons 'parents (.ref value 'parents))
-        (cons 'roles (.ref value 'roles))))
+  (element? GrammarContract value))

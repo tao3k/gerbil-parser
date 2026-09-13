@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Native source fixtures for the arithmetic v1 reference language.
 
-(import ../../support/fixture)
+(import (only-in :gerbil-parser/language-support defsyntax-fixture))
 (export arithmetic-v1-basic-fixture)
 
 (defsyntax-fixture arithmetic-v1-basic-fixture

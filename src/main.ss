@@ -1,11 +1,14 @@
 ;;; -*- Gerbil -*-
-;;; Native AOT command entrypoint.
+;;; Native AOT command entrypoint for the thin gparse command surface.
+;;; Parsing and compilation remain library-owned; this module only maps commands to owners.
 
-(import :std/getopt
-        :std/sugar
-        ./cli)
+(import (only-in :std/getopt argument call-with-getopt command)
+        (only-in :std/sugar let-hash)
+        (only-in ./cli
+                 gparse-build gparse-check gparse-inspect gparse-test))
 (export main)
 
+;; : (-> String ... Void)
 (def (main . args)
   (def build-command
     (command 'build help: "emit the canonical reference Parser IR"))
@@ -24,6 +27,7 @@
     check-command
     test-command))
 
+;; : (-> Symbol HashTable Void)
 (def (gparse-main command-name options)
   (let-hash options
     (exit

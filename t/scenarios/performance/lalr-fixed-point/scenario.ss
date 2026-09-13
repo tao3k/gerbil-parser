@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Classic LALR grammar scenarios and algorithmic complexity receipts.
 
-(import :gerbil-parser/src/compiler/lr)
+(import (only-in :gerbil-parser/src/compiler/lr lr-spec-ref)
+        (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec))
 (export lalr-fixed-point-scenario
         lalr-fixed-point-scenario-pass?)
 

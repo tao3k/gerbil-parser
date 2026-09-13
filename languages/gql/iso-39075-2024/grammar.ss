@@ -1,16 +1,17 @@
 ;;; -*- Gerbil -*-
 ;;; ISO/IEC 39075:2024 GQL generated from the pinned OpenGQL 1.9.0 grammar.
 
-(import :gerbil-parser/languages/support/grammar-source)
+(import :gerbil-parser/language-support)
 (export +gql-standard-reference+
         +gql-standard-edition+
         +gql-opengql-reference-version+
         +gql-opengql-reference-commit+
         +gql-antlr4-digest+
-        +gql-syntax-contract-v1+
+        +gql-syntax-contract+
         +gql-representative-query+
         gql-iso-language-grammar
         gql-iso-grammar
+        gql-iso-bound-grammar-ir
         gql-iso-parser-ir
         gql-iso-parser)
 
@@ -21,7 +22,7 @@
   "16ea71bd320ad07fd2c46a3066afbaef7d226922")
 (def +gql-antlr4-digest+
   "sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf")
-(def +gql-syntax-contract-v1+ "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
+(def +gql-syntax-contract+ "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
 (def +gql-representative-query+
   (string-append
    "MATCH (person:Person {name: \"Ada\"}) "

@@ -4,7 +4,7 @@
 (import :gerbil-parser/src/language/grammar)
 (export +hcl-native-syntax-version+
         +hcl-native-syntax-commit+
-        +hcl-syntax-contract-v1+
+        +hcl-syntax-contract+
         hcl-v2-24-language-grammar
         hcl-v2-24-grammar
         hcl-v2-24-parser-ir
@@ -13,10 +13,10 @@
 (def +hcl-native-syntax-version+ "v2.24.0")
 (def +hcl-native-syntax-commit+
   "6b5068090eef06b1f127f61529db5ba0be7ed343")
-(def +hcl-syntax-contract-v1+ "hcl-native-v2.24.0.v1")
+(def +hcl-syntax-contract+ "hcl-native-v2.24.0.v1")
 
 (deflanguage-grammar hcl-v2-24
-  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract-v1+)
+  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract+)
   (syntax-kinds
    (HclFile node (item))
    (Body node (item))

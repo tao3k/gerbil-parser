@@ -5,9 +5,11 @@
         :asp-gerbil-scheme/src/benchmark/framework
         :gerbil-parser/languages/hcl/v2-24/fixtures
         :gerbil-parser/languages/hcl/v2-24/parser
-        :gerbil-parser/languages/support/fixture
+        :gerbil-parser/language-support
         :gerbil-parser/languages/gql/iso-39075-2024/fixtures
         :gerbil-parser/languages/gql/iso-39075-2024/parser
+        :gerbil-parser/languages/cypher/opencypher-2024-1/fixtures
+        :gerbil-parser/languages/cypher/opencypher-2024-1/parser
         :gerbil-parser/languages/tla-plus/1-5/fixtures
         :gerbil-parser/languages/tla-plus/1-5/parser
         :gerbil-parser/src/runtime/artifact)
@@ -27,11 +29,13 @@
      fixtures))
   (parse-corpus parse-hcl-v2-24 hcl-v2-24-official-accepted-fixtures)
   (parse-corpus parse-gql-iso-39075-2024 gql-iso-official-fixtures)
+  (parse-corpus parse-opencypher-2024-1
+                opencypher-2024-1-accepted-fixtures)
   (parse-corpus parse-tla-plus-1-5 tla-plus-1-5-fixtures))
 
 (def versioned-language-benchmark-tests
   (test-suite "versioned language benchmark"
-    (test-case "HCL, GQL, and TLA+ share the generic parser performance contract"
+    (test-case "HCL, GQL, openCypher, and TLA+ share the parser performance contract"
       (check (benchmark-contract-valid? benchmark-path) => #t)
       (parse-language-batch)
       (##gc)

@@ -1,14 +1,22 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
+;;; Acceptance owner for pinned TLA+ sources, structural CST obligations,
+;;; nested-comment losslessness, and typed unterminated-comment failure.
 
-(import :std/test
+(import (only-in :std/test check run-tests! test-case test-suite)
         :gerbil-parser/languages/tla-plus/1-5/parser
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
-        ../../support/fixture
-        ./fixtures)
+        (only-in :gerbil-parser/language-support
+                 syntax-fixture-required-kinds
+                 syntax-fixture-source
+                 syntax-fixture-source-digest)
+        (only-in ./fixtures tla-plus-1-5-fixtures))
 (export tla-plus-1-5-parser-test)
 
+;;; CST traversal intentionally treats fields as transparent containers; the
+;;; observable contract is the ordered set of emitted syntax-node kinds.
+;; : (-> CSTValue (List Symbol))
 (def (cst-node-kinds value)
   (cond
    ((syntax-node? value)
@@ -18,6 +26,7 @@
     (apply append (map cst-node-kinds (syntax-field-children value))))
    (else '())))
 
+;; : (-> ParseArtifact Symbol Integer)
 (def (artifact-token-count artifact kind)
   (length
    (filter (lambda (event)
@@ -25,11 +34,12 @@
                   (eq? (token-event-token-kind event) kind)))
            (parse-artifact-events artifact))))
 
+;; : TestSuite
 (def tla-plus-1-5-parser-test
   (test-suite "TLA+ 1.5 versioned language pack"
     (test-case "grammar and corpus identities are immutable"
       (check +tla-plus-language-version+ => "1.5.0")
-      (check +tla-plus-syntax-contract-v1+ => "tla-plus.module-core.v1")
+      (check +tla-plus-syntax-contract+ => "tla-plus.module-core.v1")
       (check +tla-plus-grammar-oracle-version+ => "tree-sitter-tlaplus-1.5.0")
       (check +tla-plus-grammar-oracle-commit+
              => "8a8413f1d08e7ee40b347206d26eac4324db9fd9")

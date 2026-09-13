@@ -1,12 +1,22 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
-(import ../modules/parser/types
-        ./identity
-        ./recognition
-        ./token)
-(export +parse-artifact-schema-v1+
-        +diagnostic-schema-v1+
+(import (only-in :std/misc/func compose every-of)
+        (only-in :std/sugar alet cut if-let)
+        (only-in ../modules/parser/types
+                 +diagnostic-schema+ +parse-artifact-schema+)
+        (only-in ./identity sha256-text)
+        (only-in ./recognition
+                 recognition-child-field recognition-child-value
+                 recognition-fragment-children recognition-fragment-end
+                 recognition-fragment? recognition-node-children
+                 recognition-node-end recognition-node-kind recognition-node?
+                 recognition-node-start recognition-value-end
+                 recognition-value-start)
+        (only-in ./token
+                 token? token-end token-kind token-lexeme token-start))
+(export +parse-artifact-schema+
+        +diagnostic-schema+
         sha256-text
         make-success-parse-artifact
         make-failure-parse-artifact
@@ -24,47 +34,76 @@
         event-start
         event-end)
 
+;; parse-artifact-ref
+;; : (-> Alist Symbol Datum)
 (def (parse-artifact-ref artifact key)
-  (let (entry (assq key artifact))
-    (and entry (cdr entry))))
+  (alet (entry (assq key artifact))
+    (cdr entry)))
 
-(def (parse-artifact-events artifact)
-  (parse-artifact-ref artifact 'events))
+;; parse-artifact-events
+;; : (forall (a) (-> [(Pair Symbol a)] [Vector]))
+;; : (-> Alist List)
+(def parse-artifact-events (cut parse-artifact-ref <> 'events))
 
-(def (parse-artifact-status artifact)
-  (parse-artifact-ref artifact 'status))
+;; parse-artifact-status
+;; : (forall (a) (-> [(Pair Symbol a)] Symbol))
+;; : (-> Alist Symbol)
+(def parse-artifact-status (cut parse-artifact-ref <> 'status))
 
-(def (parse-artifact-success? artifact)
-  (eq? (parse-artifact-status artifact) 'accepted))
+;; parse-artifact-success?
+;; : (-> Alist Boolean)
+(def parse-artifact-success?
+  (compose (cut eq? <> 'accepted) parse-artifact-status))
 
+;; event-kind
+;; : (-> Vector Symbol)
 (def (event-kind event)
-  (and (vector? event)
-       (positive? (vector-length event))
-       (vector-ref event 0)))
+  (if-let (event (and (vector? event)
+                      (positive? (vector-length event))
+                      event))
+    (vector-ref event 0)
+    #f))
 
-(def (token-event? event)
-  (and (vector? event)
-       (= (vector-length event) 6)
-       (eq? (event-kind event) 'token)))
+;; token-event?
+;; : (-> Vector Boolean)
+(def +token-event-predicates+
+  (list vector?
+        (lambda (event) (= (vector-length event) 6))
+        (lambda (event) (eq? (event-kind event) 'token))))
+(def token-event? (cut every-of +token-event-predicates+ <>))
 
-(def (token-event-id event) (vector-ref event 1))
-(def (token-event-token-kind event) (vector-ref event 2))
-(def (token-event-lexeme event) (vector-ref event 3))
+;; token-event-id
+;; : (-> Vector Fixnum)
+(def token-event-id (cut vector-ref <> 1))
+;; token-event-token-kind
+;; : (-> Vector Symbol)
+(def token-event-token-kind (cut vector-ref <> 2))
+;; token-event-lexeme
+;; : (-> Vector String)
+(def token-event-lexeme (cut vector-ref <> 3))
 
-(def (event-start event)
-  (case (event-kind event)
-    ((start-node) (vector-ref event 3))
-    ((start-field) (vector-ref event 2))
-    ((token) (vector-ref event 4))
-    (else #f)))
+;; event-offset
+;; : (-> Alist Vector Fixnum)
+(def (event-offset offsets event)
+  (alet (entry (assq (event-kind event) offsets))
+    (vector-ref event (cdr entry))))
 
-(def (event-end event)
-  (case (event-kind event)
-    ((finish-node) (vector-ref event 3))
-    ((finish-field) (vector-ref event 2))
-    ((token) (vector-ref event 5))
-    (else #f)))
+(def +event-start-offsets+
+  '((start-node . 3) (start-field . 2) (token . 4)))
 
+;; event-start
+;; : (-> Vector Fixnum)
+(def event-start (cut event-offset +event-start-offsets+ <>))
+
+(def +event-end-offsets+
+  '((finish-node . 3) (finish-field . 2) (token . 5)))
+
+;; event-end
+;; : (-> Vector Fixnum)
+(def event-end (cut event-offset +event-end-offsets+ <>))
+
+;; make-token-event
+;; : (-> Fixnum Token Vector)
 (def (make-token-event id source-token)
   (vector 'token id
           (token-kind source-token)
@@ -72,6 +111,10 @@
           (token-start source-token)
           (token-end source-token)))
 
+;;; Linearizes the recognition tree and source tokens into one lossless ordered event stream.
+;;; Node/token identifiers are allocated once; source gaps become trivia only here.
+;; recognition-events
+;; : (-> List Recognition Boolean Fixnum List)
 (def (recognition-events tokens root trivia? source-byte-length)
   (let ((remaining tokens)
         (events '())
@@ -155,28 +198,27 @@
             (set-cdr! rest found)
             (reverse! next rest)))))))
 
+;; flat-token-events
+;; : (-> List List)
 (def (flat-token-events tokens)
-  (let loop ((rest tokens) (id 0) (events '()))
-    (if (null? rest)
-      (let reverse! ((pending events) (found '()))
-        (if (null? pending)
-          found
-          (let (next (cdr pending))
-            (set-cdr! pending found)
-            (reverse! next pending))))
-      (loop (cdr rest) (+ id 1)
-            (cons (make-token-event id (car rest)) events)))))
+  (map make-token-event (iota (length tokens)) tokens))
 
+;; artifact
+;; : (-> String String Symbol List List Alist)
 (def (artifact grammar-digest source status events diagnostics)
-  (list (cons 'schema +parse-artifact-schema-v1+)
-        (cons 'grammarDigest grammar-digest)
-        (cons 'sourceDigest (sha256-text source))
-        (cons 'sourceByteLength
-              (u8vector-length (string->utf8 source)))
-        (cons 'status status)
-        (cons 'events events)
-        (cons 'diagnostics diagnostics)))
+  (map cons
+       '(schema grammarDigest sourceDigest sourceByteLength
+                status events diagnostics)
+       (list +parse-artifact-schema+
+             grammar-digest
+             (sha256-text source)
+             (u8vector-length (string->utf8 source))
+             status
+             events
+             diagnostics)))
 
+;; make-success-parse-artifact
+;; : (-> String String List Recognition Boolean Alist)
 (def (make-success-parse-artifact grammar-digest source tokens root trivia?)
   (let* ((source-byte-length (u8vector-length (string->utf8 source)))
          (value
@@ -185,6 +227,8 @@
                     '())))
     value))
 
+;; make-failure-parse-artifact
+;; : (-> String String List Datum Alist)
 (def (make-failure-parse-artifact grammar-digest source tokens diagnostic)
   (let (value
         (artifact grammar-digest source 'rejected
@@ -192,19 +236,29 @@
                   (list diagnostic)))
     value))
 
+;; digest?
+;; : (-> Datum Boolean)
 (def (digest? value)
   (and (string? value)
        (= (string-length value) 71)
        (string=? (substring value 0 7) "sha256:")))
 
+;; require-event-shape
+;; : (-> Vector Fixnum Void)
 (def (require-event-shape event length)
   (unless (and (vector? event) (= (vector-length event) length))
     (error "invalid CST event shape" event)))
 
+;;; Validates identity, byte ranges, nesting, and terminal balance before publication.
+;;; The admitted source string is returned so roundtrip does not traverse and
+;;; concatenate the complete event stream a second time. Malformed streams
+;;; still fail closed and never become observable parse artifacts.
+;; validate-parse-artifact!
+;; : (-> Alist String)
 (def (validate-parse-artifact! artifact)
   (unless (and (list? artifact)
                (equal? (parse-artifact-ref artifact 'schema)
-                       +parse-artifact-schema-v1+)
+                       +parse-artifact-schema+)
                (digest? (parse-artifact-ref artifact 'grammarDigest))
                (digest? (parse-artifact-ref artifact 'sourceDigest)))
     (error "invalid ParseArtifact identity" artifact))
@@ -304,20 +358,26 @@
         ((rejected)
          (unless (and (= root-count 0) (= (length diagnostics) 1))
            (error "rejected ParseArtifact exposes partial structure" artifact))))
-      #t)))
+      source)))
 
+;; parse-artifact-valid?
+;; : (forall (a) (-> [(Pair Symbol a)] Boolean))
+;; : (-> Alist Boolean)
 (def (parse-artifact-valid? artifact)
   (with-catch
    (lambda (_condition) #f)
-   (lambda () (validate-parse-artifact! artifact))))
+   (lambda ()
+     (validate-parse-artifact! artifact)
+     #t)))
 
+;; parse-artifact-roundtrip
+;; : (forall (a) (-> [(Pair Symbol a)] String))
+;; : (-> Alist String)
 (def (parse-artifact-roundtrip artifact)
-  (unless (parse-artifact-valid? artifact)
-    (error "cannot roundtrip invalid ParseArtifact"))
-  (call-with-output-string
-   (lambda (port)
-     (for-each
-      (lambda (event)
-        (when (token-event? event)
-          (display (token-event-lexeme event) port)))
-      (parse-artifact-events artifact)))))
+  (let (source
+        (with-catch
+         (lambda (_condition) #f)
+         (lambda () (validate-parse-artifact! artifact))))
+    (unless source
+      (error "cannot roundtrip invalid ParseArtifact"))
+    source))

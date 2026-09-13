@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; OpenGQL 1.9.0 immutable grammar-source admission for ISO GQL 2024.
 
-(import :gerbil-parser/languages/support/grammar-source)
+(import :gerbil-parser/language-support)
 (export +gql-antlr4-digest+
         gql-iso-antlr4-source)
 

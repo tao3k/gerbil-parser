@@ -1,12 +1,18 @@
 ;;; Grammar IR to immutable parser-machine IR compilation.
 
-(import ./lr
-        ../grammar/algebra
-        ../grammar/lexical-algebra)
+(import (only-in :std/sugar alet)
+        (only-in ./lr-compiler compile-lr-spec)
+        (only-in ../grammar/algebra
+                 grammar-expression? grammar-expression-references
+                 grammar-expression-terminals)
+        (only-in ../grammar/lexical-algebra lexical-expression?))
 (export compile-parser
         parser-ir-ref
         parser-ir-canonical)
 
+;; : (-> (List SyntaxKindRow) Symbol)
+;; require-root
+;; : (-> List Symbol)
 (def (require-root syntax-kinds)
   (if (null? syntax-kinds)
     (error "parser grammar requires a root syntax kind")
@@ -66,18 +72,25 @@
           (car row))))
      rules)))
 
+;; validate-extras
+;; : (-> List List Void)
 (def (validate-extras extras terminals)
   (require-known (row-names extras) (row-names terminals) 'extras))
 
+;; flow-connected?
+;; : (-> List Boolean)
 (def (flow-connected? flow)
   (and (pair? flow)
        (equal? (car flow) '(source lexical))
        (equal? (cadr (car (reverse flow))) 'cst)
-       (let loop ((rest flow))
-         (or (null? (cdr rest))
-             (and (equal? (cadr (car rest)) (car (cadr rest)))
-                  (loop (cdr rest)))))))
+       (or (null? (cdr flow))
+           (andmap (lambda (edge next-edge)
+                     (equal? (cadr edge) (car next-edge)))
+                   flow
+                   (cdr flow)))))
 
+;; require-entrypoint
+;; : (-> List List Symbol)
 (def (require-entrypoint entrypoints rules)
   (when (null? entrypoints)
     (error "parser grammar requires an entrypoint"))
@@ -85,6 +98,8 @@
     (require-known (list root-rule) (row-names rules) 'entrypoint)
     root-rule))
 
+;; compile-parser
+;; : (-> Alist Alist)
 (def (compile-parser grammar)
   (unless (and (list? grammar)
                (equal? (let (row (assq 'schema grammar))
@@ -112,6 +127,8 @@
     (list
      (cons 'schema "gerbil-parser.parser-ir.v1")
      (cons 'grammar (parser-ir-ref grammar-ir 'grammar))
+     (cons 'compositionDigest
+           (parser-ir-ref grammar-ir 'compositionDigest))
      (cons 'root-kind (require-root syntax-kinds))
      (cons 'root-rule (require-entrypoint entrypoints rules))
      (cons 'lr-spec
@@ -129,9 +146,11 @@
      (cons 'recoveries (parser-ir-ref grammar-ir 'recoveries))
      (cons 'flow flow))))
 
+;; parser-ir-ref
+;; : (-> Alist Symbol Datum)
 (def (parser-ir-ref ir key)
-  (let (entry (assq key ir))
-    (and entry (cdr entry))))
+  (alet (entry (assq key ir))
+    (cdr entry)))
 
 (def (parser-ir-canonical ir)
   (call-with-output-string

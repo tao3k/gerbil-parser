@@ -7,11 +7,46 @@
         :gerbil-parser/src/compiler/normalize
         :gerbil-parser/src/compiler/parser-ir
         :gerbil-parser/src/compiler/lr
-        :gerbil-parser/src/modules/parser/objects
+        (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
+        :gerbil-parser/src/modules/parser/interface
         :gerbil-parser/src/runtime/recognition
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-parse/receipt)
         :gerbil-parser/src/runtime/token
         :gerbil-parser/src/compiler/machine
         :gerbil-parser/languages/arithmetic/v1/parser)
+
+(defgrammar-role base-lexical-role
+  (syntax-kinds
+   (Punctuation token (text)))
+  (terminals
+   (punctuation Punctuation))
+  (lexical-rules
+   (punctuation (literals "+" "-" "*" "**" "/" "(" ")")))
+  (rules)
+  (extras)
+  (keywords)
+  (parser-entrypoints)
+  (recoveries)
+  (flow))
+
+(defgrammar base-object-grammar
+  (supers)
+  (roles base-lexical-role))
+
+(defgrammar-role appended-identifier-role
+  (syntax-kinds (Identifier token (text)))
+  (terminals (identifier Identifier))
+  (lexical-rules (identifier (identifier)))
+  (rules)
+  (extras)
+  (keywords)
+  (parser-entrypoints)
+  (recoveries)
+  (flow))
+
+(defgrammar-compose explicit-composed-grammar
+  (supers base-object-grammar)
+  (compose (append appended-identifier-role)))
 
 (defgrammar-role conflicting-lexical-role
   (syntax-kinds
@@ -28,7 +63,7 @@
   (flow))
 
 (defgrammar conflicting-arithmetic-grammar
-  (supers arithmetic-grammar)
+  (supers base-object-grammar)
   (roles conflicting-lexical-role))
 
 (defgrammar-role unresolved-reference-role
@@ -129,6 +164,9 @@
 (def (condition-message thunk)
   (with-catch (lambda (condition) (error-message condition)) thunk))
 
+(def (row-ref row key)
+  (let (entry (assq key row)) (and entry (cdr entry))))
+
 (def (compile-composed grammar)
   (compile-parser (compile-grammar grammar)))
 
@@ -167,18 +205,52 @@
 
 (def grammar-composition-tests
   (test-suite "grammar composition"
+    (test-case "POO contracts own grammar values and section dispatch"
+      (check (grammar-role? base-lexical-role) => #t)
+      (check (grammar? base-object-grammar) => #t)
+      (check (grammar-role-name base-lexical-role) => 'base-lexical-role)
+      (check (grammar-role-ref base-lexical-role 'terminals)
+             => '((punctuation Punctuation)))
+      (check (row-ref (grammar->alist base-object-grammar) 'schema)
+             => "gerbil-parser.grammar.v1")
+      (check-exception
+       (make-grammar 'projection-is-not-a-parent
+                     (list arithmetic-grammar)
+                     (list base-lexical-role))
+       true))
     (test-case "normalization is deterministic"
       (check (grammar-ir-canonical (compile-grammar arithmetic-grammar))
              =>
              (grammar-ir-canonical (compile-grammar arithmetic-grammar))))
+    (test-case "explicit POO composition emits an identity-bearing receipt"
+      (let-values (((ir receipt)
+                    (compile-grammar/receipt explicit-composed-grammar)))
+        (check (grammar-ir-ref ir 'terminals)
+               => '((punctuation Punctuation) (identifier Identifier)))
+        (check (row-ref receipt 'schema)
+               => "gerbil-parser.grammar-composition-receipt.v1")
+        (check (grammar-ir-ref ir 'compositionDigest)
+               => (row-ref receipt 'compositionDigest))
+        (check (map (lambda (step) (row-ref step 'operation))
+                    (row-ref receipt 'steps))
+               => '(merge append))))
+    (test-case "explicit append fails closed on an existing identity"
+      (let (conflicting
+            (make-grammar
+             'conflicting-explicit-append
+             (list base-object-grammar)
+             '()
+             (list (cons 'append base-lexical-role))))
+        (check (condition-message (lambda () (compile-grammar conflicting)))
+               => "grammar append target already exists")))
     (test-case "parser IR preserves declared flow"
       (check (parser-ir-ref arithmetic-parser-ir 'schema)
              => "gerbil-parser.parser-ir.v1")
       (check (parser-ir-ref arithmetic-parser-ir 'flow)
-             => '((source lexical) (lexical expression) (expression cst))))
+             => '((source lexical) (lexical parser) (parser cst))))
     (test-case "deterministic LALR(1) compilation admits declared precedence"
       (let (lr-spec (parser-ir-ref arithmetic-parser-ir 'lr-spec))
-        (check (cdr (assq 'schema lr-spec))
+        (check (lr-spec-ref lr-spec 'schema)
                => "gerbil-parser.lr-spec.v1")
         (check (lr-spec-ref lr-spec 'algorithm)
                => 'lalr1-lr0-fixed-point-v1)
@@ -186,7 +258,7 @@
                => (lr-spec-ref lr-spec 'state-count))
         (check (> (lr-spec-ref lr-spec 'lookahead-item-visit-count) 0)
                => #t)
-        (check (> (cdr (assq 'state-count lr-spec)) 0) => #t)))
+        (check (> (lr-spec-ref lr-spec 'state-count) 0) => #t)))
     (test-case "language declarations materialize LR tables during AOT expansion"
       (check (parser-ir-ref arithmetic-parser-ir 'materialization)
              => 'aot-expansion)
@@ -230,10 +302,11 @@
        (compile-composed invalid-terminal-kind-grammar)
        true))
     (test-case "precedence-bearing grammars compile to the LR owner"
-      (check (cdr (assq 'schema
-                        (parser-ir-ref
-                         (compile-composed unsupported-precedence-grammar)
-                         'lr-spec)))
+      (check (lr-spec-ref
+              (parser-ir-ref
+               (compile-composed unsupported-precedence-grammar)
+               'lr-spec)
+              'schema)
              => "gerbil-parser.lr-spec.v1"))
     (test-case "unresolved LR ambiguity fails closed"
       (check (condition-message
@@ -267,7 +340,18 @@
       (check (condition-message
               (lambda ()
                 (compile-lr-spec dynamic-precedence-rules 'source-file)))
-             => "dynamic precedence requires selective GLR admission"))
+             => "dynamic precedence requires selective GLR admission")
+      (let (spec
+            (compile-lr-spec dynamic-precedence-rules
+                             'source-file 'selective-glr))
+        (let-values (((root rest receipt)
+                      (lr-parse/receipt
+                       spec (list (make-token 'identifier "x" 0 1)))))
+          (check (recognition-node-kind root) => 'SourceFile)
+          (check rest => '())
+          (check (row-ref receipt 'dynamicScore) => 1)
+          (check (row-ref receipt 'schema)
+                 => "gerbil-parser.selective-glr-receipt.v1"))))
     (test-case "non-associative precedence rejects only chained operators"
       (let (spec (compile-lr-spec nonassociative-rules 'source-file))
         (let-values (((root rest)

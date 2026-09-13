@@ -1,0 +1,93 @@
+#+title: RFC 0005 — Stable v1 Compiler and Runtime Sidecars
+#+startup: overview
+
+* Status
+
+Implemented. This RFC extends compiler and runtime evidence without changing
+the accepted Grammar IR v1, Parser IR v1, or ParseArtifact v1 schemas.
+
+* Bound declarations and composition
+
+Both =deflanguage= and =deflanguage-grammar= lower through the same Grammar IR
+authority. The expansion additionally publishes a bound declaration sidecar
+with structured =(package grammar namespace name)= identities, origin module,
+declaration digest, and hygienic macro lineage. Names in each namespace remain
+the package or source grammar's native names; the sidecar does not invent a
+second naming convention. GQL bindings retain ANTLR rule names such as
+=gqlProgram= and openCypher bindings retain ISO BNF names such as =match
+statement=. Both source projections carry their pinned grammar path and native
+rule coordinate. =defgrammar-syntax= macros expand only during the language
+declaration phase and introduce no runtime dependency.
+
+POO grammars retain legacy role merging. =defgrammar-compose= adds ordered
+=append=, =override=, and =remove= steps. Missing targets and append collisions
+fail closed. The operation sequence produces a deterministic composition
+receipt and digest; no implicit last-wins behavior exists.
+
+* Lexer and selective GLR
+
+Lexical dispatch uses global longest consumption, lexical precedence for ties,
+and declaration order only when both are equal. External scanner declarations
+carry a version and a hygienically bound scanner procedure.
+
+Selective GLR actions retain the stable-v1 ordered fast path for static forks.
+Grammars with dynamic precedence evaluate complete admitted branches within an
+explicit budget: scores select complete branches, identical ties merge, and
+distinct equal-score ties use declaration order while recording ambiguity.
+The receipt keeps =branchesExplored= as the count of all attempted fork actions
+and adds =speculativeBranchesExplored= for non-preferred alternatives.  The
+budget applies to that speculative count: a long successful preferred path is
+observable but cannot exhaust the fallback-search budget merely by crossing
+many conflict cells.  Branch sites and merge counts remain published in the
+same additive stable-v1 receipt; the Parser IR remains an immutable AOT table.
+
+The openCypher source adapter uses exact-source, digest-bearing overlays rather
+than an alternate grammar.  Its result path is right-recursive (=R | P | P L=,
+equivalent to =P+ | P* R=), nullable prefixes are explicit choices, qualified
+references are left-factored, and list/map constructors own the syntax already
+subsumed by their literal subsets.  These normalizations reduce the pinned
+2024.1 table to 1,320 states and 690 fork cells while retaining source
+coordinates and replacement digests in Bound Grammar IR.
+
+* AOT materialization storage
+
+Language expansion validates Grammar IR, Bound Grammar IR, and Parser IR before
+publication, then writes their serialized bytes as zlib-compressed,
+content-addressed =.gir.z= files below
+=gerbil-parser/compiled-language-artifacts/= in the compiler output tree.  The
+generated module contains only the relative locator and expected SHA-256.  At
+module initialization it resolves the sidecar through Gerbil's ordinary load
+path, verifies the digest and schema, and fails closed before constructing the
+parser machine if either differs or the sidecar is absent.
+
+This is storage for already generated immutable IR, not runtime grammar
+interpretation: parse requests still execute the AOT LR tables.  Keeping the
+payload outside the Gambit translation unit also prevents large grammars from
+becoming per-character C initializer forests; the build remains portable and
+uses its configured C compiler without a compiler-specific fallback.
+
+* Recovery and incremental parsing
+
+Recovery performs deterministic private one-edit search for =MISSING=,
+=SKIPPED=, and =ERROR= candidates. The returned ParseArtifact remains the
+original rejected v1 artifact. A recovery receipt records ownership, strategy,
+cost, byte evidence, budget, and candidate outcome; no partial CST is exposed.
+
+Incremental parsing accepts a byte-addressed Edit v1, reuses only the maximal
+token prefix that cannot touch the edit, re-lexes from the preceding safe
+boundary, and submits the complete stream through the ordinary parser and
+ParseArtifact v1 commit path. The receipt records reused token identities and
+the re-lex boundary. Acceptance requires equality with a fresh parse.
+
+* POO Flow Observability
+
+The POO grammar-object owner consumes POO Flow's public Observability interface
+only from tests. Its reader-native authoring gate rejects contract prototype
+lookups nested inside repeated =.o= composition; stable prototypes are resolved
+once at module load. A typed memory span records bounded heap and live-growth
+evidence for checked =GrammarRole= and =Grammar= construction, while the ASP
+Gerbil benchmark contract independently enforces elapsed-time and RSS policy.
+
+These receipts qualify development and compiler-side POO construction. They do
+not enter the generated parser machine, do not instrument the runtime hot path,
+and do not claim that a source-only observation executed runtime behavior.

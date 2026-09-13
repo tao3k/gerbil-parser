@@ -1,12 +1,16 @@
 ;;; -*- Gerbil -*-
 ;;; Language-neutral scanner primitives used by generated lexers.
 
-(import ./token)
+(import (only-in :std/misc/func any-of)
+        (only-in :std/sugar cut)
+        (only-in ./token make-token))
+
 (export scan-whitespace
         scan-horizontal-whitespace
         scan-newline
         scan-decimal-digits
         scan-number-literal
+        scan-number-literal/profile
         scan-identifier
         scan-quoted-string
         scan-quoted-strings
@@ -17,6 +21,8 @@
         scan-longest-literal
         scan-emit)
 
+;; Scanner functions return the exclusive source-character end offset or #f.
+;; : (-> String Nat (-> Char Boolean) (Maybe Nat))
 (def (scan-while source start predicate)
   (let (length (string-length source))
     (let loop ((offset start))
@@ -24,64 +30,217 @@
         (loop (+ offset 1))
         offset))))
 
+;; identifier-start?
+;; : (-> Char Boolean)
 (def (identifier-start? ch)
-  (or (char-alphabetic? ch) (char=? ch #\_)))
+  (any-of (list char-alphabetic? (cut char=? <> #\_)) ch))
 
+;; identifier-rest?
+;; : (-> Char Boolean)
 (def (identifier-rest? ch)
-  (or (identifier-start? ch) (char-numeric? ch) (char=? ch #\-)))
+  (any-of (list identifier-start? char-numeric? (cut char=? <> #\-)) ch))
 
-(def (scan-whitespace source start)
-  (and (char-whitespace? (string-ref source start))
-       (scan-while source start char-whitespace?)))
+;; scan-nonempty-while
+;; : (-> Procedure Procedure String Fixnum Fixnum)
+(def (scan-nonempty-while first-predicate rest-predicate source start)
+  (and (first-predicate (string-ref source start))
+       (scan-while source start rest-predicate)))
 
+;; scan-whitespace
+;; : (-> String Fixnum Fixnum)
+(def scan-whitespace
+  (cut scan-nonempty-while char-whitespace? char-whitespace? <> <>))
+
+;; horizontal-whitespace?
+;; : (-> Char Boolean)
 (def (horizontal-whitespace? ch)
-  (or (char=? ch #\space) (char=? ch #\tab)))
+  (any-of (list (cut char=? <> #\space) (cut char=? <> #\tab)) ch))
 
-(def (scan-horizontal-whitespace source start)
-  (and (horizontal-whitespace? (string-ref source start))
-       (scan-while source start horizontal-whitespace?)))
+;; scan-horizontal-whitespace
+;; : (-> String Fixnum Fixnum)
+(def scan-horizontal-whitespace
+  (cut scan-nonempty-while
+       horizontal-whitespace? horizontal-whitespace? <> <>))
 
+;; newline?
+;; : (-> Char Boolean)
 (def (newline? ch)
-  (or (char=? ch #\newline) (char=? ch #\return)))
+  (any-of (list (cut char=? <> #\newline) (cut char=? <> #\return)) ch))
 
-(def (scan-newline source start)
-  (and (newline? (string-ref source start))
-       (scan-while source start newline?)))
+;; scan-newline
+;; : (-> String Fixnum Fixnum)
+(def scan-newline (cut scan-nonempty-while newline? newline? <> <>))
 
-(def (scan-decimal-digits source start)
-  (and (char-numeric? (string-ref source start))
-       (scan-while source start char-numeric?)))
+;; scan-decimal-digits
+;; : (-> String Fixnum Fixnum)
+(def scan-decimal-digits
+  (cut scan-nonempty-while char-numeric? char-numeric? <> <>))
+
+;; scan-number-fraction-end
+;; : (-> String Fixnum Fixnum Fixnum)
+(def (scan-number-fraction-end source whole-end length)
+  (if (and (< whole-end length)
+           (char=? (string-ref source whole-end) #\.)
+           (< (+ whole-end 1) length)
+           (char-numeric? (string-ref source (+ whole-end 1))))
+    (scan-while source (+ whole-end 1) char-numeric?)
+    whole-end))
+
+;; scan-number-exponent-digits-position
+;; : (-> String Fixnum Fixnum Fixnum)
+(def (scan-number-exponent-digits-position source exponent-end length)
+  (let (position (+ exponent-end 1))
+    (if (and (< position length)
+             (memv (string-ref source position) '(#\+ #\-)))
+      (+ position 1)
+      position)))
+
+;; scan-number-exponent-end
+;; : (-> String Fixnum Fixnum Fixnum)
+(def (scan-number-exponent-end source fraction-end length)
+  (if (and (< fraction-end length)
+           (memv (string-ref source fraction-end) '(#\e #\E)))
+    (let (digits-position
+          (scan-number-exponent-digits-position source fraction-end length))
+      (if (and (< digits-position length)
+               (char-numeric? (string-ref source digits-position)))
+        (scan-while source digits-position char-numeric?)
+        fraction-end))
+    fraction-end))
 
 (def (scan-number-literal source start)
   (and (char-numeric? (string-ref source start))
        (let* ((length (string-length source))
               (whole-end (scan-while source start char-numeric?))
               (fraction-end
-               (if (and (< whole-end length)
-                        (char=? (string-ref source whole-end) #\.)
-                        (< (+ whole-end 1) length)
-                        (char-numeric? (string-ref source (+ whole-end 1))))
-                 (scan-while source (+ whole-end 1) char-numeric?)
-                 whole-end)))
-         (if (and (< fraction-end length)
-                  (memv (string-ref source fraction-end) '(#\e #\E)))
-           (let* ((sign-position (+ fraction-end 1))
-                  (digits-position
-                   (if (and (< sign-position length)
-                            (memv (string-ref source sign-position)
-                                  '(#\+ #\-)))
-                     (+ sign-position 1)
-                     sign-position)))
-             (if (and (< digits-position length)
-                      (char-numeric? (string-ref source digits-position)))
-               (scan-while source digits-position char-numeric?)
-               fraction-end))
-           fraction-end))))
+               (scan-number-fraction-end source whole-end length)))
+         (scan-number-exponent-end source fraction-end length))))
 
-(def (scan-identifier source start)
-  (and (identifier-start? (string-ref source start))
-       (scan-while source start identifier-rest?)))
+;; : (-> Char (Maybe Fixnum))
+(def (ascii-digit-value ch)
+  (cond
+   ((and (char>=? ch #\0) (char<=? ch #\9))
+    (- (char->integer ch) (char->integer #\0)))
+   ((and (char>=? ch #\a) (char<=? ch #\f))
+    (+ 10 (- (char->integer ch) (char->integer #\a))))
+   ((and (char>=? ch #\A) (char<=? ch #\F))
+    (+ 10 (- (char->integer ch) (char->integer #\A))))
+   (else #f)))
 
+;; : (-> Char Fixnum Boolean)
+(def (ascii-digit-for-base? ch base)
+  (alet (value (ascii-digit-value ch))
+    (< value base)))
+
+;; : (-> String Fixnum Fixnum Char (Maybe Fixnum))
+(def (scan-separated-digits source start base separator)
+  (let (length (string-length source))
+    (and (< start length)
+         (ascii-digit-for-base? (string-ref source start) base)
+         (let loop ((offset (+ start 1)))
+           (cond
+            ((>= offset length) offset)
+            ((ascii-digit-for-base? (string-ref source offset) base)
+             (loop (+ offset 1)))
+            ((and (char=? (string-ref source offset) separator)
+                  (< (+ offset 1) length)
+                  (ascii-digit-for-base?
+                   (string-ref source (+ offset 1)) base))
+             (loop (+ offset 2)))
+            (else offset))))))
+
+;; : (-> String Fixnum)
+(def (numeric-prefix-base prefix)
+  (let (last (char-downcase
+              (string-ref prefix (- (string-length prefix) 1))))
+    (case last
+      ((#\b) 2)
+      ((#\o) 8)
+      ((#\x) 16)
+      (else (error "numeric radix prefix must end in b, o, or x" prefix)))))
+
+;; : (-> String Fixnum [String] Char (Maybe Fixnum))
+(def (scan-radix-number source start prefixes separator)
+  (alet (prefix (scan-longest-literal source start prefixes))
+    (scan-separated-digits
+     source (+ start (string-length prefix))
+     (numeric-prefix-base prefix) separator)))
+
+;; : (-> String Fixnum Char Boolean Boolean (Maybe Fixnum))
+(def (scan-profile-decimal-mantissa
+      source start separator leading-period? trailing-period?)
+  (let (length (string-length source))
+    (cond
+     ((and leading-period?
+           (< (+ start 1) length)
+           (char=? (string-ref source start) #\.)
+           (ascii-digit-for-base? (string-ref source (+ start 1)) 10))
+      (scan-separated-digits source (+ start 1) 10 separator))
+     ((and (< start length)
+           (ascii-digit-for-base? (string-ref source start) 10))
+      (let* ((whole-end
+              (scan-separated-digits source start 10 separator))
+             (period? (and (< whole-end length)
+                           (char=? (string-ref source whole-end) #\.))))
+        (if period?
+          (or (scan-separated-digits source (+ whole-end 1) 10 separator)
+              (and trailing-period? (+ whole-end 1))
+              whole-end)
+          whole-end)))
+     (else #f))))
+
+;; : (-> String Fixnum Char Fixnum)
+(def (scan-profile-exponent source mantissa-end separator)
+  (let (length (string-length source))
+    (if (and (< mantissa-end length)
+             (memv (string-ref source mantissa-end) '(#\e #\E)))
+      (let* ((after-indicator (+ mantissa-end 1))
+             (digits-start
+              (if (and (< after-indicator length)
+                       (memv (string-ref source after-indicator) '(#\+ #\-)))
+                (+ after-indicator 1)
+                after-indicator)))
+        (or (scan-separated-digits source digits-start 10 separator)
+            mantissa-end))
+      mantissa-end)))
+
+;; scan-number-literal/profile
+;;   : (-> String Fixnum [String] String [String] Boolean Boolean (Maybe Fixnum))
+;;   | doc m%
+;;       Scans one grammar-declared numeric profile without assigning a
+;;       language identity in runtime code.
+;;     %
+(def (scan-number-literal/profile
+      source start prefixes separator suffixes leading-period? trailing-period?)
+  (let (separator-character (string-ref separator 0))
+    (or (scan-radix-number source start prefixes separator-character)
+        (alet* ((mantissa-end
+                 (scan-profile-decimal-mantissa
+                  source start separator-character
+                  leading-period? trailing-period?))
+                (number-end
+                 (scan-profile-exponent source mantissa-end separator-character)))
+          (or (alet (suffix (scan-longest-literal source number-end suffixes))
+                (+ number-end (string-length suffix)))
+              number-end)))))
+
+;; scan-identifier
+;; : (-> String Fixnum Fixnum)
+(def scan-identifier
+  (cut scan-nonempty-while identifier-start? identifier-rest? <> <>))
+
+;; scan-quoted-string
+;;   : (-> String Fixnum String Fixnum)
+;;   | doc m%
+;;       `scan-quoted-string` scans one escaped, delimiter-bound string.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (scan-quoted-string "'value'" 0 "'")
+;;       ;; => 7
+;;       ```
+;;     %
 (def (scan-quoted-string source start delimiter)
   (let ((length (string-length source))
         (delimiter-length (string-length delimiter)))
@@ -93,14 +252,31 @@
             ((char=? (string-ref source offset) #\\)
              (loop (+ offset 1) #t))
             ((literal-at? source offset delimiter)
-             (+ offset delimiter-length))
+             (let (next (+ offset delimiter-length))
+               ;; ISO graph-query character sequences escape their delimiter
+               ;; by doubling it.  Backslash escaping remains admitted for
+               ;; the same source grammars, so both forms stay lossless.
+               (if (literal-at? source next delimiter)
+                 (loop (+ next delimiter-length) #f)
+                 next)))
             (else (loop (+ offset 1) #f)))))))
 
+;; scan-quoted-strings
+;;   : (-> String Fixnum List Fixnum)
+;;   | doc m%
+;;       `scan-quoted-strings` tries delimiters in declaration order.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (scan-quoted-strings "\"value\"" 0 '("\"" "'"))
+;;       ;; => 7
+;;       ```
+;;     %
 (def (scan-quoted-strings source start delimiters)
-  (let loop ((rest delimiters))
-    (and (pair? rest)
-         (or (scan-quoted-string source start (car rest))
-             (loop (cdr rest))))))
+  (ormap (lambda (delimiter)
+           (scan-quoted-string source start delimiter))
+         delimiters))
 
 (def (line-end source start)
   (scan-while source start
@@ -115,6 +291,18 @@
       (loop (+ offset 1))
       offset)))
 
+;; scan-heredoc
+;;   : (-> String Fixnum Fixnum)
+;;   | doc m%
+;;       `scan-heredoc` scans a marker-delimited multiline literal.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (scan-heredoc "<<EOF\nvalue\nEOF" 0)
+;;       ;; => 15
+;;       ```
+;;     %
 (def (scan-heredoc source start)
   (let (length (string-length source))
     (and (literal-at? source start "<<")
@@ -152,6 +340,18 @@
          (scan-while source (+ start (string-length prefix))
                      (lambda (ch) (not (newline? ch)))))))
 
+;; scan-block-comment
+;;   : (-> String Fixnum String String Fixnum)
+;;   | doc m%
+;;       `scan-block-comment` scans one non-nested delimiter pair.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (scan-block-comment "/* value */" 0 "/*" "*/")
+;;       ;; => 11
+;;       ```
+;;     %
 (def (scan-block-comment source start opening closing)
   (let ((length (string-length source))
         (closing-length (string-length closing)))
@@ -163,6 +363,18 @@
              (+ offset closing-length))
             (else (loop (+ offset 1))))))))
 
+;; scan-nested-block-comment
+;;   : (-> String Fixnum String String Fixnum)
+;;   | doc m%
+;;       `scan-nested-block-comment` tracks balanced nested delimiters.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (scan-nested-block-comment "/* /* */ */" 0 "/*" "*/")
+;;       ;; => 11
+;;       ```
+;;     %
 (def (scan-nested-block-comment source start opening closing)
   (let ((length (string-length source))
         (opening-length (string-length opening))
@@ -183,25 +395,33 @@
   (let ((source-length (string-length source))
         (literal-length (string-length literal)))
     (and (<= (+ start literal-length) source-length)
-         (let loop ((index 0))
-           (or (= index literal-length)
-               (and (char=? (string-ref source (+ start index))
-                            (string-ref literal index))
-                    (loop (+ index 1))))))))
+         (andmap (lambda (index)
+                   (char=? (string-ref source (+ start index))
+                           (string-ref literal index)))
+                 (iota literal-length)))))
 
+;; scan-longest-literal
+;;   : (-> String Fixnum List String)
+;;   | doc m%
+;;       `scan-longest-literal` selects the longest matching declared literal.
+;;
+;;       # Examples
+;;
+;;       ```scheme
+;;       (scan-longest-literal "<=" 0 '("<" "<="))
+;;       ;; => "<="
+;;       ```
+;;     %
 (def (scan-longest-literal source start literals)
-  (let loop ((rest literals) (selected #f))
-    (if (null? rest)
-      selected
-      (let (candidate (car rest))
-        (loop
-         (cdr rest)
-         (if (and (literal-at? source start candidate)
-                  (or (not selected)
-                      (> (string-length candidate)
-                         (string-length selected))))
-           candidate
-           selected))))))
+  (foldl (lambda (candidate selected)
+           (if (and (literal-at? source start candidate)
+                    (or (not selected)
+                        (> (string-length candidate)
+                           (string-length selected))))
+             candidate
+             selected))
+         #f
+         literals))
 
 (def (scan-emit source kind start end byte-start)
   (let* ((lexeme (substring source start end))

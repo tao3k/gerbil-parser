@@ -1,12 +1,16 @@
 ;;; -*- Gerbil -*-
 ;;; Arithmetic language-pack entry and native fixture contract.
 
-(import :std/test
-        :gerbil-parser/src/language/entry
-        :gerbil-parser/src/runtime/artifact
-        ../../support/fixture
-        ./fixtures
-        ./parser)
+(import (only-in :std/test check test-case test-suite)
+        (only-in :gerbil-parser/src/language/entry
+                 +language-parser-entry-schema+ language-parser-entry-ref)
+        (only-in :gerbil-parser/src/runtime/artifact
+                 parse-artifact-ref parse-artifact-roundtrip
+                 parse-artifact-success?)
+        (only-in :gerbil-parser/language-support
+                 syntax-fixture-source syntax-fixture-source-digest)
+        (only-in ./fixtures arithmetic-v1-basic-fixture)
+        (only-in ./parser arithmetic-v1-language parse-arithmetic-v1))
 (export arithmetic-v1-parser-test)
 
 (def arithmetic-v1-parser-test
@@ -16,7 +20,7 @@
              (source (syntax-fixture-source fixture))
              (artifact (parse-arithmetic-v1 source)))
         (check (language-parser-entry-ref arithmetic-v1-language 'schema)
-               => +language-parser-entry-schema-v1+)
+               => +language-parser-entry-schema+)
         (check (language-parser-entry-ref arithmetic-v1-language 'language)
                => "arithmetic")
         (check (language-parser-entry-ref arithmetic-v1-language 'version)

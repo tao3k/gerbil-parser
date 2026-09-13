@@ -1,8 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; Gerbil CST projection replayed from canonical ParseArtifact v1 events.
 
-(import ./artifact
-        ./token)
+(import (only-in ./artifact
+                 event-end event-kind event-start parse-artifact-events
+                 parse-artifact-success? parse-artifact-valid?
+                 token-event-lexeme token-event-token-kind)
+        (only-in ./token make-token))
 (export parse-artifact->cst
         syntax-node?
         syntax-node-kind
@@ -17,16 +20,14 @@
 
 (defstruct syntax-node (kind start end children) transparent: #t)
 (defstruct syntax-field (name start end children) transparent: #t)
+;;; Mutable only while replaying the canonical event stream; frames never
+;;; escape parse-artifact->cst, and completed children are immutable values.
+(defstruct cst-frame (type identity kind start children) transparent: #t)
 
-(def (make-frame type identity kind start)
-  (vector type identity kind start '()))
-
-(def (frame-add! frame value)
-  (vector-set! frame 4 (cons value (vector-ref frame 4))))
-
-(def (frame-children frame)
-  (reverse (vector-ref frame 4)))
-
+;;; Replays accepted artifact events with a private stack and publishes exactly
+;;; one immutable root only after balanced node and field frames are observed.
+;; parse-artifact->cst
+;; : (-> ParseArtifact SyntaxNode)
 (def (parse-artifact->cst artifact)
   (unless (and (parse-artifact-valid? artifact)
                (parse-artifact-success? artifact))
@@ -36,7 +37,9 @@
         ((append-value!
           (lambda (value)
             (if (pair? stack)
-              (frame-add! (car stack) value)
+              (let (frame (car stack))
+                (set! (cst-frame-children frame)
+                      (cons value (cst-frame-children frame))))
               (begin
                 (when root (error "multiple CST projection roots"))
                 (set! root value)))))
@@ -52,29 +55,31 @@
        (lambda (event)
          (case (event-kind event)
            ((start-node)
-            (push! (make-frame 'node
-                               (vector-ref event 1)
-                               (vector-ref event 2)
-                               (event-start event))))
+            (push! (make-cst-frame 'node
+                                   (vector-ref event 1)
+                                   (vector-ref event 2)
+                                   (event-start event)
+                                   '())))
            ((finish-node)
             (let (frame (pop!))
               (append-value!
-               (make-syntax-node (vector-ref frame 2)
-                                 (vector-ref frame 3)
+               (make-syntax-node (cst-frame-kind frame)
+                                 (cst-frame-start frame)
                                  (event-end event)
-                                 (frame-children frame)))))
+                                 (reverse (cst-frame-children frame))))))
            ((start-field)
-            (push! (make-frame 'field
-                               (vector-ref event 1)
-                               #f
-                               (event-start event))))
+            (push! (make-cst-frame 'field
+                                   (vector-ref event 1)
+                                   #f
+                                   (event-start event)
+                                   '())))
            ((finish-field)
             (let (frame (pop!))
               (append-value!
-               (make-syntax-field (vector-ref frame 1)
-                                  (vector-ref frame 3)
+               (make-syntax-field (cst-frame-identity frame)
+                                  (cst-frame-start frame)
                                   (event-end event)
-                                  (frame-children frame)))))
+                                  (reverse (cst-frame-children frame))))))
            ((token)
             (append-value!
              (make-token (token-event-token-kind event)

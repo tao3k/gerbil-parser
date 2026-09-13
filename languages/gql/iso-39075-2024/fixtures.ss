@@ -1,12 +1,12 @@
 ;;; -*- Gerbil -*-
 ;;; openGQL 1.9.0 official examples, embedded as immutable syntax fixtures.
 
-(import ../../support/fixture
-        ./grammar)
+(import (only-in :gerbil-parser/language-support defsyntax-corpus)
+        (only-in ./grammar +gql-standard-edition+ +gql-syntax-contract+))
 (export gql-iso-official-fixtures)
 
 (defsyntax-corpus gql-iso-official-fixtures
-  (identity "gql" +gql-standard-edition+ +gql-syntax-contract-v1+)
+  (identity "gql" +gql-standard-edition+ +gql-syntax-contract+)
   (accepted
    ("opengql/create-closed-graph-double-colon"
     gql-create-closed-graph-double-colon

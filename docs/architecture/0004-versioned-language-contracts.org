@@ -74,8 +74,12 @@ $
 $
 #+end_src
 
-The engine and language packs are physically separate.  =src/= contains only
-language-neutral compiler, runtime, grammar algebra, and entry macros.  A
+The engine and language packs are physically separate.  =src/= contains the
+language-neutral compiler, runtime, grammar algebra, language-import,
+source-admission, fixture-declaration, and entry machinery.  The top-level
+=language-support.ss= facade beside =build.ss= is their sole language-author
+export; its stable =:gerbil-parser/language-support= address does not expose or
+bind consumers to the internal =src/= layout.  A
 supported language owns one directory at
 =languages/<language>/<version>/=.  Its =grammar.ss=, =parser.ss=,
 =fixtures.ss=, =parser-test.ss=, and =corpus/= are colocated.  The parser module

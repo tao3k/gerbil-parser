@@ -2,11 +2,11 @@
 ;;; Versioned TLA+ sources embedded at expansion time.
 
 (import :gerbil-parser/languages/tla-plus/1-5/parser
-        ../../support/fixture)
+        (only-in :gerbil-parser/language-support defsyntax-corpus))
 (export tla-plus-1-5-fixtures)
 
 (defsyntax-corpus tla-plus-1-5-fixtures
-  (identity "tla-plus" +tla-plus-language-version+ +tla-plus-syntax-contract-v1+)
+  (identity "tla-plus" +tla-plus-language-version+ +tla-plus-syntax-contract+)
   (accepted
    ("tla-plus/examples/hour-clock" tla-plus-hour-clock
     "corpus/tlaplus-examples/HourClock.tla" SourceFile

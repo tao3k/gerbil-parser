@@ -2,7 +2,10 @@
 ;;; HCL v2.24.0 official specsuite sources embedded at expansion time.
 
 (import :gerbil-parser/languages/hcl/v2-24/parser
-        ../../support/fixture)
+        (only-in :gerbil-parser/language-support
+                 defsyntax-corpus
+                 defsyntax-fixture
+                 syntax-fixture-expected-status))
 (export hcl-v2-24-representative-fixture
         hcl-v2-24-official-fixtures
         hcl-v2-24-official-accepted-fixtures
@@ -10,14 +13,14 @@
 
 (defsyntax-fixture hcl-v2-24-representative-fixture
   (identity "hcl/v2.24.0/representative"
-            "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract-v1+)
+            "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract+)
   (source "corpus/representative.hcl")
   (expect accepted HclFile
           (Block Attribute TupleExpression ObjectExpression
                  TraversalExpression)))
 
 (defsyntax-corpus hcl-v2-24-official-fixtures
-  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract-v1+)
+  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract+)
   (accepted
    ("hcl/specsuite/comments/hash" hcl-spec-hash-comment
     "corpus/hashicorp-v2.24.0/comments/hash_comment.hcl" HclFile ())

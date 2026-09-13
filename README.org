@@ -4,9 +4,12 @@
 hygienic macros, POO composition, parser-flow normalization, and AOT-compiled
 parser artifacts.
 
-The language-neutral engine lives under =src/=.  Bundled and downstream
-language packs live under =languages/<language>/<version>/=; grammar, parser
-entry, fixtures, tests, and native corpus stay together.  POO and =poo-flow=
+The language-neutral compiler and runtime live under =src/=.  Their public
+language-import API is the top-level =language-support.ss= facade beside
+=build.ss=, so package imports do not expose the physical =src/= directory.
+Its implementations remain under =src/language-support/=.  Bundled and downstream language packs live under
+=languages/<language>/<version>/=; grammar, parser entry, fixtures, tests, and
+native corpus stay together.  POO and =poo-flow=
 are used only while compiling grammar object graphs; generated parser hot paths
 do not perform dynamic POO dispatch.
 
@@ -71,11 +74,20 @@ GQL pack pins OpenGQL grammar 1.9.0 by commit and SHA-256 digest, validates all
 fragment rules.  Its 14 upstream sample programs then prove typed terminals,
 structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
 
-Grammar-source formats are language-side adapters.  ISO WG3 BNF support lives
-under =languages/support/=, not =src/=, and embeds the pinned upstream source at
-macro expansion.  The openCypher 2024.1 pack currently validates and structures
-all 352 productions from the official BNF; that source-catalog admission is not
-yet a claim that its complete executable query grammar or TCK semantics pass.
+Grammar-source formats are language-neutral engine adapters.  ISO WG3 BNF,
+ANTLR4 source admission, and fixture/corpus declaration machinery are internal
+to =src/language-support/= and exported only through
+=:gerbil-parser/language-support=.  A language pack only
+selects a pinned source and declares its versioned lowering under
+=languages/<language>/<version>/=.  The openCypher 2024.1 pack validates and
+structures all 352 productions from the official BNF.  Exact-source overlays
+right-factor the result-statement path, normalize nullable prefixes and
+qualified references, and remove duplicate list/map constructor parses without
+mutating the pinned source.  The commit-bound TCK syntax audit expands 3,897
+queries from 220 feature files: all 3,298 expected-success or runtime-error
+queries are accepted with byte-exact roundtrip, while the remaining 39 parser
+rejections are compile-error cases.  This closes syntax acceptance for that
+manifest; it does not claim execution or semantic-result conformance.
 
 The TLA+ =1.5.0= pack exercises the same native generation path for module
 envelopes, declarations, operator-definition lines, theorem lines, comments,

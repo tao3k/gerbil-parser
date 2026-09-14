@@ -89,12 +89,15 @@ queries are accepted with byte-exact roundtrip, while the remaining 39 parser
 rejections are compile-error cases.  This closes syntax acceptance for that
 manifest; it does not claim execution or semantic-result conformance.
 
-The TLA+ =1.5.0= pack exercises the same native generation path for module
+The TLA+ =v1= pack exercises the same native generation path for module
 envelopes, declarations, operator-definition lines, theorem lines, comments,
-and nested block comments.  It pins =tree-sitter-tlaplus 1.5.0= as a grammar
-oracle and a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
-repository.  PlusCal, proof syntax, and the full upstream corpus remain explicit
-future contracts rather than fallback parsing.
+and nested block comments.  Its syntax authority is the native
+=TLAPlusGrammar= in chapter 15 of /Specifying Systems/; the official SANY
+=tla+.jj= source at release =v1.7.4= is pinned for executable conformance.  It
+does not enter the runtime or replace the Gerbil parser engine.  The pack also
+pins a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
+repository.  PlusCal, proof syntax, and the full official syntax corpus remain
+explicit future contracts rather than fallback parsing.
 
 * Architecture RFCs
 

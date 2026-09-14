@@ -128,16 +128,22 @@ lowercase keyword recognition, structural CST kinds, byte roundtrip, and typed
 malformed-source rejection.  This contract is GQL only; it does not identify
 PGQL, openCypher, SQL/PGQ, or a later corrigendum as the same language.
 
-The TLA+ contract is pinned to the =tree-sitter-tlaplus 1.5.0= grammar oracle
-at commit =8a8413f1d08e7ee40b347206d26eac4324db9fd9= and the TLA+ Foundation
-Examples corpus at commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=.  Its admitted
-identity is =tla-plus.module-core.v1=.  The first executable slice covers module
+The TLA+ contract takes the native =TLAPlusGrammar= from chapter 15 of
+/Specifying Systems/ as its language specification.  The official SANY
+=tla+.jj= source is pinned at release =v1.7.4=, commit
+=5a47802b5c391f59ecdd44117981f4ff8c0656ba=, and Git blob
+=bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56= for executable conformance.  SANY
+is not a runtime dependency or a second parser engine: native TLA+ productions
+are lowered into the same Grammar IR and compiled by gerbil-parser.  The TLA+
+Foundation Examples corpus is pinned at commit
+=ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=.  The pack version is =v1= and its
+admitted identity is =tla-plus.module-core.v1=.  The first executable slice covers module
 envelopes, EXTENDS, constant and variable declarations, single-line operator
 definitions, theorem declarations, ASCII operator tokens, strings, line
 comments, and nested block comments.  It includes the byte-exact official
 =HourClock.tla= source plus focused module and nested-comment contracts.  It
 does not yet claim PlusCal, TLAPS proof syntax, multiline definitions, or the
-complete 1.5.0 tree-sitter corpus.
+complete official SANY syntax corpus.
 
 Version identities are never inferred from a current branch or latest release.
 Changing an upstream edition, tag, commit, corrigendum, or admitted production

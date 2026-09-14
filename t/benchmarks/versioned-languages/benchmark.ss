@@ -8,7 +8,7 @@
  (rule . GERBIL-PARSER-VERSIONED-LANGUAGES)
  (feature . versioned-language-contracts)
  (optimizationFocus . "one generic generated machine across configuration and graph-query syntax families")
- (inputShape . "the admitted corpus: 12 HCL v2.24.0 sources, 14 openGQL 1.9.0 examples, four openCypher 2024.1 queries, and three TLA+ 1.5 modules per sample")
+ (inputShape . "the admitted corpus: 12 HCL v2.24.0 sources, 14 openGQL 1.9.0 examples, four openCypher 2024.1 queries, and three TLA+ module-core v1 sources per sample")
  (expectedOutcome . "all pinned language contracts roundtrip with no runtime language dispatch")
  (measurementPhases collect-before collect-after policy-before policy-after
                     assert-time-gate observe-runtime-memory)

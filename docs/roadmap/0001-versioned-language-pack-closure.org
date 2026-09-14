@@ -44,34 +44,33 @@ Status: implementation and local acceptance closed; CI publication is pending.
 Status: grammar, representative parser suite, and installed consumer are
 closed; reproducible CI regeneration of the full TCK receipt remains.
 
-* P3 Tree-sitter grammar-source adapter
+* P3 Native TLA+ syntax adaptation
 
-- Add one language-neutral expansion-time adapter for the pinned Tree-sitter
-  =grammar.json= representation.  Lower =ALIAS=, =BLANK=, =CHOICE=, =FIELD=,
-  =IMMEDIATE_TOKEN=, =PATTERN=, =PREC=, =PREC_DYNAMIC=, =PREC_LEFT=,
-  =PREC_RIGHT=, =REPEAT=, =REPEAT1=, =SEQ=, =STRING=, =SYMBOL=, and =TOKEN= into
-  the existing typed grammar and lexical algebras.
-- Validate source digest, rule identities, references, conflicts, extras,
-  supertypes, and external token identities during expansion.  Do not retain a
-  runtime JSON interpreter or a second parser generator.
-- Publish adapter scenarios for unsupported nodes, unresolved symbols,
-  duplicate identities, digest drift, and deterministic canonical IR.
+- Model the native =TLAPlusGrammar= productions from chapter 15 of
+  /Specifying Systems/ directly in the existing lexical and Grammar IR
+  algebras.  Use the pinned official SANY =tla+.jj= source as the executable
+  conformance reference, never as a runtime parser dependency.
+- Add only generally useful algebra operations to =src/language/= when a TLA+
+  production cannot be represented.  Every extension must retain canonical IR,
+  deterministic LALR construction, typed diagnostics, and byte roundtrip.
+- Publish source-admission scenarios for unresolved productions, duplicate
+  identities, source-identity drift, deterministic canonical IR, and corpus
+  disagreement with SANY.
 
-Status: required foundation for complete TLA+; not implemented.
+Status: module-core v1 is executable; complete native syntax adaptation remains.
 
-* P4 TLA+ 1.5.0 closure
+* P4 TLA+ syntax closure
 
 - Replace =tla-plus.module-core.v1= with a new explicit full-grammar contract;
   do not silently widen the existing v1 identity.
-- Admit all 288 pinned Tree-sitter rules, 18 external tokens, 14 declared
-  conflicts, seven supertypes, extras, precedence, and immediate-token rules.
-- Implement the external-scanner behavior as versioned lexical extensions on
-  the existing scanner interface, including proof layout, indentation,
-  extramodular text, operator disambiguation, and PlusCal boundaries.
-- Run every normal, Unicode, proof, PlusCal, regression, rejected-syntax, and
-  crash-regression corpus case.  Preserve source bytes and compare the required
-  structural CST projection; never downgrade an unsupported construct to an
-  =unknown= acceptance path.
+- Admit every production and lexical constraint in the pinned native syntax
+  sources, including expression precedence, proof steps, indentation-sensitive
+  conjunction/disjunction lists, extramodular text, operator disambiguation,
+  and PlusCal boundaries.
+- Run the official SANY syntax corpus plus normal, Unicode, proof, PlusCal,
+  rejected-syntax, and crash-regression cases.  Preserve source bytes and
+  compare the required structural CST projection; never downgrade an
+  unsupported construct to an =unknown= acceptance path.
 
 Status: only the three-fixture module-core slice is currently closed.
 

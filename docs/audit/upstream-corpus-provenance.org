@@ -19,9 +19,13 @@ file has SHA-256
 Macro expansion parses every right-hand side into a structural AST and rejects
 digest drift, duplicate production identities, and unresolved references.
 
-The TLA+ grammar oracle is =tree-sitter-tlaplus 1.5.0= at commit
-=8a8413f1d08e7ee40b347206d26eac4324db9fd9=.  The executable official source
-is =HourClock.tla= from the TLA+ Foundation Examples repository at commit
+The TLA+ syntax authority is the native =TLAPlusGrammar= in chapter 15 of
+/Specifying Systems/.  The official SANY =tla+.jj= grammar is pinned for
+executable conformance at release =v1.7.4=, commit
+=5a47802b5c391f59ecdd44117981f4ff8c0656ba=, and Git blob
+=bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56=.  This source is adapted into
+gerbil-parser's Grammar IR; it is not a runtime parser dependency.  The
+executable official source is =HourClock.tla= from the TLA+ Foundation Examples repository at commit
 =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=, preserved byte-for-byte with
 SHA-256 =985903176db4725f9cf25df84ad84dcd53ba94be80d26298b87ec86fbc9b08b3=.
 
@@ -30,7 +34,7 @@ flowchart LR
   H[HCL v2.24.0 specsuite: 15 files] --> HM[defsyntax-corpus]
   G[openGQL 1.9.0 samples: 14 files] --> GM[defsyntax-corpus]
   C[openCypher 2024.1 BNF: 352 productions] --> CM[defsyntax-iso-bnf-source]
-  T[TLA+ 1.5 module corpus] --> TM[defsyntax-corpus]
+  T[TLA+ module-core v1 corpus] --> TM[defsyntax-corpus]
   HM --> D[Expansion-time SHA-256 identity]
   GM --> D
   TM --> D
@@ -48,7 +52,7 @@ from the embedded source bytes, language version, and v1 contract.
 #let H = $"HCLCorpus"_("v2.24.0")$
 #let G = $"openGQLCorpus"_("1.9.0")$
 #let C = $"openCypherBNF"_("2024.1")$
-#let T = $"TLAPlusCorpus"_("1.5.0")$
+#let T = $"TLAPlusCorpus"_("v1")$
 #let digest(x) = $"sha256"(x)$
 $
   |H| = 15 quad and quad |G| = 14 quad and quad |C| = 352 \

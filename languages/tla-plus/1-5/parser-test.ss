@@ -3,7 +3,7 @@
 ;;; Acceptance owner for pinned TLA+ sources, structural CST obligations,
 ;;; nested-comment losslessness, and typed unterminated-comment failure.
 
-(import (only-in :std/test check run-tests! test-case test-suite)
+(import (only-in :std/test check test-case test-suite)
         :gerbil-parser/languages/tla-plus/1-5/parser
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
@@ -76,5 +76,3 @@
         (check (parse-artifact-success? artifact) => #f)
         (check (parse-artifact-valid? artifact) => #t)
         (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))))
-
-(run-tests! tla-plus-1-5-parser-test)

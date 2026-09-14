@@ -3,7 +3,7 @@
 
 (import :std/test
         :asp-gerbil-scheme/src/benchmark/framework
-        :gerbil-parser/t/scenarios/performance/lalr-fixed-point/scenario)
+        "./scenarios/performance/lalr-fixed-point/scenario")
 
 (def benchmark-path
   "t/scenarios/performance/lalr-fixed-point/benchmark.ss")

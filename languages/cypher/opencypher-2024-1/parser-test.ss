@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Acceptance owner for openCypher Grammar IR, Bound IR, and ParseArtifacts.
 
-(import (only-in :std/test check run-tests! test-case test-suite)
+(import (only-in :std/test check test-case test-suite)
         (only-in :std/srfi/13 string-join)
         :gerbil-parser/languages/cypher/opencypher-2024-1/parser
         :gerbil-parser/src/compiler/bound-ir
@@ -215,5 +215,3 @@
           (check (> (bound-row-ref receipt 'branchesExplored) 256) => #t)
           (check (bound-row-ref receipt 'speculativeBranchesExplored)
                  => 0))))))
-
-(run-tests! opencypher-2024-1-parser-test)

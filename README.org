@@ -90,14 +90,17 @@ rejections are compile-error cases.  This closes syntax acceptance for that
 manifest; it does not claim execution or semantic-result conformance.
 
 The TLA+ =v1= pack exercises the same native generation path for module
-envelopes, declarations, operator-definition lines, theorem lines, comments,
-and nested block comments.  Its syntax authority is the native
+envelopes, declarations, structured precedence expressions, conditionals,
+quantifiers, collections, function constructors, theorem lines, comments, and
+nested block comments.  Its syntax authority is the native
 =TLAPlusGrammar= in chapter 15 of /Specifying Systems/; the official SANY
 =tla+.jj= source at release =v1.7.4= is pinned for executable conformance.  It
 does not enter the runtime or replace the Gerbil parser engine.  The pack also
 pins a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
-repository.  PlusCal, proof syntax, and the full official syntax corpus remain
-explicit future contracts rather than fallback parsing.
+repository.  The pinned 99-production SANY inventory is admitted at expansion
+time, while malformed recognized syntax fails closed without an unknown-token
+fallback.  PlusCal, proof syntax, multiline layout, and the full official
+syntax corpus remain explicit future contracts.
 
 * Architecture RFCs
 

@@ -9,6 +9,9 @@
                              antlr4-source-parser-literals
                              antlr4-source-parser-syntax-kinds
                              parse-antlr4-source/expected))
+        (for-syntax (only-in ./javacc-source
+                             javacc-source->datum
+                             parse-javacc-source/expected))
         (for-syntax (only-in ./iso-bnf
                              iso-bnf-source-declaration-sources
                              iso-bnf-source-declaration-sources/overrides
@@ -19,11 +22,40 @@
                              parse-iso-bnf-source/expected))
         (only-in ./iso-bnf parse-iso-bnf-source/expected)
         (only-in ./antlr4-source antlr4-source-from-datum)
+        (only-in ./javacc-source javacc-source-from-datum)
         :gerbil-parser/src/language/grammar)
 (export defsyntax-iso-bnf-source
         defsyntax-antlr4-source
+        defsyntax-javacc-source
         deflanguage-antlr4-grammar
         deflanguage-iso-bnf-grammar)
+
+;;; JavaCC source is admitted and reduced to an immutable production inventory
+;;; during expansion.  Generated Java and Java action blocks never enter the
+;;; runtime authority.
+(defsyntax (defsyntax-javacc-source stx)
+  (syntax-case stx (identity digest source)
+    ((_ binding
+        (identity language version commit)
+        (digest expected-digest)
+        (source path))
+     (and (identifier? #'binding)
+          (stx-string? #'language)
+          (stx-string? #'version)
+          (stx-string? #'commit)
+          (stx-string? #'expected-digest)
+          (stx-string? #'path))
+     (let* ((resolved (gx#core-resolve-path #'path (stx-source stx)))
+            (content (call-with-input-file resolved read-all-as-string))
+            (catalog
+             (parse-javacc-source/expected
+              (stx-e #'language) (stx-e #'version) (stx-e #'commit)
+              (stx-e #'expected-digest) content))
+            (catalog-data (javacc-source->datum catalog)))
+       (with-syntax ((materialized-catalog catalog-data))
+         #'(def binding
+             (javacc-source-from-datum 'materialized-catalog)))))
+    (_ (raise-syntax-error #f "invalid JavaCC source declaration" stx))))
 
 ;;; Boundary: all filesystem reads and native grammar parsing happen during
 ;;; expansion; published runtime values are immutable, digest-bound data.

@@ -29,6 +29,15 @@
                  antlr4-source-from-datum
                  parse-antlr4-source
                  parse-antlr4-source/expected)
+        (only-in ./src/language-support/javacc-source
+                 +javacc-source-schema+
+                 javacc-production? javacc-production-name
+                 javacc-production-result javacc-production-line
+                 javacc-source? javacc-source-language javacc-source-version
+                 javacc-source-commit javacc-source-digest
+                 javacc-source-productions javacc-source-production
+                 javacc-source->datum javacc-source-from-datum
+                 parse-javacc-source parse-javacc-source/expected)
         (only-in ./src/language-support/fixture
                  defsyntax-fixture
                  defsyntax-corpus
@@ -45,6 +54,7 @@
         (only-in ./src/language-support/grammar-source
                  defsyntax-iso-bnf-source
                  defsyntax-antlr4-source
+                 defsyntax-javacc-source
                  deflanguage-antlr4-grammar
                  deflanguage-iso-bnf-grammar)
         (only-in ./src/language-support/iso-bnf
@@ -72,6 +82,7 @@
                  parse-iso-bnf-source
                  parse-iso-bnf-source/expected))
 (export +antlr4-source-schema+
+        +javacc-source-schema+
         +iso-bnf-source-schema+
         +iso-bnf-rule-overlay-schema+
         antlr4-rule?
@@ -99,6 +110,12 @@
         antlr4-source-from-datum
         parse-antlr4-source
         parse-antlr4-source/expected
+        javacc-production? javacc-production-name javacc-production-result
+        javacc-production-line
+        javacc-source? javacc-source-language javacc-source-version
+        javacc-source-commit javacc-source-digest javacc-source-productions
+        javacc-source-production javacc-source->datum javacc-source-from-datum
+        parse-javacc-source parse-javacc-source/expected
         iso-bnf-production?
         iso-bnf-production-name
         iso-bnf-production-expression
@@ -122,6 +139,7 @@
         parse-iso-bnf-source/expected
         defsyntax-iso-bnf-source
         defsyntax-antlr4-source
+        defsyntax-javacc-source
         deflanguage-antlr4-grammar
         deflanguage-iso-bnf-grammar
         defsyntax-fixture

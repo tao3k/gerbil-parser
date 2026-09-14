@@ -10,8 +10,11 @@
         (only-in :gerbil-parser/language-support
                  syntax-fixture-required-kinds
                  syntax-fixture-source
-                 syntax-fixture-source-digest)
-        (only-in ./fixtures tla-plus-v1-fixtures))
+                 syntax-fixture-source-digest
+                 syntax-fixture-expected-status)
+        (only-in ./fixtures tla-plus-v1-fixtures
+                 tla-plus-v1-accepted-fixtures
+                 tla-plus-v1-rejected-fixtures))
 (export tla-plus-v1-parser-test)
 
 ;;; CST traversal intentionally treats fields as transparent containers; the
@@ -39,7 +42,7 @@
   (test-suite "TLA+ v1 versioned language pack"
     (test-case "native syntax and corpus identities are immutable"
       (check +tla-plus-contract-version+ => "v1")
-      (check +tla-plus-syntax-contract+ => "tla-plus.module-core.v1")
+      (check +tla-plus-syntax-contract+ => "tla-plus.native-core.v1")
       (check +tla-plus-syntax-source+
              => "Specifying Systems, Chapter 15: TLAPlusGrammar")
       (check +tla-plus-sany-release+ => "v1.7.4")
@@ -47,8 +50,13 @@
              => "5a47802b5c391f59ecdd44117981f4ff8c0656ba")
       (check +tla-plus-sany-grammar-blob+
              => "bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56")
+      (check +tla-plus-sany-grammar-digest+
+             => "sha256:15edd079cf16cf91556ba66b496c9ffc16f26ab30856753ed58e60b0d54f2d07")
       (check +tla-plus-examples-commit+
              => "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")
+      (check (length tla-plus-v1-fixtures) => 6)
+      (check (length tla-plus-v1-accepted-fixtures) => 5)
+      (check (length tla-plus-v1-rejected-fixtures) => 1)
       (check (syntax-fixture-source-digest (car tla-plus-v1-fixtures))
              => "sha256:985903176db4725f9cf25df84ad84dcd53ba94be80d26298b87ec86fbc9b08b3"))
     (test-case "all admitted modules publish lossless structural CSTs"
@@ -66,9 +74,9 @@
            (for-each
             (lambda (kind) (check (member kind kinds) ? values))
             (syntax-fixture-required-kinds fixture))))
-       tla-plus-v1-fixtures))
+       tla-plus-v1-accepted-fixtures))
     (test-case "nested block comments remain one lossless trivia token"
-      (let* ((fixture (caddr tla-plus-v1-fixtures))
+      (let* ((fixture (caddr tla-plus-v1-accepted-fixtures))
              (artifact (parse-tla-plus-v1
                         (syntax-fixture-source fixture))))
         (check (parse-artifact-success? artifact) => #t)
@@ -79,4 +87,15 @@
              "---- MODULE Broken ----\n(* outer (* nested *)\nVARIABLE x\n====\n"))
         (check (parse-artifact-success? artifact) => #f)
         (check (parse-artifact-valid? artifact) => #t)
-        (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))))
+        (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))
+    (test-case "recognized but malformed expressions fail closed"
+      (for-each
+       (lambda (fixture)
+         (let* ((source (syntax-fixture-source fixture))
+                (artifact (parse-tla-plus-v1 source)))
+           (check (syntax-fixture-expected-status fixture) => 'rejected)
+           (check (parse-artifact-success? artifact) => #f)
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))
+       tla-plus-v1-rejected-fixtures))))

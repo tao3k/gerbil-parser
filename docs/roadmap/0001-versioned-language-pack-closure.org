@@ -57,11 +57,12 @@ closed; reproducible CI regeneration of the full TCK receipt remains.
   identities, source-identity drift, deterministic canonical IR, and corpus
   disagreement with SANY.
 
-Status: module-core v1 is executable; complete native syntax adaptation remains.
+Status: the digest-bound 99-production inventory and native-core v1 expression
+slice are executable; production-to-GrammarIR closure remains.
 
 * P4 TLA+ syntax closure
 
-- Replace =tla-plus.module-core.v1= with a new explicit full-grammar contract;
+- Replace =tla-plus.native-core.v1= with a new explicit full-grammar contract;
   do not silently widen the existing v1 identity.
 - Admit every production and lexical constraint in the pinned native syntax
   sources, including expression precedence, proof steps, indentation-sensitive
@@ -72,7 +73,8 @@ Status: module-core v1 is executable; complete native syntax adaptation remains.
   compare the required structural CST projection; never downgrade an
   unsupported construct to an =unknown= acceptance path.
 
-Status: only the three-fixture module-core slice is currently closed.
+Status: four accepted and one rejected native-core fixtures are closed.  Full
+proof, PlusCal, layout, and official-corpus conformance remain open.
 
 * P5 Algorithm and performance admission
 

@@ -1,7 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; ISO WG3 BNF language-source adapter and validation boundary.
 
-(import :gerbil-parser/src/runtime/identity)
+(import :gerbil-parser/src/runtime/identity
+        (only-in :std/srfi/13 string-trim-both)
+        (only-in :gerbil-parser/src/utilities/strings
+                 ascii-whitespace? string-index-from text-lines))
 (export +iso-bnf-source-schema+
         +iso-bnf-rule-overlay-schema+
         iso-bnf-production?
@@ -42,62 +45,24 @@
   transparent: #t)
 
 ;; : (-> Char Boolean)
-(def (whitespace? ch)
-  (or (char=? ch #\space) (char=? ch #\tab)
-      (char=? ch #\newline) (char=? ch #\return)))
-
-;; : (-> String String)
-(def (trim text)
-  (let (length (string-length text))
-    (let left ((start 0))
-      (if (and (< start length) (whitespace? (string-ref text start)))
-        (left (+ start 1))
-        (let right ((end length))
-          (if (and (> end start)
-                   (whitespace? (string-ref text (- end 1))))
-            (right (- end 1))
-            (substring text start end)))))))
-
-;; : (-> String (List String))
-(def (split-lines source)
-  (let (length (string-length source))
-    (let loop ((start 0) (offset 0) (lines '()))
-      (cond
-       ((= offset length)
-        (reverse (cons (substring source start offset) lines)))
-       ((char=? (string-ref source offset) #\newline)
-        (loop (+ offset 1) (+ offset 1)
-              (cons (substring source start offset) lines)))
-       (else (loop start (+ offset 1) lines))))))
-
-;; : (-> String String [Nat] (Maybe Nat))
-(def (substring-index text wanted (start 0))
-  (let ((length (string-length text))
-        (wanted-length (string-length wanted)))
-    (let loop ((offset start))
-      (cond
-       ((> (+ offset wanted-length) length) #f)
-       ((string=? (substring text offset (+ offset wanted-length)) wanted)
-        offset)
-       (else (loop (+ offset 1)))))))
-
 ;; : (-> String (Maybe (Pair String String)))
 (def (production-header line)
-  (let* ((text (trim line))
-         (separator (substring-index text "::=")))
+  (let* ((text (string-trim-both line))
+         (separator (string-index-from text "::=")))
     (and separator
          (> separator 2)
          (char=? (string-ref text 0) #\<)
-         (let (close (substring-index text ">" 1))
+         (let (close (string-index-from text ">" 1))
            (and close
                 (< close separator)
                 (cons (substring text 1 close)
-                      (trim (substring text (+ separator 3)
-                                       (string-length text)))))))))
+                      (string-trim-both
+                       (substring text (+ separator 3)
+                                  (string-length text)))))))))
 
 ;; : (-> String String String)
 (def (append-expression current line)
-  (let (next (trim line))
+  (let (next (string-trim-both line))
     (cond
      ((zero? (string-length next)) current)
      ((zero? (string-length current)) next)
@@ -105,8 +70,8 @@
 
 ;; : (-> String Nat (List String) (List String))
 (def (collect-reference-names source offset found)
-  (let* ((open (substring-index source "<" offset))
-         (close (and open (substring-index source ">" (+ open 1)))))
+  (let* ((open (string-index-from source "<" offset))
+         (close (and open (string-index-from source ">" (+ open 1)))))
     (cond
      ((not close) (reverse found))
      (else
@@ -119,7 +84,7 @@
 
 ;; : (-> String (List String))
 (def (reference-names expression)
-  (let* ((annotation (substring-index expression "!!"))
+  (let* ((annotation (string-index-from expression "!!"))
          (source (if annotation (substring expression 0 annotation) expression)))
     (collect-reference-names source 0 '())))
 
@@ -130,7 +95,7 @@
 
 ;; : (-> Char Boolean)
 (def (bnf-delimiter? ch)
-  (or (whitespace? ch)
+  (or (ascii-whitespace? ch)
       (memv ch '(#\[ #\] #\{ #\} #\|))))
 
 ;; : (-> String (List BnfToken))
@@ -139,13 +104,13 @@
     (let loop ((offset 0) (tokens '()))
       (cond
        ((= offset length) (reverse tokens))
-       ((whitespace? (string-ref expression offset))
+       ((ascii-whitespace? (string-ref expression offset))
         (loop (+ offset 1) tokens))
        ((and (<= (+ offset 3) length)
              (string=? (substring expression offset (+ offset 3)) "..."))
         (loop (+ offset 3) (cons 'ellipsis tokens)))
        ((char=? (string-ref expression offset) #\<)
-        (let (close (substring-index expression ">" (+ offset 1)))
+        (let (close (string-index-from expression ">" (+ offset 1)))
           (if (and close (> close (+ offset 1)))
             (loop (+ close 1)
                   (cons (cons 'reference
@@ -237,12 +202,13 @@
 
 ;; : (-> String BnfAst)
 (def (parse-bnf-expression expression)
-  (let (annotation (substring-index expression "!!"))
+  (let (annotation (string-index-from expression "!!"))
     (if annotation
-      (let ((terminal (trim (substring expression 0 annotation)))
+      (let ((terminal (string-trim-both (substring expression 0 annotation)))
             (codepoints
-             (trim (substring expression (+ annotation 2)
-                              (string-length expression)))))
+             (string-trim-both
+              (substring expression (+ annotation 2)
+                         (string-length expression)))))
         (when (zero? (string-length terminal))
           (error "ISO BNF annotated terminal has no spelling" expression))
         (list 'annotated-terminal terminal codepoints))
@@ -266,7 +232,7 @@
 
 ;; : (-> (Maybe String) String Boolean)
 (def (production-continuation? name line)
-  (let (text (trim line))
+  (let (text (string-trim-both line))
     (and name
          (or (zero? (string-length text))
              (not (char=? (string-ref text 0) #\#))))))
@@ -296,7 +262,7 @@
 
 ;; : (-> String (List IsoBnfProduction))
 (def (parse-production-rows source)
-  (parse-production-lines (split-lines source) 1 #f #f "" '()))
+  (parse-production-lines (text-lines source) 1 #f #f "" '()))
 
 ;; : (-> (List IsoBnfProduction) (List IsoBnfProduction))
 (def (validate-productions productions)

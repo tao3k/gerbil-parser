@@ -137,13 +137,16 @@ is not a runtime dependency or a second parser engine: native TLA+ productions
 are lowered into the same Grammar IR and compiled by gerbil-parser.  The TLA+
 Foundation Examples corpus is pinned at commit
 =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=.  The pack version is =v1= and its
-admitted identity is =tla-plus.module-core.v1=.  The first executable slice covers module
-envelopes, EXTENDS, constant and variable declarations, single-line operator
-definitions, theorem declarations, ASCII operator tokens, strings, line
-comments, and nested block comments.  It includes the byte-exact official
-=HourClock.tla= source plus focused module and nested-comment contracts.  It
-does not yet claim PlusCal, TLAPS proof syntax, multiline definitions, or the
-complete official SANY syntax corpus.
+admitted identity is =tla-plus.native-core.v1=.  The executable slice covers
+module envelopes, EXTENDS, constant and variable declarations, single-line
+operator definitions, theorem declarations, precedence-bearing expressions,
+IF/THEN/ELSE, CHOOSE, bounded and unbounded quantification, tuples, sets,
+function constructors, strings, line comments, and nested block comments.  It
+includes the byte-exact official =HourClock.tla= source plus focused structural
+and negative contracts.  The 99-production SANY inventory is digest-bound and
+materialized during expansion.  The contract does not yet claim PlusCal, TLAPS
+proof syntax, indentation-sensitive or multiline definitions, or the complete
+official SANY syntax corpus.
 
 Version identities are never inferred from a current branch or latest release.
 Changing an upstream edition, tag, commit, corrigendum, or admitted production

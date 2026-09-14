@@ -31,7 +31,7 @@
   (parse-corpus parse-gql-iso-39075-2024 gql-iso-official-fixtures)
   (parse-corpus parse-opencypher-2024-1
                 opencypher-2024-1-accepted-fixtures)
-  (parse-corpus parse-tla-plus-v1 tla-plus-v1-fixtures))
+  (parse-corpus parse-tla-plus-v1 tla-plus-v1-accepted-fixtures))
 
 (def versioned-language-benchmark-tests
   (test-suite "versioned language benchmark"

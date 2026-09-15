@@ -67,6 +67,28 @@
               '|accent quoted character sequence|)
              => '(alias |accent quoted character sequence|
                   (token delimited-identifier)))
+      (check
+       (grammar-rule-expression
+        (iso-bnf-source-grammar-rules opencypher-2024-1-bnf)
+        '|create node pattern filler|)
+       => '(alias |create node pattern filler|
+            (choice
+             (sequence
+              (reference |binding variable|)
+              (optional
+               (reference |create node label and property set specification|)))
+             (reference |create node label and property set specification|))))
+      (check
+       (grammar-rule-expression
+        (iso-bnf-source-grammar-rules opencypher-2024-1-bnf)
+        '|create node label and property set specification|)
+       => '(alias |create node label and property set specification|
+            (choice
+             (sequence
+              (reference |create node label set specification|)
+              (optional
+               (reference |create element property specification|)))
+             (reference |create element property specification|))))
       (for-each
        (lambda (production)
          (check (pair? (iso-bnf-production-ast production)) => #t))

@@ -14,6 +14,9 @@
         +opencypher-qualified-reference-normalization+
         +opencypher-nullable-prefix-normalization+
         +opencypher-constructor-deduplication+
+        +opencypher-parameter-path-deduplication+
+        +opencypher-literal-keyword-preference+
+        +opencypher-non-reserved-word-preference+
         +opencypher-syntax-contract+
         +opencypher-representative-query+
         opencypher-2024-1-bnf
@@ -83,6 +86,27 @@
     (namespace . opencypher)
     (name . value-constructor-deduplication)
     (kind . normalization)
+    (sourceVersion . "2024.1")
+    (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493")))
+(def +opencypher-parameter-path-deduplication+
+  '((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+    (namespace . opencypher)
+    (name . parameter-path-deduplication)
+    (kind . normalization)
+    (sourceVersion . "2024.1")
+    (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493")))
+(def +opencypher-literal-keyword-preference+
+  '((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+    (namespace . opencypher)
+    (name . literal-keyword-preference)
+    (kind . disambiguation)
+    (sourceVersion . "2024.1")
+    (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493")))
+(def +opencypher-non-reserved-word-preference+
+  '((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+    (namespace . opencypher)
+    (name . non-reserved-word-preference)
+    (kind . disambiguation)
     (sourceVersion . "2024.1")
     (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493")))
 (def +opencypher-syntax-contract+ "opencypher-2024.1-syntax.v1")
@@ -307,6 +331,53 @@
       (reference |boolean literal|)
       (reference |character string literal|)
       (reference |null literal|))))
+   ;; `general parameter reference` is already a direct alternative of
+   ;; `non-parenthesized value expression primary`; `value specification` has
+   ;; no other consumer. Removing the duplicate path preserves the admitted
+   ;; language while preventing two distinct CST derivations for `$name`.
+   (|value specification|
+    ((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+     (namespace . opencypher)
+     (name . parameter-path-deduplication)
+     (kind . normalization)
+     (sourceVersion . "2024.1")
+     (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493"))
+    (alias |value specification|
+     (choice
+      (reference |literal|)
+      (reference |general parameter reference|)
+      (reference |list value constructor|)
+      (reference |map value constructor|)))
+    (alias |value specification|
+     (choice
+      (reference |literal|)
+      (reference |list value constructor|)
+      (reference |map value constructor|))))
+   ;; Literal keywords remain legal non-reserved identifiers. In LR states
+   ;; where both derivations are admitted, explicit static grammar precedence
+   ;; selects the literal meaning without enumerating 2^n completed paths.
+   (|boolean literal|
+    ((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+     (namespace . opencypher)
+     (name . literal-keyword-preference)
+     (kind . disambiguation)
+     (sourceVersion . "2024.1")
+     (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493"))
+    (alias |boolean literal|
+     (choice (literal "TRUE") (literal "FALSE")))
+    (alias |boolean literal|
+     (choice
+      (precedence left 1 (literal "TRUE"))
+      (precedence left 1 (literal "FALSE")))))
+   (|null literal|
+    ((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+     (namespace . opencypher)
+     (name . literal-keyword-preference)
+     (kind . disambiguation)
+     (sourceVersion . "2024.1")
+     (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493"))
+    (alias |null literal| (literal "NULL"))
+    (alias |null literal| (precedence left 1 (literal "NULL"))))
    (|graph reference|
     ((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
      (namespace . opencypher)
@@ -358,6 +429,15 @@
       (sequence
        (reference |catalog object parent reference|)
        (reference |function name|))))))
+  (rule-precedences
+   (|non-reserved word|
+    ((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+     (namespace . opencypher)
+     (name . non-reserved-word-preference)
+     (kind . disambiguation)
+     (sourceVersion . "2024.1")
+     (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493"))
+    left -1))
   (entrypoint program)
   (conflicts selective-glr)
   (case-insensitive #t))

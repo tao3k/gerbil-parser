@@ -30,24 +30,42 @@ Lexical dispatch uses global longest consumption, lexical precedence for ties,
 and declaration order only when both are equal. External scanner declarations
 carry a version and a hygienically bound scanner procedure.
 
-Selective GLR actions retain the stable-v1 ordered fast path for static forks.
-Grammars with dynamic precedence evaluate complete admitted branches within an
-explicit budget: scores select complete branches, identical ties merge, and
-distinct equal-score ties use declaration order while recording ambiguity.
-The receipt keeps =branchesExplored= as the count of all attempted fork actions
-and adds =speculativeBranchesExplored= for non-preferred alternatives.  The
-budget applies to that speculative count: a long successful preferred path is
-observable but cannot exhaust the fallback-search budget merely by crossing
-many conflict cells.  Branch sites and merge counts remain published in the
-same additive stable-v1 receipt; the Parser IR remains an immutable AOT table.
+Selective GLR evaluates every locally admitted static and dynamic fork.
+Dynamic precedence ranks only completed branches; it never decides whether an
+alternative is explored. Identical completed ties merge, while distinct
+equal-score completions fail closed with typed ambiguity evidence instead of
+using declaration order as an implicit policy.
+
+The receipt keeps =branchesExplored= and =speculativeBranchesExplored= as
+cumulative work counters. The explicit branch budget applies to maximum nested
+speculative depth, not to the number of independent conflict cells crossed by a
+long input. =maxSpeculativeDepth= therefore bounds combinatorial ambiguity while
+allowing linear fallback validation. Branch sites, completion counts, merge
+counts, and winner reason remain additive stable-v1 evidence; the Parser IR
+remains an immutable AOT table.
+
+ANTLR source alternatives retain their upstream ordered-decision ranks as
+static LR precedence for both recursive and non-recursive choices. The adapter
+therefore resolves ANTLR decisions through the same native LR table instead of
+turning upstream order into unordered GLR ambiguity or adding a second parser.
 
 The openCypher source adapter uses exact-source, digest-bearing overlays rather
-than an alternate grammar.  Its result path is right-recursive (=R | P | P L=,
+than an alternate grammar. Its result path is right-recursive (=R | P | P L=,
 equivalent to =P+ | P* R=), nullable prefixes are explicit choices, qualified
 references are left-factored, and list/map constructors own the syntax already
-subsumed by their literal subsets.  These normalizations reduce the pinned
-2024.1 table to 1,320 states and 690 fork cells while retaining source
+subsumed by their literal subsets. The ISO BNF projection also canonicalizes
+the language-preserving overlap =A [B] | [A] B= as =A [B] | B= while retaining
+the verbatim source AST. Literal keywords use explicit static precedence only
+where their literal and non-reserved-word meanings meet in the same LR cell.
+These normalizations reduce the pinned 2024.1 table to 1,317 states and 450
+fork cells while retaining source
 coordinates and replacement digests in Bound Grammar IR.
+
+Runtime reductions accumulate recognition children as immutable shared
+sequences. Concatenation is constant time, and the standard linear list builder
+materializes a proper list only at field, alias, or accept boundaries. This
+removes the quadratic repeated-=append= path for long left-recursive clauses
+without changing ParseArtifact or CST values.
 
 * AOT materialization storage
 

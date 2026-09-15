@@ -175,6 +175,37 @@
      (precedence dynamic 1
       (alias SourceFile (field value (token identifier)))))))
 
+(def competing-dynamic-precedence-rules
+  '((source-file
+     (choice (reference low-path) (reference high-path)))
+    (low-path
+     (precedence dynamic 1
+      (alias LowPath (field value (token identifier)))))
+    (high-path
+     (precedence dynamic 2
+      (alias HighPath (field value (token identifier)))))))
+
+;;; The two reductions accept the same token and publish the same tree.  A
+;;; correct selective-GLR runtime must execute both and merge their completed
+;;; candidates even when neither production carries dynamic precedence.
+(def static-equivalent-ambiguity-rules
+  '((source-file
+     (choice (reference first-path) (reference second-path)))
+    (first-path
+     (alias SourceFile (field value (token identifier))))
+    (second-path
+     (alias SourceFile (field value (token identifier))))))
+
+;;; The same reduce/reduce shape deliberately publishes distinct roots.  The
+;;; runtime must not turn declaration order into an implicit ambiguity policy.
+(def static-distinct-ambiguity-rules
+  '((source-file
+     (choice (reference first-path) (reference second-path)))
+    (first-path
+     (alias FirstPath (field value (token identifier))))
+    (second-path
+     (alias SecondPath (field value (token identifier))))))
+
 (def ambiguous-left-recursive-rules
   '((source-file
      (choice
@@ -336,6 +367,32 @@
                              (make-token 'punctuation "SET" 20 23)))))
           (check (recognition-node-kind root) => 'SourceFile)
           (check rest => '()))))
+    (test-case "static selective GLR merges equivalent completed branches"
+      (let (spec
+            (compile-lr-spec static-equivalent-ambiguity-rules
+                             'source-file 'selective-glr))
+        (let-values (((root rest receipt)
+                      (lr-parse/receipt
+                       spec (list (make-token 'identifier "x" 0 1)))))
+          (check (recognition-node-kind root) => 'SourceFile)
+          (check rest => '())
+          (check (row-ref receipt 'branchesExplored) => 2)
+          (check (row-ref receipt 'mergedBranches) => 1)
+          (check (row-ref receipt 'ambiguousBranches) => 0))))
+    (test-case "static selective GLR rejects distinct completed branches"
+      (let (spec
+            (compile-lr-spec static-distinct-ambiguity-rules
+                             'source-file 'selective-glr))
+        (check
+         (with-catch
+          (lambda (condition) (error-message condition))
+          (lambda ()
+            (call-with-values
+             (lambda ()
+               (lr-parse/receipt
+                spec (list (make-token 'identifier "x" 0 1))))
+             (lambda _ #f))))
+         => "selective GLR ambiguity is unresolved")))
     (test-case "dynamic precedence requires selective GLR admission"
       (check (condition-message
               (lambda ()
@@ -352,6 +409,26 @@
           (check (row-ref receipt 'dynamicScore) => 1)
           (check (row-ref receipt 'schema)
                  => "gerbil-parser.selective-glr-receipt.v1"))))
+    (test-case "dynamic precedence ranks completed reduce branches"
+      (check
+       (condition-message
+        (lambda ()
+          (compile-lr-spec competing-dynamic-precedence-rules
+                           'source-file)))
+       => "dynamic precedence requires selective GLR admission")
+      (let (spec
+            (compile-lr-spec competing-dynamic-precedence-rules
+                             'source-file 'selective-glr))
+        (let-values (((root rest receipt)
+                      (lr-parse/receipt
+                       spec (list (make-token 'identifier "x" 0 1)))))
+          (check (recognition-node-kind root) => 'HighPath)
+          (check rest => '())
+          (check (row-ref receipt 'branchesExplored) => 2)
+          (check (row-ref receipt 'successfulCompletions) => 2)
+          (check (row-ref receipt 'distinctCompletions) => 2)
+          (check (row-ref receipt 'winnerReason) => 'dynamic-precedence)
+          (check (row-ref receipt 'dynamicScore) => 2))))
     (test-case "non-associative precedence rejects only chained operators"
       (let (spec (compile-lr-spec nonassociative-rules 'source-file))
         (let-values (((root rest)

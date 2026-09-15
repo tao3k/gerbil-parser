@@ -115,11 +115,24 @@
               +opencypher-nullable-prefix-normalization+)
         (cons '|list literal| +opencypher-nullable-prefix-normalization+)
         (cons '|general literal| +opencypher-constructor-deduplication+)
+        (cons '|boolean literal| +opencypher-literal-keyword-preference+)
+        (cons '|null literal| +opencypher-literal-keyword-preference+)
         (cons '|graph reference| +opencypher-qualified-reference-normalization+)
         (cons '|procedure reference|
               +opencypher-qualified-reference-normalization+)
         (cons '|function reference|
               +opencypher-qualified-reference-normalization+)))
+      (let* ((binding
+              (bound-grammar-ir-binding
+               opencypher-2024-1-bound-grammar-ir
+               'rule '|non-reserved word|))
+             (source (bound-grammar-ir-ref binding 'source)))
+        (check (bound-row-ref source 'precedenceOverlay)
+               => +opencypher-non-reserved-word-preference+)
+        (check (string-prefix?
+                "sha256:"
+                (bound-row-ref source 'replacementExpressionDigest))
+               => #t))
       (let* ((spec (parser-ir-ref opencypher-2024-1-parser-ir 'lr-spec))
              (productions (lr-spec-ref spec 'productions))
              (actions (lr-spec-ref spec 'actions))
@@ -144,9 +157,11 @@
                         (length (filter fork-action-entry? row)))
                       (vector->list actions))))
              (initial-actions (vector-ref actions 0)))
-        (check (lr-spec-ref spec 'state-count) => 1320)
+        (check (lr-spec-ref spec 'state-count) => 1317)
         (check nullable-prefix-helpers => '())
-        (check fork-cells => 690)
+        ;; The source-owned non-reserved-word precedence resolves 129 static
+        ;; cells; remaining runtime forks retain selective-GLR admission.
+        (check fork-cells => 321)
         (for-each
          (lambda (literal)
            (let (entry
@@ -200,7 +215,7 @@
            (check (parse-artifact-valid? artifact) => #t)))
        '("UNWIND [0b101] AS n RETURN n\n"
          "UNWIND [1.] AS n RETURN n\n")))
-    (test-case "preferred GLR forks do not consume speculative budget"
+    (test-case "static conflict normalization removes boolean path explosion"
       (let* ((source (repeated-boolean-list-source 300))
              (tokens
               (parser-significant-tokens
@@ -212,6 +227,7 @@
         (let-values (((_root rest receipt)
                       (lr-parse/receipt spec tokens 1)))
           (check rest => '())
-          (check (> (bound-row-ref receipt 'branchesExplored) 256) => #t)
-          (check (bound-row-ref receipt 'speculativeBranchesExplored)
-                 => 0))))))
+          (check (bound-row-ref receipt 'branchesExplored) => 0)
+          (check (bound-row-ref receipt 'speculativeBranchesExplored) => 0)
+          (check (bound-row-ref receipt 'maxSpeculativeDepth) => 0)
+          (check (bound-row-ref receipt 'successfulCompletions) => 1))))))

@@ -9,6 +9,8 @@
                  +diagnostic-schema+ make-failure-parse-artifact
                  make-success-parse-artifact)
         (only-in ./lexer lex-source)
+        (only-in ./observability
+                 call-with-parser-observed-phase)
         (only-in ./significant parser-significant-tokens)
         (only-in ./token token-lexeme))
 (export parse-source
@@ -38,23 +40,41 @@
    grammar-digest source tokens (diagnostic machine condition)))
 
 ;; : (-> ParserMachine Digest String (List Token) ParseArtifact)
-(def (parse-tokenized machine grammar-digest source tokens)
+(def (parse-tokenized machine grammar-digest source tokens
+                      (observability #f))
   (with-catch
    (lambda (condition)
-     (failure-artifact machine grammar-digest source tokens condition))
+     (call-with-parser-observed-phase
+      observability
+      'artifact-materialization
+      (lambda ()
+        (failure-artifact machine grammar-digest source tokens condition))))
    (lambda ()
-     (let-values
+     (let* ((significant
+             (call-with-parser-observed-phase
+              observability
+              'significant-token-filter
+              (lambda () (parser-significant-tokens machine tokens)))))
+       (let-values
          (((root rest)
-           ((parser-machine-parse machine)
-            (parser-significant-tokens machine tokens))))
+           (call-with-parser-observed-phase
+            observability
+            'lr-execution
+            (lambda ()
+              ((parser-machine-parse machine) significant observability)))))
        (unless (null? rest)
          (error "unexpected trailing token" (token-lexeme (car rest))))
-       (make-success-parse-artifact
-        grammar-digest source tokens root
-        (parser-machine-trivia machine))))))
+       (call-with-parser-observed-phase
+        observability
+        'artifact-materialization
+        (lambda ()
+          (make-success-parse-artifact
+           grammar-digest source tokens root
+           (parser-machine-trivia machine)))))))))
 
 ;; : (-> ParserMachine String ParseArtifact)
-(def (parse-source machine source)
+(def (parse-source machine source
+                   (observability #f))
   (unless (string? source)
     (error "parse source must be a string" source))
   (let (grammar-digest (parser-machine-grammar-digest machine))
@@ -64,7 +84,16 @@
     ;; exception continuation on every successful request.
     (with-catch
      (lambda (condition)
-       (failure-artifact machine grammar-digest source '() condition))
+       (call-with-parser-observed-phase
+        observability
+        'artifact-materialization
+        (lambda ()
+          (failure-artifact machine grammar-digest source '() condition))))
      (lambda ()
-       (parse-tokenized machine grammar-digest source
-                        (lex-source machine source))))))
+       (parse-tokenized
+        machine grammar-digest source
+        (call-with-parser-observed-phase
+         observability
+         'lexical-analysis
+         (lambda () (lex-source machine source)))
+        observability)))))

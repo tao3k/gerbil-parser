@@ -15,6 +15,8 @@
         (for-syntax (only-in ./iso-bnf
                              iso-bnf-source-declaration-sources
                              iso-bnf-source-declaration-sources/overrides
+                             iso-bnf-source-declaration-sources/precedences
+                             iso-bnf-apply-rule-precedences
                              iso-bnf-source-grammar-rules
                              iso-bnf-source-grammar-rules/overrides
                              iso-bnf-source-literals
@@ -252,7 +254,8 @@
 ;;     %
 (defsyntax (deflanguage-iso-bnf-grammar stx)
   (syntax-case stx
-      (identity reference digest source rule-overrides entrypoint conflicts
+      (identity reference digest source rule-overrides rule-precedences
+                entrypoint conflicts
                 case-insensitive)
     ((_ prefix
         (identity language version contract)
@@ -268,6 +271,7 @@
          (digest expected-digest)
          (source path)
          (rule-overrides)
+         (rule-precedences)
          (entrypoint entry-name)
          (conflicts conflict-policy)
          (case-insensitive case-insensitive-value)))
@@ -277,6 +281,26 @@
         (digest expected-digest)
         (source path)
         (rule-overrides override-row ...)
+        (entrypoint entry-name)
+        (conflicts conflict-policy)
+        (case-insensitive case-insensitive-value))
+     #'(deflanguage-iso-bnf-grammar prefix
+         (identity language version contract)
+         (reference source-version source-commit)
+         (digest expected-digest)
+         (source path)
+         (rule-overrides override-row ...)
+         (rule-precedences)
+         (entrypoint entry-name)
+         (conflicts conflict-policy)
+         (case-insensitive case-insensitive-value)))
+    ((_ prefix
+        (identity language version contract)
+        (reference source-version source-commit)
+        (digest expected-digest)
+        (source path)
+        (rule-overrides override-row ...)
+        (rule-precedences precedence-row ...)
         (entrypoint entry-name)
         (conflicts conflict-policy)
         (case-insensitive case-insensitive-value))
@@ -307,8 +331,11 @@
                 (PunctuationToken token (text))
                 (UnknownToken token (text)))))
             (overrides (syntax->datum #'(override-row ...)))
-            (rule-rows
+            (precedences (syntax->datum #'(precedence-row ...)))
+            (source-rule-rows
              (iso-bnf-source-grammar-rules/overrides catalog overrides))
+            (rule-rows
+             (iso-bnf-apply-rule-precedences source-rule-rows precedences))
             (literal-values
              (filter
               (lambda (literal)
@@ -319,9 +346,12 @@
                                 (char=? first #\_))))))
               (iso-bnf-source-literals catalog rule-rows)))
             (source-map
-             (iso-bnf-source-declaration-sources/overrides
-              catalog (stx-e #'path) overrides))
-            (overlay-lineage (map cadr overrides)))
+             (iso-bnf-source-declaration-sources/precedences
+              (iso-bnf-source-declaration-sources/overrides
+               catalog (stx-e #'path) overrides)
+              source-rule-rows precedences))
+            (overlay-lineage
+             (append (map cadr overrides) (map cadr precedences))))
        (with-syntax ((((syntax-row ...)) (list syntax-rows))
                      (((rule-row ...)) (list rule-rows))
                      (((literal-value ...)) (list literal-values))

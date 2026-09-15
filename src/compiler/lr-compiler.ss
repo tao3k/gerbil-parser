@@ -71,6 +71,12 @@
          (left-rank (if left-precedence (cadr left-precedence) 0))
          (right-rank (if right-precedence (cadr right-precedence) 0)))
     (cond
+     ((or (dynamic-precedence? left-precedence)
+          (dynamic-precedence? right-precedence))
+      (fork-or-reject
+       conflict-policy left right
+       "dynamic precedence requires selective GLR admission"
+       (list terminal left-production right-production)))
      ((> left-rank right-rank) left)
      ((< left-rank right-rank) right)
      ((eq? conflict-policy 'selective-glr) (fork-action left right))

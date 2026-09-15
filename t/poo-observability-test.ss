@@ -1,13 +1,14 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 ;;; Acceptance owner for POO Flow source-authoring, memory, and timing evidence.
-;;; Observability is a development sidecar and is absent from parser runtime.
+;;; Runtime observation remains an opt-in POO policy carried by LanguageGrammar.
 
 (import :std/test
         (only-in :clan/poo/object .ref)
         :asp-gerbil-scheme/src/benchmark/framework
         :poo-flow/src/module-system/observability/interface
-        :gerbil-parser/src/modules/parser/interface)
+        :gerbil-parser/src/modules/parser/interface
+        "./scenarios/observability/opencypher-grammar-phases/scenario")
 
 (def benchmark-path "t/benchmarks/poo-grammar-objects/benchmark.ss")
 
@@ -83,6 +84,12 @@
                                     make-observed-grammar-batch))
         (write receipt)
         (newline)
-        (check (benchmark-contract-receipt-pass? receipt) => #t)))))
+        (check (benchmark-contract-receipt-pass? receipt) => #t)))
+    (test-case "LanguageGrammar atomically configures POO Flow phase observation"
+      (let (receipt (opencypher-grammar-observability-scenario))
+        (write receipt)
+        (newline)
+        (check (opencypher-grammar-observability-scenario-pass? receipt)
+               => #t)))))
 
 (run-tests! poo-observability-tests)

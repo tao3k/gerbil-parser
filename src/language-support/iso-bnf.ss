@@ -22,10 +22,13 @@
         iso-bnf-source-production
         iso-bnf-source-grammar-rules
         iso-bnf-source-grammar-rules/overrides
+        iso-bnf-apply-rule-precedences
         iso-bnf-source-syntax-kinds
         iso-bnf-source-literals
         iso-bnf-source-declaration-sources
         iso-bnf-source-declaration-sources/overrides
+        iso-bnf-source-declaration-sources/precedences
+        iso-bnf-choice-normalize-overlap
         parse-iso-bnf-source
         parse-iso-bnf-source/expected)
 
@@ -345,6 +348,38 @@
     "unsigned decimal in scientific notation"
     "unsigned decimal in common notation"))
 
+;; ISO grammars sometimes spell the non-empty union of A and B as
+;;   A [B] | [A] B
+;; which admits A B twice. Preserve the source AST verbatim, but compile that
+;; set union as A [B] | B so LR construction does not manufacture duplicate
+;; successful paths. This is language-preserving algebra, not an overlay.
+;; : (-> (List GrammarExpr) (List GrammarExpr))
+(def (iso-bnf-choice-normalize-overlap alternatives)
+  (if (and (= (length alternatives) 2)
+           (eq? (caar alternatives) 'sequence)
+           (eq? (caadr alternatives) 'sequence))
+    (let* ((left (car alternatives))
+           (right (cadr alternatives))
+           (left-items (cdr left))
+           (right-items (cdr right)))
+      (cond
+       ((and (= (length left-items) 2)
+             (= (length right-items) 2)
+             (eq? (car (cadr left-items)) 'optional)
+             (eq? (car (car right-items)) 'optional)
+             (equal? (car left-items) (cadr (car right-items)))
+             (equal? (cadr (cadr left-items)) (cadr right-items)))
+        (list left (cadr right-items)))
+       ((and (= (length left-items) 2)
+             (= (length right-items) 2)
+             (eq? (car (car left-items)) 'optional)
+             (eq? (car (cadr right-items)) 'optional)
+             (equal? (cadr (car left-items)) (car right-items))
+             (equal? (cadr left-items) (cadr (cadr right-items))))
+        (list right (cadr left-items)))
+       (else alternatives)))
+    alternatives))
+
 ;; : (-> String (Maybe GrammarExpr))
 (def (iso-bnf-lexical-override name)
   (cond
@@ -370,8 +405,13 @@
     ((group) (iso-bnf-ast->grammar-expression (cadr ast)))
     ((optional repeat repeat1)
      (list (car ast) (iso-bnf-ast->grammar-expression (cadr ast))))
-    ((sequence choice)
-     (cons (car ast) (map iso-bnf-ast->grammar-expression (cdr ast))))
+    ((sequence)
+     (cons 'sequence
+           (map iso-bnf-ast->grammar-expression (cdr ast))))
+    ((choice)
+     (cons 'choice
+           (iso-bnf-choice-normalize-overlap
+            (map iso-bnf-ast->grammar-expression (cdr ast)))))
     ((empty) '(empty))
     (else (error "unsupported ISO BNF AST node" ast))))
 
@@ -450,6 +490,57 @@
 (def (iso-bnf-source-grammar-rules/overrides source overrides)
   (iso-bnf-apply-rule-overrides
    (iso-bnf-source-grammar-rules source) overrides))
+
+;;; A precedence overlay resolves an ambiguity already present in the pinned
+;;; source without copying its complete expression into the language pack.
+;;; The source catalog digest remains the authority, while Bound IR records
+;;; the exact source and replacement expression digests. Row shape:
+;;;   (rule-name metadata direction rank)
+;; : (-> [GrammarRule] [IsoBnfRulePrecedence] [GrammarRule])
+(def (iso-bnf-apply-rule-precedences rules precedences)
+  (let loop ((rest precedences) (seen '()) (current rules))
+    (if (null? rest)
+      current
+      (let (precedence (car rest))
+        (unless (and (list? precedence)
+                     (= (length precedence) 4)
+                     (symbol? (car precedence))
+                     (list? (cadr precedence))
+                     (equal? (alet (entry (assq 'schema (cadr precedence)))
+                               (cdr entry))
+                             +iso-bnf-rule-overlay-schema+)
+                     (symbol? (alet (entry (assq 'namespace (cadr precedence)))
+                                (cdr entry)))
+                     (symbol? (alet (entry (assq 'name (cadr precedence)))
+                                (cdr entry)))
+                     (equal? (alet (entry (assq 'kind (cadr precedence)))
+                               (cdr entry))
+                             'disambiguation)
+                     (string? (alet (entry (assq 'sourceVersion
+                                                 (cadr precedence)))
+                                (cdr entry)))
+                     (string? (alet (entry (assq 'upstreamCommit
+                                                 (cadr precedence)))
+                                (cdr entry)))
+                     (memq (caddr precedence) '(none left right dynamic))
+                     (integer? (cadddr precedence)))
+          (error "invalid ISO BNF rule precedence" precedence))
+        (let* ((name (car precedence))
+               (direction (caddr precedence))
+               (rank (cadddr precedence))
+               (row (iso-bnf-rule-row current name)))
+          (when (memq name seen)
+            (error "duplicate ISO BNF rule precedence" name))
+          (unless row
+            (error "ISO BNF rule precedence target does not exist" name))
+          (loop
+           (cdr rest) (cons name seen)
+           (map (lambda (candidate)
+                  (if (eq? (car candidate) name)
+                    (list name
+                          (list 'precedence direction rank (cadr candidate)))
+                    candidate))
+                current)))))))
 
 ;; : (-> IsoBnfSource [SyntaxKind])
 (def (iso-bnf-source-syntax-kinds source)
@@ -542,3 +633,28 @@
              (sha256-text (iso-bnf-canonical (cadddr override)))))))
    (iso-bnf-source-declaration-sources source path)
    overrides))
+
+;; : (-> DeclarationSourceMap [GrammarRule] [IsoBnfRulePrecedence]
+;;        DeclarationSourceMap)
+(def (iso-bnf-source-declaration-sources/precedences source-map rules
+                                                     precedences)
+  (foldl
+   (lambda (precedence current-map)
+     (let* ((name (car precedence))
+            (row (iso-bnf-rule-row rules name))
+            (source-expression (and row (cadr row)))
+            (replacement
+             (and source-expression
+                  (list 'precedence (caddr precedence) (cadddr precedence)
+                        source-expression))))
+       (unless row
+         (error "ISO BNF rule precedence target does not exist" name))
+       (iso-bnf-annotate-rule-source
+        current-map name
+        (list
+         (cons 'precedenceOverlay (cadr precedence))
+         (cons 'sourceExpressionDigest
+               (sha256-text (iso-bnf-canonical source-expression)))
+         (cons 'replacementExpressionDigest
+               (sha256-text (iso-bnf-canonical replacement)))))))
+   source-map precedences))

@@ -15,7 +15,7 @@
    "grammar Tiny;\n"
    "options { caseInsensitive = true; }\n"
    "program : MATCH regularIdentifier EOF;\n"
-   "regularIdentifier : REGULAR_IDENTIFIER;\n"
+   "regularIdentifier : REGULAR_IDENTIFIER | MATCH;\n"
    "MATCH : 'MATCH';\n"
    "REGULAR_IDENTIFIER : [a-zA-Z_] [a-zA-Z_0-9]*;\n"
    "SP : [ \\t\\r\\n]+ -> channel(HIDDEN);\n"))
@@ -30,7 +30,15 @@
         (check (antlr4-source-rule source "program") ? antlr4-rule?)
         (check (antlr4-rule-references
                 (antlr4-source-rule source "program"))
-               => '("MATCH" "regularIdentifier" "EOF"))))
+               => '("MATCH" "regularIdentifier" "EOF"))
+        (check
+         (cadr
+          (assq 'regularIdentifier
+                (antlr4-source-parser-grammar-rules source)))
+         => '(alias RegularIdentifier
+             (choice
+              (precedence left 2 (token identifier))
+              (precedence left 1 (literal "MATCH")))))))
     (test-case "an unresolved parser reference fails closed"
       (check-exception
        (parse-antlr4-source

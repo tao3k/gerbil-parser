@@ -281,5 +281,9 @@
         (generated-lexer (lexical-rules lexical-row ...))
         (lambda (input-token)
           (memq (token-kind input-token) '(extra-name ...)))
-        (lambda (tokens)
-          (lr-parse/prepared runtime tokens)))))))
+        (lambda (tokens . maybe-observability)
+          (lr-parse/prepared
+           runtime tokens
+           (if (null? maybe-observability)
+             #f
+             (car maybe-observability)))))))))

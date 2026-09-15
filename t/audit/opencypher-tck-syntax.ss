@@ -75,7 +75,9 @@
   (let* ((manifest (read-manifest path))
          (schema (row-ref manifest 'schema))
          (commit (row-ref manifest 'upstreamCommit))
-         (records (cdr (assq 'records manifest))))
+         (records (cdr (assq 'records manifest)))
+         (record-count (length records))
+         (started (##current-time-point)))
     (unless (and (equal? schema expected-schema)
                  (equal? commit expected-commit)
                  (= (row-ref manifest 'recordCount) (length records)))
@@ -83,6 +85,7 @@
     (let ((seen-sources (make-hash-table))
           (seen-unexpected-sources (make-hash-table)))
       (let loop ((rest records)
+                 (index 0)
                  (unique-sources 0) (unique-unexpected-sources 0)
                  (accepted 0) (rejected 0)
                  (expected-accepted 0) (expected-rejected 0)
@@ -90,6 +93,7 @@
                  (skipped 0) (unresolved 0)
                  (categories '()) (failure-kinds '()) (token-kinds '())
                  (token-lexemes '()) (states '()) (expected-terminals '())
+                 (ambiguity-branch-sites '())
                  (failures '()))
       (if (null? rest)
         (list
@@ -97,7 +101,7 @@
          (cons 'upstreamCommit commit)
          (cons 'featureTreeDigest (row-ref manifest 'featureTreeDigest))
          (cons 'featureFileCount (row-ref manifest 'featureFileCount))
-         (cons 'expandedQueryCount (+ accepted rejected))
+                 (cons 'expandedQueryCount (+ accepted rejected))
          (cons 'uniqueSourceCount unique-sources)
          (cons 'accepted accepted)
          (cons 'rejected rejected)
@@ -114,8 +118,23 @@
          (cons 'unexpectedRejectionsByTokenLexeme token-lexemes)
          (cons 'unexpectedRejectionsByState states)
          (cons 'unexpectedRejectionsByExpectedTerminals expected-terminals)
+         (cons 'unexpectedRejectionsByAmbiguityBranchSite
+               ambiguity-branch-sites)
          (cons 'firstUnexpectedRejections (reverse failures)))
         (let* ((record (car rest))
+               (_progress
+                (when (zero? (modulo index 100))
+                  (write
+                   (list 'opencypher-tck-progress
+                         (cons 'processed index)
+                         (cons 'total record-count)
+                         (cons 'elapsedMilliseconds
+                               (floor
+                                (* 1000.0
+                                   (- (##current-time-point) started))))
+                         (cons 'nextRecord (record-identity record))))
+                  (newline)
+                  (force-output)))
                (source (record-source record))
                (outcome (record-outcome record))
                (skip? (record-skip? record))
@@ -149,6 +168,11 @@
                (expected
                 (or (and diagnostic
                          (alet (entry (assq 'expectedTerminals diagnostic))
+                           (cdr entry)))
+                    '()))
+               (diagnostic-branch-sites
+                (or (and diagnostic
+                         (alet (entry (assq 'branchSites diagnostic))
                            (cdr entry)))
                     '()))
                (digest (record-source-digest record))
@@ -186,6 +210,7 @@
               (hash-put! seen-unexpected-sources digest #t))
             (loop
              (cdr rest)
+             (fx+ index 1)
              (fx+ unique-sources (if new-source? 1 0))
              (fx+ unique-unexpected-sources
                   (if new-unexpected-source? 1 0))
@@ -211,6 +236,13 @@
              (if unexpected? (increment state states) states)
              (if unexpected? (increment expected expected-terminals)
                  expected-terminals)
+             (if unexpected?
+               (foldl
+                (lambda (site found)
+                  (increment (list (car site) (cadr site)) found))
+                ambiguity-branch-sites
+                diagnostic-branch-sites)
+               ambiguity-branch-sites)
              next-failures)))))))
       )
 

@@ -460,35 +460,26 @@
               (lower reference (cons name seen))))))))))
   (lower name '()))
 
-;; : (-> GrammarExpr Symbol Boolean)
-(def (direct-left-recursive? expression rule-name)
-  (let (body
-        (if (and (pair? expression) (eq? (car expression) 'sequence))
-          (cdr expression)
-          (list expression)))
-    (and (pair? body)
-         (equal? (car body) (list 'reference rule-name)))))
-
-;; : (-> (List GrammarExpr) Integer Symbol (List GrammarExpr) (List GrammarExpr))
-(def (apply-antlr-precedence-from rest rank rule-name found)
+;; ANTLR alternatives are ordered decisions, including outside direct left
+;; recursion. Project every alternative rank into the native LR precedence
+;; model so the adapter preserves upstream decision semantics instead of
+;; manufacturing an unordered selective-GLR fork.
+;; : (-> (List GrammarExpr) Integer (List GrammarExpr) (List GrammarExpr))
+(def (apply-antlr-precedence-from rest rank found)
   (if (null? rest)
     (reverse found)
     (let (alternative (car rest))
       (apply-antlr-precedence-from
-       (cdr rest) (- rank 1) rule-name
-       (cons
-        (if (direct-left-recursive? alternative rule-name)
-          (list 'precedence 'left rank alternative)
-          alternative)
-        found)))))
+       (cdr rest) (- rank 1)
+       (cons (list 'precedence 'left rank alternative) found)))))
 
-;; : (-> GrammarExpr Symbol GrammarExpr)
-(def (apply-antlr-precedence expression rule-name)
+;; : (-> GrammarExpr GrammarExpr)
+(def (apply-antlr-precedence expression)
   (if (and (pair? expression) (eq? (car expression) 'choice))
     (let (alternatives (cdr expression))
       (cons 'choice
             (apply-antlr-precedence-from
-             alternatives (length alternatives) rule-name '())))
+             alternatives (length alternatives) '())))
     expression))
 
 ;; : (-> Antlr4Source (List GrammarRule))
@@ -510,7 +501,7 @@
          (list name
                (list 'alias
                      (upper-initial-symbol (antlr4-rule-name rule))
-                     (apply-antlr-precedence expression name)))))
+                     (apply-antlr-precedence expression)))))
      (antlr4-source-parser-rules source))))
 
 ;; : (-> String Symbol)

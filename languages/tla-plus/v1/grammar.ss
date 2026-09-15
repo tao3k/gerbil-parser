@@ -204,8 +204,13 @@
      (prec left 100 (reference postfix-expression))
      (prec left 110 (reference function-application))
      (prec left 110 (reference operator-application))
-     (reference if-expression) (reference choose-expression)
-     (reference quantified-expression) (reference let-expression)
+     (reference if-expression)
+     ;; TLA+ binders and LET extend as far right as possible. Their low
+     ;; precedence lets comparison and application shifts remain inside the
+     ;; predicate/body instead of also completing an outer expression tree.
+     (prec right 1 (reference choose-expression))
+     (prec right 1 (reference quantified-expression))
+     (prec right 1 (reference let-expression))
      (reference case-expression) (reference function-constructor)
      (reference record-expression) (reference set-filter-expression)
      (reference temporal-subscript-expression)
@@ -218,24 +223,27 @@
           (literal "THEN") (field consequent (reference expression))
           (literal "ELSE") (field alternative (reference expression)))))
    (choose-expression
-    (alias ChooseExpression
-     (seq (literal "CHOOSE") (field name (token identifier))
-          (optional (seq (literal "\\in")
-                         (field domain (reference expression))))
-          (literal ":") (field predicate (reference expression)))))
+    (prec right 1
+     (alias ChooseExpression
+      (seq (literal "CHOOSE") (field name (token identifier))
+           (optional (seq (literal "\\in")
+                          (field domain (reference expression))))
+           (literal ":") (field predicate (reference expression))))))
    (quantified-expression
-    (alias QuantifiedExpression
-     (seq (field quantifier
-                 (choice (literal "\\A") (literal "\\E")
-                         (literal "\\AA") (literal "\\EE")))
-          (field name (token identifier))
-          (optional (seq (literal "\\in")
-                         (field domain (reference expression))))
-          (literal ":") (field predicate (reference expression)))))
+    (prec right 1
+     (alias QuantifiedExpression
+      (seq (field quantifier
+                  (choice (literal "\\A") (literal "\\E")
+                          (literal "\\AA") (literal "\\EE")))
+           (field name (token identifier))
+           (optional (seq (literal "\\in")
+                          (field domain (reference expression))))
+           (literal ":") (field predicate (reference expression))))))
    (let-expression
-    (alias LetExpression
-     (seq (literal "LET") (field definition (reference local-definition))
-          (literal "IN") (field body (reference expression)))))
+    (prec right 1
+     (alias LetExpression
+      (seq (literal "LET") (field definition (reference local-definition))
+           (literal "IN") (field body (reference expression))))))
    (local-definition
     (alias LocalDefinition
      (seq (field name (token identifier))
@@ -269,19 +277,21 @@
      (seq (field operand (reference expression))
           (field operator (literal "'")))))
    (function-application
-    (alias FunctionApplication
-     (seq (field function (reference expression)) (literal "[")
-          (field argument (reference expression))
-          (repeat (seq (literal ",")
-                       (field argument (reference expression))))
-          (literal "]"))))
+    (prec left 110
+     (alias FunctionApplication
+      (seq (field function (reference expression)) (literal "[")
+           (field argument (reference expression))
+           (repeat (seq (literal ",")
+                        (field argument (reference expression))))
+           (literal "]")))))
    (operator-application
-    (alias OperatorApplication
-     (seq (field operator (reference expression)) (literal "(")
-          (optional (field argument (reference expression)))
-          (repeat (seq (literal ",")
-                       (field argument (reference expression))))
-          (literal ")"))))
+    (prec left 110
+     (alias OperatorApplication
+      (seq (field operator (reference expression)) (literal "(")
+           (optional (field argument (reference expression)))
+           (repeat (seq (literal ",")
+                        (field argument (reference expression))))
+           (literal ")")))))
    (function-constructor
     (alias FunctionConstructor
      (seq (literal "[") (field name (token identifier)) (literal "\\in")

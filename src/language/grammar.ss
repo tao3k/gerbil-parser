@@ -319,7 +319,7 @@
                    (make-language-grammar
                     "gerbil-parser.language-grammar.v1"
                     language-value version-value contract-value
-                    grammar-binding ir-binding machine-binding))))))))
+                    grammar-binding ir-binding machine-binding #f))))))))
     ((_ prefix
         (identity language-value version-value contract-value)
         (syntax-kinds syntax-row ...)
@@ -383,7 +383,7 @@
                    (make-language-grammar
                     "gerbil-parser.language-grammar.v1"
                     language-value version-value contract-value
-                    grammar-binding ir-binding machine-binding))))))))
+                    grammar-binding ir-binding machine-binding #f))))))))
     ((_ prefix
         (identity language-value version-value contract-value)
         (syntax-kinds syntax-row ...)

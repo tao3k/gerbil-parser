@@ -16,6 +16,13 @@
 (def +gerbil-parser-native-abi-version+ 1)
 (def +gerbil-parser-native-descriptor-schema+
   "gerbil-parser.native-descriptor.v1")
+(def +gerbil-parser-native-error-schema+
+  "gerbil-parser.native-error.v1")
+
+(def (native-error-payload exception)
+  (json-object->string
+   (hash (schema +gerbil-parser-native-error-schema+)
+         (message (error-message exception)))))
 
 (def (grammar-section name)
   (cdr (assq name (language-grammar-grammar gql-iso-language-grammar))))
@@ -102,7 +109,9 @@ END-C
     (with-exception-catcher
      (lambda (exception)
        (gerbil_parser_result_v1-status-set! result -1)
-       (gerbil_parser_result_v1-payload-set! result "")
+       (gerbil_parser_result_v1-payload-set!
+        result
+        (native-error-payload exception))
        -1)
      (lambda ()
        (gerbil_parser_result_v1-payload-set!
@@ -117,7 +126,9 @@ END-C
     (with-exception-catcher
      (lambda (exception)
        (gerbil_parser_result_v1-status-set! result -1)
-       (gerbil_parser_result_v1-payload-set! result "")
+       (gerbil_parser_result_v1-payload-set!
+        result
+        (native-error-payload exception))
        -1)
      (lambda ()
        (gerbil_parser_result_v1-payload-set!

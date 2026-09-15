@@ -116,10 +116,16 @@ records ownership, strategy, frontier state, expected terminals, reused prefix,
 cost, byte evidence, budget, and candidate outcome; no partial CST is exposed.
 
 Incremental parsing accepts a byte-addressed Edit v1, reuses only the maximal
-token prefix that cannot touch the edit, re-lexes from the preceding safe
-boundary, and submits the complete stream through the ordinary parser and
-ParseArtifact v1 commit path. The receipt records reused token identities and
-the re-lex boundary. Acceptance requires equality with a fresh parse.
+token prefix that cannot touch the edit, and re-lexes from the preceding safe
+boundary.  The deterministic parser advances to that prefix by significant
+token shifts and resumes the same LR executor from the resulting immutable
+checkpoint rather than restarting at state zero.  A reverse linear comparison
+then finds the maximal suffix equal in token kind, lexeme, and byte-shifted
+span.  A zero-delta suffix reuses the old immutable token objects; a shifted
+suffix is recorded as converged but relocated with new absolute spans.  The
+receipt distinguishes converged, reused, and relocated suffixes plus resumed
+and remaining significant work. Publication still uses the ordinary
+ParseArtifact v1 commit path and must equal a fresh parse.
 
 * POO Flow Observability
 

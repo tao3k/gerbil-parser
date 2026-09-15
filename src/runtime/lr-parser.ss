@@ -32,6 +32,7 @@
         lr-checkpoint?
         lr-initial-checkpoint
         lr-checkpoint-advance
+        lr-checkpoint-advance-shifts
         lr-checkpoint-resume
         lr-checkpoint-frontier
         lr-checkpoint-deterministic-actions
@@ -557,7 +558,7 @@
 ;; : (-> LRCheckpoint (OrFalse Nat) PooFlowDebugCallPolicy
 ;;        (Values Symbol Datum))
 (def (lr-run-checkpoint checkpoint action-budget observability
-                        (stop-at-failure? #f))
+                        (stop-at-failure? #f) (shift-target #f))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
@@ -588,7 +589,8 @@
                (actions (lr-checkpoint-deterministic-actions checkpoint))
                (shifts (lr-checkpoint-deterministic-shifts checkpoint))
                (remaining-budget action-budget))
-      (if (and remaining-budget (zero? remaining-budget))
+      (if (or (and remaining-budget (zero? remaining-budget))
+              (and shift-target (>= shifts shift-target)))
         (values
          'checkpoint
          (make-lr-checkpoint
@@ -669,6 +671,17 @@
   (unless (and (integer? action-budget) (positive? action-budget))
     (error "LR checkpoint action budget must be positive" action-budget))
   (lr-run-checkpoint checkpoint action-budget observability))
+
+;;; Advances by consumed significant tokens rather than raw actions. This is
+;;; the stable boundary used by incremental parsing because reductions do not
+;;; consume source input.
+(def (lr-checkpoint-advance-shifts checkpoint (shift-budget 1)
+                                   (observability #f))
+  (unless (and (integer? shift-budget) (positive? shift-budget))
+    (error "LR checkpoint shift budget must be positive" shift-budget))
+  (lr-run-checkpoint
+   checkpoint #f observability #f
+   (+ (lr-checkpoint-deterministic-shifts checkpoint) shift-budget)))
 
 ;;; Completes parsing from an initial or advanced immutable checkpoint.
 (def (lr-checkpoint-resume checkpoint (observability #f))

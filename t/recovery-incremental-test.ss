@@ -1,7 +1,8 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 
-(import (only-in :std/test
+(import (only-in :std/srfi/13 string-join)
+        (only-in :std/test
                  check check-exception run-tests! test-case test-suite)
         (only-in :gerbil-parser/languages/arithmetic/v1/parser
                  arithmetic-parser parse-arithmetic-v1)
@@ -34,8 +35,49 @@
             (check (row-ref receipt 'schema)
                    => "gerbil-parser.incremental-receipt.v1")
             (check (> (row-ref receipt 'reusedTokenCount) 0) => #t)
+            (check (> (row-ref receipt 'resumedSignificantTokenCount) 0)
+                   => #t)
             (check (row-ref receipt 'publicationSchema)
                    => "gerbil-parser.parse-artifact.v1")))))
+    (test-case "equal-width middle edits converge and reuse the token suffix"
+      (let* ((source
+              (string-append
+               "(" (string-join (make-list 100 "001") " + ") ")"))
+             (base (parse-arithmetic-v1 source))
+             (edit-start (+ 1 (* 50 6)))
+             (source-edit (make-edit edit-start 3 "002")))
+        (let-values (((artifact receipt)
+                      (parse-source/incremental
+                       arithmetic-parser source base source-edit)))
+          (let (fresh
+                (parse-arithmetic-v1
+                 (apply-edit source source-edit)))
+            (check artifact => fresh)
+            (check (row-ref receipt 'suffixByteDelta) => 0)
+            (check (> (row-ref receipt 'convergedSuffixTokenCount) 90) => #t)
+            (check (row-ref receipt 'reusedSuffixTokenCount)
+                   => (row-ref receipt 'convergedSuffixTokenCount))
+            (check (row-ref receipt 'relocatedSuffixTokenCount) => 0)
+            (check (> (row-ref receipt 'resumedSignificantTokenCount) 90)
+                   => #t)
+            (check (< (row-ref receipt 'remainingSignificantTokenCount)
+                      120)
+                   => #t)))))
+    (test-case "UTF-8 byte shifts relocate rather than falsely reuse a suffix"
+      (let* ((source "λ + 2")
+             (base (parse-arithmetic-v1 source))
+             (source-edit (make-edit 0 2 "name")))
+        (let-values (((artifact receipt)
+                      (parse-source/incremental
+                       arithmetic-parser source base source-edit)))
+          (check artifact
+                 => (parse-arithmetic-v1
+                     (apply-edit source source-edit)))
+          (check (row-ref receipt 'suffixByteDelta) => 2)
+          (check (> (row-ref receipt 'convergedSuffixTokenCount) 0) => #t)
+          (check (row-ref receipt 'reusedSuffixTokenCount) => 0)
+          (check (row-ref receipt 'relocatedSuffixTokenCount)
+                 => (row-ref receipt 'convergedSuffixTokenCount)))))
     (test-case "missing literal recovery stays a rejected v1 publication"
       (let-values (((artifact receipt)
                     (parse-source/recover arithmetic-parser "(1")))

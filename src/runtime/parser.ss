@@ -9,12 +9,14 @@
                  +diagnostic-schema+ make-failure-parse-artifact
                  make-success-parse-artifact)
         (only-in ./lexer lex-source)
+        (only-in ./lr-parser lr-checkpoint-resume)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./significant parser-significant-tokens)
         (only-in ./token token-lexeme))
 (export parse-source
-        parse-tokenized)
+        parse-tokenized
+        parse-tokenized/checkpoint)
 
 ;; : (-> ParserMachine Exception Diagnostic)
 (def (diagnostic machine condition)
@@ -40,8 +42,8 @@
    grammar-digest source tokens (diagnostic machine condition)))
 
 ;; : (-> ParserMachine Digest String (List Token) ParseArtifact)
-(def (parse-tokenized machine grammar-digest source tokens
-                      (observability #f))
+(def (parse-tokenized/with machine grammar-digest source tokens
+                           parse-significant observability)
   (with-catch
    (lambda (condition)
      (call-with-parser-observed-phase
@@ -60,8 +62,7 @@
            (call-with-parser-observed-phase
             observability
             'lr-execution
-            (lambda ()
-              ((parser-machine-parse machine) significant observability)))))
+            (lambda () (parse-significant significant observability)))))
        (unless (null? rest)
          (error "unexpected trailing token" (token-lexeme (car rest))))
        (call-with-parser-observed-phase
@@ -71,6 +72,24 @@
           (make-success-parse-artifact
            grammar-digest source tokens root
            (parser-machine-trivia machine)))))))))
+
+(def (parse-tokenized machine grammar-digest source tokens
+                      (observability #f))
+  (parse-tokenized/with
+   machine grammar-digest source tokens
+   (lambda (significant observability)
+     ((parser-machine-parse machine) significant observability))
+   observability))
+
+;;; Publishes through the same ParseArtifact boundary while the LR phase resumes
+;;; an immutable checkpoint bound to this request's significant token stream.
+(def (parse-tokenized/checkpoint machine grammar-digest source tokens checkpoint
+                                 (observability #f))
+  (parse-tokenized/with
+   machine grammar-digest source tokens
+   (lambda (_significant observability)
+     (lr-checkpoint-resume checkpoint observability))
+   observability))
 
 ;; : (-> ParserMachine String ParseArtifact)
 (def (parse-source machine source

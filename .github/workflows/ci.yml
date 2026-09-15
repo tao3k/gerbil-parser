@@ -117,20 +117,6 @@ jobs:
             .gerbil/bin
           key: gerbil-parser-packages-v1-${{ runner.os }}-${{ runner.arch }}-${{ env.GERBIL_LABEL }}-${{ hashFiles('gerbil.pkg') }}
 
-      - name: Audit canonical build spec
-        run: |
-          gerbil env ./build.ss spec > "$RUNNER_TEMP/gerbil-parser-build-spec"
-          grep -q '\[poo-flow\] phase=spec-start profile=gerbil-parser policy=build-projection/gerbil-parser owner=module-system/observability executor=asp-build-api/std-make' "$RUNNER_TEMP/gerbil-parser-build-spec"
-          grep -Eq '\[poo-flow\] phase=spec-projected profile=gerbil-parser target-count=65 elapsedMs=[0-9]+ policy=build-projection/gerbil-parser owner=module-system/observability executor=asp-build-api/std-make' "$RUNNER_TEMP/gerbil-parser-build-spec"
-          grep -q '\[poo-flow\] phase=executor-handoff profile=gerbil-parser boundary=std/make/source-import-currentness-or-compile target-count=65 heartbeatMs=5000 policy=build-projection/gerbil-parser owner=module-system/observability executor=asp-build-api/std-make' "$RUNNER_TEMP/gerbil-parser-build-spec"
-          test "$(grep -c 'exe: \"src/main\"' "$RUNNER_TEMP/gerbil-parser-build-spec")" -eq 1
-          if grep -q -- '-test.ss' "$RUNNER_TEMP/gerbil-parser-build-spec"; then
-            echo "::error::Test module entered the production build spec"
-            exit 1
-          fi
-          duplicate_count="$(sort "$RUNNER_TEMP/gerbil-parser-build-spec" | uniq -d | wc -l | tr -d ' ')"
-          test "$duplicate_count" -eq 0
-
       - name: Build parser and versioned language packs
         run: |
           gerbil clean

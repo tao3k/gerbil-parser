@@ -23,11 +23,24 @@
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
   '("src/main.ss"
+    "src/ffi/parse-artifact-v1.ss"
     "languages/arithmetic/v1/parser-test.ss"
     "languages/cypher/opencypher-2024-1/parser-test.ss"
     "languages/gql/iso-39075-2024/parser-test.ss"
     "languages/hcl/v2-24/parser-test.ss"
     "languages/tla-plus/v1/parser-test.ss"))
+
+;; Gambit compiles loadable modules as Mach-O bundles on Darwin.  The
+;; Homebrew GCC toolchain needs the standard unresolved-symbol policy for an
+;; FFI bundle; the final AOT consumer resolves these symbols when it links the
+;; native runtime.
+(def gerbil-parser-native-ffi-spec
+  (cond-expand
+   (darwin
+    '(gxc: "src/ffi/parse-artifact-v1"
+           "-ld-options" "-Wl,-undefined,dynamic_lookup"))
+   (else
+    '(gxc: "src/ffi/parse-artifact-v1"))))
 
 ;; The project derives a named policy from POO Flow's public configuration.
 ;; Observation decorates PackageSpec projection only; ASP and std/make remain
@@ -50,7 +63,8 @@
    gerbil-parser-build-observability-policy))
  (exclude-dirs gerbil-parser-exclude-dirs)
  (exclude-modules gerbil-parser-exclude-modules)
- (extra-spec '((exe: "src/main" bin: "gparse"))))
+ (extra-spec `(,gerbil-parser-native-ffi-spec
+               (exe: "src/main" bin: "gparse"))))
 
 ;; Keep the standard multicall entrypoint at top level. std/build-script owns
 ;; spec/compile/clean and delegates the projection to one std/make scheduler.

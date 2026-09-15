@@ -25,8 +25,9 @@
     (recognition-value-end (recognition-child-value (last children)))))
 
 ;; recognition-children-field
-;; : (-> Symbol List Fixnum List)
-(def (recognition-children-field name children default-offset)
+;; : (-> Symbol List Fixnum [(-> Fixnum Fixnum List RecognitionFragment)] List)
+(def (recognition-children-field name children default-offset
+                                 (fragment-constructor make-recognition-fragment))
   (match children
     ([] '())
     ([child]
@@ -34,7 +35,7 @@
        (list
         (make-recognition-child
          name
-         (make-recognition-fragment
+         (fragment-constructor
           (children-start children default-offset)
           (children-end children default-offset)
           children)))
@@ -44,7 +45,7 @@
      (list
       (make-recognition-child
        name
-       (make-recognition-fragment
+       (fragment-constructor
         (children-start children default-offset)
         (children-end children default-offset)
         children))))))

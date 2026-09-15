@@ -4,9 +4,42 @@
 (import (only-in :std/misc/list-builder with-list-builder))
 (export association-row-vector->index
         association-row-index-ref
+        make-value-interner
+        value-interner-intern
+        value-interner-created-count
+        value-interner-hit-count
         recognition-sequence-append
         recognition-sequence-concatenate
         recognition-sequence->list)
+
+;;; Request-local hash-consing over immutable structural keys. Gerbil's
+;;; standard equal?-table owns lookup; callers provide the canonical value
+;;; constructor, which is invoked only on a miss.
+(defstruct value-interner-state (table counters missing) transparent: #t)
+
+(def (make-value-interner)
+  (make-value-interner-state
+   (make-table test: equal?) (vector 0 0) (cons #f #f)))
+
+(def (value-interner-intern interner key constructor)
+  (let* ((table (value-interner-state-table interner))
+         (missing (value-interner-state-missing interner))
+         (found (table-ref table key missing))
+         (counters (value-interner-state-counters interner)))
+    (if (eq? found missing)
+      (let (value (constructor))
+        (table-set! table key value)
+        (vector-set! counters 0 (fx+ (vector-ref counters 0) 1))
+        value)
+      (begin
+        (vector-set! counters 1 (fx+ (vector-ref counters 1) 1))
+        found))))
+
+(def (value-interner-created-count interner)
+  (vector-ref (value-interner-state-counters interner) 0))
+
+(def (value-interner-hit-count interner)
+  (vector-ref (value-interner-state-counters interner) 1))
 
 ;;; Convert long association rows into equal?-keyed indexes once, when an
 ;;; immutable parser machine is prepared. Short rows stay as lists: their

@@ -27,20 +27,36 @@
      (precedence dynamic 2
       (alias HighPath (field value (token identifier)))))))
 
+;;; Both paths construct the same multi-token field fragment.  The completed
+;;; tree must remain equivalent while the request-local fragment pool records
+;;; a real canonicalization hit.
+(def fragment-rules
+  '((source-file (choice (reference first-path) (reference second-path)))
+    (first-path
+     (alias SourceFile
+      (field value (sequence (token identifier) (token identifier)))))
+    (second-path
+     (alias SourceFile
+      (field value (sequence (token identifier) (token identifier)))))))
+
 (def equivalent-spec
   (compile-lr-spec equivalent-rules 'source-file 'selective-glr))
 (def distinct-spec
   (compile-lr-spec distinct-rules 'source-file 'selective-glr))
 (def dynamic-spec
   (compile-lr-spec dynamic-rules 'source-file 'selective-glr))
+(def fragment-spec
+  (compile-lr-spec fragment-rules 'source-file 'selective-glr))
 (def input-token (make-token 'identifier "x" 0 1))
+(def fragment-input
+  (list input-token (make-token 'identifier "y" 2 3)))
 
 (def (row-ref row key)
   (let (entry (assq key row)) (and entry (cdr entry))))
 
-(def (parse-receipt spec)
+(def (parse-receipt spec (tokens (list input-token)))
   (let-values (((root rest receipt)
-                (lr-parse/receipt spec (list input-token))))
+                (lr-parse/receipt spec tokens)))
     (list (cons 'rootKind (recognition-node-kind root))
           (cons 'remainingTokenCount (length rest))
           (cons 'receipt receipt))))
@@ -60,6 +76,7 @@
    (cons 'schema "gerbil-parser.selective-glr-correctness-receipt.v1")
    (cons 'equivalent (parse-receipt equivalent-spec))
    (cons 'dynamic (parse-receipt dynamic-spec))
+   (cons 'interned (parse-receipt fragment-spec fragment-input))
    (cons 'ambiguous (ambiguity-receipt))))
 
 (def (parse-case-pass? case expected-root expected-distinct expected-reason)
@@ -74,13 +91,27 @@
 (def (selective-glr-scenario-pass? receipt)
   (let ((equivalent (row-ref receipt 'equivalent))
         (dynamic (row-ref receipt 'dynamic))
+        (interned (row-ref receipt 'interned))
         (ambiguous (row-ref receipt 'ambiguous)))
     (and (equal? (row-ref receipt 'schema)
                  "gerbil-parser.selective-glr-correctness-receipt.v1")
          (parse-case-pass? equivalent 'SourceFile 1 'equivalent-merge)
          (= (row-ref (row-ref equivalent 'receipt) 'mergedBranches) 1)
+         (> (row-ref (row-ref equivalent 'receipt)
+                     'configurationInternHits)
+            0)
+         (> (row-ref (row-ref equivalent 'receipt)
+                     'configurationMemoHits)
+            0)
+         (= (row-ref (row-ref equivalent 'receipt)
+                     'internedCompletionIdentities)
+            1)
          (parse-case-pass? dynamic 'HighPath 2 'dynamic-precedence)
          (= (row-ref (row-ref dynamic 'receipt) 'dynamicScore) 2)
+         (parse-case-pass? interned 'SourceFile 1 'equivalent-merge)
+         (> (row-ref (row-ref interned 'receipt)
+                     'recognitionFragmentInternHits)
+            0)
          (eq? (row-ref ambiguous 'failureKind) 'selective-glr-ambiguity)
          (= (row-ref ambiguous 'successfulCompletions) 2)
          (= (row-ref ambiguous 'distinctCompletions) 2))))

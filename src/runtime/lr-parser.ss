@@ -7,15 +7,20 @@
                  production-lhs production-precedence production-rhs
                  production-table)
         (only-in ./recognition
-                 make-recognition-child recognition-child-field
+                 make-recognition-child make-recognition-fragment
+                 recognition-child-field
                  recognition-child-value)
         (only-in ./reduce
                  recognition-children-alias recognition-children-field)
         (only-in ./funcs
                  association-row-index-ref
                  association-row-vector->index
+                 make-value-interner
                  recognition-sequence-concatenate
-                 recognition-sequence->list)
+                 recognition-sequence->list
+                 value-interner-created-count
+                 value-interner-hit-count
+                 value-interner-intern)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
@@ -79,32 +84,37 @@
 
 ;; apply-operand-action
 ;; : (-> List List Fixnum List)
-(def (apply-operand-action action children default-offset)
+(def (apply-operand-action action children default-offset
+                           fragment-constructor)
   (let (materialized (recognition-sequence->list children))
   (case (car action)
     ((field)
-     (recognition-children-field (cadr action) materialized default-offset))
+     (recognition-children-field
+      (cadr action) materialized default-offset fragment-constructor))
     ((alias)
      (recognition-children-alias (cadr action) materialized default-offset))
     (else (error "unknown LR operand action" action)))))
 
 ;; apply-operand-actions
 ;; : (-> List List Fixnum List)
-(def (apply-operand-actions value actions default-offset)
+(def (apply-operand-actions value actions default-offset fragment-constructor)
   (foldl (lambda (action children)
-           (apply-operand-action action children default-offset))
+           (apply-operand-action
+            action children default-offset fragment-constructor))
          value
          actions))
 
 ;; reduce-value
 ;; : (-> List List Fixnum List)
-(def (reduce-value production reversed-values default-offset)
+(def (reduce-value production reversed-values default-offset
+                   fragment-constructor)
   (let* ((rhs (production-rhs production))
          (source-values (reverse reversed-values))
          (reduced-values
           (map (lambda (operand value)
                  (apply-operand-actions
-                  value (operand-actions operand) default-offset))
+                  value (operand-actions operand) default-offset
+                  fragment-constructor))
                rhs source-values))
          (children (recognition-sequence-concatenate reduced-values))
          (action (production-action production)))
@@ -122,15 +132,23 @@
   (let (row (association-row-index-ref gotos state lhs))
     (and row (cdr row))))
 
-;; : (-> Datum List Integer [Nat] [Symbol] List)
+;; : (-> Datum List Integer [Nat] [Symbol] [Nat] List)
 (def (make-candidate root rest score (ambiguities 0)
-                     (winner-reason 'unique-completion))
-  (list root rest score ambiguities winner-reason))
+                     (winner-reason 'unique-completion)
+                     (completion-count 1))
+  (list root rest score ambiguities winner-reason completion-count))
 (def candidate-root car)
 (def candidate-rest cadr)
 (def candidate-score caddr)
 (def candidate-ambiguities cadddr)
 (def (candidate-winner-reason candidate) (car (cddddr candidate)))
+(def (candidate-completion-count candidate) (cadr (cddddr candidate)))
+
+;;; Canonical request-local GLR configuration. Parser stacks, semantic values,
+;;; and token suffixes are immutable, so structural interning cannot leak
+;;; mutation between branches or requests.
+(defstruct glr-configuration (states semantic-values rest score)
+  transparent: #t)
 
 ;;; Executes immutable tables and evaluates every admitted fork within a
 ;;; deterministic branch budget. Dynamic precedence scores complete branches;
@@ -180,8 +198,27 @@
          (merge-count 0)
          (successful-completions 0)
          (completion-identities '())
+         (configuration-interner (make-value-interner))
+         (completion-interner (make-value-interner))
+         (fragment-interner (make-value-interner))
+         (configuration-results (make-table test: eq?))
+         (configuration-result-missing (cons #f #f))
+         (configuration-result-visiting (cons #f #t))
+         (configuration-result-failed (cons #t #f))
+         (configuration-memo-hits 0)
          (budget-exhausted? #f)
          (best-failure #f))
+    (def (intern-configuration states semantic-values rest score)
+      (value-interner-intern
+       configuration-interner
+       (list states semantic-values rest score)
+       (lambda ()
+         (make-glr-configuration states semantic-values rest score))))
+    (def (intern-fragment start end children)
+      (value-interner-intern
+       fragment-interner
+       (list start end children)
+       (lambda () (make-recognition-fragment start end children))))
     ;; Branch sites identify the actual LR conflict cell; schema/version data
     ;; stays in the receipt while state and terminal remain pure identities.
     (def (record-branch-site! state terminal)
@@ -219,49 +256,65 @@
                        (map car (vector-ref actions state))))))))
     (def (record-completion! root rest)
       (set! successful-completions (+ successful-completions 1))
-      (let (identity (list root rest))
-        (unless (member identity completion-identities)
+      (let* ((identity (list root rest))
+             (canonical
+              (value-interner-intern
+               completion-interner identity (lambda () identity))))
+        (unless (memq canonical completion-identities)
           (set! completion-identities
-                (cons identity completion-identities)))))
+                (cons canonical completion-identities)))))
     (def (candidate-with-reason candidate reason)
       (make-candidate
        (candidate-root candidate) (candidate-rest candidate)
-       (candidate-score candidate) (candidate-ambiguities candidate) reason))
+       (candidate-score candidate) (candidate-ambiguities candidate) reason
+       (candidate-completion-count candidate)))
+    (def (candidate-with-completion-count candidate count)
+      (make-candidate
+       (candidate-root candidate) (candidate-rest candidate)
+       (candidate-score candidate) (candidate-ambiguities candidate)
+       (candidate-winner-reason candidate) count))
     (def (better-candidate current candidate)
-      (cond
-       ((not current) candidate)
-       ((> (candidate-score candidate) (candidate-score current))
-        (candidate-with-reason candidate 'dynamic-precedence))
-       ((< (candidate-score candidate) (candidate-score current))
-        (candidate-with-reason current 'dynamic-precedence))
-       ((< (length (candidate-rest candidate))
-           (length (candidate-rest current)))
-        (candidate-with-reason candidate 'maximal-consumption))
-       ((> (length (candidate-rest candidate))
-           (length (candidate-rest current)))
-        (candidate-with-reason current 'maximal-consumption))
-       ((and (equal? (candidate-root candidate) (candidate-root current))
-             (equal? (candidate-rest candidate) (candidate-rest current)))
-        (set! merge-count (+ merge-count 1))
-        (make-candidate
-         (candidate-root current) (candidate-rest current)
-         (candidate-score current)
-         (+ (candidate-ambiguities current)
-            (candidate-ambiguities candidate))
-         (if (or (> (candidate-ambiguities current) 0)
-                 (> (candidate-ambiguities candidate) 0))
-           'ambiguous
-           'equivalent-merge)))
-       (else
-        ;; Retain a representative only so an outer dynamic-precedence fork can
-        ;; still outrank the complete ambiguous set.  Publication fails closed
-        ;; if ambiguity remains on the final highest-ranked candidate.
-        (make-candidate
-         (candidate-root current) (candidate-rest current)
-         (candidate-score current)
-         (+ 1 (candidate-ambiguities current)
-            (candidate-ambiguities candidate))
-         'ambiguous))))
+      (if (not current)
+        candidate
+        (let* ((completion-count
+                (+ (candidate-completion-count current)
+                   (candidate-completion-count candidate)))
+               (winner
+                (cond
+                 ((> (candidate-score candidate) (candidate-score current))
+                  (candidate-with-reason candidate 'dynamic-precedence))
+                 ((< (candidate-score candidate) (candidate-score current))
+                  (candidate-with-reason current 'dynamic-precedence))
+                 ((< (length (candidate-rest candidate))
+                     (length (candidate-rest current)))
+                  (candidate-with-reason candidate 'maximal-consumption))
+                 ((> (length (candidate-rest candidate))
+                     (length (candidate-rest current)))
+                  (candidate-with-reason current 'maximal-consumption))
+                 ((and (equal? (candidate-root candidate)
+                               (candidate-root current))
+                       (equal? (candidate-rest candidate)
+                               (candidate-rest current)))
+                  (set! merge-count (+ merge-count 1))
+                  (make-candidate
+                   (candidate-root current) (candidate-rest current)
+                   (candidate-score current)
+                   (+ (candidate-ambiguities current)
+                      (candidate-ambiguities candidate))
+                   (if (or (> (candidate-ambiguities current) 0)
+                           (> (candidate-ambiguities candidate) 0))
+                     'ambiguous
+                     'equivalent-merge)))
+                 (else
+                  ;; Retain a representative so an outer dynamic-precedence
+                  ;; fork can still outrank this complete ambiguous set.
+                  (make-candidate
+                   (candidate-root current) (candidate-rest current)
+                   (candidate-score current)
+                   (+ 1 (candidate-ambiguities current)
+                      (candidate-ambiguities candidate))
+                   'ambiguous)))))
+          (candidate-with-completion-count winner completion-count))))
     (def (try-action action terminal states semantic-values rest score)
       (case (car action)
         ((shift)
@@ -281,7 +334,9 @@
              (let* (
                 (offset (if (pair? rest) (token-start (car rest))
                             input-end-offset))
-                (value (reduce-value production popped-values offset))
+                (value
+                 (reduce-value
+                  production popped-values offset intern-fragment))
                 (precedence (production-precedence production))
                 (next-score
                  (if (and precedence (eq? (car precedence) 'dynamic))
@@ -354,15 +409,42 @@
                  (cons 'associativity (caddr action)))))
         (else (error "unknown LR action" action))))
     (def (try-parse states semantic-values rest score)
-      (let* ((state (car states))
-             (action-row
-              (current-action-row action-index state rest case-insensitive?)))
-        (if action-row
-          (try-action (cdr action-row) (car action-row)
-                      states semantic-values rest score)
-          (begin
-            (record-failure! state rest)
-            #f))))
+      (let* ((configuration
+              (intern-configuration states semantic-values rest score))
+             (cached
+              (table-ref configuration-results configuration
+                         configuration-result-missing)))
+        (cond
+         ((eq? cached configuration-result-failed) #f)
+         ((eq? cached configuration-result-visiting) #f)
+         ((not (eq? cached configuration-result-missing))
+          (set! configuration-memo-hits (fx+ configuration-memo-hits 1))
+          (set! successful-completions
+                (+ successful-completions
+                   (candidate-completion-count cached)))
+          cached)
+         (else
+          (table-set! configuration-results configuration
+                      configuration-result-visiting)
+          (let* ((states (glr-configuration-states configuration))
+                 (semantic-values
+                  (glr-configuration-semantic-values configuration))
+                 (rest (glr-configuration-rest configuration))
+                 (score (glr-configuration-score configuration))
+                 (state (car states))
+                 (action-row
+                  (current-action-row
+                   action-index state rest case-insensitive?))
+                 (result
+                  (if action-row
+                    (try-action (cdr action-row) (car action-row)
+                                states semantic-values rest score)
+                    (begin
+                      (record-failure! state rest)
+                      #f))))
+            (table-set! configuration-results configuration
+                        (or result configuration-result-failed))
+            result)))))
     ;; The prepared fast path hands its immutable checkpoint to selective GLR.
     ;; Starting from that checkpoint avoids replaying the deterministic prefix
     ;; from token zero whenever the first admitted fork is encountered.
@@ -403,6 +485,19 @@
         (cons 'equivalentCompletions
               (- successful-completions (length completion-identities)))
         (cons 'distinctCompletions (length completion-identities))
+        (cons 'internedConfigurations
+              (value-interner-created-count configuration-interner))
+        (cons 'configurationInternHits
+              (value-interner-hit-count configuration-interner))
+        (cons 'configurationMemoHits configuration-memo-hits)
+        (cons 'internedCompletionIdentities
+              (value-interner-created-count completion-interner))
+        (cons 'completionIdentityInternHits
+              (value-interner-hit-count completion-interner))
+        (cons 'internedRecognitionFragments
+              (value-interner-created-count fragment-interner))
+        (cons 'recognitionFragmentInternHits
+              (value-interner-hit-count fragment-interner))
         (cons 'winnerReason (candidate-winner-reason result))
         (cons 'dynamicScore (candidate-score result)))))))
 
@@ -458,7 +553,10 @@
                    (let* (
                       (offset (if (pair? rest) (token-start (car rest))
                                   input-end-offset))
-                      (value (reduce-value production popped-values offset))
+                      (value
+                       (reduce-value
+                        production popped-values offset
+                        make-recognition-fragment))
                       (target
                        (and (pair? remaining-states)
                             (goto-target

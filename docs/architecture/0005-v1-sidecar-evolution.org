@@ -67,6 +67,17 @@ materializes a proper list only at field, alias, or accept boundaries. This
 removes the quadratic repeated-=append= path for long left-recursive clauses
 without changing ParseArtifact or CST values.
 
+Each selective-GLR invocation additionally owns private equal?-indexed intern
+pools for immutable parser configurations, completion identities, and
+multi-child recognition fragments.  A configuration key includes the state
+stack, semantic stack, remaining token suffix, and dynamic-precedence score;
+different scores therefore never converge accidentally.  Canonical
+configurations memoize their completed suffix result, so equivalent branches
+share downstream parsing instead of replaying it.  Completion multiplicity is
+retained in the receipt even when computation converges, preserving ambiguity
+evidence while reducing repeated work.  The pools are discarded with the
+request and cannot introduce cross-parse state or a global cache.
+
 * AOT materialization storage
 
 Language expansion validates Grammar IR, Bound Grammar IR, and Parser IR before

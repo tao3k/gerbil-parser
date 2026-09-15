@@ -3,7 +3,7 @@
 
 (import :std/foreign
         :std/text/json
-        (only-in :gerbil/gambit call-with-output-string)
+        (only-in :gerbil/gambit call-with-output-string display-exception)
         (only-in ../language/descriptor language-grammar-grammar)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref)
         (only-in ../../languages/gql/iso-39075-2024/grammar
@@ -26,7 +26,7 @@
    (hash (schema +gerbil-parser-native-error-schema+)
          (message
           (call-with-output-string
-           (lambda (port) (write exception port)))))))
+           (lambda (port) (display-exception exception port)))))))
 
 (def (grammar-section name)
   (cdr (assq name (language-grammar-grammar gql-iso-language-grammar))))

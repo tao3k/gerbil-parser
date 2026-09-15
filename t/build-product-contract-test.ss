@@ -24,6 +24,8 @@
         (check (and (string-contains command-source
                                      "defbuild-script")
                     (string-contains command-source
+                                     "\"src/cli\"")
+                    (string-contains command-source
                                      "(exe: \"src/main\" bin: \"gparse\")")
                     #t)
                => #t)

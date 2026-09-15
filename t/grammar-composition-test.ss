@@ -2,6 +2,7 @@
 ;;; -*- Gerbil -*-
 
 (import :std/test
+        (only-in :clan/poo/object .o)
         :gerbil-parser/src/grammar/algebra
         :gerbil-parser/src/grammar/lexical-algebra
         :gerbil-parser/src/compiler/normalize
@@ -272,6 +273,17 @@
       (check (grammar-role-name base-lexical-role) => 'base-lexical-role)
       (check (grammar-role-ref base-lexical-role 'terminals)
              => '((punctuation Punctuation)))
+      (let (refined-role
+            (.o (:: @ base-lexical-role)
+                (.section
+                 (lambda (field)
+                   (if (eq? field 'terminals)
+                     '((identifier Identifier))
+                     (grammar-role-ref base-lexical-role field))))))
+        (check (grammar-role-ref refined-role 'terminals)
+               => '((identifier Identifier)))
+        (check (grammar-role-ref base-lexical-role 'terminals)
+               => '((punctuation Punctuation))))
       (check (row-ref (grammar->alist base-object-grammar) 'schema)
              => "gerbil-parser.grammar.v1")
       (check-exception

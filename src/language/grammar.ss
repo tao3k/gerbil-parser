@@ -5,7 +5,8 @@
                     (only-in ../compiler/bound-ir bind-grammar-ir)
                     (only-in ../compiler/language-artifact
                              compile-language-declaration-artifacts)
-                    (only-in :gerbil/expander core-expand1))
+                    (only-in :gerbil/expander core-expand1)
+                    (only-in :std/misc/list delete-duplicates/hash))
         (only-in ../compiler/machine defgeneral-parser-machine)
         (only-in ./descriptor make-language-grammar)
         (only-in ../runtime/language-artifact
@@ -468,13 +469,7 @@
   (def (require condition message)
     (unless condition (syntax-failure message)))
   (def (unique values)
-    (let loop ((rest values) (seen '()))
-      (if (null? rest)
-        (reverse seen)
-        (loop (cdr rest)
-              (if (member (car rest) seen)
-                seen
-                (cons (car rest) seen))))))
+    (delete-duplicates/hash values))
   (def macro-lineage '())
   (def grammar-constructors
     '(node alias seq sequence choice optional repeat repeat1 field

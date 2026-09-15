@@ -3,7 +3,7 @@
 
 (import :std/foreign
         :std/text/json
-        (only-in :gerbil/gambit call-with-output-string display-exception)
+        (only-in :gerbil/gambit call-with-output-string)
         (only-in ../language/descriptor language-grammar-grammar)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref)
         (only-in ../../languages/gql/iso-39075-2024/grammar
@@ -12,7 +12,8 @@
                  parse-gql-iso-39075-2024))
 (export native-abi-version
         native-descriptor-payload
-        native-parse-payload)
+        native-parse-payload
+        native-error-payload)
 
 (def +gerbil-parser-native-abi-version+ 1)
 (def +gerbil-parser-native-descriptor-schema+
@@ -25,7 +26,7 @@
    (hash (schema +gerbil-parser-native-error-schema+)
          (message
           (call-with-output-string
-           (lambda (port) (display-exception exception port)))))))
+           (lambda (port) (write exception port)))))))
 
 (def (grammar-section name)
   (cdr (assq name (language-grammar-grammar gql-iso-language-grammar))))
@@ -114,7 +115,8 @@ END-C
        (gerbil_parser_result_v1-status-set! result -1)
        (gerbil_parser_result_v1-payload-set!
         result
-        (native-error-payload exception))
+        (gerbil-parser/src/ffi/parse-artifact-v1#native-error-payload
+         exception))
        -1)
      (lambda ()
        (gerbil_parser_result_v1-payload-set!
@@ -131,7 +133,8 @@ END-C
        (gerbil_parser_result_v1-status-set! result -1)
        (gerbil_parser_result_v1-payload-set!
         result
-        (native-error-payload exception))
+        (gerbil-parser/src/ffi/parse-artifact-v1#native-error-payload
+         exception))
        -1)
      (lambda ()
        (gerbil_parser_result_v1-payload-set!

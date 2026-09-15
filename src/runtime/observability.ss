@@ -4,7 +4,7 @@
 ;;; LanguageGrammar carries either #f or a PooFlowDebugCallPolicy. This module
 ;;; defines no observation type, timer, sink, receipt, or enablement semantic.
 
-(import (only-in :poo-flow/src/module-system/observability/interface
+(import (only-in :poo-flow/src/module-system/observability/debug
                  call-with-poo-flow-debug-trace))
 (export call-with-parser-observed-phase)
 

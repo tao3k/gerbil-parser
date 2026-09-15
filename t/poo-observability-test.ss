@@ -5,6 +5,8 @@
 
 (import :std/test
         (only-in :clan/poo/object .ref)
+        (only-in :std/misc/ports read-all-as-string)
+        (only-in :std/srfi/13 string-contains)
         :asp-gerbil-scheme/src/benchmark/framework
         :poo-flow/src/module-system/observability/interface
         :gerbil-parser/src/modules/parser/interface
@@ -45,6 +47,18 @@
 
 (def poo-observability-tests
   (test-suite "POO Flow observability for parser grammar objects"
+    (test-case "runtime observation imports only the POO debug boundary"
+      (let (source
+            (call-with-input-file
+             "src/runtime/observability.ss" read-all-as-string))
+        (check
+         (and (string-contains
+               source
+               ":poo-flow/src/module-system/observability/debug")
+              (not (string-contains
+                    source
+                    ":poo-flow/src/module-system/observability/interface")))
+         => #t)))
     (test-case "parser POO sources pass the reader-native authoring gate"
       (for-each
        (lambda (path)

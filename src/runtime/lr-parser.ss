@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in :std/srfi/1 split-at)
+(import (only-in :std/srfi/1 any fold split-at)
         (only-in ../compiler/lr
                  lr-spec-ref operand-actions production-action
                  production-lhs production-precedence production-rhs
@@ -20,7 +20,8 @@
                  recognition-sequence->list
                  value-interner-created-count
                  value-interner-hit-count
-                 value-interner-intern)
+                 value-interner-intern
+                 vector-intern-map)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
@@ -35,6 +36,14 @@
         lr-checkpoint-advance-shifts
         lr-checkpoint-resume
         lr-checkpoint-frontier
+        lr-checkpoint-feed
+        lr-checkpoint-lexical-mode
+        lr-checkpoint-resume-suffix
+        lr-lexical-mode?
+        lr-lexical-mode-id
+        lr-lexical-mode-terminals
+        lr-runtime-lexical-mode-catalog
+        lr-checkpoint-interned-lexical-mode-count
         lr-checkpoint-deterministic-actions
         lr-checkpoint-deterministic-shifts
         lr-checkpoint-remaining-token-count
@@ -50,8 +59,12 @@
 ;; Immutable execution data derived once for generated parser machines.
 (defstruct lr-runtime
   (productions table actions action-index gotos goto-index
-               case-insensitive? dynamic?)
+               case-insensitive? dynamic? lexical-modes lexical-mode-catalog)
   transparent: #t)
+
+;;; Interned parser-directed lexical expectation shared by LR states with the
+;;; same terminal row.
+(defstruct lr-lexical-mode (id terminals) transparent: #t)
 
 ;;; Immutable continuation of the deterministic LR machine.  The constructor
 ;;; remains private: every public checkpoint is tied to the exact prepared
@@ -73,37 +86,51 @@
 (def (lr-checkpoint-remaining-token-count checkpoint)
   (length (lr-checkpoint-rest checkpoint)))
 
+(def (lr-checkpoint-lexical-mode checkpoint)
+  (vector-ref
+   (lr-runtime-lexical-modes (lr-checkpoint-runtime checkpoint))
+   (car (lr-checkpoint-states checkpoint))))
+
+(def (lr-checkpoint-interned-lexical-mode-count checkpoint)
+  (vector-length
+   (lr-runtime-lexical-mode-catalog (lr-checkpoint-runtime checkpoint))))
+
 (def (lr-failure-frontier-remaining-tokens frontier)
   (lr-checkpoint-rest (lr-failure-frontier-checkpoint frontier)))
 
 ;;; Distinguishes an expected typed parser rejection from an implementation or
 ;;; contract exception. Recovery probes may discard the former only.
 (def (lr-rejection-condition? condition)
-  (let loop ((irritants (error-irritants condition)))
-    (and (pair? irritants)
-         (or (and (list? (car irritants))
-                  (assq 'failureKind (car irritants)))
-             (loop (cdr irritants))))))
+  (any (lambda (irritant)
+         (and (list? irritant) (assq 'failureKind irritant)))
+       (error-irritants condition)))
 
 (def (lr-prepare spec)
   (let* ((productions (lr-spec-ref spec 'productions))
          (actions (lr-spec-ref spec 'actions))
          (gotos (lr-spec-ref spec 'gotos))
          (dynamic?
-          (let loop ((rest productions))
-            (and (pair? rest)
-                 (let (precedence (production-precedence (car rest)))
-                   (or (and precedence (eq? (car precedence) 'dynamic))
-                       (loop (cdr rest))))))))
-    (make-lr-runtime
-     productions
-     (production-table productions)
-     actions
-     (association-row-vector->index actions)
-     gotos
-     (association-row-vector->index gotos)
-     (lr-spec-ref spec 'case-insensitive?)
-     dynamic?)))
+          (any (lambda (production)
+                 (let (precedence (production-precedence production))
+                   (and precedence (eq? (car precedence) 'dynamic))))
+               productions)))
+    (let-values (((modes mode-catalog)
+                  (vector-intern-map
+                   actions
+                   (lambda (row) (map car row))
+                   (lambda (terminals id)
+                     (make-lr-lexical-mode id terminals)))))
+      (make-lr-runtime
+       productions
+       (production-table productions)
+       actions
+       (association-row-vector->index actions)
+       gotos
+       (association-row-vector->index gotos)
+       (lr-spec-ref spec 'case-insensitive?)
+       dynamic?
+       modes
+       mode-catalog))))
 
 ;; lookup-action-row
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Datum (OrFalse Pair))
@@ -229,9 +256,9 @@
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
          (input-end-offset
-          (let loop ((rest tokens) (offset 0))
-            (if (null? rest) offset
-                (loop (cdr rest) (token-end (car rest))))))
+          (fold (lambda (input-token offset)
+                  (max offset (token-end input-token)))
+                0 tokens))
          (branches-explored 0)
          ;; The preferred action is the deterministic continuation of a fork.
          ;; Only fallback actions consume the speculative branch budget; a
@@ -558,7 +585,8 @@
 ;; : (-> LRCheckpoint (OrFalse Nat) PooFlowDebugCallPolicy
 ;;        (Values Symbol Datum))
 (def (lr-run-checkpoint checkpoint action-budget observability
-                        (stop-at-failure? #f) (shift-target #f))
+                        (stop-at-failure? #f) (shift-target #f)
+                        (stop-at-fork? #f))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
@@ -569,9 +597,9 @@
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
          (tokens (lr-checkpoint-tokens checkpoint))
          (input-end-offset
-          (let loop ((remaining tokens) (offset 0))
-            (if (null? remaining) offset
-                (loop (cdr remaining) (token-end (car remaining)))))))
+          (fold (lambda (input-token offset)
+                  (max offset (token-end input-token)))
+                0 tokens)))
     (def (fallback states semantic-values rest actions shifts)
       (let-values
           (((root remaining _receipt)
@@ -648,6 +676,13 @@
                                (fx- remaining-budget 1)))
                          (fallback
                           states semantic-values rest actions shifts))))))
+                ((fork)
+                 (if stop-at-fork?
+                   (values
+                    'fork
+                    (make-lr-checkpoint
+                     runtime tokens states semantic-values rest actions shifts))
+                   (fallback states semantic-values rest actions shifts)))
                 ((accept)
                  (let (children
                        (and (pair? semantic-values)
@@ -682,6 +717,37 @@
   (lr-run-checkpoint
    checkpoint #f observability #f
    (+ (lr-checkpoint-deterministic-shifts checkpoint) shift-budget)))
+
+;;; Feeds exactly one significant token through reductions and one shift. If
+;;; reductions expose a selective-GLR cell first, returns its exact immutable
+;;; frontier instead of starting GLR with a truncated one-token suffix.
+(def (lr-checkpoint-feed checkpoint input-token (observability #f))
+  (let* ((shift-target
+          (fx+ (lr-checkpoint-deterministic-shifts checkpoint) 1))
+         (fed
+          (make-lr-checkpoint
+           (lr-checkpoint-runtime checkpoint)
+           (cons input-token (lr-checkpoint-tokens checkpoint))
+           (lr-checkpoint-states checkpoint)
+           (lr-checkpoint-semantic-values checkpoint)
+           (list input-token)
+           (lr-checkpoint-deterministic-actions checkpoint)
+           (lr-checkpoint-deterministic-shifts checkpoint))))
+    (lr-run-checkpoint fed #f observability #f shift-target #t)))
+
+;;; Rebinds an unconsumed suffix to the same immutable deterministic frontier.
+;;; This is used only when a streaming path reaches a selective-GLR cell.
+(def (lr-checkpoint-resume-suffix checkpoint tokens rest (observability #f))
+  (lr-checkpoint-resume
+   (make-lr-checkpoint
+    (lr-checkpoint-runtime checkpoint)
+    tokens
+    (lr-checkpoint-states checkpoint)
+    (lr-checkpoint-semantic-values checkpoint)
+    rest
+    (lr-checkpoint-deterministic-actions checkpoint)
+    (lr-checkpoint-deterministic-shifts checkpoint))
+   observability))
 
 ;;; Completes parsing from an initial or advanced immutable checkpoint.
 (def (lr-checkpoint-resume checkpoint (observability #f))

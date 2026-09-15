@@ -8,7 +8,12 @@
         :gerbil-parser/src/compiler/parser-ir
         :gerbil-parser/src/compiler/lr
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
+        :gerbil-parser/src/language/grammar
         :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/src/runtime/artifact
+                 parse-artifact-roundtrip parse-artifact-success?)
+        (only-in :gerbil-parser/src/runtime/funcs vector-intern-map)
+        (only-in :gerbil-parser/src/runtime/lexer lex-source)
         :gerbil-parser/src/runtime/recognition
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-checkpoint? lr-checkpoint-deterministic-actions
@@ -16,9 +21,29 @@
                  lr-checkpoint-remaining-token-count
                  lr-checkpoint-advance lr-checkpoint-resume
                  lr-initial-checkpoint lr-parse lr-parse/receipt lr-prepare)
+        (only-in :gerbil-parser/src/runtime/parser parse-source)
         :gerbil-parser/src/runtime/token
         :gerbil-parser/src/compiler/machine
         :gerbil-parser/languages/arithmetic/v1/parser)
+
+;;; Both rules recognize the same spelling. Only the LR state can select the
+;;; correct token identity for each position; global longest-match necessarily
+;;; selects the declaration-first identity twice.
+(deflanguage directed-lexical-mode
+  (identity "directed-lexical-mode" "v1" "directed-lexical-mode.v1")
+  (root source-file)
+  (lex
+   (first FirstToken (literals "x"))
+   (second SecondToken (literals "x")))
+  (rules
+   (source-file
+    (node SourceFile
+      (seq (field first first) (field second second)))))
+  (extras)
+  (keywords)
+  (recoveries)
+  (conflicts reject)
+  (case-insensitive #f))
 
 (defgrammar-role base-lexical-role
   (syntax-kinds
@@ -258,6 +283,22 @@
       (check (grammar-ir-canonical (compile-grammar arithmetic-grammar))
              =>
              (grammar-ir-canonical (compile-grammar arithmetic-grammar))))
+    (test-case "standard vector traversal interns projected catalogs"
+      (let-values
+          (((catalog canonical)
+            (vector-intern-map
+             '#(left right left right)
+             (lambda (value) value)
+             (lambda (key id) (cons id key)))))
+        (check (vector-length canonical) => 2)
+        (check (eq? (vector-ref catalog 0) (vector-ref catalog 2)) => #t)
+        (check (eq? (vector-ref catalog 1) (vector-ref catalog 3)) => #t)))
+    (test-case "LR states direct identical lexical spellings"
+      (let ((global-tokens (lex-source directed-lexical-mode-parser "xx"))
+            (artifact (parse-source directed-lexical-mode-parser "xx")))
+        (check (map token-kind global-tokens) => '(first first))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => "xx")))
     (test-case "explicit POO composition emits an identity-bearing receipt"
       (let-values (((ir receipt)
                     (compile-grammar/receipt explicit-composed-grammar)))

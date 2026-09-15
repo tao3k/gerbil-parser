@@ -1,7 +1,12 @@
 ;;; -*- Gerbil -*-
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import (only-in ../runtime/lr-parser lr-prepare lr-parse/prepared)
+(import (only-in :std/misc/vector vector-map/index)
+        (only-in :std/srfi/1 any filter-map fold)
+        (only-in ../runtime/lr-parser
+                 lr-lexical-mode-id lr-lexical-mode-terminals
+                 lr-prepare lr-parse/prepared
+                 lr-runtime-lexical-mode-catalog)
         (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
@@ -165,6 +170,57 @@
    ((>= (caddr current) (caddr candidate)) current)
    (else candidate)))
 
+;;; AOT capability predicate for literal-producing lexical algebra. Runtime
+;;; mode selection never probes scanners with synthetic input: closed literal
+;;; and choice forms lower to ordinary comparisons, while opaque external
+;;; scanners are conservatively admitted.
+(defrules lexical-expression-admits-literal?
+  (choice literals precedence external)
+  ((_ literal case-insensitive? (literals value ...))
+   (or ((if case-insensitive? string-ci=? string=?) literal value) ...))
+  ((_ literal case-insensitive? (choice expression ...))
+   (or (lexical-expression-admits-literal?
+        literal case-insensitive? expression) ...))
+  ((_ literal case-insensitive? (precedence _rank expression))
+   (lexical-expression-admits-literal?
+    literal case-insensitive? expression))
+  ((_ _literal _case-insensitive? (external _version _scanner)) #t)
+  ((_ _literal _case-insensitive? _expression) #f))
+
+;;; A lexical mode admits complete rules, not already-produced lexemes. This
+;;; preserves each admitted rule's ordinary longest-match behavior on source
+;;; (for example a rule containing both "*" and "**").
+(defrules lexical-rule-admitted?
+  ()
+  ((_ terminals name expression extras case-insensitive?)
+   (or (not terminals)
+       (memq 'name extras)
+       (any
+        (lambda (terminal)
+          (and (pair? terminal)
+               (eq? (car terminal) 'terminal)
+               (case (cadr terminal)
+                 ((token) (eq? (caddr terminal) 'name))
+                 ((literal)
+                  (lexical-expression-admits-literal?
+                   (caddr terminal) case-insensitive? expression))
+                 (else #f))))
+        terminals))))
+
+;;; One AOT-generated capability/scanner pair. Capability checks run once per
+;;; interned LR mode; the scanner remains the ordinary generated lexical rule.
+(defrules generated-lexical-rule
+  ()
+  ((_ (name expression) extras case-insensitive?)
+   (cons
+    (lambda (terminals)
+      (lexical-rule-admitted?
+       terminals name expression extras case-insensitive?))
+    (lambda (source offset)
+      (let (end (lexical-end source offset expression))
+        (and end
+             (list 'name end (lexical-expression-rank expression))))))))
+
 ;;; Returns name, end offset, and precedence for generated-lexer. Longest
 ;;; consumption wins globally; lexical precedence breaks equal-length ties.
 ;; lexical-dispatch/ranked
@@ -224,10 +280,49 @@
 ;;       ```
 ;;     %
 (defrules generated-lexer
-  (lexical-rules)
-  ((_ (lexical-rules row ...))
-   (letrec
-       ((scan-from
+  (lexical-rules extras)
+  ((_ (lexical-rules row ...) (extras extra-name ...) case-insensitive?
+      mode-catalog)
+   (let* ((rules
+           (list (generated-lexical-rule
+                  row '(extra-name ...) case-insensitive?) ...))
+          (mode-scanners
+           (vector-map/index
+            (lambda (_index mode)
+              (filter-map
+               (lambda (rule)
+                 (and ((car rule) (lr-lexical-mode-terminals mode))
+                      (cdr rule)))
+               rules))
+            mode-catalog)))
+     (letrec
+       ((scan-one
+         (lambda (source offset byte-offset mode)
+           (let (match
+                 (or (if mode
+                       (fold
+                        (lambda (scanner selected)
+                          (prefer-ranked-match
+                           selected (scanner source offset)))
+                        #f
+                        (vector-ref mode-scanners
+                                    (lr-lexical-mode-id mode)))
+                       (lexical-dispatch/ranked
+                        source offset (row ...)))
+                     ;; A mode miss must still materialize the offending token
+                     ;; for the LR failure frontier and lossless diagnostics.
+                     ;; Successful directed scans never enter this cold path.
+                     (and mode
+                          (lexical-dispatch/ranked
+                           source offset (row ...)))))
+             (unless match
+               (error "no lexical rule matched parser-directed source"
+                      offset mode))
+             (let (output-token
+                   (scan-emit source (car match) offset (cadr match)
+                              byte-offset))
+               (values output-token (cadr match))))))
+        (scan-from
          (lambda (source initial-offset initial-byte-offset)
            (let (length (string-length source))
              (let loop ((offset initial-offset)
@@ -235,19 +330,16 @@
                         (tokens '()))
                (if (= offset length)
                  (reverse tokens)
-                 (let (match
-                       (lexical-dispatch/ranked source offset (row ...)))
-                   (unless match
-                     (error "no lexical rule matched source" offset))
-                   (let (output-token
-                         (scan-emit source (car match) offset (cadr match)
-                                    byte-offset))
-                     (loop (cadr match) (token-end output-token)
-                           (cons output-token tokens))))))))))
+                 (let-values (((output-token end)
+                               (scan-one source offset byte-offset #f)))
+                   (loop end (token-end output-token)
+                         (cons output-token tokens)))))))))
      (case-lambda
       ((source) (scan-from source 0 0))
       ((source offset byte-offset)
-       (scan-from source offset byte-offset))))))
+       (scan-from source offset byte-offset))
+      ((source offset byte-offset mode)
+       (scan-one source offset byte-offset mode)))))))
 
 ;;; Connects immutable parser IR to generated lexer and LR runtime entrypoints once.
 ;;; Runtime calls receive the compiled machine and never re-enter grammar expansion.
@@ -279,7 +371,11 @@
         (sha256-text
          (call-with-output-string
           (lambda (port) (write parser-ir port))))
-        (generated-lexer (lexical-rules lexical-row ...))
+        (generated-lexer
+         (lexical-rules lexical-row ...)
+         (extras extra-name ...)
+         (cdr (assq 'case-insensitive? parser-ir))
+         (lr-runtime-lexical-mode-catalog runtime))
         (lambda (input-token)
           (memq (token-kind input-token) '(extra-name ...)))
         runtime

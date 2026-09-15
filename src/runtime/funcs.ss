@@ -1,13 +1,16 @@
 ;;; -*- Gerbil -*-
 ;;; Small immutable sequence algorithms for the LR semantic hot path.
 
-(import (only-in :std/misc/list-builder with-list-builder))
+(import (only-in :std/misc/list-builder with-list-builder)
+        (only-in :std/misc/vector vector-map/index)
+        (only-in :std/srfi/43 vector-any))
 (export association-row-vector->index
         association-row-index-ref
         make-value-interner
         value-interner-intern
         value-interner-created-count
         value-interner-hit-count
+        vector-intern-map
         recognition-sequence-append
         recognition-sequence-concatenate
         recognition-sequence->list)
@@ -41,6 +44,31 @@
 (def (value-interner-hit-count interner)
   (vector-ref (value-interner-state-counters interner) 1))
 
+;;; Maps an immutable vector while hash-consing equal projected keys. This is
+;;; the shared O(n) construction primitive for state catalogs such as lexical
+;;; modes: standard vector traversal owns iteration and the standard equal?
+;;; table owns canonicalization. The second result is the compact canonical
+;;; catalog in stable id order.
+;; : (-> Vector Procedure Procedure (Values Vector Vector))
+(def (vector-intern-map source key-of constructor)
+  (let* ((interner (make-value-interner))
+         (canonical-reversed '())
+         (mapped
+          (vector-map/index
+           (lambda (_index value)
+             (let (key (key-of value))
+               (value-interner-intern
+                interner key
+                (lambda ()
+                  (let (canonical
+                        (constructor
+                         key (value-interner-created-count interner)))
+                    (set! canonical-reversed
+                      (cons canonical canonical-reversed))
+                    canonical)))))
+           source)))
+    (values mapped (list->vector (reverse canonical-reversed)))))
+
 ;;; Convert long association rows into equal?-keyed indexes once, when an
 ;;; immutable parser machine is prepared. Short rows stay as lists: their
 ;;; linear scan is cheaper than allocating a hash table, which matters for
@@ -48,31 +76,21 @@
 ;;; so callers can use both its key and payload without allocating a new pair.
 ;; : (-> (Vector (List Pair)) (Vector (Or (List Pair) HashTable)))
 (def (association-row-vector->index rows)
-  (let (count (vector-length rows))
-    (def (long-row? index)
-      (and (< index count)
-           (or (> (length (vector-ref rows index)) 8)
-               (long-row? (+ index 1)))))
-    (if (not (long-row? 0))
-      rows
-      (let (indexes (make-vector count))
-        (let loop ((index 0))
-          (if (= index count)
-            indexes
-            (let (row (vector-ref rows index))
-              (vector-set!
-               indexes index
-               (if (<= (length row) 8)
-                 row
-                 (let (table (make-hash-table size: (length row)))
-                   (for-each
-                    (lambda (entry)
-                      ;; Match `assoc`: the first equal key is authoritative.
-                      (unless (hash-get table (car entry))
-                        (hash-put! table (car entry) entry)))
-                    row)
-                   table)))
-              (loop (+ index 1)))))))))
+  (if (not (vector-any (lambda (row) (> (length row) 8)) rows))
+    rows
+    (vector-map/index
+     (lambda (_index row)
+       (if (<= (length row) 8)
+         row
+         (let (table (make-hash-table size: (length row)))
+           (for-each
+            (lambda (entry)
+              ;; Match `assoc`: the first equal key is authoritative.
+              (unless (hash-get table (car entry))
+                (hash-put! table (car entry) entry)))
+            row)
+           table)))
+     rows)))
 
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Value (OrFalse Pair))
 (def (association-row-index-ref indexes state key)

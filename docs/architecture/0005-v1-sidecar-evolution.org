@@ -107,8 +107,12 @@ an explicitly requested pause boundary.  A fork or failure transfers that exact
 frontier to selective GLR without replaying the deterministic prefix.
 
 Recovery performs deterministic private one-edit search for =MISSING=,
-=SKIPPED=, and =ERROR= candidates. The returned ParseArtifact remains the
-original rejected v1 artifact. A recovery receipt records ownership, strategy,
+=SKIPPED=, and =ERROR= candidates at the first LR failure frontier.  Its
+candidate vocabulary comes from that state's expected terminals rather than a
+scan of every grammar literal, and each candidate resumes the immutable
+checkpoint rather than replaying the accepted prefix.  The returned
+ParseArtifact remains the original rejected v1 artifact. A recovery receipt
+records ownership, strategy, frontier state, expected terminals, reused prefix,
 cost, byte evidence, budget, and candidate outcome; no partial CST is exposed.
 
 Incremental parsing accepts a byte-addressed Edit v1, reuses only the maximal

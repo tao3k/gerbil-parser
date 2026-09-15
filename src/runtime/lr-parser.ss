@@ -33,9 +33,16 @@
         lr-initial-checkpoint
         lr-checkpoint-advance
         lr-checkpoint-resume
+        lr-checkpoint-frontier
         lr-checkpoint-deterministic-actions
         lr-checkpoint-deterministic-shifts
-        lr-checkpoint-remaining-token-count)
+        lr-checkpoint-remaining-token-count
+        lr-failure-frontier?
+        lr-failure-frontier-state
+        lr-failure-frontier-expected-terminals
+        lr-failure-frontier-remaining-tokens
+        lr-failure-frontier-resume
+        lr-rejection-condition?)
 
 (def +lr-eof+ '(terminal eof))
 
@@ -53,11 +60,29 @@
            deterministic-actions deterministic-shifts)
   transparent: #t)
 
+;;; A deterministic failure frontier retains the exact immutable continuation
+;;; and the terminals admitted by its LR state. Recovery can therefore test a
+;;; local edit without replaying the already accepted prefix.
+(defstruct lr-failure-frontier (checkpoint state expected-terminals)
+  transparent: #t)
+
 (def (lr-initial-checkpoint runtime tokens)
   (make-lr-checkpoint runtime tokens '(0) '() tokens 0 0))
 
 (def (lr-checkpoint-remaining-token-count checkpoint)
   (length (lr-checkpoint-rest checkpoint)))
+
+(def (lr-failure-frontier-remaining-tokens frontier)
+  (lr-checkpoint-rest (lr-failure-frontier-checkpoint frontier)))
+
+;;; Distinguishes an expected typed parser rejection from an implementation or
+;;; contract exception. Recovery probes may discard the former only.
+(def (lr-rejection-condition? condition)
+  (let loop ((irritants (error-irritants condition)))
+    (and (pair? irritants)
+         (or (and (list? (car irritants))
+                  (assq 'failureKind (car irritants)))
+             (loop (cdr irritants))))))
 
 (def (lr-prepare spec)
   (let* ((productions (lr-spec-ref spec 'productions))
@@ -531,11 +556,13 @@
 ;;; frontier directly to selective GLR without replay.
 ;; : (-> LRCheckpoint (OrFalse Nat) PooFlowDebugCallPolicy
 ;;        (Values Symbol Datum))
-(def (lr-run-checkpoint checkpoint action-budget observability)
+(def (lr-run-checkpoint checkpoint action-budget observability
+                        (stop-at-failure? #f))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
          (table (lr-runtime-table runtime))
+         (actions-table (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
@@ -571,7 +598,15 @@
                 (current-action-row
                  action-index state rest case-insensitive?)))
           (if (not action-row)
-            (fallback states semantic-values rest actions shifts)
+            (if stop-at-failure?
+              (values
+               'failure
+               (make-lr-failure-frontier
+                (make-lr-checkpoint
+                 runtime tokens states semantic-values rest actions shifts)
+                state
+                (map car (vector-ref actions-table state))))
+              (fallback states semantic-values rest actions shifts))
             (let (action (cdr action-row))
               (case (car action)
                 ((shift)
@@ -642,6 +677,35 @@
     (unless (eq? status 'accepted)
       (error "LR resume did not reach a terminal result" status))
     (values (car payload) (cadr payload))))
+
+;;; Runs to acceptance or to the first deterministic LR failure frontier. An
+;;; admitted GLR fork still delegates to the selective-GLR owner.
+(def (lr-checkpoint-frontier checkpoint (observability #f))
+  (lr-run-checkpoint checkpoint #f observability #t))
+
+;;; Tests one edited suffix from the retained failure state. The returned CST
+;;; remains private to recovery; only acceptance is exposed.
+(def (lr-failure-frontier-resume frontier edited-rest (observability #f))
+  (unless (lr-failure-frontier? frontier)
+    (error "LR recovery requires a failure frontier" frontier))
+  (let* ((checkpoint (lr-failure-frontier-checkpoint frontier))
+         (edited
+          (make-lr-checkpoint
+           (lr-checkpoint-runtime checkpoint)
+           (lr-checkpoint-tokens checkpoint)
+           (lr-checkpoint-states checkpoint)
+           (lr-checkpoint-semantic-values checkpoint)
+           edited-rest
+           (lr-checkpoint-deterministic-actions checkpoint)
+           (lr-checkpoint-deterministic-shifts checkpoint))))
+    (with-catch
+     (lambda (condition)
+       (if (lr-rejection-condition? condition)
+         #f
+         (raise condition)))
+     (lambda ()
+       (let-values (((_root rest) (lr-checkpoint-resume edited observability)))
+         (null? rest))))))
 
 (def (lr-parse/prepared runtime tokens (observability #f))
   (lr-checkpoint-resume

@@ -43,6 +43,11 @@
         (check (parse-artifact-valid? artifact) => #t)
         (check (row-ref receipt 'outcome) => 'candidate)
         (check (row-ref receipt 'publicationStatus) => 'rejected)
+        (check (integer? (row-ref receipt 'frontierState)) => #t)
+        (check (row-ref receipt 'reusedPrefixTokenCount) => 2)
+        (check (<= (row-ref receipt 'attempts)
+                   (length (row-ref receipt 'frontierExpectedTerminals)))
+               => #t)
         (check (row-ref (car (row-ref receipt 'operations)) 'kind)
                => 'MISSING)))
     (test-case "skipped-token recovery records source-owned byte evidence"
@@ -50,6 +55,11 @@
                     (parse-source/recover arithmetic-parser "1 ?")))
         (check (parse-artifact-success? artifact) => #f)
         (check (row-ref receipt 'outcome) => 'candidate)
+        (check (row-ref receipt 'reusedPrefixTokenCount) => 1)
+        (check (<= (row-ref receipt 'attempts)
+                   (+ 1 (length
+                         (row-ref receipt 'frontierExpectedTerminals))))
+               => #t)
         (check (row-ref (car (row-ref receipt 'operations)) 'kind)
                => 'SKIPPED)))))
 

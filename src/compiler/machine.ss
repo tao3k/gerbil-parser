@@ -21,6 +21,7 @@
         parser-machine-grammar-digest
         parser-machine-lex
         parser-machine-trivia
+        parser-machine-runtime
         parser-machine-parse)
 
 ;; parser-machine
@@ -35,7 +36,7 @@
 ;;       ;; => #t for a generated parser machine
 ;;       ```
 ;;     %
-(defstruct parser-machine (ir grammar-digest lex trivia parse)
+(defstruct parser-machine (ir grammar-digest lex trivia runtime parse)
   transparent: #t)
 
 ;;; Expands one closed lexical algebra case into its ordinary scanner call.
@@ -281,6 +282,7 @@
         (generated-lexer (lexical-rules lexical-row ...))
         (lambda (input-token)
           (memq (token-kind input-token) '(extra-name ...)))
+        runtime
         (lambda (tokens . maybe-observability)
           (lr-parse/prepared
            runtime tokens

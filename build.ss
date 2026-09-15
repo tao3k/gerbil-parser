@@ -22,7 +22,9 @@
 ;; library catalog. Keep the boundary declarative so PackageSpec still performs
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
-  '("src/main.ss"
+  '("build-gparse.ss"
+    "src/main.ss"
+    "src/cli.ss"
     "src/ffi/parse-artifact-v1.ss"
     "languages/arithmetic/v1/parser-test.ss"
     "languages/cypher/opencypher-2024-1/parser-test.ss"
@@ -52,7 +54,9 @@
 
 ;; PackageSpec remains here because the Build API derives project ownership
 ;; from this declaration's source location. Its default native projection owns
-;; source discovery; this project declares only exclusions and products.
+;; source discovery; this package entrypoint installs only the reusable library
+;; and FFI products. The optional gparse command is a sibling AOT product in
+;; build-gparse.ss, so library consumers never compile an unused executable.
 (asp-gerbil-scheme-package-spec!
  (gerbil-parser-package-spec
  @ asp-gerbil-scheme-library-package-prototype)
@@ -63,8 +67,7 @@
    gerbil-parser-build-observability-policy))
  (exclude-dirs gerbil-parser-exclude-dirs)
  (exclude-modules gerbil-parser-exclude-modules)
- (extra-spec `(,gerbil-parser-native-ffi-spec
-               (exe: "src/main" bin: "gparse"))))
+ (extra-spec `(,gerbil-parser-native-ffi-spec)))
 
 ;; Keep the standard multicall entrypoint at top level. std/build-script owns
 ;; spec/compile/clean and delegates the projection to one std/make scheduler.

@@ -11,12 +11,15 @@ single native package test entrypoint.
 
 * P0 Native package closure
 
-- Keep =build.ss= as a thin =std/build-script= entrypoint over one PackageSpec.
+- Keep =build.ss= as a thin =std/build-script= entrypoint over one library
+  PackageSpec; build the optional =gparse= executable through the sibling
+  first-party =build-gparse.ss= entrypoint.
 - Discover each production module once; never install =*-test.ss= modules.
 - Inherit capacity only from =GERBIL_BUILD_CORES= and use the ASP native batch
   testing interface without a package-local scheduler.
-- CI must clean, build, run =unit-tests.ss= once, and exercise installed
-  =gparse=.  Build-spec duplication is a failing contract.
+- CI must clean, build the package and command products, run =unit-tests.ss=
+  once, and exercise installed =gparse=. Build-spec duplication is a failing
+  contract.
 
 Status: locally closed.  Remote Ubuntu CI is the remaining publication receipt.
 

@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -149,6 +149,9 @@ jobs:
         run: |
           gerbil clean
           gerbil build
+
+      - name: Build optional native command
+        run: gerbil env gxi build-gparse.ss compile
 
       - name: Run the single native test entrypoint
         timeout-minutes: 15

@@ -21,12 +21,15 @@ to the pure Scheme parser runtime and AOT artifact.
 
 * Native command
 
-=build.ss= is the sole AOT entry.  It discovers library modules, declares the
-exact runtime closure of the executable, and asks Gerbil to build =gparse=; no
-shell launcher or second command implementation is involved.
+=build.ss= is the package AOT entry. It discovers and installs the reusable
+library and native FFI products without forcing downstream library consumers to
+compile a command they do not use. =build-gparse.ss= is the sibling first-party
+=defbuild-script= entry for the optional native =gparse= command; it adds no
+second command implementation or package scheduler.
 
 #+begin_src sh
-GERBIL_BUILD_CORES=12 gxi build.ss compile
+GERBIL_BUILD_CORES=12 gerbil build
+GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
 gparse help
 gparse check "1 + 2 * value"
 #+end_src

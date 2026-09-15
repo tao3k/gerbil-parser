@@ -28,7 +28,14 @@
 (export lr-parse
         lr-parse/receipt
         lr-prepare
-        lr-parse/prepared)
+        lr-parse/prepared
+        lr-checkpoint?
+        lr-initial-checkpoint
+        lr-checkpoint-advance
+        lr-checkpoint-resume
+        lr-checkpoint-deterministic-actions
+        lr-checkpoint-deterministic-shifts
+        lr-checkpoint-remaining-token-count)
 
 (def +lr-eof+ '(terminal eof))
 
@@ -37,6 +44,20 @@
   (productions table actions action-index gotos goto-index
                case-insensitive? dynamic?)
   transparent: #t)
+
+;;; Immutable continuation of the deterministic LR machine.  The constructor
+;;; remains private: every public checkpoint is tied to the exact prepared
+;;; runtime and original token sequence that produced it.
+(defstruct lr-checkpoint
+  (runtime tokens states semantic-values rest
+           deterministic-actions deterministic-shifts)
+  transparent: #t)
+
+(def (lr-initial-checkpoint runtime tokens)
+  (make-lr-checkpoint runtime tokens '(0) '() tokens 0 0))
+
+(def (lr-checkpoint-remaining-token-count checkpoint)
+  (length (lr-checkpoint-rest checkpoint)))
 
 (def (lr-prepare spec)
   (let* ((productions (lr-spec-ref spec 'productions))
@@ -504,96 +525,127 @@
 (def (lr-parse/receipt spec tokens (branch-budget 256))
   (lr-parse/prepared/receipt (lr-prepare spec) tokens branch-budget))
 
+;;; Sole deterministic executor. State remains in local variables on the hot
+;;; path; an immutable checkpoint object is allocated only when an explicit
+;;; action budget pauses execution. Fork/failure fallback passes the raw local
+;;; frontier directly to selective GLR without replay.
+;; : (-> LRCheckpoint (OrFalse Nat) PooFlowDebugCallPolicy
+;;        (Values Symbol Datum))
+(def (lr-run-checkpoint checkpoint action-budget observability)
+  (unless (lr-checkpoint? checkpoint)
+    (error "LR execution requires an immutable checkpoint" checkpoint))
+  (let* ((runtime (lr-checkpoint-runtime checkpoint))
+         (table (lr-runtime-table runtime))
+         (action-index (lr-runtime-action-index runtime))
+         (goto-index (lr-runtime-goto-index runtime))
+         (case-insensitive? (lr-runtime-case-insensitive? runtime))
+         (tokens (lr-checkpoint-tokens checkpoint))
+         (input-end-offset
+          (let loop ((remaining tokens) (offset 0))
+            (if (null? remaining) offset
+                (loop (cdr remaining) (token-end (car remaining)))))))
+    (def (fallback states semantic-values rest actions shifts)
+      (let-values
+          (((root remaining _receipt)
+            (call-with-parser-observed-phase
+             observability 'selective-glr-execution
+             (lambda ()
+               (lr-parse/prepared/receipt
+                runtime tokens 256 states semantic-values rest
+                actions shifts)))))
+        (values 'accepted (list root remaining))))
+    (let loop ((states (lr-checkpoint-states checkpoint))
+               (semantic-values
+                (lr-checkpoint-semantic-values checkpoint))
+               (rest (lr-checkpoint-rest checkpoint))
+               (actions (lr-checkpoint-deterministic-actions checkpoint))
+               (shifts (lr-checkpoint-deterministic-shifts checkpoint))
+               (remaining-budget action-budget))
+      (if (and remaining-budget (zero? remaining-budget))
+        (values
+         'checkpoint
+         (make-lr-checkpoint
+          runtime tokens states semantic-values rest actions shifts))
+        (let* ((state (car states))
+               (action-row
+                (current-action-row
+                 action-index state rest case-insensitive?)))
+          (if (not action-row)
+            (fallback states semantic-values rest actions shifts)
+            (let (action (cdr action-row))
+              (case (car action)
+                ((shift)
+                 (if (pair? rest)
+                   (loop
+                    (cons (cadr action) states)
+                    (cons (list (make-recognition-child #f (car rest)))
+                          semantic-values)
+                    (cdr rest) (fx+ actions 1) (fx+ shifts 1)
+                    (and remaining-budget (fx- remaining-budget 1)))
+                   (fallback states semantic-values rest actions shifts)))
+                ((reduce)
+                 (let* ((production (vector-ref table (cadr action)))
+                        (count (length (production-rhs production))))
+                   (let-values (((popped-values remaining-values)
+                                 (split-at semantic-values count))
+                                ((_popped-states remaining-states)
+                                 (split-at states count)))
+                     (let* ((offset
+                             (if (pair? rest) (token-start (car rest))
+                                 input-end-offset))
+                            (value
+                             (reduce-value
+                              production popped-values offset
+                              make-recognition-fragment))
+                            (target
+                             (and (pair? remaining-states)
+                                  (goto-target
+                                   goto-index (car remaining-states)
+                                   (production-lhs production)))))
+                       (if target
+                         (loop
+                          (cons target remaining-states)
+                          (cons value remaining-values)
+                          rest (fx+ actions 1) shifts
+                          (and remaining-budget
+                               (fx- remaining-budget 1)))
+                         (fallback
+                          states semantic-values rest actions shifts))))))
+                ((accept)
+                 (let (children
+                       (and (pair? semantic-values)
+                            (recognition-sequence->list
+                             (car semantic-values))))
+                   (if (and (pair? children)
+                            (null? (cdr children))
+                            (not (recognition-child-field (car children))))
+                     (values
+                      'accepted
+                      (list (recognition-child-value (car children)) rest))
+                     (fallback
+                      states semantic-values rest actions shifts))))
+                (else
+                 (fallback states semantic-values rest actions shifts))))))))))
+
+;;; Advances through the same executor and materializes one checkpoint only at
+;;; the requested deterministic action boundary.
+(def (lr-checkpoint-advance checkpoint (action-budget 1)
+                            (observability #f))
+  (unless (and (integer? action-budget) (positive? action-budget))
+    (error "LR checkpoint action budget must be positive" action-budget))
+  (lr-run-checkpoint checkpoint action-budget observability))
+
+;;; Completes parsing from an initial or advanced immutable checkpoint.
+(def (lr-checkpoint-resume checkpoint (observability #f))
+  (let-values (((status payload)
+                (lr-run-checkpoint checkpoint #f observability)))
+    (unless (eq? status 'accepted)
+      (error "LR resume did not reach a terminal result" status))
+    (values (car payload) (cadr payload))))
+
 (def (lr-parse/prepared runtime tokens (observability #f))
-  (let ((productions (lr-runtime-productions runtime))
-        (table (lr-runtime-table runtime))
-        (action-index (lr-runtime-action-index runtime))
-        (goto-index (lr-runtime-goto-index runtime))
-        (case-insensitive? (lr-runtime-case-insensitive? runtime))
-        (input-end-offset
-         (let loop ((rest tokens) (offset 0))
-           (if (null? rest) offset
-               (loop (cdr rest) (token-end (car rest)))))))
-    (def (selective-glr-from-checkpoint states semantic-values rest
-                                        deterministic-actions
-                                        deterministic-shifts)
-      (call-with-parser-observed-phase
-       observability 'selective-glr-execution
-       (lambda ()
-         (lr-parse/prepared/receipt
-          runtime tokens 256 states semantic-values rest
-          deterministic-actions deterministic-shifts))))
-    (let loop ((states '(0)) (semantic-values '()) (rest tokens)
-               (deterministic-actions 0) (deterministic-shifts 0))
-      (let* ((state (car states))
-             (action-row
-              (current-action-row action-index state rest case-insensitive?)))
-        (if (not action-row)
-          (let-values (((root remaining _receipt)
-                        (selective-glr-from-checkpoint
-                         states semantic-values rest deterministic-actions
-                         deterministic-shifts)))
-            (values root remaining))
-          (let (action (cdr action-row))
-            (case (car action)
-              ((shift)
-               (loop (cons (cadr action) states)
-                     (cons (list (make-recognition-child #f (car rest)))
-                           semantic-values)
-                     (cdr rest)
-                     (fx+ deterministic-actions 1)
-                     (fx+ deterministic-shifts 1)))
-              ((reduce)
-               (let* ((production (vector-ref table (cadr action)))
-                      (count (length (production-rhs production))))
-                 (let-values (((popped-values remaining-values)
-                               (split-at semantic-values count))
-                              ((_popped-states remaining-states)
-                               (split-at states count)))
-                   (let* (
-                      (offset (if (pair? rest) (token-start (car rest))
-                                  input-end-offset))
-                      (value
-                       (reduce-value
-                        production popped-values offset
-                        make-recognition-fragment))
-                      (target
-                       (and (pair? remaining-states)
-                            (goto-target
-                             goto-index (car remaining-states)
-                             (production-lhs production)))))
-                 (if target
-                   (loop (cons target remaining-states)
-                         (cons value remaining-values) rest
-                         (fx+ deterministic-actions 1)
-                         deterministic-shifts)
-                   (let-values (((root remaining _receipt)
-                                 (selective-glr-from-checkpoint
-                                  states semantic-values rest
-                                  deterministic-actions
-                                  deterministic-shifts)))
-                     (values root remaining)))))))
-              ((accept)
-               (let (children
-                     (and (pair? semantic-values)
-                          (recognition-sequence->list
-                           (car semantic-values))))
-                 (if (and (pair? children)
-                          (null? (cdr children))
-                          (not (recognition-child-field (car children))))
-                   (values (recognition-child-value (car children)) rest)
-                   (let-values (((root remaining _receipt)
-                                 (selective-glr-from-checkpoint
-                                  states semantic-values rest
-                                  deterministic-actions
-                                  deterministic-shifts)))
-                     (values root remaining)))))
-              (else
-               (let-values (((root remaining _receipt)
-                             (selective-glr-from-checkpoint
-                              states semantic-values rest
-                              deterministic-actions deterministic-shifts)))
-                 (values root remaining))))))))))
+  (lr-checkpoint-resume
+   (lr-initial-checkpoint runtime tokens) observability))
 
 ;; lr-parse
 ;; : (-> List List (Values Datum List))

@@ -97,6 +97,15 @@ uses its configured C compiler without a compiler-specific fallback.
 
 * Recovery and incremental parsing
 
+The deterministic LR executor exposes immutable checkpoints containing the
+prepared runtime identity, original token stream, state/value stacks, remaining
+token suffix, and deterministic action counters.  Advancing by an explicit
+action budget and resuming to a terminal result use the same executor as an
+ordinary parse; no replay parser or second transition implementation exists.
+The hot path keeps state in local variables and allocates a checkpoint only at
+an explicitly requested pause boundary.  A fork or failure transfers that exact
+frontier to selective GLR without replaying the deterministic prefix.
+
 Recovery performs deterministic private one-edit search for =MISSING=,
 =SKIPPED=, and =ERROR= candidates. The returned ParseArtifact remains the
 original rejected v1 artifact. A recovery receipt records ownership, strategy,

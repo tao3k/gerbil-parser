@@ -10,7 +10,12 @@
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         :gerbil-parser/src/modules/parser/interface
         :gerbil-parser/src/runtime/recognition
-        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-parse/receipt)
+        (only-in :gerbil-parser/src/runtime/lr-parser
+                 lr-checkpoint? lr-checkpoint-deterministic-actions
+                 lr-checkpoint-deterministic-shifts
+                 lr-checkpoint-remaining-token-count
+                 lr-checkpoint-advance lr-checkpoint-resume
+                 lr-initial-checkpoint lr-parse lr-parse/receipt lr-prepare)
         :gerbil-parser/src/runtime/token
         :gerbil-parser/src/compiler/machine
         :gerbil-parser/languages/arithmetic/v1/parser)
@@ -429,6 +434,27 @@
           (check (row-ref receipt 'distinctCompletions) => 2)
           (check (row-ref receipt 'winnerReason) => 'dynamic-precedence)
           (check (row-ref receipt 'dynamicScore) => 2))))
+    (test-case "immutable checkpoints resume the sole LR executor"
+      (let* ((spec (compile-lr-spec nonassociative-rules 'source-file))
+             (runtime (lr-prepare spec))
+             (tokens
+              (list (make-token 'number "1" 0 1)
+                    (make-token 'punctuation "<" 1 2)
+                    (make-token 'number "2" 2 3)))
+             (initial (lr-initial-checkpoint runtime tokens)))
+        (check (lr-checkpoint? initial) => #t)
+        (check (lr-checkpoint-deterministic-actions initial) => 0)
+        (check (lr-checkpoint-remaining-token-count initial) => 3)
+        (let-values (((status checkpoint) (lr-checkpoint-advance initial 1)))
+          (check status => 'checkpoint)
+          (check (lr-checkpoint-deterministic-actions checkpoint) => 1)
+          (check (lr-checkpoint-deterministic-shifts checkpoint) => 1)
+          (check (lr-checkpoint-remaining-token-count checkpoint) => 2)
+          (let-values (((resumed-root resumed-rest)
+                        (lr-checkpoint-resume checkpoint))
+                       ((fresh-root fresh-rest) (lr-parse spec tokens)))
+            (check resumed-root => fresh-root)
+            (check resumed-rest => fresh-rest)))))
     (test-case "non-associative precedence rejects only chained operators"
       (let (spec (compile-lr-spec nonassociative-rules 'source-file))
         (let-values (((root rest)

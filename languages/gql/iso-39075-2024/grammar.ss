@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; ISO/IEC 39075:2024 GQL generated from the pinned OpenGQL 1.9.0 grammar.
 
-(import :gerbil-parser/language-support)
+(import (only-in :gerbil-parser/src/language-support/antlr4-language
+                 deflanguage-antlr4-grammar))
 (export +gql-standard-reference+
         +gql-standard-edition+
         +gql-opengql-reference-version+

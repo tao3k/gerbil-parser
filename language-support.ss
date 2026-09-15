@@ -55,8 +55,9 @@
                  defsyntax-iso-bnf-source
                  defsyntax-antlr4-source
                  defsyntax-javacc-source
-                 deflanguage-antlr4-grammar
                  deflanguage-iso-bnf-grammar)
+        (only-in ./src/language-support/antlr4-language
+                 deflanguage-antlr4-grammar)
         (only-in ./src/language-support/iso-bnf
                  +iso-bnf-source-schema+
                  +iso-bnf-rule-overlay-schema+

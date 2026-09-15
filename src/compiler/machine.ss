@@ -2,7 +2,7 @@
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
 (import (only-in :std/misc/vector vector-map/index)
-        (only-in :std/srfi/1 any filter-map fold)
+        (only-in :std/srfi/1 any filter-map fold member)
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-prepare lr-parse/prepared
@@ -170,6 +170,13 @@
    ((>= (caddr current) (caddr candidate)) current)
    (else candidate)))
 
+;;; Keeps large literal catalogs as immutable data instead of expanding one C
+;;; branch per literal.  Capability checks run only while preparing interned LR
+;;; lexical modes, so SRFI-1's maintained list search avoids code-size growth
+;;; without entering the source-scanning hot path.
+(def (lexical-literal-admitted? literal values case-insensitive?)
+  (member literal values (if case-insensitive? string-ci=? string=?)))
+
 ;;; AOT capability predicate for literal-producing lexical algebra. Runtime
 ;;; mode selection never probes scanners with synthetic input: closed literal
 ;;; and choice forms lower to ordinary comparisons, while opaque external
@@ -177,7 +184,7 @@
 (defrules lexical-expression-admits-literal?
   (choice literals precedence external)
   ((_ literal case-insensitive? (literals value ...))
-   (or ((if case-insensitive? string-ci=? string=?) literal value) ...))
+   (lexical-literal-admitted? literal '(value ...) case-insensitive?))
   ((_ literal case-insensitive? (choice expression ...))
    (or (lexical-expression-admits-literal?
         literal case-insensitive? expression) ...))

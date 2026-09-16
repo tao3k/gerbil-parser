@@ -4,7 +4,14 @@
 ;;; nested-comment losslessness, and typed unterminated-comment failure.
 
 (import (only-in :std/test check test-case test-suite)
+        (only-in :std/misc/process run-process)
+        (only-in :std/srfi/13 string-trim-right)
         :gerbil-parser/languages/tla-plus/v1/parser
+        (only-in :gerbil-parser/languages/tla-plus/v1/qualification
+                 +tla-plus-model-qualification-schema+
+                 qualify-tla-plus-model
+                 tla-plus-model-receipt-admitted
+                 tla-plus-model-receipt->alist)
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
         (only-in :gerbil-parser/language-support
@@ -16,6 +23,21 @@
                  tla-plus-v1-accepted-fixtures
                  tla-plus-v1-rejected-fixtures))
 (export tla-plus-v1-parser-test)
+
+(def (receipt-ref receipt key)
+  (let (entry (assq key (tla-plus-model-receipt->alist receipt)))
+    (and entry (cdr entry))))
+
+(def (call-with-qualification-fixture procedure)
+  (let* ((template
+          (path-expand "gerbil-parser-tlc-test.XXXXXX"
+                       (getenv "TMPDIR" "/tmp")))
+         (directory
+          (string-trim-right (run-process ["mktemp" "-d" template]))))
+    (unwind-protect
+      (procedure directory)
+      (when (file-exists? directory)
+        (delete-file-or-directory directory #t)))))
 
 ;;; CST traversal intentionally treats fields as transparent containers; the
 ;;; observable contract is the ordered set of emitted syntax-node kinds.
@@ -88,6 +110,96 @@
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-valid? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "one qualification API composes parser and TLC receipts"
+      (call-with-qualification-fixture
+       (lambda (directory)
+         (let ((spec (path-expand "Qualified.tla" directory))
+               (config (path-expand "Qualified.cfg" directory))
+               (tlc (path-expand "tlc-fixture" directory)))
+           (call-with-output-file
+            spec
+            (lambda (port)
+              (display
+               "---- MODULE Qualified ----\nVARIABLE enabled\nInit == enabled = FALSE\nNext == enabled' = TRUE\n====\n"
+               port)))
+           (call-with-output-file
+            config
+            (lambda (port) (display "INIT Init\nNEXT Next\n" port)))
+           (call-with-output-file
+            tlc
+            (lambda (port)
+              (display
+               "#!/bin/sh\ncat <<'EOF'\nTLC2 Version fixture\nModel checking completed. No error has been found.\n4 states generated, 2 distinct states found, 0 states left on queue.\nThe depth of the complete state graph search is 1.\nEOF\n"
+               port)))
+           (run-process ["chmod" "+x" tlc])
+           (let (receipt
+                 (qualify-tla-plus-model spec config tlc: tlc workers: 1))
+             (check +tla-plus-model-qualification-schema+
+                    => "gerbil-parser.tla-plus-model-qualification.v1")
+             (check (tla-plus-model-receipt-admitted receipt) => #t)
+             (check (receipt-ref receipt 'syntax-accepted) => #t)
+             (check (receipt-ref receipt 'roundtrip) => #t)
+             (check (receipt-ref receipt 'states-generated) => 4)
+             (check (receipt-ref receipt 'distinct-states) => 2)
+             (check (receipt-ref receipt 'states-left) => 0)
+             (check (receipt-ref receipt 'graph-depth) => 1))))))
+    (test-case "qualification fails closed on misleading TLC completion"
+      (call-with-qualification-fixture
+       (lambda (directory)
+         (let ((spec (path-expand "Rejected.tla" directory))
+               (config (path-expand "Rejected.cfg" directory))
+               (tlc (path-expand "tlc-fixture" directory)))
+           (call-with-output-file
+            spec
+            (lambda (port)
+              (display
+               "---- MODULE Rejected ----\nVARIABLE enabled\nInit == enabled = FALSE\nNext == enabled' = TRUE\n====\n"
+               port)))
+           (call-with-output-file
+            config
+            (lambda (port) (display "INIT Init\nNEXT Next\n" port)))
+           (call-with-output-file
+            tlc
+            (lambda (port)
+              (display
+               "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Model checking completed. No error has been found.'\necho '4 states generated, 2 distinct states found, 0 states left on queue.'\necho 'The depth of the complete state graph search is 1.'\nexit 7\n"
+               port)))
+           (run-process ["chmod" "+x" tlc])
+           (let (receipt
+                 (qualify-tla-plus-model spec config tlc: tlc workers: 1))
+             (check (tla-plus-model-receipt-admitted receipt) => #f)
+             (check (zero? (receipt-ref receipt 'exit-status)) => #f))
+           (call-with-output-file
+            tlc
+            (lambda (port)
+              (display
+               "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Model checking completed. No error has been found.'\n"
+               port)))
+           (let (receipt
+                 (qualify-tla-plus-model spec config tlc: tlc workers: 1))
+             (check (tla-plus-model-receipt-admitted receipt) => #f)
+             (check (receipt-ref receipt 'states-generated) => #f))))))
+    (test-case "syntax rejection stops before resolving TLC"
+      (call-with-qualification-fixture
+       (lambda (directory)
+         (let ((spec (path-expand "Malformed.tla" directory))
+               (config (path-expand "Malformed.cfg" directory)))
+           (call-with-output-file
+            spec
+            (lambda (port)
+              (display
+               "---- MODULE Malformed ----\nVARIABLE x\nBroken == IF x = 0 THEN ELSE x\n====\n"
+               port)))
+           (call-with-output-file
+            config
+            (lambda (port) (display "INIT Broken\n" port)))
+           (let (receipt
+                 (qualify-tla-plus-model
+                  spec config tlc: "this-tlc-must-not-be-resolved"))
+             (check (tla-plus-model-receipt-admitted receipt) => #f)
+             (check (receipt-ref receipt 'syntax-accepted) => #f)
+             (check (receipt-ref receipt 'tool-path) => #f)
+             (check (receipt-ref receipt 'exit-status) => #f))))))
     (test-case "unterminated nested comments fail as one typed artifact"
       (let (artifact
             (parse-tla-plus-v1

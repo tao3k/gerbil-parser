@@ -148,6 +148,16 @@ materialized during expansion.  The contract does not yet claim PlusCal, TLAPS
 proof syntax, indentation-sensitive or multiline definitions, or the complete
 official SANY syntax corpus.
 
+Model qualification is a language-pack boundary, not a parser-engine feature.
+=languages/tla-plus/v1/qualification.ss= exposes one
+=qualify-tla-plus-model= entry that first requires the native v1 ParseArtifact
+to be valid, accepted and byte-exact, then invokes the official external TLC
+provider over that exact source and configuration.  Its typed receipt binds
+both digests, the resolved tool identity, TLC version, exit status and complete
+state-graph summary.  Missing summary fields, remaining states, nonzero exit,
+or syntax rejection fail closed.  The language pack does not embed SANY or TLC,
+and syntax rejection prevents the provider process from starting.
+
 Version identities are never inferred from a current branch or latest release.
 Changing an upstream edition, tag, commit, corrigendum, or admitted production
 set creates a new explicit contract and executable corpus; it does not mutate a

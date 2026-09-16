@@ -102,7 +102,12 @@ does not enter the runtime or replace the Gerbil parser engine.  The pack also
 pins a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
 repository.  The pinned 99-production SANY inventory is admitted at expansion
 time, while malformed recognized syntax fails closed without an unknown-token
-fallback.  PlusCal, proof syntax, multiline layout, and the full official
+fallback.  The optional =qualification.ss= boundary composes that native
+syntax admission with the official external TLC executable and returns one
+typed Gerbil receipt binding source, configuration, tool and state-space
+identities.  TLC remains the model-checking authority and is never copied into
+the parser engine; a syntax rejection stops before TLC is launched.  PlusCal,
+proof syntax, multiline layout, and the full official
 syntax corpus remain explicit future contracts.
 
 * Architecture RFCs

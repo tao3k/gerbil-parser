@@ -5,6 +5,7 @@
         grammar-expression?
         grammar-expression-kind
         grammar-expression-nullable?
+        grammar-expression-fields
         grammar-expression-references
         grammar-expression-terminals)
 
@@ -238,7 +239,12 @@
                  (cdr expression))))
     ((optional repeat repeat1)
      (grammar-expression-collect (cadr expression) wanted))
-    ((field alias)
+    ((field)
+     (let (nested (grammar-expression-collect (caddr expression) wanted))
+       (if (eq? wanted 'field)
+         (cons (cadr expression) nested)
+         nested)))
+    ((alias)
      (grammar-expression-collect (caddr expression) wanted))
     ((precedence)
      (grammar-expression-collect (cadddr expression) wanted))
@@ -248,6 +254,11 @@
 ;; : (-> List List)
 (def (grammar-expression-references expression)
   (grammar-expression-collect expression 'reference))
+
+;; grammar-expression-fields
+;; : (-> List List)
+(def (grammar-expression-fields expression)
+  (grammar-expression-collect expression 'field))
 
 ;; grammar-expression-terminals
 ;; : (-> List List)

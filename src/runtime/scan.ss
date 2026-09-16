@@ -18,6 +18,7 @@
         scan-line-comment
         scan-block-comment
         scan-nested-block-comment
+        make-literal-end-scanner
         scan-longest-literal
         scan-emit)
 
@@ -395,10 +396,46 @@
   (let ((source-length (string-length source))
         (literal-length (string-length literal)))
     (and (<= (+ start literal-length) source-length)
-         (andmap (lambda (index)
-                   (char=? (string-ref source (+ start index))
-                           (string-ref literal index)))
-                 (iota literal-length)))))
+         (let loop ((index 0))
+           (or (= index literal-length)
+               (and (char=? (string-ref source (+ start index))
+                            (string-ref literal index))
+                    (loop (+ index 1))))))))
+
+;;; Compile a static literal catalog into a character trie once. The returned
+;;; scanner follows at most the matching source prefix, independent of catalog
+;;; size, and retains the longest terminal seen along that path.
+;; : (-> (List String) (-> String Nat (Maybe Nat)))
+(def (make-literal-end-scanner literals)
+  (def (make-node) (vector #f (make-table test: eqv?)))
+  (def (insert! root literal)
+    (unless (and (string? literal) (positive? (string-length literal)))
+      (error "lexer literals must be non-empty strings" literal))
+    (let loop ((node root) (index 0))
+      (if (= index (string-length literal))
+        (vector-set! node 0 #t)
+        (let* ((children (vector-ref node 1))
+               (character (string-ref literal index))
+               (child (table-ref children character #f)))
+          (unless child
+            (set! child (make-node))
+            (table-set! children character child))
+          (loop child (+ index 1))))))
+  (let (root (make-node))
+    (for-each (cut insert! root <>) literals)
+    (lambda (source start)
+      (let (source-length (string-length source))
+        (let loop ((node root) (offset start) (selected #f))
+          (if (= offset source-length)
+            selected
+            (let (child
+                  (table-ref (vector-ref node 1)
+                             (string-ref source offset) #f))
+              (if child
+                (let (next (+ offset 1))
+                  (loop child next
+                        (if (vector-ref child 0) next selected)))
+                selected))))))))
 
 ;; scan-longest-literal
 ;;   : (-> String Fixnum List String)

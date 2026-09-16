@@ -18,6 +18,8 @@
                  defgrammar-syntax)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-roundtrip parse-artifact-success?)
+        (only-in :gerbil-parser/src/runtime/scan
+                 make-literal-end-scanner)
         (only-in :gerbil-parser/src/runtime/parser parse-source))
 
 ;;; These direct expansion witnesses keep the compiler's closed lexical algebra
@@ -41,6 +43,8 @@
   (and (<= (+ offset 2) (string-length source)) (+ offset 2)))
 (def external-scanner-witness
   (lexical-end "ab" 0 (external v1 two-character-scanner)))
+(def literal-trie-witness
+  (make-literal-end-scanner '("<" "<=" "MATCH" "MATCHED")))
 
 (defgrammar-syntax (named-node token-name)
   (node SourceFile (field name token-name)))
@@ -145,6 +149,9 @@
       (check lexical-dispatch-witness => '(identifier . 5))
       (check lexical-longest-witness => '(identifier . 5))
       (check lexical-precedence-witness => '(high 1 10))
-      (check external-scanner-witness => 2))))
+      (check external-scanner-witness => 2)
+      (check (literal-trie-witness "<=" 0) => 2)
+      (check (literal-trie-witness "MATCHED suffix" 0) => 7)
+      (check (literal-trie-witness "missing" 0) => #f))))
 
 (run-tests! concise-v1-language-surface-tests)

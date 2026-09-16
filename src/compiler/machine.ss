@@ -11,7 +11,8 @@
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line-comment
-                 scan-longest-literal scan-nested-block-comment scan-newline
+                 make-literal-end-scanner scan-longest-literal
+                 scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
                  scan-quoted-strings scan-whitespace
                  scan-emit)
@@ -149,6 +150,18 @@
   ((_ (precedence rank _expression)) rank)
   ((_ _expression) 0))
 
+;;; Materializes one scanner per declared lexical rule. Static literal
+;;; catalogs compile to a trie here, while the parser machine is initialized,
+;;; instead of linearly probing every literal for every source token.
+(defrules lexical-scanner (literals precedence)
+  ((_ (literals value ...))
+   (make-literal-end-scanner '(value ...)))
+  ((_ (precedence _rank expression))
+   (lexical-scanner expression))
+  ((_ expression)
+   (lambda (source offset)
+     (lexical-end source offset expression))))
+
 ;; prefer-ranked-match
 ;;   : (-> (OrFalse List) (OrFalse List) (OrFalse List))
 ;;   | doc m%
@@ -219,14 +232,15 @@
 (defrules generated-lexical-rule
   ()
   ((_ (name expression) extras case-insensitive?)
-   (cons
-    (lambda (terminals)
-      (lexical-rule-admitted?
-       terminals name expression extras case-insensitive?))
-    (lambda (source offset)
-      (let (end (lexical-end source offset expression))
-        (and end
-             (list 'name end (lexical-expression-rank expression))))))))
+   (let (scanner (lexical-scanner expression))
+     (cons
+      (lambda (terminals)
+        (lexical-rule-admitted?
+         terminals name expression extras case-insensitive?))
+      (lambda (source offset)
+        (let (end (scanner source offset))
+          (and end
+               (list 'name end (lexical-expression-rank expression)))))))))
 
 ;;; Returns name, end offset, and precedence for generated-lexer. Longest
 ;;; consumption wins globally; lexical precedence breaks equal-length ties.
@@ -293,6 +307,7 @@
    (let* ((rules
            (list (generated-lexical-rule
                   row '(extra-name ...) case-insensitive?) ...))
+          (all-scanners (map cdr rules))
           (mode-scanners
            (vector-map/index
             (lambda (_index mode)
@@ -303,25 +318,26 @@
                rules))
             mode-catalog)))
      (letrec
-       ((scan-one
+       ((scan-scanners
+         (lambda (scanners source offset)
+           (fold
+            (lambda (scanner selected)
+              (prefer-ranked-match selected (scanner source offset)))
+            #f scanners)))
+        (scan-one
          (lambda (source offset byte-offset mode)
            (let (match
                  (or (if mode
-                       (fold
-                        (lambda (scanner selected)
-                          (prefer-ranked-match
-                           selected (scanner source offset)))
-                        #f
+                       (scan-scanners
                         (vector-ref mode-scanners
-                                    (lr-lexical-mode-id mode)))
-                       (lexical-dispatch/ranked
-                        source offset (row ...)))
+                                    (lr-lexical-mode-id mode))
+                        source offset)
+                       (scan-scanners all-scanners source offset))
                      ;; A mode miss must still materialize the offending token
                      ;; for the LR failure frontier and lossless diagnostics.
                      ;; Successful directed scans never enter this cold path.
                      (and mode
-                          (lexical-dispatch/ranked
-                           source offset (row ...)))))
+                          (scan-scanners all-scanners source offset))))
              (unless match
                (error "no lexical rule matched parser-directed source"
                       offset mode))

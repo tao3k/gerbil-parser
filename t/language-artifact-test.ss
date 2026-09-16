@@ -6,6 +6,7 @@
         (only-in :std/misc/barrier
                  barrier-post! barrier-wait! make-barrier)
         (only-in :std/test check check-exception run-tests! test-case test-suite)
+        (only-in :std/text/base64 u8vector->base64-string)
         (only-in :std/text/zlib compress)
         (only-in :gerbil-parser/src/compiler/language-artifact
                  compile-language-declaration-artifacts/output-dirs
@@ -14,6 +15,7 @@
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
         (only-in :gerbil-parser/src/runtime/language-artifact
                  compiled-language-artifact-relative-path
+                 load-compiled-language-artifact/embedded
                  load-compiled-language-artifact/roots))
 (export language-artifact-tests)
 
@@ -65,6 +67,20 @@
            (check (load-compiled-language-artifact/roots
                    test-schema locator (list root))
                   => test-value)))))
+    (test-case "an AOT image consumes the same compressed artifact without roots"
+      (let* ((serialized (serialize test-value))
+             (digest (sha256-text serialized))
+             (locator
+              (list (compiled-language-artifact-relative-path digest) digest))
+             (encoded
+              (u8vector->base64-string (compress serialized 9))))
+        (check (load-compiled-language-artifact/embedded
+                test-schema locator encoded)
+               => test-value)
+        (check-exception
+         (load-compiled-language-artifact/embedded
+          test-schema locator "not-base64")
+         true)))
     (test-case "locator identity prevents absolute and traversal reads"
       (call-with-temporary-directory
        (lambda (root)

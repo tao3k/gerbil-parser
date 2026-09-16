@@ -6,6 +6,8 @@
                  compiled-language-artifact-relative-path
                  load-compiled-language-artifact/roots)
         (only-in :gerbil/compiler/base current-compile-output-dir)
+        (only-in :std/misc/ports read-all-as-u8vector)
+        (only-in :std/text/base64 u8vector->base64-string)
         (only-in :std/text/utf8 utf8->string)
         (only-in :std/text/zlib compress uncompress))
 (export materialize-compiled-language-artifact
@@ -13,7 +15,8 @@
         compile-language-parser-artifact
         compile-language-parser-artifact/output-dirs
         compile-language-declaration-artifacts
-        compile-language-declaration-artifacts/output-dirs)
+        compile-language-declaration-artifacts/output-dirs
+        encode-compiled-language-artifact)
 
 (def +parser-artifact-cache-schema+
   "gerbil-parser.parser-artifact-cache.v1")
@@ -223,6 +226,22 @@
             (list (path-expand compile-output-dir) canonical-output-dir)
             (list canonical-output-dir))))
     output-dirs))
+
+;;; Encodes the already compressed immutable artifact for a linked AOT image.
+;;; The sidecar remains the build cache; only its compressed bytes cross into
+;;; the runtime module, so the uncompressed Grammar/LR datum is never emitted
+;;; as per-character generated C.
+;; : (-> List String)
+(def (encode-compiled-language-artifact locator)
+  (let* ((relative-path (car locator))
+         (path
+          (or (find file-exists?
+                    (map (lambda (root) (path-expand relative-path root))
+                         (current-artifact-output-dirs)))
+              (error "compiled language artifact sidecar is unavailable"
+                     relative-path))))
+    (u8vector->base64-string
+     (call-with-input-file path read-all-as-u8vector))))
 
 ;; : (-> Datum (-> Datum) (values Datum List Symbol))
 (def (compile-language-parser-artifact grammar compile)

@@ -4,13 +4,14 @@
 (import (for-syntax (only-in ../compiler/parser-ir compile-parser)
                     (only-in ../compiler/bound-ir bind-grammar-ir)
                     (only-in ../compiler/language-artifact
-                             compile-language-declaration-artifacts)
+                             compile-language-declaration-artifacts
+                             encode-compiled-language-artifact)
                     (only-in :gerbil/expander core-expand1)
                     (only-in :std/misc/list delete-duplicates/hash))
         (only-in ../compiler/machine defgeneral-parser-machine)
         (only-in ./descriptor make-language-grammar)
         (only-in ../runtime/language-artifact
-                 load-compiled-language-artifact))
+                 load-compiled-language-artifact/embedded))
 (export deflanguage
         deflanguage-grammar
         defgrammar-syntax)
@@ -53,7 +54,9 @@
   (syntax-kinds terminals lexical-rules rules extras keywords
    parser-entrypoints recoveries flow)
   ((_ grammar-binding bound-binding ir-binding parser-binding
-      grammar-encoded bound-encoded ir-encoded
+      grammar-encoded grammar-payload
+      bound-encoded bound-payload
+      ir-encoded ir-payload
       (syntax-kinds (kind-name kind-category (field-name ...)) ...)
       (lexical-rules (lexical-name lexical-expression-value) ...)
       (rules (rule-name rule-expression) ...)
@@ -62,14 +65,14 @@
       remainder ...)
    (begin
      (def grammar-binding
-       (load-compiled-language-artifact
-        "gerbil-parser.grammar-ir.v1" 'grammar-encoded))
+       (load-compiled-language-artifact/embedded
+        "gerbil-parser.grammar-ir.v1" 'grammar-encoded grammar-payload))
      (def bound-binding
-       (load-compiled-language-artifact
-        "gerbil-parser.bound-grammar-ir.v1" 'bound-encoded))
+       (load-compiled-language-artifact/embedded
+        "gerbil-parser.bound-grammar-ir.v1" 'bound-encoded bound-payload))
      (def ir-binding
-       (load-compiled-language-artifact
-        "gerbil-parser.parser-ir.v1" 'ir-encoded))
+       (load-compiled-language-artifact/embedded
+        "gerbil-parser.parser-ir.v1" 'ir-encoded ir-payload))
      (defgeneral-parser-machine parser-binding ir-binding
        (grammar-digest (cadr 'ir-encoded))
        (lexical-rules (lexical-name lexical-expression-value) ...)
@@ -193,7 +196,12 @@
                         (bind-grammar-ir grammar origin lineage source-map))
                       (lambda ()
                         (compile-parser grammar)))))
-         (values grammar-locator bound-locator parser-locator))))
+         (values grammar-locator
+                 (encode-compiled-language-artifact grammar-locator)
+                 bound-locator
+                 (encode-compiled-language-artifact bound-locator)
+                 parser-locator
+                 (encode-compiled-language-artifact parser-locator)))))
 
 ;; Identity, grammar, canonical IR, and generated parser machine are owned by
 ;; one declaration. parser.ss consumes the descriptor and adds no authority.
@@ -288,7 +296,9 @@
                      (ir-binding (binding "-parser-ir"))
                      (machine-binding (binding "-parser"))
                      (language-binding (binding "-language-grammar")))
-         (let-values (((grammar-encoded bound-encoded ir-encoded)
+         (let-values (((grammar-encoded grammar-payload
+                        bound-encoded bound-payload
+                        ir-encoded ir-payload)
                        (compile-language-declaration
                         #'grammar-binding
                         #'(syntax-row ...)
@@ -306,12 +316,17 @@
                         (syntax->datum #'source-map-value))))
            (with-syntax
                ((grammar-encoded grammar-encoded)
+                (grammar-payload grammar-payload)
                 (bound-encoded bound-encoded)
-                (ir-encoded ir-encoded))
+                (bound-payload bound-payload)
+                (ir-encoded ir-encoded)
+                (ir-payload ir-payload))
              #'(begin
                  (assemble-language-parser
                   grammar-binding bound-binding ir-binding machine-binding
-                  grammar-encoded bound-encoded ir-encoded
+                  grammar-encoded grammar-payload
+                  bound-encoded bound-payload
+                  ir-encoded ir-payload
                   (syntax-kinds syntax-row ...)
                   (lexical-rules lexical-row ...)
                   (rules rule-row ...)
@@ -353,7 +368,9 @@
                      (ir-binding (binding "-parser-ir"))
                      (machine-binding (binding "-parser"))
                      (language-binding (binding "-language-grammar")))
-         (let-values (((grammar-encoded bound-encoded ir-encoded)
+         (let-values (((grammar-encoded grammar-payload
+                        bound-encoded bound-payload
+                        ir-encoded ir-payload)
                        (compile-language-declaration
                         #'grammar-binding
                         #'(syntax-row ...)
@@ -370,12 +387,17 @@
                         (syntax->datum #'source-map-value))))
            (with-syntax
                ((grammar-encoded grammar-encoded)
+                (grammar-payload grammar-payload)
                 (bound-encoded bound-encoded)
-                (ir-encoded ir-encoded))
+                (bound-payload bound-payload)
+                (ir-encoded ir-encoded)
+                (ir-payload ir-payload))
              #'(begin
                  (assemble-language-parser
                   grammar-binding bound-binding ir-binding machine-binding
-                  grammar-encoded bound-encoded ir-encoded
+                  grammar-encoded grammar-payload
+                  bound-encoded bound-payload
+                  ir-encoded ir-payload
                   (syntax-kinds syntax-row ...)
                   (lexical-rules lexical-row ...)
                   (rules rule-row ...)

@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Parser-owned C ABI for the ISO GQL ParseArtifact v1 surface.
+;;; Parser-owned C ABI for language-selected ParseArtifact v1 surfaces.
 
 (import :std/foreign
         (only-in :std/misc/bytes little u8vector-u32-set! u8vector-u64-set!)
@@ -13,7 +13,11 @@
         (only-in ../../languages/gql/iso-39075-2024/grammar
                  gql-iso-language-grammar)
         (only-in ../../languages/gql/iso-39075-2024/parser
-                 parse-gql-iso-39075-2024))
+                 parse-gql-iso-39075-2024)
+        (only-in ../../languages/cypher/opencypher-2024-1/grammar
+                 opencypher-2024-1-language-grammar)
+        (only-in ../../languages/cypher/opencypher-2024-1/parser
+                 parse-opencypher-2024-1))
 (export native-abi-version
         native-descriptor-payload
         native-parse-binary-payload
@@ -32,8 +36,12 @@
           (call-with-output-string
            (lambda (port) (display-exception exception port)))))))
 
-(def (grammar-section name)
-  (cdr (assq name (language-grammar-grammar gql-iso-language-grammar))))
+(defstruct native-language
+  (id grammar parser syntax-kind-index terminal-index field-symbols field-index)
+  transparent: #t)
+
+(def (grammar-section grammar name)
+  (cdr (assq name (language-grammar-grammar grammar))))
 
 (def (syntax-kind->json row)
   (vector (symbol->string (car row))
@@ -64,25 +72,42 @@
               (iota (length symbols)))
     table))
 
-(def +syntax-kind-index+
-  (indexed-symbols (map car (grammar-section 'syntax-kinds))))
-
-(def +terminal-index+
-  (indexed-symbols (map car (grammar-section 'terminals))))
-
 ;; A shared field has one stable id. The grammar expression algebra is the
 ;; authority for fields emitted by the parser; declared syntax fields are
 ;; retained first for the descriptor's complete public surface.
-(def +field-symbols+
+(def (grammar-field-symbols grammar)
   (delete-duplicates/hash
    (append
-    (apply append (map caddr (grammar-section 'syntax-kinds)))
+    (apply append (map caddr (grammar-section grammar 'syntax-kinds)))
     (apply append
            (map (lambda (row) (grammar-expression-fields (cadr row)))
-                (grammar-section 'rules))))
+                (grammar-section grammar 'rules))))
    from-end?: #t))
 
-(def +field-index+ (indexed-symbols +field-symbols+))
+(def (make-native-language-context id grammar parser)
+  (let (field-symbols (grammar-field-symbols grammar))
+    (make-native-language
+     id grammar parser
+     (indexed-symbols (map car (grammar-section grammar 'syntax-kinds)))
+     (indexed-symbols (map car (grammar-section grammar 'terminals)))
+     field-symbols
+     (indexed-symbols field-symbols))))
+
+(def +gql-native-language+
+  (delay
+    (make-native-language-context "gql" gql-iso-language-grammar
+                                  parse-gql-iso-39075-2024)))
+
+(def +cypher-native-language+
+  (delay
+    (make-native-language-context "cypher" opencypher-2024-1-language-grammar
+                                  parse-opencypher-2024-1)))
+
+(def (resolve-native-language language)
+  (cond
+   ((string=? language "gql") (force +gql-native-language+))
+   ((string=? language "cypher") (force +cypher-native-language+))
+   (else (error "unsupported native parser language" language))))
 
 (def (required-index table symbol domain)
   (or (hash-get table symbol)
@@ -94,7 +119,7 @@
       (error "invalid ParseArtifact digest" digest))
     (subu8vector-move! bytes 0 32 payload offset)))
 
-(def (write-event! payload row event)
+(def (write-event! language payload row event)
   (let* ((offset (+ +binary-header-size+ (* row +binary-event-size+)))
          (tag (vector-ref event 0)))
     (u8vector-u32-set! payload offset
@@ -103,7 +128,8 @@
       ((start-node finish-node)
        (u8vector-u32-set!
         payload (+ offset 4)
-        (required-index +syntax-kind-index+ (vector-ref event 2) 'syntax-kind)
+        (required-index (native-language-syntax-kind-index language)
+                        (vector-ref event 2) 'syntax-kind)
         little)
        (u8vector-u64-set! payload (+ offset 8) (vector-ref event 1) little)
        (let (position (vector-ref event 3))
@@ -114,7 +140,8 @@
       ((start-field finish-field)
        (u8vector-u32-set!
         payload (+ offset 4)
-        (required-index +field-index+ (vector-ref event 1) 'field)
+        (required-index (native-language-field-index language)
+                        (vector-ref event 1) 'field)
         little)
        (let (position (vector-ref event 2))
          (u8vector-u32-set! payload (+ offset 16)
@@ -124,7 +151,8 @@
       ((token)
        (u8vector-u32-set!
         payload (+ offset 4)
-        (required-index +terminal-index+ (vector-ref event 2) 'token-kind)
+        (required-index (native-language-terminal-index language)
+                        (vector-ref event 2) 'token-kind)
         little)
        (u8vector-u64-set! payload (+ offset 8) (vector-ref event 1) little)
        (u8vector-u32-set! payload (+ offset 16) (vector-ref event 4) little)
@@ -132,8 +160,9 @@
 
 ;; One bounded buffer crosses the C ABI. Token lexemes remain zero-copy source
 ;; slices, represented by their byte ranges instead of duplicated strings.
-(def (native-parse-binary-payload source)
-  (let* ((artifact (parse-gql-iso-39075-2024 source))
+(def (native-parse-binary-payload language-id source)
+  (let* ((language (resolve-native-language language-id))
+         (artifact ((native-language-parser language) source))
          (events (parse-artifact-events artifact))
          (payload (make-u8vector
                    (+ +binary-header-size+
@@ -149,24 +178,32 @@
     (u8vector-u32-set! payload 12 (length events) little)
     (copy-digest! payload 16 (parse-artifact-ref artifact 'grammarDigest))
     (copy-digest! payload 48 (parse-artifact-ref artifact 'sourceDigest))
-    (for-each (lambda (event row) (write-event! payload row event))
+    (for-each (lambda (event row) (write-event! language payload row event))
               events
               (iota (length events)))
     payload))
 
-(def (native-descriptor-payload)
-  (json-object->string
-   (hash (schema +gerbil-parser-native-descriptor-schema+)
+(def (native-descriptor-payload language-id)
+  (let (language (resolve-native-language language-id))
+    (json-object->string
+     (hash (schema +gerbil-parser-native-descriptor-schema+)
+         (language (native-language-id language))
          (grammarDigest
-          (parse-artifact-ref (parse-gql-iso-39075-2024 "")
+          (parse-artifact-ref ((native-language-parser language) "")
                               'grammarDigest))
-         (fields (list->vector (map symbol->string +field-symbols+)))
+         (fields (list->vector
+                  (map symbol->string
+                       (native-language-field-symbols language))))
          (syntaxKinds
           (list->vector (map syntax-kind->json
-                             (grammar-section 'syntax-kinds))))
+                             (grammar-section
+                              (native-language-grammar language)
+                              'syntax-kinds))))
          (terminals
           (list->vector (map terminal->json
-                             (grammar-section 'terminals)))))))
+                             (grammar-section
+                              (native-language-grammar language)
+                              'terminals))))))))
 
 (begin-ffi
   ((struct gerbil_parser_result_v1 status)
@@ -227,8 +264,8 @@ END-C
     () unsigned-int32 "gerbil_parser_native_abi_version" "extern"
     (gerbil-parser/src/ffi/parse-artifact-v1#native-abi-version))
 
-  (c-define (gerbil-parser-native-descriptor result)
-    (gerbil_parser_result_v1-borrowed-ptr*) int32
+  (c-define (gerbil-parser-native-descriptor language result)
+    (UTF-8-string gerbil_parser_result_v1-borrowed-ptr*) int32
     "gerbil_parser_native_descriptor" "extern"
     (with-exception-catcher
      (lambda (exception)
@@ -244,11 +281,12 @@ END-C
        (gerbil-parser/src/ffi/parse-artifact-v1#gerbil-parser-result-v1-set-bytes!
         result
         (string->utf8
-         (gerbil-parser/src/ffi/parse-artifact-v1#native-descriptor-payload)))
+         (gerbil-parser/src/ffi/parse-artifact-v1#native-descriptor-payload
+          language)))
        (gerbil_parser_result_v1-status result))))
 
-  (c-define (gerbil-parser-native-parse source result)
-    (UTF-8-string gerbil_parser_result_v1-borrowed-ptr*) int32
+  (c-define (gerbil-parser-native-parse language source result)
+    (UTF-8-string UTF-8-string gerbil_parser_result_v1-borrowed-ptr*) int32
     "gerbil_parser_native_parse" "extern"
     (with-exception-catcher
      (lambda (exception)
@@ -264,5 +302,5 @@ END-C
        (gerbil-parser/src/ffi/parse-artifact-v1#gerbil-parser-result-v1-set-bytes!
         result
         (gerbil-parser/src/ffi/parse-artifact-v1#native-parse-binary-payload
-         source))
+         language source))
        (gerbil_parser_result_v1-status result)))))

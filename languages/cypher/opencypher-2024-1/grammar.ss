@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; openCypher 2024.1 official ISO WG3 BNF grammar-source owner.
 
-(import :gerbil-parser/language-support)
+(import (only-in :gerbil-parser/src/language-support/iso-bnf-language
+                 deflanguage-iso-bnf-grammar))
 (export +opencypher-version+
         +opencypher-commit+
         +opencypher-bnf-digest+
@@ -19,7 +20,6 @@
         +opencypher-non-reserved-word-preference+
         +opencypher-syntax-contract+
         +opencypher-representative-query+
-        opencypher-2024-1-bnf
         opencypher-2024-1-language-grammar
         opencypher-2024-1-grammar
         opencypher-2024-1-bound-grammar-ir
@@ -111,11 +111,6 @@
     (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493")))
 (def +opencypher-syntax-contract+ "opencypher-2024.1-syntax.v1")
 (def +opencypher-representative-query+ "MATCH (n) RETURN n\n")
-
-(defsyntax-iso-bnf-source opencypher-2024-1-bnf
-  (identity "opencypher" +opencypher-version+ +opencypher-commit+)
-  (digest +opencypher-bnf-digest+)
-  (source "grammar-source/openCypher.bnf"))
 
 (deflanguage-iso-bnf-grammar opencypher-2024-1
   (identity "opencypher" "2024.1" "opencypher-2024.1-syntax.v1")

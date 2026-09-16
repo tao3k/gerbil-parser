@@ -3,7 +3,8 @@
 
 (import :std/test
         :gerbil-parser/language-support
-        :gerbil-parser/languages/cypher/opencypher-2024-1/grammar)
+        :gerbil-parser/languages/cypher/opencypher-2024-1/grammar
+        :gerbil-parser/languages/cypher/opencypher-2024-1/source)
 
 ;; Test projections use one fail-closed lookup boundary instead of repeating
 ;; the source-map representation throughout behavioral assertions.

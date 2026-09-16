@@ -20,6 +20,19 @@
    "REGULAR_IDENTIFIER : [a-zA-Z_] [a-zA-Z_0-9]*;\n"
    "SP : [ \\t\\r\\n]+ -> channel(HIDDEN);\n"))
 
+(def indirect-operator-grammar
+  (string-append
+   "grammar IndirectOperator;\n"
+   "program : expression EOF;\n"
+   "expression : expression compOp expression"
+   " | expression AND expression | IDENTIFIER;\n"
+   "compOp : EQUALS | GREATER_THAN;\n"
+   "AND : 'AND';\n"
+   "EQUALS : '=';\n"
+   "GREATER_THAN : '>';\n"
+   "IDENTIFIER : [a-zA-Z_] [a-zA-Z_0-9]*;\n"
+   "SP : [ \\t\\r\\n]+ -> channel(HIDDEN);\n"))
+
 (def antlr4-source-tests
   (test-suite "ANTLR4 grammar source"
     (test-case "a complete grammar catalog preserves parser and lexer owners"
@@ -45,6 +58,30 @@
         "tiny" "v1" "commit"
         "grammar Tiny; program : missingRule EOF;\n")
        true))
+    (test-case "factored operators inherit their direct-left-recursive rank"
+      (let* ((source
+              (parse-antlr4-source
+               "indirect-operator" "v1" "commit"
+               indirect-operator-grammar))
+             (expression
+              (cadr
+               (assq 'expression
+                     (antlr4-source-parser-grammar-rules source)))))
+        (check expression
+               => '(alias Expression
+                    (choice
+                     (precedence left 3
+                      (sequence
+                       (reference expression)
+                       (alias CompOp
+                        (choice (literal "=") (literal ">")))
+                       (reference expression)))
+                     (precedence left 2
+                      (sequence
+                       (reference expression)
+                       (literal "AND")
+                       (reference expression)))
+                     (precedence left 1 (token identifier)))))))
     (test-case "the complete OpenGQL 1.9.0 grammar catalog is immutable"
       (check (parser-ir-ref gql-iso-parser-ir 'schema)
              => "gerbil-parser.parser-ir.v1")

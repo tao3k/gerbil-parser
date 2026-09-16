@@ -482,6 +482,61 @@
              alternatives (length alternatives) '())))
     expression))
 
+;;; ANTLR direct-left-recursive precedence belongs to the surrounding
+;;; alternative.  When an operator is factored through a parser rule (for
+;;; example `expression compOp expression`), leaving that reference opaque
+;;; makes the referenced rule's local alternative rank leak into the LR shift
+;;; action.  Inline only finite terminal parser rules at that operator site,
+;;; retaining their alias so the CST stays source-faithful.
+;; : (-> GrammarExpr Boolean)
+(def (antlr4-terminal-expression? expression)
+  (case (car expression)
+    ((empty literal token) #t)
+    ((field alias) (antlr4-terminal-expression? (caddr expression)))
+    ((optional repeat repeat1)
+     (antlr4-terminal-expression? (cadr expression)))
+    ((choice sequence)
+     (andmap antlr4-terminal-expression? (cdr expression)))
+    ((precedence)
+     (antlr4-terminal-expression? (cadddr expression)))
+    (else #f)))
+
+;; : (-> GrammarExpr (HashTable String Antlr4Rule)
+;;        (-> String GrammarExpr) GrammarExpr)
+(def (inline-antlr4-terminal-reference expression rule-index resolve)
+  (if (and (pair? expression) (eq? (car expression) 'reference))
+    (let* ((name (symbol->string (cadr expression)))
+           (rule (table-ref rule-index name #f)))
+      (if (and rule (eq? (antlr4-rule-kind rule) 'parser))
+        (let (candidate (parse-rule-grammar-expression rule resolve))
+          (if (antlr4-terminal-expression? candidate)
+            (list 'alias (upper-initial-symbol name) candidate)
+            expression))
+        expression))
+    expression))
+
+;; : (-> Symbol GrammarExpr (HashTable String Antlr4Rule)
+;;        (-> String GrammarExpr) GrammarExpr)
+(def (inline-antlr4-left-recursive-operators owner expression rule-index resolve)
+  (def owner-reference (list 'reference owner))
+  (def (inline-alternative alternative)
+    (if (and (pair? alternative)
+             (eq? (car alternative) 'sequence)
+             (pair? (cdr alternative))
+             (equal? (cadr alternative) owner-reference)
+             (member owner-reference (cddr alternative)))
+      (cons 'sequence
+            (map (lambda (operand)
+                   (if (equal? operand owner-reference)
+                     operand
+                     (inline-antlr4-terminal-reference
+                      operand rule-index resolve)))
+                 (cdr alternative)))
+      alternative))
+  (if (and (pair? expression) (eq? (car expression) 'choice))
+    (cons 'choice (map inline-alternative (cdr expression)))
+    (inline-alternative expression)))
+
 ;; : (-> Antlr4Source (List GrammarRule))
 (def (antlr4-source-parser-grammar-rules source)
   (let ((rule-index (antlr4-source-rule-index source))
@@ -497,7 +552,10 @@
     (map
      (lambda (rule)
        (let* ((name (string->symbol (antlr4-rule-name rule)))
-              (expression (parse-rule-grammar-expression rule resolve)))
+              (expression (parse-rule-grammar-expression rule resolve))
+              (expression
+               (inline-antlr4-left-recursive-operators
+                name expression rule-index resolve)))
          (list name
                (list 'alias
                      (upper-initial-symbol (antlr4-rule-name rule))

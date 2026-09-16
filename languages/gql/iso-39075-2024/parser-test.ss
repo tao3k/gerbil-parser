@@ -8,6 +8,7 @@
         :gerbil-parser/src/compiler/bound-ir
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
+        (only-in :gerbil-parser/src/runtime/token token? token-lexeme)
         (only-in :gerbil-parser/language-support
                  syntax-fixture-expected-status
                  syntax-fixture-id
@@ -30,6 +31,55 @@
    ((syntax-field? value)
     (apply append (map cst-node-kinds (syntax-field-children value))))
    (else '())))
+
+;; : (-> CSTValue (List SyntaxNode))
+(def (cst-direct-nodes value)
+  (cond
+   ((syntax-node? value) (list value))
+   ((syntax-field? value)
+    (apply append (map cst-direct-nodes (syntax-field-children value))))
+   (else '())))
+
+;; : (-> CSTValue Symbol (List SyntaxNode))
+(def (cst-nodes-of-kind value kind)
+  (cond
+   ((syntax-node? value)
+    (let (nested
+          (apply append
+                 (map (cut cst-nodes-of-kind <> kind)
+                      (syntax-node-children value))))
+      (if (eq? (syntax-node-kind value) kind)
+        (cons value nested)
+        nested)))
+   ((syntax-field? value)
+    (apply append
+           (map (cut cst-nodes-of-kind <> kind)
+                (syntax-field-children value))))
+   (else '())))
+
+;; : (-> CSTValue (List String))
+(def (cst-token-lexemes value)
+  (cond
+   ((token? value) (list (token-lexeme value)))
+   ((syntax-node? value)
+    (apply append (map cst-token-lexemes (syntax-node-children value))))
+   ((syntax-field? value)
+    (apply append (map cst-token-lexemes (syntax-field-children value))))
+   (else '())))
+
+;; : (-> SyntaxNode Boolean)
+(def (conjunction-preserves-comparison-operands? node)
+  (let* ((direct
+          (apply append
+                 (map cst-direct-nodes (syntax-node-children node))))
+         (operands
+          (filter (lambda (child)
+                    (eq? (syntax-node-kind child) 'ValueExpression))
+                  direct)))
+    (and (member "AND" (cst-token-lexemes node))
+         (= (length operands) 2)
+         (member ">" (cst-token-lexemes (car operands)))
+         (member "=" (cst-token-lexemes (cadr operands))))))
 
 ;; gql-parser-ir-ref
 ;; : (forall (a) (-> [(Pair Symbol a)] Symbol a))
@@ -99,6 +149,15 @@
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-valid? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "comparison operands bind before boolean conjunction"
+      (let* ((source
+              "MATCH (n) WHERE n.score > 2 AND n.active = TRUE RETURN n")
+             (artifact (parse-gql-iso-39075-2024 source))
+             (root (parse-artifact->cst artifact)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (find conjunction-preserves-comparison-operands?
+                     (cst-nodes-of-kind root 'ValueExpression))
+               ? values)))
     (test-case "GQL delimited identifiers and numeric profile parse losslessly"
       (for-each
        (lambda (source)

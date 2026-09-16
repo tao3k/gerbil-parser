@@ -67,7 +67,7 @@
     (literals "<=>" "|->" "[]" "<>" "=>" "==" "/\\" "\\/"
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\in"
               ".." "<<" ">>" "<=" ">=" "->" "<-"
-              "#" "=" "<" ">" "+" "-" "*" "/" "^" "'"
+              "#" "=" "<" ">" "+" "-" "*" "/" "^" "'" "~"
               "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
   )
   (rules
@@ -265,17 +265,19 @@
      (seq (field condition (reference expression)) (literal "->")
           (field result (reference expression)))))
    (prefix-expression
-    (alias PrefixExpression
-     (seq (field operator
-                 (choice (literal "~") (literal "-") (literal "[]")
-                         (literal "<>") (literal "ENABLED")
-                         (literal "UNCHANGED") (literal "SUBSET")
-                         (literal "UNION") (literal "DOMAIN")))
-          (field operand (reference expression)))))
+    (prec right 90
+     (alias PrefixExpression
+      (seq (field operator
+                  (choice (literal "~") (literal "-") (literal "[]")
+                          (literal "<>") (literal "ENABLED")
+                          (literal "UNCHANGED") (literal "SUBSET")
+                          (literal "UNION") (literal "DOMAIN")))
+           (field operand (reference expression))))))
    (postfix-expression
-    (alias PostfixExpression
-     (seq (field operand (reference expression))
-          (field operator (literal "'")))))
+    (prec left 100
+     (alias PostfixExpression
+      (seq (field operand (reference expression))
+           (field operator (literal "'"))))))
    (function-application
     (prec left 110
      (alias FunctionApplication

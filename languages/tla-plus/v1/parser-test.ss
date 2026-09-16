@@ -81,6 +81,13 @@
                         (syntax-fixture-source fixture))))
         (check (parse-artifact-success? artifact) => #t)
         (check (artifact-token-count artifact 'comment) => 1)))
+    (test-case "unary negation is admitted by the native lexical contract"
+      (let* ((source
+              "---- MODULE Negation ----\nVARIABLES enabled, ready\nDisabled == ~enabled /\\ ready\nNext == enabled' = FALSE /\\ ready' = TRUE\n====\n")
+             (artifact (parse-tla-plus-v1 source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)))
     (test-case "unterminated nested comments fail as one typed artifact"
       (let (artifact
             (parse-tla-plus-v1

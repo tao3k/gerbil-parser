@@ -71,6 +71,7 @@
        (load-compiled-language-artifact
         "gerbil-parser.parser-ir.v1" 'ir-encoded))
      (defgeneral-parser-machine parser-binding ir-binding
+       (grammar-digest (cadr 'ir-encoded))
        (lexical-rules (lexical-name lexical-expression-value) ...)
        (rules (rule-name rule-expression) ...)
        (extras extra-name ...)

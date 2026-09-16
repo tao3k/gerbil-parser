@@ -7,7 +7,6 @@
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-prepare lr-parse/prepared
                  lr-runtime-lexical-mode-catalog)
-        (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line-comment
@@ -379,8 +378,9 @@
 ;;       ```
 ;;     %
 (defrules defgeneral-parser-machine
-  (lexical-rules rules extras parser-entrypoints)
+  (grammar-digest lexical-rules rules extras parser-entrypoints)
   ((_ binding parser-ir
+      (grammar-digest parser-artifact-digest)
       (lexical-rules lexical-row ...)
       (rules (rule-name rule-expression) ...)
       (extras extra-name ...)
@@ -391,9 +391,7 @@
            (lr-prepare (cdr (assq 'lr-spec parser-ir))))
        (make-parser-machine
         parser-ir
-        (sha256-text
-         (call-with-output-string
-          (lambda (port) (write parser-ir port))))
+        parser-artifact-digest
         (generated-lexer
          (lexical-rules lexical-row ...)
          (extras extra-name ...)

@@ -23,6 +23,7 @@
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
   '("build-gparse.ss"
+    "generate-rust-rowan.ss"
     "src/main.ss"
     "src/cli.ss"
     "src/ffi/parse-artifact-v1.ss"

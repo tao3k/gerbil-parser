@@ -1,0 +1,77 @@
+#+title: RFC 0006 — Gerbil-owned Rust/Rowan AOT Product
+#+startup: overview
+
+* Status
+
+Initial executable slice implemented for arithmetic v1.  Full GQL and Cypher
+publication remains gated on lexical-algebra and selective-GLR parity.
+
+* Decision
+
+=grammar.ss= remains the single language-authoring authority.  Its hygienic
+declaration expands into canonical Grammar IR v1 and Parser IR v1 exactly as it
+does for the Scheme runtime.  A compiler-owned Rust backend serializes the
+already resolved syntax-kind catalog, lexical rules, productions, LR actions,
+gotos, field actions, aliases, identity, and grammar digest into an immutable
+Rust module.  Rust never resolves grammar conflicts or reparses a grammar
+declaration.
+
+The generic =gerbil-parser-rowan= crate executes those static tables and
+publishes a lossless Rowan green tree plus a receipt binding language, version,
+contract, grammar digest, and source digest.  A parse request runs no Scheme,
+Gambit, subprocess, JSON decoder, or S-expression interpreter.
+
+#+begin_src text
+grammar.ss
+  -> Grammar IR v1
+  -> Parser IR v1 and grammar digest
+  -> compiler/rust-rowan.ss
+  -> generated immutable Rust tables
+  -> gerbil-parser-rowan runtime
+  -> lossless Rowan CST plus receipt
+  -> downstream semantic lowering
+#+end_src
+
+Downstream projects such as =gql-rust= depend on the generated language crate.
+They may own CST-to-domain-IR lowering, but they do not own another Rowan sink,
+syntax-kind catalog, lexer, precedence map, recovery table, or parser runtime.
+
+* Stable v1 boundary
+
+This work adds a backend for the existing v1 declarations.  It does not add a
+second grammar schema or a v2 compatibility route.  Generated numeric Rowan
+kinds follow Grammar IR declaration order and remain valid only with the exact
+grammar digest carried by the product.  Catalog overflow, unknown kinds,
+malformed tables, invalid UTF-8 boundaries, uncovered source, and missing LR
+actions fail closed.
+
+Rowan is a lossless syntax-tree representation, not the grammar authority and
+not a parser generator.  The Rust runtime therefore consumes only tables whose
+conflicts and precedence were already resolved by Gerbil's compiler.
+
+* First vertical slice
+
+Arithmetic v1 admits the closed lexical subset needed by the reference
+grammar: whitespace, horizontal whitespace, newline, decimal digits, number,
+identifier, literals, and fallback.  It executes deterministic LALR actions,
+applies generated field and alias reductions, preserves trivia, constructs one
+balanced root, and verifies that the Rowan tree reproduces the exact source.
+
+The initial slice deliberately rejects unsupported generated features instead
+of silently interpreting them differently.  Before publishing GQL or Cypher,
+the Rust backend must add and qualify:
+
+- the remaining closed lexical expressions and pinned external scanners;
+- case-insensitive keyword behavior over the complete corpora;
+- selective GLR forks, dynamic precedence, ambiguity evidence, and budgets;
+- recovery behavior and diagnostic parity;
+- generated typed node and field accessors;
+- exact Scheme/Rust acceptance, rejection, CST-shape, roundtrip, and receipt
+  parity for the pinned language corpora.
+
+* Downstream cutover gate
+
+=gql-rust= may remove its native Gerbil runtime and local Rowan sink only after
+the generated GQL product passes the full pinned corpus and malformed-input
+differential gates.  Its private CST-to-=MetaQueryIR= lowering remains a
+downstream semantic owner and is not moved into =gerbil-parser=.

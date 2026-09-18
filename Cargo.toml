@@ -1,0 +1,13 @@
+[workspace]
+members = ["rust/gerbil-parser-rowan"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0 AND LGPL-2.1-or-later"
+repository = "https://github.com/tao3k/gerbil-parser"
+rust-version = "1.85"
+
+[workspace.dependencies]
+rowan = "0.16.1"
+sha2 = "0.10.9"

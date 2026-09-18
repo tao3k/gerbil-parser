@@ -1,0 +1,1 @@
+name.family.exists() xor name.extension('http://hl7.org/fhir/StructureDefinition/data-absent-reason').exists()

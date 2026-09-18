@@ -1,0 +1,1 @@
+(identifier.where(system.count() + value.count() >1)).exists() xor identifier.extension('http://hl7.org/fhir/StructureDefinition/data-absent-reason').exists()

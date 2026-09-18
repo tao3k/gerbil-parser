@@ -1,0 +1,99 @@
+#+title: Versioned language-pack closure plan
+#+startup: overview
+
+* Outcome
+
+Land GQL, openCypher, and TLA+ as immutable, source-owned language packs on the
+one Gerbil parser compiler and runtime.  A language is complete only when its
+pinned upstream grammar, admitted corpus, generated artifacts, installed
+consumer, negative contracts, and performance receipt are all exercised by the
+single native package test entrypoint.
+
+* P0 Native package closure
+
+- Keep =build.ss= as a thin =std/build-script= entrypoint over one library
+  PackageSpec; build the optional =gparse= executable through the sibling
+  first-party =build-gparse.ss= entrypoint.
+- Discover each production module once; never install =*-test.ss= modules.
+- Inherit capacity only from =GERBIL_BUILD_CORES= and use the ASP native batch
+  testing interface without a package-local scheduler.
+- CI must clean, build the package and command products, run =unit-tests.ss=
+  once, and exercise installed =gparse=. Build-spec duplication is a failing
+  contract.
+
+Status: locally closed.  Remote Ubuntu CI is the remaining publication receipt.
+
+* P1 GQL ISO/IEC 39075:2024 closure
+
+- Preserve the byte- and digest-pinned OpenGQL 1.9.0 source at its declared
+  commit.
+- Admit all 1,018 grammar rules: 574 parser rules and 444 lexer or fragment
+  rules, with no handwritten runtime language dispatch.
+- Keep all 14 upstream samples, malformed-input failures, CST kinds, lowercase
+  keyword recognition, roundtrip, and installed sidecar consumption in the
+  native acceptance suite.
+
+Status: implementation and local acceptance closed; CI publication is pending.
+
+* P2 openCypher 2024.1 closure
+
+- Preserve the official 352-production WG3 BNF source and exact digest.
+- Keep the 3,897-query TCK syntax audit reproducible from the pinned corpus;
+  expected-success and expected-runtime-error queries are syntax acceptance,
+  while expected compile errors remain an explicit negative set.
+- Add the TCK audit to a bounded CI scenario instead of treating a checked-in
+  receipt as live evidence.
+
+Status: grammar, representative parser suite, and installed consumer are
+closed; reproducible CI regeneration of the full TCK receipt remains.
+
+* P3 Native TLA+ syntax adaptation
+
+- Model the native =TLAPlusGrammar= productions from chapter 15 of
+  /Specifying Systems/ directly in the existing lexical and Grammar IR
+  algebras.  Use the pinned official SANY =tla+.jj= source as the executable
+  conformance reference, never as a runtime parser dependency.
+- Add only generally useful algebra operations to =src/language/= when a TLA+
+  production cannot be represented.  Every extension must retain canonical IR,
+  deterministic LALR construction, typed diagnostics, and byte roundtrip.
+- Publish source-admission scenarios for unresolved productions, duplicate
+  identities, source-identity drift, deterministic canonical IR, and corpus
+  disagreement with SANY.
+
+Status: the digest-bound 99-production inventory and native-core v1 expression
+slice are executable; production-to-GrammarIR closure remains.
+
+* P4 TLA+ syntax closure
+
+- Replace =tla-plus.native-core.v1= with a new explicit full-grammar contract;
+  do not silently widen the existing v1 identity.
+- Admit every production and lexical constraint in the pinned native syntax
+  sources, including expression precedence, proof steps, indentation-sensitive
+  conjunction/disjunction lists, extramodular text, operator disambiguation,
+  and PlusCal boundaries.
+- Run the official SANY syntax corpus plus normal, Unicode, proof, PlusCal,
+  rejected-syntax, and crash-regression cases.  Preserve source bytes and
+  compare the required structural CST projection; never downgrade an
+  unsupported construct to an =unknown= acceptance path.
+
+Status: four accepted and one rejected native-core fixtures are closed.  Full
+proof, PlusCal, layout, and official-corpus conformance remain open.
+
+* P5 Algorithm and performance admission
+
+- Keep LR(0) construction exactly-once and lookahead propagation delta-only.
+- Establish cold expansion, warm artifact reuse, corpus parse, recovery, and
+  external-scanner scenarios with at least 40 samples where percentile gates
+  are used.
+- Fix an algorithm or data structure when a gate is red; never reduce sample
+  counts or hard-code a smaller worker count to obtain a pass.
+
+* P6 Downstream and release closure
+
+- Link the completed parser into =gql-rust= for development, then pin the
+  published gerbil-parser PR revision through its real dependency graph.
+- Prove the Rust GQL consumer uses the installed Gerbil artifacts and the same
+  canonical AST/ParseArtifact contract.
+- Require clean-source rebuild, single-entry native tests, installed consumer
+  smoke tests, and green PR receipts before declaring the language packs
+  released.

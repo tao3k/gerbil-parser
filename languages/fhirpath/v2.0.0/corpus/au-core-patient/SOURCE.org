@@ -1,0 +1,15 @@
+#+title: AU Core Patient FHIRPath syntax fixtures
+
+* Authority
+
+The three expressions are retained verbatim from
+=hl7.fhir.au.core#1.0.0/StructureDefinition-au-core-patient.json= and exercise
+the bounded AU Core Patient constraints already consumed by Lambda Healthcare.
+They qualify FHIRPath syntax only.  Parsing them does not claim evaluation,
+FHIR model navigation, terminology membership, or complete AU Core conformance.
+
+Upstream canonical URL:
+=http://hl7.org.au/fhir/core/StructureDefinition/au-core-patient=
+
+FHIRPath language grammar:
+=https://hl7.org/fhirpath/N1/fhirpath.g4=

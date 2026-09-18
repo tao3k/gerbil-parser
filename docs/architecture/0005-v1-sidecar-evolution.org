@@ -1,0 +1,141 @@
+#+title: RFC 0005 — Stable v1 Compiler and Runtime Sidecars
+#+startup: overview
+
+* Status
+
+Implemented. This RFC extends compiler and runtime evidence without changing
+the accepted Grammar IR v1, Parser IR v1, or ParseArtifact v1 schemas.
+
+* Bound declarations and composition
+
+Both =deflanguage= and =deflanguage-grammar= lower through the same Grammar IR
+authority. The expansion additionally publishes a bound declaration sidecar
+with structured =(package grammar namespace name)= identities, origin module,
+declaration digest, and hygienic macro lineage. Names in each namespace remain
+the package or source grammar's native names; the sidecar does not invent a
+second naming convention. GQL bindings retain ANTLR rule names such as
+=gqlProgram= and openCypher bindings retain ISO BNF names such as =match
+statement=. Both source projections carry their pinned grammar path and native
+rule coordinate. =defgrammar-syntax= macros expand only during the language
+declaration phase and introduce no runtime dependency.
+
+POO grammars retain legacy role merging. =defgrammar-compose= adds ordered
+=append=, =override=, and =remove= steps. Missing targets and append collisions
+fail closed. The operation sequence produces a deterministic composition
+receipt and digest; no implicit last-wins behavior exists.
+
+* Lexer and selective GLR
+
+Lexical dispatch uses global longest consumption, lexical precedence for ties,
+and declaration order only when both are equal. External scanner declarations
+carry a version and a hygienically bound scanner procedure.
+
+Selective GLR evaluates every locally admitted static and dynamic fork.
+Dynamic precedence ranks only completed branches; it never decides whether an
+alternative is explored. Identical completed ties merge, while distinct
+equal-score completions fail closed with typed ambiguity evidence instead of
+using declaration order as an implicit policy.
+
+The receipt keeps =branchesExplored= and =speculativeBranchesExplored= as
+cumulative work counters. The explicit branch budget applies to maximum nested
+speculative depth, not to the number of independent conflict cells crossed by a
+long input. =maxSpeculativeDepth= therefore bounds combinatorial ambiguity while
+allowing linear fallback validation. Branch sites, completion counts, merge
+counts, and winner reason remain additive stable-v1 evidence; the Parser IR
+remains an immutable AOT table.
+
+ANTLR source alternatives retain their upstream ordered-decision ranks as
+static LR precedence for both recursive and non-recursive choices. The adapter
+therefore resolves ANTLR decisions through the same native LR table instead of
+turning upstream order into unordered GLR ambiguity or adding a second parser.
+
+The openCypher source adapter uses exact-source, digest-bearing overlays rather
+than an alternate grammar. Its result path is right-recursive (=R | P | P L=,
+equivalent to =P+ | P* R=), nullable prefixes are explicit choices, qualified
+references are left-factored, and list/map constructors own the syntax already
+subsumed by their literal subsets. The ISO BNF projection also canonicalizes
+the language-preserving overlap =A [B] | [A] B= as =A [B] | B= while retaining
+the verbatim source AST. Literal keywords use explicit static precedence only
+where their literal and non-reserved-word meanings meet in the same LR cell.
+These normalizations reduce the pinned 2024.1 table to 1,317 states and 450
+fork cells while retaining source
+coordinates and replacement digests in Bound Grammar IR.
+
+Runtime reductions accumulate recognition children as immutable shared
+sequences. Concatenation is constant time, and the standard linear list builder
+materializes a proper list only at field, alias, or accept boundaries. This
+removes the quadratic repeated-=append= path for long left-recursive clauses
+without changing ParseArtifact or CST values.
+
+Each selective-GLR invocation additionally owns private equal?-indexed intern
+pools for immutable parser configurations, completion identities, and
+multi-child recognition fragments.  A configuration key includes the state
+stack, semantic stack, remaining token suffix, and dynamic-precedence score;
+different scores therefore never converge accidentally.  Canonical
+configurations memoize their completed suffix result, so equivalent branches
+share downstream parsing instead of replaying it.  Completion multiplicity is
+retained in the receipt even when computation converges, preserving ambiguity
+evidence while reducing repeated work.  The pools are discarded with the
+request and cannot introduce cross-parse state or a global cache.
+
+* AOT materialization storage
+
+Language expansion validates Grammar IR, Bound Grammar IR, and Parser IR before
+publication, then writes their serialized bytes as zlib-compressed,
+content-addressed =.gir.z= files below
+=gerbil-parser/compiled-language-artifacts/= in the compiler output tree.  The
+generated module contains only the relative locator and expected SHA-256.  At
+module initialization it resolves the sidecar through Gerbil's ordinary load
+path, verifies the digest and schema, and fails closed before constructing the
+parser machine if either differs or the sidecar is absent.
+
+This is storage for already generated immutable IR, not runtime grammar
+interpretation: parse requests still execute the AOT LR tables.  Keeping the
+payload outside the Gambit translation unit also prevents large grammars from
+becoming per-character C initializer forests; the build remains portable and
+uses its configured C compiler without a compiler-specific fallback.
+
+* Recovery and incremental parsing
+
+The deterministic LR executor exposes immutable checkpoints containing the
+prepared runtime identity, original token stream, state/value stacks, remaining
+token suffix, and deterministic action counters.  Advancing by an explicit
+action budget and resuming to a terminal result use the same executor as an
+ordinary parse; no replay parser or second transition implementation exists.
+The hot path keeps state in local variables and allocates a checkpoint only at
+an explicitly requested pause boundary.  A fork or failure transfers that exact
+frontier to selective GLR without replaying the deterministic prefix.
+
+Recovery performs deterministic private one-edit search for =MISSING=,
+=SKIPPED=, and =ERROR= candidates at the first LR failure frontier.  Its
+candidate vocabulary comes from that state's expected terminals rather than a
+scan of every grammar literal, and each candidate resumes the immutable
+checkpoint rather than replaying the accepted prefix.  The returned
+ParseArtifact remains the original rejected v1 artifact. A recovery receipt
+records ownership, strategy, frontier state, expected terminals, reused prefix,
+cost, byte evidence, budget, and candidate outcome; no partial CST is exposed.
+
+Incremental parsing accepts a byte-addressed Edit v1, reuses only the maximal
+token prefix that cannot touch the edit, and re-lexes from the preceding safe
+boundary.  The deterministic parser advances to that prefix by significant
+token shifts and resumes the same LR executor from the resulting immutable
+checkpoint rather than restarting at state zero.  A reverse linear comparison
+then finds the maximal suffix equal in token kind, lexeme, and byte-shifted
+span.  A zero-delta suffix reuses the old immutable token objects; a shifted
+suffix is recorded as converged but relocated with new absolute spans.  The
+receipt distinguishes converged, reused, and relocated suffixes plus resumed
+and remaining significant work. Publication still uses the ordinary
+ParseArtifact v1 commit path and must equal a fresh parse.
+
+* POO Flow Observability
+
+The POO grammar-object owner consumes POO Flow's public Observability interface
+only from tests. Its reader-native authoring gate rejects contract prototype
+lookups nested inside repeated =.o= composition; stable prototypes are resolved
+once at module load. A typed memory span records bounded heap and live-growth
+evidence for checked =GrammarRole= and =Grammar= construction, while the ASP
+Gerbil benchmark contract independently enforces elapsed-time and RSS policy.
+
+These receipts qualify development and compiler-side POO construction. They do
+not enter the generated parser machine, do not instrument the runtime hot path,
+and do not claim that a source-only observation executed runtime behavior.

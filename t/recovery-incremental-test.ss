@@ -1,0 +1,108 @@
+#!/usr/bin/env gxi
+;;; -*- Gerbil -*-
+
+(import (only-in :std/srfi/13 string-join)
+        (only-in :std/test
+                 check check-exception run-tests! test-case test-suite)
+        (only-in :gerbil-parser/languages/arithmetic/v1/parser
+                 arithmetic-parser parse-arithmetic-v1)
+        (only-in :gerbil-parser/src/runtime/artifact
+                 parse-artifact-success? parse-artifact-valid?
+                 parse-artifact-roundtrip)
+        (only-in :gerbil-parser/src/runtime/incremental
+                 apply-edit make-edit parse-source/incremental)
+        (only-in :gerbil-parser/src/runtime/recovery parse-source/recover))
+
+(def (row-ref row key)
+  (let (entry (assq key row)) (and entry (cdr entry))))
+
+(def recovery-incremental-tests
+  (test-suite "recovery and incremental v1 sidecars"
+    (test-case "UTF-8 edits are byte-bound and reject split characters"
+      (check (apply-edit "λx" (make-edit 0 2 "a")) => "ax")
+      (check-exception (apply-edit "λx" (make-edit 0 1 "a")) true))
+    (test-case "incremental prefix reuse publishes fresh-equivalent v1"
+      (let* ((source "1 + 2")
+             (base (parse-arithmetic-v1 source))
+             (source-edit (make-edit 4 1 "30")))
+        (let-values (((artifact receipt)
+                      (parse-source/incremental
+                       arithmetic-parser source base source-edit)))
+          (let (fresh (parse-arithmetic-v1 "1 + 30"))
+            (check artifact => fresh)
+            (check (parse-artifact-valid? artifact) => #t)
+            (check (parse-artifact-roundtrip artifact) => "1 + 30")
+            (check (row-ref receipt 'schema)
+                   => "gerbil-parser.incremental-receipt.v1")
+            (check (> (row-ref receipt 'reusedTokenCount) 0) => #t)
+            (check (> (row-ref receipt 'resumedSignificantTokenCount) 0)
+                   => #t)
+            (check (row-ref receipt 'publicationSchema)
+                   => "gerbil-parser.parse-artifact.v1")))))
+    (test-case "equal-width middle edits converge and reuse the token suffix"
+      (let* ((source
+              (string-append
+               "(" (string-join (make-list 100 "001") " + ") ")"))
+             (base (parse-arithmetic-v1 source))
+             (edit-start (+ 1 (* 50 6)))
+             (source-edit (make-edit edit-start 3 "002")))
+        (let-values (((artifact receipt)
+                      (parse-source/incremental
+                       arithmetic-parser source base source-edit)))
+          (let (fresh
+                (parse-arithmetic-v1
+                 (apply-edit source source-edit)))
+            (check artifact => fresh)
+            (check (row-ref receipt 'suffixByteDelta) => 0)
+            (check (> (row-ref receipt 'convergedSuffixTokenCount) 90) => #t)
+            (check (row-ref receipt 'reusedSuffixTokenCount)
+                   => (row-ref receipt 'convergedSuffixTokenCount))
+            (check (row-ref receipt 'relocatedSuffixTokenCount) => 0)
+            (check (> (row-ref receipt 'resumedSignificantTokenCount) 90)
+                   => #t)
+            (check (< (row-ref receipt 'remainingSignificantTokenCount)
+                      120)
+                   => #t)))))
+    (test-case "UTF-8 byte shifts relocate rather than falsely reuse a suffix"
+      (let* ((source "λ + 2")
+             (base (parse-arithmetic-v1 source))
+             (source-edit (make-edit 0 2 "name")))
+        (let-values (((artifact receipt)
+                      (parse-source/incremental
+                       arithmetic-parser source base source-edit)))
+          (check artifact
+                 => (parse-arithmetic-v1
+                     (apply-edit source source-edit)))
+          (check (row-ref receipt 'suffixByteDelta) => 2)
+          (check (> (row-ref receipt 'convergedSuffixTokenCount) 0) => #t)
+          (check (row-ref receipt 'reusedSuffixTokenCount) => 0)
+          (check (row-ref receipt 'relocatedSuffixTokenCount)
+                 => (row-ref receipt 'convergedSuffixTokenCount)))))
+    (test-case "missing literal recovery stays a rejected v1 publication"
+      (let-values (((artifact receipt)
+                    (parse-source/recover arithmetic-parser "(1")))
+        (check (parse-artifact-success? artifact) => #f)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (row-ref receipt 'outcome) => 'candidate)
+        (check (row-ref receipt 'publicationStatus) => 'rejected)
+        (check (integer? (row-ref receipt 'frontierState)) => #t)
+        (check (row-ref receipt 'reusedPrefixTokenCount) => 2)
+        (check (<= (row-ref receipt 'attempts)
+                   (length (row-ref receipt 'frontierExpectedTerminals)))
+               => #t)
+        (check (row-ref (car (row-ref receipt 'operations)) 'kind)
+               => 'MISSING)))
+    (test-case "skipped-token recovery records source-owned byte evidence"
+      (let-values (((artifact receipt)
+                    (parse-source/recover arithmetic-parser "1 ?")))
+        (check (parse-artifact-success? artifact) => #f)
+        (check (row-ref receipt 'outcome) => 'candidate)
+        (check (row-ref receipt 'reusedPrefixTokenCount) => 1)
+        (check (<= (row-ref receipt 'attempts)
+                   (+ 1 (length
+                         (row-ref receipt 'frontierExpectedTerminals))))
+               => #t)
+        (check (row-ref (car (row-ref receipt 'operations)) 'kind)
+               => 'SKIPPED)))))
+
+(run-tests! recovery-incremental-tests)

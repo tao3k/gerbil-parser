@@ -1,0 +1,144 @@
+#+title: RFC 0003 — Backend-Neutral ParseArtifact v1 and CST Events
+#+startup: overview
+
+* Status
+
+Accepted.  Admission is owned by the executable ParseArtifact, replay, failure,
+identity, and performance contracts.  This RFC defines one feature and no
+delivery schedule.
+
+* Authority
+
+=ParseArtifact v1= is the only published parse result.  Its immutable event
+stream owns source coverage, structural nesting, field scopes, and stable event
+identities.  The generated parser may create private recognition values while a
+request is active, but those values are never published.  Gerbil CST values and
+downstream Rowan or custom trees are replay projections, not parser authority.
+
+#+begin_src mermaid
+flowchart LR
+  G[Grammar IR v1] --> M[AOT generated machine]
+  S[Source] --> L[Generated lexer]
+  L --> R[Private recognition values]
+  M --> R
+  R --> A[ParseArtifact v1 events]
+  A --> V[Invariant validator]
+  A --> C[Gerbil CST replay]
+  A --> D[Downstream sink replay]
+#+end_src
+
+There is no compatibility receipt, independently published token list, or
+independently published semantic tree.  Rejected requests publish flat token
+events and exactly one diagnostic; they publish no partial node or field event.
+
+* Identity
+
+An artifact binds a precomputed grammar digest to the complete source digest.
+The generated machine computes its grammar SHA-256 identity once during module
+initialization.  Each request computes its source SHA-256 identity from the
+exact source represented by token events.
+
+#+begin_src scheme
+((schema . "gerbil-parser.parse-artifact.v1")
+ (grammarDigest . "sha256:...")
+ (sourceDigest . "sha256:...")
+ (sourceByteLength . 17)
+ (status . accepted)
+ (events . (...))
+ (diagnostics . ()))
+#+end_src
+
+Event node and token identifiers are zero-based and assigned deterministically
+in preorder and source order.  They do not depend on POO identity, allocation
+address, hash-table traversal, or a downstream backend.
+
+* Event algebra
+
+Only implemented v1 variants belong to the event algebra:
+
+#+begin_src scheme
+#(start-node node-id kind start-byte)
+#(finish-node node-id kind end-byte)
+#(start-field field-name start-byte)
+#(finish-field field-name end-byte)
+#(token token-id kind lexeme start-byte end-byte)
+#+end_src
+
+Node and field scopes are well-bracketed.  A field may enclose a node, a token,
+or an anonymous sequence such as grouped delimiters and its nested expression.
+Trivia and anonymous delimiters remain ordinary token events, so projection
+cannot erase source text.
+
+Missing, skipped, error-recovery, reuse, and incremental events are not dormant
+v1 constructors.  They require their own implemented feature contracts before
+they can extend the event algebra.
+
+* Formal invariants
+
+Let =E= be the ordered events, =Tok(E)= be its token events, =bytes= return the
+UTF-8 interval, and =join= concatenate token lexemes.
+
+#+begin_src typst
+#let A = $"ParseArtifact"_1$
+#let E = $"Events"_1$
+#let T = $"TokenEvent"_1$
+$
+  "events": A -> E \
+  forall a in A,
+    "join"("Tok"("events"(a))) = "source"(a) \
+  forall a in A,
+    union_(t in "Tok"("events"(a))) "bytes"(t)
+      = [0, "sourceByteLength"(a)) \
+  forall i in [0, |"Tok"("events"(a))|),
+    "tokenId"("Tok"("events"(a))_i) = i \
+  "status"(a) = "accepted"
+    => "roots"(a) = 1 and "diagnostics"(a) = emptyset \
+  "status"(a) = "rejected"
+    => "roots"(a) = 0 and |"diagnostics"(a)| = 1
+$
+#+end_src
+
+Adjacent token intervals meet exactly.  Token byte length equals the UTF-8 byte
+length of its lexeme.  Every structural start has one matching finish at the
+current covered byte, and an accepted artifact has exactly one root spanning
+the complete source.
+
+* Failure and commit boundary
+
+Recognition is a request-local candidate.  Only complete event construction
+produces an accepted artifact.  Any recognition, trailing-token, event-order,
+span, identity, or balance failure is fail-closed.  A rejected artifact contains
+the complete flat token stream, one typed diagnostic, and no partial CST.
+
+The trusted builder enforces source order while emitting events.  The public
+validator independently checks untrusted or persisted artifacts, including
+event shape, token and node identity sequences, UTF-8 coverage, structural
+balance, terminal cardinality, and source digest.
+
+* Projection boundary
+
+=parse-artifact->cst= replays accepted events into immutable Gerbil nodes and
+field scopes.  It rejects invalid or rejected artifacts.  Projection neither
+repairs events nor introduces language knowledge.  Downstream bindings consume
+the same event order and must not treat their projected tree as a publication
+authority.
+
+* Rejected designs
+
+- Publishing both =tokens= and =tree= beside canonical events.
+- Reconstructing events from a published semantic tree.
+- Dropping trivia or anonymous delimiters from structural coverage.
+- Retaining =parse-receipt.v1= as a compatibility fallback.
+- Hashing the complete Parser IR on every parse request.
+- Revalidating a trusted builder result with a second full hot-path replay.
+- Adding dormant recovery or incremental event variants.
+- POO dispatch, Rowan ownership, or language-specific behavior in artifact code.
+
+* Executable admission
+
+Admission requires source-level tests proving complete trivia and delimiter
+coverage, deterministic event and digest identity, UTF-8 spans, deterministic
+CST replay, rejected-terminal exclusivity, and fail-closed corruption handling
+for token gaps, duplicate identities, unbalanced scopes, and source-digest
+drift.  The standard ASP Gerbil benchmark remains mandatory and its policy is
+not weakened for event construction.

@@ -1,0 +1,130 @@
+#+title: gerbil-parser
+
+=gerbil-parser= is a pure Gerbil Scheme programmable syntax engine built on
+hygienic macros, POO composition, parser-flow normalization, and AOT-compiled
+parser artifacts.
+
+The language-neutral compiler and runtime live under =src/=.  Their public
+language-import API is the top-level =language-support.ss= facade beside
+=build.ss=, so package imports do not expose the physical =src/= directory.
+Its implementations remain under =src/language-support/=.  Bundled and downstream language packs live under
+=languages/<language>/<version>/=; grammar, parser entry, fixtures, tests, and
+native corpus stay together.  POO and =poo-flow=
+are used only while compiling grammar object graphs; generated parser hot paths
+do not perform dynamic POO dispatch.
+
+The repository contains no Rust runtime or downstream CST dependency.  Rust,
+Rowan, native FFI, and other consumers bind the emitted artifact from their own
+repositories.  The first executable reference grammar proves the complete
+boundary from hygienic declarations through normalized grammar and parser IR
+to the pure Scheme parser runtime and AOT artifact.
+
+* Native command
+
+=build.ss= is the package AOT entry. It discovers and installs the reusable
+library and native FFI products without forcing downstream library consumers to
+compile a command they do not use. =build-gparse.ss= is the sibling first-party
+=defbuild-script= entry for the optional native =gparse= command; it adds no
+second command implementation or package scheduler.
+
+#+begin_src sh
+GERBIL_BUILD_CORES=12 gerbil build
+GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
+gparse help
+gparse check "1 + 2 * value"
+#+end_src
+
+The package manager exposes =framework-build-bindir= on =PATH= for the bare
+command.  Before package activation, the same native artifact can be invoked
+directly from that build-support-owned directory; the repository does not own a
+second shell launcher.
+
+=src/main.ss= owns only =:std/getopt= declarations and dispatch.
+=src/cli.ss= is the thin command adapter.  Grammar compilation, lexing, parsing,
+ParseArtifact events, and diagnostics remain in their library owners.
+
+* Package layout
+
+The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
+grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
+small performance-sensitive parser functions.  The single public authoring
+boundary is =src/language/grammar.ss=; its =deflanguage-grammar= macro expands
+one declaration into the grammar object, canonical Parser IR, native machine,
+and immutable language descriptor.  General list utilities stay at the package
+utility boundary rather than becoming parser-module miscellany.
+
+A supported language uses one colocated package surface:
+
+#+begin_src text
+languages/hcl/v2-24/
+  grammar.ss
+  parser.ss
+  fixtures.ss
+  parser-test.ss
+  corpus/
+#+end_src
+
+=grammar.ss= owns the versioned identity and one =deflanguage-grammar= or
+=deflanguage-antlr4-grammar= declaration.  =parser.ss= uses
+=deflanguage-parser= with that descriptor to
+generate the public parse function; it cannot repeat or replace the identity,
+contract, or machine.  Fixtures and tests never move into =src/= and do not
+enter the =gparse= executable closure.
+=defsyntax-corpus= declares all files in one expansion-time manifest.  The HCL
+pack vendors all 15 raw =.hcl= inputs from the v2.24.0 official specsuite.  The
+GQL pack pins OpenGQL grammar 1.9.0 by commit and SHA-256 digest, validates all
+1,018 source rules, and AOT-materializes all 574 parser rules with 444 lexer or
+fragment rules.  Its 14 upstream sample programs then prove typed terminals,
+structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
+
+Grammar-source formats are language-neutral engine adapters.  ISO WG3 BNF,
+ANTLR4 source admission, and fixture/corpus declaration machinery are internal
+to =src/language-support/= and exported only through
+=:gerbil-parser/language-support=.  A language pack only
+selects a pinned source and declares its versioned lowering under
+=languages/<language>/<version>/=.  The openCypher 2024.1 pack validates and
+structures all 352 productions from the official BNF.  Exact-source overlays
+right-factor the result-statement path, normalize nullable prefixes and
+qualified references, and remove duplicate list/map constructor parses without
+mutating the pinned source.  The commit-bound TCK syntax audit expands 3,897
+queries from 220 feature files: all 3,298 expected-success or runtime-error
+queries are accepted with byte-exact roundtrip, while the remaining 39 parser
+rejections are compile-error cases.  This closes syntax acceptance for that
+manifest; it does not claim execution or semantic-result conformance.
+
+The TLA+ =v1= pack exercises the same native generation path for module
+envelopes, declarations, structured precedence expressions, conditionals,
+quantifiers, collections, function constructors, theorem lines, comments, and
+nested block comments.  Its syntax authority is the native
+=TLAPlusGrammar= in chapter 15 of /Specifying Systems/; the official SANY
+=tla+.jj= source at release =v1.7.4= is pinned for executable conformance.  It
+does not enter the runtime or replace the Gerbil parser engine.  The pack also
+pins a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
+repository.  The pinned 99-production SANY inventory is admitted at expansion
+time, while malformed recognized syntax fails closed without an unknown-token
+fallback.  The optional =qualification.ss= boundary composes that native
+syntax admission with the official external TLC executable and returns one
+typed Gerbil receipt binding source, configuration, tool and state-space
+identities.  TLC remains the model-checking authority and is never copied into
+the parser engine; a syntax rejection stops before TLC is launched.  PlusCal,
+proof syntax, multiline layout, and the full official
+syntax corpus remain explicit future contracts.
+
+* Architecture RFCs
+
+- =docs/architecture/0001-parser-compiler.org= fixes the pure Gerbil/AOT
+  authority boundary.
+- =docs/architecture/0002-typed-structural-algebras.org= defines distinct
+  LexicalExpr, GrammarExpr, QueryPattern, and ProjectionPlan feature contracts.
+  The current implementation admits LexicalExpr v1 and the canonical
+  generic hygienic GrammarExpr machine plus fixed HCL v2.24.0 and ISO/IEC
+  39075:2024 reference contracts; later features require independent executable
+  evidence rather than directory presence.
+- =docs/architecture/0003-parse-artifact.org= establishes ParseArtifact v1 as
+  the sole parse publication, with lossless CST events and replay-only sinks.
+- =docs/architecture/0004-versioned-language-contracts.org= defines fixed HCL
+  v2.24.0 and ISO/IEC 39075:2024 conformance identities plus the public
+  downstream DSL grammar boundary.  =defsyntax-fixture= embeds versioned native
+  syntax files at macro expansion, while =defsyntax-corpus= owns multi-file
+  manifests, so downstream conformance tests and
+  benchmarks share one declarative source contract without runtime file I/O.

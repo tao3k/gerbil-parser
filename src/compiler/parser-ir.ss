@@ -1,0 +1,157 @@
+;;; Grammar IR to immutable parser-machine IR compilation.
+
+(import (only-in :std/sugar alet)
+        (only-in ./lr-compiler compile-lr-spec)
+        (only-in ../grammar/algebra
+                 grammar-expression? grammar-expression-references
+                 grammar-expression-terminals)
+        (only-in ../grammar/lexical-algebra lexical-expression?))
+(export compile-parser
+        parser-ir-ref
+        parser-ir-canonical)
+
+;; : (-> (List SyntaxKindRow) Symbol)
+;; require-root
+;; : (-> List Symbol)
+(def (require-root syntax-kinds)
+  (if (null? syntax-kinds)
+    (error "parser grammar requires a root syntax kind")
+    (caar syntax-kinds)))
+
+(def (row-names rows)
+  (map car rows))
+
+(def (require-known names known owner)
+  (for-each
+   (lambda (name)
+     (unless (memq name known)
+       (error "unresolved grammar identity" owner name)))
+   names))
+
+(def (validate-terminals terminals syntax-kinds)
+  (for-each
+   (lambda (terminal)
+     (let* ((kind (cadr terminal))
+            (syntax-kind (assq kind syntax-kinds)))
+       (unless syntax-kind
+         (error "terminal references an unknown syntax kind"
+                (car terminal) kind))
+       (unless (eq? (cadr syntax-kind) 'token)
+         (error "terminal syntax kind must be categorized as token"
+                (car terminal) kind))))
+   terminals))
+
+(def (validate-lexical-rules lexical-rules terminals)
+  (let ((lexical-names (row-names lexical-rules))
+        (terminal-names (row-names terminals)))
+    (require-known lexical-names terminal-names 'lexical-rules)
+    (require-known terminal-names lexical-names 'terminals)
+    (for-each
+     (lambda (row)
+       (unless (lexical-expression? (cadr row))
+         (error "invalid normalized lexical expression" (car row))))
+     lexical-rules)))
+
+(def (validate-rules rules terminals)
+  (when (null? rules)
+    (error "parser grammar requires at least one production"))
+  (let ((rule-names (row-names rules))
+        (terminal-names (row-names terminals)))
+    (for-each
+     (lambda (row)
+       (let (expression (cadr row))
+         (unless (grammar-expression? expression)
+           (error "invalid normalized grammar production" (car row)))
+         (require-known
+          (grammar-expression-references expression)
+          rule-names
+          (car row))
+         (require-known
+          (grammar-expression-terminals expression)
+          terminal-names
+          (car row))))
+     rules)))
+
+;; validate-extras
+;; : (-> List List Void)
+(def (validate-extras extras terminals)
+  (require-known (row-names extras) (row-names terminals) 'extras))
+
+;; flow-connected?
+;; : (-> List Boolean)
+(def (flow-connected? flow)
+  (and (pair? flow)
+       (equal? (car flow) '(source lexical))
+       (equal? (cadr (car (reverse flow))) 'cst)
+       (or (null? (cdr flow))
+           (andmap (lambda (edge next-edge)
+                     (equal? (cadr edge) (car next-edge)))
+                   flow
+                   (cdr flow)))))
+
+;; require-entrypoint
+;; : (-> List List Symbol)
+(def (require-entrypoint entrypoints rules)
+  (when (null? entrypoints)
+    (error "parser grammar requires an entrypoint"))
+  (let (root-rule (caar entrypoints))
+    (require-known (list root-rule) (row-names rules) 'entrypoint)
+    root-rule))
+
+;; compile-parser
+;; : (-> Alist Alist)
+(def (compile-parser grammar)
+  (unless (and (list? grammar)
+               (equal? (let (row (assq 'schema grammar))
+                         (and row (cdr row)))
+                       "gerbil-parser.grammar-ir.v1"))
+    (error "compile-parser requires canonical Grammar IR v1" grammar))
+  (let* ((grammar-ir grammar)
+         (syntax-kinds (parser-ir-ref grammar-ir 'syntax-kinds))
+         (terminals (parser-ir-ref grammar-ir 'terminals))
+         (lexical-rules (parser-ir-ref grammar-ir 'lexical-rules))
+         (rules (parser-ir-ref grammar-ir 'rules))
+         (extras (parser-ir-ref grammar-ir 'extras))
+         (entrypoints (parser-ir-ref grammar-ir 'parser-entrypoints))
+         (flow (parser-ir-ref grammar-ir 'flow))
+         (conflict-policy
+          (or (parser-ir-ref grammar-ir 'conflict-policy) 'reject))
+         (case-insensitive?
+          (if (parser-ir-ref grammar-ir 'case-insensitive?) #t #f)))
+    (validate-terminals terminals syntax-kinds)
+    (validate-lexical-rules lexical-rules terminals)
+    (validate-rules rules terminals)
+    (validate-extras extras terminals)
+    (unless (flow-connected? flow)
+      (error "parser flow must connect source through lexical to cst"))
+    (list
+     (cons 'schema "gerbil-parser.parser-ir.v1")
+     (cons 'grammar (parser-ir-ref grammar-ir 'grammar))
+     (cons 'compositionDigest
+           (parser-ir-ref grammar-ir 'compositionDigest))
+     (cons 'root-kind (require-root syntax-kinds))
+     (cons 'root-rule (require-entrypoint entrypoints rules))
+     (cons 'lr-spec
+           (compile-lr-spec rules (require-entrypoint entrypoints rules)
+                            conflict-policy case-insensitive?))
+     (cons 'conflict-policy conflict-policy)
+     (cons 'case-insensitive? case-insensitive?)
+     (cons 'syntax-kinds syntax-kinds)
+     (cons 'terminals terminals)
+     (cons 'lexical-rules lexical-rules)
+     (cons 'rules rules)
+     (cons 'extras extras)
+     (cons 'keywords (parser-ir-ref grammar-ir 'keywords))
+     (cons 'parser-entrypoints entrypoints)
+     (cons 'recoveries (parser-ir-ref grammar-ir 'recoveries))
+     (cons 'flow flow))))
+
+;; parser-ir-ref
+;; : (-> Alist Symbol Datum)
+(def (parser-ir-ref ir key)
+  (alet (entry (assq key ir))
+    (cdr entry)))
+
+(def (parser-ir-canonical ir)
+  (call-with-output-string
+   (lambda (port) (write ir port))))

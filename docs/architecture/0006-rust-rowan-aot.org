@@ -34,9 +34,12 @@ requires exactly one exported language descriptor, and returns the existing
 tables. The normal parse-time dependency remains =gerbil-parser-rowan= and
 does not link the generator.
 
-The native generator product must be distributed for every admitted target
-with its Gerbil/Gambit runtime and expansion metadata already materialized.
-Until a clean Cargo consumer can link that product on Linux and macOS without a
+The native generator product must be distributed for every admitted target.
+Its =defbuild-script= owner projects the declared executable closure and
+production profile through the ASP Building Framework, so std/make and the
+Gerbil compiler close the reachable Scheme modules into the executable;
+release support does not reconstruct that graph from mutable cache objects.
+Until a clean Cargo consumer can use that product on Linux and macOS without a
 Gerbil installation, the native ABI is an executable boundary but the
 Cargo-only authoring claim remains open.
 
@@ -46,17 +49,10 @@ downstream module and can replace the runtime load path with an explicit
 metadata bundle through =GERBIL_PARSER_ROWAN_AOT_LIB=. Its public authoring
 surface is the minimal =:gerbil-parser/rust-rowan-grammar-support= facade, so a
 direct custom grammar does not pull the source-import and fixture facades into
-its build product. The release materializer records the actually loaded phase
-objects, copies the SSI expansion metadata, and recompiles any numbered cached
-object to canonical =.o1= from its generated Scheme owner. CI then consumes the
-per-target product under =env -i=, with no Gerbil command on =PATH=. The current
-Darwin arm64 qualification produced roughly 55 MB before native vendoring and
-61 MB after relocation; bundle size remains a runner-specific receipt rather
-than a universal budget claim.
-On macOS the same product recursively vendors non-system dylibs, rewrites the
-executable to =@executable_path= and dylib edges to =@loader_path=, applies
-ad-hoc signatures, and rejects residual Homebrew, =/usr/local=, or Nix-store
-load commands. Linux retains its ordinary system-library contract.
+its build product. CI consumes the closed executable under =env -i= with no
+Gerbil command on =PATH= and explicit expansion-metadata roots. A source module
+still requires =.ssi= interfaces; packaging those immutable interfaces is a
+release concern, not a reason to reconstruct the runtime object graph.
 
 #+begin_src text
 grammar.ss

@@ -87,18 +87,18 @@ output as owned bytes, and writes it into Cargo's =OUT_DIR=. It does not parse
 Scheme or rebuild Grammar IR/LR tables in Rust, and the parse-time dependency
 still contains only the Rowan engine plus generated tables. The generator is a
 separate native product; the Cargo-only authoring claim remains open until that
-product and its already-materialized Gerbil/Gambit runtime can be distributed
-and linked on admitted Linux and macOS targets without a Gerbil installation.
+product can be distributed and used on admitted Linux and macOS targets
+without a Gerbil installation.
 The same owner is exposed as the =gerbil-parser-rowan-aot= executable for
 standalone bundle qualification; it initializes Gerbil's expander internally
 and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
-=build-support/materialize-rust-rowan-aot-bundle.sh= traces the exact dynamic
-phase-object closure, combines it with expansion metadata, canonicalizes stale
-numbered Gambit objects from their generated Scheme owner, and emits a receipt.
-The resulting bundle is accepted under =env -i= with only its =lib/= directory
-as =GERBIL_PARSER_ROWAN_AOT_LIB=; no Gerbil command is present on =PATH=. On
-macOS the same materializer recursively vendors non-system dylibs, rewrites
-their load commands to bundle-relative paths, and applies an ad-hoc signature.
+Its =defbuild-script= declaration uses the ASP Building Framework's executable
+closure and production profile, so std/make closes the declared Scheme module
+graph instead of a release script tracing and copying Gerbil's mutable object
+cache. CI executes the result under =env -i= with no Gerbil command on =PATH=
+and explicit expansion-metadata roots. Packaging those immutable interfaces
+with the executable remains a release boundary; runtime object-cache
+reconstruction is gone.
 
 =t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
@@ -146,11 +146,6 @@ second command implementation or package scheduler.
 GERBIL_BUILD_CORES=12 gerbil build
 GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
 GERBIL_BUILD_CORES=12 gerbil env gxi build-rust-rowan-aot.ss compile
-build-support/materialize-rust-rowan-aot-bundle.sh \
-  .gerbil/bin/gerbil-parser-rowan-aot \
-  .gerbil/lib "$GERBIL_PREFIX/lib" \
-  languages/gql/iso-39075-2024/grammar.ss \
-  /tmp/gerbil-parser-rowan-aot-bundle
 gparse help
 gparse check "1 + 2 * value"
 #+end_src

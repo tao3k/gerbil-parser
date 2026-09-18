@@ -2,7 +2,7 @@
 ;;; Standalone build-time frontend for the Scheme-owned Rust/Rowan generator.
 
 (import (only-in :gerbil/runtime gerbil-load-expander!)
-        (only-in :gerbil/runtime/loader list-modules set-load-path!)
+        (only-in :gerbil/runtime/loader set-load-path!)
         (only-in :std/srfi/13 string-split)
         (only-in :gerbil-parser/rust-rowan-grammar-support deflanguage)
         (for-syntax :gerbil-parser/rust-rowan-grammar-support)
@@ -25,11 +25,4 @@
   (gerbil-load-expander!)
   (write-generated-source
    (cadr arguments)
-   (native-rust-rowan-source (car arguments)))
-  (when (getenv "GERBIL_PARSER_ROWAN_AOT_TRACE_MODULES" #f)
-    (for-each
-     (lambda (entry)
-       (when (string? (cdr entry))
-         (display (cdr entry) (current-error-port))
-         (newline (current-error-port))))
-     (list-modules))))
+   (native-rust-rowan-source (car arguments))))

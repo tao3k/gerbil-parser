@@ -6,13 +6,14 @@
         (only-in :asp-gerbil-scheme/testing-api
                  +asp-testing-interface+
                  +testing-discovery-profile+
-                 testing-interface-add-profile
+                 testing-interface-add-profile)
+        (only-in :asp-gerbil-scheme/testing-runner-api
                  init-profiled-test-environment!))
 
 (def +gerbil-parser-testing-interface+
   (testing-interface-add-profile
    +asp-testing-interface+
    (.cc +testing-discovery-profile+
-        ignoreDirectories: '(".data" ".gerbil"))))
+        ignoreDirectories: '(".data" ".gerbil" "t/fixtures"))))
 
 (init-profiled-test-environment! +gerbil-parser-testing-interface+)

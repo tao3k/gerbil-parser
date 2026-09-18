@@ -1,0 +1,10 @@
+[package]
+name = "downstream-rowan-language-fixture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+gerbil-parser-rowan = { path = "../../../rust/gerbil-parser-rowan" }
+
+[workspace]

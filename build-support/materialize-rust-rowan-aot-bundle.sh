@@ -101,11 +101,108 @@ done < <(sort -u "$trace_file")
 
 dynamic_object_count=$(sort -u "$trace_file" | wc -l | tr -d ' ')
 ssi_count=$(find "$output/lib" -type f -name '*.ssi' | wc -l | tr -d ' ')
-if command -v sha256sum >/dev/null 2>&1; then
-  generator_sha256=$(sha256sum "$output/bin/gerbil-parser-rowan-aot" | awk '{print $1}')
-else
-  generator_sha256=$(shasum -a 256 "$output/bin/gerbil-parser-rowan-aot" | awk '{print $1}')
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+native_library_count=0
+
+if [[ $(uname -s) == Darwin ]]; then
+  native_directory="$output/lib/native"
+  native_manifest="$temporary_directory/native-libraries.tsv"
+  mkdir -p "$native_directory"
+  : >"$native_manifest"
+
+  macho_dependencies() {
+    otool -L "$1" | tail -n +2 | awk '{print $1}'
+  }
+
+  collect_macos_dependency() {
+    local dependency=$1
+    case "$dependency" in
+      /usr/lib/* | /System/Library/* | @*)
+        return
+        ;;
+    esac
+
+    if [[ ! -f "$dependency" ]]; then
+      echo "native dependency not found: $dependency" >&2
+      exit 70
+    fi
+
+    local name
+    local existing_source
+    name=$(basename "$dependency")
+    existing_source=$(awk -F '\t' -v name="$name" '$1 == name { print $2; exit }' \
+      "$native_manifest")
+    if [[ -n "$existing_source" ]]; then
+      if ! cmp -s "$dependency" "$existing_source"; then
+        echo "native dependency basename collision: $name" >&2
+        exit 70
+      fi
+      return
+    fi
+
+    cp -pL "$dependency" "$native_directory/$name"
+    printf '%s\t%s\n' "$name" "$dependency" >>"$native_manifest"
+    while IFS= read -r nested_dependency; do
+      collect_macos_dependency "$nested_dependency"
+    done < <(macho_dependencies "$dependency")
+  }
+
+  rewrite_macos_dependencies() {
+    local consumer=$1
+    local prefix=$2
+    local dependency
+    local name
+    while IFS= read -r dependency; do
+      case "$dependency" in
+        /usr/lib/* | /System/Library/* | @*)
+          continue
+          ;;
+      esac
+      name=$(basename "$dependency")
+      install_name_tool -change "$dependency" "$prefix/$name" "$consumer"
+    done < <(macho_dependencies "$consumer")
+  }
+
+  while IFS= read -r dependency; do
+    collect_macos_dependency "$dependency"
+  done < <(macho_dependencies "$output/bin/gerbil-parser-rowan-aot")
+
+  rewrite_macos_dependencies \
+    "$output/bin/gerbil-parser-rowan-aot" \
+    '@executable_path/../lib/native'
+  while IFS=$'\t' read -r name _source; do
+    native_library="$native_directory/$name"
+    rewrite_macos_dependencies "$native_library" '@loader_path'
+    install_name_tool -id "@loader_path/$name" "$native_library"
+    codesign --force --sign - "$native_library"
+  done <"$native_manifest"
+  codesign --force --sign - "$output/bin/gerbil-parser-rowan-aot"
+  codesign --verify --deep --strict "$output/bin/gerbil-parser-rowan-aot"
+
+  {
+    echo "schema=gerbil-parser.rowan-aot-native-libraries.v1"
+    while IFS=$'\t' read -r name _source; do
+      printf '%s  %s\n' "$(sha256_file "$native_directory/$name")" "$name"
+    done <"$native_manifest"
+  } >"$output/native-libraries.v1"
+
+  native_library_count=$(wc -l <"$native_manifest" | tr -d ' ')
+  if otool -L "$output/bin/gerbil-parser-rowan-aot" "$native_directory"/*.dylib \
+    | grep -E '/opt/homebrew|/usr/local|/nix/store'; then
+    echo "bundle retains a host-specific native dependency" >&2
+    exit 70
+  fi
 fi
+
+generator_sha256=$(sha256_file "$output/bin/gerbil-parser-rowan-aot")
 
 cat >"$output/receipt.v1" <<EOF
 schema=gerbil-parser.rowan-aot-bundle.v1
@@ -113,6 +210,7 @@ target=$(uname -s)-$(uname -m)
 dynamic_object_count=$dynamic_object_count
 canonicalized_object_count=$canonicalized_object_count
 ssi_count=$ssi_count
+native_library_count=$native_library_count
 generator_sha256=$generator_sha256
 EOF
 

@@ -59,6 +59,12 @@
                                      "gsc -dynamic -o")
                     (string-contains rowan-aot-bundle-source
                                      "gerbil-parser.rowan-aot-bundle.v1")
+                    (string-contains rowan-aot-bundle-source
+                                     "@executable_path/../lib/native")
+                    (string-contains rowan-aot-bundle-source
+                                     "codesign --force --sign -")
+                    (string-contains rowan-aot-bundle-source
+                                     "rowan-aot-native-libraries.v1")
                     #t)
                => #t)))))
 

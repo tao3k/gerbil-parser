@@ -96,7 +96,9 @@ and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
 phase-object closure, combines it with expansion metadata, canonicalizes stale
 numbered Gambit objects from their generated Scheme owner, and emits a receipt.
 The resulting bundle is accepted under =env -i= with only its =lib/= directory
-as =GERBIL_PARSER_ROWAN_AOT_LIB=; no Gerbil command is present on =PATH=.
+as =GERBIL_PARSER_ROWAN_AOT_LIB=; no Gerbil command is present on =PATH=. On
+macOS the same materializer recursively vendors non-system dylibs, rewrites
+their load commands to bundle-relative paths, and applies an ad-hoc signature.
 
 =t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.

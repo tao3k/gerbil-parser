@@ -50,10 +50,13 @@ its build product. The release materializer records the actually loaded phase
 objects, copies the SSI expansion metadata, and recompiles any numbered cached
 object to canonical =.o1= from its generated Scheme owner. CI then consumes the
 per-target product under =env -i=, with no Gerbil command on =PATH=. The current
-Darwin arm64 qualification produced roughly 55 MB; bundle size remains a
-runner-specific receipt rather than a universal budget claim.
-Release admission still requires removal or packaging of target-specific
-dynamic-library paths on macOS.
+Darwin arm64 qualification produced roughly 55 MB before native vendoring and
+61 MB after relocation; bundle size remains a runner-specific receipt rather
+than a universal budget claim.
+On macOS the same product recursively vendors non-system dylibs, rewrites the
+executable to =@executable_path= and dylib edges to =@loader_path=, applies
+ad-hoc signatures, and rejects residual Homebrew, =/usr/local=, or Nix-store
+load commands. Linux retains its ordinary system-library contract.
 
 #+begin_src text
 grammar.ss

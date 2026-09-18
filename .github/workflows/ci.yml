@@ -25,6 +25,9 @@ jobs:
       - name: Verify Rust formatting
         run: cargo fmt --all -- --check
 
+      - name: Verify ASP Rust source policy
+        run: cargo test -p gerbil-parser-rowan --test asp-rust-gate --locked -- --nocapture
+
       - name: Verify Rust contracts
         run: cargo test --workspace --locked
 

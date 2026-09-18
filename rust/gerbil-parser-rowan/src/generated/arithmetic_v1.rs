@@ -1066,6 +1066,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "source-file",
@@ -1074,6 +1075,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[OperandAction::Field("expression"), OperandAction::Alias(0)],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$expression.1",
@@ -1082,6 +1084,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$expression.1",
@@ -1090,6 +1093,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$expression.0",
@@ -1108,6 +1112,7 @@ static PRODUCTIONS: &[Production] = &[
             },
         ],
         reduction: Reduction::Concat,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "expression",
@@ -1116,6 +1121,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[OperandAction::Alias(1)],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$expression.3",
@@ -1124,6 +1130,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$expression.3",
@@ -1132,6 +1139,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$expression.2",
@@ -1150,6 +1158,7 @@ static PRODUCTIONS: &[Production] = &[
             },
         ],
         reduction: Reduction::Concat,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "expression",
@@ -1158,6 +1167,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[OperandAction::Alias(1)],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "expression",
@@ -1166,6 +1176,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "expression",
@@ -1174,6 +1185,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "expression",
@@ -1182,6 +1194,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "expression",
@@ -1190,6 +1203,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$grouped-expression.4",
@@ -1208,6 +1222,7 @@ static PRODUCTIONS: &[Production] = &[
             },
         ],
         reduction: Reduction::Concat,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "grouped-expression",
@@ -1216,6 +1231,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[OperandAction::Alias(2)],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$prefix-expression.6",
@@ -1224,6 +1240,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$prefix-expression.6",
@@ -1232,6 +1249,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "$prefix-expression.5",
@@ -1246,6 +1264,7 @@ static PRODUCTIONS: &[Production] = &[
             },
         ],
         reduction: Reduction::Concat,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "prefix-expression",
@@ -1254,6 +1273,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[OperandAction::Alias(3)],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "name-expression",
@@ -1262,6 +1282,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[OperandAction::Field("name"), OperandAction::Alias(4)],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
     Production {
         lhs: "number-expression",
@@ -1270,6 +1291,7 @@ static PRODUCTIONS: &[Production] = &[
             actions: &[OperandAction::Field("value"), OperandAction::Alias(5)],
         }],
         reduction: Reduction::Pass,
+        dynamic_precedence: 0,
     },
 ];
 

@@ -45,22 +45,18 @@
                 (string-contains first
                  "LexicalExpr::Literals(&[\"+\", \"-\", \"*\""))
                => #t)))
-    (test-case "GQL lexical algebra reaches the explicit selective-GLR gate"
-      (let (message
-            (with-catch
-             (lambda (condition) (error-message condition))
-             (lambda ()
-               (rust-rowan-module-source
-                "gql"
-                "edition-1-2024-04"
-                +gql-syntax-contract+
-                (parser-machine-grammar-digest gql-iso-parser)
-                gql-iso-parser-ir)
-               #f)))
-        (check (and message
-                    (string-contains
-                     message
-                     "does not admit GLR fork actions"))
+    (test-case "GQL lowers its lexical algebra and selective-GLR tables"
+      (let (source
+            (rust-rowan-module-source
+             "gql"
+             "edition-1-2024-04"
+             +gql-syntax-contract+
+             (parser-machine-grammar-digest gql-iso-parser)
+             gql-iso-parser-ir))
+        (check (and (string-contains source "LexicalExpr::NumberLiteral")
+                    (string-contains source "LexicalExpr::Choice")
+                    (string-contains source "ParserAction::Fork(&[")
+                    (string-contains source "dynamic_precedence:"))
                => #t)))
     (test-case "the language descriptor is the complete generation input"
       (let (path (make-temporary-file-name "gerbil-parser-rowan"))

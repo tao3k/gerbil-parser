@@ -29,18 +29,22 @@ lossless Rowan green-tree construction, diagnostics, and source/grammar-bound
 receipt.  Generated modules are ordinary Cargo source artifacts; downstream
 parse requests do not initialize Gambit and do not interpret Scheme.
 
-The initial admitted product is the arithmetic v1 reference grammar.  It
-closes deterministic LALR execution, the closed native lexical algebra,
-precedence, trivia-preserving byte roundtrip, and fail-closed rejection.
-Pinned external scanners, selective GLR, generated field accessors, and the
-full GQL and Cypher language products remain explicit admission gates;
-directory presence does not claim those contracts.
+The arithmetic v1 reference grammar and ISO/IEC 39075:2024 GQL are generated
+products.  The generic runtime closes deterministic LALR and bounded
+selective-GLR execution, the closed native lexical algebra, dynamic precedence,
+equivalent-completion merging, trivia-preserving byte roundtrip, and
+fail-closed ambiguity rejection.  The pinned 14-source OpenGQL corpus is the
+first GQL admission gate.  Pinned external scanners, recovery parity,
+generated field accessors, and wider differential corpora remain explicit
+downstream-cutover gates; directory presence alone does not claim them.
 
 After building the Gerbil package, regenerate and verify the committed module:
 
 #+begin_src sh
 gerbil env gxi generate-rust-rowan.ss \
   rust/gerbil-parser-rowan/src/generated/arithmetic_v1.rs
+gerbil env gxi generate-gql-rust-rowan.ss \
+  rust/gerbil-parser-rowan/src/generated/gql_iso_39075_2024.rs
 cargo fmt --all
 cargo test --workspace --locked
 #+end_src

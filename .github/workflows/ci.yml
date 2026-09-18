@@ -176,10 +176,13 @@ jobs:
 
       - name: Verify Rust/Rowan AOT generation is current
         run: |
-          generated="$(mktemp)"
-          gerbil env gxi generate-rust-rowan.ss "$generated"
-          rustfmt --edition 2024 "$generated"
-          cmp "$generated" rust/gerbil-parser-rowan/src/generated/arithmetic_v1.rs
+          arithmetic_generated="$(mktemp)"
+          gql_generated="$(mktemp)"
+          gerbil env gxi generate-rust-rowan.ss "$arithmetic_generated"
+          gerbil env gxi generate-gql-rust-rowan.ss "$gql_generated"
+          rustfmt --edition 2024 "$arithmetic_generated" "$gql_generated"
+          cmp "$arithmetic_generated" rust/gerbil-parser-rowan/src/generated/arithmetic_v1.rs
+          cmp "$gql_generated" rust/gerbil-parser-rowan/src/generated/gql_iso_39075_2024.rs
 
       - name: Verify native command
         run: |

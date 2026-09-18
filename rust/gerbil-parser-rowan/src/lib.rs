@@ -80,6 +80,7 @@ pub enum ParserAction {
     Reduce(u32),
     Accept,
     RejectNonAssoc,
+    Fork(&'static [ParserAction]),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -123,6 +124,7 @@ pub struct Production {
     pub lhs: &'static str,
     pub rhs: &'static [Operand],
     pub reduction: Reduction,
+    pub dynamic_precedence: i32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -172,6 +174,19 @@ pub struct ParseReceipt {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SelectiveGlrReceipt {
+    pub branch_budget: usize,
+    pub branches_explored: usize,
+    pub speculative_branches_explored: usize,
+    pub max_speculative_depth: usize,
+    pub merged_branches: usize,
+    pub successful_completions: usize,
+    pub distinct_completions: usize,
+    pub winner_reason: &'static str,
+    pub dynamic_score: i32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Diagnostic {
     pub reason_kind: &'static str,
     pub byte_offset: usize,
@@ -183,6 +198,7 @@ pub struct Parse {
     green: GreenNode,
     kinds: Arc<[KindSpec]>,
     receipt: ParseReceipt,
+    selective_glr: SelectiveGlrReceipt,
 }
 
 impl Parse {
@@ -197,6 +213,11 @@ impl Parse {
     }
 
     #[must_use]
+    pub fn selective_glr_receipt(&self) -> &SelectiveGlrReceipt {
+        &self.selective_glr
+    }
+
+    #[must_use]
     pub fn kind_name(&self, kind: SyntaxKind) -> Option<&str> {
         self.kinds.get(usize::from(kind.0)).map(|kind| kind.name)
     }
@@ -206,6 +227,13 @@ impl Parse {
 pub struct ParseError {
     pub receipt: ParseReceipt,
     pub diagnostic: Box<Diagnostic>,
+    pub selective_glr: Option<Box<SelectiveGlrReceipt>>,
+}
+
+#[derive(Clone, Debug)]
+struct ParserFailure {
+    diagnostic: Diagnostic,
+    selective_glr: Option<Box<SelectiveGlrReceipt>>,
 }
 
 #[derive(Clone, Debug)]
@@ -218,13 +246,13 @@ struct Token<'source> {
     extra: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct Child {
     field: Option<&'static str>,
     value: Value,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum Value {
     Token(usize),
     Node {
@@ -274,14 +302,17 @@ pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseEr
             byte_offset: 0,
             message,
         }),
+        selective_glr: None,
     })?;
     let tokens = lex(spec, source).map_err(|diagnostic| ParseError {
         receipt: receipt.clone(),
         diagnostic: Box::new(diagnostic),
+        selective_glr: None,
     })?;
-    let root = parse_tokens(spec, &tokens).map_err(|diagnostic| ParseError {
+    let (root, selective_glr) = parse_tokens(spec, &tokens).map_err(|failure| ParseError {
         receipt: receipt.clone(),
-        diagnostic: Box::new(diagnostic),
+        diagnostic: Box::new(failure.diagnostic),
+        selective_glr: failure.selective_glr,
     })?;
     let green = build_green(spec, source, &tokens, &root).map_err(|message| ParseError {
         receipt: receipt.clone(),
@@ -290,11 +321,13 @@ pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseEr
             byte_offset: 0,
             message,
         }),
+        selective_glr: None,
     })?;
     Ok(Parse {
         green,
         kinds: Arc::from(spec.kinds),
         receipt,
+        selective_glr,
     })
 }
 
@@ -359,17 +392,7 @@ fn validate_spec(spec: &LanguageSpec) -> Result<(), String> {
     let state_count = spec.actions.len();
     for row in spec.actions {
         for entry in *row {
-            match entry.action {
-                ParserAction::Shift(state) if state as usize >= state_count => {
-                    return Err(format!("shift targets unknown state {state}"));
-                }
-                ParserAction::Reduce(production)
-                    if production as usize >= spec.productions.len() =>
-                {
-                    return Err(format!("reduce references unknown production {production}"));
-                }
-                _ => {}
-            }
+            validate_parser_action(&entry.action, state_count, spec.productions.len())?;
         }
     }
     for row in spec.gotos {
@@ -394,6 +417,29 @@ fn validate_spec(spec: &LanguageSpec) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn validate_parser_action(
+    action: &ParserAction,
+    state_count: usize,
+    production_count: usize,
+) -> Result<(), String> {
+    match action {
+        ParserAction::Shift(state) if *state as usize >= state_count => {
+            Err(format!("shift targets unknown state {state}"))
+        }
+        ParserAction::Reduce(production) if *production as usize >= production_count => {
+            Err(format!("reduce references unknown production {production}"))
+        }
+        ParserAction::Fork([]) => Err("selective-GLR fork has no branches".into()),
+        ParserAction::Fork(branches) => {
+            for branch in *branches {
+                validate_parser_action(branch, state_count, production_count)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
 }
 
 fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
@@ -811,83 +857,170 @@ fn consume_while(source: &str, offset: usize, predicate: impl Fn(char) -> bool) 
     (end > offset).then_some(end)
 }
 
-fn parse_tokens(spec: &LanguageSpec, tokens: &[Token<'_>]) -> Result<Value, Diagnostic> {
+const SELECTIVE_GLR_BRANCH_BUDGET: usize = 256;
+
+#[derive(Clone, Debug)]
+struct ParserConfiguration {
+    states: Vec<u32>,
+    values: Vec<Value>,
+    cursor: usize,
+    score: i32,
+}
+
+#[derive(Clone, Debug)]
+struct ParseCandidate {
+    value: Value,
+    cursor: usize,
+    score: i32,
+    ambiguities: usize,
+    winner_reason: &'static str,
+}
+
+#[derive(Debug, Default)]
+struct GlrContext {
+    branches_explored: usize,
+    speculative_branches_explored: usize,
+    max_speculative_depth: usize,
+    merged_branches: usize,
+    successful_completions: usize,
+    distinct_completions: Vec<Value>,
+    best_failure: Option<Diagnostic>,
+}
+
+fn parse_tokens(
+    spec: &LanguageSpec,
+    tokens: &[Token<'_>],
+) -> Result<(Value, SelectiveGlrReceipt), ParserFailure> {
     let significant = tokens
         .iter()
         .enumerate()
         .filter_map(|(index, token)| (!token.extra).then_some(index))
         .collect::<Vec<_>>();
-    let mut states = vec![0_u32];
-    let mut values = Vec::new();
-    let mut cursor = 0;
+    let mut context = GlrContext::default();
+    let candidate = match run_configuration(
+        spec,
+        tokens,
+        &significant,
+        ParserConfiguration {
+            states: vec![0],
+            values: Vec::new(),
+            cursor: 0,
+            score: 0,
+        },
+        0,
+        &mut context,
+    ) {
+        Ok(candidate) => candidate,
+        Err(diagnostic) => {
+            let selective_glr = (context.branches_explored > 0)
+                .then(|| Box::new(selective_glr_receipt(&context, "no-completion", 0)));
+            return Err(ParserFailure {
+                diagnostic,
+                selective_glr,
+            });
+        }
+    };
+    if candidate.ambiguities > 0 {
+        return Err(ParserFailure {
+            diagnostic: Diagnostic {
+                reason_kind: "selective-glr-ambiguity",
+                byte_offset: tokens.last().map_or(0, |token| token.end),
+                message: format!(
+                    "{} equal-score selective-GLR alternatives remain distinct",
+                    candidate.ambiguities + 1
+                ),
+            },
+            selective_glr: Some(Box::new(selective_glr_receipt(
+                &context,
+                "ambiguous",
+                candidate.score,
+            ))),
+        });
+    }
+    let receipt = selective_glr_receipt(&context, candidate.winner_reason, candidate.score);
+    Ok((candidate.value, receipt))
+}
+
+fn selective_glr_receipt(
+    context: &GlrContext,
+    winner_reason: &'static str,
+    dynamic_score: i32,
+) -> SelectiveGlrReceipt {
+    SelectiveGlrReceipt {
+        branch_budget: SELECTIVE_GLR_BRANCH_BUDGET,
+        branches_explored: context.branches_explored,
+        speculative_branches_explored: context.speculative_branches_explored,
+        max_speculative_depth: context.max_speculative_depth,
+        merged_branches: context.merged_branches,
+        successful_completions: context.successful_completions,
+        distinct_completions: context.distinct_completions.len(),
+        winner_reason,
+        dynamic_score,
+    }
+}
+
+fn run_configuration(
+    spec: &LanguageSpec,
+    tokens: &[Token<'_>],
+    significant: &[usize],
+    mut configuration: ParserConfiguration,
+    speculative_depth: usize,
+    context: &mut GlrContext,
+) -> Result<ParseCandidate, Diagnostic> {
     loop {
-        let state = *states.last().expect("LR state stack is never empty");
-        let token = significant.get(cursor).map(|index| &tokens[*index]);
-        let action = find_action(spec, state, token).ok_or_else(|| Diagnostic {
-            reason_kind: "parse-rejected",
-            byte_offset: token
-                .map_or_else(|| tokens.last().map_or(0, |last| last.end), |t| t.start),
-            message: format!("no LR action in state {state}"),
-        })?;
+        let state = *configuration
+            .states
+            .last()
+            .expect("LR state stack is never empty");
+        let token = significant
+            .get(configuration.cursor)
+            .map(|index| &tokens[*index]);
+        let Some(action) = find_action(spec, state, token) else {
+            let diagnostic = Diagnostic {
+                reason_kind: "parse-rejected",
+                byte_offset: token
+                    .map_or_else(|| tokens.last().map_or(0, |last| last.end), |t| t.start),
+                message: format!("no LR action in state {state}"),
+            };
+            record_failure(context, &diagnostic);
+            return Err(diagnostic);
+        };
         match action {
             ParserAction::Shift(next) => {
-                let Some(&token_index) = significant.get(cursor) else {
+                let Some(&token_index) = significant.get(configuration.cursor) else {
                     return Err(Diagnostic {
                         reason_kind: "invalid-aot-artifact",
                         byte_offset: tokens.last().map_or(0, |token| token.end),
                         message: "generated LR table shifts EOF".into(),
                     });
                 };
-                states.push(next);
-                values.push(Value::Token(token_index));
-                cursor += 1;
+                configuration.states.push(next);
+                configuration.values.push(Value::Token(token_index));
+                configuration.cursor += 1;
             }
             ParserAction::Reduce(production_id) => {
-                let production = spec
-                    .productions
-                    .get(production_id as usize)
-                    .ok_or_else(|| Diagnostic {
-                        reason_kind: "invalid-aot-artifact",
-                        byte_offset: token.map_or(0, |token| token.start),
-                        message: format!("unknown production {production_id}"),
-                    })?;
-                let count = production.rhs.len();
-                if states.len() <= count || values.len() < count {
-                    return Err(Diagnostic {
-                        reason_kind: "invalid-aot-artifact",
-                        byte_offset: token.map_or(0, |token| token.start),
-                        message: format!("production {production_id} underflows the LR stack"),
-                    });
-                }
-                states.truncate(states.len() - count);
-                let reduced_from = values.split_off(values.len() - count);
-                let fallback = token.map_or_else(
-                    || tokens.last().map_or(0, |last| last.end),
-                    |lookahead| lookahead.start,
-                );
-                let reduced = reduce(production, reduced_from, tokens, fallback);
-                let owner = *states.last().expect("LR owner state exists");
-                let next = spec.gotos[owner as usize]
-                    .iter()
-                    .find(|entry| entry.nonterminal == production.lhs)
-                    .map(|entry| entry.state)
-                    .ok_or_else(|| Diagnostic {
-                        reason_kind: "invalid-aot-artifact",
-                        byte_offset: fallback,
-                        message: format!("missing goto for {} from state {owner}", production.lhs),
-                    })?;
-                states.push(next);
-                values.push(reduced);
+                apply_reduce(spec, tokens, token, &mut configuration, production_id)?;
             }
             ParserAction::Accept => {
-                if cursor != significant.len() || values.len() != 1 {
+                if configuration.cursor != significant.len() || configuration.values.len() != 1 {
                     return Err(Diagnostic {
                         reason_kind: "invalid-aot-artifact",
                         byte_offset: token.map_or(0, |token| token.start),
                         message: "generated accept action did not cover one complete root".into(),
                     });
                 }
-                return Ok(values.pop().expect("one accepted semantic value"));
+                let value = configuration
+                    .values
+                    .pop()
+                    .expect("one accepted semantic value");
+                record_completion(context, &value);
+                return Ok(ParseCandidate {
+                    value,
+                    cursor: configuration.cursor,
+                    score: configuration.score,
+                    ambiguities: 0,
+                    winner_reason: "unique-completion",
+                });
             }
             ParserAction::RejectNonAssoc => {
                 return Err(Diagnostic {
@@ -896,8 +1029,282 @@ fn parse_tokens(spec: &LanguageSpec, tokens: &[Token<'_>]) -> Result<Value, Diag
                     message: "non-associative operator chain rejected".into(),
                 });
             }
+            ParserAction::Fork(branches) => {
+                return explore_fork(
+                    spec,
+                    tokens,
+                    significant,
+                    configuration,
+                    branches,
+                    speculative_depth,
+                    context,
+                );
+            }
         }
     }
+}
+
+fn apply_reduce(
+    spec: &LanguageSpec,
+    tokens: &[Token<'_>],
+    token: Option<&Token<'_>>,
+    configuration: &mut ParserConfiguration,
+    production_id: u32,
+) -> Result<(), Diagnostic> {
+    let production = spec
+        .productions
+        .get(production_id as usize)
+        .ok_or_else(|| Diagnostic {
+            reason_kind: "invalid-aot-artifact",
+            byte_offset: token.map_or(0, |token| token.start),
+            message: format!("unknown production {production_id}"),
+        })?;
+    let count = production.rhs.len();
+    if configuration.states.len() <= count || configuration.values.len() < count {
+        return Err(Diagnostic {
+            reason_kind: "invalid-aot-artifact",
+            byte_offset: token.map_or(0, |token| token.start),
+            message: format!("production {production_id} underflows the LR stack"),
+        });
+    }
+    configuration
+        .states
+        .truncate(configuration.states.len() - count);
+    let reduced_from = configuration
+        .values
+        .split_off(configuration.values.len() - count);
+    let fallback = token.map_or_else(
+        || tokens.last().map_or(0, |last| last.end),
+        |lookahead| lookahead.start,
+    );
+    let reduced = reduce(production, reduced_from, tokens, fallback);
+    let owner = *configuration.states.last().expect("LR owner state exists");
+    let next = spec.gotos[owner as usize]
+        .iter()
+        .find(|entry| entry.nonterminal == production.lhs)
+        .map(|entry| entry.state)
+        .ok_or_else(|| Diagnostic {
+            reason_kind: "invalid-aot-artifact",
+            byte_offset: fallback,
+            message: format!("missing goto for {} from state {owner}", production.lhs),
+        })?;
+    configuration.states.push(next);
+    configuration.values.push(reduced);
+    configuration.score += production.dynamic_precedence;
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn explore_fork(
+    spec: &LanguageSpec,
+    tokens: &[Token<'_>],
+    significant: &[usize],
+    configuration: ParserConfiguration,
+    branches: &[ParserAction],
+    speculative_depth: usize,
+    context: &mut GlrContext,
+) -> Result<ParseCandidate, Diagnostic> {
+    let mut best = None;
+    for (index, branch) in branches.iter().enumerate() {
+        context.branches_explored += 1;
+        let branch_depth = speculative_depth + usize::from(index > 0);
+        if index > 0 {
+            context.speculative_branches_explored += 1;
+            context.max_speculative_depth = context.max_speculative_depth.max(branch_depth);
+        }
+        if branch_depth > SELECTIVE_GLR_BRANCH_BUDGET {
+            return Err(Diagnostic {
+                reason_kind: "selective-glr-budget-exhausted",
+                byte_offset: current_offset(tokens, significant, configuration.cursor),
+                message: format!(
+                    "selective-GLR speculative depth exceeds {}",
+                    SELECTIVE_GLR_BRANCH_BUDGET
+                ),
+            });
+        }
+        match execute_branch_action(
+            spec,
+            tokens,
+            significant,
+            configuration.clone(),
+            *branch,
+            branch_depth,
+            context,
+        ) {
+            Ok(candidate) => best = Some(better_candidate(best, candidate, context)),
+            Err(diagnostic)
+                if matches!(
+                    diagnostic.reason_kind,
+                    "invalid-aot-artifact" | "selective-glr-budget-exhausted"
+                ) =>
+            {
+                return Err(diagnostic);
+            }
+            Err(diagnostic) => record_failure(context, &diagnostic),
+        }
+    }
+    best.ok_or_else(|| {
+        context.best_failure.clone().unwrap_or_else(|| Diagnostic {
+            reason_kind: "parse-rejected",
+            byte_offset: current_offset(tokens, significant, configuration.cursor),
+            message: "no selective-GLR branch completed".into(),
+        })
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_branch_action(
+    spec: &LanguageSpec,
+    tokens: &[Token<'_>],
+    significant: &[usize],
+    mut configuration: ParserConfiguration,
+    action: ParserAction,
+    speculative_depth: usize,
+    context: &mut GlrContext,
+) -> Result<ParseCandidate, Diagnostic> {
+    let token = significant
+        .get(configuration.cursor)
+        .map(|index| &tokens[*index]);
+    match action {
+        ParserAction::Shift(next) => {
+            let Some(&token_index) = significant.get(configuration.cursor) else {
+                return Err(Diagnostic {
+                    reason_kind: "invalid-aot-artifact",
+                    byte_offset: tokens.last().map_or(0, |token| token.end),
+                    message: "generated LR table shifts EOF".into(),
+                });
+            };
+            configuration.states.push(next);
+            configuration.values.push(Value::Token(token_index));
+            configuration.cursor += 1;
+            run_configuration(
+                spec,
+                tokens,
+                significant,
+                configuration,
+                speculative_depth,
+                context,
+            )
+        }
+        ParserAction::Reduce(production) => {
+            apply_reduce(spec, tokens, token, &mut configuration, production)?;
+            run_configuration(
+                spec,
+                tokens,
+                significant,
+                configuration,
+                speculative_depth,
+                context,
+            )
+        }
+        ParserAction::Accept => {
+            if configuration.cursor != significant.len() || configuration.values.len() != 1 {
+                return Err(Diagnostic {
+                    reason_kind: "invalid-aot-artifact",
+                    byte_offset: current_offset(tokens, significant, configuration.cursor),
+                    message: "generated accept action did not cover one complete root".into(),
+                });
+            }
+            let value = configuration
+                .values
+                .pop()
+                .expect("one accepted semantic value");
+            record_completion(context, &value);
+            Ok(ParseCandidate {
+                value,
+                cursor: configuration.cursor,
+                score: configuration.score,
+                ambiguities: 0,
+                winner_reason: "unique-completion",
+            })
+        }
+        ParserAction::RejectNonAssoc => Err(Diagnostic {
+            reason_kind: "parse-rejected",
+            byte_offset: current_offset(tokens, significant, configuration.cursor),
+            message: "non-associative operator chain rejected".into(),
+        }),
+        ParserAction::Fork(branches) => explore_fork(
+            spec,
+            tokens,
+            significant,
+            configuration,
+            branches,
+            speculative_depth,
+            context,
+        ),
+    }
+}
+
+fn better_candidate(
+    current: Option<ParseCandidate>,
+    candidate: ParseCandidate,
+    context: &mut GlrContext,
+) -> ParseCandidate {
+    let Some(mut current) = current else {
+        return candidate;
+    };
+    if candidate.score > current.score {
+        return ParseCandidate {
+            winner_reason: "dynamic-precedence",
+            ..candidate
+        };
+    }
+    if candidate.score < current.score {
+        current.winner_reason = "dynamic-precedence";
+        return current;
+    }
+    if candidate.cursor > current.cursor {
+        return ParseCandidate {
+            winner_reason: "maximal-consumption",
+            ..candidate
+        };
+    }
+    if candidate.cursor < current.cursor {
+        current.winner_reason = "maximal-consumption";
+        return current;
+    }
+    if candidate.value == current.value {
+        context.merged_branches += 1;
+        current.ambiguities += candidate.ambiguities;
+        current.winner_reason = if current.ambiguities == 0 {
+            "equivalent-merge"
+        } else {
+            "ambiguous"
+        };
+        current
+    } else {
+        current.ambiguities += candidate.ambiguities + 1;
+        current.winner_reason = "ambiguous";
+        current
+    }
+}
+
+fn record_completion(context: &mut GlrContext, value: &Value) {
+    context.successful_completions += 1;
+    if !context
+        .distinct_completions
+        .iter()
+        .any(|completion| completion == value)
+    {
+        context.distinct_completions.push(value.clone());
+    }
+}
+
+fn record_failure(context: &mut GlrContext, diagnostic: &Diagnostic) {
+    if context
+        .best_failure
+        .as_ref()
+        .is_none_or(|current| diagnostic.byte_offset > current.byte_offset)
+    {
+        context.best_failure = Some(diagnostic.clone());
+    }
+}
+
+fn current_offset(tokens: &[Token<'_>], significant: &[usize], cursor: usize) -> usize {
+    significant.get(cursor).map_or_else(
+        || tokens.last().map_or(0, |token| token.end),
+        |index| tokens[*index].start,
+    )
 }
 
 fn find_action(spec: &LanguageSpec, state: u32, token: Option<&Token<'_>>) -> Option<ParserAction> {
@@ -1092,5 +1499,196 @@ mod lexical_tests {
             lexical_end(&LexicalExpr::Heredoc, "<<EOF\nvalue\nEOF", 0),
             Some(15)
         );
+    }
+}
+
+#[cfg(test)]
+mod selective_glr_tests {
+    use super::*;
+
+    const DIGEST: &str = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+    static KINDS: &[KindSpec] = &[
+        KindSpec {
+            name: "RootA",
+            category: KindCategory::Node,
+        },
+        KindSpec {
+            name: "RootB",
+            category: KindCategory::Node,
+        },
+        KindSpec {
+            name: "Identifier",
+            category: KindCategory::Token,
+        },
+    ];
+    static TERMINALS: &[TerminalSpec] = &[TerminalSpec {
+        name: "identifier",
+        syntax_kind: 2,
+    }];
+    static LEXICAL_RULES: &[LexicalRule] = &[LexicalRule {
+        terminal: "identifier",
+        expression: LexicalExpr::Identifier,
+        precedence: 0,
+        extra: false,
+    }];
+    static ACTION_0: &[ActionEntry] = &[ActionEntry {
+        terminal: Terminal::Token("identifier"),
+        action: ParserAction::Shift(1),
+    }];
+    static ACTION_1: &[ActionEntry] = &[ActionEntry {
+        terminal: Terminal::Eof,
+        action: ParserAction::Fork(&[ParserAction::Reduce(3), ParserAction::Reduce(4)]),
+    }];
+    static ACTION_2: &[ActionEntry] = &[ActionEntry {
+        terminal: Terminal::Eof,
+        action: ParserAction::Reduce(1),
+    }];
+    static ACTION_3: &[ActionEntry] = &[ActionEntry {
+        terminal: Terminal::Eof,
+        action: ParserAction::Reduce(2),
+    }];
+    static ACTION_4: &[ActionEntry] = &[ActionEntry {
+        terminal: Terminal::Eof,
+        action: ParserAction::Accept,
+    }];
+    static ACTIONS: &[&[ActionEntry]] = &[ACTION_0, ACTION_1, ACTION_2, ACTION_3, ACTION_4];
+    static GOTO_0: &[GotoEntry] = &[
+        GotoEntry {
+            nonterminal: "A",
+            state: 2,
+        },
+        GotoEntry {
+            nonterminal: "B",
+            state: 3,
+        },
+        GotoEntry {
+            nonterminal: "S",
+            state: 4,
+        },
+    ];
+    static GOTOS: &[&[GotoEntry]] = &[GOTO_0, &[], &[], &[], &[]];
+    static AUGMENTED_RHS: &[Operand] = &[Operand {
+        symbol: Symbol::Nonterminal("S"),
+        actions: &[],
+    }];
+    static S_A_RHS: &[Operand] = &[Operand {
+        symbol: Symbol::Nonterminal("A"),
+        actions: &[],
+    }];
+    static S_B_RHS: &[Operand] = &[Operand {
+        symbol: Symbol::Nonterminal("B"),
+        actions: &[],
+    }];
+    static A_RHS: &[Operand] = &[Operand {
+        symbol: Symbol::Terminal(Terminal::Token("identifier")),
+        actions: &[OperandAction::Alias(0)],
+    }];
+    static B_EQUIVALENT_RHS: &[Operand] = &[Operand {
+        symbol: Symbol::Terminal(Terminal::Token("identifier")),
+        actions: &[OperandAction::Alias(0)],
+    }];
+    static B_DISTINCT_RHS: &[Operand] = &[Operand {
+        symbol: Symbol::Terminal(Terminal::Token("identifier")),
+        actions: &[OperandAction::Alias(1)],
+    }];
+
+    macro_rules! productions {
+        ($name:ident, $b_rhs:ident, $a_score:expr, $b_score:expr) => {
+            static $name: &[Production] = &[
+                Production {
+                    lhs: "$accept",
+                    rhs: AUGMENTED_RHS,
+                    reduction: Reduction::Pass,
+                    dynamic_precedence: 0,
+                },
+                Production {
+                    lhs: "S",
+                    rhs: S_A_RHS,
+                    reduction: Reduction::Pass,
+                    dynamic_precedence: 0,
+                },
+                Production {
+                    lhs: "S",
+                    rhs: S_B_RHS,
+                    reduction: Reduction::Pass,
+                    dynamic_precedence: 0,
+                },
+                Production {
+                    lhs: "A",
+                    rhs: A_RHS,
+                    reduction: Reduction::Pass,
+                    dynamic_precedence: $a_score,
+                },
+                Production {
+                    lhs: "B",
+                    rhs: $b_rhs,
+                    reduction: Reduction::Pass,
+                    dynamic_precedence: $b_score,
+                },
+            ];
+        };
+    }
+
+    productions!(EQUIVALENT_PRODUCTIONS, B_EQUIVALENT_RHS, 0, 0);
+    productions!(DYNAMIC_PRODUCTIONS, B_DISTINCT_RHS, 1, 2);
+    productions!(DISTINCT_PRODUCTIONS, B_DISTINCT_RHS, 0, 0);
+
+    const BASE_LANGUAGE: LanguageSpec = LanguageSpec {
+        language: "selective-glr-test",
+        version: "v1",
+        contract: "selective-glr-test.v1",
+        grammar_digest: DIGEST,
+        case_insensitive: false,
+        root_kind: 0,
+        kinds: KINDS,
+        terminals: TERMINALS,
+        lexical_rules: LEXICAL_RULES,
+        actions: ACTIONS,
+        gotos: GOTOS,
+        productions: EQUIVALENT_PRODUCTIONS,
+    };
+    static EQUIVALENT_LANGUAGE: LanguageSpec = BASE_LANGUAGE;
+    static DYNAMIC_LANGUAGE: LanguageSpec = LanguageSpec {
+        root_kind: 1,
+        productions: DYNAMIC_PRODUCTIONS,
+        ..BASE_LANGUAGE
+    };
+    static DISTINCT_LANGUAGE: LanguageSpec = LanguageSpec {
+        productions: DISTINCT_PRODUCTIONS,
+        ..BASE_LANGUAGE
+    };
+
+    #[test]
+    fn equivalent_forks_merge_with_a_complete_receipt() {
+        let parsed = parse(&EQUIVALENT_LANGUAGE, "x").expect("equivalent fork");
+        assert_eq!(parsed.kind_name(parsed.syntax().kind()), Some("RootA"));
+        let receipt = parsed.selective_glr_receipt();
+        assert_eq!(receipt.branches_explored, 2);
+        assert_eq!(receipt.speculative_branches_explored, 1);
+        assert_eq!(receipt.merged_branches, 1);
+        assert_eq!(receipt.successful_completions, 2);
+        assert_eq!(receipt.distinct_completions, 1);
+        assert_eq!(receipt.winner_reason, "equivalent-merge");
+    }
+
+    #[test]
+    fn dynamic_precedence_selects_the_highest_complete_branch() {
+        let parsed = parse(&DYNAMIC_LANGUAGE, "x").expect("ranked fork");
+        assert_eq!(parsed.kind_name(parsed.syntax().kind()), Some("RootB"));
+        let receipt = parsed.selective_glr_receipt();
+        assert_eq!(receipt.successful_completions, 2);
+        assert_eq!(receipt.distinct_completions, 2);
+        assert_eq!(receipt.winner_reason, "dynamic-precedence");
+        assert_eq!(receipt.dynamic_score, 2);
+    }
+
+    #[test]
+    fn equal_score_distinct_forks_fail_closed() {
+        let error = parse(&DISTINCT_LANGUAGE, "x").expect_err("ambiguous fork");
+        assert_eq!(error.diagnostic.reason_kind, "selective-glr-ambiguity");
+        let receipt = error.selective_glr.expect("ambiguity evidence");
+        assert_eq!(receipt.successful_completions, 2);
+        assert_eq!(receipt.distinct_completions, 2);
+        assert_eq!(receipt.winner_reason, "ambiguous");
     }
 }

@@ -57,7 +57,16 @@ profiled numbers, identifiers, quoted strings, heredocs, line and block
 comments, ordered choice, literals, precedence projection, and fallback.  It
 executes deterministic LALR actions, applies generated field and alias
 reductions, preserves trivia, constructs one balanced root, and verifies that
-the Rowan tree reproduces the exact source.
+the Rowan tree reproduces the exact source.  Selective-GLR forks enumerate all
+admitted actions within a bounded speculative-depth budget.  Complete branches
+are ranked by dynamic precedence and maximal consumption; equivalent CSTs
+merge, while distinct equal-score CSTs fail with a typed ambiguity diagnostic.
+The parse publishes a request-local =SelectiveGlrReceipt= for those decisions.
+
+The generated ISO/IEC 39075:2024 GQL module is compiled as ordinary Rust and
+must losslessly accept the pinned 14-source OpenGQL 1.9.0 corpus.  That corpus
+exercises real fork exploration and equivalent-completion merging; it is an
+admission floor, not yet the complete downstream cutover proof.
 
 The initial slice deliberately rejects unsupported generated features instead
 of silently interpreting them differently.  Before publishing GQL or Cypher,
@@ -65,7 +74,6 @@ the Rust backend must add and qualify:
 
 - pinned external scanners;
 - case-insensitive keyword behavior over the complete corpora;
-- selective GLR forks, dynamic precedence, ambiguity evidence, and budgets;
 - recovery behavior and diagnostic parity;
 - generated typed node and field accessors;
 - exact Scheme/Rust acceptance, rejection, CST-shape, roundtrip, and receipt

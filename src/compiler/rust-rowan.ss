@@ -55,8 +55,13 @@
     ((accept) (display "ParserAction::Accept" port))
     ((reject-nonassoc) (display "ParserAction::RejectNonAssoc" port))
     ((fork)
-     (error "Rust/Rowan deterministic v1 does not admit GLR fork actions"
-            action))
+     (display "ParserAction::Fork(&[" port)
+     (let loop ((rest (cdr action)))
+       (unless (null? rest)
+         (emit-parser-action port (car rest))
+         (unless (null? (cdr rest)) (display ", " port))
+         (loop (cdr rest))))
+     (display "])" port))
     (else (error "unsupported Rust/Rowan parser action" action))))
 
 (def (emit-action-rows port rows)
@@ -169,6 +174,12 @@
     ((concat) (display "Reduction::Concat" port))
     (else (error "unsupported Rust/Rowan reduction"
                  (cadddr production))))
+  (display ", dynamic_precedence: " port)
+  (let (precedence (car (cddddr production)))
+    (display (if (and precedence (eq? (car precedence) 'dynamic))
+               (cadr precedence)
+               0)
+             port))
   (display " },\n" port))
 
 (def (emit-rust-string-slice port values)

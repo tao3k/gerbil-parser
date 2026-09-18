@@ -28,6 +28,9 @@ for required_directory in "$project_lib" "$gerbil_lib"; do
   fi
 done
 
+project_lib=$(cd "$project_lib" && pwd -P)
+gerbil_lib=$(cd "$gerbil_lib" && pwd -P)
+
 if [[ -e "$output" ]]; then
   echo "output already exists: $output" >&2
   exit 73

@@ -6,7 +6,8 @@
         (only-in :asp-gerbil-scheme/testing-api
                  +asp-testing-interface+
                  +testing-discovery-profile+
-                 testing-interface-add-profile
+                 testing-interface-add-profile)
+        (only-in :asp-gerbil-scheme/testing-runner-api
                  init-profiled-test-environment!))
 
 (def +gerbil-parser-testing-interface+

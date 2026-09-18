@@ -181,6 +181,9 @@ jobs:
         run: |
           gerbil clean
           gerbil build
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Wno-unused-command-line-argument -fsyntax-only \
+            -Iinclude t/native-ffi-header-smoke.c
 
       - name: Build optional native command
         run: gerbil env gxi build-gparse.ss compile

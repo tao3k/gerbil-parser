@@ -74,6 +74,16 @@ without Gerbil, Python, a subprocess, or a runtime grammar interpreter.  Gerbil
 is the AOT grammar/compiler authority; Cargo consumers depend only on the Rust
 engine and their generated module.
 
+Rust-driven authoring uses the same authority through the dedicated build-only
+=gerbil_parser_rowan_compile= ABI. Build Support passes a =grammar.ss= path to
+the precompiled Gerbil generator, receives the existing Rust/Rowan backend
+output as owned bytes, and writes it into Cargo's =OUT_DIR=. It does not parse
+Scheme or rebuild Grammar IR/LR tables in Rust, and the parse-time dependency
+still contains only the Rowan engine plus generated tables. The generator is a
+separate native product; the Cargo-only authoring claim remains open until that
+product and its already-materialized Gerbil/Gambit runtime can be distributed
+and linked on admitted Linux and macOS targets without a Gerbil installation.
+
 =t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
 Upstream generation CI verifies its Scheme source pack and checks the
@@ -108,8 +118,9 @@ Normal and build dependency graphs do not contain Build Support or ASP Rust.
 * Native command
 
 =build.ss= is the package AOT entry. It discovers and installs the reusable
-library and native FFI products without forcing downstream library consumers to
-compile a command they do not use. =build-gparse.ss= is the sibling first-party
+library, runtime ParseArtifact FFI, and build-only Rust/Rowan generator FFI as
+separate products without forcing downstream library consumers to compile a
+command they do not use. =build-gparse.ss= is the sibling first-party
 =defbuild-script= entry for the optional native =gparse= command; it adds no
 second command implementation or package scheduler.
 

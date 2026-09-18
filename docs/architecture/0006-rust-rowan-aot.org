@@ -25,8 +25,24 @@ language crates such as =gerbil-parser-rowan-gql=, so a custom DSL consumer
 does not compile unrelated upstream grammars. A parse request runs no Scheme,
 Gambit, subprocess, JSON decoder, or S-expression interpreter.
 
+Cargo-only custom generation crosses a narrow native ABI: build support passes
+the downstream =grammar.ss= path to =gerbil_parser_rowan_compile=.  The
+precompiled Scheme product loads that module through Gerbil's own expander,
+requires exactly one exported language descriptor, and returns the existing
+=compiler/rust-rowan.ss= output as owned bytes. Rust writes those bytes to
+=OUT_DIR=; it never reparses Scheme, implements Grammar IR, or constructs LR
+tables. The normal parse-time dependency remains =gerbil-parser-rowan= and
+does not link the generator.
+
+The native generator product must be distributed for every admitted target
+with its Gerbil/Gambit runtime and expansion metadata already materialized.
+Until a clean Cargo consumer can link that product on Linux and macOS without a
+Gerbil installation, the native ABI is an executable boundary but the
+Cargo-only authoring claim remains open.
+
 #+begin_src text
 grammar.ss
+  -> precompiled Gerbil expander FFI
   -> Grammar IR v1
   -> Parser IR v1 and grammar digest
   -> compiler/rust-rowan.ss

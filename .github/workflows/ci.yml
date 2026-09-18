@@ -190,6 +190,18 @@ jobs:
           gerbil env gxi build-gparse.ss compile
           gerbil env gxi build-rust-rowan-aot.ss compile
 
+      - name: Materialize standalone Rowan AOT bundle
+        run: |
+          fixture="$PWD/t/fixtures/rust-rowan-downstream"
+          bundle="$RUNNER_TEMP/gerbil-parser-rowan-aot-bundle"
+          build-support/materialize-rust-rowan-aot-bundle.sh \
+            "$PWD/.gerbil/bin/gerbil-parser-rowan-aot" \
+            "$PWD/.gerbil/lib" \
+            "$GERBIL_PREFIX/lib" \
+            "$fixture/languages/records/v1/grammar.ss" \
+            "$bundle"
+          cat "$bundle/receipt.v1"
+
       - name: Run the single native test entrypoint
         timeout-minutes: 15
         run: gerbil env ./unit-tests.ss
@@ -208,15 +220,22 @@ jobs:
         run: |
           fixture="t/fixtures/rust-rowan-downstream"
           generated="$(mktemp)"
+          clean_home="$RUNNER_TEMP/rowan-aot-home"
+          bundle="$RUNNER_TEMP/gerbil-parser-rowan-aot-bundle"
+          mkdir -p "$clean_home"
           gerbil env gxc \
             "$fixture/languages/records/v1/grammar.ss" \
             "$fixture/languages/records/v1/parser.ss" \
             "$fixture/languages/records/v1/fixtures.ss" \
             "$fixture/languages/records/v1/parser-test.ss"
           gerbil env gxi "$fixture/test.ss"
-          GERBIL_PATH="$PWD/.gerbil" \
-            .gerbil/bin/gerbil-parser-rowan-aot \
-            "$fixture/languages/records/v1/grammar.ss" "$generated"
+          env -i \
+            HOME="$clean_home" \
+            PATH=/usr/bin:/bin \
+            GERBIL_PARSER_ROWAN_AOT_LIB="$bundle/lib" \
+            "$bundle/bin/gerbil-parser-rowan-aot" \
+            "$fixture/languages/records/v1/grammar.ss" \
+            "$generated"
           rustfmt --edition 2024 "$generated"
           cmp "$generated" "$fixture/src/generated/records_v1.rs"
 

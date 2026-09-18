@@ -14,7 +14,11 @@
              (call-with-input-file "build-gparse.ss" read-all-as-string))
             (rowan-aot-source
              (call-with-input-file
-              "build-rust-rowan-aot.ss" read-all-as-string)))
+              "build-rust-rowan-aot.ss" read-all-as-string))
+            (rowan-aot-bundle-source
+             (call-with-input-file
+              "build-support/materialize-rust-rowan-aot-bundle.sh"
+              read-all-as-string)))
         (check (and (string-contains library-source
                                      "\"build-gparse.ss\"")
                     (string-contains library-source
@@ -47,6 +51,14 @@
                                      "src/ffi/rust-rowan-aot-main")
                     (string-contains rowan-aot-source
                                      "bin: \"gerbil-parser-rowan-aot\"")
+                    #t)
+               => #t)
+        (check (and (string-contains rowan-aot-bundle-source
+                                     "GERBIL_PARSER_ROWAN_AOT_TRACE_MODULES=1")
+                    (string-contains rowan-aot-bundle-source
+                                     "gsc -dynamic -o")
+                    (string-contains rowan-aot-bundle-source
+                                     "gerbil-parser.rowan-aot-bundle.v1")
                     #t)
                => #t)))))
 

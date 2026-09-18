@@ -46,8 +46,14 @@ downstream module and can replace the runtime load path with an explicit
 metadata bundle through =GERBIL_PARSER_ROWAN_AOT_LIB=. Its public authoring
 surface is the minimal =:gerbil-parser/rust-rowan-grammar-support= facade, so a
 direct custom grammar does not pull the source-import and fixture facades into
-its build product. Release admission still requires a minimized metadata
-bundle and removal or packaging of target-specific dynamic-library paths.
+its build product. The release materializer records the actually loaded phase
+objects, copies the SSI expansion metadata, and recompiles any numbered cached
+object to canonical =.o1= from its generated Scheme owner. CI then consumes the
+per-target product under =env -i=, with no Gerbil command on =PATH=. The current
+Darwin arm64 qualification produced roughly 55 MB; bundle size remains a
+runner-specific receipt rather than a universal budget claim.
+Release admission still requires removal or packaging of target-specific
+dynamic-library paths on macOS.
 
 #+begin_src text
 grammar.ss

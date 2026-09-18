@@ -92,6 +92,11 @@ and linked on admitted Linux and macOS targets without a Gerbil installation.
 The same owner is exposed as the =gerbil-parser-rowan-aot= executable for
 standalone bundle qualification; it initializes Gerbil's expander internally
 and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
+=build-support/materialize-rust-rowan-aot-bundle.sh= traces the exact dynamic
+phase-object closure, combines it with expansion metadata, canonicalizes stale
+numbered Gambit objects from their generated Scheme owner, and emits a receipt.
+The resulting bundle is accepted under =env -i= with only its =lib/= directory
+as =GERBIL_PARSER_ROWAN_AOT_LIB=; no Gerbil command is present on =PATH=.
 
 =t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
@@ -139,6 +144,11 @@ second command implementation or package scheduler.
 GERBIL_BUILD_CORES=12 gerbil build
 GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
 GERBIL_BUILD_CORES=12 gerbil env gxi build-rust-rowan-aot.ss compile
+build-support/materialize-rust-rowan-aot-bundle.sh \
+  .gerbil/bin/gerbil-parser-rowan-aot \
+  .gerbil/lib "$GERBIL_PREFIX/lib" \
+  languages/gql/iso-39075-2024/grammar.ss \
+  /tmp/gerbil-parser-rowan-aot-bundle
 gparse help
 gparse check "1 + 2 * value"
 #+end_src

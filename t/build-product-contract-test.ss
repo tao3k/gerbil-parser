@@ -7,7 +7,7 @@
         (only-in :std/test check run-tests! test-case test-suite)
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities)
-        (only-in ../build-rust-rowan-aot
+        (only-in :gerbil-parser/src/build-support/rust-rowan-aot
                  rust-rowan-aot-runtime-modules
                  rust-rowan-aot-package
                  rust-rowan-aot-build-spec))

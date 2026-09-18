@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Version-pinned HCL native syntax grammar owner.
 
-(import (only-in :gerbil-parser/language-support deflanguage))
+(import (only-in :gerbil-parser/language-support deflanguage-grammar))
 (export +hcl-native-syntax-version+
         +hcl-native-syntax-commit+
         +hcl-syntax-contract+

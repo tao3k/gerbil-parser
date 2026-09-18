@@ -23,12 +23,14 @@
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
   '("build-gparse.ss"
+    "build-rust-rowan-aot.ss"
     "generate-rust-rowan.ss"
     "generate-gql-rust-rowan.ss"
     "src/main.ss"
     "src/cli.ss"
     "src/ffi/parse-artifact-v1.ss"
     "src/ffi/rust-rowan-aot-v1.ss"
+    "src/ffi/rust-rowan-aot-main.ss"
     "languages/arithmetic/v1/parser-test.ss"
     "languages/cypher/opencypher-2024-1/parser-test.ss"
     "languages/gql/iso-39075-2024/parser-test.ss"

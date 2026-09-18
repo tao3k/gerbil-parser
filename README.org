@@ -56,9 +56,15 @@ let root = parsed.syntax();
 A downstream custom DSL follows the same =languages/<dsl>/<version>/grammar.ss=
 contract. The complete pack keeps =grammar.ss=, =parser.ss=, =fixtures.ss=,
 =parser-test.ss=, and its native =corpus/= together; the Rust product is a
-projection of that same declared language, not a separate grammar. Its AOT
-generation entry imports the grammar binding and the public
-=:gerbil-parser/rust-rowan-support= facade, then emits an ordinary Rust module:
+projection of that same declared language, not a separate grammar. A direct
+custom grammar imports only the narrow authoring facade:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/rust-rowan-grammar-support deflanguage))
+#+end_src
+
+Repository-owned generation may import the grammar binding and the public
+=:gerbil-parser/rust-rowan-support= facade, then emit an ordinary Rust module:
 
 #+begin_src scheme
 (import :gerbil-parser/rust-rowan-support
@@ -83,6 +89,9 @@ still contains only the Rowan engine plus generated tables. The generator is a
 separate native product; the Cargo-only authoring claim remains open until that
 product and its already-materialized Gerbil/Gambit runtime can be distributed
 and linked on admitted Linux and macOS targets without a Gerbil installation.
+The same owner is exposed as the =gerbil-parser-rowan-aot= executable for
+standalone bundle qualification; it initializes Gerbil's expander internally
+and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
 
 =t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
@@ -123,10 +132,13 @@ separate products without forcing downstream library consumers to compile a
 command they do not use. =build-gparse.ss= is the sibling first-party
 =defbuild-script= entry for the optional native =gparse= command; it adds no
 second command implementation or package scheduler.
+=build-rust-rowan-aot.ss= independently materializes the build-time
+=gerbil-parser-rowan-aot= executable.
 
 #+begin_src sh
 GERBIL_BUILD_CORES=12 gerbil build
 GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
+GERBIL_BUILD_CORES=12 gerbil env gxi build-rust-rowan-aot.ss compile
 gparse help
 gparse check "1 + 2 * value"
 #+end_src

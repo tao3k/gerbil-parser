@@ -40,6 +40,15 @@ Until a clean Cargo consumer can link that product on Linux and macOS without a
 Gerbil installation, the native ABI is an executable boundary but the
 Cargo-only authoring claim remains open.
 
+The dedicated =gerbil-parser-rowan-aot= executable qualifies the same owner as
+a standalone product. It calls =gerbil-load-expander!= before loading the
+downstream module and can replace the runtime load path with an explicit
+metadata bundle through =GERBIL_PARSER_ROWAN_AOT_LIB=. Its public authoring
+surface is the minimal =:gerbil-parser/rust-rowan-grammar-support= facade, so a
+direct custom grammar does not pull the source-import and fixture facades into
+its build product. Release admission still requires a minimized metadata
+bundle and removal or packaging of target-specific dynamic-library paths.
+
 #+begin_src text
 grammar.ss
   -> precompiled Gerbil expander FFI

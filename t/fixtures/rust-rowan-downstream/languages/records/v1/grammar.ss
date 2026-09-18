@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Downstream-owned record DSL used to qualify the public language-pack API.
 
-(import (only-in :gerbil-parser/language-support deflanguage))
+(import (only-in :gerbil-parser/rust-rowan-grammar-support deflanguage))
 (export +records-language-version+
         +records-syntax-contract+
         records-language-grammar

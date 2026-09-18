@@ -39,6 +39,7 @@
 ;;; The precompiled Gerbil expander remains the only grammar syntax owner.
 ;;; Exactly one exported descriptor prevents accidental multi-language output.
 (def (grammar-module-language grammar-path)
+  (import-module ':gerbil-parser/rust-rowan-grammar-support #t #t)
   (let* ((context (import-module grammar-path #t #t))
          (languages
           (filter-map

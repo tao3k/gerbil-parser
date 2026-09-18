@@ -185,8 +185,10 @@ jobs:
             -Wno-unused-command-line-argument -fsyntax-only \
             -Iinclude t/native-ffi-header-smoke.c
 
-      - name: Build optional native command
-        run: gerbil env gxi build-gparse.ss compile
+      - name: Build optional native commands
+        run: |
+          gerbil env gxi build-gparse.ss compile
+          gerbil env gxi build-rust-rowan-aot.ss compile
 
       - name: Run the single native test entrypoint
         timeout-minutes: 15
@@ -212,8 +214,9 @@ jobs:
             "$fixture/languages/records/v1/fixtures.ss" \
             "$fixture/languages/records/v1/parser-test.ss"
           gerbil env gxi "$fixture/test.ss"
-          gerbil env gxi "$fixture/generate.ss" \
-            "$generated"
+          GERBIL_PATH="$PWD/.gerbil" \
+            .gerbil/bin/gerbil-parser-rowan-aot \
+            "$fixture/languages/records/v1/grammar.ss" "$generated"
           rustfmt --edition 2024 "$generated"
           cmp "$generated" "$fixture/src/generated/records_v1.rs"
 

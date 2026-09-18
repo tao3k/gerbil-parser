@@ -1,0 +1,20 @@
+[package]
+name = "gerbil-parser-rowan-scenarios"
+version.workspace = true
+description = "Integration and performance scenarios for generated Rowan languages"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+gerbil-parser-rowan.workspace = true
+gerbil-parser-rowan-arithmetic.workspace = true
+gerbil-parser-rowan-gql.workspace = true
+
+[dev-dependencies]
+gerbil-parser-build-support.workspace = true
+
+[lints]
+workspace = true

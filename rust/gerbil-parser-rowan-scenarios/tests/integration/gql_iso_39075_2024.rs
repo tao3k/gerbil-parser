@@ -1,4 +1,4 @@
-use gerbil_parser_rowan::generated::gql_iso_39075_2024::LANGUAGE;
+use gerbil_parser_rowan_gql::LANGUAGE;
 
 static CORPUS: &[(&str, &str)] = &[
     (

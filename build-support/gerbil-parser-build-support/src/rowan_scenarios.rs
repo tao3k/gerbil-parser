@@ -14,18 +14,18 @@ pub const ROWAN_ENGINE_SELECTIVE_GLR_SCALE_SCENARIO_ID: &str =
 #[must_use]
 pub fn rowan_engine_scenario_package() -> AspRustScenarioPackage {
     asp_rust_scenario_package! {
-        package: "gerbil-parser-rowan",
+        package: "gerbil-parser-rowan-scenarios",
         scenarios: [
             asp_rust_scenario! {
                 name: ROWAN_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID,
-                package: "gerbil-parser-rowan",
+                package: "gerbil-parser-rowan-scenarios",
                 description: "The generic engine keeps generated-table lexing, LR execution, and lossless Rowan CST construction inside the hot-path budget",
-                fixture_root: "rust/gerbil-parser-rowan/tests/performance/scenarios/rowan_engine_deterministic_hot_path_v1",
+                fixture_root: "rust/gerbil-parser-rowan-scenarios/tests/performance/scenarios/rowan_engine_deterministic_hot_path_v1",
                 tags: ["performance", "red-zone", "rowan", "engine", "aot", "deterministic-lr"],
                 commands: [
                     {
                         label: "focused",
-                        argv: ["cargo", "test", "--release", "-p", "gerbil-parser-rowan", "--test", "performance_test", "rowan_parse::rowan_engine_deterministic_hot_path_v1", "--", "--ignored", "--exact", "--nocapture"]
+                        argv: ["cargo", "test", "--release", "-p", "gerbil-parser-rowan-scenarios", "--test", "performance_test", "rowan_parse::rowan_engine_deterministic_hot_path_v1", "--", "--ignored", "--exact", "--nocapture"]
                     }
                 ],
                 benchmark: {
@@ -48,14 +48,14 @@ pub fn rowan_engine_scenario_package() -> AspRustScenarioPackage {
             },
             asp_rust_scenario! {
                 name: ROWAN_ENGINE_SELECTIVE_GLR_SCALE_SCENARIO_ID,
-                package: "gerbil-parser-rowan",
+                package: "gerbil-parser-rowan-scenarios",
                 description: "The generic engine keeps generated selective-GLR tables and lossless Rowan CST construction bounded under a production-scale grammar workload",
-                fixture_root: "rust/gerbil-parser-rowan/tests/performance/scenarios/rowan_engine_selective_glr_scale_v1",
+                fixture_root: "rust/gerbil-parser-rowan-scenarios/tests/performance/scenarios/rowan_engine_selective_glr_scale_v1",
                 tags: ["performance", "red-zone", "rowan", "engine", "aot", "selective-glr", "scale"],
                 commands: [
                     {
                         label: "focused",
-                        argv: ["cargo", "test", "--release", "-p", "gerbil-parser-rowan", "--test", "performance_test", "rowan_parse::rowan_engine_selective_glr_scale_v1", "--", "--ignored", "--exact", "--nocapture"]
+                        argv: ["cargo", "test", "--release", "-p", "gerbil-parser-rowan-scenarios", "--test", "performance_test", "rowan_parse::rowan_engine_selective_glr_scale_v1", "--", "--ignored", "--exact", "--nocapture"]
                     }
                 ],
                 benchmark: {

@@ -11,6 +11,6 @@
 (def output
   (if (> (length arguments) 2)
     (car (reverse arguments))
-    "rust/gerbil-parser-rowan/src/generated/gql_iso_39075_2024.rs"))
+       "rust/gerbil-parser-rowan-gql/src/generated/mod.rs"))
 
 (generate-language-rust-rowan-module output gql-iso-language-grammar)

@@ -20,7 +20,9 @@ declaration.
 
 The generic =gerbil-parser-rowan= crate executes those static tables and
 publishes a lossless Rowan green tree plus a receipt binding language, version,
-contract, grammar digest, and source digest.  A parse request runs no Scheme,
+contract, grammar digest, and source digest. Generated tables live in separate
+language crates such as =gerbil-parser-rowan-gql=, so a custom DSL consumer
+does not compile unrelated upstream grammars. A parse request runs no Scheme,
 Gambit, subprocess, JSON decoder, or S-expression interpreter.
 
 #+begin_src text
@@ -39,11 +41,13 @@ They may own CST-to-domain-IR lowering, but they do not own another Rowan sink,
 syntax-kind catalog, lexer, precedence map, recovery table, or parser runtime.
 
 The downstream qualification fixture owns the complete versioned language-pack
-shape: =grammar.ss=, =parser.ss=, =fixtures.ss=, =parser-test.ss=, and native
-=corpus/=. It invokes only the public Gerbil facades, emits a Rust module that
-imports =gerbil_parser_rowan= as a normal dependency, and compiles outside the
-root Cargo workspace. This is the acceptance boundary for custom DSL authors;
-an in-workspace generated module alone is not sufficient evidence.
+shape: =grammar.ss=, =parser.ss=, =fixtures.ss=, =parser-test.ss=, native
+=corpus/=, and a committed generated Rust module. It deliberately has no
+=gerbil.pkg= and requires no Gerbil installation in its Rust consumer path.
+Upstream generation invokes only the public Gerbil facade; the resulting Rust
+module imports =gerbil_parser_rowan= as a normal dependency and compiles outside
+the root Cargo workspace. This is the acceptance boundary for custom DSL
+authors; an in-workspace generated module alone is not sufficient evidence.
 
 * Stable v1 boundary
 

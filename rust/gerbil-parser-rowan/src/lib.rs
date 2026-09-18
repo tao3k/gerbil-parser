@@ -15,6 +15,3 @@ pub use engine::{
     ParserAction, Production, Reduction, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode,
     SyntaxToken, Terminal, TerminalSpec, parse,
 };
-
-/// AOT language modules maintained by `gerbil-parser`.
-pub mod generated;

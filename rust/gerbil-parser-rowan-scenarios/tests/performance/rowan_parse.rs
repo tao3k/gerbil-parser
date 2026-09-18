@@ -6,7 +6,8 @@ use gerbil_parser_build_support::{
     ROWAN_ENGINE_SELECTIVE_GLR_SCALE_SCENARIO_ID, measure_asp_rust_scenario,
     render_asp_rust_scenario_benchmark_toml, rowan_engine_scenario_package,
 };
-use gerbil_parser_rowan::generated::{arithmetic_v1, gql_iso_39075_2024};
+use gerbil_parser_rowan_arithmetic as arithmetic_v1;
+use gerbil_parser_rowan_gql as gql_iso_39075_2024;
 
 const ARITHMETIC_PARSE_COUNT: usize = 256;
 const GQL_CORPUS: &[&str] = &[

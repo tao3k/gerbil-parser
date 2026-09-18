@@ -89,13 +89,16 @@ fn parse_tokens(
     significant: &[usize],
 ) -> Result<(Value, SelectiveGlrReceipt), ParserFailure> {
     let mut context = GlrContext::default();
+    let stack_capacity = significant.len() + 1;
+    let mut states = Vec::with_capacity(stack_capacity);
+    states.push(0);
     let candidate = match run_configuration(
         spec,
         tokens,
         significant,
         ParserConfiguration {
-            states: vec![0],
-            values: Vec::new(),
+            states,
+            values: Vec::with_capacity(stack_capacity),
             cursor: 0,
             score: 0,
         },

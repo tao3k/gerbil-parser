@@ -1,4 +1,4 @@
-use gerbil_parser_rowan::generated::arithmetic_v1::LANGUAGE;
+use gerbil_parser_rowan_arithmetic::LANGUAGE;
 
 #[test]
 fn generated_arithmetic_parser_builds_a_lossless_rowan_tree() {

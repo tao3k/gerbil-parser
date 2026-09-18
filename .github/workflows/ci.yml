@@ -26,16 +26,25 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Verify ASP Rust source policy
-        run: cargo test -p gerbil-parser-rowan --test asp-rust-gate --locked -- --nocapture
+        run: cargo test -p gerbil-parser-build-support --test asp-rust-gate --locked -- --nocapture
 
       - name: Verify Rust contracts
         run: cargo test --workspace --locked
 
+      - name: Verify downstream Cargo-only language consumer
+        run: cargo test --locked --manifest-path t/fixtures/rust-rowan-downstream/Cargo.toml
+
       - name: Verify Rust lints
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      - name: Verify publishable Rust products
+        run: |
+          cargo package -p gerbil-parser-rowan --locked --allow-dirty
+          cargo package -p gerbil-parser-rowan-gql --locked --allow-dirty \
+            --config 'patch.crates-io.gerbil-parser-rowan.path="rust/gerbil-parser-rowan"'
+
       - name: Verify generated-table Rowan engine red zones
-        run: cargo test --release -p gerbil-parser-rowan --test performance_test -- --ignored --nocapture --test-threads=1
+        run: cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- --ignored --nocapture --test-threads=1
 
   native-gerbil:
     name: Native Gerbil parser and language packs (${{ matrix.os }})
@@ -187,12 +196,13 @@ jobs:
           gerbil env gxi generate-rust-rowan.ss "$arithmetic_generated"
           gerbil env gxi generate-gql-rust-rowan.ss "$gql_generated"
           rustfmt --edition 2024 "$arithmetic_generated" "$gql_generated"
-          cmp "$arithmetic_generated" rust/gerbil-parser-rowan/src/generated/arithmetic_v1.rs
-          cmp "$gql_generated" rust/gerbil-parser-rowan/src/generated/gql_iso_39075_2024.rs
+          cmp "$arithmetic_generated" rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
+          cmp "$gql_generated" rust/gerbil-parser-rowan-gql/src/generated/mod.rs
 
       - name: Verify downstream custom Rust/Rowan language pack
         run: |
           fixture="t/fixtures/rust-rowan-downstream"
+          generated="$(mktemp)"
           gerbil env gxc \
             "$fixture/languages/records/v1/grammar.ss" \
             "$fixture/languages/records/v1/parser.ss" \
@@ -200,8 +210,9 @@ jobs:
             "$fixture/languages/records/v1/parser-test.ss"
           gerbil env gxi "$fixture/test.ss"
           gerbil env gxi "$fixture/generate.ss" \
-            "$fixture/src/generated/records_v1.rs"
-          cargo test --locked --manifest-path "$fixture/Cargo.toml"
+            "$generated"
+          rustfmt --edition 2024 "$generated"
+          cmp "$generated" "$fixture/src/generated/records_v1.rs"
 
       - name: Verify native command
         run: |

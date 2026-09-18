@@ -11,6 +11,6 @@
 (def output
   (if (> (length arguments) 2)
     (car (reverse arguments))
-    "rust/gerbil-parser-rowan/src/generated/arithmetic_v1.rs"))
+       "rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs"))
 
 (generate-language-rust-rowan-module output arithmetic-language-grammar)

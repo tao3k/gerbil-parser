@@ -1,7 +1,7 @@
 //! AOT artifact validation and parse-receipt identity.
 
+use std::cell::RefCell;
 use std::collections::HashSet;
-use std::sync::{Mutex, OnceLock};
 
 use sha2::{Digest, Sha256};
 
@@ -101,23 +101,18 @@ fn validate_spec(spec: &LanguageSpec) -> Result<(), String> {
 
 pub(crate) fn validate_spec_once(spec: &'static LanguageSpec) -> Result<(), String> {
     // Public parsing accepts only static generated products. Their addresses
-    // are stable for the process lifetime, so validation is paid once per DSL
-    // instead of rescanning immutable LR tables on every request.
-    static VALIDATED: OnceLock<Mutex<HashSet<usize>>> = OnceLock::new();
+    // are stable for the process lifetime. A thread-local cache keeps the hot
+    // path lock-free while paying validation at most once per DSL and parser
+    // thread.
+    thread_local! {
+        static VALIDATED: RefCell<HashSet<usize>> = RefCell::new(HashSet::new());
+    }
     let identity = std::ptr::from_ref(spec) as usize;
-    let validated = VALIDATED.get_or_init(|| Mutex::new(HashSet::new()));
-    if validated
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .contains(&identity)
-    {
+    if VALIDATED.with_borrow(|validated| validated.contains(&identity)) {
         return Ok(());
     }
     validate_spec(spec)?;
-    validated
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(identity);
+    VALIDATED.with_borrow_mut(|validated| validated.insert(identity));
     Ok(())
 }
 

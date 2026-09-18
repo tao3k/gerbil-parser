@@ -7,8 +7,9 @@ pub(crate) fn lex<'source>(
     source: &'source str,
 ) -> Result<(Vec<Token<'source>>, Vec<usize>), Diagnostic> {
     let mut offset = 0;
-    let mut tokens = Vec::new();
-    let mut significant = Vec::new();
+    let token_capacity = source.len().min(256);
+    let mut tokens = Vec::with_capacity(token_capacity);
+    let mut significant = Vec::with_capacity(token_capacity);
     while offset < source.len() {
         if !source.is_char_boundary(offset) {
             return Err(Diagnostic {

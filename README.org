@@ -40,12 +40,14 @@ downstream-cutover gates; directory presence alone does not claim them.
 
 ** Rust consumer contract
 
-An upstream-maintained language is already a generated Rust module.  A Rust
-consumer imports its =LANGUAGE= value and calls the one generic engine; it does
-not rebuild a lexer, precedence table, Rowan sink, or ParseArtifact adapter:
+An upstream-maintained language is a generated Rust crate layered over the
+small generic runtime. A Rust consumer imports its =LANGUAGE= value (or its
+convenience =parse= function); it does not rebuild a lexer, precedence table,
+Rowan sink, or ParseArtifact adapter, and a custom DSL does not compile the GQL
+tables:
 
 #+begin_src rust
-use gerbil_parser_rowan::generated::gql_iso_39075_2024::LANGUAGE;
+use gerbil_parser_rowan_gql::LANGUAGE;
 
 let parsed = gerbil_parser_rowan::parse(&LANGUAGE, source)?;
 let root = parsed.syntax();
@@ -72,36 +74,36 @@ without Gerbil, Python, a subprocess, or a runtime grammar interpreter.  Gerbil
 is the AOT grammar/compiler authority; Cargo consumers depend only on the Rust
 engine and their generated module.
 
-=t/fixtures/rust-rowan-downstream= is the executable consumer contract. Native
-CI first runs its Scheme parser/fixture suite, generates its custom records DSL
-through the public AOT facade, and then compiles and tests an independent Cargo
-crate for lossless Rowan structure, receipts, and typed rejection. This fixture
-is intentionally outside the root Cargo workspace so it exercises the same
-dependency boundary as a separate downstream repository.
+=t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
+no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
+Upstream generation CI verifies its Scheme source pack and checks the
+committed Rust module through the public AOT facade. The independent Cargo
+workspace then compiles and tests that module for lossless Rowan structure,
+receipts, and typed rejection using only the Rust runtime dependency.
 
 After building the Gerbil package, regenerate and verify the committed module:
 
 #+begin_src sh
 gerbil env gxi generate-rust-rowan.ss \
-  rust/gerbil-parser-rowan/src/generated/arithmetic_v1.rs
+  rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
 gerbil env gxi generate-gql-rust-rowan.ss \
-  rust/gerbil-parser-rowan/src/generated/gql_iso_39075_2024.rs
+  rust/gerbil-parser-rowan-gql/src/generated/mod.rs
 cargo fmt --all
 cargo test --workspace --locked
-cargo test --release -p gerbil-parser-rowan --test performance_test -- \
+cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- \
   --ignored --nocapture --test-threads=1
 #+end_src
 
-The workspace =Build Support= crate owns the ASP Rust policy once.  The Rowan
-crate reaches Build Support only through =[dev-dependencies]=, and
-=tests/asp-rust-gate.rs= activates the =Dev Gate= only under =cargo test=.
+The workspace =Build Support= crate owns the ASP Rust policy and its
+=tests/asp-rust-gate.rs= activation once. Product crates do not depend on Build
+Support; =cargo test -p gerbil-parser-build-support --test asp-rust-gate=
+activates the =Dev Gate= only in the development workspace.
 The gate runs in =deny= mode, so every ASP Rust warning or error is
 test-blocking. CI runs that target separately with =--nocapture= so policy
 diagnostics remain visible instead of being hidden by libtest output capture.
-Immutable =src/generated= language tables are compiler output verified against
-Grammar IR in native CI; policy governs their generator and handwritten runtime
-owners. Normal and build dependency graphs do not contain Build Support or ASP
-Rust.
+Immutable language-crate tables are compiler output verified against Grammar IR
+in native CI; policy governs their generator and handwritten runtime owners.
+Normal and build dependency graphs do not contain Build Support or ASP Rust.
 
 * Native command
 

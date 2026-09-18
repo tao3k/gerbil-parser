@@ -1,0 +1,15 @@
+[package]
+name = "gerbil-parser-rowan-arithmetic"
+version.workspace = true
+description = "Generated arithmetic reference language for gerbil-parser-rowan"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+gerbil-parser-rowan.workspace = true
+
+[lints]
+workspace = true

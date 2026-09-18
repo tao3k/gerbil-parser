@@ -35,7 +35,26 @@ pub enum LexicalExpr {
     Newline,
     DecimalDigits,
     Number,
+    NumberLiteral {
+        prefixes: &'static [&'static str],
+        separator: &'static str,
+        suffixes: &'static [&'static str],
+        leading_period: bool,
+        trailing_period: bool,
+    },
     Identifier,
+    QuotedString(&'static [&'static str]),
+    Heredoc,
+    LineComment(&'static [&'static str]),
+    BlockComment {
+        opening: &'static str,
+        closing: &'static str,
+    },
+    NestedBlockComment {
+        opening: &'static str,
+        closing: &'static str,
+    },
+    Choice(&'static [LexicalExpr]),
     Literals(&'static [&'static str]),
     Fallback,
 }
@@ -335,6 +354,7 @@ fn validate_spec(spec: &LanguageSpec) -> Result<(), String> {
                 rule.terminal
             ));
         }
+        validate_lexical_expression(&rule.expression)?;
     }
     let state_count = spec.actions.len();
     for row in spec.actions {
@@ -376,6 +396,46 @@ fn validate_spec(spec: &LanguageSpec) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
+    fn nonempty(values: &[&str]) -> bool {
+        values.iter().all(|value| !value.is_empty())
+    }
+
+    match expression {
+        LexicalExpr::NumberLiteral {
+            prefixes,
+            separator,
+            suffixes,
+            ..
+        } if separator.chars().count() != 1 || !nonempty(prefixes) || !nonempty(suffixes) => {
+            Err("profiled number contains an invalid separator, prefix, or suffix".into())
+        }
+        LexicalExpr::QuotedString(delimiters) if delimiters.is_empty() || !nonempty(delimiters) => {
+            Err("quoted string requires non-empty delimiters".into())
+        }
+        LexicalExpr::LineComment(prefixes) if prefixes.is_empty() || !nonempty(prefixes) => {
+            Err("line comment requires non-empty prefixes".into())
+        }
+        LexicalExpr::BlockComment { opening, closing }
+        | LexicalExpr::NestedBlockComment { opening, closing }
+            if opening.is_empty() || closing.is_empty() =>
+        {
+            Err("block comment requires non-empty delimiters".into())
+        }
+        LexicalExpr::Choice([]) => Err("lexical choice requires at least one alternative".into()),
+        LexicalExpr::Choice(expressions) => {
+            for alternative in *expressions {
+                validate_lexical_expression(alternative)?;
+            }
+            Ok(())
+        }
+        LexicalExpr::Literals(values) if values.is_empty() || !nonempty(values) => {
+            Err("literal expression requires non-empty spellings".into())
+        }
+        _ => Ok(()),
+    }
+}
+
 fn lex<'source>(
     spec: &LanguageSpec,
     source: &'source str,
@@ -397,7 +457,7 @@ fn lex<'source>(
         }
         let mut selected: Option<(&LexicalRule, usize, usize)> = None;
         for (order, rule) in spec.lexical_rules.iter().enumerate() {
-            let Some(end) = lexical_end(rule.expression, source, offset) else {
+            let Some(end) = lexical_end(&rule.expression, source, offset) else {
                 continue;
             };
             if end <= offset {
@@ -441,7 +501,7 @@ fn lex<'source>(
     Ok(tokens)
 }
 
-fn lexical_end(expression: LexicalExpr, source: &str, offset: usize) -> Option<usize> {
+fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize) -> Option<usize> {
     let suffix = &source[offset..];
     match expression {
         LexicalExpr::Whitespace => consume_while(source, offset, char::is_whitespace),
@@ -455,7 +515,37 @@ fn lexical_end(expression: LexicalExpr, source: &str, offset: usize) -> Option<u
             consume_while(source, offset, |character| character.is_numeric())
         }
         LexicalExpr::Number => number_end(source, offset),
+        LexicalExpr::NumberLiteral {
+            prefixes,
+            separator,
+            suffixes,
+            leading_period,
+            trailing_period,
+        } => number_literal_end(
+            source,
+            offset,
+            prefixes,
+            separator,
+            suffixes,
+            *leading_period,
+            *trailing_period,
+        ),
         LexicalExpr::Identifier => identifier_end(source, offset),
+        LexicalExpr::QuotedString(delimiters) => delimiters
+            .iter()
+            .find_map(|delimiter| quoted_string_end(source, offset, delimiter)),
+        LexicalExpr::Heredoc => heredoc_end(source, offset),
+        LexicalExpr::LineComment(prefixes) => line_comment_end(source, offset, prefixes),
+        LexicalExpr::BlockComment { opening, closing } => {
+            block_comment_end(source, offset, opening, closing, false)
+        }
+        LexicalExpr::NestedBlockComment { opening, closing } => {
+            block_comment_end(source, offset, opening, closing, true)
+        }
+        LexicalExpr::Choice(expressions) => expressions
+            .iter()
+            .filter_map(|expression| lexical_end(expression, source, offset))
+            .max(),
         LexicalExpr::Literals(values) => values
             .iter()
             .filter(|value| suffix.starts_with(**value))
@@ -466,6 +556,80 @@ fn lexical_end(expression: LexicalExpr, source: &str, offset: usize) -> Option<u
             .next()
             .map(|character| offset + character.len_utf8()),
     }
+}
+
+fn longest_literal<'a>(source: &str, offset: usize, values: &'a [&str]) -> Option<&'a str> {
+    values
+        .iter()
+        .copied()
+        .filter(|value| source[offset..].starts_with(value))
+        .max_by_key(|value| value.len())
+}
+
+fn quoted_string_end(source: &str, offset: usize, delimiter: &str) -> Option<usize> {
+    if delimiter.is_empty() || !source[offset..].starts_with(delimiter) {
+        return None;
+    }
+    let mut cursor = offset + delimiter.len();
+    while cursor < source.len() {
+        if source[cursor..].starts_with('\\') {
+            cursor += '\\'.len_utf8();
+            let escaped = source[cursor..].chars().next()?;
+            cursor += escaped.len_utf8();
+        } else if source[cursor..].starts_with(delimiter) {
+            let next = cursor + delimiter.len();
+            if source[next..].starts_with(delimiter) {
+                cursor = next + delimiter.len();
+            } else {
+                return Some(next);
+            }
+        } else {
+            cursor += source[cursor..].chars().next()?.len_utf8();
+        }
+    }
+    None
+}
+
+fn line_comment_end(source: &str, offset: usize, prefixes: &[&str]) -> Option<usize> {
+    let prefix = longest_literal(source, offset, prefixes)?;
+    let body = offset + prefix.len();
+    Some(
+        source[body..]
+            .char_indices()
+            .find_map(|(relative, character)| {
+                matches!(character, '\n' | '\r').then_some(body + relative)
+            })
+            .unwrap_or(source.len()),
+    )
+}
+
+fn block_comment_end(
+    source: &str,
+    offset: usize,
+    opening: &str,
+    closing: &str,
+    nested: bool,
+) -> Option<usize> {
+    if opening.is_empty() || closing.is_empty() || !source[offset..].starts_with(opening) {
+        return None;
+    }
+    let mut cursor = offset + opening.len();
+    let mut depth = 1_usize;
+    while cursor < source.len() {
+        if nested && source[cursor..].starts_with(opening) {
+            depth += 1;
+            cursor += opening.len();
+        } else if source[cursor..].starts_with(closing) {
+            depth -= 1;
+            cursor += closing.len();
+            if depth == 0 {
+                return Some(cursor);
+            }
+        } else {
+            cursor += source[cursor..].chars().next()?.len_utf8();
+        }
+    }
+    None
 }
 
 fn identifier_end(source: &str, offset: usize) -> Option<usize> {
@@ -509,6 +673,131 @@ fn number_end(source: &str, offset: usize) -> Option<usize> {
         digits_start += sign.len_utf8();
     }
     consume_while(source, digits_start, |character| character.is_numeric()).or(Some(fraction_end))
+}
+
+fn number_literal_end(
+    source: &str,
+    offset: usize,
+    prefixes: &[&str],
+    separator: &str,
+    suffixes: &[&str],
+    leading_period: bool,
+    trailing_period: bool,
+) -> Option<usize> {
+    let separator = separator.chars().next()?;
+    let radix_end = longest_literal(source, offset, prefixes).and_then(|prefix| {
+        let base = match prefix.chars().last()?.to_ascii_lowercase() {
+            'b' => 2,
+            'o' => 8,
+            'x' => 16,
+            _ => return None,
+        };
+        separated_digits_end(source, offset + prefix.len(), base, separator)
+    });
+    let number_end = radix_end.or_else(|| {
+        decimal_mantissa_end(source, offset, separator, leading_period, trailing_period)
+            .map(|mantissa| exponent_end(source, mantissa, separator))
+    })?;
+    Some(
+        longest_literal(source, number_end, suffixes)
+            .map_or(number_end, |suffix| number_end + suffix.len()),
+    )
+}
+
+fn separated_digits_end(source: &str, offset: usize, base: u32, separator: char) -> Option<usize> {
+    let mut characters = source[offset..].char_indices().peekable();
+    let (_, first) = characters.next()?;
+    first.to_digit(base)?;
+    let mut end = offset + first.len_utf8();
+    while let Some((relative, character)) = characters.next() {
+        if character.is_digit(base) {
+            end = offset + relative + character.len_utf8();
+        } else if character == separator
+            && characters
+                .peek()
+                .is_some_and(|(_, next)| next.is_digit(base))
+        {
+            let (digit_relative, digit) = characters.next().expect("peeked digit exists");
+            end = offset + digit_relative + digit.len_utf8();
+        } else {
+            break;
+        }
+    }
+    Some(end)
+}
+
+fn decimal_mantissa_end(
+    source: &str,
+    offset: usize,
+    separator: char,
+    leading_period: bool,
+    trailing_period: bool,
+) -> Option<usize> {
+    if leading_period && source[offset..].starts_with('.') {
+        return separated_digits_end(source, offset + 1, 10, separator);
+    }
+    let whole_end = separated_digits_end(source, offset, 10, separator)?;
+    if !source[whole_end..].starts_with('.') {
+        return Some(whole_end);
+    }
+    separated_digits_end(source, whole_end + 1, 10, separator)
+        .or_else(|| trailing_period.then_some(whole_end + 1))
+        .or(Some(whole_end))
+}
+
+fn exponent_end(source: &str, mantissa_end: usize, separator: char) -> usize {
+    let Some(indicator) = source[mantissa_end..].chars().next() else {
+        return mantissa_end;
+    };
+    if !matches!(indicator, 'e' | 'E') {
+        return mantissa_end;
+    }
+    let mut digits_start = mantissa_end + indicator.len_utf8();
+    if let Some(sign) = source[digits_start..].chars().next()
+        && matches!(sign, '+' | '-')
+    {
+        digits_start += sign.len_utf8();
+    }
+    separated_digits_end(source, digits_start, 10, separator).unwrap_or(mantissa_end)
+}
+
+fn heredoc_end(source: &str, offset: usize) -> Option<usize> {
+    if !source[offset..].starts_with("<<") {
+        return None;
+    }
+    let mut marker_start = offset + 2;
+    if source[marker_start..].starts_with('-') {
+        marker_start += 1;
+    }
+    let marker_end = identifier_end(source, marker_start)?;
+    let newline = source[marker_end..].chars().next()?;
+    if !matches!(newline, '\n' | '\r') {
+        return None;
+    }
+    let marker = &source[marker_start..marker_end];
+    let mut line_start = marker_end + newline.len_utf8();
+    while line_start < source.len() {
+        let line_end = source[line_start..]
+            .char_indices()
+            .find_map(|(relative, character)| {
+                matches!(character, '\n' | '\r').then_some(line_start + relative)
+            })
+            .unwrap_or(source.len());
+        let content_start = source[line_start..line_end]
+            .char_indices()
+            .find_map(|(relative, character)| {
+                (!matches!(character, ' ' | '\t')).then_some(line_start + relative)
+            })
+            .unwrap_or(line_end);
+        if &source[content_start..line_end] == marker {
+            return Some(line_end);
+        }
+        if line_end == source.len() {
+            return None;
+        }
+        line_start = line_end + source[line_end..].chars().next()?.len_utf8();
+    }
+    None
 }
 
 fn consume_while(source: &str, offset: usize, predicate: impl Fn(char) -> bool) -> Option<usize> {
@@ -746,3 +1035,62 @@ fn emit_token(builder: &mut GreenNodeBuilder<'_>, token: &Token<'_>) {
 }
 
 pub mod generated;
+
+#[cfg(test)]
+mod lexical_tests {
+    use super::{LexicalExpr, lexical_end};
+
+    const NUMBER: LexicalExpr = LexicalExpr::NumberLiteral {
+        prefixes: &["0x", "0o", "0b"],
+        separator: "_",
+        suffixes: &["M", "F", "D"],
+        leading_period: true,
+        trailing_period: true,
+    };
+
+    #[test]
+    fn profiled_numbers_match_the_scheme_boundaries() {
+        assert_eq!(lexical_end(&NUMBER, "0xCA_FE", 0), Some(7));
+        assert_eq!(lexical_end(&NUMBER, "0o7_55", 0), Some(6));
+        assert_eq!(lexical_end(&NUMBER, "0b10_01", 0), Some(7));
+        assert_eq!(lexical_end(&NUMBER, "1_000.5E+2F", 0), Some(11));
+        assert_eq!(lexical_end(&NUMBER, ".5M", 0), Some(3));
+        assert_eq!(lexical_end(&NUMBER, "0x", 0), Some(1));
+    }
+
+    #[test]
+    fn quoted_strings_preserve_doubled_and_backslash_escapes() {
+        let expression = LexicalExpr::QuotedString(&["\"", "'", "`"]);
+        assert_eq!(lexical_end(&expression, "`a``b`", 0), Some(6));
+        assert_eq!(lexical_end(&expression, "'Ada''s graph'", 0), Some(14));
+        assert_eq!(lexical_end(&expression, r#""a\"b""#, 0), Some(6));
+        assert_eq!(lexical_end(&expression, "`unterminated", 0), None);
+    }
+
+    #[test]
+    fn comments_and_choices_take_the_longest_complete_match() {
+        let expression = LexicalExpr::Choice(&[
+            LexicalExpr::LineComment(&["//", "#"]),
+            LexicalExpr::BlockComment {
+                opening: "/*",
+                closing: "*/",
+            },
+        ]);
+        assert_eq!(lexical_end(&expression, "// note\nnext", 0), Some(7));
+        assert_eq!(lexical_end(&expression, "/* note */next", 0), Some(10));
+        assert_eq!(lexical_end(&expression, "/* open", 0), None);
+    }
+
+    #[test]
+    fn nested_comments_and_heredocs_close_losslessly() {
+        let nested = LexicalExpr::NestedBlockComment {
+            opening: "/*",
+            closing: "*/",
+        };
+        assert_eq!(lexical_end(&nested, "/* /* */ */", 0), Some(11));
+        assert_eq!(
+            lexical_end(&LexicalExpr::Heredoc, "<<EOF\nvalue\nEOF", 0),
+            Some(15)
+        );
+    }
+}

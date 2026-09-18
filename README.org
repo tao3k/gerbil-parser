@@ -30,11 +30,11 @@ receipt.  Generated modules are ordinary Cargo source artifacts; downstream
 parse requests do not initialize Gambit and do not interpret Scheme.
 
 The initial admitted product is the arithmetic v1 reference grammar.  It
-closes deterministic LALR execution, declared lexical primitives, precedence,
-trivia-preserving byte roundtrip, and fail-closed rejection.  Selective GLR,
-the remaining lexical algebra, generated field accessors, and the full GQL and
-Cypher language products remain explicit admission gates; directory presence
-does not claim those contracts.
+closes deterministic LALR execution, the closed native lexical algebra,
+precedence, trivia-preserving byte roundtrip, and fail-closed rejection.
+Pinned external scanners, selective GLR, generated field accessors, and the
+full GQL and Cypher language products remain explicit admission gates;
+directory presence does not claim those contracts.
 
 After building the Gerbil package, regenerate and verify the committed module:
 

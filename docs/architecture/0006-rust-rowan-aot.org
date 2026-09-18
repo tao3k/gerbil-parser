@@ -51,17 +51,19 @@ conflicts and precedence were already resolved by Gerbil's compiler.
 
 * First vertical slice
 
-Arithmetic v1 admits the closed lexical subset needed by the reference
-grammar: whitespace, horizontal whitespace, newline, decimal digits, number,
-identifier, literals, and fallback.  It executes deterministic LALR actions,
-applies generated field and alias reductions, preserves trivia, constructs one
-balanced root, and verifies that the Rowan tree reproduces the exact source.
+Arithmetic v1 is the executable reference grammar.  The generic runtime admits
+the complete native LexicalExpr v1 algebra: whitespace, newline, decimal and
+profiled numbers, identifiers, quoted strings, heredocs, line and block
+comments, ordered choice, literals, precedence projection, and fallback.  It
+executes deterministic LALR actions, applies generated field and alias
+reductions, preserves trivia, constructs one balanced root, and verifies that
+the Rowan tree reproduces the exact source.
 
 The initial slice deliberately rejects unsupported generated features instead
 of silently interpreting them differently.  Before publishing GQL or Cypher,
 the Rust backend must add and qualify:
 
-- the remaining closed lexical expressions and pinned external scanners;
+- pinned external scanners;
 - case-insensitive keyword behavior over the complete corpora;
 - selective GLR forks, dynamic precedence, ambiguity evidence, and budgets;
 - recovery behavior and diagnostic parity;

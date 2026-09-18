@@ -10,6 +10,10 @@
                  arithmetic-language-grammar
                  arithmetic-parser-ir
                  arithmetic-parser)
+        (only-in :gerbil-parser/languages/gql/iso-39075-2024/grammar
+                 +gql-syntax-contract+
+                 gql-iso-parser-ir
+                 gql-iso-parser)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/compiler/rust-rowan
@@ -40,6 +44,23 @@
                 (string-contains first "OperandAction::Alias(0)")
                 (string-contains first
                  "LexicalExpr::Literals(&[\"+\", \"-\", \"*\""))
+               => #t)))
+    (test-case "GQL lexical algebra reaches the explicit selective-GLR gate"
+      (let (message
+            (with-catch
+             (lambda (condition) (error-message condition))
+             (lambda ()
+               (rust-rowan-module-source
+                "gql"
+                "edition-1-2024-04"
+                +gql-syntax-contract+
+                (parser-machine-grammar-digest gql-iso-parser)
+                gql-iso-parser-ir)
+               #f)))
+        (check (and message
+                    (string-contains
+                     message
+                     "does not admit GLR fork actions"))
                => #t)))
     (test-case "the language descriptor is the complete generation input"
       (let (path (make-temporary-file-name "gerbil-parser-rowan"))

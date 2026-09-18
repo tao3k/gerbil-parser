@@ -2,10 +2,11 @@
 ;;; -*- Gerbil -*-
 ;;; Optional build-time Rowan generator; the runtime package stays independent.
 
-(import (only-in :asp-gerbil-scheme/src/building/build-script
-                 defbuild-script
-                 framework-build-bindir
-                 framework-executable-build-spec))
+(import (only-in :std/build-script defbuild-script)
+        (only-in :clan/building pkg-config-options)
+        (only-in :asp-gerbil-scheme/build-api
+                 asp-gerbil-scheme-library-package-prototype
+                 asp-gerbil-scheme-package-spec!))
 
 (def rust-rowan-aot-runtime-modules
   '("src/compiler/funcs"
@@ -26,12 +27,24 @@
     "src/compiler/rust-rowan"
     "src/ffi/rust-rowan-aot-v1"))
 
-(defbuild-script
- (framework-executable-build-spec
-  "src/ffi/rust-rowan-aot-main"
-  "gerbil-parser-rowan-aot"
-  rust-rowan-aot-runtime-modules
-  '()
-  '(tls))
- profile: 'production
- bindir: (framework-build-bindir))
+(asp-gerbil-scheme-package-spec!
+ (rust-rowan-aot-package @ asp-gerbil-scheme-library-package-prototype)
+ (spec rust-rowan-aot-build-spec)
+ (modules
+  (append rust-rowan-aot-runtime-modules
+          '("src/ffi/rust-rowan-aot-main.ss")))
+ (role 'build-support)
+ (product-entry-modules '("src/ffi/rust-rowan-aot-main.ss"))
+ (native-capabilities '(tls))
+ (pkg-config-libs '("openssl"))
+ (nix-deps '("openssl"))
+ (native-options-resolver
+  (lambda () (pkg-config-options '("openssl") '("openssl"))))
+ (native-spec
+  (append
+   (map (lambda (module) `(gxc: ,module))
+        rust-rowan-aot-runtime-modules)
+   '((exe: "src/ffi/rust-rowan-aot-main"
+           bin: "gerbil-parser-rowan-aot")))))
+
+(defbuild-script (rust-rowan-aot-build-spec))

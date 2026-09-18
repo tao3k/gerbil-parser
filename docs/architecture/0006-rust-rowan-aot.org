@@ -35,10 +35,10 @@ tables. The normal parse-time dependency remains =gerbil-parser-rowan= and
 does not link the generator.
 
 The native generator product must be distributed for every admitted target.
-Its =defbuild-script= owner projects the declared executable closure and
-production profile through the ASP Building Framework, so std/make and the
-Gerbil compiler close the reachable Scheme modules into the executable;
-release support does not reconstruct that graph from mutable cache objects.
+Its =defbuild-script= owner projects a public ASP Building API package spec
+into std/make. The runtime modules, executable, and native TLS options remain
+declarative build data, and release support does not reconstruct that graph
+from mutable cache objects.
 Until a clean Cargo consumer can use that product on Linux and macOS without a
 Gerbil installation, the native ABI is an executable boundary but the
 Cargo-only authoring claim remains open.

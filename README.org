@@ -92,13 +92,13 @@ without a Gerbil installation.
 The same owner is exposed as the =gerbil-parser-rowan-aot= executable for
 standalone bundle qualification; it initializes Gerbil's expander internally
 and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
-Its =defbuild-script= declaration uses the ASP Building Framework's executable
-closure and production profile, so std/make closes the declared Scheme module
-graph instead of a release script tracing and copying Gerbil's mutable object
-cache. CI executes the result under =env -i= with no Gerbil command on =PATH=
-and explicit expansion-metadata roots. Packaging those immutable interfaces
-with the executable remains a release boundary; runtime object-cache
-reconstruction is gone.
+Its =defbuild-script= declaration projects a public ASP Building API package
+spec into std/make, so the declared Scheme module graph and native TLS options
+remain ordinary build data instead of a release script tracing and copying
+Gerbil's mutable object cache. CI executes the result under =env -i= with no
+Gerbil command on =PATH= and explicit expansion-metadata roots. Packaging
+those immutable interfaces with the executable remains a release boundary;
+runtime object-cache reconstruction is gone.
 
 =t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
@@ -150,9 +150,9 @@ gparse help
 gparse check "1 + 2 * value"
 #+end_src
 
-The package manager exposes =framework-build-bindir= on =PATH= for the bare
-command.  Before package activation, the same native artifact can be invoked
-directly from that build-support-owned directory; the repository does not own a
+The package manager exposes its native binary directory on =PATH= for the bare
+command. Before package activation, the same native artifact can be invoked
+directly from that standard build directory; the repository does not own a
 second shell launcher.
 
 =src/main.ss= owns only =:std/getopt= declarations and dispatch.

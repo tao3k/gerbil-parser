@@ -27,9 +27,11 @@
                                      "\"src/ffi/rust-rowan-aot-main.ss\"")
                     #t)
                => #t)
-        (check (string-contains package-source
-                                "asp-gerbil-scheme@")
-               => #f)
+        (check (and (string-contains package-source
+                                     "poo-flow@f745d98")
+                    (not (string-contains package-source
+                                          "asp-gerbil-scheme@")))
+               => #t)
         (check (string-contains library-source
                                 "(exe: \"src/main\"")
                => #f)
@@ -51,7 +53,7 @@
                     (string-contains rowan-aot-source
                                      "src/ffi/rust-rowan-aot-main")
                     (string-contains rowan-aot-source
-                                     ":asp-gerbil-scheme/build-api")
+                                     ":asp-gerbil-scheme/building-api")
                     (string-contains rowan-aot-source
                                      "asp-gerbil-scheme-package-spec!")
                     (string-contains rowan-aot-source
@@ -63,7 +65,7 @@
                     (string-contains rowan-aot-source
                                      "(native-capabilities '(tls))")
                     (string-contains rowan-aot-source
-                                     "pkg-config-options")
+                                     "asp-gerbil-scheme-native-pkg-config-options")
                     #t)
                => #t)))))
 

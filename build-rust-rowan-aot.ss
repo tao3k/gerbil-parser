@@ -3,9 +3,9 @@
 ;;; Optional build-time Rowan generator; the runtime package stays independent.
 
 (import (only-in :std/build-script defbuild-script)
-        (only-in :clan/building pkg-config-options)
-        (only-in :asp-gerbil-scheme/build-api
+        (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-library-package-prototype
+                 asp-gerbil-scheme-native-pkg-config-options
                  asp-gerbil-scheme-package-spec!))
 
 (def rust-rowan-aot-runtime-modules
@@ -39,7 +39,8 @@
  (pkg-config-libs '("openssl"))
  (nix-deps '("openssl"))
  (native-options-resolver
-  (lambda () (pkg-config-options '("openssl") '("openssl"))))
+  (lambda ()
+    (asp-gerbil-scheme-native-pkg-config-options '("openssl"))))
  (native-spec
   (append
    (map (lambda (module) `(gxc: ,module))

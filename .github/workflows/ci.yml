@@ -31,6 +31,9 @@ jobs:
       - name: Verify Rust lints
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      - name: Verify generated-table Rowan engine red zones
+        run: cargo test --release -p gerbil-parser-rowan --test performance_test -- --ignored --nocapture --test-threads=1
+
   native-gerbil:
     name: Native Gerbil parser and language packs (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

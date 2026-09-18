@@ -38,6 +38,37 @@ first GQL admission gate.  Pinned external scanners, recovery parity,
 generated field accessors, and wider differential corpora remain explicit
 downstream-cutover gates; directory presence alone does not claim them.
 
+** Rust consumer contract
+
+An upstream-maintained language is already a generated Rust module.  A Rust
+consumer imports its =LANGUAGE= value and calls the one generic engine; it does
+not rebuild a lexer, precedence table, Rowan sink, or ParseArtifact adapter:
+
+#+begin_src rust
+use gerbil_parser_rowan::generated::gql_iso_39075_2024::LANGUAGE;
+
+let parsed = gerbil_parser_rowan::parse(&LANGUAGE, source)?;
+let root = parsed.syntax();
+#+end_src
+
+A downstream custom DSL follows the same =languages/<dsl>/<version>/grammar.ss=
+contract.  Its AOT generation entry imports the grammar binding and the public
+=:gerbil-parser/rust-rowan-support= facade, then emits an ordinary Rust module:
+
+#+begin_src scheme
+(import :gerbil-parser/rust-rowan-support
+        :my-dsl/languages/example/v1/grammar)
+
+(generate-language-rust-rowan-module
+ "src/generated/example_v1.rs"
+ example-v1-language-grammar)
+#+end_src
+
+The generated module is compiled into the downstream Rust crate and executes
+without Gerbil, Python, a subprocess, or a runtime grammar interpreter.  Gerbil
+is the AOT grammar/compiler authority; Cargo consumers depend only on the Rust
+engine and their generated module.
+
 After building the Gerbil package, regenerate and verify the committed module:
 
 #+begin_src sh
@@ -47,6 +78,8 @@ gerbil env gxi generate-gql-rust-rowan.ss \
   rust/gerbil-parser-rowan/src/generated/gql_iso_39075_2024.rs
 cargo fmt --all
 cargo test --workspace --locked
+cargo test --release -p gerbil-parser-rowan --test performance_test -- \
+  --ignored --nocapture --test-threads=1
 #+end_src
 
 The workspace =Build Support= crate owns the ASP Rust policy once.  The Rowan
@@ -86,7 +119,8 @@ ParseArtifact events, and diagnostics remain in their library owners.
 The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
 grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
 small performance-sensitive parser functions.  The single public authoring
-boundary is =src/language/grammar.ss=; its =deflanguage-grammar= macro expands
+boundary is the top-level =language-support.ss= facade; its re-exported
+=deflanguage-grammar= macro expands
 one declaration into the grammar object, canonical Parser IR, native machine,
 and immutable language descriptor.  General list utilities stay at the package
 utility boundary rather than becoming parser-module miscellany.

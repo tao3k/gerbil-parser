@@ -81,7 +81,11 @@
                  iso-bnf-source-declaration-sources
                  iso-bnf-source-declaration-sources/overrides
                  parse-iso-bnf-source
-                 parse-iso-bnf-source/expected))
+                 parse-iso-bnf-source/expected)
+        (only-in ./src/language/grammar
+                 deflanguage
+                 deflanguage-grammar
+                 defgrammar-syntax))
 (export +antlr4-source-schema+
         +javacc-source-schema+
         +iso-bnf-source-schema+
@@ -143,6 +147,9 @@
         defsyntax-javacc-source
         deflanguage-antlr4-grammar
         deflanguage-iso-bnf-grammar
+        deflanguage
+        deflanguage-grammar
+        defgrammar-syntax
         defsyntax-fixture
         defsyntax-corpus
         syntax-fixture?

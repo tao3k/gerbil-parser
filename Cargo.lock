@@ -217,6 +217,7 @@ name = "gerbil-parser-build-support"
 version = "0.1.0"
 dependencies = [
  "asp-rust",
+ "asp-rust-build-support",
 ]
 
 [[package]]

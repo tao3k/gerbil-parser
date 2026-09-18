@@ -16,8 +16,9 @@
                  gql-iso-parser)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest)
+        (only-in :gerbil-parser/rust-rowan-support
+                 generate-language-rust-rowan-module)
         (only-in :gerbil-parser/src/compiler/rust-rowan
-                 generate-language-rust-rowan-module
                  rust-rowan-module-source))
 (export rust-rowan-generation-tests)
 

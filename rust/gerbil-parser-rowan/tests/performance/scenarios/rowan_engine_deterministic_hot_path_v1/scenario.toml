@@ -1,0 +1,11 @@
+id = "rowan-engine-deterministic-hot-path-v1"
+title = "Generated deterministic parser-engine execution stays inside the Rowan latency red zone"
+policy_ids = ["RUST-AGENT-ROWAN-ENGINE-PERFORMANCE-001"]
+agent_goal = "Preserve bounded generated-table lexing, LR execution, and lossless Rowan CST construction latency."
+reference_repositories = ["rust-analyzer/rowan", "tree-sitter/tree-sitter"]
+reference_patterns = [
+  "Engine benchmarks measure complete lossless CST construction",
+  "Warm samples retain percentile evidence and exact work counts",
+]
+inputs = "inputs"
+expected = "expected"

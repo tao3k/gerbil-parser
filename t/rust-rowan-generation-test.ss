@@ -40,6 +40,8 @@
                 (string-contains first
                  "Source authority: canonical Grammar IR v1")
                 (string-contains first
+                 "use gerbil_parser_rowan::{")
+                (string-contains first
                  (parser-machine-grammar-digest arithmetic-parser))
                 (string-contains first "ParserAction::Shift(9)")
                 (string-contains first "OperandAction::Alias(0)")

@@ -52,7 +52,10 @@ let root = parsed.syntax();
 #+end_src
 
 A downstream custom DSL follows the same =languages/<dsl>/<version>/grammar.ss=
-contract.  Its AOT generation entry imports the grammar binding and the public
+contract. The complete pack keeps =grammar.ss=, =parser.ss=, =fixtures.ss=,
+=parser-test.ss=, and its native =corpus/= together; the Rust product is a
+projection of that same declared language, not a separate grammar. Its AOT
+generation entry imports the grammar binding and the public
 =:gerbil-parser/rust-rowan-support= facade, then emits an ordinary Rust module:
 
 #+begin_src scheme
@@ -68,6 +71,13 @@ The generated module is compiled into the downstream Rust crate and executes
 without Gerbil, Python, a subprocess, or a runtime grammar interpreter.  Gerbil
 is the AOT grammar/compiler authority; Cargo consumers depend only on the Rust
 engine and their generated module.
+
+=t/fixtures/rust-rowan-downstream= is the executable consumer contract. Native
+CI first runs its Scheme parser/fixture suite, generates its custom records DSL
+through the public AOT facade, and then compiles and tests an independent Cargo
+crate for lossless Rowan structure, receipts, and typed rejection. This fixture
+is intentionally outside the root Cargo workspace so it exercises the same
+dependency boundary as a separate downstream repository.
 
 After building the Gerbil package, regenerate and verify the committed module:
 

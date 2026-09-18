@@ -85,7 +85,16 @@
         (only-in ./src/language/grammar
                  deflanguage
                  deflanguage-grammar
-                 defgrammar-syntax))
+                 defgrammar-syntax)
+        (only-in ./src/language/entry
+                 +language-parser-entry-schema+
+                 deflanguage-parser
+                 language-parser-entry-ref)
+        (only-in ./src/runtime/artifact
+                 parse-artifact-ref
+                 parse-artifact-roundtrip
+                 parse-artifact-success?
+                 parse-artifact-valid?))
 (export +antlr4-source-schema+
         +javacc-source-schema+
         +iso-bnf-source-schema+
@@ -150,6 +159,9 @@
         deflanguage
         deflanguage-grammar
         defgrammar-syntax
+        +language-parser-entry-schema+
+        deflanguage-parser
+        language-parser-entry-ref
         defsyntax-fixture
         defsyntax-corpus
         syntax-fixture?
@@ -161,4 +173,8 @@
         syntax-fixture-source
         syntax-fixture-expected-status
         syntax-fixture-root-kind
-        syntax-fixture-required-kinds)
+        syntax-fixture-required-kinds
+        parse-artifact-ref
+        parse-artifact-roundtrip
+        parse-artifact-success?
+        parse-artifact-valid?)

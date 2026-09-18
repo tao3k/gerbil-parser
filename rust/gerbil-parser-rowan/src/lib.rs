@@ -5,6 +5,8 @@
 
 #![forbid(unsafe_code)]
 
+extern crate self as gerbil_parser_rowan;
+
 mod engine;
 
 pub use engine::{

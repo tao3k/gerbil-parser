@@ -4,7 +4,7 @@
 
 (import (only-in :std/build-script defbuild-script)
         (only-in :clan/poo/object .def .get)
-        (only-in :asp-gerbil-scheme/build-api
+        (only-in :asp-gerbil-scheme/building-api
                  default-exclude-dirs
                  asp-gerbil-scheme-library-package-prototype
                  asp-gerbil-scheme-package-spec!)

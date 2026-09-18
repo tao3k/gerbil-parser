@@ -22,6 +22,8 @@
                     (string-contains library-source
                                      "\"build-rust-rowan-aot.ss\"")
                     (string-contains library-source
+                                     ":asp-gerbil-scheme/building-api")
+                    (string-contains library-source
                                      "\"src/cli.ss\"")
                     (string-contains library-source
                                      "\"src/ffi/rust-rowan-aot-main.ss\"")

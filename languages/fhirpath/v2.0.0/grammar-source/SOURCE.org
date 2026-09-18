@@ -1,0 +1,13 @@
+#+title: FHIRPath 2.0.0 normative grammar source
+
+* Fixed source
+
+- Standard :: HL7 Cross-Paradigm Specification: FHIRPath, Release 1
+- Version :: 2.0.0, Normative Release
+- Source :: https://hl7.org/fhirpath/N1/fhirpath.g4
+- Retrieved :: 2026-09-17
+- SHA-256 :: =cf2a7cf29475e29b1a9188fcabea77782db59c9309b200059b3ef3f781eaae13=
+
+The retained =fhirpath.g4= bytes are the parser-owned source authority.  The
+native Gerbil grammar is a lossless syntax projection; it grants no FHIRPath
+evaluation or healthcare conformance authority.

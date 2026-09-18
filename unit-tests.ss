@@ -13,6 +13,6 @@
   (testing-interface-add-profile
    +asp-testing-interface+
    (.cc +testing-discovery-profile+
-        ignoreDirectories: '(".data" ".gerbil"))))
+        ignoreDirectories: '(".data" ".gerbil" "fixtures"))))
 
 (init-profiled-test-environment! +gerbil-parser-testing-interface+)

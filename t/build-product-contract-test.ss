@@ -10,6 +10,8 @@
     (test-case "default package build excludes optional commands"
       (let ((library-source
              (call-with-input-file "build.ss" read-all-as-string))
+            (package-source
+             (call-with-input-file "gerbil.pkg" read-all-as-string))
             (command-source
              (call-with-input-file "build-gparse.ss" read-all-as-string))
             (rowan-aot-source
@@ -23,6 +25,10 @@
                                      "\"src/cli.ss\"")
                     (string-contains library-source
                                      "\"src/ffi/rust-rowan-aot-main.ss\"")
+                    #t)
+               => #t)
+        (check (and (string-contains package-source
+                                     "asp-gerbil-scheme@db904ad")
                     #t)
                => #t)
         (check (string-contains library-source

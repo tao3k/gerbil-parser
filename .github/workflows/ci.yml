@@ -193,6 +193,11 @@ jobs:
       - name: Verify downstream custom Rust/Rowan language pack
         run: |
           fixture="t/fixtures/rust-rowan-downstream"
+          gerbil env gxc \
+            "$fixture/languages/records/v1/grammar.ss" \
+            "$fixture/languages/records/v1/parser.ss" \
+            "$fixture/languages/records/v1/fixtures.ss" \
+            "$fixture/languages/records/v1/parser-test.ss"
           gerbil env gxi "$fixture/test.ss"
           gerbil env gxi "$fixture/generate.ss" \
             "$fixture/src/generated/records_v1.rs"

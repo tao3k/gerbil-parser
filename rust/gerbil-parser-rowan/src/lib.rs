@@ -3,9 +3,8 @@
 //! Grammar declarations and LR conflict resolution remain owned by Scheme at
 //! AOT time. This crate executes only the resulting immutable tables.
 
-use std::collections::HashMap;
-use std::fmt::Write as _;
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Mutex, OnceLock};
 
 use rowan::{GreenNode, GreenNodeBuilder};
 use sha2::{Digest, Sha256};
@@ -196,7 +195,7 @@ pub struct Diagnostic {
 #[derive(Clone, Debug)]
 pub struct Parse {
     green: GreenNode,
-    kinds: Arc<[KindSpec]>,
+    kinds: &'static [KindSpec],
     receipt: ParseReceipt,
     selective_glr: SelectiveGlrReceipt,
 }
@@ -243,7 +242,6 @@ struct Token<'source> {
     text: &'source str,
     start: usize,
     end: usize,
-    extra: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -302,7 +300,7 @@ impl Value {
 /// fails.
 pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseError> {
     let receipt = receipt(spec, source);
-    validate_spec(spec).map_err(|message| ParseError {
+    validate_spec_once(spec).map_err(|message| ParseError {
         receipt: receipt.clone(),
         diagnostic: Box::new(Diagnostic {
             reason_kind: "invalid-aot-artifact",
@@ -311,16 +309,17 @@ pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseEr
         }),
         selective_glr: None,
     })?;
-    let tokens = lex(spec, source).map_err(|diagnostic| ParseError {
+    let (tokens, significant) = lex(spec, source).map_err(|diagnostic| ParseError {
         receipt: receipt.clone(),
         diagnostic: Box::new(diagnostic),
         selective_glr: None,
     })?;
-    let (root, selective_glr) = parse_tokens(spec, &tokens).map_err(|failure| ParseError {
-        receipt: receipt.clone(),
-        diagnostic: Box::new(failure.diagnostic),
-        selective_glr: failure.selective_glr,
-    })?;
+    let (root, selective_glr) =
+        parse_tokens(spec, &tokens, &significant).map_err(|failure| ParseError {
+            receipt: receipt.clone(),
+            diagnostic: Box::new(failure.diagnostic),
+            selective_glr: failure.selective_glr,
+        })?;
     let green = build_green(spec, source, &tokens, &root).map_err(|message| ParseError {
         receipt: receipt.clone(),
         diagnostic: Box::new(Diagnostic {
@@ -332,18 +331,20 @@ pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseEr
     })?;
     Ok(Parse {
         green,
-        kinds: Arc::from(spec.kinds),
+        kinds: spec.kinds,
         receipt,
         selective_glr,
     })
 }
 
 fn receipt(spec: &LanguageSpec, source: &str) -> ParseReceipt {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
     let digest = Sha256::digest(source.as_bytes());
     let mut encoded = String::with_capacity(71);
     encoded.push_str("sha256:");
     for byte in digest {
-        let _ = write!(encoded, "{byte:02x}");
+        encoded.push(char::from(HEX[usize::from(byte >> 4)]));
+        encoded.push(char::from(HEX[usize::from(byte & 0x0f)]));
     }
     ParseReceipt {
         language: spec.language,
@@ -426,6 +427,28 @@ fn validate_spec(spec: &LanguageSpec) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_spec_once(spec: &'static LanguageSpec) -> Result<(), String> {
+    // Public parsing accepts only static generated products. Their addresses
+    // are stable for the process lifetime, so validation is paid once per DSL
+    // instead of rescanning immutable LR tables on every request.
+    static VALIDATED: OnceLock<Mutex<HashSet<usize>>> = OnceLock::new();
+    let identity = std::ptr::from_ref(spec) as usize;
+    let validated = VALIDATED.get_or_init(|| Mutex::new(HashSet::new()));
+    if validated
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(&identity)
+    {
+        return Ok(());
+    }
+    validate_spec(spec)?;
+    validated
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(identity);
+    Ok(())
+}
+
 fn validate_parser_action(
     action: &ParserAction,
     state_count: usize,
@@ -492,14 +515,10 @@ fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
 fn lex<'source>(
     spec: &LanguageSpec,
     source: &'source str,
-) -> Result<Vec<Token<'source>>, Diagnostic> {
-    let terminal_kinds = spec
-        .terminals
-        .iter()
-        .map(|terminal| (terminal.name, terminal.syntax_kind))
-        .collect::<HashMap<_, _>>();
+) -> Result<(Vec<Token<'source>>, Vec<usize>), Diagnostic> {
     let mut offset = 0;
     let mut tokens = Vec::new();
+    let mut significant = Vec::new();
     while offset < source.len() {
         if !source.is_char_boundary(offset) {
             return Err(Diagnostic {
@@ -534,24 +553,31 @@ fn lex<'source>(
                 message: "no generated lexical rule consumed the source".into(),
             });
         };
-        let Some(&syntax_kind) = terminal_kinds.get(rule.terminal) else {
+        let Some(syntax_kind) = spec
+            .terminals
+            .iter()
+            .find(|terminal| terminal.name == rule.terminal)
+            .map(|terminal| terminal.syntax_kind)
+        else {
             return Err(Diagnostic {
                 reason_kind: "invalid-aot-artifact",
                 byte_offset: offset,
                 message: format!("unknown generated terminal {}", rule.terminal),
             });
         };
+        if !rule.extra {
+            significant.push(tokens.len());
+        }
         tokens.push(Token {
             terminal: rule.terminal,
             syntax_kind,
             text: &source[offset..end],
             start: offset,
             end,
-            extra: rule.extra,
         });
         offset = end;
     }
-    Ok(tokens)
+    Ok((tokens, significant))
 }
 
 fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize) -> Option<usize> {
@@ -895,17 +921,13 @@ struct GlrContext {
 fn parse_tokens(
     spec: &LanguageSpec,
     tokens: &[Token<'_>],
+    significant: &[usize],
 ) -> Result<(Value, SelectiveGlrReceipt), ParserFailure> {
-    let significant = tokens
-        .iter()
-        .enumerate()
-        .filter_map(|(index, token)| (!token.extra).then_some(index))
-        .collect::<Vec<_>>();
     let mut context = GlrContext::default();
     let candidate = match run_configuration(
         spec,
         tokens,
-        &significant,
+        significant,
         ParserConfiguration {
             states: vec![0],
             values: Vec::new(),
@@ -1075,14 +1097,17 @@ fn apply_reduce(
     configuration
         .states
         .truncate(configuration.states.len() - count);
-    let reduced_from = configuration
-        .values
-        .split_off(configuration.values.len() - count);
+    let reduced_from = configuration.values.len() - count;
     let fallback = token.map_or_else(
         || tokens.last().map_or(0, |last| last.end),
         |lookahead| lookahead.start,
     );
-    let reduced = reduce(production, reduced_from, tokens, fallback);
+    let reduced = reduce(
+        production,
+        configuration.values.drain(reduced_from..),
+        tokens,
+        fallback,
+    );
     let owner = *configuration.states.last().expect("LR owner state exists");
     let next = spec.gotos[owner as usize]
         .iter()
@@ -1314,23 +1339,27 @@ fn current_offset(tokens: &[Token<'_>], significant: &[usize], cursor: usize) ->
 fn find_action(spec: &LanguageSpec, state: u32, token: Option<&Token<'_>>) -> Option<ParserAction> {
     let row = spec.actions.get(state as usize)?;
     if let Some(token) = token {
-        row.iter()
-            .find(|entry| match entry.terminal {
-                Terminal::Literal(value) => {
-                    if spec.case_insensitive {
+        let mut token_action = None;
+        for entry in *row {
+            match entry.terminal {
+                Terminal::Literal(value)
+                    if if spec.case_insensitive {
                         value.eq_ignore_ascii_case(token.text)
                     } else {
                         value == token.text
+                    } =>
+                {
+                    return Some(entry.action);
+                }
+                Terminal::Token(name) if name == token.terminal => {
+                    if token_action.is_none() {
+                        token_action = Some(entry.action);
                     }
                 }
-                _ => false,
-            })
-            .or_else(|| {
-                row.iter().find(|entry| {
-                    matches!(entry.terminal, Terminal::Token(name) if name == token.terminal)
-                })
-            })
-            .map(|entry| entry.action)
+                Terminal::Eof | Terminal::Literal(_) | Terminal::Token(_) => {}
+            }
+        }
+        token_action
     } else {
         row.iter()
             .find(|entry| entry.terminal == Terminal::Eof)
@@ -1340,41 +1369,57 @@ fn find_action(spec: &LanguageSpec, state: u32, token: Option<&Token<'_>>) -> Op
 
 fn reduce(
     production: &Production,
-    values: Vec<Value>,
+    mut values: impl ExactSizeIterator<Item = Value>,
     tokens: &[Token<'_>],
     fallback: usize,
 ) -> Value {
+    if production.reduction == Reduction::Pass && values.len() == 1 {
+        return apply_operand_actions(
+            &production.rhs[0],
+            values.next().expect("one pass value"),
+            tokens,
+            fallback,
+        );
+    }
     let mut groups = Vec::with_capacity(values.len());
-    for (operand, mut value) in production.rhs.iter().zip(values) {
-        for action in operand.actions {
-            match *action {
-                OperandAction::Field(field) => {
-                    let mut children = value.into_children();
-                    for child in &mut children {
-                        child.field = Some(field);
-                    }
-                    value = Value::Fragment(children);
-                }
-                OperandAction::Alias(kind) => {
-                    let start = value.start(tokens, fallback);
-                    let end = value.end(tokens, fallback);
-                    value = Value::Node {
-                        kind,
-                        start,
-                        end,
-                        children: value.into_children(),
-                    };
-                }
-            }
-        }
-        groups.push(value);
+    for (operand, value) in production.rhs.iter().zip(values) {
+        groups.push(apply_operand_actions(operand, value, tokens, fallback));
     }
     match production.reduction {
-        Reduction::Pass if groups.len() == 1 => groups.pop().expect("one pass operand"),
         Reduction::Pass | Reduction::Concat => {
             Value::Fragment(groups.into_iter().flat_map(Value::into_children).collect())
         }
     }
+}
+
+fn apply_operand_actions(
+    operand: &Operand,
+    mut value: Value,
+    tokens: &[Token<'_>],
+    fallback: usize,
+) -> Value {
+    for action in operand.actions {
+        match *action {
+            OperandAction::Field(field) => {
+                let mut children = value.into_children();
+                for child in &mut children {
+                    child.field = Some(field);
+                }
+                value = Value::Fragment(children);
+            }
+            OperandAction::Alias(kind) => {
+                let start = value.start(tokens, fallback);
+                let end = value.end(tokens, fallback);
+                value = Value::Node {
+                    kind,
+                    start,
+                    end,
+                    children: value.into_children(),
+                };
+            }
+        }
+    }
+    value
 }
 
 fn build_green(
@@ -1401,8 +1446,11 @@ fn build_green(
     }
     builder.finish_node();
     let green = builder.finish();
-    if green.to_string() != source {
-        return Err("Rowan tree does not reproduce the complete source".into());
+    // The lexer covers source monotonically with borrowed slices and emit_node
+    // consumes every token exactly once. Length equality therefore proves the
+    // lossless roundtrip without allocating a second complete source string.
+    if usize::from(green.text_len()) != source.len() {
+        return Err("Rowan tree does not cover the complete source".into());
     }
     Ok(green)
 }

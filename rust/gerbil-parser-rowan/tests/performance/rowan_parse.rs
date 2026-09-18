@@ -90,7 +90,7 @@ fn rowan_engine_deterministic_hot_path_v1() {
     })
     .expect("measure deterministic Rust/Rowan engine Scenario");
 
-    assert_red_zone(&scenario, &measurement, Duration::from_millis(25));
+    assert_red_zone(&scenario, &measurement, Duration::from_millis(10));
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn rowan_engine_selective_glr_scale_v1() {
     })
     .expect("measure production-scale Rust/Rowan engine Scenario");
 
-    assert_red_zone(&scenario, &measurement, Duration::from_millis(75));
+    assert_red_zone(&scenario, &measurement, Duration::from_millis(15));
 }
 
 fn scenario(name: &str) -> AspRustScenario {

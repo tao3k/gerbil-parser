@@ -49,6 +49,14 @@ cargo fmt --all
 cargo test --workspace --locked
 #+end_src
 
+The workspace =Build Support= crate owns the ASP Rust policy once.  The Rowan
+crate reaches Build Support only through =[dev-dependencies]=, and
+=tests/asp-rust-gate.rs= activates the =Dev Gate= only under =cargo test=.
+Current policy mode is =warn= while the existing generated and runtime surface
+is brought under the contract; switching the one Build Support macro to =deny=
+makes those findings test-blocking.  Normal and build dependency graphs do not
+contain Build Support or ASP Rust.
+
 * Native command
 
 =build.ss= is the package AOT entry. It discovers and installs the reusable

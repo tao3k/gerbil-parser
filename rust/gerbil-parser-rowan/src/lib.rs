@@ -293,6 +293,13 @@ impl Value {
     }
 }
 
+/// Parse `source` with one generated language specification.
+///
+/// # Errors
+///
+/// Returns [`ParseError`] when the generated artifact is invalid, lexical
+/// analysis rejects the source, parsing does not complete, or CST construction
+/// fails.
 pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseError> {
     let receipt = receipt(spec, source);
     validate_spec(spec).map_err(|message| ParseError {
@@ -557,9 +564,7 @@ fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize) -> Option<
         LexicalExpr::Newline => {
             consume_while(source, offset, |character| matches!(character, '\r' | '\n'))
         }
-        LexicalExpr::DecimalDigits => {
-            consume_while(source, offset, |character| character.is_numeric())
-        }
+        LexicalExpr::DecimalDigits => consume_while(source, offset, char::is_numeric),
         LexicalExpr::Number => number_end(source, offset),
         LexicalExpr::NumberLiteral {
             prefixes,
@@ -699,10 +704,10 @@ fn identifier_end(source: &str, offset: usize) -> Option<usize> {
 }
 
 fn number_end(source: &str, offset: usize) -> Option<usize> {
-    let whole_end = consume_while(source, offset, |character| character.is_numeric())?;
+    let whole_end = consume_while(source, offset, char::is_numeric)?;
     let fraction_end = if source[whole_end..].starts_with('.') {
         let digits_start = whole_end + 1;
-        consume_while(source, digits_start, |character| character.is_numeric()).unwrap_or(whole_end)
+        consume_while(source, digits_start, char::is_numeric).unwrap_or(whole_end)
     } else {
         whole_end
     };
@@ -718,7 +723,7 @@ fn number_end(source: &str, offset: usize) -> Option<usize> {
     {
         digits_start += sign.len_utf8();
     }
-    consume_while(source, digits_start, |character| character.is_numeric()).or(Some(fraction_end))
+    consume_while(source, digits_start, char::is_numeric).or(Some(fraction_end))
 }
 
 fn number_literal_end(
@@ -1034,7 +1039,7 @@ fn run_configuration(
                     spec,
                     tokens,
                     significant,
-                    configuration,
+                    &configuration,
                     branches,
                     speculative_depth,
                     context,
@@ -1099,7 +1104,7 @@ fn explore_fork(
     spec: &LanguageSpec,
     tokens: &[Token<'_>],
     significant: &[usize],
-    configuration: ParserConfiguration,
+    configuration: &ParserConfiguration,
     branches: &[ParserAction],
     speculative_depth: usize,
     context: &mut GlrContext,
@@ -1117,8 +1122,7 @@ fn explore_fork(
                 reason_kind: "selective-glr-budget-exhausted",
                 byte_offset: current_offset(tokens, significant, configuration.cursor),
                 message: format!(
-                    "selective-GLR speculative depth exceeds {}",
-                    SELECTIVE_GLR_BRANCH_BUDGET
+                    "selective-GLR speculative depth exceeds {SELECTIVE_GLR_BRANCH_BUDGET}"
                 ),
             });
         }
@@ -1227,7 +1231,7 @@ fn execute_branch_action(
             spec,
             tokens,
             significant,
-            configuration,
+            &configuration,
             branches,
             speculative_depth,
             context,

@@ -1,13 +1,26 @@
 [workspace]
-members = ["rust/gerbil-parser-rowan"]
+members = [
+  "build-support/gerbil-parser-build-support",
+  "rust/gerbil-parser-rowan",
+]
 resolver = "2"
 
 [workspace.package]
+version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0 AND LGPL-2.1-or-later"
 repository = "https://github.com/tao3k/gerbil-parser"
-rust-version = "1.85"
+rust-version = "1.95"
 
 [workspace.dependencies]
+asp-rust = { git = "https://github.com/tao3k/asp-rust", rev = "2419414ee5379bad89506496e3eaab928df68daf", version = "0.1.2", default-features = false }
+gerbil-parser-build-support = { path = "build-support/gerbil-parser-build-support", version = "0.1.0" }
 rowan = "0.16.1"
 sha2 = "0.10.9"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"

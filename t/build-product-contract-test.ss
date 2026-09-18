@@ -2,8 +2,18 @@
 ;;; Boundary: package installation owns reusable library products only.
 
 (import (only-in :std/misc/ports read-all-as-string)
+        (only-in :std/srfi/1 filter)
         (only-in :std/srfi/13 string-contains)
-        (only-in :std/test check run-tests! test-case test-suite))
+        (only-in :std/test check run-tests! test-case test-suite)
+        (only-in :asp-gerbil-scheme/building-api
+                 asp-gerbil-scheme-package-native-capabilities)
+        (only-in ../build-rust-rowan-aot
+                 rust-rowan-aot-runtime-modules
+                 rust-rowan-aot-package
+                 rust-rowan-aot-build-spec))
+
+(def (native-item-kind? kind item)
+  (and (pair? item) (eq? (car item) kind)))
 
 (def build-product-contract-tests
   (test-suite "build product ownership"
@@ -13,10 +23,7 @@
             (package-source
              (call-with-input-file "gerbil.pkg" read-all-as-string))
             (command-source
-             (call-with-input-file "build-gparse.ss" read-all-as-string))
-            (rowan-aot-source
-             (call-with-input-file
-              "build-rust-rowan-aot.ss" read-all-as-string)))
+             (call-with-input-file "build-gparse.ss" read-all-as-string)))
         (check (and (string-contains library-source
                                      "\"build-gparse.ss\"")
                     (string-contains library-source
@@ -47,28 +54,25 @@
                => #t)
         (check (string-contains command-source
                                 "asp-gerbil-scheme-package-spec!")
-               => #f)
-        (check (and (string-contains rowan-aot-source
-                                     "defbuild-script")
-                    (string-contains rowan-aot-source
-                                     "src/ffi/rust-rowan-aot-v1")
-                    (string-contains rowan-aot-source
-                                     "src/ffi/rust-rowan-aot-main")
-                    (string-contains rowan-aot-source
-                                     ":asp-gerbil-scheme/building-api")
-                    (string-contains rowan-aot-source
-                                     "asp-gerbil-scheme-package-spec!")
-                    (string-contains rowan-aot-source
-                                     "(gxc: ,module)")
-                    (string-contains rowan-aot-source
-                                     "\"gerbil-parser-rowan-aot\"")
-                    (string-contains rowan-aot-source
-                                     "(role 'build-support)")
-                    (string-contains rowan-aot-source
-                                     "(native-capabilities '(tls))")
-                    (string-contains rowan-aot-source
-                                     "asp-gerbil-scheme-native-pkg-config-options")
-                    #t)
-               => #t)))))
+               => #f)))
+    (test-case "ASP Building API projects the Rowan executable closure"
+      (let* ((spec (rust-rowan-aot-build-spec))
+             (gxc-items
+              (filter (lambda (item) (native-item-kind? 'gxc: item)) spec))
+             (exe-items
+              (filter (lambda (item) (native-item-kind? 'exe: item)) spec)))
+        (check (map cadr gxc-items) => rust-rowan-aot-runtime-modules)
+        (check (length exe-items) => 1)
+        (let (executable (car exe-items))
+          (check (cadr executable) => "src/ffi/rust-rowan-aot-main")
+          (check (cadr (member 'bin: executable))
+                 => "gerbil-parser-rowan-aot")
+          (check (and (member "-cc-options" executable)
+                      (member "-ld-options" executable)
+                      #t)
+                 => #t))
+        (check (asp-gerbil-scheme-package-native-capabilities
+                rust-rowan-aot-package)
+               => '(tls))))))
 
 (run-tests! build-product-contract-tests)

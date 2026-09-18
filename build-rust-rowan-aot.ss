@@ -7,6 +7,9 @@
                  asp-gerbil-scheme-library-package-prototype
                  asp-gerbil-scheme-native-pkg-config-options
                  asp-gerbil-scheme-package-spec!))
+(export rust-rowan-aot-runtime-modules
+        rust-rowan-aot-package
+        rust-rowan-aot-build-spec)
 
 (def rust-rowan-aot-runtime-modules
   '("src/compiler/funcs"

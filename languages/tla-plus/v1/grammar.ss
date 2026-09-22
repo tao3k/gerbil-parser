@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Native TLA+ core syntax compiled by the language-neutral engine.
 
-(import :gerbil-parser/src/language/grammar ./source)
+(import (only-in :gerbil-parser/language-support deflanguage-grammar)
+        ./source)
 (export (import: ./source)
         +tla-plus-contract-version+ +tla-plus-syntax-contract+
         +tla-plus-examples-commit+ tla-plus-v1-language-grammar

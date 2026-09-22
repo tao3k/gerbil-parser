@@ -14,6 +14,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  rust-rowan:
+    name: Rust/Rowan AOT runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout gerbil-parser
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify Rust formatting
+        run: cargo fmt --all -- --check
+
+      - name: Verify ASP Rust source policy
+        run: cargo test -p gerbil-parser-build-support --test asp-rust-gate --locked -- --nocapture
+
+      - name: Verify Rust contracts
+        run: cargo test --workspace --locked
+
+      - name: Verify downstream Cargo-only language consumer
+        run: cargo test --locked --manifest-path t/fixtures/rust-rowan-downstream/Cargo.toml
+
+      - name: Verify Rust lints
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Verify publishable Rust products
+        run: |
+          cargo package -p gerbil-parser-rowan --locked --allow-dirty
+          cargo package -p gerbil-parser-rowan-gql --locked --allow-dirty \
+            --config 'patch.crates-io.gerbil-parser-rowan.path="rust/gerbil-parser-rowan"'
+
+      - name: Verify generated-table Rowan engine red zones
+        run: cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- --ignored --nocapture --test-threads=1
+
   native-gerbil:
     name: Native Gerbil parser and language packs (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -117,13 +149,50 @@ jobs:
         run: |
           gerbil clean
           GERBIL_BUILD_VERBOSE=1 gerbil build
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Wno-unused-command-line-argument -fsyntax-only \
+            -Iinclude t/native-ffi-header-smoke.c
 
-      - name: Build optional native command
-        run: gerbil env gxi build-gparse.ss compile
+      - name: Build optional native commands
+        run: |
+          gerbil env gxi build-gparse.ss compile
+          gerbil env gxi build-rust-rowan-aot.ss compile
 
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: gerbil test -v 3 t/... languages/...
+
+      - name: Verify Rust/Rowan AOT generation is current
+        run: |
+          arithmetic_generated="$(mktemp)"
+          gql_generated="$(mktemp)"
+          gerbil env gxi generate-rust-rowan.ss "$arithmetic_generated"
+          gerbil env gxi generate-gql-rust-rowan.ss "$gql_generated"
+          rustfmt --edition 2024 "$arithmetic_generated" "$gql_generated"
+          cmp "$arithmetic_generated" rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
+          cmp "$gql_generated" rust/gerbil-parser-rowan-gql/src/generated/mod.rs
+
+      - name: Verify downstream custom Rust/Rowan language pack
+        run: |
+          fixture="t/fixtures/rust-rowan-downstream"
+          generated="$(mktemp)"
+          clean_home="$RUNNER_TEMP/rowan-aot-home"
+          mkdir -p "$clean_home"
+          gerbil env gxc \
+            "$fixture/languages/records/v1/grammar.ss" \
+            "$fixture/languages/records/v1/parser.ss" \
+            "$fixture/languages/records/v1/fixtures.ss" \
+            "$fixture/languages/records/v1/parser-test.ss"
+          env -i \
+            HOME="$clean_home" \
+            PATH=/usr/bin:/bin \
+            GERBIL_PATH="$PWD/.gerbil" \
+            GERBIL_PARSER_ROWAN_AOT_LIB="$PWD/.gerbil/lib:$GERBIL_HOME/lib" \
+            "$PWD/.gerbil/bin/gerbil-parser-rowan-aot" \
+            "$fixture/languages/records/v1/grammar.ss" \
+            "$generated"
+          rustfmt --edition 2024 "$generated"
+          cmp "$generated" "$fixture/src/generated/records_v1.rs"
 
       - name: Verify native command
         run: |

@@ -7,7 +7,10 @@
         (only-in :gerbil-parser/src/ffi/parse-artifact-v1
                  native-abi-version
                  native-descriptor-payload
-                 native-parse-binary-payload))
+                 native-parse-binary-payload)
+        (only-in ../src/ffi/rust-rowan-aot-v1
+                 native-rowan-aot-abi-version
+                 native-rust-rowan-source))
 
 (def native-ffi-tests
   (test-suite "parser-owned native ParseArtifact v1 ABI"
@@ -43,6 +46,22 @@
         (check (u8vector-u32-ref artifact 8 little) => 0)
         (check (positive? (u8vector-u32-ref artifact 12 little)) => #t)))
     (test-case "unknown language fails closed"
-      (check-exception (native-descriptor-payload "unknown") true))))
+      (check-exception (native-descriptor-payload "unknown") true))
+    (test-case "grammar path compiles through the Scheme Rowan backend"
+      (check (native-rowan-aot-abi-version) => 1)
+      (let (source
+            (native-rust-rowan-source
+             "t/fixtures/rust-rowan-downstream/languages/records/v1/grammar.ss"))
+        (check (not (not (string-contains
+                           source "language: \"downstream-records\""))) => #t)
+        (check (not (not (string-contains
+                           source "grammar_digest: \"sha256:9c7e8b0f"))) => #t)
+        (check (not (not (string-contains
+                           source "pub static LANGUAGE: LanguageSpec"))) => #t)))
+    (test-case "module without a language descriptor fails closed"
+      (check-exception
+       (native-rust-rowan-source
+        "t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss")
+       true))))
 
 (export native-ffi-tests)

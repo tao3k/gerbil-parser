@@ -708,24 +708,26 @@
                 (lexical-rules
                  (map (lambda (row) (list (car row) (caddr row)))
                       lexical-rows))
-                (expanded
-                 `(deflanguage-grammar ,prefix-name
-                    (identity ,(syntax->datum #'language-value)
-                              ,(syntax->datum #'version-value)
-                              ,(syntax->datum #'contract-value))
-                    (syntax-kinds ,@syntax-kinds)
-                    (terminals ,@terminals)
-                    (lexical-rules ,@lexical-rules)
-                    (rules ,@normalized-rules)
-                    (extras ,@(syntax->datum #'(extra-name ...)))
-                    (keywords ,@(syntax->datum #'(keyword-row ...)))
-                    (parser-entrypoints (,root-value parse pure))
-                    (recoveries ,@(syntax->datum #'(recovery-row ...)))
-                    (conflicts ,(syntax->datum #'conflict-policy))
-                    (case-insensitive
-                     ,(syntax->datum #'case-insensitive-value))
-                    (lineage deflanguage
-                             ,@(reverse (unique macro-lineage)))
-                    (flow (source lexical) (lexical parser) (parser cst)))))
-           (datum->syntax #'prefix expanded)))))
+                (arguments
+                 `(,prefix-name
+                   (identity ,(syntax->datum #'language-value)
+                             ,(syntax->datum #'version-value)
+                             ,(syntax->datum #'contract-value))
+                   (syntax-kinds ,@syntax-kinds)
+                   (terminals ,@terminals)
+                   (lexical-rules ,@lexical-rules)
+                   (rules ,@normalized-rules)
+                   (extras ,@(syntax->datum #'(extra-name ...)))
+                   (keywords ,@(syntax->datum #'(keyword-row ...)))
+                   (parser-entrypoints (,root-value parse pure))
+                   (recoveries ,@(syntax->datum #'(recovery-row ...)))
+                   (conflicts ,(syntax->datum #'conflict-policy))
+                   (case-insensitive
+                    ,(syntax->datum #'case-insensitive-value))
+                   (lineage deflanguage
+                            ,@(reverse (unique macro-lineage)))
+                   (flow (source lexical) (lexical parser) (parser cst)))))
+           (with-syntax (((argument ...)
+                          (datum->syntax #'prefix arguments)))
+             #'(deflanguage-grammar argument ...))))))
     (_ (raise-syntax-error #f "invalid concise language declaration" stx))))

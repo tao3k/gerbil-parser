@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; openCypher 2024.1 official ISO WG3 BNF grammar-source owner.
 
-(import (only-in :gerbil-parser/src/language-support/iso-bnf-language
+(import (only-in :gerbil-parser/language-support
                  deflanguage-iso-bnf-grammar))
 (export +opencypher-version+
         +opencypher-commit+

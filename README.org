@@ -112,8 +112,6 @@ After building the Gerbil package, regenerate and verify the committed module:
 #+begin_src sh
 gerbil env gxi generate-rust-rowan.ss \
   rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
-gerbil env gxi generate-gql-rust-rowan.ss \
-  rust/gerbil-parser-rowan-gql/src/generated/mod.rs
 cargo fmt --all
 cargo test --workspace --locked
 cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- \

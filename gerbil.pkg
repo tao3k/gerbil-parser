@@ -1,4 +1,4 @@
 (package:
  gerbil-parser
 depend:
- ("github.com/tao3k/poo-flow@af0ddb288cc737bae36004d10923b0ad4f5350f6"))
+ ("github.com/tao3k/poo-flow@f48500383d003b4d3d3481f04e049ba7b9d1c0ed"))

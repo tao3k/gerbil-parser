@@ -52,9 +52,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            gerbil-label: release-v0.19-d801e7a
+            gerbil-label: release-v0.19-2591dcd
           - os: macos-latest
-            gerbil-label: release-v0.19-d801e7a
+            gerbil-label: release-v0.19-2591dcd
     env:
       GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ matrix.gerbil-label }}
     steps:
@@ -96,7 +96,9 @@ jobs:
           test -x "$gcc_bin"
           echo "GERBIL_GCC=$gcc_bin" >> "$GITHUB_ENV"
           openssl_prefix="$(brew --prefix openssl@3 2>/dev/null || brew --prefix openssl)"
+          macos_major="$(sw_vers -productVersion | cut -d. -f1)"
           echo "PKG_CONFIG_PATH=$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+          echo "MACOSX_DEPLOYMENT_TARGET=$macos_major.0" >> "$GITHUB_ENV"
 
       - name: Detect native build capacity
         run: |

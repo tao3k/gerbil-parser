@@ -31,4 +31,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(run-tests! selective-glr-benchmark-tests)
+(export selective-glr-benchmark-tests)

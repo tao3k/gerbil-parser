@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Conservative prefix token reuse with fresh-parse-equivalent publication.
 
-(import (only-in :std/srfi/1 drop filter filter-map take)
-        (only-in ../compiler/machine
+(import (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-runtime)
         (only-in ./artifact
                  event-end event-start parse-artifact-events

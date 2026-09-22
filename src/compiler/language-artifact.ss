@@ -7,9 +7,9 @@
                  load-compiled-language-artifact/roots)
         (only-in :gerbil/compiler/base current-compile-output-dir)
         (only-in :std/misc/ports read-all-as-u8vector)
-        (only-in :std/text/base64 u8vector->base64-string)
-        (only-in :std/text/utf8 utf8->string)
-        (only-in :std/text/zlib compress uncompress))
+        (only-in :std/encoding/base64 base64-encode)
+        (only-in :std/string/utf8 utf8->string)
+        (only-in :std/encoding/zlib compress uncompress))
 (export materialize-compiled-language-artifact
         materialize-compiled-language-artifact/output-dirs
         compile-language-parser-artifact
@@ -38,7 +38,9 @@
         (lambda (_) #f)
         (lambda ()
           (equal? serialized
-                  (utf8->string (call-with-input-file path uncompress)))))))
+                  (utf8->string
+                   (uncompress
+                    (call-with-input-file path read-all-as-u8vector))))))))
 
 ;; A content-addressed target is immutable. Existing corrupt content is never
 ;; silently replaced; a competing writer is accepted only after the winner's
@@ -93,7 +95,7 @@
                   path))))
      paths)
     (unless (null? missing)
-      (let (bytes (compress serialized 9))
+      (let (bytes (compress (string->utf8 serialized) compression: 9))
         (for-each
          (lambda (path)
            (create-directory* (path-directory path))
@@ -240,7 +242,7 @@
                          (current-artifact-output-dirs)))
               (error "compiled language artifact sidecar is unavailable"
                      relative-path))))
-    (u8vector->base64-string
+    (base64-encode
      (call-with-input-file path read-all-as-u8vector))))
 
 ;; : (-> Datum (-> Datum) (values Datum List Symbol))

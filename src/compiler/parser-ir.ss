@@ -1,7 +1,6 @@
 ;;; Grammar IR to immutable parser-machine IR compilation.
 
-(import (only-in :std/sugar alet)
-        (only-in ./lr-compiler compile-lr-spec)
+(import (only-in ./lr-compiler compile-lr-spec)
         (only-in ../grammar/algebra
                  grammar-expression? grammar-expression-references
                  grammar-expression-terminals)

@@ -80,4 +80,4 @@
                           (loop (cdr rest)))))
                => #t)))))
 
-(run-tests! parse-artifact-tests)
+(export parse-artifact-tests)

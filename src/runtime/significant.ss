@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Runtime-only projection from lossless tokens to parser-significant tokens.
 
-(import (only-in :std/sugar filter)
-        (only-in ../compiler/machine parser-machine-trivia))
+(import (only-in ../compiler/machine parser-machine-trivia))
 (export parser-significant-tokens)
 
 ;; : (-> ParserMachine (List Token) (List Token))

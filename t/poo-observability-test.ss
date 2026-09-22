@@ -6,7 +6,6 @@
 (import :std/test
         (only-in :clan/poo/object .ref)
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :std/srfi/13 string-contains)
         :asp-gerbil-scheme/src/benchmark/framework
         :poo-flow/src/module-system/observability/interface
         :gerbil-parser/src/modules/parser/interface
@@ -106,4 +105,4 @@
         (check (opencypher-grammar-observability-scenario-pass? receipt)
                => #t)))))
 
-(run-tests! poo-observability-tests)
+(export poo-observability-tests)

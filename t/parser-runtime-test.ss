@@ -185,4 +185,4 @@
                => #t)
         (check-exception (parse-artifact->cst artifact) true)))))
 
-(run-tests! parser-runtime-tests)
+(export parser-runtime-tests)

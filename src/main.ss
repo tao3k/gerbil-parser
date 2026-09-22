@@ -2,8 +2,8 @@
 ;;; Native AOT command entrypoint for the thin gparse command surface.
 ;;; Parsing and compilation remain library-owned; this module only maps commands to owners.
 
-(import (only-in :std/getopt argument call-with-getopt command)
-        (only-in :std/sugar let-hash)
+(import (only-in :std/cli/getopt argument call-with-getopt command)
+        (only-in :std/hash/misc let-hash)
         (only-in ./cli
                  gparse-build gparse-check gparse-inspect gparse-test))
 (export main)

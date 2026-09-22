@@ -32,4 +32,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(run-tests! lalr-fixed-point-benchmark-tests)
+(export lalr-fixed-point-benchmark-tests)

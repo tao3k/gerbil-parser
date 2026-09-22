@@ -1,9 +1,8 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 
-(import (only-in :std/srfi/13 string-join)
-        (only-in :std/test
-                 check check-exception run-tests! test-case test-suite)
+(import (only-in :std/test
+                 check check-exception test-case test-suite)
         (only-in :gerbil-parser/languages/arithmetic/v1/parser
                  arithmetic-parser parse-arithmetic-v1)
         (only-in :gerbil-parser/src/runtime/artifact
@@ -105,4 +104,4 @@
         (check (row-ref (car (row-ref receipt 'operations)) 'kind)
                => 'SKIPPED)))))
 
-(run-tests! recovery-incremental-tests)
+(export recovery-incremental-tests)

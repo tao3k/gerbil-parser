@@ -156,4 +156,4 @@
           (list (list 'missing metadata expected replacement)))
          true)))))
 
-(run-tests! iso-bnf-source-tests)
+(export iso-bnf-source-tests)

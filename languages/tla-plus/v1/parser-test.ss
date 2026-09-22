@@ -5,7 +5,7 @@
 
 (import (only-in :std/test check test-case test-suite)
         (only-in :std/misc/process run-process)
-        (only-in :std/srfi/13 string-trim-right)
+        (only-in :std/string/misc string-trim-eol)
         :gerbil-parser/languages/tla-plus/v1/parser
         (only-in :gerbil-parser/languages/tla-plus/v1/qualification
                  +tla-plus-model-qualification-schema+
@@ -33,7 +33,7 @@
           (path-expand "gerbil-parser-tlc-test.XXXXXX"
                        (getenv "TMPDIR" "/tmp")))
          (directory
-          (string-trim-right (run-process ["mktemp" "-d" template]))))
+          (string-trim-eol (run-process ["mktemp" "-d" template]))))
     (unwind-protect
       (procedure directory)
       (when (file-exists? directory)

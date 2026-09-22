@@ -2,8 +2,7 @@
 ;;; Boundary: package installation owns reusable library products only.
 
 (import (only-in :std/misc/ports read-all-as-string)
-        (only-in :std/srfi/13 string-contains)
-        (only-in :std/test check run-tests! test-case test-suite))
+        (only-in :std/test check test-case test-suite))
 
 (def build-product-contract-tests
   (test-suite "build product ownership"
@@ -33,4 +32,4 @@
                                 "asp-gerbil-scheme-package-spec!")
                => #f)))))
 
-(run-tests! build-product-contract-tests)
+(export build-product-contract-tests)

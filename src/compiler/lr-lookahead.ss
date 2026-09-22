@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; LALR lookahead fixed-point propagation over an interned LR(0) graph.
 
-(import (prefix-in :std/misc/queue stdq-)
+(import (prefix-in :std/struct/queue stdq-)
         (only-in ./funcs
                  compiler-index-set-add
                  compiler-index-set-difference compiler-index-set-empty?
@@ -151,7 +151,7 @@
                                 tail-first-masks nullable-tails
                                 terminal-index layout)
   (let* ((item-space (* (cdr layout) (vector-length table)))
-         (queue (stdq-make-queue))
+         (queue (stdq-make-Queue))
          (processed-count 0)
          (started (##current-time-point))
          (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")))

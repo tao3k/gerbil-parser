@@ -114,4 +114,4 @@
         (check (lr-spec-ref spec 'schema) => "gerbil-parser.lr-spec.v1")
         (check (> (lr-spec-ref spec 'state-count) 0) => #t)))))
 
-(run-tests! antlr4-source-tests)
+(export antlr4-source-tests)

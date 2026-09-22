@@ -2,7 +2,7 @@
 ;;; ISO WG3 BNF language-source adapter and validation boundary.
 
 (import :gerbil-parser/src/runtime/identity
-        (only-in :std/srfi/13 string-trim-both)
+        (only-in :std/string/misc string-trim)
         (only-in :gerbil-parser/src/utilities/strings
                  ascii-whitespace? string-index-from text-lines))
 (export +iso-bnf-source-schema+
@@ -50,7 +50,7 @@
 ;; : (-> Char Boolean)
 ;; : (-> String (Maybe (Pair String String)))
 (def (production-header line)
-  (let* ((text (string-trim-both line))
+  (let* ((text (string-trim line))
          (separator (string-index-from text "::=")))
     (and separator
          (> separator 2)
@@ -59,13 +59,13 @@
            (and close
                 (< close separator)
                 (cons (substring text 1 close)
-                      (string-trim-both
+                      (string-trim
                        (substring text (+ separator 3)
                                   (string-length text)))))))))
 
 ;; : (-> String String String)
 (def (append-expression current line)
-  (let (next (string-trim-both line))
+  (let (next (string-trim line))
     (cond
      ((zero? (string-length next)) current)
      ((zero? (string-length current)) next)
@@ -207,9 +207,9 @@
 (def (parse-bnf-expression expression)
   (let (annotation (string-index-from expression "!!"))
     (if annotation
-      (let ((terminal (string-trim-both (substring expression 0 annotation)))
+      (let ((terminal (string-trim (substring expression 0 annotation)))
             (codepoints
-             (string-trim-both
+             (string-trim
               (substring expression (+ annotation 2)
                          (string-length expression)))))
         (when (zero? (string-length terminal))
@@ -235,7 +235,7 @@
 
 ;; : (-> (Maybe String) String Boolean)
 (def (production-continuation? name line)
-  (let (text (string-trim-both line))
+  (let (text (string-trim line))
     (and name
          (or (zero? (string-length text))
              (not (char=? (string-ref text 0) #\#))))))

@@ -2,9 +2,9 @@
 ;;; -*- Gerbil -*-
 
 (import :std/test
-        (only-in :std/misc/bytes little u8vector-u32-ref)
-        :std/text/json
-        (only-in ../src/ffi/parse-artifact-v1
+        (only-in :std/vector/u8vector little u8vector-u32-ref)
+        :std/encoding/json
+        (only-in :gerbil-parser/src/ffi/parse-artifact-v1
                  native-abi-version
                  native-descriptor-payload
                  native-parse-binary-payload)
@@ -16,7 +16,7 @@
   (test-suite "parser-owned native ParseArtifact v1 ABI"
     (test-case "descriptor publishes the parser-owned grammar surface"
       (check (native-abi-version) => 1)
-      (let (descriptor (string->json-object (native-descriptor-payload "gql")))
+      (let (descriptor (string->json (native-descriptor-payload "gql")))
         (check (hash-get descriptor "schema")
                => "gerbil-parser.native-descriptor.v1")
         (check (hash-get descriptor "language") => "gql")
@@ -36,7 +36,7 @@
                => (+ 80 (* 24 (u8vector-u32-ref artifact 12 little))))))
     (test-case "openCypher uses its own descriptor and parser"
       (let* ((descriptor
-              (string->json-object (native-descriptor-payload "cypher")))
+              (string->json (native-descriptor-payload "cypher")))
              (artifact
               (native-parse-binary-payload
                "cypher" "MATCH (n:Person) RETURN n\n")))
@@ -64,4 +64,4 @@
         "t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss")
        true))))
 
-(run-tests! native-ffi-tests)
+(export native-ffi-tests)

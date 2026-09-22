@@ -42,4 +42,4 @@
         "SyntaxTreeNode\nRule() : {} {}\n")
        true))))
 
-(run-tests! javacc-source-tests)
+(export javacc-source-tests)

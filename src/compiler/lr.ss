@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Deterministic LALR(1) compilation and lossless recognition runtime.
 
-(import (only-in :std/sort sort)
-        (only-in ./funcs
+(import (only-in ./funcs
                  compiler-index-set->ordered-values
                  compiler-index-set-singleton
                  compiler-index-set-union))

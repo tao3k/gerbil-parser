@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Allocation-free indexed-set algorithms shared by parser compilation.
 
-(import (only-in :std/misc/list-builder with-list-builder))
+(import (only-in :std/list/list-builder with-list-builder))
 (export compiler-index-set-add
         compiler-index-set-difference
         compiler-index-set-empty?

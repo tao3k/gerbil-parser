@@ -1,7 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Allocation-bounded string algorithms shared by grammar-source adapters.
 
-(import (only-in :std/srfi/13 string-contains))
 (export ascii-whitespace? string-prefix-at? string-index-from text-lines)
 
 (def (ascii-whitespace? ch)
@@ -20,10 +19,13 @@
                             (string-ref prefix index))
                     (loop (+ index 1))))))))
 
-;;; SRFI-13 owns the optimized substring search; the wrapper fixes the shared
-;;; adapter contract and its optional starting offset.
+;;; V19's core owns the optimized substring search.  Its compiler signature
+;;; currently describes the index-or-#f result as Boolean, so keep the call
+;;; indirect at this source-adapter boundary until that upstream signature is
+;;; corrected.
 (def (string-index-from text wanted (start 0))
-  (string-contains text wanted start))
+  (let (index (apply string-contains (list text wanted start)))
+    (and index (:- index :fixnum))))
 
 ;;; Preserves empty and final lines because source coordinates and digests are
 ;;; grammar evidence, not presentation text.

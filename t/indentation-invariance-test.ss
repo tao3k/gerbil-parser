@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Non-semantic whitespace may change source/trivia spans, never syntax.
 
-(import (only-in :std/test check run-tests! test-case test-suite)
+(import (only-in :std/test check test-case test-suite)
         :gerbil-parser/languages/cypher/opencypher-2024-1/parser
         :gerbil-parser/languages/gql/iso-39075-2024/parser
         :gerbil-parser/languages/hcl/v2-24/parser
@@ -71,4 +71,4 @@
        "---- MODULE Indent ----\nVARIABLE x\nInit == x = 1\n====\n"
        "---- MODULE Indent ----\n    VARIABLE   x\n        Init   ==   x   =   1\n====\n"))))
 
-(run-tests! indentation-invariance-tests)
+(export indentation-invariance-tests)

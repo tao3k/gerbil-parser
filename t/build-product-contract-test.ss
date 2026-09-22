@@ -2,9 +2,7 @@
 ;;; Boundary: package installation owns reusable library products only.
 
 (import (only-in :std/misc/ports read-all-as-string)
-        (only-in :std/srfi/1 filter)
-        (only-in :std/srfi/13 string-contains)
-        (only-in :std/test check run-tests! test-case test-suite)
+        (only-in :std/test check test-case test-suite)
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities)
         (only-in :gerbil-parser/src/build-support/rust-rowan-aot
@@ -37,7 +35,7 @@
                     #t)
                => #t)
         (check (and (string-contains package-source
-                                     "poo-flow@f745d98")
+                                     "poo-flow@af0ddb2")
                     (not (string-contains package-source
                                           "asp-gerbil-scheme@")))
                => #t)
@@ -75,4 +73,4 @@
                 rust-rowan-aot-package)
                => '(tls))))))
 
-(run-tests! build-product-contract-tests)
+(export build-product-contract-tests)

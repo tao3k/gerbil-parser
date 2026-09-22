@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Parser IR v1 is the sole authority for deterministic Rust/Rowan output.
 
-(import (only-in :std/os/temporaries make-temporary-file-name)
-        (only-in :std/srfi/13 string-contains)
+(import (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/languages/arithmetic/v1/grammar
                  +arithmetic-language-version+

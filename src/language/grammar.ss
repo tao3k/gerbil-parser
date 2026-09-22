@@ -7,7 +7,7 @@
                              compile-language-declaration-artifacts
                              encode-compiled-language-artifact)
                     (only-in :gerbil/expander core-expand1)
-                    (only-in :std/misc/list delete-duplicates/hash))
+                    (only-in :std/list/list delete-duplicates/hash))
         (only-in ../compiler/machine defgeneral-parser-machine)
         (only-in ./descriptor make-language-grammar)
         (only-in ../runtime/language-artifact

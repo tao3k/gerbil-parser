@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Full-size incremental LR checkpoint and suffix-convergence workload.
 
-(import (only-in :std/srfi/13 string-join)
-        :gerbil-parser/languages/arithmetic/v1/parser
+(import :gerbil-parser/languages/arithmetic/v1/parser
         :gerbil-parser/src/runtime/incremental)
 (export incremental-suffix-scenario
         incremental-suffix-scenario-pass?)

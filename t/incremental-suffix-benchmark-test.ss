@@ -29,4 +29,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(run-tests! incremental-suffix-benchmark-tests)
+(export incremental-suffix-benchmark-tests)

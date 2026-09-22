@@ -3,7 +3,6 @@
 ;;; Acceptance owner for openCypher Grammar IR, Bound IR, and ParseArtifacts.
 
 (import (only-in :std/test check test-case test-suite)
-        (only-in :std/srfi/13 string-join)
         :gerbil-parser/languages/cypher/opencypher-2024-1/parser
         :gerbil-parser/src/compiler/bound-ir
         (only-in :gerbil-parser/src/compiler/lr

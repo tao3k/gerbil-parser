@@ -2,12 +2,12 @@
 ;;; -*- Gerbil -*-
 ;;; Independent positive, negative, and concurrent admission for AOT IR files.
 
-(import (only-in :std/os/temporaries make-temporary-file-name)
-        (only-in :std/misc/barrier
+(import (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in :std/sync/barrier
                  barrier-post! barrier-wait! make-barrier)
-        (only-in :std/test check check-exception run-tests! test-case test-suite)
-        (only-in :std/text/base64 u8vector->base64-string)
-        (only-in :std/text/zlib compress)
+        (only-in :std/test check check-exception test-case test-suite)
+        (only-in :std/encoding/base64 base64-encode)
+        (only-in :std/encoding/zlib compress)
         (only-in :gerbil-parser/src/compiler/language-artifact
                  compile-language-declaration-artifacts/output-dirs
                  compile-language-parser-artifact/output-dirs
@@ -43,7 +43,7 @@
   (let* ((digest (sha256-text serialized))
          (relative-path (compiled-language-artifact-relative-path digest))
          (path (path-expand relative-path root))
-         (bytes (compress serialized 9)))
+         (bytes (compress (string->utf8 serialized) compression: 9)))
     (create-directory* (path-directory path))
     (call-with-output-file
      path
@@ -73,7 +73,8 @@
              (locator
               (list (compiled-language-artifact-relative-path digest) digest))
              (encoded
-              (u8vector->base64-string (compress serialized 9))))
+              (base64-encode
+               (compress (string->utf8 serialized) compression: 9))))
         (check (load-compiled-language-artifact/embedded
                 test-schema locator encoded)
                => test-value)
@@ -141,7 +142,7 @@
                 (relative-path
                  (compiled-language-artifact-relative-path wrong-digest))
                 (path (path-expand relative-path root))
-                (bytes (compress serialized 9)))
+                (bytes (compress (string->utf8 serialized) compression: 9)))
            (create-directory* (path-directory path))
            (call-with-output-file
             path
@@ -255,4 +256,4 @@
                  ;; ownership rebinding does not repeat LR generation.
                  (check parser-count => 1))))))))))
 
-(run-tests! language-artifact-tests)
+(export language-artifact-tests)

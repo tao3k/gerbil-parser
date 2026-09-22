@@ -38,4 +38,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(run-tests! gql-runtime-benchmark-tests)
+(export gql-runtime-benchmark-tests)

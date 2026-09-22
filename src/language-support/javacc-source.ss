@@ -2,7 +2,7 @@
 ;;; JavaCC source admission for pinned native parser grammars.
 
 (import :gerbil-parser/src/runtime/identity
-        (only-in :std/srfi/13 string-trim-both)
+        (only-in :std/string/misc string-trim)
         (only-in :gerbil-parser/src/utilities/strings
                  ascii-whitespace? string-prefix-at? string-index-from
                  text-lines))
@@ -51,7 +51,7 @@
 (def (return-type text)
   (def (admitted type)
     (and (string-prefix-at? text type 0)
-         (let (tail (string-trim-both
+         (let (tail (string-trim
                      (substring text (string-length type)
                                 (string-length text))))
            (and (or (zero? (string-length tail))
@@ -94,7 +94,7 @@
              (line 1) (pending-result #f) (found '()))
     (if (null? rest)
       (validate-productions (reverse found))
-      (let* ((text (string-trim-both (car rest)))
+      (let* ((text (string-trim (car rest)))
              (inline-result (return-type text))
              (name (signature-name text))
              (result (or inline-result pending-result)))

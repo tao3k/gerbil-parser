@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
-(import (only-in :std/misc/func compose every-of)
-        (only-in :std/sugar alet cut if-let)
+(import (only-in :std/func compose every-of)
         (only-in ../modules/parser/types
                  +diagnostic-schema+ +parse-artifact-schema+)
         (only-in ./identity sha256-text)
@@ -58,11 +57,11 @@
 ;; event-kind
 ;; : (-> Vector Symbol)
 (def (event-kind event)
-  (if-let (event (and (vector? event)
-                      (positive? (vector-length event))
-                      event))
-    (vector-ref event 0)
-    #f))
+  (let (valid-event
+        (and (vector? event)
+             (positive? (vector-length event))
+             event))
+    (and valid-event (vector-ref valid-event 0))))
 
 ;; token-event?
 ;; : (-> Vector Boolean)

@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Language-neutral scanner primitives used by generated lexers.
 
-(import (only-in :std/misc/func any-of)
-        (only-in :std/sugar cut)
+(import (only-in :std/func any-of)
         (only-in ./token make-token))
 
 (export scan-whitespace

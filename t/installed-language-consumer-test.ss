@@ -3,7 +3,7 @@
 ;;; Run from outside the checkout against an installed GERBIL_PATH. This owner
 ;;; proves that generated language modules can resolve their packaged IR files.
 
-(import (only-in :std/test check run-tests! test-case test-suite)
+(import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/parser
                  parse-opencypher-2024-1)
         (only-in :gerbil-parser/languages/gql/iso-39075-2024/parser
@@ -34,4 +34,4 @@
               "MATCH (n) RETURN n\n")
              => '(#t #t #t)))))
 
-(run-tests! installed-language-consumer-tests)
+(export installed-language-consumer-tests)

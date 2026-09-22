@@ -3,7 +3,6 @@
 
 (import (only-in :gerbil/runtime gerbil-load-expander!)
         (only-in :gerbil/runtime/loader set-load-path!)
-        (only-in :std/srfi/13 string-split)
         (only-in :gerbil-parser/rust-rowan-grammar-support deflanguage)
         (for-syntax :gerbil-parser/rust-rowan-grammar-support)
         (only-in ./rust-rowan-aot-v1 native-rust-rowan-source))

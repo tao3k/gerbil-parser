@@ -3,9 +3,7 @@
 
 (import (only-in :std/misc/ports read-all-as-string)
         (only-in :std/misc/process run-process)
-        (only-in :std/srfi/1 find last)
-        (only-in :std/srfi/13
-                 string-contains string-prefix? string-trim-right)
+        (only-in :std/string/misc string-trim-eol)
         (only-in ./parser parse-tla-plus-v1)
         (only-in ../../../src/runtime/artifact
                  parse-artifact-roundtrip
@@ -101,7 +99,7 @@
   (let* ((template
           (path-expand "gerbil-parser-tlc.XXXXXX" (getenv "TMPDIR" "/tmp")))
          (directory
-          (string-trim-right (run-process ["mktemp" "-d" template]))))
+          (string-trim-eol (run-process ["mktemp" "-d" template]))))
     (unwind-protect
       (procedure directory)
       (when (file-exists? directory)
@@ -109,7 +107,7 @@
 
 (def (resolve-tool executable)
   (path-normalize
-   (string-trim-right (run-process ["which" executable]))))
+   (string-trim-eol (run-process ["which" executable]))))
 
 (def (qualification-admitted? syntax-accepted roundtrip exit-status summary)
   (and syntax-accepted

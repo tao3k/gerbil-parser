@@ -1,9 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Small immutable sequence algorithms for the LR semantic hot path.
 
-(import (only-in :std/misc/list-builder with-list-builder)
-        (only-in :std/misc/vector vector-map/index)
-        (only-in :std/srfi/43 vector-any))
+(import (only-in :std/list/list-builder with-list-builder)
+        (only-in :std/vector/vector vector-map/index))
 (export association-row-vector->index
         association-row-index-ref
         make-value-interner

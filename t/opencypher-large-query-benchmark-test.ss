@@ -30,4 +30,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(run-tests! opencypher-large-query-benchmark-tests)
+(export opencypher-large-query-benchmark-tests)

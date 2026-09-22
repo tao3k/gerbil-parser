@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Sole semantic-reduction owner shared by generated parser machines.
 
-(import (only-in :std/sugar alet match)
-        (only-in ./recognition
+(import (only-in ./recognition
                  make-recognition-child make-recognition-fragment
                  make-recognition-node recognition-child-field
                  recognition-child-value

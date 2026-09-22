@@ -3,10 +3,9 @@
 
 (import (only-in ./identity sha256-text)
         (only-in :std/misc/ports read-all-as-u8vector)
-        (only-in :std/sugar cut)
-        (only-in :std/text/base64 base64-string->u8vector)
-        (only-in :std/text/utf8 utf8->string)
-        (only-in :std/text/zlib uncompress))
+        (only-in :std/encoding/base64 base64-decode)
+        (only-in :std/string/utf8 utf8->string)
+        (only-in :std/encoding/zlib uncompress))
 (export compiled-language-artifact-relative-path
         load-compiled-language-artifact
         load-compiled-language-artifact/embedded
@@ -103,7 +102,7 @@
   (unless (string? encoded)
     (error "invalid embedded compiled language artifact" expected-schema))
   (decode-compiled-language-artifact
-   expected-schema locator (base64-string->u8vector encoded) 'aot-image))
+   expected-schema locator (base64-decode encoded) 'aot-image))
 
 ;; : (forall (a) (-> String [String] [(Pair Symbol a)]))
 ;; : (-> String List Alist)

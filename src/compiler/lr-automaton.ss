@@ -1,9 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Packed LR items, transition indexes, and deterministic LR(0) interning.
 
-(import (only-in :std/misc/queue
-                 dequeue! enqueue! make-queue queue-empty?)
-        (only-in :std/sort sort)
+(import (only-in :std/struct/queue
+                 dequeue! enqueue! make-Queue queue-empty?)
         (only-in ./lr
                  base-symbol nonterminal-name nonterminal-symbol?
                  production-id production-index-by-lhs production-rhs))
@@ -112,7 +111,7 @@
     (for-each (lambda (item) (table-set! seen item #t)) seed)
     (let loop ((pending seed) (items '()))
       (if (null? pending)
-        (sort (reverse items) <)
+        (list-sort < (reverse items))
         (let* ((item (car pending))
                (symbol (vector-ref core-symbols item))
                (expanded (cdr pending)))
@@ -189,7 +188,7 @@
         (table-set! state-index state index)
         (set! state-count (+ state-count 1))
         index))
-    (let (queue (make-queue))
+    (let (queue (make-Queue))
       (enqueue! queue 0)
       (let loop ()
         (if (queue-empty? queue)

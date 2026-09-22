@@ -3,7 +3,7 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import (only-in :std/misc/list delete-duplicates/hash))
+(import (only-in :std/list/list delete-duplicates/hash))
 
 (export scan-hl7v2-segment-id
         scan-hl7v2-data

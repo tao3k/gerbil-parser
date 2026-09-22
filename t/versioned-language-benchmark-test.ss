@@ -45,4 +45,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(run-tests! versioned-language-benchmark-tests)
+(export versioned-language-benchmark-tests)

@@ -545,4 +545,4 @@
               (make-token 'punctuation "+" 0 1))
              => #f))))
 
-(run-tests! grammar-composition-tests)
+(export grammar-composition-tests)

@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in :std/srfi/1 any fold split-at)
-        (only-in ../compiler/lr
+(import (only-in ../compiler/lr
                  lr-spec-ref operand-actions production-action
                  production-lhs production-precedence production-rhs
                  production-table)

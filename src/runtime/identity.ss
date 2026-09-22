@@ -20,7 +20,7 @@
 ;;     %
 (def (sha256-text text)
   (let ((output (make-string 71 #\0))
-        (bytes (sha256 text)))
+        (bytes (sha256 (string->utf8 text))))
     (for-each (lambda (index)
                 (string-set! output index (string-ref "sha256:" index)))
               (iota 7))

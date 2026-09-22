@@ -3,7 +3,7 @@
 ;;; Invariant: inferred declarations lower through deflanguage-grammar and
 ;;; publish the same Grammar IR, Parser IR, and ParseArtifact contracts.
 
-(import (only-in :std/test check run-tests! test-case test-suite)
+(import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/src/compiler/parser-ir parser-ir-ref)
         (only-in :gerbil-parser/src/compiler/bound-ir
                  bound-grammar-ir-binding
@@ -154,4 +154,4 @@
       (check (literal-trie-witness "MATCHED suffix" 0) => 7)
       (check (literal-trie-witness "missing" 0) => #f))))
 
-(run-tests! concise-v1-language-surface-tests)
+(export concise-v1-language-surface-tests)

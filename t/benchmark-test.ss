@@ -34,4 +34,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(run-tests! parser-benchmark-tests)
+(export parser-benchmark-tests)

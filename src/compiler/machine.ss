@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import (only-in :std/misc/vector vector-map/index)
-        (only-in :std/srfi/1 any filter-map fold member)
+(import (only-in :std/vector/vector vector-map/index)
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-prepare lr-parse/prepared

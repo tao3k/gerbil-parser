@@ -66,4 +66,4 @@
       (let (artifact (parse-fhirpath-v2 "Patient.name.where("))
         (check (parse-artifact-success? artifact) => #f)))))
 
-(run-tests! fhirpath-v2-parser-test)
+(export fhirpath-v2-parser-test)

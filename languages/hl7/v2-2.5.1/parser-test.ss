@@ -36,4 +36,4 @@
         (check (parse-artifact-valid? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)))))
 
-(run-tests! hl7v2-parser-test)
+(export hl7v2-parser-test)

@@ -29,4 +29,4 @@
         (newline)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(run-tests! recovery-frontier-benchmark-tests)
+(export recovery-frontier-benchmark-tests)

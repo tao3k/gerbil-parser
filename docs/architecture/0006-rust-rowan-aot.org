@@ -3,10 +3,10 @@
 
 * Status
 
-The generic deterministic LR and bounded selective-GLR engine, arithmetic and
-GQL generated products, and an independent downstream custom-language fixture
-are executable. Wider GQL and Cypher cutover remains gated on the explicit
-parity contracts below.
+The generic deterministic LR and bounded selective-GLR engine, arithmetic
+reference product, and an independent downstream custom-language fixture are
+executable. GQL and Cypher remain Scheme-owned language descriptions consumed
+through the generic engine boundary.
 
 * Decision
 
@@ -20,10 +20,10 @@ declaration.
 
 The generic =gerbil-parser-rowan= crate executes those static tables and
 publishes a lossless Rowan green tree plus a receipt binding language, version,
-contract, grammar digest, and source digest. Generated tables live in separate
-language crates such as =gerbil-parser-rowan-gql=, so a custom DSL consumer
-does not compile unrelated upstream grammars. A parse request runs no Scheme,
-Gambit, subprocess, JSON decoder, or S-expression interpreter.
+contract, grammar digest, and source digest. The parser does not publish a
+second vertical Rust package for GQL: consumers load the Scheme-owned language
+description through this generic boundary. A parse request runs no fallback
+Rust grammar, JSON grammar DSL, or S-expression interpreter.
 
 Cargo-only custom generation crosses a narrow native ABI: build support passes
 the downstream =grammar.ss= path to =gerbil_parser_rowan_compile=.  The
@@ -66,9 +66,9 @@ grammar.ss
   -> downstream semantic lowering
 #+end_src
 
-Downstream projects such as =gql-rust= depend on the generated language crate.
-They may own CST-to-domain-IR lowering, but they do not own another Rowan sink,
-syntax-kind catalog, lexer, precedence map, recovery table, or parser runtime.
+Downstream projects may own CST-to-domain-IR lowering, but they do not own
+another GQL parser package, syntax-kind catalog, lexer, precedence map,
+recovery table, or parser runtime.
 
 The downstream qualification fixture owns the complete versioned language-pack
 shape: =grammar.ss=, =parser.ss=, =fixtures.ss=, =parser-test.ss=, native
@@ -106,8 +106,8 @@ are ranked by dynamic precedence and maximal consumption; equivalent CSTs
 merge, while distinct equal-score CSTs fail with a typed ambiguity diagnostic.
 The parse publishes a request-local =SelectiveGlrReceipt= for those decisions.
 
-The generated ISO/IEC 39075:2024 GQL module is compiled as ordinary Rust and
-must losslessly accept the pinned 14-source OpenGQL 1.9.0 corpus.  That corpus
+The ISO/IEC 39075:2024 GQL Scheme language pack must losslessly accept the
+pinned OpenGQL 1.9.0 corpus through the generic consumer boundary. That corpus
 exercises real fork exploration and equivalent-completion merging; it is an
 admission floor, not yet the complete downstream cutover proof.
 

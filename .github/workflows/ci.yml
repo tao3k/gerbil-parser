@@ -38,10 +38,7 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Verify publishable Rust products
-        run: |
-          cargo package -p gerbil-parser-rowan --locked --allow-dirty
-          cargo package -p gerbil-parser-rowan-gql --locked --allow-dirty \
-            --config 'patch.crates-io.gerbil-parser-rowan.path="rust/gerbil-parser-rowan"'
+        run: cargo package -p gerbil-parser-rowan --locked --allow-dirty
 
       - name: Verify generated-table Rowan engine red zones
         run: cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- --ignored --nocapture --test-threads=1
@@ -165,12 +162,9 @@ jobs:
       - name: Verify Rust/Rowan AOT generation is current
         run: |
           arithmetic_generated="$(mktemp)"
-          gql_generated="$(mktemp)"
           gerbil env gxi generate-rust-rowan.ss "$arithmetic_generated"
-          gerbil env gxi generate-gql-rust-rowan.ss "$gql_generated"
-          rustfmt --edition 2024 "$arithmetic_generated" "$gql_generated"
+          rustfmt --edition 2024 "$arithmetic_generated"
           cmp "$arithmetic_generated" rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
-          cmp "$gql_generated" rust/gerbil-parser-rowan-gql/src/generated/mod.rs
 
       - name: Verify downstream custom Rust/Rowan language pack
         run: |

@@ -164,7 +164,9 @@ fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
         } if separator.chars().count() != 1 || !nonempty(prefixes) || !nonempty(suffixes) => {
             Err("profiled number contains an invalid separator, prefix, or suffix".into())
         }
-        LexicalExpr::QuotedString(delimiters) if delimiters.is_empty() || !nonempty(delimiters) => {
+        LexicalExpr::QuotedString(delimiters) | LexicalExpr::EscapedQuotedString(delimiters)
+            if delimiters.is_empty() || !nonempty(delimiters) =>
+        {
             Err("quoted string requires non-empty delimiters".into())
         }
         LexicalExpr::LineComment(prefixes) if prefixes.is_empty() || !nonempty(prefixes) => {

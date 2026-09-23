@@ -13,7 +13,7 @@
                  make-literal-end-scanner scan-longest-literal
                  scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
-                 scan-quoted-strings scan-whitespace
+                 scan-escaped-quoted-strings scan-quoted-strings scan-whitespace
                  scan-emit)
         (only-in ../runtime/token token-end token-kind))
 (export defgeneral-parser-machine
@@ -61,7 +61,8 @@
 (defrules lexical-end
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string until-delimiters line-comment block-comment nested-block-comment
+   quoted-string escaped-quoted-string until-delimiters
+   line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ source offset (whitespace+))
    (scan-whitespace source offset))
@@ -85,6 +86,8 @@
    (scan-identifier source offset))
   ((_ source offset (quoted-string delimiter ...))
    (scan-quoted-strings source offset (list delimiter ...)))
+  ((_ source offset (escaped-quoted-string delimiter ...))
+   (scan-escaped-quoted-strings source offset (list delimiter ...)))
   ((_ source offset (until-delimiters characters))
    (scan-until-delimiters source offset characters))
   ((_ source offset (heredoc))

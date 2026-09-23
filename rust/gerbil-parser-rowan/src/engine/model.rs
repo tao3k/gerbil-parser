@@ -38,6 +38,7 @@ pub enum LexicalExpr {
     Identifier,
     UntilDelimiters(&'static str),
     QuotedString(&'static [&'static str]),
+    EscapedQuotedString(&'static [&'static str]),
     Heredoc,
     LineComment(&'static [&'static str]),
     BlockComment {

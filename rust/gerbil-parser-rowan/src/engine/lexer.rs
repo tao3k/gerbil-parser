@@ -168,7 +168,10 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
         }
         LexicalExpr::QuotedString(delimiters) => delimiters
             .iter()
-            .find_map(|delimiter| quoted_string_end(source, offset, delimiter)),
+            .find_map(|delimiter| quoted_string_end(source, offset, delimiter, true)),
+        LexicalExpr::EscapedQuotedString(delimiters) => delimiters
+            .iter()
+            .find_map(|delimiter| quoted_string_end(source, offset, delimiter, false)),
         LexicalExpr::Heredoc => heredoc_end(source, offset),
         LexicalExpr::LineComment(prefixes) => line_comment_end(source, offset, prefixes),
         LexicalExpr::BlockComment { opening, closing } => {
@@ -219,7 +222,12 @@ fn longest_literal<'a>(source: &str, offset: usize, values: &'a [&str]) -> Optio
         .max_by_key(|value| value.len())
 }
 
-fn quoted_string_end(source: &str, offset: usize, delimiter: &str) -> Option<usize> {
+fn quoted_string_end(
+    source: &str,
+    offset: usize,
+    delimiter: &str,
+    doubled_delimiter: bool,
+) -> Option<usize> {
     if delimiter.is_empty() || !source[offset..].starts_with(delimiter) {
         return None;
     }
@@ -231,7 +239,7 @@ fn quoted_string_end(source: &str, offset: usize, delimiter: &str) -> Option<usi
             cursor += escaped.len_utf8();
         } else if source[cursor..].starts_with(delimiter) {
             let next = cursor + delimiter.len();
-            if source[next..].starts_with(delimiter) {
+            if doubled_delimiter && source[next..].starts_with(delimiter) {
                 cursor = next + delimiter.len();
             } else {
                 return Some(next);

@@ -32,7 +32,7 @@
                (strings? (cadddr value))
                (boolean? (car (cddddr value)))
                (boolean? (cadr (cddddr value)))))
-         ((quoted-string)
+         ((quoted-string escaped-quoted-string)
           (and (pair? (cdr value)) (strings? (cdr value))))
          ((until-delimiters)
           (and (= (length value) 2)
@@ -100,7 +100,8 @@
 (defrules lexical-expression
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string until-delimiters line-comment block-comment nested-block-comment
+   quoted-string escaped-quoted-string until-delimiters
+   line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ (whitespace+))
    (lexical-primitive 'whitespace+))
@@ -122,6 +123,8 @@
    (lexical-primitive 'identifier))
   ((_ (quoted-string delimiter ...))
    (cons 'quoted-string (list delimiter ...)))
+  ((_ (escaped-quoted-string delimiter ...))
+   (cons 'escaped-quoted-string (list delimiter ...)))
   ((_ (until-delimiters characters))
    (list 'until-delimiters characters))
   ((_ (heredoc))

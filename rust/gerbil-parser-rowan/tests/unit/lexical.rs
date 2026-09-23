@@ -28,6 +28,14 @@ fn quoted_strings_preserve_doubled_and_backslash_escapes() {
 }
 
 #[test]
+fn escaped_quoted_strings_leave_adjacent_strings_separate() {
+    let expression = LexicalExpr::EscapedQuotedString(&["\""]);
+    assert_eq!(lexical_end(&expression, "\"a\"\"b\"", 0), Some(3));
+    assert_eq!(lexical_end(&expression, r#""a\"b""#, 0), Some(6));
+    assert_eq!(lexical_end(&expression, "\"unterminated", 0), None);
+}
+
+#[test]
 fn comments_and_choices_take_the_longest_complete_match() {
     let expression = LexicalExpr::Choice(&[
         LexicalExpr::LineComment(&["//", "#"]),

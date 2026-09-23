@@ -1,13 +1,17 @@
 ;;; -*- Gerbil -*-
-;;; POO line-structure declaration to immutable generic Rowan table.
+;;; POO line strategy -> typed Rust syntax -> one immutable Rowan table.
 
 (import (only-in ../language/descriptor
                  language-grammar-ir language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
         (only-in ./machine parser-machine-grammar-digest)
+        (only-in ./rust-syntax
+                 rust-struct rust-static rust-array rust-some rust-none
+                 rust-number rust-string rust-identifier rust-module rust-render)
         (only-in ../modules/parser/line-structure-objects
                  line-structure?
                  line-structure-heading line-structure-blocks line-structure-text
+                 line-structure-table
                  heading-line-marker heading-line-separator
                  heading-line-section-node heading-line-heading-node
                  heading-line-heading-token heading-line-fields
@@ -25,8 +29,13 @@
                  text-line-inline-link
                  inline-link-opening inline-link-separator inline-link-closing
                  inline-link-node inline-link-target-token
-                 inline-link-description-token inline-link-trivia-token))
+                 inline-link-description-token inline-link-trivia-token
+                 table-line-delimiter table-line-table-node table-line-row-node
+                 table-line-rule-row-node table-line-cell-node
+                 table-line-separator-token table-line-cell-token
+                 table-line-trivia-token table-line-rule-token))
 (export line-structure-parser-digest
+        line-structure-rowan-syntax
         line-structure-rowan-source
         generate-line-structure-rowan-module)
 
@@ -40,62 +49,93 @@
       index)
      (else (loop (cdr rest) (+ index 1))))))
 
-(def (emit-kind port kinds name category)
-  (display (kind-index kinds name category) port))
+(def (kind-value kinds name category)
+  (rust-number (kind-index kinds name category)))
 
-(def (emit-block port kinds block)
-  (display "    BlockLineRule { opening: " port)
-  (write (block-line-opening block) port)
-  (display ", closing: " port)
-  (write (block-line-closing block) port)
-  (display ", case_insensitive: " port)
-  (display (if (block-line-case-insensitive block) "true" "false") port)
-  (display ", indent: " port)
-  (display (if (block-line-indent block) "true" "false") port)
-  (display ", block_node: " port)
-  (emit-kind port kinds (block-line-block-node block) 'node)
-  (display ", begin_token: " port)
-  (emit-kind port kinds (block-line-begin-token block) 'token)
-  (display ", body_token: " port)
-  (emit-kind port kinds (block-line-body-token block) 'token)
-  (display ", end_token: " port)
-  (emit-kind port kinds (block-line-end-token block) 'token)
-  (display ", unclosed: " port)
-  (display (case (block-line-unclosed block)
-             ((close-at-eof) "UnclosedBlockPolicy::CloseAtEof")
-             ((recover-as-text) "UnclosedBlockPolicy::RecoverAsText")
-             (else (error "unknown block recovery policy" block))) port)
-  (display ", heading_bound: " port)
-  (display (if (block-line-heading-bound block) "true" "false") port)
-  (display ", body_line: " port)
-  (let (body-line (block-line-body-line block))
-    (if body-line
-      (begin
-        (display "Some(KeyValueLineRule { marker: " port)
-        (display (char->integer (string-ref (key-value-line-marker body-line) 0)) port)
-        (display ", node: " port)
-        (emit-kind port kinds (key-value-line-node body-line) 'node)
-        (display ", key_token: " port)
-        (emit-kind port kinds (key-value-line-key-token body-line) 'token)
-        (display ", value_token: " port)
-        (emit-kind port kinds (key-value-line-value-token body-line) 'token)
-        (display ", trivia_token: " port)
-        (emit-kind port kinds (key-value-line-trivia-token body-line) 'token)
-        (display " })" port))
-      (display "None" port)))
-  (display ", header: " port)
-  (let (header (block-line-header block))
-    (if header
-      (begin
-        (display "Some(BlockHeaderRule { argument_token: " port)
-        (emit-kind port kinds (block-header-argument-token header) 'token)
-        (display ", trivia_token: " port)
-        (emit-kind port kinds (block-header-trivia-token header) 'token)
-        (display " })" port))
-      (display "None" port)))
-  (display " },\n" port))
+(def (marker-value marker)
+  (rust-number (char->integer (string-ref marker 0))))
 
-(def (line-structure-digest grammar-digest heading blocks text)
+(def (boolean-value value)
+  (rust-identifier (if value "true" "false")))
+
+(def (optional-value value project)
+  (if value (rust-some (project value)) (rust-none)))
+
+(def (heading-value kinds heading)
+  (rust-struct HeadingLineRule
+    (marker (marker-value (heading-line-marker heading)))
+    (separator (marker-value (heading-line-separator heading)))
+    (section_node (kind-value kinds (heading-line-section-node heading) 'node))
+    (heading_node (kind-value kinds (heading-line-heading-node heading) 'node))
+    (heading_token (kind-value kinds (heading-line-heading-token heading) 'token))
+    (fields
+     (optional-value
+      (heading-line-fields heading)
+      (lambda (fields)
+        (rust-struct HeadingFieldsRule
+          (title_token (kind-value kinds (heading-fields-title-token fields) 'token))
+          (trivia_token (kind-value kinds (heading-fields-trivia-token fields) 'token))))))))
+
+(def (body-line-value kinds body-line)
+  (rust-struct KeyValueLineRule
+    (marker (marker-value (key-value-line-marker body-line)))
+    (node (kind-value kinds (key-value-line-node body-line) 'node))
+    (key_token (kind-value kinds (key-value-line-key-token body-line) 'token))
+    (value_token (kind-value kinds (key-value-line-value-token body-line) 'token))
+    (trivia_token (kind-value kinds (key-value-line-trivia-token body-line) 'token))))
+
+(def (block-header-value kinds header)
+  (rust-struct BlockHeaderRule
+    (argument_token (kind-value kinds (block-header-argument-token header) 'token))
+    (trivia_token (kind-value kinds (block-header-trivia-token header) 'token))))
+
+(def (block-recovery-value block)
+  (rust-identifier
+   (case (block-line-unclosed block)
+     ((close-at-eof) "UnclosedBlockPolicy::CloseAtEof")
+     ((recover-as-text) "UnclosedBlockPolicy::RecoverAsText")
+     (else (error "unknown block recovery policy" block)))))
+
+(def (block-value kinds block)
+  (rust-struct BlockLineRule
+    (opening (rust-string (block-line-opening block)))
+    (closing (rust-string (block-line-closing block)))
+    (case_insensitive (boolean-value (block-line-case-insensitive block)))
+    (indent (boolean-value (block-line-indent block)))
+    (block_node (kind-value kinds (block-line-block-node block) 'node))
+    (begin_token (kind-value kinds (block-line-begin-token block) 'token))
+    (body_token (kind-value kinds (block-line-body-token block) 'token))
+    (end_token (kind-value kinds (block-line-end-token block) 'token))
+    (unclosed (block-recovery-value block))
+    (heading_bound (boolean-value (block-line-heading-bound block)))
+    (body_line (optional-value (block-line-body-line block)
+                               (lambda (value) (body-line-value kinds value))))
+    (header (optional-value (block-line-header block)
+                            (lambda (value) (block-header-value kinds value))))))
+
+(def (inline-link-value kinds inline)
+  (rust-struct InlineLinkRule
+    (opening (rust-string (inline-link-opening inline)))
+    (separator (rust-string (inline-link-separator inline)))
+    (closing (rust-string (inline-link-closing inline)))
+    (node (kind-value kinds (inline-link-node inline) 'node))
+    (target_token (kind-value kinds (inline-link-target-token inline) 'token))
+    (description_token (kind-value kinds (inline-link-description-token inline) 'token))
+    (trivia_token (kind-value kinds (inline-link-trivia-token inline) 'token))))
+
+(def (table-value kinds table)
+  (rust-struct TableLineRule
+    (delimiter (marker-value (table-line-delimiter table)))
+    (table_node (kind-value kinds (table-line-table-node table) 'node))
+    (row_node (kind-value kinds (table-line-row-node table) 'node))
+    (rule_row_node (kind-value kinds (table-line-rule-row-node table) 'node))
+    (cell_node (kind-value kinds (table-line-cell-node table) 'node))
+    (separator_token (kind-value kinds (table-line-separator-token table) 'token))
+    (cell_token (kind-value kinds (table-line-cell-token table) 'token))
+    (trivia_token (kind-value kinds (table-line-trivia-token table) 'token))
+    (rule_token (kind-value kinds (table-line-rule-token table) 'token))))
+
+(def (line-structure-digest grammar-digest heading blocks text table)
   (sha256-text
    (call-with-output-string
     (lambda (port)
@@ -143,7 +183,17 @@
                                 (inline-link-node inline)
                                 (inline-link-target-token inline)
                                 (inline-link-description-token inline)
-                                (inline-link-trivia-token inline))))))
+                                (inline-link-trivia-token inline)))))
+             (and table
+                  (list (table-line-delimiter table)
+                        (table-line-table-node table)
+                        (table-line-row-node table)
+                        (table-line-rule-row-node table)
+                        (table-line-cell-node table)
+                        (table-line-separator-token table)
+                        (table-line-cell-token table)
+                        (table-line-trivia-token table)
+                        (table-line-rule-token table))))
        port)))))
 
 (def (line-structure-parser-digest language-grammar structure)
@@ -154,11 +204,11 @@
     (language-grammar-machine language-grammar))
    (line-structure-heading structure)
    (line-structure-blocks structure)
-   (line-structure-text structure)))
+   (line-structure-text structure)
+   (line-structure-table structure)))
 
-;; Public input is one validated POO contract. Canonical Parser IR is the
-;; internal kind catalog; this projection never interprets author-facing rows.
-(def (line-structure-rowan-source language-grammar structure)
+;; Public input is one validated POO contract; output is a bounded Rust AST.
+(def (line-structure-rowan-syntax language-grammar structure)
   (unless (line-structure? structure)
     (error "line-structure AOT requires a POO parser declaration" structure))
   (let* ((ir (language-grammar-ir language-grammar))
@@ -166,74 +216,33 @@
          (heading (line-structure-heading structure))
          (blocks (line-structure-blocks structure))
          (text (line-structure-text structure))
+         (table (line-structure-table structure))
          (digest (parser-machine-grammar-digest
                   (language-grammar-machine language-grammar)))
          (parser-digest (line-structure-parser-digest
                          language-grammar structure)))
-    (call-with-output-string
-     (lambda (port)
-       (display "// @generated by gerbil-parser/src/compiler/line-structure-rowan.ss\n" port)
-       (display "use gerbil_parser_rowan::{BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule, LineStructureSpec, UnclosedBlockPolicy};\n\n" port)
-       (display "pub static STRUCTURE: LineStructureSpec = LineStructureSpec {\n" port)
-       (display "    grammar_digest: " port)
-       (write digest port)
-       (display ",\n    parser_digest: " port)
-       (write parser-digest port)
-       (display ",\n    heading: HeadingLineRule { marker: " port)
-       (display (char->integer (string-ref (heading-line-marker heading) 0)) port)
-       (display ", separator: " port)
-       (display (char->integer (string-ref (heading-line-separator heading) 0)) port)
-       (display ", section_node: " port)
-       (emit-kind port kinds (heading-line-section-node heading) 'node)
-       (display ", heading_node: " port)
-       (emit-kind port kinds (heading-line-heading-node heading) 'node)
-       (display ", heading_token: " port)
-       (emit-kind port kinds (heading-line-heading-token heading) 'token)
-       (display ", fields: " port)
-       (let (fields (heading-line-fields heading))
-         (if fields
-           (begin
-             (display "Some(HeadingFieldsRule { title_token: " port)
-             (emit-kind port kinds (heading-fields-title-token fields) 'token)
-             (display ", trivia_token: " port)
-             (emit-kind port kinds (heading-fields-trivia-token fields) 'token)
-             (display " })" port))
-           (display "None" port)))
-       (display " },\n    blocks: &[\n" port)
-       (for-each (lambda (block) (emit-block port kinds block)) blocks)
-       (display "    ],\n    paragraph_node: " port)
-       (let (paragraph (text-line-paragraph-node text))
-         (if paragraph
-           (begin
-             (display "Some(" port)
-             (emit-kind port kinds paragraph 'node)
-             (display ")" port))
-           (display "None" port)))
-       (display ",\n    text_node: " port)
-       (emit-kind port kinds (text-line-node text) 'node)
-       (display ", text_token: " port)
-       (emit-kind port kinds (text-line-token text) 'token)
-       (display ", inline_link: " port)
-       (let (inline (text-line-inline-link text))
-         (if inline
-           (begin
-             (display "Some(InlineLinkRule { opening: " port)
-             (write (inline-link-opening inline) port)
-             (display ", separator: " port)
-             (write (inline-link-separator inline) port)
-             (display ", closing: " port)
-             (write (inline-link-closing inline) port)
-             (display ", node: " port)
-             (emit-kind port kinds (inline-link-node inline) 'node)
-             (display ", target_token: " port)
-             (emit-kind port kinds (inline-link-target-token inline) 'token)
-             (display ", description_token: " port)
-             (emit-kind port kinds (inline-link-description-token inline) 'token)
-             (display ", trivia_token: " port)
-             (emit-kind port kinds (inline-link-trivia-token inline) 'token)
-             (display " })" port))
-           (display "None" port)))
-       (display ",\n};\n" port)))))
+    (rust-module
+      '("BlockHeaderRule" "BlockLineRule" "HeadingFieldsRule"
+        "HeadingLineRule" "InlineLinkRule" "KeyValueLineRule"
+        "LineStructureSpec" "TableLineRule" "UnclosedBlockPolicy")
+      (rust-static STRUCTURE LineStructureSpec
+        (rust-struct LineStructureSpec
+          (grammar_digest (rust-string digest))
+          (parser_digest (rust-string parser-digest))
+          (heading (heading-value kinds heading))
+          (blocks (rust-array (map (lambda (block) (block-value kinds block)) blocks)))
+          (paragraph_node
+           (optional-value (text-line-paragraph-node text)
+                           (lambda (value) (kind-value kinds value 'node))))
+          (table (optional-value table (lambda (value) (table-value kinds value))))
+          (text_node (kind-value kinds (text-line-node text) 'node))
+          (text_token (kind-value kinds (text-line-token text) 'token))
+          (inline_link
+           (optional-value (text-line-inline-link text)
+                           (lambda (value) (inline-link-value kinds value)))))))))
+
+(def (line-structure-rowan-source language-grammar structure)
+  (rust-render (line-structure-rowan-syntax language-grammar structure)))
 
 (def (generate-line-structure-rowan-module output-path language-grammar structure)
   (let (source (line-structure-rowan-source language-grammar structure))

@@ -18,10 +18,12 @@
         +block-header-kind+
         +inline-link-kind+
         +heading-fields-kind+
+        +table-line-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
         KeyValueLineContract BlockBodyContract BlockHeaderContract
         InlineLinkContract HeadingFieldsContract
+        TableLineContract OptionalTableLineContract
         OptionalParagraphNodeContract
         LineStructureContract
         HeadingLineContract
@@ -37,6 +39,7 @@
 (def +block-header-kind+ 'gerbil-parser-block-header)
 (def +inline-link-kind+ 'gerbil-parser-inline-link)
 (def +heading-fields-kind+ 'gerbil-parser-heading-fields)
+(def +table-line-kind+ 'gerbil-parser-table-line)
 
 (def (empty-prototype) (.o))
 
@@ -209,6 +212,37 @@
                        (poo-flow-contract-admit ParserSymbol value #f))))
                 candidate context)))
 
+(define-type (TableLineKind @ PooFlowContract.)
+  identity: 'gerbil-parser/table-line-kind
+  .classify: (line-kind-contract 'gerbil-parser/table-line-kind
+                                 +table-line-kind+))
+
+(define-type (TableLineContract @ PooFlowNativeObjectContract.)
+  identity: 'gerbil-parser/table-line
+  proto: (empty-prototype)
+  responsibilities:
+  (.o kind: TableLineKind
+      delimiter: LineMarker
+      table-node: ParserSymbol
+      row-node: ParserSymbol
+      rule-row-node: ParserSymbol
+      cell-node: ParserSymbol
+      separator-token: ParserSymbol
+      cell-token: ParserSymbol
+      trivia-token: ParserSymbol
+      rule-token: ParserSymbol))
+
+(define-type (OptionalTableLineContract @ PooFlowContract.)
+  identity: 'gerbil-parser/optional-table-line
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/optional-table-line
+                (lambda (value)
+                  (or (eq? value #f)
+                      (poo-flow-validation-evidence-accepted?
+                       (poo-flow-contract-admit TableLineContract value #f))))
+                candidate context)))
+
 (define-type (LineStructureSchema @ PooFlowContract.)
   identity: 'gerbil-parser/line-structure-schema
   .classify: (lambda (candidate context)
@@ -299,5 +333,6 @@
       schema: LineStructureSchema
       heading: HeadingLineContract
       blocks: ParserList
-      text: TextLineContract)
+      text: TextLineContract
+      table: OptionalTableLineContract)
   .obligations: line-structure-obligations)

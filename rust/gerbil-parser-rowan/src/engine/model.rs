@@ -93,9 +93,24 @@ pub struct LineStructureSpec {
     pub heading: HeadingLineRule,
     pub blocks: &'static [BlockLineRule],
     pub paragraph_node: Option<u16>,
+    pub table: Option<TableLineRule>,
     pub text_node: u16,
     pub text_token: u16,
     pub inline_link: Option<InlineLinkRule>,
+}
+
+/// Contiguous delimiter-led rows projected into a lossless table and cells.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TableLineRule {
+    pub delimiter: u8,
+    pub table_node: u16,
+    pub row_node: u16,
+    pub rule_row_node: u16,
+    pub cell_node: u16,
+    pub separator_token: u16,
+    pub cell_token: u16,
+    pub trivia_token: u16,
+    pub rule_token: u16,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

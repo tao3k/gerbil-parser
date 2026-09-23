@@ -3,7 +3,8 @@ use super::graph_projection::{
 };
 use super::model::{
     BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule, InlineLinkRule,
-    KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec, UnclosedBlockPolicy,
+    KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec, TableLineRule,
+    UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -112,6 +113,38 @@ static KINDS: &[KindSpec] = &[
         name: "Paragraph",
         category: KindCategory::Node,
     },
+    KindSpec {
+        name: "Table",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "TableRow",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "TableRuleRow",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "TableCell",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "TableSeparator",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "TableCellText",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "TableTrivia",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "TableRuleText",
+        category: KindCategory::Token,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -194,12 +227,28 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
     },
     blocks: BLOCKS,
     paragraph_node: None,
+    table: None,
     text_node: 4,
     text_token: 7,
     inline_link: None,
 };
 static PARAGRAPH_STRUCTURE: LineStructureSpec = LineStructureSpec {
     paragraph_node: Some(25),
+    ..STRUCTURE
+};
+static TABLE_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    paragraph_node: Some(25),
+    table: Some(TableLineRule {
+        delimiter: b'|',
+        table_node: 26,
+        row_node: 27,
+        rule_row_node: 28,
+        cell_node: 29,
+        separator_token: 30,
+        cell_token: 31,
+        trivia_token: 32,
+        rule_token: 33,
+    }),
     ..STRUCTURE
 };
 static HEADING_FIELDS_STRUCTURE: LineStructureSpec = LineStructureSpec {
@@ -416,6 +465,43 @@ fn declared_paragraphs_group_nonblank_lines_and_stop_at_structure() {
     assert_eq!(paragraphs[1].parent().unwrap().kind().0, 1);
     assert_eq!(paragraphs[0].children().count(), 2);
     assert_eq!(paragraphs[1].children().count(), 2);
+}
+
+#[test]
+fn declared_table_groups_rows_and_cells_without_claiming_paragraph_text() {
+    let source = "first\n| a | b |\r\n|---+---|\n| c\\|d | é |\n\nlast\n";
+    let root = parse_structural_lines(&LANGUAGE, &TABLE_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let tables: Vec<_> = root
+        .descendants()
+        .filter(|node| node.kind().0 == 26)
+        .collect();
+    assert_eq!(tables.len(), 1);
+    assert_eq!(
+        tables[0].to_string(),
+        "| a | b |\r\n|---+---|\n| c\\|d | é |\n"
+    );
+    assert_eq!(
+        tables[0]
+            .children()
+            .map(|row| row.kind().0)
+            .collect::<Vec<_>>(),
+        vec![27, 28, 27]
+    );
+    let cells: Vec<_> = tables[0]
+        .descendants()
+        .filter(|node| node.kind().0 == 29)
+        .map(|node| node.to_string())
+        .collect();
+    assert_eq!(cells, [" a ", " b ", " c\\|d ", " é "]);
+    assert_eq!(
+        root.descendants()
+            .filter(|node| node.kind().0 == 25)
+            .count(),
+        2
+    );
 }
 
 #[test]

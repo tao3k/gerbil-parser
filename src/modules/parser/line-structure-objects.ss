@@ -12,14 +12,18 @@
                  +heading-line-kind+ +block-line-kind+ +text-line-kind+
                  +key-value-line-kind+ +block-header-kind+ +inline-link-kind+
                  +heading-fields-kind+
+                 +table-line-kind+
                  LineStructureContract HeadingLineContract
                  BlockLineContract TextLineContract KeyValueLineContract
-                 BlockHeaderContract InlineLinkContract HeadingFieldsContract))
-(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink. HeadingFields.
+                 BlockHeaderContract InlineLinkContract HeadingFieldsContract
+                 TableLineContract))
+(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink. HeadingFields. TableLine.
         make-line-structure make-heading-line make-block-line make-text-line
+        make-table-line
         make-key-value-line make-block-header make-inline-link make-heading-fields
         line-structure? heading-line? block-line? text-line? key-value-line?
         line-structure-heading line-structure-blocks line-structure-text
+        line-structure-table
         heading-line-marker heading-line-separator
         heading-line-section-node heading-line-heading-node
         heading-line-heading-token
@@ -35,7 +39,11 @@
         text-line-node text-line-token text-line-paragraph-node text-line-inline-link
         inline-link-opening inline-link-separator inline-link-closing
         inline-link-node inline-link-target-token
-        inline-link-description-token inline-link-trivia-token)
+        inline-link-description-token inline-link-trivia-token
+        table-line-delimiter table-line-table-node table-line-row-node
+        table-line-rule-row-node table-line-cell-node
+        table-line-separator-token table-line-cell-token
+        table-line-trivia-token table-line-rule-token)
 
 (def LineStructure. (.ref LineStructureContract 'proto))
 (def HeadingLine. (.ref HeadingLineContract 'proto))
@@ -45,6 +53,7 @@
 (def BlockHeader. (.ref BlockHeaderContract 'proto))
 (def InlineLink. (.ref InlineLinkContract 'proto))
 (def HeadingFields. (.ref HeadingFieldsContract 'proto))
+(def TableLine. (.ref TableLineContract 'proto))
 
 (def (admit-line! contract candidate)
   (let (evidence (poo-flow-contract-admit contract candidate #f))
@@ -140,20 +149,38 @@
                 paragraph-node: paragraph-node-value
                 inline-link: inline-link-value)))
 
-(def (make-line-structure heading-value blocks-value text-value)
+(def (make-table-line delimiter-value table-node-value row-node-value
+                      rule-row-node-value cell-node-value separator-token-value
+                      cell-token-value trivia-token-value rule-token-value)
+  (admit-line! TableLineContract
+               (.o (:: @ TableLine.)
+                   kind: +table-line-kind+
+                   delimiter: delimiter-value
+                   table-node: table-node-value
+                   row-node: row-node-value
+                   rule-row-node: rule-row-node-value
+                   cell-node: cell-node-value
+                   separator-token: separator-token-value
+                   cell-token: cell-token-value
+                   trivia-token: trivia-token-value
+                   rule-token: rule-token-value)))
+
+(def (make-line-structure heading-value blocks-value text-value (table-value #f))
   (admit-line! LineStructureContract
             (.o (:: @ LineStructure.)
                 kind: +line-structure-kind+
                 schema: +line-structure-schema+
                 heading: heading-value
                 blocks: blocks-value
-                text: text-value)))
+                text: text-value
+                table: table-value)))
 
 (defpoo-object-family
   (accessors
    (line-structure-heading heading)
    (line-structure-blocks blocks)
    (line-structure-text text)
+   (line-structure-table table)
    (heading-line-marker marker)
    (heading-line-separator separator)
    (heading-line-section-node section-node)
@@ -191,7 +218,16 @@
    (inline-link-node node)
    (inline-link-target-token target-token)
    (inline-link-description-token description-token)
-   (inline-link-trivia-token trivia-token))
+   (inline-link-trivia-token trivia-token)
+   (table-line-delimiter delimiter)
+   (table-line-table-node table-node)
+   (table-line-row-node row-node)
+   (table-line-rule-row-node rule-row-node)
+   (table-line-cell-node cell-node)
+   (table-line-separator-token separator-token)
+   (table-line-cell-token cell-token)
+   (table-line-trivia-token trivia-token)
+   (table-line-rule-token rule-token))
   (projections))
 
 (def (line-structure? value)

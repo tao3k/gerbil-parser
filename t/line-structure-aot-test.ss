@@ -8,9 +8,13 @@
                  line-structure? make-line-structure make-heading-line
                  make-heading-fields
                  make-block-line make-block-header make-key-value-line
-                 make-inline-link make-text-line)
+                 make-inline-link make-text-line make-table-line)
         (only-in :gerbil-parser/src/compiler/line-structure-rowan
-                 line-structure-parser-digest line-structure-rowan-source))
+                 line-structure-parser-digest line-structure-rowan-source
+                 line-structure-rowan-syntax)
+        (only-in :gerbil-parser/src/compiler/rust-syntax
+                 rust-module-form-item rust-static-form-value
+                 rust-struct-form? rust-struct-form-fields rust-field-name))
 (export line-structure-aot-test)
 
 (def (fixture-structure (section 'GroupedExpression))
@@ -168,6 +172,29 @@
                       arithmetic-language-grammar structure)))
         (check (and (string-contains source "paragraph_node: Some(") #t)
                => #t)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
+               => #f)))
+    (test-case "table rules project through the typed Rust syntax macro"
+      (let* ((table (make-table-line "|" 'GroupedExpression
+                                     'NameExpression 'Expression 'NameExpression
+                                     'Punctuation 'Number 'Punctuation 'Punctuation))
+             (structure
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               '()
+               (make-text-line 'NameExpression 'Number)
+               table))
+             (syntax (line-structure-rowan-syntax
+                      arithmetic-language-grammar structure))
+             (value (rust-static-form-value (rust-module-form-item syntax))))
+        (check (rust-struct-form? value) => #t)
+        (check (map rust-field-name (rust-struct-form-fields value))
+               => '(grammar_digest parser_digest heading blocks
+                        paragraph_node table text_node text_token inline_link))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest

@@ -4,9 +4,10 @@ use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
     BlockLineRule, Diagnostic, HeadingLineRule, InlineLinkRule, KindCategory, LanguageSpec,
-    LineStructureSpec, Parse, ParseError, ParseReceipt, SelectiveGlrReceipt, TreeEvent,
-    UnclosedBlockPolicy,
+    LineStructureSpec, Parse, ParseError, ParseReceipt, SelectiveGlrReceipt, TableLineRule,
+    TreeEvent, UnclosedBlockPolicy,
 };
+use super::structural_table::{emit_table_row, is_table_line};
 use super::validation::receipt;
 
 /// Parse one source into nested sections, opaque blocks, and text lines.
@@ -35,17 +36,12 @@ pub fn parse_structural_lines(
     let mut sections = Vec::new();
     let mut block: Option<&BlockLineRule> = None;
     let mut paragraph_open = false;
+    let mut table_open = false;
     let mut missing_closer_until = vec![None; structure.blocks.len()];
     events.push(TreeEvent::StartNode(language.root_kind));
     let mut start = 0;
     while start < source.len() {
-        let end = line_end(source, start).ok_or_else(|| {
-            with_receipt(Diagnostic {
-                reason_kind: "line-boundary",
-                byte_offset: start,
-                message: "source line does not start at a UTF-8 boundary".into(),
-            })
-        })?;
+        let end = structural_line_end(source, start).map_err(with_receipt)?;
         let line = &source[start..end];
         if let Some(rule) = block {
             if directive(line, rule.closing, rule.case_insensitive, rule.indent, true) {
@@ -64,16 +60,14 @@ pub fn parse_structural_lines(
                 false,
             )
         }) {
-            let missing_closer = rule.unclosed == UnclosedBlockPolicy::RecoverAsText
-                && (missing_closer_until[index].is_some_and(|boundary| end <= boundary)
-                    || match has_closing_line(source, end, rule, structure.heading) {
-                        Ok(()) => false,
-                        Err(boundary) => {
-                            // Reuse the scan only until the heading boundary.
-                            missing_closer_until[index] = Some(boundary);
-                            true
-                        }
-                    });
+            close_table(&mut events, &mut table_open);
+            let missing_closer = missing_block_closer(
+                source,
+                end,
+                rule,
+                structure.heading,
+                &mut missing_closer_until[index],
+            );
             if missing_closer {
                 paragraph_text_line(
                     &mut events,
@@ -91,16 +85,27 @@ pub fn parse_structural_lines(
             }
         } else if let Some(level) = heading_level(line, structure.heading) {
             close_paragraph(&mut events, &mut paragraph_open);
-            while sections.last().is_some_and(|parent| *parent >= level) {
-                events.push(TreeEvent::FinishNode);
-                sections.pop();
-            }
-            events.push(TreeEvent::StartNode(structure.heading.section_node));
-            sections.push(level);
-            events.push(TreeEvent::StartNode(structure.heading.heading_node));
-            emit_heading(&mut events, structure.heading, line, level, start, end);
-            events.push(TreeEvent::FinishNode);
+            close_table(&mut events, &mut table_open);
+            emit_section_heading(
+                &mut events,
+                &mut sections,
+                structure.heading,
+                line,
+                level,
+                start,
+                end,
+            );
+        } else if let Some(rule) = structure.table.filter(|rule| is_table_line(line, *rule)) {
+            emit_table_section_line(
+                &mut events,
+                rule,
+                line,
+                start,
+                &mut paragraph_open,
+                &mut table_open,
+            );
         } else {
+            close_table(&mut events, &mut table_open);
             paragraph_text_line(
                 &mut events,
                 structure,
@@ -112,15 +117,98 @@ pub fn parse_structural_lines(
         }
         start = end;
     }
-    if block.is_some() {
+    close_structure(
+        &mut events,
+        block.is_some(),
+        paragraph_open,
+        table_open,
+        sections.len(),
+    );
+    finish_structural_parse(language, source, &events, parse_receipt)
+}
+
+fn missing_block_closer(
+    source: &str,
+    end: usize,
+    rule: &BlockLineRule,
+    heading: HeadingLineRule,
+    cached_boundary: &mut Option<usize>,
+) -> bool {
+    if rule.unclosed != UnclosedBlockPolicy::RecoverAsText {
+        return false;
+    }
+    if cached_boundary.is_some_and(|boundary| end <= boundary) {
+        return true;
+    }
+    match has_closing_line(source, end, rule, heading) {
+        Ok(()) => false,
+        Err(boundary) => {
+            *cached_boundary = Some(boundary);
+            true
+        }
+    }
+}
+
+fn structural_line_end(source: &str, start: usize) -> Result<usize, Diagnostic> {
+    line_end(source, start).ok_or_else(|| Diagnostic {
+        reason_kind: "line-boundary",
+        byte_offset: start,
+        message: "source line does not start at a UTF-8 boundary".into(),
+    })
+}
+
+fn close_structure(
+    events: &mut Vec<TreeEvent>,
+    block_open: bool,
+    mut paragraph_open: bool,
+    mut table_open: bool,
+    section_count: usize,
+) {
+    if block_open {
         events.push(TreeEvent::FinishNode);
     }
-    close_paragraph(&mut events, &mut paragraph_open);
-    for _ in sections {
+    close_paragraph(events, &mut paragraph_open);
+    close_table(events, &mut table_open);
+    for _ in 0..section_count {
         events.push(TreeEvent::FinishNode);
     }
     events.push(TreeEvent::FinishNode);
-    finish_structural_parse(language, source, &events, parse_receipt)
+}
+
+fn emit_section_heading(
+    events: &mut Vec<TreeEvent>,
+    sections: &mut Vec<usize>,
+    heading: HeadingLineRule,
+    line: &str,
+    level: usize,
+    start: usize,
+    end: usize,
+) {
+    while sections.last().is_some_and(|parent| *parent >= level) {
+        events.push(TreeEvent::FinishNode);
+        sections.pop();
+    }
+    events.push(TreeEvent::StartNode(heading.section_node));
+    sections.push(level);
+    events.push(TreeEvent::StartNode(heading.heading_node));
+    emit_heading(events, heading, line, level, start, end);
+    events.push(TreeEvent::FinishNode);
+}
+
+fn emit_table_section_line(
+    events: &mut Vec<TreeEvent>,
+    rule: TableLineRule,
+    line: &str,
+    start: usize,
+    paragraph_open: &mut bool,
+    table_open: &mut bool,
+) {
+    close_paragraph(events, paragraph_open);
+    if !*table_open {
+        events.push(TreeEvent::StartNode(rule.table_node));
+        *table_open = true;
+    }
+    emit_table_row(events, rule, line, start);
 }
 
 fn finish_structural_parse(
@@ -340,6 +428,13 @@ fn close_paragraph(events: &mut Vec<TreeEvent>, paragraph_open: &mut bool) {
     }
 }
 
+fn close_table(events: &mut Vec<TreeEvent>, table_open: &mut bool) {
+    if *table_open {
+        events.push(TreeEvent::FinishNode);
+        *table_open = false;
+    }
+}
+
 fn emit_inline_links(
     events: &mut Vec<TreeEvent>,
     text_token: u16,
@@ -532,6 +627,9 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
     if let Some(kind) = spec.paragraph_node {
         references.push((kind, KindCategory::Node));
     }
+    if let Some(rule) = spec.table {
+        references.extend(table_references(rule)?);
+    }
     if let Some(fields) = spec.heading.fields {
         references.extend([
             (fields.title_token, KindCategory::Token),
@@ -608,6 +706,22 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
         ));
     }
     Ok(())
+}
+
+fn table_references(rule: TableLineRule) -> Result<[(u16, KindCategory); 8], Diagnostic> {
+    if !rule.delimiter.is_ascii() || rule.delimiter.is_ascii_whitespace() {
+        return Err(invalid_structure("table delimiter must be nonspace ASCII"));
+    }
+    Ok([
+        (rule.table_node, KindCategory::Node),
+        (rule.row_node, KindCategory::Node),
+        (rule.rule_row_node, KindCategory::Node),
+        (rule.cell_node, KindCategory::Node),
+        (rule.separator_token, KindCategory::Token),
+        (rule.cell_token, KindCategory::Token),
+        (rule.trivia_token, KindCategory::Token),
+        (rule.rule_token, KindCategory::Token),
+    ])
 }
 
 fn invalid_structure(message: &'static str) -> Diagnostic {

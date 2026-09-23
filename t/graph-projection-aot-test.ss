@@ -6,7 +6,7 @@
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/graph-projection-support
                  make-graph-projection make-graph-node make-graph-field
-                 graph-projection?))
+                 graph-projection? graph-projection-digest))
 (import (only-in :gerbil-parser/src/compiler/graph-projection-rowan
                  graph-projection-rowan-source))
 (export graph-projection-aot-test)
@@ -20,11 +20,18 @@
                       'Expression "document" "root"
                       (list (make-graph-field 'Number "value"))))))
              (source (graph-projection-rowan-source
+                      arithmetic-language-grammar projection))
+             (digest (graph-projection-digest
                       arithmetic-language-grammar projection)))
         (check (graph-projection? projection) => #t)
         (check (and (string-contains source "GraphProjectionSpec")
                     (string-contains source "projection_digest: \"sha256:")
                     (string-contains source "name: \"value\"") #t)
+               => #t)
+        (check (if (string-contains
+                    source (string-append "projection_digest: \""
+                                          digest "\""))
+                 #t #f)
                => #t)))
     (test-case "duplicate graph node owners are rejected"
       (check

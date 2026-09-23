@@ -15,6 +15,7 @@
         +block-line-kind+
         +text-line-kind+
         LineMarker LineDelimiter LineBoolean
+        BlockRecovery
         LineStructureContract
         HeadingLineContract
         BlockLineContract
@@ -61,6 +62,15 @@
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/line-boolean
                               boolean? candidate context)))
+
+(define-type (BlockRecovery @ PooFlowContract.)
+  identity: 'gerbil-parser/block-recovery
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/block-recovery
+                (lambda (value)
+                  (memq value '(close-at-eof recover-as-text)))
+                candidate context)))
 
 (define-type (LineStructureSchema @ PooFlowContract.)
   identity: 'gerbil-parser/line-structure-schema
@@ -121,7 +131,8 @@
       block-node: ParserSymbol
       begin-token: ParserSymbol
       body-token: ParserSymbol
-      end-token: ParserSymbol))
+      end-token: ParserSymbol
+      unclosed: BlockRecovery))
 
 (define-type (TextLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/text-line

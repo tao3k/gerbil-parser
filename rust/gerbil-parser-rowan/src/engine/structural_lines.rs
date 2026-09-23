@@ -4,7 +4,7 @@ use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
     BlockLineRule, Diagnostic, HeadingLineRule, KindCategory, LanguageSpec, LineStructureSpec,
-    Parse, ParseError, SelectiveGlrReceipt, TreeEvent,
+    Parse, ParseError, SelectiveGlrReceipt, TreeEvent, UnclosedBlockPolicy,
 };
 use super::validation::receipt;
 
@@ -12,7 +12,7 @@ use super::validation::receipt;
 ///
 /// The language pack owns every delimiter and kind identity. This engine only
 /// executes the generic line/context transitions and emits validated Rowan
-/// events. An unclosed block remains lossless and is closed at EOF.
+/// events. An unclosed block follows its Scheme-declared recovery policy.
 ///
 /// # Errors
 ///
@@ -33,6 +33,7 @@ pub fn parse_structural_lines(
     let mut events = Vec::with_capacity(source.len() / 16 + 2);
     let mut sections = Vec::new();
     let mut block: Option<&BlockLineRule> = None;
+    let mut missing_closer = vec![false; structure.blocks.len()];
     events.push(TreeEvent::StartNode(language.root_kind));
     let mut start = 0;
     while start < source.len() {
@@ -52,7 +53,7 @@ pub fn parse_structural_lines(
             } else {
                 token(&mut events, rule.body_token, start, end);
             }
-        } else if let Some(rule) = structure.blocks.iter().find(|rule| {
+        } else if let Some((index, rule)) = structure.blocks.iter().enumerate().find(|(_, rule)| {
             directive(
                 line,
                 rule.opening,
@@ -61,9 +62,17 @@ pub fn parse_structural_lines(
                 false,
             )
         }) {
-            events.push(TreeEvent::StartNode(rule.block_node));
-            token(&mut events, rule.begin_token, start, end);
-            block = Some(rule);
+            if rule.unclosed == UnclosedBlockPolicy::RecoverAsText
+                && (missing_closer[index] || !has_closing_line(source, end, rule))
+            {
+                // Later openers of this rule share the suffix without a closer.
+                missing_closer[index] = true;
+                text_line(&mut events, structure, start, end);
+            } else {
+                events.push(TreeEvent::StartNode(rule.block_node));
+                token(&mut events, rule.begin_token, start, end);
+                block = Some(rule);
+            }
         } else if let Some(level) = heading_level(line, structure.heading) {
             while sections.last().is_some_and(|parent| *parent >= level) {
                 events.push(TreeEvent::FinishNode);
@@ -75,9 +84,7 @@ pub fn parse_structural_lines(
             token(&mut events, structure.heading.heading_token, start, end);
             events.push(TreeEvent::FinishNode);
         } else {
-            events.push(TreeEvent::StartNode(structure.text_node));
-            token(&mut events, structure.text_token, start, end);
-            events.push(TreeEvent::FinishNode);
+            text_line(&mut events, structure, start, end);
         }
         start = end;
     }
@@ -109,6 +116,31 @@ pub fn parse_structural_lines(
 
 fn token(events: &mut Vec<TreeEvent>, kind: u16, start: usize, end: usize) {
     events.push(TreeEvent::Token { kind, start, end });
+}
+
+fn text_line(events: &mut Vec<TreeEvent>, structure: &LineStructureSpec, start: usize, end: usize) {
+    events.push(TreeEvent::StartNode(structure.text_node));
+    token(events, structure.text_token, start, end);
+    events.push(TreeEvent::FinishNode);
+}
+
+fn has_closing_line(source: &str, mut start: usize, rule: &BlockLineRule) -> bool {
+    while start < source.len() {
+        let Some(end) = line_end(source, start) else {
+            return false;
+        };
+        if directive(
+            &source[start..end],
+            rule.closing,
+            rule.case_insensitive,
+            rule.indent,
+            true,
+        ) {
+            return true;
+        }
+        start = end;
+    }
+    false
 }
 
 fn heading_level(line: &str, rule: HeadingLineRule) -> Option<usize> {

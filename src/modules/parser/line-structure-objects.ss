@@ -22,6 +22,7 @@
         block-line-opening block-line-closing block-line-case-insensitive
         block-line-indent block-line-block-node block-line-begin-token
         block-line-body-token block-line-end-token
+        block-line-unclosed
         text-line-node text-line-token)
 
 (def LineStructure. (.ref LineStructureContract 'proto))
@@ -55,7 +56,7 @@
 (def (make-block-line opening-value closing-value
                       case-insensitive-value indent-value
                       block-node-value begin-token-value
-                      body-token-value end-token-value)
+                      body-token-value end-token-value unclosed-value)
   (admit-line! BlockLineContract
             (.o (:: @ BlockLine.)
                 kind: +block-line-kind+
@@ -66,7 +67,8 @@
                 block-node: block-node-value
                 begin-token: begin-token-value
                 body-token: body-token-value
-                end-token: end-token-value)))
+                end-token: end-token-value
+                unclosed: unclosed-value)))
 
 (def (make-text-line node-value token-value)
   (admit-line! TextLineContract
@@ -102,6 +104,7 @@
    (block-line-begin-token begin-token)
    (block-line-body-token body-token)
    (block-line-end-token end-token)
+   (block-line-unclosed unclosed)
    (text-line-node text-node)
    (text-line-token text-token))
   (projections))

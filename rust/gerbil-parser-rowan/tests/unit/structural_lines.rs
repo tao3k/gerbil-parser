@@ -1,5 +1,6 @@
 use super::model::{
     BlockLineRule, HeadingLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec,
+    UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -64,6 +65,11 @@ static BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     begin_token: 6,
     body_token: 7,
     end_token: 8,
+    unclosed: UnclosedBlockPolicy::CloseAtEof,
+}];
+static RECOVER_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
+    unclosed: UnclosedBlockPolicy::RecoverAsText,
+    ..BLOCKS[0]
 }];
 static BROKEN_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     begin_token: 2,
@@ -82,6 +88,10 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
     blocks: BLOCKS,
     text_node: 4,
     text_token: 7,
+};
+static RECOVER_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    blocks: RECOVER_BLOCKS,
+    ..STRUCTURE
 };
 
 #[test]
@@ -133,6 +143,51 @@ fn unclosed_block_recovers_at_eof_and_preserves_bytes() {
         root.descendants().filter(|node| node.kind().0 == 3).count(),
         1
     );
+}
+
+#[test]
+fn declared_text_recovery_keeps_following_headline_visible() {
+    let source = "* One\n#+begin_src\n** data\n";
+    let parsed = parse_structural_lines(&LANGUAGE, &RECOVER_STRUCTURE, source).unwrap();
+    let root = parsed.syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 2).count(),
+        2
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 3).count(),
+        0
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 4).count(),
+        1
+    );
+}
+
+#[test]
+fn declared_text_recovery_still_masks_headlines_in_closed_blocks() {
+    let source = "* One\n#+begin_src\n** data\n#+end_src\n** Two\n";
+    let parsed = parse_structural_lines(&LANGUAGE, &RECOVER_STRUCTURE, source).unwrap();
+    let root = parsed.syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 2).count(),
+        2
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 3).count(),
+        1
+    );
+}
+
+#[test]
+fn many_incomplete_openers_recover_without_repeated_suffix_scans() {
+    let source = "#+begin_src\n".repeat(10_000);
+    let parsed = parse_structural_lines(&LANGUAGE, &RECOVER_STRUCTURE, &source).unwrap();
+    let root = parsed.syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(root.children().count(), 10_000);
 }
 
 #[test]

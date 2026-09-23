@@ -14,7 +14,7 @@ pub use model::{
     KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, Operand,
     OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
     ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, Terminal,
-    TerminalSpec, TreeEvent,
+    TerminalSpec, TreeEvent, UnclosedBlockPolicy,
 };
 pub use parser::{parse, parse_scanned};
 pub use structural_lines::parse_structural_lines;

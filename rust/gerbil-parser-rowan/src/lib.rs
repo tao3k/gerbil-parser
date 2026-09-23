@@ -14,5 +14,6 @@ pub use engine::{
     KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, Operand,
     OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
     ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, Terminal,
-    TerminalSpec, TreeEvent, build_rowan_events, parse, parse_scanned, parse_structural_lines,
+    TerminalSpec, TreeEvent, UnclosedBlockPolicy, build_rowan_events, parse, parse_scanned,
+    parse_structural_lines,
 };

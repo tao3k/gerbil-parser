@@ -16,7 +16,8 @@
    (make-heading-line "*" " " section 'Expression 'Punctuation)
    (list (make-block-line
           "BEGIN" "END" #f #t
-          'PrefixExpression 'Punctuation 'Number 'Punctuation))
+          'PrefixExpression 'Punctuation 'Number 'Punctuation
+          'close-at-eof))
    (make-text-line 'NameExpression 'Number)))
 
 (def line-structure-aot-test
@@ -39,8 +40,9 @@
                (make-heading-line "*" " " 'GroupedExpression
                                   'Expression 'Punctuation)
                (list (make-block-line
-                      "BEGIN" "STOP" #f #t
-                      'PrefixExpression 'Punctuation 'Number 'Punctuation))
+                      "BEGIN" "END" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation
+                      'recover-as-text))
                (make-text-line 'NameExpression 'Number))))
         (check (line-structure-parser-digest
                 arithmetic-language-grammar original)
@@ -69,5 +71,14 @@
                                     'GroupedExpression 'Expression 'Punctuation)
                  (list 'not-a-block)
                  (make-text-line 'NameExpression 'Number))
+                #f))
+             => #t))
+    (test-case "an undeclared EOF recovery mode is rejected"
+      (check (with-catch
+              (lambda (error) #t)
+              (lambda ()
+                (make-block-line "BEGIN" "END" #f #t
+                                 'PrefixExpression 'Punctuation
+                                 'Number 'Punctuation 'guess)
                 #f))
              => #t))))

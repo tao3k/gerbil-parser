@@ -115,6 +115,13 @@ pub struct BlockLineRule {
     pub begin_token: u16,
     pub body_token: u16,
     pub end_token: u16,
+    pub unclosed: UnclosedBlockPolicy,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UnclosedBlockPolicy {
+    CloseAtEof,
+    RecoverAsText,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

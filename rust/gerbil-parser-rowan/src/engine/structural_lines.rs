@@ -87,7 +87,7 @@ pub fn parse_structural_lines(
             events.push(TreeEvent::StartNode(structure.heading.section_node));
             sections.push(level);
             events.push(TreeEvent::StartNode(structure.heading.heading_node));
-            token(&mut events, structure.heading.heading_token, start, end);
+            emit_heading(&mut events, structure.heading, line, level, start, end);
             events.push(TreeEvent::FinishNode);
         } else {
             text_line(&mut events, structure, source, start, end);
@@ -118,6 +118,44 @@ pub fn parse_structural_lines(
             dynamic_score: 0,
         },
     })
+}
+
+fn emit_heading(
+    events: &mut Vec<TreeEvent>,
+    rule: HeadingLineRule,
+    line: &str,
+    level: usize,
+    start: usize,
+    end: usize,
+) {
+    let Some(fields) = rule.fields else {
+        token(events, rule.heading_token, start, end);
+        return;
+    };
+    token(events, rule.heading_token, start, start + level);
+    let bytes = line.as_bytes();
+    let title_start = level
+        + bytes[level..]
+            .iter()
+            .take_while(|byte| matches!(byte, b' ' | b'\t'))
+            .count();
+    token_nonempty(
+        events,
+        fields.trivia_token,
+        start + level,
+        start + title_start,
+    );
+    let title_end = bytes[..]
+        .iter()
+        .rposition(|byte| !matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+        .map_or(title_start, |index| (index + 1).max(title_start));
+    token_nonempty(
+        events,
+        fields.title_token,
+        start + title_start,
+        start + title_end,
+    );
+    token_nonempty(events, fields.trivia_token, start + title_end, end);
 }
 
 fn emit_block_opening(
@@ -431,6 +469,12 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
         (spec.text_node, KindCategory::Node),
         (spec.text_token, KindCategory::Token),
     ];
+    if let Some(fields) = spec.heading.fields {
+        references.extend([
+            (fields.title_token, KindCategory::Token),
+            (fields.trivia_token, KindCategory::Token),
+        ]);
+    }
     if let Some(rule) = spec.inline_link {
         if [rule.opening, rule.separator, rule.closing]
             .iter()

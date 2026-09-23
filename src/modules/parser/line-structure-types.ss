@@ -17,10 +17,11 @@
         +key-value-line-kind+
         +block-header-kind+
         +inline-link-kind+
+        +heading-fields-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
         KeyValueLineContract BlockBodyContract BlockHeaderContract
-        InlineLinkContract
+        InlineLinkContract HeadingFieldsContract
         LineStructureContract
         HeadingLineContract
         BlockLineContract
@@ -34,6 +35,7 @@
 (def +key-value-line-kind+ 'gerbil-parser-key-value-line)
 (def +block-header-kind+ 'gerbil-parser-block-header)
 (def +inline-link-kind+ 'gerbil-parser-inline-link)
+(def +heading-fields-kind+ 'gerbil-parser-heading-fields)
 
 (def (empty-prototype) (.o))
 
@@ -147,6 +149,32 @@
       description-token: ParserSymbol
       trivia-token: ParserSymbol))
 
+(define-type (HeadingFieldsKind @ PooFlowContract.)
+  identity: 'gerbil-parser/heading-fields-kind
+  .classify: (lambda (candidate context)
+               (line-classify 'gerbil-parser/heading-fields-kind
+                              (lambda (value) (eq? value +heading-fields-kind+))
+                              candidate context)))
+
+(define-type (HeadingFieldsContract @ PooFlowNativeObjectContract.)
+  identity: 'gerbil-parser/heading-fields
+  proto: (empty-prototype)
+  responsibilities:
+  (.o kind: HeadingFieldsKind
+      title-token: ParserSymbol
+      trivia-token: ParserSymbol))
+
+(define-type (OptionalHeadingFieldsContract @ PooFlowContract.)
+  identity: 'gerbil-parser/optional-heading-fields
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/optional-heading-fields
+                (lambda (value)
+                  (or (eq? value #f)
+                      (poo-flow-validation-evidence-accepted?
+                       (poo-flow-contract-admit HeadingFieldsContract value #f))))
+                candidate context)))
+
 (define-type (OptionalInlineLinkContract @ PooFlowContract.)
   identity: 'gerbil-parser/optional-inline-link
   .classify: (lambda (candidate context)
@@ -212,7 +240,8 @@
       separator: LineMarker
       section-node: ParserSymbol
       heading-node: ParserSymbol
-      heading-token: ParserSymbol))
+      heading-token: ParserSymbol
+      fields: OptionalHeadingFieldsContract))
 
 (define-type (BlockLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/block-line

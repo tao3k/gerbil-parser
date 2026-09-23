@@ -11,17 +11,19 @@
                  +line-structure-schema+ +line-structure-kind+
                  +heading-line-kind+ +block-line-kind+ +text-line-kind+
                  +key-value-line-kind+ +block-header-kind+ +inline-link-kind+
+                 +heading-fields-kind+
                  LineStructureContract HeadingLineContract
                  BlockLineContract TextLineContract KeyValueLineContract
-                 BlockHeaderContract InlineLinkContract))
-(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink.
+                 BlockHeaderContract InlineLinkContract HeadingFieldsContract))
+(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink. HeadingFields.
         make-line-structure make-heading-line make-block-line make-text-line
-        make-key-value-line make-block-header make-inline-link
+        make-key-value-line make-block-header make-inline-link make-heading-fields
         line-structure? heading-line? block-line? text-line? key-value-line?
         line-structure-heading line-structure-blocks line-structure-text
         heading-line-marker heading-line-separator
         heading-line-section-node heading-line-heading-node
         heading-line-heading-token
+        heading-line-fields heading-fields-title-token heading-fields-trivia-token
         block-line-opening block-line-closing block-line-case-insensitive
         block-line-indent block-line-block-node block-line-begin-token
         block-line-body-token block-line-end-token
@@ -42,6 +44,7 @@
 (def KeyValueLine. (.ref KeyValueLineContract 'proto))
 (def BlockHeader. (.ref BlockHeaderContract 'proto))
 (def InlineLink. (.ref InlineLinkContract 'proto))
+(def HeadingFields. (.ref HeadingFieldsContract 'proto))
 
 (def (admit-line! contract candidate)
   (let (evidence (poo-flow-contract-admit contract candidate #f))
@@ -55,7 +58,8 @@
    (poo-flow-contract-admit contract candidate #f)))
 
 (def (make-heading-line marker-value separator-value
-                        section-node-value heading-node-value heading-token-value)
+                        section-node-value heading-node-value heading-token-value
+                        (fields-value #f))
   (let (candidate
         (.o (:: @ HeadingLine.)
             kind: +heading-line-kind+
@@ -63,8 +67,16 @@
             separator: separator-value
             section-node: section-node-value
             heading-node: heading-node-value
-            heading-token: heading-token-value))
+            heading-token: heading-token-value
+            fields: fields-value))
     (admit-line! HeadingLineContract candidate)))
+
+(def (make-heading-fields title-token-value trivia-token-value)
+  (admit-line! HeadingFieldsContract
+               (.o (:: @ HeadingFields.)
+                   kind: +heading-fields-kind+
+                   title-token: title-token-value
+                   trivia-token: trivia-token-value)))
 
 (def (make-block-line opening-value closing-value
                       case-insensitive-value indent-value
@@ -145,6 +157,9 @@
    (heading-line-section-node section-node)
    (heading-line-heading-node heading-node)
    (heading-line-heading-token heading-token)
+   (heading-line-fields fields)
+   (heading-fields-title-token title-token)
+   (heading-fields-trivia-token trivia-token)
    (block-line-opening opening)
    (block-line-closing closing)
    (block-line-case-insensitive case-insensitive)

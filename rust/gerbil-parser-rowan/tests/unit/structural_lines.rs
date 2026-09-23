@@ -1,6 +1,6 @@
 use super::model::{
-    BlockHeaderRule, BlockLineRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule,
-    KindCategory, KindSpec, LanguageSpec, LineStructureSpec, UnclosedBlockPolicy,
+    BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule, InlineLinkRule,
+    KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec, UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -97,6 +97,14 @@ static KINDS: &[KindSpec] = &[
         name: "LinkTrivia",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "HeadingTitle",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "HeadingTrivia",
+        category: KindCategory::Token,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -175,12 +183,38 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
         section_node: 1,
         heading_node: 2,
         heading_token: 5,
+        fields: None,
     },
     blocks: BLOCKS,
     text_node: 4,
     text_token: 7,
     inline_link: None,
 };
+static HEADING_FIELDS_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    heading: HeadingLineRule {
+        fields: Some(HeadingFieldsRule {
+            title_token: 23,
+            trivia_token: 24,
+        }),
+        ..STRUCTURE.heading
+    },
+    ..STRUCTURE
+};
+
+#[test]
+fn heading_fields_preserve_utf8_title_and_trailing_trivia() {
+    let source = "**  中文 title  \r\n";
+    let root = parse_structural_lines(&LANGUAGE, &HEADING_FIELDS_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let title = root
+        .descendants_with_tokens()
+        .filter_map(rowan::NodeOrToken::into_token)
+        .find(|token| token.kind().0 == 23)
+        .expect("typed title token");
+    assert_eq!(title.text(), "中文 title");
+}
 static LINK_STRUCTURE: LineStructureSpec = LineStructureSpec {
     inline_link: Some(InlineLinkRule {
         opening: "[[",

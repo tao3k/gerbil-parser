@@ -6,6 +6,7 @@
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/src/modules/parser/line-structure-objects
                  line-structure? make-line-structure make-heading-line
+                 make-heading-fields
                  make-block-line make-block-header make-key-value-line
                  make-inline-link make-text-line)
         (only-in :gerbil-parser/src/compiler/line-structure-rowan
@@ -69,6 +70,26 @@
                         arithmetic-language-grammar original)
                        (line-structure-parser-digest
                         arithmetic-language-grammar bounded))
+               => #f)))
+    (test-case "typed heading fields are projected and bound to identity"
+      (let* ((structure
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation
+                                  (make-heading-fields 'Number 'Punctuation))
+               (list (make-block-line
+                      "BEGIN" "END" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation
+                      'close-at-eof #f #f))
+               (make-text-line 'NameExpression 'Number)))
+             (source (line-structure-rowan-source
+                      arithmetic-language-grammar structure)))
+        (check (and (string-contains source "fields: Some(HeadingFieldsRule") #t)
+               => #t)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
                => #f)))
     (test-case "typed key-value body rules are projected and bound to identity"
       (let* ((body (make-key-value-line ":" 'NameExpression

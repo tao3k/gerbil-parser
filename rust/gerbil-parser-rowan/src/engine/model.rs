@@ -115,6 +115,13 @@ pub struct HeadingLineRule {
     pub section_node: u16,
     pub heading_node: u16,
     pub heading_token: u16,
+    pub fields: Option<HeadingFieldsRule>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HeadingFieldsRule {
+    pub title_token: u16,
+    pub trivia_token: u16,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

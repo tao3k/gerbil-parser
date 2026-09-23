@@ -9,6 +9,7 @@
                  parse-artifact-success?)
         (only-in :gerbil-parser/language-support
                  syntax-fixture-source syntax-fixture-source-digest)
+        (only-in :gerbil-parser/src/testing/parser-ast check-parser-ast)
         (only-in ./fixtures arithmetic-v1-basic-fixture)
         (only-in ./parser arithmetic-v1-language parse-arithmetic-v1))
 (export arithmetic-v1-parser-test)
@@ -30,4 +31,11 @@
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-ref artifact 'sourceDigest)
                => (syntax-fixture-source-digest fixture))
-        (check (parse-artifact-roundtrip artifact) => source)))))
+        (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "canonical AST shape is an exact parser contract"
+      (check-parser-ast (parse-arithmetic-v1 "1") "1"
+        (node SourceFile 0 1
+          (field expression 0 1
+            (node NumberExpression 0 1
+              (field value 0 1
+                (token number "1" 0 1)))))))))

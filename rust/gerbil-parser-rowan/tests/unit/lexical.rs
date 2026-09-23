@@ -78,5 +78,6 @@ fn delimiter_bounded_atom_preserves_utf8_without_consuming_syntax() {
     let atom = LexicalExpr::UntilDelimiters(" \t\r\n();\"");
     assert_eq!(lexical_end(&atom, ":scope) tail", 0), Some(6));
     assert_eq!(lexical_end(&atom, "π-link; note", 0), Some(7));
+    assert_eq!(lexical_end(&atom, "π\u{a0}next", 0), Some(2));
     assert_eq!(lexical_end(&atom, ")", 0), None);
 }

@@ -164,7 +164,9 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
         ),
         LexicalExpr::Identifier => identifier_end(source, offset),
         LexicalExpr::UntilDelimiters(delimiters) => {
-            consume_while(source, offset, |character| !delimiters.contains(character))
+            consume_while(source, offset, |character| {
+                !character.is_whitespace() && !delimiters.contains(character)
+            })
         }
         LexicalExpr::QuotedString(delimiters) => delimiters
             .iter()

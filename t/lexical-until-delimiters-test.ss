@@ -16,6 +16,7 @@
     (test-case "source characters stop before punctuation without allocation"
       (check (scan-until-delimiters ":scope) tail" 0 " \t\r\n();\"") => 6)
       (check (scan-until-delimiters "π-link; note" 0 " \t\r\n();\"") => 6)
+      (check (scan-until-delimiters "π next" 0 "();\"") => 1)
       (check (scan-until-delimiters ")" 0 " \t\r\n();\"") => #f))
     (test-case "escaped quoted strings do not absorb their neighbor"
       (check (lexical-expression? '(escaped-quoted-string "\"")) => #t)

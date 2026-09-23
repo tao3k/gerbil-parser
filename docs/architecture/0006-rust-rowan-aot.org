@@ -34,6 +34,21 @@ contains no language-specific recognition or recovery policy. The event sink
 constructs nodes bottom-up without Rowan's node-cache hash recursion, so deep
 but valid hierarchies do not incur quadratic hashing in the generic layer.
 
+The sink is not itself an AOT compiler for procedural =parser.ss= code.  A
+downstream script that prints a handwritten Rust scanner or event algorithm is
+not an implementation of the single-authority decision above, even when it
+embeds a Scheme-source digest and passes differential fixtures.  The remaining
+compiler boundary is a bounded contextual Parser IR derived from Scheme-owned
+language declarations: line/byte recognition, lexical state transitions,
+structural actions, recovery, and syntax-kind references must be validated at
+AOT time and emitted by =gerbil-parser= as one Rust product.  The Rust runtime
+executes that product and hands source-backed events to the generic Rowan sink.
+Org-like languages may use a scan phase internally, but there is no separately
+authored =generate-scanner= program, second Rust grammar, or downstream event
+algorithm.  Arbitrary Scheme procedures are not silently translated to Rust;
+unsupported procedural behavior fails the AOT contract until it is expressed
+in the admitted Parser IR.  A downstream Cargo consumer never invokes Scheme.
+
 Cargo-only custom generation crosses a narrow native ABI: build support passes
 the downstream =grammar.ss= path to =gerbil_parser_rowan_compile=.  The
 precompiled Scheme product loads that module through Gerbil's own expander,

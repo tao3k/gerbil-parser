@@ -10,10 +10,11 @@ through the generic engine boundary.
 
 The lexical algebra also admits =(line)= as a generic, allocation-free
 whole-line primitive. Scheme and Rust both consume LF, CRLF, bare CR, or a
-final unterminated line losslessly. This is only a lexical boundary: Org
-headline levels, block contexts, object containment, and structural events
-remain the downstream language pack's declarations and are not inferred by
-the generic engine from a line token.
+final unterminated line losslessly. A bounded POO =LineStructure= declaration
+now projects heading, opaque-block, and text-line rules to an immutable Rust
+table. The generic engine executes section nesting and block masking over that
+table; all markers and syntax-kind identities remain language-owned. This is
+not yet a complete contextual Parser IR or an Org parser cutover.
 
 * Decision
 
@@ -45,11 +46,13 @@ The sink is not itself an AOT compiler for procedural =parser.ss= code.  A
 downstream script that prints a handwritten Rust scanner or event algorithm is
 not an implementation of the single-authority decision above, even when it
 embeds a Scheme-source digest and passes differential fixtures.  The remaining
-compiler boundary is a bounded contextual Parser IR derived from Scheme-owned
-language declarations: line/byte recognition, lexical state transitions,
-structural actions, recovery, and syntax-kind references must be validated at
-AOT time and emitted by =gerbil-parser= as one Rust product.  The Rust runtime
-executes that product and hands source-backed events to the generic Rowan sink.
+compiler boundary is a fuller contextual Parser IR derived from Scheme-owned
+language declarations. The current =LineStructure= table validates kind
+references against the canonical grammar digest and covers headings, opaque
+blocks, and text lines only. Other line/byte recognition, lexical state
+transitions, structural actions, and typed recovery still need explicit
+admission. The Rust runtime executes the admitted table and hands source-backed
+events to the generic Rowan sink.
 Org-like languages may use a scan phase internally, but there is no separately
 authored =generate-scanner= program, second Rust grammar, or downstream event
 algorithm.  Arbitrary Scheme procedures are not silently translated to Rust;

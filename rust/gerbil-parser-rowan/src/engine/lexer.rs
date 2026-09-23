@@ -190,7 +190,7 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
     }
 }
 
-fn line_end(source: &str, offset: usize) -> Option<usize> {
+pub(crate) fn line_end(source: &str, offset: usize) -> Option<usize> {
     let tail = source.get(offset..)?;
     if tail.is_empty() {
         return None;

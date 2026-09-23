@@ -10,9 +10,9 @@ extern crate self as gerbil_parser_rowan;
 mod engine;
 
 pub use engine::{
-    ActionEntry, Diagnostic, GerbilLanguage, GotoEntry, KindCategory, KindSpec, LanguageSpec,
-    LexicalExpr, LexicalRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
-    ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
-    SyntaxNode, SyntaxToken, Terminal, TerminalSpec, TreeEvent, build_rowan_events, parse,
-    parse_scanned,
+    ActionEntry, BlockLineRule, Diagnostic, GerbilLanguage, GotoEntry, HeadingLineRule,
+    KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, Operand,
+    OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
+    ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, Terminal,
+    TerminalSpec, TreeEvent, build_rowan_events, parse, parse_scanned, parse_structural_lines,
 };

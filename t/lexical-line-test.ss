@@ -5,9 +5,9 @@
         (only-in :gerbil-parser/src/grammar/lexical-algebra
                  lexical-expression?)
         (only-in :gerbil-parser/src/runtime/scan scan-line))
-(export lexical-line-tests)
+(export lexical-line-test)
 
-(def lexical-line-tests
+(def lexical-line-test
   (test-suite "whole-line lexical primitive"
     (test-case "canonical lexical algebra admits exactly one line primitive"
       (check (lexical-expression? '(line)) => #t)

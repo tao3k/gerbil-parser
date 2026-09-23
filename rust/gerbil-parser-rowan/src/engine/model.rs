@@ -82,6 +82,38 @@ pub enum TreeEvent {
     FinishNode,
 }
 
+/// A declarative, line-oriented structural grammar compiled from Scheme.
+/// Kind references are resolved against the generated language catalog at AOT time.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LineStructureSpec {
+    pub grammar_digest: &'static str,
+    pub heading: HeadingLineRule,
+    pub blocks: &'static [BlockLineRule],
+    pub text_node: u16,
+    pub text_token: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HeadingLineRule {
+    pub marker: u8,
+    pub separator: u8,
+    pub section_node: u16,
+    pub heading_node: u16,
+    pub heading_token: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BlockLineRule {
+    pub opening: &'static str,
+    pub closing: &'static str,
+    pub case_insensitive: bool,
+    pub indent: bool,
+    pub block_node: u16,
+    pub begin_token: u16,
+    pub body_token: u16,
+    pub end_token: u16,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Terminal {
     Eof,

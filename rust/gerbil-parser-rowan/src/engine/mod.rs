@@ -1,6 +1,7 @@
 //! Generated-table execution owners for the Rowan runtime.
 
 mod event_tree;
+mod graph_projection;
 mod lexer;
 mod model;
 mod parser;
@@ -9,6 +10,10 @@ mod structural_lines;
 mod validation;
 
 pub use event_tree::build_rowan_events;
+pub use graph_projection::{
+    GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec, GraphRecord,
+    project_syntax_graph,
+};
 pub use model::{
     ActionEntry, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage, GotoEntry,
     HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule, KindCategory, KindSpec,

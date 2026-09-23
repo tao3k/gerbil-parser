@@ -1,3 +1,6 @@
+use super::graph_projection::{
+    GraphFieldRule, GraphNodeRule, GraphProjectionSpec, project_syntax_graph,
+};
 use super::model::{
     BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule, InlineLinkRule,
     KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec, UnclosedBlockPolicy,
@@ -200,6 +203,77 @@ static HEADING_FIELDS_STRUCTURE: LineStructureSpec = LineStructureSpec {
     },
     ..STRUCTURE
 };
+static GRAPH: GraphProjectionSpec = GraphProjectionSpec {
+    grammar_digest: LANGUAGE.grammar_digest,
+    projection_digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    rules: &[
+        GraphNodeRule {
+            syntax_kind: 0,
+            category: "document",
+            kind: "root",
+            fields: &[],
+        },
+        GraphNodeRule {
+            syntax_kind: 1,
+            category: "section",
+            kind: "headline",
+            fields: &[GraphFieldRule {
+                token_kind: 23,
+                name: "title",
+            }],
+        },
+        GraphNodeRule {
+            syntax_kind: 3,
+            category: "element",
+            kind: "src-block",
+            fields: &[],
+        },
+    ],
+};
+
+#[test]
+fn generated_graph_projection_skips_wrappers_and_keeps_linear_parentage() {
+    let source = "* Parent\n#+begin_src rust\ncode\n#+end_src\n** Child\n";
+    let root = parse_structural_lines(&LANGUAGE, &HEADING_FIELDS_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    let records = project_syntax_graph(&LANGUAGE, &GRAPH, &root).unwrap();
+    assert_eq!(records.len(), 4);
+    assert_eq!(records[0].child_ids, [1]);
+    assert_eq!(records[1].child_ids, [2, 3]);
+    assert_eq!(records[2].parent_id, Some(1));
+    assert_eq!(records[3].field("title"), Some("Child"));
+}
+
+#[test]
+fn graph_projection_rejects_a_stale_aot_table() {
+    let root = parse_structural_lines(&LANGUAGE, &STRUCTURE, "")
+        .unwrap()
+        .syntax();
+    let stale = GraphProjectionSpec {
+        grammar_digest: "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        ..GRAPH
+    };
+    let error = project_syntax_graph(&LANGUAGE, &stale, &root).unwrap_err();
+    assert_eq!(error.reason_kind, "invalid-graph-aot");
+}
+
+#[test]
+fn graph_projection_handles_many_siblings_without_recursive_traversal() {
+    let source = "* item\n".repeat(10_000);
+    let root = parse_structural_lines(&LANGUAGE, &HEADING_FIELDS_STRUCTURE, &source)
+        .unwrap()
+        .syntax();
+    let records = project_syntax_graph(&LANGUAGE, &GRAPH, &root).unwrap();
+    assert_eq!(records.len(), 10_001);
+    assert_eq!(records[0].child_ids.len(), 10_000);
+    assert!(
+        records
+            .iter()
+            .skip(1)
+            .all(|record| record.parent_id == Some(0))
+    );
+}
 
 #[test]
 fn heading_fields_preserve_utf8_title_and_trailing_trivia() {

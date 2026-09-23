@@ -71,6 +71,7 @@ static BROKEN_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
 }];
 static STRUCTURE: LineStructureSpec = LineStructureSpec {
     grammar_digest: LANGUAGE.grammar_digest,
+    parser_digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
     heading: HeadingLineRule {
         marker: b'*',
         separator: b' ',
@@ -91,6 +92,10 @@ fn sections_nest_and_blocks_mask_headlines_losslessly() {
     assert_eq!(root.to_string(), source);
     assert_eq!(parsed.receipt().language, LANGUAGE.language);
     assert_eq!(parsed.receipt().grammar_digest, LANGUAGE.grammar_digest);
+    assert_eq!(
+        parsed.receipt().parser_digest,
+        Some(STRUCTURE.parser_digest)
+    );
     assert_eq!(parsed.receipt().source_digest.len(), 71);
     assert_eq!(
         parsed.selective_glr_receipt().winner_reason,
@@ -141,4 +146,13 @@ fn wrong_category_in_unreached_rule_fails_closed() {
             .reason_kind,
         "invalid-structural-aot"
     );
+}
+
+#[test]
+fn malformed_parser_identity_fails_closed_with_the_attempted_receipt() {
+    let mut broken = STRUCTURE;
+    broken.parser_digest = "unversioned";
+    let error = parse_structural_lines(&LANGUAGE, &broken, "* Heading\n").unwrap_err();
+    assert_eq!(error.diagnostic.reason_kind, "invalid-structural-aot");
+    assert_eq!(error.receipt.parser_digest, Some("unversioned"));
 }

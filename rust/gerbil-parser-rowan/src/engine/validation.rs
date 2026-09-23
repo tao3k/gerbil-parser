@@ -12,6 +12,7 @@ use super::model::{
 pub(crate) fn receipt(
     spec: &LanguageSpec,
     source: &str,
+    parser_digest: Option<&'static str>,
     scanner_digest: Option<&'static str>,
 ) -> ParseReceipt {
     const HEX: &[u8; 16] = b"0123456789abcdef";
@@ -27,6 +28,7 @@ pub(crate) fn receipt(
         version: spec.version,
         contract: spec.contract,
         grammar_digest: spec.grammar_digest,
+        parser_digest,
         scanner_digest,
         source_digest: encoded,
     }

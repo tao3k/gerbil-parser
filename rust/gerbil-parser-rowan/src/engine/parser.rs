@@ -47,10 +47,10 @@ fn parse_inner<'source>(
     scanner_digest: Option<&'static str>,
     scanner: impl FnOnce(&'source str) -> Result<(Vec<Token<'source>>, Vec<usize>), Diagnostic>,
 ) -> Result<Parse, ParseError> {
-    let receipt = receipt(spec, source, scanner_digest);
+    let receipt = receipt(spec, source, None, scanner_digest);
     if scanner_digest.is_some_and(|digest| !canonical_sha256_digest(digest)) {
         return Err(ParseError {
-            receipt,
+            receipt: Box::new(receipt),
             diagnostic: Box::new(Diagnostic {
                 reason_kind: "scanner-identity",
                 byte_offset: 0,
@@ -60,7 +60,7 @@ fn parse_inner<'source>(
         });
     }
     validate_spec_once(spec).map_err(|message| ParseError {
-        receipt: receipt.clone(),
+        receipt: Box::new(receipt.clone()),
         diagnostic: Box::new(Diagnostic {
             reason_kind: "invalid-aot-artifact",
             byte_offset: 0,
@@ -69,18 +69,18 @@ fn parse_inner<'source>(
         selective_glr: None,
     })?;
     let (tokens, significant) = scanner(source).map_err(|diagnostic| ParseError {
-        receipt: receipt.clone(),
+        receipt: Box::new(receipt.clone()),
         diagnostic: Box::new(diagnostic),
         selective_glr: None,
     })?;
     let (root, selective_glr) =
         parse_tokens(spec, &tokens, &significant).map_err(|failure| ParseError {
-            receipt: receipt.clone(),
+            receipt: Box::new(receipt.clone()),
             diagnostic: Box::new(failure.diagnostic),
             selective_glr: failure.selective_glr,
         })?;
     let green = build_green(spec, source, &tokens, &root).map_err(|message| ParseError {
-        receipt: receipt.clone(),
+        receipt: Box::new(receipt.clone()),
         diagnostic: Box::new(Diagnostic {
             reason_kind: "invalid-cst",
             byte_offset: 0,

@@ -89,6 +89,7 @@ pub enum TreeEvent {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LineStructureSpec {
     pub grammar_digest: &'static str,
+    pub parser_digest: &'static str,
     pub heading: HeadingLineRule,
     pub blocks: &'static [BlockLineRule],
     pub text_node: u16,
@@ -219,6 +220,8 @@ pub struct ParseReceipt {
     pub version: &'static str,
     pub contract: &'static str,
     pub grammar_digest: &'static str,
+    /// Digest of the Scheme-owned contextual parser strategy when one is used.
+    pub parser_digest: Option<&'static str>,
     /// Digest of the downstream Scheme scanner declaration when one is used.
     pub scanner_digest: Option<&'static str>,
     pub source_digest: String,
@@ -276,7 +279,7 @@ impl Parse {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ParseError {
-    pub receipt: ParseReceipt,
+    pub receipt: Box<ParseReceipt>,
     pub diagnostic: Box<Diagnostic>,
     pub selective_glr: Option<Box<SelectiveGlrReceipt>>,
 }

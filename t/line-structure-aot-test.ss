@@ -8,7 +8,7 @@
                  line-structure? make-line-structure make-heading-line
                  make-block-line make-text-line)
         (only-in :gerbil-parser/src/compiler/line-structure-rowan
-                 line-structure-rowan-source))
+                 line-structure-parser-digest line-structure-rowan-source))
 (export line-structure-aot-test)
 
 (def (fixture-structure (section 'GroupedExpression))
@@ -29,8 +29,28 @@
         (check (and (string-contains source "pub static STRUCTURE: LineStructureSpec")
                     (string-contains source "opening: \"BEGIN\"")
                     (string-contains source "grammar_digest: \"sha256:")
+                    (string-contains source "parser_digest: \"sha256:")
                     #t)
                => #t)))
+    (test-case "parser identity changes when the POO strategy changes"
+      (let* ((original (fixture-structure))
+             (changed
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               (list (make-block-line
+                      "BEGIN" "STOP" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation))
+               (make-text-line 'NameExpression 'Number))))
+        (check (line-structure-parser-digest
+                arithmetic-language-grammar original)
+               => (line-structure-parser-digest
+                   arithmetic-language-grammar original))
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar original)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar changed))
+               => #f)))
     (test-case "wrong-category kind is rejected at the AOT boundary"
       (check (with-catch
               (lambda (error) #t)

@@ -23,9 +23,9 @@ pub fn parse_structural_lines(
     structure: &LineStructureSpec,
     source: &str,
 ) -> Result<Parse, ParseError> {
-    let parse_receipt = receipt(language, source, None);
+    let parse_receipt = receipt(language, source, Some(structure.parser_digest), None);
     let with_receipt = |diagnostic| ParseError {
-        receipt: parse_receipt.clone(),
+        receipt: Box::new(parse_receipt.clone()),
         diagnostic: Box::new(diagnostic),
         selective_glr: None,
     };
@@ -148,6 +148,11 @@ fn directive(line: &str, value: &str, case_insensitive: bool, indent: bool, clos
 }
 
 fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Result<(), Diagnostic> {
+    if !super::validation::canonical_sha256_digest(spec.parser_digest) {
+        return Err(invalid_structure(
+            "structural parser digest is not canonical SHA-256",
+        ));
+    }
     if spec.grammar_digest != language.grammar_digest {
         return Err(invalid_structure(
             "structural and grammar artifacts have different digests",

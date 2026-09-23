@@ -8,6 +8,7 @@
         scan-horizontal-whitespace
         scan-newline
         scan-line
+        scan-until-delimiters
         scan-decimal-digits
         scan-number-literal
         scan-number-literal/profile
@@ -89,6 +90,20 @@
                (+ offset 2)
                (+ offset 1)))
             (else (loop (+ offset 1))))))))
+
+;; Maximal nonempty atom run, stopping before any declared delimiter.
+;; Delimiters are language-owned; this primitive knows no S-expression policy.
+(def (scan-until-delimiters source start delimiters)
+  (and (< start (string-length source))
+       (let (end (scan-while
+                 source start
+                 (lambda (character)
+                   (not (let loop ((index 0))
+                          (and (< index (string-length delimiters))
+                               (or (char=? character
+                                           (string-ref delimiters index))
+                                   (loop (+ index 1)))))))))
+         (and (> end start) end))))
 
 ;; scan-decimal-digits
 ;; : (-> String Fixnum Fixnum)

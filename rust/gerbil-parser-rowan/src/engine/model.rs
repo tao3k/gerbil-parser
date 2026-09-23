@@ -36,6 +36,7 @@ pub enum LexicalExpr {
         trailing_period: bool,
     },
     Identifier,
+    UntilDelimiters(&'static str),
     QuotedString(&'static [&'static str]),
     Heredoc,
     LineComment(&'static [&'static str]),

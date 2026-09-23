@@ -9,6 +9,7 @@
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
+                 scan-until-delimiters
                  make-literal-end-scanner scan-longest-literal
                  scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
@@ -60,7 +61,7 @@
 (defrules lexical-end
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string line-comment block-comment nested-block-comment
+   quoted-string until-delimiters line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ source offset (whitespace+))
    (scan-whitespace source offset))
@@ -84,6 +85,8 @@
    (scan-identifier source offset))
   ((_ source offset (quoted-string delimiter ...))
    (scan-quoted-strings source offset (list delimiter ...)))
+  ((_ source offset (until-delimiters characters))
+   (scan-until-delimiters source offset characters))
   ((_ source offset (heredoc))
    (scan-heredoc source offset))
   ((_ source offset (line-comment start ...))

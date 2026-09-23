@@ -8,7 +8,7 @@
                  lr-runtime-lexical-mode-catalog)
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
-                 scan-horizontal-whitespace scan-identifier scan-line-comment
+                 scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
                  make-literal-end-scanner scan-longest-literal
                  scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
@@ -58,7 +58,7 @@
 ;;       ```
 ;;     %
 (defrules lexical-end
-  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
+  (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
    quoted-string line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
@@ -68,6 +68,8 @@
    (scan-horizontal-whitespace source offset))
   ((_ source offset (newline+))
    (scan-newline source offset))
+  ((_ source offset (line))
+   (scan-line source offset))
   ((_ source offset (decimal-digit+))
    (scan-decimal-digits source offset))
   ((_ source offset (number))

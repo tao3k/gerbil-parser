@@ -25,6 +25,7 @@ pub enum LexicalExpr {
     Whitespace,
     HorizontalWhitespace,
     Newline,
+    Line,
     DecimalDigits,
     Number,
     NumberLiteral {

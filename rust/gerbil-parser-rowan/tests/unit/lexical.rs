@@ -53,3 +53,14 @@ fn nested_comments_and_heredocs_close_losslessly() {
         Some(15)
     );
 }
+
+#[test]
+fn line_primitive_preserves_crlf_lf_cr_and_utf8_boundaries() {
+    let expression = LexicalExpr::Line;
+    assert_eq!(lexical_end(&expression, "é\r\nnext", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "é\r\nnext", 4), Some(8));
+    assert_eq!(lexical_end(&expression, "one\ntwo", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "one\rtwo", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "last", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "", 0), None);
+}

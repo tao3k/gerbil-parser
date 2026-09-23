@@ -197,6 +197,7 @@
     ((horizontal-whitespace+)
      (display "LexicalExpr::HorizontalWhitespace" port))
     ((newline+) (display "LexicalExpr::Newline" port))
+    ((line) (display "LexicalExpr::Line" port))
     ((decimal-digit+) (display "LexicalExpr::DecimalDigits" port))
     ((number) (display "LexicalExpr::Number" port))
     ((number-literal)

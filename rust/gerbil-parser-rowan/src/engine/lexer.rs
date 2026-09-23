@@ -144,6 +144,7 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
         LexicalExpr::Newline => {
             consume_while(source, offset, |character| matches!(character, '\r' | '\n'))
         }
+        LexicalExpr::Line => line_end(source, offset),
         LexicalExpr::DecimalDigits => consume_while(source, offset, char::is_numeric),
         LexicalExpr::Number => number_end(source, offset),
         LexicalExpr::NumberLiteral {
@@ -187,6 +188,24 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
             .next()
             .map(|character| offset + character.len_utf8()),
     }
+}
+
+fn line_end(source: &str, offset: usize) -> Option<usize> {
+    let tail = source.get(offset..)?;
+    if tail.is_empty() {
+        return None;
+    }
+    for (relative, byte) in tail.bytes().enumerate() {
+        match byte {
+            b'\n' => return Some(offset + relative + 1),
+            b'\r' => {
+                let end = offset + relative + 1;
+                return Some(end + usize::from(source.as_bytes().get(end) == Some(&b'\n')));
+            }
+            _ => {}
+        }
+    }
+    Some(source.len())
 }
 
 fn longest_literal<'a>(source: &str, offset: usize, values: &'a [&str]) -> Option<&'a str> {

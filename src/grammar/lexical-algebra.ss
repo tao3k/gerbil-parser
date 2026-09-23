@@ -20,7 +20,7 @@
 (def (lexical-expression? value)
   (and (list? value)
        (case (car value)
-         ((whitespace+ horizontal-whitespace+ newline+
+         ((whitespace+ horizontal-whitespace+ newline+ line
            decimal-digit+ number identifier heredoc fallback)
           (null? (cdr value)))
          ((number-literal)
@@ -55,7 +55,7 @@
          (else #f))))
 
 (def (lexical-primitive kind)
-  (unless (memq kind '(whitespace+ horizontal-whitespace+ newline+
+  (unless (memq kind '(whitespace+ horizontal-whitespace+ newline+ line
                        decimal-digit+ number identifier heredoc fallback))
     (error "unknown lexical primitive" kind))
   (list kind))
@@ -94,7 +94,7 @@
 ;;       ```
 ;;     %
 (defrules lexical-expression
-  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
+  (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
    quoted-string line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
@@ -104,6 +104,8 @@
    (lexical-primitive 'horizontal-whitespace+))
   ((_ (newline+))
    (lexical-primitive 'newline+))
+  ((_ (line))
+   (lexical-primitive 'line))
   ((_ (decimal-digit+))
    (lexical-primitive 'decimal-digit+))
   ((_ (number))

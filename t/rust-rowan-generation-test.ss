@@ -60,6 +60,27 @@
                     (string-contains source "ParserAction::Fork(&[")
                     (string-contains source "dynamic_precedence:"))
                => #t)))
+    (test-case "whole-line lexical IR lowers to the generic Rowan engine"
+      (let* ((line-ir
+              (map (lambda (entry)
+                     (if (eq? (car entry) 'lexical-rules)
+                       (cons 'lexical-rules
+                             (map (lambda (row)
+                                    (if (eq? (car row) 'number)
+                                      '(number (line))
+                                      row))
+                                  (cdr entry)))
+                       entry))
+                   arithmetic-parser-ir))
+             (source
+              (rust-rowan-module-source
+               "arithmetic" +arithmetic-language-version+
+               +arithmetic-syntax-contract+
+               (parser-machine-grammar-digest arithmetic-parser)
+               line-ir)))
+        (check (string-contains source
+                                "LexicalRule { terminal: \"number\", expression: LexicalExpr::Line")
+               => #t)))
     (test-case "the language descriptor is the complete generation input"
       (let (path (make-temporary-file-name "gerbil-parser-rowan"))
         (try

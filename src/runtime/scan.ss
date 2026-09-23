@@ -7,6 +7,7 @@
 (export scan-whitespace
         scan-horizontal-whitespace
         scan-newline
+        scan-line
         scan-decimal-digits
         scan-number-literal
         scan-number-literal/profile
@@ -70,6 +71,24 @@
 ;; scan-newline
 ;; : (-> String Fixnum Fixnum)
 (def scan-newline (cut scan-nonempty-while newline? newline? <> <>))
+
+;; One complete line, including its LF, CRLF, or bare CR terminator.
+;; This primitive is useful for line-oriented grammars without allocating a
+;; substring or emitting one token per source character.
+(def (scan-line source start)
+  (let (length (string-length source))
+    (and (< start length)
+         (let loop ((offset start))
+           (cond
+            ((= offset length) length)
+            ((char=? (string-ref source offset) #\newline)
+             (+ offset 1))
+            ((char=? (string-ref source offset) #\return)
+             (if (and (< (+ offset 1) length)
+                      (char=? (string-ref source (+ offset 1)) #\newline))
+               (+ offset 2)
+               (+ offset 1)))
+            (else (loop (+ offset 1))))))))
 
 ;; scan-decimal-digits
 ;; : (-> String Fixnum Fixnum)

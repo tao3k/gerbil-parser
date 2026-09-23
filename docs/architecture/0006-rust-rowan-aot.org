@@ -8,6 +8,13 @@ reference product, and an independent downstream custom-language fixture are
 executable. GQL and Cypher remain Scheme-owned language descriptions consumed
 through the generic engine boundary.
 
+The lexical algebra also admits =(line)= as a generic, allocation-free
+whole-line primitive. Scheme and Rust both consume LF, CRLF, bare CR, or a
+final unterminated line losslessly. This is only a lexical boundary: Org
+headline levels, block contexts, object containment, and structural events
+remain the downstream language pack's declarations and are not inferred by
+the generic engine from a line token.
+
 * Decision
 
 =grammar.ss= remains the single language-authoring authority.  Its hygienic

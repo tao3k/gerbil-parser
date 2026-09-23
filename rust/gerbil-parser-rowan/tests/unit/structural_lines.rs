@@ -1,6 +1,6 @@
 use super::model::{
-    BlockHeaderRule, BlockLineRule, HeadingLineRule, KeyValueLineRule, KindCategory, KindSpec,
-    LanguageSpec, LineStructureSpec, UnclosedBlockPolicy,
+    BlockHeaderRule, BlockLineRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule,
+    KindCategory, KindSpec, LanguageSpec, LineStructureSpec, UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -79,6 +79,22 @@ static KINDS: &[KindSpec] = &[
     },
     KindSpec {
         name: "HeaderTrivia",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "InlineLink",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "LinkTarget",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "LinkDescription",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "LinkTrivia",
         category: KindCategory::Token,
     },
 ];
@@ -163,7 +179,41 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
     blocks: BLOCKS,
     text_node: 4,
     text_token: 7,
+    inline_link: None,
 };
+static LINK_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    inline_link: Some(InlineLinkRule {
+        opening: "[[",
+        separator: "][",
+        closing: "]]",
+        node: 19,
+        target_token: 20,
+        description_token: 21,
+        trivia_token: 22,
+    }),
+    ..STRUCTURE
+};
+
+#[test]
+fn inline_links_preserve_text_and_expose_target_and_description() {
+    let source = "prefix [[https://example.test][inside]] and [[id:123]]\r\n";
+    let root = parse_structural_lines(&LANGUAGE, &LINK_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let links: Vec<_> = root
+        .descendants()
+        .filter(|node| node.kind().0 == 19)
+        .collect();
+    assert_eq!(links.len(), 2);
+    let target: Vec<_> = links[0]
+        .children_with_tokens()
+        .filter_map(rowan::NodeOrToken::into_token)
+        .filter(|token| token.kind().0 == 20)
+        .map(|token| token.text().to_owned())
+        .collect();
+    assert_eq!(target, ["https://example.test"]);
+}
 static RECOVER_STRUCTURE: LineStructureSpec = LineStructureSpec {
     blocks: RECOVER_BLOCKS,
     ..STRUCTURE

@@ -94,6 +94,18 @@ pub struct LineStructureSpec {
     pub blocks: &'static [BlockLineRule],
     pub text_node: u16,
     pub text_token: u16,
+    pub inline_link: Option<InlineLinkRule>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InlineLinkRule {
+    pub opening: &'static str,
+    pub separator: &'static str,
+    pub closing: &'static str,
+    pub node: u16,
+    pub target_token: u16,
+    pub description_token: u16,
+    pub trivia_token: u16,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

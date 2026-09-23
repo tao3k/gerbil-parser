@@ -6,7 +6,8 @@
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/src/modules/parser/line-structure-objects
                  line-structure? make-line-structure make-heading-line
-                 make-block-line make-block-header make-key-value-line make-text-line)
+                 make-block-line make-block-header make-key-value-line
+                 make-inline-link make-text-line)
         (only-in :gerbil-parser/src/compiler/line-structure-rowan
                  line-structure-parser-digest line-structure-rowan-source))
 (export line-structure-aot-test)
@@ -105,6 +106,27 @@
                       arithmetic-language-grammar structure)))
         (check (and (string-contains source "header: Some(BlockHeaderRule")
                     (string-contains source "argument_token:") #t)
+               => #t)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
+               => #f)))
+    (test-case "typed inline link is bound to parser identity"
+      (let* ((link (make-inline-link "[[" "][" "]]"
+                                     'NameExpression 'Number 'Number 'Punctuation))
+             (structure
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               (list (make-block-line
+                      "BEGIN" "END" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation
+                      'close-at-eof #f #f))
+               (make-text-line 'NameExpression 'Number link)))
+             (source (line-structure-rowan-source
+                      arithmetic-language-grammar structure)))
+        (check (and (string-contains source "inline_link: Some(InlineLinkRule") #t)
                => #t)
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)

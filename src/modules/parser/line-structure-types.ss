@@ -16,9 +16,11 @@
         +text-line-kind+
         +key-value-line-kind+
         +block-header-kind+
+        +inline-link-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
         KeyValueLineContract BlockBodyContract BlockHeaderContract
+        InlineLinkContract
         LineStructureContract
         HeadingLineContract
         BlockLineContract
@@ -31,6 +33,7 @@
 (def +text-line-kind+ 'gerbil-parser-text-line)
 (def +key-value-line-kind+ 'gerbil-parser-key-value-line)
 (def +block-header-kind+ 'gerbil-parser-block-header)
+(def +inline-link-kind+ 'gerbil-parser-inline-link)
 
 (def (empty-prototype) (.o))
 
@@ -124,6 +127,37 @@
       argument-token: ParserSymbol
       trivia-token: ParserSymbol))
 
+(define-type (InlineLinkKind @ PooFlowContract.)
+  identity: 'gerbil-parser/inline-link-kind
+  .classify: (lambda (candidate context)
+               (line-classify 'gerbil-parser/inline-link-kind
+                              (lambda (value) (eq? value +inline-link-kind+))
+                              candidate context)))
+
+(define-type (InlineLinkContract @ PooFlowNativeObjectContract.)
+  identity: 'gerbil-parser/inline-link
+  proto: (empty-prototype)
+  responsibilities:
+  (.o kind: InlineLinkKind
+      opening: LineDelimiter
+      separator: LineDelimiter
+      closing: LineDelimiter
+      node: ParserSymbol
+      target-token: ParserSymbol
+      description-token: ParserSymbol
+      trivia-token: ParserSymbol))
+
+(define-type (OptionalInlineLinkContract @ PooFlowContract.)
+  identity: 'gerbil-parser/optional-inline-link
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/optional-inline-link
+                (lambda (value)
+                  (or (eq? value #f)
+                      (poo-flow-validation-evidence-accepted?
+                       (poo-flow-contract-admit InlineLinkContract value #f))))
+                candidate context)))
+
 (define-type (OptionalBlockHeaderContract @ PooFlowContract.)
   identity: 'gerbil-parser/optional-block-header
   .classify: (lambda (candidate context)
@@ -204,7 +238,8 @@
   responsibilities:
   (.o kind: TextLineKind
       text-node: ParserSymbol
-      text-token: ParserSymbol))
+      text-token: ParserSymbol
+      inline-link: OptionalInlineLinkContract))
 
 (def (line-structure-obligations candidate _context)
   (if (andmap (lambda (block)

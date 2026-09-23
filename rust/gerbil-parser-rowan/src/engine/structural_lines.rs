@@ -3,8 +3,8 @@
 use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
-    BlockLineRule, Diagnostic, HeadingLineRule, KindCategory, LanguageSpec, LineStructureSpec,
-    Parse, ParseError, SelectiveGlrReceipt, TreeEvent, UnclosedBlockPolicy,
+    BlockLineRule, Diagnostic, HeadingLineRule, InlineLinkRule, KindCategory, LanguageSpec,
+    LineStructureSpec, Parse, ParseError, SelectiveGlrReceipt, TreeEvent, UnclosedBlockPolicy,
 };
 use super::validation::receipt;
 
@@ -73,7 +73,7 @@ pub fn parse_structural_lines(
                         }
                     });
             if missing_closer {
-                text_line(&mut events, structure, start, end);
+                text_line(&mut events, structure, source, start, end);
             } else {
                 events.push(TreeEvent::StartNode(rule.block_node));
                 emit_block_opening(&mut events, rule, line, start, end);
@@ -90,7 +90,7 @@ pub fn parse_structural_lines(
             token(&mut events, structure.heading.heading_token, start, end);
             events.push(TreeEvent::FinishNode);
         } else {
-            text_line(&mut events, structure, start, end);
+            text_line(&mut events, structure, source, start, end);
         }
         start = end;
     }
@@ -220,10 +220,85 @@ fn token_nonempty(events: &mut Vec<TreeEvent>, kind: u16, start: usize, end: usi
     }
 }
 
-fn text_line(events: &mut Vec<TreeEvent>, structure: &LineStructureSpec, start: usize, end: usize) {
+fn text_line(
+    events: &mut Vec<TreeEvent>,
+    structure: &LineStructureSpec,
+    source: &str,
+    start: usize,
+    end: usize,
+) {
     events.push(TreeEvent::StartNode(structure.text_node));
-    token(events, structure.text_token, start, end);
+    if let Some(rule) = structure.inline_link {
+        emit_inline_links(
+            events,
+            structure.text_token,
+            rule,
+            &source[start..end],
+            start,
+        );
+    } else {
+        token(events, structure.text_token, start, end);
+    }
     events.push(TreeEvent::FinishNode);
+}
+
+fn emit_inline_links(
+    events: &mut Vec<TreeEvent>,
+    text_token: u16,
+    rule: InlineLinkRule,
+    line: &str,
+    start: usize,
+) {
+    let mut cursor = 0;
+    while let Some(relative_open) = line[cursor..].find(rule.opening) {
+        let open = cursor + relative_open;
+        let target_start = open + rule.opening.len();
+        let Some(relative_close) = line[target_start..].find(rule.closing) else {
+            break;
+        };
+        let close = target_start + relative_close;
+        let separator = line[target_start..close]
+            .find(rule.separator)
+            .map(|offset| target_start + offset);
+        let target_end = separator.unwrap_or(close);
+        if target_end == target_start {
+            break;
+        }
+        token_nonempty(events, text_token, start + cursor, start + open);
+        events.push(TreeEvent::StartNode(rule.node));
+        token(
+            events,
+            rule.trivia_token,
+            start + open,
+            start + target_start,
+        );
+        token(
+            events,
+            rule.target_token,
+            start + target_start,
+            start + target_end,
+        );
+        if let Some(separator) = separator {
+            let description_start = separator + rule.separator.len();
+            token(
+                events,
+                rule.trivia_token,
+                start + separator,
+                start + description_start,
+            );
+            token_nonempty(
+                events,
+                rule.description_token,
+                start + description_start,
+                start + close,
+            );
+        }
+        let next = close + rule.closing.len();
+        token(events, rule.trivia_token, start + close, start + next);
+        events.push(TreeEvent::FinishNode);
+        cursor = next;
+    }
+    token_nonempty(events, text_token, start + cursor, start + line.len());
 }
 
 fn has_closing_line(
@@ -356,6 +431,22 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
         (spec.text_node, KindCategory::Node),
         (spec.text_token, KindCategory::Token),
     ];
+    if let Some(rule) = spec.inline_link {
+        if [rule.opening, rule.separator, rule.closing]
+            .iter()
+            .any(|delimiter| delimiter.is_empty() || !delimiter.is_ascii())
+        {
+            return Err(invalid_structure(
+                "inline link delimiters must be nonempty ASCII",
+            ));
+        }
+        references.extend([
+            (rule.node, KindCategory::Node),
+            (rule.target_token, KindCategory::Token),
+            (rule.description_token, KindCategory::Token),
+            (rule.trivia_token, KindCategory::Token),
+        ]);
+    }
     if spec.heading.marker.is_ascii_whitespace()
         || spec.heading.separator.is_ascii_whitespace() && spec.heading.separator != b' '
         || spec.heading.marker == spec.heading.separator

@@ -10,13 +10,13 @@
         (only-in ./line-structure-types
                  +line-structure-schema+ +line-structure-kind+
                  +heading-line-kind+ +block-line-kind+ +text-line-kind+
-                 +key-value-line-kind+ +block-header-kind+
+                 +key-value-line-kind+ +block-header-kind+ +inline-link-kind+
                  LineStructureContract HeadingLineContract
                  BlockLineContract TextLineContract KeyValueLineContract
-                 BlockHeaderContract))
-(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader.
+                 BlockHeaderContract InlineLinkContract))
+(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink.
         make-line-structure make-heading-line make-block-line make-text-line
-        make-key-value-line make-block-header
+        make-key-value-line make-block-header make-inline-link
         line-structure? heading-line? block-line? text-line? key-value-line?
         line-structure-heading line-structure-blocks line-structure-text
         heading-line-marker heading-line-separator
@@ -30,7 +30,10 @@
         key-value-line-marker key-value-line-node
         key-value-line-key-token key-value-line-value-token
         key-value-line-trivia-token
-        text-line-node text-line-token)
+        text-line-node text-line-token text-line-inline-link
+        inline-link-opening inline-link-separator inline-link-closing
+        inline-link-node inline-link-target-token
+        inline-link-description-token inline-link-trivia-token)
 
 (def LineStructure. (.ref LineStructureContract 'proto))
 (def HeadingLine. (.ref HeadingLineContract 'proto))
@@ -38,6 +41,7 @@
 (def TextLine. (.ref TextLineContract 'proto))
 (def KeyValueLine. (.ref KeyValueLineContract 'proto))
 (def BlockHeader. (.ref BlockHeaderContract 'proto))
+(def InlineLink. (.ref InlineLinkContract 'proto))
 
 (def (admit-line! contract candidate)
   (let (evidence (poo-flow-contract-admit contract candidate #f))
@@ -101,12 +105,26 @@
                    value-token: value-token-value
                    trivia-token: trivia-token-value)))
 
-(def (make-text-line node-value token-value)
+(def (make-inline-link opening-value separator-value closing-value node-value
+                       target-token-value description-token-value trivia-token-value)
+  (admit-line! InlineLinkContract
+               (.o (:: @ InlineLink.)
+                   kind: +inline-link-kind+
+                   opening: opening-value
+                   separator: separator-value
+                   closing: closing-value
+                   node: node-value
+                   target-token: target-token-value
+                   description-token: description-token-value
+                   trivia-token: trivia-token-value)))
+
+(def (make-text-line node-value token-value (inline-link-value #f))
   (admit-line! TextLineContract
             (.o (:: @ TextLine.)
                 kind: +text-line-kind+
                 text-node: node-value
-                text-token: token-value)))
+                text-token: token-value
+                inline-link: inline-link-value)))
 
 (def (make-line-structure heading-value blocks-value text-value)
   (admit-line! LineStructureContract
@@ -147,7 +165,15 @@
    (key-value-line-value-token value-token)
    (key-value-line-trivia-token trivia-token)
    (text-line-node text-node)
-   (text-line-token text-token))
+   (text-line-token text-token)
+   (text-line-inline-link inline-link)
+   (inline-link-opening opening)
+   (inline-link-separator separator)
+   (inline-link-closing closing)
+   (inline-link-node node)
+   (inline-link-target-token target-token)
+   (inline-link-description-token description-token)
+   (inline-link-trivia-token trivia-token))
   (projections))
 
 (def (line-structure? value)

@@ -32,6 +32,7 @@
         block-line-indent block-line-block-node block-line-begin-token
         block-line-body-token block-line-end-token
         block-line-unclosed block-line-heading-bound block-line-body-line
+        block-line-contents
         block-line-header block-header-argument-token block-header-trivia-token
         key-value-line-marker key-value-line-node
         key-value-line-key-token key-value-line-value-token
@@ -91,7 +92,8 @@
                       case-insensitive-value indent-value
                       block-node-value begin-token-value
                       body-token-value end-token-value unclosed-value
-                      heading-bound-value body-line-value (header-value #f))
+                      heading-bound-value body-line-value (header-value #f)
+                      (contents-value 'opaque))
   (admit-line! BlockLineContract
             (.o (:: @ BlockLine.)
                 kind: +block-line-kind+
@@ -105,6 +107,7 @@
                 end-token: end-token-value
                 unclosed: unclosed-value
                 heading-bound: heading-bound-value
+                contents: contents-value
                 body-line: body-line-value
                 header: header-value)))
 
@@ -199,6 +202,7 @@
    (block-line-end-token end-token)
    (block-line-unclosed unclosed)
    (block-line-heading-bound heading-bound)
+   (block-line-contents contents)
    (block-line-body-line body-line)
    (block-line-header header)
    (block-header-argument-token argument-token)

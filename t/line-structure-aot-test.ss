@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; POO declaration owns contextual-line AOT admission.
 
-(import (only-in :std/test check test-case test-suite)
+(import (only-in :std/test check check-exception test-case test-suite)
         (only-in :gerbil-parser/languages/arithmetic/v1/grammar
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/src/modules/parser/line-structure-objects
@@ -75,6 +75,35 @@
                        (line-structure-parser-digest
                         arithmetic-language-grammar bounded))
                => #f)))
+    (test-case "recursive block contents is Scheme-owned and digest-bound"
+      (let* ((recursive
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               (list (make-block-line
+                      "BEGIN" "END" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation
+                      'close-at-eof #f #f #f 'elements))
+               (make-text-line 'NameExpression 'Number)))
+             (source (line-structure-rowan-source
+                      arithmetic-language-grammar recursive)))
+        (check (and (string-contains source "contents: BlockContents::Elements") #t)
+               => #t)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar recursive)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
+               => #f)))
+    (test-case "recursive block contents rejects key-value body semantics"
+      (check-exception
+       (make-block-line
+        "BEGIN" "END" #f #t
+        'PrefixExpression 'Punctuation 'Number 'Punctuation
+        'recover-as-text #f
+        (make-key-value-line ":" 'NameExpression
+                             'Number 'Number 'Punctuation)
+        #f 'elements)
+       true))
     (test-case "typed heading fields are projected and bound to identity"
       (let* ((structure
               (make-line-structure

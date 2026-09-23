@@ -21,6 +21,7 @@
         +table-line-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
+        BlockContents
         KeyValueLineContract BlockBodyContract BlockHeaderContract
         InlineLinkContract HeadingFieldsContract
         TableLineContract OptionalTableLineContract
@@ -86,6 +87,14 @@
                 'gerbil-parser/block-recovery
                 (lambda (value)
                   (memq value '(close-at-eof recover-as-text)))
+                candidate context)))
+
+(define-type (BlockContents @ PooFlowContract.)
+  identity: 'gerbil-parser/block-contents
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/block-contents
+                (lambda (value) (memq value '(opaque elements)))
                 candidate context)))
 
 (define-type (KeyValueLineKind @ PooFlowContract.)
@@ -304,8 +313,14 @@
       end-token: ParserSymbol
       unclosed: BlockRecovery
       heading-bound: LineBoolean
+      contents: BlockContents
       body-line: BlockBodyContract
-      header: OptionalBlockHeaderContract))
+      header: OptionalBlockHeaderContract)
+  .obligations: (lambda (candidate _context)
+                  (if (and (eq? (.ref candidate 'contents) 'elements)
+                           (.ref candidate 'body-line))
+                    '(recursive-block-cannot-have-key-value-body)
+                    '())))
 
 (define-type (TextLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/text-line

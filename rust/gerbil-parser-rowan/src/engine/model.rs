@@ -152,6 +152,7 @@ pub struct BlockLineRule {
     pub end_token: u16,
     pub unclosed: UnclosedBlockPolicy,
     pub heading_bound: bool,
+    pub contents: BlockContents,
     pub body_line: Option<KeyValueLineRule>,
     pub header: Option<BlockHeaderRule>,
 }
@@ -176,6 +177,12 @@ pub struct KeyValueLineRule {
 pub enum UnclosedBlockPolicy {
     CloseAtEof,
     RecoverAsText,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BlockContents {
+    Opaque,
+    Elements,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

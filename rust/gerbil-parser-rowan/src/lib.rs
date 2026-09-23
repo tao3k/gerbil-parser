@@ -10,8 +10,8 @@ extern crate self as gerbil_parser_rowan;
 mod engine;
 
 pub use engine::{
-    ActionEntry, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage, GotoEntry,
-    GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec, GraphRecord,
+    ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage,
+    GotoEntry, GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec, GraphRecord,
     HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule, KindCategory, KindSpec,
     LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, Operand, OperandAction, Parse,
     ParseError, ParseReceipt, ParserAction, Production, Reduction, ScannedToken,

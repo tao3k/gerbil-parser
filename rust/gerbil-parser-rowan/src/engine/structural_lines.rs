@@ -3,14 +3,14 @@
 use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
-    BlockLineRule, Diagnostic, HeadingLineRule, InlineLinkRule, KindCategory, LanguageSpec,
-    LineStructureSpec, Parse, ParseError, ParseReceipt, SelectiveGlrReceipt, TableLineRule,
-    TreeEvent, UnclosedBlockPolicy,
+    BlockContents, BlockLineRule, Diagnostic, HeadingLineRule, InlineLinkRule, KindCategory,
+    LanguageSpec, LineStructureSpec, Parse, ParseError, ParseReceipt, SelectiveGlrReceipt,
+    TableLineRule, TreeEvent, UnclosedBlockPolicy,
 };
 use super::structural_table::{emit_table_row, is_table_line};
 use super::validation::receipt;
 
-/// Parse one source into nested sections, opaque blocks, and text lines.
+/// Parse one source into nested sections, Scheme-declared blocks, and text lines.
 ///
 /// The language pack owns every delimiter and kind identity. This engine only
 /// executes the generic line/context transitions and emits validated Rowan
@@ -32,63 +32,106 @@ pub fn parse_structural_lines(
         selective_glr: None,
     };
     validate_structure(language, structure).map_err(with_receipt)?;
-    let mut events = Vec::with_capacity(source.len() / 16 + 2);
-    let mut sections = Vec::new();
-    let mut block: Option<&BlockLineRule> = None;
-    let mut paragraph_open = false;
-    let mut table_open = false;
-    let mut missing_closer_until = vec![None; structure.blocks.len()];
-    events.push(TreeEvent::StartNode(language.root_kind));
+    let mut state = StructuralState::new(language, structure, source);
     let mut start = 0;
     while start < source.len() {
         let end = structural_line_end(source, start).map_err(with_receipt)?;
+        state
+            .line(structure, source, start, end)
+            .map_err(with_receipt)?;
+        start = end;
+    }
+    close_structure(&mut state.events, &mut state.frames, state.sections.len());
+    finish_structural_parse(language, source, &state.events, parse_receipt)
+}
+
+struct StructuralState {
+    events: Vec<TreeEvent>,
+    sections: Vec<usize>,
+    frames: Vec<ElementFrame>,
+    missing_closer_until: Vec<Option<usize>>,
+}
+
+impl StructuralState {
+    fn new(language: &LanguageSpec, structure: &LineStructureSpec, source: &str) -> Self {
+        let mut events = Vec::with_capacity(source.len() / 16 + 2);
+        events.push(TreeEvent::StartNode(language.root_kind));
+        Self {
+            events,
+            sections: Vec::new(),
+            frames: vec![ElementFrame::root()],
+            missing_closer_until: vec![None; structure.blocks.len()],
+        }
+    }
+
+    fn line(
+        &mut self,
+        structure: &LineStructureSpec,
+        source: &str,
+        start: usize,
+        end: usize,
+    ) -> Result<(), Diagnostic> {
         let line = &source[start..end];
-        if let Some(rule) = block {
+        let active_block = self.frames.last().and_then(|frame| frame.block_index);
+        if let Some(rule) = active_block.map(|index| &structure.blocks[index]) {
             if directive(line, rule.closing, rule.case_insensitive, rule.indent, true) {
-                token(&mut events, rule.end_token, start, end);
-                events.push(TreeEvent::FinishNode);
-                block = None;
-            } else {
-                emit_block_body(&mut events, rule, line, start, end).map_err(with_receipt)?;
+                let frame = self.frames.last_mut().expect("root frame is present");
+                close_paragraph(&mut self.events, &mut frame.paragraph_open);
+                close_table(&mut self.events, &mut frame.table_open);
+                token(&mut self.events, rule.end_token, start, end);
+                self.events.push(TreeEvent::FinishNode);
+                self.frames.pop();
+                return Ok(());
             }
-        } else if let Some((index, rule)) = structure.blocks.iter().enumerate().find(|(_, rule)| {
-            directive(
-                line,
-                rule.opening,
-                rule.case_insensitive,
-                rule.indent,
-                false,
-            )
+            if rule.contents == BlockContents::Opaque {
+                emit_block_body(&mut self.events, rule, line, start, end)?;
+                return Ok(());
+            }
+        }
+        if let Some((index, rule)) = structure.blocks.iter().enumerate().find(|(index, rule)| {
+            Some(*index) != active_block
+                && directive(
+                    line,
+                    rule.opening,
+                    rule.case_insensitive,
+                    rule.indent,
+                    false,
+                )
         }) {
-            close_table(&mut events, &mut table_open);
+            let frame = self.frames.last_mut().expect("root frame is present");
+            close_table(&mut self.events, &mut frame.table_open);
             let missing_closer = missing_block_closer(
                 source,
                 end,
                 rule,
                 structure.heading,
-                &mut missing_closer_until[index],
+                &mut self.missing_closer_until[index],
+                active_block.map(|parent| &structure.blocks[parent]),
             );
             if missing_closer {
                 paragraph_text_line(
-                    &mut events,
+                    &mut self.events,
                     structure,
                     source,
                     start,
                     end,
-                    &mut paragraph_open,
+                    &mut frame.paragraph_open,
                 );
             } else {
-                close_paragraph(&mut events, &mut paragraph_open);
-                events.push(TreeEvent::StartNode(rule.block_node));
-                emit_block_opening(&mut events, rule, line, start, end);
-                block = Some(rule);
+                close_paragraph(&mut self.events, &mut frame.paragraph_open);
+                self.events.push(TreeEvent::StartNode(rule.block_node));
+                emit_block_opening(&mut self.events, rule, line, start, end);
+                self.frames.push(ElementFrame::block(index));
             }
-        } else if let Some(level) = heading_level(line, structure.heading) {
-            close_paragraph(&mut events, &mut paragraph_open);
-            close_table(&mut events, &mut table_open);
+        } else if active_block.is_none()
+            && let Some(level) = heading_level(line, structure.heading)
+        {
+            let frame = self.frames.last_mut().expect("root frame is present");
+            close_paragraph(&mut self.events, &mut frame.paragraph_open);
+            close_table(&mut self.events, &mut frame.table_open);
             emit_section_heading(
-                &mut events,
-                &mut sections,
+                &mut self.events,
+                &mut self.sections,
                 structure.heading,
                 line,
                 level,
@@ -96,35 +139,53 @@ pub fn parse_structural_lines(
                 end,
             );
         } else if let Some(rule) = structure.table.filter(|rule| is_table_line(line, *rule)) {
+            let frame = self.frames.last_mut().expect("root frame is present");
             emit_table_section_line(
-                &mut events,
+                &mut self.events,
                 rule,
                 line,
                 start,
-                &mut paragraph_open,
-                &mut table_open,
+                &mut frame.paragraph_open,
+                &mut frame.table_open,
             );
         } else {
-            close_table(&mut events, &mut table_open);
+            let frame = self.frames.last_mut().expect("root frame is present");
+            close_table(&mut self.events, &mut frame.table_open);
             paragraph_text_line(
-                &mut events,
+                &mut self.events,
                 structure,
                 source,
                 start,
                 end,
-                &mut paragraph_open,
+                &mut frame.paragraph_open,
             );
         }
-        start = end;
+        Ok(())
     }
-    close_structure(
-        &mut events,
-        block.is_some(),
-        paragraph_open,
-        table_open,
-        sections.len(),
-    );
-    finish_structural_parse(language, source, &events, parse_receipt)
+}
+
+struct ElementFrame {
+    block_index: Option<usize>,
+    paragraph_open: bool,
+    table_open: bool,
+}
+
+impl ElementFrame {
+    fn root() -> Self {
+        Self::block_frame(None)
+    }
+
+    fn block(index: usize) -> Self {
+        Self::block_frame(Some(index))
+    }
+
+    fn block_frame(block_index: Option<usize>) -> Self {
+        Self {
+            block_index,
+            paragraph_open: false,
+            table_open: false,
+        }
+    }
 }
 
 fn missing_block_closer(
@@ -133,17 +194,20 @@ fn missing_block_closer(
     rule: &BlockLineRule,
     heading: HeadingLineRule,
     cached_boundary: &mut Option<usize>,
+    parent: Option<&BlockLineRule>,
 ) -> bool {
     if rule.unclosed != UnclosedBlockPolicy::RecoverAsText {
         return false;
     }
-    if cached_boundary.is_some_and(|boundary| end <= boundary) {
+    if parent.is_none() && cached_boundary.is_some_and(|boundary| end <= boundary) {
         return true;
     }
-    match has_closing_line(source, end, rule, heading) {
+    match has_closing_line(source, end, rule, heading, parent) {
         Ok(()) => false,
         Err(boundary) => {
-            *cached_boundary = Some(boundary);
+            if parent.is_none() {
+                *cached_boundary = Some(boundary);
+            }
             true
         }
     }
@@ -159,16 +223,16 @@ fn structural_line_end(source: &str, start: usize) -> Result<usize, Diagnostic> 
 
 fn close_structure(
     events: &mut Vec<TreeEvent>,
-    block_open: bool,
-    mut paragraph_open: bool,
-    mut table_open: bool,
+    frames: &mut Vec<ElementFrame>,
     section_count: usize,
 ) {
-    if block_open {
-        events.push(TreeEvent::FinishNode);
+    while let Some(mut frame) = frames.pop() {
+        close_paragraph(events, &mut frame.paragraph_open);
+        close_table(events, &mut frame.table_open);
+        if frame.block_index.is_some() {
+            events.push(TreeEvent::FinishNode);
+        }
     }
-    close_paragraph(events, &mut paragraph_open);
-    close_table(events, &mut table_open);
     for _ in 0..section_count {
         events.push(TreeEvent::FinishNode);
     }
@@ -499,12 +563,24 @@ fn has_closing_line(
     mut start: usize,
     rule: &BlockLineRule,
     heading: HeadingLineRule,
+    parent: Option<&BlockLineRule>,
 ) -> Result<(), usize> {
     while start < source.len() {
         let Some(end) = line_end(source, start) else {
             return Err(source.len());
         };
         let line = &source[start..end];
+        if parent.is_some_and(|parent| {
+            directive(
+                line,
+                parent.closing,
+                parent.case_insensitive,
+                parent.indent,
+                true,
+            )
+        }) {
+            return Err(start);
+        }
         if rule.heading_bound && heading_level(line, heading).is_some() {
             return Err(start);
         }
@@ -659,41 +735,7 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
         return Err(invalid_structure("invalid heading marker or separator"));
     }
     for rule in spec.blocks {
-        if rule.opening.is_empty()
-            || rule.closing.is_empty()
-            || !rule.opening.is_ascii()
-            || !rule.closing.is_ascii()
-        {
-            return Err(invalid_structure("block delimiters must be nonempty ASCII"));
-        }
-        references.extend([
-            (rule.block_node, KindCategory::Node),
-            (rule.begin_token, KindCategory::Token),
-            (rule.body_token, KindCategory::Token),
-            (rule.end_token, KindCategory::Token),
-        ]);
-        if let Some(body_line) = rule.body_line {
-            if rule.unclosed != UnclosedBlockPolicy::RecoverAsText
-                || !body_line.marker.is_ascii()
-                || body_line.marker.is_ascii_whitespace()
-            {
-                return Err(invalid_structure(
-                    "key-value blocks require text recovery and a non-space marker",
-                ));
-            }
-            references.extend([
-                (body_line.node, KindCategory::Node),
-                (body_line.key_token, KindCategory::Token),
-                (body_line.value_token, KindCategory::Token),
-                (body_line.trivia_token, KindCategory::Token),
-            ]);
-        }
-        if let Some(header) = rule.header {
-            references.extend([
-                (header.argument_token, KindCategory::Token),
-                (header.trivia_token, KindCategory::Token),
-            ]);
-        }
+        validate_block_rule(rule, &mut references)?;
     }
     if references.into_iter().any(|(kind, category)| {
         language
@@ -704,6 +746,53 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
         return Err(invalid_structure(
             "structural rule references unknown or wrong-category kind",
         ));
+    }
+    Ok(())
+}
+
+fn validate_block_rule(
+    rule: &BlockLineRule,
+    references: &mut Vec<(u16, KindCategory)>,
+) -> Result<(), Diagnostic> {
+    if rule.opening.is_empty()
+        || rule.closing.is_empty()
+        || !rule.opening.is_ascii()
+        || !rule.closing.is_ascii()
+    {
+        return Err(invalid_structure("block delimiters must be nonempty ASCII"));
+    }
+    references.extend([
+        (rule.block_node, KindCategory::Node),
+        (rule.begin_token, KindCategory::Token),
+        (rule.body_token, KindCategory::Token),
+        (rule.end_token, KindCategory::Token),
+    ]);
+    if let Some(body_line) = rule.body_line {
+        if rule.contents == BlockContents::Elements {
+            return Err(invalid_structure(
+                "recursive element blocks cannot also require key-value body lines",
+            ));
+        }
+        if rule.unclosed != UnclosedBlockPolicy::RecoverAsText
+            || !body_line.marker.is_ascii()
+            || body_line.marker.is_ascii_whitespace()
+        {
+            return Err(invalid_structure(
+                "key-value blocks require text recovery and a non-space marker",
+            ));
+        }
+        references.extend([
+            (body_line.node, KindCategory::Node),
+            (body_line.key_token, KindCategory::Token),
+            (body_line.value_token, KindCategory::Token),
+            (body_line.trivia_token, KindCategory::Token),
+        ]);
+    }
+    if let Some(header) = rule.header {
+        references.extend([
+            (header.argument_token, KindCategory::Token),
+            (header.trivia_token, KindCategory::Token),
+        ]);
     }
     Ok(())
 }

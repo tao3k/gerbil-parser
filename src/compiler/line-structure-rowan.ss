@@ -20,6 +20,7 @@
                  block-line-indent block-line-block-node block-line-begin-token
                  block-line-body-token block-line-end-token block-line-unclosed
                  block-line-heading-bound block-line-body-line
+                 block-line-contents
                  block-line-header block-header-argument-token
                  block-header-trivia-token
                  key-value-line-marker key-value-line-node
@@ -96,6 +97,13 @@
      ((recover-as-text) "UnclosedBlockPolicy::RecoverAsText")
      (else (error "unknown block recovery policy" block)))))
 
+(def (block-contents-value block)
+  (rust-identifier
+   (case (block-line-contents block)
+     ((opaque) "BlockContents::Opaque")
+     ((elements) "BlockContents::Elements")
+     (else (error "unknown block contents policy" block)))))
+
 (def (block-value kinds block)
   (rust-struct BlockLineRule
     (opening (rust-string (block-line-opening block)))
@@ -108,6 +116,7 @@
     (end_token (kind-value kinds (block-line-end-token block) 'token))
     (unclosed (block-recovery-value block))
     (heading_bound (boolean-value (block-line-heading-bound block)))
+    (contents (block-contents-value block))
     (body_line (optional-value (block-line-body-line block)
                                (lambda (value) (body-line-value kinds value))))
     (header (optional-value (block-line-header block)
@@ -161,6 +170,7 @@
                           (block-line-end-token block)
                           (block-line-unclosed block)
                           (block-line-heading-bound block)
+                          (block-line-contents block)
                           (let (body-line (block-line-body-line block))
                             (and body-line
                                  (list (key-value-line-marker body-line)
@@ -222,7 +232,7 @@
          (parser-digest (line-structure-parser-digest
                          language-grammar structure)))
     (rust-module
-      '("BlockHeaderRule" "BlockLineRule" "HeadingFieldsRule"
+      '("BlockContents" "BlockHeaderRule" "BlockLineRule" "HeadingFieldsRule"
         "HeadingLineRule" "InlineLinkRule" "KeyValueLineRule"
         "LineStructureSpec" "TableLineRule" "UnclosedBlockPolicy")
       (rust-static STRUCTURE LineStructureSpec

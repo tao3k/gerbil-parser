@@ -2,9 +2,9 @@ use super::graph_projection::{
     GraphFieldRule, GraphNodeRule, GraphProjectionSpec, project_syntax_graph,
 };
 use super::model::{
-    BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule, InlineLinkRule,
-    KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec, TableLineRule,
-    UnclosedBlockPolicy,
+    BlockContents, BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule,
+    InlineLinkRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec,
+    TableLineRule, UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -171,6 +171,7 @@ static BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     end_token: 8,
     unclosed: UnclosedBlockPolicy::CloseAtEof,
     heading_bound: false,
+    contents: BlockContents::Opaque,
     body_line: None,
     header: None,
 }];
@@ -194,6 +195,7 @@ static PROPERTY_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     end_token: 12,
     unclosed: UnclosedBlockPolicy::RecoverAsText,
     heading_bound: true,
+    contents: BlockContents::Opaque,
     body_line: Some(KeyValueLineRule {
         marker: b':',
         node: 10,
@@ -250,6 +252,26 @@ static TABLE_STRUCTURE: LineStructureSpec = LineStructureSpec {
         rule_token: 33,
     }),
     ..STRUCTURE
+};
+static RECURSIVE_BLOCKS: &[BlockLineRule] = &[
+    BlockLineRule {
+        opening: "#+begin_quote",
+        closing: "#+end_quote",
+        unclosed: UnclosedBlockPolicy::RecoverAsText,
+        heading_bound: true,
+        contents: BlockContents::Elements,
+        ..BLOCKS[0]
+    },
+    BlockLineRule {
+        unclosed: UnclosedBlockPolicy::RecoverAsText,
+        heading_bound: true,
+        ..BLOCKS[0]
+    },
+];
+static RECURSIVE_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    blocks: RECURSIVE_BLOCKS,
+    inline_link: LINK_STRUCTURE.inline_link,
+    ..TABLE_STRUCTURE
 };
 static HEADING_FIELDS_STRUCTURE: LineStructureSpec = LineStructureSpec {
     heading: HeadingLineRule {
@@ -501,6 +523,76 @@ fn declared_table_groups_rows_and_cells_without_claiming_paragraph_text() {
             .filter(|node| node.kind().0 == 25)
             .count(),
         2
+    );
+}
+
+#[test]
+fn recursive_block_body_parses_elements_and_nested_opaque_blocks() {
+    let source = "* Parent\n#+begin_quote\nα [[id:one]]\n| left | right |\n#+begin_src\n[[id:literal]]\n#+end_src\nlast\n#+end_quote\n* Next\n";
+    let root = parse_structural_lines(&LANGUAGE, &RECURSIVE_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let quote = root
+        .descendants()
+        .find(|node| node.kind().0 == 3)
+        .expect("recursive quote block");
+    assert_eq!(quote.parent().unwrap().kind().0, 1);
+    assert_eq!(
+        quote
+            .descendants()
+            .filter(|node| node.kind().0 == 25)
+            .count(),
+        2
+    );
+    assert_eq!(
+        quote
+            .descendants()
+            .filter(|node| node.kind().0 == 26)
+            .count(),
+        1
+    );
+    assert_eq!(
+        quote
+            .descendants()
+            .filter(|node| node.kind().0 == 19)
+            .count(),
+        1
+    );
+    assert_eq!(
+        quote
+            .descendants()
+            .filter(|node| node.kind().0 == 3)
+            .count(),
+        2
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 1).count(),
+        2
+    );
+}
+
+#[test]
+fn missing_nested_closer_cannot_claim_the_parent_block_closer() {
+    let source = "#+begin_quote\n#+begin_src\nliteral\n#+end_quote\n* Next\n";
+    let root = parse_structural_lines(&LANGUAGE, &RECURSIVE_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let quote = root
+        .descendants()
+        .find(|node| node.kind().0 == 3)
+        .expect("closed quote block");
+    assert_eq!(
+        quote
+            .descendants()
+            .filter(|node| node.kind().0 == 3)
+            .count(),
+        1
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 1).count(),
+        1
     );
 }
 

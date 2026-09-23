@@ -16,10 +16,10 @@ pub use graph_projection::{
     project_syntax_graph,
 };
 pub use model::{
-    ActionEntry, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage, GotoEntry,
-    HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule, KindCategory, KindSpec,
-    LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, Operand, OperandAction, Parse,
-    ParseError, ParseReceipt, ParserAction, Production, Reduction, ScannedToken,
+    ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage,
+    GotoEntry, HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule, KindCategory,
+    KindSpec, LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, Operand, OperandAction,
+    Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction, ScannedToken,
     SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, TableLineRule, Terminal,
     TerminalSpec, TreeEvent, UnclosedBlockPolicy,
 };

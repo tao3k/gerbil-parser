@@ -163,11 +163,9 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
             *trailing_period,
         ),
         LexicalExpr::Identifier => identifier_end(source, offset),
-        LexicalExpr::UntilDelimiters(delimiters) => {
-            consume_while(source, offset, |character| {
-                !character.is_whitespace() && !delimiters.contains(character)
-            })
-        }
+        LexicalExpr::UntilDelimiters(delimiters) => consume_while(source, offset, |character| {
+            !character.is_whitespace() && !delimiters.contains(character)
+        }),
         LexicalExpr::QuotedString(delimiters) => delimiters
             .iter()
             .find_map(|delimiter| quoted_string_end(source, offset, delimiter, true)),

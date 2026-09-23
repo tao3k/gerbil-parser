@@ -1,6 +1,6 @@
 use super::model::{
-    BlockLineRule, HeadingLineRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec,
-    LineStructureSpec, UnclosedBlockPolicy,
+    BlockHeaderRule, BlockLineRule, HeadingLineRule, KeyValueLineRule, KindCategory, KindSpec,
+    LanguageSpec, LineStructureSpec, UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -73,6 +73,14 @@ static KINDS: &[KindSpec] = &[
         name: "PropertyTrivia",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "HeaderArgument",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "HeaderTrivia",
+        category: KindCategory::Token,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -100,6 +108,7 @@ static BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     unclosed: UnclosedBlockPolicy::CloseAtEof,
     heading_bound: false,
     body_line: None,
+    header: None,
 }];
 static RECOVER_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     unclosed: UnclosedBlockPolicy::RecoverAsText,
@@ -128,6 +137,14 @@ static PROPERTY_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
         value_token: 15,
         trivia_token: 16,
     }),
+    header: None,
+}];
+static HEADER_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
+    header: Some(BlockHeaderRule {
+        argument_token: 17,
+        trivia_token: 18,
+    }),
+    ..BLOCKS[0]
 }];
 static BROKEN_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     begin_token: 2,
@@ -159,6 +176,25 @@ static PROPERTY_STRUCTURE: LineStructureSpec = LineStructureSpec {
     blocks: PROPERTY_BLOCKS,
     ..STRUCTURE
 };
+static HEADER_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    blocks: HEADER_BLOCKS,
+    ..STRUCTURE
+};
+
+#[test]
+fn block_header_argument_is_typed_without_losing_trivia() {
+    let source = "* One\n  #+BEGIN_SRC  org-contract :results raw\r\nbody\n#+END_SRC\n";
+    let parsed = parse_structural_lines(&LANGUAGE, &HEADER_STRUCTURE, source).unwrap();
+    let root = parsed.syntax();
+    assert_eq!(root.to_string(), source);
+    let arguments: Vec<_> = root
+        .descendants_with_tokens()
+        .filter_map(rowan::NodeOrToken::into_token)
+        .filter(|token| token.kind().0 == 17)
+        .map(|token| token.text().to_owned())
+        .collect();
+    assert_eq!(arguments, ["org-contract"]);
+}
 
 #[test]
 fn sections_nest_and_blocks_mask_headlines_losslessly() {

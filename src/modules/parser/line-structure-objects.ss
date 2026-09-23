@@ -10,12 +10,13 @@
         (only-in ./line-structure-types
                  +line-structure-schema+ +line-structure-kind+
                  +heading-line-kind+ +block-line-kind+ +text-line-kind+
-                 +key-value-line-kind+
+                 +key-value-line-kind+ +block-header-kind+
                  LineStructureContract HeadingLineContract
-                 BlockLineContract TextLineContract KeyValueLineContract))
-(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine.
+                 BlockLineContract TextLineContract KeyValueLineContract
+                 BlockHeaderContract))
+(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader.
         make-line-structure make-heading-line make-block-line make-text-line
-        make-key-value-line
+        make-key-value-line make-block-header
         line-structure? heading-line? block-line? text-line? key-value-line?
         line-structure-heading line-structure-blocks line-structure-text
         heading-line-marker heading-line-separator
@@ -25,6 +26,7 @@
         block-line-indent block-line-block-node block-line-begin-token
         block-line-body-token block-line-end-token
         block-line-unclosed block-line-heading-bound block-line-body-line
+        block-line-header block-header-argument-token block-header-trivia-token
         key-value-line-marker key-value-line-node
         key-value-line-key-token key-value-line-value-token
         key-value-line-trivia-token
@@ -35,6 +37,7 @@
 (def BlockLine. (.ref BlockLineContract 'proto))
 (def TextLine. (.ref TextLineContract 'proto))
 (def KeyValueLine. (.ref KeyValueLineContract 'proto))
+(def BlockHeader. (.ref BlockHeaderContract 'proto))
 
 (def (admit-line! contract candidate)
   (let (evidence (poo-flow-contract-admit contract candidate #f))
@@ -63,7 +66,7 @@
                       case-insensitive-value indent-value
                       block-node-value begin-token-value
                       body-token-value end-token-value unclosed-value
-                      heading-bound-value body-line-value)
+                      heading-bound-value body-line-value (header-value #f))
   (admit-line! BlockLineContract
             (.o (:: @ BlockLine.)
                 kind: +block-line-kind+
@@ -77,7 +80,15 @@
                 end-token: end-token-value
                 unclosed: unclosed-value
                 heading-bound: heading-bound-value
-                body-line: body-line-value)))
+                body-line: body-line-value
+                header: header-value)))
+
+(def (make-block-header argument-token-value trivia-token-value)
+  (admit-line! BlockHeaderContract
+               (.o (:: @ BlockHeader.)
+                   kind: +block-header-kind+
+                   argument-token: argument-token-value
+                   trivia-token: trivia-token-value)))
 
 (def (make-key-value-line marker-value node-value
                           key-token-value value-token-value trivia-token-value)
@@ -127,6 +138,9 @@
    (block-line-unclosed unclosed)
    (block-line-heading-bound heading-bound)
    (block-line-body-line body-line)
+   (block-line-header header)
+   (block-header-argument-token argument-token)
+   (block-header-trivia-token trivia-token)
    (key-value-line-marker marker)
    (key-value-line-node node)
    (key-value-line-key-token key-token)

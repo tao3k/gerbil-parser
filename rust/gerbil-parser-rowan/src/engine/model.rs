@@ -118,6 +118,13 @@ pub struct BlockLineRule {
     pub unclosed: UnclosedBlockPolicy,
     pub heading_bound: bool,
     pub body_line: Option<KeyValueLineRule>,
+    pub header: Option<BlockHeaderRule>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BlockHeaderRule {
+    pub argument_token: u16,
+    pub trivia_token: u16,
 }
 
 /// A line whose key is enclosed by the same marker on both sides.

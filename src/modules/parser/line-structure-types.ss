@@ -15,9 +15,10 @@
         +block-line-kind+
         +text-line-kind+
         +key-value-line-kind+
+        +block-header-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
-        KeyValueLineContract BlockBodyContract
+        KeyValueLineContract BlockBodyContract BlockHeaderContract
         LineStructureContract
         HeadingLineContract
         BlockLineContract
@@ -29,6 +30,7 @@
 (def +block-line-kind+ 'gerbil-parser-block-line)
 (def +text-line-kind+ 'gerbil-parser-text-line)
 (def +key-value-line-kind+ 'gerbil-parser-key-value-line)
+(def +block-header-kind+ 'gerbil-parser-block-header)
 
 (def (empty-prototype) (.o))
 
@@ -107,6 +109,32 @@
                        (poo-flow-contract-admit KeyValueLineContract value #f))))
                 candidate context)))
 
+(define-type (BlockHeaderKind @ PooFlowContract.)
+  identity: 'gerbil-parser/block-header-kind
+  .classify: (lambda (candidate context)
+               (line-classify 'gerbil-parser/block-header-kind
+                              (lambda (value) (eq? value +block-header-kind+))
+                              candidate context)))
+
+(define-type (BlockHeaderContract @ PooFlowNativeObjectContract.)
+  identity: 'gerbil-parser/block-header
+  proto: (empty-prototype)
+  responsibilities:
+  (.o kind: BlockHeaderKind
+      argument-token: ParserSymbol
+      trivia-token: ParserSymbol))
+
+(define-type (OptionalBlockHeaderContract @ PooFlowContract.)
+  identity: 'gerbil-parser/optional-block-header
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/optional-block-header
+                (lambda (value)
+                  (or (eq? value #f)
+                      (poo-flow-validation-evidence-accepted?
+                       (poo-flow-contract-admit BlockHeaderContract value #f))))
+                candidate context)))
+
 (define-type (LineStructureSchema @ PooFlowContract.)
   identity: 'gerbil-parser/line-structure-schema
   .classify: (lambda (candidate context)
@@ -167,7 +195,8 @@
       end-token: ParserSymbol
       unclosed: BlockRecovery
       heading-bound: LineBoolean
-      body-line: BlockBodyContract))
+      body-line: BlockBodyContract
+      header: OptionalBlockHeaderContract))
 
 (define-type (TextLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/text-line

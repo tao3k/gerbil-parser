@@ -76,7 +76,7 @@ pub fn parse_structural_lines(
                 text_line(&mut events, structure, start, end);
             } else {
                 events.push(TreeEvent::StartNode(rule.block_node));
-                token(&mut events, rule.begin_token, start, end);
+                emit_block_opening(&mut events, rule, line, start, end);
                 block = Some(rule);
             }
         } else if let Some(level) = heading_level(line, structure.heading) {
@@ -118,6 +118,50 @@ pub fn parse_structural_lines(
             dynamic_score: 0,
         },
     })
+}
+
+fn emit_block_opening(
+    events: &mut Vec<TreeEvent>,
+    rule: &BlockLineRule,
+    line: &str,
+    start: usize,
+    end: usize,
+) {
+    let Some(header) = rule.header else {
+        token(events, rule.begin_token, start, end);
+        return;
+    };
+    let indent = if rule.indent {
+        line.len() - line.trim_start_matches([' ', '\t']).len()
+    } else {
+        0
+    };
+    let prefix_end = indent + rule.opening.len();
+    token(events, rule.begin_token, start, start + prefix_end);
+    let bytes = line.as_bytes();
+    let argument_start = prefix_end
+        + bytes[prefix_end..]
+            .iter()
+            .take_while(|byte| matches!(byte, b' ' | b'\t'))
+            .count();
+    token_nonempty(
+        events,
+        header.trivia_token,
+        start + prefix_end,
+        start + argument_start,
+    );
+    let argument_end = argument_start
+        + bytes[argument_start..]
+            .iter()
+            .take_while(|byte| !matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+            .count();
+    token_nonempty(
+        events,
+        header.argument_token,
+        start + argument_start,
+        start + argument_end,
+    );
+    token_nonempty(events, header.trivia_token, start + argument_end, end);
 }
 
 fn emit_block_body(
@@ -346,6 +390,12 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
                 (body_line.key_token, KindCategory::Token),
                 (body_line.value_token, KindCategory::Token),
                 (body_line.trivia_token, KindCategory::Token),
+            ]);
+        }
+        if let Some(header) = rule.header {
+            references.extend([
+                (header.argument_token, KindCategory::Token),
+                (header.trivia_token, KindCategory::Token),
             ]);
         }
     }

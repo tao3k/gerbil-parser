@@ -13,5 +13,6 @@ pub use engine::{
     ActionEntry, Diagnostic, GerbilLanguage, GotoEntry, KindCategory, KindSpec, LanguageSpec,
     LexicalExpr, LexicalRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
     ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
-    SyntaxNode, SyntaxToken, Terminal, TerminalSpec, parse, parse_scanned,
+    SyntaxNode, SyntaxToken, Terminal, TerminalSpec, TreeEvent, build_rowan_events, parse,
+    parse_scanned,
 };

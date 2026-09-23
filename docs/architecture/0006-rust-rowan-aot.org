@@ -25,6 +25,15 @@ second vertical Rust package for GQL: consumers load the Scheme-owned language
 description through this generic boundary. A parse request runs no fallback
 Rust grammar, JSON grammar DSL, or S-expression interpreter.
 
+For grammars whose structure cannot be reduced to a finite flat terminal
+stream, the same crate also exposes a generic structural-event Rowan sink.
+An AOT-generated downstream parser may emit node-start, source-backed token,
+and node-finish events. The sink validates generated kind categories, balanced
+nesting, and exact ordered UTF-8 coverage before returning one green tree. It
+contains no language-specific recognition or recovery policy. The event sink
+constructs nodes bottom-up without Rowan's node-cache hash recursion, so deep
+but valid hierarchies do not incur quadratic hashing in the generic layer.
+
 Cargo-only custom generation crosses a narrow native ABI: build support passes
 the downstream =grammar.ss= path to =gerbil_parser_rowan_compile=.  The
 precompiled Scheme product loads that module through Gerbil's own expander,

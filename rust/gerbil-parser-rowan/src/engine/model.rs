@@ -70,6 +70,17 @@ pub struct ScannedToken {
     pub end: usize,
 }
 
+/// Structural decisions emitted by a downstream Scheme-AOT parser.
+///
+/// The generated language specification owns kind identities. Tokens must
+/// cover the source exactly once, in order; nodes may nest to arbitrary depth.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TreeEvent {
+    StartNode(u16),
+    Token { kind: u16, start: usize, end: usize },
+    FinishNode,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Terminal {
     Eof,

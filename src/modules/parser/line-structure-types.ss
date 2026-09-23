@@ -22,6 +22,7 @@
         BlockRecovery
         KeyValueLineContract BlockBodyContract BlockHeaderContract
         InlineLinkContract HeadingFieldsContract
+        OptionalParagraphNodeContract
         LineStructureContract
         HeadingLineContract
         BlockLineContract
@@ -197,6 +198,17 @@
                        (poo-flow-contract-admit BlockHeaderContract value #f))))
                 candidate context)))
 
+(define-type (OptionalParagraphNodeContract @ PooFlowContract.)
+  identity: 'gerbil-parser/optional-paragraph-node
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/optional-paragraph-node
+                (lambda (value)
+                  (or (eq? value #f)
+                      (poo-flow-validation-evidence-accepted?
+                       (poo-flow-contract-admit ParserSymbol value #f))))
+                candidate context)))
+
 (define-type (LineStructureSchema @ PooFlowContract.)
   identity: 'gerbil-parser/line-structure-schema
   .classify: (lambda (candidate context)
@@ -268,6 +280,7 @@
   (.o kind: TextLineKind
       text-node: ParserSymbol
       text-token: ParserSymbol
+      paragraph-node: OptionalParagraphNodeContract
       inline-link: OptionalInlineLinkContract))
 
 (def (line-structure-obligations candidate _context)

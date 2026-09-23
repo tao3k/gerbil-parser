@@ -92,6 +92,7 @@ pub struct LineStructureSpec {
     pub parser_digest: &'static str,
     pub heading: HeadingLineRule,
     pub blocks: &'static [BlockLineRule],
+    pub paragraph_node: Option<u16>,
     pub text_node: u16,
     pub text_token: u16,
     pub inline_link: Option<InlineLinkRule>,

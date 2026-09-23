@@ -108,6 +108,10 @@ static KINDS: &[KindSpec] = &[
         name: "HeadingTrivia",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "Paragraph",
+        category: KindCategory::Node,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -189,9 +193,14 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
         fields: None,
     },
     blocks: BLOCKS,
+    paragraph_node: None,
     text_node: 4,
     text_token: 7,
     inline_link: None,
+};
+static PARAGRAPH_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    paragraph_node: Some(25),
+    ..STRUCTURE
 };
 static HEADING_FIELDS_STRUCTURE: LineStructureSpec = LineStructureSpec {
     heading: HeadingLineRule {
@@ -387,6 +396,26 @@ fn sections_nest_and_blocks_mask_headlines_losslessly() {
         root.descendants().filter(|node| node.kind().0 == 3).count(),
         1
     );
+}
+
+#[test]
+fn declared_paragraphs_group_nonblank_lines_and_stop_at_structure() {
+    let source = "前言\r\ncontinued\n \r\n* Parent\nfirst\nsecond\n#+begin_src rust\ncode\n#+end_src\nlast\n";
+    let root = parse_structural_lines(&LANGUAGE, &PARAGRAPH_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let paragraphs: Vec<_> = root
+        .descendants()
+        .filter(|node| node.kind().0 == 25)
+        .collect();
+    assert_eq!(paragraphs.len(), 3);
+    assert_eq!(paragraphs[0].to_string(), "前言\r\ncontinued\n");
+    assert_eq!(paragraphs[1].to_string(), "first\nsecond\n");
+    assert_eq!(paragraphs[2].to_string(), "last\n");
+    assert_eq!(paragraphs[1].parent().unwrap().kind().0, 1);
+    assert_eq!(paragraphs[0].children().count(), 2);
+    assert_eq!(paragraphs[1].children().count(), 2);
 }
 
 #[test]

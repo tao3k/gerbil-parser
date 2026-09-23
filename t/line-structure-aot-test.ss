@@ -154,6 +154,25 @@
                        (line-structure-parser-digest
                         arithmetic-language-grammar (fixture-structure)))
                => #f)))
+    (test-case "paragraph grouping is a POO-declared node and parser identity"
+      (let* ((structure
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               (list (make-block-line
+                      "BEGIN" "END" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation
+                      'close-at-eof #f #f))
+               (make-text-line 'NameExpression 'Number #f 'NameExpression)))
+             (source (line-structure-rowan-source
+                      arithmetic-language-grammar structure)))
+        (check (and (string-contains source "paragraph_node: Some(") #t)
+               => #t)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
+               => #f)))
     (test-case "wrong-category kind is rejected at the AOT boundary"
       (check (with-catch
               (lambda (error) #t)

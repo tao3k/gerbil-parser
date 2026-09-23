@@ -21,7 +21,8 @@
                  key-value-line-marker key-value-line-node
                  key-value-line-key-token key-value-line-value-token
                  key-value-line-trivia-token
-                 text-line-node text-line-token text-line-inline-link
+                 text-line-node text-line-token text-line-paragraph-node
+                 text-line-inline-link
                  inline-link-opening inline-link-separator inline-link-closing
                  inline-link-node inline-link-target-token
                  inline-link-description-token inline-link-trivia-token))
@@ -133,6 +134,7 @@
                                        (block-header-trivia-token header))))))
                   blocks)
              (list (text-line-node text) (text-line-token text)
+                   (text-line-paragraph-node text)
                    (let (inline (text-line-inline-link text))
                      (and inline
                           (list (inline-link-opening inline)
@@ -199,7 +201,15 @@
            (display "None" port)))
        (display " },\n    blocks: &[\n" port)
        (for-each (lambda (block) (emit-block port kinds block)) blocks)
-       (display "    ],\n    text_node: " port)
+       (display "    ],\n    paragraph_node: " port)
+       (let (paragraph (text-line-paragraph-node text))
+         (if paragraph
+           (begin
+             (display "Some(" port)
+             (emit-kind port kinds paragraph 'node)
+             (display ")" port))
+           (display "None" port)))
+       (display ",\n    text_node: " port)
        (emit-kind port kinds (text-line-node text) 'node)
        (display ", text_token: " port)
        (emit-kind port kinds (text-line-token text) 'token)

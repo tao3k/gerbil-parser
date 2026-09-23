@@ -4,7 +4,8 @@ use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
     BlockLineRule, Diagnostic, HeadingLineRule, InlineLinkRule, KindCategory, LanguageSpec,
-    LineStructureSpec, Parse, ParseError, SelectiveGlrReceipt, TreeEvent, UnclosedBlockPolicy,
+    LineStructureSpec, Parse, ParseError, ParseReceipt, SelectiveGlrReceipt, TreeEvent,
+    UnclosedBlockPolicy,
 };
 use super::validation::receipt;
 
@@ -33,6 +34,7 @@ pub fn parse_structural_lines(
     let mut events = Vec::with_capacity(source.len() / 16 + 2);
     let mut sections = Vec::new();
     let mut block: Option<&BlockLineRule> = None;
+    let mut paragraph_open = false;
     let mut missing_closer_until = vec![None; structure.blocks.len()];
     events.push(TreeEvent::StartNode(language.root_kind));
     let mut start = 0;
@@ -73,13 +75,22 @@ pub fn parse_structural_lines(
                         }
                     });
             if missing_closer {
-                text_line(&mut events, structure, source, start, end);
+                paragraph_text_line(
+                    &mut events,
+                    structure,
+                    source,
+                    start,
+                    end,
+                    &mut paragraph_open,
+                );
             } else {
+                close_paragraph(&mut events, &mut paragraph_open);
                 events.push(TreeEvent::StartNode(rule.block_node));
                 emit_block_opening(&mut events, rule, line, start, end);
                 block = Some(rule);
             }
         } else if let Some(level) = heading_level(line, structure.heading) {
+            close_paragraph(&mut events, &mut paragraph_open);
             while sections.last().is_some_and(|parent| *parent >= level) {
                 events.push(TreeEvent::FinishNode);
                 sections.pop();
@@ -90,18 +101,40 @@ pub fn parse_structural_lines(
             emit_heading(&mut events, structure.heading, line, level, start, end);
             events.push(TreeEvent::FinishNode);
         } else {
-            text_line(&mut events, structure, source, start, end);
+            paragraph_text_line(
+                &mut events,
+                structure,
+                source,
+                start,
+                end,
+                &mut paragraph_open,
+            );
         }
         start = end;
     }
     if block.is_some() {
         events.push(TreeEvent::FinishNode);
     }
+    close_paragraph(&mut events, &mut paragraph_open);
     for _ in sections {
         events.push(TreeEvent::FinishNode);
     }
     events.push(TreeEvent::FinishNode);
-    let green = build_rowan_events(language, source, &events).map_err(with_receipt)?;
+    finish_structural_parse(language, source, &events, parse_receipt)
+}
+
+fn finish_structural_parse(
+    language: &'static LanguageSpec,
+    source: &str,
+    events: &[TreeEvent],
+    parse_receipt: ParseReceipt,
+) -> Result<Parse, ParseError> {
+    let with_receipt = |diagnostic| ParseError {
+        receipt: Box::new(parse_receipt.clone()),
+        diagnostic: Box::new(diagnostic),
+        selective_glr: None,
+    };
+    let green = build_rowan_events(language, source, events).map_err(with_receipt)?;
     Ok(Parse {
         green,
         kinds: language.kinds,
@@ -278,6 +311,33 @@ fn text_line(
         token(events, structure.text_token, start, end);
     }
     events.push(TreeEvent::FinishNode);
+}
+
+fn paragraph_text_line(
+    events: &mut Vec<TreeEvent>,
+    structure: &LineStructureSpec,
+    source: &str,
+    start: usize,
+    end: usize,
+    paragraph_open: &mut bool,
+) {
+    if source[start..end]
+        .bytes()
+        .all(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+    {
+        close_paragraph(events, paragraph_open);
+    } else if !*paragraph_open && let Some(kind) = structure.paragraph_node {
+        events.push(TreeEvent::StartNode(kind));
+        *paragraph_open = true;
+    }
+    text_line(events, structure, source, start, end);
+}
+
+fn close_paragraph(events: &mut Vec<TreeEvent>, paragraph_open: &mut bool) {
+    if *paragraph_open {
+        events.push(TreeEvent::FinishNode);
+        *paragraph_open = false;
+    }
 }
 
 fn emit_inline_links(
@@ -469,6 +529,9 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
         (spec.text_node, KindCategory::Node),
         (spec.text_token, KindCategory::Token),
     ];
+    if let Some(kind) = spec.paragraph_node {
+        references.push((kind, KindCategory::Node));
+    }
     if let Some(fields) = spec.heading.fields {
         references.extend([
             (fields.title_token, KindCategory::Token),

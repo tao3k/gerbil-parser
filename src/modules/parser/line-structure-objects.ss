@@ -32,7 +32,7 @@
         key-value-line-marker key-value-line-node
         key-value-line-key-token key-value-line-value-token
         key-value-line-trivia-token
-        text-line-node text-line-token text-line-inline-link
+        text-line-node text-line-token text-line-paragraph-node text-line-inline-link
         inline-link-opening inline-link-separator inline-link-closing
         inline-link-node inline-link-target-token
         inline-link-description-token inline-link-trivia-token)
@@ -130,12 +130,14 @@
                    description-token: description-token-value
                    trivia-token: trivia-token-value)))
 
-(def (make-text-line node-value token-value (inline-link-value #f))
+(def (make-text-line node-value token-value (inline-link-value #f)
+                     (paragraph-node-value #f))
   (admit-line! TextLineContract
             (.o (:: @ TextLine.)
                 kind: +text-line-kind+
                 text-node: node-value
                 text-token: token-value
+                paragraph-node: paragraph-node-value
                 inline-link: inline-link-value)))
 
 (def (make-line-structure heading-value blocks-value text-value)
@@ -181,6 +183,7 @@
    (key-value-line-trivia-token trivia-token)
    (text-line-node text-node)
    (text-line-token text-token)
+   (text-line-paragraph-node paragraph-node)
    (text-line-inline-link inline-link)
    (inline-link-opening opening)
    (inline-link-separator separator)

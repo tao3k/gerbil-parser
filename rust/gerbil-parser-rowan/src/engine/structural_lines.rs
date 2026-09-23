@@ -50,12 +50,8 @@ pub fn parse_structural_lines(
                 token(&mut events, rule.end_token, start, end);
                 events.push(TreeEvent::FinishNode);
                 block = None;
-            } else if let Some(body_line) = rule.body_line {
-                events.push(TreeEvent::StartNode(body_line.node));
-                token(&mut events, body_line.token, start, end);
-                events.push(TreeEvent::FinishNode);
             } else {
-                token(&mut events, rule.body_token, start, end);
+                emit_block_body(&mut events, rule, line, start, end).map_err(with_receipt)?;
             }
         } else if let Some((index, rule)) = structure.blocks.iter().enumerate().find(|(_, rule)| {
             directive(
@@ -124,8 +120,60 @@ pub fn parse_structural_lines(
     })
 }
 
+fn emit_block_body(
+    events: &mut Vec<TreeEvent>,
+    rule: &BlockLineRule,
+    line: &str,
+    start: usize,
+    end: usize,
+) -> Result<(), Diagnostic> {
+    let Some(body_line) = rule.body_line else {
+        token(events, rule.body_token, start, end);
+        return Ok(());
+    };
+    let parts = key_value_parts(line, body_line.marker).ok_or_else(|| Diagnostic {
+        reason_kind: "invalid-structural-body",
+        byte_offset: start,
+        message: "validated key-value block contains an invalid body line".into(),
+    })?;
+    events.push(TreeEvent::StartNode(body_line.node));
+    token_nonempty(
+        events,
+        body_line.trivia_token,
+        start,
+        start + parts.key_start,
+    );
+    token(
+        events,
+        body_line.key_token,
+        start + parts.key_start,
+        start + parts.key_end,
+    );
+    token_nonempty(
+        events,
+        body_line.trivia_token,
+        start + parts.key_end,
+        start + parts.value_start,
+    );
+    token_nonempty(
+        events,
+        body_line.value_token,
+        start + parts.value_start,
+        start + parts.value_end,
+    );
+    token_nonempty(events, body_line.trivia_token, start + parts.value_end, end);
+    events.push(TreeEvent::FinishNode);
+    Ok(())
+}
+
 fn token(events: &mut Vec<TreeEvent>, kind: u16, start: usize, end: usize) {
     events.push(TreeEvent::Token { kind, start, end });
+}
+
+fn token_nonempty(events: &mut Vec<TreeEvent>, kind: u16, start: usize, end: usize) {
+    if start < end {
+        token(events, kind, start, end);
+    }
 }
 
 fn text_line(events: &mut Vec<TreeEvent>, structure: &LineStructureSpec, start: usize, end: usize) {
@@ -153,7 +201,7 @@ fn has_closing_line(
         }
         if rule
             .body_line
-            .is_some_and(|body_line| !key_value_line(line, body_line.marker))
+            .is_some_and(|body_line| key_value_parts(line, body_line.marker).is_none())
         {
             return Err(start);
         }
@@ -162,23 +210,52 @@ fn has_closing_line(
     Err(source.len())
 }
 
-fn key_value_line(line: &str, marker: u8) -> bool {
-    let bytes = line
-        .trim_start_matches([' ', '\t'])
-        .trim_end_matches(['\r', '\n'])
-        .as_bytes();
-    if bytes.first() != Some(&marker) {
-        return false;
+struct KeyValueParts {
+    key_start: usize,
+    key_end: usize,
+    value_start: usize,
+    value_end: usize,
+}
+
+fn key_value_parts(line: &str, marker: u8) -> Option<KeyValueParts> {
+    let bytes = line.as_bytes();
+    let key_start = bytes
+        .iter()
+        .take_while(|byte| matches!(byte, b' ' | b'\t'))
+        .count()
+        + 1;
+    if bytes.get(key_start - 1) != Some(&marker) {
+        return None;
     }
-    let Some(delimiter) = bytes[1..].iter().position(|byte| *byte == marker) else {
-        return false;
-    };
-    let key = &bytes[1..=delimiter];
-    !key.is_empty()
-        && key.iter().all(|byte| !byte.is_ascii_whitespace())
-        && bytes[2 + delimiter..]
-            .first()
-            .is_none_or(u8::is_ascii_whitespace)
+    let key_end = key_start + bytes[key_start..].iter().position(|byte| *byte == marker)?;
+    let key = &bytes[key_start..key_end];
+    if key.is_empty() || key.iter().any(u8::is_ascii_whitespace) {
+        return None;
+    }
+    let mut content_end = bytes.len();
+    while content_end > key_end && matches!(bytes[content_end - 1], b'\r' | b'\n') {
+        content_end -= 1;
+    }
+    let mut value_start = key_end + 1;
+    if bytes
+        .get(value_start)
+        .is_some_and(|byte| !matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+    {
+        return None;
+    }
+    while value_start < content_end && matches!(bytes[value_start], b' ' | b'\t') {
+        value_start += 1;
+    }
+    let mut value_end = content_end;
+    while value_end > value_start && matches!(bytes[value_end - 1], b' ' | b'\t') {
+        value_end -= 1;
+    }
+    Some(KeyValueParts {
+        key_start,
+        key_end,
+        value_start,
+        value_end,
+    })
 }
 
 fn heading_level(line: &str, rule: HeadingLineRule) -> Option<usize> {
@@ -266,7 +343,9 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
             }
             references.extend([
                 (body_line.node, KindCategory::Node),
-                (body_line.token, KindCategory::Token),
+                (body_line.key_token, KindCategory::Token),
+                (body_line.value_token, KindCategory::Token),
+                (body_line.trivia_token, KindCategory::Token),
             ]);
         }
     }

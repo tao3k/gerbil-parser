@@ -25,7 +25,9 @@
         block-line-indent block-line-block-node block-line-begin-token
         block-line-body-token block-line-end-token
         block-line-unclosed block-line-heading-bound block-line-body-line
-        key-value-line-marker key-value-line-node key-value-line-token
+        key-value-line-marker key-value-line-node
+        key-value-line-key-token key-value-line-value-token
+        key-value-line-trivia-token
         text-line-node text-line-token)
 
 (def LineStructure. (.ref LineStructureContract 'proto))
@@ -77,13 +79,16 @@
                 heading-bound: heading-bound-value
                 body-line: body-line-value)))
 
-(def (make-key-value-line marker-value node-value token-value)
+(def (make-key-value-line marker-value node-value
+                          key-token-value value-token-value trivia-token-value)
   (admit-line! KeyValueLineContract
                (.o (:: @ KeyValueLine.)
                    kind: +key-value-line-kind+
                    marker: marker-value
                    node: node-value
-                   token: token-value)))
+                   key-token: key-token-value
+                   value-token: value-token-value
+                   trivia-token: trivia-token-value)))
 
 (def (make-text-line node-value token-value)
   (admit-line! TextLineContract
@@ -124,7 +129,9 @@
    (block-line-body-line body-line)
    (key-value-line-marker marker)
    (key-value-line-node node)
-   (key-value-line-token token)
+   (key-value-line-key-token key-token)
+   (key-value-line-value-token value-token)
+   (key-value-line-trivia-token trivia-token)
    (text-line-node text-node)
    (text-line-token text-token))
   (projections))

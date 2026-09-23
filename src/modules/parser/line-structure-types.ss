@@ -92,7 +92,9 @@
   (.o kind: KeyValueLineKind
       marker: LineMarker
       node: ParserSymbol
-      token: ParserSymbol))
+      key-token: ParserSymbol
+      value-token: ParserSymbol
+      trivia-token: ParserSymbol))
 
 (define-type (BlockBodyContract @ PooFlowContract.)
   identity: 'gerbil-parser/block-body

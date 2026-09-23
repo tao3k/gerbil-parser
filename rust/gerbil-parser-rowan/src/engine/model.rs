@@ -125,7 +125,9 @@ pub struct BlockLineRule {
 pub struct KeyValueLineRule {
     pub marker: u8,
     pub node: u16,
-    pub token: u16,
+    pub key_token: u16,
+    pub value_token: u16,
+    pub trivia_token: u16,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

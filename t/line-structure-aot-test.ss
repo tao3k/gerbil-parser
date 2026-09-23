@@ -70,7 +70,8 @@
                         arithmetic-language-grammar bounded))
                => #f)))
     (test-case "typed key-value body rules are projected and bound to identity"
-      (let* ((body (make-key-value-line ":" 'NameExpression 'Number))
+      (let* ((body (make-key-value-line ":" 'NameExpression
+                                        'Number 'Number 'Punctuation))
              (structure
               (make-line-structure
                (make-heading-line "*" " " 'GroupedExpression

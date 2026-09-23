@@ -15,7 +15,9 @@
                  block-line-indent block-line-block-node block-line-begin-token
                  block-line-body-token block-line-end-token block-line-unclosed
                  block-line-heading-bound block-line-body-line
-                 key-value-line-marker key-value-line-node key-value-line-token
+                 key-value-line-marker key-value-line-node
+                 key-value-line-key-token key-value-line-value-token
+                 key-value-line-trivia-token
                  text-line-node text-line-token))
 (export line-structure-parser-digest
         line-structure-rowan-source
@@ -66,8 +68,12 @@
         (display (char->integer (string-ref (key-value-line-marker body-line) 0)) port)
         (display ", node: " port)
         (emit-kind port kinds (key-value-line-node body-line) 'node)
-        (display ", token: " port)
-        (emit-kind port kinds (key-value-line-token body-line) 'token)
+        (display ", key_token: " port)
+        (emit-kind port kinds (key-value-line-key-token body-line) 'token)
+        (display ", value_token: " port)
+        (emit-kind port kinds (key-value-line-value-token body-line) 'token)
+        (display ", trivia_token: " port)
+        (emit-kind port kinds (key-value-line-trivia-token body-line) 'token)
         (display " })" port))
       (display "None" port)))
   (display " },\n" port))
@@ -98,7 +104,9 @@
                             (and body-line
                                  (list (key-value-line-marker body-line)
                                        (key-value-line-node body-line)
-                                       (key-value-line-token body-line))))))
+                                       (key-value-line-key-token body-line)
+                                       (key-value-line-value-token body-line)
+                                       (key-value-line-trivia-token body-line))))))
                   blocks)
              (list (text-line-node text) (text-line-token text)))
        port)))))

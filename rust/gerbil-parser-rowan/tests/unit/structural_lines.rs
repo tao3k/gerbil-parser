@@ -61,6 +61,18 @@ static KINDS: &[KindSpec] = &[
         name: "PropertyLine",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "PropertyKey",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "PropertyValue",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "PropertyTrivia",
+        category: KindCategory::Token,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -112,7 +124,9 @@ static PROPERTY_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     body_line: Some(KeyValueLineRule {
         marker: b':',
         node: 10,
-        token: 13,
+        key_token: 14,
+        value_token: 15,
+        trivia_token: 16,
     }),
 }];
 static BROKEN_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
@@ -290,6 +304,20 @@ fn key_value_block_emits_typed_lines_with_exact_spans() {
     assert_eq!(properties.len(), 2);
     assert_eq!(properties[0].to_string(), ":CONTRACT_ORG: one\n");
     assert_eq!(properties[1].to_string(), ":ID: café\n");
+    let keys: Vec<_> = root
+        .descendants_with_tokens()
+        .filter_map(rowan::NodeOrToken::into_token)
+        .filter(|token| token.kind().0 == 14)
+        .map(|token| token.text().to_string())
+        .collect();
+    let values: Vec<_> = root
+        .descendants_with_tokens()
+        .filter_map(rowan::NodeOrToken::into_token)
+        .filter(|token| token.kind().0 == 15)
+        .map(|token| token.text().to_string())
+        .collect();
+    assert_eq!(keys, ["CONTRACT_ORG", "ID"]);
+    assert_eq!(values, ["one", "café"]);
     assert_eq!(usize::from(properties[0].text_range().start()), 20);
     assert_eq!(
         root.descendants().filter(|node| node.kind().0 == 9).count(),

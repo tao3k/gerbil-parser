@@ -33,7 +33,7 @@ pub fn parse_structural_lines(
     let mut events = Vec::with_capacity(source.len() / 16 + 2);
     let mut sections = Vec::new();
     let mut block: Option<&BlockLineRule> = None;
-    let mut missing_closer = vec![false; structure.blocks.len()];
+    let mut missing_closer_until = vec![None; structure.blocks.len()];
     events.push(TreeEvent::StartNode(language.root_kind));
     let mut start = 0;
     while start < source.len() {
@@ -62,11 +62,17 @@ pub fn parse_structural_lines(
                 false,
             )
         }) {
-            if rule.unclosed == UnclosedBlockPolicy::RecoverAsText
-                && (missing_closer[index] || !has_closing_line(source, end, rule))
-            {
-                // Later openers of this rule share the suffix without a closer.
-                missing_closer[index] = true;
+            let missing_closer = rule.unclosed == UnclosedBlockPolicy::RecoverAsText
+                && (missing_closer_until[index].is_some_and(|boundary| end <= boundary)
+                    || match has_closing_line(source, end, rule, structure.heading) {
+                        Ok(()) => false,
+                        Err(boundary) => {
+                            // Reuse the scan only until the heading boundary.
+                            missing_closer_until[index] = Some(boundary);
+                            true
+                        }
+                    });
+            if missing_closer {
                 text_line(&mut events, structure, start, end);
             } else {
                 events.push(TreeEvent::StartNode(rule.block_node));
@@ -124,23 +130,26 @@ fn text_line(events: &mut Vec<TreeEvent>, structure: &LineStructureSpec, start: 
     events.push(TreeEvent::FinishNode);
 }
 
-fn has_closing_line(source: &str, mut start: usize, rule: &BlockLineRule) -> bool {
+fn has_closing_line(
+    source: &str,
+    mut start: usize,
+    rule: &BlockLineRule,
+    heading: HeadingLineRule,
+) -> Result<(), usize> {
     while start < source.len() {
         let Some(end) = line_end(source, start) else {
-            return false;
+            return Err(source.len());
         };
-        if directive(
-            &source[start..end],
-            rule.closing,
-            rule.case_insensitive,
-            rule.indent,
-            true,
-        ) {
-            return true;
+        let line = &source[start..end];
+        if rule.heading_bound && heading_level(line, heading).is_some() {
+            return Err(start);
+        }
+        if directive(line, rule.closing, rule.case_insensitive, rule.indent, true) {
+            return Ok(());
         }
         start = end;
     }
-    false
+    Err(source.len())
 }
 
 fn heading_level(line: &str, rule: HeadingLineRule) -> Option<usize> {

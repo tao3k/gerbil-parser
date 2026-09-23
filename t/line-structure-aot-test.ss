@@ -17,7 +17,7 @@
    (list (make-block-line
           "BEGIN" "END" #f #t
           'PrefixExpression 'Punctuation 'Number 'Punctuation
-          'close-at-eof))
+          'close-at-eof #f))
    (make-text-line 'NameExpression 'Number)))
 
 (def line-structure-aot-test
@@ -42,7 +42,7 @@
                (list (make-block-line
                       "BEGIN" "END" #f #t
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
-                      'recover-as-text))
+                      'recover-as-text #f))
                (make-text-line 'NameExpression 'Number))))
         (check (line-structure-parser-digest
                 arithmetic-language-grammar original)
@@ -52,6 +52,22 @@
                         arithmetic-language-grammar original)
                        (line-structure-parser-digest
                         arithmetic-language-grammar changed))
+               => #f)))
+    (test-case "parser identity includes the heading boundary policy"
+      (let* ((original (fixture-structure))
+             (bounded
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               (list (make-block-line
+                      "BEGIN" "END" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation
+                      'close-at-eof #t))
+               (make-text-line 'NameExpression 'Number))))
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar original)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar bounded))
                => #f)))
     (test-case "wrong-category kind is rejected at the AOT boundary"
       (check (with-catch
@@ -79,6 +95,6 @@
               (lambda ()
                 (make-block-line "BEGIN" "END" #f #t
                                  'PrefixExpression 'Punctuation
-                                 'Number 'Punctuation 'guess)
+                                 'Number 'Punctuation 'guess #f)
                 #f))
              => #t))))

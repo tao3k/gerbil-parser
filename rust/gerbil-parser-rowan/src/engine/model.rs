@@ -116,6 +116,7 @@ pub struct BlockLineRule {
     pub body_token: u16,
     pub end_token: u16,
     pub unclosed: UnclosedBlockPolicy,
+    pub heading_bound: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

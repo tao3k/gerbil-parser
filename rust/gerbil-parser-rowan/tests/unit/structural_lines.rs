@@ -66,9 +66,15 @@ static BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     body_token: 7,
     end_token: 8,
     unclosed: UnclosedBlockPolicy::CloseAtEof,
+    heading_bound: false,
 }];
 static RECOVER_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     unclosed: UnclosedBlockPolicy::RecoverAsText,
+    ..BLOCKS[0]
+}];
+static HEADING_BOUND_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
+    unclosed: UnclosedBlockPolicy::RecoverAsText,
+    heading_bound: true,
     ..BLOCKS[0]
 }];
 static BROKEN_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
@@ -91,6 +97,10 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
 };
 static RECOVER_STRUCTURE: LineStructureSpec = LineStructureSpec {
     blocks: RECOVER_BLOCKS,
+    ..STRUCTURE
+};
+static HEADING_BOUND_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    blocks: HEADING_BOUND_BLOCKS,
     ..STRUCTURE
 };
 
@@ -188,6 +198,40 @@ fn many_incomplete_openers_recover_without_repeated_suffix_scans() {
     let root = parsed.syntax();
     assert_eq!(root.to_string(), source);
     assert_eq!(root.children().count(), 10_000);
+}
+
+#[test]
+fn heading_boundary_prevents_a_later_closer_from_claiming_a_block() {
+    let source = "* One\n#+begin_src rust\n** Next\n#+end_src\n";
+    let root = parse_structural_lines(&LANGUAGE, &HEADING_BOUND_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 2).count(),
+        2
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 3).count(),
+        0
+    );
+}
+
+#[test]
+fn heading_boundary_cache_does_not_hide_a_later_closed_block() {
+    let source = "#+begin_src\n* Next\n#+begin_src\nbody\n#+end_src\n";
+    let root = parse_structural_lines(&LANGUAGE, &HEADING_BOUND_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 2).count(),
+        1
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 3).count(),
+        1
+    );
 }
 
 #[test]

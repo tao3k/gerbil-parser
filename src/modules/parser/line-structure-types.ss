@@ -132,7 +132,8 @@
       begin-token: ParserSymbol
       body-token: ParserSymbol
       end-token: ParserSymbol
-      unclosed: BlockRecovery))
+      unclosed: BlockRecovery
+      heading-bound: LineBoolean))
 
 (define-type (TextLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/text-line

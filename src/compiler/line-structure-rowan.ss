@@ -14,6 +14,7 @@
                  block-line-opening block-line-closing block-line-case-insensitive
                  block-line-indent block-line-block-node block-line-begin-token
                  block-line-body-token block-line-end-token block-line-unclosed
+                 block-line-heading-bound
                  text-line-node text-line-token))
 (export line-structure-parser-digest
         line-structure-rowan-source
@@ -54,6 +55,8 @@
              ((close-at-eof) "UnclosedBlockPolicy::CloseAtEof")
              ((recover-as-text) "UnclosedBlockPolicy::RecoverAsText")
              (else (error "unknown block recovery policy" block))) port)
+  (display ", heading_bound: " port)
+  (display (if (block-line-heading-bound block) "true" "false") port)
   (display " },\n" port))
 
 (def (line-structure-digest grammar-digest heading blocks text)
@@ -76,7 +79,8 @@
                           (block-line-begin-token block)
                           (block-line-body-token block)
                           (block-line-end-token block)
-                          (block-line-unclosed block)))
+                          (block-line-unclosed block)
+                          (block-line-heading-bound block)))
                   blocks)
              (list (text-line-node text) (text-line-token text)))
        port)))))

@@ -1,6 +1,5 @@
 use super::model::{
     BlockLineRule, HeadingLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec,
-    SyntaxNode,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -87,9 +86,16 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
 #[test]
 fn sections_nest_and_blocks_mask_headlines_losslessly() {
     let source = "前言\r\n* Parent\n#+BEGIN_SRC rust\n** not heading\n  #+end_src \r\n** Child\nbody\r* Sibling\n";
-    let green = parse_structural_lines(&LANGUAGE, &STRUCTURE, source).unwrap();
-    let root = SyntaxNode::new_root(green);
+    let parsed = parse_structural_lines(&LANGUAGE, &STRUCTURE, source).unwrap();
+    let root = parsed.syntax();
     assert_eq!(root.to_string(), source);
+    assert_eq!(parsed.receipt().language, LANGUAGE.language);
+    assert_eq!(parsed.receipt().grammar_digest, LANGUAGE.grammar_digest);
+    assert_eq!(parsed.receipt().source_digest.len(), 71);
+    assert_eq!(
+        parsed.selective_glr_receipt().winner_reason,
+        "deterministic-structure"
+    );
     let sections: Vec<_> = root
         .descendants()
         .filter(|node| node.kind().0 == 1)
@@ -111,8 +117,8 @@ fn sections_nest_and_blocks_mask_headlines_losslessly() {
 #[test]
 fn unclosed_block_recovers_at_eof_and_preserves_bytes() {
     let source = "* One\n#+begin_src\n** data\n";
-    let green = parse_structural_lines(&LANGUAGE, &STRUCTURE, source).unwrap();
-    let root = SyntaxNode::new_root(green);
+    let parsed = parse_structural_lines(&LANGUAGE, &STRUCTURE, source).unwrap();
+    let root = parsed.syntax();
     assert_eq!(root.to_string(), source);
     assert_eq!(
         root.descendants().filter(|node| node.kind().0 == 2).count(),
@@ -131,6 +137,7 @@ fn wrong_category_in_unreached_rule_fails_closed() {
     assert_eq!(
         parse_structural_lines(&LANGUAGE, &broken, "")
             .unwrap_err()
+            .diagnostic
             .reason_kind,
         "invalid-structural-aot"
     );

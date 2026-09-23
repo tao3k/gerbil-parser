@@ -1,13 +1,12 @@
 //! Generic contextual line structure over AOT-resolved syntax kinds.
 
-use rowan::GreenNode;
-
 use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
     BlockLineRule, Diagnostic, HeadingLineRule, KindCategory, LanguageSpec, LineStructureSpec,
-    TreeEvent,
+    Parse, ParseError, SelectiveGlrReceipt, TreeEvent,
 };
+use super::validation::receipt;
 
 /// Parse one source into nested sections, opaque blocks, and text lines.
 ///
@@ -17,24 +16,32 @@ use super::model::{
 ///
 /// # Errors
 ///
-/// Returns a diagnostic for an invalid AOT structural table or Rowan event
-/// stream.
+/// Returns a parse error with the same language and source receipt as the
+/// generated LR path when the structural table or Rowan event stream is invalid.
 pub fn parse_structural_lines(
     language: &'static LanguageSpec,
     structure: &LineStructureSpec,
     source: &str,
-) -> Result<GreenNode, Diagnostic> {
-    validate_structure(language, structure)?;
+) -> Result<Parse, ParseError> {
+    let parse_receipt = receipt(language, source, None);
+    let with_receipt = |diagnostic| ParseError {
+        receipt: parse_receipt.clone(),
+        diagnostic: Box::new(diagnostic),
+        selective_glr: None,
+    };
+    validate_structure(language, structure).map_err(with_receipt)?;
     let mut events = Vec::with_capacity(source.len() / 16 + 2);
     let mut sections = Vec::new();
     let mut block: Option<&BlockLineRule> = None;
     events.push(TreeEvent::StartNode(language.root_kind));
     let mut start = 0;
     while start < source.len() {
-        let end = line_end(source, start).ok_or_else(|| Diagnostic {
-            reason_kind: "line-boundary",
-            byte_offset: start,
-            message: "source line does not start at a UTF-8 boundary".into(),
+        let end = line_end(source, start).ok_or_else(|| {
+            with_receipt(Diagnostic {
+                reason_kind: "line-boundary",
+                byte_offset: start,
+                message: "source line does not start at a UTF-8 boundary".into(),
+            })
         })?;
         let line = &source[start..end];
         if let Some(rule) = block {
@@ -81,7 +88,23 @@ pub fn parse_structural_lines(
         events.push(TreeEvent::FinishNode);
     }
     events.push(TreeEvent::FinishNode);
-    build_rowan_events(language, source, &events)
+    let green = build_rowan_events(language, source, &events).map_err(with_receipt)?;
+    Ok(Parse {
+        green,
+        kinds: language.kinds,
+        receipt: parse_receipt,
+        selective_glr: SelectiveGlrReceipt {
+            branch_budget: 0,
+            branches_explored: 0,
+            speculative_branches_explored: 0,
+            max_speculative_depth: 0,
+            merged_branches: 0,
+            successful_completions: 1,
+            distinct_completions: 1,
+            winner_reason: "deterministic-structure",
+            dynamic_score: 0,
+        },
+    })
 }
 
 fn token(events: &mut Vec<TreeEvent>, kind: u16, start: usize, end: usize) {

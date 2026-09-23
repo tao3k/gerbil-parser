@@ -12,18 +12,18 @@
                  +heading-line-kind+ +block-line-kind+ +text-line-kind+
                  +key-value-line-kind+ +block-header-kind+ +inline-link-kind+
                  +heading-fields-kind+
-                 +table-line-kind+
+                 +table-line-kind+ +list-line-kind+
                  LineStructureContract HeadingLineContract
                  BlockLineContract TextLineContract KeyValueLineContract
                  BlockHeaderContract InlineLinkContract HeadingFieldsContract
-                 TableLineContract))
-(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink. HeadingFields. TableLine.
+                 TableLineContract ListLineContract))
+(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink. HeadingFields. TableLine. ListLine.
         make-line-structure make-heading-line make-block-line make-text-line
-        make-table-line
+        make-table-line make-list-line
         make-key-value-line make-block-header make-inline-link make-heading-fields
         line-structure? heading-line? block-line? text-line? key-value-line?
         line-structure-heading line-structure-blocks line-structure-text
-        line-structure-table
+        line-structure-table line-structure-list
         heading-line-marker heading-line-separator
         heading-line-section-node heading-line-heading-node
         heading-line-heading-token
@@ -44,7 +44,11 @@
         table-line-delimiter table-line-table-node table-line-row-node
         table-line-rule-row-node table-line-cell-node
         table-line-separator-token table-line-cell-token
-        table-line-trivia-token table-line-rule-token)
+        table-line-trivia-token table-line-rule-token
+        list-line-unordered-markers list-line-ordered
+        list-line-tab-width
+        list-line-list-node list-line-item-node
+        list-line-bullet-token list-line-trivia-token)
 
 (def LineStructure. (.ref LineStructureContract 'proto))
 (def HeadingLine. (.ref HeadingLineContract 'proto))
@@ -55,6 +59,7 @@
 (def InlineLink. (.ref InlineLinkContract 'proto))
 (def HeadingFields. (.ref HeadingFieldsContract 'proto))
 (def TableLine. (.ref TableLineContract 'proto))
+(def ListLine. (.ref ListLineContract 'proto))
 
 (def (admit-line! contract candidate)
   (let (evidence (poo-flow-contract-admit contract candidate #f))
@@ -168,7 +173,22 @@
                    trivia-token: trivia-token-value
                    rule-token: rule-token-value)))
 
-(def (make-line-structure heading-value blocks-value text-value (table-value #f))
+(def (make-list-line unordered-markers-value ordered-value list-node-value
+                     item-node-value bullet-token-value trivia-token-value
+                     (tab-width-value 8))
+  (admit-line! ListLineContract
+               (.o (:: @ ListLine.)
+                   kind: +list-line-kind+
+                   unordered-markers: unordered-markers-value
+                   ordered: ordered-value
+                   tab-width: tab-width-value
+                   list-node: list-node-value
+                   item-node: item-node-value
+                   bullet-token: bullet-token-value
+                   trivia-token: trivia-token-value)))
+
+(def (make-line-structure heading-value blocks-value text-value
+                          (table-value #f) (list-value #f))
   (admit-line! LineStructureContract
             (.o (:: @ LineStructure.)
                 kind: +line-structure-kind+
@@ -176,7 +196,8 @@
                 heading: heading-value
                 blocks: blocks-value
                 text: text-value
-                table: table-value)))
+                table: table-value
+                list: list-value)))
 
 (defpoo-object-family
   (accessors
@@ -184,6 +205,7 @@
    (line-structure-blocks blocks)
    (line-structure-text text)
    (line-structure-table table)
+   (line-structure-list list)
    (heading-line-marker marker)
    (heading-line-separator separator)
    (heading-line-section-node section-node)
@@ -231,7 +253,14 @@
    (table-line-separator-token separator-token)
    (table-line-cell-token cell-token)
    (table-line-trivia-token trivia-token)
-   (table-line-rule-token rule-token))
+   (table-line-rule-token rule-token)
+   (list-line-unordered-markers unordered-markers)
+   (list-line-ordered ordered)
+   (list-line-tab-width tab-width)
+   (list-line-list-node list-node)
+   (list-line-item-node item-node)
+   (list-line-bullet-token bullet-token)
+   (list-line-trivia-token trivia-token))
   (projections))
 
 (def (line-structure? value)

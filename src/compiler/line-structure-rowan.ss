@@ -11,7 +11,7 @@
         (only-in ../modules/parser/line-structure-objects
                  line-structure?
                  line-structure-heading line-structure-blocks line-structure-text
-                 line-structure-table
+                 line-structure-table line-structure-list
                  heading-line-marker heading-line-separator
                  heading-line-section-node heading-line-heading-node
                  heading-line-heading-token heading-line-fields
@@ -34,7 +34,10 @@
                  table-line-delimiter table-line-table-node table-line-row-node
                  table-line-rule-row-node table-line-cell-node
                  table-line-separator-token table-line-cell-token
-                 table-line-trivia-token table-line-rule-token))
+                 table-line-trivia-token table-line-rule-token
+                 list-line-unordered-markers list-line-ordered list-line-tab-width
+                 list-line-list-node list-line-item-node
+                 list-line-bullet-token list-line-trivia-token))
 (export line-structure-parser-digest
         line-structure-rowan-syntax
         line-structure-rowan-source
@@ -144,7 +147,17 @@
     (trivia_token (kind-value kinds (table-line-trivia-token table) 'token))
     (rule_token (kind-value kinds (table-line-rule-token table) 'token))))
 
-(def (line-structure-digest grammar-digest heading blocks text table)
+(def (list-value kinds list-rule)
+  (rust-struct ListLineRule
+    (unordered_markers (rust-string (list-line-unordered-markers list-rule)))
+    (ordered (boolean-value (list-line-ordered list-rule)))
+    (tab_width (rust-number (list-line-tab-width list-rule)))
+    (list_node (kind-value kinds (list-line-list-node list-rule) 'node))
+    (item_node (kind-value kinds (list-line-item-node list-rule) 'node))
+    (bullet_token (kind-value kinds (list-line-bullet-token list-rule) 'token))
+    (trivia_token (kind-value kinds (list-line-trivia-token list-rule) 'token))))
+
+(def (line-structure-digest grammar-digest heading blocks text table list-rule)
   (sha256-text
    (call-with-output-string
     (lambda (port)
@@ -203,7 +216,15 @@
                         (table-line-separator-token table)
                         (table-line-cell-token table)
                         (table-line-trivia-token table)
-                        (table-line-rule-token table))))
+                        (table-line-rule-token table)))
+             (and list-rule
+                  (list (list-line-unordered-markers list-rule)
+                        (list-line-ordered list-rule)
+                        (list-line-tab-width list-rule)
+                        (list-line-list-node list-rule)
+                        (list-line-item-node list-rule)
+                        (list-line-bullet-token list-rule)
+                        (list-line-trivia-token list-rule))))
        port)))))
 
 (def (line-structure-parser-digest language-grammar structure)
@@ -215,7 +236,8 @@
    (line-structure-heading structure)
    (line-structure-blocks structure)
    (line-structure-text structure)
-   (line-structure-table structure)))
+   (line-structure-table structure)
+   (line-structure-list structure)))
 
 ;; Public input is one validated POO contract; output is a bounded Rust AST.
 (def (line-structure-rowan-syntax language-grammar structure)
@@ -227,6 +249,7 @@
          (blocks (line-structure-blocks structure))
          (text (line-structure-text structure))
          (table (line-structure-table structure))
+         (list-rule (line-structure-list structure))
          (digest (parser-machine-grammar-digest
                   (language-grammar-machine language-grammar)))
          (parser-digest (line-structure-parser-digest
@@ -234,7 +257,7 @@
     (rust-module
       '("BlockContents" "BlockHeaderRule" "BlockLineRule" "HeadingFieldsRule"
         "HeadingLineRule" "InlineLinkRule" "KeyValueLineRule"
-        "LineStructureSpec" "TableLineRule" "UnclosedBlockPolicy")
+        "LineStructureSpec" "ListLineRule" "TableLineRule" "UnclosedBlockPolicy")
       (rust-static STRUCTURE LineStructureSpec
         (rust-struct LineStructureSpec
           (grammar_digest (rust-string digest))
@@ -245,6 +268,7 @@
            (optional-value (text-line-paragraph-node text)
                            (lambda (value) (kind-value kinds value 'node))))
           (table (optional-value table (lambda (value) (table-value kinds value))))
+          (list (optional-value list-rule (lambda (value) (list-value kinds value))))
           (text_node (kind-value kinds (text-line-node text) 'node))
           (text_token (kind-value kinds (text-line-token text) 'token))
           (inline_link

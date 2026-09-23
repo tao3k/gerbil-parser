@@ -8,7 +8,7 @@
                  line-structure? make-line-structure make-heading-line
                  make-heading-fields
                  make-block-line make-block-header make-key-value-line
-                 make-inline-link make-text-line make-table-line)
+                 make-inline-link make-text-line make-table-line make-list-line)
         (only-in :gerbil-parser/src/compiler/line-structure-rowan
                  line-structure-parser-digest line-structure-rowan-source
                  line-structure-rowan-syntax)
@@ -104,6 +104,40 @@
                              'Number 'Number 'Punctuation)
         #f 'elements)
        true))
+    (test-case "list strategy is a POO value projected into the Rust table"
+      (let* ((list-rule (make-list-line "-+*" #t 'GroupedExpression
+                                       'Expression 'Punctuation 'Punctuation))
+             (narrow-tab-rule (make-list-line "-+*" #t 'GroupedExpression
+                                             'Expression 'Punctuation 'Punctuation 4))
+             (structure
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               '()
+               (make-text-line 'NameExpression 'Number)
+               #f list-rule))
+             (source (line-structure-rowan-source
+                      arithmetic-language-grammar structure)))
+        (check (and (string-contains source "list: Some(ListLineRule")
+                    (string-contains source "unordered_markers: \"-+*\"")
+                    (string-contains source "tab_width: 8")
+                    #t)
+               => #t)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar
+                        (make-line-structure
+                         (make-heading-line "*" " " 'GroupedExpression
+                                            'Expression 'Punctuation)
+                         '() (make-text-line 'NameExpression 'Number)
+                         #f narrow-tab-rule)))
+               => #f)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
+               => #f)))
     (test-case "typed heading fields are projected and bound to identity"
       (let* ((structure
               (make-line-structure
@@ -223,7 +257,7 @@
         (check (rust-struct-form? value) => #t)
         (check (map rust-field-name (rust-struct-form-fields value))
                => '(grammar_digest parser_digest heading blocks
-                        paragraph_node table text_node text_token inline_link))
+                        paragraph_node table list text_node text_token inline_link))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest

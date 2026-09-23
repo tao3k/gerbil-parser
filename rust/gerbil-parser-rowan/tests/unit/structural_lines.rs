@@ -4,9 +4,12 @@ use super::graph_projection::{
 use super::model::{
     BlockContents, BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule,
     InlineLinkRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec,
-    TableLineRule, UnclosedBlockPolicy,
+    ListLineRule, TableLineRule, UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
+
+#[path = "structural_list_cases.rs"]
+mod list_cases;
 
 static KINDS: &[KindSpec] = &[
     KindSpec {
@@ -145,6 +148,22 @@ static KINDS: &[KindSpec] = &[
         name: "TableRuleText",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "List",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "Item",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "Bullet",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "ListTrivia",
+        category: KindCategory::Token,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -230,6 +249,7 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
     blocks: BLOCKS,
     paragraph_node: None,
     table: None,
+    list: None,
     text_node: 4,
     text_token: 7,
     inline_link: None,
@@ -252,6 +272,19 @@ static TABLE_STRUCTURE: LineStructureSpec = LineStructureSpec {
         rule_token: 33,
     }),
     ..STRUCTURE
+};
+static LIST_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    list: Some(ListLineRule {
+        unordered_markers: "-+*",
+        ordered: true,
+        tab_width: 8,
+        list_node: 34,
+        item_node: 35,
+        bullet_token: 36,
+        trivia_token: 37,
+    }),
+    inline_link: LINK_STRUCTURE.inline_link,
+    ..TABLE_STRUCTURE
 };
 static RECURSIVE_BLOCKS: &[BlockLineRule] = &[
     BlockLineRule {

@@ -4,9 +4,10 @@ use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
     BlockContents, BlockLineRule, Diagnostic, HeadingLineRule, InlineLinkRule, KindCategory,
-    LanguageSpec, LineStructureSpec, Parse, ParseError, ParseReceipt, SelectiveGlrReceipt,
-    TableLineRule, TreeEvent, UnclosedBlockPolicy,
+    LanguageSpec, LineStructureSpec, ListLineRule, Parse, ParseError, ParseReceipt,
+    SelectiveGlrReceipt, TableLineRule, TreeEvent, UnclosedBlockPolicy,
 };
+use super::structural_list::{ListFrame, indent_column, list_marker};
 use super::structural_table::{emit_table_row, is_table_line};
 use super::validation::receipt;
 
@@ -76,8 +77,7 @@ impl StructuralState {
         if let Some(rule) = active_block.map(|index| &structure.blocks[index]) {
             if directive(line, rule.closing, rule.case_insensitive, rule.indent, true) {
                 let frame = self.frames.last_mut().expect("root frame is present");
-                close_paragraph(&mut self.events, &mut frame.paragraph_open);
-                close_table(&mut self.events, &mut frame.table_open);
+                close_lists(&mut self.events, frame);
                 token(&mut self.events, rule.end_token, start, end);
                 self.events.push(TreeEvent::FinishNode);
                 self.frames.pop();
@@ -86,6 +86,16 @@ impl StructuralState {
             if rule.contents == BlockContents::Opaque {
                 emit_block_body(&mut self.events, rule, line, start, end)?;
                 return Ok(());
+            }
+        }
+        if let Some(rule) = structure.list {
+            let is_heading =
+                active_block.is_none() && heading_level(line, structure.heading).is_some();
+            if !is_heading {
+                let frame = self.frames.last_mut().expect("root frame is present");
+                if consume_list_line(&mut self.events, frame, structure, rule, source, start..end) {
+                    return Ok(());
+                }
             }
         }
         if let Some((index, rule)) = structure.blocks.iter().enumerate().find(|(index, rule)| {
@@ -127,8 +137,7 @@ impl StructuralState {
             && let Some(level) = heading_level(line, structure.heading)
         {
             let frame = self.frames.last_mut().expect("root frame is present");
-            close_paragraph(&mut self.events, &mut frame.paragraph_open);
-            close_table(&mut self.events, &mut frame.table_open);
+            close_lists(&mut self.events, frame);
             emit_section_heading(
                 &mut self.events,
                 &mut self.sections,
@@ -168,6 +177,8 @@ struct ElementFrame {
     block_index: Option<usize>,
     paragraph_open: bool,
     table_open: bool,
+    lists: Vec<ListFrame>,
+    blank_lines: usize,
 }
 
 impl ElementFrame {
@@ -184,8 +195,121 @@ impl ElementFrame {
             block_index,
             paragraph_open: false,
             table_open: false,
+            lists: Vec::new(),
+            blank_lines: 0,
         }
     }
+}
+
+fn close_one_list(events: &mut Vec<TreeEvent>, frame: &mut ElementFrame) {
+    events.push(TreeEvent::FinishNode);
+    events.push(TreeEvent::FinishNode);
+    frame.lists.pop();
+}
+
+fn close_lists(events: &mut Vec<TreeEvent>, frame: &mut ElementFrame) {
+    close_paragraph(events, &mut frame.paragraph_open);
+    close_table(events, &mut frame.table_open);
+    while !frame.lists.is_empty() {
+        close_one_list(events, frame);
+    }
+    frame.blank_lines = 0;
+}
+
+fn consume_list_line(
+    events: &mut Vec<TreeEvent>,
+    frame: &mut ElementFrame,
+    structure: &LineStructureSpec,
+    rule: ListLineRule,
+    source: &str,
+    span: std::ops::Range<usize>,
+) -> bool {
+    let line = &source[span.clone()];
+    if let Some(marker) = list_marker(line, rule) {
+        close_paragraph(events, &mut frame.paragraph_open);
+        close_table(events, &mut frame.table_open);
+        while frame.lists.last().is_some_and(|list| {
+            list.indent > marker.indent
+                || list.indent == marker.indent && list.ordered != marker.ordered
+        }) {
+            close_one_list(events, frame);
+        }
+        if frame
+            .lists
+            .last()
+            .is_some_and(|list| list.indent == marker.indent)
+        {
+            events.push(TreeEvent::FinishNode);
+        } else {
+            events.push(TreeEvent::StartNode(rule.list_node));
+            frame.lists.push(ListFrame {
+                indent: marker.indent,
+                ordered: marker.ordered,
+            });
+        }
+        events.push(TreeEvent::StartNode(rule.item_node));
+        token_nonempty(
+            events,
+            rule.trivia_token,
+            span.start,
+            span.start + marker.bullet_start,
+        );
+        token(
+            events,
+            rule.bullet_token,
+            span.start + marker.bullet_start,
+            span.start + marker.bullet_end,
+        );
+        token_nonempty(
+            events,
+            rule.trivia_token,
+            span.start + marker.bullet_end,
+            span.start + marker.content_start,
+        );
+        if marker.content_start < line.trim_end_matches(['\r', '\n']).len() {
+            paragraph_text_line(
+                events,
+                structure,
+                source,
+                span.start + marker.content_start,
+                span.end,
+                &mut frame.paragraph_open,
+            );
+        } else {
+            token_nonempty(
+                events,
+                rule.trivia_token,
+                span.start + marker.content_start,
+                span.end,
+            );
+        }
+        frame.blank_lines = 0;
+        return true;
+    }
+    if frame.lists.is_empty() {
+        return false;
+    }
+    if line.trim().is_empty() {
+        frame.blank_lines += 1;
+        if frame.blank_lines == 1 {
+            close_paragraph(events, &mut frame.paragraph_open);
+            close_table(events, &mut frame.table_open);
+            token(events, rule.trivia_token, span.start, span.end);
+            return true;
+        }
+        close_lists(events, frame);
+        return false;
+    }
+    frame.blank_lines = 0;
+    if frame
+        .lists
+        .last()
+        .is_some_and(|list| indent_column(line, rule.tab_width) > list.indent)
+    {
+        return false;
+    }
+    close_lists(events, frame);
+    false
 }
 
 fn missing_block_closer(
@@ -227,8 +351,7 @@ fn close_structure(
     section_count: usize,
 ) {
     while let Some(mut frame) = frames.pop() {
-        close_paragraph(events, &mut frame.paragraph_open);
-        close_table(events, &mut frame.table_open);
+        close_lists(events, &mut frame);
         if frame.block_index.is_some() {
             events.push(TreeEvent::FinishNode);
         }
@@ -706,6 +829,9 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
     if let Some(rule) = spec.table {
         references.extend(table_references(rule)?);
     }
+    if let Some(rule) = spec.list {
+        references.extend(list_references(rule)?);
+    }
     if let Some(fields) = spec.heading.fields {
         references.extend([
             (fields.title_token, KindCategory::Token),
@@ -810,6 +936,29 @@ fn table_references(rule: TableLineRule) -> Result<[(u16, KindCategory); 8], Dia
         (rule.cell_token, KindCategory::Token),
         (rule.trivia_token, KindCategory::Token),
         (rule.rule_token, KindCategory::Token),
+    ])
+}
+
+fn list_references(rule: ListLineRule) -> Result<[(u16, KindCategory); 4], Diagnostic> {
+    if rule.tab_width == 0
+        || rule.tab_width > 16
+        || rule.unordered_markers.is_empty()
+        || !rule.unordered_markers.is_ascii()
+        || rule
+            .unordered_markers
+            .as_bytes()
+            .iter()
+            .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_alphanumeric())
+    {
+        return Err(invalid_structure(
+            "list markers must be nonempty, non-alphanumeric ASCII",
+        ));
+    }
+    Ok([
+        (rule.list_node, KindCategory::Node),
+        (rule.item_node, KindCategory::Node),
+        (rule.bullet_token, KindCategory::Token),
+        (rule.trivia_token, KindCategory::Token),
     ])
 }
 

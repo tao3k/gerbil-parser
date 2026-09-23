@@ -94,6 +94,7 @@ pub struct LineStructureSpec {
     pub blocks: &'static [BlockLineRule],
     pub paragraph_node: Option<u16>,
     pub table: Option<TableLineRule>,
+    pub list: Option<ListLineRule>,
     pub text_node: u16,
     pub text_token: u16,
     pub inline_link: Option<InlineLinkRule>,
@@ -111,6 +112,18 @@ pub struct TableLineRule {
     pub cell_token: u16,
     pub trivia_token: u16,
     pub rule_token: u16,
+}
+
+/// Marker-led items with indentation-derived nesting.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ListLineRule {
+    pub unordered_markers: &'static str,
+    pub ordered: bool,
+    pub tab_width: usize,
+    pub list_node: u16,
+    pub item_node: u16,
+    pub bullet_token: u16,
+    pub trivia_token: u16,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

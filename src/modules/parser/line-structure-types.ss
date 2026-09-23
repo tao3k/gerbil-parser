@@ -19,12 +19,15 @@
         +inline-link-kind+
         +heading-fields-kind+
         +table-line-kind+
+        +list-line-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
         BlockContents
         KeyValueLineContract BlockBodyContract BlockHeaderContract
         InlineLinkContract HeadingFieldsContract
         TableLineContract OptionalTableLineContract
+        ListLineContract OptionalListLineContract
+        ListTabWidth
         OptionalParagraphNodeContract
         LineStructureContract
         HeadingLineContract
@@ -41,6 +44,7 @@
 (def +inline-link-kind+ 'gerbil-parser-inline-link)
 (def +heading-fields-kind+ 'gerbil-parser-heading-fields)
 (def +table-line-kind+ 'gerbil-parser-table-line)
+(def +list-line-kind+ 'gerbil-parser-list-line)
 
 (def (empty-prototype) (.o))
 
@@ -252,6 +256,43 @@
                        (poo-flow-contract-admit TableLineContract value #f))))
                 candidate context)))
 
+(define-type (ListLineKind @ PooFlowContract.)
+  identity: 'gerbil-parser/list-line-kind
+  .classify: (line-kind-contract 'gerbil-parser/list-line-kind
+                                 +list-line-kind+))
+
+(define-type (ListTabWidth @ PooFlowContract.)
+  identity: 'gerbil-parser/list-tab-width
+  .classify: (lambda (candidate context)
+               (line-classify 'gerbil-parser/list-tab-width
+                              (lambda (value)
+                                (and (integer? value) (<= 1 value 16)))
+                              candidate context)))
+
+(define-type (ListLineContract @ PooFlowNativeObjectContract.)
+  identity: 'gerbil-parser/list-line
+  proto: (empty-prototype)
+  responsibilities:
+  (.o kind: ListLineKind
+      unordered-markers: LineDelimiter
+      ordered: LineBoolean
+      tab-width: ListTabWidth
+      list-node: ParserSymbol
+      item-node: ParserSymbol
+      bullet-token: ParserSymbol
+      trivia-token: ParserSymbol))
+
+(define-type (OptionalListLineContract @ PooFlowContract.)
+  identity: 'gerbil-parser/optional-list-line
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/optional-list-line
+                (lambda (value)
+                  (or (eq? value #f)
+                      (poo-flow-validation-evidence-accepted?
+                       (poo-flow-contract-admit ListLineContract value #f))))
+                candidate context)))
+
 (define-type (LineStructureSchema @ PooFlowContract.)
   identity: 'gerbil-parser/line-structure-schema
   .classify: (lambda (candidate context)
@@ -349,5 +390,6 @@
       heading: HeadingLineContract
       blocks: ParserList
       text: TextLineContract
-      table: OptionalTableLineContract)
+      table: OptionalTableLineContract
+      list: OptionalListLineContract)
   .obligations: line-structure-obligations)

@@ -11,7 +11,7 @@ through the generic engine boundary.
 The lexical algebra also admits =(line)= as a generic, allocation-free
 whole-line primitive. Scheme and Rust both consume LF, CRLF, bare CR, or a
 final unterminated line losslessly. A bounded POO =LineStructure= declaration
-now projects heading, block, table, and text-line rules to an immutable Rust
+now projects heading, block, list, table, and text-line rules to an immutable Rust
 table. Each block declares either opaque contents or recursively parsed
 elements. The generic engine executes section nesting, block recovery, and
 nested element/opaque block contents over that
@@ -51,7 +51,10 @@ embeds a Scheme-source digest and passes differential fixtures.  The remaining
 compiler boundary is a fuller contextual Parser IR derived from Scheme-owned
 language declarations. The current =LineStructure= table validates kind
 references against the canonical grammar digest and covers headings, tables,
-paragraphs, inline links, opaque blocks, and recursively parsed block contents.
+marker-led nested lists, paragraphs, inline links, opaque blocks, and recursively
+parsed block contents. The list rule binds marker sets, ordered-item admission,
+visual tab width, and typed bullet/trivia kinds to the parser digest; checkbox,
+counter, description-tag, and full continuation policy are not admitted yet.
 Other line/byte recognition, lexical state
 transitions, structural actions, and typed recovery still need explicit
 admission. The Rust runtime executes the admitted table and hands source-backed

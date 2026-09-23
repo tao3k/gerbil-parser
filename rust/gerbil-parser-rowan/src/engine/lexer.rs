@@ -1,6 +1,69 @@
-//! Generated-rule lexical execution.
+//! Generated-rule lexical execution and validation of downstream scanned tokens.
 
-use super::model::{Diagnostic, LanguageSpec, LexicalExpr, LexicalRule, Token};
+use std::collections::HashMap;
+
+use super::model::{Diagnostic, LanguageSpec, LexicalExpr, LexicalRule, ScannedToken, Token};
+
+pub(crate) fn lex_scanned<'source>(
+    spec: &LanguageSpec,
+    source: &'source str,
+    scanned: &[ScannedToken],
+) -> Result<(Vec<Token<'source>>, Vec<usize>), Diagnostic> {
+    let terminals: HashMap<_, _> = spec
+        .terminals
+        .iter()
+        .filter_map(|terminal| {
+            spec.lexical_rules
+                .iter()
+                .find(|rule| rule.terminal == terminal.name)
+                .map(|rule| (terminal.name, (terminal.syntax_kind, rule.extra)))
+        })
+        .collect();
+    let mut tokens = Vec::with_capacity(scanned.len());
+    let mut significant = Vec::with_capacity(scanned.len());
+    let mut offset = 0;
+    for item in scanned {
+        if item.start != offset
+            || item.end <= item.start
+            || item.end > source.len()
+            || !source.is_char_boundary(item.start)
+            || !source.is_char_boundary(item.end)
+        {
+            return Err(Diagnostic {
+                reason_kind: "scanner-range",
+                byte_offset: item.start.min(source.len()),
+                message: "scanner tokens must cover the source in ordered nonempty UTF-8 ranges"
+                    .into(),
+            });
+        }
+        let Some(&(syntax_kind, extra)) = terminals.get(item.terminal) else {
+            return Err(Diagnostic {
+                reason_kind: "scanner-terminal",
+                byte_offset: item.start,
+                message: format!("scanner emitted undeclared terminal {}", item.terminal),
+            });
+        };
+        if !extra {
+            significant.push(tokens.len());
+        }
+        tokens.push(Token {
+            terminal: item.terminal,
+            syntax_kind,
+            text: &source[item.start..item.end],
+            start: item.start,
+            end: item.end,
+        });
+        offset = item.end;
+    }
+    if offset != source.len() {
+        return Err(Diagnostic {
+            reason_kind: "scanner-range",
+            byte_offset: offset,
+            message: "scanner tokens do not cover the source suffix".into(),
+        });
+    }
+    Ok((tokens, significant))
+}
 
 pub(crate) fn lex<'source>(
     spec: &LanguageSpec,

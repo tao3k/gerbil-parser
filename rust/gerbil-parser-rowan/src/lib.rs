@@ -12,6 +12,6 @@ mod engine;
 pub use engine::{
     ActionEntry, Diagnostic, GerbilLanguage, GotoEntry, KindCategory, KindSpec, LanguageSpec,
     LexicalExpr, LexicalRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
-    ParserAction, Production, Reduction, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode,
-    SyntaxToken, Terminal, TerminalSpec, parse,
+    ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
+    SyntaxNode, SyntaxToken, Terminal, TerminalSpec, parse, parse_scanned,
 };

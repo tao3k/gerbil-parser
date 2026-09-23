@@ -9,10 +9,10 @@ mod validation;
 pub use model::{
     ActionEntry, Diagnostic, GerbilLanguage, GotoEntry, KindCategory, KindSpec, LanguageSpec,
     LexicalExpr, LexicalRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
-    ParserAction, Production, Reduction, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode,
-    SyntaxToken, Terminal, TerminalSpec,
+    ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
+    SyntaxNode, SyntaxToken, Terminal, TerminalSpec,
 };
-pub use parser::parse;
+pub use parser::{parse, parse_scanned};
 
 #[cfg(test)]
 #[path = "../../tests/unit/lexical.rs"]

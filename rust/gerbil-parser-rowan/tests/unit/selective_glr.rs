@@ -1,10 +1,13 @@
 use super::model::{
     ActionEntry, GotoEntry, KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule,
-    Operand, OperandAction, ParserAction, Production, Reduction, Symbol, Terminal, TerminalSpec,
+    Operand, OperandAction, ParserAction, Production, Reduction, ScannedToken, Symbol, Terminal,
+    TerminalSpec,
 };
-use super::parser::parse;
+use super::parser::{parse, parse_scanned};
 
 const DIGEST: &str = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+const SCANNER_DIGEST: &str =
+    "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 static KINDS: &[KindSpec] = &[
     KindSpec {
         name: "RootA",
@@ -188,4 +191,74 @@ fn equal_score_distinct_forks_fail_closed() {
     assert_eq!(receipt.successful_completions, 2);
     assert_eq!(receipt.distinct_completions, 2);
     assert_eq!(receipt.winner_reason, "ambiguous");
+}
+
+#[test]
+fn downstream_scanner_uses_the_same_parser_and_rowan_pipeline() {
+    let scanned = [ScannedToken {
+        terminal: "identifier",
+        start: 0,
+        end: 1,
+    }];
+    let generated =
+        parse_scanned(&EQUIVALENT_LANGUAGE, "x", SCANNER_DIGEST, &scanned).expect("scanned token");
+    let built_in = parse(&EQUIVALENT_LANGUAGE, "x").expect("built-in lexer");
+    assert_eq!(generated.syntax().to_string(), "x");
+    assert_eq!(generated.syntax().kind(), built_in.syntax().kind());
+    assert_eq!(
+        generated.receipt().source_digest,
+        built_in.receipt().source_digest
+    );
+    assert_eq!(
+        generated.receipt().grammar_digest,
+        built_in.receipt().grammar_digest
+    );
+    assert_eq!(generated.receipt().scanner_digest, Some(SCANNER_DIGEST));
+    assert_eq!(built_in.receipt().scanner_digest, None);
+}
+
+#[test]
+fn downstream_scanner_rejects_gaps_unknown_terminals_and_invalid_utf8_ranges() {
+    let cases: &[(&str, &[ScannedToken], &str)] = &[
+        ("x", &[], "scanner-range"),
+        (
+            "x",
+            &[ScannedToken {
+                terminal: "identifier",
+                start: 1,
+                end: 2,
+            }],
+            "scanner-range",
+        ),
+        (
+            "x",
+            &[ScannedToken {
+                terminal: "other",
+                start: 0,
+                end: 1,
+            }],
+            "scanner-terminal",
+        ),
+        (
+            "é",
+            &[ScannedToken {
+                terminal: "identifier",
+                start: 0,
+                end: 1,
+            }],
+            "scanner-range",
+        ),
+    ];
+    for (source, scanned, reason) in cases {
+        let error = parse_scanned(&EQUIVALENT_LANGUAGE, source, SCANNER_DIGEST, scanned)
+            .expect_err("invalid downstream scan must fail closed");
+        assert_eq!(error.diagnostic.reason_kind, *reason);
+    }
+}
+
+#[test]
+fn downstream_scanner_requires_a_canonical_scheme_artifact_identity() {
+    let error = parse_scanned(&EQUIVALENT_LANGUAGE, "", "unversioned", &[])
+        .expect_err("unversioned scanner must fail closed");
+    assert_eq!(error.diagnostic.reason_kind, "scanner-identity");
 }

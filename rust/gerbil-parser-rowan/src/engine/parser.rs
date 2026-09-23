@@ -1,12 +1,13 @@
 //! Deterministic LR and bounded selective-GLR execution.
 
-use super::lexer::lex;
+use super::lexer::{lex, lex_scanned};
 use super::model::{
     Diagnostic, LanguageSpec, Operand, OperandAction, Parse, ParseError, ParserAction,
-    ParserFailure, Production, Reduction, SelectiveGlrReceipt, Terminal, Token, Value,
+    ParserFailure, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Terminal, Token,
+    Value,
 };
 use super::rowan_tree::build_green;
-use super::validation::{receipt, validate_spec_once};
+use super::validation::{canonical_sha256_digest, receipt, validate_spec_once};
 
 /// Parse `source` with one generated language specification.
 ///
@@ -16,7 +17,48 @@ use super::validation::{receipt, validate_spec_once};
 /// analysis rejects the source, parsing does not complete, or CST construction
 /// fails.
 pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseError> {
-    let receipt = receipt(spec, source);
+    parse_inner(spec, source, None, |source| lex(spec, source))
+}
+
+/// Parse tokens from a downstream AOT-generated context scanner.
+///
+/// The scanner implementation belongs to the language pack. This engine
+/// validates its output and executes the same generated LR and Rowan pipeline
+/// used by [`parse`]. No language-specific scanning policy lives here.
+///
+/// # Errors
+///
+/// Returns [`ParseError`] for an invalid generated artifact, token stream,
+/// rejected syntax, or invalid lossless tree.
+pub fn parse_scanned(
+    spec: &'static LanguageSpec,
+    source: &str,
+    scanner_digest: &'static str,
+    scanned: &[ScannedToken],
+) -> Result<Parse, ParseError> {
+    parse_inner(spec, source, Some(scanner_digest), |source| {
+        lex_scanned(spec, source, scanned)
+    })
+}
+
+fn parse_inner<'source>(
+    spec: &'static LanguageSpec,
+    source: &'source str,
+    scanner_digest: Option<&'static str>,
+    scanner: impl FnOnce(&'source str) -> Result<(Vec<Token<'source>>, Vec<usize>), Diagnostic>,
+) -> Result<Parse, ParseError> {
+    let receipt = receipt(spec, source, scanner_digest);
+    if scanner_digest.is_some_and(|digest| !canonical_sha256_digest(digest)) {
+        return Err(ParseError {
+            receipt,
+            diagnostic: Box::new(Diagnostic {
+                reason_kind: "scanner-identity",
+                byte_offset: 0,
+                message: "scanner digest is not a canonical SHA-256 identity".into(),
+            }),
+            selective_glr: None,
+        });
+    }
     validate_spec_once(spec).map_err(|message| ParseError {
         receipt: receipt.clone(),
         diagnostic: Box::new(Diagnostic {
@@ -26,7 +68,7 @@ pub fn parse(spec: &'static LanguageSpec, source: &str) -> Result<Parse, ParseEr
         }),
         selective_glr: None,
     })?;
-    let (tokens, significant) = lex(spec, source).map_err(|diagnostic| ParseError {
+    let (tokens, significant) = scanner(source).map_err(|diagnostic| ParseError {
         receipt: receipt.clone(),
         diagnostic: Box::new(diagnostic),
         selective_glr: None,

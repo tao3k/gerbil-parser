@@ -59,6 +59,17 @@ pub struct LexicalRule {
     pub extra: bool,
 }
 
+/// One token emitted by a downstream AOT-generated scanner.
+///
+/// Ranges are UTF-8 byte offsets into the exact source passed to
+/// [`crate::parse_scanned`]. The runtime validates complete, ordered coverage.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ScannedToken {
+    pub terminal: &'static str,
+    pub start: usize,
+    pub end: usize,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Terminal {
     Eof,
@@ -162,6 +173,8 @@ pub struct ParseReceipt {
     pub version: &'static str,
     pub contract: &'static str,
     pub grammar_digest: &'static str,
+    /// Digest of the downstream Scheme scanner declaration when one is used.
+    pub scanner_digest: Option<&'static str>,
     pub source_digest: String,
 }
 

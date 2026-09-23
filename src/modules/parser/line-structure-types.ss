@@ -14,8 +14,10 @@
         +heading-line-kind+
         +block-line-kind+
         +text-line-kind+
+        +key-value-line-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
+        KeyValueLineContract BlockBodyContract
         LineStructureContract
         HeadingLineContract
         BlockLineContract
@@ -26,6 +28,9 @@
 (def +heading-line-kind+ 'gerbil-parser-heading-line)
 (def +block-line-kind+ 'gerbil-parser-block-line)
 (def +text-line-kind+ 'gerbil-parser-text-line)
+(def +key-value-line-kind+ 'gerbil-parser-key-value-line)
+
+(def (empty-prototype) (.o))
 
 (def (line-classify identity predicate candidate context)
   (let (accepted? (predicate candidate))
@@ -72,6 +77,34 @@
                   (memq value '(close-at-eof recover-as-text)))
                 candidate context)))
 
+(define-type (KeyValueLineKind @ PooFlowContract.)
+  identity: 'gerbil-parser/key-value-line-kind
+  .classify: (lambda (candidate context)
+               (line-classify 'gerbil-parser/key-value-line-kind
+                              (lambda (value)
+                                (eq? value +key-value-line-kind+))
+                              candidate context)))
+
+(define-type (KeyValueLineContract @ PooFlowNativeObjectContract.)
+  identity: 'gerbil-parser/key-value-line
+  proto: (empty-prototype)
+  responsibilities:
+  (.o kind: KeyValueLineKind
+      marker: LineMarker
+      node: ParserSymbol
+      token: ParserSymbol))
+
+(define-type (BlockBodyContract @ PooFlowContract.)
+  identity: 'gerbil-parser/block-body
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/block-body
+                (lambda (value)
+                  (or (eq? value #f)
+                      (poo-flow-validation-evidence-accepted?
+                       (poo-flow-contract-admit KeyValueLineContract value #f))))
+                candidate context)))
+
 (define-type (LineStructureSchema @ PooFlowContract.)
   identity: 'gerbil-parser/line-structure-schema
   .classify: (lambda (candidate context)
@@ -106,8 +139,6 @@
   .classify: (line-kind-contract 'gerbil-parser/line-structure-kind
                                  +line-structure-kind+))
 
-(def (empty-prototype) (.o))
-
 (define-type (HeadingLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/heading-line
   proto: (empty-prototype)
@@ -133,7 +164,8 @@
       body-token: ParserSymbol
       end-token: ParserSymbol
       unclosed: BlockRecovery
-      heading-bound: LineBoolean))
+      heading-bound: LineBoolean
+      body-line: BlockBodyContract))
 
 (define-type (TextLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/text-line

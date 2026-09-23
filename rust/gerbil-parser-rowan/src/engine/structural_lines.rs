@@ -50,6 +50,10 @@ pub fn parse_structural_lines(
                 token(&mut events, rule.end_token, start, end);
                 events.push(TreeEvent::FinishNode);
                 block = None;
+            } else if let Some(body_line) = rule.body_line {
+                events.push(TreeEvent::StartNode(body_line.node));
+                token(&mut events, body_line.token, start, end);
+                events.push(TreeEvent::FinishNode);
             } else {
                 token(&mut events, rule.body_token, start, end);
             }
@@ -147,9 +151,34 @@ fn has_closing_line(
         if directive(line, rule.closing, rule.case_insensitive, rule.indent, true) {
             return Ok(());
         }
+        if rule
+            .body_line
+            .is_some_and(|body_line| !key_value_line(line, body_line.marker))
+        {
+            return Err(start);
+        }
         start = end;
     }
     Err(source.len())
+}
+
+fn key_value_line(line: &str, marker: u8) -> bool {
+    let bytes = line
+        .trim_start_matches([' ', '\t'])
+        .trim_end_matches(['\r', '\n'])
+        .as_bytes();
+    if bytes.first() != Some(&marker) {
+        return false;
+    }
+    let Some(delimiter) = bytes[1..].iter().position(|byte| *byte == marker) else {
+        return false;
+    };
+    let key = &bytes[1..=delimiter];
+    !key.is_empty()
+        && key.iter().all(|byte| !byte.is_ascii_whitespace())
+        && bytes[2 + delimiter..]
+            .first()
+            .is_none_or(u8::is_ascii_whitespace)
 }
 
 fn heading_level(line: &str, rule: HeadingLineRule) -> Option<usize> {
@@ -226,6 +255,20 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
             (rule.body_token, KindCategory::Token),
             (rule.end_token, KindCategory::Token),
         ]);
+        if let Some(body_line) = rule.body_line {
+            if rule.unclosed != UnclosedBlockPolicy::RecoverAsText
+                || !body_line.marker.is_ascii()
+                || body_line.marker.is_ascii_whitespace()
+            {
+                return Err(invalid_structure(
+                    "key-value blocks require text recovery and a non-space marker",
+                ));
+            }
+            references.extend([
+                (body_line.node, KindCategory::Node),
+                (body_line.token, KindCategory::Token),
+            ]);
+        }
     }
     if references.into_iter().any(|(kind, category)| {
         language

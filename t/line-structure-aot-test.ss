@@ -6,7 +6,7 @@
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/src/modules/parser/line-structure-objects
                  line-structure? make-line-structure make-heading-line
-                 make-block-line make-text-line)
+                 make-block-line make-key-value-line make-text-line)
         (only-in :gerbil-parser/src/compiler/line-structure-rowan
                  line-structure-parser-digest line-structure-rowan-source))
 (export line-structure-aot-test)
@@ -17,7 +17,7 @@
    (list (make-block-line
           "BEGIN" "END" #f #t
           'PrefixExpression 'Punctuation 'Number 'Punctuation
-          'close-at-eof #f))
+          'close-at-eof #f #f))
    (make-text-line 'NameExpression 'Number)))
 
 (def line-structure-aot-test
@@ -42,7 +42,7 @@
                (list (make-block-line
                       "BEGIN" "END" #f #t
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
-                      'recover-as-text #f))
+                      'recover-as-text #f #f))
                (make-text-line 'NameExpression 'Number))))
         (check (line-structure-parser-digest
                 arithmetic-language-grammar original)
@@ -62,12 +62,32 @@
                (list (make-block-line
                       "BEGIN" "END" #f #t
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
-                      'close-at-eof #t))
+                      'close-at-eof #t #f))
                (make-text-line 'NameExpression 'Number))))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar original)
                        (line-structure-parser-digest
                         arithmetic-language-grammar bounded))
+               => #f)))
+    (test-case "typed key-value body rules are projected and bound to identity"
+      (let* ((body (make-key-value-line ":" 'NameExpression 'Number))
+             (structure
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               (list (make-block-line
+                      "BEGIN" "END" #f #t
+                      'PrefixExpression 'Punctuation 'Number 'Punctuation
+                      'recover-as-text #t body))
+               (make-text-line 'NameExpression 'Number)))
+             (source (line-structure-rowan-source
+                      arithmetic-language-grammar structure)))
+        (check (and (string-contains source "body_line: Some(KeyValueLineRule") #t)
+               => #t)
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
                => #f)))
     (test-case "wrong-category kind is rejected at the AOT boundary"
       (check (with-catch
@@ -89,12 +109,22 @@
                  (make-text-line 'NameExpression 'Number))
                 #f))
              => #t))
+    (test-case "untyped key-value body rules cannot enter the POO contract"
+      (check (with-catch
+              (lambda (error) #t)
+              (lambda ()
+                (make-block-line "BEGIN" "END" #f #t
+                                 'PrefixExpression 'Punctuation
+                                 'Number 'Punctuation
+                                 'recover-as-text #t 'not-a-body-rule)
+                #f))
+             => #t))
     (test-case "an undeclared EOF recovery mode is rejected"
       (check (with-catch
               (lambda (error) #t)
               (lambda ()
                 (make-block-line "BEGIN" "END" #f #t
                                  'PrefixExpression 'Punctuation
-                                 'Number 'Punctuation 'guess #f)
+                                 'Number 'Punctuation 'guess #f #f)
                 #f))
              => #t))))

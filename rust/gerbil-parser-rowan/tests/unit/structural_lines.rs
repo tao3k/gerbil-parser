@@ -1,6 +1,6 @@
 use super::model::{
-    BlockLineRule, HeadingLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec,
-    UnclosedBlockPolicy,
+    BlockLineRule, HeadingLineRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec,
+    LineStructureSpec, UnclosedBlockPolicy,
 };
 use super::structural_lines::parse_structural_lines;
 
@@ -41,6 +41,26 @@ static KINDS: &[KindSpec] = &[
         name: "EndToken",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "PropertyDrawer",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "NodeProperty",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "DrawerBegin",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "DrawerEnd",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "PropertyLine",
+        category: KindCategory::Token,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -67,6 +87,7 @@ static BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     end_token: 8,
     unclosed: UnclosedBlockPolicy::CloseAtEof,
     heading_bound: false,
+    body_line: None,
 }];
 static RECOVER_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     unclosed: UnclosedBlockPolicy::RecoverAsText,
@@ -76,6 +97,23 @@ static HEADING_BOUND_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     unclosed: UnclosedBlockPolicy::RecoverAsText,
     heading_bound: true,
     ..BLOCKS[0]
+}];
+static PROPERTY_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
+    opening: ":PROPERTIES:",
+    closing: ":END:",
+    case_insensitive: true,
+    indent: true,
+    block_node: 9,
+    begin_token: 11,
+    body_token: 7,
+    end_token: 12,
+    unclosed: UnclosedBlockPolicy::RecoverAsText,
+    heading_bound: true,
+    body_line: Some(KeyValueLineRule {
+        marker: b':',
+        node: 10,
+        token: 13,
+    }),
 }];
 static BROKEN_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     begin_token: 2,
@@ -101,6 +139,10 @@ static RECOVER_STRUCTURE: LineStructureSpec = LineStructureSpec {
 };
 static HEADING_BOUND_STRUCTURE: LineStructureSpec = LineStructureSpec {
     blocks: HEADING_BOUND_BLOCKS,
+    ..STRUCTURE
+};
+static PROPERTY_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    blocks: PROPERTY_BLOCKS,
     ..STRUCTURE
 };
 
@@ -230,6 +272,44 @@ fn heading_boundary_cache_does_not_hide_a_later_closed_block() {
     );
     assert_eq!(
         root.descendants().filter(|node| node.kind().0 == 3).count(),
+        1
+    );
+}
+
+#[test]
+fn key_value_block_emits_typed_lines_with_exact_spans() {
+    let source = "* Task\n:PROPERTIES:\n:CONTRACT_ORG: one\n:ID: café\n:END:\n";
+    let root = parse_structural_lines(&LANGUAGE, &PROPERTY_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let properties: Vec<_> = root
+        .descendants()
+        .filter(|node| node.kind().0 == 10)
+        .collect();
+    assert_eq!(properties.len(), 2);
+    assert_eq!(properties[0].to_string(), ":CONTRACT_ORG: one\n");
+    assert_eq!(properties[1].to_string(), ":ID: café\n");
+    assert_eq!(usize::from(properties[0].text_range().start()), 20);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 9).count(),
+        1
+    );
+}
+
+#[test]
+fn malformed_key_value_line_rejects_the_whole_block() {
+    let source = ":PROPERTIES:\nnot a property\n:END:\n* Next\n";
+    let root = parse_structural_lines(&LANGUAGE, &PROPERTY_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 9).count(),
+        0
+    );
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 2).count(),
         1
     );
 }

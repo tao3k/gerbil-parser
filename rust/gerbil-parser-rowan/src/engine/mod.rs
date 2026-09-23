@@ -11,10 +11,10 @@ mod validation;
 pub use event_tree::build_rowan_events;
 pub use model::{
     ActionEntry, BlockLineRule, Diagnostic, GerbilLanguage, GotoEntry, HeadingLineRule,
-    KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, Operand,
-    OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
-    ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, Terminal,
-    TerminalSpec, TreeEvent, UnclosedBlockPolicy,
+    KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule,
+    LineStructureSpec, Operand, OperandAction, Parse, ParseError, ParseReceipt, ParserAction,
+    Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode,
+    SyntaxToken, Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy,
 };
 pub use parser::{parse, parse_scanned};
 pub use structural_lines::parse_structural_lines;

@@ -1,0 +1,187 @@
+;;; -*- Gerbil -*-
+;;; A closed Scheme event fold: execute the algorithm here and serialize its
+;;; typed transitions for gerbil-scheme-rust-ir. No Rust source templates.
+
+(import (only-in :std/encoding/json json->string)
+        (only-in ../language/descriptor language-grammar-machine)
+        (only-in ../runtime/identity sha256-text)
+        (only-in ./machine parser-machine-grammar-digest)
+        (only-in ./event-strategy-aot source-line-events kind-index line-starts-with?))
+(export define-event-fold-parser run-event-fold event-fold-ir-json)
+
+(def (fold-state states name)
+  (let (entry (assq name states))
+    (unless entry (error "undeclared event fold state" name))
+    (cdr entry)))
+
+(def (rust-state-name name)
+  (list->string
+   (map (lambda (character)
+          (if (char=? character #\-) #\_ character))
+        (string->list (symbol->string name)))))
+
+(def (validate-state-names states)
+  (let loop ((rest states) (seen []))
+    (unless (null? rest)
+      (let (name (rust-state-name (caar rest)))
+        (when (member name seen)
+          (error "duplicate event fold state" name))
+        (loop (cdr rest) (cons name seen))))))
+
+(def (fold-predicate expression line states)
+  (unless (pair? expression)
+    (error "event fold predicate must be structured" expression))
+  (case (car expression)
+    ((bool)
+     (unless (and (= (length expression) 2) (boolean? (cadr expression)))
+       (error "invalid event fold boolean" expression))
+     (cadr expression))
+    ((state) (fold-state states (cadr expression)))
+    ((line-starts-with)
+     (unless (and (= (length expression) 2) (string? (cadr expression)))
+       (error "invalid event fold prefix" expression))
+     (line-starts-with? line (cadr expression)))
+    ((not) (not (fold-predicate (cadr expression) line states)))
+    ((and) (and (fold-predicate (cadr expression) line states)
+                (fold-predicate (caddr expression) line states)))
+    ((or) (or (fold-predicate (cadr expression) line states)
+              (fold-predicate (caddr expression) line states)))
+    (else (error "unsupported event fold predicate" expression))))
+
+(def (fold-statements statements line start end states)
+  (let loop ((rest statements) (state states) (events []))
+    (if (null? rest) (cons state events)
+        (let* ((form (car rest))
+               (step
+                (case (car form)
+                  ((set-bool)
+                   (let (value (fold-predicate (caddr form) line state))
+                     (cons (map (lambda (entry)
+                                  (if (eq? (car entry) (cadr form))
+                                    (cons (car entry) value) entry))
+                                (begin (fold-state state (cadr form)) state))
+                           [])))
+                  ((start-node) (cons state (list (list 'start (cadr form)))))
+                  ((token)
+                   (cons state (list (list 'token (cadr form)
+                                          (if (eq? (caddr form) 'start) start end)
+                                          (if (eq? (cadddr form) 'start) start end)))))
+                  ((finish-node) (cons state (list '(finish))))
+                  ((if)
+                   (fold-statements
+                    (if (fold-predicate (cadr form) line state)
+                      (caddr form) (cadddr form))
+                    line start end state))
+                  (else (error "unsupported event fold statement" form)))))
+          (loop (cdr rest) (car step) (append events (cdr step)))))))
+
+(def (run-event-fold source root initial line-forms finish-forms)
+  (let (states (map (lambda (entry) (cons (car entry) (cadr entry))) initial))
+    (let* ((events
+            (source-line-events
+             source root
+             (lambda (line start end)
+               (let (step (fold-statements line-forms line start end states))
+                 (set! states (car step))
+                 (cdr step)))))
+           (closing (fold-statements finish-forms "" 0 0 states)))
+      (append (reverse (cdr (reverse events))) (cdr closing) '((finish))))))
+
+(def (fold-predicate-ir expression states allow-line?)
+  (unless (pair? expression)
+    (error "event fold predicate must be structured" expression))
+  (case (car expression)
+    ((bool)
+     (unless (and (= (length expression) 2) (boolean? (cadr expression)))
+       (error "invalid event fold boolean" expression))
+     (hash ("kind" "bool") ("value" (cadr expression))))
+    ((state)
+     (fold-state states (cadr expression))
+     (hash ("kind" "state") ("name" (rust-state-name (cadr expression)))))
+    ((line-starts-with)
+     (unless allow-line?
+       (error "event fold final transition has no source line" expression))
+     (unless (and (= (length expression) 2) (string? (cadr expression)))
+       (error "invalid event fold prefix" expression))
+     (hash ("kind" "line_starts_with") ("value" (cadr expression))))
+    ((not)
+     (hash ("kind" "not")
+           ("value" (fold-predicate-ir (cadr expression) states allow-line?))))
+    ((and or)
+     (hash ("kind" (symbol->string (car expression)))
+           ("left" (fold-predicate-ir (cadr expression) states allow-line?))
+           ("right" (fold-predicate-ir (caddr expression) states allow-line?))))
+    (else (error "unsupported event fold predicate" expression))))
+
+(def (fold-statements-ir grammar statements states allow-line?)
+  (list->vector
+   (map
+    (lambda (form)
+      (case (car form)
+        ((set-bool)
+         (fold-state states (cadr form))
+         (hash ("kind" "set_bool") ("name" (rust-state-name (cadr form)))
+               ("value" (fold-predicate-ir (caddr form) states allow-line?))))
+        ((start-node)
+         (hash ("kind" "start_node")
+               ("syntax_kind" (kind-index grammar (cadr form) 'node))))
+        ((token)
+         (unless allow-line?
+           (error "event fold final transition has no source offsets" form))
+         (unless (and (= (length form) 4)
+                      (memq (caddr form) '(start end))
+                      (memq (cadddr form) '(start end)))
+           (error "event fold token requires source offsets" form))
+         (hash ("kind" "token")
+               ("syntax_kind" (kind-index grammar (cadr form) 'token))
+               ("start" (symbol->string (caddr form)))
+               ("end" (symbol->string (cadddr form)))))
+        ((finish-node) (hash ("kind" "finish_node")))
+        ((if)
+         (hash ("kind" "if")
+               ("condition" (fold-predicate-ir (cadr form) states allow-line?))
+               ("consequent" (fold-statements-ir grammar (caddr form) states allow-line?))
+               ("alternate" (fold-statements-ir grammar (cadddr form) states allow-line?))))
+        (else (error "unsupported event fold statement" form))))
+    statements)))
+
+(def (event-fold-ir-json name grammar root initial line-forms finish-forms)
+  (let* ((states (map (lambda (entry)
+                        (unless (and (= (length entry) 2) (symbol? (car entry))
+                                     (boolean? (cadr entry)))
+                          (error "event fold requires boolean state" entry))
+                        (cons (car entry) (cadr entry))) initial))
+         (initial-ir
+          (list->vector
+           (map (lambda (entry)
+                  (hash ("kind" "let_bool")
+                        ("name" (rust-state-name (car entry)))
+                        ("value" (cdr entry)))) states)))
+         (digest
+          (sha256-text
+           (call-with-output-string
+            (lambda (port)
+              (write (list 'event-fold.v1
+                           (parser-machine-grammar-digest
+                            (language-grammar-machine grammar))
+                           name root initial line-forms finish-forms) port))))))
+    (validate-state-names states)
+    (json->string
+     (hash ("schema" "gerbil-scheme-rust.event-function-ir.v1")
+           ("name" (symbol->string name))
+           ("root_kind" (kind-index grammar root 'node))
+           ("parser_digest" digest)
+           ("initial" initial-ir)
+           ("line" (fold-statements-ir grammar line-forms states #t))
+           ("finish" (fold-statements-ir grammar finish-forms states #f)))
+     sort-keys: #t)))
+
+(defrules define-event-fold-parser ()
+  ((_ scheme-name rust-name grammar root source initial (line-form ...) (finish-form ...))
+   (begin
+     (def (scheme-name source)
+       (run-event-fold source 'root 'initial
+                       '(line-form ...) '(finish-form ...)))
+     (def rust-name
+       (event-fold-ir-json 'rust-name grammar 'root 'initial
+                           '(line-form ...) '(finish-form ...))))))

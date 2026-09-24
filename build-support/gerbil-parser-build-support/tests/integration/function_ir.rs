@@ -8,3 +8,15 @@ fn scheme_ir_compiles_to_owned_rest_function() {
     ));
     gerbil_scheme_rust_ir::compile_function_json(ir).unwrap();
 }
+
+#[test]
+fn scheme_event_fold_compiles_to_stateful_rowan_events() {
+    let ir = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../t/fixtures/event_fold.ir.json"
+    ));
+    let rust = gerbil_scheme_rust_ir::compile_event_function_json(ir).unwrap();
+    assert!(rust.contains("pub fn parse_fold_lines"));
+    assert!(rust.contains("paragraph_open"));
+    assert!(rust.contains("TreeEvent :: Token"));
+}

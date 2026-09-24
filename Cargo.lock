@@ -218,13 +218,13 @@ version = "0.1.0"
 dependencies = [
  "asp-rust",
  "asp-rust-build-support",
+ "gerbil-scheme-rust-ir",
 ]
 
 [[package]]
 name = "gerbil-parser-rowan"
 version = "0.1.0"
 dependencies = [
- "gerbil-scheme-rust-ir",
  "rowan",
  "sha2 0.10.9",
 ]

@@ -11,8 +11,5 @@ rust-version.workspace = true
 rowan.workspace = true
 sha2.workspace = true
 
-[dev-dependencies]
-gerbil-scheme-rust-ir.workspace = true
-
 [lints]
 workspace = true

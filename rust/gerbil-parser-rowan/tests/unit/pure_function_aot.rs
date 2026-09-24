@@ -6,15 +6,6 @@ include!("classify_or_unknown_generated.rs");
 include!("owned_first_word_generated.rs");
 include!("owned_rest_after_first_word_generated.rs");
 
-#[test]
-fn scheme_ir_compiles_to_owned_rest_function() {
-    let ir = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../t/fixtures/owned_rest_after_first_word.ir.json"
-    ));
-    gerbil_scheme_rust_ir::compile_function_json(ir).unwrap();
-}
-
 macro_rules! check_rust_aot_function {
     ($function:path; $(($($input:expr),+ $(,)?) => $expected:expr),+ $(,)?) => {
         $(assert_eq!($function($($input),+), $expected);)+

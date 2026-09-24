@@ -209,6 +209,8 @@ pub enum BlockOpeningMode {
     Literal,
     /// Match a delimiter, an ASCII name, and the same delimiter.
     NamedDelimited,
+    /// Match an exact directive followed by a required ASCII name argument.
+    RequiredNamedArgument,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

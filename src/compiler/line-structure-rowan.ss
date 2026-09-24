@@ -118,6 +118,7 @@
                    (case (block-line-opening-mode block)
                      ((literal) "BlockOpeningMode::Literal")
                      ((named-delimited) "BlockOpeningMode::NamedDelimited")
+                     ((required-named-argument) "BlockOpeningMode::RequiredNamedArgument")
                      (else (error "unknown block opening mode" block)))))
     (closing (rust-string (block-line-closing block)))
     (case_insensitive (boolean-value (block-line-case-insensitive block)))

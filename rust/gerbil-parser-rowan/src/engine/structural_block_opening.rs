@@ -45,7 +45,33 @@ pub(super) fn block_opening(line: &str, rule: &BlockLineRule) -> bool {
             false,
         ),
         BlockOpeningMode::NamedDelimited => named_delimited_opening(line, rule).is_some(),
+        BlockOpeningMode::RequiredNamedArgument => required_named_argument(line, rule),
     }
+}
+
+fn required_named_argument(line: &str, rule: &BlockLineRule) -> bool {
+    if !directive(
+        line,
+        rule.opening,
+        rule.case_insensitive,
+        rule.indent,
+        false,
+    ) {
+        return false;
+    }
+    let line = if rule.indent {
+        line.trim_start_matches([' ', '\t'])
+    } else {
+        line
+    };
+    let rest = &line[rule.opening.len()..];
+    let argument = rest
+        .trim_start_matches([' ', '\t'])
+        .split_once(|character: char| character.is_ascii_whitespace())
+        .map_or(rest.trim_start_matches([' ', '\t']), |(name, _)| name);
+    let mut bytes = argument.bytes();
+    bytes.next().is_some_and(|byte| byte.is_ascii_alphabetic())
+        && bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
 }
 
 pub(super) fn named_delimited_opening(line: &str, rule: &BlockLineRule) -> Option<(usize, usize)> {

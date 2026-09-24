@@ -896,6 +896,11 @@ fn validate_block_rule(
             "named block openings require one delimiter and a name token",
         ));
     }
+    if rule.opening_mode == BlockOpeningMode::RequiredNamedArgument && rule.header.is_none() {
+        return Err(invalid_structure(
+            "named argument openings require a header name token",
+        ));
+    }
     references.extend([
         (rule.block_node, KindCategory::Node),
         (rule.begin_token, KindCategory::Token),

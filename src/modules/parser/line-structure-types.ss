@@ -152,7 +152,7 @@
                (line-classify
                 'gerbil-parser/block-opening-mode
                 (lambda (value)
-                  (memq value '(literal named-delimited)))
+                  (memq value '(literal named-delimited required-named-argument)))
                 candidate context)))
 
 (define-type (KeyValueLineKind @ PooFlowContract.)
@@ -453,6 +453,11 @@
                                          (.ref candidate 'opening)) 1))
                                 (not (.ref candidate 'header))))
                      '(named-block-requires-delimiter-and-header)
+                     '())
+                   (if (and (eq? (.ref candidate 'opening-mode)
+                                 'required-named-argument)
+                            (not (.ref candidate 'header)))
+                     '(named-argument-requires-header)
                      '()))))
 
 (define-type (TextLineContract @ PooFlowNativeObjectContract.)

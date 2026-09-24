@@ -163,6 +163,27 @@
                  => "line_scan_key")
           (check (hash-ref (hash-ref (vector-ref consequent 4) "end") "kind")
                  => "line_trim_end"))))
+    (test-case "headline marker offsets use the declared level in Scheme and IR"
+      (let* ((marker '(line-marker-end "*" " "))
+             (forms `((if (uint-positive? (line-marker-level "*" " "))
+                          ((start-node Heading)
+                           (token Line start ,marker)
+                           (token Line ,marker end)
+                           (finish-node)) ())))
+             (wire (event-fold-ir-json
+                    'headline_fields event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t)))
+             (consequent (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "consequent")))
+        (check (run-event-fold "** Work\n" 'Document '() forms '())
+               => '((start Document) (start Heading)
+                    (token Line 0 2) (token Line 2 8)
+                    (finish) (finish)))
+        (check (hash-ref (hash-ref (vector-ref consequent 1) "end") "kind")
+               => "line_marker_end")))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

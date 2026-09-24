@@ -65,6 +65,26 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_starts_with_ascii_case_insensitive")))
+    (test-case "blank source lines use one typed predicate in both paths"
+      (check (run-event-fold " \t\r\nα\n" 'Document '()
+                             '((if (line-blank?)
+                                   ((start-node Heading) (token Line start end)
+                                    (finish-node))
+                                   ((start-node Text) (token Line start end)
+                                    (finish-node)))) '())
+             => '((start Document)
+                  (start Heading) (token Line 0 4) (finish)
+                  (start Text) (token Line 4 7) (finish)
+                  (finish)))
+      (let* ((wire (event-fold-ir-json
+                    'blank_line event-lines-language-grammar 'Document '()
+                    '((if (line-blank?) () ())) '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind")
+               => "line_blank")))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

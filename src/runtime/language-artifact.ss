@@ -30,7 +30,11 @@
 (def (compiled-language-artifact-relative-path digest)
   (unless (sha256-identity? digest)
     (error "invalid compiled language artifact digest" digest))
-  (string-append +compiled-language-artifact-prefix+ digest ".gir.z"))
+  ;; The identity keeps its canonical `sha256:` scheme, while the physical
+  ;; path uses a portable filename encoding. A colon is a Bazel label
+  ;; separator and is not a valid portable filename component.
+  (string-append +compiled-language-artifact-prefix+
+                 "sha256-" (substring digest 7 71) ".gir.z"))
 
 ;; : (-> String List Void)
 (def (validate-compiled-language-artifact-locator expected-schema locator)

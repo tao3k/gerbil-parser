@@ -62,8 +62,14 @@
       (call-with-temporary-directory
        (lambda (root)
          (let* ((serialized (serialize test-value))
+                (digest (sha256-text serialized))
                 (relative-path (write-serialized-sidecar root serialized))
-                (locator (list relative-path (sha256-text serialized))))
+                (locator (list relative-path digest)))
+           (check relative-path
+                  => (string-append
+                      "gerbil-parser/compiled-language-artifacts/sha256-"
+                      (substring digest 7 71)
+                      ".gir.z"))
            (check (load-compiled-language-artifact/roots
                    test-schema locator (list root))
                   => test-value)))))

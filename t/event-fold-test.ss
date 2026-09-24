@@ -85,6 +85,37 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_blank")))
+    (test-case "future marker search stops at heading or parent boundary"
+      (let* ((condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
+                              (future-line-marker-before-boundary?
+                               "#+END_QUOTE" "#+END_CENTER" "*" " " #t #t)))
+             (forms `((if ,condition
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node)))))
+             (wire (event-fold-ir-json
+                    'future_marker event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "#+BEGIN_QUOTE\n  #+end_quote\n"
+                               'Document '() forms '())
+               => '((start Document) (start Heading) (finish)
+                    (start Text) (finish) (finish)))
+        (check (run-event-fold "#+BEGIN_QUOTE\n** Next\n#+END_QUOTE\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Text) (finish) (start Text) (finish)
+                    (finish)))
+        (check (run-event-fold "#+BEGIN_QUOTE\n#+END_CENTER\n#+END_QUOTE\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Text) (finish) (start Text) (finish)
+                    (finish)))
+        (check (hash-ref (hash-ref (hash-ref
+                                   (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "left") "kind")
+               => "future_line_marker_before_boundary")))
     (test-case "n-ary boolean predicates evaluate every operand and lower to IR"
       (let* ((forms '((if (and (bool #t) (bool #t) (bool #f))
                           ((start-node Heading) (finish-node))

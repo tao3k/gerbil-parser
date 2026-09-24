@@ -5,7 +5,7 @@
         (only-in :std/encoding/json JSONReadOptions string->json)
         (only-in "event-strategy-fixture.ss" event-lines-language-grammar)
         (only-in "event-fold-fixture.ss" parse-fold-lines parse_fold_lines)
-        (only-in :gerbil-parser/src/compiler/event-fold-aot
+        (only-in :gerbil-parser/rust-rowan-event-support
                  event-fold-ir-json))
 (export event-fold-test)
 

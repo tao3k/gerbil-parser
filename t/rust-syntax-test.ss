@@ -9,11 +9,13 @@
                  rust-field-name rust-module-form-item
                  rust-static-form-value)
         (only-in "pure-function-fixture.ss"
-                 normalized_title normalized_title_rust)
+                 normalized_title normalized_title_rust
+                 classify_first_word classify_first_word_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
                  scheme-pure->rust ascii-ci=?)
         (only-in "rust-aot-test-syntax.ss"
-                 check-rust-aot-function check-rust-aot-artifact))
+                 check-rust-aot-function check-rust-aot-conditional
+                 check-rust-aot-artifact))
 (export rust-syntax-test)
 
 (def rust-syntax-test
@@ -42,6 +44,21 @@
       (check-rust-aot-artifact
        normalized_title_rust
        "rust/gerbil-parser-rowan/tests/unit/pure_function_generated.rs"))
+    (test-case "pure conditional and membership stay structural"
+      (check-rust-aot-conditional
+       classify_first_word_rust 'classify_first_word
+       '((input . "&str") (active . "&[&str]")
+         (complete . "&[&str]"))
+       "&'static str")
+      (check (classify_first_word "  WAIT\t Task" '("WAIT") '("DONE"))
+             => "active")
+      (check (classify_first_word "DONE Task" '("WAIT") '("DONE"))
+             => "complete")
+      (check (classify_first_word "TODO Task" '("WAIT") '("DONE"))
+             => "")
+      (check-rust-aot-artifact
+       classify_first_word_rust
+       "rust/gerbil-parser-rowan/tests/unit/classify_first_word_generated.rs"))
     (test-case "unsupported Scheme effects and free names fail closed"
       (check (ascii-ci=? "seq_todo" "SEQ_TODO") => #t)
       (check (ascii-ci=? "ＴＯＤＯ" "TODO") => #f)

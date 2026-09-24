@@ -1,10 +1,13 @@
 ;;; -*- Gerbil -*-
 ;;; A deliberately bounded pure Scheme subset lowered to Rust function syntax.
 
-(import (only-in ./rust-syntax
+(import (only-in :std/string/misc string-trim)
+        (only-in ./rust-syntax
                  rust-function-value rust-block rust-let rust-method
-                 rust-string rust-identifier rust-before rust-binary))
-(export define-rust-pure scheme-pure->rust string-before ascii-ci=?)
+                 rust-string rust-identifier rust-before rust-first-word
+                 rust-string-in rust-if rust-binary))
+(export define-rust-pure scheme-pure->rust string-before ascii-ci=?
+        string-first-word string-in?)
 
 (def (string-before value delimiter)
   (let (index (string-contains value delimiter))
@@ -23,6 +26,17 @@
              (and (char=? (ascii-fold (string-ref left index))
                           (ascii-fold (string-ref right index)))
                   (loop (+ index 1)))))))
+
+(def (string-first-word value)
+  (let* ((text (string-trim value)) (size (string-length text)))
+    (let loop ((index 0))
+      (if (or (= index size)
+              (char-whitespace? (string-ref text index)))
+        (substring text 0 index)
+        (loop (+ index 1))))))
+
+(def (string-in? value collection)
+  (if (member value collection) #t #f))
 
 (def (compile-pure-expression expression variables result-type)
   (cond
@@ -52,6 +66,21 @@
      (compile-pure-expression (cadr expression) variables "&str")
      'eq_ignore_ascii_case
      (list (compile-pure-expression (caddr expression) variables "&str"))))
+   ((and (pair? expression) (eq? (car expression) 'string-first-word)
+         (= (length expression) 2))
+    (rust-first-word
+     (compile-pure-expression (cadr expression) variables "&str")))
+   ((and (pair? expression) (eq? (car expression) 'string-in?)
+         (= (length expression) 3))
+    (rust-string-in
+     (compile-pure-expression (cadr expression) variables "&str")
+     (compile-pure-expression (caddr expression) variables "&[&str]")))
+   ((and (pair? expression) (eq? (car expression) 'if)
+         (= (length expression) 4))
+    (rust-if
+     (compile-pure-expression (cadr expression) variables "bool")
+     (compile-pure-expression (caddr expression) variables result-type)
+     (compile-pure-expression (cadddr expression) variables result-type)))
    ((and (pair? expression) (memq (car expression) '(or and))
          (>= (length expression) 3))
     (let ((operator (if (eq? (car expression) 'or) "||" "&&"))
@@ -79,7 +108,7 @@
             (error "invalid pure AOT binding" binding))
           (loop (cdr bindings) (cons name known)
                 (cons (rust-let name
-                                (compile-pure-expression value known "String"))
+                                (compile-pure-expression value known "&str"))
                       statements)))))
     (rust-block '()
                 (compile-pure-expression expression variables result-type))))

@@ -4,7 +4,7 @@
 (export rust-struct rust-static rust-array rust-some rust-none
         rust-number rust-string rust-identifier rust-module rust-render
         rust-function rust-function-value rust-block rust-let rust-call rust-method
-        rust-before
+        rust-before rust-first-word rust-string-in rust-if
         rust-binary
         rust-function-form? rust-function-form-name
         rust-function-form-parameters rust-function-form-result
@@ -12,6 +12,8 @@
         rust-block-form-result rust-let-form? rust-let-form-name
         rust-let-form-value
         rust-method-form? rust-method-form-method
+        rust-first-word-form? rust-string-in-form?
+        rust-if-form? rust-if-form-condition rust-if-form-alternate
         rust-struct-form? rust-struct-form-name rust-struct-form-fields
         rust-field-name rust-field-value
         rust-array-form? rust-array-form-values
@@ -38,6 +40,9 @@
 (defstruct rust-call-form (callee arguments) transparent: #t)
 (defstruct rust-method-form (receiver method arguments) transparent: #t)
 (defstruct rust-before-form (value delimiter owned?) transparent: #t)
+(defstruct rust-first-word-form (value) transparent: #t)
+(defstruct rust-string-in-form (value collection) transparent: #t)
+(defstruct rust-if-form (condition consequent alternate) transparent: #t)
 (defstruct rust-binary-form (operator left right) transparent: #t)
 
 ;; The macro admits only named fields. Callers build Rust syntax values, not
@@ -94,6 +99,12 @@
   (unless (rust-identifier-form? value)
     (error "Rust before requires a single bound value" value))
   (make-rust-before-form value delimiter owned?))
+(def (rust-first-word value)
+  (make-rust-first-word-form value))
+(def (rust-string-in value collection)
+  (make-rust-string-in-form value collection))
+(def (rust-if condition consequent alternate)
+  (make-rust-if-form condition consequent alternate))
 (def (rust-binary operator left right)
   (unless (member operator '("||" "&&"))
     (error "unsupported Rust pure binary operator" operator))
@@ -216,6 +227,27 @@
     (display ", |(head, _)| head)" port)
     (when (rust-before-form-owned? node)
       (display ".to_owned()" port)))
+   ((rust-first-word-form? node)
+    (render-node port (rust-first-word-form-value node))
+    (display ".split_whitespace().next().unwrap_or(\"\")" port))
+   ((rust-string-in-form? node)
+    (render-node port (rust-string-in-form-collection node))
+    (display ".contains(&" port)
+    (render-node port (rust-string-in-form-value node))
+    (display ")" port))
+   ((rust-if-form? node)
+    (display "if " port)
+    (render-node port (rust-if-form-condition node))
+    (display " { " port)
+    (render-node port (rust-if-form-consequent node))
+    (if (rust-if-form? (rust-if-form-alternate node))
+      (begin
+        (display " } else " port)
+        (render-node port (rust-if-form-alternate node)))
+      (begin
+        (display " } else { " port)
+        (render-node port (rust-if-form-alternate node))
+        (display " }" port))))
    ((rust-binary-form? node)
     (render-binary-operand port (rust-binary-form-left node)
                            (rust-binary-form-operator node))

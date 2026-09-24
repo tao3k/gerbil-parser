@@ -3,6 +3,15 @@
 
 (export rust-struct rust-static rust-array rust-some rust-none
         rust-number rust-string rust-identifier rust-module rust-render
+        rust-function rust-function-value rust-block rust-let rust-call rust-method
+        rust-before
+        rust-binary
+        rust-function-form? rust-function-form-name
+        rust-function-form-parameters rust-function-form-result
+        rust-function-form-body rust-block-form? rust-block-form-statements
+        rust-block-form-result rust-let-form? rust-let-form-name
+        rust-let-form-value
+        rust-method-form? rust-method-form-method
         rust-struct-form? rust-struct-form-name rust-struct-form-fields
         rust-field-name rust-field-value
         rust-array-form? rust-array-form-values
@@ -23,6 +32,13 @@
 (defstruct rust-string-form (value) transparent: #t)
 (defstruct rust-identifier-form (value) transparent: #t)
 (defstruct rust-module-form (imports item) transparent: #t)
+(defstruct rust-function-form (name parameters result body) transparent: #t)
+(defstruct rust-block-form (statements result) transparent: #t)
+(defstruct rust-let-form (name value) transparent: #t)
+(defstruct rust-call-form (callee arguments) transparent: #t)
+(defstruct rust-method-form (receiver method arguments) transparent: #t)
+(defstruct rust-before-form (value delimiter owned?) transparent: #t)
+(defstruct rust-binary-form (operator left right) transparent: #t)
 
 ;; The macro admits only named fields. Callers build Rust syntax values, not
 ;; snippets of Rust text; the renderer is the sole textual boundary.
@@ -43,6 +59,46 @@
 (def (rust-identifier value) (make-rust-identifier-form value))
 (def (rust-module imports item) (make-rust-module-form imports item))
 
+;; A bounded function surface for pure Scheme algorithms lowered ahead of time.
+;; Parameters and result types are explicit: the renderer never infers Rust
+;; types or accepts a pre-rendered function body.
+(defrules rust-function ()
+  ((_ name ((parameter type) ...) result body)
+   (rust-function-value 'name
+                        (list (cons 'parameter type) ...)
+                        result body)))
+
+(def (rust-function-value name parameters result body)
+  (unless (and (symbol? name)
+               (list? parameters)
+               (andmap (lambda (parameter)
+                         (and (pair? parameter)
+                              (symbol? (car parameter))
+                              (string? (cdr parameter))
+                              (> (string-length (cdr parameter)) 0)))
+                       parameters)
+               (string? result) (> (string-length result) 0)
+               (rust-block-form? body))
+    (error "invalid Rust function syntax" name parameters result body))
+  (make-rust-function-form name parameters result body))
+
+(def (rust-block statements result)
+  (make-rust-block-form statements result))
+(def (rust-let name value)
+  (make-rust-let-form name value))
+(def (rust-call callee arguments)
+  (make-rust-call-form callee arguments))
+(def (rust-method receiver method arguments)
+  (make-rust-method-form receiver method arguments))
+(def (rust-before value delimiter owned?)
+  (unless (rust-identifier-form? value)
+    (error "Rust before requires a single bound value" value))
+  (make-rust-before-form value delimiter owned?))
+(def (rust-binary operator left right)
+  (unless (member operator '("||" "&&"))
+    (error "unsupported Rust pure binary operator" operator))
+  (make-rust-binary-form operator left right))
+
 (def (render-sequence port values)
   (let loop ((rest values) (first? #t))
     (when (pair? rest)
@@ -54,6 +110,25 @@
   (display (rust-field-name field) port)
   (display ": " port)
   (render-node port (rust-field-value field)))
+
+(def (render-block port block)
+  (display "{\n" port)
+  (for-each (lambda (statement)
+              (display "    " port)
+              (render-node port statement)
+              (display ";\n" port))
+            (rust-block-form-statements block))
+  (display "    " port)
+  (render-node port (rust-block-form-result block))
+  (display "\n}" port))
+
+(def (render-binary-operand port operand operator)
+  (let (group? (and (rust-binary-form? operand)
+                   (not (equal? (rust-binary-form-operator operand)
+                                operator))))
+    (when group? (display "(" port))
+    (render-node port operand)
+    (when group? (display ")" port))))
 
 (def (render-node port node)
   (cond
@@ -97,6 +172,58 @@
         (loop (cdr imports) #f)))
     (display "};\n\n" port)
     (render-node port (rust-module-form-item node)))
+   ((rust-function-form? node)
+    (display "pub fn " port)
+    (display (rust-function-form-name node) port)
+    (display "(" port)
+    (let loop ((parameters (rust-function-form-parameters node))
+               (first? #t))
+      (when (pair? parameters)
+        (unless first? (display ", " port))
+        (display (caar parameters) port)
+        (display ": " port)
+        (display (cdar parameters) port)
+        (loop (cdr parameters) #f)))
+    (display ") -> " port)
+    (display (rust-function-form-result node) port)
+    (display " " port)
+    (render-block port (rust-function-form-body node))
+    (newline port))
+   ((rust-block-form? node) (render-block port node))
+   ((rust-let-form? node)
+    (display "let " port)
+    (display (rust-let-form-name node) port)
+    (display " = " port)
+    (render-node port (rust-let-form-value node)))
+   ((rust-call-form? node)
+    (render-node port (rust-call-form-callee node))
+    (display "(" port)
+    (render-sequence port (rust-call-form-arguments node))
+    (display ")" port))
+   ((rust-method-form? node)
+    (render-node port (rust-method-form-receiver node))
+    (display "." port)
+    (display (rust-method-form-method node) port)
+    (display "(" port)
+    (render-sequence port (rust-method-form-arguments node))
+    (display ")" port))
+   ((rust-before-form? node)
+    (render-node port (rust-before-form-value node))
+    (display ".split_once(" port)
+    (render-node port (rust-before-form-delimiter node))
+    (display ").map_or(" port)
+    (render-node port (rust-before-form-value node))
+    (display ", |(head, _)| head)" port)
+    (when (rust-before-form-owned? node)
+      (display ".to_owned()" port)))
+   ((rust-binary-form? node)
+    (render-binary-operand port (rust-binary-form-left node)
+                           (rust-binary-form-operator node))
+    (display " " port)
+    (display (rust-binary-form-operator node) port)
+    (display " " port)
+    (render-binary-operand port (rust-binary-form-right node)
+                           (rust-binary-form-operator node)))
    (else (error "unsupported Rust syntax value" node))))
 
 (def (rust-render node)

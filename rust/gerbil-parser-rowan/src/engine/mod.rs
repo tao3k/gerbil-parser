@@ -43,3 +43,7 @@ mod event_tree_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/structural_lines.rs"]
 mod structural_lines_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/pure_function_aot.rs"]
+mod pure_function_aot_tests;

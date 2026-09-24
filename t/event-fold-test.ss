@@ -85,6 +85,29 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_blank")))
+    (test-case "ASCII line markers reject prefix collisions in Scheme and IR"
+      (let* ((forms '((if (line-prefix-boundary-ascii-ci "#+begin_src")
+                         ((start-node Text) (token Line start end)
+                          (finish-node))
+                         ((start-node Heading) (token Line start end)
+                          (finish-node)))))
+             (wire (event-fold-ir-json
+                    'bounded_prefix event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "#+begin_srcx\n" 'Document '() forms '())
+               => '((start Document) (start Heading)
+                    (token Line 0 13) (finish) (finish)))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind")
+               => "line_prefix_boundary_ascii_case_insensitive"))
+      (check (run-event-fold ":END: tail\n" 'Document '()
+                             '((if (line-marker-ascii-ci ":END:")
+                                   ((start-node Text) (finish-node))
+                                   ((start-node Heading) (finish-node)))) '())
+             => '((start Document) (start Heading) (finish) (finish))))
     (test-case "source-backed prefix, word and trivia offsets execute in Scheme"
       (let* ((prefix '(line-prefix-end "#+begin_src"))
              (word-start (list 'line-skip-horizontal prefix))

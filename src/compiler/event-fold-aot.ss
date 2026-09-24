@@ -66,6 +66,19 @@
           (and (memv (u8vector-ref bytes index) '(9 10 13 32))
                (loop (+ index 1)))))))
 
+(def (fold-line-prefix-boundary? line prefix marker?)
+  (and (line-starts-with-ascii-ci? line prefix)
+       (let* ((bytes (string->utf8 line))
+              (start (u8vector-length (string->utf8 prefix)))
+              (end (u8vector-length bytes)))
+         (if marker?
+           (let loop ((cursor start))
+             (or (= cursor end)
+                 (and (memv (u8vector-ref bytes cursor) '(9 10 13 32))
+                      (loop (+ cursor 1)))))
+           (or (= start end)
+               (memv (u8vector-ref bytes start) '(9 10 13 32)))))))
+
 (def (fold-ascii-prefix? value)
   (and (string? value)
        (every (lambda (character) (< (char->integer character) 128))
@@ -217,6 +230,12 @@
      (unless (and (= (length expression) 2) (string? (cadr expression)))
        (error "invalid event fold ASCII prefix" expression))
      (line-starts-with-ascii-ci? line (cadr expression)))
+    ((line-prefix-boundary-ascii-ci line-marker-ascii-ci)
+     (unless (and (= (length expression) 2)
+                  (fold-ascii-prefix? (cadr expression)))
+       (error "invalid event fold ASCII line marker" expression))
+     (fold-line-prefix-boundary?
+      line (cadr expression) (eq? (car expression) 'line-marker-ascii-ci)))
     ((line-blank?)
      (unless (= (length expression) 1)
        (error "invalid event fold blank-line predicate" expression))
@@ -324,6 +343,16 @@
                          (string->list (cadr expression))))
        (error "invalid event fold ASCII prefix" expression))
      (hash ("kind" "line_starts_with_ascii_case_insensitive")
+           ("value" (cadr expression))))
+    ((line-prefix-boundary-ascii-ci line-marker-ascii-ci)
+     (unless allow-line?
+       (error "event fold final transition has no source line" expression))
+     (unless (and (= (length expression) 2)
+                  (fold-ascii-prefix? (cadr expression)))
+       (error "invalid event fold ASCII line marker" expression))
+     (hash ("kind" (if (eq? (car expression) 'line-marker-ascii-ci)
+                       "line_marker_ascii_case_insensitive"
+                       "line_prefix_boundary_ascii_case_insensitive"))
            ("value" (cadr expression))))
     ((line-blank?)
      (unless allow-line?

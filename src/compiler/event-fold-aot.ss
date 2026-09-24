@@ -118,7 +118,7 @@
       ((line-skip-horizontal line-scan-word)
        (unless (= (length expression) 2)
          (error "invalid event fold scanner offset" expression))
-       (hash ("kind" (symbol->string (car expression)))
+       (hash ("kind" (rust-state-name (car expression)))
              ("from" (fold-offset-ir (cadr expression)))))
       (else (error "unsupported event fold source offset" expression))))))
 

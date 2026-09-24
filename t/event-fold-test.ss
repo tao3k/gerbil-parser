@@ -113,10 +113,18 @@
                       'Document '() forms '()))
                (ir (string->json wire
                                  (JSONReadOptions object-as-hash: #t
-                                                  array-as-vector: #t))))
+                                                  array-as-vector: #t)))
+               (conditional (vector-ref (hash-ref ir "line") 0))
+               (consequent (hash-ref conditional "consequent")))
           (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                      "condition") "kind")
-                 => "line_has_word_after_prefix"))))
+                 => "line_has_word_after_prefix")
+          (check (hash-ref (hash-ref (vector-ref consequent 2) "end")
+                           "kind")
+                 => "line_skip_horizontal")
+          (check (hash-ref (hash-ref (vector-ref consequent 3) "end")
+                           "kind")
+                 => "line_scan_word"))))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

@@ -60,3 +60,16 @@ fn named_delimited_block_projects_name_and_recovers_at_heading() {
         2
     );
 }
+
+#[test]
+fn many_unclosed_named_blocks_recover_without_suffix_rescans() {
+    let source = ":NOTE:\n".repeat(10_000);
+    let root = parse_structural_lines(&LANGUAGE, &NAMED_BLOCK_STRUCTURE, &source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 3).count(),
+        0
+    );
+}

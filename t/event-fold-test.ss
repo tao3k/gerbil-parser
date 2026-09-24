@@ -85,6 +85,25 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_blank")))
+    (test-case "n-ary boolean predicates evaluate every operand and lower to IR"
+      (let* ((forms '((if (and (bool #t) (bool #t) (bool #f))
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node)))
+                     (if (or (bool #f) (bool #f) (bool #t))
+                         ((start-node Heading) (finish-node)) ())))
+             (wire (event-fold-ir-json
+                    'nary_boolean event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "x" 'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Heading) (finish) (finish)))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind") => "and")
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 1)
+                                   "condition") "kind") => "or")))
     (test-case "ASCII line markers reject prefix collisions in Scheme and IR"
       (let* ((forms '((if (line-prefix-boundary-ascii-ci "#+begin_src")
                          ((start-node Text) (token Line start end)

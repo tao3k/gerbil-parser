@@ -25,6 +25,7 @@ pub enum LexicalExpr {
     Whitespace,
     HorizontalWhitespace,
     Newline,
+    Line,
     DecimalDigits,
     Number,
     NumberLiteral {
@@ -35,7 +36,9 @@ pub enum LexicalExpr {
         trailing_period: bool,
     },
     Identifier,
+    UntilDelimiters(&'static str),
     QuotedString(&'static [&'static str]),
+    EscapedQuotedString(&'static [&'static str]),
     Heredoc,
     LineComment(&'static [&'static str]),
     BlockComment {
@@ -57,6 +60,185 @@ pub struct LexicalRule {
     pub expression: LexicalExpr,
     pub precedence: i32,
     pub extra: bool,
+}
+
+/// One token emitted by a downstream AOT-generated scanner.
+///
+/// Ranges are UTF-8 byte offsets into the exact source passed to
+/// [`crate::parse_scanned`]. The runtime validates complete, ordered coverage.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ScannedToken {
+    pub terminal: &'static str,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// Structural decisions emitted by a downstream Scheme-AOT parser.
+///
+/// The generated language specification owns kind identities. Tokens must
+/// cover the source exactly once, in order; nodes may nest to arbitrary depth.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TreeEvent {
+    StartNode(u16),
+    Token { kind: u16, start: usize, end: usize },
+    FinishNode,
+}
+
+/// A declarative, line-oriented structural grammar compiled from Scheme.
+/// Kind references are resolved against the generated language catalog at AOT time.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LineStructureSpec {
+    pub grammar_digest: &'static str,
+    pub parser_digest: &'static str,
+    pub heading: HeadingLineRule,
+    pub blocks: &'static [BlockLineRule],
+    pub paragraph_node: Option<u16>,
+    pub table: Option<TableLineRule>,
+    pub list: Option<ListLineRule>,
+    pub key_lines: &'static [KeyLineRule],
+    pub text_node: u16,
+    pub text_token: u16,
+    pub inline_link: Option<InlineLinkRule>,
+}
+
+/// A Scheme-declared keyed line with optional heading adjacency and repeated keys.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct KeyLineRule {
+    pub prefix: &'static str,
+    pub keys: &'static [&'static str],
+    pub separator: u8,
+    pub case_insensitive: bool,
+    pub indent: bool,
+    pub context: KeyLineContext,
+    pub mode: KeyLineMode,
+    pub node: u16,
+    pub key_token: u16,
+    pub value_token: u16,
+    pub trivia_token: u16,
+}
+
+/// Context in which a keyed line can begin an element.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KeyLineContext {
+    Anywhere,
+    AfterHeading,
+}
+
+/// Whether a keyed line carries one key/value pair or a bounded sequence.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KeyLineMode {
+    Single,
+    Repeated,
+}
+
+/// Contiguous delimiter-led rows projected into a lossless table and cells.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TableLineRule {
+    pub delimiter: u8,
+    pub table_node: u16,
+    pub row_node: u16,
+    pub rule_row_node: u16,
+    pub cell_node: u16,
+    pub separator_token: u16,
+    pub cell_token: u16,
+    pub trivia_token: u16,
+    pub rule_token: u16,
+}
+
+/// Marker-led items with indentation-derived nesting.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ListLineRule {
+    pub unordered_markers: &'static str,
+    pub ordered: bool,
+    pub tab_width: usize,
+    pub list_node: u16,
+    pub item_node: u16,
+    pub bullet_token: u16,
+    pub trivia_token: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InlineLinkRule {
+    pub opening: &'static str,
+    pub separator: &'static str,
+    pub closing: &'static str,
+    pub node: u16,
+    pub target_token: u16,
+    pub description_token: u16,
+    pub trivia_token: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HeadingLineRule {
+    pub marker: u8,
+    pub separator: u8,
+    pub section_node: u16,
+    pub heading_node: u16,
+    pub heading_token: u16,
+    pub fields: Option<HeadingFieldsRule>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HeadingFieldsRule {
+    pub title_token: u16,
+    pub trivia_token: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BlockLineRule {
+    pub opening: &'static str,
+    pub opening_mode: BlockOpeningMode,
+    pub closing: &'static str,
+    pub case_insensitive: bool,
+    pub indent: bool,
+    pub block_node: u16,
+    pub begin_token: u16,
+    pub body_token: u16,
+    pub end_token: u16,
+    pub unclosed: UnclosedBlockPolicy,
+    pub heading_bound: bool,
+    pub contents: BlockContents,
+    pub body_line: Option<KeyValueLineRule>,
+    pub header: Option<BlockHeaderRule>,
+}
+
+/// How a Scheme-declared structural block opening is recognized.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BlockOpeningMode {
+    /// Match an exact opening directive followed by optional whitespace.
+    Literal,
+    /// Match a delimiter, an ASCII name, and the same delimiter.
+    NamedDelimited,
+    /// Match an exact directive followed by a required ASCII name argument.
+    RequiredNamedArgument,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BlockHeaderRule {
+    pub argument_token: u16,
+    pub trivia_token: u16,
+}
+
+/// A line whose key is enclosed by the same marker on both sides.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct KeyValueLineRule {
+    pub marker: u8,
+    pub node: u16,
+    pub key_token: u16,
+    pub value_token: u16,
+    pub trivia_token: u16,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UnclosedBlockPolicy {
+    CloseAtEof,
+    RecoverAsText,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BlockContents {
+    Opaque,
+    Elements,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -162,6 +344,10 @@ pub struct ParseReceipt {
     pub version: &'static str,
     pub contract: &'static str,
     pub grammar_digest: &'static str,
+    /// Digest of the Scheme-owned contextual parser strategy when one is used.
+    pub parser_digest: Option<&'static str>,
+    /// Digest of the downstream Scheme scanner declaration when one is used.
+    pub scanner_digest: Option<&'static str>,
     pub source_digest: String,
 }
 
@@ -217,7 +403,7 @@ impl Parse {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ParseError {
-    pub receipt: ParseReceipt,
+    pub receipt: Box<ParseReceipt>,
     pub diagnostic: Box<Diagnostic>,
     pub selective_glr: Option<Box<SelectiveGlrReceipt>>,
 }

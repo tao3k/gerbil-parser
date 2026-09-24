@@ -7,12 +7,15 @@
 (export scan-whitespace
         scan-horizontal-whitespace
         scan-newline
+        scan-line
+        scan-until-delimiters
         scan-decimal-digits
         scan-number-literal
         scan-number-literal/profile
         scan-identifier
         scan-quoted-string
         scan-quoted-strings
+        scan-escaped-quoted-strings
         scan-heredoc
         scan-line-comment
         scan-block-comment
@@ -70,6 +73,39 @@
 ;; scan-newline
 ;; : (-> String Fixnum Fixnum)
 (def scan-newline (cut scan-nonempty-while newline? newline? <> <>))
+
+;; One complete line, including its LF, CRLF, or bare CR terminator.
+;; This primitive is useful for line-oriented grammars without allocating a
+;; substring or emitting one token per source character.
+(def (scan-line source start)
+  (let (length (string-length source))
+    (and (< start length)
+         (let loop ((offset start))
+           (cond
+            ((= offset length) length)
+            ((char=? (string-ref source offset) #\newline)
+             (+ offset 1))
+            ((char=? (string-ref source offset) #\return)
+             (if (and (< (+ offset 1) length)
+                      (char=? (string-ref source (+ offset 1)) #\newline))
+               (+ offset 2)
+               (+ offset 1)))
+            (else (loop (+ offset 1))))))))
+
+;; Maximal nonempty atom run, stopping before Unicode whitespace or a delimiter.
+;; Delimiters are language-owned; this primitive knows no S-expression policy.
+(def (scan-until-delimiters source start delimiters)
+  (and (< start (string-length source))
+       (let (end (scan-while
+                 source start
+                 (lambda (character)
+                   (and (not (char-whitespace? character))
+                        (not (let loop ((index 0))
+                               (and (< index (string-length delimiters))
+                                    (or (char=? character
+                                                (string-ref delimiters index))
+                                        (loop (+ index 1))))))))))
+         (and (> end start) end))))
 
 ;; scan-decimal-digits
 ;; : (-> String Fixnum Fixnum)
@@ -241,7 +277,7 @@
 ;;       ;; => 7
 ;;       ```
 ;;     %
-(def (scan-quoted-string source start delimiter)
+(def (scan-quoted-string/mode source start delimiter doubled-delimiter?)
   (let ((length (string-length source))
         (delimiter-length (string-length delimiter)))
     (and (literal-at? source start delimiter)
@@ -256,10 +292,14 @@
                ;; ISO graph-query character sequences escape their delimiter
                ;; by doubling it.  Backslash escaping remains admitted for
                ;; the same source grammars, so both forms stay lossless.
-               (if (literal-at? source next delimiter)
+               (if (and doubled-delimiter?
+                        (literal-at? source next delimiter))
                  (loop (+ next delimiter-length) #f)
                  next)))
             (else (loop (+ offset 1) #f)))))))
+
+(def (scan-quoted-string source start delimiter)
+  (scan-quoted-string/mode source start delimiter #t))
 
 ;; scan-quoted-strings
 ;;   : (-> String Fixnum List Fixnum)
@@ -276,6 +316,12 @@
 (def (scan-quoted-strings source start delimiters)
   (ormap (lambda (delimiter)
            (scan-quoted-string source start delimiter))
+         delimiters))
+
+;; Backslash escapes are admitted; adjacent quoted strings remain distinct.
+(def (scan-escaped-quoted-strings source start delimiters)
+  (ormap (lambda (delimiter)
+           (scan-quoted-string/mode source start delimiter #f))
          delimiters))
 
 (def (line-end source start)

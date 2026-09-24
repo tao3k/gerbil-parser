@@ -4,7 +4,8 @@
 (import (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/language-artifact
                  compiled-language-artifact-relative-path
-                 load-compiled-language-artifact/roots)
+                 load-compiled-language-artifact/roots
+                 sha256-identity-filename)
         (only-in :gerbil/compiler/base current-compile-output-dir)
         (only-in :std/misc/ports read-all-as-u8vector)
         (only-in :std/encoding/base64 base64-encode)
@@ -142,7 +143,7 @@
 ;; : (-> String String)
 (def (parser-cache-relative-path key)
   (string-append "gerbil-parser/compiled-language-parser-cache/"
-                 key ".scm"))
+                 (sha256-identity-filename key) ".scm"))
 
 ;; : (-> String List (Maybe List))
 (def (read-parser-cache-receipt key output-dirs)
@@ -253,7 +254,7 @@
 ;; : (-> String String)
 (def (declaration-cache-relative-path key)
   (string-append "gerbil-parser/compiled-language-declaration-cache/"
-                 key ".scm"))
+                 (sha256-identity-filename key) ".scm"))
 
 ;; : (-> String List (Maybe List))
 (def (read-declaration-cache-receipt key output-dirs)

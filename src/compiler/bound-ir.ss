@@ -111,27 +111,27 @@
      (cons 'references references)
      (cons 'referenceDigest (sha256-text (canonical references))))))
 
-;;; Each section fold carries separate seen-name and result accumulators.  A
+;;; Keep a section-local name index while preserving declaration order.  A
 ;;; duplicate declaration fails before any partially bound section escapes.
 ;; : (forall (r b) (-> Symbol Symbol [r] String List Alist [b]))
 ;; : (-> GrammarOwner GrammarNamespace DeclarationRows OriginModule ExpansionLineage BoundDeclarations)
 (def (bind-section owner namespace rows origin lineage source-map)
-  (let (state
-        (foldl
-         (lambda (row state)
-           (let ((name (and (pair? row) (car row)))
-                 (seen (car state))
-                 (bound (cdr state)))
-             (unless (symbol? name)
-               (error "bound grammar declaration requires a symbolic identity"
-                      namespace row))
-             (when (memq name seen)
-               (error "duplicate bound grammar declaration" namespace name))
-             (cons (cons name seen)
-                   (cons (bind-row owner namespace row origin lineage source-map)
-                         bound))))
-         (cons '() '()) rows))
-    (reverse (cdr state))))
+  (let ((seen (make-table test: eq?))
+        (bound '()))
+    (for-each
+     (lambda (row)
+       (let (name (and (pair? row) (car row)))
+         (unless (symbol? name)
+           (error "bound grammar declaration requires a symbolic identity"
+                  namespace row))
+         (when (table-ref seen name #f)
+           (error "duplicate bound grammar declaration" namespace name))
+         (table-set! seen name #t)
+         (set! bound
+           (cons (bind-row owner namespace row origin lineage source-map)
+                 bound))))
+     rows)
+    (reverse bound)))
 
 ;; : (forall (a) (-> [(Pair Symbol a)] Symbol (Maybe a)))
 ;; : (-> Alist Symbol Datum)
@@ -180,20 +180,23 @@
                                   origin lineage source-map))
                       fields)))))
     (let* ((bindings (apply append (map cdr sections)))
-           (binding-ids
-            (map (lambda (binding)
-                   (bound-grammar-ir-ref binding 'bindingId))
-                 bindings))
+           (binding-ids (make-table test: equal?))
            (references
             (apply append
                    (map (lambda (binding)
                           (bound-grammar-ir-ref binding 'references))
                         bindings))))
+      (for-each
+       (lambda (binding)
+         (table-set! binding-ids
+                     (bound-grammar-ir-ref binding 'bindingId)
+                     #t))
+       bindings)
       ;; Admission closes the sidecar over the exact declaration set.  Missing
       ;; targets are never retained as advisory or deferred references.
       (for-each
        (lambda (reference)
-         (unless (member reference binding-ids)
+         (unless (table-ref binding-ids reference #f)
            (error "unresolved bound grammar reference" reference)))
        references)
       (list

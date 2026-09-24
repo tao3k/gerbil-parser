@@ -16,7 +16,8 @@
         (only-in :gerbil-parser/src/runtime/language-artifact
                  compiled-language-artifact-relative-path
                  load-compiled-language-artifact/embedded
-                 load-compiled-language-artifact/roots))
+                 load-compiled-language-artifact/roots
+                 sha256-identity-filename))
 (export language-artifact-tests)
 
 (def test-schema "gerbil-parser.language-artifact-test.v1")
@@ -54,16 +55,28 @@
 ;; : (-> String String Void)
 (def (write-raw-file path content)
   (create-directory* (path-directory path))
-  (call-with-output-file path (lambda (port) (display content port))))
+  (call-with-output-file path (lambda (port) (write-string content port))))
 
 (def language-artifact-tests
   (test-suite "compiled language artifact admission"
+    (test-case "content identities use a portable physical filename"
+      (check
+       (sha256-identity-filename
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+       =>
+       "sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
     (test-case "a content-addressed sidecar loads only from declared roots"
       (call-with-temporary-directory
        (lambda (root)
          (let* ((serialized (serialize test-value))
+                (digest (sha256-text serialized))
                 (relative-path (write-serialized-sidecar root serialized))
-                (locator (list relative-path (sha256-text serialized))))
+                (locator (list relative-path digest)))
+           (check relative-path
+                  => (string-append
+                      "gerbil-parser/compiled-language-artifacts/sha256-"
+                      (substring digest 7 71)
+                      ".gir.z"))
            (check (load-compiled-language-artifact/roots
                    test-schema locator (list root))
                   => test-value)))))

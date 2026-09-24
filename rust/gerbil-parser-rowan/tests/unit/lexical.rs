@@ -28,6 +28,14 @@ fn quoted_strings_preserve_doubled_and_backslash_escapes() {
 }
 
 #[test]
+fn escaped_quoted_strings_leave_adjacent_strings_separate() {
+    let expression = LexicalExpr::EscapedQuotedString(&["\""]);
+    assert_eq!(lexical_end(&expression, "\"a\"\"b\"", 0), Some(3));
+    assert_eq!(lexical_end(&expression, r#""a\"b""#, 0), Some(6));
+    assert_eq!(lexical_end(&expression, "\"unterminated", 0), None);
+}
+
+#[test]
 fn comments_and_choices_take_the_longest_complete_match() {
     let expression = LexicalExpr::Choice(&[
         LexicalExpr::LineComment(&["//", "#"]),
@@ -52,4 +60,24 @@ fn nested_comments_and_heredocs_close_losslessly() {
         lexical_end(&LexicalExpr::Heredoc, "<<EOF\nvalue\nEOF", 0),
         Some(15)
     );
+}
+
+#[test]
+fn line_primitive_preserves_crlf_lf_cr_and_utf8_boundaries() {
+    let expression = LexicalExpr::Line;
+    assert_eq!(lexical_end(&expression, "é\r\nnext", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "é\r\nnext", 4), Some(8));
+    assert_eq!(lexical_end(&expression, "one\ntwo", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "one\rtwo", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "last", 0), Some(4));
+    assert_eq!(lexical_end(&expression, "", 0), None);
+}
+
+#[test]
+fn delimiter_bounded_atom_preserves_utf8_without_consuming_syntax() {
+    let atom = LexicalExpr::UntilDelimiters(" \t\r\n();\"");
+    assert_eq!(lexical_end(&atom, ":scope) tail", 0), Some(6));
+    assert_eq!(lexical_end(&atom, "π-link; note", 0), Some(7));
+    assert_eq!(lexical_end(&atom, "π\u{a0}next", 0), Some(2));
+    assert_eq!(lexical_end(&atom, ")", 0), None);
 }

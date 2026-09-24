@@ -12,5 +12,8 @@ publish = false
 asp-rust.workspace = true
 asp-rust-build-support.workspace = true
 
+[dev-dependencies]
+gerbil-scheme-rust-ir.workspace = true
+
 [lints]
 workspace = true

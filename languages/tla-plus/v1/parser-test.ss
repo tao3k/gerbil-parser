@@ -62,6 +62,27 @@
 ;; : TestSuite
 (def tla-plus-v1-parser-test
   (test-suite "TLA+ v1 versioned language pack"
+    (test-case "modular multiline action contracts keep native source bytes"
+      (let* ((source
+              "---- MODULE Modular ----\nVARIABLES active,\n queued\nWork == INSTANCE WorkLifecycle\nInit ==\n  /\\ Work!Init\n  /\\ active = TRUE\nNext == Work!Step \\/\n        (active' = FALSE /\\\n         UNCHANGED <<queued,\n                    active>>)\n====\n")
+             (artifact (parse-tla-plus-v1 source))
+             (kinds (and (parse-artifact-success? artifact)
+                         (cst-node-kinds (parse-artifact->cst artifact)))))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (for-each
+         (lambda (kind) (check (member kind kinds) ? values))
+         '(InstanceExpression QualifiedNameExpression JunctionExpression))))
+    (test-case "incomplete modular forms remain syntax errors"
+      (for-each
+       (lambda (body)
+         (let* ((source (string-append "---- MODULE Broken ----\n" body "\n====\n"))
+                (artifact (parse-tla-plus-v1 source)))
+           (check (parse-artifact-success? artifact) => #f)
+           (check (parse-artifact-roundtrip artifact) => source)))
+       '("Work == INSTANCE" "Value == Work!" "VARIABLES active,\n"
+         "Init ==\n /\\" "Next == TRUE /\\\n")))
     (test-case "native syntax and corpus identities are immutable"
       (check +tla-plus-contract-version+ => "v1")
       (check +tla-plus-syntax-contract+ => "tla-plus.native-core.v1")
@@ -119,16 +140,16 @@
            (call-with-output-file
             spec
             (lambda (port)
-              (display
+              (write-string
                "---- MODULE Qualified ----\nVARIABLE enabled\nInit == enabled = FALSE\nNext == enabled' = TRUE\n====\n"
                port)))
            (call-with-output-file
             config
-            (lambda (port) (display "INIT Init\nNEXT Next\n" port)))
+            (lambda (port) (write-string "INIT Init\nNEXT Next\n" port)))
            (call-with-output-file
             tlc
             (lambda (port)
-              (display
+              (write-string
                "#!/bin/sh\ncat <<'EOF'\nTLC2 Version fixture\nModel checking completed. No error has been found.\n4 states generated, 2 distinct states found, 0 states left on queue.\nThe depth of the complete state graph search is 1.\nEOF\n"
                port)))
            (run-process ["chmod" "+x" tlc])
@@ -152,16 +173,16 @@
            (call-with-output-file
             spec
             (lambda (port)
-              (display
+              (write-string
                "---- MODULE Rejected ----\nVARIABLE enabled\nInit == enabled = FALSE\nNext == enabled' = TRUE\n====\n"
                port)))
            (call-with-output-file
             config
-            (lambda (port) (display "INIT Init\nNEXT Next\n" port)))
+            (lambda (port) (write-string "INIT Init\nNEXT Next\n" port)))
            (call-with-output-file
             tlc
             (lambda (port)
-              (display
+              (write-string
                "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Model checking completed. No error has been found.'\necho '4 states generated, 2 distinct states found, 0 states left on queue.'\necho 'The depth of the complete state graph search is 1.'\nexit 7\n"
                port)))
            (run-process ["chmod" "+x" tlc])
@@ -172,7 +193,7 @@
            (call-with-output-file
             tlc
             (lambda (port)
-              (display
+              (write-string
                "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Model checking completed. No error has been found.'\n"
                port)))
            (let (receipt
@@ -187,12 +208,12 @@
            (call-with-output-file
             spec
             (lambda (port)
-              (display
+              (write-string
                "---- MODULE Malformed ----\nVARIABLE x\nBroken == IF x = 0 THEN ELSE x\n====\n"
                port)))
            (call-with-output-file
             config
-            (lambda (port) (display "INIT Broken\n" port)))
+            (lambda (port) (write-string "INIT Broken\n" port)))
            (let (receipt
                  (qualify-tla-plus-model
                   spec config tlc: "this-tlc-must-not-be-resolved"))

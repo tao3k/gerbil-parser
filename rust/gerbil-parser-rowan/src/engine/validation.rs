@@ -9,7 +9,12 @@ use super::model::{
     KindCategory, LanguageSpec, LexicalExpr, OperandAction, ParseReceipt, ParserAction,
 };
 
-pub(crate) fn receipt(spec: &LanguageSpec, source: &str) -> ParseReceipt {
+pub(crate) fn receipt(
+    spec: &LanguageSpec,
+    source: &str,
+    parser_digest: Option<&'static str>,
+    scanner_digest: Option<&'static str>,
+) -> ParseReceipt {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let digest = Sha256::digest(source.as_bytes());
     let mut encoded = String::with_capacity(71);
@@ -23,12 +28,20 @@ pub(crate) fn receipt(spec: &LanguageSpec, source: &str) -> ParseReceipt {
         version: spec.version,
         contract: spec.contract,
         grammar_digest: spec.grammar_digest,
+        parser_digest,
+        scanner_digest,
         source_digest: encoded,
     }
 }
 
+pub(crate) fn canonical_sha256_digest(digest: &str) -> bool {
+    digest.len() == 71
+        && digest.starts_with("sha256:")
+        && digest[7..].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 fn validate_spec(spec: &LanguageSpec) -> Result<(), String> {
-    if spec.grammar_digest.len() != 71 || !spec.grammar_digest.starts_with("sha256:") {
+    if !canonical_sha256_digest(spec.grammar_digest) {
         return Err("grammar digest is not a canonical SHA-256 identity".into());
     }
     if spec.kinds.len() > usize::from(u16::MAX) + 1 {
@@ -153,7 +166,9 @@ fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
         } if separator.chars().count() != 1 || !nonempty(prefixes) || !nonempty(suffixes) => {
             Err("profiled number contains an invalid separator, prefix, or suffix".into())
         }
-        LexicalExpr::QuotedString(delimiters) if delimiters.is_empty() || !nonempty(delimiters) => {
+        LexicalExpr::QuotedString(delimiters) | LexicalExpr::EscapedQuotedString(delimiters)
+            if delimiters.is_empty() || !nonempty(delimiters) =>
+        {
             Err("quoted string requires non-empty delimiters".into())
         }
         LexicalExpr::LineComment(prefixes) if prefixes.is_empty() || !nonempty(prefixes) => {

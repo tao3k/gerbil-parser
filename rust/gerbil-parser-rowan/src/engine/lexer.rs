@@ -1,6 +1,69 @@
-//! Generated-rule lexical execution.
+//! Generated-rule lexical execution and validation of downstream scanned tokens.
 
-use super::model::{Diagnostic, LanguageSpec, LexicalExpr, LexicalRule, Token};
+use std::collections::HashMap;
+
+use super::model::{Diagnostic, LanguageSpec, LexicalExpr, LexicalRule, ScannedToken, Token};
+
+pub(crate) fn lex_scanned<'source>(
+    spec: &LanguageSpec,
+    source: &'source str,
+    scanned: &[ScannedToken],
+) -> Result<(Vec<Token<'source>>, Vec<usize>), Diagnostic> {
+    let terminals: HashMap<_, _> = spec
+        .terminals
+        .iter()
+        .filter_map(|terminal| {
+            spec.lexical_rules
+                .iter()
+                .find(|rule| rule.terminal == terminal.name)
+                .map(|rule| (terminal.name, (terminal.syntax_kind, rule.extra)))
+        })
+        .collect();
+    let mut tokens = Vec::with_capacity(scanned.len());
+    let mut significant = Vec::with_capacity(scanned.len());
+    let mut offset = 0;
+    for item in scanned {
+        if item.start != offset
+            || item.end <= item.start
+            || item.end > source.len()
+            || !source.is_char_boundary(item.start)
+            || !source.is_char_boundary(item.end)
+        {
+            return Err(Diagnostic {
+                reason_kind: "scanner-range",
+                byte_offset: item.start.min(source.len()),
+                message: "scanner tokens must cover the source in ordered nonempty UTF-8 ranges"
+                    .into(),
+            });
+        }
+        let Some(&(syntax_kind, extra)) = terminals.get(item.terminal) else {
+            return Err(Diagnostic {
+                reason_kind: "scanner-terminal",
+                byte_offset: item.start,
+                message: format!("scanner emitted undeclared terminal {}", item.terminal),
+            });
+        };
+        if !extra {
+            significant.push(tokens.len());
+        }
+        tokens.push(Token {
+            terminal: item.terminal,
+            syntax_kind,
+            text: &source[item.start..item.end],
+            start: item.start,
+            end: item.end,
+        });
+        offset = item.end;
+    }
+    if offset != source.len() {
+        return Err(Diagnostic {
+            reason_kind: "scanner-range",
+            byte_offset: offset,
+            message: "scanner tokens do not cover the source suffix".into(),
+        });
+    }
+    Ok((tokens, significant))
+}
 
 pub(crate) fn lex<'source>(
     spec: &LanguageSpec,
@@ -81,6 +144,7 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
         LexicalExpr::Newline => {
             consume_while(source, offset, |character| matches!(character, '\r' | '\n'))
         }
+        LexicalExpr::Line => line_end(source, offset),
         LexicalExpr::DecimalDigits => consume_while(source, offset, char::is_numeric),
         LexicalExpr::Number => number_end(source, offset),
         LexicalExpr::NumberLiteral {
@@ -99,9 +163,15 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
             *trailing_period,
         ),
         LexicalExpr::Identifier => identifier_end(source, offset),
+        LexicalExpr::UntilDelimiters(delimiters) => consume_while(source, offset, |character| {
+            !character.is_whitespace() && !delimiters.contains(character)
+        }),
         LexicalExpr::QuotedString(delimiters) => delimiters
             .iter()
-            .find_map(|delimiter| quoted_string_end(source, offset, delimiter)),
+            .find_map(|delimiter| quoted_string_end(source, offset, delimiter, true)),
+        LexicalExpr::EscapedQuotedString(delimiters) => delimiters
+            .iter()
+            .find_map(|delimiter| quoted_string_end(source, offset, delimiter, false)),
         LexicalExpr::Heredoc => heredoc_end(source, offset),
         LexicalExpr::LineComment(prefixes) => line_comment_end(source, offset, prefixes),
         LexicalExpr::BlockComment { opening, closing } => {
@@ -126,6 +196,24 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
     }
 }
 
+pub(crate) fn line_end(source: &str, offset: usize) -> Option<usize> {
+    let tail = source.get(offset..)?;
+    if tail.is_empty() {
+        return None;
+    }
+    for (relative, byte) in tail.bytes().enumerate() {
+        match byte {
+            b'\n' => return Some(offset + relative + 1),
+            b'\r' => {
+                let end = offset + relative + 1;
+                return Some(end + usize::from(source.as_bytes().get(end) == Some(&b'\n')));
+            }
+            _ => {}
+        }
+    }
+    Some(source.len())
+}
+
 fn longest_literal<'a>(source: &str, offset: usize, values: &'a [&str]) -> Option<&'a str> {
     values
         .iter()
@@ -134,7 +222,12 @@ fn longest_literal<'a>(source: &str, offset: usize, values: &'a [&str]) -> Optio
         .max_by_key(|value| value.len())
 }
 
-fn quoted_string_end(source: &str, offset: usize, delimiter: &str) -> Option<usize> {
+fn quoted_string_end(
+    source: &str,
+    offset: usize,
+    delimiter: &str,
+    doubled_delimiter: bool,
+) -> Option<usize> {
     if delimiter.is_empty() || !source[offset..].starts_with(delimiter) {
         return None;
     }
@@ -146,7 +239,7 @@ fn quoted_string_end(source: &str, offset: usize, delimiter: &str) -> Option<usi
             cursor += escaped.len_utf8();
         } else if source[cursor..].starts_with(delimiter) {
             let next = cursor + delimiter.len();
-            if source[next..].starts_with(delimiter) {
+            if doubled_delimiter && source[next..].starts_with(delimiter) {
                 cursor = next + delimiter.len();
             } else {
                 return Some(next);

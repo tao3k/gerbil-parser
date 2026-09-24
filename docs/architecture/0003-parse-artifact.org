@@ -136,6 +136,28 @@ authority.
 
 * Executable admission
 
+Parser acceptance tests use the engine-owned =check-parser-ast= syntax rather
+than printed CST fragments or source-roundtrip alone.  Its pattern language is
+deliberately limited to =node=, =field=, and =token=; every part specifies its
+kind, UTF-8 byte span, and exact ordered children or token lexeme.  The macro
+checks artifact validity, accepted status, full source roundtrip, and the exact
+Gerbil CST projection as one assertion.  A failure reports the child path and
+the first mismatched property.
+
+#+begin_src scheme
+(check-parser-ast (parse-arithmetic-v1 "1") "1"
+  (node SourceFile 0 1
+    (field expression 0 1
+      (node NumberExpression 0 1
+        (field value 0 1
+          (token number "1" 0 1))))))
+#+end_src
+
+This is a parser contract, not a generic object-matching macro.  Tests for
+generation itself may inspect emitted Rust separately, but a textual fragment
+is not proof of parse-tree semantics.  Export test suites with the singular
+=-test= suffix required by Gerbil v0.19 discovery.
+
 Admission requires source-level tests proving complete trivia and delimiter
 coverage, deterministic event and digest identity, UTF-8 spans, deterministic
 CST replay, rejected-terminal exclusivity, and fail-closed corruption handling

@@ -20,7 +20,7 @@
 (def (lexical-expression? value)
   (and (list? value)
        (case (car value)
-         ((whitespace+ horizontal-whitespace+ newline+
+         ((whitespace+ horizontal-whitespace+ newline+ line
            decimal-digit+ number identifier heredoc fallback)
           (null? (cdr value)))
          ((number-literal)
@@ -32,8 +32,12 @@
                (strings? (cadddr value))
                (boolean? (car (cddddr value)))
                (boolean? (cadr (cddddr value)))))
-         ((quoted-string)
+         ((quoted-string escaped-quoted-string)
           (and (pair? (cdr value)) (strings? (cdr value))))
+         ((until-delimiters)
+          (and (= (length value) 2)
+               (string? (cadr value))
+               (positive? (string-length (cadr value)))))
          ((line-comment)
           (and (pair? (cdr value)) (strings? (cdr value))))
          ((block-comment nested-block-comment)
@@ -55,7 +59,7 @@
          (else #f))))
 
 (def (lexical-primitive kind)
-  (unless (memq kind '(whitespace+ horizontal-whitespace+ newline+
+  (unless (memq kind '(whitespace+ horizontal-whitespace+ newline+ line
                        decimal-digit+ number identifier heredoc fallback))
     (error "unknown lexical primitive" kind))
   (list kind))
@@ -94,9 +98,10 @@
 ;;       ```
 ;;     %
 (defrules lexical-expression
-  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
+  (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string line-comment block-comment nested-block-comment
+   quoted-string escaped-quoted-string until-delimiters
+   line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ (whitespace+))
    (lexical-primitive 'whitespace+))
@@ -104,6 +109,8 @@
    (lexical-primitive 'horizontal-whitespace+))
   ((_ (newline+))
    (lexical-primitive 'newline+))
+  ((_ (line))
+   (lexical-primitive 'line))
   ((_ (decimal-digit+))
    (lexical-primitive 'decimal-digit+))
   ((_ (number))
@@ -116,6 +123,10 @@
    (lexical-primitive 'identifier))
   ((_ (quoted-string delimiter ...))
    (cons 'quoted-string (list delimiter ...)))
+  ((_ (escaped-quoted-string delimiter ...))
+   (cons 'escaped-quoted-string (list delimiter ...)))
+  ((_ (until-delimiters characters))
+   (list 'until-delimiters characters))
   ((_ (heredoc))
    (lexical-primitive 'heredoc))
   ((_ (line-comment start ...))

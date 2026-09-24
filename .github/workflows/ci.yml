@@ -157,6 +157,14 @@ jobs:
           gerbil env gxi build-gparse.ss compile
           gerbil env gxi build-rust-rowan-aot.ss compile
 
+      - name: Compile Scheme test support
+        run: |
+          gerbil env gxc t/line-structure-assertions.ss
+          gerbil env gxc \
+            t/fixtures/rust-rowan-downstream/languages/records/v1/grammar.ss \
+            t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss \
+            t/fixtures/rust-rowan-downstream/languages/records/v1/fixtures.ss
+
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: gerbil test -v 3 t/... languages/...
@@ -167,6 +175,22 @@ jobs:
           gerbil env gxi generate-rust-rowan.ss "$arithmetic_generated"
           rustfmt --edition 2024 "$arithmetic_generated"
           cmp "$arithmetic_generated" rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
+
+      - name: Verify Scheme event strategy AOT fixture
+        run: |
+          event_generated="$(mktemp)"
+          grammar_generated="$(mktemp)"
+          gerbil env gxi t/generate-event-strategy-fixture.ss "$event_generated"
+          gerbil env gxi t/generate-event-strategy-grammar.ss "$grammar_generated"
+          rustfmt --edition 2024 "$event_generated" "$grammar_generated"
+          cmp "$event_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_generated.rs
+          cmp "$grammar_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_grammar.rs
+
+      - name: Verify Scheme pure owned-string AOT fixture
+        run: |
+          owned_generated="$(mktemp)"
+          gerbil env gxi t/generate-owned-word-fixture.ss "$owned_generated"
+          cmp "$owned_generated" rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs
 
       - name: Verify downstream custom Rust/Rowan language pack
         run: |

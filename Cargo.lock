@@ -218,6 +218,7 @@ version = "0.1.0"
 dependencies = [
  "asp-rust",
  "asp-rust-build-support",
+ "gerbil-scheme-rust-ir",
 ]
 
 [[package]]
@@ -242,6 +243,18 @@ dependencies = [
  "gerbil-parser-build-support",
  "gerbil-parser-rowan",
  "gerbil-parser-rowan-arithmetic",
+]
+
+[[package]]
+name = "gerbil-scheme-rust-ir"
+version = "0.1.0"
+source = "git+https://github.com/tao3k/gerbil-scheme-rust?rev=bc8b4bb1209016c7603e1289c9817792fec54887#bc8b4bb1209016c7603e1289c9817792fec54887"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
 ]
 
 [[package]]

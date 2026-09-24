@@ -21,6 +21,9 @@
    (OperatorDefinition node (name parameter body))
    (RecursiveDeclaration node (name parameter))
    (InstanceDeclaration node (module substitution))
+   (InstanceExpression node (module substitution))
+   (QualifiedNameExpression node (module name))
+   (JunctionExpression node (operator body))
    (Substitution node (name value))
    (AssumptionDeclaration node (name body))
    (TheoremDeclaration node (name body))
@@ -76,33 +79,29 @@
    (module
     (alias Module
       (seq (token module-border) (literal "MODULE")
-           (field name (token identifier)) (token module-border) (token newline)
+           (field name (token identifier)) (token module-border)
            (repeat (field item (reference module-item)))
-           (token module-end) (optional (token newline)))))
+           (token module-end))))
    (module-item
     (choice (reference extends-declaration) (reference constant-declaration)
             (reference variable-declaration) (reference operator-definition)
             (reference recursive-declaration) (reference instance-declaration)
             (reference assumption-declaration) (reference theorem-declaration)
-            (reference use-hide-declaration) (reference separator)
-            (reference empty-line)))
+            (reference use-hide-declaration) (reference separator)))
    (extends-declaration
     (alias ExtendsDeclaration
       (seq (literal "EXTENDS") (field module (token identifier))
-           (repeat (seq (literal ",") (field module (token identifier))))
-           (token newline))))
+           (repeat (seq (literal ",") (field module (token identifier)))))))
    (constant-declaration
     (alias ConstantDeclaration
       (seq (choice (literal "CONSTANT") (literal "CONSTANTS"))
            (field name (token identifier))
-           (repeat (seq (literal ",") (field name (token identifier))))
-           (token newline))))
+           (repeat (seq (literal ",") (field name (token identifier)))))))
    (variable-declaration
     (alias VariableDeclaration
       (seq (choice (literal "VARIABLE") (literal "VARIABLES"))
            (field name (token identifier))
-           (repeat (seq (literal ",") (field name (token identifier))))
-           (token newline))))
+           (repeat (seq (literal ",") (field name (token identifier)))))))
    (operator-definition
     (alias OperatorDefinition
       (seq (optional (literal "LOCAL")) (field name (token identifier))
@@ -110,8 +109,10 @@
             (seq (literal "(") (field parameter (token identifier))
                  (repeat (seq (literal ",") (field parameter (token identifier))))
                  (literal ")")))
-           (literal "==") (field body (reference expression))
-           (token newline))))
+           (literal "==")
+           (field body (choice (reference instance-expression)
+                               (reference junction-expression)
+                               (reference expression))))))
    (recursive-declaration
     (alias RecursiveDeclaration
      (seq (literal "RECURSIVE")
@@ -121,8 +122,7 @@
                 (repeat (seq (literal ",")
                              (field parameter (token identifier))))
                 (literal ")")))
-          (repeat (seq (literal ",") (field name (token identifier))))
-          (token newline))))
+          (repeat (seq (literal ",") (field name (token identifier)))))))
    (instance-declaration
     (alias InstanceDeclaration
      (seq (optional (literal "LOCAL")) (literal "INSTANCE")
@@ -132,34 +132,44 @@
                 (field substitution (reference substitution))
                 (repeat
                  (seq (literal ",")
-                      (field substitution (reference substitution))))))
-          (token newline))))
+                      (field substitution (reference substitution)))))))))
    (substitution
     (alias Substitution
      (seq (field name (token identifier)) (literal "<-")
           (field value (reference expression)))))
+   (instance-expression
+    (alias InstanceExpression
+     (seq (literal "INSTANCE") (field module (token identifier))
+          (optional
+           (seq (literal "WITH")
+                (field substitution (reference substitution))
+                (repeat (seq (literal ",")
+                             (field substitution (reference substitution)))))))))
+   ;; Flat junction lists retain their leading marker in the native CST.
+   ;; Nested indentation-sensitive junction lists are not admitted here.
+   (junction-expression
+    (alias JunctionExpression
+     (seq (field operator (choice (literal "/\\") (literal "\\/")))
+          (field body (reference expression)))))
    (assumption-declaration
     (alias AssumptionDeclaration
      (seq (choice (literal "ASSUME") (literal "ASSUMPTION")
                   (literal "AXIOM"))
           (optional
            (seq (field name (token identifier)) (literal "==")))
-          (field body (reference expression)) (token newline))))
+          (field body (reference expression)))))
    (theorem-declaration
     (alias TheoremDeclaration
       (seq (choice (literal "THEOREM") (literal "PROPOSITION"))
            (optional
             (seq (field name (token identifier)) (literal "==")))
-           (field body (reference expression))
-           (token newline))))
+           (field body (reference expression)))))
    (use-hide-declaration
     (alias UseHideDeclaration
      (seq (choice (literal "USE") (literal "HIDE"))
           (field item (reference expression))
-          (repeat (seq (literal ",") (field item (reference expression))))
-          (token newline))))
-   (separator (alias Separator (seq (token separator-line) (token newline))))
-   (empty-line (alias EmptyLine (token newline)))
+          (repeat (seq (literal ",") (field item (reference expression)))))))
+   (separator (alias Separator (token separator-line)))
    (expression
     (choice
      (prec right 10
@@ -169,11 +179,13 @@
             (field right (reference expression)))))
      (prec left 20
       (alias Expression
-       (seq (field left (reference expression)) (field operator (literal "\\/"))
+       (seq (field left (reference expression))
+            (field operator (literal "\\/"))
             (field right (reference expression)))))
      (prec left 30
       (alias Expression
-       (seq (field left (reference expression)) (field operator (literal "/\\"))
+       (seq (field left (reference expression))
+            (field operator (literal "/\\"))
             (field right (reference expression)))))
      (prec none 40
       (alias Expression
@@ -217,6 +229,7 @@
      (reference temporal-subscript-expression)
      (reference grouped-expression) (reference tuple-expression)
      (reference set-expression) (reference name-expression)
+     (reference qualified-name-expression)
      (reference number-expression) (reference string-expression)))
    (if-expression
     (alias IfExpression
@@ -334,11 +347,17 @@
           (literal "}"))))
    (name-expression
     (alias NameExpression (field name (token identifier))))
+   (qualified-name-expression
+    (alias QualifiedNameExpression
+     (seq (field module (token identifier))
+          (repeat1 (seq (literal "!") (field name (token identifier)))))))
    (number-expression
     (alias NumberExpression (field value (token number))))
    (string-expression
     (alias StringExpression (field value (token string)))))
-  (extras horizontal-whitespace comment)
+  ;; Native TLA+ declarations are delimited by grammar, not physical lines.
+  ;; Newlines remain lossless trivia; no downstream source normalization.
+  (extras horizontal-whitespace newline comment)
   (keywords (module "MODULE") (extends "EXTENDS") (constant "CONSTANT")
             (constants "CONSTANTS") (variable "VARIABLE")
             (variables "VARIABLES") (theorem "THEOREM")

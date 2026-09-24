@@ -8,11 +8,12 @@
                  lr-runtime-lexical-mode-catalog)
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
-                 scan-horizontal-whitespace scan-identifier scan-line-comment
+                 scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
+                 scan-until-delimiters
                  make-literal-end-scanner scan-longest-literal
                  scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
-                 scan-quoted-strings scan-whitespace
+                 scan-escaped-quoted-strings scan-quoted-strings scan-whitespace
                  scan-emit)
         (only-in ../runtime/token token-end token-kind))
 (export defgeneral-parser-machine
@@ -58,9 +59,10 @@
 ;;       ```
 ;;     %
 (defrules lexical-end
-  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number identifier
+  (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string line-comment block-comment nested-block-comment
+   quoted-string escaped-quoted-string until-delimiters
+   line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ source offset (whitespace+))
    (scan-whitespace source offset))
@@ -68,6 +70,8 @@
    (scan-horizontal-whitespace source offset))
   ((_ source offset (newline+))
    (scan-newline source offset))
+  ((_ source offset (line))
+   (scan-line source offset))
   ((_ source offset (decimal-digit+))
    (scan-decimal-digits source offset))
   ((_ source offset (number))
@@ -82,6 +86,10 @@
    (scan-identifier source offset))
   ((_ source offset (quoted-string delimiter ...))
    (scan-quoted-strings source offset (list delimiter ...)))
+  ((_ source offset (escaped-quoted-string delimiter ...))
+   (scan-escaped-quoted-strings source offset (list delimiter ...)))
+  ((_ source offset (until-delimiters characters))
+   (scan-until-delimiters source offset characters))
   ((_ source offset (heredoc))
    (scan-heredoc source offset))
   ((_ source offset (line-comment start ...))

@@ -8,6 +8,16 @@ reference product, and an independent downstream custom-language fixture are
 executable. GQL and Cypher remain Scheme-owned language descriptions consumed
 through the generic engine boundary.
 
+The lexical algebra also admits =(line)= as a generic, allocation-free
+whole-line primitive. Scheme and Rust both consume LF, CRLF, bare CR, or a
+final unterminated line losslessly. A bounded POO =LineStructure= declaration
+now projects heading, block, list, table, and text-line rules to an immutable Rust
+table. Each block declares either opaque contents or recursively parsed
+elements. The generic engine executes section nesting, block recovery, and
+nested element/opaque block contents over that
+table; all markers and syntax-kind identities remain language-owned. This is
+not yet a complete contextual Parser IR or an Org parser cutover.
+
 * Decision
 
 =grammar.ss= remains the single language-authoring authority.  Its hygienic
@@ -24,6 +34,56 @@ contract, grammar digest, and source digest. The parser does not publish a
 second vertical Rust package for GQL: consumers load the Scheme-owned language
 description through this generic boundary. A parse request runs no fallback
 Rust grammar, JSON grammar DSL, or S-expression interpreter.
+
+For grammars whose structure cannot be reduced to a finite flat terminal
+stream, the same crate also exposes a generic structural-event Rowan sink.
+An AOT-generated downstream parser may emit node-start, source-backed token,
+and node-finish events. The sink validates generated kind categories, balanced
+nesting, and exact ordered UTF-8 coverage before returning one green tree. It
+contains no language-specific recognition or recovery policy. The event sink
+constructs nodes bottom-up without Rowan's node-cache hash recursion, so deep
+but valid hierarchies do not incur quadratic hashing in the generic layer.
+
+The sink is not itself an AOT compiler for procedural =parser.ss= code.  A
+downstream script that prints a handwritten Rust scanner or event algorithm is
+not an implementation of the single-authority decision above, even when it
+embeds a Scheme-source digest and passes differential fixtures.  The remaining
+compiler boundary is a fuller contextual Parser IR derived from Scheme-owned
+language declarations. The current =LineStructure= table validates kind
+references against the canonical grammar digest and covers headings, tables,
+marker-led nested lists, keyed lines, paragraphs, inline links, opaque blocks,
+and recursively parsed block contents. The keyed-line rule binds a bounded key
+set or prefixed dynamic key, case/indent policy, heading adjacency, and
+single/repeated values to the parser digest. The list rule binds marker sets,
+ordered-item admission,
+visual tab width, and typed bullet/trivia kinds to the parser digest; checkbox,
+counter, description-tag, and full continuation policy are not admitted yet.
+Other line/byte recognition, lexical state
+transitions, structural actions, and typed recovery still need explicit
+admission. The Rust runtime executes the admitted table and hands source-backed
+events to the generic Rowan sink.
+
+The table-backed =parse_structural_lines= route is an interim compatibility
+slice, not the target parser engine for context-sensitive languages. Its Rust
+implementation currently chooses the order of block, list, heading, keyed-line,
+table, and paragraph decisions. Consequently, a downstream =parser.ss= can
+configure those recognizers but cannot define or test their control flow as a
+Scheme algorithm. Adding more Rust recognizers would deepen the wrong ownership
+boundary. The next compiler gate must admit a statically checked, pure Scheme
+parser-strategy subset whose source is directly AOT-lowered to Rust functions
+emitting source-backed =TreeEvent= values. The same Scheme functions must run in
+Scheme tests; the generated Rust functions must match their event streams on
+UTF-8, malformed input, recursion, and recovery fixtures. Only event validation,
+tree construction, and typed failure transport remain handwritten in the
+generic Rust/Rowan runtime. A digest over a static rule table, by itself, does
+not satisfy this gate.
+The AOT test contract checks the typed Rust syntax tree through a parser-specific
+macro; generated source text is not used as an assertion language.
+Org-like languages may use a scan phase internally, but there is no separately
+authored =generate-scanner= program, second Rust grammar, or downstream event
+algorithm.  Arbitrary Scheme procedures are not silently translated to Rust;
+unsupported procedural behavior fails the AOT contract until it is expressed
+in the admitted Parser IR.  A downstream Cargo consumer never invokes Scheme.
 
 Cargo-only custom generation crosses a narrow native ABI: build support passes
 the downstream =grammar.ss= path to =gerbil_parser_rowan_compile=.  The

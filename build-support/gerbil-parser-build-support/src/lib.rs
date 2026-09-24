@@ -7,7 +7,8 @@ mod rowan_scenarios;
 pub use asp_rust::{AspRustConfig, AspRustWorkspacePolicy, default_asp_rust_config};
 pub use policy::workspace_policy;
 pub use rowan_scenarios::{
-    ROWAN_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID, rowan_engine_scenario_package,
+    ROWAN_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID, ROWAN_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID,
+    rowan_engine_scenario_package,
 };
 
 pub use asp_rust_build_support::{

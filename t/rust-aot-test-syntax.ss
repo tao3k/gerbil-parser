@@ -12,10 +12,37 @@
                  rust-method-form? rust-method-form-method
                  rust-let-form? rust-let-form-value
                  rust-first-word-form? rust-string-in-form?
-                 rust-any-form?
-                 rust-if-form? rust-if-form-condition rust-if-form-alternate))
+        rust-any-form?
+        rust-if-form? rust-if-form-condition rust-if-form-alternate
+        rust-line-event-function-form?
+        rust-line-event-function-form-name
+        rust-line-event-function-form-root
+        rust-line-event-function-form-body
+        rust-event-if-form? rust-event-if-form-consequent
+        rust-event-if-form-alternate rust-event-node-form?
+        rust-event-node-form-children rust-event-token-form?))
 (export check-rust-aot-function check-rust-aot-conditional
-        check-rust-aot-any check-rust-aot-artifact)
+        check-rust-aot-any check-rust-aot-artifact
+        check-rust-event-strategy)
+
+(defsyntax (check-rust-event-strategy stx)
+  (syntax-case stx ()
+    ((_ strategy name root)
+     (syntax
+      (let* ((value strategy)
+             (body (rust-line-event-function-form-body value)))
+        (check (rust-line-event-function-form? value) => #t)
+        (check (rust-line-event-function-form-name value) => name)
+        (check (rust-line-event-function-form-root value) => root)
+        (check (rust-event-if-form? body) => #t)
+        (check (rust-event-node-form?
+                (rust-event-if-form-consequent body)) => #t)
+        (check (rust-event-node-form?
+                (rust-event-if-form-alternate body)) => #t)
+        (check (rust-event-token-form?
+                (car (rust-event-node-form-children
+                      (rust-event-if-form-consequent body))))
+               => #t))))))
 
 (defsyntax (check-rust-aot-any stx)
   (syntax-case stx ()

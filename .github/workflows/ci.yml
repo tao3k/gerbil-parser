@@ -176,6 +176,16 @@ jobs:
           rustfmt --edition 2024 "$arithmetic_generated"
           cmp "$arithmetic_generated" rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
 
+      - name: Verify Scheme event strategy AOT fixture
+        run: |
+          event_generated="$(mktemp)"
+          grammar_generated="$(mktemp)"
+          gerbil env gxi t/generate-event-strategy-fixture.ss "$event_generated"
+          gerbil env gxi t/generate-event-strategy-grammar.ss "$grammar_generated"
+          rustfmt --edition 2024 "$event_generated" "$grammar_generated"
+          cmp "$event_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_generated.rs
+          cmp "$grammar_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_grammar.rs
+
       - name: Verify downstream custom Rust/Rowan language pack
         run: |
           fixture="t/fixtures/rust-rowan-downstream"

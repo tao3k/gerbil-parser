@@ -3,10 +3,19 @@
 
 (export rust-struct rust-static rust-array rust-some rust-none
         rust-number rust-string rust-identifier rust-module rust-render
+        write-rust-module
         rust-function rust-function-value rust-block rust-let rust-call rust-method
         rust-before rust-after rust-first-word rust-words rust-any
         rust-empty rust-string-in rust-if
         rust-binary
+        rust-line-event-function rust-event-node rust-event-token rust-event-if
+        rust-line-event-function-form? rust-line-event-function-form-name
+        rust-line-event-function-form-root rust-line-event-function-form-body
+        rust-line-event-function-form-digest
+        rust-event-node-form? rust-event-node-form-kind
+        rust-event-node-form-children rust-event-token-form?
+        rust-event-if-form? rust-event-if-form-condition
+        rust-event-if-form-consequent rust-event-if-form-alternate
         rust-function-form? rust-function-form-name
         rust-function-form-parameters rust-function-form-result
         rust-function-form-body rust-block-form? rust-block-form-statements
@@ -35,7 +44,7 @@
 (defstruct rust-number-form (value) transparent: #t)
 (defstruct rust-string-form (value) transparent: #t)
 (defstruct rust-identifier-form (value) transparent: #t)
-(defstruct rust-module-form (imports item) transparent: #t)
+(defstruct rust-module-form (imports item origin) transparent: #t)
 (defstruct rust-function-form (name parameters result body) transparent: #t)
 (defstruct rust-block-form (statements result) transparent: #t)
 (defstruct rust-let-form (name value) transparent: #t)
@@ -50,6 +59,10 @@
 (defstruct rust-string-in-form (value collection) transparent: #t)
 (defstruct rust-if-form (condition consequent alternate) transparent: #t)
 (defstruct rust-binary-form (operator left right) transparent: #t)
+(defstruct rust-line-event-function-form (name root body digest) transparent: #t)
+(defstruct rust-event-node-form (kind children) transparent: #t)
+(defstruct rust-event-token-form (kind start end) transparent: #t)
+(defstruct rust-event-if-form (condition consequent alternate) transparent: #t)
 
 ;; The macro admits only named fields. Callers build Rust syntax values, not
 ;; snippets of Rust text; the renderer is the sole textual boundary.
@@ -68,7 +81,10 @@
 (def (rust-number value) (make-rust-number-form value))
 (def (rust-string value) (make-rust-string-form value))
 (def (rust-identifier value) (make-rust-identifier-form value))
-(def (rust-module imports item) (make-rust-module-form imports item))
+(def (rust-module imports item (origin "line-structure-rowan.ss"))
+  (unless (and (string? origin) (not (string-contains origin "\n")))
+    (error "invalid Rust module origin" origin))
+  (make-rust-module-form imports item origin))
 
 ;; A bounded function surface for pure Scheme algorithms lowered ahead of time.
 ;; Parameters and result types are explicit: the renderer never infers Rust
@@ -121,6 +137,53 @@
   (unless (member operator '("||" "&&" "=="))
     (error "unsupported Rust pure binary operator" operator))
   (make-rust-binary-form operator left right))
+
+(def (rust-line-event-function name root body digest)
+  (unless (and (symbol? name) (integer? root) (exact? root) (>= root 0)
+               (string? digest) (= (string-length digest) 71))
+    (error "invalid Rust line event function" name root digest))
+  (make-rust-line-event-function-form name root body digest))
+
+(def (rust-event-node kind children)
+  (make-rust-event-node-form kind children))
+(def (rust-event-token kind start end)
+  (make-rust-event-token-form kind start end))
+(def (rust-event-if condition consequent alternate)
+  (make-rust-event-if-form condition consequent alternate))
+
+(def (render-event-field port name value)
+  (display name port)
+  (unless (and (rust-identifier-form? value)
+               (eq? (rust-identifier-form-value value) name))
+    (display ": " port)
+    (render-node port value)))
+
+(def (render-event-statement port event)
+  (cond
+   ((rust-event-node-form? event)
+    (display "events.push(TreeEvent::StartNode(" port)
+    (display (rust-event-node-form-kind event) port)
+    (display "));\n" port)
+    (for-each (lambda (child) (render-event-statement port child))
+              (rust-event-node-form-children event))
+    (display "events.push(TreeEvent::FinishNode);\n" port))
+   ((rust-event-token-form? event)
+    (display "events.push(TreeEvent::Token { kind: " port)
+    (display (rust-event-token-form-kind event) port)
+    (display ", " port)
+    (render-event-field port 'start (rust-event-token-form-start event))
+    (display ", " port)
+    (render-event-field port 'end (rust-event-token-form-end event))
+    (display " });\n" port))
+   ((rust-event-if-form? event)
+    (display "if " port)
+    (render-node port (rust-event-if-form-condition event))
+    (display " {\n" port)
+    (render-event-statement port (rust-event-if-form-consequent event))
+    (display "} else {\n" port)
+    (render-event-statement port (rust-event-if-form-alternate event))
+    (display "}\n" port))
+   (else (error "unsupported Rust event statement" event))))
 
 (def (render-sequence port values)
   (let loop ((rest values) (first? #t))
@@ -186,7 +249,9 @@
    ((rust-identifier-form? node)
     (display (rust-identifier-form-value node) port))
    ((rust-module-form? node)
-    (display "// @generated by gerbil-parser/src/compiler/line-structure-rowan.ss\n" port)
+    (display "// @generated by gerbil-parser/src/compiler/" port)
+    (display (rust-module-form-origin node) port)
+    (newline port)
     (display "use gerbil_parser_rowan::{" port)
     (let loop ((imports (rust-module-form-imports node)) (first? #t))
       (when (pair? imports)
@@ -212,6 +277,28 @@
     (display " " port)
     (render-block port (rust-function-form-body node))
     (newline port))
+   ((rust-line-event-function-form? node)
+    (display "pub const PARSER_DIGEST: &str = " port)
+    (write (rust-line-event-function-form-digest node) port)
+    (display ";\n\n" port)
+    (display "pub fn " port)
+    (display (rust-line-event-function-form-name node) port)
+    (display "(source: &str) -> Vec<TreeEvent> {\n" port)
+    (display "let bytes = source.as_bytes();\n" port)
+    (display "let mut events = Vec::with_capacity(bytes.len() / 16 + 2);\n" port)
+    (display "events.push(TreeEvent::StartNode(" port)
+    (display (rust-line-event-function-form-root node) port)
+    (display "));\n" port)
+    (display "let mut start = 0usize;\n" port)
+    (display "while start < bytes.len() {\n" port)
+    (display "let mut end = start;\n" port)
+    (display "while end < bytes.len() && bytes[end] != b'\\n' && bytes[end] != b'\\r' { end += 1; }\n" port)
+    (display "if end < bytes.len() {\n" port)
+    (display "if bytes[end] == b'\\r' && bytes.get(end + 1) == Some(&b'\\n') { end += 2; } else { end += 1; }\n" port)
+    (display "}\nlet line = &source[start..end];\n" port)
+    (render-event-statement port (rust-line-event-function-form-body node))
+    (display "start = end;\n}\n" port)
+    (display "events.push(TreeEvent::FinishNode);\nevents\n}\n" port))
    ((rust-block-form? node) (render-block port node))
    ((rust-let-form? node)
     (display "let " port)
@@ -293,3 +380,9 @@
 (def (rust-render node)
   (call-with-output-string
    (lambda (port) (render-node port node))))
+
+(def (write-rust-module path module)
+  (unless (rust-module-form? module)
+    (error "Rust module output requires structured syntax" module))
+  (call-with-output-file path
+    (lambda (port) (write-string (rust-render module) port))))

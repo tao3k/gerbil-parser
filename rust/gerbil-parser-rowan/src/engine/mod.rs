@@ -49,3 +49,7 @@ mod structural_lines_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/pure_function_aot.rs"]
 mod pure_function_aot_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/event_strategy_aot.rs"]
+mod event_strategy_aot_tests;

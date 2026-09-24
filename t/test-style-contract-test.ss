@@ -51,4 +51,13 @@
       (check (test-source-allowed? "t/rust-syntax-test.ss"
                                    '(display displayln string-append)) => #t)
       (check (test-source-allowed? "t/rust-aot-test-syntax.ss"
-                                   '(display displayln string-append)) => #t))))
+                                   '(display displayln string-append)) => #t))
+    (test-case "Scheme event strategies and generators cannot assemble Rust text"
+      (check (filter
+              (lambda (path)
+                (not (test-source-allowed?
+                      path '(display displayln write-string string-append format))))
+              '("src/compiler/event-strategy-aot.ss"
+                "t/generate-event-strategy-fixture.ss"
+                "t/generate-event-strategy-grammar.ss"))
+             => '()))))

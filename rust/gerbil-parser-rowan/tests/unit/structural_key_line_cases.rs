@@ -40,6 +40,31 @@ fn dynamic_keywords_and_heading_adjacent_planning_are_typed_and_lossless() {
 }
 
 #[test]
+fn keyed_lines_close_open_paragraphs_before_emitting_elements() {
+    let structure = super::LineStructureSpec {
+        paragraph_node: Some(25),
+        ..KEY_LINE_STRUCTURE
+    };
+    let source = "before\n#+TITLE: bounded\nafter\n";
+    let root = parse_structural_lines(&LANGUAGE, &structure, source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    let paragraphs: Vec<_> = root
+        .descendants()
+        .filter(|node| node.kind().0 == 25)
+        .collect();
+    assert_eq!(paragraphs.len(), 2);
+    assert_eq!(paragraphs[0].to_string(), "before\n");
+    assert_eq!(paragraphs[1].to_string(), "after\n");
+    let keyword = root
+        .descendants()
+        .find(|node| node.kind().0 == 38)
+        .expect("keyed line is a sibling element");
+    assert_eq!(keyword.parent().unwrap().kind(), root.kind());
+}
+
+#[test]
 fn invalid_key_rule_fails_closed() {
     let mut invalid = KEY_LINES[1];
     invalid.keys = &[];

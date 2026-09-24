@@ -155,6 +155,8 @@ impl StructuralState {
         } else if let Some(rule) = matching_key_line(structure.key_lines, line, after_heading) {
             let frame = self.frames.last_mut().expect("root frame is present");
             close_lists(&mut self.events, frame);
+            close_table(&mut self.events, &mut frame.table_open);
+            close_paragraph(&mut self.events, &mut frame.paragraph_open);
             emit_key_line(&mut self.events, line, start, rule);
         } else if let Some(rule) = structure.table.filter(|rule| is_table_line(line, *rule)) {
             self.table_line(rule, line, start);

@@ -8,4 +8,4 @@
 
 (define-rust-pure normalized_title normalized_title_rust
   ((input "&str")) "String"
-  (let* ((trimmed (string-trim input))) trimmed))
+  (string-trim input))

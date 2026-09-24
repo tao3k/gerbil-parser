@@ -157,6 +157,14 @@ jobs:
           gerbil env gxi build-gparse.ss compile
           gerbil env gxi build-rust-rowan-aot.ss compile
 
+      - name: Compile Scheme test support
+        run: |
+          gerbil env gxc t/line-structure-assertions.ss
+          gerbil env gxc \
+            t/fixtures/rust-rowan-downstream/languages/records/v1/grammar.ss \
+            t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss \
+            t/fixtures/rust-rowan-downstream/languages/records/v1/fixtures.ss
+
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: gerbil test -v 3 t/... languages/...

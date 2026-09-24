@@ -36,7 +36,7 @@
     (test-case "pure function body is a structured syntax value"
       (check-rust-aot-function
        normalized_title_rust 'normalized_title '((input . "&str"))
-       "String" 'trimmed 'to_owned)
+       "String" 'to_owned)
       (check (normalized_title "  Alpha  ") => "Alpha")
       (check (normalized_title "\tBeta\n") => "Beta")
       (check-rust-aot-artifact

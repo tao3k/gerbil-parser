@@ -8,7 +8,7 @@
 
 (def (string-before value delimiter)
   (let (index (string-contains value delimiter))
-    (if index (substring value 0 index) value)))
+    (if (fixnum? index) (substring value 0 index) value)))
 
 (def (ascii-fold char)
   (let (code (char->integer char))

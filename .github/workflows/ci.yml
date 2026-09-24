@@ -186,6 +186,12 @@ jobs:
           cmp "$event_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_generated.rs
           cmp "$grammar_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_grammar.rs
 
+      - name: Verify Scheme pure owned-string AOT fixture
+        run: |
+          owned_generated="$(mktemp)"
+          gerbil env gxi t/generate-owned-word-fixture.ss "$owned_generated"
+          cmp "$owned_generated" rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs
+
       - name: Verify downstream custom Rust/Rowan language pack
         run: |
           fixture="t/fixtures/rust-rowan-downstream"

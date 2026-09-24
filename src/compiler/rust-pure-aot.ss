@@ -78,7 +78,13 @@
     (unless (assq expression variables)
       (error "unbound pure AOT variable" expression))
     (rust-identifier (rust-name-text expression)))
-   ((string? expression) (rust-string expression))
+   ((string? expression)
+    (if (equal? result-type "String")
+      (if (equal? expression "")
+        (rust-call (rust-identifier 'String::new) '())
+        (rust-call (rust-identifier 'String::from)
+                   (list (rust-string expression))))
+      (rust-string expression)))
    ((pure-call-signature expression)
     (let* ((signature (pure-call-signature expression))
            (argument-types (cdr signature))
@@ -118,8 +124,12 @@
      (list (compile-pure-expression (caddr expression) variables "&str"))))
    ((and (pair? expression) (eq? (car expression) 'string-first-word)
          (= (length expression) 2))
-    (rust-first-word
-     (compile-pure-expression (cadr expression) variables "&str")))
+    (let (word
+          (rust-first-word
+           (compile-pure-expression (cadr expression) variables "&str")))
+      (if (equal? result-type "String")
+        (rust-method word 'to_owned '())
+        word)))
    ((and (pair? expression) (eq? (car expression) 'string-words)
          (= (length expression) 2))
     (rust-words

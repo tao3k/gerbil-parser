@@ -59,5 +59,6 @@
                       path '(display displayln write-string string-append format))))
               '("src/compiler/event-strategy-aot.ss"
                 "t/generate-event-strategy-fixture.ss"
-                "t/generate-event-strategy-grammar.ss"))
+                "t/generate-event-strategy-grammar.ss"
+                "t/generate-owned-word-fixture.ss"))
              => '()))))

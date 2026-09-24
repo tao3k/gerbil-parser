@@ -3,7 +3,7 @@
 
 (export rust-struct rust-static rust-array rust-some rust-none
         rust-number rust-string rust-identifier rust-module rust-render
-        write-rust-module
+        write-rust-module write-rust-syntax
         rust-function rust-function-value rust-block rust-let rust-call rust-method
         rust-before rust-after rust-first-word rust-words rust-any
         rust-empty rust-string-in rust-if
@@ -381,8 +381,15 @@
   (call-with-output-string
    (lambda (port) (render-node port node))))
 
+(def (write-rust-syntax path syntax)
+  (unless (or (rust-module-form? syntax)
+              (rust-function-form? syntax)
+              (rust-line-event-function-form? syntax))
+    (error "Rust output requires structured syntax" syntax))
+  (call-with-output-file path
+    (lambda (port) (write-string (rust-render syntax) port))))
+
 (def (write-rust-module path module)
   (unless (rust-module-form? module)
     (error "Rust module output requires structured syntax" module))
-  (call-with-output-file path
-    (lambda (port) (write-string (rust-render module) port))))
+  (write-rust-syntax path module))

@@ -13,6 +13,8 @@
                  classify_first_word classify_first_word_rust)
         (only-in "pure-function-fixture.ss"
                  classify_or_unknown classify_or_unknown_rust)
+        (only-in "pure-function-fixture.ss"
+                 owned_first_word owned_first_word_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
                  scheme-pure->rust ascii-ci=? string-words string-after)
         (only-in "rust-aot-test-syntax.ss"
@@ -74,6 +76,12 @@
                           '(classify_first_word input)
                           '((classify_first_word . ("&str" "&[&str]"))))
        true))
+    (test-case "owned string results keep the pure Scheme branch semantics"
+      (check (owned_first_word "  WAIT Task" #t) => "WAIT")
+      (check (owned_first_word "  WAIT Task" #f) => "")
+      (check-rust-aot-artifact
+       owned_first_word_rust
+       "rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs"))
     (test-case "unsupported Scheme effects and free names fail closed"
       (check (ascii-ci=? "seq_todo" "SEQ_TODO") => #t)
       (check (ascii-ci=? "ＴＯＤＯ" "TODO") => #f)

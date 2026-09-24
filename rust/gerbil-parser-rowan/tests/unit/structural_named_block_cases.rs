@@ -1,6 +1,6 @@
 use super::{
-    BLOCKS, LANGUAGE, STRUCTURE, BlockContents, BlockHeaderRule, BlockLineRule,
-    BlockOpeningMode, LineStructureSpec, UnclosedBlockPolicy, parse_structural_lines,
+    BLOCKS, BlockContents, BlockHeaderRule, BlockLineRule, BlockOpeningMode, LANGUAGE,
+    LineStructureSpec, STRUCTURE, UnclosedBlockPolicy, parse_structural_lines,
 };
 
 static NAMED_BLOCKS: &[BlockLineRule] = &[BlockLineRule {

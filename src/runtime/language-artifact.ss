@@ -6,7 +6,8 @@
         (only-in :std/encoding/base64 base64-decode)
         (only-in :std/string/utf8 utf8->string)
         (only-in :std/encoding/zlib uncompress))
-(export compiled-language-artifact-relative-path
+(export sha256-identity-filename
+        compiled-language-artifact-relative-path
         load-compiled-language-artifact
         load-compiled-language-artifact/embedded
         load-compiled-language-artifact/roots)
@@ -27,14 +28,18 @@
                   (lp (fx+ index 1)))))))
 
 ;; : (-> String String)
-(def (compiled-language-artifact-relative-path digest)
+(def (sha256-identity-filename digest)
   (unless (sha256-identity? digest)
     (error "invalid compiled language artifact digest" digest))
-  ;; The identity keeps its canonical `sha256:` scheme, while the physical
-  ;; path uses a portable filename encoding. A colon is a Bazel label
-  ;; separator and is not a valid portable filename component.
+  ;; Content identity remains canonical `sha256:` data. Physical storage uses
+  ;; one portable encoding because a colon is a Bazel label separator and is
+  ;; not a valid filename component on every supported platform.
+  (string-append "sha256-" (substring digest 7 71)))
+
+;; : (-> String String)
+(def (compiled-language-artifact-relative-path digest)
   (string-append +compiled-language-artifact-prefix+
-                 "sha256-" (substring digest 7 71) ".gir.z"))
+                 (sha256-identity-filename digest) ".gir.z"))
 
 ;; : (-> String List Void)
 (def (validate-compiled-language-artifact-locator expected-schema locator)

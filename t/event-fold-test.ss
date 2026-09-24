@@ -192,6 +192,30 @@
                  => "line_scan_key")
           (check (hash-ref (hash-ref (vector-ref consequent 4) "end") "kind")
                  => "line_trim_end_from"))))
+    (test-case "bounded source-byte fold executes and lowers the same events"
+      (let* ((index '(line-index cursor))
+             (next (list 'line-step index))
+             (forms `((set-uint last (offset start))
+                      (for-line-bytes cursor start (line-content-end)
+                        ((if (line-byte-equal? ,index 124)
+                             ((token Line (state-offset last) ,index)
+                              (token Line ,index ,next)
+                              (set-uint last (offset ,next))) ()) ))
+                      (token Line (state-offset last) end))))
+        (check (run-event-fold "|x|\n" 'Document '((last 0)) forms '())
+               => '((start Document) (token Line 0 1)
+                    (token Line 1 2) (token Line 2 3)
+                    (token Line 3 4) (finish)))
+        (let* ((wire (event-fold-ir-json
+                      'byte_fold event-lines-language-grammar
+                      'Document '((last 0)) forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t)))
+               (loop (vector-ref (hash-ref ir "line") 1)))
+          (check (hash-ref loop "kind") => "for_line_bytes")
+          (check (hash-ref (hash-ref loop "until") "kind")
+                 => "line_content_end"))))
     (test-case "headline marker offsets use the declared level in Scheme and IR"
       (let* ((marker '(line-marker-end "*" " "))
              (forms `((if (uint-positive? (line-marker-level "*" " "))

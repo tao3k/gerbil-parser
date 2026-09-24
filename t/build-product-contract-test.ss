@@ -35,7 +35,7 @@
                     #t)
                => #t)
         (check (and (string-contains package-source
-                                     "poo-flow@2ce55a9")
+                                     "poo-flow@a321c63")
                     (not (string-contains package-source
                                           "asp-gerbil-scheme@")))
                => #t)

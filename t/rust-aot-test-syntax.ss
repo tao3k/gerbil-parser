@@ -12,9 +12,22 @@
                  rust-method-form? rust-method-form-method
                  rust-let-form? rust-let-form-value
                  rust-first-word-form? rust-string-in-form?
+                 rust-any-form?
                  rust-if-form? rust-if-form-condition rust-if-form-alternate))
 (export check-rust-aot-function check-rust-aot-conditional
-        check-rust-aot-artifact)
+        check-rust-aot-any check-rust-aot-artifact)
+
+(defsyntax (check-rust-aot-any stx)
+  (syntax-case stx ()
+    ((_ function name parameters result)
+     (syntax
+      (let* ((value function)
+             (body (rust-function-form-body value)))
+        (check (rust-function-form? value) => #t)
+        (check (rust-function-form-name value) => name)
+        (check (rust-function-form-parameters value) => parameters)
+        (check (rust-function-form-result value) => result)
+        (check (rust-any-form? (rust-block-form-result body)) => #t))))))
 
 (defsyntax (check-rust-aot-function stx)
   (syntax-case stx ()

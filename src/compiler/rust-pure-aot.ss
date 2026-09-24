@@ -5,13 +5,21 @@
         (only-in ./rust-syntax
                  rust-function-value rust-block rust-let rust-method
                  rust-string rust-identifier rust-before rust-first-word
+                 rust-after rust-words rust-any rust-empty
                  rust-string-in rust-if rust-binary))
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
-        string-first-word string-in?)
+        string-after string-first-word string-words string-in?)
 
 (def (string-before value delimiter)
   (let (index (string-contains value delimiter))
     (if (fixnum? index) (substring value 0 index) value)))
+
+(def (string-after value delimiter)
+  (let (index (string-contains value delimiter))
+    (if (fixnum? index)
+      (substring value (+ index (string-length delimiter))
+                 (string-length value))
+      "")))
 
 (def (ascii-fold char)
   (let (code (char->integer char))
@@ -35,15 +43,34 @@
         (substring text 0 index)
         (loop (+ index 1))))))
 
+(def (string-words value)
+  (let (size (string-length value))
+    (let loop ((index 0) (start #f) (words '()))
+      (if (= index size)
+        (reverse (if start (cons (substring value start size) words) words))
+        (if (char-whitespace? (string-ref value index))
+          (loop (+ index 1) #f
+                (if start (cons (substring value start index) words) words))
+          (loop (+ index 1) (or start index) words))))))
+
 (def (string-in? value collection)
   (if (member value collection) #t #f))
+
+(def (rust-name-text name)
+  (apply string-append
+         (map (lambda (char)
+                (case char
+                  ((#\-) "_")
+                  ((#\?) "_p")
+                  (else (string char))))
+              (string->list (symbol->string name)))))
 
 (def (compile-pure-expression expression variables result-type)
   (cond
    ((symbol? expression)
-    (unless (member expression variables)
+    (unless (assq expression variables)
       (error "unbound pure AOT variable" expression))
-    (rust-identifier (symbol->string expression)))
+    (rust-identifier (rust-name-text expression)))
    ((string? expression) (rust-string expression))
    ((and (pair? expression) (eq? (car expression) 'string-trim)
          (= (length expression) 2))
@@ -60,6 +87,11 @@
      (compile-pure-expression (cadr expression) variables "&str")
      (compile-pure-expression (caddr expression) variables "&str")
      (not (equal? result-type "&str"))))
+   ((and (pair? expression) (eq? (car expression) 'string-after)
+         (= (length expression) 3))
+    (rust-after
+     (compile-pure-expression (cadr expression) variables "&str")
+     (compile-pure-expression (caddr expression) variables "&str")))
    ((and (pair? expression) (eq? (car expression) 'ascii-ci=?)
          (= (length expression) 3))
     (rust-method
@@ -70,6 +102,51 @@
          (= (length expression) 2))
     (rust-first-word
      (compile-pure-expression (cadr expression) variables "&str")))
+   ((and (pair? expression) (eq? (car expression) 'string-words)
+         (= (length expression) 2))
+    (rust-words
+     (compile-pure-expression (cadr expression) variables "&str")))
+   ((and (pair? expression) (eq? (car expression) 'null?)
+         (= (length expression) 2))
+    (rust-empty
+     (compile-pure-expression (cadr expression) variables "&[&str]")))
+   ((and (pair? expression) (eq? (car expression) 'equal?)
+         (= (length expression) 3))
+    (cond
+     ((equal? (caddr expression) "")
+      (rust-empty
+       (compile-pure-expression (cadr expression) variables "&str")))
+     ((equal? (cadr expression) "")
+      (rust-empty
+       (compile-pure-expression (caddr expression) variables "&str")))
+     (else
+      (rust-binary "=="
+       (compile-pure-expression (cadr expression) variables "&str")
+       (compile-pure-expression (caddr expression) variables "&str")))))
+   ((and (pair? expression) (eq? (car expression) 'ormap)
+         (= (length expression) 3))
+    (let* ((abstraction (cadr expression))
+           (collection (caddr expression))
+           (slice? (symbol? collection)))
+      (unless (and (pair? abstraction) (eq? (car abstraction) 'lambda)
+                   (= (length abstraction) 3)
+                   (list? (cadr abstraction))
+                   (= (length (cadr abstraction)) 1)
+                   (symbol? (caadr abstraction)))
+        (error "pure AOT ormap requires one-argument lambda" expression))
+      (when (and slice?
+                 (not (equal? (cdr (assq collection variables))
+                              "&[String]")))
+        (error "pure AOT ormap requires a String slice" collection))
+      (rust-any
+       (compile-pure-expression collection variables "&[&str]")
+       (rust-name-text (caadr abstraction))
+       (compile-pure-expression (caddr abstraction)
+                                (cons (cons (caadr abstraction) "&str")
+                                      variables) "bool")
+       slice?)))
+   ((and (pair? expression) (eq? (car expression) 'let*))
+    (compile-pure-body expression variables result-type))
    ((and (pair? expression) (eq? (car expression) 'string-in?)
          (= (length expression) 3))
     (rust-string-in
@@ -104,10 +181,10 @@
         (let* ((binding (car bindings))
                (name (car binding))
                (value (cadr binding)))
-          (unless (and (symbol? name) (not (member name known)))
+          (unless (and (symbol? name) (not (assq name known)))
             (error "invalid pure AOT binding" binding))
-          (loop (cdr bindings) (cons name known)
-                (cons (rust-let name
+          (loop (cdr bindings) (cons (cons name "&str") known)
+                (cons (rust-let (rust-name-text name)
                                 (compile-pure-expression value known "&str"))
                       statements)))))
     (rust-block '()
@@ -115,16 +192,9 @@
 
 (def (scheme-pure->rust name parameters result expression)
   (rust-function-value
-   (string->symbol
-    (apply string-append
-           (map (lambda (char)
-                  (case char
-                    ((#\-) "_")
-                    ((#\?) "_p")
-                    (else (string char))))
-                (string->list (symbol->string name)))))
+   (string->symbol (rust-name-text name))
    parameters result
-   (compile-pure-body expression (map car parameters) result)))
+   (compile-pure-body expression parameters result)))
 
 ;; One source body is both executable Scheme and the AOT input. The compiler
 ;; admits only expressions handled above; arbitrary Gerbil forms fail closed.

@@ -11,4 +11,4 @@
 
 (call-with-output-file (car (reverse arguments))
   (lambda (port)
-    (display (rust-render classify_first_word_rust) port)))
+    (write-string (rust-render classify_first_word_rust) port)))

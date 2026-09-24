@@ -54,7 +54,7 @@
 ;; : (-> String String Void)
 (def (write-raw-file path content)
   (create-directory* (path-directory path))
-  (call-with-output-file path (lambda (port) (display content port))))
+  (call-with-output-file path (lambda (port) (write-string content port))))
 
 (def language-artifact-tests
   (test-suite "compiled language artifact admission"

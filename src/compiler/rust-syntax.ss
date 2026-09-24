@@ -4,7 +4,8 @@
 (export rust-struct rust-static rust-array rust-some rust-none
         rust-number rust-string rust-identifier rust-module rust-render
         rust-function rust-function-value rust-block rust-let rust-call rust-method
-        rust-before rust-first-word rust-string-in rust-if
+        rust-before rust-after rust-first-word rust-words rust-any
+        rust-empty rust-string-in rust-if
         rust-binary
         rust-function-form? rust-function-form-name
         rust-function-form-parameters rust-function-form-result
@@ -13,6 +14,7 @@
         rust-let-form-value
         rust-method-form? rust-method-form-method
         rust-first-word-form? rust-string-in-form?
+        rust-any-form? rust-empty-form?
         rust-if-form? rust-if-form-condition rust-if-form-alternate
         rust-struct-form? rust-struct-form-name rust-struct-form-fields
         rust-field-name rust-field-value
@@ -40,7 +42,11 @@
 (defstruct rust-call-form (callee arguments) transparent: #t)
 (defstruct rust-method-form (receiver method arguments) transparent: #t)
 (defstruct rust-before-form (value delimiter owned?) transparent: #t)
+(defstruct rust-after-form (value delimiter) transparent: #t)
 (defstruct rust-first-word-form (value) transparent: #t)
+(defstruct rust-words-form (value) transparent: #t)
+(defstruct rust-any-form (collection variable body slice?) transparent: #t)
+(defstruct rust-empty-form (value) transparent: #t)
 (defstruct rust-string-in-form (value collection) transparent: #t)
 (defstruct rust-if-form (condition consequent alternate) transparent: #t)
 (defstruct rust-binary-form (operator left right) transparent: #t)
@@ -99,14 +105,20 @@
   (unless (rust-identifier-form? value)
     (error "Rust before requires a single bound value" value))
   (make-rust-before-form value delimiter owned?))
+(def (rust-after value delimiter)
+  (make-rust-after-form value delimiter))
 (def (rust-first-word value)
   (make-rust-first-word-form value))
+(def (rust-words value) (make-rust-words-form value))
+(def (rust-any collection variable body slice?)
+  (make-rust-any-form collection variable body slice?))
+(def (rust-empty value) (make-rust-empty-form value))
 (def (rust-string-in value collection)
   (make-rust-string-in-form value collection))
 (def (rust-if condition consequent alternate)
   (make-rust-if-form condition consequent alternate))
 (def (rust-binary operator left right)
-  (unless (member operator '("||" "&&"))
+  (unless (member operator '("||" "&&" "=="))
     (error "unsupported Rust pure binary operator" operator))
   (make-rust-binary-form operator left right))
 
@@ -227,9 +239,29 @@
     (display ", |(head, _)| head)" port)
     (when (rust-before-form-owned? node)
       (display ".to_owned()" port)))
+   ((rust-after-form? node)
+    (render-node port (rust-after-form-value node))
+    (write-string ".split_once(" port)
+    (render-node port (rust-after-form-delimiter node))
+    (write-string ").map_or(\"\", |(_, tail)| tail)" port))
    ((rust-first-word-form? node)
     (render-node port (rust-first-word-form-value node))
     (display ".split_whitespace().next().unwrap_or(\"\")" port))
+   ((rust-words-form? node)
+    (render-node port (rust-words-form-value node))
+    (write-string ".split_whitespace()" port))
+   ((rust-any-form? node)
+    (render-node port (rust-any-form-collection node))
+    (when (rust-any-form-slice? node)
+      (write-string ".iter().map(String::as_str)" port))
+    (write-string ".any(|" port)
+    (write-string (rust-any-form-variable node) port)
+    (write-string "| " port)
+    (render-node port (rust-any-form-body node))
+    (write-string ")" port))
+   ((rust-empty-form? node)
+    (render-node port (rust-empty-form-value node))
+    (write-string ".is_empty()" port))
    ((rust-string-in-form? node)
     (render-node port (rust-string-in-form-collection node))
     (display ".contains(&" port)

@@ -12,10 +12,10 @@
                  normalized_title normalized_title_rust
                  classify_first_word classify_first_word_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
-                 scheme-pure->rust ascii-ci=?)
+                 scheme-pure->rust ascii-ci=? string-words string-after)
         (only-in "rust-aot-test-syntax.ss"
                  check-rust-aot-function check-rust-aot-conditional
-                 check-rust-aot-artifact))
+                 check-rust-aot-any check-rust-aot-artifact))
 (export rust-syntax-test)
 
 (def rust-syntax-test
@@ -73,4 +73,20 @@
       (check-exception
        (scheme-pure->rust 'invalid '((input . "&str")) "String"
                           '(string-before missing "("))
-       true))))
+       true))
+    (test-case "higher-order word traversal remains an AOT syntax tree"
+      (check (string-words "  WAIT(w)\t| DONE(d)  ")
+             => '("WAIT(w)" "|" "DONE(d)"))
+      (check (string-after "WAIT | DONE" "|") => " DONE")
+      (check-rust-aot-any
+       (scheme-pure->rust
+        'any-declared-name
+        '((name . "&str") (declarations . "&[String]")) "bool"
+        '(ormap
+          (lambda (declaration)
+            (ormap (lambda (word)
+                     (equal? name (string-before word "(")))
+                   (string-words (string-before declaration "|"))))
+          declarations))
+       'any_declared_name
+       '((name . "&str") (declarations . "&[String]")) "bool"))))

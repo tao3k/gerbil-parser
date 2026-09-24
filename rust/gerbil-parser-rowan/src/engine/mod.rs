@@ -55,3 +55,7 @@ mod pure_function_aot_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/event_strategy_aot.rs"]
 mod event_strategy_aot_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/event_fold_aot.rs"]
+mod event_fold_aot_tests;

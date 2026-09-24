@@ -19,4 +19,11 @@ fn scheme_event_fold_compiles_to_stateful_rowan_events() {
     assert!(rust.contains("pub fn parse_fold_lines"));
     assert!(rust.contains("paragraph_open"));
     assert!(rust.contains("TreeEvent :: Token"));
+    let digest_start = rust.find("sha256:").unwrap();
+    let digest = &rust[digest_start..digest_start + 71];
+    let generated = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../rust/gerbil-parser-rowan/tests/unit/event_fold_generated.rs"
+    ));
+    assert!(generated.contains(digest), "generated Rust is stale");
 }

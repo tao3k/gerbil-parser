@@ -1,7 +1,7 @@
 //! The Scheme fixture is executed by Gerbil tests and compiled to this Rust test.
 
 #[path = "event_strategy_grammar.rs"]
-mod grammar;
+pub(super) mod grammar;
 #[path = "event_strategy_generated.rs"]
 mod strategy;
 

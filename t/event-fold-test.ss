@@ -85,6 +85,24 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_blank")))
+    (test-case "byte-set membership is a boolean state value"
+      (let (forms '((set-bool match
+                               (line-bytes-any-in? start (line-step start)
+                                                   (126)))
+                    (if (state match)
+                        ((start-node Heading) (token Line start end)
+                         (finish-node))
+                        ((start-node Text) (token Line start end)
+                         (finish-node)))))
+        (check (run-event-fold "~x\nx\n" 'Document '((match #f)) forms '())
+               => '((start Document)
+                    (start Heading) (token Line 0 3) (finish)
+                    (start Text) (token Line 3 5) (finish)
+                    (finish)))
+        (check (string? (event-fold-ir-json
+                         'byte_set_bool event-lines-language-grammar
+                         'Document '((match #f)) forms '()))
+               => #t)))
     (test-case "future marker search stops at heading or parent boundary"
       (let* ((condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
                               (future-line-marker-before-boundary?

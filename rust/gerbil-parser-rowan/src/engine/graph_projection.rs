@@ -57,6 +57,15 @@ pub struct GraphFieldValue {
 }
 
 impl GraphRecord {
+    /// Return every value of a projected field in source order.
+    pub fn values<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> + 'a {
+        self.fields
+            .iter()
+            .filter(move |field| field.name == name)
+            .map(|field| field.value.as_str())
+    }
+
+    /// Return the first value of a projected field.
     #[must_use]
     pub fn field(&self, name: &str) -> Option<&str> {
         self.fields

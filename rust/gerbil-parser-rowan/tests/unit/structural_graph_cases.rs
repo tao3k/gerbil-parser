@@ -12,21 +12,11 @@ fn graph_projection_preserves_repeated_fields_without_merging_neighbors() {
         .find(|record| record.kind == "planning")
         .expect("planning graph record");
     assert_eq!(
-        planning
-            .fields
-            .iter()
-            .filter(|field| field.name == "key")
-            .map(|field| field.value.as_str())
-            .collect::<Vec<_>>(),
+        planning.values("key").collect::<Vec<_>>(),
         ["SCHEDULED", "DEADLINE"]
     );
     assert_eq!(
-        planning
-            .fields
-            .iter()
-            .filter(|field| field.name == "value")
-            .map(|field| field.value.as_str())
-            .collect::<Vec<_>>(),
+        planning.values("value").collect::<Vec<_>>(),
         ["<2026-09-24 Thu>", "<2026-09-25 Fri>"]
     );
 }

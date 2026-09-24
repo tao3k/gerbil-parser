@@ -5,6 +5,11 @@
         rust-number rust-string rust-identifier rust-module rust-render
         rust-struct-form? rust-struct-form-name rust-struct-form-fields
         rust-field-name rust-field-value
+        rust-array-form? rust-array-form-values
+        rust-string-form? rust-string-form-value
+        rust-identifier-form? rust-identifier-form-value
+        rust-some-form? rust-some-form-value
+        rust-number-form? rust-number-form-value
         rust-module-form? rust-module-form-item
         rust-static-form? rust-static-form-value)
 

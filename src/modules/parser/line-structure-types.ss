@@ -20,6 +20,7 @@
         +heading-fields-kind+
         +table-line-kind+
         +list-line-kind+
+        +key-line-kind+
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
         BlockContents
@@ -28,6 +29,7 @@
         TableLineContract OptionalTableLineContract
         ListLineContract OptionalListLineContract
         ListTabWidth
+        KeyLineContract KeyLineKeys KeyLineSeparator AsciiPrefix
         OptionalParagraphNodeContract
         LineStructureContract
         HeadingLineContract
@@ -45,6 +47,7 @@
 (def +heading-fields-kind+ 'gerbil-parser-heading-fields)
 (def +table-line-kind+ 'gerbil-parser-table-line)
 (def +list-line-kind+ 'gerbil-parser-list-line)
+(def +key-line-kind+ 'gerbil-parser-key-line)
 
 (def (empty-prototype) (.o))
 
@@ -62,6 +65,47 @@
          (or (= index (string-length value))
              (and (< (char->integer (string-ref value index)) 128)
                   (loop (+ index 1)))))))
+
+(define-type (AsciiPrefix @ PooFlowContract.)
+  identity: 'gerbil-parser/ascii-prefix
+  .classify: (lambda (candidate context)
+               (line-classify 'gerbil-parser/ascii-prefix
+                              (lambda (value)
+                                (and (string? value)
+                                     (or (string=? value "") (ascii-text? value))))
+                              candidate context)))
+
+(def (key-name? value)
+  (and (ascii-text? value)
+       (let loop ((index 0))
+         (or (= index (string-length value))
+             (let (char (string-ref value index))
+               (and (or (char-alphabetic? char) (char-numeric? char)
+                        (eq? char #\_) (eq? char #\-))
+                    (loop (+ index 1))))))))
+
+(define-type (KeyLineKeys @ PooFlowContract.)
+  identity: 'gerbil-parser/key-line-keys
+  .classify: (lambda (candidate context)
+               (line-classify 'gerbil-parser/key-line-keys
+                              (lambda (value)
+                                (and (list? value) (<= (length value) 16)
+                                     (andmap key-name? value)))
+                              candidate context)))
+
+(define-type (KeyLineSeparator @ PooFlowContract.)
+  identity: 'gerbil-parser/key-line-separator
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/key-line-separator
+                (lambda (value)
+                  (and (ascii-text? value)
+                       (= (string-length value) 1)
+                       (let (char (string-ref value 0))
+                         (and (not (char-alphabetic? char))
+                              (not (char-numeric? char))
+                              (not (char-whitespace? char))))))
+                candidate context)))
 
 (define-type (LineMarker @ PooFlowContract.)
   identity: 'gerbil-parser/line-marker
@@ -293,6 +337,35 @@
                        (poo-flow-contract-admit ListLineContract value #f))))
                 candidate context)))
 
+(define-type (KeyLineKind @ PooFlowContract.)
+  identity: 'gerbil-parser/key-line-kind
+  .classify: (line-kind-contract 'gerbil-parser/key-line-kind
+                                 +key-line-kind+))
+
+(define-type (KeyLineContract @ PooFlowNativeObjectContract.)
+  identity: 'gerbil-parser/key-line
+  proto: (empty-prototype)
+  responsibilities:
+  (.o kind: KeyLineKind
+      prefix: AsciiPrefix
+      keys: KeyLineKeys
+      separator: KeyLineSeparator
+      case-insensitive: LineBoolean
+      indent: LineBoolean
+      after-heading: LineBoolean
+      repeated: LineBoolean
+      node: ParserSymbol
+      key-token: ParserSymbol
+      value-token: ParserSymbol
+      trivia-token: ParserSymbol)
+  .obligations: (lambda (candidate _context)
+                  (if (or (and (null? (.ref candidate 'keys))
+                               (string=? (.ref candidate 'prefix) ""))
+                          (and (.ref candidate 'repeated)
+                               (null? (.ref candidate 'keys))))
+                    '(unbounded-key-line)
+                    '())))
+
 (define-type (LineStructureSchema @ PooFlowContract.)
   identity: 'gerbil-parser/line-structure-schema
   .classify: (lambda (candidate context)
@@ -374,12 +447,19 @@
       inline-link: OptionalInlineLinkContract))
 
 (def (line-structure-obligations candidate _context)
-  (if (andmap (lambda (block)
-                (poo-flow-validation-evidence-accepted?
-                 (poo-flow-contract-admit BlockLineContract block #f)))
-              (.ref candidate 'blocks))
-    '()
-    '(invalid-block-rule)))
+  (append
+   (if (andmap (lambda (block)
+                 (poo-flow-validation-evidence-accepted?
+                  (poo-flow-contract-admit BlockLineContract block #f)))
+               (.ref candidate 'blocks))
+     '()
+     '(invalid-block-rule))
+   (if (andmap (lambda (rule)
+                 (poo-flow-validation-evidence-accepted?
+                  (poo-flow-contract-admit KeyLineContract rule #f)))
+               (.ref candidate 'key-lines))
+     '()
+     '(invalid-key-line-rule))))
 
 (define-type (LineStructureContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/line-structure
@@ -391,5 +471,6 @@
       blocks: ParserList
       text: TextLineContract
       table: OptionalTableLineContract
-      list: OptionalListLineContract)
+      list: OptionalListLineContract
+      key-lines: ParserList)
   .obligations: line-structure-obligations)

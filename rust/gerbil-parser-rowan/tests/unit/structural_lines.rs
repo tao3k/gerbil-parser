@@ -3,10 +3,14 @@ use super::graph_projection::{
 };
 use super::model::{
     BlockContents, BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule,
-    InlineLinkRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LineStructureSpec,
-    ListLineRule, TableLineRule, UnclosedBlockPolicy,
+    InlineLinkRule, KeyLineContext, KeyLineMode, KeyLineRule, KeyValueLineRule, KindCategory,
+    KindSpec, LanguageSpec, LineStructureSpec, ListLineRule, TableLineRule, UnclosedBlockPolicy,
 };
+use super::structural_key_line::key_line_references;
 use super::structural_lines::parse_structural_lines;
+
+#[path = "structural_key_line_cases.rs"]
+mod key_line_cases;
 
 #[path = "structural_list_cases.rs"]
 mod list_cases;
@@ -164,6 +168,38 @@ static KINDS: &[KindSpec] = &[
         name: "ListTrivia",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "Keyword",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "KeywordKey",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "KeywordValue",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "KeywordTrivia",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "Planning",
+        category: KindCategory::Node,
+    },
+    KindSpec {
+        name: "PlanningKey",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "PlanningValue",
+        category: KindCategory::Token,
+    },
+    KindSpec {
+        name: "PlanningTrivia",
+        category: KindCategory::Token,
+    },
 ];
 static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structure-test",
@@ -250,9 +286,42 @@ static STRUCTURE: LineStructureSpec = LineStructureSpec {
     paragraph_node: None,
     table: None,
     list: None,
+    key_lines: &[],
     text_node: 4,
     text_token: 7,
     inline_link: None,
+};
+static KEY_LINES: &[KeyLineRule] = &[
+    KeyLineRule {
+        prefix: "#+",
+        keys: &[],
+        separator: b':',
+        case_insensitive: true,
+        indent: true,
+        context: KeyLineContext::Anywhere,
+        mode: KeyLineMode::Single,
+        node: 38,
+        key_token: 39,
+        value_token: 40,
+        trivia_token: 41,
+    },
+    KeyLineRule {
+        prefix: "",
+        keys: &["SCHEDULED", "DEADLINE", "CLOSED"],
+        separator: b':',
+        case_insensitive: false,
+        indent: true,
+        context: KeyLineContext::AfterHeading,
+        mode: KeyLineMode::Repeated,
+        node: 42,
+        key_token: 43,
+        value_token: 44,
+        trivia_token: 45,
+    },
+];
+static KEY_LINE_STRUCTURE: LineStructureSpec = LineStructureSpec {
+    key_lines: KEY_LINES,
+    ..STRUCTURE
 };
 static PARAGRAPH_STRUCTURE: LineStructureSpec = LineStructureSpec {
     paragraph_node: Some(25),

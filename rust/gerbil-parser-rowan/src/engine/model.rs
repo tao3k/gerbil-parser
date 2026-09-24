@@ -95,9 +95,40 @@ pub struct LineStructureSpec {
     pub paragraph_node: Option<u16>,
     pub table: Option<TableLineRule>,
     pub list: Option<ListLineRule>,
+    pub key_lines: &'static [KeyLineRule],
     pub text_node: u16,
     pub text_token: u16,
     pub inline_link: Option<InlineLinkRule>,
+}
+
+/// A Scheme-declared keyed line with optional heading adjacency and repeated keys.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct KeyLineRule {
+    pub prefix: &'static str,
+    pub keys: &'static [&'static str],
+    pub separator: u8,
+    pub case_insensitive: bool,
+    pub indent: bool,
+    pub context: KeyLineContext,
+    pub mode: KeyLineMode,
+    pub node: u16,
+    pub key_token: u16,
+    pub value_token: u16,
+    pub trivia_token: u16,
+}
+
+/// Context in which a keyed line can begin an element.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KeyLineContext {
+    Anywhere,
+    AfterHeading,
+}
+
+/// Whether a keyed line carries one key/value pair or a bounded sequence.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KeyLineMode {
+    Single,
+    Repeated,
 }
 
 /// Contiguous delimiter-led rows projected into a lossless table and cells.

@@ -8,13 +8,12 @@
                  line-structure? make-line-structure make-heading-line
                  make-heading-fields
                  make-block-line make-block-header make-key-value-line
-                 make-inline-link make-text-line make-table-line make-list-line)
+                 make-inline-link make-text-line make-table-line make-list-line
+                 make-key-line)
         (only-in :gerbil-parser/src/compiler/line-structure-rowan
                  line-structure-parser-digest line-structure-rowan-source
                  line-structure-rowan-syntax)
-        (only-in :gerbil-parser/src/compiler/rust-syntax
-                 rust-module-form-item rust-static-form-value
-                 rust-struct-form? rust-struct-form-fields rust-field-name))
+        (only-in ./line-structure-assertions check-structural-aot))
 (export line-structure-aot-test)
 
 (def (fixture-structure (section 'GroupedExpression))
@@ -30,15 +29,10 @@
   (test-suite "POO structural-line AOT"
     (test-case "one checked POO declaration resolves canonical parser kinds"
       (let* ((structure (fixture-structure))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar structure)))
         (check (line-structure? structure) => #t)
-        (check (and (string-contains source "pub static STRUCTURE: LineStructureSpec")
-                    (string-contains source "opening: \"BEGIN\"")
-                    (string-contains source "grammar_digest: \"sha256:")
-                    (string-contains source "parser_digest: \"sha256:")
-                    #t)
-               => #t)))
+        (check-structural-aot syntax (identity) (block-opening "BEGIN"))))
     (test-case "parser identity changes when the POO strategy changes"
       (let* ((original (fixture-structure))
              (changed
@@ -85,10 +79,10 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f #f 'elements))
                (make-text-line 'NameExpression 'Number)))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar recursive)))
-        (check (and (string-contains source "contents: BlockContents::Elements") #t)
-               => #t)
+        (check-structural-aot syntax
+                              (block-contents "BlockContents::Elements"))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar recursive)
                        (line-structure-parser-digest
@@ -116,13 +110,9 @@
                '()
                (make-text-line 'NameExpression 'Number)
                #f list-rule))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar structure)))
-        (check (and (string-contains source "list: Some(ListLineRule")
-                    (string-contains source "unordered_markers: \"-+*\"")
-                    (string-contains source "tab_width: 8")
-                    #t)
-               => #t)
+        (check-structural-aot syntax (list-markers "-+*" 8))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest
@@ -149,10 +139,9 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f))
                (make-text-line 'NameExpression 'Number)))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar structure)))
-        (check (and (string-contains source "fields: Some(HeadingFieldsRule") #t)
-               => #t)
+        (check-structural-aot syntax (heading-fields))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest
@@ -170,10 +159,9 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'recover-as-text #t body))
                (make-text-line 'NameExpression 'Number)))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar structure)))
-        (check (and (string-contains source "body_line: Some(KeyValueLineRule") #t)
-               => #t)
+        (check-structural-aot syntax (body-line))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest
@@ -190,11 +178,9 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f header))
                (make-text-line 'NameExpression 'Number)))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar structure)))
-        (check (and (string-contains source "header: Some(BlockHeaderRule")
-                    (string-contains source "argument_token:") #t)
-               => #t)
+        (check-structural-aot syntax (block-header))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest
@@ -212,10 +198,9 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f))
                (make-text-line 'NameExpression 'Number link)))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar structure)))
-        (check (and (string-contains source "inline_link: Some(InlineLinkRule") #t)
-               => #t)
+        (check-structural-aot syntax (inline-link))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest
@@ -231,15 +216,43 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f))
                (make-text-line 'NameExpression 'Number #f 'NameExpression)))
-             (source (line-structure-rowan-source
+             (syntax (line-structure-rowan-syntax
                       arithmetic-language-grammar structure)))
-        (check (and (string-contains source "paragraph_node: Some(") #t)
-               => #t)
+        (check-structural-aot syntax (paragraph-node))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest
                         arithmetic-language-grammar (fixture-structure)))
                => #f)))
+    (test-case "bounded key-line strategy changes the digest and Rust table"
+      (let* ((rule (make-key-line "#+" '() ":" #t #t #f #f
+                                  'Expression 'Punctuation 'Number 'Punctuation))
+             (structure
+              (make-line-structure
+               (make-heading-line "*" " " 'GroupedExpression
+                                  'Expression 'Punctuation)
+               '()
+               (make-text-line 'NameExpression 'Number)
+               #f #f (list rule)))
+             (syntax (line-structure-rowan-syntax
+                      arithmetic-language-grammar structure)))
+        (check-structural-aot syntax
+                              (key-lines '(("#+" () "KeyLineContext::Anywhere"
+                                           "KeyLineMode::Single"))))
+        (check (equal? (line-structure-parser-digest
+                        arithmetic-language-grammar structure)
+                       (line-structure-parser-digest
+                        arithmetic-language-grammar (fixture-structure)))
+               => #f)))
+    (test-case "unbounded key-line declarations are rejected"
+      (check-exception
+       (make-key-line "" '() ":" #f #f #f #f
+                      'Expression 'Punctuation 'Number 'Punctuation)
+       true)
+      (check-exception
+       (make-key-line "#+" '() "x" #f #f #f #f
+                      'Expression 'Punctuation 'Number 'Punctuation)
+       true))
     (test-case "table rules project through the typed Rust syntax macro"
       (let* ((table (make-table-line "|" 'GroupedExpression
                                      'NameExpression 'Expression 'NameExpression
@@ -252,12 +265,11 @@
                (make-text-line 'NameExpression 'Number)
                table))
              (syntax (line-structure-rowan-syntax
-                      arithmetic-language-grammar structure))
-             (value (rust-static-form-value (rust-module-form-item syntax))))
-        (check (rust-struct-form? value) => #t)
-        (check (map rust-field-name (rust-struct-form-fields value))
-               => '(grammar_digest parser_digest heading blocks
-                        paragraph_node table list text_node text_token inline_link))
+                      arithmetic-language-grammar structure)))
+        (check-structural-aot
+         syntax
+         (fields '(grammar_digest parser_digest heading blocks
+                   paragraph_node table list key_lines text_node text_token inline_link)))
         (check (equal? (line-structure-parser-digest
                         arithmetic-language-grammar structure)
                        (line-structure-parser-digest

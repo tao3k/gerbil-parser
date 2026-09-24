@@ -12,18 +12,18 @@
                  +heading-line-kind+ +block-line-kind+ +text-line-kind+
                  +key-value-line-kind+ +block-header-kind+ +inline-link-kind+
                  +heading-fields-kind+
-                 +table-line-kind+ +list-line-kind+
+                 +table-line-kind+ +list-line-kind+ +key-line-kind+
                  LineStructureContract HeadingLineContract
                  BlockLineContract TextLineContract KeyValueLineContract
                  BlockHeaderContract InlineLinkContract HeadingFieldsContract
-                 TableLineContract ListLineContract))
-(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink. HeadingFields. TableLine. ListLine.
+                 TableLineContract ListLineContract KeyLineContract))
+(export LineStructure. HeadingLine. BlockLine. TextLine. KeyValueLine. BlockHeader. InlineLink. HeadingFields. TableLine. ListLine. KeyLine.
         make-line-structure make-heading-line make-block-line make-text-line
-        make-table-line make-list-line
+        make-table-line make-list-line make-key-line
         make-key-value-line make-block-header make-inline-link make-heading-fields
         line-structure? heading-line? block-line? text-line? key-value-line?
         line-structure-heading line-structure-blocks line-structure-text
-        line-structure-table line-structure-list
+        line-structure-table line-structure-list line-structure-key-lines
         heading-line-marker heading-line-separator
         heading-line-section-node heading-line-heading-node
         heading-line-heading-token
@@ -48,7 +48,11 @@
         list-line-unordered-markers list-line-ordered
         list-line-tab-width
         list-line-list-node list-line-item-node
-        list-line-bullet-token list-line-trivia-token)
+        list-line-bullet-token list-line-trivia-token
+        key-line-prefix key-line-keys key-line-separator
+        key-line-case-insensitive key-line-indent key-line-after-heading
+        key-line-repeated key-line-node key-line-key-token
+        key-line-value-token key-line-trivia-token)
 
 (def LineStructure. (.ref LineStructureContract 'proto))
 (def HeadingLine. (.ref HeadingLineContract 'proto))
@@ -60,6 +64,7 @@
 (def HeadingFields. (.ref HeadingFieldsContract 'proto))
 (def TableLine. (.ref TableLineContract 'proto))
 (def ListLine. (.ref ListLineContract 'proto))
+(def KeyLine. (.ref KeyLineContract 'proto))
 
 (def (admit-line! contract candidate)
   (let (evidence (poo-flow-contract-admit contract candidate #f))
@@ -187,8 +192,27 @@
                    bullet-token: bullet-token-value
                    trivia-token: trivia-token-value)))
 
+(def (make-key-line prefix-value keys-value separator-value
+                    case-insensitive-value indent-value after-heading-value
+                    repeated-value node-value key-token-value
+                    value-token-value trivia-token-value)
+  (admit-line! KeyLineContract
+               (.o (:: @ KeyLine.)
+                   kind: +key-line-kind+
+                   prefix: prefix-value
+                   keys: keys-value
+                   separator: separator-value
+                   case-insensitive: case-insensitive-value
+                   indent: indent-value
+                   after-heading: after-heading-value
+                   repeated: repeated-value
+                   node: node-value
+                   key-token: key-token-value
+                   value-token: value-token-value
+                   trivia-token: trivia-token-value)))
+
 (def (make-line-structure heading-value blocks-value text-value
-                          (table-value #f) (list-value #f))
+                          (table-value #f) (list-value #f) (key-lines-value '()))
   (admit-line! LineStructureContract
             (.o (:: @ LineStructure.)
                 kind: +line-structure-kind+
@@ -197,7 +221,8 @@
                 blocks: blocks-value
                 text: text-value
                 table: table-value
-                list: list-value)))
+                list: list-value
+                key-lines: key-lines-value)))
 
 (defpoo-object-family
   (accessors
@@ -206,6 +231,7 @@
    (line-structure-text text)
    (line-structure-table table)
    (line-structure-list list)
+   (line-structure-key-lines key-lines)
    (heading-line-marker marker)
    (heading-line-separator separator)
    (heading-line-section-node section-node)
@@ -260,7 +286,18 @@
    (list-line-list-node list-node)
    (list-line-item-node item-node)
    (list-line-bullet-token bullet-token)
-   (list-line-trivia-token trivia-token))
+   (list-line-trivia-token trivia-token)
+   (key-line-prefix prefix)
+   (key-line-keys keys)
+   (key-line-separator separator)
+   (key-line-case-insensitive case-insensitive)
+   (key-line-indent indent)
+   (key-line-after-heading after-heading)
+   (key-line-repeated repeated)
+   (key-line-node node)
+   (key-line-key-token key-token)
+   (key-line-value-token value-token)
+   (key-line-trivia-token trivia-token))
   (projections))
 
 (def (line-structure? value)

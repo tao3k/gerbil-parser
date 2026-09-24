@@ -12,10 +12,10 @@ mod engine;
 pub use engine::{
     ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage,
     GotoEntry, GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec, GraphRecord,
-    HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyValueLineRule, KindCategory, KindSpec,
-    LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, ListLineRule, Operand,
-    OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
-    ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, TableLineRule,
-    Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy, build_rowan_events, parse,
-    parse_scanned, parse_structural_lines, project_syntax_graph,
+    HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyLineContext, KeyLineMode, KeyLineRule,
+    KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule,
+    LineStructureSpec, ListLineRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
+    ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
+    SyntaxNode, SyntaxToken, TableLineRule, Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy,
+    build_rowan_events, parse, parse_scanned, parse_structural_lines, project_syntax_graph,
 };

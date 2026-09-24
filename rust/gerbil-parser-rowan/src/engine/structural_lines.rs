@@ -7,6 +7,7 @@ use super::model::{
     LanguageSpec, LineStructureSpec, ListLineRule, Parse, ParseError, ParseReceipt,
     SelectiveGlrReceipt, TableLineRule, TreeEvent, UnclosedBlockPolicy,
 };
+use super::structural_key_line::{emit_key_line, key_line_references, matching_key_line};
 use super::structural_list::{ListFrame, indent_column, list_marker};
 use super::structural_table::{emit_table_row, is_table_line};
 use super::validation::receipt;
@@ -51,6 +52,7 @@ struct StructuralState {
     sections: Vec<usize>,
     frames: Vec<ElementFrame>,
     missing_closer_until: Vec<Option<usize>>,
+    after_heading: bool,
 }
 
 impl StructuralState {
@@ -62,6 +64,7 @@ impl StructuralState {
             sections: Vec::new(),
             frames: vec![ElementFrame::root()],
             missing_closer_until: vec![None; structure.blocks.len()],
+            after_heading: false,
         }
     }
 
@@ -74,6 +77,7 @@ impl StructuralState {
     ) -> Result<(), Diagnostic> {
         let line = &source[start..end];
         let active_block = self.frames.last().and_then(|frame| frame.block_index);
+        let after_heading = std::mem::take(&mut self.after_heading);
         if let Some(rule) = active_block.map(|index| &structure.blocks[index]) {
             if directive(line, rule.closing, rule.case_insensitive, rule.indent, true) {
                 let frame = self.frames.last_mut().expect("root frame is present");
@@ -147,16 +151,13 @@ impl StructuralState {
                 start,
                 end,
             );
-        } else if let Some(rule) = structure.table.filter(|rule| is_table_line(line, *rule)) {
+            self.after_heading = true;
+        } else if let Some(rule) = matching_key_line(structure.key_lines, line, after_heading) {
             let frame = self.frames.last_mut().expect("root frame is present");
-            emit_table_section_line(
-                &mut self.events,
-                rule,
-                line,
-                start,
-                &mut frame.paragraph_open,
-                &mut frame.table_open,
-            );
+            close_lists(&mut self.events, frame);
+            emit_key_line(&mut self.events, line, start, rule);
+        } else if let Some(rule) = structure.table.filter(|rule| is_table_line(line, *rule)) {
+            self.table_line(rule, line, start);
         } else {
             let frame = self.frames.last_mut().expect("root frame is present");
             close_table(&mut self.events, &mut frame.table_open);
@@ -170,6 +171,18 @@ impl StructuralState {
             );
         }
         Ok(())
+    }
+
+    fn table_line(&mut self, rule: TableLineRule, line: &str, start: usize) {
+        let frame = self.frames.last_mut().expect("root frame is present");
+        emit_table_section_line(
+            &mut self.events,
+            rule,
+            line,
+            start,
+            &mut frame.paragraph_open,
+            &mut frame.table_open,
+        );
     }
 }
 
@@ -831,6 +844,9 @@ fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Resu
     }
     if let Some(rule) = spec.list {
         references.extend(list_references(rule)?);
+    }
+    for rule in spec.key_lines {
+        references.extend(key_line_references(*rule)?);
     }
     if let Some(fields) = spec.heading.fields {
         references.extend([

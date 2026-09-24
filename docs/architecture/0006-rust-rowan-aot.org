@@ -51,14 +51,19 @@ embeds a Scheme-source digest and passes differential fixtures.  The remaining
 compiler boundary is a fuller contextual Parser IR derived from Scheme-owned
 language declarations. The current =LineStructure= table validates kind
 references against the canonical grammar digest and covers headings, tables,
-marker-led nested lists, paragraphs, inline links, opaque blocks, and recursively
-parsed block contents. The list rule binds marker sets, ordered-item admission,
+marker-led nested lists, keyed lines, paragraphs, inline links, opaque blocks,
+and recursively parsed block contents. The keyed-line rule binds a bounded key
+set or prefixed dynamic key, case/indent policy, heading adjacency, and
+single/repeated values to the parser digest. The list rule binds marker sets,
+ordered-item admission,
 visual tab width, and typed bullet/trivia kinds to the parser digest; checkbox,
 counter, description-tag, and full continuation policy are not admitted yet.
 Other line/byte recognition, lexical state
 transitions, structural actions, and typed recovery still need explicit
 admission. The Rust runtime executes the admitted table and hands source-backed
 events to the generic Rowan sink.
+The AOT test contract checks the typed Rust syntax tree through a parser-specific
+macro; generated source text is not used as an assertion language.
 Org-like languages may use a scan phase internally, but there is no separately
 authored =generate-scanner= program, second Rust grammar, or downstream event
 algorithm.  Arbitrary Scheme procedures are not silently translated to Rust;

@@ -11,7 +11,7 @@
         (only-in ../modules/parser/line-structure-objects
                  line-structure?
                  line-structure-heading line-structure-blocks line-structure-text
-                 line-structure-table line-structure-list
+                 line-structure-table line-structure-list line-structure-key-lines
                  heading-line-marker heading-line-separator
                  heading-line-section-node heading-line-heading-node
                  heading-line-heading-token heading-line-fields
@@ -37,7 +37,11 @@
                  table-line-trivia-token table-line-rule-token
                  list-line-unordered-markers list-line-ordered list-line-tab-width
                  list-line-list-node list-line-item-node
-                 list-line-bullet-token list-line-trivia-token))
+                 list-line-bullet-token list-line-trivia-token
+                 key-line-prefix key-line-keys key-line-separator
+                 key-line-case-insensitive key-line-indent key-line-after-heading
+                 key-line-repeated key-line-node key-line-key-token
+                 key-line-value-token key-line-trivia-token))
 (export line-structure-parser-digest
         line-structure-rowan-syntax
         line-structure-rowan-source
@@ -157,7 +161,27 @@
     (bullet_token (kind-value kinds (list-line-bullet-token list-rule) 'token))
     (trivia_token (kind-value kinds (list-line-trivia-token list-rule) 'token))))
 
-(def (line-structure-digest grammar-digest heading blocks text table list-rule)
+(def (key-line-value kinds rule)
+  (rust-struct KeyLineRule
+    (prefix (rust-string (key-line-prefix rule)))
+    (keys (rust-array (map rust-string (key-line-keys rule))))
+    (separator (marker-value (key-line-separator rule)))
+    (case_insensitive (boolean-value (key-line-case-insensitive rule)))
+    (indent (boolean-value (key-line-indent rule)))
+    (context (rust-identifier
+              (if (key-line-after-heading rule)
+                "KeyLineContext::AfterHeading"
+                "KeyLineContext::Anywhere")))
+    (mode (rust-identifier
+           (if (key-line-repeated rule)
+             "KeyLineMode::Repeated"
+             "KeyLineMode::Single")))
+    (node (kind-value kinds (key-line-node rule) 'node))
+    (key_token (kind-value kinds (key-line-key-token rule) 'token))
+    (value_token (kind-value kinds (key-line-value-token rule) 'token))
+    (trivia_token (kind-value kinds (key-line-trivia-token rule) 'token))))
+
+(def (line-structure-digest grammar-digest heading blocks text table list-rule key-lines)
   (sha256-text
    (call-with-output-string
     (lambda (port)
@@ -224,7 +248,20 @@
                         (list-line-list-node list-rule)
                         (list-line-item-node list-rule)
                         (list-line-bullet-token list-rule)
-                        (list-line-trivia-token list-rule))))
+                        (list-line-trivia-token list-rule)))
+             (map (lambda (rule)
+                    (list (key-line-prefix rule)
+                          (key-line-keys rule)
+                          (key-line-separator rule)
+                          (key-line-case-insensitive rule)
+                          (key-line-indent rule)
+                          (key-line-after-heading rule)
+                          (key-line-repeated rule)
+                          (key-line-node rule)
+                          (key-line-key-token rule)
+                          (key-line-value-token rule)
+                          (key-line-trivia-token rule)))
+                  key-lines))
        port)))))
 
 (def (line-structure-parser-digest language-grammar structure)
@@ -237,7 +274,8 @@
    (line-structure-blocks structure)
    (line-structure-text structure)
    (line-structure-table structure)
-   (line-structure-list structure)))
+   (line-structure-list structure)
+   (line-structure-key-lines structure)))
 
 ;; Public input is one validated POO contract; output is a bounded Rust AST.
 (def (line-structure-rowan-syntax language-grammar structure)
@@ -250,6 +288,7 @@
          (text (line-structure-text structure))
          (table (line-structure-table structure))
          (list-rule (line-structure-list structure))
+         (key-lines (line-structure-key-lines structure))
          (digest (parser-machine-grammar-digest
                   (language-grammar-machine language-grammar)))
          (parser-digest (line-structure-parser-digest
@@ -257,7 +296,8 @@
     (rust-module
       '("BlockContents" "BlockHeaderRule" "BlockLineRule" "HeadingFieldsRule"
         "HeadingLineRule" "InlineLinkRule" "KeyValueLineRule"
-        "LineStructureSpec" "ListLineRule" "TableLineRule" "UnclosedBlockPolicy")
+        "LineStructureSpec" "ListLineRule" "KeyLineContext" "KeyLineMode"
+        "KeyLineRule" "TableLineRule" "UnclosedBlockPolicy")
       (rust-static STRUCTURE LineStructureSpec
         (rust-struct LineStructureSpec
           (grammar_digest (rust-string digest))
@@ -269,6 +309,7 @@
                            (lambda (value) (kind-value kinds value 'node))))
           (table (optional-value table (lambda (value) (table-value kinds value))))
           (list (optional-value list-rule (lambda (value) (list-value kinds value))))
+          (key_lines (rust-array (map (lambda (rule) (key-line-value kinds rule)) key-lines)))
           (text_node (kind-value kinds (text-line-node text) 'node))
           (text_token (kind-value kinds (text-line-token text) 'token))
           (inline_link

@@ -207,6 +207,25 @@
                     (finish) (finish)))
         (check (hash-ref (hash-ref (vector-ref consequent 1) "end") "kind")
                => "line_marker_end")))
+    (test-case "typed unsigned block state selects a bounded transition"
+      (let* ((initial '((active-block 2)))
+             (forms '((if (uint-equal? (state active-block) (uint 2))
+                          ((start-node Text) (token Line start end)
+                           (finish-node))
+                          ((start-node Heading) (token Line start end)
+                           (finish-node)))))
+             (wire (event-fold-ir-json
+                    'block_state event-lines-language-grammar
+                    'Document initial forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "body\n" 'Document initial forms '())
+               => '((start Document) (start Text) (token Line 0 5)
+                    (finish) (finish)))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind")
+               => "usize_equal")))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

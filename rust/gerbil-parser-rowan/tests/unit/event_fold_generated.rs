@@ -1,5 +1,4 @@
-pub const PARSER_DIGEST: &str =
-    "sha256:14dc22249e90e4d6af215b04042dd9fe778d4ad4df5943f95bf33ce149783f51";
+pub const PARSER_DIGEST: &str = "sha256:14dc22249e90e4d6af215b04042dd9fe778d4ad4df5943f95bf33ce149783f51";
 pub fn parse_fold_lines(source: &str) -> Vec<TreeEvent> {
     let bytes = source.as_bytes();
     let mut events = Vec::with_capacity(bytes.len() / 16 + 2);
@@ -25,22 +24,24 @@ pub fn parse_fold_lines(source: &str) -> Vec<TreeEvent> {
                 paragraph_open = false;
             }
             events.push(TreeEvent::StartNode(1u16));
-            events.push(TreeEvent::Token {
-                kind: 3u16,
-                start,
-                end,
-            });
+            events
+                .push(TreeEvent::Token {
+                    kind: 3u16,
+                    start,
+                    end,
+                });
             events.push(TreeEvent::FinishNode);
         } else {
             if !(paragraph_open) {
                 events.push(TreeEvent::StartNode(2u16));
                 paragraph_open = true;
             }
-            events.push(TreeEvent::Token {
-                kind: 3u16,
-                start,
-                end,
-            });
+            events
+                .push(TreeEvent::Token {
+                    kind: 3u16,
+                    start,
+                    end,
+                });
         }
         start = end;
     }

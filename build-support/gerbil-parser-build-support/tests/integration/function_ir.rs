@@ -18,7 +18,7 @@ fn scheme_event_fold_compiles_to_stateful_rowan_events() {
     let rust = gerbil_scheme_rust_ir::compile_event_function_json(ir).unwrap();
     assert!(rust.contains("pub fn parse_fold_lines"));
     assert!(rust.contains("paragraph_open"));
-    assert!(rust.contains("TreeEvent :: Token"));
+    assert!(rust.contains("TreeEvent::Token"));
     let digest_start = rust.find("sha256:").unwrap();
     let digest = &rust[digest_start..digest_start + 71];
     let generated = include_str!(concat!(

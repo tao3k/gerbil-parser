@@ -248,8 +248,9 @@ dependencies = [
 [[package]]
 name = "gerbil-scheme-rust-ir"
 version = "0.1.0"
-source = "git+https://github.com/tao3k/gerbil-scheme-rust?rev=a43d4039d99720b5c7dfae33fe0d79ba9de9576b#a43d4039d99720b5c7dfae33fe0d79ba9de9576b"
+source = "git+https://github.com/tao3k/gerbil-scheme-rust?rev=688f6286085ea508103e548ce2dcf41219bdf54b#688f6286085ea508103e548ce2dcf41219bdf54b"
 dependencies = [
+ "prettyplease",
  "proc-macro2",
  "quote",
  "serde",
@@ -324,6 +325,16 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "prettyplease"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bfe0f4c752e450fc2faf62654f1c134747922825d5b04ca717b8874f41a40c0"
+dependencies = [
+ "proc-macro2",
+ "syn",
+]
 
 [[package]]
 name = "proc-macro2"

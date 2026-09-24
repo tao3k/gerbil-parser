@@ -7,6 +7,7 @@
                  rust-struct rust-static rust-array rust-some rust-none
                  rust-number rust-string rust-module
                  rust-function-ir-json
+                 rust-function-form-name rust-function-form-parameters
                  rust-struct-form? rust-struct-form-name rust-struct-form-fields
                  rust-field-name rust-module-form-item
                  rust-static-form-value)
@@ -107,6 +108,24 @@
        (scheme-pure->rust 'invalid '((input . "&str")) "String"
                           '(string-before missing "("))
        true))
+    (test-case "Scheme predicate and kebab names normalize at the Rust boundary"
+      (let* ((function
+              (scheme-pure->rust
+               'candidate-valid?
+               '((provider-identity . "&str") (complete? . "bool"))
+               "bool" 'complete?))
+             (ir
+              (string->json
+               (rust-function-ir-json function)
+               (JSONReadOptions object-as-hash: #t)))
+             (parameters (hash-get ir "parameters")))
+        (check (rust-function-form-name function) => 'candidate_valid_p)
+        (check (rust-function-form-parameters function)
+               => '((provider_identity . "&str") (complete_p . "bool")))
+        (check (hash-get (car parameters) "name")
+               => "provider_identity")
+        (check (hash-get (cadr parameters) "name")
+               => "complete_p")))
     (test-case "nested pure bindings remain typed IR blocks"
       (let* ((function
               (scheme-pure->rust

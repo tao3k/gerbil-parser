@@ -2,6 +2,7 @@
 ;;; A deliberately bounded pure Scheme subset lowered to Rust function syntax.
 
 (import (only-in :std/string/misc string-trim)
+        (only-in ../utilities/strings string-index-from)
         (only-in ./rust-syntax
                  rust-function-value rust-block rust-let rust-method
                  rust-call
@@ -14,11 +15,11 @@
         string-words string-in?)
 
 (def (string-before value delimiter)
-  (let (index (string-contains value delimiter))
+  (let (index (string-index-from value delimiter))
     (if (fixnum? index) (substring value 0 index) value)))
 
 (def (string-after value delimiter)
-  (let (index (string-contains value delimiter))
+  (let (index (string-index-from value delimiter))
     (if (fixnum? index)
       (substring value (+ index (string-length delimiter))
                  (string-length value))
@@ -258,7 +259,11 @@
   (parameterize ((current-pure-calls known-calls))
     (rust-function-value
      (string->symbol (rust-name-text name))
-     parameters result
+     (map (lambda (parameter)
+            (cons (string->symbol (rust-name-text (car parameter)))
+                  (cdr parameter)))
+          parameters)
+     result
      (compile-pure-body expression parameters result))))
 
 ;; One source body is both executable Scheme and the AOT input. The compiler

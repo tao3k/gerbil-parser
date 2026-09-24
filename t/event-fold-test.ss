@@ -216,6 +216,40 @@
           (check (hash-ref loop "kind") => "for_line_bytes")
           (check (hash-ref (hash-ref loop "until") "kind")
                  => "line_content_end"))))
+    (test-case "declared list markers and frame closes execute as Scheme"
+      (let* ((initial '((present #f) (column 0) (ordered #f)
+                        (bullet-start 0) (bullet-end 0) (content-start 0)
+                        (frames (uint-stack))))
+             (forms '((scan-list-marker "-+*" #t 8 present column ordered
+                                        bullet-start bullet-end content-start)
+                      (if (state present)
+                          ((close-frames-while frames
+                             (uint-greater? (stack-top frames) (state column)) 1)
+                           (start-node Text)
+                           (push-frame frames (state column))
+                           (token Line start (state-offset bullet-start))
+                           (token Line (state-offset bullet-start)
+                                  (state-offset bullet-end))
+                           (token Line (state-offset bullet-end) end))
+                          ())))
+             (finish '((close-all-frames frames 1)))
+             (wire (event-fold-ir-json
+                    'list_fold event-lines-language-grammar
+                    'Document initial forms finish))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "- a\n  12) b\n- c\n" 'Document
+                               initial forms finish)
+               => '((start Document)
+                    (start Text) (token Line 0 1) (token Line 1 4)
+                    (start Text) (token Line 4 6) (token Line 6 9)
+                    (token Line 9 12)
+                    (finish) (start Text)
+                    (token Line 12 13) (token Line 13 16)
+                    (finish) (finish) (finish)))
+        (check (hash-ref (vector-ref (hash-ref ir "line") 0) "kind")
+               => "scan_list_marker")))
     (test-case "headline marker offsets use the declared level in Scheme and IR"
       (let* ((marker '(line-marker-end "*" " "))
              (forms `((if (uint-positive? (line-marker-level "*" " "))

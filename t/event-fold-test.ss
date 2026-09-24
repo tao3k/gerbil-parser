@@ -104,6 +104,25 @@
                                    "condition") "kind") => "and")
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 1)
                                    "condition") "kind") => "or")))
+    (test-case "bounded delimiter scan accepts non-whitespace source keys"
+      (let* ((key-end '(line-scan-nonspace-until start ":"))
+             (forms `((start-node Text)
+                      (token Line start ,key-end)
+                      (token Line ,key-end end)
+                      (finish-node)))
+             (wire (event-fold-ir-json
+                    'delimiter_scan event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "A+B: yes\n" 'Document '() forms '())
+               => '((start Document) (start Text)
+                    (token Line 0 3) (token Line 3 9)
+                    (finish) (finish)))
+        (check (hash-ref
+                (hash-ref (vector-ref (hash-ref ir "line") 1) "end")
+                "kind") => "line_scan_nonspace_until")))
     (test-case "ASCII line markers reject prefix collisions in Scheme and IR"
       (let* ((forms '((if (line-prefix-boundary-ascii-ci "#+begin_src")
                          ((start-node Text) (token Line start end)

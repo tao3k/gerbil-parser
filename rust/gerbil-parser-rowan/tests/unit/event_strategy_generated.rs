@@ -2,7 +2,7 @@
 use gerbil_parser_rowan::TreeEvent;
 
 pub const PARSER_DIGEST: &str =
-    "sha256:80d9f12dbd52e5a4f387029beacdbd7d9a7772908c84baccc47e34124347ceb4";
+    "sha256:88bbe27e4b43bf5f5c31b1133325f5eadedbfda0fc9c8defeabdf501f010ed89";
 
 pub fn parse_event_lines(source: &str) -> Vec<TreeEvent> {
     let bytes = source.as_bytes();

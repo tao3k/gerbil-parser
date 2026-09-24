@@ -181,13 +181,16 @@ jobs:
           event_generated="$(mktemp)"
           grammar_generated="$(mktemp)"
           fold_ir_generated="$(mktemp)"
+          outline_ir_generated="$(mktemp)"
           gerbil env gxi t/generate-event-strategy-fixture.ss "$event_generated"
           gerbil env gxi t/generate-event-strategy-grammar.ss "$grammar_generated"
           gerbil env gxi t/generate-event-fold-ir.ss "$fold_ir_generated"
+          gerbil env gxi t/generate-outline-fold-ir.ss "$outline_ir_generated"
           rustfmt --edition 2024 "$event_generated" "$grammar_generated"
           cmp "$event_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_generated.rs
           cmp "$grammar_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_grammar.rs
           cmp "$fold_ir_generated" t/fixtures/event_fold.ir.json
+          cmp "$outline_ir_generated" t/fixtures/outline_fold.ir.json
 
       - name: Verify Scheme pure owned-string AOT fixture
         run: |

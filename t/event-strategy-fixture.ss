@@ -13,7 +13,8 @@
    (Document node (line))
    (Heading node (line))
    (Text node (line))
-   (Line token (text)))
+   (Line token (text))
+   (Section node (heading element)))
   (terminals (line Line))
   (lexical-rules (line (line)))
   (rules

@@ -4,7 +4,8 @@
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in :std/encoding/json JSONReadOptions string->json)
         (only-in "event-strategy-fixture.ss" event-lines-language-grammar)
-        (only-in "event-fold-fixture.ss" parse-fold-lines parse_fold_lines)
+        (only-in "event-fold-fixture.ss" parse-fold-lines parse_fold_lines
+                 parse-outline-lines parse_outline_lines)
         (only-in :gerbil-parser/rust-rowan-event-support
                  event-fold-ir-json))
 (export event-fold-test)
@@ -30,6 +31,20 @@
         (check (string-prefix? "sha256:" (hash-ref ir "parser_digest"))
                => #t)
         (check (vector-length (hash-ref ir "line")) => 1)))
+    (test-case "Scheme fold owns nested headline structure"
+      (check (parse-outline-lines "* Parent\n** Child\nbody\n* Peer\n")
+             => '((start Document)
+                  (start Section) (start Heading) (token Line 0 9) (finish)
+                  (start Section) (start Heading) (token Line 9 18) (finish)
+                  (start Text) (token Line 18 23) (finish)
+                  (finish) (finish)
+                  (start Section) (start Heading) (token Line 23 30) (finish)
+                  (finish) (finish)))
+      (let (ir (string->json parse_outline_lines
+                             (JSONReadOptions object-as-hash: #t
+                                              array-as-vector: #t)))
+        (check (hash-ref (vector-ref (hash-ref ir "initial") 0) "kind")
+               => "let_usize_stack")))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

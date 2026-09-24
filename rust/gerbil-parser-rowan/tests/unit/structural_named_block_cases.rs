@@ -25,6 +25,8 @@ static REQUIRED_NAME_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     opening: "#+BEGIN:",
     opening_mode: BlockOpeningMode::RequiredNamedArgument,
     closing: "#+END:",
+    unclosed: UnclosedBlockPolicy::RecoverAsText,
+    heading_bound: true,
     header: Some(BlockHeaderRule {
         argument_token: 17,
         trivia_token: 18,
@@ -113,4 +115,17 @@ fn required_name_block_rejects_empty_or_malformed_headers() {
         .map(|token| token.text().to_owned())
         .collect();
     assert_eq!(names, ["clocktable"]);
+}
+
+#[test]
+fn repeated_unclosed_required_name_blocks_recover_without_suffix_rescans() {
+    let source = "#+BEGIN: clocktable\n".repeat(10_000);
+    let root = parse_structural_lines(&LANGUAGE, &REQUIRED_NAME_STRUCTURE, &source)
+        .unwrap()
+        .syntax();
+    assert_eq!(root.to_string(), source);
+    assert_eq!(
+        root.descendants().filter(|node| node.kind().0 == 3).count(),
+        0
+    );
 }

@@ -125,6 +125,44 @@
           (check (hash-ref (hash-ref (vector-ref consequent 3) "end")
                            "kind")
                  => "line_scan_word"))))
+    (test-case "dynamic key offsets keep Org-style key, value and trivia source-backed"
+      (let* ((prefix '(line-prefix-end "#+"))
+             (key-end (list 'line-scan-key prefix))
+             (value-start (list 'line-skip-horizontal
+                                (list 'line-step key-end)))
+             (forms `((if (line-has-key-after-prefix? "#+")
+                          ((start-node Text)
+                           (token Line start ,prefix)
+                           (token Line ,prefix ,key-end)
+                           (token Line ,key-end ,value-start)
+                           (token Line ,value-start (line-trim-end))
+                           (token Line (line-trim-end) end)
+                           (finish-node))
+                          ((start-node Heading)
+                           (token Line start end) (finish-node))))))
+        (check (run-event-fold "#+SEQ_TODO: TODO | DONE \r\n" 'Document '()
+                               forms '())
+               => '((start Document) (start Text)
+                    (token Line 0 2) (token Line 2 10)
+                    (token Line 10 12) (token Line 12 23)
+                    (token Line 23 26) (finish) (finish)))
+        (check (run-event-fold "#+@bad: x\n" 'Document '() forms '())
+               => '((start Document) (start Heading)
+                    (token Line 0 10) (finish) (finish)))
+        (let* ((wire (event-fold-ir-json
+                      'dynamic_key event-lines-language-grammar
+                      'Document '() forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t)))
+               (conditional (vector-ref (hash-ref ir "line") 0))
+               (consequent (hash-ref conditional "consequent")))
+          (check (hash-ref (hash-ref conditional "condition") "kind")
+                 => "line_has_key_after_prefix")
+          (check (hash-ref (hash-ref (vector-ref consequent 2) "end") "kind")
+                 => "line_scan_key")
+          (check (hash-ref (hash-ref (vector-ref consequent 4) "end") "kind")
+                 => "line_trim_end"))))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

@@ -2,9 +2,11 @@
 ;;; The Rust AOT macro constructs syntax values before rendering source.
 
 (import (only-in :std/test check check-exception test-case test-suite)
+        (only-in :std/encoding/json JSONReadOptions string->json)
         (only-in :gerbil-parser/src/compiler/rust-syntax
                  rust-struct rust-static rust-array rust-some rust-none
                  rust-number rust-string rust-module
+                 rust-function-ir-json
                  rust-struct-form? rust-struct-form-name rust-struct-form-fields
                  rust-field-name rust-module-form-item
                  rust-static-form-value)
@@ -105,6 +107,23 @@
        (scheme-pure->rust 'invalid '((input . "&str")) "String"
                           '(string-before missing "("))
        true))
+    (test-case "nested pure bindings remain typed IR blocks"
+      (let* ((function
+              (scheme-pure->rust
+               'has-prefix
+               '((source . "&str") (declarations . "&[String]"))
+               "bool"
+               '(ormap
+                 (lambda (directive)
+                   (let* ((prefix (string-before directive "|")))
+                     (equal? prefix source)))
+                 declarations)))
+             (ir (string->json
+                  (rust-function-ir-json function)
+                  (JSONReadOptions object-as-hash: #t)))
+             (body (hash-get (hash-get ir "body") "result")))
+        (check (hash-get body "kind") => "any")
+        (check (hash-get (hash-get body "body") "kind") => "block")))
     (test-case "higher-order word traversal remains an AOT syntax tree"
       (check (string-words "  WAIT(w)\t| DONE(d)  ")
              => '("WAIT(w)" "|" "DONE(d)"))

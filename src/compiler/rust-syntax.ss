@@ -402,6 +402,10 @@
 
 (def (rust-expression-ir node)
   (cond
+   ((rust-block-form? node)
+    (hash (kind "block")
+          (bindings (rust-block-bindings-ir node))
+          (result (rust-expression-ir (rust-block-form-result node)))))
    ((rust-string-form? node)
     (hash (kind "string") (value (rust-string-form-value node))))
    ((rust-identifier-form? node)
@@ -470,6 +474,13 @@
           (right (rust-expression-ir (rust-binary-form-right node)))))
    (else (error "unsupported Rust function IR expression" node))))
 
+(def (rust-block-bindings-ir block)
+  (list->vector
+   (map (lambda (binding)
+          (hash (name (rust-ir-name (rust-let-form-name binding)))
+                (value (rust-expression-ir (rust-let-form-value binding)))))
+        (rust-block-form-statements block))))
+
 (def (rust-function-ir-json function)
   (unless (rust-function-form? function)
     (error "Rust function IR requires a pure function" function))
@@ -487,14 +498,7 @@
       (result (rust-function-form-result function))
       (body
        (hash
-        (bindings
-         (list->vector
-          (map (lambda (binding)
-                 (hash (name (rust-ir-name
-                              (rust-let-form-name binding)))
-                       (value (rust-expression-ir
-                               (rust-let-form-value binding)))))
-               (rust-block-form-statements body))))
+        (bindings (rust-block-bindings-ir body))
         (result (rust-expression-ir
                  (rust-block-form-result body)))))))))
 

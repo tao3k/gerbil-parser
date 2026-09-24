@@ -4,6 +4,7 @@ include!("pure_function_generated.rs");
 include!("classify_first_word_generated.rs");
 include!("classify_or_unknown_generated.rs");
 include!("owned_first_word_generated.rs");
+include!("owned_rest_after_first_word_generated.rs");
 
 macro_rules! check_rust_aot_function {
     ($function:path; $(($($input:expr),+ $(,)?) => $expected:expr),+ $(,)?) => {
@@ -33,5 +34,10 @@ fn generated_pure_function_compiles_and_runs() {
         ("  WAIT Task", true) => "WAIT",
         ("  WAIT Task", false) => "",
         ("é heading", true) => "é",
+    );
+    check_rust_aot_function!(owned_rest_after_first_word;
+        ("  WAIT   [#A] Head :tag:  ") => "[#A] Head :tag:",
+        ("WAIT") => "",
+        ("é  heading") => "heading",
     );
 }

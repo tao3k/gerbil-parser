@@ -5,7 +5,8 @@
         rust-number rust-string rust-identifier rust-module rust-render
         write-rust-module write-rust-syntax
         rust-function rust-function-value rust-block rust-let rust-call rust-method
-        rust-before rust-after rust-first-word rust-words rust-any
+        rust-tuple-index rust-before rust-after rust-first-word
+        rust-words rust-any
         rust-empty rust-string-in rust-if
         rust-binary
         rust-line-event-function rust-event-node rust-event-token rust-event-if
@@ -22,7 +23,8 @@
         rust-block-form-result rust-let-form? rust-let-form-name
         rust-let-form-value
         rust-method-form? rust-method-form-method
-        rust-first-word-form? rust-string-in-form?
+        rust-first-word-form? rust-tuple-index-form?
+        rust-string-in-form?
         rust-any-form? rust-empty-form?
         rust-if-form? rust-if-form-condition rust-if-form-alternate
         rust-struct-form? rust-struct-form-name rust-struct-form-fields
@@ -50,6 +52,7 @@
 (defstruct rust-let-form (name value) transparent: #t)
 (defstruct rust-call-form (callee arguments) transparent: #t)
 (defstruct rust-method-form (receiver method arguments) transparent: #t)
+(defstruct rust-tuple-index-form (tuple index) transparent: #t)
 (defstruct rust-before-form (value delimiter owned?) transparent: #t)
 (defstruct rust-after-form (value delimiter) transparent: #t)
 (defstruct rust-first-word-form (value) transparent: #t)
@@ -117,6 +120,10 @@
   (make-rust-call-form callee arguments))
 (def (rust-method receiver method arguments)
   (make-rust-method-form receiver method arguments))
+(def (rust-tuple-index tuple index)
+  (unless (and (integer? index) (<= 0 index))
+    (error "Rust tuple index must be nonnegative" index))
+  (make-rust-tuple-index-form tuple index))
 (def (rust-before value delimiter owned?)
   (unless (rust-identifier-form? value)
     (error "Rust before requires a single bound value" value))
@@ -317,6 +324,10 @@
     (display "(" port)
     (render-sequence port (rust-method-form-arguments node))
     (display ")" port))
+   ((rust-tuple-index-form? node)
+    (render-node port (rust-tuple-index-form-tuple node))
+    (display "." port)
+    (display (rust-tuple-index-form-index node) port))
    ((rust-before-form? node)
     (render-node port (rust-before-form-value node))
     (display ".split_once(" port)

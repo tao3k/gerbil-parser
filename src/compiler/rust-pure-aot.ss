@@ -6,10 +6,12 @@
                  rust-function-value rust-block rust-let rust-method
                  rust-call
                  rust-string rust-identifier rust-before rust-first-word
+                 rust-tuple-index
                  rust-after rust-words rust-any rust-empty
                  rust-string-in rust-if rust-binary))
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
-        string-after string-first-word string-words string-in?)
+        string-after string-first-word string-rest-after-first-word
+        string-words string-in?)
 
 (def (string-before value delimiter)
   (let (index (string-contains value delimiter))
@@ -43,6 +45,15 @@
               (char-whitespace? (string-ref text index)))
         (substring text 0 index)
         (loop (+ index 1))))))
+
+(def (string-rest-after-first-word value)
+  (let* ((text (string-trim value)) (size (string-length text)))
+    (let loop ((index 0))
+      (cond
+       ((= index size) "")
+       ((char-whitespace? (string-ref text index))
+        (string-trim (substring text (+ index 1) size)))
+       (else (loop (+ index 1)))))))
 
 (def (string-words value)
   (let (size (string-length value))
@@ -130,6 +141,18 @@
       (if (equal? result-type "String")
         (rust-method word 'to_owned '())
         word)))
+   ((and (pair? expression) (eq? (car expression) 'string-rest-after-first-word)
+         (= (length expression) 2))
+    (let* ((source (compile-pure-expression (cadr expression) variables "&str"))
+           (trimmed-source (rust-method source 'trim '()))
+           (split (rust-method
+                   trimmed-source 'split_once
+                   (list (rust-identifier 'char::is_whitespace))))
+           (tuple (rust-method split 'unwrap_or_default '()))
+           (rest (rust-method (rust-tuple-index tuple 1) 'trim '())))
+      (if (equal? result-type "String")
+        (rust-method rest 'to_owned '())
+        rest)))
    ((and (pair? expression) (eq? (car expression) 'string-words)
          (= (length expression) 2))
     (rust-words

@@ -85,6 +85,38 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_blank")))
+    (test-case "source-backed prefix, word and trivia offsets execute in Scheme"
+      (let* ((prefix '(line-prefix-end "#+begin_src"))
+             (word-start (list 'line-skip-horizontal prefix))
+             (word-end (list 'line-scan-word word-start))
+             (forms `((if (line-has-word-after-prefix? "#+begin_src")
+                          ((start-node Text)
+                           (token Line start ,prefix)
+                           (token Line ,prefix ,word-start)
+                           (token Line ,word-start ,word-end)
+                           (token Line ,word-end end)
+                           (finish-node))
+                          ((start-node Heading)
+                           (token Line start end) (finish-node))))))
+        (check (run-event-fold "#+BeGiN_SrC rust :x\n" 'Document '()
+                               forms '())
+               => '((start Document) (start Text)
+                    (token Line 0 11) (token Line 11 12)
+                    (token Line 12 16) (token Line 16 20)
+                    (finish) (finish)))
+        (check (run-event-fold "#+begin_src \n" 'Document '()
+                               forms '())
+               => '((start Document) (start Heading)
+                    (token Line 0 13) (finish) (finish)))
+        (let* ((wire (event-fold-ir-json
+                      'header_word event-lines-language-grammar
+                      'Document '() forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t))))
+          (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                     "condition") "kind")
+                 => "line_has_word_after_prefix"))))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

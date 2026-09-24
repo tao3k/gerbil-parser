@@ -14,8 +14,8 @@ mod validation;
 
 pub use event_tree::build_rowan_events;
 pub use graph_projection::{
-    GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec, GraphRecord,
-    project_syntax_graph,
+    GraphFieldMode, GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec,
+    GraphRecord, project_syntax_graph,
 };
 pub use model::{
     ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage,

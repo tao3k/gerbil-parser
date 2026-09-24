@@ -6,8 +6,21 @@ use super::model::{Diagnostic, KindCategory, LanguageSpec, SyntaxNode};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GraphFieldRule {
+    /// Syntax token whose text is projected into this field.
     pub token_kind: u16,
+    /// Public field name on the graph record.
     pub name: &'static str,
+    /// Whether multiple tokens are joined or retained separately.
+    pub mode: GraphFieldMode,
+}
+
+/// AOT-declared cardinality for repeated graph field tokens.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GraphFieldMode {
+    /// Join adjacent token text into one field value.
+    Append,
+    /// Keep each token as a separate field value in source order.
+    Each,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -111,18 +124,19 @@ pub fn project_syntax_graph(
                 };
                 for field in rule.fields {
                     if field.token_kind == token.kind().0 {
-                        if let Some(value) = records[id]
-                            .fields
-                            .iter_mut()
-                            .find(|value| value.name == field.name)
+                        if field.mode == GraphFieldMode::Append
+                            && let Some(value) = records[id]
+                                .fields
+                                .iter_mut()
+                                .find(|value| value.name == field.name)
                         {
                             value.value.push_str(token.text());
-                        } else {
-                            records[id].fields.push(GraphFieldValue {
-                                name: field.name,
-                                value: token.text().to_owned(),
-                            });
+                            continue;
                         }
+                        records[id].fields.push(GraphFieldValue {
+                            name: field.name,
+                            value: token.text().to_owned(),
+                        });
                     }
                 }
             }

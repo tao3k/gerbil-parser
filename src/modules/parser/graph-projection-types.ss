@@ -50,13 +50,21 @@
                            (and (string? value) (> (string-length value) 0)))
                          candidate context)))
 
+(define-type (GraphFieldMode @ PooFlowContract.)
+  identity: 'gerbil-parser/graph-field-mode
+  .classify: (lambda (candidate context)
+               (graph-classify 'gerbil-parser/graph-field-mode
+                         (lambda (value) (memq value '(append each)))
+                         candidate context)))
+
 (define-type (GraphFieldContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/graph-field
   proto: (empty-prototype)
   responsibilities:
   (.o kind: GraphFieldKind
       token-kind: ParserSymbol
-      field-name: GraphLabel))
+      field-name: GraphLabel
+      field-mode: GraphFieldMode))
 
 (def (valid-fields? fields)
   (and (list? fields)

@@ -14,7 +14,7 @@
         make-graph-projection make-graph-node make-graph-field
         graph-projection? graph-projection-nodes
         graph-node-syntax-kind graph-node-category graph-node-label graph-node-fields
-        graph-field-token graph-field-name)
+        graph-field-token graph-field-name graph-field-mode)
 
 (def GraphProjection. (.ref GraphProjectionContract 'proto))
 (def GraphNode. (.ref GraphNodeContract 'proto))
@@ -26,12 +26,13 @@
       (error "invalid POO graph projection" (.ref evidence 'diagnostics)))
     candidate))
 
-(def (make-graph-field token name)
+(def (make-graph-field token name (mode 'append))
   (admit-graph! GraphFieldContract
                 (.o (:: @ GraphField.)
                     kind: +graph-field-kind+
                     token-kind: token
-                    field-name: name)))
+                    field-name: name
+                    field-mode: mode)))
 
 (def (make-graph-node syntax-kind category label fields)
   (admit-graph! GraphNodeContract
@@ -56,7 +57,8 @@
    (graph-node-label graph-label)
    (graph-node-fields field-rules)
    (graph-field-token token-kind)
-   (graph-field-name field-name))
+   (graph-field-name field-name)
+   (graph-field-mode field-mode))
   (projections))
 
 (def (graph-projection? value)

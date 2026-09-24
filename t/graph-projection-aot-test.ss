@@ -26,13 +26,41 @@
         (check (graph-projection? projection) => #t)
         (check (and (string-contains source "GraphProjectionSpec")
                     (string-contains source "projection_digest: \"sha256:")
-                    (string-contains source "name: \"value\"") #t)
+                    (string-contains source "name: \"value\"")
+                    (string-contains source "mode: GraphFieldMode::Append")
+                    #t)
                => #t)
         (check (if (string-contains
                     source (string-append "projection_digest: \""
                                           digest "\""))
                  #t #f)
                => #t)))
+    (test-case "field cardinality is checked and changes the generated contract"
+      (let* ((append-rule
+              (make-graph-projection
+               (list (make-graph-node
+                      'Expression "document" "root"
+                      (list (make-graph-field 'Number "value"))))))
+             (each-rule
+              (make-graph-projection
+               (list (make-graph-node
+                      'Expression "document" "root"
+                      (list (make-graph-field 'Number "value" 'each))))))
+             (source (graph-projection-rowan-source
+                      arithmetic-language-grammar each-rule)))
+        (check (if (string-contains source "mode: GraphFieldMode::Each")
+                 #t #f)
+               => #t)
+        (check (equal? (graph-projection-digest
+                        arithmetic-language-grammar append-rule)
+                       (graph-projection-digest
+                        arithmetic-language-grammar each-rule))
+               => #f)
+        (check
+         (with-catch
+          (lambda (error) #t)
+          (lambda () (make-graph-field 'Number "value" 'invented) #f))
+         => #t)))
     (test-case "duplicate graph node owners are rejected"
       (check
        (with-catch

@@ -1,5 +1,5 @@
 use super::graph_projection::{
-    GraphFieldRule, GraphNodeRule, GraphProjectionSpec, project_syntax_graph,
+    GraphFieldMode, GraphFieldRule, GraphNodeRule, GraphProjectionSpec, project_syntax_graph,
 };
 use super::model::{
     BlockContents, BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule,
@@ -14,6 +14,9 @@ mod key_line_cases;
 
 #[path = "structural_list_cases.rs"]
 mod list_cases;
+
+#[path = "structural_graph_cases.rs"]
+mod graph_cases;
 
 static KINDS: &[KindSpec] = &[
     KindSpec {
@@ -402,6 +405,7 @@ static GRAPH: GraphProjectionSpec = GraphProjectionSpec {
             fields: &[GraphFieldRule {
                 token_kind: 23,
                 name: "title",
+                mode: GraphFieldMode::Append,
             }],
         },
         GraphNodeRule {
@@ -409,6 +413,23 @@ static GRAPH: GraphProjectionSpec = GraphProjectionSpec {
             category: "element",
             kind: "src-block",
             fields: &[],
+        },
+        GraphNodeRule {
+            syntax_kind: 42,
+            category: "element",
+            kind: "planning",
+            fields: &[
+                GraphFieldRule {
+                    token_kind: 43,
+                    name: "key",
+                    mode: GraphFieldMode::Each,
+                },
+                GraphFieldRule {
+                    token_kind: 44,
+                    name: "value",
+                    mode: GraphFieldMode::Each,
+                },
+            ],
         },
     ],
 };

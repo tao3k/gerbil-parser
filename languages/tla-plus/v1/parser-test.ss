@@ -62,6 +62,27 @@
 ;; : TestSuite
 (def tla-plus-v1-parser-test
   (test-suite "TLA+ v1 versioned language pack"
+    (test-case "modular multiline action contracts keep native source bytes"
+      (let* ((source
+              "---- MODULE Modular ----\nVARIABLES active,\n queued\nWork == INSTANCE WorkLifecycle\nInit ==\n  /\\ Work!Init\n  /\\ active = TRUE\nNext == Work!Step \\/\n        (active' = FALSE /\\\n         UNCHANGED <<queued,\n                    active>>)\n====\n")
+             (artifact (parse-tla-plus-v1 source))
+             (kinds (and (parse-artifact-success? artifact)
+                         (cst-node-kinds (parse-artifact->cst artifact)))))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (for-each
+         (lambda (kind) (check (member kind kinds) ? values))
+         '(InstanceExpression QualifiedNameExpression JunctionExpression))))
+    (test-case "incomplete modular forms remain syntax errors"
+      (for-each
+       (lambda (body)
+         (let* ((source (string-append "---- MODULE Broken ----\n" body "\n====\n"))
+                (artifact (parse-tla-plus-v1 source)))
+           (check (parse-artifact-success? artifact) => #f)
+           (check (parse-artifact-roundtrip artifact) => source)))
+       '("Work == INSTANCE" "Value == Work!" "VARIABLES active,\n"
+         "Init ==\n /\\" "Next == TRUE /\\\n")))
     (test-case "native syntax and corpus identities are immutable"
       (check +tla-plus-contract-version+ => "v1")
       (check +tla-plus-syntax-contract+ => "tla-plus.native-core.v1")

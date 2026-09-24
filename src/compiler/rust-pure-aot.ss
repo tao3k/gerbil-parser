@@ -8,7 +8,7 @@
                  rust-call
                  rust-string rust-identifier rust-before rust-first-word
                  rust-tuple-index
-                 rust-after rust-words rust-any rust-empty
+                 rust-after rust-words rust-any rust-fold rust-number rust-empty
                  rust-string-in rust-if rust-binary))
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
         string-after string-first-word string-rest-after-first-word
@@ -97,6 +97,8 @@
         (rust-call (rust-identifier 'String::from)
                    (list (rust-string expression))))
       (rust-string expression)))
+   ((and (integer? expression) (exact? expression) (>= expression 0))
+    (rust-number expression))
    ((pure-call-signature expression)
     (let* ((signature (pure-call-signature expression))
            (argument-types (cdr signature))
@@ -197,6 +199,38 @@
                                 (cons (cons (caadr abstraction) "&str")
                                       variables) "bool")
        slice?)))
+   ((and (pair? expression) (eq? (car expression) 'foldl)
+         (= (length expression) 4))
+    (let* ((abstraction (cadr expression))
+           (initial (caddr expression))
+           (collection (cadddr expression)))
+      (unless (and (pair? abstraction) (eq? (car abstraction) 'lambda)
+                   (= (length abstraction) 3)
+                   (list? (cadr abstraction))
+                   (= (length (cadr abstraction)) 2)
+                   (andmap symbol? (cadr abstraction))
+                   (not (eq? (caadr abstraction) (cadadr abstraction)))
+                   (not (assq (caadr abstraction) variables))
+                   (not (assq (cadadr abstraction) variables)))
+        (error "pure AOT foldl requires two distinct bound arguments"
+               expression))
+      (rust-fold
+       (compile-pure-expression collection variables "iterator")
+       (string->symbol (rust-name-text (cadadr abstraction)))
+       (string->symbol (rust-name-text (caadr abstraction)))
+       (compile-pure-expression initial variables result-type)
+       (compile-pure-expression
+        (caddr abstraction)
+        (cons (cons (cadadr abstraction) result-type)
+              (cons (cons (caadr abstraction) "&str") variables))
+        result-type))))
+   ((and (pair? expression) (eq? (car expression) '+)
+         (= (length expression) 3))
+    (unless (equal? result-type "u64")
+      (error "pure AOT addition requires u64 result" expression))
+    (rust-binary "+"
+                 (compile-pure-expression (cadr expression) variables "u64")
+                 (compile-pure-expression (caddr expression) variables "u64")))
    ((and (pair? expression) (eq? (car expression) 'let*))
     (compile-pure-body expression variables result-type))
    ((and (pair? expression) (eq? (car expression) 'string-in?)

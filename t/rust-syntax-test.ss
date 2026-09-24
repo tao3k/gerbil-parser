@@ -6,6 +6,8 @@
         (only-in :gerbil-parser/src/compiler/rust-syntax
                  rust-struct rust-static rust-array rust-some rust-none
                  rust-number rust-string rust-module
+                 rust-identifier rust-method rust-fold rust-binary
+                 rust-function-value rust-block
                  rust-function-ir-json
                  rust-function-form-name rust-function-form-parameters
                  rust-struct-form? rust-struct-form-name rust-struct-form-fields
@@ -19,6 +21,7 @@
         (only-in "pure-function-fixture.ss"
                  owned_first_word owned_first_word_rust
                  owned_rest_after_first_word owned_rest_after_first_word_rust)
+        (only-in "pure-function-fixture.ss" count_words count_words_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
                  scheme-pure->rust ascii-ci=? string-words string-after)
         (only-in "rust-aot-test-syntax.ss"
@@ -143,6 +146,39 @@
              (body (hash-get (hash-get ir "body") "result")))
         (check (hash-get body "kind") => "any")
         (check (hash-get (hash-get body "body") "kind") => "block")))
+    (test-case "typed fold carries Scheme state transition into IR"
+      (let* ((function
+              (rust-function-value
+               'byte_count '((source . "&str")) "u64"
+               (rust-block
+                '()
+                (rust-fold
+                 (rust-method (rust-identifier 'source) 'bytes '())
+                 'count 'byte (rust-number 0)
+                 (rust-binary "+" (rust-identifier 'count)
+                              (rust-number 1))))))
+             (ir (string->json
+                  (rust-function-ir-json function)
+                  (JSONReadOptions object-as-hash: #t)))
+             (fold (hash-get (hash-get ir "body") "result")))
+        (check (hash-get fold "kind") => "fold")
+        (check (hash-get fold "accumulator") => "count")
+        (check (hash-get fold "item") => "byte")
+        (check (hash-get (hash-get fold "step") "operator") => "add")
+        (check-exception
+         (rust-fold (rust-identifier 'source) 'same 'same
+                    (rust-number 0) (rust-number 1))
+         true)))
+    (test-case "one Scheme fold algorithm executes and lowers to Rust IR"
+      (check (count_words "  one\ttwo three  ") => 3)
+      (check (count_words "") => 0)
+      (let* ((ir (string->json
+                  (rust-function-ir-json count_words_rust)
+                  (JSONReadOptions object-as-hash: #t)))
+             (fold (hash-get (hash-get ir "body") "result")))
+        (check (hash-get fold "kind") => "fold")
+        (check (hash-get (hash-get fold "iterator") "kind")
+               => "words")))
     (test-case "higher-order word traversal remains an AOT syntax tree"
       (check (string-words "  WAIT(w)\t| DONE(d)  ")
              => '("WAIT(w)" "|" "DONE(d)"))

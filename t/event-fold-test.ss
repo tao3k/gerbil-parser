@@ -176,7 +176,7 @@
         (check (run-event-fold "#+EMPTY:  \n" 'Document '() forms '())
                => '((start Document) (start Text)
                     (token Line 0 2) (token Line 2 7)
-                    (token Line 7 10) (token Line 10 10)
+                    (token Line 7 10)
                     (token Line 10 11) (finish) (finish)))
         (let* ((wire (event-fold-ir-json
                       'dynamic_key event-lines-language-grammar

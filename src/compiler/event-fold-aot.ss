@@ -307,9 +307,10 @@
                            (map (lambda (_) '(finish)) stack))))
                   ((start-node) (cons state (list (list 'start (cadr form)))))
                   ((token)
-                   (cons state (list (list 'token (cadr form)
-                                          (fold-offset (caddr form) line start end)
-                                          (fold-offset (cadddr form) line start end)))))
+                   (let ((from (fold-offset (caddr form) line start end))
+                         (to (fold-offset (cadddr form) line start end)))
+                     (cons state (if (= from to) []
+                                   (list (list 'token (cadr form) from to))))))
                   ((finish-node) (cons state (list '(finish))))
                   ((if)
                    (fold-statements

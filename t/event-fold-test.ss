@@ -158,8 +158,9 @@
                            (token Line start ,prefix)
                            (token Line ,prefix ,key-end)
                            (token Line ,key-end ,value-start)
-                           (token Line ,value-start (line-trim-end))
-                           (token Line (line-trim-end) end)
+                           (token Line ,value-start
+                                  (line-trim-end-from ,value-start))
+                           (token Line (line-trim-end-from ,value-start) end)
                            (finish-node))
                           ((start-node Heading)
                            (token Line start end) (finish-node))))))
@@ -172,6 +173,11 @@
         (check (run-event-fold "#+@bad: x\n" 'Document '() forms '())
                => '((start Document) (start Heading)
                     (token Line 0 10) (finish) (finish)))
+        (check (run-event-fold "#+EMPTY:  \n" 'Document '() forms '())
+               => '((start Document) (start Text)
+                    (token Line 0 2) (token Line 2 7)
+                    (token Line 7 10) (token Line 10 10)
+                    (token Line 10 11) (finish) (finish)))
         (let* ((wire (event-fold-ir-json
                       'dynamic_key event-lines-language-grammar
                       'Document '() forms '()))
@@ -185,7 +191,7 @@
           (check (hash-ref (hash-ref (vector-ref consequent 2) "end") "kind")
                  => "line_scan_key")
           (check (hash-ref (hash-ref (vector-ref consequent 4) "end") "kind")
-                 => "line_trim_end"))))
+                 => "line_trim_end_from"))))
     (test-case "headline marker offsets use the declared level in Scheme and IR"
       (let* ((marker '(line-marker-end "*" " "))
              (forms `((if (uint-positive? (line-marker-level "*" " "))

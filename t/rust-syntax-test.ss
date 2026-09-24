@@ -20,7 +20,8 @@
                  scheme-pure->rust ascii-ci=? string-words string-after)
         (only-in "rust-aot-test-syntax.ss"
                  check-rust-aot-function check-rust-aot-conditional
-                 check-rust-aot-any check-rust-aot-artifact))
+                 check-rust-aot-any check-rust-aot-artifact
+                 check-rust-function-ir))
 (export rust-syntax-test)
 
 (def rust-syntax-test
@@ -86,9 +87,9 @@
       (check (owned_rest_after_first_word "  WAIT   [#A] Head :tag:  ")
              => "[#A] Head :tag:")
       (check (owned_rest_after_first_word "WAIT") => "")
-      (check-rust-aot-artifact
+      (check-rust-function-ir
        owned_rest_after_first_word_rust
-       "rust/gerbil-parser-rowan/tests/unit/owned_rest_after_first_word_generated.rs"))
+       "t/fixtures/owned_rest_after_first_word.ir.json"))
     (test-case "unsupported Scheme effects and free names fail closed"
       (check (ascii-ci=? "seq_todo" "SEQ_TODO") => #t)
       (check (ascii-ci=? "ＴＯＤＯ" "TODO") => #f)

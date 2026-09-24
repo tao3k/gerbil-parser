@@ -1,9 +1,12 @@
 ;;; -*- Gerbil -*-
 ;;; Restricted Rust syntax values for deterministic AOT table generation.
 
+(import :std/encoding/json)
+
 (export rust-struct rust-static rust-array rust-some rust-none
         rust-number rust-string rust-identifier rust-module rust-render
         write-rust-module write-rust-syntax
+        rust-function-ir-json write-rust-function-ir
         rust-function rust-function-value rust-block rust-let rust-call rust-method
         rust-tuple-index rust-before rust-after rust-first-word
         rust-words rust-any
@@ -391,6 +394,114 @@
 (def (rust-render node)
   (call-with-output-string
    (lambda (port) (render-node port node))))
+
+;; The pure-function path crosses to gerbil-scheme-rust as data, not as Rust
+;; source. Unknown syntax forms fail closed before the Rust backend sees them.
+(def (rust-ir-name value)
+  (if (symbol? value) (symbol->string value) value))
+
+(def (rust-expression-ir node)
+  (cond
+   ((rust-string-form? node)
+    (hash (kind "string") (value (rust-string-form-value node))))
+   ((rust-identifier-form? node)
+    (hash (kind "name")
+          (value (rust-ir-name (rust-identifier-form-value node)))))
+   ((rust-call-form? node)
+    (hash (kind "call")
+          (callee (rust-expression-ir (rust-call-form-callee node)))
+          (arguments
+           (list->vector (map rust-expression-ir
+                              (rust-call-form-arguments node))))))
+   ((rust-method-form? node)
+    (hash (kind "method")
+          (receiver (rust-expression-ir (rust-method-form-receiver node)))
+          (method (rust-ir-name (rust-method-form-method node)))
+          (arguments
+           (list->vector (map rust-expression-ir
+                              (rust-method-form-arguments node))))))
+   ((rust-tuple-index-form? node)
+    (hash (kind "tuple_index")
+          (tuple (rust-expression-ir (rust-tuple-index-form-tuple node)))
+          (index (rust-tuple-index-form-index node))))
+   ((rust-before-form? node)
+    (hash (kind "before")
+          (value (rust-expression-ir (rust-before-form-value node)))
+          (delimiter (rust-expression-ir (rust-before-form-delimiter node)))
+          (owned (rust-before-form-owned? node))))
+   ((rust-after-form? node)
+    (hash (kind "after")
+          (value (rust-expression-ir (rust-after-form-value node)))
+          (delimiter (rust-expression-ir (rust-after-form-delimiter node)))))
+   ((rust-first-word-form? node)
+    (hash (kind "first_word")
+          (value (rust-expression-ir (rust-first-word-form-value node)))))
+   ((rust-words-form? node)
+    (hash (kind "words")
+          (value (rust-expression-ir (rust-words-form-value node)))))
+   ((rust-any-form? node)
+    (hash (kind "any")
+          (collection (rust-expression-ir (rust-any-form-collection node)))
+          (variable (rust-any-form-variable node))
+          (body (rust-expression-ir (rust-any-form-body node)))
+          (string_slice (rust-any-form-slice? node))))
+   ((rust-empty-form? node)
+    (hash (kind "empty")
+          (value (rust-expression-ir (rust-empty-form-value node)))))
+   ((rust-string-in-form? node)
+    (hash (kind "string_in")
+          (value (rust-expression-ir (rust-string-in-form-value node)))
+          (collection
+           (rust-expression-ir (rust-string-in-form-collection node)))))
+   ((rust-if-form? node)
+    (hash (kind "if")
+          (condition (rust-expression-ir (rust-if-form-condition node)))
+          (consequent (rust-expression-ir (rust-if-form-consequent node)))
+          (alternate (rust-expression-ir (rust-if-form-alternate node)))))
+   ((rust-binary-form? node)
+    (hash (kind "binary")
+          (operator
+           (cond
+            ((equal? (rust-binary-form-operator node) "||") "or")
+            ((equal? (rust-binary-form-operator node) "&&") "and")
+            ((equal? (rust-binary-form-operator node) "==") "equal")
+            (else (error "unsupported Rust IR binary operator" node))))
+          (left (rust-expression-ir (rust-binary-form-left node)))
+          (right (rust-expression-ir (rust-binary-form-right node)))))
+   (else (error "unsupported Rust function IR expression" node))))
+
+(def (rust-function-ir-json function)
+  (unless (rust-function-form? function)
+    (error "Rust function IR requires a pure function" function))
+  (let (body (rust-function-form-body function))
+    (json->string
+     (hash
+      (schema "gerbil-scheme-rust.rust-function-ir.v1")
+      (name (rust-ir-name (rust-function-form-name function)))
+      (parameters
+       (list->vector
+        (map (lambda (parameter)
+               (hash (name (rust-ir-name (car parameter)))
+                     (ty (cdr parameter))))
+             (rust-function-form-parameters function))))
+      (result (rust-function-form-result function))
+      (body
+       (hash
+        (bindings
+         (list->vector
+          (map (lambda (binding)
+                 (hash (name (rust-ir-name
+                              (rust-let-form-name binding)))
+                       (value (rust-expression-ir
+                               (rust-let-form-value binding)))))
+               (rust-block-form-statements body))))
+        (result (rust-expression-ir
+                 (rust-block-form-result body)))))))))
+
+(def (write-rust-function-ir path function)
+  (call-with-output-file path
+    (lambda (port)
+      (write-string (rust-function-ir-json function) port))))
 
 (def (write-rust-syntax path syntax)
   (unless (or (rust-module-form? syntax)

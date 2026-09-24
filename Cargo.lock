@@ -224,6 +224,7 @@ dependencies = [
 name = "gerbil-parser-rowan"
 version = "0.1.0"
 dependencies = [
+ "gerbil-scheme-rust-ir",
  "rowan",
  "sha2 0.10.9",
 ]
@@ -242,6 +243,18 @@ dependencies = [
  "gerbil-parser-build-support",
  "gerbil-parser-rowan",
  "gerbil-parser-rowan-arithmetic",
+]
+
+[[package]]
+name = "gerbil-scheme-rust-ir"
+version = "0.1.0"
+source = "git+https://github.com/tao3k/gerbil-scheme-rust?rev=0e77fa4ddf6b92537b1194f257e02c8df31790f2#0e77fa4ddf6b92537b1194f257e02c8df31790f2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
 ]
 
 [[package]]

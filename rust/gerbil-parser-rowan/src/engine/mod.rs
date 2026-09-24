@@ -1,6 +1,7 @@
 //! Generated-table execution owners for the Rowan runtime.
 
 mod event_tree;
+mod generated_events;
 mod graph_projection;
 mod lexer;
 mod model;
@@ -13,6 +14,7 @@ mod structural_table;
 mod validation;
 
 pub use event_tree::build_rowan_events;
+pub use generated_events::parse_generated_events;
 pub use graph_projection::{
     GraphFieldMode, GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec,
     GraphRecord, project_syntax_graph,

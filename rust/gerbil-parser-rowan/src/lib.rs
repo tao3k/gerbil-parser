@@ -17,5 +17,6 @@ pub use engine::{
     LineStructureSpec, ListLineRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
     ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
     SyntaxNode, SyntaxToken, TableLineRule, Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy,
-    build_rowan_events, parse, parse_scanned, parse_structural_lines, project_syntax_graph,
+    build_rowan_events, parse, parse_generated_events, parse_scanned, parse_structural_lines,
+    project_syntax_graph,
 };

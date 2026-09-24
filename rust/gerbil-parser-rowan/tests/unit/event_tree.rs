@@ -1,4 +1,5 @@
 use super::event_tree::build_rowan_events;
+use super::generated_events::parse_generated_events;
 use super::model::{KindCategory, KindSpec, LanguageSpec, TreeEvent};
 
 static KINDS: &[KindSpec] = &[
@@ -114,5 +115,37 @@ fn malformed_events_fail_closed() {
             .expect_err("double root finish")
             .reason_kind,
         "event-nesting"
+    );
+}
+
+#[test]
+fn generated_scheme_events_publish_parser_identity_without_rust_recognition() {
+    const PARSER_DIGEST: &str =
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+    let source = "é\n";
+    let events = [
+        TreeEvent::StartNode(0),
+        TreeEvent::Token {
+            kind: 3,
+            start: 0,
+            end: source.len(),
+        },
+        TreeEvent::FinishNode,
+    ];
+    let parsed = parse_generated_events(&LANGUAGE, PARSER_DIGEST, source, &events)
+        .expect("validated AOT events form a parse");
+    assert_eq!(parsed.syntax().to_string(), source);
+    assert_eq!(parsed.receipt().parser_digest, Some(PARSER_DIGEST));
+    assert_eq!(
+        parsed.selective_glr_receipt().winner_reason,
+        "scheme-aot-events"
+    );
+
+    let invalid = parse_generated_events(&LANGUAGE, "stale", source, &events)
+        .expect_err("an unbound generated parser identity fails closed");
+    assert_eq!(invalid.diagnostic.reason_kind, "invalid-aot-artifact");
+    assert_eq!(
+        invalid.receipt.source_digest,
+        parsed.receipt().source_digest
     );
 }

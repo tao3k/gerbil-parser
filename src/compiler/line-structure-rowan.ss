@@ -16,7 +16,7 @@
                  heading-line-section-node heading-line-heading-node
                  heading-line-heading-token heading-line-fields
                  heading-fields-title-token heading-fields-trivia-token
-                 block-line-opening block-line-closing block-line-case-insensitive
+                 block-line-opening block-line-opening-mode block-line-closing block-line-case-insensitive
                  block-line-indent block-line-block-node block-line-begin-token
                  block-line-body-token block-line-end-token block-line-unclosed
                  block-line-heading-bound block-line-body-line
@@ -114,6 +114,11 @@
 (def (block-value kinds block)
   (rust-struct BlockLineRule
     (opening (rust-string (block-line-opening block)))
+    (opening_mode (rust-identifier
+                   (case (block-line-opening-mode block)
+                     ((literal) "BlockOpeningMode::Literal")
+                     ((named-delimited) "BlockOpeningMode::NamedDelimited")
+                     (else (error "unknown block opening mode" block)))))
     (closing (rust-string (block-line-closing block)))
     (case_insensitive (boolean-value (block-line-case-insensitive block)))
     (indent (boolean-value (block-line-indent block)))
@@ -198,6 +203,7 @@
                                 (heading-fields-trivia-token fields)))))
              (map (lambda (block)
                     (list (block-line-opening block)
+                          (block-line-opening-mode block)
                           (block-line-closing block)
                           (block-line-case-insensitive block)
                           (block-line-indent block)
@@ -294,7 +300,7 @@
          (parser-digest (line-structure-parser-digest
                          language-grammar structure)))
     (rust-module
-      '("BlockContents" "BlockHeaderRule" "BlockLineRule" "HeadingFieldsRule"
+      '("BlockContents" "BlockHeaderRule" "BlockLineRule" "BlockOpeningMode" "HeadingFieldsRule"
         "HeadingLineRule" "InlineLinkRule" "KeyValueLineRule"
         "LineStructureSpec" "ListLineRule" "KeyLineContext" "KeyLineMode"
         "KeyLineRule" "TableLineRule" "UnclosedBlockPolicy")

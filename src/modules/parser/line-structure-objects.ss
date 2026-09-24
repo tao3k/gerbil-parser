@@ -28,7 +28,7 @@
         heading-line-section-node heading-line-heading-node
         heading-line-heading-token
         heading-line-fields heading-fields-title-token heading-fields-trivia-token
-        block-line-opening block-line-closing block-line-case-insensitive
+        block-line-opening block-line-opening-mode block-line-closing block-line-case-insensitive
         block-line-indent block-line-block-node block-line-begin-token
         block-line-body-token block-line-end-token
         block-line-unclosed block-line-heading-bound block-line-body-line
@@ -103,11 +103,12 @@
                       block-node-value begin-token-value
                       body-token-value end-token-value unclosed-value
                       heading-bound-value body-line-value (header-value #f)
-                      (contents-value 'opaque))
+                      (contents-value 'opaque) (opening-mode-value 'literal))
   (admit-line! BlockLineContract
             (.o (:: @ BlockLine.)
                 kind: +block-line-kind+
                 opening: opening-value
+                opening-mode: opening-mode-value
                 closing: closing-value
                 case-insensitive: case-insensitive-value
                 indent: indent-value
@@ -241,6 +242,7 @@
    (heading-fields-title-token title-token)
    (heading-fields-trivia-token trivia-token)
    (block-line-opening opening)
+   (block-line-opening-mode opening-mode)
    (block-line-closing closing)
    (block-line-case-insensitive case-insensitive)
    (block-line-indent indent)

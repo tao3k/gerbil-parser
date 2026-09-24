@@ -2,9 +2,10 @@ use super::graph_projection::{
     GraphFieldMode, GraphFieldRule, GraphNodeRule, GraphProjectionSpec, project_syntax_graph,
 };
 use super::model::{
-    BlockContents, BlockHeaderRule, BlockLineRule, HeadingFieldsRule, HeadingLineRule,
-    InlineLinkRule, KeyLineContext, KeyLineMode, KeyLineRule, KeyValueLineRule, KindCategory,
-    KindSpec, LanguageSpec, LineStructureSpec, ListLineRule, TableLineRule, UnclosedBlockPolicy,
+    BlockContents, BlockHeaderRule, BlockLineRule, BlockOpeningMode, HeadingFieldsRule,
+    HeadingLineRule, InlineLinkRule, KeyLineContext, KeyLineMode, KeyLineRule, KeyValueLineRule,
+    KindCategory, KindSpec, LanguageSpec, LineStructureSpec, ListLineRule, TableLineRule,
+    UnclosedBlockPolicy,
 };
 use super::structural_key_line::key_line_references;
 use super::structural_lines::parse_structural_lines;
@@ -14,6 +15,9 @@ mod key_line_cases;
 
 #[path = "structural_list_cases.rs"]
 mod list_cases;
+
+#[path = "structural_named_block_cases.rs"]
+mod named_block_cases;
 
 #[path = "structural_graph_cases.rs"]
 mod graph_cases;
@@ -220,6 +224,7 @@ static LANGUAGE: LanguageSpec = LanguageSpec {
 };
 static BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     opening: "#+begin_src",
+    opening_mode: BlockOpeningMode::Literal,
     closing: "#+end_src",
     case_insensitive: true,
     indent: true,
@@ -244,6 +249,7 @@ static HEADING_BOUND_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
 }];
 static PROPERTY_BLOCKS: &[BlockLineRule] = &[BlockLineRule {
     opening: ":PROPERTIES:",
+    opening_mode: BlockOpeningMode::Literal,
     closing: ":END:",
     case_insensitive: true,
     indent: true,

@@ -187,6 +187,7 @@ pub struct HeadingFieldsRule {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BlockLineRule {
     pub opening: &'static str,
+    pub opening_mode: BlockOpeningMode,
     pub closing: &'static str,
     pub case_insensitive: bool,
     pub indent: bool,
@@ -199,6 +200,15 @@ pub struct BlockLineRule {
     pub contents: BlockContents,
     pub body_line: Option<KeyValueLineRule>,
     pub header: Option<BlockHeaderRule>,
+}
+
+/// How a Scheme-declared structural block opening is recognized.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BlockOpeningMode {
+    /// Match an exact opening directive followed by optional whitespace.
+    Literal,
+    /// Match a delimiter, an ASCII name, and the same delimiter.
+    NamedDelimited,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

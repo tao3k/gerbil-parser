@@ -7,6 +7,7 @@ mod lexer;
 mod model;
 mod parser;
 mod rowan_tree;
+mod structural_block_opening;
 mod structural_key_line;
 mod structural_lines;
 mod structural_list;
@@ -20,12 +21,13 @@ pub use graph_projection::{
     GraphRecord, project_syntax_graph,
 };
 pub use model::{
-    ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage,
-    GotoEntry, HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyLineContext, KeyLineMode,
-    KeyLineRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule,
-    LineStructureSpec, ListLineRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
-    ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
-    SyntaxNode, SyntaxToken, TableLineRule, Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy,
+    ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, BlockOpeningMode, Diagnostic,
+    GerbilLanguage, GotoEntry, HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyLineContext,
+    KeyLineMode, KeyLineRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LexicalExpr,
+    LexicalRule, LineStructureSpec, ListLineRule, Operand, OperandAction, Parse, ParseError,
+    ParseReceipt, ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol,
+    SyntaxKind, SyntaxNode, SyntaxToken, TableLineRule, Terminal, TerminalSpec, TreeEvent,
+    UnclosedBlockPolicy,
 };
 pub use parser::{parse, parse_scanned};
 pub use structural_lines::parse_structural_lines;

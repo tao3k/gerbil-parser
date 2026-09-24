@@ -10,13 +10,13 @@ extern crate self as gerbil_parser_rowan;
 mod engine;
 
 pub use engine::{
-    ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, Diagnostic, GerbilLanguage,
-    GotoEntry, GraphFieldMode, GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec,
-    GraphRecord, HeadingFieldsRule, HeadingLineRule, InlineLinkRule, KeyLineContext, KeyLineMode,
-    KeyLineRule, KeyValueLineRule, KindCategory, KindSpec, LanguageSpec, LexicalExpr, LexicalRule,
-    LineStructureSpec, ListLineRule, Operand, OperandAction, Parse, ParseError, ParseReceipt,
-    ParserAction, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind,
-    SyntaxNode, SyntaxToken, TableLineRule, Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy,
-    build_rowan_events, parse, parse_generated_events, parse_scanned, parse_structural_lines,
-    project_syntax_graph,
+    ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, BlockOpeningMode, Diagnostic,
+    GerbilLanguage, GotoEntry, GraphFieldMode, GraphFieldRule, GraphFieldValue, GraphNodeRule,
+    GraphProjectionSpec, GraphRecord, HeadingFieldsRule, HeadingLineRule, InlineLinkRule,
+    KeyLineContext, KeyLineMode, KeyLineRule, KeyValueLineRule, KindCategory, KindSpec,
+    LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, ListLineRule, Operand,
+    OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
+    ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, TableLineRule,
+    Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy, build_rowan_events, parse,
+    parse_generated_events, parse_scanned, parse_structural_lines, project_syntax_graph,
 };

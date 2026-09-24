@@ -24,6 +24,7 @@
         LineMarker LineDelimiter LineBoolean
         BlockRecovery
         BlockContents
+        BlockOpeningMode
         KeyValueLineContract BlockBodyContract BlockHeaderContract
         InlineLinkContract HeadingFieldsContract
         TableLineContract OptionalTableLineContract
@@ -143,6 +144,15 @@
                (line-classify
                 'gerbil-parser/block-contents
                 (lambda (value) (memq value '(opaque elements)))
+                candidate context)))
+
+(define-type (BlockOpeningMode @ PooFlowContract.)
+  identity: 'gerbil-parser/block-opening-mode
+  .classify: (lambda (candidate context)
+               (line-classify
+                'gerbil-parser/block-opening-mode
+                (lambda (value)
+                  (memq value '(literal named-delimited)))
                 candidate context)))
 
 (define-type (KeyValueLineKind @ PooFlowContract.)
@@ -418,6 +428,7 @@
   responsibilities:
   (.o kind: BlockLineKind
       opening: LineDelimiter
+      opening-mode: BlockOpeningMode
       closing: LineDelimiter
       case-insensitive: LineBoolean
       indent: LineBoolean
@@ -431,10 +442,18 @@
       body-line: BlockBodyContract
       header: OptionalBlockHeaderContract)
   .obligations: (lambda (candidate _context)
-                  (if (and (eq? (.ref candidate 'contents) 'elements)
-                           (.ref candidate 'body-line))
-                    '(recursive-block-cannot-have-key-value-body)
-                    '())))
+                  (append
+                   (if (and (eq? (.ref candidate 'contents) 'elements)
+                            (.ref candidate 'body-line))
+                     '(recursive-block-cannot-have-key-value-body)
+                     '())
+                   (if (and (eq? (.ref candidate 'opening-mode)
+                                 'named-delimited)
+                            (or (not (= (string-length
+                                         (.ref candidate 'opening)) 1))
+                                (not (.ref candidate 'header))))
+                     '(named-block-requires-delimiter-and-header)
+                     '()))))
 
 (define-type (TextLineContract @ PooFlowNativeObjectContract.)
   identity: 'gerbil-parser/text-line

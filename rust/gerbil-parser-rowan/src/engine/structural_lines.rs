@@ -3,10 +3,11 @@
 use super::event_tree::build_rowan_events;
 use super::lexer::line_end;
 use super::model::{
-    BlockContents, BlockLineRule, Diagnostic, HeadingLineRule, InlineLinkRule, KindCategory,
-    LanguageSpec, LineStructureSpec, ListLineRule, Parse, ParseError, ParseReceipt,
+    BlockContents, BlockLineRule, BlockOpeningMode, Diagnostic, HeadingLineRule, InlineLinkRule,
+    KindCategory, LanguageSpec, LineStructureSpec, ListLineRule, Parse, ParseError, ParseReceipt,
     SelectiveGlrReceipt, TableLineRule, TreeEvent, UnclosedBlockPolicy,
 };
+use super::structural_block_opening::{block_opening, directive, named_delimited_opening};
 use super::structural_key_line::{emit_key_line, key_line_references, matching_key_line};
 use super::structural_list::{ListFrame, indent_column, list_marker};
 use super::structural_table::{emit_table_row, is_table_line};
@@ -102,16 +103,12 @@ impl StructuralState {
                 }
             }
         }
-        if let Some((index, rule)) = structure.blocks.iter().enumerate().find(|(index, rule)| {
-            Some(*index) != active_block
-                && directive(
-                    line,
-                    rule.opening,
-                    rule.case_insensitive,
-                    rule.indent,
-                    false,
-                )
-        }) {
+        if let Some((index, rule)) = structure
+            .blocks
+            .iter()
+            .enumerate()
+            .find(|(index, rule)| Some(*index) != active_block && block_opening(line, rule))
+        {
             let frame = self.frames.last_mut().expect("root frame is present");
             close_table(&mut self.events, &mut frame.table_open);
             let missing_closer = missing_block_closer(
@@ -488,6 +485,20 @@ fn emit_block_opening(
     start: usize,
     end: usize,
 ) {
+    if rule.opening_mode == BlockOpeningMode::NamedDelimited {
+        let (name_start, name_end) = named_delimited_opening(line, rule)
+            .expect("named block opening was matched before event emission");
+        let header = rule.header.expect("validated named block has a name token");
+        token(events, rule.begin_token, start, start + name_start);
+        token(
+            events,
+            header.argument_token,
+            start + name_start,
+            start + name_end,
+        );
+        token(events, header.trivia_token, start + name_end, end);
+        return;
+    }
     let Some(header) = rule.header else {
         token(events, rule.begin_token, start, end);
         return;
@@ -793,33 +804,6 @@ fn heading_level(line: &str, rule: HeadingLineRule) -> Option<usize> {
     (level > 0 && bytes.get(level) == Some(&rule.separator)).then_some(level)
 }
 
-fn directive(line: &str, value: &str, case_insensitive: bool, indent: bool, closing: bool) -> bool {
-    let bytes = if indent {
-        line.trim_start_matches([' ', '\t']).as_bytes()
-    } else {
-        line.as_bytes()
-    };
-    let Some(prefix) = bytes.get(..value.len()) else {
-        return false;
-    };
-    let matches = if case_insensitive {
-        prefix.eq_ignore_ascii_case(value.as_bytes())
-    } else {
-        prefix == value.as_bytes()
-    };
-    if !matches {
-        return false;
-    }
-    let tail = &bytes[value.len()..];
-    if closing {
-        tail.iter()
-            .all(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
-    } else {
-        tail.first()
-            .is_none_or(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
-    }
-}
-
 fn validate_structure(language: &LanguageSpec, spec: &LineStructureSpec) -> Result<(), Diagnostic> {
     if !super::validation::canonical_sha256_digest(spec.parser_digest) {
         return Err(invalid_structure(
@@ -904,6 +888,13 @@ fn validate_block_rule(
         || !rule.closing.is_ascii()
     {
         return Err(invalid_structure("block delimiters must be nonempty ASCII"));
+    }
+    if rule.opening_mode == BlockOpeningMode::NamedDelimited
+        && (rule.opening.len() != 1 || rule.header.is_none())
+    {
+        return Err(invalid_structure(
+            "named block openings require one delimiter and a name token",
+        ));
     }
     references.extend([
         (rule.block_node, KindCategory::Node),

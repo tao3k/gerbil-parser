@@ -4,6 +4,7 @@
 (import (only-in :std/string/misc string-trim)
         (only-in ./rust-syntax
                  rust-function-value rust-block rust-let rust-method
+                 rust-call
                  rust-string rust-identifier rust-before rust-first-word
                  rust-after rust-words rust-any rust-empty
                  rust-string-in rust-if rust-binary))
@@ -65,6 +66,12 @@
                   (else (string char))))
               (string->list (symbol->string name)))))
 
+(def current-pure-calls (make-parameter '()))
+
+(def (pure-call-signature expression)
+  (and (pair? expression) (symbol? (car expression))
+       (assq (car expression) (current-pure-calls))))
+
 (def (compile-pure-expression expression variables result-type)
   (cond
    ((symbol? expression)
@@ -72,6 +79,17 @@
       (error "unbound pure AOT variable" expression))
     (rust-identifier (rust-name-text expression)))
    ((string? expression) (rust-string expression))
+   ((pure-call-signature expression)
+    (let* ((signature (pure-call-signature expression))
+           (argument-types (cdr signature))
+           (arguments (cdr expression)))
+      (unless (= (length arguments) (length argument-types))
+        (error "pure AOT call has wrong arity" expression))
+      (rust-call
+       (rust-identifier (rust-name-text (car expression)))
+       (map (lambda (argument type)
+              (compile-pure-expression argument variables type))
+            arguments argument-types))))
    ((and (pair? expression) (eq? (car expression) 'string-trim)
          (= (length expression) 2))
     (let (trimmed
@@ -190,15 +208,38 @@
     (rust-block '()
                 (compile-pure-expression expression variables result-type))))
 
-(def (scheme-pure->rust name parameters result expression)
-  (rust-function-value
-   (string->symbol (rust-name-text name))
-   parameters result
-   (compile-pure-body expression parameters result)))
+(def (scheme-pure->rust name parameters result expression
+                        (known-calls '()))
+  (unless (and (list? known-calls)
+               (let loop ((rest known-calls) (seen '()))
+                 (or (null? rest)
+                     (let (signature (car rest))
+                       (and (pair? signature)
+                            (symbol? (car signature))
+                            (not (member (car signature) seen))
+                            (list? (cdr signature))
+                            (andmap string? (cdr signature))
+                            (loop (cdr rest)
+                                  (cons (car signature) seen)))))))
+    (error "pure AOT requires distinct typed function calls" known-calls))
+  (parameterize ((current-pure-calls known-calls))
+    (rust-function-value
+     (string->symbol (rust-name-text name))
+     parameters result
+     (compile-pure-body expression parameters result))))
 
 ;; One source body is both executable Scheme and the AOT input. The compiler
 ;; admits only expressions handled above; arbitrary Gerbil forms fail closed.
-(defrules define-rust-pure ()
+(defrules define-rust-pure (using)
+  ((_ scheme-name rust-name ((argument type) ...) result
+      (using ((callee call-type ...) ...) body))
+   (begin
+     (def (scheme-name argument ...) body)
+     (def rust-name
+       (scheme-pure->rust 'scheme-name
+                          (list (cons 'argument type) ...)
+                          result 'body
+                          (list (cons 'callee (list call-type ...)) ...)))))
   ((_ scheme-name rust-name ((argument type) ...) result body)
    (begin
      (def (scheme-name argument ...) body)

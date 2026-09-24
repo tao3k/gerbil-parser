@@ -11,6 +11,8 @@
         (only-in "pure-function-fixture.ss"
                  normalized_title normalized_title_rust
                  classify_first_word classify_first_word_rust)
+        (only-in "pure-function-fixture.ss"
+                 classify_or_unknown classify_or_unknown_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
                  scheme-pure->rust ascii-ci=? string-words string-after)
         (only-in "rust-aot-test-syntax.ss"
@@ -59,6 +61,19 @@
       (check-rust-aot-artifact
        classify_first_word_rust
        "rust/gerbil-parser-rowan/tests/unit/classify_first_word_generated.rs"))
+    (test-case "typed pure function composition shares Scheme algorithm"
+      (check (classify_or_unknown "WAIT Task" '("WAIT") '("DONE"))
+             => "active")
+      (check (classify_or_unknown "LATER Task" '("WAIT") '("DONE"))
+             => "unknown")
+      (check-rust-aot-artifact
+       classify_or_unknown_rust
+       "rust/gerbil-parser-rowan/tests/unit/classify_or_unknown_generated.rs")
+      (check-exception
+       (scheme-pure->rust 'invalid '((input . "&str")) "&str"
+                          '(classify_first_word input)
+                          '((classify_first_word . ("&str" "&[&str]"))))
+       true))
     (test-case "unsupported Scheme effects and free names fail closed"
       (check (ascii-ci=? "seq_todo" "SEQ_TODO") => #t)
       (check (ascii-ci=? "ＴＯＤＯ" "TODO") => #f)

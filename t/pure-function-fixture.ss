@@ -5,7 +5,8 @@
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
                  define-rust-pure string-first-word string-in?))
 (export normalized_title normalized_title_rust
-        classify_first_word classify_first_word_rust)
+        classify_first_word classify_first_word_rust
+        classify_or_unknown classify_or_unknown_rust)
 
 (define-rust-pure normalized_title normalized_title_rust
   ((input "&str")) "String"
@@ -17,3 +18,11 @@
   (let* ((candidate (string-first-word input)))
     (if (string-in? candidate active) "active"
       (if (string-in? candidate complete) "complete" ""))))
+
+(define-rust-pure classify_or_unknown classify_or_unknown_rust
+  ((input "&str") (active "&[&str]") (complete "&[&str]"))
+  "&'static str"
+  (using ((classify_first_word "&str" "&[&str]" "&[&str]"))
+    (let* ((classification
+            (classify_first_word input active complete)))
+      (if (equal? classification "") "unknown" classification))))

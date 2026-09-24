@@ -2,6 +2,7 @@
 
 include!("pure_function_generated.rs");
 include!("classify_first_word_generated.rs");
+include!("classify_or_unknown_generated.rs");
 
 macro_rules! check_rust_aot_function {
     ($function:path; $(($($input:expr),+ $(,)?) => $expected:expr),+ $(,)?) => {
@@ -21,5 +22,10 @@ fn generated_pure_function_compiles_and_runs() {
         ("DONE Task", &["WAIT"], &["DONE"]) => "complete",
         ("TODO Task", &["WAIT"], &["DONE"]) => "",
         ("WAIT Task", &[], &["WAIT"]) => "complete",
+    );
+    check_rust_aot_function!(classify_or_unknown;
+        (" WAIT Task", &["WAIT"], &["DONE"]) => "active",
+        ("DONE Task", &["WAIT"], &["DONE"]) => "complete",
+        ("LATER Task", &["WAIT"], &["DONE"]) => "unknown",
     );
 }

@@ -197,6 +197,25 @@
         (check (hash-ref
                 (hash-ref (vector-ref (hash-ref ir "line") 1) "end")
                 "kind") => "line_scan_nonspace_until")))
+    (test-case "bounded delimiter scan may include source whitespace"
+      (let* ((tag-end '(line-scan-until start ":"))
+             (forms `((start-node Text)
+                      (token Line start ,tag-end)
+                      (token Line ,tag-end end)
+                      (finish-node)))
+             (wire (event-fold-ir-json
+                    'tag_scan event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "term words :: body\n" 'Document '() forms '())
+               => '((start Document) (start Text)
+                    (token Line 0 11) (token Line 11 19)
+                    (finish) (finish)))
+        (check (hash-ref
+                (hash-ref (vector-ref (hash-ref ir "line") 1) "end")
+                "kind") => "line_scan_until")))
     (test-case "ASCII line markers reject prefix collisions in Scheme and IR"
       (let* ((forms '((if (line-prefix-boundary-ascii-ci "#+begin_src")
                          ((start-node Text) (token Line start end)

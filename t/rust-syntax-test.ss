@@ -22,6 +22,10 @@
                  owned_first_word owned_first_word_rust
                  owned_rest_after_first_word owned_rest_after_first_word_rust)
         (only-in "pure-function-fixture.ss" count_words count_words_rust)
+        (only-in "pure-function-fixture.ss"
+                 last_word last_word_rust
+                 before_last_word before_last_word_rust
+                 boundary_token? boundary_token_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
                  scheme-pure->rust ascii-ci=? string-words string-after)
         (only-in "rust-aot-test-syntax.ss"
@@ -56,6 +60,17 @@
       (check-rust-aot-artifact
        normalized_title_rust
        "rust/gerbil-parser-rowan/tests/unit/pure_function_generated.rs"))
+    (test-case "pure string boundaries retain Scheme and AOT parity"
+      (check (last_word "α beta :tag:") => ":tag:")
+      (check (before_last_word "α beta :tag:") => "α beta")
+      (check (before_last_word "single") => "")
+      (check (boundary_token? ":tag:") => #t)
+      (check (boundary_token? "title:") => #f)
+      (check (rust-function-form-name last_word_rust) => 'last_word)
+      (check (rust-function-form-name before_last_word_rust)
+             => 'before_last_word)
+      (check (rust-function-form-name boundary_token_rust)
+             => 'boundary_token_p))
     (test-case "pure conditional and membership stay structural"
       (check-rust-aot-conditional
        classify_first_word_rust 'classify_first_word

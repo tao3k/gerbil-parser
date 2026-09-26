@@ -61,6 +61,20 @@
           (lambda (error) #t)
           (lambda () (make-graph-field 'Number "value" 'invented) #f))
          => #t)))
+    (test-case "empty append fields remain Scheme-declared AOT graph values"
+      (let* ((projection
+              (make-graph-projection
+               (list (make-graph-node
+                      'Expression "document" "root"
+                      (list (make-graph-field
+                             'Number "value" 'append-or-empty))))))
+             (source (graph-projection-rowan-source
+                      arithmetic-language-grammar projection)))
+        (check (graph-projection? projection) => #t)
+        (check (if (string-contains
+                    source "mode: GraphFieldMode::AppendOrEmpty")
+                 #t #f)
+               => #t)))
     (test-case "duplicate graph node owners are rejected"
       (check
        (with-catch

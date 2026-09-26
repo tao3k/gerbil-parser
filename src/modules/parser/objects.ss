@@ -5,7 +5,7 @@
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop .defgeneric element? validate)
-        (only-in :poo-flow-foundation/module-system/object-family/interface
+        (only-in :core/object-family/interface
                  defpoo-object-family)
         (only-in ./types
                  +grammar-role-kind+

@@ -103,6 +103,28 @@
                          'byte_set_bool event-lines-language-grammar
                          'Document '((match #f)) forms '()))
                => #t)))
+    (test-case "bounded static name set executes and lowers as one predicate"
+      (let* ((forms '((if (line-bytes-in-set? start (line-content-end)
+                                             ("alpha" "beta"))
+                          ((start-node Heading) (token Line start end)
+                           (finish-node))
+                          ((start-node Text) (token Line start end)
+                           (finish-node)))))
+             (wire (event-fold-ir-json
+                    'static_name_set event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "alpha\nbeta\nother\n" 'Document '() forms '())
+               => '((start Document)
+                    (start Heading) (token Line 0 6) (finish)
+                    (start Heading) (token Line 6 11) (finish)
+                    (start Text) (token Line 11 17) (finish)
+                    (finish)))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind")
+               => "line_bytes_in_set")))
     (test-case "future marker search stops at heading or parent boundary"
       (let* ((condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
                               (future-line-marker-before-boundary?

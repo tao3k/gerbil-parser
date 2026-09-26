@@ -112,6 +112,36 @@
                                  (JSONReadOptions object-as-hash: #t
                                                   array-as-vector: #t))))
           (check (hash-ref ir "name") => "source_slices"))))
+    (test-case "named future marker respects names headings and parent closes"
+      (let* ((name-start '(line-prefix-end "#+BEGIN_"))
+             (name-end `(line-scan-key ,name-start))
+             (future `(future-named-line-marker-before-boundary?
+                       ,name-start ,name-end "#+END_" "" "#+END_CENTER"
+                       "*" " " #t #t #t))
+             (forms
+              `((if (line-starts-with-ascii-ci "#+BEGIN_")
+                    ((if ,future
+                         ((start-node Heading) (token Line start end)
+                          (finish-node))
+                         ((start-node Text) (token Line start end)
+                          (finish-node))))
+                    ((token Line start end))))))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_foo\n#+end_FOO\n#+BEGIN_bar\n* Next\n#+END_bar\n#+BEGIN_baz\n#+END_CENTER\n#+END_baz\n#+BEGIN_qux\n#+END_other\n#+END_QUX\n"
+                             'Document '() forms '())))
+               => '(Document Heading Text Text Heading))
+        (let* ((wire (event-fold-ir-json
+                      'future_named event-lines-language-grammar
+                      'Document '() forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t)))
+               (outer (vector-ref (hash-ref ir "line") 0))
+               (inner (vector-ref (hash-ref outer "consequent") 0)))
+          (check (hash-ref (hash-ref inner "condition") "kind")
+                 => "future_named_line_marker_before_boundary"))))
     (test-case "byte-set membership is a boolean state value"
       (let (forms '((set-bool match
                                (line-bytes-any-in? start (line-step start)

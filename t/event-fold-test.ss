@@ -300,6 +300,31 @@
         (check (hash-ref (vector-ref (hash-ref ir "finish") 0) "kind")
                => "call_source_helper")
         (check (vector-length (hash-ref ir "helpers")) => 1)))
+    (test-case "source helpers compose without recursive execution"
+      (let* ((line '((call-source-helper outer start end)))
+             (helpers
+              '((outer () ((call-source-helper inner start end)))
+                (inner () ((start-node Text)
+                           (token Line start end)
+                           (finish-node)))))
+             (wire (event-fold-ir-json
+                    'nested_helpers event-lines-language-grammar
+                    'Document '() line '() helpers))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "ab\n" 'Document '() line '() helpers)
+               => '((start Document) (start Text) (token Line 0 3)
+                    (finish) (finish)))
+        (check (hash-ref (vector-ref
+                          (hash-ref (vector-ref (hash-ref ir "helpers") 0)
+                                    "body") 0) "kind")
+               => "call_source_helper")
+        (check-exception
+         (run-event-fold "ab\n" 'Document '() line '()
+                         '((outer () ((call-source-helper inner start end)))
+                           (inner () ((call-source-helper outer start end)))))
+         true)))
     (test-case "future marker search stops at heading or parent boundary"
       (let* ((condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
                               (future-line-marker-before-boundary?

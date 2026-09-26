@@ -683,7 +683,8 @@
     (if (= remaining 0) events
       (loop (- remaining 1) (cons '(finish) events)))))
 
-(def (fold-statements statements source-bytes line start end states indices helpers)
+(def (fold-statements statements source-bytes line start end states indices helpers
+                      (active-helpers '()))
   (let loop ((rest statements) (state states) (events []))
     (if (null? rest) (cons state events)
         (let* ((form (car rest))
@@ -724,7 +725,7 @@
                    (fold-statements
                     (if (fold-predicate (cadr form) source-bytes line start end state indices)
                       (caddr form) (cadddr form))
-                    source-bytes line start end state indices helpers))
+                    source-bytes line start end state indices helpers active-helpers))
                   ((for-line-bytes)
                    (let ((from (fold-offset (caddr form) line start end state indices))
                          (until (fold-offset (cadddr form) line start end state indices)))
@@ -735,7 +736,7 @@
                          (let (step (fold-statements (list-ref form 4) source-bytes line start end
                                                       current
                                                       (cons (cons (cadr form) cursor)
-                                                            indices) helpers))
+                                                      indices) helpers active-helpers))
                            (iterate (+ cursor 1) (car step)
                                     (foldl cons reversed (cdr step))))))))
                   ((with-source-bounds)
@@ -749,14 +750,14 @@
                      (fold-statements
                       (cadddr form) source-bytes
                       (utf8->string (subu8vector source-bytes from until))
-                      from until state indices helpers)))
+                      from until state indices helpers active-helpers)))
                   ((call-source-helper)
                    (unless (= (length form) 4)
                      (error "invalid event helper call" form))
                    (let* ((helper (assq (cadr form) helpers))
                           (from (fold-offset (caddr form) line start end state indices))
                           (until (fold-offset (cadddr form) line start end state indices)))
-                     (unless helper
+                     (unless (and helper (not (memq (cadr form) active-helpers)))
                        (error "unknown or recursive event helper" (cadr form)))
                      (unless (and (<= 0 from) (<= from until)
                                   (<= until (u8vector-length source-bytes)))
@@ -764,7 +765,8 @@
                      (let (step (fold-statements
                                 (caddr helper) source-bytes
                                 (utf8->string (subu8vector source-bytes from until))
-                                from until (fold-initial-states (cadr helper)) '() '()))
+                                from until (fold-initial-states (cadr helper)) '()
+                                helpers (cons (cadr form) active-helpers)))
                        (cons state (cdr step)))))
                   ((scan-list-marker)
                    (unless (= (length form) 10)
@@ -1234,7 +1236,7 @@
                     (hash ("name" (rust-state-name (car helper)))
                           ("initial" (fold-initial-ir (cadr helper)))
                           ("body" (fold-statements-ir grammar (caddr helper)
-                                                      local-states '() #t)))))
+                                                      local-states '() #t helpers)))))
                 helpers)))
          (digest
           (sha256-text

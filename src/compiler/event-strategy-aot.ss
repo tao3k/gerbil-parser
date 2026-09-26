@@ -9,7 +9,8 @@
                  rust-event-if rust-method rust-identifier rust-string
                  rust-module write-rust-module))
 (export define-line-event-parser event-node event-token line-starts-with?
-        compile-line-event-parser generate-line-event-module)
+        compile-line-event-parser generate-line-event-module
+        source-line-events kind-index)
 
 (defrules event-node ()
   ((_ kind child ...)

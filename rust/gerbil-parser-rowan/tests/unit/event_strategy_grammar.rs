@@ -23,6 +23,10 @@ static KINDS: &[KindSpec] = &[
         name: "Line",
         category: KindCategory::Token,
     },
+    KindSpec {
+        name: "Section",
+        category: KindCategory::Node,
+    },
 ];
 
 static TERMINALS: &[TerminalSpec] = &[TerminalSpec {
@@ -157,7 +161,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "event-lines",
     version: "v1",
     contract: "event-lines.v1",
-    grammar_digest: "sha256:44b392775a338b1848ed1f00bc209450e55ea8bfc77d6a8af575bffbd1c8098e",
+    grammar_digest: "sha256:aec70367661a61688da821a945661893e3254de02059656eef7b28b22b5a9dda",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

@@ -9,7 +9,7 @@
         rust-function-ir-json write-rust-function-ir
         rust-function rust-function-value rust-block rust-let rust-call rust-method
         rust-tuple-index rust-before rust-after rust-first-word
-        rust-words rust-any
+        rust-words rust-any rust-fold
         rust-empty rust-string-in rust-if
         rust-binary
         rust-line-event-function rust-event-node rust-event-token rust-event-if
@@ -61,6 +61,7 @@
 (defstruct rust-first-word-form (value) transparent: #t)
 (defstruct rust-words-form (value) transparent: #t)
 (defstruct rust-any-form (collection variable body slice?) transparent: #t)
+(defstruct rust-fold-form (iterator accumulator item initial step) transparent: #t)
 (defstruct rust-empty-form (value) transparent: #t)
 (defstruct rust-string-in-form (value collection) transparent: #t)
 (defstruct rust-if-form (condition consequent alternate) transparent: #t)
@@ -138,13 +139,19 @@
 (def (rust-words value) (make-rust-words-form value))
 (def (rust-any collection variable body slice?)
   (make-rust-any-form collection variable body slice?))
+(def (rust-fold iterator accumulator item initial step)
+  (unless (and (symbol? accumulator) (symbol? item)
+               (not (eq? accumulator item)))
+    (error "Rust fold needs distinct accumulator and item names"
+           accumulator item))
+  (make-rust-fold-form iterator accumulator item initial step))
 (def (rust-empty value) (make-rust-empty-form value))
 (def (rust-string-in value collection)
   (make-rust-string-in-form value collection))
 (def (rust-if condition consequent alternate)
   (make-rust-if-form condition consequent alternate))
 (def (rust-binary operator left right)
-  (unless (member operator '("||" "&&" "=="))
+  (unless (member operator '("||" "&&" "==" "+"))
     (error "unsupported Rust pure binary operator" operator))
   (make-rust-binary-form operator left right))
 
@@ -360,6 +367,18 @@
     (write-string "| " port)
     (render-node port (rust-any-form-body node))
     (write-string ")" port))
+   ((rust-fold-form? node)
+    (display "(" port)
+    (render-node port (rust-fold-form-iterator node))
+    (display ").fold(" port)
+    (render-node port (rust-fold-form-initial node))
+    (display ", |" port)
+    (display (rust-fold-form-accumulator node) port)
+    (display ", " port)
+    (display (rust-fold-form-item node) port)
+    (display "| " port)
+    (render-node port (rust-fold-form-step node))
+    (display ")" port))
    ((rust-empty-form? node)
     (render-node port (rust-empty-form-value node))
     (write-string ".is_empty()" port))
@@ -449,6 +468,15 @@
           (variable (rust-any-form-variable node))
           (body (rust-expression-ir (rust-any-form-body node)))
           (string_slice (rust-any-form-slice? node))))
+   ((rust-fold-form? node)
+    (hash (kind "fold")
+          (iterator (rust-expression-ir (rust-fold-form-iterator node)))
+          (accumulator (rust-ir-name (rust-fold-form-accumulator node)))
+          (item (rust-ir-name (rust-fold-form-item node)))
+          (initial (rust-expression-ir (rust-fold-form-initial node)))
+          (step (rust-expression-ir (rust-fold-form-step node)))))
+   ((rust-number-form? node)
+    (hash (kind "number") (value (rust-number-form-value node))))
    ((rust-empty-form? node)
     (hash (kind "empty")
           (value (rust-expression-ir (rust-empty-form-value node)))))
@@ -469,6 +497,7 @@
             ((equal? (rust-binary-form-operator node) "||") "or")
             ((equal? (rust-binary-form-operator node) "&&") "and")
             ((equal? (rust-binary-form-operator node) "==") "equal")
+            ((equal? (rust-binary-form-operator node) "+") "add")
             (else (error "unsupported Rust IR binary operator" node))))
           (left (rust-expression-ir (rust-binary-form-left node)))
           (right (rust-expression-ir (rust-binary-form-right node)))))

@@ -21,6 +21,8 @@ pub enum GraphFieldMode {
     Append,
     /// Keep each token as a separate field value in source order.
     Each,
+    /// Join token text, or project an empty value when no token is present.
+    AppendOrEmpty,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -133,7 +135,7 @@ pub fn project_syntax_graph(
                 };
                 for field in rule.fields {
                     if field.token_kind == token.kind().0 {
-                        if field.mode == GraphFieldMode::Append
+                        if field.mode != GraphFieldMode::Each
                             && let Some(value) = records[id]
                                 .fields
                                 .iter_mut()
@@ -150,10 +152,25 @@ pub fn project_syntax_graph(
                 }
             }
             WalkEvent::Leave(NodeOrToken::Node(node)) => {
-                if rules
-                    .get(usize::from(node.kind().0))
-                    .is_some_and(Option::is_some)
-                {
+                if let Some(rule) = rules.get(usize::from(node.kind().0)).and_then(|rule| *rule) {
+                    if let Some(&id) = projected_stack.last() {
+                        for field in rule
+                            .fields
+                            .iter()
+                            .filter(|field| field.mode == GraphFieldMode::AppendOrEmpty)
+                        {
+                            if !records[id]
+                                .fields
+                                .iter()
+                                .any(|value| value.name == field.name)
+                            {
+                                records[id].fields.push(GraphFieldValue {
+                                    name: field.name,
+                                    value: String::new(),
+                                });
+                            }
+                        }
+                    }
                     projected_stack.pop();
                 }
             }

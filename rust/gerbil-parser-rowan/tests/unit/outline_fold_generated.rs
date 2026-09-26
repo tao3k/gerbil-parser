@@ -1,0 +1,57 @@
+pub const PARSER_DIGEST: &str = "sha256:2f4a0b470cdfd6086248d45baf7725d0b1b71de98878f868c32eb0ae0b58b729";
+pub fn parse_outline_lines(source: &str) -> Vec<TreeEvent> {
+    let bytes = source.as_bytes();
+    let mut events = Vec::with_capacity(bytes.len() / 16 + 2);
+    events.push(TreeEvent::StartNode(0u16));
+    let mut open_levels: Vec<usize> = Vec::new();
+    let mut start = 0usize;
+    while start < bytes.len() {
+        let mut end = start;
+        while end < bytes.len() && bytes[end] != b'\n' && bytes[end] != b'\r' {
+            end += 1;
+        }
+        if end < bytes.len() {
+            if bytes[end] == b'\r' && bytes.get(end + 1) == Some(&b'\n') {
+                end += 2;
+            } else {
+                end += 1;
+            }
+        }
+        let line = &source[start..end];
+        let __event_marker_42_32 = {
+            let run = line.as_bytes().iter().take_while(|byte| **byte == 42u8).count();
+            if run > 0 && line.as_bytes().get(run) == Some(&32u8) { run } else { 0 }
+        };
+        if (__event_marker_42_32) > 0 {
+            while open_levels.last().is_some_and(|&open| open >= __event_marker_42_32) {
+                let _ = open_levels.pop();
+                events.push(TreeEvent::FinishNode);
+            }
+            events.push(TreeEvent::StartNode(4u16));
+            open_levels.push(__event_marker_42_32);
+            events.push(TreeEvent::StartNode(1u16));
+            events
+                .push(TreeEvent::Token {
+                    kind: 3u16,
+                    start,
+                    end,
+                });
+            events.push(TreeEvent::FinishNode);
+        } else {
+            events.push(TreeEvent::StartNode(2u16));
+            events
+                .push(TreeEvent::Token {
+                    kind: 3u16,
+                    start,
+                    end,
+                });
+            events.push(TreeEvent::FinishNode);
+        }
+        start = end;
+    }
+    while open_levels.pop().is_some() {
+        events.push(TreeEvent::FinishNode);
+    }
+    events.push(TreeEvent::FinishNode);
+    events
+}

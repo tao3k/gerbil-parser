@@ -8,11 +8,12 @@
                  rust-call
                  rust-string rust-identifier rust-before rust-first-word
                  rust-tuple-index
-                 rust-after rust-words rust-any rust-empty
+                 rust-after rust-words rust-any rust-fold rust-number rust-empty
                  rust-string-in rust-if rust-binary))
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
         string-after string-first-word string-rest-after-first-word
-        string-words string-in?)
+        string-last-word string-before-last-word
+        string-prefix? string-suffix? string-words string-in?)
 
 (def (string-before value delimiter)
   (let (index (string-index-from value delimiter))
@@ -56,6 +57,29 @@
         (string-trim (substring text (+ index 1) size)))
        (else (loop (+ index 1)))))))
 
+(def (string-last-word value)
+  (let (words (string-words value))
+    (if (null? words) "" (car (reverse words)))))
+
+(def (string-before-last-word value)
+  (let* ((text (string-trim value)) (size (string-length text)))
+    (let loop ((index (- size 1)))
+      (cond
+       ((< index 0) "")
+       ((char-whitespace? (string-ref text index))
+        (string-trim (substring text 0 index)))
+       (else (loop (- index 1)))))))
+
+(def (string-prefix? value prefix)
+  (and (<= (string-length prefix) (string-length value))
+       (equal? prefix (substring value 0 (string-length prefix)))))
+
+(def (string-suffix? value suffix)
+  (let ((value-size (string-length value))
+        (suffix-size (string-length suffix)))
+    (and (<= suffix-size value-size)
+         (equal? suffix (substring value (- value-size suffix-size) value-size)))))
+
 (def (string-words value)
   (let (size (string-length value))
     (let loop ((index 0) (start #f) (words '()))
@@ -97,6 +121,8 @@
         (rust-call (rust-identifier 'String::from)
                    (list (rust-string expression))))
       (rust-string expression)))
+   ((and (integer? expression) (exact? expression) (>= expression 0))
+    (rust-number expression))
    ((pure-call-signature expression)
     (let* ((signature (pure-call-signature expression))
            (argument-types (cdr signature))
@@ -142,6 +168,34 @@
       (if (equal? result-type "String")
         (rust-method word 'to_owned '())
         word)))
+   ((and (pair? expression) (eq? (car expression) 'string-last-word)
+         (= (length expression) 2))
+    (let* ((words (rust-method
+                   (compile-pure-expression (cadr expression) variables "&str")
+                   'split_whitespace '()))
+           (last-word (rust-method words 'last '()))
+           (word (rust-method last-word 'unwrap_or (list (rust-string "")))))
+      (if (equal? result-type "String")
+        (rust-method word 'to_owned '())
+        word)))
+   ((and (pair? expression) (eq? (car expression) 'string-before-last-word)
+         (= (length expression) 2))
+    (let* ((source (compile-pure-expression (cadr expression) variables "&str"))
+           (trimmed (rust-method source 'trim '()))
+           (split (rust-method trimmed 'rsplit_once
+                               (list (rust-identifier 'char::is_whitespace))))
+           (tuple (rust-method split 'unwrap_or_default '()))
+           (before (rust-method (rust-tuple-index tuple 0) 'trim '())))
+      (if (equal? result-type "String")
+        (rust-method before 'to_owned '())
+        before)))
+   ((and (pair? expression) (memq (car expression)
+                                 '(string-prefix? string-suffix?))
+         (= (length expression) 3))
+    (rust-method
+     (compile-pure-expression (cadr expression) variables "&str")
+     (if (eq? (car expression) 'string-prefix?) 'starts_with 'ends_with)
+     (list (compile-pure-expression (caddr expression) variables "&str"))))
    ((and (pair? expression) (eq? (car expression) 'string-rest-after-first-word)
          (= (length expression) 2))
     (let* ((source (compile-pure-expression (cadr expression) variables "&str"))
@@ -197,6 +251,38 @@
                                 (cons (cons (caadr abstraction) "&str")
                                       variables) "bool")
        slice?)))
+   ((and (pair? expression) (eq? (car expression) 'foldl)
+         (= (length expression) 4))
+    (let* ((abstraction (cadr expression))
+           (initial (caddr expression))
+           (collection (cadddr expression)))
+      (unless (and (pair? abstraction) (eq? (car abstraction) 'lambda)
+                   (= (length abstraction) 3)
+                   (list? (cadr abstraction))
+                   (= (length (cadr abstraction)) 2)
+                   (andmap symbol? (cadr abstraction))
+                   (not (eq? (caadr abstraction) (cadadr abstraction)))
+                   (not (assq (caadr abstraction) variables))
+                   (not (assq (cadadr abstraction) variables)))
+        (error "pure AOT foldl requires two distinct bound arguments"
+               expression))
+      (rust-fold
+       (compile-pure-expression collection variables "iterator")
+       (string->symbol (rust-name-text (cadadr abstraction)))
+       (string->symbol (rust-name-text (caadr abstraction)))
+       (compile-pure-expression initial variables result-type)
+       (compile-pure-expression
+        (caddr abstraction)
+        (cons (cons (cadadr abstraction) result-type)
+              (cons (cons (caadr abstraction) "&str") variables))
+        result-type))))
+   ((and (pair? expression) (eq? (car expression) '+)
+         (= (length expression) 3))
+    (unless (equal? result-type "u64")
+      (error "pure AOT addition requires u64 result" expression))
+    (rust-binary "+"
+                 (compile-pure-expression (cadr expression) variables "u64")
+                 (compile-pure-expression (caddr expression) variables "u64")))
    ((and (pair? expression) (eq? (car expression) 'let*))
     (compile-pure-body expression variables result-type))
    ((and (pair? expression) (eq? (car expression) 'string-in?)

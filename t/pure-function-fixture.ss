@@ -3,13 +3,18 @@
 
 (import (only-in :std/string/misc string-trim)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
-                 define-rust-pure string-first-word
-                 string-rest-after-first-word string-in?))
+                 define-rust-pure string-first-word string-words
+                 string-rest-after-first-word string-last-word
+                 string-before-last-word string-prefix? string-suffix?
+                 string-in?))
 (export normalized_title normalized_title_rust
         classify_first_word classify_first_word_rust
         classify_or_unknown classify_or_unknown_rust
         owned_first_word owned_first_word_rust
-        owned_rest_after_first_word owned_rest_after_first_word_rust)
+        owned_rest_after_first_word owned_rest_after_first_word_rust
+        last_word last_word_rust before_last_word before_last_word_rust
+        boundary_token? boundary_token_rust
+        count_words count_words_rust)
 
 (define-rust-pure normalized_title normalized_title_rust
   ((input "&str")) "String"
@@ -38,3 +43,20 @@
   owned_rest_after_first_word_rust
   ((input "&str")) "String"
   (string-rest-after-first-word input))
+
+(define-rust-pure last_word last_word_rust
+  ((input "&str")) "String"
+  (string-last-word input))
+
+(define-rust-pure before_last_word before_last_word_rust
+  ((input "&str")) "String"
+  (string-before-last-word input))
+
+(define-rust-pure boundary_token? boundary_token_rust
+  ((input "&str")) "bool"
+  (and (string-prefix? input ":") (string-suffix? input ":")))
+
+(define-rust-pure count_words count_words_rust
+  ((input "&str")) "u64"
+  (foldl (lambda (_word count) (+ count 1))
+         0 (string-words input)))

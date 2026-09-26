@@ -69,10 +69,16 @@ implementation currently chooses the order of block, list, heading, keyed-line,
 table, and paragraph decisions. Consequently, a downstream =parser.ss= can
 configure those recognizers but cannot define or test their control flow as a
 Scheme algorithm. Adding more Rust recognizers would deepen the wrong ownership
-boundary. The next compiler gate must admit a statically checked, pure Scheme
-parser-strategy subset whose source is directly AOT-lowered to Rust functions
-emitting source-backed =TreeEvent= values. The same Scheme functions must run in
-Scheme tests; the generated Rust functions must match their event streams on
+boundary. The public =:gerbil-parser/rust-rowan-event-support= facade now admits
+one first, statically checked Scheme event-fold subset: boolean state, line-prefix
+conditions, node/token events, branching and final transitions. Its declaration
+runs in Scheme tests and lowers to a versioned, closed IR; =gerbil-scheme-rust-ir=
+constructs Rust syntax with =quote=/=syn= rather than source templates. The
+generated Rust function builds a lossless Rowan tree in a UTF-8, CRLF and
+multiline-state fixture. This proves the compiler path, not a full contextual
+parser: dynamic offsets, nested state, arbitrary Org recognition and recovery
+still require admitted IR operations and downstream parity. The full compiler
+gate requires the same Scheme functions to match their Rust event streams on
 UTF-8, malformed input, recursion, and recovery fixtures. Only event validation,
 tree construction, and typed failure transport remain handwritten in the
 generic Rust/Rowan runtime. A digest over a static rule table, by itself, does

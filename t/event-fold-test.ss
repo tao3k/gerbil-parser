@@ -430,7 +430,13 @@
                                '((threshold . 7)))
                => '((start Document) (start Heading) (finish) (finish)))
         (check (hash-ref (vector-ref (hash-ref ir "parameters") 0) "state")
-               => "threshold")))
+               => "threshold")
+        (check-exception
+         (event-fold-ir-json
+          'parameterized event-lines-language-grammar
+          'Document initial forms '() '()
+          '((configured_threshold threshold 5)))
+         true)))
     (test-case "n-ary boolean predicates evaluate every operand and lower to IR"
       (let* ((forms '((if (and (bool #t) (bool #t) (bool #f))
                           ((start-node Heading) (finish-node))

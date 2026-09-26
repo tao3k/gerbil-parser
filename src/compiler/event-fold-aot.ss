@@ -1348,7 +1348,11 @@
                                       (symbol? (cadr parameter))
                                       (fold-unsigned? (caddr parameter)))
                            (error "invalid event fold parameter" parameter))
-                         (fold-state-of-type states (cadr parameter) fold-unsigned?)
+                         (unless (= (fold-state-of-type states (cadr parameter)
+                                                         fold-unsigned?)
+                                    (caddr parameter))
+                           (error "event fold parameter default differs from state"
+                                  parameter))
                          (hash ("name" (rust-state-name (car parameter)))
                                ("state" (rust-state-name (cadr parameter)))
                                ("default" (caddr parameter))))

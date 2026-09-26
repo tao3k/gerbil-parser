@@ -813,10 +813,14 @@
          (hash ("kind" "start_node")
                ("syntax_kind" (kind-index grammar (cadr form) 'node))))
         ((token)
-         (unless allow-line?
-           (error "event fold final transition has no source offsets" form))
          (unless (= (length form) 4)
            (error "event fold token requires source offsets" form))
+         (unless (or allow-line?
+                     (and (pair? (caddr form))
+                          (eq? (caaddr form) 'state-offset)
+                          (pair? (cadddr form))
+                          (eq? (car (cadddr form)) 'state-offset)))
+           (error "event fold final token requires saved source offsets" form))
          (hash ("kind" "token")
                ("syntax_kind" (kind-index grammar (cadr form) 'token))
                ("start" (fold-offset-ir (caddr form) states indices))

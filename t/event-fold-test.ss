@@ -421,6 +421,38 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "usize_equal")))
+    (test-case "final transition may flush a saved source-backed token"
+      (let* ((initial '((pending #f) (pending-start 0) (pending-end 0)))
+             (line '((if (line-blank?)
+                         ((set-bool pending (bool #t))
+                          (set-uint pending-start (offset start))
+                          (set-uint pending-end (offset end))) ())))
+             (finish '((if (state pending)
+                           ((token Line (state-offset pending-start)
+                                   (state-offset pending-end))) ())))
+             (wire (event-fold-ir-json
+                    'flush_pending event-lines-language-grammar
+                    'Document initial line finish))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t)))
+             (flush (vector-ref
+                     (hash-ref (vector-ref (hash-ref ir "finish") 0)
+                               "consequent") 0)))
+        (check (run-event-fold "\n" 'Document initial line finish)
+               => '((start Document) (token Line 0 1) (finish)))
+        (check (hash-ref (hash-ref flush "start") "kind")
+               => "state_offset")
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar
+                             'Document initial '()
+                             '((token Line start end))) true)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar
+                             'Document initial '()
+                             '((token Line
+                                      (line-step (state-offset pending-start))
+                                      (state-offset pending-end)))) true)))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

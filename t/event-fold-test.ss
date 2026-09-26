@@ -410,8 +410,27 @@
         (check-exception
          (event-fold-ir-json
           'bad_heading event-lines-language-grammar 'Document '()
-          '((if (future-heading-title? "*" " " 0 "END") () ())) '())
+         '((if (future-heading-title? "*" " " 0 "END") () ())) '())
          true)))
+    (test-case "typed parameter has one Scheme fold and AOT declaration"
+      (let* ((initial '((threshold 4)))
+             (forms '((if (uint-equal? (state threshold) (uint 7))
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node)))))
+             (wire (event-fold-ir-json
+                    'parameterized event-lines-language-grammar
+                    'Document initial forms '() '()
+                    '((configured_threshold threshold 4))))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "x\n" 'Document initial forms '())
+               => '((start Document) (start Text) (finish) (finish)))
+        (check (run-event-fold "x\n" 'Document initial forms '() '()
+                               '((threshold . 7)))
+               => '((start Document) (start Heading) (finish) (finish)))
+        (check (hash-ref (vector-ref (hash-ref ir "parameters") 0) "state")
+               => "threshold")))
     (test-case "n-ary boolean predicates evaluate every operand and lower to IR"
       (let* ((forms '((if (and (bool #t) (bool #t) (bool #f))
                           ((start-node Heading) (finish-node))

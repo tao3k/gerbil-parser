@@ -251,8 +251,9 @@
        (string? (cadr expression))
        (string? (caddr expression))
        (not (equal? (cadr expression) (caddr expression)))
-       (exact-integer? (list-ref expression 3))
-       (> (list-ref expression 3) 0)
+       (or (pair? (list-ref expression 3))
+           (and (exact-integer? (list-ref expression 3))
+                (> (list-ref expression 3) 0)))
        (string? (list-ref expression 4))
        (> (string-length (list-ref expression 4)) 0)
        (not (ormap (lambda (character)
@@ -616,7 +617,11 @@
      (fold-future-heading-title?
       source-bytes end (fold-marker-byte (cadr expression))
       (fold-marker-byte (caddr expression))
-      (list-ref expression 3) (list-ref expression 4)))
+      (let (level (list-ref expression 3))
+        (if (pair? level)
+          (fold-uint level line start end states indices)
+          level))
+      (list-ref expression 4)))
     ((future-named-line-marker-before-boundary?)
      (unless (and (memv (length expression) '(11 16))
                   (fold-ascii-prefix? (list-ref expression 3))
@@ -893,9 +898,17 @@
          (cons (car entry) (if (equal? (cadr entry) '(uint-stack))
                              [] (cadr entry)))) initial))
 
-(def (run-event-fold source root initial line-forms finish-forms (helpers '()))
+(def (run-event-fold source root initial line-forms finish-forms
+                     (helpers '()) (overrides '()))
   (let ((source-bytes (string->utf8 source))
         (states (fold-initial-states initial)))
+    (for-each (lambda (override)
+                (fold-state-of-type states (car override) fold-unsigned?)
+                (unless (fold-unsigned? (cdr override))
+                  (error "invalid event fold parameter override" override))
+                (set! states (fold-update-state states (car override)
+                                                (cdr override))))
+              overrides)
     (let* ((events
             (source-line-events
              source root
@@ -1012,7 +1025,11 @@
      (hash ("kind" "future_heading_title")
            ("heading_marker" (fold-marker-byte (cadr expression)))
            ("heading_separator" (fold-marker-byte (caddr expression)))
-           ("min_level" (list-ref expression 3))
+           ("min_level"
+            (fold-uint-ir
+             (let (level (list-ref expression 3))
+               (if (pair? level) level `(uint ,level)))
+             states indices allow-line?))
            ("title" (list-ref expression 4))))
     ((future-named-line-marker-before-boundary?)
      (unless (and allow-line? (memv (length expression) '(11 16))
@@ -1285,7 +1302,7 @@
         initial)))
 
 (def (event-fold-ir-json name grammar root initial line-forms finish-forms
-                         (helpers '()))
+                         (helpers '()) (parameters '()))
   (let* ((states (fold-initial-states initial))
          (helper-ir
           (list->vector
@@ -1309,7 +1326,8 @@
                             (parser-machine-grammar-digest
                              (language-grammar-machine grammar))
                             name root initial line-forms finish-forms)
-                      (if (null? helpers) '() (list helpers))) port)))))
+                      (if (null? helpers) '() (list helpers))
+                      (if (null? parameters) '() (list parameters))) port)))))
          (payload
           (hash ("schema" "gerbil-scheme-rust.event-function-ir.v1")
                 ("name" (symbol->string name))
@@ -1321,6 +1339,20 @@
     (validate-state-names states)
     (validate-state-names
      (map (lambda (helper) (cons (car helper) #f)) helpers))
+    (when (pair? parameters)
+      (hash-put! payload "parameters"
+                 (list->vector
+                  (map (lambda (parameter)
+                         (unless (and (= (length parameter) 3)
+                                      (symbol? (car parameter))
+                                      (symbol? (cadr parameter))
+                                      (fold-unsigned? (caddr parameter)))
+                           (error "invalid event fold parameter" parameter))
+                         (fold-state-of-type states (cadr parameter) fold-unsigned?)
+                         (hash ("name" (rust-state-name (car parameter)))
+                               ("state" (rust-state-name (cadr parameter)))
+                               ("default" (caddr parameter))))
+                       parameters))))
     (when (pair? helpers) (hash-put! payload "helpers" helper-ir))
     (json->string payload sort-keys: #t)))
 

@@ -3,6 +3,7 @@
 ;;; typed transitions for gerbil-scheme-rust-ir. No Rust source templates.
 
 (import (only-in :std/encoding/json json->string)
+        (only-in :std/string/utf8 utf8->string)
         (only-in ../language/descriptor language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
         (only-in ./machine parser-machine-grammar-digest)
@@ -230,6 +231,15 @@
                         (not (memv (u8vector-ref bytes (- offset start))
                                    '(9 10 13 32)))))
              (loop (+ offset 1)) offset))))
+      ((line-physical-end)
+       (unless (= (length expression) 2)
+         (error "invalid event fold physical-line scan" expression))
+       (let* ((bytes (string->utf8 line))
+              (from (fold-offset (cadr expression) line start end states indices)))
+         (let loop ((cursor (max start (min from end))))
+           (if (and (< cursor end)
+                    (not (memv (u8vector-ref bytes (- cursor start)) '(10 13))))
+             (loop (+ cursor 1)) cursor))))
       ((line-step)
        (min end (+ 1 (fold-offset (cadr expression) line start end states indices))))
       ((line-trim-end)
@@ -289,7 +299,8 @@
        (hash ("kind" "line_marker_end")
              ("marker" (fold-marker-byte (cadr expression)))
              ("separator" (fold-marker-byte (caddr expression)))))
-      ((line-skip-horizontal line-scan-word line-scan-key line-step)
+      ((line-skip-horizontal line-scan-word line-scan-key
+        line-physical-end line-step)
        (unless (= (length expression) 2)
          (error "invalid event fold scanner offset" expression))
        (hash ("kind" (rust-state-name (car expression)))
@@ -544,7 +555,7 @@
     (if (= remaining 0) events
       (loop (- remaining 1) (cons '(finish) events)))))
 
-(def (fold-statements statements source-bytes line start end states indices)
+(def (fold-statements statements source-bytes line start end states indices helpers)
   (let loop ((rest statements) (state states) (events []))
     (if (null? rest) (cons state events)
         (let* ((form (car rest))
@@ -585,7 +596,7 @@
                    (fold-statements
                     (if (fold-predicate (cadr form) source-bytes line start end state indices)
                       (caddr form) (cadddr form))
-                    source-bytes line start end state indices))
+                    source-bytes line start end state indices helpers))
                   ((for-line-bytes)
                    (let ((from (fold-offset (caddr form) line start end state indices))
                          (until (fold-offset (cadddr form) line start end state indices)))
@@ -596,9 +607,37 @@
                          (let (step (fold-statements (list-ref form 4) source-bytes line start end
                                                       current
                                                       (cons (cons (cadr form) cursor)
-                                                            indices)))
+                                                            indices) helpers))
                            (iterate (+ cursor 1) (car step)
                                     (foldl cons reversed (cdr step))))))))
+                  ((with-source-bounds)
+                   (unless (= (length form) 4)
+                     (error "invalid event fold source bounds" form))
+                   (let ((from (fold-offset (cadr form) line start end state indices))
+                         (until (fold-offset (caddr form) line start end state indices)))
+                     (unless (and (<= 0 from) (<= from until)
+                                  (<= until (u8vector-length source-bytes)))
+                       (error "event fold bounds outside source" form))
+                     (fold-statements
+                      (cadddr form) source-bytes
+                      (utf8->string (subu8vector source-bytes from until))
+                      from until state indices helpers)))
+                  ((call-source-helper)
+                   (unless (= (length form) 4)
+                     (error "invalid event helper call" form))
+                   (let* ((helper (assq (cadr form) helpers))
+                          (from (fold-offset (caddr form) line start end state indices))
+                          (until (fold-offset (cadddr form) line start end state indices)))
+                     (unless helper
+                       (error "unknown or recursive event helper" (cadr form)))
+                     (unless (and (<= 0 from) (<= from until)
+                                  (<= until (u8vector-length source-bytes)))
+                       (error "event helper bounds outside source" form))
+                     (let (step (fold-statements
+                                (caddr helper) source-bytes
+                                (utf8->string (subu8vector source-bytes from until))
+                                from until (fold-initial-states (cadr helper)) '() '()))
+                       (cons state (cdr step)))))
                   ((scan-list-marker)
                    (unless (= (length form) 10)
                      (error "invalid event fold list marker statement" form))
@@ -650,19 +689,29 @@
                   (else (error "unsupported event fold statement" form)))))
           (loop (cdr rest) (car step) (append events (cdr step)))))))
 
-(def (run-event-fold source root initial line-forms finish-forms)
+(def (fold-initial-states initial)
+  (map (lambda (entry)
+         (unless (and (= (length entry) 2) (symbol? (car entry))
+                      (or (boolean? (cadr entry))
+                          (fold-unsigned? (cadr entry))
+                          (equal? (cadr entry) '(uint-stack))))
+           (error "event fold requires typed state" entry))
+         (cons (car entry) (if (equal? (cadr entry) '(uint-stack))
+                             [] (cadr entry)))) initial))
+
+(def (run-event-fold source root initial line-forms finish-forms (helpers '()))
   (let ((source-bytes (string->utf8 source))
-        (states (map (lambda (entry)
-                       (cons (car entry) (if (equal? (cadr entry) '(uint-stack))
-                                           [] (cadr entry)))) initial)))
+        (states (fold-initial-states initial)))
     (let* ((events
             (source-line-events
              source root
              (lambda (line start end)
-               (let (step (fold-statements line-forms source-bytes line start end states '()))
+               (let (step (fold-statements line-forms source-bytes line start end
+                                          states '() helpers))
                  (set! states (car step))
                  (cdr step)))))
-           (closing (fold-statements finish-forms source-bytes "" 0 0 states '())))
+           (closing (fold-statements finish-forms source-bytes "" 0 0
+                                     states '() helpers)))
       (append (reverse (cdr (reverse events))) (cdr closing) '((finish))))))
 
 (def (fold-predicate-ir expression states indices allow-line?)
@@ -822,7 +871,7 @@
               (car parts) (cdr parts))))
     (else (error "unsupported event fold predicate" expression))))
 
-(def (fold-statements-ir grammar statements states indices allow-line?)
+(def (fold-statements-ir grammar statements states indices allow-line? (helpers '()))
   (list->vector
    (map
     (lambda (form)
@@ -870,8 +919,10 @@
         ((if)
          (hash ("kind" "if")
                ("condition" (fold-predicate-ir (cadr form) states indices allow-line?))
-               ("consequent" (fold-statements-ir grammar (caddr form) states indices allow-line?))
-               ("alternate" (fold-statements-ir grammar (cadddr form) states indices allow-line?))))
+               ("consequent" (fold-statements-ir grammar (caddr form) states indices
+                                                 allow-line? helpers))
+               ("alternate" (fold-statements-ir grammar (cadddr form) states indices
+                                                allow-line? helpers))))
         ((for-line-bytes)
          (unless (and allow-line? (= (length form) 5)
                       (symbol? (cadr form))
@@ -883,7 +934,35 @@
                ("from" (fold-offset-ir (caddr form) states indices))
                ("until" (fold-offset-ir (cadddr form) states indices))
                ("body" (fold-statements-ir grammar (list-ref form 4) states
-                                           (cons (cadr form) indices) allow-line?))))
+                                           (cons (cadr form) indices)
+                                           allow-line? helpers))))
+        ((with-source-bounds)
+         (unless (and (= (length form) 4)
+                      (or allow-line?
+                          (and (pair? (cadr form))
+                               (eq? (caadr form) 'state-offset)
+                               (pair? (caddr form))
+                               (eq? (caaddr form) 'state-offset))))
+           (error "event fold final bounds require saved source offsets" form))
+         (hash ("kind" "with_source_bounds")
+               ("from" (fold-offset-ir (cadr form) states indices))
+               ("until" (fold-offset-ir (caddr form) states indices))
+               ("body" (fold-statements-ir grammar (cadddr form)
+                                           states indices #t helpers))))
+        ((call-source-helper)
+         (unless (and (= (length form) 4)
+                      (symbol? (cadr form))
+                      (assq (cadr form) helpers)
+                      (or allow-line?
+                          (and (pair? (caddr form))
+                               (eq? (caaddr form) 'state-offset)
+                               (pair? (cadddr form))
+                               (eq? (car (cadddr form)) 'state-offset))))
+           (error "unknown or invalid event helper call" form))
+         (hash ("kind" "call_source_helper")
+               ("name" (rust-state-name (cadr form)))
+               ("from" (fold-offset-ir (caddr form) states indices))
+               ("until" (fold-offset-ir (cadddr form) states indices))))
         ((scan-list-marker)
          (unless (and allow-line? (= (length form) 10)
                       (string? (cadr form))
@@ -929,45 +1008,58 @@
         (else (error "unsupported event fold statement" form))))
     statements)))
 
-(def (event-fold-ir-json name grammar root initial line-forms finish-forms)
-  (let* ((states (map (lambda (entry)
-                        (unless (and (= (length entry) 2) (symbol? (car entry))
-                                     (or (boolean? (cadr entry))
-                                         (fold-unsigned? (cadr entry))
-                                         (equal? (cadr entry) '(uint-stack))))
-                          (error "event fold requires typed state" entry))
-                        (cons (car entry) (if (equal? (cadr entry) '(uint-stack))
-                                            [] (cadr entry)))) initial))
-         (initial-ir
+(def (fold-initial-ir initial)
+  (list->vector
+   (map (lambda (declaration)
+          (let ((name (rust-state-name (car declaration)))
+                (value (cadr declaration)))
+            (cond
+             ((boolean? value)
+              (hash ("kind" "let_bool") ("name" name) ("value" value)))
+             ((number? value)
+              (hash ("kind" "let_usize") ("name" name) ("value" value)))
+             (else (hash ("kind" "let_usize_stack") ("name" name))))))
+        initial)))
+
+(def (event-fold-ir-json name grammar root initial line-forms finish-forms
+                         (helpers '()))
+  (let* ((states (fold-initial-states initial))
+         (helper-ir
           (list->vector
-           (map (lambda (declaration)
-                  (let ((name (rust-state-name (car declaration)))
-                        (value (cadr declaration)))
-                    (cond
-                     ((boolean? value)
-                      (hash ("kind" "let_bool") ("name" name) ("value" value)))
-                     ((number? value)
-                      (hash ("kind" "let_usize") ("name" name) ("value" value)))
-                     (else (hash ("kind" "let_usize_stack") ("name" name))))))
-                initial)))
+           (map (lambda (helper)
+                  (unless (and (= (length helper) 3)
+                               (symbol? (car helper)))
+                    (error "invalid event helper declaration" helper))
+                  (let ((local-states (fold-initial-states (cadr helper))))
+                    (validate-state-names local-states)
+                    (hash ("name" (rust-state-name (car helper)))
+                          ("initial" (fold-initial-ir (cadr helper)))
+                          ("body" (fold-statements-ir grammar (caddr helper)
+                                                      local-states '() #t)))))
+                helpers)))
          (digest
           (sha256-text
            (call-with-output-string
             (lambda (port)
-              (write (list 'event-fold.v1
-                           (parser-machine-grammar-digest
-                            (language-grammar-machine grammar))
-                           name root initial line-forms finish-forms) port))))))
+              (write (append
+                      (list 'event-fold.v1
+                            (parser-machine-grammar-digest
+                             (language-grammar-machine grammar))
+                            name root initial line-forms finish-forms)
+                      (if (null? helpers) '() (list helpers))) port)))))
+         (payload
+          (hash ("schema" "gerbil-scheme-rust.event-function-ir.v1")
+                ("name" (symbol->string name))
+                ("root_kind" (kind-index grammar root 'node))
+                ("parser_digest" digest)
+                ("initial" (fold-initial-ir initial))
+                ("line" (fold-statements-ir grammar line-forms states '() #t helpers))
+                ("finish" (fold-statements-ir grammar finish-forms states '() #f helpers)))))
     (validate-state-names states)
-    (json->string
-     (hash ("schema" "gerbil-scheme-rust.event-function-ir.v1")
-           ("name" (symbol->string name))
-           ("root_kind" (kind-index grammar root 'node))
-           ("parser_digest" digest)
-           ("initial" initial-ir)
-           ("line" (fold-statements-ir grammar line-forms states '() #t))
-           ("finish" (fold-statements-ir grammar finish-forms states '() #f)))
-     sort-keys: #t)))
+    (validate-state-names
+     (map (lambda (helper) (cons (car helper) #f)) helpers))
+    (when (pair? helpers) (hash-put! payload "helpers" helper-ir))
+    (json->string payload sort-keys: #t)))
 
 (defrules define-event-fold-parser ()
   ((_ scheme-name rust-name grammar root source initial (line-form ...) (finish-form ...))

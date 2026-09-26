@@ -142,6 +142,21 @@
                (inner (vector-ref (hash-ref outer "consequent") 0)))
           (check (hash-ref (hash-ref inner "condition") "kind")
                  => "future_named_line_marker_before_boundary"))))
+    (test-case "state-only frame pop does not close Rowan nodes"
+      (let ((initial '((saved (uint-stack))))
+            (forms '((push-frame saved (uint 7))
+                     (pop-frame saved)
+                     (token Line start end))))
+        (check (run-event-fold "a\n" 'Document initial forms '())
+               => '((start Document) (token Line 0 2) (finish)))
+        (let* ((wire (event-fold-ir-json
+                      'state_pop event-lines-language-grammar
+                      'Document initial forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t))))
+          (check (hash-ref (vector-ref (hash-ref ir "line") 1) "kind")
+                 => "pop_frame"))))
     (test-case "byte-set membership is a boolean state value"
       (let (forms '((set-bool match
                                (line-bytes-any-in? start (line-step start)

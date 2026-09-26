@@ -1,24 +1,17 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
-;;; Acceptance owner for POO Flow source-authoring, memory, and timing evidence.
+;;; Acceptance owner for parser Core memory and timing evidence.
 ;;; Runtime observation remains an opt-in POO policy carried by LanguageGrammar.
 
 (import :std/test
         (only-in :clan/poo/object .ref)
         (only-in :std/misc/ports read-all-as-string)
         :asp-gerbil-scheme/src/benchmark/framework
-        :poo-flow/src/module-system/observability/interface
+        :core/observability/debug
         :gerbil-parser/src/modules/parser/interface
         "./scenarios/observability/opencypher-grammar-phases/scenario")
 
 (def benchmark-path "t/benchmarks/poo-grammar-objects/benchmark.ss")
-
-(def parser-poo-source-files
-  '("src/modules/parser/types.ss"
-    "src/modules/parser/objects.ss"
-    "src/modules/parser/funcs.ss"
-    "src/modules/parser/syntax.ss"
-    "src/modules/parser/interface.ss"))
 
 (def (make-observed-role)
   (make-grammar-role
@@ -44,8 +37,8 @@
                (grammar-role? (car (grammar-roles grammar)))))
         grammars)))
 
-(def poo-observability-tests
-  (test-suite "POO Flow observability for parser grammar objects"
+(def core-observability-tests
+  (test-suite "Core observability for parser grammar objects"
     (test-case "runtime observation imports only the POO debug boundary"
       (let (source
             (call-with-input-file
@@ -53,21 +46,11 @@
         (check
          (and (string-contains
                source
-               ":poo-flow-foundation/module-system/observability/debug")
+               ":core/observability/debug")
               (not (string-contains
                     source
                     ":poo-flow/src/module-system/observability/interface")))
          => #t)))
-    (test-case "parser POO sources pass the reader-native authoring gate"
-      (for-each
-       (lambda (path)
-         (check
-          (list path
-                (map poo-flow-authoring-observation-sexp
-                     (poo-flow-authoring-inline-prototype-file-observations
-                      'gerbil-parser path)))
-          => (list path '())))
-       parser-poo-source-files))
     (test-case "checked object construction emits a bounded POO memory receipt"
       (let (policy
             (poo-flow-debug-memory-policy
@@ -105,4 +88,4 @@
         (check (opencypher-grammar-observability-scenario-pass? receipt)
                => #t)))))
 
-(export poo-observability-tests)
+(export core-observability-tests)

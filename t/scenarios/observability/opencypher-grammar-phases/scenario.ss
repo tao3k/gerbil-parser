@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
-;;; Grammar-owned POO Flow phase observation without global instrumentation.
+;;; Grammar-owned Core phase observation without global instrumentation.
 
-(import :poo-flow/src/module-system/observability/interface
+(import :core/observability/debug
         (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/parser
                  opencypher-2024-1-language-grammar
                  parse-opencypher-2024-1)

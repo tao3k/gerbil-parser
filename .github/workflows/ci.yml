@@ -126,13 +126,13 @@ jobs:
           mkdir -p "$HOME/.gerbil/pkg"
           gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory
           if [ "${{ steps.package-cache.outputs.cache-hit }}" = "true" ]; then
-            if ! gerbil env gerbil interactive -e '(begin (import :poo-flow-foundation/module-system/object-family/interface :asp-gerbil-scheme/building-api :asp-gerbil-scheme/src/benchmark/framework) (displayln "dependency-cache-ready"))'; then
+            if ! gerbil env gerbil interactive -e '(begin (import :core/object-family/interface :asp-gerbil-scheme/building-api :asp-gerbil-scheme/src/benchmark/framework) (displayln "dependency-cache-ready"))'; then
               gerbil deps --update
             fi
           else
             gerbil deps --install
           fi
-          gerbil env gerbil interactive -e '(begin (import :poo-flow-foundation/module-system/object-family/interface :asp-gerbil-scheme/building-api :asp-gerbil-scheme/src/benchmark/framework) (displayln "dependencies-ready"))'
+          gerbil env gerbil interactive -e '(begin (import :core/object-family/interface :asp-gerbil-scheme/building-api :asp-gerbil-scheme/src/benchmark/framework) (displayln "dependencies-ready"))'
 
       - name: Save Gerbil package cache
         if: steps.package-cache.outputs.cache-hit != 'true'

@@ -157,6 +157,17 @@
                                                   array-as-vector: #t))))
           (check (hash-ref (vector-ref (hash-ref ir "line") 1) "kind")
                  => "pop_frame"))))
+    (test-case "single frame close preserves nested equal frame scopes"
+      (let ((initial '((frames (uint-stack))))
+            (forms '((start-node Heading)
+                     (push-frame frames (uint 7))
+                     (start-node Text)
+                     (push-frame frames (uint 7))
+                     (close-frame frames 1)
+                     (close-frame frames 1))))
+        (check (run-event-fold "a\n" 'Document initial forms '())
+               => '((start Document) (start Heading) (start Text)
+                    (finish) (finish) (finish)))))
     (test-case "byte-set membership is a boolean state value"
       (let (forms '((set-bool match
                                (line-bytes-any-in? start (line-step start)

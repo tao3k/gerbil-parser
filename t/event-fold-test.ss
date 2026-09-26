@@ -142,6 +142,52 @@
                (inner (vector-ref (hash-ref outer "consequent") 0)))
           (check (hash-ref (hash-ref inner "condition") "kind")
                  => "future_named_line_marker_before_boundary"))))
+    (test-case "named future marker stops at a source-named parent closer"
+      (let* ((name-start '(line-prefix-end "#+BEGIN_"))
+             (name-end `(line-scan-key ,name-start))
+             (future
+              `(future-named-line-marker-before-boundary?
+                ,name-start ,name-end "#+END_" "" ""
+                "*" " " #t #t #t
+                (state-offset parent-start) (state-offset parent-end)
+                "#+END_" "" #t))
+             (initial '((parent-start 0) (parent-end 0)))
+             (forms
+              `((if (line-starts-with "#+BEGIN_OUTER")
+                    ((set-uint parent-start (offset ,name-start))
+                     (set-uint parent-end (offset ,name-end))
+                     (token Line start end))
+                    ((if (line-starts-with "#+BEGIN_INNER")
+                         ((if ,future
+                              ((start-node Heading) (token Line start end)
+                               (finish-node))
+                              ((start-node Text) (token Line start end)
+                               (finish-node))))
+                         ((token Line start end))))))))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_outer\n#+END_inner\n"
+                             'Document initial forms '())))
+               => '(Document Text))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_inner\n#+END_outer\n"
+                             'Document initial forms '())))
+               => '(Document Heading))
+        (let* ((wire (event-fold-ir-json
+                      'future_named_parent event-lines-language-grammar
+                      'Document initial forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t)))
+               (outer (vector-ref (hash-ref ir "line") 0))
+               (inner (vector-ref (hash-ref outer "alternate") 0))
+               (future-ir (hash-ref (vector-ref (hash-ref inner "consequent") 0)
+                                    "condition")))
+          (check (hash-ref future-ir "stop_prefix") => "#+END_")
+          (check (hash-ref future-ir "stop_ascii_case_insensitive") => #t))))
     (test-case "state-only frame pop does not close Rowan nodes"
       (let ((initial '((saved (uint-stack))))
             (forms '((push-frame saved (uint 7))

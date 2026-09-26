@@ -185,7 +185,9 @@
 
 (def (fold-future-named-marker-before-boundary?
       bytes from name-from name-until prefix suffix stop
-      heading-marker heading-separator indent? stop-at-heading? ascii-ci?)
+      heading-marker heading-separator indent? stop-at-heading? ascii-ci?
+      (stop-name-from #f) (stop-name-until #f)
+      (stop-prefix "") (stop-suffix "") (stop-ascii-ci? #f))
   (let search ((cursor from))
     (if (>= cursor (u8vector-length bytes)) #f
       (let (end (fold-future-line-end bytes cursor))
@@ -194,6 +196,10 @@
                (fold-future-heading? bytes cursor end
                                      heading-marker heading-separator)) #f)
          ((and stop (fold-future-marker-line? bytes cursor end stop indent?)) #f)
+         ((and stop-name-from stop-name-until
+               (fold-future-named-marker-line?
+                bytes cursor end stop-name-from stop-name-until
+                stop-prefix stop-suffix indent? stop-ascii-ci?)) #f)
          ((fold-future-named-marker-line?
            bytes cursor end name-from name-until prefix suffix indent? ascii-ci?) #t)
          (else (search end)))))))
@@ -551,14 +557,20 @@
       (and (> (string-length (list-ref expression 7)) 0)
            (fold-marker-byte (list-ref expression 7)))))
     ((future-named-line-marker-before-boundary?)
-     (unless (and (= (length expression) 11)
+     (unless (and (memv (length expression) '(11 16))
                   (fold-ascii-prefix? (list-ref expression 3))
                   (> (string-length (list-ref expression 3)) 0)
                   (fold-ascii-prefix? (list-ref expression 4))
                   (fold-ascii-prefix? (list-ref expression 5))
                   (boolean? (list-ref expression 8))
                   (boolean? (list-ref expression 9))
-                  (boolean? (list-ref expression 10)))
+                  (boolean? (list-ref expression 10))
+                  (or (= (length expression) 11)
+                      (and (fold-ascii-prefix? (list-ref expression 13))
+                           (> (string-length (list-ref expression 13)) 0)
+                           (fold-ascii-prefix? (list-ref expression 14))
+                           (boolean? (list-ref expression 15))
+                           (equal? (list-ref expression 5) ""))))
        (error "invalid event fold future named marker search" expression))
      (fold-future-named-marker-before-boundary?
       source-bytes end
@@ -570,7 +582,14 @@
       (fold-marker-byte (list-ref expression 6))
       (fold-marker-byte (list-ref expression 7))
       (list-ref expression 8) (list-ref expression 9)
-      (list-ref expression 10)))
+      (list-ref expression 10)
+      (and (= (length expression) 16)
+           (fold-offset (list-ref expression 11) line start end states indices))
+      (and (= (length expression) 16)
+           (fold-offset (list-ref expression 12) line start end states indices))
+      (if (= (length expression) 16) (list-ref expression 13) "")
+      (if (= (length expression) 16) (list-ref expression 14) "")
+      (and (= (length expression) 16) (list-ref expression 15))))
     ((line-has-word-after-prefix?)
      (unless (and (= (length expression) 2)
                   (fold-ascii-prefix? (cadr expression)))
@@ -925,16 +944,23 @@
             (if (equal? (list-ref expression 7) "") 0
               (fold-marker-byte (list-ref expression 7))))))
     ((future-named-line-marker-before-boundary?)
-     (unless (and allow-line? (= (length expression) 11)
+     (unless (and allow-line? (memv (length expression) '(11 16))
                   (fold-ascii-prefix? (list-ref expression 3))
                   (> (string-length (list-ref expression 3)) 0)
                   (fold-ascii-prefix? (list-ref expression 4))
                   (fold-ascii-prefix? (list-ref expression 5))
                   (boolean? (list-ref expression 8))
                   (boolean? (list-ref expression 9))
-                  (boolean? (list-ref expression 10)))
+                  (boolean? (list-ref expression 10))
+                  (or (= (length expression) 11)
+                      (and (fold-ascii-prefix? (list-ref expression 13))
+                           (> (string-length (list-ref expression 13)) 0)
+                           (fold-ascii-prefix? (list-ref expression 14))
+                           (boolean? (list-ref expression 15))
+                           (equal? (list-ref expression 5) ""))))
        (error "invalid event fold future named marker search" expression))
-     (hash ("kind" "future_named_line_marker_before_boundary")
+     (let (payload
+           (hash ("kind" "future_named_line_marker_before_boundary")
            ("name_from" (fold-offset-ir (cadr expression) states indices))
            ("name_until" (fold-offset-ir (caddr expression) states indices))
            ("target_prefix" (list-ref expression 3))
@@ -945,6 +971,16 @@
            ("indent" (list-ref expression 8))
            ("stop_at_heading" (list-ref expression 9))
            ("ascii_case_insensitive" (list-ref expression 10))))
+       (when (= (length expression) 16)
+         (hash-put! payload "stop_name_from"
+                    (fold-offset-ir (list-ref expression 11) states indices))
+         (hash-put! payload "stop_name_until"
+                    (fold-offset-ir (list-ref expression 12) states indices))
+         (hash-put! payload "stop_prefix" (list-ref expression 13))
+         (hash-put! payload "stop_suffix" (list-ref expression 14))
+         (hash-put! payload "stop_ascii_case_insensitive"
+                    (list-ref expression 15)))
+       payload))
     ((line-has-word-after-prefix?)
      (unless allow-line?
        (error "event fold final transition has no source line" expression))

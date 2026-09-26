@@ -85,6 +85,33 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_blank")))
+    (test-case "checked source slices compare names across physical lines"
+      (let ((initial '((name-start 0) (name-end 0)))
+            (forms
+             '((if (line-starts-with "name:")
+                   ((set-uint name-start (offset (line-prefix-end "name:")))
+                    (set-uint name-end (offset (line-content-end)))
+                    (token Line start end))
+                   ((if (source-slices-equal-ascii-ci?
+                         (state-offset name-start) (state-offset name-end)
+                         start (line-content-end))
+                        ((start-node Heading) (token Line start end)
+                         (finish-node))
+                        ((start-node Text) (token Line start end)
+                         (finish-node))))))))
+        (check (run-event-fold "name:ALPHA\nalpha\nother\n"
+                               'Document initial forms '())
+               => '((start Document) (token Line 0 11)
+                    (start Heading) (token Line 11 17) (finish)
+                    (start Text) (token Line 17 23) (finish)
+                    (finish)))
+        (let* ((wire (event-fold-ir-json
+                      'source_slices event-lines-language-grammar
+                      'Document initial forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t))))
+          (check (hash-ref ir "name") => "source_slices"))))
     (test-case "byte-set membership is a boolean state value"
       (let (forms '((set-bool match
                                (line-bytes-any-in? start (line-step start)

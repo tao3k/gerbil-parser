@@ -125,6 +125,52 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_bytes_in_set")))
+    (test-case "saved source bounds scan one UTF-8 span across physical lines"
+      (let* ((initial '((span-start 0) (span-end 0)))
+             (line '((set-uint span-end (offset end))))
+             (finish
+              '((with-source-bounds (state-offset span-start)
+                                    (state-offset span-end)
+                  ((if (line-bytes-any-in? start end (10))
+                       ((start-node Text) (token Line start end)
+                        (finish-node)) ())))))
+             (wire (event-fold-ir-json
+                    'source_span event-lines-language-grammar
+                    'Document initial line finish))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "ab\ncd\n" 'Document initial line finish)
+               => '((start Document) (start Text) (token Line 0 6)
+                    (finish) (finish)))
+        (check (hash-ref (vector-ref (hash-ref ir "finish") 0) "kind")
+               => "with_source_bounds")))
+    (test-case "source-local helper executes once and stays typed in event IR"
+      (let* ((initial '((span-start 0) (span-end 0)))
+             (line '((set-uint span-end (offset end))))
+             (finish '((call-source-helper inline-span
+                                           (state-offset span-start)
+                                           (state-offset span-end))))
+             (helpers
+              '((inline-span
+                 ((cursor 0))
+                 ((set-uint cursor (offset start))
+                  (if (line-bytes-any-in? start end (10))
+                      ((start-node Text)
+                       (token Line (state-offset cursor) end)
+                       (finish-node)) ())))))
+             (wire (event-fold-ir-json
+                    'source_helper event-lines-language-grammar
+                    'Document initial line finish helpers))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "ab\ncd\n" 'Document initial line finish helpers)
+               => '((start Document) (start Text) (token Line 0 6)
+                    (finish) (finish)))
+        (check (hash-ref (vector-ref (hash-ref ir "finish") 0) "kind")
+               => "call_source_helper")
+        (check (vector-length (hash-ref ir "helpers")) => 1)))
     (test-case "future marker search stops at heading or parent boundary"
       (let* ((condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
                               (future-line-marker-before-boundary?

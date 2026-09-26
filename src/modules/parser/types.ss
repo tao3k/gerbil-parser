@@ -4,7 +4,7 @@
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop define-type element?)
-        (only-in :poo-flow/src/module-system/types
+        (only-in :poo-flow-foundation/module-system/types
                  PooFlowContract.
                  PooFlowNativeObjectContract.
                  poo-flow-classification-evidence))

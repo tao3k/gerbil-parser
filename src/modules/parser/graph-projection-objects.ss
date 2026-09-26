@@ -2,10 +2,10 @@
 ;;; POO-native graph projection declarations; syntax belongs to language packs.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :poo-flow/src/module-system/types
+        (only-in :poo-flow-foundation/module-system/types
                  poo-flow-contract-admit
                  poo-flow-validation-evidence-accepted?)
-        (only-in :poo-flow/src/module-system/object-family/interface
+        (only-in :poo-flow-foundation/module-system/object-family/interface
                  defpoo-object-family)
         (only-in ./graph-projection-types
                  +graph-projection-kind+ +graph-node-kind+ +graph-field-kind+

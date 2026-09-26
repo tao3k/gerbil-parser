@@ -2,10 +2,10 @@
 ;;; POO-native contextual parser declarations; no public alist DSL.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :poo-flow/src/module-system/types
+        (only-in :poo-flow-foundation/module-system/types
                  poo-flow-contract-admit
                  poo-flow-validation-evidence-accepted?)
-        (only-in :poo-flow/src/module-system/object-family/interface
+        (only-in :poo-flow-foundation/module-system/object-family/interface
                  defpoo-object-family)
         (only-in ./line-structure-types
                  +line-structure-schema+ +line-structure-kind+

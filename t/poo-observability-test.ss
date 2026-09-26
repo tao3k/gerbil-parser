@@ -53,7 +53,7 @@
         (check
          (and (string-contains
                source
-               ":poo-flow/src/module-system/observability/debug")
+               ":poo-flow-foundation/module-system/observability/debug")
               (not (string-contains
                     source
                     ":poo-flow/src/module-system/observability/interface")))

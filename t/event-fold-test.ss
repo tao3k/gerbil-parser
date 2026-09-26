@@ -381,6 +381,37 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "body_key_marker")
                => 58)))
+    (test-case "future heading title respects level and exact suffix"
+      (let* ((condition '(future-heading-title? "*" " " 4 "END"))
+             (forms `((if ,condition
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node)))))
+             (wire (event-fold-ir-json
+                    'future_heading event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "**** Task\n* Outline\n***** END  \r\n"
+                               'Document '() forms '())
+               => '((start Document) (start Heading) (finish)
+                    (start Heading) (finish) (start Text) (finish) (finish)))
+        (check (run-event-fold "**** Task\n*** END\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Text) (finish) (finish)))
+        (check (run-event-fold "**** Task\n**** END extra\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Text) (finish) (finish)))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind")
+               => "future_heading_title")
+        (check-exception
+         (event-fold-ir-json
+          'bad_heading event-lines-language-grammar 'Document '()
+          '((if (future-heading-title? "*" " " 0 "END") () ())) '())
+         true)))
     (test-case "n-ary boolean predicates evaluate every operand and lower to IR"
       (let* ((forms '((if (and (bool #t) (bool #t) (bool #f))
                           ((start-node Heading) (finish-node))

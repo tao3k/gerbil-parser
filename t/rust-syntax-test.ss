@@ -27,7 +27,8 @@
                  before_last_word before_last_word_rust
                  boundary_token? boundary_token_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
-                 scheme-pure->rust ascii-ci=? string-words string-after)
+                 scheme-pure->rust ascii-ci=? string-words string-after
+                 string-single-ascii-uppercase? string-unsigned-at-most?)
         (only-in "rust-aot-test-syntax.ss"
                  check-rust-aot-function check-rust-aot-conditional
                  check-rust-aot-any check-rust-aot-artifact
@@ -71,6 +72,30 @@
              => 'before_last_word)
       (check (rust-function-form-name boundary_token_rust)
              => 'boundary_token_p))
+    (test-case "uppercase ASCII and bounded unsigned checks stay typed"
+      (check (string-single-ascii-uppercase? "A") => #t)
+      (check (string-single-ascii-uppercase? "a") => #f)
+      (check (string-single-ascii-uppercase? "É") => #f)
+      (check (string-single-ascii-uppercase? "AB") => #f)
+      (check (string-unsigned-at-most? "064" 64) => #t)
+      (check (string-unsigned-at-most? "65" 64) => #f)
+      (check (string-unsigned-at-most? "+1" 64) => #f)
+      (let* ((single
+              (string->json
+               (rust-function-ir-json
+                (scheme-pure->rust 'single '((value . "&str")) "bool"
+                                    '(string-single-ascii-uppercase? value)))
+               (JSONReadOptions object-as-hash: #t)))
+             (bounded
+              (string->json
+               (rust-function-ir-json
+                (scheme-pure->rust 'bounded '((value . "&str")) "bool"
+                                    '(string-unsigned-at-most? value 64)))
+               (JSONReadOptions object-as-hash: #t))))
+        (check (hash-ref (hash-ref (hash-ref single "body") "result") "kind")
+               => "single_ascii_uppercase")
+        (check (hash-ref (hash-ref (hash-ref bounded "body") "result") "kind")
+               => "unsigned_at_most")))
     (test-case "pure conditional and membership stay structural"
       (check-rust-aot-conditional
        classify_first_word_rust 'classify_first_word

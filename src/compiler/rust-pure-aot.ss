@@ -9,11 +9,25 @@
                  rust-string rust-identifier rust-before rust-first-word
                  rust-tuple-index
                  rust-after rust-words rust-any rust-fold rust-number rust-empty
-                 rust-string-in rust-if rust-binary))
+                 rust-string-in rust-single-ascii-uppercase
+                 rust-unsigned-at-most rust-if rust-binary))
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
         string-after string-first-word string-rest-after-first-word
         string-last-word string-before-last-word
-        string-prefix? string-suffix? string-words string-in?)
+        string-prefix? string-suffix? string-words string-in?
+        string-single-ascii-uppercase? string-unsigned-at-most?)
+
+(def (string-single-ascii-uppercase? value)
+  (and (= (string-length value) 1)
+       (char<=? #\A (string-ref value 0) #\Z)))
+
+(def (string-unsigned-at-most? value maximum)
+  (let (number (string->number value 10))
+    (and (> (string-length value) 0)
+         (andmap (lambda (char) (char<=? #\0 char #\9))
+                 (string->list value))
+         (integer? number) (exact? number)
+         (<= 0 number maximum))))
 
 (def (string-before value delimiter)
   (let (index (string-index-from value delimiter))
@@ -290,6 +304,17 @@
     (rust-string-in
      (compile-pure-expression (cadr expression) variables "&str")
      (compile-pure-expression (caddr expression) variables "&[&str]")))
+   ((and (pair? expression) (eq? (car expression) 'string-single-ascii-uppercase?)
+         (= (length expression) 2))
+    (rust-single-ascii-uppercase
+     (compile-pure-expression (cadr expression) variables "&str")))
+   ((and (pair? expression) (eq? (car expression) 'string-unsigned-at-most?)
+         (= (length expression) 3)
+         (integer? (caddr expression)) (exact? (caddr expression))
+         (<= 0 (caddr expression)))
+    (rust-unsigned-at-most
+     (compile-pure-expression (cadr expression) variables "&str")
+     (caddr expression)))
    ((and (pair? expression) (eq? (car expression) 'if)
          (= (length expression) 4))
     (rust-if

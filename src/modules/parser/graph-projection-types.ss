@@ -55,7 +55,7 @@
   .classify: (lambda (candidate context)
                (graph-classify 'gerbil-parser/graph-field-mode
                          (lambda (value)
-                           (memq value '(append each append-or-empty node-text)))
+                           (memq value '(append each append-or-empty node-text each-node-text)))
                          candidate context)))
 
 (define-type (GraphFieldContract @ PooFlowNativeObjectContract.)

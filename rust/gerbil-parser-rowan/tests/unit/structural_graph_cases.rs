@@ -44,6 +44,34 @@ static GRAPH_WITH_NODE_TEXT: GraphProjectionSpec = GraphProjectionSpec {
     ],
 };
 
+static GRAPH_WITH_EACH_NODE_TEXT: GraphProjectionSpec = GraphProjectionSpec {
+    grammar_digest: LANGUAGE.grammar_digest,
+    projection_digest: "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    rules: &[GraphNodeRule {
+        syntax_kind: 0,
+        category: "document",
+        kind: "root",
+        fields: &[GraphFieldRule {
+            token_kind: 1,
+            name: "section-source",
+            mode: GraphFieldMode::EachNodeText,
+        }],
+    }],
+};
+
+#[test]
+fn graph_projection_retains_each_descendant_node_text_in_source_order() {
+    let source = "* First\n* Second\n";
+    let root = parse_structural_lines(&LANGUAGE, &HEADING_FIELDS_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    let records = project_syntax_graph(&LANGUAGE, &GRAPH_WITH_EACH_NODE_TEXT, &root).unwrap();
+    assert_eq!(
+        records[0].values("section-source").collect::<Vec<_>>(),
+        ["* First\n", "* Second\n"]
+    );
+}
+
 #[test]
 fn graph_projection_reads_nested_node_text_without_reparsing_language_syntax() {
     let source = "* Parent\n";

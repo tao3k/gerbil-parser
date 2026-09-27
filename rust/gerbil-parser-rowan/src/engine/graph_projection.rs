@@ -6,7 +6,7 @@ use super::model::{Diagnostic, KindCategory, LanguageSpec, SyntaxNode};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GraphFieldRule {
-    /// Syntax token, or a node for [`GraphFieldMode::NodeText`], whose text is projected.
+    /// Syntax token, or a node for a node-text mode, whose text is projected.
     pub token_kind: u16,
     /// Public field name on the graph record.
     pub name: &'static str,
@@ -25,6 +25,8 @@ pub enum GraphFieldMode {
     AppendOrEmpty,
     /// Project the complete source text of a descendant syntax node.
     NodeText,
+    /// Keep each descendant syntax node's complete text as a separate field.
+    EachNodeText,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -198,13 +200,19 @@ fn project_node_text_fields(
     else {
         return;
     };
-    for field in rule
-        .fields
-        .iter()
-        .filter(|field| field.mode == GraphFieldMode::NodeText && field.token_kind == node.kind().0)
-    {
+    for field in rule.fields.iter().filter(|field| {
+        matches!(
+            field.mode,
+            GraphFieldMode::NodeText | GraphFieldMode::EachNodeText
+        ) && field.token_kind == node.kind().0
+    }) {
         let value = node.text().to_string();
-        if let Some(existing) = records[id]
+        if field.mode == GraphFieldMode::EachNodeText {
+            records[id].fields.push(GraphFieldValue {
+                name: field.name,
+                value,
+            });
+        } else if let Some(existing) = records[id]
             .fields
             .iter_mut()
             .find(|existing| existing.name == field.name)
@@ -252,7 +260,10 @@ fn validate_rules<'a>(
             return Err(invalid("graph node kind is invalid or declared twice"));
         }
         for field in rule.fields {
-            let expected_category = if field.mode == GraphFieldMode::NodeText {
+            let expected_category = if matches!(
+                field.mode,
+                GraphFieldMode::NodeText | GraphFieldMode::EachNodeText
+            ) {
                 KindCategory::Node
             } else {
                 KindCategory::Token

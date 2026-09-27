@@ -20,6 +20,8 @@
         (only-in "pure-function-fixture.ss"
                  trim_start_only trim_start_only_rust)
         (only-in "pure-function-fixture.ss"
+                 replace_and_append replace_and_append_rust)
+        (only-in "pure-function-fixture.ss"
                  classify_or_unknown classify_or_unknown_rust)
         (only-in "pure-function-fixture.ss"
                  owned_first_word owned_first_word_rust
@@ -72,6 +74,13 @@
       (check-rust-aot-function
        trim_start_only_rust 'trim_start_only '((input . "&str"))
        "String" 'to_owned))
+    (test-case "pure replacement and append lower as typed string operations"
+      (check (replace_and_append "a/%s" "b") => "a/bb")
+      (check (replace_and_append "a/" "b") => "a/b")
+      (check (rust-function-form-name replace_and_append_rust)
+             => 'replace_and_append)
+      (check (rust-function-form-result replace_and_append_rust)
+             => "String"))
     (test-case "pure string boundaries retain Scheme and AOT parity"
       (check (last_word "α beta :tag:") => ":tag:")
       (check (before_last_word "α beta :tag:") => "α beta")

@@ -14,6 +14,7 @@
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
         string-after string-first-word string-rest-after-first-word
         string-last-word string-before-last-word string-trim-start
+        string-replace
         string-prefix? string-suffix? string-words string-in?
         string-single-ascii-uppercase? string-unsigned-at-most?)
 
@@ -39,6 +40,18 @@
       (substring value (+ index (string-length delimiter))
                  (string-length value))
       "")))
+
+(def (string-replace value needle replacement)
+  (when (equal? needle "")
+    (error "pure string replacement needs a nonempty needle"))
+  (let loop ((from 0) (parts '()))
+    (let (at (string-index-from value needle from))
+      (if (fixnum? at)
+        (loop (+ at (string-length needle))
+              (cons replacement (cons (substring value from at) parts)))
+        (apply string-append
+               (reverse (cons (substring value from (string-length value))
+                              parts)))))))
 
 (def (string-trim-start value)
   (let (size (string-length value))
@@ -185,6 +198,24 @@
     (rust-after
      (compile-pure-expression (cadr expression) variables "&str")
      (compile-pure-expression (caddr expression) variables "&str")))
+   ((and (pair? expression) (eq? (car expression) 'string-replace)
+         (= (length expression) 4))
+    (rust-method
+     (compile-pure-expression (cadr expression) variables "&str")
+     'replace
+     (list (compile-pure-expression (caddr expression) variables "&str")
+           (compile-pure-expression (cadddr expression) variables "&str"))))
+   ((and (pair? expression) (eq? (car expression) 'string-join)
+         (= (length expression) 3)
+         (pair? (cadr expression))
+         (eq? (caadr expression) 'list)
+         (= (length (cadr expression)) 3)
+         (equal? (caddr expression) ""))
+    (rust-binary "+"
+                 (rust-method
+                  (compile-pure-expression (cadadr expression) variables "&str")
+                  'to_owned '())
+                 (compile-pure-expression (caddr (cadr expression)) variables "&str")))
    ((and (pair? expression) (eq? (car expression) 'ascii-ci=?)
          (= (length expression) 3))
     (rust-method

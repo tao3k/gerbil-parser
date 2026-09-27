@@ -13,7 +13,7 @@
                  rust-unsigned-at-most rust-if rust-binary))
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
         string-after string-first-word string-rest-after-first-word
-        string-last-word string-before-last-word
+        string-last-word string-before-last-word string-trim-start
         string-prefix? string-suffix? string-words string-in?
         string-single-ascii-uppercase? string-unsigned-at-most?)
 
@@ -39,6 +39,14 @@
       (substring value (+ index (string-length delimiter))
                  (string-length value))
       "")))
+
+(def (string-trim-start value)
+  (let (size (string-length value))
+    (let loop ((index 0))
+      (if (or (= index size)
+              (not (char-whitespace? (string-ref value index))))
+        (substring value index size)
+        (loop (+ index 1))))))
 
 (def (ascii-fold char)
   (let (code (char->integer char))
@@ -148,6 +156,15 @@
        (map (lambda (argument type)
               (compile-pure-expression argument variables type))
             arguments argument-types))))
+   ((and (pair? expression) (eq? (car expression) 'string-trim-start)
+         (= (length expression) 2))
+    (let (trimmed
+          (rust-method
+           (compile-pure-expression (cadr expression) variables "&str")
+           'trim_start '()))
+      (if (equal? result-type "&str")
+        trimmed
+        (rust-method trimmed 'to_owned '()))))
    ((and (pair? expression) (eq? (car expression) 'string-trim)
          (= (length expression) 2))
     (let (trimmed

@@ -6,6 +6,7 @@
                  define-rust-pure string-first-word string-words
                  string-rest-after-first-word string-last-word
                  string-before-last-word string-before
+                 string-trim-start
                  string-prefix? string-suffix?
                  string-in?))
 (export normalized_title normalized_title_rust
@@ -17,11 +18,16 @@
         boundary_token? boundary_token_rust
         count_words count_words_rust
         strip_word_annotation strip_word_annotation_rust
-        map_word_annotations map_word_annotations_rust)
+        map_word_annotations map_word_annotations_rust
+        trim_start_only trim_start_only_rust)
 
 (define-rust-pure normalized_title normalized_title_rust
   ((input "&str")) "String"
   (string-trim input))
+
+(define-rust-pure trim_start_only trim_start_only_rust
+  ((input "&str")) "String"
+  (string-trim-start input))
 
 (define-rust-pure classify_first_word classify_first_word_rust
   ((input "&str") (active "&[&str]") (complete "&[&str]"))

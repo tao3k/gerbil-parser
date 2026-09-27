@@ -18,6 +18,8 @@
                  normalized_title normalized_title_rust
                  classify_first_word classify_first_word_rust)
         (only-in "pure-function-fixture.ss"
+                 trim_start_only trim_start_only_rust)
+        (only-in "pure-function-fixture.ss"
                  classify_or_unknown classify_or_unknown_rust)
         (only-in "pure-function-fixture.ss"
                  owned_first_word owned_first_word_rust
@@ -64,6 +66,12 @@
       (check-rust-aot-artifact
        normalized_title_rust
        "rust/gerbil-parser-rowan/tests/unit/pure_function_generated.rs"))
+    (test-case "left trim keeps source trailing whitespace"
+      (check (trim_start_only "  Alpha  ") => "Alpha  ")
+      (check (trim_start_only "\tβ ") => "β ")
+      (check-rust-aot-function
+       trim_start_only_rust 'trim_start_only '((input . "&str"))
+       "String" 'to_owned))
     (test-case "pure string boundaries retain Scheme and AOT parity"
       (check (last_word "α beta :tag:") => ":tag:")
       (check (before_last_word "α beta :tag:") => "α beta")

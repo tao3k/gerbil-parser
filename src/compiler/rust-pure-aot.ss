@@ -14,7 +14,7 @@
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
         string-after string-first-word string-rest-after-first-word
         string-last-word string-before-last-word string-trim-start
-        string-replace
+        string-replace string-lowercase
         string-prefix? string-suffix? string-words string-in?
         string-single-ascii-uppercase? string-unsigned-at-most?)
 
@@ -52,6 +52,9 @@
         (apply string-append
                (reverse (cons (substring value from (string-length value))
                               parts)))))))
+
+(def (string-lowercase value)
+  (list->string (map char-downcase (string->list value))))
 
 (def (string-trim-start value)
   (let (size (string-length value))
@@ -205,6 +208,22 @@
      'replace
      (list (compile-pure-expression (caddr expression) variables "&str")
            (compile-pure-expression (cadddr expression) variables "&str"))))
+   ((and (pair? expression) (eq? (car expression) 'string-lowercase)
+         (= (length expression) 2))
+    (rust-method
+     (compile-pure-expression (cadr expression) variables "&str")
+     'to_lowercase '()))
+   ((and (pair? expression) (eq? (car expression) 'string-join)
+         (= (length expression) 3)
+         (pair? (cadr expression))
+         (eq? (caadr expression) 'string-words)
+         (= (length (cadr expression)) 2)
+         (string? (caddr expression)))
+    (rust-method
+     (rust-call
+      (rust-identifier 'Vec::from_iter)
+      (list (compile-pure-expression (cadr expression) variables "iterator")))
+     'join (list (rust-string (caddr expression)))))
    ((and (pair? expression) (eq? (car expression) 'string-join)
          (= (length expression) 3)
          (pair? (cadr expression))

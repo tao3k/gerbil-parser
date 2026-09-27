@@ -21,6 +21,7 @@
                  trim_start_only trim_start_only_rust)
         (only-in "pure-function-fixture.ss"
                  replace_and_append replace_and_append_rust)
+        (only-in "pure-function-fixture.ss" slug_words slug_words_rust)
         (only-in "pure-function-fixture.ss"
                  classify_or_unknown classify_or_unknown_rust)
         (only-in "pure-function-fixture.ss"
@@ -81,6 +82,11 @@
              => 'replace_and_append)
       (check (rust-function-form-result replace_and_append_rust)
              => "String"))
+    (test-case "pure lowercase word joins retain Scheme and Rust syntax parity"
+      (check (slug_words "  Mixed  Case  ") => "mixed-case")
+      (check (slug_words "RÉSUMÉ Notes") => "résumé-notes")
+      (check (rust-function-form-name slug_words_rust) => 'slug_words)
+      (check (rust-function-form-result slug_words_rust) => "String"))
     (test-case "pure string boundaries retain Scheme and AOT parity"
       (check (last_word "α beta :tag:") => ":tag:")
       (check (before_last_word "α beta :tag:") => "α beta")

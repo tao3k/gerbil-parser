@@ -21,6 +21,43 @@ static GRAPH_WITH_EMPTY_VALUE: GraphProjectionSpec = GraphProjectionSpec {
     }],
 };
 
+static GRAPH_WITH_NODE_TEXT: GraphProjectionSpec = GraphProjectionSpec {
+    grammar_digest: LANGUAGE.grammar_digest,
+    projection_digest: "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    rules: &[
+        GraphNodeRule {
+            syntax_kind: 0,
+            category: "document",
+            kind: "root",
+            fields: &[],
+        },
+        GraphNodeRule {
+            syntax_kind: 1,
+            category: "section",
+            kind: "headline",
+            fields: &[GraphFieldRule {
+                token_kind: 2,
+                name: "source-line",
+                mode: GraphFieldMode::NodeText,
+            }],
+        },
+    ],
+};
+
+#[test]
+fn graph_projection_reads_nested_node_text_without_reparsing_language_syntax() {
+    let source = "* Parent\n";
+    let root = parse_structural_lines(&LANGUAGE, &HEADING_FIELDS_STRUCTURE, source)
+        .unwrap()
+        .syntax();
+    let records = project_syntax_graph(&LANGUAGE, &GRAPH_WITH_NODE_TEXT, &root).unwrap();
+    let headline = records
+        .iter()
+        .find(|record| record.kind == "headline")
+        .expect("projected section");
+    assert_eq!(headline.field("source-line"), Some(source));
+}
+
 #[test]
 fn graph_projection_preserves_declared_empty_fields_without_zero_length_tokens() {
     let empty = parse_structural_lines(&LANGUAGE, &STRUCTURE, "")

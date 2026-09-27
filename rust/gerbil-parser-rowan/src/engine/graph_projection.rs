@@ -6,7 +6,7 @@ use super::model::{Diagnostic, KindCategory, LanguageSpec, SyntaxNode};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GraphFieldRule {
-    /// Syntax token whose text is projected into this field.
+    /// Syntax token, or a node for [`GraphFieldMode::NodeText`], whose text is projected.
     pub token_kind: u16,
     /// Public field name on the graph record.
     pub name: &'static str,
@@ -14,7 +14,7 @@ pub struct GraphFieldRule {
     pub mode: GraphFieldMode,
 }
 
-/// AOT-declared cardinality for repeated graph field tokens.
+/// AOT-declared source and cardinality for graph fields.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GraphFieldMode {
     /// Join adjacent token text into one field value.
@@ -23,6 +23,8 @@ pub enum GraphFieldMode {
     Each,
     /// Join token text, or project an empty value when no token is present.
     AppendOrEmpty,
+    /// Project the complete source text of a descendant syntax node.
+    NodeText,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -152,6 +154,27 @@ pub fn project_syntax_graph(
                 }
             }
             WalkEvent::Leave(NodeOrToken::Node(node)) => {
+                if let Some(&id) = projected_stack.last() {
+                    let rule = rules[usize::from(records[id].syntax_kind)]
+                        .expect("projected record has a validated rule");
+                    for field in rule.fields.iter().filter(|field| {
+                        field.mode == GraphFieldMode::NodeText && field.token_kind == node.kind().0
+                    }) {
+                        let value = node.text().to_string();
+                        if let Some(existing) = records[id]
+                            .fields
+                            .iter_mut()
+                            .find(|existing| existing.name == field.name)
+                        {
+                            existing.value.push_str(&value);
+                        } else {
+                            records[id].fields.push(GraphFieldValue {
+                                name: field.name,
+                                value,
+                            });
+                        }
+                    }
+                }
                 if let Some(rule) = rules.get(usize::from(node.kind().0)).and_then(|rule| *rule) {
                     if let Some(&id) = projected_stack.last() {
                         for field in rule
@@ -213,10 +236,15 @@ fn validate_rules<'a>(
             return Err(invalid("graph node kind is invalid or declared twice"));
         }
         for field in rule.fields {
+            let expected_category = if field.mode == GraphFieldMode::NodeText {
+                KindCategory::Node
+            } else {
+                KindCategory::Token
+            };
             if language
                 .kinds
                 .get(usize::from(field.token_kind))
-                .is_none_or(|kind| kind.category != KindCategory::Token)
+                .is_none_or(|kind| kind.category != expected_category)
                 || field.name.is_empty()
             {
                 return Err(invalid("graph field references an invalid token or name"));

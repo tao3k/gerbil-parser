@@ -75,6 +75,20 @@
                     source "mode: GraphFieldMode::AppendOrEmpty")
                  #t #f)
                => #t)))
+    (test-case "node text fields resolve against node kinds"
+      (let* ((projection
+              (make-graph-projection
+               (list (make-graph-node
+                      'Expression "document" "root"
+                      (list (make-graph-field
+                             'Expression "source" 'node-text))))))
+             (source (graph-projection-rowan-source
+                      arithmetic-language-grammar projection)))
+        (check (graph-projection? projection) => #t)
+        (check (if (string-contains
+                    source "mode: GraphFieldMode::NodeText")
+                 #t #f)
+               => #t)))
     (test-case "duplicate graph node owners are rejected"
       (check
        (with-catch

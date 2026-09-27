@@ -5,7 +5,8 @@
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
                  define-rust-pure string-first-word string-words
                  string-rest-after-first-word string-last-word
-                 string-before-last-word string-prefix? string-suffix?
+                 string-before-last-word string-before
+                 string-prefix? string-suffix?
                  string-in?))
 (export normalized_title normalized_title_rust
         classify_first_word classify_first_word_rust
@@ -14,7 +15,9 @@
         owned_rest_after_first_word owned_rest_after_first_word_rust
         last_word last_word_rust before_last_word before_last_word_rust
         boundary_token? boundary_token_rust
-        count_words count_words_rust)
+        count_words count_words_rust
+        strip_word_annotation strip_word_annotation_rust
+        map_word_annotations map_word_annotations_rust)
 
 (define-rust-pure normalized_title normalized_title_rust
   ((input "&str")) "String"
@@ -60,3 +63,12 @@
   ((input "&str")) "u64"
   (foldl (lambda (_word count) (+ count 1))
          0 (string-words input)))
+
+(define-rust-pure strip_word_annotation strip_word_annotation_rust
+  ((word "&str")) "String"
+  (string-before word "("))
+
+(define-rust-pure map_word_annotations map_word_annotations_rust
+  ((input "&str")) "Vec<String>"
+  (using ((strip_word_annotation "&str"))
+    (map strip_word_annotation (string-words input))))

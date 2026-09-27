@@ -265,6 +265,25 @@
                                 (cons (cons (caadr abstraction) "&str")
                                       variables) "bool")
        slice?)))
+   ((and (pair? expression) (eq? (car expression) 'map)
+         (= (length expression) 3))
+    (let* ((function (cadr expression))
+           (collection (caddr expression))
+           (signature (and (symbol? function)
+                           (assq function (current-pure-calls)))))
+      (unless (and (equal? result-type "Vec<String>")
+                   signature
+                   (equal? (cdr signature) '("&str"))
+                   (pair? collection)
+                   (eq? (car collection) 'string-words)
+                   (= (length collection) 2))
+        (error "pure AOT map requires a named &str function over words"
+               expression))
+      (rust-method
+       (rust-method
+        (compile-pure-expression collection variables "iterator")
+        'map (list (rust-identifier (rust-name-text function))))
+       'collect '())))
    ((and (pair? expression) (eq? (car expression) 'foldl)
          (= (length expression) 4))
     (let* ((abstraction (cadr expression))

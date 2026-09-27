@@ -10,6 +10,7 @@
                  rust-function-value rust-block
                  rust-function-ir-json
                  rust-function-form-name rust-function-form-parameters
+                 rust-function-form-result
                  rust-struct-form? rust-struct-form-name rust-struct-form-fields
                  rust-field-name rust-module-form-item
                  rust-static-form-value)
@@ -22,6 +23,8 @@
                  owned_first_word owned_first_word_rust
                  owned_rest_after_first_word owned_rest_after_first_word_rust)
         (only-in "pure-function-fixture.ss" count_words count_words_rust)
+        (only-in "pure-function-fixture.ss"
+                 map_word_annotations map_word_annotations_rust)
         (only-in "pure-function-fixture.ss"
                  last_word last_word_rust
                  before_last_word before_last_word_rust
@@ -136,6 +139,19 @@
       (check-rust-function-ir
        owned_rest_after_first_word_rust
        "t/fixtures/owned_rest_after_first_word.ir.json"))
+    (test-case "named pure maps collect typed Rust vectors"
+      (check (map_word_annotations "NEXT(n) WAIT(w@/!)")
+             => '("NEXT" "WAIT"))
+      (check (rust-function-form-result map_word_annotations_rust)
+             => "Vec<String>")
+      (check-rust-aot-function
+       map_word_annotations_rust 'map_word_annotations
+       '((input . "&str")) "Vec<String>" 'collect)
+      (check-exception
+       (scheme-pure->rust
+        'invalid '((input . "&str")) "Vec<String>"
+        '(map display (string-words input)))
+       true))
     (test-case "unsupported Scheme effects and free names fail closed"
       (check (ascii-ci=? "seq_todo" "SEQ_TODO") => #t)
       (check (ascii-ci=? "ＴＯＤＯ" "TODO") => #f)

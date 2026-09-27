@@ -421,6 +421,26 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "usize_equal")))
+    (test-case "final token uses source offsets retained in typed state"
+      (let* ((initial '((span-start 0) (span-end 0)))
+             (line-forms '((set-uint span-start (offset start))
+                           (set-uint span-end (offset end))))
+             (finish-forms '((token Line (state-offset span-start)
+                                   (state-offset span-end))))
+             (wire (event-fold-ir-json
+                    'final_state_token event-lines-language-grammar
+                    'Document initial line-forms finish-forms))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t)))
+             (token (vector-ref (hash-ref ir "finish") 0)))
+        (check (run-event-fold "body\n" 'Document initial
+                               line-forms finish-forms)
+               => '((start Document) (token Line 0 5) (finish)))
+        (check (hash-ref (hash-ref token "start") "kind")
+               => "state_offset")
+        (check (hash-ref (hash-ref token "end") "kind")
+               => "state_offset")))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
@@ -438,4 +458,8 @@
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
                            '() '()
                            '((if (line-starts-with "*") () ())))
+       true)
+      (check-exception
+       (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
+                           '() '() '((token Line start end)))
        true))))

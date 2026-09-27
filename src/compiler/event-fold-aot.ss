@@ -311,6 +311,13 @@
              ("name" (rust-state-name (cadr expression)))))
       (else (error "unsupported event fold source offset" expression))))))
 
+;; Final transitions have no current source line. A token can still refer to
+;; offsets retained in typed state by an earlier line transition.
+(def (fold-final-token-offset? expression)
+  (and (pair? expression)
+       (eq? (car expression) 'state-offset)
+       (= (length expression) 2)))
+
 (def (fold-uint expression line start end states indices)
   (case (car expression)
     ((uint)
@@ -813,10 +820,12 @@
          (hash ("kind" "start_node")
                ("syntax_kind" (kind-index grammar (cadr form) 'node))))
         ((token)
-         (unless allow-line?
-           (error "event fold final transition has no source offsets" form))
          (unless (= (length form) 4)
            (error "event fold token requires source offsets" form))
+         (unless (or allow-line?
+                     (and (fold-final-token-offset? (caddr form))
+                          (fold-final-token-offset? (cadddr form))))
+           (error "event fold final transition has no source offsets" form))
          (hash ("kind" "token")
                ("syntax_kind" (kind-index grammar (cadr form) 'token))
                ("start" (fold-offset-ir (caddr form) states indices))

@@ -154,27 +154,7 @@ pub fn project_syntax_graph(
                 }
             }
             WalkEvent::Leave(NodeOrToken::Node(node)) => {
-                if let Some(&id) = projected_stack.last() {
-                    let rule = rules[usize::from(records[id].syntax_kind)]
-                        .expect("projected record has a validated rule");
-                    for field in rule.fields.iter().filter(|field| {
-                        field.mode == GraphFieldMode::NodeText && field.token_kind == node.kind().0
-                    }) {
-                        let value = node.text().to_string();
-                        if let Some(existing) = records[id]
-                            .fields
-                            .iter_mut()
-                            .find(|existing| existing.name == field.name)
-                        {
-                            existing.value.push_str(&value);
-                        } else {
-                            records[id].fields.push(GraphFieldValue {
-                                name: field.name,
-                                value,
-                            });
-                        }
-                    }
-                }
+                project_node_text_fields(&mut records, &rules, &projected_stack, &node);
                 if let Some(rule) = rules.get(usize::from(node.kind().0)).and_then(|rule| *rule) {
                     if let Some(&id) = projected_stack.last() {
                         for field in rule
@@ -201,6 +181,42 @@ pub fn project_syntax_graph(
         }
     }
     Ok(records)
+}
+
+fn project_node_text_fields(
+    records: &mut [GraphRecord],
+    rules: &[Option<&GraphNodeRule>],
+    projected_stack: &[usize],
+    node: &SyntaxNode,
+) {
+    let Some(&id) = projected_stack.last() else {
+        return;
+    };
+    let Some(rule) = rules
+        .get(usize::from(records[id].syntax_kind))
+        .and_then(|rule| *rule)
+    else {
+        return;
+    };
+    for field in rule
+        .fields
+        .iter()
+        .filter(|field| field.mode == GraphFieldMode::NodeText && field.token_kind == node.kind().0)
+    {
+        let value = node.text().to_string();
+        if let Some(existing) = records[id]
+            .fields
+            .iter_mut()
+            .find(|existing| existing.name == field.name)
+        {
+            existing.value.push_str(&value);
+        } else {
+            records[id].fields.push(GraphFieldValue {
+                name: field.name,
+                value,
+            });
+        }
+    }
 }
 
 fn validate_rules<'a>(

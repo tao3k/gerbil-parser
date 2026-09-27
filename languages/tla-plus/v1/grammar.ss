@@ -69,7 +69,8 @@
    (number (number)) (identifier (identifier))
    (punctuation
     (literals "<=>" "|->" "[]" "<>" "=>" "==" "/\\" "\\/"
-              "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\in"
+              "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
+              "\\union" "\\cap" "\\cup" "\\in"
               ".." "<<" ">>" "<=" ">=" "->" "<-"
               "#" "=" "<" ">" "+" "-" "*" "/" "^" "'" "~"
               "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
@@ -194,6 +195,15 @@
              (choice (literal "=") (literal "#") (literal "<") (literal ">")
                      (literal "<=") (literal ">=") (literal "\\in")
                      (literal "\\notin")))
+            (field right (reference expression)))))
+     ;; Set union and intersection share precedence 8 in TLA+ and associate
+     ;; to the left. Their ASCII aliases are spellings of the same operators.
+     (prec left 45
+      (alias Expression
+       (seq (field left (reference expression))
+            (field operator
+             (choice (literal "\\cup") (literal "\\union")
+                     (literal "\\cap") (literal "\\intersect")))
             (field right (reference expression)))))
      (prec left 50
       (alias Expression

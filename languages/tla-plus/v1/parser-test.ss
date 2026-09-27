@@ -74,6 +74,28 @@
         (for-each
          (lambda (kind) (check (member kind kinds) ? values))
          '(InstanceExpression QualifiedNameExpression JunctionExpression))))
+    (test-case "set union and intersection keep official ASCII spellings"
+      (for-each
+       (lambda (operator)
+         (let* ((source
+                 (string-append
+                  "---- MODULE SetOperator ----\n"
+                  "Left == {\"a\"} " operator " {\"b\"}\n"
+                  "Right == Left \\in {\"a\", \"b\"}\n====\n"))
+                (artifact (parse-tla-plus-v1 source)))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check (member 'Expression
+                          (cst-node-kinds (parse-artifact->cst artifact)))
+                  ? values)))
+       '("\\cup" "\\union" "\\cap" "\\intersect")))
+    (test-case "set operators require a right operand"
+      (let* ((source
+              "---- MODULE BrokenSet ----\nLeft == {\"a\"} \\cup\n====\n")
+             (artifact (parse-tla-plus-v1 source)))
+        (check (parse-artifact-success? artifact) => #f)
+        (check (parse-artifact-roundtrip artifact) => source)))
     (test-case "incomplete modular forms remain syntax errors"
       (for-each
        (lambda (body)

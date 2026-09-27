@@ -812,7 +812,7 @@
                       (utf8->string (subu8vector source-bytes from until))
                       from until state indices helpers active-helpers)))
                   ((call-source-helper)
-                   (unless (= (length form) 4)
+                   (unless (memv (length form) '(4 5))
                      (error "invalid event helper call" form))
                    (let* ((helper (assq (cadr form) helpers))
                           (from (fold-offset (caddr form) line start end state indices))
@@ -822,12 +822,27 @@
                      (unless (and (<= 0 from) (<= from until)
                                   (<= until (u8vector-length source-bytes)))
                        (error "event helper bounds outside source" form))
-                     (let (step (fold-statements
-                                (caddr helper) source-bytes
-                                (utf8->string (subu8vector source-bytes from until))
-                                from until (fold-initial-states (cadr helper)) '()
-                                helpers (cons (cadr form) active-helpers)))
-                       (cons state (cdr step)))))
+                     (let* ((parameters (if (= (length helper) 4)
+                                          (cadddr helper) '()))
+                            (arguments (if (= (length form) 5)
+                                         (list-ref form 4) '()))
+                            (helper-state (fold-initial-states (cadr helper))))
+                       (unless (= (length parameters) (length arguments))
+                         (error "event helper argument arity" form))
+                       (for-each
+                        (lambda (parameter argument)
+                          (fold-state-of-type helper-state parameter fold-unsigned?)
+                          (set! helper-state
+                                (fold-update-state
+                                 helper-state parameter
+                                 (fold-uint argument line start end state indices))))
+                        parameters arguments)
+                       (let (step (fold-statements
+                                  (caddr helper) source-bytes
+                                  (utf8->string (subu8vector source-bytes from until))
+                                  from until helper-state '()
+                                  helpers (cons (cadr form) active-helpers)))
+                         (cons state (cdr step))))))
                   ((scan-list-marker)
                    (unless (= (length form) 10)
                      (error "invalid event fold list marker statement" form))
@@ -1217,7 +1232,7 @@
                ("body" (fold-statements-ir grammar (cadddr form)
                                            states indices #t helpers))))
         ((call-source-helper)
-         (unless (and (= (length form) 4)
+         (unless (and (memv (length form) '(4 5))
                       (symbol? (cadr form))
                       (assq (cadr form) helpers)
                       (or allow-line?
@@ -1226,10 +1241,21 @@
                                (pair? (cadddr form))
                                (eq? (car (cadddr form)) 'state-offset))))
            (error "unknown or invalid event helper call" form))
-         (hash ("kind" "call_source_helper")
-               ("name" (rust-state-name (cadr form)))
-               ("from" (fold-offset-ir (caddr form) states indices))
-               ("until" (fold-offset-ir (cadddr form) states indices))))
+         (let* ((helper (assq (cadr form) helpers))
+                (parameters (if (= (length helper) 4) (cadddr helper) '()))
+                (arguments (if (= (length form) 5) (list-ref form 4) '())))
+           (unless (and (list? arguments)
+                        (= (length parameters) (length arguments)))
+             (error "event helper argument arity" form))
+           (hash ("kind" "call_source_helper")
+                 ("name" (rust-state-name (cadr form)))
+                 ("from" (fold-offset-ir (caddr form) states indices))
+                 ("until" (fold-offset-ir (cadddr form) states indices))
+                 ("arguments"
+                  (list->vector
+                   (map (lambda (argument)
+                          (fold-uint-ir argument states indices allow-line?))
+                        arguments))))))
         ((scan-list-marker)
          (unless (and allow-line? (= (length form) 10)
                       (string? (cadr form))
@@ -1308,13 +1334,26 @@
          (helper-ir
           (list->vector
            (map (lambda (helper)
-                  (unless (and (= (length helper) 3)
+                  (unless (and (memv (length helper) '(3 4))
                                (symbol? (car helper)))
                     (error "invalid event helper declaration" helper))
-                  (let ((local-states (fold-initial-states (cadr helper))))
+                  (let ((local-states (fold-initial-states (cadr helper)))
+                        (parameters (if (= (length helper) 4)
+                                      (cadddr helper) '())))
                     (validate-state-names local-states)
+                    (unless (and (list? parameters)
+                                 (every symbol? parameters))
+                      (error "invalid event helper parameters" helper))
+                    (validate-state-names
+                     (map (lambda (parameter) (cons parameter 0)) parameters))
+                    (for-each
+                     (lambda (parameter)
+                       (fold-state-of-type local-states parameter fold-unsigned?))
+                     parameters)
                     (hash ("name" (rust-state-name (car helper)))
                           ("initial" (fold-initial-ir (cadr helper)))
+                          ("parameters"
+                           (list->vector (map rust-state-name parameters)))
                           ("body" (fold-statements-ir grammar (caddr helper)
                                                       local-states '() #t helpers)))))
                 helpers)))

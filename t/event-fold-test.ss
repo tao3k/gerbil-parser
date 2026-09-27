@@ -300,6 +300,40 @@
         (check (hash-ref (vector-ref (hash-ref ir "finish") 0) "kind")
                => "call_source_helper")
         (check (vector-length (hash-ref ir "helpers")) => 1)))
+    (test-case "typed helper arguments flow through Scheme execution and IR"
+      (let* ((initial '((threshold 2)))
+             (line '((call-source-helper local-span start end
+                                         ((state threshold)))))
+             (helpers
+              '((local-span ((threshold 2))
+                            ((if (uint-equal? (state threshold) (uint 2))
+                                 ((start-node Heading) (finish-node))
+                                 ((start-node Text) (finish-node))))
+                            (threshold))))
+             (wire (event-fold-ir-json
+                    'typed_helper event-lines-language-grammar
+                    'Document initial line '() helpers))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "x\n" 'Document initial line '() helpers)
+               => '((start Document) (start Heading) (finish) (finish)))
+        (check (run-event-fold "x\n" 'Document initial line '() helpers
+                               '((threshold . 5)))
+               => '((start Document) (start Text) (finish) (finish)))
+        (check (vector-length (hash-ref
+                               (vector-ref (hash-ref ir "line") 0)
+                               "arguments"))
+               => 1)
+        (check (vector-ref
+                (hash-ref (vector-ref (hash-ref ir "helpers") 0)
+                          "parameters") 0)
+               => "threshold")
+        (check-exception
+         (event-fold-ir-json
+          'bad_helper_arity event-lines-language-grammar 'Document initial
+          '((call-source-helper local-span start end)) '() helpers)
+         true)))
     (test-case "source helpers compose without recursive execution"
       (let* ((line '((call-source-helper outer start end)))
              (helpers

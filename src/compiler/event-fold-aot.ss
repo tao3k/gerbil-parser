@@ -617,10 +617,11 @@
      (fold-future-heading-title?
       source-bytes end (fold-marker-byte (cadr expression))
       (fold-marker-byte (caddr expression))
-      (let (level (list-ref expression 3))
-        (if (pair? level)
-          (fold-uint level line start end states indices)
-          level))
+      (max 1
+           (let (level (list-ref expression 3))
+             (if (pair? level)
+               (fold-uint level line start end states indices)
+               level)))
       (list-ref expression 4)))
     ((future-named-line-marker-before-boundary?)
      (unless (and (memv (length expression) '(11 16))

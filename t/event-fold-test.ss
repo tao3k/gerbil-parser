@@ -410,8 +410,16 @@
         (check-exception
          (event-fold-ir-json
           'bad_heading event-lines-language-grammar 'Document '()
-         '((if (future-heading-title? "*" " " 0 "END") () ())) '())
-         true)))
+          '((if (future-heading-title? "*" " " 0 "END") () ())) '())
+         true)
+        (let ((dynamic-forms
+               '((if (future-heading-title? "*" " " (state threshold) "END")
+                     ((start-node Heading) (finish-node))
+                     ((start-node Text) (finish-node))))))
+          (check (run-event-fold "x\n END\n" 'Document '((threshold 1))
+                                 dynamic-forms '() '() '((threshold . 0)))
+                 => '((start Document) (start Text) (finish)
+                      (start Text) (finish) (finish))))))
     (test-case "typed parameter has one Scheme fold and AOT declaration"
       (let* ((initial '((threshold 4)))
              (forms '((if (uint-equal? (state threshold) (uint 7))

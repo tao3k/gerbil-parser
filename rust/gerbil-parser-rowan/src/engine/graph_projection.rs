@@ -60,6 +60,8 @@ pub struct GraphRecord {
 pub struct GraphFieldValue {
     pub name: &'static str,
     pub value: String,
+    /// Smallest source span covering all tokens or nodes in this field.
+    pub range: TextRange,
 }
 
 impl GraphRecord {
@@ -78,6 +80,15 @@ impl GraphRecord {
             .iter()
             .find(|field| field.name == name)
             .map(|field| field.value.as_str())
+    }
+
+    /// Return the source span of the first projected field value.
+    #[must_use]
+    pub fn field_range(&self, name: &str) -> Option<TextRange> {
+        self.fields
+            .iter()
+            .find(|field| field.name == name)
+            .map(|field| field.range)
     }
 }
 
@@ -145,12 +156,13 @@ pub fn project_syntax_graph(
                                 .iter_mut()
                                 .find(|value| value.name == field.name)
                         {
-                            value.value.push_str(token.text());
+                            append_field_value(value, token.text(), token.text_range());
                             continue;
                         }
                         records[id].fields.push(GraphFieldValue {
                             name: field.name,
                             value: token.text().to_owned(),
+                            range: token.text_range(),
                         });
                     }
                 }
@@ -169,9 +181,11 @@ pub fn project_syntax_graph(
                                 .iter()
                                 .any(|value| value.name == field.name)
                             {
+                                let empty_range = TextRange::empty(records[id].range.end());
                                 records[id].fields.push(GraphFieldValue {
                                     name: field.name,
                                     value: String::new(),
+                                    range: empty_range,
                                 });
                             }
                         }
@@ -211,20 +225,30 @@ fn project_node_text_fields(
             records[id].fields.push(GraphFieldValue {
                 name: field.name,
                 value,
+                range: node.text_range(),
             });
         } else if let Some(existing) = records[id]
             .fields
             .iter_mut()
             .find(|existing| existing.name == field.name)
         {
-            existing.value.push_str(&value);
+            append_field_value(existing, &value, node.text_range());
         } else {
             records[id].fields.push(GraphFieldValue {
                 name: field.name,
                 value,
+                range: node.text_range(),
             });
         }
     }
+}
+
+fn append_field_value(field: &mut GraphFieldValue, text: &str, range: TextRange) {
+    field.value.push_str(text);
+    field.range = TextRange::new(
+        field.range.start().min(range.start()),
+        field.range.end().max(range.end()),
+    );
 }
 
 fn validate_rules<'a>(

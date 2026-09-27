@@ -5,6 +5,7 @@ use super::{
 use crate::engine::graph_projection::{
     GraphFieldMode, GraphFieldRule, GraphNodeRule, GraphProjectionSpec,
 };
+use rowan::TextRange;
 
 static GRAPH_WITH_EMPTY_VALUE: GraphProjectionSpec = GraphProjectionSpec {
     grammar_digest: LANGUAGE.grammar_digest,
@@ -84,6 +85,13 @@ fn graph_projection_reads_nested_node_text_without_reparsing_language_syntax() {
         .find(|record| record.kind == "headline")
         .expect("projected section");
     assert_eq!(headline.field("source-line"), Some(source));
+    assert_eq!(
+        headline.field_range("source-line"),
+        Some(TextRange::new(
+            0.into(),
+            u32::try_from(source.len()).unwrap().into(),
+        ))
+    );
 }
 
 #[test]
@@ -93,6 +101,10 @@ fn graph_projection_preserves_declared_empty_fields_without_zero_length_tokens()
         .syntax();
     let empty_records = project_syntax_graph(&LANGUAGE, &GRAPH_WITH_EMPTY_VALUE, &empty).unwrap();
     assert_eq!(empty_records[0].field("value"), Some(""));
+    assert_eq!(
+        empty_records[0].field_range("value"),
+        Some(TextRange::empty(0.into()))
+    );
 
     let source = "* Parent\n";
     let populated = parse_structural_lines(&LANGUAGE, &HEADING_FIELDS_STRUCTURE, source)
@@ -122,5 +134,20 @@ fn graph_projection_preserves_repeated_fields_without_merging_neighbors() {
     assert_eq!(
         planning.values("value").collect::<Vec<_>>(),
         ["<2026-09-24 Thu>", "<2026-09-25 Fri>"]
+    );
+    let value_ranges = planning
+        .fields
+        .iter()
+        .filter(|field| field.name == "value")
+        .map(|field| field.range)
+        .collect::<Vec<_>>();
+    let first = u32::try_from(source.find("<2026-09-24 Thu>").unwrap()).unwrap();
+    let second = u32::try_from(source.find("<2026-09-25 Fri>").unwrap()).unwrap();
+    assert_eq!(
+        value_ranges,
+        [
+            TextRange::new(first.into(), (first + 16).into()),
+            TextRange::new(second.into(), (second + 16).into()),
+        ]
     );
 }

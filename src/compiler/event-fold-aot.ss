@@ -270,10 +270,11 @@
                   (let (byte (u8vector-ref bytes cursor))
                     (cond
                      ((= byte marker)
-                      (and (> cursor key-start)
-                           (or (= (+ cursor 1) end)
-                               (memv (u8vector-ref bytes (+ cursor 1))
-                                     '(9 10 13 32)))))
+                      (if (or (= (+ cursor 1) end)
+                              (memv (u8vector-ref bytes (+ cursor 1))
+                                    '(9 10 13 32)))
+                        (> cursor key-start)
+                        (key (+ cursor 1) key-start)))
                      ((memv byte '(9 10 13 32)) #f)
                      (else (key (+ cursor 1) key-start))))))))))
 

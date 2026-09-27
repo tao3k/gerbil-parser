@@ -407,7 +407,22 @@
                => '((start Document) (start Heading) (finish)
                     (start Heading) (finish) (start Text) (finish)
                     (finish)))
+        (check (run-event-fold ":PROPERTIES:\n:header-args:python: :session local\n:END:\n"
+                               'Document '() forms '())
+               => '((start Document) (start Heading) (finish)
+                    (start Heading) (finish) (start Text) (finish)
+                    (finish)))
+        (check (run-event-fold ":PROPERTIES:\n:ID: value:more\n:END:\n"
+                               'Document '() forms '())
+               => '((start Document) (start Heading) (finish)
+                    (start Heading) (finish) (start Text) (finish)
+                    (finish)))
         (check (run-event-fold ":PROPERTIES:\nmalformed\n:END:\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Heading) (finish) (start Text) (finish)
+                    (finish)))
+        (check (run-event-fold ":PROPERTIES:\n:header args:python: x\n:END:\n"
                                'Document '() forms '())
                => '((start Document) (start Text) (finish)
                     (start Heading) (finish) (start Text) (finish)

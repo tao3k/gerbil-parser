@@ -112,12 +112,12 @@
             (cons `(line-byte-equal? ,cursor ,(char->integer (car chars)))
                   (loop (cdr chars) `(line-step ,cursor)))))))
 
-(def (ref-node rule token until)
+(def (ref-node rule token until (continue? #t))
   `((start-node ,(source-reference-scan-reference-node rule))
     (token ,token ,ref-start ,until)
     (finish-node)
     (set-uint ref-text-start (offset ,until))
-    (set-uint ref-kind (uint 0))))
+    ,@(if continue? '((set-uint ref-kind (uint 0))) '())))
 
 (def (ref-begin rule kind)
   `((if (offset-less? ,ref-text-start ,ref-index)
@@ -137,11 +137,11 @@
                   ,(ref-begin rule kind)
                   ,(loop (cdr rest) (+ kind 1))))))))
 
-(def (marker-end-chain rule markers until)
+(def (marker-end-chain rule markers until (continue? #t))
   (let loop ((rest markers) (kind 1))
     (if (null? rest) '()
       `((if (uint-equal? (state ref-kind) (uint ,kind))
-            ,(ref-node rule (cdar rest) until)
+            ,(ref-node rule (cdar rest) until continue?)
             ,(loop (cdr rest) (+ kind 1)))))))
 
 (def (source-reference-scan-initial rule)
@@ -179,7 +179,7 @@
                   ,(marker-end-chain rule markers ref-index) ())
               (if (uint-equal? (state ref-kind) (uint 0))
                   (,(marker-start-chain rule markers call-kind)) ())))))
-      ,@(marker-end-chain rule markers 'end)
+      ,@(marker-end-chain rule markers 'end #f)
       (if (offset-less? ,ref-text-start end)
           ((token ,(source-reference-scan-text-token rule)
                   ,ref-text-start end)) ()))))

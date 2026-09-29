@@ -360,12 +360,13 @@
          (configuration-intern-hits 0)
          (completion-interner (make-value-interner))
          (fragment-interner (make-value-interner))
-         (configuration-result-missing (cons #f #f))
          (configuration-result-visiting (cons #f #t))
          (configuration-result-failed (cons #t #f))
          (configuration-memo-hits 0)
          (budget-exhausted? #f)
-         (best-failure #f))
+         (best-failure-state #f)
+         (best-failure-rest #f)
+         (best-failure-offset -1))
     (def (configuration-table rest)
       (let (found (table-ref configuration-tables rest #f))
         (or found
@@ -395,23 +396,34 @@
         input-end-offset))
     (def (record-failure! state rest)
       (let (offset (failure-offset rest))
-        (when (or (not best-failure)
-                  (> offset (cdr (assq 'byteOffset best-failure))))
-          (set! best-failure
-                (list
-                 (cons 'failureKind 'lr-no-action)
-                 (cons 'state state)
-                 (cons 'byteOffset offset)
-                 (cons 'tokenKind
-                       (if (pair? rest) (token-kind (car rest)) 'eof))
-                 (cons 'tokenLexeme
-                       (and (pair? rest) (token-lexeme (car rest))))
-                 (cons 'tokenStart
-                       (and (pair? rest) (token-start (car rest))))
-                 (cons 'tokenEnd
-                       (and (pair? rest) (token-end (car rest))))
-                 (cons 'expectedTerminals
-                       (map car (vector-ref actions state))))))))
+        (when (> offset best-failure-offset)
+          (set! best-failure-state state)
+          (set! best-failure-rest rest)
+          (set! best-failure-offset offset))))
+    ;; Failed branches are common even in successful GLR parses. Materialize
+    ;; the diagnostic only if every admitted branch has failed.
+    (def (best-failure-evidence)
+      (if best-failure-state
+        (list
+         (cons 'failureKind 'lr-no-action)
+         (cons 'state best-failure-state)
+         (cons 'byteOffset best-failure-offset)
+         (cons 'tokenKind
+               (if (pair? best-failure-rest)
+                 (token-kind (car best-failure-rest)) 'eof))
+         (cons 'tokenLexeme
+               (and (pair? best-failure-rest)
+                    (token-lexeme (car best-failure-rest))))
+         (cons 'tokenStart
+               (and (pair? best-failure-rest)
+                    (token-start (car best-failure-rest))))
+         (cons 'tokenEnd
+               (and (pair? best-failure-rest)
+                    (token-end (car best-failure-rest))))
+         (cons 'expectedTerminals
+               (map car (vector-ref actions best-failure-state))))
+        '((failureKind . lr-no-complete-parse)
+          (byteOffset . 0))))
     (def (record-completion! root rest)
       (set! successful-completions (+ successful-completions 1))
       (let* ((identity (list root rest))
@@ -569,35 +581,37 @@
     (def (try-parse states semantic-values rest score)
       (let* ((results (configuration-table rest))
              (key (list states semantic-values score))
-             (cached (table-ref results key configuration-result-missing)))
-        (if (eq? cached configuration-result-missing)
-          (set! interned-configurations (fx+ interned-configurations 1))
+             (entry (table-ref results key #f))
+             (cached (and entry (car entry))))
+        (if entry
           (set! configuration-intern-hits
-                (fx+ configuration-intern-hits 1)))
+                (fx+ configuration-intern-hits 1))
+          (set! interned-configurations (fx+ interned-configurations 1)))
         (cond
          ((eq? cached configuration-result-failed) #f)
          ((eq? cached configuration-result-visiting) #f)
-         ((not (eq? cached configuration-result-missing))
+         (entry
           (set! configuration-memo-hits (fx+ configuration-memo-hits 1))
           (set! successful-completions
                 (+ successful-completions
                    (candidate-completion-count cached)))
           cached)
          (else
-          (table-set! results key configuration-result-visiting)
-          (let* ((state (car states))
-                 (action-row
-                  (current-action-row
-                   action-index state rest case-insensitive?))
-                 (result
-                  (if action-row
-                    (try-action (cdr action-row) (car action-row)
-                                states semantic-values rest score)
-                    (begin
-                      (record-failure! state rest)
-                      #f))))
-            (table-set! results key (or result configuration-result-failed))
-            result)))))
+          (let (entry (cons configuration-result-visiting #f))
+            (table-set! results key entry)
+            (let* ((state (car states))
+                   (action-row
+                    (current-action-row
+                     action-index state rest case-insensitive?))
+                   (result
+                    (if action-row
+                      (try-action (cdr action-row) (car action-row)
+                                  states semantic-values rest score)
+                      (begin
+                        (record-failure! state rest)
+                        #f))))
+              (set-car! entry (or result configuration-result-failed))
+              result))))))
     ;; The prepared fast path hands its immutable checkpoint to selective GLR.
     ;; Starting from that checkpoint avoids replaying the deterministic prefix
     ;; from token zero whenever the first admitted fork is encountered.
@@ -605,9 +619,7 @@
                            initial-rest 0))
       (unless result
         (error "input does not match LR parser"
-               (or best-failure
-                   '((failureKind . lr-no-complete-parse)
-                     (byteOffset . 0)))))
+               (best-failure-evidence)))
       (when (> (candidate-ambiguities result) 0)
         (error
          "selective GLR ambiguity is unresolved"

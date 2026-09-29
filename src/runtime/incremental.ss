@@ -457,6 +457,99 @@
                   (loop (token-end token) next-character
                         (cons token found)))))))))))
 
+;;; Align significant tokens while allowing each existing trivia run to grow
+;;; or shrink. Every run keeps its LR lexical mode; only significant tokens
+;;; advance LR state. Boundaries inside a changed trivia run remain unmapped
+;;; and cause event reuse to fail closed.
+(def (scan-aligned-window machine source old-window mode-ids start target-end)
+  (with-catch
+   (lambda (_condition) #f)
+   (lambda ()
+     (let ((catalog
+            (lr-runtime-lexical-mode-catalog
+             (parser-machine-runtime machine)))
+           (trivia? (parser-machine-trivia machine)))
+       (def (scan byte character mode-id)
+         (scan-source-token
+          machine source character byte (vector-ref catalog mode-id)))
+       (let loop ((old old-window) (modes mode-ids)
+                  (byte start)
+                  (character
+                   (byte-index->character-index (string->utf8 source) start))
+                  (tokens-rev '()) (modes-rev '()) (groups-rev '())
+                  (boundaries '()) (significant 0))
+         (if (null? old)
+           (and (= byte target-end)
+                (positive? significant)
+                (vector (reverse tokens-rev) (reverse modes-rev)
+                        (reverse groups-rev) boundaries significant))
+           (and (pair? modes)
+                (if (trivia? (car old))
+                  (let gather ((run old) (run-modes modes)
+                               (count 0) (last #f))
+                    (if (and (pair? run) (trivia? (car run)))
+                      (and (pair? run-modes)
+                           (= (car run-modes) (car modes))
+                           (gather (cdr run) (cdr run-modes)
+                                   (+ count 1) (car run)))
+                      (and (or (null? run)
+                               (and (pair? run-modes)
+                                    (= (car run-modes) (car modes))))
+                           (let ()
+                             (def (resume at at-character found)
+                               (let (replacement (reverse found))
+                                 (loop
+                                  run run-modes at at-character
+                                  (append found tokens-rev)
+                                  (append (make-list (length found)
+                                                     (car modes))
+                                          modes-rev)
+                                  (append (make-list (- count 1) '())
+                                          (cons replacement groups-rev))
+                                  (cons (cons (token-end last) at)
+                                        (cons (cons (token-start (car old)) byte)
+                                              boundaries))
+                                  significant)))
+                             (let collect ((at byte) (at-character character)
+                                           (found '()))
+                               (if (= at target-end)
+                                 (resume at at-character found)
+                                 (and (< at target-end)
+                                      (let-values (((token next-character)
+                                                    (scan at at-character
+                                                          (car modes))))
+                                        (if (trivia? token)
+                                          (and (> (token-end token) at)
+                                               (<= (token-end token) target-end)
+                                               (collect (token-end token)
+                                                        next-character
+                                                        (cons token found)))
+                                          (resume at at-character found))))))))))
+                  (let-values (((new-token next-character)
+                                (scan byte character (car modes))))
+                    (and (not (trivia? new-token))
+                         (eq? (token-kind (car old))
+                              (token-kind new-token))
+                         (or (equal? (token-lexeme (car old))
+                                     (token-lexeme new-token))
+                             (generic-lr-lexemes?
+                              (parser-machine-runtime machine)
+                              (token-lexeme (car old))
+                              (token-lexeme new-token)))
+                         (<= (token-end new-token) target-end)
+                         (loop
+                          (cdr old) (cdr modes)
+                          (token-end new-token) next-character
+                          (cons new-token tokens-rev)
+                          (cons (car modes) modes-rev)
+                          (cons (list new-token) groups-rev)
+                          (cons (cons (token-end (car old))
+                                      (token-end new-token))
+                                (cons (cons (token-start (car old))
+                                            (token-start new-token))
+                                      boundaries))
+                          (+ significant 1))))))))))))
+
 (def (certified-token-window-reuse session source-edit new-source)
   (let* ((machine (incremental-session-state-machine session))
          (old-artifact (incremental-session-state-artifact session))
@@ -511,8 +604,17 @@
                                          machine new-source
                                          (car window-modes)
                                          start target-end)))
+                                  (aligned
+                                   (and (not scanned) (not trivia-scanned)
+                                        (scan-aligned-window
+                                         machine new-source old-window
+                                         (reverse window-modes)
+                                         start target-end)))
                                   (new-window
-                                   (if scanned (car scanned) trivia-scanned)))
+                                   (cond (scanned (car scanned))
+                                         (trivia-scanned trivia-scanned)
+                                         (aligned (vector-ref aligned 0))
+                                         (else #f))))
                              (and new-window
                                   (or (null? prefix)
                                       (same-scanned-token?
@@ -535,8 +637,11 @@
                                           (if scanned old-modes
                                               (append
                                                (reverse prefix-modes)
-                                               (make-list (length new-window)
-                                                          (car window-modes))
+                                               (if aligned
+                                                 (vector-ref aligned 1)
+                                                 (make-list
+                                                  (length new-window)
+                                                  (car window-modes)))
                                                rest-modes)))
                                          (next-checkpoints
                                           (list->vector
@@ -557,14 +662,20 @@
                                                      (make-certified-window-artifact
                                                       old-artifact new-source
                                                       index old-window new-window
-                                                      delta)))
+                                                      delta
+                                                      (and aligned
+                                                           (vector-ref aligned 2))
+                                                      (and aligned
+                                                           (vector-ref aligned 3)))))
                                          (vector
                                           (make-incremental-session-state
                                            machine new-source artifact next-tokens
                                            next-modes next-checkpoints)
                                           index (length rest) suffix-bytes
                                           start shared
-                                          (if scanned (cdr scanned) 0)))))))))))))))))
+                                          (cond (scanned (cdr scanned))
+                                                (aligned (vector-ref aligned 4))
+                                                (else 0))))))))))))))))))
 
 (def (parse-incremental-session session source-edit)
   (unless (incremental-session? session)

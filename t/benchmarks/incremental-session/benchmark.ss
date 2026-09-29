@@ -126,12 +126,9 @@
                           edited))))))
       (newline))))
 
-(def (measure-trivia-window lines)
+(def (measure-hcl-window lines workload source-edit)
   (let* ((source (apply string-append
                         (make-list lines "x = 1 /*a*/\n")))
-         (source-edit
-          (make-edit (+ (* (quotient lines 2) 12) 6)
-                     5 "/*a*/ /*b*/"))
          (changed-source (apply-edit source source-edit))
          (session (make-incremental-session hcl-v2-24-parser source)))
     (let-values (((next receipt)
@@ -139,9 +136,9 @@
       (unless (and (equal? (incremental-session-artifact next)
                            (parse-hcl-v2-24 changed-source))
                    (assq 'reusedRecognitionEventCount receipt))
-        (error "certified trivia window product differs" lines))
+        (error "certified HCL window product differs" workload lines))
       (write
-       (list (cons 'workload 'hcl-trivia-token-count-change)
+       (list (cons 'workload workload)
              (cons 'lines lines)
              (cons 'reused-recognition-events
                    (cdr (assq 'reusedRecognitionEventCount receipt)))
@@ -156,6 +153,18 @@
                                        session source-edit)))
                           edited))))))
       (newline))))
+
+(def (measure-trivia-window lines)
+  (measure-hcl-window
+   lines 'hcl-trivia-token-count-change
+   (make-edit (+ (* (quotient lines 2) 12) 6)
+              5 "/*a*/ /*b*/")))
+
+(def (measure-mixed-window lines)
+  (measure-hcl-window
+   lines 'hcl-mixed-token-count-change
+   (make-edit (+ (* (quotient lines 2) 12) 4)
+              7 "3 /*a*/ /*b*/")))
 
 (def (main . args)
   (for-each measure
@@ -172,6 +181,7 @@
      (measure-window terms))
    (if (null? args) '(400 800 1600)
        (map string->number args)))
-  (measure-trivia-window 100))
+  (measure-trivia-window 100)
+  (measure-mixed-window 100))
 
 (export main)

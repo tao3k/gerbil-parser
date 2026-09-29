@@ -377,10 +377,25 @@ It then inserts or removes trivia events, renumbers suffix token IDs, and
 relocates byte boundaries. An event boundary inside the replaced trivia
 window rejects reuse. HCL comment insertion, contraction, and deletion have
 fresh-equivalent artifacts in the executed regression suite.
+
+The certificate now aligns significant tokens through existing trivia runs
+as well. Each significant token must keep its kind and LR action class;
+changed generic lexemes remain admissible. A trivia run can have a different
+number of tokens if all saved modes in that run agree with the following
+significant token's mode. The event builder assigns each significant token to
+its old event slot, assigns a replacement trivia run to the first old trivia
+slot, and maps only run endpoints and significant token boundaries. An
+unmapped node or field boundary rejects reuse. HCL number edits combined with
+comment growth or contraction match fresh artifacts; an operator action
+change takes the LR path.
 On a local Gerbil v0.19 five-sample HCL run with 100 attributes, adding a
 second comment at the midpoint took 0.16 ms best-of-five with the cached
 session versus 1.58 ms for fresh parsing; 1,835 recognition event objects
 were retained. This only characterizes that workload and input size.
+In a later five-sample run after the mixed-window extension, changing the
+middle number while adding a comment took 0.23 ms best-of-five cached versus
+1.89 ms fresh and retained 1,833 event objects. The pure-trivia case in the
+same run measured 0.20 ms cached versus 1.91 ms fresh.
 
 An edit that changes significant token count or LR actions uses ordinary LR
 resume. Selective-GLR suffixes lack deterministic mode records and remain on

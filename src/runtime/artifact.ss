@@ -311,30 +311,53 @@
 ;;; reductions can only place node and field boundaries at token boundaries,
 ;;; so the event topology remains valid when their offsets are remapped.
 (def (make-certified-window-artifact old-artifact source first-id
-                                      old-window new-window delta)
+                                      old-window new-window delta
+                                      (assigned #f) (boundaries #f))
   (unless (and (parse-artifact-success? old-artifact)
-               (pair? old-window))
+               (pair? old-window)
+               (or (not assigned)
+                   (and (= (length assigned) (length old-window))
+                        (equal? (apply append assigned) new-window))))
     (error "invalid certified token window"))
   (let* ((boundary-map (make-table test: equal?))
          (start (token-start (car old-window)))
          (end (token-end (car (reverse old-window))))
          (limit (+ first-id (length old-window)))
          (id-delta (- (length new-window) (length old-window)))
-         (replacement
-          (map make-token-event
-               (iota (length new-window) first-id) new-window))
-         (replacement-vector (list->vector replacement))
+         (groups
+          (or assigned
+              (if (zero? id-delta)
+                (map list new-window)
+                (cons new-window
+                      (make-list (- (length old-window) 1) '())))))
+         (next-id first-id)
+         (replacement-vector
+          (list->vector
+           (map
+            (lambda (group)
+              (map
+               (lambda (source-token)
+                 (let (event (make-token-event next-id source-token))
+                   (set! next-id (+ next-id 1))
+                   event))
+               group))
+            groups)))
          (shared 0))
     (table-set! boundary-map start start)
     (table-set! boundary-map end (+ end delta))
-    (when (zero? id-delta)
+    (cond
+     (boundaries
+      (for-each (lambda (entry)
+                  (table-set! boundary-map (car entry) (cdr entry)))
+                boundaries))
+     ((zero? id-delta)
       (for-each
        (lambda (old-token new-token)
          (table-set! boundary-map (token-start old-token)
                      (token-start new-token))
          (table-set! boundary-map (token-end old-token)
                      (token-end new-token)))
-       old-window new-window))
+       old-window new-window)))
     (def (offset value)
       (cond
        ((< value start) value)
@@ -356,13 +379,11 @@
                       (old-start (event-start event))
                       (old-end (event-end event)))
                   (cond
-                   ((and (zero? id-delta)
-                         (<= first-id id) (< id limit))
-                    (cons (vector-ref replacement-vector (- id first-id))
-                          tail))
                    ((< id first-id) (cons (keep event) tail))
-                   ((= id first-id) (append replacement tail))
-                   ((< id limit) tail)
+                   ((< id limit)
+                    (append (vector-ref replacement-vector
+                                        (- id first-id))
+                            tail))
                    ((and (zero? delta) (zero? id-delta))
                     (cons (keep event) tail))
                    (else

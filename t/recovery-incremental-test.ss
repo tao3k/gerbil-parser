@@ -295,6 +295,37 @@
                   (incremental-session-artifact next)) => #t)
           (check (> (row-ref receipt
                              'reusedRecognitionEventCount) 0) => #t))))
+    (test-case "significant tokens align across changed trivia counts"
+      (for-each
+       (lambda (case)
+         (let* ((source (car case))
+                (source-edit (cadr case))
+                (session (make-incremental-session hcl-v2-24-parser source)))
+           (let-values (((next receipt)
+                         (parse-incremental-session session source-edit)))
+             (check (incremental-session-artifact next)
+                    => (parse-hcl-v2-24
+                        (apply-edit source source-edit)))
+             (check (parse-artifact-valid?
+                     (incremental-session-artifact next)) => #t)
+             (check (> (row-ref receipt
+                                'reusedRecognitionEventCount) 0) => #t)
+             (check (row-ref receipt
+                             'remainingSignificantTokenCount) => 1))))
+       (list
+        (list "x = 1 /*a*/\ny = 2\n"
+              (make-edit 4 7 "3 /*a*/ /*b*/"))
+        (list "x = 3 /*a*/ /*b*/\ny = 2\n"
+              (make-edit 4 13 "4 /*c*/")))))
+    (test-case "changed LR literal action rejects mixed window reuse"
+      (let* ((source "x = 1 /*a*/ + 2\n")
+             (source-edit (make-edit 4 11 "3 /*a*/ /*b*/ *"))
+             (session (make-incremental-session hcl-v2-24-parser source)))
+        (let-values (((next receipt)
+                      (parse-incremental-session session source-edit)))
+          (check (incremental-session-artifact next)
+                 => (parse-hcl-v2-24 (apply-edit source source-edit)))
+          (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "literal action edits require LR re-execution"
       (let* ((source "001 + 002")
              (session (make-incremental-session arithmetic-parser source))

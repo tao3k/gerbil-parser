@@ -8,6 +8,7 @@
                  arithmetic-grammar arithmetic-parser)
         (only-in :gerbil-parser/src/compiler/parser-ir
                  compile-parser parser-ir-ref)
+        (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref)
         (only-in :gerbil-parser/src/runtime/lexer lex-source)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse)
@@ -15,7 +16,8 @@
                  parser-significant-tokens)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/t/fixtures/lr1-construction
-                 lr1-not-lalr-rules precedence-expression-rules))
+                 genuine-reduce-conflict-rules lr1-not-lalr-rules
+                 precedence-expression-rules))
 
 (def (grammar-ir rules)
   (list (cons 'schema "gerbil-parser.grammar-ir.v1")
@@ -76,6 +78,44 @@
       (let (grammar (grammar-ir precedence-expression-rules))
         (check (parser-ir-ref (compile-parser grammar) 'lr-spec)
                => (parser-ir-ref (compile-parser grammar 'lalr) 'lr-spec))))
+    (test-case "explicit adaptive construction selects by conflict"
+      (let* ((ordinary (compile-parser
+                        (grammar-ir precedence-expression-rules)
+                        'lalr-then-follow))
+             (ordinary-spec (parser-ir-ref ordinary 'lr-spec))
+             (split (compile-parser
+                     (grammar-ir lr1-not-lalr-rules)
+                     'lalr-then-follow))
+             (split-spec (parser-ir-ref split 'lr-spec))
+             (reference (parser-ir-ref
+                         (compile-parser (grammar-ir lr1-not-lalr-rules)
+                                         'canonical-lr1)
+                         'lr-spec)))
+        (check (lr-spec-ref ordinary-spec 'algorithm)
+               => 'lalr1-lr0-fixed-point-v1)
+        (check ordinary-spec
+               => (parser-ir-ref
+                   (compile-parser (grammar-ir precedence-expression-rules)
+                                   'lalr)
+                   'lr-spec))
+        (check (lr-spec-ref split-spec 'algorithm)
+               => 'follow-partition-lr1-v1)
+        (for-each
+         (lambda (source)
+           (check (parsed-root split-spec source)
+                  => (parsed-root reference source)))
+         '("acd" "bce" "ace" "bcd"))))
+    (test-case "adaptive construction preserves genuine conflict rejection"
+      (check-exception
+       (compile-lr-spec genuine-reduce-conflict-rules 'source-file
+                        'reject #f 'lalr-then-follow)
+       true))
+    (test-case "selective GLR policy keeps its LALR fork route"
+      (let (spec
+            (compile-lr-spec genuine-reduce-conflict-rules 'source-file
+                             'selective-glr #f 'lalr-then-follow))
+        (check (lr-spec-ref spec 'algorithm)
+               => 'lalr1-lr0-fixed-point-v1)))
     (poo-flow-test-case "LR(1)-only grammar keeps its parse products"
       (check-grammar-ir-equivalence
        lr1-not-lalr-rules '("acd" "bce" "ace" "bcd")))

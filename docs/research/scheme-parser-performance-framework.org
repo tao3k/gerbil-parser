@@ -323,6 +323,38 @@ test suites.
 | langcc-style optimized LR automaton | Generate a lookahead-partitioned LR NFA/DFA from Scheme Grammar IR and compare its states, conflicts, build time, and generated parser throughput with the current LALR path. | Directly targets fresh parsing and grammar expressiveness without replacing Scheme authorship. | The paper's speed results do not isolate each innovation; XLR has no langcc implementation to reuse. |
 | Hocc APLR(1) | Build a canonical LR(1) reference and adequacy-preserving remerge in the Scheme compiler. | May avoid LALR-induced conflicts while keeping a compact table. | Canonical construction and remerge can be costly; parser throughput benefit is unproven here. |
 
+** Explicit construction choice by grammar scene
+
+=compile-lr-spec= and =compile-parser= now accept
+=lalr-then-follow= as an explicit construction choice. It first publishes an
+ordinary LALR action table with unresolved cells marked as forks for the
+probe only. If there is no unresolved cell, it returns that LALR table
+unchanged. Under the =reject= conflict policy, an unresolved cell invokes the
+direct follow-partition LR(1) constructor, whose ordinary conflict policy
+must still accept the result. A genuinely ambiguous grammar therefore remains
+rejected. Under =selective-glr=, the choice keeps the existing LALR/GLR route.
+The default remains =lalr= while representative grammar and generation-cost
+qualification continues. This is a workload policy, not a new proof of the
+paper's partition theorem.
+
+The 200-run pure Scheme comparison on this host found that a conflict-free
+fixture selected LALR with 8 states and about 27--28 us per generation on
+both explicit LALR and adaptive routes. The LR(1)-but-not-LALR(1) fixture
+selected the follow-partition table with 15 states. Its fallback compiles
+two candidate tables, so grammar generation is more expensive than explicitly
+requesting the known-good route; repeated small-fixture timings also vary
+with GC. This option is for grammars whose LALR adequacy is not known in
+advance, not for maximizing generation speed on a known LR(1) grammar.
+
+For fresh parsing, the Scheme LR runtime is now scanner-driven in one
+continuous loop, and semantic reductions fuse operand mapping with sequence
+concatenation using the v0.19 standard =foldl=. On the local 3,200-term
+arithmetic fixture, the five-sample best full parse changed from about
+17.6 ms before the continuous loop to about 10.0 ms after these changes.
+The prepared LR stage was about 4.9 ms; lexical scanning and artifact
+materialization were about 1.8 and 1.6 ms. These one-host observations do
+not imply submillisecond parsing for documents of that size.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus
@@ -358,8 +390,8 @@ test suites.
 
 * Current verification limit
 
-This document is a research decision and experiment design. No parse-throughput
-improvement is claimed. =gerbil.pkg= directly pins =poo-flow-core= at
+This document records a research decision, experiment design, and bounded
+local throughput observations. =gerbil.pkg= directly pins =poo-flow-core= at
 =e85fd45303b208b23e5957fd316e7004994109a4= and
 =asp-gerbil-scheme= at its recorded revision. Core itself declares
 =gerbil-poo= as a transitive dependency. There is no declared =poo-flow=

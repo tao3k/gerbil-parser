@@ -5,7 +5,7 @@
         (only-in ./funcs compiler-index-set-for-each)
         (only-in ./lr
                  compute-first compute-nullable
-                 lower-rules nonterminal-name nonterminal-symbol?
+                 lower-rules lr-spec-ref nonterminal-name nonterminal-symbol?
                  production-id production-precedence production-table
                  terminal-symbol? union-values)
         (only-in ./lr-automaton
@@ -30,7 +30,7 @@
 
 ;; : (-> Symbol List List String Datum List)
 (def (fork-or-reject conflict-policy shift reduce message evidence)
-  (if (eq? conflict-policy 'selective-glr)
+  (if (memq conflict-policy '(selective-glr probe))
     (fork-action shift reduce)
     (error message evidence)))
 
@@ -83,7 +83,8 @@
        (list terminal left-production right-production)))
      ((> left-rank right-rank) left)
      ((< left-rank right-rank) right)
-     ((eq? conflict-policy 'selective-glr) (fork-action left right))
+     ((memq conflict-policy '(selective-glr probe))
+      (fork-action left right))
      (else
       (error "unresolved reduce/reduce conflict"
              terminal left-production right-production)))))
@@ -238,8 +239,8 @@
 ;;; resolution, and publication into the canonical immutable LR spec v1.
 ;; compile-lr-spec
 ;; : (-> List Symbol Symbol Boolean List)
-(def (compile-lr-spec rules root (conflict-policy 'reject)
-                      (case-insensitive? #f) (construction 'lalr))
+(def (compile-lr-spec/selected rules root conflict-policy
+                               case-insensitive? construction)
   (unless (memq construction
                 '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1))
     (error "unknown LR construction" construction))
@@ -314,3 +315,29 @@
                          (cons (cons 'output-item-count
                                      lookahead-item-visit-count)
                                spec))))))))))))
+
+;;; The ordinary path stays LALR. Probe publishes unresolved cells as forks
+;;; without admitting GLR lowering; only those cells trigger the LR(1) route.
+;;; This avoids using exception construction as routine algorithm selection.
+(def (lr-spec-has-fork? spec)
+  (vector-any
+   (lambda (row)
+     (any (lambda (entry) (eq? (car (cdr entry)) 'fork)) row))
+   (lr-spec-ref spec 'actions)))
+
+(def (compile-lr-spec rules root (conflict-policy 'reject)
+                      (case-insensitive? #f) (construction 'lalr))
+  (if (eq? construction 'lalr-then-follow)
+    (if (eq? conflict-policy 'reject)
+      (let (probe
+            (compile-lr-spec/selected
+             rules root 'probe case-insensitive? 'lalr))
+        (if (lr-spec-has-fork? probe)
+          (compile-lr-spec/selected
+           rules root conflict-policy case-insensitive?
+           'follow-partition-lr1)
+          probe))
+      (compile-lr-spec/selected
+       rules root conflict-policy case-insensitive? 'lalr))
+    (compile-lr-spec/selected
+     rules root conflict-policy case-insensitive? construction)))

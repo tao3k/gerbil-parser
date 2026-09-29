@@ -167,10 +167,12 @@
        (newline))
      (list
       (list 'shared-lookahead shared-lookahead-rules 'lalr)
+      (list 'shared-lookahead shared-lookahead-rules 'lalr-then-follow)
       (list 'shared-lookahead shared-lookahead-rules 'canonical-lr1)
       (list 'shared-lookahead shared-lookahead-rules 'partitioned-lr1)
       (list 'shared-lookahead shared-lookahead-rules 'follow-partition-lr1)
       (list 'lr1-not-lalr lr1-not-lalr-rules 'canonical-lr1)
+      (list 'lr1-not-lalr lr1-not-lalr-rules 'lalr-then-follow)
       (list 'lr1-not-lalr lr1-not-lalr-rules 'partitioned-lr1)
       (list 'lr1-not-lalr lr1-not-lalr-rules 'follow-partition-lr1)
       (list 'precedence precedence-expression-rules 'canonical-lr1)

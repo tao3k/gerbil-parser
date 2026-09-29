@@ -38,6 +38,17 @@ first GQL admission gate.  Pinned external scanners, recovery parity,
 generated field accessors, and wider differential corpora remain explicit
 downstream-cutover gates; directory presence alone does not claim them.
 
+** POO graph-query extension
+
+=graph-query-support.ss= admits a language-owned POO graph view and constructs
+one native query context with indexed record identities. Its generic map,
+lineage, and scoped =any=/=at=/=child-of=/=descendant-of= selection take a
+language-owned predicate; graph traversal does not interpret Org fields or
+Contract assertions. The Cargo-only counterpart is the reusable
+=GraphIndex= / =GraphRelation= API in =gerbil-parser-rowan=. A downstream
+language supplies its own property semantics and AOT query declarations while
+reusing these graph operations; neither API parses source a second time.
+
 ** Rust consumer contract
 
 An upstream-maintained language is a generated Rust crate layered over the
@@ -161,7 +172,7 @@ ParseArtifact events, and diagnostics remain in their library owners.
 
 The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
 grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
-small performance-sensitive parser functions.  The single public authoring
+small performance-sensitive parser functions. The grammar authoring
 boundary is the top-level =language-support.ss= facade; its re-exported
 =deflanguage-grammar= macro expands
 one declaration into the grammar object, canonical Parser IR, native machine,

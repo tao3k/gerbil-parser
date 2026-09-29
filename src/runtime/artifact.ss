@@ -4,7 +4,7 @@
 (import (only-in :std/func compose every-of)
         (only-in ../modules/parser/types
                  +diagnostic-schema+ +parse-artifact-schema+)
-        (only-in ./identity sha256-text)
+        (only-in ./identity sha256-bytes sha256-text)
         (only-in ./recognition
                  recognition-child-field recognition-child-value
                  recognition-fragment-children recognition-fragment-end
@@ -206,27 +206,30 @@
   (map make-token-event (iota (length tokens)) tokens))
 
 ;; artifact
-;; : (-> String String Symbol List List Alist)
-(def (artifact grammar-digest source status events diagnostics)
-  (map cons
-       '(schema grammarDigest sourceDigest sourceByteLength
-                status events diagnostics)
-       (list +parse-artifact-schema+
-             grammar-digest
-             (sha256-text source)
-             (u8vector-length (string->utf8 source))
-             status
-             events
-             diagnostics)))
+;; : (-> String String Symbol List List (? U8Vector) Alist)
+(def (artifact grammar-digest source status events diagnostics
+               (source-bytes #f))
+  (let (bytes (or source-bytes (string->utf8 source)))
+    (map cons
+         '(schema grammarDigest sourceDigest sourceByteLength
+                  status events diagnostics)
+         (list +parse-artifact-schema+
+               grammar-digest
+               (sha256-bytes bytes)
+               (u8vector-length bytes)
+               status
+               events
+               diagnostics))))
 
 ;; make-success-parse-artifact
 ;; : (-> String String List Recognition Boolean Alist)
 (def (make-success-parse-artifact grammar-digest source tokens root trivia?)
-  (let* ((source-byte-length (u8vector-length (string->utf8 source)))
+  (let* ((source-bytes (string->utf8 source))
+         (source-byte-length (u8vector-length source-bytes))
          (value
           (artifact grammar-digest source 'accepted
                     (recognition-events tokens root trivia? source-byte-length)
-                    '())))
+                    '() source-bytes)))
     value))
 
 ;;; A certified same-width edit changes exactly one token event. The unchanged

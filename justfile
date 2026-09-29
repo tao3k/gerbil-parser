@@ -13,3 +13,7 @@ test-all:
 # Reports each complete language batch sample without a shell timing wrapper.
 benchmark-versioned-matched label="current" samples="20":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/versioned-languages/matched-batch.ss {{label}} {{samples}}
+
+# Compare long deterministic parses between separate v0.19 package revisions.
+benchmark-arithmetic-matched terms="3200" samples="30":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/arithmetic-scale/matched-stream.ss {{terms}} {{samples}}

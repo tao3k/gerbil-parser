@@ -107,12 +107,26 @@ processes were 10.67--11.00 ms. The second pair and p95 values varied widely,
 so this corpus does not establish an end-to-end gain from the number DFA. These
 numbers measure a complete batch, not process import or compilation; they also
 do not establish per-language scalability. Keep the DFA for its lexical
-semantics and focused speed evidence, but measure phase costs before extending
-its rule coverage. The language-pack and generated Rust/Rowan conformance gates
+semantics and focused speed evidence, but measure phase costs before adding
+more rule forms. The language-pack and generated Rust/Rowan conformance gates
 remain required. Add subtree certificates and edit-local LR actions where edits
 justify them. The follow-partition route remains an
 explicit construction choice until a real conflict-bearing language corpus
 justifies switching a scene from LALR.
+
+The generated lexer now also uses each LR mode's ASCII first-character table
+to skip the regular scanner or shared literal trie when the first transition
+is impossible. Unicode retains the existing scanner path; longest match, rank,
+and declaration order still choose among actual matches. This is a mode-local
+DFA entry dispatch, not a new parser authority. The full v0.19 language suite
+passed. On a 3,200-term arithmetic parse, the older baseline and this version
+had 30-sample p10 values of 9.38 and 7.71 ms; both minima were about 7.60 ms,
+and the medians varied from 56.07 to 29.02 ms under host noise. In the
+35-fixture four-language batch, medians were 22.64 ms on the older baseline
+and 25.30 ms with this dispatch; minima were 10.71 and 10.58 ms. This does
+not establish a stable end-to-end gain. The pure Scheme
+=t/benchmarks/arithmetic-scale/matched-stream.ss= makes the long-input
+comparison reproducible before widening this dispatch further.
 
 The local minute-scale wait seen during this slice was qualification time:
 the package-only scanner import took 2.9 seconds, while isolated lexical,

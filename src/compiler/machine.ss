@@ -424,6 +424,17 @@
                         found))
                      entries (vector-ref rule 2))
                     entries))))))
+          (literal-ascii-starts
+           (let (starts (make-vector 128 #f))
+             (for-each
+              (lambda (entry)
+                (let* ((literal (car entry))
+                       (code (and (positive? (string-length literal))
+                                  (char->integer (string-ref literal 0)))))
+                  (when (and code (< code 128))
+                    (vector-set! starts code #t))))
+              literal-entries)
+             starts))
           (literal-scanner
            (and (pair? literal-entries)
                 (make-ranked-literal-scanner literal-entries)))
@@ -432,11 +443,20 @@
              (let ((admitted-literals (make-vector (length rules) #f)))
                (let loop ((remaining rules) (ordinal 0)
                           (has-literals? #f) (scanners '())
-                          (regular-entries '()))
+                          (regular-entries '())
+                          (regular-first-predicates '()))
                  (if (null? remaining)
                    (let* ((regular-scanner
                            (and (pair? regular-entries)
                                 (make-ranked-regular-scanner regular-entries)))
+                          (regular-ascii-starts
+                           (and regular-scanner
+                                (vector-map/index
+                                 (lambda (index _)
+                                   (any (lambda (predicate)
+                                          (predicate (integer->char index)))
+                                        regular-first-predicates))
+                                 (make-vector 128))))
                           (ascii-scanners
                            (vector-map/index
                             (lambda (index _)
@@ -447,9 +467,10 @@
                             (make-vector 128))))
                      (lambda (source offset)
                        (let* ((ch (string-ref source offset))
+                              (code (char->integer ch))
                               (candidates
-                               (if (< (char->integer ch) 128)
-                                 (vector-ref ascii-scanners (char->integer ch))
+                               (if (< code 128)
+                                 (vector-ref ascii-scanners code)
                                  scanners))
                               (selected
                                (fold
@@ -458,11 +479,17 @@
                                    selected ((car entry) source offset)))
                                 #f candidates)))
                          (let (selected
-                               (if regular-scanner
+                               (if (and regular-scanner
+                                        (or (>= code 128)
+                                            (vector-ref regular-ascii-starts
+                                                        code)))
                                  (prefer-generated-match
                                   selected (regular-scanner source offset))
                                  selected))
-                           (if (and literal-scanner has-literals?)
+                           (if (and literal-scanner has-literals?
+                                    (or (>= code 128)
+                                        (vector-ref literal-ascii-starts
+                                                    code)))
                              (prefer-generated-match
                               selected
                               (literal-scanner source offset admitted-literals))
@@ -476,26 +503,30 @@
                        (vector-set! admitted-literals ordinal #t)
                        (loop
                         (cdr remaining) (+ ordinal 1) #t scanners
-                        regular-entries))
+                        regular-entries regular-first-predicates))
                       (literals
                        (loop (cdr remaining) (+ ordinal 1)
-                             has-literals? scanners regular-entries))
+                             has-literals? scanners regular-entries
+                             regular-first-predicates))
                       (regular-kind
                        (loop (cdr remaining) (+ ordinal 1)
                              has-literals? scanners
                              (cons (list regular-kind (vector-ref rule 3)
                                          (vector-ref rule 4) ordinal)
-                                   regular-entries)))
+                                   regular-entries)
+                             (cons (vector-ref rule 5)
+                                   regular-first-predicates)))
                       (admitted?
                        (loop
                         (cdr remaining) (+ ordinal 1) has-literals?
                         (cons (cons (vector-ref rule 1)
                                     (vector-ref rule 5))
                               scanners)
-                        regular-entries))
+                        regular-entries regular-first-predicates))
                       (else
                        (loop (cdr remaining) (+ ordinal 1)
-                             has-literals? scanners regular-entries)))))))))
+                             has-literals? scanners regular-entries
+                             regular-first-predicates)))))))))
           (all-scanners (prepare-scanners #f))
           (mode-scanners
            (vector-map/index

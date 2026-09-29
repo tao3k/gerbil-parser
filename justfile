@@ -17,3 +17,7 @@ benchmark-versioned-matched label="current" samples="20":
 # Compare long deterministic parses between separate v0.19 package revisions.
 benchmark-arithmetic-matched terms="3200" samples="30":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/arithmetic-scale/matched-stream.ss {{terms}} {{samples}}
+
+# Complete LR construction at a scale where partition costs are visible.
+benchmark-lr-grammar-construction contexts="256" samples="3":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/lr1-partition/context-scale.ss {{contexts}} {{samples}}

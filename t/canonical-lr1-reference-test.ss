@@ -262,6 +262,8 @@
            (check-exception (compile-lr-spec rules 'source-file) true)
            (check (lr-spec-ref canonical 'state-count)
                   => (lr-spec-ref direct 'state-count))
+           (when (= context-count 64)
+             (check (lr-spec-ref direct 'follow-block-count) => 0))
            (for-each
             (lambda (index)
               (let* ((prefix
@@ -286,7 +288,21 @@
                   (check (parse-token-result canonical tokens) => 'rejected)
                   (check (parse-token-result direct tokens) => 'rejected))))
             (iota context-count))))
-       '(4 16)))
+       '(4 16 64)))
+    (poo-flow-test-case "bounded canonical trial stops above its state budget"
+      (let* ((productions (lower-rules lr1-not-lalr-rules 'source-file))
+             (table (production-table productions)))
+        (let-values (((nullable nullable-index)
+                      (compute-nullable productions)))
+          (let-values (((first first-index)
+                        (compute-first productions nullable-index)))
+            (check
+             (call-with-values
+              (lambda ()
+                (build-states-via-canonical-lr1
+                 productions table first-index nullable-index 1))
+              list)
+             => '(#f))))))
     (poo-flow-test-case "an LALR grammar remains admitted on both paths"
       (let ((lalr (compile-lr-spec shared-lookahead-rules 'source-file))
             (canonical

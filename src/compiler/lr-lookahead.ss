@@ -264,8 +264,11 @@
 ;;; FIRST(tail) and the incoming follow mask until stable. State identity
 ;;; includes those masks, so contexts that LALR merges remain distinguishable.
 ;;; The representation deliberately matches build-states-via-lr0's result.
-(def (build-states-via-canonical-lr1 productions table first nullable)
-  (let-values (((terminal-values terminal-index)
+(def (build-states-via-canonical-lr1 productions table first nullable
+                                     (state-limit #f))
+  (call-with-current-continuation
+   (lambda (abort)
+    (let-values (((terminal-values terminal-index)
                 (production-terminal-catalog productions)))
     (let* ((layout (make-item-layout table terminal-values))
            (core-symbols (make-core-symbol-catalog table layout))
@@ -273,28 +276,28 @@
            (states (list->ExtensibleVector '()))
            (state-transitions (list->ExtensibleVector '()))
            (state-index (make-table test: equal?))
+           (closure-masks (make-vector (vector-length core-symbols) 0))
            (state-count 0))
       (let-values (((tail-first-masks nullable-tails)
                     (make-core-lookahead-catalog
                      table layout core-symbols first nullable terminal-index)))
         (def (canonical-closure kernels)
-          (let ((masks (make-table test: eq?))
-                (cores (list->ExtensibleVector '()))
+          (let ((cores (list->ExtensibleVector '()))
                 (pending (stdq-make-Queue)))
             (def (admit! core mask)
-              (let* ((old (table-ref masks core 0))
+              (let* ((old (vector-ref closure-masks core))
                      (next (compiler-index-set-union old mask)))
                 (unless (= old next)
                   (when (zero? old)
                     (ExtensibleVector-push! cores core))
-                  (table-set! masks core next)
+                  (vector-set! closure-masks core next)
                   (stdq-enqueue! pending core))))
             (for-each (lambda (entry) (admit! (car entry) (cdr entry)))
                       kernels)
             (let loop ()
               (unless (stdq-queue-empty? pending)
                 (let* ((core (stdq-dequeue! pending))
-                       (mask (table-ref masks core 0))
+                       (mask (vector-ref closure-masks core))
                        (symbol (vector-ref core-symbols core)))
                   (when (and symbol (nonterminal-symbol? symbol))
                     (let (evidence
@@ -310,15 +313,24 @@
                        (table-ref productions-by-lhs
                                   (nonterminal-name symbol) '()))))
                   (loop))))
-            (list-sort
-             (lambda (left right) (< (car left) (car right)))
-             (map (lambda (core) (cons core (table-ref masks core 0)))
-                  (vector->list (ExtensibleVector->vector cores))))))
+            (let (result
+                  (list-sort
+                   (lambda (left right) (< (car left) (car right)))
+                   (map (lambda (core)
+                          (let (mask (vector-ref closure-masks core))
+                            (vector-set! closure-masks core 0)
+                            (cons core mask)))
+                        (vector->list (ExtensibleVector->vector cores)))))
+              result)))
         (def (intern! state)
           (let (existing (table-ref state-index state #f))
             (if existing
               (values existing #f)
-              (let (index (ExtensibleVector-push! states state))
+              (let (index
+                    (begin
+                      (when (and state-limit (>= state-count state-limit))
+                        (abort #f))
+                      (ExtensibleVector-push! states state)))
                 (ExtensibleVector-push! state-transitions '())
                 (table-set! state-index state index)
                 (set! state-count (+ state-count 1))
@@ -404,4 +416,4 @@
                        (ExtensibleVector->vector state-transitions)
                        state-count)
                       terminal-values layout core-symbols
-                      state-count node-count))))))))
+                      state-count node-count))))))))))

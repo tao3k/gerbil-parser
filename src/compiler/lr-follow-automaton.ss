@@ -19,7 +19,8 @@
         (only-in ./lr-conflict-candidates
                  initial-backward-follow-partitions/from-lr0
                  raw-conflict-cells)
-        (only-in ./lr-lookahead build-states-via-lr0))
+        (only-in ./lr-lookahead
+                 build-states-via-lr0 build-states-via-canonical-lr1))
 (export build-states-via-follow-partition-lr1)
 
 (def (make-follow-core-metadata productions table first nullable
@@ -408,11 +409,11 @@
       (let* ((count (ExtensibleVector-fill-pointer states))
              (output-states (make-vector count '()))
              (offsets (make-vector (+ count 1) 0))
+             (core-masks (make-vector (vector-length metadata) 0))
              (item-count 0))
         (let state-loop ((state 0))
           (when (< state count)
-            (let ((core-masks (make-vector (vector-length metadata) 0))
-                  (cores '()))
+            (let ((cores '()))
               (compiler-index-set-for-each
                (ExtensibleVector-ref states state)
                (lambda (block)
@@ -426,7 +427,12 @@
                                  known (cdr entry))))))
               (let (ordered (list-sort < cores))
                 (vector-set! output-states state
-                             (cons ordered core-masks))
+                             (cons ordered
+                                   (map (lambda (core)
+                                          (let (mask (vector-ref core-masks core))
+                                            (vector-set! core-masks core 0)
+                                            mask))
+                                        ordered)))
                 (vector-set! offsets state item-count)
                 (set! item-count (+ item-count (length ordered)))))
             (state-loop (+ state 1))))
@@ -439,11 +445,10 @@
               (let ((entry (vector-ref output-states state)))
                 (vector-set! state-cores state (car entry))
                 (for-each
-                 (lambda (core)
-                   (vector-set! lookaheads node
-                                (vector-ref (cdr entry) core))
+                 (lambda (mask)
+                   (vector-set! lookaheads node mask)
                    (set! node (+ node 1)))
-                 (car entry)))
+                 (cdr entry)))
               (fill (+ state 1))))
           (values state-cores count lookaheads offsets
                   (materialize-transitions
@@ -451,7 +456,77 @@
                   terminal-values layout core-symbols
                   block-count item-count))))))
 
-(def (build-states-via-follow-partition-lr1 productions table first nullable)
+(def (canonical-at-conflict-lower-bound? trial)
+  (let* ((states (list-ref trial 0))
+         (count (list-ref trial 1))
+         (lookaheads (list-ref trial 2))
+         (offsets (list-ref trial 3))
+         (terminal-values (list-ref trial 5))
+         (layout (list-ref trial 6))
+         (core-symbols (list-ref trial 7))
+         (groups (make-table test: equal?))
+         (group-cores (list->ExtensibleVector '()))
+         (group-masks (list->ExtensibleVector '())))
+    (let state-loop ((state 0))
+      (when (< state count)
+        (let* ((cores (vector-ref states state))
+               (known (table-ref groups cores #f))
+               (group
+                (if known known
+                    (let (id (ExtensibleVector-push! group-cores cores))
+                      (ExtensibleVector-push!
+                       group-masks (make-vector (length cores) 0))
+                      (table-set! groups cores id)
+                      id)))
+               (row (ExtensibleVector-ref group-masks group)))
+          (let item-loop ((index 0) (node (vector-ref offsets state))
+                          (remaining cores))
+            (unless (null? remaining)
+              (vector-set!
+               row index
+               (compiler-index-set-union
+                (vector-ref row index) (vector-ref lookaheads node)))
+              (item-loop (+ index 1) (+ node 1) (cdr remaining)))))
+        (state-loop (+ state 1))))
+    (let* ((group-count (ExtensibleVector-fill-pointer group-cores))
+           (merged-states (ExtensibleVector->vector group-cores))
+           (merged-offsets (make-vector (+ group-count 1) 0))
+           (item-count 0))
+      (let group-loop ((group 0))
+        (when (< group group-count)
+          (vector-set! merged-offsets group item-count)
+          (set! item-count
+                (+ item-count
+                   (vector-length (ExtensibleVector-ref group-masks group))))
+          (group-loop (+ group 1))))
+      (vector-set! merged-offsets group-count item-count)
+      (let ((merged-lookaheads (make-vector item-count 0))
+            (node 0))
+        (let group-loop ((group 0))
+          (when (< group group-count)
+            (let (row (ExtensibleVector-ref group-masks group))
+              (let item-loop ((index 0))
+                (when (< index (vector-length row))
+                  (vector-set! merged-lookaheads node
+                               (vector-ref row index))
+                  (set! node (+ node 1))
+                  (item-loop (+ index 1)))))
+            (group-loop (+ group 1))))
+        (let (candidates
+              (raw-conflict-cells
+               merged-states group-count merged-lookaheads merged-offsets
+               terminal-values layout core-symbols))
+          (= count
+             (+ group-count
+                (let loop ((group 0) (total 0))
+                  (if (= group group-count)
+                    total
+                    (loop (+ group 1)
+                          (if (zero? (vector-ref candidates group))
+                            total (+ total 1))))))))))))
+
+(def (build-states-via-follow-partition-lr1/from-lr0
+      productions table first nullable (canonical-trial? #t))
   (let-values (((states count lookaheads offsets transitions
                         terminal-values layout core-symbols
                         state-visits item-visits)
@@ -459,16 +534,7 @@
     (let (candidates
           (raw-conflict-cells
            states count lookaheads offsets terminal-values layout core-symbols))
-      (if (let loop ((state 0))
-            (or (= state count)
-                (and (zero? (vector-ref candidates state))
-                     (loop (+ state 1)))))
-        ;; A conflict-free LALR table is already adequate. Reuse the same
-        ;; LR(0) graph and propagated lookaheads instead of determinizing an
-        ;; equivalent follow NFA.
-        (values states count lookaheads offsets transitions
-                terminal-values layout core-symbols 0
-                (vector-length lookaheads))
+      (def (build-direct)
         (let-values (((catalogue terminal-index)
                       (production-terminal-catalog productions)))
           (unless (equal? terminal-values catalogue)
@@ -486,4 +552,55 @@
                              initial metadata (vector-length terminal-values))))
                 (determinize-follow-blocks
                  blocks index metadata terminal-values layout
-                 core-symbols)))))))))
+                 core-symbols))))))
+      (let (conflict-count
+            (let loop ((state 0) (total 0))
+              (if (= state count)
+                total
+                (loop (+ state 1)
+                      (if (zero? (vector-ref candidates state))
+                        total (+ total 1))))))
+       (if (zero? conflict-count)
+        ;; A conflict-free LALR table is already adequate. Reuse the same
+        ;; LR(0) graph and propagated lookaheads instead of determinizing an
+        ;; equivalent follow NFA.
+        (values states count lookaheads offsets transitions
+                terminal-values layout core-symbols 0
+                (vector-length lookaheads))
+        (if (and canonical-trial? (>= conflict-count 64))
+          ;; Every conflicting LR(0) state needs at least one split in an
+          ;; LR(1) construction. Stop the canonical trial at that lower bound;
+          ;; an exact match leaves no state compression for follow refinement.
+          (let* ((lower-bound (+ count conflict-count))
+                 (trial
+                  (call-with-values
+                   (lambda ()
+                     (build-states-via-canonical-lr1
+                      productions table first nullable lower-bound))
+                   list)))
+            (if (and (= (length trial) 10)
+                     (= (cadr trial) lower-bound))
+              (apply values
+                     (append (take trial 8)
+                             (list 0 (list-ref trial 9))))
+              (build-direct)))
+          (build-direct)))))))
+
+(def (build-states-via-follow-partition-lr1 productions table first nullable)
+  (if (>= (vector-length table) 512)
+    (let (trial
+          (call-with-values
+           (lambda ()
+             (build-states-via-canonical-lr1
+              productions table first nullable
+              (* 3 (vector-length table))))
+           list))
+      (if (and (= (length trial) 10)
+               (canonical-at-conflict-lower-bound? trial))
+        (apply values
+               (append (take trial 8)
+                       (list 0 (list-ref trial 9))))
+        (build-states-via-follow-partition-lr1/from-lr0
+         productions table first nullable #f)))
+    (build-states-via-follow-partition-lr1/from-lr0
+     productions table first nullable)))

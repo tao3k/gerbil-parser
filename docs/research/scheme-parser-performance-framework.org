@@ -197,7 +197,19 @@ LR(1) DFA states*. The direct path instead uses
 forward-reachable 1-follow masks per production without canonical states, and
 raw action overlap on the LR(0) propagation graph produces conservative
 potential-conflict cells. Compatibility signatures then seed the initial
-backward follow-string partition. The candidate stage uses LALR union masks,
+backward follow-string partition.
+
+The forward follow worklist now propagates only newly discovered terminal bits
+through nullable tails, while each static FIRST(tail) mask is applied once when
+its parent production first becomes reachable. This is the k=1 fixed point of
+Definition 3.22; the focused test compares its masks with LR(0) propagation
+on recursive, mixed-context, and 16-context grammars. The pure Scheme
+benchmark reports this phase separately with a follow-mask sum so its cost is
+not conflated with LR(0) construction or backward refinement. The 16-context
+phase is below a millisecond locally, but this does not establish a gain for
+the complete parser generator.
+
+The candidate stage uses LALR union masks,
 so it may include more lookaheads than Definition 3.24 and split more blocks
 than the paper's exact initial partition. The seed now intersects each LR(0)
 state candidate mask with the dotted item's possible raw actions: completed

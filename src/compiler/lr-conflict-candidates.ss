@@ -3,7 +3,8 @@
 
 (import (prefix-in :std/struct/queue stdq-)
         (only-in ./funcs
-                 compiler-index-set-add compiler-index-set-for-each
+                 compiler-index-set-add compiler-index-set-difference
+                 compiler-index-set-for-each
                  compiler-index-set-singleton compiler-index-set-union)
         (only-in ./lr
                  +lr-eof+ base-symbol nonterminal-name nonterminal-symbol?
@@ -17,8 +18,10 @@
         lr0-conflict-candidates raw-conflict-cells)
 
 ;; Definition 3.22 specialized to k=1: carry one terminal mask per production
-;; and propagate FIRST(tail follow) through nonterminal occurrences. This is
-;; independent of canonical LR(1) state construction.
+;; and propagate FIRST(tail follow) through nonterminal occurrences. Static
+;; FIRST(tail) bits travel once when a production first becomes reachable;
+;; nullable tails propagate only newly discovered follow bits after that.
+;; This is independent of canonical LR(1) state construction.
 (def (forward-reachable-follow-masks productions table first nullable)
   (let-values (((terminal-values terminal-index)
                 (production-terminal-catalog productions)))
@@ -49,30 +52,40 @@
               (occurrence-loop (cdr rest))))
           (production-loop (+ parent 1))))
       (let ((follows (make-vector count 0))
+            (deltas (make-vector count 0))
+            (activated (make-vector count #f))
             (queued (make-vector count #f))
             (pending (stdq-make-Queue)))
-        (vector-set! follows 0
-                     (compiler-index-set-singleton
-                      (table-ref terminal-index +lr-eof+)))
+        (let (start-follow
+              (compiler-index-set-singleton
+               (table-ref terminal-index +lr-eof+)))
+          (vector-set! follows 0 start-follow)
+          (vector-set! deltas 0 start-follow))
         (vector-set! queued 0 #t)
         (stdq-enqueue! pending 0)
         (let drain ()
           (unless (stdq-queue-empty? pending)
-            (let ((parent (stdq-dequeue! pending)))
+            (let* ((parent (stdq-dequeue! pending))
+                   (delta (vector-ref deltas parent))
+                   (first-visit? (not (vector-ref activated parent))))
               (vector-set! queued parent #f)
+              (vector-set! deltas parent 0)
+              (vector-set! activated parent #t)
               (for-each
                (lambda (edge)
                  (let* ((child (vector-ref edge 0))
                         (known (vector-ref follows child))
-                        (evidence
-                         (if (vector-ref edge 2)
-                           (compiler-index-set-union
-                            (vector-ref edge 1)
-                            (vector-ref follows parent))
-                           (vector-ref edge 1)))
-                        (next (compiler-index-set-union known evidence)))
-                   (unless (= known next)
-                     (vector-set! follows child next)
+                        (static (if first-visit? (vector-ref edge 1) 0))
+                        (propagated (if (vector-ref edge 2) delta 0))
+                        (evidence (compiler-index-set-union
+                                   static propagated))
+                        (new (compiler-index-set-difference evidence known)))
+                   (unless (zero? new)
+                     (vector-set! follows child
+                                  (compiler-index-set-union known new))
+                     (vector-set! deltas child
+                                  (compiler-index-set-union
+                                   (vector-ref deltas child) new))
                      (unless (vector-ref queued child)
                        (vector-set! queued child #t)
                        (stdq-enqueue! pending child)))))

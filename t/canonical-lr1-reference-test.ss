@@ -175,7 +175,9 @@
     (poo-flow-test-case "forward reachable follows agree with LR(0) propagation"
       (check-forward-follows-match-lr0 lr1-not-lalr-rules)
       (check-forward-follows-match-lr0 shared-lookahead-rules)
-      (check-forward-follows-match-lr0 genuine-reduce-conflict-rules))
+      (check-forward-follows-match-lr0 genuine-reduce-conflict-rules)
+      (check-forward-follows-match-lr0 mixed-context-rules)
+      (check-forward-follows-match-lr0 (lr1-context-family-rules 16)))
     (poo-flow-test-case "initial backward partition preserves all follow strings"
       (let (partitions
             (check-initial-backward-partitions lr1-not-lalr-rules))

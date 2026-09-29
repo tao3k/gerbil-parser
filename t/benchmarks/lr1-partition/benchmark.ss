@@ -6,6 +6,7 @@
                  compute-first compute-nullable lower-rules lr-spec-ref
                  production-table)
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates
+                 forward-reachable-follow-masks
                  initial-backward-follow-partitions
                  lr0-conflict-candidates)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
@@ -100,6 +101,32 @@
 
 ;; Phase-only timing: the lowered grammar and FIRST/nullability are fixed.
 ;; Compare this with itself across changes, not with full compile-lr-spec time.
+(def (measure-forward-follows grammar rules repetitions)
+  (let* ((productions (lower-rules rules 'source-file))
+         (table (production-table productions)))
+    (let-values (((nullable nullable-index)
+                  (compute-nullable productions)))
+      (let-values (((first first-index)
+                    (compute-first productions nullable-index)))
+        (let ((started (##current-time-point))
+              (last #f))
+          (let loop ((remaining repetitions))
+            (unless (zero? remaining)
+              (let-values (((follows terminals)
+                            (forward-reachable-follow-masks
+                             productions table first-index nullable-index)))
+                (set! last follows))
+              (loop (- remaining 1))))
+          (let (timing (timing-fields started repetitions))
+            (list (cons 'grammar grammar)
+                  (cons 'construction 'forward-reachable-follows)
+                  (cons 'repetitions repetitions)
+                  (cons 'follow-mask-sum
+                        (foldl + 0 (vector->list last)))
+                  (car timing) (cadr timing))))))))
+
+;; Phase-only timing: the lowered grammar and FIRST/nullability are fixed.
+;; Compare this with itself across changes, not with full compile-lr-spec time.
 (def (measure-direct-seed grammar rules repetitions)
   (let* ((productions (lower-rules rules 'source-file))
          (table (production-table productions)))
@@ -180,6 +207,14 @@
             'follow-partition-lr1)
       (list 'mixed-context mixed-context-rules 'canonical-lr1)
       (list 'mixed-context mixed-context-rules 'follow-partition-lr1)))
+    (for-each
+     (lambda (entry)
+       (write (measure-forward-follows
+               (car entry) (cadr entry) repetitions))
+       (newline))
+     (list (list 'shared-lookahead shared-lookahead-rules)
+           (list 'mixed-context mixed-context-rules)
+           (list 'lr1-context-family-16 (lr1-context-family-rules 16))))
     (for-each
      (lambda (entry)
        (write (measure-direct-seed (car entry) (cadr entry) repetitions))

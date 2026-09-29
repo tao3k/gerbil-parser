@@ -95,10 +95,21 @@ mode scan against the combined scanner: a 100,000-call sample improved all
 four selected sources, while a shorter 20,000-call Unicode sample reversed
 direction. A later 100,000-call number sample also favored the combined
 scanner, but these local microbenchmarks do not establish stable Unicode or
-whole-parser throughput gains. The next performance gate is a matched
-before/after batch ParseArtifact comparison; the language-pack and generated
-Rust/Rowan conformance gates remain required;
-after that, add subtree certificates and edit-local LR actions where edits
+whole-parser throughput gains. A matched full ParseArtifact comparison now
+uses =t/benchmarks/versioned-languages/matched-batch.ss=, with independent
+Gerbil v0.19 package trees, identical pinned dependencies, and the same 35
+accepted HCL, GQL, openCypher, and TLA+ sources (5,818 characters). Each
+process warms up three batches, then checks success and exact roundtrip in
+60 timed batches, with GC outside each timed region. Against the pre-number-DFA
+revision =998daf33=, the two current-revision medians were 16.96 and 21.33 ms;
+the two baseline medians were 17.54 and 29.61 ms. Fastest samples in all four
+processes were 10.67--11.00 ms. The second pair and p95 values varied widely,
+so this corpus does not establish an end-to-end gain from the number DFA. These
+numbers measure a complete batch, not process import or compilation; they also
+do not establish per-language scalability. Keep the DFA for its lexical
+semantics and focused speed evidence, but measure phase costs before extending
+its rule coverage. The language-pack and generated Rust/Rowan conformance gates
+remain required. Add subtree certificates and edit-local LR actions where edits
 justify them. The follow-partition route remains an
 explicit construction choice until a real conflict-bearing language corpus
 justifies switching a scene from LALR.

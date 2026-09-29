@@ -9,3 +9,7 @@ test-lexical-mode:
 # Full qualification after the focused algorithm loop.
 test-all:
     GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/... languages/...
+
+# Reports each complete language batch sample without a shell timing wrapper.
+benchmark-versioned-matched label="current" samples="20":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/versioned-languages/matched-batch.ss {{label}} {{samples}}

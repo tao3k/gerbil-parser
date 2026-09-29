@@ -357,7 +357,11 @@
          (merge-count 0)
          (successful-completions 0)
          (completion-identities '())
-         (configuration-interner (make-value-interner))
+         ;; Every remaining stream is a shared tail of this request's input.
+         ;; Partition by its identity so structural hashing only visits the
+         ;; parser stacks and score, never the same long token suffix again.
+         (configuration-interners (make-table test: eq?))
+         (configuration-interner-list '())
          (completion-interner (make-value-interner))
          (fragment-interner (make-value-interner))
          (configuration-results (make-table test: eq?))
@@ -368,11 +372,21 @@
          (budget-exhausted? #f)
          (best-failure #f))
     (def (intern-configuration states semantic-values rest score)
-      (value-interner-intern
-       configuration-interner
-       (list states semantic-values rest score)
-       (lambda ()
-         (make-glr-configuration states semantic-values rest score))))
+      (let (interner (table-ref configuration-interners rest #f))
+        (unless interner
+          (set! interner (make-value-interner))
+          (table-set! configuration-interners rest interner)
+          (set! configuration-interner-list
+                (cons interner configuration-interner-list)))
+        (value-interner-intern
+         interner
+         (list states semantic-values score)
+         (lambda ()
+           (make-glr-configuration states semantic-values rest score)))))
+    (def (configuration-interner-total counter)
+      (fold (lambda (interner total)
+              (+ total (counter interner)))
+            0 configuration-interner-list))
     (def (intern-fragment start end children)
       (value-interner-intern
        fragment-interner
@@ -645,9 +659,9 @@
               (- successful-completions (length completion-identities)))
         (cons 'distinctCompletions (length completion-identities))
         (cons 'internedConfigurations
-              (value-interner-created-count configuration-interner))
+              (configuration-interner-total value-interner-created-count))
         (cons 'configurationInternHits
-              (value-interner-hit-count configuration-interner))
+              (configuration-interner-total value-interner-hit-count))
         (cons 'configurationMemoHits configuration-memo-hits)
         (cons 'internedCompletionIdentities
               (value-interner-created-count completion-interner))

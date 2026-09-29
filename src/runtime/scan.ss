@@ -268,9 +268,9 @@
 (def scan-identifier
   (cut scan-nonempty-while identifier-start? identifier-rest? <> <>))
 
-;;; The five closed run expressions share one subset DFA. Each bit denotes a
-;;; still-live expression; every live state accepts, so the last nonzero state
-;;; is the longest regular match. Mode-specific winners are compiled once.
+;;; Closed run expressions share one subset DFA. The number rule has pending
+;;; fraction/exponent states; the last accepting state is the maximal match.
+;;; Mode-specific winners are compiled once.
 (def (regular-kind-bit kind)
   (case kind
     ((whitespace+) 1)
@@ -278,6 +278,7 @@
     ((newline+) 4)
     ((decimal-digit+) 8)
     ((identifier) 16)
+    ((number) 32)
     (else (error "unsupported regular lexical expression" kind))))
 
 (def (regular-character-mask ch first?)
@@ -286,7 +287,8 @@
    (if (horizontal-whitespace? ch) 2 0)
    (if (newline? ch) 4 0)
    (if (char-numeric? ch) 8 0)
-   (if (if first? (identifier-start? ch) (identifier-rest? ch)) 16 0)))
+   (if (if first? (identifier-start? ch) (identifier-rest? ch)) 16 0)
+   (if (and first? (char-numeric? ch)) 32 0)))
 
 (def regular-ascii-first
   (vector-map/index
@@ -302,6 +304,35 @@
     (if (< code 128)
       (vector-ref (if first? regular-ascii-first regular-ascii-rest) code)
       (regular-character-mask ch first?))))
+
+;; Number states: whole=32, dot=64, fraction=128, exponent=256,
+;; sign=512, exponent-digits=1024. Only whole/fraction/exponent-digits accept.
+(def (regular-accept-mask active)
+  (bitwise-ior
+   (bitwise-and active 31)
+   (if (zero? (bitwise-and active 1184)) 0 32)))
+
+(def (regular-number-transition active ch numeric?)
+  (cond
+   (numeric?
+    (bitwise-ior
+     (if (zero? (bitwise-and active 32)) 0 32)
+     (if (zero? (bitwise-and active 192)) 0 128)
+     (if (zero? (bitwise-and active 1792)) 0 1024)))
+   ((char=? ch #\.)
+    (if (zero? (bitwise-and active 32)) 0 64))
+   ((or (char=? ch #\e) (char=? ch #\E))
+    (if (zero? (bitwise-and active 160)) 0 256))
+   ((or (char=? ch #\+) (char=? ch #\-))
+    (if (zero? (bitwise-and active 256)) 0 512))
+   (else 0)))
+
+(def (regular-transition active ch)
+  (let (mask (regular-mask ch #f))
+    (bitwise-ior
+     (bitwise-and active mask)
+     (regular-number-transition
+      active ch (not (zero? (bitwise-and mask 8)))))))
 
 ;;; entries: (expression-kind token-name precedence declaration-index).
 ;;; A lexical mode admits whole rules before building this scanner.
@@ -324,25 +355,51 @@
                                  (< (caddr candidate) (caddr best))))
                       candidate best))))
               #f entries))
-           (make-vector 32))))
-    (lambda (source start)
-      (let* ((length (string-length source))
-             (initial
-              (and (< start length)
-                   (bitwise-and available
-                                (regular-mask (string-ref source start) #t)))))
-        (and initial
-             (not (zero? initial))
-             (let loop ((offset (+ start 1)) (active initial))
-               (let (next
-                     (if (< offset length)
-                       (bitwise-and active
-                                    (regular-mask (string-ref source offset) #f))
-                       0))
-                 (if (zero? next)
-                   (let (winner (vector-ref winners active))
-                     (list (car winner) offset (cadr winner) (caddr winner)))
-                   (loop (+ offset 1) next)))))))))
+           (make-vector (if (zero? (bitwise-and available 32)) 32 64)))))
+    (if (zero? (bitwise-and available 32))
+      (lambda (source start)
+        (let* ((length (string-length source))
+               (initial
+                (and (< start length)
+                     (bitwise-and available
+                                  (regular-mask (string-ref source start) #t)))))
+          (and initial
+               (not (zero? initial))
+               (let loop ((offset (+ start 1)) (active initial))
+                 (let (next
+                       (if (< offset length)
+                         (bitwise-and active
+                                      (regular-mask (string-ref source offset) #f))
+                         0))
+                   (if (zero? next)
+                     (let (winner (vector-ref winners active))
+                       (list (car winner) offset
+                             (cadr winner) (caddr winner)))
+                     (loop (+ offset 1) next)))))))
+      (lambda (source start)
+        (let* ((length (string-length source))
+               (initial
+                (and (< start length)
+                     (bitwise-and available
+                                  (regular-mask (string-ref source start) #t)))))
+          (and initial
+               (not (zero? initial))
+               (let loop ((offset (+ start 1)) (active initial)
+                          (accepted initial) (accepted-end (+ start 1)))
+                 (let* ((next
+                         (if (< offset length)
+                           (regular-transition active (string-ref source offset))
+                           0))
+                        (accept (regular-accept-mask next)))
+                   (cond
+                    ((zero? next)
+                     (let (winner (vector-ref winners accepted))
+                       (list (car winner) accepted-end
+                             (cadr winner) (caddr winner))))
+                    ((zero? accept)
+                     (loop (+ offset 1) next accepted accepted-end))
+                    (else
+                     (loop (+ offset 1) next accept (+ offset 1))))))))))))
 
 ;; scan-quoted-string
 ;;   : (-> String Fixnum String Fixnum)

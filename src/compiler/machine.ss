@@ -178,15 +178,16 @@
    (lexical-static-literals expression))
   ((_ _expression) #f))
 
-;; Only the closed run primitives with one accepting state join the shared
-;; mode DFA. Other expressions keep their established scanner semantics.
+;; Closed run primitives join the shared mode DFA. The number rule adds
+;; non-accepting fraction/exponent states; other expressions retain scanners.
 (defrules lexical-regular-kind
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+
-   identifier precedence)
+   number identifier precedence)
   ((_ (whitespace+)) 'whitespace+)
   ((_ (horizontal-whitespace+)) 'horizontal-whitespace+)
   ((_ (newline+)) 'newline+)
   ((_ (decimal-digit+)) 'decimal-digit+)
+  ((_ (number)) 'number)
   ((_ (identifier)) 'identifier)
   ((_ (precedence _rank expression))
    (lexical-regular-kind expression))

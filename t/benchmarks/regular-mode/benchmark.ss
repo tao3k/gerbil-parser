@@ -6,7 +6,7 @@
         (only-in :gerbil-parser/src/runtime/scan
                  make-ranked-regular-scanner
                  scan-whitespace scan-horizontal-whitespace scan-newline
-                 scan-decimal-digits scan-identifier))
+                 scan-decimal-digits scan-identifier scan-number-literal))
 
 (def entries
   (list
@@ -20,7 +20,8 @@
    (list scan-decimal-digits char-numeric? 'digits 1 3)
    (list scan-identifier
          (lambda (ch) (or (char-alphabetic? ch) (char=? ch #\_)))
-         'name 0 4)))
+         'name 0 4)
+   (list scan-number-literal char-numeric? 'number 0 5)))
 
 (def ascii-candidates
   (vector-map/index
@@ -35,7 +36,8 @@
      (horizontal-whitespace+ horizontal 3 1)
      (newline+ newline 2 2)
      (decimal-digit+ digits 1 3)
-     (identifier name 0 4))))
+     (identifier name 0 4)
+     (number number 0 5))))
 
 (def (old-mode-scan source offset)
   (let* ((ch (string-ref source offset))
@@ -82,6 +84,7 @@
          (error "regular scanners disagree" source))
        (measure 'old-mode old-mode-scan source repetitions)
        (measure 'combined combined source repetitions))
-     '("alpha-123+" "1234567890+" " \t \t\n" "αβ-٣+"))))
+     '("alpha-123+" "1234567890+" "12.34e+5;"
+       "12e+;" " \t \t\n" "αβ-٣+"))))
 
 (export main)

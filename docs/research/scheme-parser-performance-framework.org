@@ -70,10 +70,10 @@ The audited base is PR #13 at =a4e6ed5601d60852df5cdc6f83ea2bd079cef473=.
 |-
 | langcc direct LR(1) construction | Experimental k=1 LR(0)-derived backward/forward follow partition and canonical reference; candidate conflicts are conservative, and ordinary generated languages still default to LALR. The explicit =lalr-then-follow= choice falls back only when LALR has an unresolved reject-policy cell. | Exact paper candidate construction, larger conflict-bearing language corpus, generation memory/time and complete ParseArtifact throughput comparison. CPS grammar transformation, per-symbol attributes, recursive-descent actions, and XLR are not implemented here. |
 | Canonical remerge / IELR / APLR | Canonical LR(1) and a conflict-preserving quotient are experimental comparison routes. | Neither Bison IELR nor Hocc APLR adequacy-preserving subgraph remerge is implemented; do not label the quotient as either algorithm. |
-| re2c / Tree-sitter contextual lexing | Production Scheme lexer has interned LR mode admission, a shared literal trie, and per-mode ASCII first-character scanner dispatch. Complex and external expressions use the existing scanner. | A multi-state DFA for the closed regular LexicalExpr subset, with exact longest-match, precedence, Unicode and mode-boundary differential receipts. |
+| re2c / Tree-sitter contextual lexing | Production Scheme lexer has interned LR mode admission, a shared literal trie, and a mode-local subset DFA for five closed run forms (=whitespace+=, =horizontal-whitespace+=, =newline+=, =decimal-digit+=, =identifier=). Remaining expressions retain per-mode ASCII first-character dispatch and their existing scanners. | Extend the DFA only where closed expression semantics admit it; compare complete grammar fixtures and batch throughput, especially Unicode and mode-boundary cases. |
 | Wagner / Tree-sitter incremental tree reuse | Production Scheme sessions retain sparse LR prefixes and mode-certified tokens; same-action local token/event windows can preserve event topology, including changing trivia counts. | General reusable-subtree records with entering LR state, lexical context, lookahead/fragility bounds, and grammar identity; significant-token insertions/deletions still replay the LR suffix. |
 | Deterministic LR with selective GLR | Production Scheme runtime runs deterministic actions and branches at declared conflicts; ordinary LALR and selective-GLR tests run under v0.19. | No RNGLR or XLR implementation or matched production-grammar comparison; keep generalized work on conflict scenes. |
-| Scheme to Rust/Rowan | Scheme Parser IR generates the downstream Rust/Rowan tables and conformance fixtures. | The experimental follow-partition route, future lexical DFA, and future subtree certificates have not been admitted as a unified generated contract. |
+| Scheme to Rust/Rowan | Scheme Parser IR generates the downstream Rust/Rowan tables and conformance fixtures. | The experimental follow-partition route, new Scheme lexical DFA, and future subtree certificates have not been admitted as a unified generated contract. |
 
 The focused direct-route test now also compares LALR and follow-partition LR
 roots for all 12 accepted embedded HCL v2.24 specsuite fixtures. Both tables
@@ -84,10 +84,19 @@ while the 16-region family checks scale (211 states on both routes). A local
 20-run benchmark completed, but short batches had large warmup/GC variance;
 state counts and products are firmer evidence than its throughput ratios.
 
-The next coherent implementation boundary is the closed regular lexer DFA in
-Scheme, with the existing parser-directed modes and scanner fallback as its
-contract. Once batch receipts show a material improvement, add subtree
-certificates and edit-local LR actions. The follow-partition route remains an
+The first closed-run lexer DFA slice is now in Scheme. It preserves the
+existing parser-directed modes and scanner fallback; =t/ranked-regular-scanner-test.ss=
+compares every offset of mixed ASCII/Unicode sources with the old individual
+scanners; =t/grammar-composition-test.ss= also checks that LR modes distinguish
+two regular rules with the same spelling. The pure Scheme
+=t/benchmarks/regular-mode/benchmark.ss= compares the old ASCII-prefiltered
+mode scan against the combined scanner: a 100,000-call sample improved all
+four selected sources, while a shorter 20,000-call Unicode sample reversed
+direction. These local microbenchmarks do not establish stable Unicode or
+whole-parser throughput gains. The next admission gate
+is batch ParseArtifact and generated Rust/Rowan equivalence on language packs;
+after that, add subtree certificates and edit-local LR actions where edits
+justify them. The follow-partition route remains an
 explicit construction choice until a real conflict-bearing language corpus
 justifies switching a scene from LALR.
 

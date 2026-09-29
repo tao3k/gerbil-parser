@@ -51,6 +51,25 @@
   (conflicts reject)
   (case-insensitive #f))
 
+;;; The mode-local regular DFA must admit whole rules by LR state. Both
+;;; identifiers have equal source behavior but distinct token identities.
+(deflanguage directed-regular-mode
+  (identity "directed-regular-mode" "v1" "directed-regular-mode.v1")
+  (root source-file)
+  (lex
+   (first FirstToken (identifier))
+   (second SecondToken (identifier))
+   (space Space (whitespace+)))
+  (rules
+   (source-file
+    (node SourceFile
+      (seq (field first first) (field second second)))))
+  (extras space)
+  (keywords)
+  (recoveries)
+  (conflicts reject)
+  (case-insensitive #f))
+
 (defgrammar-role base-lexical-role
   (syntax-kinds
    (Punctuation token (text)))
@@ -316,6 +335,12 @@
         (check (map token-kind global-tokens) => '(first first))
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => "xx")))
+    (test-case "mode-local regular DFA keeps LR token identities"
+      (let ((global-tokens (lex-source directed-regular-mode-parser "x x"))
+            (artifact (parse-source directed-regular-mode-parser "x x")))
+        (check (map token-kind global-tokens) => '(first space first))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => "x x")))
     (test-case "incremental reuse honors LR lexical modes on identical spellings"
       (let* ((source (make-string 96 #\x))
              (source-edit (make-edit 48 1 "y"))

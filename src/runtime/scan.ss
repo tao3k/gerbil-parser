@@ -2,6 +2,7 @@
 ;;; Language-neutral scanner primitives used by generated lexers.
 
 (import (only-in :std/func any-of)
+        (only-in :std/vector/vector vector-map/index)
         (only-in ./token make-token))
 
 (export scan-whitespace
@@ -22,6 +23,7 @@
         scan-nested-block-comment
         make-literal-end-scanner
         make-ranked-literal-scanner
+        make-ranked-regular-scanner
         scan-longest-literal
         scan-emit)
 
@@ -265,6 +267,82 @@
 ;; : (-> String Fixnum Fixnum)
 (def scan-identifier
   (cut scan-nonempty-while identifier-start? identifier-rest? <> <>))
+
+;;; The five closed run expressions share one subset DFA. Each bit denotes a
+;;; still-live expression; every live state accepts, so the last nonzero state
+;;; is the longest regular match. Mode-specific winners are compiled once.
+(def (regular-kind-bit kind)
+  (case kind
+    ((whitespace+) 1)
+    ((horizontal-whitespace+) 2)
+    ((newline+) 4)
+    ((decimal-digit+) 8)
+    ((identifier) 16)
+    (else (error "unsupported regular lexical expression" kind))))
+
+(def (regular-character-mask ch first?)
+  (bitwise-ior
+   (if (char-whitespace? ch) 1 0)
+   (if (horizontal-whitespace? ch) 2 0)
+   (if (newline? ch) 4 0)
+   (if (char-numeric? ch) 8 0)
+   (if (if first? (identifier-start? ch) (identifier-rest? ch)) 16 0)))
+
+(def regular-ascii-first
+  (vector-map/index
+   (lambda (index _) (regular-character-mask (integer->char index) #t))
+   (make-vector 128)))
+(def regular-ascii-rest
+  (vector-map/index
+   (lambda (index _) (regular-character-mask (integer->char index) #f))
+   (make-vector 128)))
+
+(def (regular-mask ch first?)
+  (let (code (char->integer ch))
+    (if (< code 128)
+      (vector-ref (if first? regular-ascii-first regular-ascii-rest) code)
+      (regular-character-mask ch first?))))
+
+;;; entries: (expression-kind token-name precedence declaration-index).
+;;; A lexical mode admits whole rules before building this scanner.
+(def (make-ranked-regular-scanner entries)
+  (let* ((available
+          (fold (lambda (entry mask)
+                  (bitwise-ior mask (regular-kind-bit (car entry))))
+                0 entries))
+         (winners
+          (vector-map/index
+           (lambda (mask _)
+             (fold
+              (lambda (entry best)
+                (if (zero? (bitwise-and mask (regular-kind-bit (car entry))))
+                  best
+                  (let (candidate (cdr entry))
+                    (if (or (not best)
+                            (> (cadr candidate) (cadr best))
+                            (and (= (cadr candidate) (cadr best))
+                                 (< (caddr candidate) (caddr best))))
+                      candidate best))))
+              #f entries))
+           (make-vector 32))))
+    (lambda (source start)
+      (let* ((length (string-length source))
+             (initial
+              (and (< start length)
+                   (bitwise-and available
+                                (regular-mask (string-ref source start) #t)))))
+        (and initial
+             (not (zero? initial))
+             (let loop ((offset (+ start 1)) (active initial))
+               (let (next
+                     (if (< offset length)
+                       (bitwise-and active
+                                    (regular-mask (string-ref source offset) #f))
+                       0))
+                 (if (zero? next)
+                   (let (winner (vector-ref winners active))
+                     (list (car winner) offset (cadr winner) (caddr winner)))
+                   (loop (+ offset 1) next)))))))))
 
 ;; scan-quoted-string
 ;;   : (-> String Fixnum String Fixnum)

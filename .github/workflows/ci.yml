@@ -167,7 +167,7 @@ jobs:
 
       - name: Run native Gerbil tests
         timeout-minutes: 15
-        run: gerbil test -v 3 t/... languages/...
+        run: gerbil env gxi -:max-heap=1G,debug=q :gerbil/tools/gxtest -v 3 t/... languages/...
 
       - name: Verify Rust/Rowan AOT generation is current
         run: |

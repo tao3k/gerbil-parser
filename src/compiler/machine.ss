@@ -11,6 +11,7 @@
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
                  scan-until-delimiters
                  make-literal-end-scanner make-ranked-literal-scanner
+                 make-ranked-regular-scanner
                  scan-longest-literal
                  scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
@@ -177,6 +178,20 @@
    (lexical-static-literals expression))
   ((_ _expression) #f))
 
+;; Only the closed run primitives with one accepting state join the shared
+;; mode DFA. Other expressions keep their established scanner semantics.
+(defrules lexical-regular-kind
+  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+
+   identifier precedence)
+  ((_ (whitespace+)) 'whitespace+)
+  ((_ (horizontal-whitespace+)) 'horizontal-whitespace+)
+  ((_ (newline+)) 'newline+)
+  ((_ (decimal-digit+)) 'decimal-digit+)
+  ((_ (identifier)) 'identifier)
+  ((_ (precedence _rank expression))
+   (lexical-regular-kind expression))
+  ((_ _expression) #f))
+
 ;;; The first transition of the closed regular scanners can be decided once
 ;;; for each ASCII character and LR lexical mode. Unknown/nonregular forms
 ;;; remain candidates, so this filter cannot change maximal-munch decisions.
@@ -290,7 +305,9 @@
   ()
   ((_ (name expression) extras case-insensitive?)
    (let* ((literals (lexical-static-literals expression))
-          (scanner (and (not literals) (lexical-scanner expression))))
+          (regular-kind (lexical-regular-kind expression))
+          (scanner (and (not literals) (not regular-kind)
+                        (lexical-scanner expression))))
      (vector
       (lambda (terminals)
         (lexical-rule-admitted?
@@ -302,7 +319,8 @@
       literals
       'name
       (lexical-expression-rank expression)
-      (lambda (ch) (lexical-first-character? ch expression))))))
+      (lambda (ch) (lexical-first-character? ch expression))
+      regular-kind))))
 
 ;;; Returns name, end offset, and precedence for generated-lexer. Longest
 ;;; consumption wins globally; lexical precedence breaks equal-length ties.
@@ -386,7 +404,8 @@
                        (cons
                         (vector (vector-ref rule 0) ranked-scanner
                                 (vector-ref rule 2) (vector-ref rule 3)
-                                (vector-ref rule 4) (vector-ref rule 5))
+                                (vector-ref rule 4) (vector-ref rule 5)
+                                (vector-ref rule 6))
                         found))))))
           (literal-entries
            (let loop ((remaining rules) (ordinal 0) (entries '()))
@@ -411,53 +430,71 @@
            (lambda (terminals)
              (let ((admitted-literals (make-vector (length rules) #f)))
                (let loop ((remaining rules) (ordinal 0)
-                          (has-literals? #f) (scanners '()))
-               (if (null? remaining)
-                 (let (ascii-scanners
-                       (vector-map/index
-                        (lambda (index _)
-                          (filter
-                           (lambda (entry)
-                             ((cdr entry) (integer->char index)))
-                           scanners))
-                        (make-vector 128)))
-                 (lambda (source offset)
-                   (let* ((ch (string-ref source offset))
-                          (candidates
-                           (if (< (char->integer ch) 128)
-                             (vector-ref ascii-scanners (char->integer ch))
-                             scanners))
-                          (selected
-                           (fold
-                            (lambda (entry selected)
-                              (prefer-generated-match
-                               selected ((car entry) source offset)))
-                            #f candidates)))
-                     (if (and literal-scanner has-literals?)
-                       (prefer-generated-match
-                        selected
-                        (literal-scanner source offset admitted-literals))
-                       selected))))
-                 (let* ((rule (car remaining))
-                        (admitted? ((vector-ref rule 0) terminals))
-                        (literals (and admitted? (vector-ref rule 2))))
-                   (cond
-                    ((pair? literals)
-                     (vector-set! admitted-literals ordinal #t)
-                     (loop
-                      (cdr remaining) (+ ordinal 1) #t scanners))
-                    (literals
-                     (loop (cdr remaining) (+ ordinal 1)
-                           has-literals? scanners))
-                    (admitted?
-                     (loop
-                      (cdr remaining) (+ ordinal 1) has-literals?
-                      (cons (cons (vector-ref rule 1)
-                                  (vector-ref rule 5))
-                            scanners)))
-                    (else
-                     (loop (cdr remaining) (+ ordinal 1)
-                           has-literals? scanners)))))))))
+                          (has-literals? #f) (scanners '())
+                          (regular-entries '()))
+                 (if (null? remaining)
+                   (let* ((regular-scanner
+                           (and (pair? regular-entries)
+                                (make-ranked-regular-scanner regular-entries)))
+                          (ascii-scanners
+                           (vector-map/index
+                            (lambda (index _)
+                              (filter
+                               (lambda (entry)
+                                 ((cdr entry) (integer->char index)))
+                               scanners))
+                            (make-vector 128))))
+                     (lambda (source offset)
+                       (let* ((ch (string-ref source offset))
+                              (candidates
+                               (if (< (char->integer ch) 128)
+                                 (vector-ref ascii-scanners (char->integer ch))
+                                 scanners))
+                              (selected
+                               (fold
+                                (lambda (entry selected)
+                                  (prefer-generated-match
+                                   selected ((car entry) source offset)))
+                                #f candidates)))
+                         (let (selected
+                               (if regular-scanner
+                                 (prefer-generated-match
+                                  selected (regular-scanner source offset))
+                                 selected))
+                           (if (and literal-scanner has-literals?)
+                             (prefer-generated-match
+                              selected
+                              (literal-scanner source offset admitted-literals))
+                             selected)))))
+                   (let* ((rule (car remaining))
+                          (admitted? ((vector-ref rule 0) terminals))
+                          (literals (and admitted? (vector-ref rule 2)))
+                          (regular-kind (and admitted? (vector-ref rule 6))))
+                     (cond
+                      ((pair? literals)
+                       (vector-set! admitted-literals ordinal #t)
+                       (loop
+                        (cdr remaining) (+ ordinal 1) #t scanners
+                        regular-entries))
+                      (literals
+                       (loop (cdr remaining) (+ ordinal 1)
+                             has-literals? scanners regular-entries))
+                      (regular-kind
+                       (loop (cdr remaining) (+ ordinal 1)
+                             has-literals? scanners
+                             (cons (list regular-kind (vector-ref rule 3)
+                                         (vector-ref rule 4) ordinal)
+                                   regular-entries)))
+                      (admitted?
+                       (loop
+                        (cdr remaining) (+ ordinal 1) has-literals?
+                        (cons (cons (vector-ref rule 1)
+                                    (vector-ref rule 5))
+                              scanners)
+                        regular-entries))
+                      (else
+                       (loop (cdr remaining) (+ ordinal 1)
+                             has-literals? scanners regular-entries)))))))))
           (all-scanners (prepare-scanners #f))
           (mode-scanners
            (vector-map/index

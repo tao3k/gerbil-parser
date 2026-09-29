@@ -1,10 +1,13 @@
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
+use asp_rust_build_support::{
+    AspRustScenario, AspRustScenarioMeasurement, AspRustScenarioObservation,
+    measure_asp_rust_scenario, render_asp_rust_scenario_benchmark_toml,
+};
 use gerbil_parser_build_support::{
-    AspRustScenario, AspRustScenarioObservation, ROWAN_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID,
-    ROWAN_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID, measure_asp_rust_scenario,
-    render_asp_rust_scenario_benchmark_toml, rowan_engine_scenario_package,
+    ROWAN_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID, ROWAN_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID,
+    rowan_engine_scenario_package,
 };
 use gerbil_parser_rowan_arithmetic as arithmetic_v1;
 
@@ -91,7 +94,7 @@ fn rowan_engine_event_tree_hot_path_v1() {
 }
 
 fn scenario(name: &str) -> AspRustScenario {
-    rowan_engine_scenario_package()
+    rowan_engine_scenario_package!()
         .scenarios
         .into_iter()
         .find(|scenario| scenario.name == name)
@@ -100,7 +103,7 @@ fn scenario(name: &str) -> AspRustScenario {
 
 fn assert_red_zone(
     scenario: &AspRustScenario,
-    measurement: &gerbil_parser_build_support::AspRustScenarioMeasurement,
+    measurement: &AspRustScenarioMeasurement,
     max_total: Duration,
 ) {
     let receipt = render_asp_rust_scenario_benchmark_toml(scenario, measurement)

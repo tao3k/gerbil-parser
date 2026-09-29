@@ -20,7 +20,7 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 [[package]]
 name = "asp-rust"
 version = "0.1.2"
-source = "git+https://github.com/tao3k/asp-rust?rev=2419414ee5379bad89506496e3eaab928df68daf#2419414ee5379bad89506496e3eaab928df68daf"
+source = "git+https://github.com/tao3k/asp-rust?rev=9b95fd6744a89f3f38e87f9bda33ea762f1f65e1#9b95fd6744a89f3f38e87f9bda33ea762f1f65e1"
 dependencies = [
  "asp-rust-build-support",
  "blake3",
@@ -41,7 +41,7 @@ dependencies = [
 [[package]]
 name = "asp-rust-build-support"
 version = "0.1.0"
-source = "git+https://github.com/tao3k/asp-rust?rev=2419414ee5379bad89506496e3eaab928df68daf#2419414ee5379bad89506496e3eaab928df68daf"
+source = "git+https://github.com/tao3k/asp-rust?rev=9b95fd6744a89f3f38e87f9bda33ea762f1f65e1#9b95fd6744a89f3f38e87f9bda33ea762f1f65e1"
 dependencies = [
  "blake3",
 ]
@@ -218,6 +218,8 @@ version = "0.1.0"
 dependencies = [
  "asp-rust",
  "asp-rust-build-support",
+ "gerbil-parser-rowan",
+ "gerbil-parser-rowan-arithmetic",
  "gerbil-scheme-rust-ir",
 ]
 
@@ -248,7 +250,7 @@ dependencies = [
 [[package]]
 name = "gerbil-scheme-rust-ir"
 version = "0.1.0"
-source = "git+https://github.com/tao3k/gerbil-scheme-rust?rev=94cf5d0940c843ee7c193cff80bc869ab6a5ce3d#94cf5d0940c843ee7c193cff80bc869ab6a5ce3d"
+source = "git+https://github.com/tao3k/gerbil-scheme-rust?rev=4d8684baf99bc48b6db47a3060997540e11d6cd5#4d8684baf99bc48b6db47a3060997540e11d6cd5"
 dependencies = [
  "prettyplease",
  "proc-macro2",

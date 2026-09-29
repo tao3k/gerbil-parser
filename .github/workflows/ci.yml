@@ -41,7 +41,7 @@ jobs:
         run: cargo package -p gerbil-parser-rowan --locked --allow-dirty
 
       - name: Verify generated-table Rowan engine red zones
-        run: cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- --ignored --nocapture --test-threads=1
+        run: cargo test --release -p gerbil-parser-build-support --test performance_test -- --ignored --nocapture --test-threads=1
 
   native-gerbil:
     name: Native Gerbil parser and language packs (${{ matrix.os }})

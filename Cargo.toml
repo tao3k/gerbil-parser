@@ -15,10 +15,10 @@ repository = "https://github.com/tao3k/gerbil-parser"
 rust-version = "1.95"
 
 [workspace.dependencies]
-asp-rust = { git = "https://github.com/tao3k/asp-rust", rev = "2419414ee5379bad89506496e3eaab928df68daf", version = "0.1.2", default-features = false }
-asp-rust-build-support = { git = "https://github.com/tao3k/asp-rust", rev = "2419414ee5379bad89506496e3eaab928df68daf", version = "0.1.0" }
+asp-rust = { git = "https://github.com/tao3k/asp-rust", rev = "9b95fd6744a89f3f38e87f9bda33ea762f1f65e1", version = "0.1.2", default-features = false }
+asp-rust-build-support = { git = "https://github.com/tao3k/asp-rust", rev = "9b95fd6744a89f3f38e87f9bda33ea762f1f65e1", version = "0.1.0" }
 gerbil-parser-build-support = { path = "build-support/gerbil-parser-build-support", version = "0.1.0" }
-gerbil-scheme-rust-ir = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "94cf5d0940c843ee7c193cff80bc869ab6a5ce3d", version = "0.1.0" }
+gerbil-scheme-rust-ir = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "4d8684baf99bc48b6db47a3060997540e11d6cd5", version = "0.1.0" }
 gerbil-parser-rowan = { path = "rust/gerbil-parser-rowan", version = "0.1.0" }
 gerbil-parser-rowan-arithmetic = { path = "rust/gerbil-parser-rowan-arithmetic", version = "0.1.0" }
 rowan = "0.16.1"

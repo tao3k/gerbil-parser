@@ -125,20 +125,22 @@ gerbil env gxi generate-rust-rowan.ss \
   rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
 cargo fmt --all
 cargo test --workspace --locked
-cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- \
+cargo test --release -p gerbil-parser-build-support --test performance_test -- \
   --ignored --nocapture --test-threads=1
 #+end_src
 
-The workspace =Build Support= crate owns the ASP Rust policy and its
-=tests/asp-rust-gate.rs= activation once. Product crates do not depend on Build
-Support; =cargo test -p gerbil-parser-build-support --test asp-rust-gate=
-activates the =Dev Gate= only in the development workspace.
+The workspace =Build Support= crate owns shared policy and Scenario macros.
+Its ASP Rust packages are =dev-dependencies=, and the ASP-backed policy and
+performance targets live in that crate's =tests/= directory. Other packages
+depend only on Build Support for dependency-free test helpers.
+=cargo test -p gerbil-parser-build-support --test asp-rust-gate= activates the
+=Dev Gate= once in the development workspace.
 The gate runs in =deny= mode, so every ASP Rust warning or error is
 test-blocking. CI runs that target separately with =--nocapture= so policy
 diagnostics remain visible instead of being hidden by libtest output capture.
 Immutable language-crate tables are compiler output verified against Grammar IR
 in native CI; policy governs their generator and handwritten runtime owners.
-Normal and build dependency graphs do not contain Build Support or ASP Rust.
+Normal and build dependency graphs do not contain ASP Rust.
 
 * Native command
 

@@ -94,10 +94,11 @@ impl GraphIndex {
             return Err(GraphIndexError::InvalidRecord);
         }
         let mut nearest = Vec::with_capacity(records.len());
+        let mut matches = Vec::with_capacity(records.len());
         for record in records {
             let ancestor = match record.parent_id {
                 Some(parent) if parent < nearest.len() => {
-                    if predicate(&records[parent]) {
+                    if matches[parent] {
                         Some(parent)
                     } else {
                         nearest[parent]
@@ -107,6 +108,7 @@ impl GraphIndex {
                 None => None,
             };
             nearest.push(ancestor);
+            matches.push(predicate(record));
         }
         Ok(nearest)
     }

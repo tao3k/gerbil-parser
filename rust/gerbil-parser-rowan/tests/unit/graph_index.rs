@@ -154,7 +154,7 @@ fn nearest_matching_ancestor_is_strict_and_linear_in_depth() {
         nearest,
         vec![None, None, Some(1), Some(2), Some(1), None, Some(5)]
     );
-    assert!(calls <= records.len());
+    assert_eq!(calls, records.len());
     assert_eq!(
         index.nearest_ancestors_matching(&records[..1], |_| true),
         Err(GraphIndexError::InvalidRecord)

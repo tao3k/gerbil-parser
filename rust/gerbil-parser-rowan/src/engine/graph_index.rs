@@ -76,6 +76,41 @@ impl GraphIndex {
             .is_some_and(|end| ancestor <= node && node < end)
     }
 
+    /// Find the nearest matching *strict* ancestor of every preorder record.
+    /// Each predicate result is computed once; the projection is linear in the
+    /// graph size, regardless of nesting depth.
+    ///
+    /// # Errors
+    /// Rejects records that do not belong to an index of this size.
+    pub fn nearest_ancestors_matching<F>(
+        &self,
+        records: &[GraphRecord],
+        mut predicate: F,
+    ) -> Result<Vec<Option<usize>>, GraphIndexError>
+    where
+        F: FnMut(&GraphRecord) -> bool,
+    {
+        if records.len() != self.subtree_end.len() {
+            return Err(GraphIndexError::InvalidRecord);
+        }
+        let mut nearest = Vec::with_capacity(records.len());
+        for record in records {
+            let ancestor = match record.parent_id {
+                Some(parent) if parent < nearest.len() => {
+                    if predicate(&records[parent]) {
+                        Some(parent)
+                    } else {
+                        nearest[parent]
+                    }
+                }
+                Some(_) => return Err(GraphIndexError::InvalidRecord),
+                None => None,
+            };
+            nearest.push(ancestor);
+        }
+        Ok(nearest)
+    }
+
     /// Select graph records inside one scope using a language-owned predicate.
     ///
     /// # Errors

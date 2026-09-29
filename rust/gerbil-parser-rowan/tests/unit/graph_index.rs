@@ -138,3 +138,25 @@ fn many_targets_preserve_preorder_and_merge_nested_descendants() {
         Ok(vec![3, 4, 6])
     );
 }
+
+#[test]
+fn nearest_matching_ancestor_is_strict_and_linear_in_depth() {
+    let records = fixture();
+    let index = GraphIndex::new(&records).unwrap();
+    let mut calls = 0;
+    let nearest = index
+        .nearest_ancestors_matching(&records, |record| {
+            calls += 1;
+            record.kind == "section"
+        })
+        .unwrap();
+    assert_eq!(
+        nearest,
+        vec![None, None, Some(1), Some(2), Some(1), None, Some(5)]
+    );
+    assert!(calls <= records.len());
+    assert_eq!(
+        index.nearest_ancestors_matching(&records[..1], |_| true),
+        Err(GraphIndexError::InvalidRecord)
+    );
+}

@@ -40,6 +40,7 @@ These are source observations; measured costs appear below.
 | Lezer system guide, https://lezer.codemirror.net/docs/guide/ | Offline LR tables, declared GLR sites, contextual tokens, balanced repeat trees, fragment reuse, and error recovery. | Independent implementation showing the same family can be expressed with a small runtime. Its trees and editor recovery contract differ from ParseArtifact v1. |
 | Trofimovich, /RE2C: A lexer generator based on lookahead-TDFA/ (2020), https://doi.org/10.1016/j.simpa.2020.100027 ; implementation https://re2c.org/ | Compile regular lexical rules into deterministic automata ahead of time. | Strong model for a first Scheme-generated lexer experiment. External and nonregular scanners need an explicit fallback. |
 | Denny and Malloy, /The IELR(1) algorithm/ (2010), https://doi.org/10.1016/j.scico.2009.08.001 ; Bison manual https://www.gnu.org/software/bison/manual/bison.html | Avoid some LALR inadequacies without canonical LR table explosion. | Candidate when grammar acceptance or conflict counts show LALR is the binding constraint; not itself an edit-local performance framework. |
+| Horspool, /Even faster LR parsing/ (1990), https://doi.org/10.1002/spe.4380200602 | Compile LR table entries into directly executed parser code. | Candidate for Scheme AOT generation from the embedded Parser IR; integer-packing the existing interpreted table is not an implementation of this method. |
 
 The cited sources describe algorithms and implementation capabilities. None
 establishes that this repository will become faster merely by adopting a name
@@ -602,6 +603,20 @@ and a precomputed unit-pass reduction shortcut were both rebuilt and measured;
 neither established a consistent CPU improvement and both were reverted. The
 remaining runtime experiment should address the LR dispatch and semantic
 construction together rather than add another special case to either path.
+
+An integer-packed action index was then tested on the deterministic executor:
+positive integers encoded shifts, negative integers reductions, and zero
+acceptance, while GLR retained the original actions. Arithmetic, parser runtime,
+and canonical-LR tests passed. The 512-line CPU samples clustered around
+1.36--1.41 ms instead of the approximately 1.30 ms baseline, and 3,200-term
+samples did not improve. The extra index and decoder were reverted. This
+isolates the next AOT boundary: =deflanguage-grammar= already embeds Parser IR
+at expansion time, but =defgeneral-parser-machine= still calls =lr-prepare= at
+module initialization and the executor interprets action rows. A direct-code
+prototype must generate state/terminal dispatch from the embedded IR while
+keeping the original tables for GLR, diagnostics, and conformance. This remains
+an unimplemented experiment, with source and artifact equality as its first
+admission gate.
 
 The prepared action row now indexes ASCII single-character literals directly
 by character code. Multi-character and Unicode literals retain the existing

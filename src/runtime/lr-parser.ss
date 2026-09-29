@@ -28,6 +28,7 @@
                  token-end token-kind token-lexeme token-start))
 (export lr-parse
         lr-parse/receipt
+        lr-parse/prepared/receipt
         lr-prepare
         lr-parse/prepared
         lr-checkpoint?

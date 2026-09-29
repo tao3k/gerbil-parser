@@ -17,6 +17,7 @@
                  apply-edit make-edit parse-source/incremental
                  make-incremental-session incremental-session-artifact
                  parse-incremental-session)
+        (only-in :gerbil-parser/src/runtime/parser parse-source)
         (only-in :gerbil-parser/src/runtime/recovery parse-source/recover))
 
 (def (row-ref row key)
@@ -24,6 +25,19 @@
 
 (def recovery-incremental-tests
   (test-suite "recovery and incremental v1 sidecars"
+    (test-case "streamed fresh parse equals checkpointed source driver"
+      (for-each
+       (lambda (case)
+         (let ((machine (car case)) (source (cdr case)))
+           (check (parse-source machine source)
+                  => (incremental-session-artifact
+                      (make-incremental-session machine source)))))
+       (list
+        (cons arithmetic-parser "1 + 2 * (3 + 4)")
+        (cons arithmetic-parser "1 +")
+        (cons gql-iso-parser +gql-representative-query+)
+        (cons hl7v2-parser
+              "MSH|^~\\&|LEGACY|AU|FHIR|AU|202609170900||ADT^A08|1|P|2.5.1\r"))))
     (test-case "UTF-8 edits are byte-bound and reject split characters"
       (check (apply-edit "λx" (make-edit 0 2 "a")) => "ax")
       (check (apply-edit "aλ中😀z" (make-edit 3 7 "b")) => "aλbz")

@@ -11,7 +11,8 @@
                  make-success-parse-artifact parse-artifact-success?)
         (only-in ./lexer lex-source lex-source-from scan-source-token)
         (only-in ./lr-parser
-                 lr-checkpoint-deterministic-shifts lr-checkpoint-feed
+                 lr-checkpoint-deterministic-shifts lr-checkpoint-drive
+                 lr-checkpoint-feed
                  lr-checkpoint-lexical-mode lr-checkpoint-prefix-snapshot
                  lr-lexical-mode-id
                  lr-checkpoint-resume
@@ -98,6 +99,71 @@
    (lambda (_significant observability)
      (lr-checkpoint-resume checkpoint observability))
    observability))
+
+;;; A fresh parse keeps one LR execution loop open while the scanner supplies
+;;; tokens under the current LR mode. The ordinary checkpoint path below still
+;;; owns sparse incremental captures and observed phase boundaries.
+(def (parse-source/directed/stream machine grammar-digest source initial)
+  (let ((source-length (string-length source))
+        (trivia? (parser-machine-trivia machine))
+        (character-offset 0)
+        (byte-offset 0)
+        (pending-character #f)
+        (pending-byte #f)
+        (tokens-reversed '()))
+    (def (next-input mode)
+      (if (= character-offset source-length)
+        #f
+        (let-values
+            (((input-token next-character)
+              (scan-source-token
+               machine source character-offset byte-offset mode)))
+          (let ((start-character character-offset)
+                (start-byte byte-offset))
+            (set! character-offset next-character)
+            (set! byte-offset (token-end input-token))
+            (if (trivia? input-token)
+              (begin
+                (set! tokens-reversed
+                      (cons input-token tokens-reversed))
+                (next-input mode))
+              (begin
+                (set! pending-character start-character)
+                (set! pending-byte start-byte)
+                input-token))))))
+    (def (after-shift input-token _states _values _actions _shifts)
+      (set! tokens-reversed (cons input-token tokens-reversed))
+      (set! pending-character #f)
+      (set! pending-byte #f))
+    (def (publish tokens root rest)
+      (unless (null? rest)
+        (error "unexpected trailing token" (token-lexeme (car rest))))
+      (make-success-parse-artifact
+       grammar-digest source tokens root trivia?))
+    (let-values (((status payload)
+                  (lr-checkpoint-drive initial next-input after-shift)))
+      (case status
+        ((accepted)
+         (unless (and (= character-offset source-length)
+                      (not pending-character))
+           (error "streamed LR accepted before source end"
+                  character-offset source-length))
+         (publish (reverse tokens-reversed)
+                  (car payload) (cadr payload)))
+        ((fork)
+         (let* ((suffix
+                 (lex-source-from
+                  machine source
+                  (or pending-character character-offset)
+                  (or pending-byte byte-offset)))
+                (tokens (append (reverse tokens-reversed) suffix))
+                (significant (parser-significant-tokens machine tokens))
+                (remaining (parser-significant-tokens machine suffix)))
+           (let-values (((root rest)
+                         (lr-checkpoint-resume-suffix
+                          payload significant remaining)))
+             (publish tokens root rest))))
+        (else (error "streamed LR parse did not terminate" status))))))
 
 ;;; Deterministic source driver for the sole generated scanner and LR executor.
 ;;; Each state supplies its interned terminal mode. Trivia advances only the
@@ -242,11 +308,19 @@
                (failure-artifact
                 machine grammar-digest source tokens condition)))))))
      (lambda ()
-       (parse-source/directed
-        machine grammar-digest source observability capture
-        (or checkpoint
-            (lr-initial-checkpoint (parser-machine-runtime machine) '()))
-        prefix-tokens prefix-modes start-character start-byte reuse-token)))))
+       (let (initial
+             (or checkpoint
+                 (lr-initial-checkpoint (parser-machine-runtime machine) '())))
+         (if (and (not observability) (not capture)
+                  (not checkpoint) (null? prefix-tokens)
+                  (zero? start-character) (zero? start-byte)
+                  (not reuse-token))
+           (parse-source/directed/stream
+            machine grammar-digest source initial)
+           (parse-source/directed
+            machine grammar-digest source observability capture initial
+            prefix-tokens prefix-modes start-character start-byte
+            reuse-token)))))))
 
 (def (parse-source machine source (observability #f))
   (parse-source/with-capture machine source observability #f))

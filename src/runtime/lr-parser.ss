@@ -37,6 +37,7 @@
         lr-checkpoint-resume
         lr-checkpoint-frontier
         lr-checkpoint-feed
+        lr-checkpoint-drive
         lr-checkpoint-lexical-mode
         lr-checkpoint-prefix-snapshot
         lr-prefix-snapshot-rebind
@@ -635,7 +636,8 @@
 ;;        (Values Symbol Datum))
 (def (lr-run-checkpoint checkpoint action-budget observability
                         (stop-at-failure? #f) (shift-target #f)
-                        (stop-at-fork? #f) (feed-token #f))
+                        (stop-at-fork? #f) (feed-token #f)
+                        (next-input #f) (after-shift #f))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
@@ -680,6 +682,21 @@
           runtime tokens input-end-offset
           states semantic-values rest actions shifts))
         (let* ((state (car states))
+               (rest
+                (if (and next-input (null? rest))
+                  (let (input-token
+                        (next-input
+                         (vector-ref
+                          (lr-runtime-lexical-modes runtime) state)))
+                    (if input-token
+                      (begin
+                        (set! tokens (cons input-token tokens))
+                        (set! input-end-offset
+                              (max input-end-offset
+                                   (token-end input-token)))
+                        (list input-token))
+                      '()))
+                  rest))
                (action-row
                 (current-action-row
                  action-index state rest case-insensitive?)))
@@ -698,12 +715,19 @@
               (case (car action)
                 ((shift)
                  (if (pair? rest)
-                   (loop
-                    (cons (cadr action) states)
-                    (cons (list (make-recognition-child #f (car rest)))
-                          semantic-values)
-                    (cdr rest) (fx+ actions 1) (fx+ shifts 1)
-                    (and remaining-budget (fx- remaining-budget 1)))
+                   (let ((next-states (cons (cadr action) states))
+                         (next-values
+                          (cons (list (make-recognition-child #f (car rest)))
+                                semantic-values))
+                         (next-actions (fx+ actions 1))
+                         (next-shifts (fx+ shifts 1)))
+                     (when after-shift
+                       (after-shift (car rest) next-states next-values
+                                    next-actions next-shifts))
+                     (loop next-states next-values (cdr rest)
+                           next-actions next-shifts
+                           (and remaining-budget
+                                (fx- remaining-budget 1))))
                    (fallback states semantic-values rest actions shifts)))
                 ((reduce)
                  (let* ((production (vector-ref table (cadr action)))
@@ -784,6 +808,15 @@
    checkpoint #f observability #f
    (fx+ (lr-checkpoint-deterministic-shifts checkpoint) 1)
    #t input-token))
+
+;;; Drives one deterministic LR loop while the source owner supplies tokens
+;;; under the current lexical mode. The callback records shifted source tokens.
+;;; A fork returns its exact checkpoint for the existing selective-GLR handoff.
+(def (lr-checkpoint-drive checkpoint next-input after-shift
+                          (observability #f))
+  (lr-run-checkpoint
+   checkpoint #f observability #f #f #t #f
+   next-input after-shift))
 
 ;;; Rebinds an unconsumed suffix to the same immutable deterministic frontier.
 ;;; Streaming GLR handoff and explicit incremental sessions share this path.

@@ -47,17 +47,25 @@
 (def (measure-phase name thunk)
   (let (samples
         (map (lambda (_)
+               (##gc)
                (let* ((started (##current-time-point))
+                      (cpu-started (cpu-time))
                       (result (thunk))
+                      (cpu-ms (* 1000.0 (- (cpu-time) cpu-started)))
                       (elapsed-ms
                        (* 1000.0 (- (##current-time-point) started))))
                  (unless result
                    (error "phase returned no result" name))
-                 elapsed-ms))
+                 (cons elapsed-ms cpu-ms)))
              (iota 5)))
-    (list name (apply min samples))))
+    (list name
+          (cons 'best-elapsed-ms (apply min (map car samples)))
+          (cons 'best-cpu-ms (apply min (map cdr samples)))
+          (cons 'samples-ms samples))))
 
 (def (measure-stages terms)
+  ;; Prepared tokens make these phase costs comparable across revisions, but
+  ;; they are not a decomposition of the directed streaming parser path.
   (let* ((source (addition-source terms))
          (tokens (lex-source arithmetic-parser source))
          (significant (parser-significant-tokens arithmetic-parser tokens))

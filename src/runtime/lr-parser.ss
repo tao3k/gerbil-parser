@@ -304,12 +304,6 @@
 (def (candidate-winner-reason candidate) (car (cddddr candidate)))
 (def (candidate-completion-count candidate) (cadr (cddddr candidate)))
 
-;;; Canonical request-local GLR configuration. Parser stacks, semantic values,
-;;; and token suffixes are immutable, so structural interning cannot leak
-;;; mutation between branches or requests.
-(defstruct glr-configuration (states semantic-values rest score)
-  transparent: #t)
-
 ;;; Executes immutable tables and evaluates every admitted fork within a
 ;;; deterministic branch budget. Dynamic precedence scores complete branches;
 ;;; structurally identical ties merge and distinct equal-score ties fail closed.
@@ -359,35 +353,25 @@
          (successful-completions 0)
          (completion-identities '())
          ;; Every remaining stream is a shared tail of this request's input.
-         ;; Partition by its identity so structural hashing only visits the
-         ;; parser stacks and score, never the same long token suffix again.
-         (configuration-interners (make-table test: eq?))
-         (configuration-interner-list '())
+         ;; Partition by suffix identity so structural hashing visits only
+         ;; stacks and score. Each entry holds the result or its visiting mark.
+         (configuration-tables (make-table test: eq?))
+         (interned-configurations 0)
+         (configuration-intern-hits 0)
          (completion-interner (make-value-interner))
          (fragment-interner (make-value-interner))
-         (configuration-results (make-table test: eq?))
          (configuration-result-missing (cons #f #f))
          (configuration-result-visiting (cons #f #t))
          (configuration-result-failed (cons #t #f))
          (configuration-memo-hits 0)
          (budget-exhausted? #f)
          (best-failure #f))
-    (def (intern-configuration states semantic-values rest score)
-      (let (interner (table-ref configuration-interners rest #f))
-        (unless interner
-          (set! interner (make-value-interner))
-          (table-set! configuration-interners rest interner)
-          (set! configuration-interner-list
-                (cons interner configuration-interner-list)))
-        (value-interner-intern
-         interner
-         (list states semantic-values score)
-         (lambda ()
-           (make-glr-configuration states semantic-values rest score)))))
-    (def (configuration-interner-total counter)
-      (fold (lambda (interner total)
-              (+ total (counter interner)))
-            0 configuration-interner-list))
+    (def (configuration-table rest)
+      (let (found (table-ref configuration-tables rest #f))
+        (or found
+            (let (created (make-table test: equal?))
+              (table-set! configuration-tables rest created)
+              created))))
     (def (intern-fragment start end children)
       (value-interner-intern
        fragment-interner
@@ -583,11 +567,13 @@
                  (cons 'associativity (caddr action)))))
         (else (error "unknown LR action" action))))
     (def (try-parse states semantic-values rest score)
-      (let* ((configuration
-              (intern-configuration states semantic-values rest score))
-             (cached
-              (table-ref configuration-results configuration
-                         configuration-result-missing)))
+      (let* ((results (configuration-table rest))
+             (key (list states semantic-values score))
+             (cached (table-ref results key configuration-result-missing)))
+        (if (eq? cached configuration-result-missing)
+          (set! interned-configurations (fx+ interned-configurations 1))
+          (set! configuration-intern-hits
+                (fx+ configuration-intern-hits 1)))
         (cond
          ((eq? cached configuration-result-failed) #f)
          ((eq? cached configuration-result-visiting) #f)
@@ -598,14 +584,8 @@
                    (candidate-completion-count cached)))
           cached)
          (else
-          (table-set! configuration-results configuration
-                      configuration-result-visiting)
-          (let* ((states (glr-configuration-states configuration))
-                 (semantic-values
-                  (glr-configuration-semantic-values configuration))
-                 (rest (glr-configuration-rest configuration))
-                 (score (glr-configuration-score configuration))
-                 (state (car states))
+          (table-set! results key configuration-result-visiting)
+          (let* ((state (car states))
                  (action-row
                   (current-action-row
                    action-index state rest case-insensitive?))
@@ -616,8 +596,7 @@
                     (begin
                       (record-failure! state rest)
                       #f))))
-            (table-set! configuration-results configuration
-                        (or result configuration-result-failed))
+            (table-set! results key (or result configuration-result-failed))
             result)))))
     ;; The prepared fast path hands its immutable checkpoint to selective GLR.
     ;; Starting from that checkpoint avoids replaying the deterministic prefix
@@ -659,10 +638,8 @@
         (cons 'equivalentCompletions
               (- successful-completions (length completion-identities)))
         (cons 'distinctCompletions (length completion-identities))
-        (cons 'internedConfigurations
-              (configuration-interner-total value-interner-created-count))
-        (cons 'configurationInternHits
-              (configuration-interner-total value-interner-hit-count))
+        (cons 'internedConfigurations interned-configurations)
+        (cons 'configurationInternHits configuration-intern-hits)
         (cons 'configurationMemoHits configuration-memo-hits)
         (cons 'internedCompletionIdentities
               (value-interner-created-count completion-interner))

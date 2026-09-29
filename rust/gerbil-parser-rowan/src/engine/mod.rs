@@ -2,6 +2,7 @@
 
 mod event_tree;
 mod generated_events;
+mod graph_index;
 mod graph_projection;
 mod lexer;
 mod model;
@@ -16,6 +17,7 @@ mod validation;
 
 pub use event_tree::build_rowan_events;
 pub use generated_events::parse_generated_events;
+pub use graph_index::{GraphIndex, GraphIndexError, GraphRelation};
 pub use graph_projection::{
     GraphFieldMode, GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec,
     GraphRecord, project_syntax_graph,
@@ -59,3 +61,7 @@ mod event_strategy_aot_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/event_fold_aot.rs"]
 mod event_fold_aot_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/graph_index.rs"]
+mod graph_index_tests;

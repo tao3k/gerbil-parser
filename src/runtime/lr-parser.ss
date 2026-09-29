@@ -353,8 +353,8 @@
          (successful-completions 0)
          (completion-identities '())
          ;; Every remaining stream is a shared tail of this request's input.
-         ;; Partition by suffix identity so structural hashing visits only
-         ;; stacks and score. Each entry holds the result or its visiting mark.
+         ;; Partition by suffix identity and top LR state. Small state buckets
+         ;; use assoc; wider buckets retain structural hashing.
          (configuration-tables (make-table test: eq?))
          (interned-configurations 0)
          (configuration-intern-hits 0)
@@ -370,9 +370,28 @@
     (def (configuration-table rest)
       (let (found (table-ref configuration-tables rest #f))
         (or found
-            (let (created (make-table test: equal?))
+            (let (created (make-table test: eq?))
               (table-set! configuration-tables rest created)
               created))))
+    (def (configuration-bucket-ref bucket key)
+      (if (table? bucket)
+        (table-ref bucket key #f)
+        (let (entry (assoc key bucket))
+          (and entry (cdr entry)))))
+    (def (configuration-bucket-set! results state bucket key memo)
+      (cond
+       ((table? bucket)
+        (table-set! bucket key memo))
+       ((>= (length bucket) 8)
+        (let (wide (make-table test: equal?))
+          (for-each
+           (lambda (entry)
+             (table-set! wide (car entry) (cdr entry)))
+           bucket)
+          (table-set! wide key memo)
+          (table-set! results state wide)))
+       (else
+        (table-set! results state (cons (cons key memo) bucket)))))
     (def (intern-fragment start end children)
       (value-interner-intern
        fragment-interner
@@ -580,27 +599,28 @@
         (else (error "unknown LR action" action))))
     (def (try-parse states semantic-values rest score)
       (let* ((results (configuration-table rest))
+             (state (car states))
+             (bucket (table-ref results state '()))
              (key (list states semantic-values score))
-             (entry (table-ref results key #f))
-             (cached (and entry (car entry))))
-        (if entry
+             (memo (configuration-bucket-ref bucket key))
+             (cached (and memo (car memo))))
+        (if memo
           (set! configuration-intern-hits
                 (fx+ configuration-intern-hits 1))
           (set! interned-configurations (fx+ interned-configurations 1)))
         (cond
          ((eq? cached configuration-result-failed) #f)
          ((eq? cached configuration-result-visiting) #f)
-         (entry
+         (memo
           (set! configuration-memo-hits (fx+ configuration-memo-hits 1))
           (set! successful-completions
                 (+ successful-completions
                    (candidate-completion-count cached)))
           cached)
          (else
-          (let (entry (cons configuration-result-visiting #f))
-            (table-set! results key entry)
-            (let* ((state (car states))
-                   (action-row
+          (let (memo (cons configuration-result-visiting #f))
+            (configuration-bucket-set! results state bucket key memo)
+            (let* ((action-row
                     (current-action-row
                      action-index state rest case-insensitive?))
                    (result
@@ -610,7 +630,7 @@
                       (begin
                         (record-failure! state rest)
                         #f))))
-              (set-car! entry (or result configuration-result-failed))
+              (set-car! memo (or result configuration-result-failed))
               result))))))
     ;; The prepared fast path hands its immutable checkpoint to selective GLR.
     ;; Starting from that checkpoint avoids replaying the deterministic prefix

@@ -18,6 +18,10 @@ benchmark-versioned-matched label="current" samples="20":
 benchmark-arithmetic-matched terms="3200" samples="30":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/arithmetic-scale/matched-stream.ss {{terms}} {{samples}}
 
+# Parsed input has one addition term per line; the parser is already built.
+benchmark-arithmetic-lines lines="512" samples="30":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/arithmetic-scale/matched-stream.ss {{lines}} {{samples}} lines
+
 # Complete LR construction at a scale where partition costs are visible.
 benchmark-lr-grammar-construction contexts="256" samples="3":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/lr1-partition/context-scale.ss {{contexts}} {{samples}}

@@ -2,7 +2,7 @@
 ;;; Stable public facade for language implementations.
 ;;; Internal source-admission and fixture layout remains private under src/.
 
-(import (only-in ./src/language-support/antlr4-source
+(import (only-in ./language-support/antlr4-source
                  +antlr4-source-schema+
                  antlr4-rule?
                  antlr4-rule-name
@@ -29,7 +29,7 @@
                  antlr4-source-from-datum
                  parse-antlr4-source
                  parse-antlr4-source/expected)
-        (only-in ./src/language-support/javacc-source
+        (only-in ./language-support/javacc-source
                  +javacc-source-schema+
                  javacc-production? javacc-production-name
                  javacc-production-result javacc-production-line
@@ -38,7 +38,7 @@
                  javacc-source-productions javacc-source-production
                  javacc-source->datum javacc-source-from-datum
                  parse-javacc-source parse-javacc-source/expected)
-        (only-in ./src/language-support/fixture
+        (only-in ./language-support/fixture
                  defsyntax-fixture
                  defsyntax-corpus
                  syntax-fixture?
@@ -51,14 +51,14 @@
                  syntax-fixture-expected-status
                  syntax-fixture-root-kind
                  syntax-fixture-required-kinds)
-        (only-in ./src/language-support/grammar-source
+        (only-in ./language-support/grammar-source
                  defsyntax-iso-bnf-source
                  defsyntax-antlr4-source
                  defsyntax-javacc-source
                  deflanguage-iso-bnf-grammar)
-        (only-in ./src/language-support/antlr4-language
+        (only-in ./language-support/antlr4-language
                  deflanguage-antlr4-grammar)
-        (only-in ./src/language-support/iso-bnf
+        (only-in ./language-support/iso-bnf
                  +iso-bnf-source-schema+
                  +iso-bnf-rule-overlay-schema+
                  iso-bnf-production?

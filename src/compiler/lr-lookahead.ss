@@ -2,12 +2,17 @@
 ;;; LALR lookahead fixed-point propagation over an interned LR(0) graph.
 
 (import (prefix-in :std/struct/queue stdq-)
+        (only-in :std/vector/extensible
+                 list->ExtensibleVector
+                 ExtensibleVector->vector ExtensibleVector-push!
+                 ExtensibleVector-ref ExtensibleVector-set!)
         (only-in ./funcs
                  compiler-index-set-add
                  compiler-index-set-difference compiler-index-set-empty?
                  compiler-index-set-singleton compiler-index-set-union)
         (only-in ./lr
                  +lr-eof+ nonterminal-name nonterminal-symbol? production-id
+                 production-index-by-lhs
                  production-rhs production-terminal-catalog sequence-first
                  sequence-nullable?)
         (only-in ./lr-automaton
@@ -15,7 +20,7 @@
                  make-core-item
                  make-core-symbol-catalog make-item-layout
                  materialize-transitions))
-(export build-states-via-lr0)
+(export build-states-via-lr0 build-states-via-canonical-lr1)
 
 (def (trace-lookahead-phase phase count started trace?)
   (when trace?
@@ -253,3 +258,150 @@
                   (materialize-transitions state-transitions state-count)
                   terminal-values layout core-symbols
                   lr0-state-visit-count lookahead-item-visit-count)))))))
+
+;;; Canonical LR(1) is the semantic reference for conflict-directed state
+;;; partitioning. A state contains one mask per LR(0) core; closure propagates
+;;; FIRST(tail) and the incoming follow mask until stable. State identity
+;;; includes those masks, so contexts that LALR merges remain distinguishable.
+;;; The representation deliberately matches build-states-via-lr0's result.
+(def (build-states-via-canonical-lr1 productions table first nullable)
+  (let-values (((terminal-values terminal-index)
+                (production-terminal-catalog productions)))
+    (let* ((layout (make-item-layout table terminal-values))
+           (core-symbols (make-core-symbol-catalog table layout))
+           (productions-by-lhs (production-index-by-lhs productions))
+           (states (list->ExtensibleVector '()))
+           (state-transitions (list->ExtensibleVector '()))
+           (state-index (make-table test: equal?))
+           (state-count 0))
+      (let-values (((tail-first-masks nullable-tails)
+                    (make-core-lookahead-catalog
+                     table layout core-symbols first nullable terminal-index)))
+        (def (canonical-closure kernels)
+          (let ((masks (make-table test: eq?))
+                (cores (list->ExtensibleVector '()))
+                (pending (stdq-make-Queue)))
+            (def (admit! core mask)
+              (let* ((old (table-ref masks core 0))
+                     (next (compiler-index-set-union old mask)))
+                (unless (= old next)
+                  (when (zero? old)
+                    (ExtensibleVector-push! cores core))
+                  (table-set! masks core next)
+                  (stdq-enqueue! pending core))))
+            (for-each (lambda (entry) (admit! (car entry) (cdr entry)))
+                      kernels)
+            (let loop ()
+              (unless (stdq-queue-empty? pending)
+                (let* ((core (stdq-dequeue! pending))
+                       (mask (table-ref masks core 0))
+                       (symbol (vector-ref core-symbols core)))
+                  (when (and symbol (nonterminal-symbol? symbol))
+                    (let (evidence
+                          (if (vector-ref nullable-tails core)
+                            (compiler-index-set-union
+                             (vector-ref tail-first-masks core) mask)
+                            (vector-ref tail-first-masks core)))
+                      (for-each
+                       (lambda (production)
+                         (admit!
+                          (make-core-item (production-id production) 0 layout)
+                          evidence))
+                       (table-ref productions-by-lhs
+                                  (nonterminal-name symbol) '()))))
+                  (loop))))
+            (list-sort
+             (lambda (left right) (< (car left) (car right)))
+             (map (lambda (core) (cons core (table-ref masks core 0)))
+                  (vector->list (ExtensibleVector->vector cores))))))
+        (def (intern! state)
+          (let (existing (table-ref state-index state #f))
+            (if existing
+              (values existing #f)
+              (let (index (ExtensibleVector-push! states state))
+                (ExtensibleVector-push! state-transitions '())
+                (table-set! state-index state index)
+                (set! state-count (+ state-count 1))
+                (values index #t)))))
+        (let* ((eof-mask
+                (compiler-index-set-singleton
+                 (table-ref terminal-index +lr-eof+)))
+               (initial
+                (canonical-closure
+                 (list (cons (make-core-item 0 0 layout) eof-mask))))
+               (queue (stdq-make-Queue)))
+          (intern! initial)
+          (stdq-enqueue! queue 0)
+          (let drain ()
+            (unless (stdq-queue-empty? queue)
+              (let* ((index (stdq-dequeue! queue))
+                     (state (ExtensibleVector-ref states index))
+                     (kernels (make-table test: equal?))
+                     (kernel-cores (make-table test: equal?))
+                     (symbol-order '()))
+                (for-each
+                 (lambda (entry)
+                   (let ((symbol (vector-ref core-symbols (car entry))))
+                     (when symbol
+                       (let (items (table-ref kernels symbol #f))
+                         (unless items
+                           (set! items (make-table test: eq?))
+                           (table-set! kernels symbol items)
+                           (set! symbol-order (cons symbol symbol-order)))
+                         (let* ((next-core (+ (car entry) 1))
+                                (old (table-ref items next-core 0)))
+                           (when (zero? old)
+                             (table-set! kernel-cores symbol
+                                         (cons next-core
+                                               (table-ref kernel-cores symbol '()))))
+                           (table-set!
+                            items next-core
+                            (compiler-index-set-union old (cdr entry))))))))
+                 state)
+                (for-each
+                 (lambda (symbol)
+                   (let* ((items (table-ref kernels symbol))
+                          (target
+                           (canonical-closure
+                            (map (lambda (core)
+                                   (cons core (table-ref items core 0)))
+                                 (table-ref kernel-cores symbol '())))))
+                     (let-values (((target-index novel?) (intern! target)))
+                       (ExtensibleVector-set!
+                        state-transitions index
+                        (cons (cons symbol target-index)
+                              (ExtensibleVector-ref state-transitions index)))
+                       (when novel?
+                         (stdq-enqueue! queue target-index)))))
+                 (reverse symbol-order))
+                (ExtensibleVector-set!
+                 state-transitions index
+                 (reverse (ExtensibleVector-ref state-transitions index)))
+                (drain))))
+          (let ((core-states (make-vector state-count #f))
+                (offsets (make-vector (+ state-count 1) 0))
+                (node-count 0))
+            (let state-loop ((index 0))
+              (when (< index state-count)
+                (let (state (ExtensibleVector-ref states index))
+                  (vector-set! offsets index node-count)
+                  (vector-set! core-states index (map car state))
+                  (set! node-count (+ node-count (length state))))
+                (state-loop (+ index 1))))
+            (vector-set! offsets state-count node-count)
+            (let ((lookaheads (make-vector node-count 0))
+                  (node 0))
+              (let fill ((index 0))
+                (when (< index state-count)
+                  (for-each
+                   (lambda (entry)
+                     (vector-set! lookaheads node (cdr entry))
+                     (set! node (+ node 1)))
+                   (ExtensibleVector-ref states index))
+                  (fill (+ index 1))))
+              (values core-states state-count lookaheads offsets
+                      (materialize-transitions
+                       (ExtensibleVector->vector state-transitions)
+                       state-count)
+                      terminal-values layout core-symbols
+                      state-count node-count))))))))

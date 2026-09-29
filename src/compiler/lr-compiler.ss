@@ -10,7 +10,11 @@
                  terminal-symbol? union-values)
         (only-in ./lr-automaton
                  transition-index transition-target)
-        (only-in ./lr-lookahead build-states-via-lr0))
+        (only-in ./lr-lookahead
+                 build-states-via-lr0 build-states-via-canonical-lr1)
+        (only-in ./lr-partition build-states-via-partitioned-lr1)
+        (only-in ./lr-follow-automaton
+                 build-states-via-follow-partition-lr1))
 (export compile-lr-spec)
 
 ;; fork-action
@@ -235,7 +239,10 @@
 ;; compile-lr-spec
 ;; : (-> List Symbol Symbol Boolean List)
 (def (compile-lr-spec rules root (conflict-policy 'reject)
-                      (case-insensitive? #f))
+                      (case-insensitive? #f) (construction 'lalr))
+  (unless (memq construction
+                '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1))
+    (error "unknown LR construction" construction))
   (let* ((started (##current-time-point))
          (productions
           (lower-rules rules root (eq? conflict-policy 'selective-glr)))
@@ -250,7 +257,12 @@
         (let-values (((states state-count lookaheads lookahead-offsets transitions
                               terminal-values layout core-symbols
                              lr0-state-visit-count lookahead-item-visit-count)
-                      (build-states-via-lr0
+                      ((case construction
+                         ((canonical-lr1) build-states-via-canonical-lr1)
+                         ((partitioned-lr1) build-states-via-partitioned-lr1)
+                         ((follow-partition-lr1)
+                          build-states-via-follow-partition-lr1)
+                         (else build-states-via-lr0))
                        productions table first-index nullable-index)))
           (trace-lr-phase 'states state-count started)
           (let-values (((actions action-state-publication-count)
@@ -264,15 +276,41 @@
             (trace-lr-phase 'actions (vector-length actions) started)
             (let (gotos (build-gotos transitions state-count))
               (trace-lr-phase 'gotos (vector-length gotos) started)
-              (list
-               (cons 'schema "gerbil-parser.lr-spec.v1")
-               (cons 'case-insensitive? case-insensitive?)
-               (cons 'productions productions)
-               (cons 'nullable nullable)
-               (cons 'first first)
-               (cons 'algorithm 'lalr1-lr0-fixed-point-v1)
-               (cons 'state-count state-count)
-               (cons 'lr0-state-visit-count lr0-state-visit-count)
-               (cons 'lookahead-item-visit-count lookahead-item-visit-count)
-               (cons 'actions actions)
-               (cons 'gotos gotos)))))))))
+              (let (spec
+                    (list
+                     (cons 'schema "gerbil-parser.lr-spec.v1")
+                     (cons 'case-insensitive? case-insensitive?)
+                     (cons 'productions productions)
+                     (cons 'nullable nullable)
+                     (cons 'first first)
+                     (cons 'algorithm
+                           (case construction
+                             ((canonical-lr1) 'canonical-lr1-reference-v1)
+                             ((partitioned-lr1)
+                              'conflict-partitioned-lr1-v1)
+                             ((follow-partition-lr1)
+                              'follow-partition-lr1-v1)
+                             (else 'lalr1-lr0-fixed-point-v1)))
+                     (cons 'state-count state-count)
+                     (cons 'lr0-state-visit-count
+                           (and (eq? construction 'lalr)
+                                lr0-state-visit-count))
+                     (cons 'lookahead-item-visit-count
+                           (and (eq? construction 'lalr)
+                                lookahead-item-visit-count))
+                     (cons 'actions actions)
+                     (cons 'gotos gotos)))
+                (case construction
+                  ((lalr) spec)
+                  ((follow-partition-lr1)
+                   (cons (cons 'follow-block-count
+                               lr0-state-visit-count)
+                         (cons (cons 'output-item-count
+                                     lookahead-item-visit-count)
+                               spec)))
+                  (else
+                   (cons (cons 'canonical-state-count
+                               lr0-state-visit-count)
+                         (cons (cons 'output-item-count
+                                     lookahead-item-visit-count)
+                               spec))))))))))))

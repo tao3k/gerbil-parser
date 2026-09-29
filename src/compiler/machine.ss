@@ -10,7 +10,8 @@
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
                  scan-until-delimiters
-                 make-literal-end-scanner scan-longest-literal
+                 make-literal-end-scanner make-ranked-literal-scanner
+                 scan-longest-literal
                  scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
                  scan-escaped-quoted-strings scan-quoted-strings scan-whitespace
@@ -168,6 +169,14 @@
    (lambda (source offset)
      (lexical-end source offset expression))))
 
+;; Only a complete literal catalog can join the shared mode trie. Choices and
+;; external scanners retain their ordinary generated procedures.
+(defrules lexical-static-literals (literals precedence)
+  ((_ (literals value ...)) '(value ...))
+  ((_ (precedence _rank expression))
+   (lexical-static-literals expression))
+  ((_ _expression) #f))
+
 ;; prefer-ranked-match
 ;;   : (-> (OrFalse List) (OrFalse List) (OrFalse List))
 ;;   | doc m%
@@ -187,6 +196,17 @@
    ((> (cadr current) (cadr candidate)) current)
    ((< (cadr current) (cadr candidate)) candidate)
    ((>= (caddr current) (caddr candidate)) current)
+   (else candidate)))
+
+(def (prefer-generated-match current candidate)
+  (cond
+   ((not current) candidate)
+   ((not candidate) current)
+   ((> (cadr current) (cadr candidate)) current)
+   ((< (cadr current) (cadr candidate)) candidate)
+   ((> (caddr current) (caddr candidate)) current)
+   ((< (caddr current) (caddr candidate)) candidate)
+   ((< (cadddr current) (cadddr candidate)) current)
    (else candidate)))
 
 ;;; Keeps large literal catalogs as immutable data instead of expanding one C
@@ -238,15 +258,19 @@
 (defrules generated-lexical-rule
   ()
   ((_ (name expression) extras case-insensitive?)
-   (let (scanner (lexical-scanner expression))
-     (cons
+   (let* ((literals (lexical-static-literals expression))
+          (scanner (and (not literals) (lexical-scanner expression))))
+     (vector
       (lambda (terminals)
         (lexical-rule-admitted?
          terminals name expression extras case-insensitive?))
       (lambda (source offset)
-        (let (end (scanner source offset))
+        (let (end (and scanner (scanner source offset)))
           (and end
-               (list 'name end (lexical-expression-rank expression)))))))))
+               (list 'name end (lexical-expression-rank expression)))))
+      literals
+      'name
+      (lexical-expression-rank expression)))))
 
 ;;; Returns name, end offset, and precedence for generated-lexer. Longest
 ;;; consumption wins globally; lexical precedence breaks equal-length ties.
@@ -310,40 +334,103 @@
   (lexical-rules extras)
   ((_ (lexical-rules row ...) (extras extra-name ...) case-insensitive?
       mode-catalog)
-   (let* ((rules
+   (let* ((bare-rules
            (list (generated-lexical-rule
                   row '(extra-name ...) case-insensitive?) ...))
-          (all-scanners (map cdr rules))
+          (rules
+           (let loop ((remaining bare-rules) (ordinal 0) (found '()))
+             (if (null? remaining)
+               (reverse found)
+               (let* ((rule (car remaining))
+                      (scanner (vector-ref rule 1))
+                      (ranked-scanner
+                       (and scanner
+                            (lambda (source offset)
+                              (let (match (scanner source offset))
+                                (and match
+                                     (list (car match) (cadr match)
+                                           (caddr match) ordinal)))))))
+                 (loop (cdr remaining) (+ ordinal 1)
+                       (cons
+                        (vector (vector-ref rule 0) ranked-scanner
+                                (vector-ref rule 2) (vector-ref rule 3)
+                                (vector-ref rule 4))
+                        found))))))
+          (literal-entries
+           (let loop ((remaining rules) (ordinal 0) (entries '()))
+             (if (null? remaining)
+               entries
+               (let ((rule (car remaining)))
+                 (loop
+                  (cdr remaining) (+ ordinal 1)
+                  (if (vector-ref rule 2)
+                    (fold
+                     (lambda (literal found)
+                       (cons
+                        (list literal (vector-ref rule 3)
+                              (vector-ref rule 4) ordinal)
+                        found))
+                     entries (vector-ref rule 2))
+                    entries))))))
+          (literal-scanner
+           (and (pair? literal-entries)
+                (make-ranked-literal-scanner literal-entries)))
+          (prepare-scanners
+           (lambda (terminals)
+             (let ((admitted-literals (make-vector (length rules) #f)))
+               (let loop ((remaining rules) (ordinal 0)
+                          (has-literals? #f) (scanners '()))
+               (if (null? remaining)
+                 (lambda (source offset)
+                   (let (selected
+                         (fold
+                          (lambda (scanner selected)
+                            (prefer-generated-match
+                             selected (scanner source offset)))
+                          #f scanners))
+                     (if (and literal-scanner has-literals?)
+                       (prefer-generated-match
+                        selected
+                        (literal-scanner source offset admitted-literals))
+                       selected)))
+                 (let* ((rule (car remaining))
+                        (admitted? ((vector-ref rule 0) terminals))
+                        (literals (and admitted? (vector-ref rule 2))))
+                   (cond
+                    ((pair? literals)
+                     (vector-set! admitted-literals ordinal #t)
+                     (loop
+                      (cdr remaining) (+ ordinal 1) #t scanners))
+                    (literals
+                     (loop (cdr remaining) (+ ordinal 1)
+                           has-literals? scanners))
+                    (admitted?
+                     (loop
+                      (cdr remaining) (+ ordinal 1) has-literals?
+                      (cons (vector-ref rule 1) scanners)))
+                    (else
+                     (loop (cdr remaining) (+ ordinal 1)
+                           has-literals? scanners)))))))))
+          (all-scanners (prepare-scanners #f))
           (mode-scanners
            (vector-map/index
             (lambda (_index mode)
-              (filter-map
-               (lambda (rule)
-                 (and ((car rule) (lr-lexical-mode-terminals mode))
-                      (cdr rule)))
-               rules))
+              (prepare-scanners (lr-lexical-mode-terminals mode)))
             mode-catalog)))
      (letrec
-       ((scan-scanners
-         (lambda (scanners source offset)
-           (fold
-            (lambda (scanner selected)
-              (prefer-ranked-match selected (scanner source offset)))
-            #f scanners)))
-        (scan-one
+       ((scan-one
          (lambda (source offset byte-offset mode)
            (let (match
                  (or (if mode
-                       (scan-scanners
-                        (vector-ref mode-scanners
+                       ((vector-ref mode-scanners
                                     (lr-lexical-mode-id mode))
                         source offset)
-                       (scan-scanners all-scanners source offset))
+                       (all-scanners source offset))
                      ;; A mode miss must still materialize the offending token
                      ;; for the LR failure frontier and lossless diagnostics.
                      ;; Successful directed scans never enter this cold path.
                      (and mode
-                          (scan-scanners all-scanners source offset))))
+                          (all-scanners source offset))))
              (unless match
                (error "no lexical rule matched parser-directed source"
                       offset mode))

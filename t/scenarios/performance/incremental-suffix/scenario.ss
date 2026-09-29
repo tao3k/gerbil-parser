@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Full-size incremental LR checkpoint and suffix-convergence workload.
+;;; Full-size incremental LR checkpoint and mode-certified suffix workload.
 
 (import :gerbil-parser/languages/arithmetic/v1/parser
         :gerbil-parser/src/runtime/incremental)

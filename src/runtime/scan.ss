@@ -21,6 +21,7 @@
         scan-block-comment
         scan-nested-block-comment
         make-literal-end-scanner
+        make-ranked-literal-scanner
         scan-longest-literal
         scan-emit)
 
@@ -480,6 +481,68 @@
                 (let (next (+ offset 1))
                   (loop child next
                         (if (vector-ref child 0) next selected)))
+                selected))))))))
+
+;;; Merge literal-only lexical rules into one trie shared by every LR mode.
+;;; Entries carry (literal name precedence declaration-index); the optional
+;;; admitted vector filters complete rules without copying the trie per mode.
+(def (make-ranked-literal-scanner entries)
+  (def (make-node) (vector '() (make-table test: eqv?)))
+  (def (best-admitted candidates admitted)
+    (let loop ((remaining candidates) (best #f))
+      (if (null? remaining)
+        best
+        (let (candidate (car remaining))
+          (loop
+           (cdr remaining)
+           (if (and (or (not admitted)
+                        (vector-ref admitted (caddr candidate)))
+                    (or (not best)
+                        (> (cadr candidate) (cadr best))
+                        (and (= (cadr candidate) (cadr best))
+                             (< (caddr candidate) (caddr best)))))
+             candidate
+             best))))))
+  (let (root (make-node))
+    (for-each
+     (lambda (entry)
+       (let ((literal (car entry))
+             (name (cadr entry))
+             (rank (caddr entry))
+             (ordinal (cadddr entry)))
+         (unless (and (string? literal)
+                      (positive? (string-length literal)))
+           (error "lexer literals must be non-empty strings" literal))
+         (let insert ((node root) (index 0))
+           (if (= index (string-length literal))
+             (vector-set! node 0
+                          (cons (list name rank ordinal)
+                                (vector-ref node 0)))
+             (let* ((children (vector-ref node 1))
+                    (character (string-ref literal index))
+                    (child (table-ref children character #f)))
+               (unless child
+                 (set! child (make-node))
+                 (table-set! children character child))
+               (insert child (+ index 1)))))))
+     entries)
+    (lambda (source start (admitted #f))
+      (let (source-length (string-length source))
+        (let scan ((node root) (offset start) (selected #f))
+          (if (= offset source-length)
+            selected
+            (let (child
+                  (table-ref (vector-ref node 1)
+                             (string-ref source offset) #f))
+              (if child
+                (let* ((next (+ offset 1))
+                       (terminal
+                        (best-admitted (vector-ref child 0) admitted)))
+                  (scan child next
+                        (if terminal
+                          (list (car terminal) next
+                                (cadr terminal) (caddr terminal))
+                          selected)))
                 selected))))))))
 
 ;; scan-longest-literal

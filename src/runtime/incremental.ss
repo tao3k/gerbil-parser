@@ -1,17 +1,21 @@
 ;;; -*- Gerbil -*-
-;;; Conservative prefix token reuse with fresh-parse-equivalent publication.
+;;; LR checkpoint resume with lexical-mode-certified token reuse.
 
 (import (only-in ../compiler/machine
-                 parser-machine-grammar-digest parser-machine-runtime)
+                 parser-machine-grammar-digest parser-machine-ir)
+        (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ./artifact
                  event-end event-start parse-artifact-events
-                 parse-artifact-ref parse-artifact-valid? token-event?
+                 parse-artifact-ref parse-artifact-success?
+                 parse-artifact-valid? token-event?
                  token-event-lexeme token-event-token-kind)
         (only-in ./identity sha256-text)
-        (only-in ./lexer lex-source-from)
         (only-in ./lr-parser
-                 lr-checkpoint-advance-shifts lr-initial-checkpoint)
-        (only-in ./parser parse-tokenized/checkpoint)
+                 lr-lexical-mode-id
+                 lr-prefix-snapshot-rebind)
+        (only-in ./parser
+                 parse-source/checkpoints
+                 parse-source/checkpoints/resume)
         (only-in ./significant parser-significant-tokens)
         (only-in ./token
                  make-token token-end token-kind token-lexeme token-start))
@@ -23,11 +27,22 @@
         edit-delete-byte-length
         edit-inserted-text
         apply-edit
-        parse-source/incremental)
+        parse-source/incremental
+        make-incremental-session
+        incremental-session?
+        incremental-session-artifact
+        parse-incremental-session)
 
 (def +edit-schema+ "gerbil-parser.edit.v1")
 (def +incremental-receipt-schema+
   "gerbil-parser.incremental-receipt.v1")
+(def +checkpoint-spacing+ 32)
+
+(defstruct incremental-session-state
+  (machine source artifact tokens modes checkpoints)
+  transparent: #t)
+(def incremental-session? incremental-session-state?)
+(def incremental-session-artifact incremental-session-state-artifact)
 
 ;; : (-> String Nat Nat String EditRecord)
 (defstruct edit-record (schema start-byte delete-byte-length inserted-text)
@@ -53,24 +68,20 @@
                     inserted-text))
 
 ;; : (-> String Nat Nat)
-(def (byte-index->character-index source target)
-  (let ((character-length (string-length source))
-        (source-byte-length (u8vector-length (string->utf8 source))))
+(def (byte-index->character-index source-bytes target)
+  (let (source-byte-length (u8vector-length source-bytes))
     (unless (<= 0 target source-byte-length)
       (error "edit byte offset is outside source" target source-byte-length))
-    (let loop ((character 0) (byte 0))
-      (cond
-       ((= byte target) character)
-       ((= character character-length)
-        (error "edit byte offset splits a UTF-8 character" target))
-       (else
-        (let (next
-              (+ byte
-                 (u8vector-length
-                  (string->utf8 (string (string-ref source character))))))
-          (when (> next target)
-            (error "edit byte offset splits a UTF-8 character" target))
-          (loop (+ character 1) next)))))))
+    (when (and (< target source-byte-length)
+               (<= 128 (u8vector-ref source-bytes target) 191))
+      (error "edit byte offset splits a UTF-8 character" target))
+    (let loop ((byte 0) (character 0))
+      (if (= byte target)
+        character
+        (loop (+ byte 1)
+              (if (<= 128 (u8vector-ref source-bytes byte) 191)
+                character
+                (+ character 1)))))))
 
 ;; : (-> String Edit String)
 (def (apply-edit source source-edit)
@@ -80,8 +91,9 @@
     (error "apply-edit requires source and Edit v1"))
   (let* ((start-byte (edit-start-byte source-edit))
          (end-byte (+ start-byte (edit-delete-byte-length source-edit)))
-         (start (byte-index->character-index source start-byte))
-         (end (byte-index->character-index source end-byte)))
+         (source-bytes (string->utf8 source))
+         (start (byte-index->character-index source-bytes start-byte))
+         (end (byte-index->character-index source-bytes end-byte)))
     (string-append (substring source 0 start)
                    (edit-inserted-text source-edit)
                    (substring source end (string-length source)))))
@@ -96,132 +108,228 @@
                       (event-start event) (event-end event))))
    (parse-artifact-events artifact)))
 
-;; : (-> (List Token) Nat (List Token))
-(def (reusable-prefix tokens edit-start)
-  (filter (lambda (source-token)
-            (< (token-end source-token) edit-start))
-          tokens))
+;; Only the closed lexical algebra has position-local scanners. An external
+;; scanner may consult the source prefix, so a matching byte boundary alone
+;; cannot prove that its later tokens are unchanged.
+(def (closed-lexical-expression? expression)
+  (case (car expression)
+    ((external) #f)
+    ((choice) (every closed-lexical-expression? (cdr expression)))
+    ((precedence) (closed-lexical-expression? (caddr expression)))
+    (else #t)))
 
-;; : (-> Token Token Integer Boolean)
-(def (shift-equivalent-token? old-token new-token byte-delta)
-  (and (eq? (token-kind old-token) (token-kind new-token))
-       (equal? (token-lexeme old-token) (token-lexeme new-token))
-       (= (+ (token-start old-token) byte-delta)
-          (token-start new-token))
-       (= (+ (token-end old-token) byte-delta)
-          (token-end new-token))))
+(def (closed-lexer? machine)
+  (every (lambda (row) (closed-lexical-expression? (cadr row)))
+         (parser-ir-ref (parser-machine-ir machine) 'lexical-rules)))
 
-;;; Computes maximal suffix convergence in one reverse vector walk. Absolute
-;;; token objects are reusable only when the edit has zero net byte delta.
-;; : (-> (List Token) (List Token) Integer Nat)
-(def (converged-suffix-count old-suffix new-suffix byte-delta)
-  (let* ((old (list->vector old-suffix))
-         (new (list->vector new-suffix)))
-    (let loop ((old-index (- (vector-length old) 1))
-               (new-index (- (vector-length new) 1))
-               (count 0))
-      (if (and (>= old-index 0)
-               (>= new-index 0)
-               (shift-equivalent-token?
-                (vector-ref old old-index)
-                (vector-ref new new-index)
-                byte-delta))
-        (loop (- old-index 1) (- new-index 1) (+ count 1))
-        count))))
+(def (relocate-token source-token byte-delta)
+  (make-token (token-kind source-token) (token-lexeme source-token)
+              (+ (token-start source-token) byte-delta)
+              (+ (token-end source-token) byte-delta)))
 
-;;; Reuses the maximal prefix that cannot touch the edit, re-lexes from its
-;;; terminal boundary, and submits the complete token stream to the ordinary
-;;; parser/ParseArtifact v1 commit path.
-;; parse-source/incremental
-;;   : (-> ParserMachine String ParseArtifact Edit
-;;          (Values ParseArtifact IncrementalReceipt))
-;;   | doc m%
-;;       Reuses a safe token prefix and emits an ordinary ParseArtifact v1.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (parse-source/incremental machine old-source artifact edit)
-;;       ;; => fresh-equivalent artifact plus reuse receipt
-;;       ```
-;;     %
-(def (parse-source/incremental machine old-source old-artifact source-edit)
+(def (incremental-receipt fields artifact (checkpoint-shifts #f))
+  (append
+   fields
+   (if checkpoint-shifts
+     (list (cons 'checkpointReusedShiftCount checkpoint-shifts))
+     '())
+   (list (cons 'publicationSchema
+               (parse-artifact-ref artifact 'schema)))))
+
+(def (require-incremental-base machine old-source old-artifact)
   (unless (and (parse-artifact-valid? old-artifact)
                (equal? (parse-artifact-ref old-artifact 'sourceDigest)
                        (sha256-text old-source))
                (equal? (parse-artifact-ref old-artifact 'grammarDigest)
                        (parser-machine-grammar-digest machine)))
-    (error "incremental base artifact does not match source and grammar"))
-  (let* ((new-source (apply-edit old-source source-edit))
-         (old-tokens (artifact-tokens old-artifact))
-         (prefix (reusable-prefix old-tokens (edit-start-byte source-edit)))
-         (old-suffix (drop old-tokens (length prefix)))
-         (restart-byte (if (pair? prefix) (token-end (last prefix)) 0))
-         (restart-character
-          (byte-index->character-index new-source restart-byte))
-         (suffix
-          (lex-source-from machine new-source restart-character restart-byte))
-         (byte-delta
-          (- (u8vector-length (string->utf8 new-source))
-             (u8vector-length (string->utf8 old-source))))
-         (converged-count
-          (converged-suffix-count old-suffix suffix byte-delta))
-         (changed-suffix-count (- (length suffix) converged-count))
-         (reused-suffix-count (if (zero? byte-delta) converged-count 0))
-         (relocated-suffix-count
-          (if (zero? byte-delta) 0 converged-count))
-         (converged-tail
-          (if (zero? byte-delta)
-            (drop old-suffix (- (length old-suffix) converged-count))
-            (drop suffix changed-suffix-count)))
-         (tokens
-          (append prefix
-                  (take suffix changed-suffix-count)
-                  converged-tail))
-         (significant (parser-significant-tokens machine tokens))
-         (reused-significant-count
-          (length (parser-significant-tokens machine prefix))))
-    (let-values
-        (((checkpoint-status checkpoint-payload)
-          (if (positive? reused-significant-count)
-            (lr-checkpoint-advance-shifts
-             (lr-initial-checkpoint
-              (parser-machine-runtime machine) significant)
-             reused-significant-count)
-            (values
-             'checkpoint
-             (lr-initial-checkpoint
-              (parser-machine-runtime machine) significant)))))
-      (unless (eq? checkpoint-status 'checkpoint)
-        (error "incremental prefix did not end at an LR checkpoint"
-               checkpoint-status))
-      (let* ((artifact
-              (parse-tokenized/checkpoint
-               machine (parser-machine-grammar-digest machine)
-               new-source tokens checkpoint-payload))
-         (receipt
-          (list
-           (cons 'schema +incremental-receipt-schema+)
-           (cons 'grammarDigest (parser-machine-grammar-digest machine))
-           (cons 'baseSourceDigest (sha256-text old-source))
-           (cons 'sourceDigest (sha256-text new-source))
-           (cons 'edit
-                 (list (cons 'schema +edit-schema+)
-                       (cons 'startByte (edit-start-byte source-edit))
-                       (cons 'deleteByteLength
-                             (edit-delete-byte-length source-edit))
-                       (cons 'insertedText
-                             (edit-inserted-text source-edit))))
-           (cons 'relexStartByte restart-byte)
-           (cons 'reusedTokenIds (iota (length prefix)))
-           (cons 'reusedTokenCount (length prefix))
-           (cons 'suffixByteDelta byte-delta)
-           (cons 'convergedSuffixTokenCount converged-count)
-           (cons 'reusedSuffixTokenCount reused-suffix-count)
-           (cons 'relocatedSuffixTokenCount relocated-suffix-count)
-           (cons 'resumedSignificantTokenCount reused-significant-count)
-           (cons 'remainingSignificantTokenCount
-                 (- (length significant) reused-significant-count))
-           (cons 'publicationSchema
-                 (parse-artifact-ref artifact 'schema)))))
-        (values artifact receipt)))))
+    (error "incremental base artifact does not match source and grammar")))
+
+(def (parse-source/incremental machine old-source old-artifact source-edit)
+  (require-incremental-base machine old-source old-artifact)
+  (let-values (((next receipt)
+                (parse-incremental-session
+                 (session-from-directed machine old-source) source-edit)))
+    (values (incremental-session-artifact next) receipt)))
+
+(def (session-from-directed machine source)
+  (let-values (((artifact source-tokens source-modes checkpoints)
+                (parse-source/checkpoints
+                 machine source +checkpoint-spacing+)))
+    (make-incremental-session-state
+     machine source artifact
+     (or source-tokens (artifact-tokens artifact))
+     source-modes checkpoints)))
+
+(def (make-incremental-session machine source)
+  (session-from-directed machine source))
+
+;; The checkpoint stores its exact source-token cursor, including trivia.
+;; Return both sides so the edit driver never scans the accepted prefix again.
+(def (split-checkpoint-prefix tokens modes count)
+  (let loop ((remaining tokens) (remaining-modes modes)
+             (left count) (prefix '()) (prefix-modes '()))
+    (if (zero? left)
+      (values (reverse prefix) (reverse prefix-modes)
+              remaining remaining-modes)
+      (if (or (null? remaining) (null? remaining-modes))
+        (error "checkpoint exceeds source token stream" count)
+        (loop (cdr remaining) (cdr remaining-modes) (- left 1)
+              (cons (car remaining) prefix)
+              (cons (car remaining-modes) prefix-modes))))))
+
+;; Snapshot byte ends are monotone. The strict boundary matches the old
+;; reusable-prefix contract: a token ending at the edit start is rescanned.
+(def (checkpoint-before-byte checkpoints edit-start)
+  (let loop ((index (- (vector-length checkpoints) 1)))
+    (if (or (zero? index)
+            (< (vector-ref (vector-ref checkpoints index) 3)
+               edit-start))
+      index
+      (loop (- index 1)))))
+
+(def (edit-byte-delta source-edit)
+  (- (u8vector-length (string->utf8 (edit-inserted-text source-edit)))
+     (edit-delete-byte-length source-edit)))
+
+(def (directed-edit-fields machine old-source new-source source-edit
+                           prefix-count shifted reused-tail-count
+                           reused-tail-bytes restart-byte significant-count)
+  (let* ((source-byte-length (u8vector-length (string->utf8 new-source)))
+         (byte-delta (edit-byte-delta source-edit)))
+    (list
+     (cons 'schema +incremental-receipt-schema+)
+     (cons 'grammarDigest (parser-machine-grammar-digest machine))
+     (cons 'baseSourceDigest (sha256-text old-source))
+     (cons 'sourceDigest (sha256-text new-source))
+     (cons 'edit
+           (list (cons 'schema +edit-schema+)
+                 (cons 'startByte (edit-start-byte source-edit))
+                 (cons 'deleteByteLength
+                       (edit-delete-byte-length source-edit))
+                 (cons 'insertedText (edit-inserted-text source-edit))))
+     (cons 'relexStartByte restart-byte)
+     (cons 'relexStopByte source-byte-length)
+     (cons 'relexedByteCount
+           (- source-byte-length restart-byte reused-tail-bytes))
+     (cons 'reusedTokenIds (iota prefix-count))
+     (cons 'reusedTokenCount prefix-count)
+     (cons 'suffixByteDelta byte-delta)
+     (cons 'convergedSuffixTokenCount reused-tail-count)
+     (cons 'reusedSuffixTokenCount
+           (if (zero? byte-delta) reused-tail-count 0))
+     (cons 'relocatedSuffixTokenCount
+           (if (zero? byte-delta) 0 reused-tail-count))
+     (cons 'resumedSignificantTokenCount shifted)
+     (cons 'remainingSignificantTokenCount
+           (- significant-count shifted)))))
+
+(def (parse-incremental-session session source-edit)
+  (unless (incremental-session? session)
+    (error "incremental edit requires a session" session))
+  (let* ((machine (incremental-session-state-machine session))
+         (old-source (incremental-session-state-source session))
+         (old-tokens (incremental-session-state-tokens session))
+         (old-modes (incremental-session-state-modes session))
+         (checkpoints (incremental-session-state-checkpoints session))
+         (new-source (apply-edit old-source source-edit))
+         (source-byte-length (u8vector-length (string->utf8 new-source))))
+    (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
+                 fresh?)
+      (let* ((artifact (incremental-session-artifact next))
+             (significant-count
+              (length
+               (parser-significant-tokens
+                machine (incremental-session-state-tokens next))))
+             (fields
+              (directed-edit-fields
+               machine old-source new-source source-edit
+               prefix-count shifted reused-count reused-bytes
+               restart-byte significant-count)))
+        (values
+         next
+         (incremental-receipt
+          (if fresh? (cons (cons 'freshFallback? #t) fields) fields)
+          artifact shifted))))
+    (def (fallback)
+      (finish (session-from-directed machine new-source)
+              0 0 0 0 0 #t))
+    (if (or (zero? (vector-length checkpoints))
+            (not old-modes)
+            (not (closed-lexer? machine)))
+      (fallback)
+      (let* ((index
+              (checkpoint-before-byte
+               checkpoints (edit-start-byte source-edit)))
+             (saved (vector-ref checkpoints index))
+             (shifted (vector-ref saved 0)))
+        (let-values (((prefix prefix-modes old-rest mode-rest)
+                      (split-checkpoint-prefix
+                       old-tokens old-modes (vector-ref saved 2))))
+          (let* ((restart-byte (vector-ref saved 3))
+                 (restart-character
+                  (byte-index->character-index
+                   (string->utf8 new-source) restart-byte))
+                 (byte-delta (edit-byte-delta source-edit))
+                 (edit-end
+                  (+ (edit-start-byte source-edit)
+                     (edit-delete-byte-length source-edit)))
+                 (reused-count 0)
+                 (reused-bytes 0)
+                 (reuse-token
+                  (lambda (character byte mode)
+                    (when (null? mode-rest)
+                      (set! old-rest '()))
+                    (let skip ()
+                      (when (and (pair? old-rest)
+                                 (or (< (token-start (car old-rest)) edit-end)
+                                     (< (+ (token-start (car old-rest))
+                                           byte-delta)
+                                        byte)))
+                        (set! old-rest (cdr old-rest))
+                        (when (pair? mode-rest)
+                          (set! mode-rest (cdr mode-rest)))
+                        (skip)))
+                    (and (pair? old-rest)
+                         (pair? mode-rest)
+                         (= (+ (token-start (car old-rest)) byte-delta)
+                            byte)
+                         (= (car mode-rest) (lr-lexical-mode-id mode))
+                         (let* ((old-token (car old-rest))
+                                (new-token
+                                 (if (zero? byte-delta)
+                                   old-token
+                                   (relocate-token old-token byte-delta))))
+                           (set! old-rest (cdr old-rest))
+                           (set! mode-rest (cdr mode-rest))
+                           (set! reused-count (+ reused-count 1))
+                           (set! reused-bytes
+                                 (+ reused-bytes
+                                    (- (token-end old-token)
+                                       (token-start old-token))))
+                           (cons new-token
+                                 (+ character
+                                    (string-length (token-lexeme old-token))))))))
+                 (rebound
+                  (lr-prefix-snapshot-rebind
+                   (vector-ref saved 1) prefix '() restart-byte)))
+            (let-values
+                (((artifact tokens modes records)
+                  (parse-source/checkpoints/resume
+                   machine new-source +checkpoint-spacing+ rebound
+                   prefix prefix-modes restart-character restart-byte
+                   reuse-token)))
+              (if (not (parse-artifact-success? artifact))
+                (fallback)
+                (let* ((next-checkpoints
+                        (if (zero? (vector-length records))
+                          #()
+                          (list->vector
+                           (append
+                            (take (vector->list checkpoints) index)
+                            (vector->list records)))))
+                       (next
+                        (make-incremental-session-state
+                         machine new-source artifact tokens modes
+                         next-checkpoints)))
+                  (finish next (vector-ref saved 2) shifted
+                          reused-count reused-bytes restart-byte #f))))))))))

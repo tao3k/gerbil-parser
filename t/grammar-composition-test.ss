@@ -14,6 +14,10 @@
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-roundtrip parse-artifact-success?)
         (only-in :gerbil-parser/src/runtime/funcs vector-intern-map)
+        (only-in :gerbil-parser/src/runtime/incremental
+                 apply-edit make-edit make-incremental-session
+                 incremental-session-artifact parse-incremental-session
+                 parse-source/incremental)
         (only-in :gerbil-parser/src/runtime/lexer lex-source)
         :gerbil-parser/src/runtime/recognition
         (only-in :gerbil-parser/src/runtime/lr-parser
@@ -34,12 +38,13 @@
   (identity "directed-lexical-mode" "v1" "directed-lexical-mode.v1")
   (root source-file)
   (lex
-   (first FirstToken (literals "x"))
-   (second SecondToken (literals "x")))
+   (first FirstToken (literals "x" "y"))
+   (second SecondToken (literals "x" "y")))
   (rules
    (source-file
     (node SourceFile
-      (seq (field first first) (field second second)))))
+      (repeat
+       (seq (field first first) (field second second))))))
   (extras)
   (keywords)
   (recoveries)
@@ -311,6 +316,28 @@
         (check (map token-kind global-tokens) => '(first first))
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => "xx")))
+    (test-case "incremental reuse honors LR lexical modes on identical spellings"
+      (let* ((source (make-string 96 #\x))
+             (source-edit (make-edit 48 1 "y"))
+             (session
+              (make-incremental-session
+               directed-lexical-mode-parser source))
+             (fresh
+              (parse-source directed-lexical-mode-parser
+                            (apply-edit source source-edit))))
+        (let-values (((next receipt)
+                      (parse-incremental-session session source-edit))
+                     ((one-shot one-shot-receipt)
+                      (parse-source/incremental
+                       directed-lexical-mode-parser source
+                       (parse-source directed-lexical-mode-parser source)
+                       source-edit)))
+          (check (incremental-session-artifact next) => fresh)
+          (check one-shot => fresh)
+          (check (> (row-ref receipt 'checkpointReusedShiftCount) 0)
+                 => #t)
+          (check (> (row-ref receipt 'reusedSuffixTokenCount) 0) => #t)
+          (check (row-ref one-shot-receipt 'freshFallback?) => #f))))
     (test-case "explicit POO composition emits an identity-bearing receipt"
       (let-values (((ir receipt)
                     (compile-grammar/receipt explicit-composed-grammar)))

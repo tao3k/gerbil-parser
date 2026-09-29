@@ -99,7 +99,7 @@
 
 ;; compile-parser
 ;; : (-> Alist Alist)
-(def (compile-parser grammar)
+(def (compile-parser grammar (construction 'lalr))
   (unless (and (list? grammar)
                (equal? (let (row (assq 'schema grammar))
                          (and row (cdr row)))
@@ -132,7 +132,7 @@
      (cons 'root-rule (require-entrypoint entrypoints rules))
      (cons 'lr-spec
            (compile-lr-spec rules (require-entrypoint entrypoints rules)
-                            conflict-policy case-insensitive?))
+                            conflict-policy case-insensitive? construction))
      (cons 'conflict-policy conflict-policy)
      (cons 'case-insensitive? case-insensitive?)
      (cons 'syntax-kinds syntax-kinds)

@@ -7,7 +7,7 @@
  (sampleCount . 40)
  (rule . GERBIL-PARSER-INCREMENTAL-SUFFIX)
  (feature . incremental-suffix-convergence)
- (optimizationFocus . "shift-bound LR checkpoints plus byte-shift-aware maximal token suffix convergence")
+ (optimizationFocus . "shift-bound LR checkpoints plus lexical-mode-certified suffix token reuse")
  (inputShape . "one hundred fixed-width arithmetic operands with an equal-width edit at the midpoint")
  (expectedOutcome . "fresh-equivalent publication with more than ninety prefix shifts resumed and more than ninety suffix tokens reused")
  (measurementPhases collect-before collect-after policy-before policy-after

@@ -8,7 +8,7 @@ Parser IR tables without running Scheme at parse-request time.
 The language-neutral compiler and runtime live under =src/=.  Their public
 language-import API is the top-level =language-support.ss= facade beside
 =build.ss=, so package imports do not expose the physical =src/= directory.
-Its implementations remain under =src/language-support/=.  Bundled and downstream language packs live under
+Its implementations live under the top-level =language-support/=.  Bundled and downstream language packs live under
 =languages/<language>/<version>/=; grammar, parser entry, fixtures, tests, and
 native corpus stay together.  POO and =poo-flow=
 are used only while compiling grammar object graphs; generated parser hot paths
@@ -194,7 +194,7 @@ structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
 
 Grammar-source formats are language-neutral engine adapters.  ISO WG3 BNF,
 ANTLR4 source admission, and fixture/corpus declaration machinery are internal
-to =src/language-support/= and exported only through
+to =language-support/= and exported through
 =:gerbil-parser/language-support=.  A language pack only
 selects a pinned source and declares its versioned lowering under
 =languages/<language>/<version>/=.  The openCypher 2024.1 pack validates and

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical left-recursive arithmetic grammar for LR precedence admission.
 
-(import (only-in :gerbil-parser/language-support deflanguage))
+(import (only-in :gerbil-parser/src/language/grammar deflanguage))
 (export +arithmetic-language-version+
         +arithmetic-syntax-contract+
         arithmetic-language-grammar

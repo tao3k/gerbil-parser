@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Official SANY JavaCC grammar admitted only as native syntax evidence.
 
-(import :gerbil-parser/language-support)
+(import (only-in :gerbil-parser/language-support/grammar-source
+                 defsyntax-javacc-source))
 (export +tla-plus-syntax-source+
         +tla-plus-sany-release+
         +tla-plus-sany-commit+

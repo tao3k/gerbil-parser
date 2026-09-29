@@ -8,10 +8,12 @@
                  parser-machine-trivia)
         (only-in ./artifact
                  +diagnostic-schema+ make-failure-parse-artifact
-                 make-success-parse-artifact)
+                 make-success-parse-artifact parse-artifact-success?)
         (only-in ./lexer lex-source lex-source-from scan-source-token)
         (only-in ./lr-parser
-                 lr-checkpoint-feed lr-checkpoint-lexical-mode
+                 lr-checkpoint-deterministic-shifts lr-checkpoint-feed
+                 lr-checkpoint-lexical-mode lr-checkpoint-prefix-snapshot
+                 lr-lexical-mode-id
                  lr-checkpoint-resume
                  lr-checkpoint-resume-suffix lr-initial-checkpoint)
         (only-in ./observability
@@ -19,6 +21,8 @@
         (only-in ./significant parser-significant-tokens)
         (only-in ./token token-end token-lexeme))
 (export parse-source
+        parse-source/checkpoints
+        parse-source/checkpoints/resume
         parse-tokenized
         parse-tokenized/checkpoint)
 
@@ -99,43 +103,58 @@
 ;;; Each state supplies its interned terminal mode. Trivia advances only the
 ;;; scanner; significant tokens advance exactly one LR shift. An admitted fork
 ;;; scans the remaining suffix once and transfers the exact checkpoint to GLR.
-(def (parse-source/directed machine grammar-digest source observability)
+(def (parse-source/directed machine grammar-digest source observability capture
+                            initial prefix-tokens prefix-modes
+                            start-character start-byte reuse-token)
   (let ((source-length (string-length source))
         (trivia? (parser-machine-trivia machine)))
-    (def (publish tokens root rest)
+    (def (publish tokens modes root rest)
       (unless (null? rest)
         (error "unexpected trailing token" (token-lexeme (car rest))))
+      (when capture (capture #f tokens modes 0 0))
       (call-with-parser-observed-phase
        observability 'artifact-materialization
        (lambda ()
          (make-success-parse-artifact
           grammar-digest source tokens root trivia?))))
-    (let loop ((character-offset 0)
-               (byte-offset 0)
-               (checkpoint
-                (lr-initial-checkpoint
-                 (parser-machine-runtime machine) '()))
-               (tokens-reversed '()))
+    (when capture (capture initial #f #f 0 start-byte))
+    (let loop ((character-offset start-character)
+               (byte-offset start-byte)
+               (checkpoint initial)
+               (tokens-reversed (reverse prefix-tokens))
+               (modes-reversed (reverse prefix-modes))
+               (token-count (length prefix-tokens)))
       (if (= character-offset source-length)
         (let-values
             (((root rest)
               (call-with-parser-observed-phase
                observability 'lr-execution
                (lambda () (lr-checkpoint-resume checkpoint observability)))))
-          (publish (reverse tokens-reversed) root rest))
+          (publish (reverse tokens-reversed)
+                   (and capture (reverse modes-reversed))
+                   root rest))
         (let (mode (lr-checkpoint-lexical-mode checkpoint))
           (let-values
               (((input-token next-character-offset)
                 (call-with-parser-observed-phase
                  observability 'lexical-analysis
                  (lambda ()
-                   (scan-source-token
-                    machine source character-offset byte-offset mode)))))
+                   (let (reused
+                         (and reuse-token
+                              (reuse-token character-offset byte-offset mode)))
+                     (if reused
+                       (values (car reused) (cdr reused))
+                       (scan-source-token
+                        machine source character-offset byte-offset mode)))))))
             (if (call-with-parser-observed-phase
                  observability 'significant-token-filter
                  (lambda () (trivia? input-token)))
               (loop next-character-offset (token-end input-token)
-                    checkpoint (cons input-token tokens-reversed))
+                    checkpoint (cons input-token tokens-reversed)
+                    (if capture
+                      (cons (lr-lexical-mode-id mode) modes-reversed)
+                      modes-reversed)
+                    (+ token-count 1))
               (let-values
                   (((status next-checkpoint)
                     (call-with-parser-observed-phase
@@ -145,10 +164,20 @@
                         checkpoint input-token observability)))))
                 (case status
                   ((checkpoint)
+                   (when capture
+                     (capture next-checkpoint #f #f
+                              (+ token-count 1) (token-end input-token)))
                    (loop next-character-offset (token-end input-token)
                          next-checkpoint
-                         (cons input-token tokens-reversed)))
+                         (cons input-token tokens-reversed)
+                         (if capture
+                           (cons (lr-lexical-mode-id mode) modes-reversed)
+                           modes-reversed)
+                         (+ token-count 1)))
                   ((fork)
+                   (when capture
+                     (capture #f #f (reverse modes-reversed)
+                              token-count byte-offset))
                    (let* ((suffix
                            (call-with-parser-observed-phase
                             observability 'lexical-analysis
@@ -174,14 +203,16 @@
                                 (lr-checkpoint-resume-suffix
                                  next-checkpoint significant remaining
                                  observability)))))
-                         (publish tokens root rest)))))
+                         (publish tokens #f root rest)))))
                   (else
                    (error "parser-directed feed did not yield a checkpoint"
                           status)))))))))))
 
 ;; : (-> ParserMachine String ParseArtifact)
-(def (parse-source machine source
-                   (observability #f))
+(def (parse-source/with-capture machine source observability capture
+                                (checkpoint #f) (prefix-tokens '())
+                                (prefix-modes '()) (start-character 0)
+                                (start-byte 0) (reuse-token #f))
   (unless (string? source)
     (error "parse source must be a string" source))
   (let (grammar-digest (parser-machine-grammar-digest machine))
@@ -212,4 +243,49 @@
                 machine grammar-digest source tokens condition)))))))
      (lambda ()
        (parse-source/directed
-        machine grammar-digest source observability)))))
+        machine grammar-digest source observability capture
+        (or checkpoint
+            (lr-initial-checkpoint (parser-machine-runtime machine) '()))
+        prefix-tokens prefix-modes start-character start-byte reuse-token)))))
+
+(def (parse-source machine source (observability #f))
+  (parse-source/with-capture machine source observability #f))
+
+;; Capture sparse deterministic prefixes during the initial directed parse.
+;; A fork keeps the certified prefix; selective GLR owns the uncaptured suffix.
+(def (parse-source/checkpoints/resume machine source spacing checkpoint
+                                      prefix-tokens prefix-modes
+                                      start-character start-byte reuse-token)
+  (unless (and (integer? spacing) (positive? spacing))
+    (error "checkpoint spacing must be positive" spacing))
+  (let ((snapshots '()) (source-tokens #f) (source-modes #f))
+    (let* ((artifact
+            (parse-source/with-capture
+             machine source #f
+             (lambda (checkpoint tokens modes token-count byte-end)
+               (cond
+                (checkpoint
+                 (let (shifts
+                       (lr-checkpoint-deterministic-shifts checkpoint))
+                   (when (zero? (modulo shifts spacing))
+                     (set! snapshots
+                            (cons
+                            (vector shifts
+                                    (lr-checkpoint-prefix-snapshot checkpoint)
+                                    token-count byte-end)
+                            snapshots)))))
+                (tokens
+                 (set! source-tokens tokens)
+                 (when modes (set! source-modes modes)))
+                (modes (set! source-modes modes))))
+             checkpoint prefix-tokens prefix-modes
+             start-character start-byte reuse-token))
+           (records
+            (if (parse-artifact-success? artifact)
+              (list->vector (reverse snapshots))
+              #())))
+      (values artifact source-tokens source-modes records))))
+
+(def (parse-source/checkpoints machine source spacing)
+  (parse-source/checkpoints/resume
+   machine source spacing #f '() '() 0 0 #f))

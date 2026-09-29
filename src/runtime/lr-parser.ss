@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in ../compiler/lr
+(import (only-in :std/vector/vector vector-map/index)
+        (only-in ../compiler/lr
                  lr-spec-ref operand-actions production-action
                  production-lhs production-precedence production-rhs
                  production-table)
@@ -37,6 +38,9 @@
         lr-checkpoint-frontier
         lr-checkpoint-feed
         lr-checkpoint-lexical-mode
+        lr-checkpoint-prefix-snapshot
+        lr-prefix-snapshot-rebind
+        lr-checkpoint-rebind-suffix
         lr-checkpoint-resume-suffix
         lr-lexical-mode?
         lr-lexical-mode-id
@@ -53,8 +57,6 @@
         lr-failure-frontier-resume
         lr-rejection-condition?)
 
-(def +lr-eof+ '(terminal eof))
-
 ;; Immutable execution data derived once for generated parser machines.
 (defstruct lr-runtime
   (productions table actions action-index gotos goto-index
@@ -65,12 +67,23 @@
 ;;; same terminal row.
 (defstruct lr-lexical-mode (id terminals) transparent: #t)
 
+;;; A source action row projected once into the three lookups used by the LR
+;;; executor. Entries remain the original (terminal . action) pairs so GLR
+;;; receipt and action identity semantics are unchanged.
+(defstruct lr-action-row (literals tokens eof) transparent: #t)
+
 ;;; Immutable continuation of the deterministic LR machine.  The constructor
 ;;; remains private: every public checkpoint is tied to the exact prepared
 ;;; runtime and original token sequence that produced it.
 (defstruct lr-checkpoint
-  (runtime tokens states semantic-values rest
+  (runtime tokens input-end-offset states semantic-values rest
            deterministic-actions deterministic-shifts)
+  transparent: #t)
+
+;;; A reusable prefix keeps parser state and recognition values but does not
+;;; retain a complete historical token stream across incremental edits.
+(defstruct lr-prefix-snapshot
+  (runtime states semantic-values deterministic-actions deterministic-shifts)
   transparent: #t)
 
 ;;; A deterministic failure frontier retains the exact immutable continuation
@@ -80,7 +93,12 @@
   transparent: #t)
 
 (def (lr-initial-checkpoint runtime tokens)
-  (make-lr-checkpoint runtime tokens '(0) '() tokens 0 0))
+  (make-lr-checkpoint
+   runtime tokens
+   (fold (lambda (input-token offset)
+           (max offset (token-end input-token)))
+         0 tokens)
+   '(0) '() tokens 0 0))
 
 (def (lr-checkpoint-remaining-token-count checkpoint)
   (length (lr-checkpoint-rest checkpoint)))
@@ -104,6 +122,42 @@
          (and (list? irritant) (assq 'failureKind irritant)))
        (error-irritants condition)))
 
+(def (index-action-entries entries)
+  (if (<= (length entries) 8)
+    entries
+    (let (index (make-table test: equal?))
+      (for-each
+       (lambda (entry)
+         (unless (table-ref index (car entry) #f)
+           (table-set! index (car entry) (cdr entry))))
+       entries)
+      index)))
+
+(def (index-action-row row)
+  (let ((literals '()) (tokens '()) (eof #f))
+    (for-each
+     (lambda (entry)
+       (let (terminal (car entry))
+         (case (cadr terminal)
+           ((literal)
+            (set! literals (cons (cons (caddr terminal) entry) literals)))
+           ((token)
+            (set! tokens (cons (cons (caddr terminal) entry) tokens)))
+           ((eof)
+            (unless eof (set! eof entry)))
+           (else (error "unsupported LR action terminal" terminal)))))
+     row)
+    (make-lr-action-row
+     (index-action-entries (reverse literals))
+     (index-action-entries (reverse tokens))
+     eof)))
+
+(def (lookup-action-entry index key)
+  (if (list? index)
+    (let (found (assoc key index))
+      (and found (cdr found)))
+    (table-ref index key #f)))
+
 (def (lr-prepare spec)
   (let* ((productions (lr-spec-ref spec 'productions))
          (actions (lr-spec-ref spec 'actions))
@@ -123,7 +177,8 @@
        productions
        (production-table productions)
        actions
-       (association-row-vector->index actions)
+       (vector-map/index
+        (lambda (_index row) (index-action-row row)) actions)
        gotos
        (association-row-vector->index gotos)
        (lr-spec-ref spec 'case-insensitive?)
@@ -131,29 +186,24 @@
        modes
        mode-catalog))))
 
-;; lookup-action-row
-;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Datum (OrFalse Pair))
-(def lookup-action-row association-row-index-ref)
-
 ;; current-action-row
 ;; : (-> Vector Fixnum List Boolean (OrFalse Pair))
 (def (current-action-row actions state tokens case-insensitive?)
-  (if (null? tokens)
-    (lookup-action-row actions state +lr-eof+)
-    ;; A literal is a contextual keyword/punctuation refinement of its lexical
-    ;; token kind. It has deterministic priority over the generic kind action.
-    (or (lookup-action-row actions state
-                           (list 'terminal 'literal
-                                 (token-lexeme (car tokens))))
-        (and case-insensitive?
-             (string? (token-lexeme (car tokens)))
-             (lookup-action-row actions state
-                                (list 'terminal 'literal
-                                      (string-upcase
-                                       (token-lexeme (car tokens))))))
-        (lookup-action-row actions state
-                           (list 'terminal 'token
-                                 (token-kind (car tokens)))))))
+  (let (row (vector-ref actions state))
+    (if (null? tokens)
+      (lr-action-row-eof row)
+      ;; A literal is a contextual keyword/punctuation refinement of its
+      ;; lexical token kind. It precedes the generic kind action.
+      (let (input-token (car tokens))
+        (or (lookup-action-entry
+             (lr-action-row-literals row) (token-lexeme input-token))
+            (and case-insensitive?
+                 (string? (token-lexeme input-token))
+                 (lookup-action-entry
+                  (lr-action-row-literals row)
+                  (string-upcase (token-lexeme input-token))))
+            (lookup-action-entry
+             (lr-action-row-tokens row) (token-kind input-token)))))))
 
 ;; apply-operand-action
 ;; : (-> List List Fixnum List)
@@ -585,7 +635,7 @@
 ;;        (Values Symbol Datum))
 (def (lr-run-checkpoint checkpoint action-budget observability
                         (stop-at-failure? #f) (shift-target #f)
-                        (stop-at-fork? #f))
+                        (stop-at-fork? #f) (feed-token #f))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
@@ -594,11 +644,15 @@
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
-         (tokens (lr-checkpoint-tokens checkpoint))
+         (tokens
+          (if feed-token
+            (cons feed-token (lr-checkpoint-tokens checkpoint))
+            (lr-checkpoint-tokens checkpoint)))
          (input-end-offset
-          (fold (lambda (input-token offset)
-                  (max offset (token-end input-token)))
-                0 tokens)))
+          (if feed-token
+            (max (lr-checkpoint-input-end-offset checkpoint)
+                 (token-end feed-token))
+            (lr-checkpoint-input-end-offset checkpoint))))
     (def (fallback states semantic-values rest actions shifts)
       (let-values
           (((root remaining _receipt)
@@ -612,7 +666,9 @@
     (let loop ((states (lr-checkpoint-states checkpoint))
                (semantic-values
                 (lr-checkpoint-semantic-values checkpoint))
-               (rest (lr-checkpoint-rest checkpoint))
+               (rest (if feed-token
+                       (list feed-token)
+                       (lr-checkpoint-rest checkpoint)))
                (actions (lr-checkpoint-deterministic-actions checkpoint))
                (shifts (lr-checkpoint-deterministic-shifts checkpoint))
                (remaining-budget action-budget))
@@ -621,7 +677,8 @@
         (values
          'checkpoint
          (make-lr-checkpoint
-          runtime tokens states semantic-values rest actions shifts))
+          runtime tokens input-end-offset
+          states semantic-values rest actions shifts))
         (let* ((state (car states))
                (action-row
                 (current-action-row
@@ -632,7 +689,8 @@
                'failure
                (make-lr-failure-frontier
                 (make-lr-checkpoint
-                 runtime tokens states semantic-values rest actions shifts)
+                 runtime tokens input-end-offset
+                 states semantic-values rest actions shifts)
                 state
                 (map car (vector-ref actions-table state))))
               (fallback states semantic-values rest actions shifts))
@@ -680,7 +738,8 @@
                    (values
                     'fork
                     (make-lr-checkpoint
-                     runtime tokens states semantic-values rest actions shifts))
+                     runtime tokens input-end-offset
+                     states semantic-values rest actions shifts))
                    (fallback states semantic-values rest actions shifts)))
                 ((accept)
                  (let (children
@@ -721,32 +780,47 @@
 ;;; reductions expose a selective-GLR cell first, returns its exact immutable
 ;;; frontier instead of starting GLR with a truncated one-token suffix.
 (def (lr-checkpoint-feed checkpoint input-token (observability #f))
-  (let* ((shift-target
-          (fx+ (lr-checkpoint-deterministic-shifts checkpoint) 1))
-         (fed
-          (make-lr-checkpoint
-           (lr-checkpoint-runtime checkpoint)
-           (cons input-token (lr-checkpoint-tokens checkpoint))
-           (lr-checkpoint-states checkpoint)
-           (lr-checkpoint-semantic-values checkpoint)
-           (list input-token)
-           (lr-checkpoint-deterministic-actions checkpoint)
-           (lr-checkpoint-deterministic-shifts checkpoint))))
-    (lr-run-checkpoint fed #f observability #f shift-target #t)))
+  (lr-run-checkpoint
+   checkpoint #f observability #f
+   (fx+ (lr-checkpoint-deterministic-shifts checkpoint) 1)
+   #t input-token))
 
 ;;; Rebinds an unconsumed suffix to the same immutable deterministic frontier.
-;;; This is used only when a streaming path reaches a selective-GLR cell.
+;;; Streaming GLR handoff and explicit incremental sessions share this path.
+(def (lr-checkpoint-prefix-snapshot checkpoint)
+  (unless (lr-checkpoint? checkpoint)
+    (error "LR prefix snapshot requires a checkpoint" checkpoint))
+  (make-lr-prefix-snapshot
+   (lr-checkpoint-runtime checkpoint)
+   (lr-checkpoint-states checkpoint)
+   (lr-checkpoint-semantic-values checkpoint)
+   (lr-checkpoint-deterministic-actions checkpoint)
+   (lr-checkpoint-deterministic-shifts checkpoint)))
+
+(def (lr-prefix-snapshot-rebind snapshot tokens rest
+                                (input-end-offset #f))
+  (unless (lr-prefix-snapshot? snapshot)
+    (error "LR prefix rebind requires a snapshot" snapshot))
+  (make-lr-checkpoint
+   (lr-prefix-snapshot-runtime snapshot)
+   tokens
+   (or input-end-offset
+       (fold (lambda (input-token offset)
+               (max offset (token-end input-token)))
+             0 tokens))
+   (lr-prefix-snapshot-states snapshot)
+   (lr-prefix-snapshot-semantic-values snapshot)
+   rest
+   (lr-prefix-snapshot-deterministic-actions snapshot)
+   (lr-prefix-snapshot-deterministic-shifts snapshot)))
+
+(def (lr-checkpoint-rebind-suffix checkpoint tokens rest)
+  (lr-prefix-snapshot-rebind
+   (lr-checkpoint-prefix-snapshot checkpoint) tokens rest))
+
 (def (lr-checkpoint-resume-suffix checkpoint tokens rest (observability #f))
   (lr-checkpoint-resume
-   (make-lr-checkpoint
-    (lr-checkpoint-runtime checkpoint)
-    tokens
-    (lr-checkpoint-states checkpoint)
-    (lr-checkpoint-semantic-values checkpoint)
-    rest
-    (lr-checkpoint-deterministic-actions checkpoint)
-    (lr-checkpoint-deterministic-shifts checkpoint))
-   observability))
+   (lr-checkpoint-rebind-suffix checkpoint tokens rest) observability))
 
 ;;; Completes parsing from an initial or advanced immutable checkpoint.
 (def (lr-checkpoint-resume checkpoint (observability #f))
@@ -771,6 +845,7 @@
           (make-lr-checkpoint
            (lr-checkpoint-runtime checkpoint)
            (lr-checkpoint-tokens checkpoint)
+           (lr-checkpoint-input-end-offset checkpoint)
            (lr-checkpoint-states checkpoint)
            (lr-checkpoint-semantic-values checkpoint)
            edited-rest

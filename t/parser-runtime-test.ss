@@ -6,6 +6,9 @@
         :gerbil-parser/src/runtime/cst
         :gerbil-parser/src/runtime/parser
         :gerbil-parser/src/runtime/scan
+        (only-in :gerbil-parser/src/runtime/lexer lex-source)
+        (only-in :gerbil-parser/src/runtime/significant
+                 parser-significant-tokens parser-significant-joined)
         :gerbil-parser/src/runtime/token
         :gerbil-parser/languages/arithmetic/v1/parser)
 
@@ -39,6 +42,18 @@
 
 (def parser-runtime-tests
   (test-suite "parser runtime"
+    (test-case "fork projection preserves significant token order"
+      (let* ((tokens (lex-source arithmetic-parser "1 + 2"))
+             (prefix-reversed (list (caddr tokens) (cadr tokens)
+                                    (car tokens)))
+             (suffix (cdddr tokens)))
+        (let-values (((significant rest)
+                      (parser-significant-joined
+                       arithmetic-parser prefix-reversed suffix)))
+          (check significant
+                 => (parser-significant-tokens arithmetic-parser tokens))
+          (check rest
+                 => (parser-significant-tokens arithmetic-parser suffix)))))
     (test-case "ParseArtifact is lossless and CST is an event projection"
       (let* ((source " 1 + (2 * value) ")
              (artifact (parse-source arithmetic-parser source))
@@ -185,4 +200,6 @@
                => #t)
         (check-exception (parse-artifact->cst artifact) true)))))
 
-(export parser-runtime-tests)
+(def parser-runtime-test parser-runtime-tests)
+
+(export parser-runtime-tests parser-runtime-test)

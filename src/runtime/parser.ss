@@ -19,7 +19,8 @@
                  lr-checkpoint-resume-suffix lr-initial-checkpoint)
         (only-in ./observability
                  call-with-parser-observed-phase)
-        (only-in ./significant parser-significant-tokens)
+        (only-in ./significant
+                 parser-significant-tokens parser-significant-joined)
         (only-in ./token token-end token-lexeme))
 (export parse-source
         parse-source/checkpoints
@@ -156,13 +157,14 @@
                   machine source
                   (or pending-character character-offset)
                   (or pending-byte byte-offset)))
-                (tokens (append (reverse tokens-reversed) suffix))
-                (significant (parser-significant-tokens machine tokens))
-                (remaining (parser-significant-tokens machine suffix)))
-           (let-values (((root rest)
-                         (lr-checkpoint-resume-suffix
-                          payload significant remaining)))
-             (publish tokens root rest))))
+                (tokens (foldl cons suffix tokens-reversed)))
+           (let-values (((significant remaining)
+                         (parser-significant-joined
+                          machine tokens-reversed suffix)))
+             (let-values (((root rest)
+                           (lr-checkpoint-resume-suffix
+                            payload significant remaining)))
+               (publish tokens root rest)))))
         (else (error "streamed LR parse did not terminate" status))))))
 
 ;;; Deterministic source driver for the sole generated scanner and LR executor.
@@ -252,15 +254,14 @@
                                machine source
                                character-offset byte-offset))))
                           (tokens
-                           (append (reverse tokens-reversed) suffix)))
+                           (foldl cons suffix tokens-reversed)))
                      (let-values
                          (((significant remaining)
                            (call-with-parser-observed-phase
                             observability 'significant-token-filter
                             (lambda ()
-                              (values
-                               (parser-significant-tokens machine tokens)
-                               (parser-significant-tokens machine suffix))))))
+                              (parser-significant-joined
+                               machine tokens-reversed suffix)))))
                        (let-values
                            (((root rest)
                              (call-with-parser-observed-phase

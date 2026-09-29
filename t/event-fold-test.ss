@@ -902,6 +902,11 @@
                                                   ((token Line start end)))) '())
          true)
         (check-exception
+         (run-event-fold "text\n" 'Document initial
+                         '((join-once handled ((finish-node))
+                                      ((token Line start end)))) '())
+         true)
+        (check-exception
          (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
                              '((handled #f)) forms '())
          true)))

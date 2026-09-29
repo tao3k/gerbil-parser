@@ -68,10 +68,10 @@
 ;;; same terminal row.
 (defstruct lr-lexical-mode (id terminals) transparent: #t)
 
-;;; A source action row projected once into the three lookups used by the LR
-;;; executor. Entries remain the original (terminal . action) pairs so GLR
-;;; receipt and action identity semantics are unchanged.
-(defstruct lr-action-row (literals tokens eof) transparent: #t)
+;;; ASCII punctuation has a direct action slot; longer/Unicode literals and
+;;; token kinds retain their existing indexes. Entries remain the original
+;;; (terminal . action) pairs for GLR receipt and action identity semantics.
+(defstruct lr-action-row (ascii-literals literals tokens eof) transparent: #t)
 
 ;;; Immutable continuation of the deterministic LR machine.  The constructor
 ;;; remains private: every public checkpoint is tied to the exact prepared
@@ -135,13 +135,23 @@
       index)))
 
 (def (index-action-row row)
-  (let ((literals '()) (tokens '()) (eof #f))
+  (let ((ascii-literals #f) (literals '()) (tokens '()) (eof #f))
     (for-each
      (lambda (entry)
        (let (terminal (car entry))
          (case (cadr terminal)
            ((literal)
-            (set! literals (cons (cons (caddr terminal) entry) literals)))
+            (let (literal (caddr terminal))
+              (if (and (string? literal)
+                       (= (string-length literal) 1)
+                       (< (char->integer (string-ref literal 0)) 128))
+                (begin
+                  (unless ascii-literals
+                    (set! ascii-literals (make-vector 128 #f)))
+                  (let (code (char->integer (string-ref literal 0)))
+                    (unless (vector-ref ascii-literals code)
+                      (vector-set! ascii-literals code entry))))
+                (set! literals (cons (cons literal entry) literals)))))
            ((token)
             (set! tokens (cons (cons (caddr terminal) entry) tokens)))
            ((eof)
@@ -149,6 +159,7 @@
            (else (error "unsupported LR action terminal" terminal)))))
      row)
     (make-lr-action-row
+     ascii-literals
      (index-action-entries (reverse literals))
      (index-action-entries (reverse tokens))
      eof)))
@@ -158,6 +169,15 @@
     (let (found (assoc key index))
       (and found (cdr found)))
     (table-ref index key #f)))
+
+(def (lookup-literal-action-entry row literal)
+  (if (and (string? literal)
+           (= (string-length literal) 1)
+           (< (char->integer (string-ref literal 0)) 128))
+    (let (ascii (lr-action-row-ascii-literals row))
+      (and ascii
+           (vector-ref ascii (char->integer (string-ref literal 0)))))
+    (lookup-action-entry (lr-action-row-literals row) literal)))
 
 (def (lr-prepare spec)
   (let* ((productions (lr-spec-ref spec 'productions))
@@ -200,13 +220,11 @@
       ;; A literal is a contextual keyword/punctuation refinement of its
       ;; lexical token kind. It precedes the generic kind action.
       (let (input-token (car tokens))
-        (or (lookup-action-entry
-             (lr-action-row-literals row) (token-lexeme input-token))
+        (or (lookup-literal-action-entry row (token-lexeme input-token))
             (and case-insensitive?
                  (string? (token-lexeme input-token))
-                 (lookup-action-entry
-                  (lr-action-row-literals row)
-                  (string-upcase (token-lexeme input-token))))
+                 (lookup-literal-action-entry
+                  row (string-upcase (token-lexeme input-token))))
             (lookup-action-entry
              (lr-action-row-tokens row) (token-kind input-token)))))))
 

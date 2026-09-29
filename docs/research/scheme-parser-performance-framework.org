@@ -481,6 +481,16 @@ processes. Parser runtime, grammar composition, incremental, canonical LR(1),
 and selective-GLR suites passed. This measures a runtime improvement, not a
 new parsing-complexity bound.
 
+The prepared action row now indexes ASCII single-character literals directly
+by character code. Multi-character and Unicode literals retain the existing
+list/table index; exact literal lookup still precedes case-folded literal and
+generic token-kind lookup. This targets repeated action selection across LR
+reductions without changing contextual token admission. On the same local
+3,200-term arithmetic input, the five-sample best prepared LR stage was 3.85
+ms in a repeated run after this action-row change, versus 5.00 ms in the
+previous run. The ISO GQL 100-query p95 sample was 50.964 ms against its 150 ms
+admission ceiling. These timings are host observations, not portable ratios.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

@@ -470,6 +470,17 @@ The prepared LR stage was about 4.9 ms; lexical scanning and artifact
 materialization were about 1.8 and 1.6 ms. These one-host observations do
 not imply submillisecond parsing for documents of that size.
 
+The LR executor now prepares each production's reduction width once and pops
+its immutable state and semantic stacks together, yielding source-ordered
+values for both deterministic LR and selective GLR. This removes the separate
+stack traversals and value reversal from every reduction without changing the
+public tables or recognition products. On a local 3,200-term arithmetic input,
+the five-sample best prepared LR stage was 6.08 ms before this change and 5.00
+ms in a repeated run afterward; full-parse samples varied more widely between
+processes. Parser runtime, grammar composition, incremental, canonical LR(1),
+and selective-GLR suites passed. This measures a runtime improvement, not a
+new parsing-complexity bound.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

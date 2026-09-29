@@ -60,7 +60,7 @@
 
 ;; Immutable execution data derived once for generated parser machines.
 (defstruct lr-runtime
-  (productions table actions action-index gotos goto-index
+  (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? lexical-modes lexical-mode-catalog)
   transparent: #t)
 
@@ -174,18 +174,22 @@
                    (lambda (row) (map car row))
                    (lambda (terminals id)
                      (make-lr-lexical-mode id terminals)))))
-      (make-lr-runtime
-       productions
-       (production-table productions)
-       actions
-       (vector-map/index
-        (lambda (_index row) (index-action-row row)) actions)
-       gotos
-       (association-row-vector->index gotos)
-       (lr-spec-ref spec 'case-insensitive?)
-       dynamic?
-       modes
-       mode-catalog))))
+      (let (table (production-table productions))
+        (make-lr-runtime
+         productions
+         table
+         (vector-map/index
+          (lambda (_index production)
+            (length (production-rhs production))) table)
+         actions
+         (vector-map/index
+          (lambda (_index row) (index-action-row row)) actions)
+         gotos
+         (association-row-vector->index gotos)
+         (lr-spec-ref spec 'case-insensitive?)
+         dynamic?
+         modes
+         mode-catalog)))))
 
 ;; current-action-row
 ;; : (-> Vector Fixnum List Boolean (OrFalse Pair))
@@ -230,10 +234,9 @@
 
 ;; reduce-value
 ;; : (-> List List Fixnum List)
-(def (reduce-value production reversed-values default-offset
+(def (reduce-value production source-values default-offset
                    fragment-constructor)
   (let* ((rhs (production-rhs production))
-         (source-values (reverse reversed-values))
          (action (production-action production)))
     (cond
      ((and (eq? action 'pass) (pair? rhs) (null? (cdr rhs)))
@@ -250,6 +253,19 @@
            fragment-constructor)))
        '() rhs source-values))
      (else (error "unknown LR semantic action" action)))))
+
+;;; Pop LR states and semantic values together. Accumulating the top-first
+;;; semantic stack with cons produces the source order required by reductions.
+;;; This also preserves the shared immutable suffix for GLR branches/checkpoints.
+(def (pop-reduction states semantic-values count)
+  (let loop ((remaining count) (states states) (semantic-rest semantic-values)
+             (source-values '()))
+    (if (zero? remaining)
+      (values source-values semantic-rest states)
+      (if (and (pair? states) (pair? semantic-rest))
+        (loop (fx- remaining 1) (cdr states) (cdr semantic-rest)
+              (cons (car semantic-rest) source-values))
+        (error "LR reduction exceeds parser stack" count)))))
 
 ;; goto-target
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Symbol (OrFalse Fixnum))
@@ -450,17 +466,18 @@
                      semantic-values)
                (cdr rest) score)))
         ((reduce)
-         (let* ((production (vector-ref table (cadr action)))
-                (count (length (production-rhs production))))
-           (let-values (((popped-values remaining-values)
-                         (split-at semantic-values count)))
-             (let* (
-                (remaining-states (drop states count))
-                (offset (if (pair? rest) (token-start (car rest))
+         (let* ((production-id (cadr action))
+                (production (vector-ref table production-id))
+                (count (vector-ref
+                        (lr-runtime-reduction-widths runtime)
+                        production-id)))
+           (let-values (((source-values remaining-values remaining-states)
+                         (pop-reduction states semantic-values count)))
+             (let* ((offset (if (pair? rest) (token-start (car rest))
                             input-end-offset))
                 (value
                  (reduce-value
-                  production popped-values offset intern-fragment))
+                  production source-values offset intern-fragment))
                 (precedence (production-precedence production))
                 (next-score
                  (if (and precedence (eq? (car precedence) 'dynamic))
@@ -730,17 +747,20 @@
                                 (fx- remaining-budget 1))))
                    (fallback states semantic-values rest actions shifts)))
                 ((reduce)
-                 (let* ((production (vector-ref table (cadr action)))
-                        (count (length (production-rhs production))))
-                   (let-values (((popped-values remaining-values)
-                                 (split-at semantic-values count)))
-                     (let* ((remaining-states (drop states count))
-                            (offset
+                 (let* ((production-id (cadr action))
+                        (production (vector-ref table production-id))
+                        (count (vector-ref
+                                (lr-runtime-reduction-widths runtime)
+                                production-id)))
+                   (let-values (((source-values remaining-values
+                                  remaining-states)
+                                 (pop-reduction states semantic-values count)))
+                     (let* ((offset
                              (if (pair? rest) (token-start (car rest))
                                  input-end-offset))
                             (value
                              (reduce-value
-                              production popped-values offset
+                              production source-values offset
                               make-recognition-fragment))
                             (target
                              (and (pair? remaining-states)

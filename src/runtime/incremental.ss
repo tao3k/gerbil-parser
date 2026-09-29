@@ -7,6 +7,7 @@
         (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ./artifact
                  event-end event-start make-same-width-token-artifact
+                 make-shifted-token-artifact
                  parse-artifact-events
                  parse-artifact-ref parse-artifact-success?
                  parse-artifact-valid? token-event?
@@ -250,28 +251,47 @@
                  (vector-ref catalog index)))
                (mode-loop (+ index 1)))))))
 
-;;; A closed scanner and equal token boundaries certify unchanged suffix
-;;; tokenization. Generic significant lexemes also preserve every LR action.
-;;; Their later snapshots hold stale semantic values and must be discarded.
-(def (same-width-token-reuse session source-edit new-source)
+(def (same-scanned-token? machine source old-token mode-id delta)
+  (with-catch
+   (lambda (_condition) #f)
+   (lambda ()
+     (let* ((start (+ (token-start old-token) delta))
+            (mode
+             (vector-ref
+              (lr-runtime-lexical-mode-catalog
+               (parser-machine-runtime machine)) mode-id))
+            (character
+             (byte-index->character-index (string->utf8 source) start)))
+       (let-values (((token _next-character)
+                     (scan-source-token machine source character start mode)))
+         (and (eq? (token-kind token) (token-kind old-token))
+              (equal? (token-lexeme token) (token-lexeme old-token))
+              (= (token-end token) (+ (token-end old-token) delta))))))))
+
+;;; A closed scanner and one-token edit certify unchanged suffix tokenization
+;;; modulo its byte delta. Generic significant lexemes preserve LR actions.
+;;; Snapshots after a shifted or significant token hold stale semantic values.
+(def (certified-token-reuse session source-edit new-source)
   (let* ((machine (incremental-session-state-machine session))
          (old-artifact (incremental-session-state-artifact session))
          (old-tokens (incremental-session-state-tokens session))
          (old-modes (incremental-session-state-modes session))
          (edit-start (edit-start-byte source-edit))
-         (edit-end (+ edit-start (edit-delete-byte-length source-edit))))
-    (and (zero? (edit-byte-delta source-edit))
-         (parse-artifact-success? old-artifact)
+         (edit-end (+ edit-start (edit-delete-byte-length source-edit)))
+         (delta (edit-byte-delta source-edit)))
+    (and (parse-artifact-success? old-artifact)
          old-modes
          (closed-lexer? machine)
-         (let loop ((tokens old-tokens) (modes old-modes) (index 0))
+         (let loop ((tokens old-tokens) (modes old-modes) (index 0)
+                    (previous #f) (previous-mode #f))
            (and (pair? tokens) (pair? modes)
                 (let ((old-token (car tokens))
                       (start (token-start (car tokens)))
                       (end (token-end (car tokens))))
                   (cond
                    ((<= end edit-start)
-                    (loop (cdr tokens) (cdr modes) (+ index 1)))
+                    (loop (cdr tokens) (cdr modes) (+ index 1)
+                          old-token (car modes)))
                    ((and (<= start edit-start) (<= edit-end end))
                     (let (new-token
                           (with-catch
@@ -292,7 +312,7 @@
                                  token)))))
                       (and new-token
                            (= (token-start new-token) start)
-                           (= (token-end new-token) end)
+                           (= (token-end new-token) (+ end delta))
                            (eq? (token-kind new-token)
                                 (token-kind old-token))
                            (eq? (not ((parser-machine-trivia machine)
@@ -304,16 +324,44 @@
                                 (parser-machine-runtime machine)
                                 (token-lexeme old-token)
                                 (token-lexeme new-token)))
-                           (let* ((artifact
-                                   (make-same-width-token-artifact
-                                    old-artifact new-source index new-token))
+                           (or (zero? delta)
+                               (and
+                                (or (not previous)
+                                    (same-scanned-token?
+                                     machine new-source previous
+                                     previous-mode 0))
+                                (or (null? (cdr tokens))
+                                    (same-scanned-token?
+                                     machine new-source (cadr tokens)
+                                     (cadr modes) delta))))
+                           (let* ((artifact+shared
+                                   (if (zero? delta)
+                                     (cons
+                                      (make-same-width-token-artifact
+                                       old-artifact new-source index new-token)
+                                      (- (length (parse-artifact-events
+                                                  old-artifact)) 1))
+                                     (let-values (((shifted shared)
+                                                   (make-shifted-token-artifact
+                                                    old-artifact new-source
+                                                    index start end new-token
+                                                    delta)))
+                                       (cons shifted shared))))
+                                  (artifact (car artifact+shared))
                                   (next-tokens
                                    (append (take old-tokens index)
-                                           (cons new-token (cdr tokens))))
+                                           (cons new-token
+                                                 (if (zero? delta)
+                                                   (cdr tokens)
+                                                   (map
+                                                    (lambda (token)
+                                                      (relocate-token token
+                                                                      delta))
+                                                    (cdr tokens))))))
                                   (trivia?
                                    ((parser-machine-trivia machine) new-token))
                                   (next-checkpoints
-                                   (if trivia?
+                                   (if (and trivia? (zero? delta))
                                      (incremental-session-state-checkpoints
                                       session)
                                      (list->vector
@@ -329,11 +377,10 @@
                                     old-modes next-checkpoints)))
                              (vector next index (length (cdr tokens))
                                      (- (u8vector-length
-                                         (string->utf8 new-source)) end)
+                                         (string->utf8 new-source))
+                                        (token-end new-token))
                                      start
-                                     (- (length (parse-artifact-events
-                                                 old-artifact))
-                                        1)
+                                     (cdr artifact+shared)
                                      (not trivia?))))))
                    (else #f))))))))
 
@@ -376,7 +423,7 @@
       (finish (session-from-directed machine new-source)
               0 0 0 0 0 #t))
     (let (token-reuse
-          (same-width-token-reuse session source-edit new-source))
+          (certified-token-reuse session source-edit new-source))
     (if token-reuse
       (finish (vector-ref token-reuse 0)
               (vector-ref token-reuse 1) 0

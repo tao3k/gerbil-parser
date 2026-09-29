@@ -329,11 +329,31 @@ contextual trivia.
 For a same-width generic number edit in the same 1,600-term workload, a
 separate local v0.19 five-sample run reported 25,592 reused events and
 0.86 ms best-of-five, versus 6.29 ms for fresh parsing. In that run a
-four-byte replacement, which cannot reuse the event structure, took 3.84 ms
-best-of-five through cached LR resume. These figures are workload and host
+four-byte replacement, before shifted-event reuse was implemented, took
+3.84 ms best-of-five through cached LR resume. These figures are workload and host
 specific. Regression cases compare complete artifacts after consecutive
 generic edits followed by a width-changing edit, which exercises the retained
 prefix checkpoints.
+
+** Certified one-token width changes
+
+The same action certificate also admits a one-token byte-width change when
+the edited token keeps its kind and the adjacent old tokens rescan unchanged
+in the new source. The Scheme artifact builder preserves event topology and
+rebases offsets at or after the old token end. The edited token event and
+shifted suffix events are rebuilt; unaffected prefix events retain identity.
+Source tokens after the edit are relocated, lexical-mode IDs remain attached
+to their corresponding tokens, and checkpoints at or after the edited token
+are dropped. The driver returns to ordinary LR resume if the edited token
+changes kind, either neighbor changes, or the edit spans more than one token.
+The closed-lexer and deterministic-mode requirements still apply.
+
+On a local Gerbil v0.19 run with 1,600 arithmetic terms, the four-byte
+number replacement took 0.98 ms best-of-five through cached event relocation.
+The fresh parse in the same run took 10.49 ms best-of-five; host-load variance
+was substantial, so this is only a bounded workload receipt. Executed tests
+compare full artifacts with fresh parses for number, trivia, and Unicode
+edits, plus sequential edits and multi-token fallback.
 
 ** Single-pass session construction
 

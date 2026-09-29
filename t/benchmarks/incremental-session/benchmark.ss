@@ -61,7 +61,7 @@
                                     (parse-source/incremental
                                      arithmetic-parser source base source-edit)))
                         artifact))))
-           (report 'cached-lr-edit
+           (report 'cached-shifted-event-edit
                    (samples
                     (lambda ()
                       (let-values (((next _receipt)

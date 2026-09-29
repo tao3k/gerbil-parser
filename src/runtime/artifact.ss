@@ -19,6 +19,7 @@
         sha256-text
         make-success-parse-artifact
         make-same-width-token-artifact
+        make-shifted-token-artifact
         make-failure-parse-artifact
         parse-artifact-ref
         parse-artifact-events
@@ -248,6 +249,62 @@
                        (cons (car remaining) prefix))))))
     (artifact (parse-artifact-ref old-artifact 'grammarDigest)
               source 'accepted events '())))
+
+;;; Preserve the event topology while rebasing offsets after one token whose
+;;; byte width changed. Event boundaries inside a token are not admissible.
+(def (make-shifted-token-artifact old-artifact source token-id
+                                  token-start token-end source-token delta)
+  (unless (parse-artifact-success? old-artifact)
+    (error "shifted token reuse requires an accepted artifact"))
+  (let ((replaced? #f) (shared 0))
+    (def (offset value)
+      (cond
+       ((<= value token-start) value)
+       ((>= value token-end) (+ value delta))
+       (else (error "event boundary is inside the edited token" value))))
+    (def (keep event)
+      (set! shared (+ shared 1))
+      event)
+    (let (events
+          (map
+           (lambda (event)
+             (case (event-kind event)
+               ((token)
+                (let ((id (token-event-id event))
+                      (start (event-start event))
+                      (end (event-end event)))
+                  (cond
+                   ((= id token-id)
+                    (set! replaced? #t)
+                    (make-token-event id source-token))
+                   ((<= end token-start) (keep event))
+                   ((>= start token-end)
+                    (vector 'token id (token-event-token-kind event)
+                            (token-event-lexeme event)
+                            (+ start delta) (+ end delta)))
+                   (else (error "token overlaps the edited token" event)))))
+               ((start-node finish-node)
+                (let* ((value (vector-ref event 3))
+                       (shifted (offset value)))
+                  (if (= value shifted)
+                    (keep event)
+                    (vector (event-kind event) (vector-ref event 1)
+                            (vector-ref event 2) shifted))))
+               ((start-field finish-field)
+                (let* ((value (vector-ref event 2))
+                       (shifted (offset value)))
+                  (if (= value shifted)
+                    (keep event)
+                    (vector (event-kind event) (vector-ref event 1)
+                            shifted))))
+               (else (error "unknown recognition event" event))))
+           (parse-artifact-events old-artifact)))
+      (unless replaced?
+        (error "token event id is absent" token-id))
+      (values
+       (artifact (parse-artifact-ref old-artifact 'grammarDigest)
+                 source 'accepted events '())
+       shared))))
 
 ;; make-failure-parse-artifact
 ;; : (-> String String List Datum Alist)

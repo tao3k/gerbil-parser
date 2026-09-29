@@ -177,6 +177,37 @@
    (lexical-static-literals expression))
   ((_ _expression) #f))
 
+;;; The first transition of the closed regular scanners can be decided once
+;;; for each ASCII character and LR lexical mode. Unknown/nonregular forms
+;;; remain candidates, so this filter cannot change maximal-munch decisions.
+(defrules lexical-first-character?
+  (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number
+   identifier number-literal line-comment block-comment
+   nested-block-comment precedence choice)
+  ((_ ch (whitespace+)) (char-whitespace? ch))
+  ((_ ch (horizontal-whitespace+))
+   (or (char=? ch #\space) (char=? ch #\tab)))
+  ((_ ch (newline+))
+   (or (char=? ch #\newline) (char=? ch #\return)))
+  ((_ ch (decimal-digit+)) (char-numeric? ch))
+  ((_ ch (number)) (char-numeric? ch))
+  ((_ ch (identifier))
+   (or (char-alphabetic? ch) (char=? ch #\_)))
+  ((_ ch (number-literal _prefixes _separator _suffixes
+                         _leading-period? _trailing-period?))
+   #t)
+  ((_ ch (line-comment prefix ...))
+   (or (char=? ch (string-ref prefix 0)) ...))
+  ((_ ch (block-comment opening _closing))
+   (char=? ch (string-ref opening 0)))
+  ((_ ch (nested-block-comment opening _closing))
+   (char=? ch (string-ref opening 0)))
+  ((_ ch (precedence _rank expression))
+   (lexical-first-character? ch expression))
+  ((_ ch (choice expression ...))
+   (or (lexical-first-character? ch expression) ...))
+  ((_ _ch _expression) #t))
+
 ;; prefer-ranked-match
 ;;   : (-> (OrFalse List) (OrFalse List) (OrFalse List))
 ;;   | doc m%
@@ -270,7 +301,8 @@
                (list 'name end (lexical-expression-rank expression)))))
       literals
       'name
-      (lexical-expression-rank expression)))))
+      (lexical-expression-rank expression)
+      (lambda (ch) (lexical-first-character? ch expression))))))
 
 ;;; Returns name, end offset, and precedence for generated-lexer. Longest
 ;;; consumption wins globally; lexical precedence breaks equal-length ties.
@@ -354,7 +386,7 @@
                        (cons
                         (vector (vector-ref rule 0) ranked-scanner
                                 (vector-ref rule 2) (vector-ref rule 3)
-                                (vector-ref rule 4))
+                                (vector-ref rule 4) (vector-ref rule 5))
                         found))))))
           (literal-entries
            (let loop ((remaining rules) (ordinal 0) (entries '()))
@@ -381,18 +413,31 @@
                (let loop ((remaining rules) (ordinal 0)
                           (has-literals? #f) (scanners '()))
                (if (null? remaining)
+                 (let (ascii-scanners
+                       (vector-map/index
+                        (lambda (index _)
+                          (filter
+                           (lambda (entry)
+                             ((cdr entry) (integer->char index)))
+                           scanners))
+                        (make-vector 128)))
                  (lambda (source offset)
-                   (let (selected
-                         (fold
-                          (lambda (scanner selected)
-                            (prefer-generated-match
-                             selected (scanner source offset)))
-                          #f scanners))
+                   (let* ((ch (string-ref source offset))
+                          (candidates
+                           (if (< (char->integer ch) 128)
+                             (vector-ref ascii-scanners (char->integer ch))
+                             scanners))
+                          (selected
+                           (fold
+                            (lambda (entry selected)
+                              (prefer-generated-match
+                               selected ((car entry) source offset)))
+                            #f candidates)))
                      (if (and literal-scanner has-literals?)
                        (prefer-generated-match
                         selected
                         (literal-scanner source offset admitted-literals))
-                       selected)))
+                       selected))))
                  (let* ((rule (car remaining))
                         (admitted? ((vector-ref rule 0) terminals))
                         (literals (and admitted? (vector-ref rule 2))))
@@ -407,7 +452,9 @@
                     (admitted?
                      (loop
                       (cdr remaining) (+ ordinal 1) has-literals?
-                      (cons (vector-ref rule 1) scanners)))
+                      (cons (cons (vector-ref rule 1)
+                                  (vector-ref rule 5))
+                            scanners)))
                     (else
                      (loop (cdr remaining) (+ ordinal 1)
                            has-literals? scanners)))))))))

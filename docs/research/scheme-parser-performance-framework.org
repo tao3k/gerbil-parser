@@ -492,6 +492,19 @@ not imply submillisecond parsing for documents of that size.
    LR lexical modes. Keep the existing scanner path for expressions the DFA
    cannot represent. Compare token identities, source ranges, tie decisions,
    and rejection points exactly against the current compiler output.
+
+   The first prototype now precomputes the ASCII first transition for each
+   interned LR lexical mode. It filters closed primitive scanners by their
+   possible first character, then runs the existing scanners and ranked
+   longest-match selector; non-ASCII input and expressions without a proven
+   first-character condition retain the complete candidate set. This is a
+   contextual prefix dispatch, not yet a full lexical DFA. On the local
+   1,600-term arithmetic fixture, five-sample best lexical analysis measured
+   about 3.31 ms before and 0.78 ms after the change, in separate processes;
+   process variation limits the precision of that ratio. A clean v0.19 build,
+   language-surface Unicode byte offsets, parser-runtime, grammar-composition,
+   incremental, and ISO GQL throughput suites passed. The GQL suite's 100-query
+   p95 sample was 92.093 ms under its 150 ms admission ceiling.
 4. If the batch path improves representative workloads, add reusable subtree
    boundaries to the Scheme IR and ParseArtifact path. A reused node must have
    unchanged text, grammar identity, lexical context, and entering LR state.

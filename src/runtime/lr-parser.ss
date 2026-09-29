@@ -16,7 +16,7 @@
                  association-row-index-ref
                  association-row-vector->index
                  make-value-interner
-                 recognition-sequence-concatenate
+                 recognition-sequence-append
                  recognition-sequence->list
                  value-interner-created-count
                  value-interner-hit-count
@@ -234,20 +234,21 @@
                    fragment-constructor)
   (let* ((rhs (production-rhs production))
          (source-values (reverse reversed-values))
-         (reduced-values
-          (map (lambda (operand value)
-                 (apply-operand-actions
-                  value (operand-actions operand) default-offset
-                  fragment-constructor))
-               rhs source-values))
-         (children (recognition-sequence-concatenate reduced-values))
          (action (production-action production)))
     (cond
-     ((eq? action 'concat) children)
-     ((eq? action 'pass)
-      (if (= (length reduced-values) 1)
-        (car reduced-values)
-        children))
+     ((and (eq? action 'pass) (pair? rhs) (null? (cdr rhs)))
+      (apply-operand-actions
+       (car source-values) (operand-actions (car rhs))
+       default-offset fragment-constructor))
+     ((or (eq? action 'concat) (eq? action 'pass))
+      (foldl
+       (lambda (operand value children)
+         (recognition-sequence-append
+          children
+          (apply-operand-actions
+           value (operand-actions operand) default-offset
+           fragment-constructor)))
+       '() rhs source-values))
      (else (error "unknown LR semantic action" action)))))
 
 ;; goto-target
@@ -452,10 +453,9 @@
          (let* ((production (vector-ref table (cadr action)))
                 (count (length (production-rhs production))))
            (let-values (((popped-values remaining-values)
-                         (split-at semantic-values count))
-                        ((_popped-states remaining-states)
-                         (split-at states count)))
+                         (split-at semantic-values count)))
              (let* (
+                (remaining-states (drop states count))
                 (offset (if (pair? rest) (token-start (car rest))
                             input-end-offset))
                 (value
@@ -733,10 +733,9 @@
                  (let* ((production (vector-ref table (cadr action)))
                         (count (length (production-rhs production))))
                    (let-values (((popped-values remaining-values)
-                                 (split-at semantic-values count))
-                                ((_popped-states remaining-states)
-                                 (split-at states count)))
-                     (let* ((offset
+                                 (split-at semantic-values count)))
+                     (let* ((remaining-states (drop states count))
+                            (offset
                              (if (pair? rest) (token-start (car rest))
                                  input-end-offset))
                             (value

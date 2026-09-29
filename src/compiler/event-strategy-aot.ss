@@ -36,8 +36,8 @@
                  (byte-end (+ byte-start
                               (u8vector-length (string->utf8 line)))))
             (reverse (cons '(finish)
-                           (append (reverse (visit line byte-start byte-end))
-                                   reversed))))))
+                           (foldl cons reversed
+                                  (visit line byte-start byte-end)))))))
        ((or (char=? (string-ref source cursor) #\newline)
             (char=? (string-ref source cursor) #\return))
         (let* ((after (+ cursor
@@ -50,8 +50,7 @@
                (byte-end (+ byte-start
                             (u8vector-length (string->utf8 line)))))
           (loop after after byte-end
-                (append (reverse (visit line byte-start byte-end))
-                        reversed))))
+                (foldl cons reversed (visit line byte-start byte-end)))))
        (else (loop start (+ cursor 1) byte-start reversed))))))
 
 (def (kind-index grammar name category)

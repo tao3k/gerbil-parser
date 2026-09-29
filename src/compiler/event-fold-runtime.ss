@@ -3,9 +3,16 @@
 (import (only-in :std/string/utf8 utf8->string)
         (only-in ./event-list-marker.ss
                  event-line-indent-column scan-event-list-marker)
+        (only-in ./event-fold-future.ss
+                 ascii-lower-byte current-future-scan-cache
+                 fold-future-cache-for fold-future-index-for
+                 fold-future-named-index fold-future-named-index-result
+                 fold-future-heading-title? fold-future-heading-spec?
+                 fold-future-marker-before-boundary?
+                 fold-source-slices-equal?)
         (only-in ./event-strategy-aot source-line-events line-starts-with?))
 (export run-event-fold fold-ascii-prefix? fold-frame-finishes
-        fold-future-heading-spec? fold-initial-states fold-marker-byte
+        fold-initial-states fold-marker-byte
         fold-offset-ir fold-state-of-type fold-static-name-set fold-uint-ir
         fold-unsigned? rust-state-name validate-state-names)
 (def (fold-state states name)
@@ -62,8 +69,6 @@
     (error "event fold marker must be one ASCII byte" value))
   (char->integer (string-ref value 0)))
 
-(def (ascii-lower-byte value)
-  (if (and (<= 65 value) (<= value 90)) (+ value 32) value))
 
 (def (line-starts-with-ascii-ci? line prefix)
   (let ((actual (string->utf8 line)) (expected (string->utf8 prefix)))
@@ -94,202 +99,6 @@
            (or (= start end)
                (memv (u8vector-ref bytes start) '(9 10 13 32)))))))
 
-(def (fold-future-line-end bytes start)
-  (let (size (u8vector-length bytes))
-    (let loop ((cursor start))
-      (if (or (= cursor size) (memv (u8vector-ref bytes cursor) '(10 13)))
-        (if (= cursor size) cursor
-          (if (and (= (u8vector-ref bytes cursor) 13)
-                   (< (+ cursor 1) size)
-                   (= (u8vector-ref bytes (+ cursor 1)) 10))
-            (+ cursor 2) (+ cursor 1)))
-        (loop (+ cursor 1))))))
-
-(def (fold-future-marker-line? bytes start end marker indent?)
-  (let* ((prefix (string->utf8 marker))
-         (begin (if indent?
-                  (let skip ((cursor start))
-                    (if (and (< cursor end)
-                             (memv (u8vector-ref bytes cursor) '(9 32)))
-                      (skip (+ cursor 1)) cursor))
-                  start))
-         (prefix-end (+ begin (u8vector-length prefix))))
-    (and (<= prefix-end end)
-         (let match ((cursor begin) (index 0))
-           (or (= index (u8vector-length prefix))
-               (and (= (ascii-lower-byte (u8vector-ref bytes cursor))
-                       (ascii-lower-byte (u8vector-ref prefix index)))
-                    (match (+ cursor 1) (+ index 1)))))
-         (let tail ((cursor prefix-end))
-           (or (= cursor end)
-               (and (memv (u8vector-ref bytes cursor) '(9 10 13 32))
-                    (tail (+ cursor 1))))))))
-
-(def (fold-source-slices-equal? bytes left-from left-until
-                                right-from right-until ascii-ci?)
-  (let (size (u8vector-length bytes))
-    (and (<= 0 left-from left-until size)
-         (<= 0 right-from right-until size)
-         (= (- left-until left-from) (- right-until right-from))
-         (let loop ((left left-from) (right right-from))
-           (or (= left left-until)
-               (and (let ((a (u8vector-ref bytes left))
-                          (b (u8vector-ref bytes right)))
-                      (= (if ascii-ci? (ascii-lower-byte a) a)
-                         (if ascii-ci? (ascii-lower-byte b) b)))
-                    (loop (+ left 1) (+ right 1))))))))
-
-(def (fold-future-named-marker-line? bytes start end name-from name-until
-                                     prefix suffix indent? ascii-ci?)
-  (let* ((prefix-bytes (string->utf8 prefix))
-         (suffix-bytes (string->utf8 suffix))
-         (begin (if indent?
-                  (let skip ((cursor start))
-                    (if (and (< cursor end)
-                             (memv (u8vector-ref bytes cursor) '(9 32)))
-                      (skip (+ cursor 1)) cursor))
-                  start))
-         (prefix-end (+ begin (u8vector-length prefix-bytes)))
-         (name-end (+ prefix-end (- name-until name-from)))
-         (suffix-end (+ name-end (u8vector-length suffix-bytes))))
-    (and (< name-from name-until)
-         (<= suffix-end end)
-         (let match ((cursor begin) (index 0))
-           (or (= index (u8vector-length prefix-bytes))
-               (and (= (if ascii-ci?
-                         (ascii-lower-byte (u8vector-ref bytes cursor))
-                         (u8vector-ref bytes cursor))
-                       (if ascii-ci?
-                         (ascii-lower-byte (u8vector-ref prefix-bytes index))
-                         (u8vector-ref prefix-bytes index)))
-                    (match (+ cursor 1) (+ index 1)))))
-         (fold-source-slices-equal? bytes name-from name-until
-                                    prefix-end name-end ascii-ci?)
-         (let match ((cursor name-end) (index 0))
-           (or (= index (u8vector-length suffix-bytes))
-               (and (= (if ascii-ci?
-                         (ascii-lower-byte (u8vector-ref bytes cursor))
-                         (u8vector-ref bytes cursor))
-                       (if ascii-ci?
-                         (ascii-lower-byte (u8vector-ref suffix-bytes index))
-                         (u8vector-ref suffix-bytes index)))
-                    (match (+ cursor 1) (+ index 1)))))
-         (let tail ((cursor suffix-end))
-           (or (= cursor end)
-               (and (memv (u8vector-ref bytes cursor) '(9 10 13 32))
-                    (tail (+ cursor 1))))))))
-
-(def (fold-future-named-marker-before-boundary?
-      bytes from name-from name-until prefix suffix stop
-      heading-marker heading-separator indent? stop-at-heading? ascii-ci?
-      (stop-name-from #f) (stop-name-until #f)
-      (stop-prefix "") (stop-suffix "") (stop-ascii-ci? #f))
-  (let search ((cursor from))
-    (if (>= cursor (u8vector-length bytes)) #f
-      (let (end (fold-future-line-end bytes cursor))
-        (cond
-         ((and stop-at-heading?
-               (fold-future-heading? bytes cursor end
-                                     heading-marker heading-separator)) #f)
-         ((and stop (fold-future-marker-line? bytes cursor end stop indent?)) #f)
-         ((and stop-name-from stop-name-until
-               (fold-future-named-marker-line?
-                bytes cursor end stop-name-from stop-name-until
-                stop-prefix stop-suffix indent? stop-ascii-ci?)) #f)
-         ((fold-future-named-marker-line?
-           bytes cursor end name-from name-until prefix suffix indent? ascii-ci?) #t)
-         (else (search end)))))))
-
-(def (fold-future-heading? bytes start end marker separator)
-  (let run ((cursor start))
-    (and (< cursor end)
-         (if (= (u8vector-ref bytes cursor) marker)
-           (run (+ cursor 1))
-           (and (> cursor start)
-                (= (u8vector-ref bytes cursor) separator))))))
-
-(def (fold-future-heading-title? bytes from marker separator min-level title)
-  (let ((size (u8vector-length bytes))
-        (title-bytes (string->utf8 title)))
-    (let search ((start from))
-      (and (< start size)
-           (let* ((end (fold-future-line-end bytes start))
-                  (level
-                   (let count ((cursor start))
-                     (if (and (< cursor end)
-                              (= (u8vector-ref bytes cursor) marker))
-                       (count (+ cursor 1)) (- cursor start))))
-                  (match?
-                   (and (>= level min-level)
-                        (< (+ start level) end)
-                        (= (u8vector-ref bytes (+ start level)) separator)
-                        (let* ((begin
-                                (let skip ((cursor (+ start level 1)))
-                                  (if (and (< cursor end)
-                                           (memv (u8vector-ref bytes cursor) '(9 32)))
-                                    (skip (+ cursor 1)) cursor)))
-                               (until
-                                (let trim ((cursor end))
-                                  (if (and (> cursor begin)
-                                           (memv (u8vector-ref bytes (- cursor 1))
-                                                 '(9 10 13 32)))
-                                    (trim (- cursor 1)) cursor))))
-                          (and (= (- until begin) (u8vector-length title-bytes))
-                               (let compare ((cursor begin) (index 0))
-                                 (or (= index (u8vector-length title-bytes))
-                                     (and (= (u8vector-ref bytes cursor)
-                                             (u8vector-ref title-bytes index))
-                                          (compare (+ cursor 1) (+ index 1))))))))))
-             (or match? (search end)))))))
-
-(def (fold-future-heading-spec? expression)
-  (and (= (length expression) 5)
-       (string? (cadr expression))
-       (string? (caddr expression))
-       (not (equal? (cadr expression) (caddr expression)))
-       (or (pair? (list-ref expression 3))
-           (and (exact-integer? (list-ref expression 3))
-                (> (list-ref expression 3) 0)))
-       (string? (list-ref expression 4))
-       (> (string-length (list-ref expression 4)) 0)
-       (not (ormap (lambda (character)
-                     (memv character '(#\newline #\return)))
-                   (string->list (list-ref expression 4))))))
-
-(def (fold-future-key-value-line? bytes start end marker)
-  (let skip ((cursor start))
-    (if (and (< cursor end) (memv (u8vector-ref bytes cursor) '(9 32)))
-      (skip (+ cursor 1))
-      (and (< cursor end) (= (u8vector-ref bytes cursor) marker)
-           (let key ((cursor (+ cursor 1)) (key-start (+ cursor 1)))
-             (and (< cursor end)
-                  (let (byte (u8vector-ref bytes cursor))
-                    (cond
-                     ((= byte marker)
-                      (if (or (= (+ cursor 1) end)
-                              (memv (u8vector-ref bytes (+ cursor 1))
-                                    '(9 10 13 32)))
-                        (> cursor key-start)
-                        (key (+ cursor 1) key-start)))
-                     ((memv byte '(9 10 13 32)) #f)
-                     (else (key (+ cursor 1) key-start))))))))))
-
-(def (fold-future-marker-before-boundary? bytes from target stop
-                                           heading-marker heading-separator
-                                           indent? stop-at-heading? body-key-marker)
-  (let search ((cursor from))
-    (if (>= cursor (u8vector-length bytes)) #f
-      (let (end (fold-future-line-end bytes cursor))
-        (cond
-         ((and stop-at-heading?
-               (fold-future-heading? bytes cursor end
-                                     heading-marker heading-separator)) #f)
-         ((and stop (fold-future-marker-line? bytes cursor end stop indent?)) #f)
-         ((fold-future-marker-line? bytes cursor end target indent?) #t)
-         ((and body-key-marker
-               (not (fold-future-key-value-line? bytes cursor end
-                                                 body-key-marker))) #f)
-         (else (search end)))))))
 
 (def (fold-ascii-prefix? value)
   (and (string? value)
@@ -600,19 +409,22 @@
       (fold-marker-byte (list-ref expression 4))
       (list-ref expression 5) (list-ref expression 6)
       (and (> (string-length (list-ref expression 7)) 0)
-           (fold-marker-byte (list-ref expression 7)))))
+           (fold-marker-byte (list-ref expression 7)))
+      (fold-future-cache-for expression)))
     ((future-heading-title?)
      (unless (fold-future-heading-spec? expression)
        (error "invalid event fold future heading" expression))
-     (fold-future-heading-title?
-      source-bytes end (fold-marker-byte (cadr expression))
-      (fold-marker-byte (caddr expression))
-      (max 1
-           (let (level (list-ref expression 3))
-             (if (pair? level)
-               (fold-uint level line start end states indices)
-               level)))
-      (list-ref expression 4)))
+     (let (minimum
+           (max 1
+                (let (level (list-ref expression 3))
+                  (if (pair? level)
+                    (fold-uint level line start end states indices)
+                    level))))
+       (fold-future-heading-title?
+        source-bytes end (fold-marker-byte (cadr expression))
+        (fold-marker-byte (caddr expression)) minimum
+        (list-ref expression 4)
+        (fold-future-cache-for (list expression minimum)))))
     ((future-named-line-marker-before-boundary?)
      (unless (and (memv (length expression) '(11 16))
                   (fold-ascii-prefix? (list-ref expression 3))
@@ -629,24 +441,43 @@
                            (boolean? (list-ref expression 15))
                            (equal? (list-ref expression 5) ""))))
        (error "invalid event fold future named marker search" expression))
-     (fold-future-named-marker-before-boundary?
-      source-bytes end
-      (fold-offset (cadr expression) line start end states indices)
-      (fold-offset (caddr expression) line start end states indices)
-      (list-ref expression 3) (list-ref expression 4)
-      (and (> (string-length (list-ref expression 5)) 0)
-           (list-ref expression 5))
-      (fold-marker-byte (list-ref expression 6))
-      (fold-marker-byte (list-ref expression 7))
-      (list-ref expression 8) (list-ref expression 9)
-      (list-ref expression 10)
-      (and (= (length expression) 16)
-           (fold-offset (list-ref expression 11) line start end states indices))
-      (and (= (length expression) 16)
-           (fold-offset (list-ref expression 12) line start end states indices))
-      (if (= (length expression) 16) (list-ref expression 13) "")
-      (if (= (length expression) 16) (list-ref expression 14) "")
-      (and (= (length expression) 16) (list-ref expression 15))))
+     (let* ((name-from
+             (fold-offset (cadr expression) line start end states indices))
+            (name-until
+             (fold-offset (caddr expression) line start end states indices))
+            (parent? (= (length expression) 16))
+            (stop-name-from
+             (and parent?
+                  (fold-offset (list-ref expression 11)
+                               line start end states indices)))
+            (stop-name-until
+             (and parent?
+                  (fold-offset (list-ref expression 12)
+                               line start end states indices)))
+            (index
+             (fold-future-index-for
+              (list 'future-named-index expression)
+              (lambda ()
+                (fold-future-named-index
+                 source-bytes
+                 (list-ref expression 3)
+                 (if parent? (list-ref expression 13) "")
+                 (and (> (string-length (list-ref expression 5)) 0)
+                      (list-ref expression 5))
+                 (fold-marker-byte (list-ref expression 6))
+                 (fold-marker-byte (list-ref expression 7))
+                 (list-ref expression 8) (list-ref expression 9)
+                 (list-ref expression 10)
+                 parent?
+                 (and parent? (list-ref expression 15)))))))
+       (fold-future-named-index-result
+        index source-bytes end name-from name-until
+        (list-ref expression 3) (list-ref expression 4)
+        (list-ref expression 10)
+        stop-name-from stop-name-until
+        (if parent? (list-ref expression 13) "")
+        (if parent? (list-ref expression 14) "")
+        (and parent? (list-ref expression 15)))))
     ((line-has-word-after-prefix?)
      (unless (and (= (length expression) 2)
                   (fold-ascii-prefix? (cadr expression)))
@@ -735,8 +566,8 @@
 
 (def (fold-statements statements source-bytes line start end states indices helpers
                       (active-helpers '()))
-  (let loop ((rest statements) (state states) (events []))
-    (if (null? rest) (cons state events)
+  (let loop ((rest statements) (state states) (reversed []))
+    (if (null? rest) (cons state (reverse reversed))
         (let* ((form (car rest))
                (step
                 (case (car form)
@@ -892,7 +723,7 @@
                      (cons (fold-update-state state (cadr form) [])
                            (apply append (map (lambda (_) closes) stack)))))
                   (else (error "unsupported event fold statement" form)))))
-          (loop (cdr rest) (car step) (append events (cdr step)))))))
+          (loop (cdr rest) (car step) (foldl cons reversed (cdr step)))))))
 
 (def (fold-initial-states initial)
   (map (lambda (entry)
@@ -906,7 +737,8 @@
 
 (def (run-event-fold source root initial line-forms finish-forms
                      (helpers '()) (overrides '()))
-  (let ((source-bytes (string->utf8 source))
+  (parameterize ((current-future-scan-cache #f))
+   (let ((source-bytes (string->utf8 source))
         (states (fold-initial-states initial)))
     (for-each (lambda (override)
                 (fold-state-of-type states (car override) fold-unsigned?)
@@ -925,4 +757,4 @@
                  (cdr step)))))
            (closing (fold-statements finish-forms source-bytes "" 0 0
                                      states '() helpers)))
-      (append (reverse (cdr (reverse events))) (cdr closing) '((finish))))))
+      (append (reverse (cdr (reverse events))) (cdr closing) '((finish)))))))

@@ -5,9 +5,10 @@
         (only-in ../runtime/identity sha256-text)
         (only-in ./machine parser-machine-grammar-digest)
         (only-in ./event-strategy-aot kind-index)
+        (only-in ./event-fold-future.ss fold-future-heading-spec?)
         (only-in ./event-fold-runtime.ss
                  fold-ascii-prefix? fold-frame-finishes
-                 fold-future-heading-spec? fold-initial-states fold-marker-byte
+                 fold-initial-states fold-marker-byte
                  fold-offset-ir fold-state-of-type fold-static-name-set fold-uint-ir
                  fold-unsigned? rust-state-name validate-state-names))
 (export event-fold-ir-json)

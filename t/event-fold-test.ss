@@ -132,6 +132,18 @@
                              "#+BEGIN_foo\n#+end_FOO\n#+BEGIN_bar\n* Next\n#+END_bar\n#+BEGIN_baz\n#+END_CENTER\n#+END_baz\n#+BEGIN_qux\n#+END_other\n#+END_QUX\n"
                              'Document '() forms '())))
                => '(Document Heading Text Text Heading))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_foo\n#+BEGIN_foo\n#+END_foo\n"
+                             'Document '() forms '())))
+               => '(Document Heading Heading))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_foo\r\n  #+end_FOO \r\n"
+                             'Document '() forms '())))
+               => '(Document Heading))
         (let* ((wire (event-fold-ir-json
                       'future_named event-lines-language-grammar
                       'Document '() forms '()))
@@ -150,7 +162,7 @@
                 ,name-start ,name-end "#+END_" "" ""
                 "*" " " #t #t #t
                 (state-offset parent-start) (state-offset parent-end)
-                "#+END_" "" #t))
+                "#+CLOSE_" "" #t))
              (initial '((parent-start 0) (parent-end 0)))
              (forms
               `((if (line-starts-with "#+BEGIN_OUTER")
@@ -167,13 +179,13 @@
         (check (map cadr
                     (filter (lambda (event) (eq? (car event) 'start))
                             (run-event-fold
-                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_outer\n#+END_inner\n"
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+CLOSE_outer\n#+END_inner\n"
                              'Document initial forms '())))
                => '(Document Text))
         (check (map cadr
                     (filter (lambda (event) (eq? (car event) 'start))
                             (run-event-fold
-                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_inner\n#+END_outer\n"
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_inner\n#+CLOSE_outer\n"
                              'Document initial forms '())))
                => '(Document Heading))
         (let* ((wire (event-fold-ir-json
@@ -186,8 +198,39 @@
                (inner (vector-ref (hash-ref outer "alternate") 0))
                (future-ir (hash-ref (vector-ref (hash-ref inner "consequent") 0)
                                     "condition")))
-          (check (hash-ref future-ir "stop_prefix") => "#+END_")
+          (check (hash-ref future-ir "stop_prefix") => "#+CLOSE_")
           (check (hash-ref future-ir "stop_ascii_case_insensitive") => #t))))
+    (test-case "named future marker keeps parent case sensitivity independent"
+      (let* ((name-start '(line-prefix-end "#+BEGIN_"))
+             (name-end `(line-scan-key ,name-start))
+             (future `(future-named-line-marker-before-boundary?
+                       ,name-start ,name-end "#+END_" "" ""
+                       "*" " " #t #t #t
+                       (state-offset parent-start) (state-offset parent-end)
+                       "#+END_" "" #f))
+             (initial '((parent-start 0) (parent-end 0)))
+             (forms
+              `((if (line-starts-with "#+BEGIN_OUTER")
+                    ((set-uint parent-start (offset ,name-start))
+                     (set-uint parent-end (offset ,name-end))
+                     (token Line start end))
+                    ((if (line-starts-with "#+BEGIN_INNER")
+                         ((if ,future
+                              ((start-node Heading) (finish-node))
+                              ((start-node Text) (finish-node))))
+                         ((token Line start end))))))))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_outer\n#+END_inner\n"
+                             'Document initial forms '())))
+               => '(Document Heading))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_OUTER\n#+END_inner\n"
+                             'Document initial forms '())))
+               => '(Document Text))))
     (test-case "state-only frame pop does not close Rowan nodes"
       (let ((initial '((saved (uint-stack))))
             (forms '((push-frame saved (uint 7))
@@ -390,6 +433,24 @@
                                    (vector-ref (hash-ref ir "line") 0)
                                    "condition") "left") "kind")
                => "future_line_marker_before_boundary")))
+    (test-case "future marker answers stay within one source"
+      (let* ((condition '(future-line-marker-before-boundary?
+                          "END" "STOP" "*" " " #t #t ""))
+             (forms `((if ,condition
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node))))))
+        (check (run-event-fold "x\nx\nEND\n" 'Document '() forms '())
+               => '((start Document)
+                    (start Heading) (finish)
+                    (start Heading) (finish)
+                    (start Text) (finish)
+                    (finish)))
+        (check (run-event-fold "x\nSTOP\nEND\n" 'Document '() forms '())
+               => '((start Document)
+                    (start Text) (finish)
+                    (start Heading) (finish)
+                    (start Text) (finish)
+                    (finish)))))
     (test-case "future marker can require a key-value body"
       (let* ((condition '(future-line-marker-before-boundary?
                           ":END:" "" "*" " " #t #t ":"))

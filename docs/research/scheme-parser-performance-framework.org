@@ -60,6 +60,37 @@ measures generated full frontends against language-specific standard parsers.
 Neither supplies a matched result for this repository's Scheme grammar,
 scanner, lossless artifact, or incremental edit workload.
 
+* Implementation coverage audit (2026-09-29)
+
+The status below describes implemented mechanisms and evidence gates; a single
+percentage would mix papers with different goals and give false precision.
+The audited base is PR #13 at =a4e6ed5601d60852df5cdc6f83ea2bd079cef473=.
+
+| Research route | Current Scheme implementation | Remaining gate |
+|-
+| langcc direct LR(1) construction | Experimental k=1 LR(0)-derived backward/forward follow partition and canonical reference; candidate conflicts are conservative, and ordinary generated languages still default to LALR. The explicit =lalr-then-follow= choice falls back only when LALR has an unresolved reject-policy cell. | Exact paper candidate construction, larger conflict-bearing language corpus, generation memory/time and complete ParseArtifact throughput comparison. CPS grammar transformation, per-symbol attributes, recursive-descent actions, and XLR are not implemented here. |
+| Canonical remerge / IELR / APLR | Canonical LR(1) and a conflict-preserving quotient are experimental comparison routes. | Neither Bison IELR nor Hocc APLR adequacy-preserving subgraph remerge is implemented; do not label the quotient as either algorithm. |
+| re2c / Tree-sitter contextual lexing | Production Scheme lexer has interned LR mode admission, a shared literal trie, and per-mode ASCII first-character scanner dispatch. Complex and external expressions use the existing scanner. | A multi-state DFA for the closed regular LexicalExpr subset, with exact longest-match, precedence, Unicode and mode-boundary differential receipts. |
+| Wagner / Tree-sitter incremental tree reuse | Production Scheme sessions retain sparse LR prefixes and mode-certified tokens; same-action local token/event windows can preserve event topology, including changing trivia counts. | General reusable-subtree records with entering LR state, lexical context, lookahead/fragility bounds, and grammar identity; significant-token insertions/deletions still replay the LR suffix. |
+| Deterministic LR with selective GLR | Production Scheme runtime runs deterministic actions and branches at declared conflicts; ordinary LALR and selective-GLR tests run under v0.19. | No RNGLR or XLR implementation or matched production-grammar comparison; keep generalized work on conflict scenes. |
+| Scheme to Rust/Rowan | Scheme Parser IR generates the downstream Rust/Rowan tables and conformance fixtures. | The experimental follow-partition route, future lexical DFA, and future subtree certificates have not been admitted as a unified generated contract. |
+
+The focused direct-route test now also compares LALR and follow-partition LR
+roots for all 12 accepted embedded HCL v2.24 specsuite fixtures. Both tables
+have 133 states in this language, so this extends real-language equivalence
+coverage but does not exercise a necessary LR(1) split. The existing mixed
+fixture exercises that split (20 direct states versus 23 canonical states),
+while the 16-region family checks scale (211 states on both routes). A local
+20-run benchmark completed, but short batches had large warmup/GC variance;
+state counts and products are firmer evidence than its throughput ratios.
+
+The next coherent implementation boundary is the closed regular lexer DFA in
+Scheme, with the existing parser-directed modes and scanner fallback as its
+contract. Once batch receipts show a material improvement, add subtree
+certificates and edit-local LR actions. The follow-partition route remains an
+explicit construction choice until a real conflict-bearing language corpus
+justifies switching a scene from LALR.
+
 * Scheme prototype and measured boundary
 
 =src/compiler/lr-lookahead.ss= now exposes an optional canonical LR(1)

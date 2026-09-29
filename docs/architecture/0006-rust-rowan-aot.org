@@ -44,6 +44,12 @@ contains no language-specific recognition or recovery policy. The event sink
 constructs nodes bottom-up without Rowan's node-cache hash recursion, so deep
 but valid hierarchies do not incur quadratic hashing in the generic layer.
 
+The event-fold =join-once= form only factors a normal shared continuation out
+of Scheme-authored branches. Its IR requires nonempty branches and continuation,
+and an explicit =set-bool= of the join's handled marker in a branch. It is not
+an error-recovery fallback or an implicit parser alternative; malformed joins
+fail during Scheme validation and again at the Rust AOT boundary.
+
 The sink is not itself an AOT compiler for procedural =parser.ss= code.  A
 downstream script that prints a handwritten Rust scanner or event algorithm is
 not an implementation of the single-authority decision above, even when it

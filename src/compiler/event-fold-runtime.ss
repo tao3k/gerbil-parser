@@ -14,7 +14,27 @@
 (export run-event-fold fold-ascii-prefix? fold-frame-finishes
         fold-initial-states fold-marker-byte
         fold-offset-ir fold-state-of-type fold-static-name-set fold-uint-ir
-        fold-unsigned? rust-state-name validate-state-names)
+        fold-unsigned? fold-join-marks-handled? rust-state-name validate-state-names)
+
+(def (fold-join-marks-handled? forms handled)
+  (any (lambda (form)
+         (and (pair? form)
+              (case (car form)
+                ((set-bool)
+                 (and (= (length form) 3) (eq? (cadr form) handled)
+                      (equal? (caddr form) '(bool #t))))
+                ((if)
+                 (and (= (length form) 4)
+                      (or (fold-join-marks-handled? (caddr form) handled)
+                          (fold-join-marks-handled? (cadddr form) handled))))
+                ((for-line-bytes)
+                 (and (= (length form) 5)
+                      (fold-join-marks-handled? (list-ref form 4) handled)))
+                ((with-source-bounds)
+                 (and (= (length form) 4)
+                      (fold-join-marks-handled? (cadddr form) handled)))
+                (else #f))))
+       forms))
 (def (fold-state states name)
   (let (entry (assq name states))
     (unless entry (error "undeclared event fold state" name))
@@ -607,6 +627,27 @@
                     (if (fold-predicate (cadr form) source-bytes line start end state indices)
                       (caddr form) (cadddr form))
                     source-bytes line start end state indices helpers active-helpers))
+                  ((join-once)
+                   (unless (and (= (length form) 4) (symbol? (cadr form))
+                                (not (assq (cadr form) state))
+                                (not (memq (cadr form) indices))
+                                (pair? (caddr form)) (pair? (cadddr form))
+                                (fold-join-marks-handled? (caddr form) (cadr form)))
+                     (error "invalid event fold join" form))
+                   (let* ((branch
+                           (fold-statements
+                            (caddr form) source-bytes line start end
+                            (cons (cons (cadr form) #f) state)
+                            indices helpers active-helpers))
+                          (continuation
+                           (if (fold-state-of-type (car branch) (cadr form) boolean?)
+                             (cons (car branch) [])
+                             (fold-statements
+                              (cadddr form) source-bytes line start end
+                              (car branch) indices helpers active-helpers))))
+                     (cons (filter (lambda (entry) (not (eq? (car entry) (cadr form))))
+                                   (car continuation))
+                           (append (cdr branch) (cdr continuation)))))
                   ((for-line-bytes)
                    (let ((from (fold-offset (caddr form) line start end state indices))
                          (until (fold-offset (cadddr form) line start end state indices)))

@@ -869,6 +869,42 @@
                              '((token Line
                                       (line-step (state-offset pending-start))
                                       (state-offset pending-end)))) true)))
+    (test-case "join-once converges branches before the shared continuation"
+      (let* ((initial '())
+             (forms '((join-once handled
+                        ((if (line-starts-with "#")
+                             ((start-node Heading) (token Line start end)
+                              (finish-node)
+                              (set-bool handled (bool #t))) ()))
+                        ((start-node Text) (token Line start end)
+                         (finish-node)))))
+             (wire (event-fold-ir-json
+                    'joined event-lines-language-grammar 'Document
+                    initial forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t)))
+             (join (vector-ref (hash-ref ir "line") 0)))
+        (check (run-event-fold "# H\nbody\n" 'Document initial forms '())
+               => '((start Document)
+                    (start Heading) (token Line 0 4) (finish)
+                    (start Text) (token Line 4 9) (finish)
+                    (finish)))
+        (check (hash-ref join "kind") => "join_once")
+        (check (vector-length (hash-ref join "continuation")) => 3)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
+                             initial '((join-once handled ((finish-node)) ())) '())
+         true)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
+                             initial '((join-once handled ((finish-node))
+                                                  ((token Line start end)))) '())
+         true)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
+                             '((handled #f)) forms '())
+         true)))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

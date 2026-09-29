@@ -10,6 +10,7 @@
                  fold-ascii-prefix? fold-frame-finishes
                  fold-initial-states fold-marker-byte
                  fold-offset-ir fold-state-of-type fold-static-name-set fold-uint-ir
+                 fold-join-marks-handled?
                  fold-unsigned? rust-state-name validate-state-names))
 (export event-fold-ir-json)
 (def (fold-predicate-ir expression states indices allow-line?)
@@ -285,6 +286,22 @@
                                                  allow-line? helpers))
                ("alternate" (fold-statements-ir grammar (cadddr form) states indices
                                                 allow-line? helpers))))
+        ((join-once)
+         (unless (and (= (length form) 4) (symbol? (cadr form))
+                      (not (assq (cadr form) states))
+                      (not (memq (cadr form) indices))
+                      (pair? (caddr form)) (pair? (cadddr form))
+                      (fold-join-marks-handled? (caddr form) (cadr form)))
+           (error "invalid event fold join" form))
+         (let (local-states (cons (cons (cadr form) #f) states))
+           (hash ("kind" "join_once")
+                 ("handled" (rust-state-name (cadr form)))
+                 ("branches" (fold-statements-ir grammar (caddr form)
+                                                local-states indices
+                                                allow-line? helpers))
+                 ("continuation" (fold-statements-ir grammar (cadddr form)
+                                                    local-states indices
+                                                    allow-line? helpers)))))
         ((for-line-bytes)
          (unless (and allow-line? (= (length form) 5)
                       (symbol? (cadr form))

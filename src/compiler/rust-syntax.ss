@@ -38,7 +38,7 @@
         rust-identifier-form? rust-identifier-form-value
         rust-some-form? rust-some-form-value
         rust-number-form? rust-number-form-value
-        rust-module-form? rust-module-form-item
+        rust-module-form? rust-module-form-item rust-module-form-origin
         rust-static-form? rust-static-form-value)
 
 (defstruct rust-field (name value) transparent: #t)
@@ -91,7 +91,9 @@
 (def (rust-number value) (make-rust-number-form value))
 (def (rust-string value) (make-rust-string-form value))
 (def (rust-identifier value) (make-rust-identifier-form value))
-(def (rust-module imports item (origin "line-structure-rowan.ss"))
+;; Required arity keeps compiled cross-module callers on the same symbol;
+;; an optional origin compiled one caller to an undefined rust-module__%.
+(def (rust-module imports item origin)
   (unless (and (string? origin) (not (string-contains origin "\n")))
     (error "invalid Rust module origin" origin))
   (make-rust-module-form imports item origin))

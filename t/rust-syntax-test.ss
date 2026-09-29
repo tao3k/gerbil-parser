@@ -13,6 +13,7 @@
                  rust-function-form-result
                  rust-struct-form? rust-struct-form-name rust-struct-form-fields
                  rust-field-name rust-module-form-item
+                 rust-module-form-origin
                  rust-static-form-value)
         (only-in "pure-function-fixture.ss"
                  normalized_title normalized_title_rust
@@ -53,13 +54,19 @@
                 (table (rust-none))
                 (blocks (rust-array '()))))
              (module (rust-module '("LineStructureSpec")
-                                  (rust-static STRUCTURE LineStructureSpec value))))
+                                  (rust-static STRUCTURE LineStructureSpec value)
+                                  "line-structure-rowan.ss")))
         (check (rust-struct-form? value) => #t)
         (check (rust-struct-form-name value) => 'LineStructureSpec)
         (check (map rust-field-name (rust-struct-form-fields value))
                => '(grammar_digest paragraph_node table blocks))
         (check (rust-static-form-value (rust-module-form-item module))
-               => value)))
+               => value)
+        (check (rust-module-form-origin module)
+               => "line-structure-rowan.ss")
+        (check-exception
+         (rust-module '("LineStructureSpec") value "invalid\norigin")
+         true)))
     (test-case "pure function body is a structured syntax value"
       (check-rust-aot-function
        normalized_title_rust 'normalized_title '((input . "&str"))

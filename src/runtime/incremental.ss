@@ -8,6 +8,7 @@
         (only-in ./artifact
                  event-end event-start make-same-width-token-artifact
                  make-shifted-token-artifact
+                 make-certified-window-artifact
                  parse-artifact-events
                  parse-artifact-ref parse-artifact-success?
                  parse-artifact-valid? token-event?
@@ -381,8 +382,137 @@
                                         (token-end new-token))
                                      start
                                      (cdr artifact+shared)
-                                     (not trivia?))))))
+                                     (if trivia? 0 1))))))
                    (else #f))))))))
+
+;;; Re-lex exactly the old token window in its recorded LR modes. The same
+;;; number of tokens, kinds, trivia membership, and LR actions certify that
+;;; recognition events have the same topology after a multi-token edit.
+(def (scan-certified-window machine source old-window mode-ids start target-end)
+  (with-catch
+   (lambda (_condition) #f)
+   (lambda ()
+     (let loop ((old old-window) (modes mode-ids)
+                (byte start)
+                (character
+                 (byte-index->character-index (string->utf8 source) start))
+                (found '()) (changed-significant 0))
+       (if (null? old)
+         (and (= byte target-end)
+              (cons (reverse found) changed-significant))
+         (and (pair? modes)
+              (let (mode
+                    (vector-ref
+                     (lr-runtime-lexical-mode-catalog
+                      (parser-machine-runtime machine))
+                     (car modes)))
+                (let-values (((new-token next-character)
+                              (scan-source-token
+                               machine source character byte mode)))
+                  (and (eq? (token-kind (car old))
+                            (token-kind new-token))
+                       (eq? (not ((parser-machine-trivia machine)
+                                  (car old)))
+                            (not ((parser-machine-trivia machine)
+                                  new-token)))
+                       (or ((parser-machine-trivia machine) new-token)
+                           (equal? (token-lexeme (car old))
+                                   (token-lexeme new-token))
+                           (generic-lr-lexemes?
+                            (parser-machine-runtime machine)
+                            (token-lexeme (car old))
+                            (token-lexeme new-token)))
+                       (<= (token-end new-token) target-end)
+                       (loop (cdr old) (cdr modes)
+                             (token-end new-token) next-character
+                             (cons new-token found)
+                             (+ changed-significant
+                                (if ((parser-machine-trivia machine)
+                                     new-token)
+                                  0 1))))))))))))
+
+(def (certified-token-window-reuse session source-edit new-source)
+  (let* ((machine (incremental-session-state-machine session))
+         (old-artifact (incremental-session-state-artifact session))
+         (old-tokens (incremental-session-state-tokens session))
+         (old-modes (incremental-session-state-modes session))
+         (edit-start (edit-start-byte source-edit))
+         (edit-end (+ edit-start (edit-delete-byte-length source-edit)))
+         (delta (edit-byte-delta source-edit)))
+    (and (parse-artifact-success? old-artifact)
+         old-modes
+         (closed-lexer? machine)
+         (let locate ((tokens old-tokens) (modes old-modes)
+                      (prefix '()) (prefix-modes '()) (index 0))
+           (and (pair? tokens) (pair? modes)
+                (if (<= (token-end (car tokens)) edit-start)
+                  (locate (cdr tokens) (cdr modes)
+                          (cons (car tokens) prefix)
+                          (cons (car modes) prefix-modes) (+ index 1))
+                  (let collect ((rest tokens) (rest-modes modes)
+                                (window '()) (window-modes '())
+                                (count 0))
+                    (if (and (pair? rest)
+                             (or (zero? count)
+                                 (< (token-start (car rest)) edit-end)))
+                      (and (pair? rest-modes)
+                           (collect (cdr rest) (cdr rest-modes)
+                                    (cons (car rest) window)
+                                    (cons (car rest-modes) window-modes)
+                                    (+ count 1)))
+                      (and (>= count 2)
+                           (let* ((old-window (reverse window))
+                                  (start (token-start (car old-window)))
+                                  (target-end
+                                   (+ (token-end (car window)) delta))
+                                  (scanned
+                                   (scan-certified-window
+                                    machine new-source old-window
+                                    (reverse window-modes)
+                                    start target-end)))
+                             (and scanned
+                                  (or (null? prefix)
+                                      (same-scanned-token?
+                                       machine new-source (car prefix)
+                                       (car prefix-modes) 0))
+                                  (or (null? rest)
+                                      (and (pair? rest-modes)
+                                           (same-scanned-token?
+                                            machine new-source (car rest)
+                                            (car rest-modes) delta)))
+                                  (let* ((new-window (car scanned))
+                                         (next-tokens
+                                          (append
+                                           (reverse prefix) new-window
+                                           (if (zero? delta) rest
+                                               (map
+                                                (lambda (token)
+                                                  (relocate-token token delta))
+                                                rest))))
+                                         (next-checkpoints
+                                          (list->vector
+                                           (filter
+                                            (lambda (record)
+                                              (<= (vector-ref record 3) start))
+                                            (vector->list
+                                             (incremental-session-state-checkpoints
+                                              session)))))
+                                         (suffix-bytes
+                                          (- (u8vector-length
+                                              (string->utf8 new-source))
+                                             target-end)))
+                                    (let-values (((artifact shared)
+                                                  (make-certified-window-artifact
+                                                   old-artifact new-source
+                                                   index old-window new-window
+                                                   delta)))
+                                      (vector
+                                       (make-incremental-session-state
+                                        machine new-source artifact next-tokens
+                                        old-modes next-checkpoints)
+                                       index (length rest) suffix-bytes
+                                       start shared
+                                       (cdr scanned)))))))))))))))
 
 (def (parse-incremental-session session source-edit)
   (unless (incremental-session? session)
@@ -395,7 +525,7 @@
          (new-source (apply-edit old-source source-edit))
          (source-byte-length (u8vector-length (string->utf8 new-source))))
     (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
-                 fresh? (reused-events #f) (replaced-significant? #f))
+                 fresh? (reused-events #f) (replaced-significant-count 0))
       (let* ((artifact (incremental-session-artifact next))
              (significant-count
               (length
@@ -407,7 +537,7 @@
                prefix-count shifted reused-count reused-bytes
                restart-byte significant-count
                (if reused-events
-                 (- significant-count (if replaced-significant? 1 0))
+                 (- significant-count replaced-significant-count)
                  0)
                (and reused-events (- source-byte-length reused-bytes)))))
         (values
@@ -432,6 +562,16 @@
               (vector-ref token-reuse 4) #f
               (vector-ref token-reuse 5)
               (vector-ref token-reuse 6))
+    (let (window-reuse
+          (certified-token-window-reuse session source-edit new-source))
+    (if window-reuse
+      (finish (vector-ref window-reuse 0)
+              (vector-ref window-reuse 1) 0
+              (vector-ref window-reuse 2)
+              (vector-ref window-reuse 3)
+              (vector-ref window-reuse 4) #f
+              (vector-ref window-reuse 5)
+              (vector-ref window-reuse 6))
     (if (or (zero? (vector-length checkpoints))
             (not old-modes)
             (not (closed-lexer? machine)))
@@ -511,4 +651,4 @@
                          machine new-source artifact tokens modes
                          next-checkpoints)))
                   (finish next (vector-ref saved 2) shifted
-                          reused-count reused-bytes restart-byte #f))))))))))))
+                          reused-count reused-bytes restart-byte #f))))))))))))))

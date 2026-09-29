@@ -96,6 +96,34 @@
                           edited))))))
       (newline))))
 
+(def (measure-window terms)
+  (let* ((source (string-join (make-list terms "001") " + "))
+         (source-edit
+          (make-edit (* (quotient terms 2) 6) 9 "0002 + 0003"))
+         (changed-source (apply-edit source source-edit))
+         (session (make-incremental-session arithmetic-parser source)))
+    (let-values (((next receipt)
+                  (parse-incremental-session session source-edit)))
+      (unless (equal? (incremental-session-artifact next)
+                      (parse-arithmetic-v1 changed-source))
+        (error "certified window product differs" terms))
+      (write
+       (list (cons 'workload 'multi-token-window)
+             (cons 'terms terms)
+             (cons 'reused-recognition-events
+                   (cdr (assq 'reusedRecognitionEventCount receipt)))
+             (report 'fresh-edit
+                     (samples
+                      (lambda () (parse-arithmetic-v1 changed-source))))
+             (report 'cached-window-edit
+                     (samples
+                      (lambda ()
+                        (let-values (((edited _receipt)
+                                      (parse-incremental-session
+                                       session source-edit)))
+                          edited))))))
+      (newline))))
+
 (def (main . args)
   (for-each measure
             (if (null? args) '(400 800 1600)
@@ -107,7 +135,8 @@
       (make-edit (- (* (quotient terms 2) 6) 1) 1 "\t"))
      (measure-event-reuse
       terms 'same-width-generic-token-edit
-      (make-edit (* (quotient terms 2) 6) 3 "002")))
+      (make-edit (* (quotient terms 2) 6) 3 "002"))
+     (measure-window terms))
    (if (null? args) '(400 800 1600)
        (map string->number args))))
 

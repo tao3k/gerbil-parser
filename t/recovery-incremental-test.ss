@@ -209,6 +209,61 @@
        (list (list "001 + 002 + 003" (make-edit 6 3 "0002"))
              (list "001 + 002 + 003" (make-edit 3 1 "  "))
              (list "λ + 2 + 3" (make-edit 2 1 "  ")))))
+    (test-case "certified multi-token window preserves LR event topology"
+      (let* ((source (string-join (make-list 160 "001") " + "))
+             (session (make-incremental-session arithmetic-parser source))
+             (first-edit (make-edit (* 80 6) 9 "0002 + 0003")))
+        (let-values (((next first-receipt)
+                      (parse-incremental-session session first-edit)))
+          (let* ((first-source (apply-edit source first-edit))
+                 (second-edit (make-edit (+ (* 120 6) 2) 9
+                                         "004 + 005")))
+            (check (incremental-session-artifact next)
+                   => (parse-arithmetic-v1 first-source))
+            (check (parse-artifact-valid?
+                    (incremental-session-artifact next)) => #t)
+            (check (> (row-ref first-receipt
+                               'reusedRecognitionEventCount) 0) => #t)
+            (check (row-ref first-receipt 'suffixByteDelta) => 2)
+            (check (row-ref first-receipt
+                            'remainingSignificantTokenCount) => 3)
+            (let-values (((again second-receipt)
+                          (parse-incremental-session next second-edit)))
+              (check (incremental-session-artifact again)
+                     => (parse-arithmetic-v1
+                         (apply-edit first-source second-edit)))
+              (check (> (row-ref second-receipt
+                                 'reusedRecognitionEventCount) 0)
+                     => #t))))))
+    (test-case "multi-token literal action change falls back to LR"
+      (let* ((source "001 + 002 + 003")
+             (session (make-incremental-session arithmetic-parser source))
+             (source-edit (make-edit 0 9 "004 * 005")))
+        (let-values (((next receipt)
+                      (parse-incremental-session session source-edit)))
+          (check (incremental-session-artifact next)
+                 => (parse-arithmetic-v1
+                     (apply-edit source source-edit)))
+          (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
+    (test-case "contracted and Unicode token windows equal fresh artifacts"
+      (for-each
+       (lambda (case)
+         (let* ((source (car case))
+                (source-edit (cadr case))
+                (session (make-incremental-session arithmetic-parser source)))
+           (let-values (((next receipt)
+                         (parse-incremental-session session source-edit)))
+             (check (incremental-session-artifact next)
+                    => (parse-arithmetic-v1
+                        (apply-edit source source-edit)))
+             (check (parse-artifact-valid?
+                     (incremental-session-artifact next)) => #t)
+             (check (> (row-ref receipt
+                                'reusedRecognitionEventCount) 0) => #t))))
+       (list (list "0001 + 0002 + 0003"
+                   (make-edit 0 11 "004 + 005"))
+             (list "λ + 2 + 3"
+                   (make-edit 0 6 "λ + 4")))))
     (test-case "literal action edits require LR re-execution"
       (let* ((source "001 + 002")
              (session (make-incremental-session arithmetic-parser source))

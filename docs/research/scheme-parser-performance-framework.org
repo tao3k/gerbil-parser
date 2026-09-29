@@ -345,7 +345,7 @@ shifted suffix events are rebuilt; unaffected prefix events retain identity.
 Source tokens after the edit are relocated, lexical-mode IDs remain attached
 to their corresponding tokens, and checkpoints at or after the edited token
 are dropped. The driver returns to ordinary LR resume if the edited token
-changes kind, either neighbor changes, or the edit spans more than one token.
+changes kind or either neighbor changes.
 The closed-lexer and deterministic-mode requirements still apply.
 
 On a local Gerbil v0.19 run with 1,600 arithmetic terms, the four-byte
@@ -353,7 +353,33 @@ number replacement took 0.98 ms best-of-five through cached event relocation.
 The fresh parse in the same run took 10.49 ms best-of-five; host-load variance
 was substantial, so this is only a bounded workload receipt. Executed tests
 compare full artifacts with fresh parses for number, trivia, and Unicode
-edits, plus sequential edits and multi-token fallback.
+edits and sequential edits.
+
+** Certified local token windows
+
+The one-token certificate extends to a contiguous edited token window without
+replaying the unchanged suffix. The Scheme driver scans each new token using
+its corresponding saved LR lexical mode. It admits reuse only when token
+count, kind, trivia membership, and LR action choice agree pairwise. Unchanged
+literal tokens retain their actions; changed significant lexemes must be
+generic in every interned LR mode. The immediate old neighbors are rescanned
+in the new source to reject lexical fusion at either boundary.
+
+The artifact builder maps old token starts and ends to new byte boundaries.
+It replaces window token events, remaps node and field boundaries, and shifts
+suffix token events by the final byte delta. Event topology, token IDs, and
+unaffected event objects remain stable. Checkpoints at or after the window
+are discarded because their semantic values or byte cursors may be stale.
+An edit that changes the action sequence or token count uses ordinary LR
+resume. Selective-GLR suffixes lack deterministic mode records and remain on
+that path.
+
+On a local Gerbil v0.19 five-sample run with 1,600 arithmetic terms, replacing
+two numbers around an unchanged plus took 0.92 ms best-of-five through the
+certified window and 5.97 ms for fresh parsing. The receipt reported 14,400
+unchanged event objects. This is a local workload result. Executed Scheme
+tests compare full artifacts for expansion, contraction, Unicode boundaries,
+sequential windows, and a changed literal operator that must fall back.
 
 ** Single-pass session construction
 

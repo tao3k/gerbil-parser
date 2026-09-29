@@ -20,6 +20,7 @@
         make-success-parse-artifact
         make-same-width-token-artifact
         make-shifted-token-artifact
+        make-certified-window-artifact
         make-failure-parse-artifact
         parse-artifact-ref
         parse-artifact-events
@@ -301,6 +302,79 @@
            (parse-artifact-events old-artifact)))
       (unless replaced?
         (error "token event id is absent" token-id))
+      (values
+       (artifact (parse-artifact-ref old-artifact 'grammarDigest)
+                 source 'accepted events '())
+       shared))))
+
+;;; Each old token boundary in a certified window has one new boundary. LR
+;;; reductions can only place node and field boundaries at token boundaries,
+;;; so the event topology remains valid when their offsets are remapped.
+(def (make-certified-window-artifact old-artifact source first-id
+                                      old-window new-window delta)
+  (unless (and (parse-artifact-success? old-artifact)
+               (= (length old-window) (length new-window))
+               (pair? old-window))
+    (error "invalid certified token window"))
+  (let* ((boundary-map (make-table test: equal?))
+         (start (token-start (car old-window)))
+         (end (token-end (car (reverse old-window))))
+         (limit (+ first-id (length old-window)))
+         (replacement (list->vector new-window))
+         (shared 0))
+    (for-each
+     (lambda (old-token new-token)
+       (table-set! boundary-map (token-start old-token)
+                   (token-start new-token))
+       (table-set! boundary-map (token-end old-token)
+                   (token-end new-token)))
+     old-window new-window)
+    (def (offset value)
+      (cond
+       ((< value start) value)
+       ((> value end) (+ value delta))
+       (else
+        (let (mapped (table-ref boundary-map value 'missing))
+          (if (eq? mapped 'missing)
+            (error "event boundary is inside a certified token" value)
+            mapped)))))
+    (def (keep event)
+      (set! shared (+ shared 1))
+      event)
+    (let (events
+          (map
+           (lambda (event)
+             (case (event-kind event)
+               ((token)
+                (let ((id (token-event-id event))
+                      (old-start (event-start event))
+                      (old-end (event-end event)))
+                  (cond
+                   ((and (<= first-id id) (< id limit))
+                    (make-token-event
+                     id (vector-ref replacement (- id first-id))))
+                   ((< id first-id) (keep event))
+                   ((zero? delta) (keep event))
+                   (else
+                    (vector 'token id (token-event-token-kind event)
+                            (token-event-lexeme event)
+                            (offset old-start) (offset old-end))))))
+               ((start-node finish-node)
+                (let* ((value (vector-ref event 3))
+                       (mapped (offset value)))
+                  (if (= value mapped)
+                    (keep event)
+                    (vector (event-kind event) (vector-ref event 1)
+                            (vector-ref event 2) mapped))))
+               ((start-field finish-field)
+                (let* ((value (vector-ref event 2))
+                       (mapped (offset value)))
+                  (if (= value mapped)
+                    (keep event)
+                    (vector (event-kind event) (vector-ref event 1)
+                            mapped))))
+               (else (error "unknown recognition event" event))))
+           (parse-artifact-events old-artifact)))
       (values
        (artifact (parse-artifact-ref old-artifact 'grammarDigest)
                  source 'accepted events '())

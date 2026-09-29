@@ -18,7 +18,7 @@
         +diagnostic-schema+
         sha256-text
         make-success-parse-artifact
-        make-same-width-trivia-artifact
+        make-same-width-token-artifact
         make-failure-parse-artifact
         parse-artifact-ref
         parse-artifact-events
@@ -227,18 +227,17 @@
                     '())))
     value))
 
-;;; Reuse the recognized event structure when a certified edit replaces one
-;;; trivia token without changing any source byte boundary. Node and field
-;;; events, as well as all significant token events, remain identical.
-(def (make-same-width-trivia-artifact old-artifact source token-id source-token)
+;;; A certified same-width edit changes exactly one token event. The unchanged
+;;; suffix remains shared, including node and field events.
+(def (make-same-width-token-artifact old-artifact source token-id source-token)
   (unless (parse-artifact-success? old-artifact)
-    (error "trivia event reuse requires an accepted artifact"))
+    (error "token event reuse requires an accepted artifact"))
   (let (events
         (let loop ((remaining (parse-artifact-events old-artifact))
                    (prefix '()))
           (cond
            ((null? remaining)
-            (error "trivia event id is absent" token-id))
+            (error "token event id is absent" token-id))
            ((and (token-event? (car remaining))
                  (= (token-event-id (car remaining)) token-id))
             (foldl cons

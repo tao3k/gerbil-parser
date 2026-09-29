@@ -293,7 +293,7 @@ about 1.1, 2.0, 4.0, and 8.0 ms for 400, 800, 1,600, and 3,200 arithmetic
 terms. The near-linear growth confirms that checkpoint selection alone does
 not remove suffix LR execution and complete artifact materialization.
 
-** Certified same-width trivia event reuse
+** Certified same-width token event reuse
 
 For an accepted session with a closed, mode-directed lexer, a zero-byte-delta
 edit wholly inside one trivia token can preserve the LR frontier. The driver
@@ -303,7 +303,18 @@ the other recognition event objects, the significant tokens, lexical-mode
 records, and LR checkpoints. Subsequent edits can reuse the same session.
 Kind or extent changes, external scanners, and rejected artifacts follow the
 ordinary incremental or fresh path. This is a bounded structural-reuse case;
-general significant-token edits still execute suffix LR work.
+significant-token edits without the certificate still execute suffix LR work.
+
+The same certificate now admits a significant token when both old and new
+lexemes are generic in every interned LR lexical mode. Literal actions take
+precedence over token-kind actions, so a lexeme matching any literal must
+continue through LR execution. With an unchanged kind and byte extent, two
+generic lexemes select identical actions; the new artifact replaces one token
+event and shares the remaining recognition events. Snapshots after that token
+are removed because their semantic values refer to its old object. Earlier
+snapshots remain available for later edits. Trivia edits retain all snapshots.
+This still requires a deterministic mode record at the edited token; a GQL
+edit after its GLR fork follows the ordinary path.
 
 The pure Scheme benchmark checks complete artifact equality before timing.
 On one local Gerbil v0.19 five-sample run with 1,600 arithmetic terms
@@ -314,6 +325,15 @@ load, so these figures establish a local workload result rather than a
 general latency guarantee. The executed incremental test suite also covers
 repeated edits, lexical-kind rejection, Unicode byte positions, and GQL
 contextual trivia.
+
+For a same-width generic number edit in the same 1,600-term workload, a
+separate local v0.19 five-sample run reported 25,592 reused events and
+0.86 ms best-of-five, versus 6.29 ms for fresh parsing. In that run a
+four-byte replacement, which cannot reuse the event structure, took 3.84 ms
+best-of-five through cached LR resume. These figures are workload and host
+specific. Regression cases compare complete artifacts after consecutive
+generic edits followed by a width-changing edit, which exercises the retained
+prefix checkpoints.
 
 ** Single-pass session construction
 

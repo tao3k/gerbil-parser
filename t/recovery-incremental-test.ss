@@ -79,19 +79,20 @@
                    => (row-ref receipt 'convergedSuffixTokenCount))
             (check (row-ref receipt 'relocatedSuffixTokenCount) => 0)
             (check (< (row-ref receipt 'relexedByteCount) 128) => #t)
-            (check (> (row-ref receipt 'resumedSignificantTokenCount) 90)
-                   => #t)
+            (check (row-ref receipt 'resumedSignificantTokenCount) => 0)
+            (check (> (row-ref receipt
+                               'reusedRecognitionEventCount) 0) => #t)
             (check (< (row-ref receipt 'remainingSignificantTokenCount)
                       120)
                    => #t)))))
     (test-case "persistent checkpoints resume sequential middle edits"
       (let* ((source (string-join (make-list 160 "001") " + "))
              (session (make-incremental-session arithmetic-parser source))
-             (first-edit (make-edit (* 80 6) 3 "002")))
+             (first-edit (make-edit (* 80 6) 3 "0002")))
         (let-values (((next first-receipt)
                       (parse-incremental-session session first-edit)))
           (let* ((first-source (apply-edit source first-edit))
-                 (second-edit (make-edit (* 120 6) 3 "003")))
+                 (second-edit (make-edit (+ (* 120 6) 1) 3 "0003")))
             (check (incremental-session-artifact next)
                    => (parse-arithmetic-v1 first-source))
             (check (> (row-ref first-receipt
@@ -111,7 +112,7 @@
       (let* ((source (string-join (make-list 128 "001") " + "))
              (session (make-incremental-session arithmetic-parser source))
              (late-edit
-              (make-edit (- (string-length source) 3) 3 "002")))
+              (make-edit (- (string-length source) 3) 3 "0002")))
         (let-values (((next receipt)
                       (parse-incremental-session session late-edit)))
           (let* ((late-source (apply-edit source late-edit))
@@ -153,6 +154,53 @@
                          (apply-edit first-source second-edit)))
               (check (> (row-ref second-receipt
                                  'reusedRecognitionEventCount) 0) => #t))))))
+    (test-case "generic significant edits reuse events and retire later checkpoints"
+      (let* ((source (string-join (make-list 160 "001") " + "))
+             (session (make-incremental-session arithmetic-parser source))
+             (first-edit (make-edit (* 80 6) 3 "002")))
+        (let-values (((next first-receipt)
+                      (parse-incremental-session session first-edit)))
+          (let* ((first-source (apply-edit source first-edit))
+                 (second-edit (make-edit (* 120 6) 3 "003")))
+            (check (incremental-session-artifact next)
+                   => (parse-arithmetic-v1 first-source))
+            (check (> (row-ref first-receipt
+                               'reusedRecognitionEventCount) 0) => #t)
+            (check (row-ref first-receipt
+                            'remainingSignificantTokenCount) => 1)
+            (check (row-ref first-receipt 'relexedByteCount) => 3)
+            (check (eq? (car (parse-artifact-events
+                              (incremental-session-artifact session)))
+                        (car (parse-artifact-events
+                              (incremental-session-artifact next))))
+                   => #t)
+            (let-values (((again second-receipt)
+                          (parse-incremental-session next second-edit)))
+              (let* ((second-source
+                      (apply-edit first-source second-edit))
+                     (third-edit (make-edit (* 150 6) 3 "0004")))
+                (check (incremental-session-artifact again)
+                       => (parse-arithmetic-v1 second-source))
+                (check (> (row-ref second-receipt
+                                   'reusedRecognitionEventCount) 0) => #t)
+                (let-values (((final third-receipt)
+                              (parse-incremental-session again third-edit)))
+                  (check (incremental-session-artifact final)
+                         => (parse-arithmetic-v1
+                             (apply-edit second-source third-edit)))
+                  (check (> (row-ref third-receipt
+                                     'checkpointReusedShiftCount) 0)
+                         => #t))))))))
+    (test-case "literal action edits require LR re-execution"
+      (let* ((source "001 + 002")
+             (session (make-incremental-session arithmetic-parser source))
+             (source-edit (make-edit 4 1 "*")))
+        (let-values (((next receipt)
+                      (parse-incremental-session session source-edit)))
+          (check (incremental-session-artifact next)
+                 => (parse-arithmetic-v1
+                     (apply-edit source source-edit)))
+          (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "trivia fast path rejects a lexical kind change"
       (let* ((source "001 + 002")
              (session (make-incremental-session arithmetic-parser source))
@@ -209,7 +257,7 @@
         (let-values (((next _receipt)
                       (parse-incremental-session session first-edit)))
           (let* ((first-source (apply-edit source first-edit))
-                 (second-edit (make-edit (+ (* 72 6) 6) 3 "003")))
+                 (second-edit (make-edit (+ (* 72 6) 6) 3 "0003")))
             (let-values (((final receipt)
                           (parse-incremental-session next second-edit)))
               (check (incremental-session-artifact final)
@@ -236,10 +284,20 @@
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'freshFallback?) => #f)
           (check (row-ref receipt 'checkpointReusedShiftCount) => 0))))
+    (test-case "GQL edit after a GLR fork retains the ordinary path"
+      (let* ((source "CREATE GRAPH mygraph ANY")
+             (session (make-incremental-session gql-iso-parser source))
+             (source-edit (make-edit 13 7 "yrgraph")))
+        (let-values (((next receipt)
+                      (parse-incremental-session session source-edit)))
+          (check (incremental-session-artifact next)
+                 => (parse-gql-iso-39075-2024
+                     (apply-edit source source-edit)))
+          (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "GQL retains deterministic LR checkpoints before a GLR fork"
       (let* ((source +gql-representative-query+)
              (source-edit
-              (make-edit (- (string-length source) 7) 6 "result"))
+              (make-edit (- (string-length source) 7) 6 "res"))
              (session (make-incremental-session gql-iso-parser source)))
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))

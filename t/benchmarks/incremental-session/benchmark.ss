@@ -24,7 +24,7 @@
 
 (def (measure terms)
   (let* ((source (string-join (make-list terms "001") " + "))
-         (source-edit (make-edit (* (quotient terms 2) 6) 3 "002"))
+         (source-edit (make-edit (* (quotient terms 2) 6) 3 "0002"))
          (changed-source (apply-edit source source-edit))
          (base (parse-arithmetic-v1 source))
          (session (make-incremental-session arithmetic-parser source))
@@ -70,26 +70,24 @@
                         next))))))
     (newline)))
 
-(def (measure-trivia terms)
+(def (measure-event-reuse terms workload source-edit)
   (let* ((source (string-join (make-list terms "001") " + "))
-         (source-edit (make-edit (- (* (quotient terms 2) 6) 1)
-                                 1 "\t"))
          (changed-source (apply-edit source source-edit))
          (session (make-incremental-session arithmetic-parser source)))
     (let-values (((next receipt)
                   (parse-incremental-session session source-edit)))
       (unless (equal? (incremental-session-artifact next)
                       (parse-arithmetic-v1 changed-source))
-        (error "trivia reuse benchmark products differ" terms))
+        (error "event reuse benchmark products differ" workload terms))
       (write
-       (list (cons 'workload 'same-width-trivia-edit)
+       (list (cons 'workload workload)
              (cons 'terms terms)
              (cons 'reused-recognition-events
                    (cdr (assq 'reusedRecognitionEventCount receipt)))
              (report 'fresh-edit
                      (samples
                       (lambda () (parse-arithmetic-v1 changed-source))))
-             (report 'cached-trivia-edit
+             (report 'cached-event-edit
                      (samples
                       (lambda ()
                         (let-values (((edited _receipt)
@@ -102,8 +100,15 @@
   (for-each measure
             (if (null? args) '(400 800 1600)
                 (map string->number args)))
-  (for-each measure-trivia
-            (if (null? args) '(400 800 1600)
-                (map string->number args))))
+  (for-each
+   (lambda (terms)
+     (measure-event-reuse
+      terms 'same-width-trivia-edit
+      (make-edit (- (* (quotient terms 2) 6) 1) 1 "\t"))
+     (measure-event-reuse
+      terms 'same-width-generic-token-edit
+      (make-edit (* (quotient terms 2) 6) 3 "002")))
+   (if (null? args) '(400 800 1600)
+       (map string->number args))))
 
 (export main)

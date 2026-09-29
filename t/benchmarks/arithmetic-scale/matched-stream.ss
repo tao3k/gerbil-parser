@@ -46,14 +46,20 @@
       (let loop ((n 0))
         (when (< n (+ samples 3))
           (##gc)
+          ;; Keep process CPU beside elapsed time: a stalled host must not
+          ;; be mistaken for extra parser work.
           (let* ((started (##current-time-point))
+                 (cpu-started (cpu-time))
                  (artifact (parse-arithmetic-v1 source))
+                 (cpu-ms (* 1000.0 (- (cpu-time) cpu-started)))
                  (ms (* 1000.0 (- (##current-time-point) started))))
             (unless (and (parse-artifact-success? artifact)
                          (equal? (parse-artifact-roundtrip artifact) source))
               (error "long arithmetic parse failed" terms))
             (when (>= n 3)
-              (write (list (cons 'sample (- n 3)) (cons 'elapsed-ms ms)))
+              (write (list (cons 'sample (- n 3))
+                           (cons 'elapsed-ms ms)
+                           (cons 'cpu-ms cpu-ms)))
               (newline)))
           (loop (+ n 1)))))))
 

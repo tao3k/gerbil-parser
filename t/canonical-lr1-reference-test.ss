@@ -22,7 +22,8 @@
         (only-in :gerbil-parser/t/fixtures/lr1-construction
                  lr1-not-lalr-rules shared-lookahead-rules
                  genuine-reduce-conflict-rules precedence-expression-rules
-                 mixed-context-rules lr1-context-family-rules))
+                 mixed-context-rules lr1-context-family-rules
+                 inactive-core-conflict-rules))
 
 (def (character-tokens text (base 0))
   (let loop ((index 0) (found '()))
@@ -184,6 +185,18 @@
                => #t))
       (check-initial-backward-partitions shared-lookahead-rules)
       (check-initial-backward-partitions genuine-reduce-conflict-rules))
+    (poo-flow-test-case "initial partition skips cores without a conflict action"
+      (let (blocks (vector->list
+                   (check-initial-backward-partitions
+                    inactive-core-conflict-rules)))
+        (check (foldl (lambda (entry total)
+                        (+ total (if entry (length entry) 0)))
+                      0 blocks)
+               => 41)
+        (check (foldl (lambda (entry total)
+                        (+ total (if (and entry (> (length entry) 1)) 1 0)))
+                      0 blocks)
+               => 3)))
     (poo-flow-test-case "LR(0) raw candidates conservatively cover canonical conflicts"
       (let-values (((candidates canonical-conflicts)
                     (check-lr0-candidates-cover-canonical
@@ -194,6 +207,7 @@
                            canonical-conflicts)
                => #f))
       (check-lr0-candidates-cover-canonical shared-lookahead-rules)
+      (check-lr0-candidates-cover-canonical inactive-core-conflict-rules)
       (let-values (((candidates canonical-conflicts)
                     (check-lr0-candidates-cover-canonical
                      genuine-reduce-conflict-rules)))

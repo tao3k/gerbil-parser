@@ -14,7 +14,7 @@
         (only-in :gerbil-parser/t/fixtures/lr1-construction
                  lr1-not-lalr-rules shared-lookahead-rules
                  precedence-expression-rules mixed-context-rules
-                 lr1-context-family-rules))
+                 lr1-context-family-rules inactive-core-conflict-rules))
 
 (def (timing-fields started repetitions)
   (let (total-ms (* 1000.0 (- (##current-time-point) started)))
@@ -185,7 +185,8 @@
        (write (measure-direct-seed (car entry) (cadr entry) repetitions))
        (newline))
      (list (list 'shared-lookahead shared-lookahead-rules)
-           (list 'lr1-not-lalr lr1-not-lalr-rules)))
+           (list 'lr1-not-lalr lr1-not-lalr-rules)
+           (list 'inactive-core-conflict inactive-core-conflict-rules)))
     (for-each
      (lambda (entry)
        (write (measure-candidates (car entry) (cadr entry) repetitions))

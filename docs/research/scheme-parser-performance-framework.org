@@ -199,7 +199,14 @@ raw action overlap on the LR(0) propagation graph produces conservative
 potential-conflict cells. Compatibility signatures then seed the initial
 backward follow-string partition. The candidate stage uses LALR union masks,
 so it may include more lookaheads than Definition 3.24 and split more blocks
-than the paper's exact initial partition. =lr-follow-automaton.ss= refines
+than the paper's exact initial partition. The seed now intersects each LR(0)
+state candidate mask with the dotted item's possible raw actions: completed
+items reduce on reachable follows, terminal-dot items shift on their terminal,
+and nonterminal-dot items have no action. An inactive-core witness reduces the
+seed from 42 to 41 blocks and from four to three split cores while preserving
+full follow masks and canonical conflict coverage. This remains a conservative
+approximation of Definition 3.24 because the candidate stage does not compute
+exact follow-specific co-reachability. =lr-follow-automaton.ss= refines
 those blocks by shift and closure successors until stable, groups the
 backward blocks by dotted core, refines by predecessor reachability, then
 determinizes the quotient NFA. If there are no raw conflict candidates, it

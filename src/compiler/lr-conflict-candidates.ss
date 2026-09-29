@@ -159,6 +159,7 @@
                        (max width (+ 1 (length (production-rhs production)))))
                      1 (vector->list table)))
              (core-count (* (vector-length table) dot-width))
+             (action-by-core (make-vector core-count 0))
              (candidate-by-core (make-vector core-count 0))
              (partitions (make-vector core-count #f)))
         (let terminal-loop ((terminal 0))
@@ -166,6 +167,27 @@
             (table-set! terminal-index
                         (vector-ref terminals terminal) terminal)
             (terminal-loop (+ terminal 1))))
+        ;; Definition 3.24 requires each item to have an action on the
+        ;; potentially conflicting lookahead. Nonterminal-dot items have no
+        ;; raw action; terminal-dot items shift only their own terminal, and
+        ;; completed items reduce only on reachable production follows.
+        (let production-loop ((id 0))
+          (when (< id (vector-length table))
+            (let dot-loop ((tail (production-rhs (vector-ref table id)))
+                           (dot 0))
+              (let* ((core (+ dot (* dot-width id)))
+                     (symbol (and (pair? tail) (base-symbol (car tail))))
+                     (action-mask
+                      (cond
+                       ((not symbol) (vector-ref follows id))
+                       ((terminal-symbol? symbol)
+                        (compiler-index-set-singleton
+                         (table-ref terminal-index symbol)))
+                       (else 0))))
+                (vector-set! action-by-core core action-mask)
+                (unless (null? tail)
+                  (dot-loop (cdr tail) (+ dot 1)))))
+            (production-loop (+ id 1))))
         (let state-loop ((state 0))
           (when (< state count)
             (for-each
@@ -174,7 +196,8 @@
                 candidate-by-core core
                 (compiler-index-set-union
                  (vector-ref candidate-by-core core)
-                 (vector-ref candidates state))))
+                 (bitwise-and (vector-ref candidates state)
+                              (vector-ref action-by-core core)))))
              (vector-ref states state))
             (state-loop (+ state 1))))
         (let production-loop ((id 0))

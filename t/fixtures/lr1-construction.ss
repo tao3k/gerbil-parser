@@ -3,7 +3,26 @@
 
 (export lr1-not-lalr-rules shared-lookahead-rules
         genuine-reduce-conflict-rules precedence-expression-rules
-        mixed-context-rules lr1-context-family-rules)
+        mixed-context-rules lr1-context-family-rules
+        inactive-core-conflict-rules)
+
+;; The c-rule item after "c" has no raw action before its nullable optional
+;; symbol. It shares an LR(0) state with completed a-rule/b-rule items that do
+;; conflict on d/e. Its own initial follow block must not split for that
+;; unrelated conflict; backward refinement may still split it if required.
+(def inactive-core-conflict-rules
+  '((source-file
+     (alias SourceFile
+      (choice
+       (sequence (literal "a") (reference a-rule) (literal "d"))
+       (sequence (literal "b") (reference a-rule) (literal "e"))
+       (sequence (literal "a") (reference b-rule) (literal "e"))
+       (sequence (literal "b") (reference b-rule) (literal "d"))
+       (sequence (literal "a") (reference c-rule) (literal "d"))
+       (sequence (literal "b") (reference c-rule) (literal "e")))))
+    (a-rule (literal "c"))
+    (b-rule (literal "c"))
+    (c-rule (sequence (literal "c") (optional (literal "x"))))))
 
 ;; Replicate the LR(1)-but-not-LALR(1) context under distinct leading literals.
 ;; Each region adds one LALR merge conflict and four accepted strings.

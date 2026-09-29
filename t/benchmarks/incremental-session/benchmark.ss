@@ -4,6 +4,8 @@
 
 (import (only-in :gerbil-parser/languages/arithmetic/v1/parser
                  arithmetic-parser parse-arithmetic-v1)
+        (only-in :gerbil-parser/languages/hcl/v2-24/parser
+                 hcl-v2-24-parser parse-hcl-v2-24)
         (only-in :gerbil-parser/src/runtime/incremental
                  apply-edit incremental-session-artifact
                  make-edit make-incremental-session
@@ -124,6 +126,37 @@
                           edited))))))
       (newline))))
 
+(def (measure-trivia-window lines)
+  (let* ((source (apply string-append
+                        (make-list lines "x = 1 /*a*/\n")))
+         (source-edit
+          (make-edit (+ (* (quotient lines 2) 12) 6)
+                     5 "/*a*/ /*b*/"))
+         (changed-source (apply-edit source source-edit))
+         (session (make-incremental-session hcl-v2-24-parser source)))
+    (let-values (((next receipt)
+                  (parse-incremental-session session source-edit)))
+      (unless (and (equal? (incremental-session-artifact next)
+                           (parse-hcl-v2-24 changed-source))
+                   (assq 'reusedRecognitionEventCount receipt))
+        (error "certified trivia window product differs" lines))
+      (write
+       (list (cons 'workload 'hcl-trivia-token-count-change)
+             (cons 'lines lines)
+             (cons 'reused-recognition-events
+                   (cdr (assq 'reusedRecognitionEventCount receipt)))
+             (report 'fresh-edit
+                     (samples (lambda ()
+                                (parse-hcl-v2-24 changed-source))))
+             (report 'cached-window-edit
+                     (samples
+                      (lambda ()
+                        (let-values (((edited _receipt)
+                                      (parse-incremental-session
+                                       session source-edit)))
+                          edited))))))
+      (newline))))
+
 (def (main . args)
   (for-each measure
             (if (null? args) '(400 800 1600)
@@ -138,6 +171,7 @@
       (make-edit (* (quotient terms 2) 6) 3 "002"))
      (measure-window terms))
    (if (null? args) '(400 800 1600)
-       (map string->number args))))
+       (map string->number args)))
+  (measure-trivia-window 100))
 
 (export main)

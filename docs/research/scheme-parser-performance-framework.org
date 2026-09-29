@@ -370,7 +370,19 @@ It replaces window token events, remaps node and field boundaries, and shifts
 suffix token events by the final byte delta. Event topology, token IDs, and
 unaffected event objects remain stable. Checkpoints at or after the window
 are discarded because their semantic values or byte cursors may be stale.
-An edit that changes the action sequence or token count uses ordinary LR
+For a window containing only trivia, the same certificate also permits a
+different token count. Trivia does not advance the LR state, so the Scheme
+driver scans the replacement with the saved mode until the mapped window end.
+It then inserts or removes trivia events, renumbers suffix token IDs, and
+relocates byte boundaries. An event boundary inside the replaced trivia
+window rejects reuse. HCL comment insertion, contraction, and deletion have
+fresh-equivalent artifacts in the executed regression suite.
+On a local Gerbil v0.19 five-sample HCL run with 100 attributes, adding a
+second comment at the midpoint took 0.16 ms best-of-five with the cached
+session versus 1.58 ms for fresh parsing; 1,835 recognition event objects
+were retained. This only characterizes that workload and input size.
+
+An edit that changes significant token count or LR actions uses ordinary LR
 resume. Selective-GLR suffixes lack deterministic mode records and remain on
 that path.
 

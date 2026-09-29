@@ -10,6 +10,8 @@
                  gql-iso-parser parse-gql-iso-39075-2024)
         (only-in :gerbil-parser/languages/hl7/v2-2.5.1/parser
                  hl7v2-parser parse-hl7v2)
+        (only-in :gerbil-parser/languages/hcl/v2-24/parser
+                 hcl-v2-24-parser parse-hcl-v2-24)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-success? parse-artifact-valid?
                  parse-artifact-roundtrip)
@@ -264,6 +266,35 @@
                    (make-edit 0 11 "004 + 005"))
              (list "λ + 2 + 3"
                    (make-edit 0 6 "λ + 4")))))
+    (test-case "trivia token count changes preserve HCL recognition"
+      (let* ((source "x = 1 /*a*/\ny = 2\n")
+             (session (make-incremental-session hcl-v2-24-parser source)))
+        (for-each
+         (lambda (source-edit)
+           (let-values (((next receipt)
+                         (parse-incremental-session session source-edit)))
+             (check (incremental-session-artifact next)
+                    => (parse-hcl-v2-24
+                        (apply-edit source source-edit)))
+             (check (parse-artifact-valid?
+                     (incremental-session-artifact next)) => #t)
+             (check (> (row-ref receipt
+                                'reusedRecognitionEventCount) 0) => #t)
+             (check (row-ref receipt
+                             'remainingSignificantTokenCount) => 0)))
+         (list (make-edit 6 5 "/*a*/ /*b*/")
+               (make-edit 6 5 ""))))
+      (let* ((source "x = 1 /*a*/ /*b*/\ny = 2\n")
+             (session (make-incremental-session hcl-v2-24-parser source))
+             (source-edit (make-edit 6 11 "/*c*/")))
+        (let-values (((next receipt)
+                      (parse-incremental-session session source-edit)))
+          (check (incremental-session-artifact next)
+                 => (parse-hcl-v2-24 (apply-edit source source-edit)))
+          (check (parse-artifact-valid?
+                  (incremental-session-artifact next)) => #t)
+          (check (> (row-ref receipt
+                             'reusedRecognitionEventCount) 0) => #t))))
     (test-case "literal action edits require LR re-execution"
       (let* ((source "001 + 002")
              (session (make-incremental-session arithmetic-parser source))

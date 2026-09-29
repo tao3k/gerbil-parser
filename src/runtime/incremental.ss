@@ -431,6 +431,32 @@
                                      new-token)
                                   0 1))))))))))))
 
+;;; Trivia leaves the LR checkpoint unchanged. A replacement can therefore
+;;; contain a different number of trivia tokens when all old modes agree.
+(def (scan-certified-trivia-window machine source mode-id start target-end)
+  (with-catch
+   (lambda (_condition) #f)
+   (lambda ()
+     (let (mode
+           (vector-ref
+            (lr-runtime-lexical-mode-catalog
+             (parser-machine-runtime machine)) mode-id))
+       (let loop ((byte start)
+                  (character
+                   (byte-index->character-index (string->utf8 source) start))
+                  (found '()))
+         (cond
+          ((= byte target-end) (reverse found))
+          ((> byte target-end) #f)
+          (else
+           (let-values (((token next-character)
+                         (scan-source-token machine source character byte mode)))
+             (and ((parser-machine-trivia machine) token)
+                  (> (token-end token) byte)
+                  (<= (token-end token) target-end)
+                  (loop (token-end token) next-character
+                        (cons token found)))))))))))
+
 (def (certified-token-window-reuse session source-edit new-source)
   (let* ((machine (incremental-session-state-machine session))
          (old-artifact (incremental-session-state-artifact session))
@@ -460,17 +486,34 @@
                                     (cons (car rest) window)
                                     (cons (car rest-modes) window-modes)
                                     (+ count 1)))
-                      (and (>= count 2)
+                      (and (positive? count)
                            (let* ((old-window (reverse window))
                                   (start (token-start (car old-window)))
                                   (target-end
                                    (+ (token-end (car window)) delta))
+                                  (trivia-window?
+                                   (and (every
+                                         (parser-machine-trivia machine)
+                                         old-window)
+                                        (every
+                                         (lambda (mode-id)
+                                           (= mode-id (car window-modes)))
+                                         window-modes)))
                                   (scanned
-                                   (scan-certified-window
-                                    machine new-source old-window
-                                    (reverse window-modes)
-                                    start target-end)))
-                             (and scanned
+                                   (and (>= count 2)
+                                        (scan-certified-window
+                                         machine new-source old-window
+                                         (reverse window-modes)
+                                         start target-end)))
+                                  (trivia-scanned
+                                   (and (not scanned) trivia-window?
+                                        (scan-certified-trivia-window
+                                         machine new-source
+                                         (car window-modes)
+                                         start target-end)))
+                                  (new-window
+                                   (if scanned (car scanned) trivia-scanned)))
+                             (and new-window
                                   (or (null? prefix)
                                       (same-scanned-token?
                                        machine new-source (car prefix)
@@ -480,8 +523,7 @@
                                            (same-scanned-token?
                                             machine new-source (car rest)
                                             (car rest-modes) delta)))
-                                  (let* ((new-window (car scanned))
-                                         (next-tokens
+                                  (let* ((next-tokens
                                           (append
                                            (reverse prefix) new-window
                                            (if (zero? delta) rest
@@ -489,6 +531,13 @@
                                                 (lambda (token)
                                                   (relocate-token token delta))
                                                 rest))))
+                                         (next-modes
+                                          (if scanned old-modes
+                                              (append
+                                               (reverse prefix-modes)
+                                               (make-list (length new-window)
+                                                          (car window-modes))
+                                               rest-modes)))
                                          (next-checkpoints
                                           (list->vector
                                            (filter
@@ -501,18 +550,21 @@
                                           (- (u8vector-length
                                               (string->utf8 new-source))
                                              target-end)))
-                                    (let-values (((artifact shared)
-                                                  (make-certified-window-artifact
-                                                   old-artifact new-source
-                                                   index old-window new-window
-                                                   delta)))
-                                      (vector
-                                       (make-incremental-session-state
-                                        machine new-source artifact next-tokens
-                                        old-modes next-checkpoints)
-                                       index (length rest) suffix-bytes
-                                       start shared
-                                       (cdr scanned)))))))))))))))
+                                    (with-catch
+                                     (lambda (_condition) #f)
+                                     (lambda ()
+                                       (let-values (((artifact shared)
+                                                     (make-certified-window-artifact
+                                                      old-artifact new-source
+                                                      index old-window new-window
+                                                      delta)))
+                                         (vector
+                                          (make-incremental-session-state
+                                           machine new-source artifact next-tokens
+                                           next-modes next-checkpoints)
+                                          index (length rest) suffix-bytes
+                                          start shared
+                                          (if scanned (cdr scanned) 0)))))))))))))))))
 
 (def (parse-incremental-session session source-edit)
   (unless (incremental-session? session)

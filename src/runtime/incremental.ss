@@ -2,17 +2,20 @@
 ;;; LR checkpoint resume with lexical-mode-certified token reuse.
 
 (import (only-in ../compiler/machine
-                 parser-machine-grammar-digest parser-machine-ir)
+                 parser-machine-grammar-digest parser-machine-ir
+                 parser-machine-runtime parser-machine-trivia)
         (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ./artifact
-                 event-end event-start parse-artifact-events
+                 event-end event-start make-same-width-trivia-artifact
+                 parse-artifact-events
                  parse-artifact-ref parse-artifact-success?
                  parse-artifact-valid? token-event?
                  token-event-lexeme token-event-token-kind)
         (only-in ./identity sha256-text)
         (only-in ./lr-parser
-                 lr-lexical-mode-id
+                 lr-lexical-mode-id lr-runtime-lexical-mode-catalog
                  lr-prefix-snapshot-rebind)
+        (only-in ./lexer scan-source-token)
         (only-in ./parser
                  parse-source/checkpoints
                  parse-source/checkpoints/resume)
@@ -193,7 +196,9 @@
 
 (def (directed-edit-fields machine old-source new-source source-edit
                            prefix-count shifted reused-tail-count
-                           reused-tail-bytes restart-byte significant-count)
+                           reused-tail-bytes restart-byte significant-count
+                           (reused-significant-count 0)
+                           (relex-stop-byte #f))
   (let* ((source-byte-length (u8vector-length (string->utf8 new-source)))
          (byte-delta (edit-byte-delta source-edit)))
     (list
@@ -208,7 +213,7 @@
                        (edit-delete-byte-length source-edit))
                  (cons 'insertedText (edit-inserted-text source-edit))))
      (cons 'relexStartByte restart-byte)
-     (cons 'relexStopByte source-byte-length)
+     (cons 'relexStopByte (or relex-stop-byte source-byte-length))
      (cons 'relexedByteCount
            (- source-byte-length restart-byte reused-tail-bytes))
      (cons 'reusedTokenIds (iota prefix-count))
@@ -220,8 +225,78 @@
      (cons 'relocatedSuffixTokenCount
            (if (zero? byte-delta) 0 reused-tail-count))
      (cons 'resumedSignificantTokenCount shifted)
+     (cons 'reusedSignificantTokenCount reused-significant-count)
      (cons 'remainingSignificantTokenCount
-           (- significant-count shifted)))))
+           (- significant-count shifted reused-significant-count)))))
+
+;;; A same-width edit confined to one trivia token cannot change the LR
+;;; frontier when the closed, mode-directed scanner still emits that token kind
+;;; over the same byte range. Significant tokens and sparse recognition
+;;; checkpoints remain valid, so the event structure can be reused verbatim.
+(def (same-width-trivia-reuse session source-edit new-source)
+  (let* ((machine (incremental-session-state-machine session))
+         (old-artifact (incremental-session-state-artifact session))
+         (old-tokens (incremental-session-state-tokens session))
+         (old-modes (incremental-session-state-modes session))
+         (edit-start (edit-start-byte source-edit))
+         (edit-end (+ edit-start (edit-delete-byte-length source-edit))))
+    (and (zero? (edit-byte-delta source-edit))
+         (parse-artifact-success? old-artifact)
+         old-modes
+         (closed-lexer? machine)
+         (let loop ((tokens old-tokens) (modes old-modes) (index 0))
+           (and (pair? tokens) (pair? modes)
+                (let ((old-token (car tokens))
+                      (start (token-start (car tokens)))
+                      (end (token-end (car tokens))))
+                  (cond
+                   ((<= end edit-start)
+                    (loop (cdr tokens) (cdr modes) (+ index 1)))
+                   ((and (<= start edit-start) (<= edit-end end)
+                         ((parser-machine-trivia machine) old-token))
+                    (let (new-token
+                          (with-catch
+                           (lambda (_condition) #f)
+                           (lambda ()
+                             (let* ((mode
+                                     (vector-ref
+                                      (lr-runtime-lexical-mode-catalog
+                                       (parser-machine-runtime machine))
+                                      (car modes)))
+                                    (character
+                                     (byte-index->character-index
+                                      (string->utf8 new-source) start)))
+                               (let-values (((token _next-character)
+                                             (scan-source-token
+                                              machine new-source character
+                                              start mode)))
+                                 token)))))
+                      (and new-token
+                           (= (token-start new-token) start)
+                           (= (token-end new-token) end)
+                           (eq? (token-kind new-token)
+                                (token-kind old-token))
+                           ((parser-machine-trivia machine) new-token)
+                           (let* ((artifact
+                                   (make-same-width-trivia-artifact
+                                    old-artifact new-source index new-token))
+                                  (next-tokens
+                                   (append (take old-tokens index)
+                                           (cons new-token (cdr tokens))))
+                                  (next
+                                   (make-incremental-session-state
+                                    machine new-source artifact next-tokens
+                                    old-modes
+                                    (incremental-session-state-checkpoints
+                                     session))))
+                             (vector next index (length (cdr tokens))
+                                     (- (u8vector-length
+                                         (string->utf8 new-source)) end)
+                                     start
+                                     (- (length (parse-artifact-events
+                                                 old-artifact))
+                                        1))))))
+                   (else #f))))))))
 
 (def (parse-incremental-session session source-edit)
   (unless (incremental-session? session)
@@ -234,7 +309,7 @@
          (new-source (apply-edit old-source source-edit))
          (source-byte-length (u8vector-length (string->utf8 new-source))))
     (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
-                 fresh?)
+                 fresh? (reused-events #f))
       (let* ((artifact (incremental-session-artifact next))
              (significant-count
               (length
@@ -244,15 +319,30 @@
               (directed-edit-fields
                machine old-source new-source source-edit
                prefix-count shifted reused-count reused-bytes
-               restart-byte significant-count)))
+               restart-byte significant-count
+               (if reused-events significant-count 0)
+               (and reused-events (- source-byte-length reused-bytes)))))
         (values
          next
          (incremental-receipt
-          (if fresh? (cons (cons 'freshFallback? #t) fields) fields)
-          artifact shifted))))
+          (cond
+           (fresh? (cons (cons 'freshFallback? #t) fields))
+           (reused-events
+            (cons (cons 'reusedRecognitionEventCount reused-events) fields))
+           (else fields))
+          artifact (and (not reused-events) shifted)))))
     (def (fallback)
       (finish (session-from-directed machine new-source)
               0 0 0 0 0 #t))
+    (let (trivia-reuse
+          (same-width-trivia-reuse session source-edit new-source))
+    (if trivia-reuse
+      (finish (vector-ref trivia-reuse 0)
+              (vector-ref trivia-reuse 1) 0
+              (vector-ref trivia-reuse 2)
+              (vector-ref trivia-reuse 3)
+              (vector-ref trivia-reuse 4) #f
+              (vector-ref trivia-reuse 5))
     (if (or (zero? (vector-length checkpoints))
             (not old-modes)
             (not (closed-lexer? machine)))
@@ -332,4 +422,4 @@
                          machine new-source artifact tokens modes
                          next-checkpoints)))
                   (finish next (vector-ref saved 2) shifted
-                          reused-count reused-bytes restart-byte #f))))))))))
+                          reused-count reused-bytes restart-byte #f))))))))))))

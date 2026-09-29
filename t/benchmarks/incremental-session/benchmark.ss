@@ -70,8 +70,39 @@
                         next))))))
     (newline)))
 
+(def (measure-trivia terms)
+  (let* ((source (string-join (make-list terms "001") " + "))
+         (source-edit (make-edit (- (* (quotient terms 2) 6) 1)
+                                 1 "\t"))
+         (changed-source (apply-edit source source-edit))
+         (session (make-incremental-session arithmetic-parser source)))
+    (let-values (((next receipt)
+                  (parse-incremental-session session source-edit)))
+      (unless (equal? (incremental-session-artifact next)
+                      (parse-arithmetic-v1 changed-source))
+        (error "trivia reuse benchmark products differ" terms))
+      (write
+       (list (cons 'workload 'same-width-trivia-edit)
+             (cons 'terms terms)
+             (cons 'reused-recognition-events
+                   (cdr (assq 'reusedRecognitionEventCount receipt)))
+             (report 'fresh-edit
+                     (samples
+                      (lambda () (parse-arithmetic-v1 changed-source))))
+             (report 'cached-trivia-edit
+                     (samples
+                      (lambda ()
+                        (let-values (((edited _receipt)
+                                      (parse-incremental-session
+                                       session source-edit)))
+                          edited))))))
+      (newline))))
+
 (def (main . args)
   (for-each measure
+            (if (null? args) '(400 800 1600)
+                (map string->number args)))
+  (for-each measure-trivia
             (if (null? args) '(400 800 1600)
                 (map string->number args))))
 

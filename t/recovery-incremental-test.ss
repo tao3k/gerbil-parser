@@ -11,7 +11,7 @@
         (only-in :gerbil-parser/languages/hl7/v2-2.5.1/parser
                  hl7v2-parser parse-hl7v2)
         (only-in :gerbil-parser/src/runtime/artifact
-                 parse-artifact-success? parse-artifact-valid?
+                 parse-artifact-events parse-artifact-success? parse-artifact-valid?
                  parse-artifact-roundtrip)
         (only-in :gerbil-parser/src/runtime/incremental
                  apply-edit make-edit parse-source/incremental
@@ -23,7 +23,7 @@
 (def (row-ref row key)
   (let (entry (assq key row)) (and entry (cdr entry))))
 
-(def recovery-incremental-tests
+(def recovery-incremental-test
   (test-suite "recovery and incremental v1 sidecars"
     (test-case "streamed fresh parse equals checkpointed source driver"
       (for-each
@@ -125,6 +125,61 @@
               (check (incremental-session-artifact final)
                      => (parse-arithmetic-v1
                          (apply-edit late-source trivia-edit))))))))
+    (test-case "same-width trivia edits reuse recognition across sessions"
+      (let* ((source "001 + 002 + 003")
+             (session (make-incremental-session arithmetic-parser source))
+             (first-edit (make-edit 3 1 "\t")))
+        (let-values (((next first-receipt)
+                      (parse-incremental-session session first-edit)))
+          (let* ((first-source (apply-edit source first-edit))
+                 (second-edit (make-edit 9 1 "\t")))
+            (check (incremental-session-artifact next)
+                   => (parse-arithmetic-v1 first-source))
+            (check (eq? (car (parse-artifact-events
+                              (incremental-session-artifact session)))
+                        (car (parse-artifact-events
+                              (incremental-session-artifact next))))
+                   => #t)
+            (check (> (row-ref first-receipt
+                               'reusedRecognitionEventCount) 0) => #t)
+            (check (row-ref first-receipt 'relexedByteCount) => 1)
+            (check (row-ref first-receipt 'relexStopByte) => 4)
+            (check (row-ref first-receipt
+                            'remainingSignificantTokenCount) => 0)
+            (let-values (((again second-receipt)
+                          (parse-incremental-session next second-edit)))
+              (check (incremental-session-artifact again)
+                     => (parse-arithmetic-v1
+                         (apply-edit first-source second-edit)))
+              (check (> (row-ref second-receipt
+                                 'reusedRecognitionEventCount) 0) => #t))))))
+    (test-case "trivia fast path rejects a lexical kind change"
+      (let* ((source "001 + 002")
+             (session (make-incremental-session arithmetic-parser source))
+             (source-edit (make-edit 3 1 "+")))
+        (let-values (((next receipt)
+                      (parse-incremental-session session source-edit)))
+          (check (incremental-session-artifact next)
+                 => (parse-arithmetic-v1
+                     (apply-edit source source-edit)))
+          (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
+    (test-case "Unicode and contextual trivia retain fresh parse products"
+      (for-each
+       (lambda (case)
+         (let* ((machine (car case))
+                (source (cadr case))
+                (source-edit (caddr case))
+                (session (make-incremental-session machine source)))
+           (let-values (((next receipt)
+                         (parse-incremental-session session source-edit)))
+             (check (incremental-session-artifact next)
+                    => (parse-source machine
+                                     (apply-edit source source-edit)))
+             (check (> (row-ref receipt
+                                'reusedRecognitionEventCount) 0) => #t))))
+       (list (list arithmetic-parser "λ + 2" (make-edit 2 1 "\t"))
+             (list gql-iso-parser "CREATE GRAPH mygraph ANY"
+                   (make-edit 6 1 "\t")))))
     (test-case "session falls back on a rejected edit"
       (let* ((source (string-join (make-list 96 "001") " + "))
              (session (make-incremental-session arithmetic-parser source))
@@ -289,4 +344,4 @@
         (check (row-ref (car (row-ref receipt 'operations)) 'kind)
                => 'SKIPPED)))))
 
-(export recovery-incremental-tests)
+(export recovery-incremental-test)

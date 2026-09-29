@@ -18,6 +18,7 @@
         +diagnostic-schema+
         sha256-text
         make-success-parse-artifact
+        make-same-width-trivia-artifact
         make-failure-parse-artifact
         parse-artifact-ref
         parse-artifact-events
@@ -225,6 +226,29 @@
                     (recognition-events tokens root trivia? source-byte-length)
                     '())))
     value))
+
+;;; Reuse the recognized event structure when a certified edit replaces one
+;;; trivia token without changing any source byte boundary. Node and field
+;;; events, as well as all significant token events, remain identical.
+(def (make-same-width-trivia-artifact old-artifact source token-id source-token)
+  (unless (parse-artifact-success? old-artifact)
+    (error "trivia event reuse requires an accepted artifact"))
+  (let (events
+        (let loop ((remaining (parse-artifact-events old-artifact))
+                   (prefix '()))
+          (cond
+           ((null? remaining)
+            (error "trivia event id is absent" token-id))
+           ((and (token-event? (car remaining))
+                 (= (token-event-id (car remaining)) token-id))
+            (foldl cons
+                   (cons (make-token-event token-id source-token)
+                         (cdr remaining))
+                   prefix))
+           (else (loop (cdr remaining)
+                       (cons (car remaining) prefix))))))
+    (artifact (parse-artifact-ref old-artifact 'grammarDigest)
+              source 'accepted events '())))
 
 ;; make-failure-parse-artifact
 ;; : (-> String String List Datum Alist)

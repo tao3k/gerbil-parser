@@ -287,11 +287,33 @@ The receipt's =relexedByteCount= counts bytes passed through the scanner;
 a measure of LR execution work: the parser still feeds the suffix, rebuilds
 the artifact, and hashes the source. On the local 1,600-term edit, 4 bytes
 were scanned and 3,196 suffix tokens were mode-certified. Submillisecond
-edits require a further subtree or event reuse algorithm.
+general edits require a further subtree or event reuse algorithm.
 On a local middle-edit scaling run after this cursor change, cached edits took
 about 1.1, 2.0, 4.0, and 8.0 ms for 400, 800, 1,600, and 3,200 arithmetic
 terms. The near-linear growth confirms that checkpoint selection alone does
 not remove suffix LR execution and complete artifact materialization.
+
+** Certified same-width trivia event reuse
+
+For an accepted session with a closed, mode-directed lexer, a zero-byte-delta
+edit wholly inside one trivia token can preserve the LR frontier. The driver
+rescans that token in its recorded lexical mode and admits reuse only if the
+kind and byte extent still match. It replaces that token event while retaining
+the other recognition event objects, the significant tokens, lexical-mode
+records, and LR checkpoints. Subsequent edits can reuse the same session.
+Kind or extent changes, external scanners, and rejected artifacts follow the
+ordinary incremental or fresh path. This is a bounded structural-reuse case;
+general significant-token edits still execute suffix LR work.
+
+The pure Scheme benchmark checks complete artifact equality before timing.
+On one local Gerbil v0.19 five-sample run with 1,600 arithmetic terms
+(9,597 bytes), it reported 25,592 reused recognition events, 0.85 ms
+best-of-five for the cached same-width whitespace edit, and 7.37 ms for
+fresh parsing of the edited source. Samples varied substantially with host
+load, so these figures establish a local workload result rather than a
+general latency guarantee. The executed incremental test suite also covers
+repeated edits, lexical-kind rejection, Unicode byte positions, and GQL
+contextual trivia.
 
 ** Single-pass session construction
 

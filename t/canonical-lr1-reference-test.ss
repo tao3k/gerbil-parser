@@ -248,40 +248,43 @@
                => #t)
         (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)))
     (poo-flow-test-case "independent LR(1) contexts preserve parse products"
-      (let* ((rules (lr1-context-family-rules 4))
-             (canonical
-              (compile-lr-spec rules 'source-file 'reject #f
-                               'canonical-lr1))
-             (direct
-              (compile-lr-spec rules 'source-file 'reject #f
-                               'follow-partition-lr1)))
-        (check-exception (compile-lr-spec rules 'source-file) true)
-        (check (lr-spec-ref canonical 'state-count)
-               => (lr-spec-ref direct 'state-count))
-        (for-each
-         (lambda (index)
-           (let* ((prefix
-                   (string-append "region-" (number->string index) ":"))
-                  (prefix-length (string-length prefix))
-                  (prefix-token
-                   (make-token 'punctuation prefix 0 prefix-length)))
-             (for-each
-              (lambda (body)
-                (let* ((tokens
-                        (cons prefix-token
-                              (character-tokens body prefix-length)))
-                       (expected (parse-token-result canonical tokens)))
-                  (check (eq? expected 'rejected) => #f)
-                  (check (equal? expected
-                                 (parse-token-result direct tokens))
-                         => #t)))
-              '("acd" "ace" "bcd" "bce"))
-             (let (tokens
-                   (cons prefix-token
-                         (character-tokens "acc" prefix-length)))
-               (check (parse-token-result canonical tokens) => 'rejected)
-               (check (parse-token-result direct tokens) => 'rejected))))
-         (iota 4))))
+      (for-each
+       (lambda (context-count)
+         (let* ((rules (lr1-context-family-rules context-count))
+                (canonical
+                 (compile-lr-spec rules 'source-file 'reject #f
+                                  'canonical-lr1))
+                (direct
+                 (compile-lr-spec rules 'source-file 'reject #f
+                                  'follow-partition-lr1)))
+           (check-exception (compile-lr-spec rules 'source-file) true)
+           (check (lr-spec-ref canonical 'state-count)
+                  => (lr-spec-ref direct 'state-count))
+           (for-each
+            (lambda (index)
+              (let* ((prefix
+                      (string-append "region-" (number->string index) ":"))
+                     (prefix-length (string-length prefix))
+                     (prefix-token
+                      (make-token 'punctuation prefix 0 prefix-length)))
+                (for-each
+                 (lambda (body)
+                   (let* ((tokens
+                           (cons prefix-token
+                                 (character-tokens body prefix-length)))
+                          (expected (parse-token-result canonical tokens)))
+                     (check (eq? expected 'rejected) => #f)
+                     (check (equal? expected
+                                    (parse-token-result direct tokens))
+                            => #t)))
+                 '("acd" "ace" "bcd" "bce"))
+                (let (tokens
+                      (cons prefix-token
+                            (character-tokens "acc" prefix-length)))
+                  (check (parse-token-result canonical tokens) => 'rejected)
+                  (check (parse-token-result direct tokens) => 'rejected))))
+            (iota context-count))))
+       '(4 16)))
     (poo-flow-test-case "an LALR grammar remains admitted on both paths"
       (let ((lalr (compile-lr-spec shared-lookahead-rules 'source-file))
             (canonical

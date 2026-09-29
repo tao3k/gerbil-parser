@@ -118,15 +118,37 @@
 ;; they can reach by a shift or epsilon edge. Splitting is monotone and stops
 ;; because there are finitely many reachable (core, follow) pairs.
 (def (refine-follow-blocks partitions metadata terminal-count)
-  (let refine ((current partitions) (rounds 0))
+  ;; A split can affect only cores whose shift or closure points to it. Keep
+  ;; that reverse dependency graph at dotted-core granularity: the follow
+  ;; block IDs are rebuilt each round, but unrelated cores need no new
+  ;; successor signatures.
+  (let ((dependents (make-vector (vector-length partitions) '())))
+    (let core-loop ((core 0))
+      (when (< core (vector-length partitions))
+        (when (vector-ref partitions core)
+          (let (item (vector-ref metadata core))
+            (when (vector-ref item 0)
+              (let (target (+ core 1))
+                (vector-set! dependents target
+                             (cons core (vector-ref dependents target)))))
+            (for-each
+             (lambda (target)
+               (vector-set! dependents target
+                            (cons core (vector-ref dependents target))))
+             (vector-ref item 3))))
+        (core-loop (+ core 1))))
+  (let refine ((current partitions)
+               (active (make-vector (vector-length partitions) #t))
+               (rounds 0))
     (let-values (((blocks index)
                   (index-follow-blocks current terminal-count)))
       (let ((next (make-vector (vector-length current) #f))
+            (next-active (make-vector (vector-length current) #f))
             (changed? #f))
         (let core-loop ((core 0))
           (when (< core (vector-length current))
             (let (parts (vector-ref current core))
-              (when parts
+              (if (and parts (vector-ref active core))
                 (let (new-parts '())
                   (for-each
                    (lambda (part)
@@ -145,7 +167,11 @@
                              (compiler-index-set-add
                               (or known 0) lookahead)))))
                        (when (pair? (cdr keys))
-                         (set! changed? #t))
+                         (set! changed? #t)
+                         (for-each
+                          (lambda (dependent)
+                            (vector-set! next-active dependent #t))
+                          (vector-ref dependents core)))
                        (for-each
                         (lambda (key)
                           (set! new-parts
@@ -153,11 +179,12 @@
                                       new-parts)))
                         (reverse keys))))
                    parts)
-                  (vector-set! next core (reverse new-parts)))))
+                  (vector-set! next core (reverse new-parts)))
+                (vector-set! next core parts)))
             (core-loop (+ core 1))))
         (if changed?
-          (refine next (+ rounds 1))
-          (values next blocks index rounds))))))
+          (refine next next-active (+ rounds 1))
+          (values next blocks index rounds)))))))
 
 ;; The backward blocks are the atomic vertices for the forward pass. Begin
 ;; with one group per dotted core (and a singleton start), then split by the

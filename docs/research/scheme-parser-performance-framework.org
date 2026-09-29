@@ -213,6 +213,15 @@ determinizes the quotient NFA. If there are no raw conflict candidates, it
 reuses the already computed LALR states and lookaheads. This implements the
 paper's forward/backward framework for k=1 with a conservative candidate
 stage; it is not an exact port of langcc's implementation.
+The backward fixed point now tracks reverse dependencies between dotted cores.
+When a follow block splits, only cores whose shift or closure targets that core
+are checked in the next round; each round still rebuilds the global block
+index so identifiers remain consistent. This preserves the partition rule of
+Definition 3.19 while avoiding successor-signature work for unaffected cores.
+The generated 16-context LR(1) family retains the canonical reference's 211
+states and matching accepted and rejected parse products across all regions.
+Small local construction timings vary enough that this change does not yet
+establish a stable end-to-end speedup.
 The focused test compares follow masks with all LR(0) completed-item
 lookaheads and checks that every canonical raw conflict projects into a
 candidate cell, including a grammar with a genuine reduce/reduce conflict.

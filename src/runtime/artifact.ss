@@ -8,10 +8,10 @@
         (only-in ./recognition
                  recognition-child-field recognition-child-value
                  recognition-fragment-children recognition-fragment-end
+                 recognition-fragment-start
                  recognition-fragment? recognition-node-children
                  recognition-node-end recognition-node-kind recognition-node?
-                 recognition-node-start recognition-value-end
-                 recognition-value-start)
+                 recognition-node-start)
         (only-in ./token
                  token? token-end token-kind token-lexeme token-start))
 (export +parse-artifact-schema+
@@ -118,14 +118,17 @@
 ;; recognition-events
 ;; : (-> List Recognition Boolean Fixnum List)
 (def (recognition-events tokens root trivia? source-byte-length)
-  (let ((remaining tokens)
-        (events '())
-        (next-node-id 0)
-        (next-token-id 0))
+  (let* ((remaining tokens)
+         (events (cons #f '()))
+         (tail events)
+         (next-node-id 0)
+         (next-token-id 0))
     (letrec
         ((emit!
           (lambda (event)
-            (set! events (cons event events))))
+            (let (cell (cons event '()))
+              (set-cdr! tail cell)
+              (set! tail cell))))
          (emit-source-token!
           (lambda (source-token)
             (emit! (make-token-event next-token-id source-token))
@@ -144,14 +147,33 @@
                 (loop)))))
          (emit-child!
           (lambda (child)
-            (let* ((value (recognition-child-value child))
-                   (field (recognition-child-field child))
-                   (start (recognition-value-start value))
-                   (end (recognition-value-end value)))
-              (emit-trivia-until! start)
-              (when field (emit! (vector 'start-field field start)))
-              (emit-value! value)
-              (when field (emit! (vector 'finish-field field end))))))
+            (let ((value (recognition-child-value child))
+                  (field (recognition-child-field child)))
+              (cond
+               ((token? value)
+                (let (start (token-start value))
+                  (emit-trivia-until! start)
+                  (when field (emit! (vector 'start-field field start)))
+                  (emit-token! value)
+                  (when field
+                    (emit! (vector 'finish-field field (token-end value))))))
+               ((recognition-node? value)
+                (let (start (recognition-node-start value))
+                  (emit-trivia-until! start)
+                  (when field (emit! (vector 'start-field field start)))
+                  (emit-node! value #f)
+                  (when field
+                    (emit! (vector 'finish-field field
+                                   (recognition-node-end value))))))
+               ((recognition-fragment? value)
+                (let (start (recognition-fragment-start value))
+                  (emit-trivia-until! start)
+                  (when field (emit! (vector 'start-field field start)))
+                  (emit-fragment! value)
+                  (when field
+                    (emit! (vector 'finish-field field
+                                   (recognition-fragment-end value))))))
+               (else (error "invalid recognition value" value))))))
          (emit-children!
           (lambda (children end)
             (for-each emit-child! children)
@@ -174,31 +196,18 @@
                             (recognition-fragment-end fragment))))
          (emit-token!
           (lambda (source-token)
-            (emit-trivia-until! (token-start source-token))
             (unless (and (pair? remaining)
                          (eq? source-token (car remaining)))
               (error "recognition token does not match source order"
                      (token-kind source-token)
                      (token-start source-token)))
-            (emit-source-token! source-token)))
-         (emit-value!
-          (lambda (value)
-            (cond
-             ((token? value) (emit-token! value))
-             ((recognition-node? value) (emit-node! value #f))
-             ((recognition-fragment? value) (emit-fragment! value))
-             (else (error "invalid recognition value" value))))))
+            (emit-source-token! source-token))))
       (unless (recognition-node? root)
         (error "parse root must be a recognition node" root))
       (emit-node! root #t)
       (unless (null? remaining)
         (error "source tokens remain outside parse root" remaining))
-      (let reverse! ((rest events) (found '()))
-        (if (null? rest)
-          found
-          (let (next (cdr rest))
-            (set-cdr! rest found)
-            (reverse! next rest)))))))
+      (cdr events))))
 
 ;; flat-token-events
 ;; : (-> List List)

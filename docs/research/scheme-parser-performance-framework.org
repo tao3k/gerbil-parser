@@ -804,6 +804,27 @@ ms in a repeated run after this action-row change, versus 5.00 ms in the
 previous run. The ISO GQL 100-query p95 sample was 50.964 ms against its 150 ms
 admission ceiling. These timings are host observations, not portable ratios.
 
+** Forward event construction after fused LR reductions
+
+The shared =src/runtime/artifact.ss= linearizer now appends events in source
+order with a tail cell. Its child dispatch reads the concrete token, node, or
+fragment offsets directly, computes a child's end only for a named field,
+and admits trivia once before emitting a token. This keeps the existing
+lossless event schema and source-order checks. It applies to all grammars;
+the arithmetic and HCL generated LR paths need no special artifact code.
+
+An AOT HCL experiment checked exact =ParseArtifact= equality before timing.
+With 20 alternating batches of 10 parses in one executable, the 1,024-line
+Basic source (11,178 characters) had median complete-parse CPU time 10.746
+ms for the committed event builder and 10.387 ms for the new builder (17/20
+paired wins). At 3,200 lines (37,290 characters), medians were 32.465 and
+30.903 ms (17/20 paired wins). A separate prebuilt recognition-tree
+experiment isolated event construction at 1,024 lines: 1.98 to 1.50 ms;
+at 3,200 lines: 5.72 to 4.21 ms. These local measurements use =gxc -O -exe=,
+exclude process startup and input construction, and include GC during parsing.
+The whole suite passed 49 modules with =HARNESS-OK= and final =OK=. The
+complete-parser gain is smaller because scanning and LR work remain.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

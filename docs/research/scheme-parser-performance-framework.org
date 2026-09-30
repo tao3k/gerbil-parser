@@ -838,11 +838,11 @@ prototype also kept exact artifacts but measured 11.038 ms versus 11.075 ms
 without the corridor in a same-process comparison. None removed enough
 semantic work to warrant integration.
 
-The new =t/benchmarks/hcl-scale/generate-recursive.ss= instead compiles the
+The first =t/benchmarks/hcl-scale/generate-recursive.ss= version compiled the
 HCL Grammar IR's sequence, choice, optional, repeat, field, alias, literal,
 token, and reference forms into Scheme recursive-descent functions. They
-construct the existing recognition nodes and use the standard Scheme sequence
-helpers, then publish through the unchanged lossless =ParseArtifact= builder.
+constructed the existing recognition nodes and used the standard Scheme
+sequence helpers, then published through the lossless =ParseArtifact= builder.
 This follows langcc's generated recursive-descent action direction while
 retaining this repository's Scheme grammar and artifact contract. The generated
 =languages/hcl/v2-24/direct-recursive.ss= is checked byte for byte against
@@ -862,6 +862,34 @@ differential probe compared 301 additional accepted mixed HCL sources against
 the prior LR path without an artifact mismatch. These are host and grammar
 specific observations; they neither rank Djot's different output contract nor
 establish a general recursive-descent compiler for every grammar.
+
+** Generated HCL event actions
+
+The next structural step removed the recognition tree from the fresh HCL path.
+The same Scheme Grammar IR now generates recursive functions that append token,
+field, and node descriptors to a mutable event list. Choice, optional, repeat,
+and sequence operations save a list-tail checkpoint and roll back on failure.
+Only after a complete accepted parse does =src/runtime/artifact.ss= assign
+canonical token/node IDs, interleave trivia, check token order, and build the
+unchanged =ParseArtifact=. Non-admitted sources still use the directed LR
+failure path. The byte-for-byte generator check remains in native CI.
+
+The generated event path matched the previous parser on the 1,024- and
+3,200-line Basic inputs, the HCL representative and 15 official specimens,
+empty input, Unicode source with multibyte offsets, and 500 deterministic
+mixed accepted cases. The local compiled-module comparison alternated 20
+batches of 10 complete parses and checked exact artifact equality before
+timing. At 1,024 lines the old and new medians were 7.492 and 6.482 ms CPU
+(18/20 paired wins); at 3,200 lines they were 24.376 and 20.389 ms CPU
+(20/20 wins). These are same-process measurements on this host; a matched
+standalone AOT result is a separate verification gate.
+
+Two narrower experiments were rejected: a mutable recognition-child stack
+improved complete parsing by only about 4-5% at both sizes, while FIRST-set
+choice guards improved 1,024 lines by about 2% and slightly slowed 3,200
+lines. Applying the recursive generator to HL7 kept exact artifacts on its
+standard and dynamic-separator examples but showed no stable gain on a
+128-segment message. Those prototypes were not installed.
 
 * Proposed proof sequence
 

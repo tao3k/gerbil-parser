@@ -112,6 +112,12 @@
         (check (parse-artifact-roundtrip artifact) => source)
         (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
         (check artifact => (parse-hcl-indexed-baseline source))))
+    (test-case "generated events preserve Unicode byte offsets and trivia"
+      (let* ((source "名称 = \"λ中😀\"\n# 注释\n")
+             (artifact (parse-hcl-v2-24 source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check artifact => (parse-hcl-indexed-baseline source))))
     (test-case "the upstream syntax identity is immutable"
       (check +hcl-native-syntax-version+ => "v2.24.0")
       (check +hcl-native-syntax-commit+

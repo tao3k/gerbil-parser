@@ -18,6 +18,7 @@
         +diagnostic-schema+
         sha256-text
         make-success-parse-artifact
+        make-success-parse-artifact/raw-events
         make-same-width-token-artifact
         make-shifted-token-artifact
         make-certified-window-artifact
@@ -240,6 +241,80 @@
                     (recognition-events tokens root trivia? source-byte-length)
                     '() source-bytes)))
     value))
+
+;;; A generated semantic action stream uses token objects and open/close
+;;; descriptors. Resolve trivia and allocate canonical IDs once, after the
+;;; speculative parser has committed its successful branch.
+(def (make-success-parse-artifact/raw-events grammar-digest source tokens
+                                             raw-events trivia?
+                                             (source-bytes #f))
+  (let* ((bytes (or source-bytes (string->utf8 source)))
+         (source-byte-length (u8vector-length bytes))
+         (remaining tokens)
+         (events (cons #f '()))
+         (tail events)
+         (next-token-id 0)
+         (next-node-id 0)
+         (node-ids '()))
+    (def (emit! event)
+      (let (cell (cons event '()))
+        (set-cdr! tail cell)
+        (set! tail cell)))
+    (def (emit-token! input)
+      (unless (and (pair? remaining) (eq? input (car remaining)))
+        (error "event token differs from source order" input))
+      (emit! (vector 'token next-token-id
+                     (token-kind input) (token-lexeme input)
+                     (token-start input) (token-end input)))
+      (set! next-token-id (fx+ next-token-id 1))
+      (set! remaining (cdr remaining)))
+    (def (emit-trivia-until! boundary)
+      (let loop ()
+        (when (and (pair? remaining)
+                   (<= (token-end (car remaining)) boundary))
+          (unless (trivia? (car remaining))
+            (error "unclaimed significant event token"
+                   (token-kind (car remaining))))
+          (emit-token! (car remaining))
+          (loop))))
+    (let loop ((raw raw-events))
+      (unless (null? raw)
+        (let (entry (car raw))
+          (if (token? entry)
+            (begin
+              (emit-trivia-until! (token-start entry))
+              (emit-token! entry))
+            (case (vector-ref entry 0)
+              ((open-node)
+               (let* ((kind (vector-ref entry 1))
+                      (start (if (= next-node-id 0)
+                               0 (vector-ref entry 2)))
+                      (id next-node-id))
+                 (emit-trivia-until! start)
+                 (emit! (vector 'start-node id kind start))
+                 (set! next-node-id (fx+ next-node-id 1))
+                 (set! node-ids (cons id node-ids))))
+              ((close-node)
+               (let* ((kind (vector-ref entry 1))
+                      (end (if (null? (cdr node-ids))
+                             source-byte-length (vector-ref entry 2)))
+                      (id (car node-ids)))
+                 (emit-trivia-until! end)
+                 (emit! (vector 'finish-node id kind end))
+                 (set! node-ids (cdr node-ids))))
+              ((open-field)
+               (let (start (vector-ref entry 2))
+                 (emit-trivia-until! start)
+                 (emit! (vector 'start-field
+                                (vector-ref entry 1) start))))
+              ((close-field)
+               (emit! (vector 'finish-field
+                              (vector-ref entry 1) (vector-ref entry 2))))
+              (else (error "unknown generated event" entry)))))
+        (loop (cdr raw))))
+    (unless (and (null? remaining) (null? node-ids))
+      (error "generated event stream is incomplete"))
+    (artifact grammar-digest source 'accepted (cdr events) '() bytes)))
 
 ;;; A certified same-width edit changes exactly one token event. The unchanged
 ;;; suffix remains shared, including node and field events.

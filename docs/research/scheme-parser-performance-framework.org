@@ -946,6 +946,36 @@ second-token guard for HCL =body-item= and a disjoint first-token dispatch
 for =primary-expression= each improved the 1,024-line input by only about
 3% in local paired runs; neither was installed.
 
+** Generated HCL lexical subset before recursive actions
+
+An isolated phase measurement on 1,024 Basic lines put the existing ranked
+lexer near 1.34 ms CPU out of roughly 3.2 ms for a complete artifact. The
+HCL generator now emits a closed ASCII lexical path for identifiers, decimal
+integer runs, horizontal whitespace, newlines, and single = signs. It emits
+the same token representation and byte offsets directly. Decimal fractions
+or exponents, ==, Unicode, comments, strings, and every other unhandled
+character cause a return to the unchanged ranked lexer for the whole source.
+The generator checks the exact lexical declarations before emitting this
+specialization; grammar drift requires review rather than silently changing
+lexical precedence. The recursive parser and artifact materializer are the
+same on both sides of this comparison.
+
+The compiled-module lexer alone measured 1.345 to 0.256 ms CPU at 1,024
+Basic lines in 20 alternating batches of ten calls, with 20/20 paired wins.
+Using the exact previous PR-head generated parser and the new parser in one
+process, complete =ParseArtifact= medians were 3.331 to 2.110 ms CPU at
+1,024 lines and 15.611 to 9.108 ms at 3,200 lines; both had 20/20 paired
+wins and exact artifact preflight. The preflight artifacts and token lists
+were released before timed batches. This is an HCL Basic subset gain, not a
+general lexical DFA claim. A complex source that fails the fast path late
+can spend time scanning its prefix before restarting with the ranked lexer.
+The official HCL corpus and a fixed random token differential test are
+semantic gates. The lexical phase can be rerun with =gxc -O
+t/benchmarks/hcl-scale/lexical-subset-benchmark.ss= followed by =gerbil env
+gxi -e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/lexical-subset-benchmark) (main
+"1024" "20" "10")'=. Standalone AOT and peak memory are not measured here.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

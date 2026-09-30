@@ -12,7 +12,8 @@
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-initial-checkpoint lr-checkpoint-drive
                  lr-runtime-direct-step)
-        (only-in :gerbil-parser/src/runtime/lexer scan-source-token)
+        (only-in :gerbil-parser/src/runtime/lexer
+                 lex-source scan-source-token)
         (only-in :gerbil-parser/src/runtime/token token-end)
         :gerbil-parser/src/language/entry
         :gerbil-parser/src/runtime/artifact
@@ -30,7 +31,7 @@
                  hcl-v2-24-official-accepted-fixtures
                  hcl-v2-24-official-fixtures
                  hcl-v2-24-official-rejected-fixtures)
-        (only-in ./direct-recursive direct-parse-hcl))
+        (only-in ./direct-recursive direct-parse-hcl direct-lex-hcl))
 (export hcl-v2-24-parser-test)
 
 ;;; Structural traversal stays independent of HCL production nesting so the
@@ -97,6 +98,47 @@
     (test-case "HCL machine installs the Grammar IR recursive source parser"
       (check (procedure? (parser-machine-direct-source hcl-v2-24-parser))
              => #t))
+    (test-case "the closed ASCII lexer agrees with canonical tokens"
+      (let ((seed 1729)
+            (fast-count 0)
+            (fallback-count 0)
+            (alphabet "abcXYZ_eE0123= \t\r\n"))
+        (def (next-random modulus)
+          (set! seed (modulo (+ (* seed 1103515245) 12345) 2147483648))
+          (modulo seed modulus))
+        (for-each
+         (lambda (source)
+           (let (fast (direct-lex-hcl source))
+             (if fast
+               (begin
+                 (set! fast-count (fx+ fast-count 1))
+                 (unless (equal? fast (lex-source hcl-v2-24-parser source))
+                   (error "generated lexer changed HCL tokens" source)))
+               (set! fallback-count (fx+ fallback-count 1)))))
+         '("key0 = 1\n" "a-b = 123\r\n" "a = 1.2\n"
+           "a == 1\n" "a = \"text\"\n" "é = 1\n"))
+        (let loop ((i 0))
+          (when (< i 512)
+            (let (source
+                  (call-with-output-string
+                   (lambda (port)
+                     (let chars ((remaining (next-random 32)))
+                       (when (> remaining 0)
+                         (display
+                          (string-ref alphabet
+                                      (next-random (string-length alphabet)))
+                          port)
+                         (chars (fx- remaining 1)))))))
+              (let (fast (direct-lex-hcl source))
+                (if fast
+                  (begin
+                    (set! fast-count (fx+ fast-count 1))
+                    (unless (equal? fast (lex-source hcl-v2-24-parser source))
+                      (error "generated lexer changed HCL tokens" source)))
+                  (set! fallback-count (fx+ fallback-count 1)))))
+            (loop (fx+ i 1))))
+        (check (> fast-count 64) => #t)
+        (check (> fallback-count 0) => #t)))
     (test-case "the 1024-line Basic source retains its exact artifact"
       (let* ((source
               (call-with-output-string

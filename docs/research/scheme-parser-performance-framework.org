@@ -891,6 +891,28 @@ lines. Applying the recursive generator to HL7 kept exact artifacts on its
 standard and dynamic-separator examples but showed no stable gain on a
 128-segment message. Those prototypes were not installed.
 
+** HCL generated control flow at scale
+
+A subsequent prototype emitted canonical events during speculative recursive
+descent, with trivia, token/node IDs, and token order included in each rollback
+checkpoint. Its complete artifact matched at 1,024 Basic lines, but the
+20-batch CPU median regressed from 7.471 to 8.159 ms (4/20 paired wins), so
+it was rejected. Resolving raw events only after acceptance remains cheaper.
+
+The next generator change replaced the two-value =(position, success?)=
+protocol at every grammar expression with a single result: the next token
+position on success and =#f= on failure. The existing tail checkpoint and
+raw-event finalization remain unchanged. Exact complete artifacts matched
+the 1,024- and 3,200-line Basic inputs and the representative HCL specimen.
+Two repeated, alternating same-process 20-batch comparisons at 3,200 lines
+measured 21.074 to 17.556 ms and 21.935 to 17.930 ms CPU per parse, with
+20/20 paired wins in both runs. At 1,024 lines the two runs were near parity:
+6.021 to 5.945 ms (13/20 wins) and 6.008 to 6.163 ms (9/20 wins). Thus the
+local evidence supports a scale gain, not a 1,024-line gain. The generated
+module passes a byte-for-byte freshness check, the complete 49-module native
+test suite, and the lossless artifact checks. A matched standalone AOT result
+remains unverified for this slice.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

@@ -19,7 +19,7 @@ benchmark-arithmetic-matched terms="3200" samples="30":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/arithmetic-scale/matched-stream.ss {{terms}} {{samples}}
 
 # Parsed input has one addition term per line; the parser is already built.
-benchmark-arithmetic-lines lines="512" samples="30":
+benchmark-arithmetic-lines lines="1024" samples="30":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/arithmetic-scale/matched-stream.ss {{lines}} {{samples}} lines
 
 # Prepared-token stages show where CPU work goes; they are not streaming totals.

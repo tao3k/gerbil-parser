@@ -707,6 +707,35 @@ source-to-recognition, so native packaging alone is not an optimization claim.
 These numbers still use different inputs and AST contracts from Djot; they
 mainly establish a reproducible local gate for a generated semantic path.
 
+A first fused Scheme-code experiment now lives in
+=t/benchmarks/arithmetic-scale/generate-fused-lr.ss= and
+=fused-lr-benchmark-body.ss=. From the repository root, generate one standalone
+source with =gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss /tmp/fused-lr-aot.ss=,
+compile it with =gxc -O -exe -o /tmp/fused-lr-aot /tmp/fused-lr-aot.ss=,
+then run =/tmp/fused-lr-aot 1024 lines prepared 20 10= or substitute =source=
+for =prepared=. The generator consumes the compiled arithmetic Parser IR; it
+emits state-specific action selection, inlined reduction expressions, and goto
+branches as Scheme source. Field/alias constructors remain the shared semantic
+helpers. Every timed run preflights the generated recognition tree against the
+existing LR result and the complete directed =ParseArtifact= on 20 varied
+expressions plus the measured input. Strict mode rejects any fallthrough to the
+generic interpreter, so a claimed fast-path result cannot silently reparse.
+The executable alternates measurement order between samples, invokes GC before
+each batch, and reports CPU and elapsed time with input construction and
+process startup excluded.
+
+On this host, one final-source 20-sample, ten-parse batch measured 1,024-line
+prepared LR medians of 2.206 ms for indexed execution and 1.372 ms for the
+generated executor; source-to-recognition medians were 3.421 and 2.546 ms.
+The 3,200-term secondary scale measured 6.499 versus 3.618 ms prepared and
+7.169 versus 4.976 ms from source. Earlier repeated AOT runs of the same
+algorithm, including reversed measurement order, also favored generated
+execution, though absolute CPU medians varied with host load. This is a
+bounded arithmetic recognition result: full =parse-arithmetic-v1= still uses
+the parser-directed streaming executor and has no measured speedup from this
+prototype. The next integration boundary is generated streaming execution
+with exact checkpoint/GLR handoff and existing diagnostic behavior.
+
 The prepared action row now indexes ASCII single-character literals directly
 by character code. Multi-character and Unicode literals retain the existing
 list/table index; exact literal lookup still precedes case-folded literal and

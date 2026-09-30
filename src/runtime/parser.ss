@@ -5,7 +5,8 @@
         (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-parse parser-machine-runtime
-                 parser-machine-trivia parser-machine-direct-drive)
+                 parser-machine-trivia parser-machine-direct-drive
+                 parser-machine-direct-source)
         (only-in ./artifact
                  +diagnostic-schema+ make-failure-parse-artifact
                  make-success-parse-artifact parse-artifact-success?)
@@ -324,19 +325,31 @@
                (failure-artifact
                 machine grammar-digest source tokens condition)))))))
      (lambda ()
-       (let (initial
-             (or checkpoint
-                 (lr-initial-checkpoint (parser-machine-runtime machine) '())))
-         (if (and (not observability) (not capture)
-                  (not checkpoint) (null? prefix-tokens)
-                  (zero? start-character) (zero? start-byte)
-                  (not reuse-token))
-           (parse-source/directed/stream
-            machine grammar-digest source initial)
-           (parse-source/directed
-            machine grammar-digest source observability capture initial
-            prefix-tokens prefix-modes start-character start-byte
-            reuse-token)))))))
+       (let* ((fresh?
+               (and (not observability) (not capture)
+                    (not checkpoint) (null? prefix-tokens)
+                    (zero? start-character) (zero? start-byte)
+                    (not reuse-token)))
+              (direct-source
+               (and fresh? (parser-machine-direct-source machine)))
+              (candidate
+               (and direct-source
+                    (with-catch
+                     (lambda (_condition) #f)
+                     (lambda () (direct-source machine source))))))
+         (if candidate
+           candidate
+           (let (initial
+                 (or checkpoint
+                     (lr-initial-checkpoint
+                      (parser-machine-runtime machine) '())))
+             (if fresh?
+               (parse-source/directed/stream
+                machine grammar-digest source initial)
+               (parse-source/directed
+                machine grammar-digest source observability capture initial
+                prefix-tokens prefix-modes start-character start-byte
+                reuse-token)))))))))
 
 (def (parse-source machine source (observability #f))
   (parse-source/with-capture machine source observability #f))

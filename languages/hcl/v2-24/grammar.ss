@@ -3,8 +3,11 @@
 
 (import (only-in :gerbil-parser/src/language/grammar deflanguage-grammar)
         (only-in :gerbil-parser/src/compiler/machine
-                 install-parser-machine-direct-step!)
-        (only-in ./direct-step direct-step direct-grammar-digest))
+                 install-parser-machine-direct-step!
+                 install-parser-machine-direct-source!)
+        (only-in ./direct-step direct-step direct-grammar-digest)
+        (only-in ./direct-recursive
+                 direct-parse-hcl direct-hcl-grammar-digest))
 (export +hcl-native-syntax-version+
         +hcl-native-syntax-commit+
         +hcl-syntax-contract+
@@ -217,3 +220,6 @@
 
 (install-parser-machine-direct-step!
  hcl-v2-24-parser direct-grammar-digest direct-step)
+
+(install-parser-machine-direct-source!
+ hcl-v2-24-parser direct-hcl-grammar-digest direct-parse-hcl)

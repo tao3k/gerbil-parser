@@ -32,7 +32,9 @@
         parser-machine-runtime
         parser-machine-parse
         parser-machine-direct-drive
+        parser-machine-direct-source
         install-parser-machine-direct-drive!
+        install-parser-machine-direct-source!
         install-parser-machine-direct-step!)
 
 ;; parser-machine
@@ -47,7 +49,8 @@
 ;;       ;; => #t for a generated parser machine
 ;;       ```
 ;;     %
-(defstruct parser-machine (ir grammar-digest lex trivia runtime parse direct-drive)
+(defstruct parser-machine
+  (ir grammar-digest lex trivia runtime parse direct-drive direct-source)
   transparent: #t)
 
 ;;; A generated driver is admitted only for the exact Parser IR whose digest
@@ -61,6 +64,18 @@
                (not (parser-machine-direct-drive machine)))
     (error "generated LR driver does not match parser machine" digest))
   (parser-machine-direct-drive-set! machine drive))
+
+;;; Grammar-derived source parsers may admit a complete artifact directly for
+;;; fresh unobserved requests. Returning #f leaves the ordinary LR path to
+;;; own rejection, diagnostics, checkpoints, and unsupported source shapes.
+(def (install-parser-machine-direct-source! machine digest parse)
+  (unless (and (parser-machine? machine)
+               (string? digest)
+               (equal? digest (parser-machine-grammar-digest machine))
+               (procedure? parse)
+               (not (parser-machine-direct-source machine)))
+    (error "generated source parser does not match parser machine" digest))
+  (parser-machine-direct-source-set! machine parse))
 
 (def (install-parser-machine-direct-step! machine digest step)
   (unless (and (parser-machine? machine)
@@ -641,4 +656,5 @@
            (if (null? maybe-observability)
              #f
              (car maybe-observability))))
+        #f
         #f)))))

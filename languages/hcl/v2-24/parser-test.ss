@@ -7,7 +7,8 @@
         :gerbil-parser/languages/hcl/v2-24/parser
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-runtime parser-machine-trivia
-                 parser-machine-grammar-digest)
+                 parser-machine-grammar-digest
+                 parser-machine-direct-source)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-initial-checkpoint lr-checkpoint-drive
                  lr-runtime-direct-step)
@@ -28,7 +29,8 @@
         (only-in ./fixtures
                  hcl-v2-24-official-accepted-fixtures
                  hcl-v2-24-official-fixtures
-                 hcl-v2-24-official-rejected-fixtures))
+                 hcl-v2-24-official-rejected-fixtures)
+        (only-in ./direct-recursive direct-parse-hcl))
 (export hcl-v2-24-parser-test)
 
 ;;; Structural traversal stays independent of HCL production nesting so the
@@ -92,6 +94,9 @@
       (check (procedure?
               (lr-runtime-direct-step
                (parser-machine-runtime hcl-v2-24-parser))) => #t))
+    (test-case "HCL machine installs the Grammar IR recursive source parser"
+      (check (procedure? (parser-machine-direct-source hcl-v2-24-parser))
+             => #t))
     (test-case "the 1024-line Basic source retains its exact artifact"
       (let* ((source
               (call-with-output-string
@@ -105,6 +110,7 @@
              (artifact (parse-hcl-v2-24 source)))
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)
+        (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
         (check artifact => (parse-hcl-indexed-baseline source))))
     (test-case "the upstream syntax identity is immutable"
       (check +hcl-native-syntax-version+ => "v2.24.0")
@@ -138,6 +144,7 @@
            (check (parse-artifact-ref artifact 'sourceDigest)
                   => (syntax-fixture-source-digest fixture))
            (check (parse-artifact-roundtrip artifact) => source)
+           (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
            (check artifact => (parse-hcl-indexed-baseline source))
            (when accepted?
              (let* ((root (parse-artifact->cst artifact))
@@ -162,5 +169,6 @@
            (check (parse-artifact-ref artifact 'sourceDigest)
                   => (syntax-fixture-source-digest fixture))
            (check (parse-artifact-roundtrip artifact) => source)
+           (check (direct-parse-hcl hcl-v2-24-parser source) => #f)
            (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))
        hcl-v2-24-official-rejected-fixtures))))

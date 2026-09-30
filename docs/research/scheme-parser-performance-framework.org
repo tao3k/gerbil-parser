@@ -758,7 +758,41 @@ measured 3.224--3.260 versus 2.512--2.571 ms at 1,024 lines and
 build measured 6.35 s on this host. The corresponding AOT benchmark executable
 grew from 22,416,616 to 22,738,832 bytes. These are matched host observations for
 one grammar, not a cross-grammar or Djot speed ranking. Generalizing the
-emitter beyond arithmetic still requires semantic and build-size qualification.
+full-state emitter beyond arithmetic still requires semantic and build-size
+qualification.
+
+HCL v2.24 gives a second grammar with 133 LR states and 120 productions.
+Expanding the whole arithmetic-style state driver for HCL emitted 809 KB of
+Scheme and its C compilation was killed after more than three minutes. Moving
+one copy of each reduction into a helper reduced the output to 492 KB, but
+still exceeded a 30-second compilation limit. Generating only the semantic
+expression produced 14 KB and compiled in about 2 seconds; matched 1,024-line
+and 3,200-line complete-artifact CPU medians improved by only about 2--3%.
+That narrower candidate was reverted. These failed build and runtime gates
+rule out unbounded state expansion for HCL on this host.
+
+The admitted HCL slice instead generates a fused reduction step from the
+Scheme Parser IR: each production has static stack pops and semantic actions,
+then looks up its exact goto in the existing indexed table. LR action lookup,
+parser-directed lexical modes, diagnostics, and selective GLR remain with the
+existing runtime. The generated =languages/hcl/v2-24/direct-step.ss= is about
+64 KB and compiled alone in about 5 seconds. The language module installs it
+only when its embedded grammar digest matches the compiled parser machine;
+the runtime exposes a benchmark override to run the same scanner and artifact
+path with indexed reductions. Run
+=gerbil env gxi t/benchmarks/hcl-scale/generate-step.ss check languages/hcl/v2-24/direct-step.ss=
+to verify byte-for-byte regeneration; native CI runs this check.
+
+The repository-owned =step-benchmark.ss= preflights exact full
+=ParseArtifact= equality and alternates AOT timing order, with garbage
+collection before each batch and process startup outside the timed region.
+At 1,024 Basic lines (11,178 characters), 20 samples of 10 parses had CPU
+medians of 11.507 ms indexed versus 10.333 ms fused, with fused faster in 19
+of 20 pairs. At 3,200 lines, 12 samples of 5 parses measured 35.631 versus
+32.451 ms, with fused faster in all 12 pairs. The HCL official accepted
+corpus and the 1,024-line Basic source also assert exact indexed/generated
+artifact equality; the rejected corpus retains typed failure checks. These
+are matched observations on this host, not a cross-grammar speed ranking.
 
 The prepared action row now indexes ASCII single-character literals directly
 by character code. Multi-character and Unicode literals retain the existing

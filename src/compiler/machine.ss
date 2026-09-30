@@ -5,7 +5,8 @@
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-prepare lr-parse/prepared
-                 lr-runtime-lexical-mode-catalog)
+                 lr-runtime-lexical-mode-catalog
+                 install-lr-runtime-direct-step!)
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
@@ -31,7 +32,8 @@
         parser-machine-runtime
         parser-machine-parse
         parser-machine-direct-drive
-        install-parser-machine-direct-drive!)
+        install-parser-machine-direct-drive!
+        install-parser-machine-direct-step!)
 
 ;; parser-machine
 ;;   : ParserMachine
@@ -59,6 +61,15 @@
                (not (parser-machine-direct-drive machine)))
     (error "generated LR driver does not match parser machine" digest))
   (parser-machine-direct-drive-set! machine drive))
+
+(def (install-parser-machine-direct-step! machine digest step)
+  (unless (and (parser-machine? machine)
+               (string? digest)
+               (equal? digest (parser-machine-grammar-digest machine))
+               (procedure? step))
+    (error "generated LR step does not match parser machine" digest))
+  (install-lr-runtime-direct-step!
+   (parser-machine-runtime machine) step))
 
 ;;; Expands one closed lexical algebra case into its ordinary scanner call.
 ;;; The templates preserve source/offset bindings; runtime behavior stays in scan.ss.

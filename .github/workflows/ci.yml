@@ -155,6 +155,9 @@ jobs:
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/v1/direct-lr.ss
 
+      - name: Verify generated HCL Scheme LR step is current
+        run: gerbil env gxi t/benchmarks/hcl-scale/generate-step.ss check languages/hcl/v2-24/direct-step.ss
+
       - name: Build optional native commands
         run: |
           gerbil env gxi build-gparse.ss compile

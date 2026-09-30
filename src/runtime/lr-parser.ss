@@ -48,6 +48,8 @@
         lr-lexical-mode-id
         lr-lexical-mode-terminals
         lr-runtime-lexical-mode-catalog
+        lr-runtime-direct-step
+        install-lr-runtime-direct-step!
         lr-checkpoint-interned-lexical-mode-count
         lr-checkpoint-deterministic-actions
         lr-checkpoint-deterministic-shifts
@@ -59,11 +61,21 @@
         lr-failure-frontier-resume
         lr-rejection-condition?)
 
-;; Immutable execution data derived once for generated parser machines.
+;; Prepared execution data. A generated reduction step may be installed once
+;; during language-module initialization before the runtime is shared.
 (defstruct lr-runtime
   (productions table reduction-widths actions action-index gotos goto-index
-               case-insensitive? dynamic? lexical-modes lexical-mode-catalog)
+               case-insensitive? dynamic? lexical-modes lexical-mode-catalog
+               direct-step)
   transparent: #t)
+
+;;; Install a generated reduction step once, before the runtime is shared.
+(def (install-lr-runtime-direct-step! runtime step)
+  (unless (and (lr-runtime? runtime)
+               (procedure? step)
+               (not (lr-runtime-direct-step runtime)))
+    (error "invalid generated LR reduction step"))
+  (lr-runtime-direct-step-set! runtime step))
 
 ;;; Interned parser-directed lexical expectation shared by LR states with the
 ;;; same terminal row.
@@ -210,7 +222,8 @@
          (lr-spec-ref spec 'case-insensitive?)
          dynamic?
          modes
-         mode-catalog)))))
+         mode-catalog
+         #f)))))
 
 ;; current-action-row
 ;; : (-> Vector Fixnum List Boolean (OrFalse Pair))
@@ -717,10 +730,15 @@
 (def (lr-run-checkpoint checkpoint action-budget observability
                         (stop-at-failure? #f) (shift-target #f)
                         (stop-at-fork? #f) (feed-token #f)
-                        (next-input #f) (after-shift #f))
+                        (next-input #f) (after-shift #f)
+                        (direct-step-override 'installed))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
+         (direct-step
+          (if (eq? direct-step-override 'installed)
+            (lr-runtime-direct-step runtime)
+            direct-step-override))
          (table (lr-runtime-table runtime))
          (actions-table (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
@@ -810,35 +828,49 @@
                                 (fx- remaining-budget 1))))
                    (fallback states semantic-values rest actions shifts)))
                 ((reduce)
-                 (let* ((production-id (cadr action))
-                        (production (vector-ref table production-id))
-                        (count (vector-ref
-                                (lr-runtime-reduction-widths runtime)
-                                production-id)))
-                   (let-values (((source-values remaining-values
-                                  remaining-states)
-                                 (pop-reduction states semantic-values count)))
-                     (let* ((offset
-                             (if (pair? rest) (token-start (car rest))
-                                 input-end-offset))
-                            (value
-                             (reduce-value
-                              production source-values offset
-                              make-recognition-fragment))
-                            (target
-                             (and (pair? remaining-states)
-                                  (goto-target
-                                   goto-index (car remaining-states)
-                                   (production-lhs production)))))
+                 (let (production-id (cadr action))
+                   (if direct-step
+                     (let-values (((target next-states next-values)
+                                   (direct-step
+                                    production-id states semantic-values rest
+                                    input-end-offset goto-index)))
                        (if target
-                         (loop
-                          (cons target remaining-states)
-                          (cons value remaining-values)
-                          rest (fx+ actions 1) shifts
-                          (and remaining-budget
-                               (fx- remaining-budget 1)))
-                         (fallback
-                          states semantic-values rest actions shifts))))))
+                         (loop next-states next-values rest
+                               (fx+ actions 1) shifts
+                               (and remaining-budget
+                                    (fx- remaining-budget 1)))
+                         (fallback states semantic-values rest
+                                   actions shifts)))
+                     (let* ((production (vector-ref table production-id))
+                            (count (vector-ref
+                                    (lr-runtime-reduction-widths runtime)
+                                    production-id)))
+                       (let-values (((source-values remaining-values
+                                      remaining-states)
+                                     (pop-reduction
+                                      states semantic-values count)))
+                         (let* ((offset
+                                 (if (pair? rest) (token-start (car rest))
+                                     input-end-offset))
+                                (value
+                                 (reduce-value
+                                  production source-values offset
+                                  make-recognition-fragment))
+                                (target
+                                 (and (pair? remaining-states)
+                                      (goto-target
+                                       goto-index (car remaining-states)
+                                       (production-lhs production)))))
+                           (if target
+                             (loop
+                              (cons target remaining-states)
+                              (cons value remaining-values)
+                              rest (fx+ actions 1) shifts
+                              (and remaining-budget
+                                   (fx- remaining-budget 1)))
+                             (fallback
+                              states semantic-values rest
+                              actions shifts))))))))
                 ((fork)
                  (if stop-at-fork?
                    (values
@@ -894,11 +926,14 @@
 ;;; Drives one deterministic LR loop while the source owner supplies tokens
 ;;; under the current lexical mode. The callback records shifted source tokens.
 ;;; A fork returns its exact checkpoint for the existing selective-GLR handoff.
+;;; The optional override gives conformance tests and matched benchmarks an
+;;; indexed baseline without mutating the installed language machine.
 (def (lr-checkpoint-drive checkpoint next-input after-shift
-                          (observability #f))
+                          (observability #f)
+                          (direct-step-override 'installed))
   (lr-run-checkpoint
    checkpoint #f observability #f #f #t #f
-   next-input after-shift))
+   next-input after-shift direct-step-override))
 
 ;;; Rebinds an unconsumed suffix to the same immutable deterministic frontier.
 ;;; Streaming GLR handoff and explicit incremental sessions share this path.

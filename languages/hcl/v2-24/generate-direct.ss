@@ -25,6 +25,11 @@
                "+" "-" "*" "/" "%" "!" "<" ">" "?"))
     (unknown (fallback))))
 
+;;; The simple-attribute event corridor is derived from this exact Grammar IR.
+;;; A grammar edit must regenerate and review its field/node event sequence.
+(def +simple-attribute-grammar-digest+
+  "sha256:ab71e47399aeec4c59f6cc626dd2a65244b6ec187929b38c9ebecea8794efd4d")
+
 ;;; An emitted expression returns the next significant-token index or #f.
 ;;; Zero is a valid position, so even an empty match is distinct from failure.
 (def (make-expression-compiler)
@@ -133,6 +138,9 @@
     (unless (equal? (cdr (assq 'lexical-rules hcl-v2-24-parser-ir))
                     +fast-lexical-contract+)
       (error "HCL fast lexer requires lexical contract review"))
+    (unless (equal? (parser-machine-grammar-digest hcl-v2-24-parser)
+                    +simple-attribute-grammar-digest+)
+      (error "HCL simple-attribute events require grammar review"))
     `(begin
      (import (only-in :gerbil-parser/src/compiler/machine
                       parser-machine-trivia)
@@ -198,7 +206,7 @@
                                                  (substring source start end)
                                                  start end)
                                      tokens))))))))))))
-     (def (direct-parse-hcl machine source)
+     (def (direct-parse-hcl machine source (use-simple? #t))
        (let* ((tokens (or (direct-lex-hcl source)
                           (lex-source machine source)))
               (significant
@@ -231,13 +239,93 @@
            (set! event-count (fx+ event-count 1)))
          (def (rollback! mark)
            (set! event-count mark))
+         ;;; The admission pass completes before this fixed event template runs.
+         ;;; Rejected sources enter the ordinary generated recursive parser.
+         (def (emit-simple-attribute! name equals value)
+           (let* ((start (token-start name))
+                  (name-end (token-end name))
+                  (value-start (token-start value))
+                  (value-end (token-end value))
+                  (value-node
+                   (case (token-kind value)
+                     ((number) 'NumberExpression)
+                     ((string) 'StringExpression)
+                     ((identifier) 'LiteralExpression))))
+             (emit-event! 'open-field 'item start)
+             (emit-event! 'open-node 'Attribute start)
+             (emit-event! 'open-field 'name start)
+             (emit-event! 'token name 0)
+             (emit-event! 'close-field 'name name-end)
+             (emit-event! 'token equals 0)
+             (emit-event! 'open-field 'value value-start)
+             (emit-event! 'open-node 'ConditionalExpression value-start)
+             (emit-event! 'open-field 'condition value-start)
+             (emit-event! 'open-node 'BinaryExpression value-start)
+             (emit-event! 'open-field 'left value-start)
+             (emit-event! 'open-node 'UnaryExpression value-start)
+             (emit-event! 'open-field 'operand value-start)
+             (emit-event! 'open-node 'TraversalExpression value-start)
+             (emit-event! 'open-field 'root value-start)
+             (emit-event! 'open-node value-node value-start)
+             (emit-event! 'open-field 'value value-start)
+             (emit-event! 'token value 0)
+             (emit-event! 'close-field 'value value-end)
+             (emit-event! 'close-node value-node value-end)
+             (emit-event! 'close-field 'root value-end)
+             (emit-event! 'close-node 'TraversalExpression value-end)
+             (emit-event! 'close-field 'operand value-end)
+             (emit-event! 'close-node 'UnaryExpression value-end)
+             (emit-event! 'close-field 'left value-end)
+             (emit-event! 'close-node 'BinaryExpression value-end)
+             (emit-event! 'close-field 'condition value-end)
+             (emit-event! 'close-node 'ConditionalExpression value-end)
+             (emit-event! 'close-field 'value value-end)
+             (emit-event! 'close-node 'Attribute value-end)
+             (emit-event! 'close-field 'item value-end)))
+         (def (simple-attributes?)
+           (let loop ((pos 0))
+             (if (= pos limit)
+               #t
+               (let (input (vector-ref significant pos))
+                 (cond
+                  ((eq? (token-kind input) 'newline)
+                   (loop (fx+ pos 1)))
+                  ((and (< (fx+ pos 2) limit)
+                        (eq? (token-kind input) 'identifier)
+                        (equal? (token-lexeme
+                                 (vector-ref significant (fx+ pos 1))) "=")
+                        (memq (token-kind
+                               (vector-ref significant (fx+ pos 2)))
+                              '(number string identifier)))
+                   (loop (fx+ pos 3)))
+                  (else #f))))))
+         (def (emit-simple-attributes!)
+           (emit-event! 'open-node 'HclFile 0)
+           (let loop ((pos 0))
+             (if (= pos limit)
+               (begin
+                 (emit-event! 'close-node 'HclFile byte-length)
+                 (void))
+               (let (input (vector-ref significant pos))
+                 (if (eq? (token-kind input) 'newline)
+                   (begin
+                     (emit-event! 'token input 0)
+                     (loop (fx+ pos 1)))
+                   (begin
+                     (emit-simple-attribute!
+                      input
+                      (vector-ref significant (fx+ pos 1))
+                      (vector-ref significant (fx+ pos 2)))
+                     (loop (fx+ pos 3))))))))
          (letrec
              ,(map (lambda (row)
                      `(,(rule-procedure (car row))
                        (lambda (pos)
                          ,(compile-expression (cadr row) 'pos))))
                    rules)
-           (let (end (events-config-file 0))
+           (let (end (if (and use-simple? (simple-attributes?))
+                        (begin (emit-simple-attributes!) limit)
+                        (events-config-file 0)))
              (if (and end (= end limit))
                (make-success-parse-artifact/raw-event-tape
                 direct-hcl-grammar-digest source tokens events event-count
@@ -246,7 +334,7 @@
 ;;; Write the generated syntax as source, with one readable form per line of
 ;;; structure. `write` still owns escaping of symbols, strings, and literals.
 ;;; Keep the expanded module below the native source-policy limit of 1000 lines.
-(def +generated-line-width+ 190)
+(def +generated-line-width+ 205)
 (def (fits-on-line? form indent)
   (<= (+ indent
          (string-length

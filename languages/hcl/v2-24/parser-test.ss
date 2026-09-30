@@ -153,7 +153,57 @@
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)
         (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
+        (check artifact => (direct-parse-hcl hcl-v2-24-parser source #f))
         (check artifact => (parse-hcl-indexed-baseline source))))
+    (test-case "simple attributes and late complex fallback retain artifacts"
+      (for-each
+       (lambda (source)
+         (let (artifact (parse-hcl-v2-24 source))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
+           (check artifact => (direct-parse-hcl hcl-v2-24-parser source #f))
+           (check artifact => (parse-hcl-indexed-baseline source))))
+       '("" "\n\n" "name = \"雪\"\r\n" "flag = true\n"
+         "é = 2\n" "# comment\nfoo = 2\n"
+         "foo = 1 # comment\nbar = \"x\"\n"
+         "plain = 1\ncomplex = [1, 2]\n")))
+    (test-case "mixed simple attribute corridor matches generic events"
+      (let ((seed 4919)
+            (names '#("a" "foo" "é" "name_2"))
+            (value-cases '#("1" "23" "foo" "true" "\"x\"" "\"雪\""))
+            (ends '#("\n" "\r\n" " # comment\n")))
+        (def (next-random modulus)
+          (set! seed (modulo (+ (* seed 1103515245) 12345) 2147483648))
+          (modulo seed modulus))
+        (let cases ((i 0))
+          (when (< i 128)
+            (let* ((source
+                    (call-with-output-string
+                     (lambda (port)
+                       (let rows ((remaining (fx+ 1 (next-random 8))))
+                         (when (> remaining 0)
+                           (display
+                            (vector-ref names (next-random
+                                               (vector-length names))) port)
+                           (display " = " port)
+                           (display
+                            (vector-ref value-cases
+                                        (next-random (vector-length value-cases)))
+                            port)
+                           (display
+                            (vector-ref ends (next-random
+                                              (vector-length ends))) port)
+                           (rows (fx- remaining 1)))))))
+                   (generic (direct-parse-hcl hcl-v2-24-parser source #f))
+                   (candidate (direct-parse-hcl hcl-v2-24-parser source)))
+              (unless (and (parse-artifact-success? generic)
+                           (equal? generic candidate)
+                           (equal? (parse-artifact-roundtrip candidate)
+                                   source))
+                (error "simple corridor changed HCL artifact" source)))
+            (cases (fx+ i 1))))
+        (check #t => #t)))
     (test-case "compact HCL grows the rollback event vector losslessly"
       (let* ((source
               (call-with-output-string

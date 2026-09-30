@@ -976,6 +976,42 @@ gxi -e '(import
 :gerbil-parser/t/benchmarks/hcl-scale/lexical-subset-benchmark) (main
 "1024" "20" "10")'=. Standalone AOT and peak memory are not measured here.
 
+** Deterministic simple-attribute event corridor
+
+After the lexical specialization, a 1,024-line Basic profile attributed about
+0.25 ms CPU to lexing, 0.18 ms to token/byte/tape setup, 1.12 ms to generated
+grammar actions, and 0.50 ms to artifact finalization. The generated grammar
+actions attempted 49,159 raw event writes and 54,284 rollbacks to retain
+32,770 events. A full FIRST-set guard prototype kept exact artifacts but
+improved complete parsing only from 2.005 to 1.950 ms CPU (17/20 wins).
+Speculative canonical-event construction removed finalization but regressed
+from 2.068 to 5.025 ms; scalar checkpoints still measured 2.013 to 4.986
+ms. Neither prototype was installed.
+
+The admitted path instead recognizes a closed token sequence: top-level
+newlines and attributes containing an identifier, an equals sign, and one number, string,
+or identifier value.
+It emits the Grammar IR's fixed field/node event shape for each attribute,
+then uses the existing shared raw-tape artifact authority. A complete token
+preflight runs before any events are emitted, so a complex value near the end
+does not discard a large speculative tape. Other inputs use the unchanged
+generated recursive parser. The generator pins the grammar digest and fails
+closed when that event shape requires review after a grammar edit.
+
+In the checked-in pure Scheme benchmark, 20 alternating batches of ten
+complete =ParseArtifact= calls measured 2.019 to 1.154 ms CPU at 1,024 Basic
+lines and 9.159 to 6.236 ms at 3,200 lines, with 20/20 paired wins in both.
+Appending one complex tuple after 1,024 simple lines measured 3.454 to
+3.533 ms, a small fallback cost. Preflight artifacts are released before
+timing. Official HCL fixtures, 5,000 mixed differential inputs, and 1,000
+valid assignments varying strings, Unicode, CRLF, and comments matched the
+previous generated parser exactly. Run =gxc -O
+t/benchmarks/hcl-scale/simple-attribute-benchmark.ss= and then =gerbil env
+gxi -e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/simple-attribute-benchmark) (main
+"1024" "20" "10")'=. These are same-process compiled-module results for a
+bounded HCL subset; standalone AOT and peak memory remain unmeasured.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

@@ -1,2 +1,1611 @@
-;;; Generated HCL event-action parser from Grammar IR.
-(begin (import (only-in :gerbil-parser/src/compiler/machine parser-machine-trivia) (only-in :gerbil-parser/src/runtime/lexer lex-source) (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens) (only-in :gerbil-parser/src/runtime/token token-kind token-lexeme token-start token-end) (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact/raw-events)) (export direct-parse-hcl direct-hcl-grammar-digest) (def direct-hcl-grammar-digest "sha256:ab71e47399aeec4c59f6cc626dd2a65244b6ec187929b38c9ebecea8794efd4d") (def (direct-parse-hcl machine source) (let* ((tokens (lex-source machine source)) (significant (list->vector (parser-significant-tokens machine tokens))) (limit (vector-length significant)) (source-bytes (string->utf8 source)) (byte-length (u8vector-length source-bytes)) (head (cons #f '())) (tail head)) (def (offset pos) (if (< pos limit) (token-start (vector-ref significant pos)) byte-length)) (def (range-end start next) (if (= start next) (offset start) (token-end (vector-ref significant (fx- next 1))))) (def (emit-raw! raw) (let (cell (cons raw '())) (set-cdr! tail cell) (set! tail cell))) (def (rollback! mark) (set-cdr! mark '()) (set! tail mark)) (letrec ((events-config-file (lambda (pos) (let (mark0 tail) (emit-raw! (vector 'open-node 'HclFile (offset pos))) (let (open1 tail) (let (next2 (let repeat-loop3 ((next4 pos) (count5 0)) (let (mark6 tail) (let (after7 (let (mark8 tail) (let (next9 (if (< next4 limit) (let (input (vector-ref significant next4)) (if (eq? (token-kind input) 'newline) (begin (emit-raw! input) (fx+ next4 1)) #f)) #f)) (if next9 next9 (begin (rollback! mark8) (let (next10 (let (mark11 tail) (emit-raw! (vector 'open-field 'item (offset next4))) (let (open12 tail) (let (next13 (events-body-item next4)) (if next13 (begin (if (eq? tail open12) (rollback! mark11) (emit-raw! (vector 'close-field 'item (range-end next4 next13)))) next13) (begin (rollback! mark11) #f)))))) (if next10 next10 (begin (rollback! mark8) #f)))))))) (if after7 (begin (when (= after7 next4) (error "zero-width repeated grammar expression")) (repeat-loop3 after7 (fx+ count5 1))) (begin (rollback! mark6) (if #t next4 #f))))))) (if next2 (begin (emit-raw! (vector 'close-node 'HclFile (range-end pos next2))) next2) (begin (rollback! mark0) #f))))))) (events-body (lambda (pos) (let (mark14 tail) (emit-raw! (vector 'open-node 'Body (offset pos))) (let (open15 tail) (let (next16 (let repeat-loop17 ((next18 pos) (count19 0)) (let (mark20 tail) (let (after21 (let (mark22 tail) (let (next23 (if (< next18 limit) (let (input (vector-ref significant next18)) (if (eq? (token-kind input) 'newline) (begin (emit-raw! input) (fx+ next18 1)) #f)) #f)) (if next23 next23 (begin (rollback! mark22) (let (next24 (let (mark25 tail) (emit-raw! (vector 'open-field 'item (offset next18))) (let (open26 tail) (let (next27 (events-body-item next18)) (if next27 (begin (if (eq? tail open26) (rollback! mark25) (emit-raw! (vector 'close-field 'item (range-end next18 next27)))) next27) (begin (rollback! mark25) #f)))))) (if next24 next24 (begin (rollback! mark22) #f)))))))) (if after21 (begin (when (= after21 next18) (error "zero-width repeated grammar expression")) (repeat-loop17 after21 (fx+ count19 1))) (begin (rollback! mark20) (if #t next18 #f))))))) (if next16 (begin (emit-raw! (vector 'close-node 'Body (range-end pos next16))) next16) (begin (rollback! mark14) #f))))))) (events-body-item (lambda (pos) (let (mark28 tail) (let (next29 (events-block pos)) (if next29 next29 (begin (rollback! mark28) (let (next30 (events-attribute pos)) (if next30 next30 (begin (rollback! mark28) #f))))))))) (events-attribute (lambda (pos) (let (mark31 tail) (emit-raw! (vector 'open-node 'Attribute (offset pos))) (let (open32 tail) (let (next33 (let (mark34 tail) (let (next35 (let (mark36 tail) (emit-raw! (vector 'open-field 'name (offset pos))) (let (open37 tail) (let (next38 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next38 (begin (if (eq? tail open37) (rollback! mark36) (emit-raw! (vector 'close-field 'name (range-end pos next38)))) next38) (begin (rollback! mark36) #f)))))) (if next35 (let (next39 (if (< next35 limit) (let (input (vector-ref significant next35)) (if (equal? (token-lexeme input) "=") (begin (emit-raw! input) (fx+ next35 1)) #f)) #f)) (if next39 (let (next40 (let (mark41 tail) (emit-raw! (vector 'open-field 'value (offset next39))) (let (open42 tail) (let (next43 (events-expression next39)) (if next43 (begin (if (eq? tail open42) (rollback! mark41) (emit-raw! (vector 'close-field 'value (range-end next39 next43)))) next43) (begin (rollback! mark41) #f)))))) (if next40 next40 (begin (rollback! mark34) #f))) (begin (rollback! mark34) #f))) (begin (rollback! mark34) #f))))) (if next33 (begin (emit-raw! (vector 'close-node 'Attribute (range-end pos next33))) next33) (begin (rollback! mark31) #f))))))) (events-block (lambda (pos) (let (mark44 tail) (emit-raw! (vector 'open-node 'Block (offset pos))) (let (open45 tail) (let (next46 (let (mark47 tail) (let (next48 (let (mark49 tail) (emit-raw! (vector 'open-field 'type (offset pos))) (let (open50 tail) (let (next51 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next51 (begin (if (eq? tail open50) (rollback! mark49) (emit-raw! (vector 'close-field 'type (range-end pos next51)))) next51) (begin (rollback! mark49) #f)))))) (if next48 (let (next52 (let repeat-loop53 ((next54 next48) (count55 0)) (let (mark56 tail) (let (after57 (let (mark58 tail) (emit-raw! (vector 'open-field 'label (offset next54))) (let (open59 tail) (let (next60 (let (mark61 tail) (let (next62 (if (< next54 limit) (let (input (vector-ref significant next54)) (if (eq? (token-kind input) 'string) (begin (emit-raw! input) (fx+ next54 1)) #f)) #f)) (if next62 next62 (begin (rollback! mark61) (let (next63 (if (< next54 limit) (let (input (vector-ref significant next54)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ next54 1)) #f)) #f)) (if next63 next63 (begin (rollback! mark61) #f)))))))) (if next60 (begin (if (eq? tail open59) (rollback! mark58) (emit-raw! (vector 'close-field 'label (range-end next54 next60)))) next60) (begin (rollback! mark58) #f)))))) (if after57 (begin (when (= after57 next54) (error "zero-width repeated grammar expression")) (repeat-loop53 after57 (fx+ count55 1))) (begin (rollback! mark56) (if #t next54 #f))))))) (if next52 (let (next64 (if (< next52 limit) (let (input (vector-ref significant next52)) (if (equal? (token-lexeme input) "{") (begin (emit-raw! input) (fx+ next52 1)) #f)) #f)) (if next64 (let (next65 (let (mark66 tail) (emit-raw! (vector 'open-field 'body (offset next64))) (let (open67 tail) (let (next68 (events-body next64)) (if next68 (begin (if (eq? tail open67) (rollback! mark66) (emit-raw! (vector 'close-field 'body (range-end next64 next68)))) next68) (begin (rollback! mark66) #f)))))) (if next65 (let (next69 (if (< next65 limit) (let (input (vector-ref significant next65)) (if (equal? (token-lexeme input) "}") (begin (emit-raw! input) (fx+ next65 1)) #f)) #f)) (if next69 next69 (begin (rollback! mark47) #f))) (begin (rollback! mark47) #f))) (begin (rollback! mark47) #f))) (begin (rollback! mark47) #f))) (begin (rollback! mark47) #f))))) (if next46 (begin (emit-raw! (vector 'close-node 'Block (range-end pos next46))) next46) (begin (rollback! mark44) #f))))))) (events-expression (lambda (pos) (events-conditional-expression pos))) (events-conditional-expression (lambda (pos) (let (mark70 tail) (emit-raw! (vector 'open-node 'ConditionalExpression (offset pos))) (let (open71 tail) (let (next72 (let (mark73 tail) (let (next74 (let (mark75 tail) (emit-raw! (vector 'open-field 'condition (offset pos))) (let (open76 tail) (let (next77 (events-binary-expression pos)) (if next77 (begin (if (eq? tail open76) (rollback! mark75) (emit-raw! (vector 'close-field 'condition (range-end pos next77)))) next77) (begin (rollback! mark75) #f)))))) (if next74 (let (next78 (let (mark79 tail) (let (next80 (let (mark81 tail) (let (next82 (if (< next74 limit) (let (input (vector-ref significant next74)) (if (equal? (token-lexeme input) "?") (begin (emit-raw! input) (fx+ next74 1)) #f)) #f)) (if next82 (let (next83 (let (mark84 tail) (emit-raw! (vector 'open-field 'consequent (offset next82))) (let (open85 tail) (let (next86 (events-expression next82)) (if next86 (begin (if (eq? tail open85) (rollback! mark84) (emit-raw! (vector 'close-field 'consequent (range-end next82 next86)))) next86) (begin (rollback! mark84) #f)))))) (if next83 (let (next87 (if (< next83 limit) (let (input (vector-ref significant next83)) (if (equal? (token-lexeme input) ":") (begin (emit-raw! input) (fx+ next83 1)) #f)) #f)) (if next87 (let (next88 (let (mark89 tail) (emit-raw! (vector 'open-field 'alternative (offset next87))) (let (open90 tail) (let (next91 (events-expression next87)) (if next91 (begin (if (eq? tail open90) (rollback! mark89) (emit-raw! (vector 'close-field 'alternative (range-end next87 next91)))) next91) (begin (rollback! mark89) #f)))))) (if next88 next88 (begin (rollback! mark81) #f))) (begin (rollback! mark81) #f))) (begin (rollback! mark81) #f))) (begin (rollback! mark81) #f))))) (if next80 next80 (begin (rollback! mark79) next74))))) (if next78 next78 (begin (rollback! mark73) #f))) (begin (rollback! mark73) #f))))) (if next72 (begin (emit-raw! (vector 'close-node 'ConditionalExpression (range-end pos next72))) next72) (begin (rollback! mark70) #f))))))) (events-binary-expression (lambda (pos) (let (mark92 tail) (emit-raw! (vector 'open-node 'BinaryExpression (offset pos))) (let (open93 tail) (let (next94 (let (mark95 tail) (let (next96 (let (mark97 tail) (emit-raw! (vector 'open-field 'left (offset pos))) (let (open98 tail) (let (next99 (events-unary-expression pos)) (if next99 (begin (if (eq? tail open98) (rollback! mark97) (emit-raw! (vector 'close-field 'left (range-end pos next99)))) next99) (begin (rollback! mark97) #f)))))) (if next96 (let (next100 (let repeat-loop101 ((next102 next96) (count103 0)) (let (mark104 tail) (let (after105 (let (mark106 tail) (let (next107 (let (mark108 tail) (emit-raw! (vector 'open-field 'operator (offset next102))) (let (open109 tail) (let (next110 (events-binary-operator next102)) (if next110 (begin (if (eq? tail open109) (rollback! mark108) (emit-raw! (vector 'close-field 'operator (range-end next102 next110)))) next110) (begin (rollback! mark108) #f)))))) (if next107 (let (next111 (let (mark112 tail) (emit-raw! (vector 'open-field 'right (offset next107))) (let (open113 tail) (let (next114 (events-unary-expression next107)) (if next114 (begin (if (eq? tail open113) (rollback! mark112) (emit-raw! (vector 'close-field 'right (range-end next107 next114)))) next114) (begin (rollback! mark112) #f)))))) (if next111 next111 (begin (rollback! mark106) #f))) (begin (rollback! mark106) #f))))) (if after105 (begin (when (= after105 next102) (error "zero-width repeated grammar expression")) (repeat-loop101 after105 (fx+ count103 1))) (begin (rollback! mark104) (if #t next102 #f))))))) (if next100 next100 (begin (rollback! mark95) #f))) (begin (rollback! mark95) #f))))) (if next94 (begin (emit-raw! (vector 'close-node 'BinaryExpression (range-end pos next94))) next94) (begin (rollback! mark92) #f))))))) (events-binary-operator (lambda (pos) (let (mark115 tail) (let (next116 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "==") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next116 next116 (begin (rollback! mark115) (let (next117 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "!=") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next117 next117 (begin (rollback! mark115) (let (next118 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "<=") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next118 next118 (begin (rollback! mark115) (let (next119 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) ">=") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next119 next119 (begin (rollback! mark115) (let (next120 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "&&") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next120 next120 (begin (rollback! mark115) (let (next121 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "||") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next121 next121 (begin (rollback! mark115) (let (next122 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "+") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next122 next122 (begin (rollback! mark115) (let (next123 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "-") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next123 next123 (begin (rollback! mark115) (let (next124 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "*") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next124 next124 (begin (rollback! mark115) (let (next125 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "/") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next125 next125 (begin (rollback! mark115) (let (next126 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "%") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next126 next126 (begin (rollback! mark115) (let (next127 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "<") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next127 next127 (begin (rollback! mark115) (let (next128 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) ">") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next128 next128 (begin (rollback! mark115) #f)))))))))))))))))))))))))))))))))))))))))) (events-unary-expression (lambda (pos) (let (mark129 tail) (emit-raw! (vector 'open-node 'UnaryExpression (offset pos))) (let (open130 tail) (let (next131 (let (mark132 tail) (let (next133 (let repeat-loop134 ((next135 pos) (count136 0)) (let (mark137 tail) (let (after138 (let (mark139 tail) (emit-raw! (vector 'open-field 'operator (offset next135))) (let (open140 tail) (let (next141 (let (mark142 tail) (let (next143 (if (< next135 limit) (let (input (vector-ref significant next135)) (if (equal? (token-lexeme input) "!") (begin (emit-raw! input) (fx+ next135 1)) #f)) #f)) (if next143 next143 (begin (rollback! mark142) (let (next144 (if (< next135 limit) (let (input (vector-ref significant next135)) (if (equal? (token-lexeme input) "-") (begin (emit-raw! input) (fx+ next135 1)) #f)) #f)) (if next144 next144 (begin (rollback! mark142) (let (next145 (if (< next135 limit) (let (input (vector-ref significant next135)) (if (equal? (token-lexeme input) "+") (begin (emit-raw! input) (fx+ next135 1)) #f)) #f)) (if next145 next145 (begin (rollback! mark142) #f))))))))))) (if next141 (begin (if (eq? tail open140) (rollback! mark139) (emit-raw! (vector 'close-field 'operator (range-end next135 next141)))) next141) (begin (rollback! mark139) #f)))))) (if after138 (begin (when (= after138 next135) (error "zero-width repeated grammar expression")) (repeat-loop134 after138 (fx+ count136 1))) (begin (rollback! mark137) (if #t next135 #f))))))) (if next133 (let (next146 (let (mark147 tail) (emit-raw! (vector 'open-field 'operand (offset next133))) (let (open148 tail) (let (next149 (events-postfix-expression next133)) (if next149 (begin (if (eq? tail open148) (rollback! mark147) (emit-raw! (vector 'close-field 'operand (range-end next133 next149)))) next149) (begin (rollback! mark147) #f)))))) (if next146 next146 (begin (rollback! mark132) #f))) (begin (rollback! mark132) #f))))) (if next131 (begin (emit-raw! (vector 'close-node 'UnaryExpression (range-end pos next131))) next131) (begin (rollback! mark129) #f))))))) (events-postfix-expression (lambda (pos) (let (mark150 tail) (emit-raw! (vector 'open-node 'TraversalExpression (offset pos))) (let (open151 tail) (let (next152 (let (mark153 tail) (let (next154 (let (mark155 tail) (emit-raw! (vector 'open-field 'root (offset pos))) (let (open156 tail) (let (next157 (events-primary-expression pos)) (if next157 (begin (if (eq? tail open156) (rollback! mark155) (emit-raw! (vector 'close-field 'root (range-end pos next157)))) next157) (begin (rollback! mark155) #f)))))) (if next154 (let (next158 (let repeat-loop159 ((next160 next154) (count161 0)) (let (mark162 tail) (let (after163 (let (mark164 tail) (emit-raw! (vector 'open-field 'step (offset next160))) (let (open165 tail) (let (next166 (events-postfix-suffix next160)) (if next166 (begin (if (eq? tail open165) (rollback! mark164) (emit-raw! (vector 'close-field 'step (range-end next160 next166)))) next166) (begin (rollback! mark164) #f)))))) (if after163 (begin (when (= after163 next160) (error "zero-width repeated grammar expression")) (repeat-loop159 after163 (fx+ count161 1))) (begin (rollback! mark162) (if #t next160 #f))))))) (if next158 next158 (begin (rollback! mark153) #f))) (begin (rollback! mark153) #f))))) (if next152 (begin (emit-raw! (vector 'close-node 'TraversalExpression (range-end pos next152))) next152) (begin (rollback! mark150) #f))))))) (events-postfix-suffix (lambda (pos) (let (mark167 tail) (let (next168 (let (mark169 tail) (let (next170 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) ".") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next170 (let (next171 (let (mark172 tail) (let (next173 (if (< next170 limit) (let (input (vector-ref significant next170)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ next170 1)) #f)) #f)) (if next173 next173 (begin (rollback! mark172) (let (next174 (if (< next170 limit) (let (input (vector-ref significant next170)) (if (eq? (token-kind input) 'number) (begin (emit-raw! input) (fx+ next170 1)) #f)) #f)) (if next174 next174 (begin (rollback! mark172) (let (next175 (if (< next170 limit) (let (input (vector-ref significant next170)) (if (equal? (token-lexeme input) "*") (begin (emit-raw! input) (fx+ next170 1)) #f)) #f)) (if next175 next175 (begin (rollback! mark172) #f))))))))))) (if next171 next171 (begin (rollback! mark169) #f))) (begin (rollback! mark169) #f))))) (if next168 next168 (begin (rollback! mark167) (let (next176 (let (mark177 tail) (emit-raw! (vector 'open-node 'IndexExpression (offset pos))) (let (open178 tail) (let (next179 (let (mark180 tail) (let (next181 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "[") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next181 (let (next182 (let (mark183 tail) (emit-raw! (vector 'open-field 'key (offset next181))) (let (open184 tail) (let (next185 (let (mark186 tail) (let (next187 (if (< next181 limit) (let (input (vector-ref significant next181)) (if (equal? (token-lexeme input) "*") (begin (emit-raw! input) (fx+ next181 1)) #f)) #f)) (if next187 next187 (begin (rollback! mark186) (let (next188 (events-expression next181)) (if next188 next188 (begin (rollback! mark186) #f)))))))) (if next185 (begin (if (eq? tail open184) (rollback! mark183) (emit-raw! (vector 'close-field 'key (range-end next181 next185)))) next185) (begin (rollback! mark183) #f)))))) (if next182 (let (next189 (if (< next182 limit) (let (input (vector-ref significant next182)) (if (equal? (token-lexeme input) "]") (begin (emit-raw! input) (fx+ next182 1)) #f)) #f)) (if next189 next189 (begin (rollback! mark180) #f))) (begin (rollback! mark180) #f))) (begin (rollback! mark180) #f))))) (if next179 (begin (emit-raw! (vector 'close-node 'IndexExpression (range-end pos next179))) next179) (begin (rollback! mark177) #f)))))) (if next176 next176 (begin (rollback! mark167) (let (next190 (let (mark191 tail) (emit-raw! (vector 'open-node 'CallExpression (offset pos))) (let (open192 tail) (let (next193 (let (mark194 tail) (let (next195 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "(") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next195 (let (next196 (let (mark197 tail) (let (next198 (let (mark199 tail) (let (next200 (let (mark201 tail) (emit-raw! (vector 'open-field 'argument (offset next195))) (let (open202 tail) (let (next203 (events-expression next195)) (if next203 (begin (if (eq? tail open202) (rollback! mark201) (emit-raw! (vector 'close-field 'argument (range-end next195 next203)))) next203) (begin (rollback! mark201) #f)))))) (if next200 (let (next204 (let repeat-loop205 ((next206 next200) (count207 0)) (let (mark208 tail) (let (after209 (let (mark210 tail) (let (next211 (if (< next206 limit) (let (input (vector-ref significant next206)) (if (equal? (token-lexeme input) ",") (begin (emit-raw! input) (fx+ next206 1)) #f)) #f)) (if next211 (let (next212 (let (mark213 tail) (emit-raw! (vector 'open-field 'argument (offset next211))) (let (open214 tail) (let (next215 (events-expression next211)) (if next215 (begin (if (eq? tail open214) (rollback! mark213) (emit-raw! (vector 'close-field 'argument (range-end next211 next215)))) next215) (begin (rollback! mark213) #f)))))) (if next212 next212 (begin (rollback! mark210) #f))) (begin (rollback! mark210) #f))))) (if after209 (begin (when (= after209 next206) (error "zero-width repeated grammar expression")) (repeat-loop205 after209 (fx+ count207 1))) (begin (rollback! mark208) (if #t next206 #f))))))) (if next204 next204 (begin (rollback! mark199) #f))) (begin (rollback! mark199) #f))))) (if next198 next198 (begin (rollback! mark197) next195))))) (if next196 (let (next216 (if (< next196 limit) (let (input (vector-ref significant next196)) (if (equal? (token-lexeme input) ")") (begin (emit-raw! input) (fx+ next196 1)) #f)) #f)) (if next216 next216 (begin (rollback! mark194) #f))) (begin (rollback! mark194) #f))) (begin (rollback! mark194) #f))))) (if next193 (begin (emit-raw! (vector 'close-node 'CallExpression (range-end pos next193))) next193) (begin (rollback! mark191) #f)))))) (if next190 next190 (begin (rollback! mark167) #f)))))))))))) (events-primary-expression (lambda (pos) (let (mark217 tail) (let (next218 (events-object-expression pos)) (if next218 next218 (begin (rollback! mark217) (let (next219 (events-tuple-expression pos)) (if next219 next219 (begin (rollback! mark217) (let (next220 (events-heredoc-expression pos)) (if next220 next220 (begin (rollback! mark217) (let (next221 (events-string-expression pos)) (if next221 next221 (begin (rollback! mark217) (let (next222 (events-number-expression pos)) (if next222 next222 (begin (rollback! mark217) (let (next223 (let (mark224 tail) (emit-raw! (vector 'open-node 'LiteralExpression (offset pos))) (let (open225 tail) (let (next226 (let (mark227 tail) (emit-raw! (vector 'open-field 'value (offset pos))) (let (open228 tail) (let (next229 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next229 (begin (if (eq? tail open228) (rollback! mark227) (emit-raw! (vector 'close-field 'value (range-end pos next229)))) next229) (begin (rollback! mark227) #f)))))) (if next226 (begin (emit-raw! (vector 'close-node 'LiteralExpression (range-end pos next226))) next226) (begin (rollback! mark224) #f)))))) (if next223 next223 (begin (rollback! mark217) (let (next230 (let (mark231 tail) (let (next232 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "(") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next232 (let (next233 (events-expression next232)) (if next233 (let (next234 (if (< next233 limit) (let (input (vector-ref significant next233)) (if (equal? (token-lexeme input) ")") (begin (emit-raw! input) (fx+ next233 1)) #f)) #f)) (if next234 next234 (begin (rollback! mark231) #f))) (begin (rollback! mark231) #f))) (begin (rollback! mark231) #f))))) (if next230 next230 (begin (rollback! mark217) #f)))))))))))))))))))))))) (events-traversal-expression (lambda (pos) (let (mark235 tail) (emit-raw! (vector 'open-node 'TraversalExpression (offset pos))) (let (open236 tail) (let (next237 (let (mark238 tail) (let (next239 (let (mark240 tail) (emit-raw! (vector 'open-field 'root (offset pos))) (let (open241 tail) (let (next242 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next242 (begin (if (eq? tail open241) (rollback! mark240) (emit-raw! (vector 'close-field 'root (range-end pos next242)))) next242) (begin (rollback! mark240) #f)))))) (if next239 (let (next243 (let repeat-loop244 ((next245 next239) (count246 0)) (let (mark247 tail) (let (after248 (let (mark249 tail) (let (next250 (if (< next245 limit) (let (input (vector-ref significant next245)) (if (equal? (token-lexeme input) ".") (begin (emit-raw! input) (fx+ next245 1)) #f)) #f)) (if next250 (let (next251 (let (mark252 tail) (emit-raw! (vector 'open-field 'step (offset next250))) (let (open253 tail) (let (next254 (if (< next250 limit) (let (input (vector-ref significant next250)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ next250 1)) #f)) #f)) (if next254 (begin (if (eq? tail open253) (rollback! mark252) (emit-raw! (vector 'close-field 'step (range-end next250 next254)))) next254) (begin (rollback! mark252) #f)))))) (if next251 next251 (begin (rollback! mark249) #f))) (begin (rollback! mark249) #f))))) (if after248 (begin (when (= after248 next245) (error "zero-width repeated grammar expression")) (repeat-loop244 after248 (fx+ count246 1))) (begin (rollback! mark247) (if #t next245 #f))))))) (if next243 next243 (begin (rollback! mark238) #f))) (begin (rollback! mark238) #f))))) (if next237 (begin (emit-raw! (vector 'close-node 'TraversalExpression (range-end pos next237))) next237) (begin (rollback! mark235) #f))))))) (events-string-expression (lambda (pos) (let (mark255 tail) (emit-raw! (vector 'open-node 'StringExpression (offset pos))) (let (open256 tail) (let (next257 (let (mark258 tail) (emit-raw! (vector 'open-field 'value (offset pos))) (let (open259 tail) (let (next260 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'string) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next260 (begin (if (eq? tail open259) (rollback! mark258) (emit-raw! (vector 'close-field 'value (range-end pos next260)))) next260) (begin (rollback! mark258) #f)))))) (if next257 (begin (emit-raw! (vector 'close-node 'StringExpression (range-end pos next257))) next257) (begin (rollback! mark255) #f))))))) (events-heredoc-expression (lambda (pos) (let (mark261 tail) (emit-raw! (vector 'open-node 'HeredocExpression (offset pos))) (let (open262 tail) (let (next263 (let (mark264 tail) (emit-raw! (vector 'open-field 'value (offset pos))) (let (open265 tail) (let (next266 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'heredoc) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next266 (begin (if (eq? tail open265) (rollback! mark264) (emit-raw! (vector 'close-field 'value (range-end pos next266)))) next266) (begin (rollback! mark264) #f)))))) (if next263 (begin (emit-raw! (vector 'close-node 'HeredocExpression (range-end pos next263))) next263) (begin (rollback! mark261) #f))))))) (events-number-expression (lambda (pos) (let (mark267 tail) (emit-raw! (vector 'open-node 'NumberExpression (offset pos))) (let (open268 tail) (let (next269 (let (mark270 tail) (emit-raw! (vector 'open-field 'value (offset pos))) (let (open271 tail) (let (next272 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'number) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next272 (begin (if (eq? tail open271) (rollback! mark270) (emit-raw! (vector 'close-field 'value (range-end pos next272)))) next272) (begin (rollback! mark270) #f)))))) (if next269 (begin (emit-raw! (vector 'close-node 'NumberExpression (range-end pos next269))) next269) (begin (rollback! mark267) #f))))))) (events-tuple-expression (lambda (pos) (let (mark273 tail) (emit-raw! (vector 'open-node 'TupleExpression (offset pos))) (let (open274 tail) (let (next275 (let (mark276 tail) (let (next277 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "[") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next277 (let (next278 (let repeat-loop279 ((next280 next277) (count281 0)) (let (mark282 tail) (let (after283 (if (< next280 limit) (let (input (vector-ref significant next280)) (if (eq? (token-kind input) 'newline) (begin (emit-raw! input) (fx+ next280 1)) #f)) #f)) (if after283 (begin (when (= after283 next280) (error "zero-width repeated grammar expression")) (repeat-loop279 after283 (fx+ count281 1))) (begin (rollback! mark282) (if #t next280 #f))))))) (if next278 (let (next284 (let (mark285 tail) (let (next286 (events-tuple-elements next278)) (if next286 next286 (begin (rollback! mark285) next278))))) (if next284 (let (next287 (if (< next284 limit) (let (input (vector-ref significant next284)) (if (equal? (token-lexeme input) "]") (begin (emit-raw! input) (fx+ next284 1)) #f)) #f)) (if next287 next287 (begin (rollback! mark276) #f))) (begin (rollback! mark276) #f))) (begin (rollback! mark276) #f))) (begin (rollback! mark276) #f))))) (if next275 (begin (emit-raw! (vector 'close-node 'TupleExpression (range-end pos next275))) next275) (begin (rollback! mark273) #f))))))) (events-tuple-elements (lambda (pos) (let (mark288 tail) (let (next289 (let (mark290 tail) (emit-raw! (vector 'open-field 'element (offset pos))) (let (open291 tail) (let (next292 (events-expression pos)) (if next292 (begin (if (eq? tail open291) (rollback! mark290) (emit-raw! (vector 'close-field 'element (range-end pos next292)))) next292) (begin (rollback! mark290) #f)))))) (if next289 (let (next293 (let (mark294 tail) (let (next295 (events-tuple-tail next289)) (if next295 next295 (begin (rollback! mark294) next289))))) (if next293 next293 (begin (rollback! mark288) #f))) (begin (rollback! mark288) #f)))))) (events-tuple-tail (lambda (pos) (let (mark296 tail) (let (next297 (let (mark298 tail) (let (next299 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) ",") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next299 (let (next300 (let repeat-loop301 ((next302 next299) (count303 0)) (let (mark304 tail) (let (after305 (if (< next302 limit) (let (input (vector-ref significant next302)) (if (eq? (token-kind input) 'newline) (begin (emit-raw! input) (fx+ next302 1)) #f)) #f)) (if after305 (begin (when (= after305 next302) (error "zero-width repeated grammar expression")) (repeat-loop301 after305 (fx+ count303 1))) (begin (rollback! mark304) (if #t next302 #f))))))) (if next300 (let (next306 (let (mark307 tail) (let (next308 (events-tuple-elements next300)) (if next308 next308 (begin (rollback! mark307) next300))))) (if next306 next306 (begin (rollback! mark298) #f))) (begin (rollback! mark298) #f))) (begin (rollback! mark298) #f))))) (if next297 next297 (begin (rollback! mark296) (let (next309 (let (mark310 tail) (let (next311 (let repeat-loop312 ((next313 pos) (count314 0)) (let (mark315 tail) (let (after316 (if (< next313 limit) (let (input (vector-ref significant next313)) (if (eq? (token-kind input) 'newline) (begin (emit-raw! input) (fx+ next313 1)) #f)) #f)) (if after316 (begin (when (= after316 next313) (error "zero-width repeated grammar expression")) (repeat-loop312 after316 (fx+ count314 1))) (begin (rollback! mark315) (if (> count314 0) next313 #f))))))) (if next311 (let (next317 (let (mark318 tail) (let (next319 (events-tuple-elements next311)) (if next319 next319 (begin (rollback! mark318) next311))))) (if next317 next317 (begin (rollback! mark310) #f))) (begin (rollback! mark310) #f))))) (if next309 next309 (begin (rollback! mark296) #f))))))))) (events-object-expression (lambda (pos) (let (mark320 tail) (emit-raw! (vector 'open-node 'ObjectExpression (offset pos))) (let (open321 tail) (let (next322 (let (mark323 tail) (let (next324 (if (< pos limit) (let (input (vector-ref significant pos)) (if (equal? (token-lexeme input) "{") (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next324 (let (next325 (let repeat-loop326 ((next327 next324) (count328 0)) (let (mark329 tail) (let (after330 (let (mark331 tail) (let (next332 (if (< next327 limit) (let (input (vector-ref significant next327)) (if (eq? (token-kind input) 'newline) (begin (emit-raw! input) (fx+ next327 1)) #f)) #f)) (if next332 next332 (begin (rollback! mark331) (let (next333 (let (mark334 tail) (emit-raw! (vector 'open-field 'entry (offset next327))) (let (open335 tail) (let (next336 (events-object-entry next327)) (if next336 (begin (if (eq? tail open335) (rollback! mark334) (emit-raw! (vector 'close-field 'entry (range-end next327 next336)))) next336) (begin (rollback! mark334) #f)))))) (if next333 next333 (begin (rollback! mark331) #f)))))))) (if after330 (begin (when (= after330 next327) (error "zero-width repeated grammar expression")) (repeat-loop326 after330 (fx+ count328 1))) (begin (rollback! mark329) (if #t next327 #f))))))) (if next325 (let (next337 (if (< next325 limit) (let (input (vector-ref significant next325)) (if (equal? (token-lexeme input) "}") (begin (emit-raw! input) (fx+ next325 1)) #f)) #f)) (if next337 next337 (begin (rollback! mark323) #f))) (begin (rollback! mark323) #f))) (begin (rollback! mark323) #f))))) (if next322 (begin (emit-raw! (vector 'close-node 'ObjectExpression (range-end pos next322))) next322) (begin (rollback! mark320) #f))))))) (events-object-entry (lambda (pos) (let (mark338 tail) (emit-raw! (vector 'open-node 'ObjectEntry (offset pos))) (let (open339 tail) (let (next340 (let (mark341 tail) (let (next342 (let (mark343 tail) (emit-raw! (vector 'open-field 'key (offset pos))) (let (open344 tail) (let (next345 (let (mark346 tail) (let (next347 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'identifier) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next347 next347 (begin (rollback! mark346) (let (next348 (if (< pos limit) (let (input (vector-ref significant pos)) (if (eq? (token-kind input) 'string) (begin (emit-raw! input) (fx+ pos 1)) #f)) #f)) (if next348 next348 (begin (rollback! mark346) #f)))))))) (if next345 (begin (if (eq? tail open344) (rollback! mark343) (emit-raw! (vector 'close-field 'key (range-end pos next345)))) next345) (begin (rollback! mark343) #f)))))) (if next342 (let (next349 (let (mark350 tail) (let (next351 (if (< next342 limit) (let (input (vector-ref significant next342)) (if (equal? (token-lexeme input) "=") (begin (emit-raw! input) (fx+ next342 1)) #f)) #f)) (if next351 next351 (begin (rollback! mark350) (let (next352 (if (< next342 limit) (let (input (vector-ref significant next342)) (if (equal? (token-lexeme input) ":") (begin (emit-raw! input) (fx+ next342 1)) #f)) #f)) (if next352 next352 (begin (rollback! mark350) #f)))))))) (if next349 (let (next353 (let (mark354 tail) (emit-raw! (vector 'open-field 'value (offset next349))) (let (open355 tail) (let (next356 (events-expression next349)) (if next356 (begin (if (eq? tail open355) (rollback! mark354) (emit-raw! (vector 'close-field 'value (range-end next349 next356)))) next356) (begin (rollback! mark354) #f)))))) (if next353 (let (next357 (let (mark358 tail) (let (next359 (if (< next353 limit) (let (input (vector-ref significant next353)) (if (equal? (token-lexeme input) ",") (begin (emit-raw! input) (fx+ next353 1)) #f)) #f)) (if next359 next359 (begin (rollback! mark358) next353))))) (if next357 next357 (begin (rollback! mark341) #f))) (begin (rollback! mark341) #f))) (begin (rollback! mark341) #f))) (begin (rollback! mark341) #f))))) (if next340 (begin (emit-raw! (vector 'close-node 'ObjectEntry (range-end pos next340))) next340) (begin (rollback! mark338) #f)))))))) (let (end (events-config-file 0)) (if (and end (= end limit)) (make-success-parse-artifact/raw-events direct-hcl-grammar-digest source tokens (cdr head) (parser-machine-trivia machine) source-bytes) #f))))))
+;;; -*- Gerbil -*-
+;;; Generated by languages/hcl/v2-24/generate-direct.ss from Grammar IR.
+;;; Edit the generator, then regenerate this module.
+
+(import
+  (only-in :gerbil-parser/src/compiler/machine parser-machine-trivia)
+  (only-in :gerbil-parser/src/runtime/lexer lex-source)
+  (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)
+  (only-in :gerbil-parser/src/runtime/token token-kind token-lexeme token-start token-end)
+  (only-in :gerbil-parser/src/runtime/artifact make-raw-parse-event make-success-parse-artifact/raw-events))
+
+(export direct-parse-hcl direct-hcl-grammar-digest)
+
+(def direct-hcl-grammar-digest "sha256:ab71e47399aeec4c59f6cc626dd2a65244b6ec187929b38c9ebecea8794efd4d")
+
+(def (direct-parse-hcl machine source)
+  (let* ((tokens (lex-source machine source))
+      (significant (list->vector (parser-significant-tokens machine tokens)))
+      (limit (vector-length significant))
+      (source-bytes (string->utf8 source))
+      (byte-length (u8vector-length source-bytes))
+      (head (cons #f '()))
+      (tail head))
+    (def (offset pos) (if (< pos limit) (token-start (vector-ref significant pos)) byte-length))
+    (def (range-end start next)
+      (if (= start next) (offset start) (token-end (vector-ref significant (fx- next 1)))))
+    (def (emit-raw! raw) (let (cell (cons raw '())) (set-cdr! tail cell) (set! tail cell)))
+    (def (rollback! mark) (set-cdr! mark '()) (set! tail mark))
+    (letrec ((events-config-file
+          (lambda (pos)
+            (let (mark0 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'HclFile (offset pos)))
+              (let (open1 tail)
+                (let (next2
+                    (let repeat-loop3
+                      ((next4 pos) (count5 0))
+                      (let (mark6 tail)
+                        (let (after7
+                            (let (mark8 tail)
+                              (let (next9
+                                  (if (< next4 limit)
+                                    (let (input (vector-ref significant next4))
+                                      (if (eq? (token-kind input) 'newline)
+                                        (begin (emit-raw! input) (fx+ next4 1)) #f)) #f))
+                                (if next9 next9
+                                  (begin
+                                    (rollback! mark8)
+                                    (let (next10
+                                        (let (mark11 tail)
+                                          (emit-raw!
+                                            (make-raw-parse-event
+                                              'open-field
+                                              'item
+                                              (offset next4)))
+                                          (let (open12 tail)
+                                            (let (next13 (events-body-item next4))
+                                              (if next13
+                                                (begin
+                                                  (if (eq? tail open12)
+                                                    (rollback! mark11)
+                                                    (emit-raw!
+                                                      (make-raw-parse-event
+                                                        'close-field
+                                                        'item
+                                                        (range-end next4 next13)))) next13)
+                                                (begin (rollback! mark11) #f))))))
+                                      (if next10 next10 (begin (rollback! mark8) #f))))))))
+                          (if after7
+                            (begin
+                              (when
+                                (= after7 next4)
+                                (error "zero-width repeated grammar expression"))
+                              (repeat-loop3 after7 (fx+ count5 1)))
+                            (begin (rollback! mark6) next4))))))
+                  (if next2
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event 'close-node 'HclFile (range-end pos next2))) next2)
+                    (begin (rollback! mark0) #f)))))))
+        (events-body
+          (lambda (pos)
+            (let (mark14 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'Body (offset pos)))
+              (let (open15 tail)
+                (let (next16
+                    (let repeat-loop17
+                      ((next18 pos) (count19 0))
+                      (let (mark20 tail)
+                        (let (after21
+                            (let (mark22 tail)
+                              (let (next23
+                                  (if (< next18 limit)
+                                    (let (input (vector-ref significant next18))
+                                      (if (eq? (token-kind input) 'newline)
+                                        (begin (emit-raw! input) (fx+ next18 1)) #f)) #f))
+                                (if next23 next23
+                                  (begin
+                                    (rollback! mark22)
+                                    (let (next24
+                                        (let (mark25 tail)
+                                          (emit-raw!
+                                            (make-raw-parse-event
+                                              'open-field
+                                              'item
+                                              (offset next18)))
+                                          (let (open26 tail)
+                                            (let (next27 (events-body-item next18))
+                                              (if next27
+                                                (begin
+                                                  (if (eq? tail open26)
+                                                    (rollback! mark25)
+                                                    (emit-raw!
+                                                      (make-raw-parse-event
+                                                        'close-field
+                                                        'item
+                                                        (range-end next18 next27)))) next27)
+                                                (begin (rollback! mark25) #f))))))
+                                      (if next24 next24 (begin (rollback! mark22) #f))))))))
+                          (if after21
+                            (begin
+                              (when
+                                (= after21 next18)
+                                (error "zero-width repeated grammar expression"))
+                              (repeat-loop17 after21 (fx+ count19 1)))
+                            (begin (rollback! mark20) next18))))))
+                  (if next16
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event 'close-node 'Body (range-end pos next16))) next16)
+                    (begin (rollback! mark14) #f)))))))
+        (events-body-item
+          (lambda (pos)
+            (let (mark28 tail)
+              (let (next29 (events-block pos))
+                (if next29 next29
+                  (begin
+                    (rollback! mark28)
+                    (let (next30 (events-attribute pos))
+                      (if next30 next30 (begin (rollback! mark28) #f)))))))))
+        (events-attribute
+          (lambda (pos)
+            (let (mark31 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'Attribute (offset pos)))
+              (let (open32 tail)
+                (let (next33
+                    (let (mark34 tail)
+                      (let (next35
+                          (let (mark36 tail)
+                            (emit-raw! (make-raw-parse-event 'open-field 'name (offset pos)))
+                            (let (open37 tail)
+                              (let (next38
+                                  (if (< pos limit)
+                                    (let (input (vector-ref significant pos))
+                                      (if (eq? (token-kind input) 'identifier)
+                                        (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                (if next38
+                                  (begin
+                                    (if (eq? tail open37)
+                                      (rollback! mark36)
+                                      (emit-raw!
+                                        (make-raw-parse-event
+                                          'close-field
+                                          'name
+                                          (range-end pos next38)))) next38)
+                                  (begin (rollback! mark36) #f))))))
+                        (if next35
+                          (let (next39
+                              (if (< next35 limit)
+                                (let (input (vector-ref significant next35))
+                                  (if (equal? (token-lexeme input) "=")
+                                    (begin (emit-raw! input) (fx+ next35 1)) #f)) #f))
+                            (if next39
+                              (let (next40
+                                  (let (mark41 tail)
+                                    (emit-raw!
+                                      (make-raw-parse-event 'open-field 'value (offset next39)))
+                                    (let (open42 tail)
+                                      (let (next43 (events-expression next39))
+                                        (if next43
+                                          (begin
+                                            (if (eq? tail open42)
+                                              (rollback! mark41)
+                                              (emit-raw!
+                                                (make-raw-parse-event
+                                                  'close-field
+                                                  'value
+                                                  (range-end next39 next43)))) next43)
+                                          (begin (rollback! mark41) #f))))))
+                                (if next40 next40 (begin (rollback! mark34) #f)))
+                              (begin (rollback! mark34) #f)))
+                          (begin (rollback! mark34) #f)))))
+                  (if next33
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event 'close-node 'Attribute (range-end pos next33))) next33)
+                    (begin (rollback! mark31) #f)))))))
+        (events-block
+          (lambda (pos)
+            (let (mark44 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'Block (offset pos)))
+              (let (open45 tail)
+                (let (next46
+                    (let (mark47 tail)
+                      (let (next48
+                          (let (mark49 tail)
+                            (emit-raw! (make-raw-parse-event 'open-field 'type (offset pos)))
+                            (let (open50 tail)
+                              (let (next51
+                                  (if (< pos limit)
+                                    (let (input (vector-ref significant pos))
+                                      (if (eq? (token-kind input) 'identifier)
+                                        (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                (if next51
+                                  (begin
+                                    (if (eq? tail open50)
+                                      (rollback! mark49)
+                                      (emit-raw!
+                                        (make-raw-parse-event
+                                          'close-field
+                                          'type
+                                          (range-end pos next51)))) next51)
+                                  (begin (rollback! mark49) #f))))))
+                        (if next48
+                          (let (next52
+                              (let repeat-loop53
+                                ((next54 next48) (count55 0))
+                                (let (mark56 tail)
+                                  (let (after57
+                                      (let (mark58 tail)
+                                        (emit-raw!
+                                          (make-raw-parse-event
+                                            'open-field
+                                            'label
+                                            (offset next54)))
+                                        (let (open59 tail)
+                                          (let (next60
+                                              (let (mark61 tail)
+                                                (let (next62
+                                                    (if (< next54 limit)
+                                                      (let (input (vector-ref significant next54))
+                                                        (if (eq? (token-kind input) 'string)
+                                                          (begin
+                                                            (emit-raw! input)
+                                                            (fx+ next54 1)) #f)) #f))
+                                                  (if next62 next62
+                                                    (begin
+                                                      (rollback! mark61)
+                                                      (let (next63
+                                                          (if (< next54 limit)
+                                                            (let (input
+                                                                (vector-ref significant next54))
+                                                              (if (eq?
+                                                                  (token-kind input)
+                                                                  'identifier)
+                                                                (begin
+                                                                  (emit-raw! input)
+                                                                  (fx+ next54 1)) #f)) #f))
+                                                        (if next63 next63
+                                                          (begin (rollback! mark61) #f))))))))
+                                            (if next60
+                                              (begin
+                                                (if (eq? tail open59)
+                                                  (rollback! mark58)
+                                                  (emit-raw!
+                                                    (make-raw-parse-event
+                                                      'close-field
+                                                      'label
+                                                      (range-end next54 next60)))) next60)
+                                              (begin (rollback! mark58) #f))))))
+                                    (if after57
+                                      (begin
+                                        (when
+                                          (= after57 next54)
+                                          (error "zero-width repeated grammar expression"))
+                                        (repeat-loop53 after57 (fx+ count55 1)))
+                                      (begin (rollback! mark56) next54))))))
+                            (if next52
+                              (let (next64
+                                  (if (< next52 limit)
+                                    (let (input (vector-ref significant next52))
+                                      (if (equal? (token-lexeme input) "{")
+                                        (begin (emit-raw! input) (fx+ next52 1)) #f)) #f))
+                                (if next64
+                                  (let (next65
+                                      (let (mark66 tail)
+                                        (emit-raw!
+                                          (make-raw-parse-event
+                                            'open-field
+                                            'body
+                                            (offset next64)))
+                                        (let (open67 tail)
+                                          (let (next68 (events-body next64))
+                                            (if next68
+                                              (begin
+                                                (if (eq? tail open67)
+                                                  (rollback! mark66)
+                                                  (emit-raw!
+                                                    (make-raw-parse-event
+                                                      'close-field
+                                                      'body
+                                                      (range-end next64 next68)))) next68)
+                                              (begin (rollback! mark66) #f))))))
+                                    (if next65
+                                      (let (next69
+                                          (if (< next65 limit)
+                                            (let (input (vector-ref significant next65))
+                                              (if (equal? (token-lexeme input) "}")
+                                                (begin (emit-raw! input) (fx+ next65 1)) #f)) #f))
+                                        (if next69 next69 (begin (rollback! mark47) #f)))
+                                      (begin (rollback! mark47) #f)))
+                                  (begin (rollback! mark47) #f)))
+                              (begin (rollback! mark47) #f)))
+                          (begin (rollback! mark47) #f)))))
+                  (if next46
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event 'close-node 'Block (range-end pos next46))) next46)
+                    (begin (rollback! mark44) #f)))))))
+        (events-expression (lambda (pos) (events-conditional-expression pos)))
+        (events-conditional-expression
+          (lambda (pos)
+            (let (mark70 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'ConditionalExpression (offset pos)))
+              (let (open71 tail)
+                (let (next72
+                    (let (mark73 tail)
+                      (let (next74
+                          (let (mark75 tail)
+                            (emit-raw!
+                              (make-raw-parse-event 'open-field 'condition (offset pos)))
+                            (let (open76 tail)
+                              (let (next77 (events-binary-expression pos))
+                                (if next77
+                                  (begin
+                                    (if (eq? tail open76)
+                                      (rollback! mark75)
+                                      (emit-raw!
+                                        (make-raw-parse-event
+                                          'close-field
+                                          'condition
+                                          (range-end pos next77)))) next77)
+                                  (begin (rollback! mark75) #f))))))
+                        (if next74
+                          (let (next78
+                              (let (mark79 tail)
+                                (let (next80
+                                    (let (mark81 tail)
+                                      (let (next82
+                                          (if (< next74 limit)
+                                            (let (input (vector-ref significant next74))
+                                              (if (equal? (token-lexeme input) "?")
+                                                (begin (emit-raw! input) (fx+ next74 1)) #f)) #f))
+                                        (if next82
+                                          (let (next83
+                                              (let (mark84 tail)
+                                                (emit-raw!
+                                                  (make-raw-parse-event
+                                                    'open-field
+                                                    'consequent
+                                                    (offset next82)))
+                                                (let (open85 tail)
+                                                  (let (next86 (events-expression next82))
+                                                    (if next86
+                                                      (begin
+                                                        (if (eq? tail open85)
+                                                          (rollback! mark84)
+                                                          (emit-raw!
+                                                            (make-raw-parse-event
+                                                              'close-field
+                                                              'consequent
+                                                              (range-end next82 next86)))) next86)
+                                                      (begin (rollback! mark84) #f))))))
+                                            (if next83
+                                              (let (next87
+                                                  (if (< next83 limit)
+                                                    (let (input (vector-ref significant next83))
+                                                      (if (equal? (token-lexeme input) ":")
+                                                        (begin (emit-raw! input) (fx+ next83 1)) #f)) #f))
+                                                (if next87
+                                                  (let (next88
+                                                      (let (mark89 tail)
+                                                        (emit-raw!
+                                                          (make-raw-parse-event
+                                                            'open-field
+                                                            'alternative
+                                                            (offset next87)))
+                                                        (let (open90 tail)
+                                                          (let (next91 (events-expression next87))
+                                                            (if next91
+                                                              (begin
+                                                                (if (eq? tail open90)
+                                                                  (rollback! mark89)
+                                                                  (emit-raw!
+                                                                    (make-raw-parse-event
+                                                                      'close-field
+                                                                      'alternative
+                                                                      (range-end next87 next91)))) next91)
+                                                              (begin (rollback! mark89) #f))))))
+                                                    (if next88 next88
+                                                      (begin (rollback! mark81) #f)))
+                                                  (begin (rollback! mark81) #f)))
+                                              (begin (rollback! mark81) #f)))
+                                          (begin (rollback! mark81) #f)))))
+                                  (if next80 next80 (begin (rollback! mark79) next74)))))
+                            (if next78 next78 (begin (rollback! mark73) #f)))
+                          (begin (rollback! mark73) #f)))))
+                  (if next72
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'ConditionalExpression
+                          (range-end pos next72))) next72)
+                    (begin (rollback! mark70) #f)))))))
+        (events-binary-expression
+          (lambda (pos)
+            (let (mark92 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'BinaryExpression (offset pos)))
+              (let (open93 tail)
+                (let (next94
+                    (let (mark95 tail)
+                      (let (next96
+                          (let (mark97 tail)
+                            (emit-raw! (make-raw-parse-event 'open-field 'left (offset pos)))
+                            (let (open98 tail)
+                              (let (next99 (events-unary-expression pos))
+                                (if next99
+                                  (begin
+                                    (if (eq? tail open98)
+                                      (rollback! mark97)
+                                      (emit-raw!
+                                        (make-raw-parse-event
+                                          'close-field
+                                          'left
+                                          (range-end pos next99)))) next99)
+                                  (begin (rollback! mark97) #f))))))
+                        (if next96
+                          (let (next100
+                              (let repeat-loop101
+                                ((next102 next96) (count103 0))
+                                (let (mark104 tail)
+                                  (let (after105
+                                      (let (mark106 tail)
+                                        (let (next107
+                                            (let (mark108 tail)
+                                              (emit-raw!
+                                                (make-raw-parse-event
+                                                  'open-field
+                                                  'operator
+                                                  (offset next102)))
+                                              (let (open109 tail)
+                                                (let (next110 (events-binary-operator next102))
+                                                  (if next110
+                                                    (begin
+                                                      (if (eq? tail open109)
+                                                        (rollback! mark108)
+                                                        (emit-raw!
+                                                          (make-raw-parse-event
+                                                            'close-field
+                                                            'operator
+                                                            (range-end next102 next110)))) next110)
+                                                    (begin (rollback! mark108) #f))))))
+                                          (if next107
+                                            (let (next111
+                                                (let (mark112 tail)
+                                                  (emit-raw!
+                                                    (make-raw-parse-event
+                                                      'open-field
+                                                      'right
+                                                      (offset next107)))
+                                                  (let (open113 tail)
+                                                    (let (next114
+                                                        (events-unary-expression next107))
+                                                      (if next114
+                                                        (begin
+                                                          (if (eq? tail open113)
+                                                            (rollback! mark112)
+                                                            (emit-raw!
+                                                              (make-raw-parse-event
+                                                                'close-field
+                                                                'right
+                                                                (range-end next107 next114)))) next114)
+                                                        (begin (rollback! mark112) #f))))))
+                                              (if next111 next111
+                                                (begin (rollback! mark106) #f)))
+                                            (begin (rollback! mark106) #f)))))
+                                    (if after105
+                                      (begin
+                                        (when
+                                          (= after105 next102)
+                                          (error "zero-width repeated grammar expression"))
+                                        (repeat-loop101 after105 (fx+ count103 1)))
+                                      (begin (rollback! mark104) next102))))))
+                            (if next100 next100 (begin (rollback! mark95) #f)))
+                          (begin (rollback! mark95) #f)))))
+                  (if next94
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'BinaryExpression
+                          (range-end pos next94))) next94)
+                    (begin (rollback! mark92) #f)))))))
+        (events-binary-operator
+          (lambda (pos)
+            (let (mark115 tail)
+              (let (next116
+                  (if (< pos limit)
+                    (let (input (vector-ref significant pos))
+                      (if (equal? (token-lexeme input) "==")
+                        (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                (if next116 next116
+                  (begin
+                    (rollback! mark115)
+                    (let (next117
+                        (if (< pos limit)
+                          (let (input (vector-ref significant pos))
+                            (if (equal? (token-lexeme input) "!=")
+                              (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                      (if next117 next117
+                        (begin
+                          (rollback! mark115)
+                          (let (next118
+                              (if (< pos limit)
+                                (let (input (vector-ref significant pos))
+                                  (if (equal? (token-lexeme input) "<=")
+                                    (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                            (if next118 next118
+                              (begin
+                                (rollback! mark115)
+                                (let (next119
+                                    (if (< pos limit)
+                                      (let (input (vector-ref significant pos))
+                                        (if (equal? (token-lexeme input) ">=")
+                                          (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                  (if next119 next119
+                                    (begin
+                                      (rollback! mark115)
+                                      (let (next120
+                                          (if (< pos limit)
+                                            (let (input (vector-ref significant pos))
+                                              (if (equal? (token-lexeme input) "&&")
+                                                (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                        (if next120 next120
+                                          (begin
+                                            (rollback! mark115)
+                                            (let (next121
+                                                (if (< pos limit)
+                                                  (let (input (vector-ref significant pos))
+                                                    (if (equal? (token-lexeme input) "||")
+                                                      (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                              (if next121 next121
+                                                (begin
+                                                  (rollback! mark115)
+                                                  (let (next122
+                                                      (if (< pos limit)
+                                                        (let (input (vector-ref significant pos))
+                                                          (if (equal? (token-lexeme input) "+")
+                                                            (begin
+                                                              (emit-raw! input)
+                                                              (fx+ pos 1)) #f)) #f))
+                                                    (if next122 next122
+                                                      (begin
+                                                        (rollback! mark115)
+                                                        (let (next123
+                                                            (if (< pos limit)
+                                                              (let (input
+                                                                  (vector-ref significant pos))
+                                                                (if (equal?
+                                                                    (token-lexeme input) "-")
+                                                                  (begin
+                                                                    (emit-raw! input)
+                                                                    (fx+ pos 1)) #f)) #f))
+                                                          (if next123 next123
+                                                            (begin
+                                                              (rollback! mark115)
+                                                              (let (next124
+                                                                  (if (< pos limit)
+                                                                    (let (input
+                                                                        (vector-ref significant pos))
+                                                                      (if (equal?
+                                                                          (token-lexeme input) "*")
+                                                                        (begin
+                                                                          (emit-raw! input)
+                                                                          (fx+ pos 1)) #f)) #f))
+                                                                (if next124 next124
+                                                                  (begin
+                                                                    (rollback! mark115)
+                                                                    (let (next125
+                                                                        (if (< pos limit)
+                                                                          (let (input
+                                                                              (vector-ref significant pos))
+                                                                            (if (equal?
+                                                                                (token-lexeme input) "/")
+                                                                              (begin
+                                                                                (emit-raw! input)
+                                                                                (fx+ pos 1)) #f)) #f))
+                                                                      (if next125 next125
+                                                                        (begin
+                                                                          (rollback! mark115)
+                                                                          (let (next126
+                                                                              (if (< pos limit)
+                                                                                (let (input
+                                                                                    (vector-ref significant pos))
+                                                                                  (if (equal?
+                                                                                      (token-lexeme input) "%")
+                                                                                    (begin
+                                                                                      (emit-raw! input)
+                                                                                      (fx+ pos 1)) #f)) #f))
+                                                                            (if next126 next126
+                                                                              (begin
+                                                                                (rollback! mark115)
+                                                                                (let (next127
+                                                                                    (if (< pos limit)
+                                                                                      (let (input
+                                                                                          (vector-ref significant pos))
+                                                                                        (if (equal?
+                                                                                            (token-lexeme input) "<")
+                                                                                          (begin
+                                                                                            (emit-raw! input)
+                                                                                            (fx+ pos 1)) #f)) #f))
+                                                                                  (if next127 next127
+                                                                                    (begin
+                                                                                      (rollback! mark115)
+                                                                                      (let (next128
+                                                                                          (if (< pos limit)
+                                                                                            (let (input
+                                                                                                (vector-ref significant pos))
+                                                                                              (if (equal?
+                                                                                                  (token-lexeme input) ">")
+                                                                                                (begin
+                                                                                                  (emit-raw! input)
+                                                                                                  (fx+ pos 1)) #f)) #f))
+                                                                                        (if next128 next128
+                                                                                          (begin
+                                                                                            (rollback! mark115) #f))))))))))))))))))))))))))))))))))))))))))
+        (events-unary-expression
+          (lambda (pos)
+            (let (mark129 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'UnaryExpression (offset pos)))
+              (let (open130 tail)
+                (let (next131
+                    (let (mark132 tail)
+                      (let (next133
+                          (let repeat-loop134
+                            ((next135 pos) (count136 0))
+                            (let (mark137 tail)
+                              (let (after138
+                                  (let (mark139 tail)
+                                    (emit-raw!
+                                      (make-raw-parse-event
+                                        'open-field
+                                        'operator
+                                        (offset next135)))
+                                    (let (open140 tail)
+                                      (let (next141
+                                          (let (mark142 tail)
+                                            (let (next143
+                                                (if (< next135 limit)
+                                                  (let (input (vector-ref significant next135))
+                                                    (if (equal? (token-lexeme input) "!")
+                                                      (begin (emit-raw! input) (fx+ next135 1)) #f)) #f))
+                                              (if next143 next143
+                                                (begin
+                                                  (rollback! mark142)
+                                                  (let (next144
+                                                      (if (< next135 limit)
+                                                        (let (input
+                                                            (vector-ref significant next135))
+                                                          (if (equal? (token-lexeme input) "-")
+                                                            (begin
+                                                              (emit-raw! input)
+                                                              (fx+ next135 1)) #f)) #f))
+                                                    (if next144 next144
+                                                      (begin
+                                                        (rollback! mark142)
+                                                        (let (next145
+                                                            (if (< next135 limit)
+                                                              (let (input
+                                                                  (vector-ref significant next135))
+                                                                (if (equal?
+                                                                    (token-lexeme input) "+")
+                                                                  (begin
+                                                                    (emit-raw! input)
+                                                                    (fx+ next135 1)) #f)) #f))
+                                                          (if next145 next145
+                                                            (begin (rollback! mark142) #f)))))))))))
+                                        (if next141
+                                          (begin
+                                            (if (eq? tail open140)
+                                              (rollback! mark139)
+                                              (emit-raw!
+                                                (make-raw-parse-event
+                                                  'close-field
+                                                  'operator
+                                                  (range-end next135 next141)))) next141)
+                                          (begin (rollback! mark139) #f))))))
+                                (if after138
+                                  (begin
+                                    (when
+                                      (= after138 next135)
+                                      (error "zero-width repeated grammar expression"))
+                                    (repeat-loop134 after138 (fx+ count136 1)))
+                                  (begin (rollback! mark137) next135))))))
+                        (if next133
+                          (let (next146
+                              (let (mark147 tail)
+                                (emit-raw!
+                                  (make-raw-parse-event 'open-field 'operand (offset next133)))
+                                (let (open148 tail)
+                                  (let (next149 (events-postfix-expression next133))
+                                    (if next149
+                                      (begin
+                                        (if (eq? tail open148)
+                                          (rollback! mark147)
+                                          (emit-raw!
+                                            (make-raw-parse-event
+                                              'close-field
+                                              'operand
+                                              (range-end next133 next149)))) next149)
+                                      (begin (rollback! mark147) #f))))))
+                            (if next146 next146 (begin (rollback! mark132) #f)))
+                          (begin (rollback! mark132) #f)))))
+                  (if next131
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'UnaryExpression
+                          (range-end pos next131))) next131)
+                    (begin (rollback! mark129) #f)))))))
+        (events-postfix-expression
+          (lambda (pos)
+            (let (mark150 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'TraversalExpression (offset pos)))
+              (let (open151 tail)
+                (let (next152
+                    (let (mark153 tail)
+                      (let (next154
+                          (let (mark155 tail)
+                            (emit-raw! (make-raw-parse-event 'open-field 'root (offset pos)))
+                            (let (open156 tail)
+                              (let (next157 (events-primary-expression pos))
+                                (if next157
+                                  (begin
+                                    (if (eq? tail open156)
+                                      (rollback! mark155)
+                                      (emit-raw!
+                                        (make-raw-parse-event
+                                          'close-field
+                                          'root
+                                          (range-end pos next157)))) next157)
+                                  (begin (rollback! mark155) #f))))))
+                        (if next154
+                          (let (next158
+                              (let repeat-loop159
+                                ((next160 next154) (count161 0))
+                                (let (mark162 tail)
+                                  (let (after163
+                                      (let (mark164 tail)
+                                        (emit-raw!
+                                          (make-raw-parse-event
+                                            'open-field
+                                            'step
+                                            (offset next160)))
+                                        (let (open165 tail)
+                                          (let (next166 (events-postfix-suffix next160))
+                                            (if next166
+                                              (begin
+                                                (if (eq? tail open165)
+                                                  (rollback! mark164)
+                                                  (emit-raw!
+                                                    (make-raw-parse-event
+                                                      'close-field
+                                                      'step
+                                                      (range-end next160 next166)))) next166)
+                                              (begin (rollback! mark164) #f))))))
+                                    (if after163
+                                      (begin
+                                        (when
+                                          (= after163 next160)
+                                          (error "zero-width repeated grammar expression"))
+                                        (repeat-loop159 after163 (fx+ count161 1)))
+                                      (begin (rollback! mark162) next160))))))
+                            (if next158 next158 (begin (rollback! mark153) #f)))
+                          (begin (rollback! mark153) #f)))))
+                  (if next152
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'TraversalExpression
+                          (range-end pos next152))) next152)
+                    (begin (rollback! mark150) #f)))))))
+        (events-postfix-suffix
+          (lambda (pos)
+            (let (mark167 tail)
+              (let (next168
+                  (let (mark169 tail)
+                    (let (next170
+                        (if (< pos limit)
+                          (let (input (vector-ref significant pos))
+                            (if (equal? (token-lexeme input) ".")
+                              (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                      (if next170
+                        (let (next171
+                            (let (mark172 tail)
+                              (let (next173
+                                  (if (< next170 limit)
+                                    (let (input (vector-ref significant next170))
+                                      (if (eq? (token-kind input) 'identifier)
+                                        (begin (emit-raw! input) (fx+ next170 1)) #f)) #f))
+                                (if next173 next173
+                                  (begin
+                                    (rollback! mark172)
+                                    (let (next174
+                                        (if (< next170 limit)
+                                          (let (input (vector-ref significant next170))
+                                            (if (eq? (token-kind input) 'number)
+                                              (begin (emit-raw! input) (fx+ next170 1)) #f)) #f))
+                                      (if next174 next174
+                                        (begin
+                                          (rollback! mark172)
+                                          (let (next175
+                                              (if (< next170 limit)
+                                                (let (input (vector-ref significant next170))
+                                                  (if (equal? (token-lexeme input) "*")
+                                                    (begin (emit-raw! input) (fx+ next170 1)) #f)) #f))
+                                            (if next175 next175 (begin (rollback! mark172) #f)))))))))))
+                          (if next171 next171 (begin (rollback! mark169) #f)))
+                        (begin (rollback! mark169) #f)))))
+                (if next168 next168
+                  (begin
+                    (rollback! mark167)
+                    (let (next176
+                        (let (mark177 tail)
+                          (emit-raw!
+                            (make-raw-parse-event 'open-node 'IndexExpression (offset pos)))
+                          (let (open178 tail)
+                            (let (next179
+                                (let (mark180 tail)
+                                  (let (next181
+                                      (if (< pos limit)
+                                        (let (input (vector-ref significant pos))
+                                          (if (equal? (token-lexeme input) "[")
+                                            (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                    (if next181
+                                      (let (next182
+                                          (let (mark183 tail)
+                                            (emit-raw!
+                                              (make-raw-parse-event
+                                                'open-field
+                                                'key
+                                                (offset next181)))
+                                            (let (open184 tail)
+                                              (let (next185
+                                                  (let (mark186 tail)
+                                                    (let (next187
+                                                        (if (< next181 limit)
+                                                          (let (input
+                                                              (vector-ref significant next181))
+                                                            (if (equal? (token-lexeme input) "*")
+                                                              (begin
+                                                                (emit-raw! input)
+                                                                (fx+ next181 1)) #f)) #f))
+                                                      (if next187 next187
+                                                        (begin
+                                                          (rollback! mark186)
+                                                          (let (next188
+                                                              (events-expression next181))
+                                                            (if next188 next188
+                                                              (begin (rollback! mark186) #f))))))))
+                                                (if next185
+                                                  (begin
+                                                    (if (eq? tail open184)
+                                                      (rollback! mark183)
+                                                      (emit-raw!
+                                                        (make-raw-parse-event
+                                                          'close-field
+                                                          'key
+                                                          (range-end next181 next185)))) next185)
+                                                  (begin (rollback! mark183) #f))))))
+                                        (if next182
+                                          (let (next189
+                                              (if (< next182 limit)
+                                                (let (input (vector-ref significant next182))
+                                                  (if (equal? (token-lexeme input) "]")
+                                                    (begin (emit-raw! input) (fx+ next182 1)) #f)) #f))
+                                            (if next189 next189 (begin (rollback! mark180) #f)))
+                                          (begin (rollback! mark180) #f)))
+                                      (begin (rollback! mark180) #f)))))
+                              (if next179
+                                (begin
+                                  (emit-raw!
+                                    (make-raw-parse-event
+                                      'close-node
+                                      'IndexExpression
+                                      (range-end pos next179))) next179)
+                                (begin (rollback! mark177) #f))))))
+                      (if next176 next176
+                        (begin
+                          (rollback! mark167)
+                          (let (next190
+                              (let (mark191 tail)
+                                (emit-raw!
+                                  (make-raw-parse-event 'open-node 'CallExpression (offset pos)))
+                                (let (open192 tail)
+                                  (let (next193
+                                      (let (mark194 tail)
+                                        (let (next195
+                                            (if (< pos limit)
+                                              (let (input (vector-ref significant pos))
+                                                (if (equal? (token-lexeme input) "(")
+                                                  (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                          (if next195
+                                            (let (next196
+                                                (let (mark197 tail)
+                                                  (let (next198
+                                                      (let (mark199 tail)
+                                                        (let (next200
+                                                            (let (mark201 tail)
+                                                              (emit-raw!
+                                                                (make-raw-parse-event
+                                                                  'open-field
+                                                                  'argument
+                                                                  (offset next195)))
+                                                              (let (open202 tail)
+                                                                (let (next203
+                                                                    (events-expression next195))
+                                                                  (if next203
+                                                                    (begin
+                                                                      (if (eq? tail open202)
+                                                                        (rollback! mark201)
+                                                                        (emit-raw!
+                                                                          (make-raw-parse-event
+                                                                            'close-field
+                                                                            'argument
+                                                                            (range-end next195 next203)))) next203)
+                                                                    (begin
+                                                                      (rollback! mark201) #f))))))
+                                                          (if next200
+                                                            (let (next204
+                                                                (let repeat-loop205
+                                                                  ((next206 next200)
+                                                                    (count207 0))
+                                                                  (let (mark208 tail)
+                                                                    (let (after209
+                                                                        (let (mark210 tail)
+                                                                          (let (next211
+                                                                              (if (< next206 limit)
+                                                                                (let (input
+                                                                                    (vector-ref significant next206))
+                                                                                  (if (equal?
+                                                                                      (token-lexeme input) ",")
+                                                                                    (begin
+                                                                                      (emit-raw! input)
+                                                                                      (fx+ next206 1)) #f)) #f))
+                                                                            (if next211
+                                                                              (let (next212
+                                                                                  (let (mark213 tail)
+                                                                                    (emit-raw!
+                                                                                      (make-raw-parse-event
+                                                                                        (quote open-field)
+                                                                                        (quote argument)
+                                                                                        (offset next211)))
+                                                                                    (let (open214 tail)
+                                                                                      (let (next215
+                                                                                          (events-expression next211))
+                                                                                        (if next215
+                                                                                          (begin
+                                                                                            (if (eq? tail open214)
+                                                                                              (rollback! mark213)
+                                                                                              (emit-raw!
+                                                                                                (make-raw-parse-event
+                                                                                                  (quote close-field)
+                                                                                                  (quote argument)
+                                                                                                  (range-end next211 next215)))) next215)
+                                                                                          (begin
+                                                                                            (rollback! mark213) #f))))))
+                                                                                (if next212 next212
+                                                                                  (begin
+                                                                                    (rollback! mark210) #f)))
+                                                                              (begin
+                                                                                (rollback! mark210) #f)))))
+                                                                      (if after209
+                                                                        (begin
+                                                                          (when
+                                                                            (= after209 next206)
+                                                                            (error "zero-width repeated grammar expression"))
+                                                                          (repeat-loop205 after209
+                                                                            (fx+ count207 1)))
+                                                                        (begin
+                                                                          (rollback! mark208) next206))))))
+                                                              (if next204 next204
+                                                                (begin (rollback! mark199) #f)))
+                                                            (begin (rollback! mark199) #f)))))
+                                                    (if next198 next198
+                                                      (begin (rollback! mark197) next195)))))
+                                              (if next196
+                                                (let (next216
+                                                    (if (< next196 limit)
+                                                      (let (input (vector-ref significant next196))
+                                                        (if (equal? (token-lexeme input) ")")
+                                                          (begin
+                                                            (emit-raw! input)
+                                                            (fx+ next196 1)) #f)) #f))
+                                                  (if next216 next216
+                                                    (begin (rollback! mark194) #f)))
+                                                (begin (rollback! mark194) #f)))
+                                            (begin (rollback! mark194) #f)))))
+                                    (if next193
+                                      (begin
+                                        (emit-raw!
+                                          (make-raw-parse-event
+                                            'close-node
+                                            'CallExpression
+                                            (range-end pos next193))) next193)
+                                      (begin (rollback! mark191) #f))))))
+                            (if next190 next190 (begin (rollback! mark167) #f))))))))))))
+        (events-primary-expression
+          (lambda (pos)
+            (let (mark217 tail)
+              (let (next218 (events-object-expression pos))
+                (if next218 next218
+                  (begin
+                    (rollback! mark217)
+                    (let (next219 (events-tuple-expression pos))
+                      (if next219 next219
+                        (begin
+                          (rollback! mark217)
+                          (let (next220 (events-heredoc-expression pos))
+                            (if next220 next220
+                              (begin
+                                (rollback! mark217)
+                                (let (next221 (events-string-expression pos))
+                                  (if next221 next221
+                                    (begin
+                                      (rollback! mark217)
+                                      (let (next222 (events-number-expression pos))
+                                        (if next222 next222
+                                          (begin
+                                            (rollback! mark217)
+                                            (let (next223
+                                                (let (mark224 tail)
+                                                  (emit-raw!
+                                                    (make-raw-parse-event
+                                                      'open-node
+                                                      'LiteralExpression
+                                                      (offset pos)))
+                                                  (let (open225 tail)
+                                                    (let (next226
+                                                        (let (mark227 tail)
+                                                          (emit-raw!
+                                                            (make-raw-parse-event
+                                                              'open-field
+                                                              'value
+                                                              (offset pos)))
+                                                          (let (open228 tail)
+                                                            (let (next229
+                                                                (if (< pos limit)
+                                                                  (let (input
+                                                                      (vector-ref significant pos))
+                                                                    (if (eq?
+                                                                        (token-kind input)
+                                                                        'identifier)
+                                                                      (begin
+                                                                        (emit-raw! input)
+                                                                        (fx+ pos 1)) #f)) #f))
+                                                              (if next229
+                                                                (begin
+                                                                  (if (eq? tail open228)
+                                                                    (rollback! mark227)
+                                                                    (emit-raw!
+                                                                      (make-raw-parse-event
+                                                                        'close-field
+                                                                        'value
+                                                                        (range-end pos next229)))) next229)
+                                                                (begin (rollback! mark227) #f))))))
+                                                      (if next226
+                                                        (begin
+                                                          (emit-raw!
+                                                            (make-raw-parse-event
+                                                              'close-node
+                                                              'LiteralExpression
+                                                              (range-end pos next226))) next226)
+                                                        (begin (rollback! mark224) #f))))))
+                                              (if next223 next223
+                                                (begin
+                                                  (rollback! mark217)
+                                                  (let (next230
+                                                      (let (mark231 tail)
+                                                        (let (next232
+                                                            (if (< pos limit)
+                                                              (let (input
+                                                                  (vector-ref significant pos))
+                                                                (if (equal?
+                                                                    (token-lexeme input) "(")
+                                                                  (begin
+                                                                    (emit-raw! input)
+                                                                    (fx+ pos 1)) #f)) #f))
+                                                          (if next232
+                                                            (let (next233
+                                                                (events-expression next232))
+                                                              (if next233
+                                                                (let (next234
+                                                                    (if (< next233 limit)
+                                                                      (let (input
+                                                                          (vector-ref significant next233))
+                                                                        (if (equal?
+                                                                            (token-lexeme input) ")")
+                                                                          (begin
+                                                                            (emit-raw! input)
+                                                                            (fx+ next233 1)) #f)) #f))
+                                                                  (if next234 next234
+                                                                    (begin
+                                                                      (rollback! mark231) #f)))
+                                                                (begin (rollback! mark231) #f)))
+                                                            (begin (rollback! mark231) #f)))))
+                                                    (if next230 next230
+                                                      (begin (rollback! mark217) #f))))))))))))))))))))))))
+        (events-traversal-expression
+          (lambda (pos)
+            (let (mark235 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'TraversalExpression (offset pos)))
+              (let (open236 tail)
+                (let (next237
+                    (let (mark238 tail)
+                      (let (next239
+                          (let (mark240 tail)
+                            (emit-raw! (make-raw-parse-event 'open-field 'root (offset pos)))
+                            (let (open241 tail)
+                              (let (next242
+                                  (if (< pos limit)
+                                    (let (input (vector-ref significant pos))
+                                      (if (eq? (token-kind input) 'identifier)
+                                        (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                (if next242
+                                  (begin
+                                    (if (eq? tail open241)
+                                      (rollback! mark240)
+                                      (emit-raw!
+                                        (make-raw-parse-event
+                                          'close-field
+                                          'root
+                                          (range-end pos next242)))) next242)
+                                  (begin (rollback! mark240) #f))))))
+                        (if next239
+                          (let (next243
+                              (let repeat-loop244
+                                ((next245 next239) (count246 0))
+                                (let (mark247 tail)
+                                  (let (after248
+                                      (let (mark249 tail)
+                                        (let (next250
+                                            (if (< next245 limit)
+                                              (let (input (vector-ref significant next245))
+                                                (if (equal? (token-lexeme input) ".")
+                                                  (begin (emit-raw! input) (fx+ next245 1)) #f)) #f))
+                                          (if next250
+                                            (let (next251
+                                                (let (mark252 tail)
+                                                  (emit-raw!
+                                                    (make-raw-parse-event
+                                                      'open-field
+                                                      'step
+                                                      (offset next250)))
+                                                  (let (open253 tail)
+                                                    (let (next254
+                                                        (if (< next250 limit)
+                                                          (let (input
+                                                              (vector-ref significant next250))
+                                                            (if (eq?
+                                                                (token-kind input)
+                                                                'identifier)
+                                                              (begin
+                                                                (emit-raw! input)
+                                                                (fx+ next250 1)) #f)) #f))
+                                                      (if next254
+                                                        (begin
+                                                          (if (eq? tail open253)
+                                                            (rollback! mark252)
+                                                            (emit-raw!
+                                                              (make-raw-parse-event
+                                                                'close-field
+                                                                'step
+                                                                (range-end next250 next254)))) next254)
+                                                        (begin (rollback! mark252) #f))))))
+                                              (if next251 next251
+                                                (begin (rollback! mark249) #f)))
+                                            (begin (rollback! mark249) #f)))))
+                                    (if after248
+                                      (begin
+                                        (when
+                                          (= after248 next245)
+                                          (error "zero-width repeated grammar expression"))
+                                        (repeat-loop244 after248 (fx+ count246 1)))
+                                      (begin (rollback! mark247) next245))))))
+                            (if next243 next243 (begin (rollback! mark238) #f)))
+                          (begin (rollback! mark238) #f)))))
+                  (if next237
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'TraversalExpression
+                          (range-end pos next237))) next237)
+                    (begin (rollback! mark235) #f)))))))
+        (events-string-expression
+          (lambda (pos)
+            (let (mark255 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'StringExpression (offset pos)))
+              (let (open256 tail)
+                (let (next257
+                    (let (mark258 tail)
+                      (emit-raw! (make-raw-parse-event 'open-field 'value (offset pos)))
+                      (let (open259 tail)
+                        (let (next260
+                            (if (< pos limit)
+                              (let (input (vector-ref significant pos))
+                                (if (eq? (token-kind input) 'string)
+                                  (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                          (if next260
+                            (begin
+                              (if (eq? tail open259)
+                                (rollback! mark258)
+                                (emit-raw!
+                                  (make-raw-parse-event
+                                    'close-field
+                                    'value
+                                    (range-end pos next260)))) next260)
+                            (begin (rollback! mark258) #f))))))
+                  (if next257
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'StringExpression
+                          (range-end pos next257))) next257)
+                    (begin (rollback! mark255) #f)))))))
+        (events-heredoc-expression
+          (lambda (pos)
+            (let (mark261 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'HeredocExpression (offset pos)))
+              (let (open262 tail)
+                (let (next263
+                    (let (mark264 tail)
+                      (emit-raw! (make-raw-parse-event 'open-field 'value (offset pos)))
+                      (let (open265 tail)
+                        (let (next266
+                            (if (< pos limit)
+                              (let (input (vector-ref significant pos))
+                                (if (eq? (token-kind input) 'heredoc)
+                                  (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                          (if next266
+                            (begin
+                              (if (eq? tail open265)
+                                (rollback! mark264)
+                                (emit-raw!
+                                  (make-raw-parse-event
+                                    'close-field
+                                    'value
+                                    (range-end pos next266)))) next266)
+                            (begin (rollback! mark264) #f))))))
+                  (if next263
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'HeredocExpression
+                          (range-end pos next263))) next263)
+                    (begin (rollback! mark261) #f)))))))
+        (events-number-expression
+          (lambda (pos)
+            (let (mark267 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'NumberExpression (offset pos)))
+              (let (open268 tail)
+                (let (next269
+                    (let (mark270 tail)
+                      (emit-raw! (make-raw-parse-event 'open-field 'value (offset pos)))
+                      (let (open271 tail)
+                        (let (next272
+                            (if (< pos limit)
+                              (let (input (vector-ref significant pos))
+                                (if (eq? (token-kind input) 'number)
+                                  (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                          (if next272
+                            (begin
+                              (if (eq? tail open271)
+                                (rollback! mark270)
+                                (emit-raw!
+                                  (make-raw-parse-event
+                                    'close-field
+                                    'value
+                                    (range-end pos next272)))) next272)
+                            (begin (rollback! mark270) #f))))))
+                  (if next269
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'NumberExpression
+                          (range-end pos next269))) next269)
+                    (begin (rollback! mark267) #f)))))))
+        (events-tuple-expression
+          (lambda (pos)
+            (let (mark273 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'TupleExpression (offset pos)))
+              (let (open274 tail)
+                (let (next275
+                    (let (mark276 tail)
+                      (let (next277
+                          (if (< pos limit)
+                            (let (input (vector-ref significant pos))
+                              (if (equal? (token-lexeme input) "[")
+                                (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                        (if next277
+                          (let (next278
+                              (let repeat-loop279
+                                ((next280 next277) (count281 0))
+                                (let (mark282 tail)
+                                  (let (after283
+                                      (if (< next280 limit)
+                                        (let (input (vector-ref significant next280))
+                                          (if (eq? (token-kind input) 'newline)
+                                            (begin (emit-raw! input) (fx+ next280 1)) #f)) #f))
+                                    (if after283
+                                      (begin
+                                        (when
+                                          (= after283 next280)
+                                          (error "zero-width repeated grammar expression"))
+                                        (repeat-loop279 after283 (fx+ count281 1)))
+                                      (begin (rollback! mark282) next280))))))
+                            (if next278
+                              (let (next284
+                                  (let (mark285 tail)
+                                    (let (next286 (events-tuple-elements next278))
+                                      (if next286 next286 (begin (rollback! mark285) next278)))))
+                                (if next284
+                                  (let (next287
+                                      (if (< next284 limit)
+                                        (let (input (vector-ref significant next284))
+                                          (if (equal? (token-lexeme input) "]")
+                                            (begin (emit-raw! input) (fx+ next284 1)) #f)) #f))
+                                    (if next287 next287 (begin (rollback! mark276) #f)))
+                                  (begin (rollback! mark276) #f)))
+                              (begin (rollback! mark276) #f)))
+                          (begin (rollback! mark276) #f)))))
+                  (if next275
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'TupleExpression
+                          (range-end pos next275))) next275)
+                    (begin (rollback! mark273) #f)))))))
+        (events-tuple-elements
+          (lambda (pos)
+            (let (mark288 tail)
+              (let (next289
+                  (let (mark290 tail)
+                    (emit-raw! (make-raw-parse-event 'open-field 'element (offset pos)))
+                    (let (open291 tail)
+                      (let (next292 (events-expression pos))
+                        (if next292
+                          (begin
+                            (if (eq? tail open291)
+                              (rollback! mark290)
+                              (emit-raw!
+                                (make-raw-parse-event
+                                  'close-field
+                                  'element
+                                  (range-end pos next292)))) next292)
+                          (begin (rollback! mark290) #f))))))
+                (if next289
+                  (let (next293
+                      (let (mark294 tail)
+                        (let (next295 (events-tuple-tail next289))
+                          (if next295 next295 (begin (rollback! mark294) next289)))))
+                    (if next293 next293 (begin (rollback! mark288) #f)))
+                  (begin (rollback! mark288) #f))))))
+        (events-tuple-tail
+          (lambda (pos)
+            (let (mark296 tail)
+              (let (next297
+                  (let (mark298 tail)
+                    (let (next299
+                        (if (< pos limit)
+                          (let (input (vector-ref significant pos))
+                            (if (equal? (token-lexeme input) ",")
+                              (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                      (if next299
+                        (let (next300
+                            (let repeat-loop301
+                              ((next302 next299) (count303 0))
+                              (let (mark304 tail)
+                                (let (after305
+                                    (if (< next302 limit)
+                                      (let (input (vector-ref significant next302))
+                                        (if (eq? (token-kind input) 'newline)
+                                          (begin (emit-raw! input) (fx+ next302 1)) #f)) #f))
+                                  (if after305
+                                    (begin
+                                      (when
+                                        (= after305 next302)
+                                        (error "zero-width repeated grammar expression"))
+                                      (repeat-loop301 after305 (fx+ count303 1)))
+                                    (begin (rollback! mark304) next302))))))
+                          (if next300
+                            (let (next306
+                                (let (mark307 tail)
+                                  (let (next308 (events-tuple-elements next300))
+                                    (if next308 next308 (begin (rollback! mark307) next300)))))
+                              (if next306 next306 (begin (rollback! mark298) #f)))
+                            (begin (rollback! mark298) #f)))
+                        (begin (rollback! mark298) #f)))))
+                (if next297 next297
+                  (begin
+                    (rollback! mark296)
+                    (let (next309
+                        (let (mark310 tail)
+                          (let (next311
+                              (let repeat-loop312
+                                ((next313 pos) (count314 0))
+                                (let (mark315 tail)
+                                  (let (after316
+                                      (if (< next313 limit)
+                                        (let (input (vector-ref significant next313))
+                                          (if (eq? (token-kind input) 'newline)
+                                            (begin (emit-raw! input) (fx+ next313 1)) #f)) #f))
+                                    (if after316
+                                      (begin
+                                        (when
+                                          (= after316 next313)
+                                          (error "zero-width repeated grammar expression"))
+                                        (repeat-loop312 after316 (fx+ count314 1)))
+                                      (begin (rollback! mark315) (if (> count314 0) next313 #f)))))))
+                            (if next311
+                              (let (next317
+                                  (let (mark318 tail)
+                                    (let (next319 (events-tuple-elements next311))
+                                      (if next319 next319 (begin (rollback! mark318) next311)))))
+                                (if next317 next317 (begin (rollback! mark310) #f)))
+                              (begin (rollback! mark310) #f)))))
+                      (if next309 next309 (begin (rollback! mark296) #f)))))))))
+        (events-object-expression
+          (lambda (pos)
+            (let (mark320 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'ObjectExpression (offset pos)))
+              (let (open321 tail)
+                (let (next322
+                    (let (mark323 tail)
+                      (let (next324
+                          (if (< pos limit)
+                            (let (input (vector-ref significant pos))
+                              (if (equal? (token-lexeme input) "{")
+                                (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                        (if next324
+                          (let (next325
+                              (let repeat-loop326
+                                ((next327 next324) (count328 0))
+                                (let (mark329 tail)
+                                  (let (after330
+                                      (let (mark331 tail)
+                                        (let (next332
+                                            (if (< next327 limit)
+                                              (let (input (vector-ref significant next327))
+                                                (if (eq? (token-kind input) 'newline)
+                                                  (begin (emit-raw! input) (fx+ next327 1)) #f)) #f))
+                                          (if next332 next332
+                                            (begin
+                                              (rollback! mark331)
+                                              (let (next333
+                                                  (let (mark334 tail)
+                                                    (emit-raw!
+                                                      (make-raw-parse-event
+                                                        'open-field
+                                                        'entry
+                                                        (offset next327)))
+                                                    (let (open335 tail)
+                                                      (let (next336 (events-object-entry next327))
+                                                        (if next336
+                                                          (begin
+                                                            (if (eq? tail open335)
+                                                              (rollback! mark334)
+                                                              (emit-raw!
+                                                                (make-raw-parse-event
+                                                                  'close-field
+                                                                  'entry
+                                                                  (range-end next327 next336)))) next336)
+                                                          (begin (rollback! mark334) #f))))))
+                                                (if next333 next333
+                                                  (begin (rollback! mark331) #f))))))))
+                                    (if after330
+                                      (begin
+                                        (when
+                                          (= after330 next327)
+                                          (error "zero-width repeated grammar expression"))
+                                        (repeat-loop326 after330 (fx+ count328 1)))
+                                      (begin (rollback! mark329) next327))))))
+                            (if next325
+                              (let (next337
+                                  (if (< next325 limit)
+                                    (let (input (vector-ref significant next325))
+                                      (if (equal? (token-lexeme input) "}")
+                                        (begin (emit-raw! input) (fx+ next325 1)) #f)) #f))
+                                (if next337 next337 (begin (rollback! mark323) #f)))
+                              (begin (rollback! mark323) #f)))
+                          (begin (rollback! mark323) #f)))))
+                  (if next322
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event
+                          'close-node
+                          'ObjectExpression
+                          (range-end pos next322))) next322)
+                    (begin (rollback! mark320) #f)))))))
+        (events-object-entry
+          (lambda (pos)
+            (let (mark338 tail)
+              (emit-raw! (make-raw-parse-event 'open-node 'ObjectEntry (offset pos)))
+              (let (open339 tail)
+                (let (next340
+                    (let (mark341 tail)
+                      (let (next342
+                          (let (mark343 tail)
+                            (emit-raw! (make-raw-parse-event 'open-field 'key (offset pos)))
+                            (let (open344 tail)
+                              (let (next345
+                                  (let (mark346 tail)
+                                    (let (next347
+                                        (if (< pos limit)
+                                          (let (input (vector-ref significant pos))
+                                            (if (eq? (token-kind input) 'identifier)
+                                              (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                      (if next347 next347
+                                        (begin
+                                          (rollback! mark346)
+                                          (let (next348
+                                              (if (< pos limit)
+                                                (let (input (vector-ref significant pos))
+                                                  (if (eq? (token-kind input) 'string)
+                                                    (begin (emit-raw! input) (fx+ pos 1)) #f)) #f))
+                                            (if next348 next348 (begin (rollback! mark346) #f))))))))
+                                (if next345
+                                  (begin
+                                    (if (eq? tail open344)
+                                      (rollback! mark343)
+                                      (emit-raw!
+                                        (make-raw-parse-event
+                                          'close-field
+                                          'key
+                                          (range-end pos next345)))) next345)
+                                  (begin (rollback! mark343) #f))))))
+                        (if next342
+                          (let (next349
+                              (let (mark350 tail)
+                                (let (next351
+                                    (if (< next342 limit)
+                                      (let (input (vector-ref significant next342))
+                                        (if (equal? (token-lexeme input) "=")
+                                          (begin (emit-raw! input) (fx+ next342 1)) #f)) #f))
+                                  (if next351 next351
+                                    (begin
+                                      (rollback! mark350)
+                                      (let (next352
+                                          (if (< next342 limit)
+                                            (let (input (vector-ref significant next342))
+                                              (if (equal? (token-lexeme input) ":")
+                                                (begin (emit-raw! input) (fx+ next342 1)) #f)) #f))
+                                        (if next352 next352 (begin (rollback! mark350) #f))))))))
+                            (if next349
+                              (let (next353
+                                  (let (mark354 tail)
+                                    (emit-raw!
+                                      (make-raw-parse-event 'open-field 'value (offset next349)))
+                                    (let (open355 tail)
+                                      (let (next356 (events-expression next349))
+                                        (if next356
+                                          (begin
+                                            (if (eq? tail open355)
+                                              (rollback! mark354)
+                                              (emit-raw!
+                                                (make-raw-parse-event
+                                                  'close-field
+                                                  'value
+                                                  (range-end next349 next356)))) next356)
+                                          (begin (rollback! mark354) #f))))))
+                                (if next353
+                                  (let (next357
+                                      (let (mark358 tail)
+                                        (let (next359
+                                            (if (< next353 limit)
+                                              (let (input (vector-ref significant next353))
+                                                (if (equal? (token-lexeme input) ",")
+                                                  (begin (emit-raw! input) (fx+ next353 1)) #f)) #f))
+                                          (if next359 next359
+                                            (begin (rollback! mark358) next353)))))
+                                    (if next357 next357 (begin (rollback! mark341) #f)))
+                                  (begin (rollback! mark341) #f)))
+                              (begin (rollback! mark341) #f)))
+                          (begin (rollback! mark341) #f)))))
+                  (if next340
+                    (begin
+                      (emit-raw!
+                        (make-raw-parse-event 'close-node 'ObjectEntry (range-end pos next340))) next340)
+                    (begin (rollback! mark338) #f))))))))
+      (let (end (events-config-file 0))
+        (if (and end (= end limit))
+          (make-success-parse-artifact/raw-events direct-hcl-grammar-digest source tokens
+            (cdr head)
+            (parser-machine-trivia machine) source-bytes) #f)))))

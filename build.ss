@@ -30,6 +30,7 @@
     "languages/gql/iso-39075-2024/parser-test.ss"
     "languages/gql/iso-39075-2024/query-syntax-test.ss"
     "languages/hcl/v2-24/parser-test.ss"
+    "languages/hcl/v2-24/generate-direct.ss"
     "languages/fhirpath/v2.0.0/parser-test.ss"
     "languages/hl7/v2-2.5.1/parser-test.ss"
     "languages/tla-plus/v1/parser-test.ss"))

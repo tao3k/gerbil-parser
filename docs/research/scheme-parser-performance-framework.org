@@ -838,7 +838,7 @@ prototype also kept exact artifacts but measured 11.038 ms versus 11.075 ms
 without the corridor in a same-process comparison. None removed enough
 semantic work to warrant integration.
 
-The first =t/benchmarks/hcl-scale/generate-recursive.ss= version compiled the
+The first =languages/hcl/v2-24/generate-direct.ss= version compiled the
 HCL Grammar IR's sequence, choice, optional, repeat, field, alias, literal,
 token, and reference forms into Scheme recursive-descent functions. They
 constructed the existing recognition nodes and used the standard Scheme
@@ -850,6 +850,8 @@ the current IR in native CI. It is installed only for the matching grammar
 digest and used for fresh unobserved HCL source requests. A non-admitted
 source returns to the existing parser-directed LR route, which owns rejection,
 diagnostics, checkpoints, and observed execution.
+The source generator lives beside the HCL grammar and is excluded from the
+runtime library build.
 
 The integrated AOT benchmark compared the previous fused LR source path and
 the public generated entry in one executable, with strict artifact equality

@@ -18,6 +18,7 @@
         +diagnostic-schema+
         sha256-text
         make-success-parse-artifact
+        make-raw-parse-event
         make-success-parse-artifact/raw-events
         make-same-width-token-artifact
         make-shifted-token-artifact
@@ -242,14 +243,15 @@
                     '() source-bytes)))
     value))
 
-;;; A generated semantic action stream uses token objects and open/close
-;;; descriptors. Resolve trivia and allocate canonical IDs once, after the
-;;; speculative parser has committed its successful branch.
+;;; Generated semantic actions carry token objects or one of these named
+;;; descriptors. Byte offsets are measured in the original source.
+(defstruct raw-parse-event (operation name byte-offset) transparent: #t)
+
+;;; Resolve trivia and allocate canonical IDs once, after the speculative
+;;; parser has committed its successful branch.
 (def (make-success-parse-artifact/raw-events grammar-digest source tokens
-                                             raw-events trivia?
-                                             (source-bytes #f))
-  (let* ((bytes (or source-bytes (string->utf8 source)))
-         (source-byte-length (u8vector-length bytes))
+                                             raw-events trivia? source-bytes)
+  (let* ((source-byte-length (u8vector-length source-bytes))
          (remaining tokens)
          (events (cons #f '()))
          (tail events)
@@ -280,41 +282,45 @@
     (let loop ((raw raw-events))
       (unless (null? raw)
         (let (entry (car raw))
-          (if (token? entry)
-            (begin
-              (emit-trivia-until! (token-start entry))
-              (emit-token! entry))
-            (case (vector-ref entry 0)
+          (cond
+           ((raw-parse-event? entry)
+            (case (raw-parse-event-operation entry)
               ((open-node)
-               (let* ((kind (vector-ref entry 1))
+               (let* ((kind (raw-parse-event-name entry))
                       (start (if (= next-node-id 0)
-                               0 (vector-ref entry 2)))
+                               0 (raw-parse-event-byte-offset entry)))
                       (id next-node-id))
                  (emit-trivia-until! start)
                  (emit! (vector 'start-node id kind start))
                  (set! next-node-id (fx+ next-node-id 1))
                  (set! node-ids (cons id node-ids))))
               ((close-node)
-               (let* ((kind (vector-ref entry 1))
+               (let* ((kind (raw-parse-event-name entry))
                       (end (if (null? (cdr node-ids))
-                             source-byte-length (vector-ref entry 2)))
+                             source-byte-length
+                             (raw-parse-event-byte-offset entry)))
                       (id (car node-ids)))
                  (emit-trivia-until! end)
                  (emit! (vector 'finish-node id kind end))
                  (set! node-ids (cdr node-ids))))
               ((open-field)
-               (let (start (vector-ref entry 2))
+               (let (start (raw-parse-event-byte-offset entry))
                  (emit-trivia-until! start)
                  (emit! (vector 'start-field
-                                (vector-ref entry 1) start))))
+                                (raw-parse-event-name entry) start))))
               ((close-field)
                (emit! (vector 'finish-field
-                              (vector-ref entry 1) (vector-ref entry 2))))
-              (else (error "unknown generated event" entry)))))
+                              (raw-parse-event-name entry)
+                              (raw-parse-event-byte-offset entry))))
+              (else (error "unknown generated event" entry))))
+           ((token? entry)
+            (emit-trivia-until! (token-start entry))
+            (emit-token! entry))
+           (else (error "invalid generated event" entry))))
         (loop (cdr raw))))
     (unless (and (null? remaining) (null? node-ids))
       (error "generated event stream is incomplete"))
-    (artifact grammar-digest source 'accepted (cdr events) '() bytes)))
+    (artifact grammar-digest source 'accepted (cdr events) '() source-bytes)))
 
 ;;; A certified same-width edit changes exactly one token event. The unchanged
 ;;; suffix remains shared, including node and field events.

@@ -166,11 +166,13 @@
                #f))))))))
 ;;; Write the generated syntax as source, with one readable form per line of
 ;;; structure. `write` still owns escaping of symbols, strings, and literals.
+;;; Keep the expanded module below the native source-policy limit of 1000 lines.
+(def +generated-line-width+ 190)
 (def (fits-on-line? form indent)
   (<= (+ indent
          (string-length
           (call-with-output-string (lambda (port) (write form port)))))
-      96))
+      +generated-line-width+))
 
 (def (write-generated-form form port (indent 0))
   (cond

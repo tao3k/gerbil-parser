@@ -112,6 +112,21 @@
         (check (parse-artifact-roundtrip artifact) => source)
         (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
         (check artifact => (parse-hcl-indexed-baseline source))))
+    (test-case "compact HCL grows the rollback event vector losslessly"
+      (let* ((source
+              (call-with-output-string
+               (lambda (port)
+                 (let loop ((i 0))
+                   (when (< i 128)
+                     (display "key" port)
+                     (display i port)
+                     (display "=1\n" port)
+                     (loop (fx+ i 1)))))))
+             (artifact (parse-hcl-v2-24 source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
+        (check artifact => (parse-hcl-indexed-baseline source))))
     (test-case "generated events preserve Unicode byte offsets and trivia"
       (let* ((source "名称 = \"λ中😀\"\n# 注释\n")
              (artifact (parse-hcl-v2-24 source)))

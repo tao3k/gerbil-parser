@@ -19,7 +19,7 @@
         sha256-text
         make-success-parse-artifact
         make-raw-parse-event
-        make-success-parse-artifact/raw-events
+        make-success-parse-artifact/raw-event-tape
         make-same-width-token-artifact
         make-shifted-token-artifact
         make-certified-window-artifact
@@ -243,14 +243,14 @@
                     '() source-bytes)))
     value))
 
-;;; Generated semantic actions carry token objects or one of these named
-;;; descriptors. Byte offsets are measured in the original source.
+;;; Named raw descriptors remain available for inspection. The generated HCL
+;;; hot path stores their operation, name, and byte offset in a flat tape.
 (defstruct raw-parse-event (operation name byte-offset) transparent: #t)
 
 ;;; Resolve trivia and allocate canonical IDs once, after the speculative
-;;; parser has committed its successful branch.
-(def (make-success-parse-artifact/raw-events grammar-digest source tokens
-                                             raw-events trivia? source-bytes)
+;;; parser commits a populated prefix of the request-local tape.
+(def (make-success-parse-artifact/raw-event-tape
+      grammar-digest source tokens tape raw-count trivia? source-bytes)
   (let* ((source-byte-length (u8vector-length source-bytes))
          (remaining tokens)
          (events (cons #f '()))
@@ -279,45 +279,37 @@
                    (token-kind (car remaining))))
           (emit-token! (car remaining))
           (loop))))
-    (let loop ((raw raw-events))
-      (unless (null? raw)
-        (let (entry (car raw))
-          (cond
-           ((raw-parse-event? entry)
-            (case (raw-parse-event-operation entry)
-              ((open-node)
-               (let* ((kind (raw-parse-event-name entry))
-                      (start (if (= next-node-id 0)
-                               0 (raw-parse-event-byte-offset entry)))
-                      (id next-node-id))
-                 (emit-trivia-until! start)
-                 (emit! (vector 'start-node id kind start))
-                 (set! next-node-id (fx+ next-node-id 1))
-                 (set! node-ids (cons id node-ids))))
-              ((close-node)
-               (let* ((kind (raw-parse-event-name entry))
-                      (end (if (null? (cdr node-ids))
-                             source-byte-length
-                             (raw-parse-event-byte-offset entry)))
-                      (id (car node-ids)))
-                 (emit-trivia-until! end)
-                 (emit! (vector 'finish-node id kind end))
-                 (set! node-ids (cdr node-ids))))
-              ((open-field)
-               (let (start (raw-parse-event-byte-offset entry))
-                 (emit-trivia-until! start)
-                 (emit! (vector 'start-field
-                                (raw-parse-event-name entry) start))))
-              ((close-field)
-               (emit! (vector 'finish-field
-                              (raw-parse-event-name entry)
-                              (raw-parse-event-byte-offset entry))))
-              (else (error "unknown generated event" entry))))
-           ((token? entry)
-            (emit-trivia-until! (token-start entry))
-            (emit-token! entry))
-           (else (error "invalid generated event" entry))))
-        (loop (cdr raw))))
+    (let loop ((index 0))
+      (when (< index raw-count)
+        (let* ((base (* 3 index))
+               (operation (vector-ref tape base))
+               (name (vector-ref tape (fx+ base 1)))
+               (byte-offset (vector-ref tape (fx+ base 2))))
+          (case operation
+            ((token)
+             (emit-trivia-until! (token-start name))
+             (emit-token! name))
+            ((open-node)
+             (let* ((start (if (= next-node-id 0) 0 byte-offset))
+                    (id next-node-id))
+               (emit-trivia-until! start)
+               (emit! (vector 'start-node id name start))
+               (set! next-node-id (fx+ next-node-id 1))
+               (set! node-ids (cons id node-ids))))
+            ((close-node)
+             (let ((end (if (null? (cdr node-ids))
+                          source-byte-length byte-offset))
+                   (id (car node-ids)))
+               (emit-trivia-until! end)
+               (emit! (vector 'finish-node id name end))
+               (set! node-ids (cdr node-ids))))
+            ((open-field)
+             (emit-trivia-until! byte-offset)
+             (emit! (vector 'start-field name byte-offset)))
+            ((close-field)
+             (emit! (vector 'finish-field name byte-offset)))
+            (else (error "unknown generated event" operation)))
+          (loop (fx+ index 1)))))
     (unless (and (null? remaining) (null? node-ids))
       (error "generated event stream is incomplete"))
     (artifact grammar-digest source 'accepted (cdr events) '() source-bytes)))

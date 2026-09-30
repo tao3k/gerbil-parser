@@ -42,7 +42,7 @@
            (let (input (vector-ref significant ,pos))
              (if ,test
                (begin
-                 (emit-raw! input)
+                 (emit-event! 'token input 0)
                  (fx+ ,pos 1))
                #f))
            #f)))
@@ -51,7 +51,7 @@
             (next (fresh "next")) (count (fresh "count"))
             (mark (fresh "mark")) (after (fresh "after")))
         `(let ,loop-name ((,next ,pos) (,count 0))
-           (let (,mark tail)
+           (let (,mark event-count)
              (let (,after ,(compile-expression child next))
                (if ,after
                  (begin
@@ -66,23 +66,20 @@
     (def (compile-wrapper name child field? pos)
       (let ((mark (fresh "mark")) (open (fresh "open"))
             (next (fresh "next")))
-        `(let (,mark tail)
-           (emit-raw!
-            (make-raw-parse-event ',(if field? 'open-field 'open-node)
-                                  ',name (offset ,pos)))
-           (let (,open tail)
+        `(let (,mark event-count)
+           (emit-event! ',(if field? 'open-field 'open-node)
+                        ',name (offset ,pos))
+           (let (,open event-count)
              (let (,next ,(compile-expression child pos))
                (if ,next
                  (begin
                    ,(if field?
-                      `(if (eq? tail ,open)
+                      `(if (= event-count ,open)
                          (rollback! ,mark)
-                         (emit-raw!
-                          (make-raw-parse-event
-                           'close-field ',name (range-end ,pos ,next))))
-                      `(emit-raw!
-                        (make-raw-parse-event
-                         'close-node ',name (range-end ,pos ,next))))
+                         (emit-event! 'close-field ',name
+                                      (range-end ,pos ,next)))
+                      `(emit-event! 'close-node ',name
+                                    (range-end ,pos ,next)))
                    ,next)
                  (begin (rollback! ,mark) #f)))))))
     (def (compile-expression expr pos)
@@ -93,15 +90,15 @@
         (['reference name] `(,(rule-procedure name) ,pos))
         (['sequence . children]
          (let (mark (fresh "mark"))
-           `(let (,mark tail)
+           `(let (,mark event-count)
               ,(compile-sequence-steps children pos mark))))
         (['choice . choices]
          (let (mark (fresh "mark"))
-           `(let (,mark tail)
+           `(let (,mark event-count)
               ,(compile-choice-steps choices pos mark))))
         (['optional child]
          (let ((mark (fresh "mark")) (next (fresh "next")))
-           `(let (,mark tail)
+           `(let (,mark event-count)
               (let (,next ,(compile-expression child pos))
                 (if ,next ,next
                   (begin (rollback! ,mark) ,pos))))))
@@ -124,8 +121,7 @@
              (only-in :gerbil-parser/src/runtime/token
                       token-kind token-lexeme token-start token-end)
              (only-in :gerbil-parser/src/runtime/artifact
-                      make-raw-parse-event
-                      make-success-parse-artifact/raw-events))
+                      make-success-parse-artifact/raw-event-tape))
      (export direct-parse-hcl direct-hcl-grammar-digest)
      (def direct-hcl-grammar-digest
        ,(parser-machine-grammar-digest hcl-v2-24-parser))
@@ -136,8 +132,8 @@
               (limit (vector-length significant))
               (source-bytes (string->utf8 source))
               (byte-length (u8vector-length source-bytes))
-              (head (cons #f '()))
-              (tail head))
+              (events (make-vector (* 3 (max 64 (* 6 (length tokens)))) #f))
+              (event-count 0))
          (def (offset pos)
            (if (< pos limit)
              (token-start (vector-ref significant pos))
@@ -145,13 +141,22 @@
          (def (range-end start next)
            (if (= start next) (offset start)
              (token-end (vector-ref significant (fx- next 1)))))
-         (def (emit-raw! raw)
-           (let (cell (cons raw '()))
-             (set-cdr! tail cell)
-             (set! tail cell)))
+         (def (emit-event! operation name byte-offset)
+           (when (= (* 3 event-count) (vector-length events))
+             (let* ((old events)
+                    (grown (make-vector (* 2 (vector-length old)) #f)))
+               (let loop ((i 0))
+                 (when (< i (* 3 event-count))
+                   (vector-set! grown i (vector-ref old i))
+                   (loop (fx+ i 1))))
+               (set! events grown)))
+           (let (base (* 3 event-count))
+             (vector-set! events base operation)
+             (vector-set! events (fx+ base 1) name)
+             (vector-set! events (fx+ base 2) byte-offset))
+           (set! event-count (fx+ event-count 1)))
          (def (rollback! mark)
-           (set-cdr! mark '())
-           (set! tail mark))
+           (set! event-count mark))
          (letrec
              ,(map (lambda (row)
                      `(,(rule-procedure (car row))
@@ -160,8 +165,8 @@
                    rules)
            (let (end (events-config-file 0))
              (if (and end (= end limit))
-               (make-success-parse-artifact/raw-events
-                direct-hcl-grammar-digest source tokens (cdr head)
+               (make-success-parse-artifact/raw-event-tape
+                direct-hcl-grammar-digest source tokens events event-count
                 (parser-machine-trivia machine) source-bytes)
                #f))))))))
 ;;; Write the generated syntax as source, with one readable form per line of

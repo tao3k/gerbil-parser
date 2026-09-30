@@ -915,6 +915,37 @@ module passes a byte-for-byte freshness check, the complete 49-module native
 test suite, and the lossless artifact checks. A matched standalone AOT result
 remains unverified for this slice.
 
+** Rollback flat event tape for the 1,024-line HCL Basic path
+
+The generated event-action parser previously allocated a pair and a named
+descriptor for each speculative raw event before building canonical events.
+An intermediate vector of descriptors preserved the named type, but improved
+1,024-line complete parsing by only about 1.5% after the concurrent HCL
+generator refactor. The admitted path stores =operation=, =name=, and byte
+offset in one request-local flat vector. Choice rollback restores an integer
+cursor. The single artifact authority in =src/runtime/artifact.ss= materializes
+only its accepted prefix. The named descriptor remains available for
+inspection. This follows the paper's allocation-oriented direction while
+retaining the exact full =ParseArtifact= contract. Initial capacity covers six
+raw events per lexed token, with geometric growth for denser expressions.
+
+Against the clean remote =9ceca64= head, separate-process 20-batch medians
+of 10 complete parses at 1,024 Basic lines were 5.607 ms CPU before and
+3.369 ms after; a second production run measured 3.084 ms. A same-process
+prototype comparison with exact artifact preflight measured 5.558 to 3.149
+ms, with 20/20 paired wins. At 3,200 lines the remote and production medians
+were 18.518 and 15.346 ms. These are local compiled-module results; the
+separate-process medians are not paired confidence intervals. The complete
+49-module native suite passed after the generator move. It covers the official
+accepted/rejected specimens, Unicode byte offsets, a 1,024-line indexed
+baseline comparison, and compact 128-line input that forces tape growth.
+Standalone AOT throughput and peak memory remain separate gates.
+
+Two predictive-branch prototypes were rejected for this slice. A proven
+second-token guard for HCL =body-item= and a disjoint first-token dispatch
+for =primary-expression= each improved the 1,024-line input by only about
+3% in local paired runs; neither was installed.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

@@ -645,6 +645,21 @@ narrows the next vertical slice to grammar-specialized transition, reduction,
 and stack behavior together; removing control branches alone is insufficient
 for this engine's full parse product.
 
+On PR head =fbd8c35=, another Scheme experiment prepared a semantic-action
+plan per production at =lr-prepare= time, so deterministic LR and selective GLR
+would no longer extract each RHS operand's actions on every reduction. The
+v0.19 build and focused arithmetic, HCL, GQL, parser-runtime, and canonical-LR
+tests passed. In the same pinned package environment, the 20-sample 512-line
+complete ParseArtifact best CPU time was 1.240 ms with plans and 1.309 ms on
+the rebuilt baseline. The 3,200-term five-sample prepared LR best moved the
+other way, from 3.545 ms baseline to 3.662 ms with plans; the complete parse
+best likewise moved from 7.218 ms to 7.555 ms. These small, opposite-direction
+results do not establish a throughput gain. The plan added a vector lookup and
+an extra runtime descriptor while leaving LR transitions and the semantic
+action interpreter separate, so it was reverted. The next generated experiment
+must fuse transition and semantic work end to end rather than only hoist
+production metadata.
+
 The prepared action row now indexes ASCII single-character literals directly
 by character code. Multi-character and Unicode literals retain the existing
 list/table index; exact literal lookup still precedes case-folded literal and

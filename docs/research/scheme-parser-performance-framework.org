@@ -713,11 +713,11 @@ A first fused Scheme-code experiment now lives in
 source with =gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss /tmp/fused-lr-aot.ss=,
 compile it with =gxc -O -exe -o /tmp/fused-lr-aot /tmp/fused-lr-aot.ss=,
 then run =/tmp/fused-lr-aot 1024 lines prepared 20 10= or substitute =source=
-for =prepared=. The generator consumes the compiled arithmetic Parser IR; it
+or =artifact= for =prepared=. The generator consumes the compiled arithmetic Parser IR; it
 emits state-specific action selection, inlined reduction expressions, and goto
 branches as Scheme source. Field/alias constructors remain the shared semantic
 helpers. Every timed run preflights the generated recognition tree against the
-existing LR result and the complete directed =ParseArtifact= on 20 varied
+existing LR result and the complete directed =ParseArtifact= on 24 varied
 expressions plus the measured input. Strict mode rejects any fallthrough to the
 generic interpreter, so a claimed fast-path result cannot silently reparse.
 The executable alternates measurement order between samples, invokes GC before
@@ -730,11 +730,35 @@ generated executor; source-to-recognition medians were 3.421 and 2.546 ms.
 The 3,200-term secondary scale measured 6.499 versus 3.618 ms prepared and
 7.169 versus 4.976 ms from source. Earlier repeated AOT runs of the same
 algorithm, including reversed measurement order, also favored generated
-execution, though absolute CPU medians varied with host load. This is a
-bounded arithmetic recognition result: full =parse-arithmetic-v1= still uses
-the parser-directed streaming executor and has no measured speedup from this
-prototype. The next integration boundary is generated streaming execution
-with exact checkpoint/GLR handoff and existing diagnostic behavior.
+execution, though absolute CPU medians varied with host load.
+
+The same generator now emits a streaming state driver as
+=languages/arithmetic/v1/direct-lr.ss=. Its lexical-mode identities come from
+the prepared LR catalog; it requests one token under the current state mode,
+builds the same recognition values, and records shifts through the existing
+source driver's callback. =parser-machine= admits it only when its embedded
+grammar digest matches the machine. A missing action, fork, or invalid goto
+returns =fallback=, so the ordinary driver restarts with fresh scanner state
+and retains its diagnostic and selective-GLR behavior. The arithmetic v1
+production entry uses the generated driver for unobserved fresh parses;
+incremental and observed requests keep their existing executor. Run
+=gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/v1/direct-lr.ss=
+to compare the checked-in output byte for byte with the current Scheme IR;
+native CI runs this check after building the package.
+
+The experimental streaming benchmark matched the complete directed artifact
+for 24 varied expressions, including Unicode identifiers, and both large
+input shapes without falling back. Three 20-sample AOT batches gave 1,024-line
+complete-artifact CPU medians of 3.412--3.476 ms for the indexed driver and
+2.532--2.599 ms for the generated driver; the 3,200-term ranges were
+10.257--10.594 ms and 7.363--7.589 ms. After integrating the driver, four
+alternating AOT runs of the old and new =parse-arithmetic-v1= executables
+measured 3.224--3.260 versus 2.512--2.571 ms at 1,024 lines and
+9.377--9.535 versus 6.488--6.558 ms at 3,200 terms. The package's warm
+build measured 6.35 s on this host. The corresponding AOT benchmark executable
+grew from 22,416,616 to 22,738,832 bytes. These are matched host observations for
+one grammar, not a cross-grammar or Djot speed ranking. Generalizing the
+emitter beyond arithmetic still requires semantic and build-size qualification.
 
 The prepared action row now indexes ASCII single-character literals directly
 by character code. Multi-character and Unicode literals retain the existing

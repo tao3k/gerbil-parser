@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Appended to generated LR source to make a standalone matched AOT benchmark.
 
-(import (only-in :gerbil-parser/src/runtime/lexer lex-source)
+(import (only-in :gerbil-parser/src/runtime/lexer
+                 lex-source scan-source-token)
         (only-in :gerbil-parser/src/runtime/significant
                  parser-significant-tokens)
         (only-in :gerbil-parser/src/runtime/artifact
@@ -26,7 +27,46 @@
   '("1" "123" "a" "a+b" "1+2*3" "(1+2)*3" "-1+2"
     "-(1+2)" "+a" "1-2-3" "1/(2+3)" "(-1)" "a*b/c"
     "1 +\n 2 +\n 3" "(a + b) * (c - d)" "1+2*3-4/5"
-    "((((1))))" "a + -b" "-a*-b" "1\n+\n2"))
+    "((((1))))" "a + -b" "-a*-b" "1\n+\n2"
+    "π+1" "α + β" "1 + 中" "é+2"))
+
+(def (parse-source/fused source)
+  (let ((source-length (string-length source))
+        (trivia? (parser-machine-trivia arithmetic-parser))
+        (runtime (parser-machine-runtime arithmetic-parser))
+        (character-offset 0)
+        (byte-offset 0)
+        (pending-character #f)
+        (tokens-reversed '()))
+    (def (next-input mode)
+      (if (= character-offset source-length)
+        #f
+        (let-values (((input-token next-character)
+                      (scan-source-token arithmetic-parser source
+                                         character-offset byte-offset mode)))
+          (let (start-character character-offset)
+            (set! character-offset next-character)
+            (set! byte-offset (token-end input-token))
+            (if (trivia? input-token)
+              (begin
+                (set! tokens-reversed (cons input-token tokens-reversed))
+                (next-input mode))
+              (begin
+                (set! pending-character start-character)
+                input-token))))))
+    (def (after-shift input-token _states _values _actions _shifts)
+      (set! tokens-reversed (cons input-token tokens-reversed))
+      (set! pending-character #f))
+    (let-values (((status payload)
+                  (direct-drive runtime next-input after-shift)))
+      (unless (and (eq? status 'accepted)
+                   (= character-offset source-length)
+                   (not pending-character)
+                   (null? (cadr payload)))
+        (error "generated streaming LR left its fast path" status source))
+      (make-success-parse-artifact
+       (parser-machine-grammar-digest arithmetic-parser)
+       source (reverse tokens-reversed) (car payload) trivia?))))
 
 (def (assert-same-artifact source)
   (let* ((tokens (lex-source arithmetic-parser source))
@@ -39,6 +79,9 @@
       (unless (and (null? reference-rest)
                    (null? generated-rest)
                    (equal? reference generated)
+                   (equal?
+                    (parse-source/fused source)
+                    (parse-arithmetic-v1 source))
                    (equal?
                     (parse-arithmetic-v1 source)
                     (make-success-parse-artifact
@@ -57,10 +100,10 @@
          (iterations (string->number (argument 4 "10"))))
     (unless (and (integer? terms) (positive? terms)
                  (memq shape '(lines terms))
-                 (memq mode '(prepared source))
+                 (memq mode '(prepared source artifact))
                  (integer? samples) (positive? samples)
                  (integer? iterations) (positive? iterations))
-      (error "expected size, lines/terms, prepared/source, samples, iterations"
+      (error "expected size, lines/terms, prepared/source/artifact, samples, iterations"
              args))
     (let* ((source (addition-source terms shape))
            (input (parser-significant-tokens
@@ -69,14 +112,19 @@
       (for-each assert-same-artifact validation-sources)
       (assert-same-artifact source)
       (def (parse-one generated?)
-        (let (prepared
-              (if (eq? mode 'prepared)
-                input
-                (parser-significant-tokens
-                 arithmetic-parser (lex-source arithmetic-parser source))))
-          (if generated?
-            (direct-parse prepared #t)
-            (lr-parse/prepared runtime prepared))))
+        (if (eq? mode 'artifact)
+          (values (if generated?
+                    (parse-source/fused source)
+                    (parse-arithmetic-v1 source))
+                  '())
+          (let (prepared
+                (if (eq? mode 'prepared)
+                  input
+                  (parser-significant-tokens
+                   arithmetic-parser (lex-source arithmetic-parser source))))
+            (if generated?
+              (direct-parse prepared #t)
+              (lr-parse/prepared runtime prepared)))))
       (def (measure generated?)
         (##gc)
         (let ((started (##current-time-point))

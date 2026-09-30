@@ -29,7 +29,9 @@
         parser-machine-lex
         parser-machine-trivia
         parser-machine-runtime
-        parser-machine-parse)
+        parser-machine-parse
+        parser-machine-direct-drive
+        install-parser-machine-direct-drive!)
 
 ;; parser-machine
 ;;   : ParserMachine
@@ -43,8 +45,20 @@
 ;;       ;; => #t for a generated parser machine
 ;;       ```
 ;;     %
-(defstruct parser-machine (ir grammar-digest lex trivia runtime parse)
+(defstruct parser-machine (ir grammar-digest lex trivia runtime parse direct-drive)
   transparent: #t)
+
+;;; A generated driver is admitted only for the exact Parser IR whose digest
+;;; was embedded in its source. Install during language-module initialization,
+;;; before the machine is shared with parser requests.
+(def (install-parser-machine-direct-drive! machine digest drive)
+  (unless (and (parser-machine? machine)
+               (string? digest)
+               (equal? digest (parser-machine-grammar-digest machine))
+               (procedure? drive)
+               (not (parser-machine-direct-drive machine)))
+    (error "generated LR driver does not match parser machine" digest))
+  (parser-machine-direct-drive-set! machine drive))
 
 ;;; Expands one closed lexical algebra case into its ordinary scanner call.
 ;;; The templates preserve source/offset bindings; runtime behavior stays in scan.ss.
@@ -615,4 +629,5 @@
            runtime tokens
            (if (null? maybe-observability)
              #f
-             (car maybe-observability)))))))))
+             (car maybe-observability))))
+        #f)))))

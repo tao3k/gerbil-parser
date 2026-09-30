@@ -5,7 +5,7 @@
         (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-parse parser-machine-runtime
-                 parser-machine-trivia)
+                 parser-machine-trivia parser-machine-direct-drive)
         (only-in ./artifact
                  +diagnostic-schema+ make-failure-parse-artifact
                  make-success-parse-artifact parse-artifact-success?)
@@ -104,7 +104,8 @@
 ;;; A fresh parse keeps one LR execution loop open while the scanner supplies
 ;;; tokens under the current LR mode. The ordinary checkpoint path below still
 ;;; owns sparse incremental captures and observed phase boundaries.
-(def (parse-source/directed/stream machine grammar-digest source initial)
+(def (parse-source/directed/stream machine grammar-digest source initial
+                                   (use-generated? #t))
   (let ((source-length (string-length source))
         (trivia? (parser-machine-trivia machine))
         (character-offset 0)
@@ -142,7 +143,15 @@
       (make-success-parse-artifact
        grammar-digest source tokens root trivia?))
     (let-values (((status payload)
-                  (lr-checkpoint-drive initial next-input after-shift)))
+                  (let (direct-drive
+                        (and use-generated?
+                             (parser-machine-direct-drive machine)))
+                    (if direct-drive
+                      (direct-drive
+                       (parser-machine-runtime machine)
+                       next-input after-shift)
+                      (lr-checkpoint-drive
+                       initial next-input after-shift)))))
       (case status
         ((accepted)
          (unless (and (= character-offset source-length)
@@ -151,6 +160,12 @@
                   character-offset source-length))
          (publish (reverse tokens-reversed)
                   (car payload) (cadr payload)))
+        ((fallback)
+         ;; A generated driver only handles its admitted deterministic path.
+         ;; Restart with the original checkpoint and fresh scanner state so
+         ;; rejected inputs and GLR forks keep the existing diagnostic owner.
+         (parse-source/directed/stream
+          machine grammar-digest source initial #f))
         ((fork)
          (let* ((suffix
                  (lex-source-from

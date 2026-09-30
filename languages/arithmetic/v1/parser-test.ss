@@ -2,6 +2,8 @@
 ;;; Arithmetic language-pack entry and native fixture contract.
 
 (import (only-in :std/test check test-case test-suite)
+        (only-in :gerbil-parser/src/compiler/machine
+                 parser-machine-direct-drive)
         (only-in :gerbil-parser/src/language/entry
                  +language-parser-entry-schema+ language-parser-entry-ref)
         (only-in :gerbil-parser/src/runtime/artifact
@@ -11,11 +13,16 @@
                  syntax-fixture-source syntax-fixture-source-digest)
         (only-in :gerbil-parser/src/testing/parser-ast check-parser-ast)
         (only-in ./fixtures arithmetic-v1-basic-fixture)
-        (only-in ./parser arithmetic-v1-language parse-arithmetic-v1))
+        (only-in ./parser
+                 arithmetic-parser arithmetic-v1-language
+                 parse-arithmetic-v1))
 (export arithmetic-v1-parser-test)
 
 (def arithmetic-v1-parser-test
   (test-suite "arithmetic v1 language pack"
+    (test-case "compiled arithmetic machine installs its direct LR driver"
+      (check (procedure? (parser-machine-direct-drive arithmetic-parser))
+             => #t))
     (test-case "the declarative entry parses its colocated native fixture"
       (let* ((fixture arithmetic-v1-basic-fixture)
              (source (syntax-fixture-source fixture))
@@ -31,6 +38,18 @@
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-ref artifact 'sourceDigest)
                => (syntax-fixture-source-digest fixture))
+        (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "generated streaming LR preserves the 1024-line source"
+      (let* ((source
+              (call-with-output-string
+               (lambda (port)
+                 (let loop ((remaining 1024))
+                   (display "1" port)
+                   (when (> remaining 1)
+                     (display "+\n" port)
+                     (loop (fx- remaining 1)))))))
+             (artifact (parse-arithmetic-v1 source)))
+        (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)))
     (test-case "canonical AST shape is an exact parser contract"
       (check-parser-ast (parse-arithmetic-v1 "1") "1"

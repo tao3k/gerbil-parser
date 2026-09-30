@@ -1,15 +1,35 @@
 ;;; -*- Gerbil -*-
 ;;; Experimental fused Scheme LR generator for the arithmetic benchmark.
 ;;; This consumes the compiled Parser IR; the grammar remains the sole author.
-(import (only-in :gerbil-parser/languages/arithmetic/v1/grammar arithmetic-parser-ir)
+(import (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+                 arithmetic-parser-ir arithmetic-parser)
+        (only-in :std/misc/ports read-all-as-string)
+        (only-in :gerbil-parser/src/compiler/machine
+                 parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/compiler/lr
                  lr-spec-ref production-table production-lhs production-rhs
-                 production-action operand-actions))
+                 production-action operand-actions)
+        (only-in :gerbil-parser/src/runtime/lr-parser
+                 lr-prepare lr-runtime-lexical-mode-catalog
+                 lr-lexical-mode-terminals))
 
 (def spec (cdr (assq 'lr-spec arithmetic-parser-ir)))
 (def actions (lr-spec-ref spec 'actions))
 (def gotos (lr-spec-ref spec 'gotos))
 (def table (production-table (lr-spec-ref spec 'productions)))
+(def mode-catalog
+  (lr-runtime-lexical-mode-catalog (lr-prepare spec)))
+
+(def (state-mode-id state)
+  (let (terminals (map car (vector-ref actions state)))
+    (let loop ((index 0))
+      (if (= index (vector-length mode-catalog))
+        (error "LR lexical mode missing from prepared catalog" state)
+        (if (equal? terminals
+                    (lr-lexical-mode-terminals
+                     (vector-ref mode-catalog index)))
+          index
+          (loop (fx+ index 1)))))))
 
 (def (nth-tail name count)
   (let loop ((n count) (value name))
@@ -58,7 +78,7 @@
        ,@(reverse clauses)
        (else #f))))
 
-(def (reduce-expression production-id)
+(def (reduce-expression production-id (stream? #f))
   (let* ((production (vector-ref table production-id))
          (count (length (production-rhs production)))
          (bindings
@@ -81,7 +101,8 @@
             (target ,(goto-expression (production-lhs production))))
        (if target
          (loop (cons target remaining-states)
-               (cons value remaining-values) rest)
+               (cons value remaining-values) rest
+               ,@(if stream? '((fx+ actions 1) shifts) '()))
          (fallback)))))
 
 (def (action-expression entry)
@@ -131,6 +152,75 @@
                (append literals eof tokens))
        (else (fallback)))))
 
+(def (stream-action-expression entry)
+  (case (cadr entry)
+    ((shift)
+     `(if (pair? rest)
+        (let ((next-states (cons ,(caddr entry) states))
+              (next-values
+               (cons (list (make-recognition-child #f (car rest)))
+                     semantic-values))
+              (next-actions (fx+ actions 1))
+              (next-shifts (fx+ shifts 1)))
+          (after-shift (car rest) next-states next-values
+                       next-actions next-shifts)
+          (loop next-states next-values (cdr rest)
+                next-actions next-shifts))
+        (fallback)))
+    ((reduce) (reduce-expression (caddr entry) #t))
+    ((accept)
+     '(let (children
+            (and (pair? semantic-values)
+                 (recognition-sequence->list (car semantic-values))))
+        (if (and (pair? children)
+                 (null? (cdr children))
+                 (not (recognition-child-field (car children))))
+          (values 'accepted
+                  (list (recognition-child-value (car children)) rest))
+          (fallback))))
+    (else '(fallback))))
+
+(def (stream-state-expression state)
+  (let* ((row (vector-ref actions state))
+         (literals (filter (lambda (entry)
+                             (eq? (cadr (car entry)) 'literal)) row))
+         (tokens (filter (lambda (entry)
+                           (eq? (cadr (car entry)) 'token)) row))
+         (eof (filter (lambda (entry)
+                        (eq? (cadr (car entry)) 'eof)) row)))
+    `(let (rest
+           (if (null? rest)
+             (let (input-token
+                   (next-input (vector-ref modes ,(state-mode-id state))))
+               (if input-token
+                 (begin
+                   (set! input-end-offset
+                         (max input-end-offset (token-end input-token)))
+                   (list input-token))
+                 '()))
+             rest))
+       (cond
+        ,@(map (lambda (entry)
+                  `(,(terminal-predicate (car entry))
+                    ,(stream-action-expression entry)))
+                (append literals eof tokens))
+        (else (fallback))))))
+
+(def (stream-drive-expression)
+  `(def (direct-drive runtime next-input after-shift)
+     (let ((modes (lr-runtime-lexical-mode-catalog runtime))
+           (input-end-offset 0))
+       (def (fallback) (values 'fallback #f))
+       (let loop ((states '(0)) (semantic-values '()) (rest '())
+                  (actions 0) (shifts 0))
+         (case (car states)
+           ,@(let loop ((i 0) (acc '()))
+               (if (= i (vector-length actions))
+                 (reverse acc)
+                 (loop (fx+ i 1)
+                       (cons `((,i) ,(stream-state-expression i)) acc))))
+           (else (fallback)))))))
+
 (def (module-expression)
   `(begin
      (import (only-in :gerbil-parser/languages/arithmetic/v1/grammar
@@ -138,7 +228,7 @@
              (only-in :gerbil-parser/src/compiler/machine
                       parser-machine-runtime)
              (only-in :gerbil-parser/src/runtime/lr-parser
-                      lr-parse/prepared)
+                      lr-parse/prepared lr-runtime-lexical-mode-catalog)
              (only-in :gerbil-parser/src/runtime/recognition
                       make-recognition-child make-recognition-fragment
                       recognition-child-field recognition-child-value)
@@ -148,7 +238,7 @@
                       recognition-sequence->list recognition-sequence-append)
              (only-in :gerbil-parser/src/runtime/token
                       token-kind token-lexeme token-start token-end))
-     (export direct-parse)
+     (export direct-parse direct-drive)
      (def (direct-parse tokens (strict? #f))
        (let* ((runtime (parser-machine-runtime arithmetic-parser))
               (input-end-offset
@@ -166,22 +256,58 @@
                    (reverse acc)
                    (loop (+ i 1)
                          (cons `((,i) ,(state-expression i)) acc))))
-             (else (fallback))))))))
+             (else (fallback))))))
+     ,(stream-drive-expression)))
+
+(def (production-module-expression)
+  `(begin
+     (import (only-in :gerbil-parser/src/runtime/lr-parser
+                      lr-runtime-lexical-mode-catalog)
+             (only-in :gerbil-parser/src/runtime/recognition
+                      make-recognition-child make-recognition-fragment
+                      recognition-child-field recognition-child-value)
+             (only-in :gerbil-parser/src/runtime/reduce
+                      recognition-children-field recognition-children-alias)
+             (only-in :gerbil-parser/src/runtime/funcs
+                      recognition-sequence->list recognition-sequence-append)
+             (only-in :gerbil-parser/src/runtime/token
+                      token-kind token-lexeme token-start token-end))
+     (export direct-drive direct-grammar-digest)
+     (def direct-grammar-digest
+       ,(parser-machine-grammar-digest arithmetic-parser))
+     ,(stream-drive-expression)))
+
+(def (emit-generated port module?)
+  (display ";;; Generated from arithmetic Parser IR; regenerate with generate-fused-lr.ss.\n" port)
+  (write
+   (if module?
+     (production-module-expression)
+     (module-expression)) port)
+  (newline port)
+  (unless module?
+    (call-with-input-file
+     "t/benchmarks/arithmetic-scale/fused-lr-benchmark-body.ss"
+     (lambda (source)
+       (let loop ((character (read-char source)))
+         (unless (eof-object? character)
+           (write-char character port)
+           (loop (read-char source))))))))
 
 (def (main . args)
-  (unless (= (length args) 1)
-    (error "expected generated benchmark source path" args))
-  (let (output-path (car args))
-    (call-with-output-file output-path
-      (lambda (port)
-        (display ";;; Generated from arithmetic Parser IR for bounded AOT experiment.\n" port)
-        (write (module-expression) port)
-        (newline port)
-        (call-with-input-file
-         "t/benchmarks/arithmetic-scale/fused-lr-benchmark-body.ss"
-         (lambda (source)
-           (let loop ((character (read-char source)))
-             (unless (eof-object? character)
-               (write-char character port)
-               (loop (read-char source))))))))))
+  (cond
+   ((= (length args) 1)
+    (call-with-output-file (car args)
+      (lambda (port) (emit-generated port #f))))
+   ((and (= (length args) 2) (equal? (car args) "module"))
+    (call-with-output-file (cadr args)
+      (lambda (port) (emit-generated port #t))))
+   ((and (= (length args) 2) (equal? (car args) "check"))
+    (let ((expected
+           (call-with-output-string
+            (lambda (port) (emit-generated port #t))))
+          (actual (call-with-input-file (cadr args) read-all-as-string)))
+      (unless (string=? expected actual)
+        (error "generated arithmetic LR source is stale" (cadr args)))
+      (displayln "GENERATED-LR-OK")))
+   (else (error "expected [module|check] generated source path" args))))
 (export main)

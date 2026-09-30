@@ -41,6 +41,7 @@ These are source observations; measured costs appear below.
 | Trofimovich, /RE2C: A lexer generator based on lookahead-TDFA/ (2020), https://doi.org/10.1016/j.simpa.2020.100027 ; implementation https://re2c.org/ | Compile regular lexical rules into deterministic automata ahead of time. | Strong model for a first Scheme-generated lexer experiment. External and nonregular scanners need an explicit fallback. |
 | Denny and Malloy, /The IELR(1) algorithm/ (2010), https://doi.org/10.1016/j.scico.2009.08.001 ; Bison manual https://www.gnu.org/software/bison/manual/bison.html | Avoid some LALR inadequacies without canonical LR table explosion. | Candidate when grammar acceptance or conflict counts show LALR is the binding constraint; not itself an edit-local performance framework. |
 | Horspool, /Even faster LR parsing/ (1990), https://doi.org/10.1002/spe.4380200602 | Compile LR table entries into directly executed parser code. | Candidate for Scheme AOT generation from the embedded Parser IR; integer-packing the existing interpreted table is not an implementation of this method. |
+| Sperber and Thiemann, /The Essence of LR Parsing/ (1995), https://doi.org/10.1145/215465.215579 ; author PDF https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf | Specialize a functional LR interpreter against a fixed grammar; the paper presents direct-style and continuation-passing variants without an explicit parsing stack. | A Scheme-specific code-generation model beyond replacing action lookup alone. Its AST and error-recovery contracts differ from this engine's lossless ParseArtifact and selective GLR, so a generated path must retain the existing interpreter as a semantic fallback. |
 
 The cited sources describe algorithms and implementation capabilities. None
 establishes that this repository will become faster merely by adopting a name
@@ -628,6 +629,21 @@ called a closure per LR action, tested terminal clauses in Scheme, and left
 semantic reduction in the interpreter. The prototype was reverted. The next
 direct-code experiment needs to fuse state transition and reduction execution,
 not merely replace indexed action lookup with generated conditions.
+
+A separate experiment based on PR head =13f164c= specialized the whole-source
+LR driver, removing budget, frontier,
+and observation branches from the ordinary action loop while retaining the
+indexed action table, immutable stacks, and exact selective-GLR handoff.
+Gerbil v0.19 build and focused arithmetic, HCL, GQL, parser-runtime, and
+canonical-LR tests passed. In one process on the same prepared 512-line token
+stream, best LR CPU time was 0.792 ms through the generic driver and 0.754 ms
+through the specialized driver (20 measured iterations after three warmups).
+The complete 512-line ParseArtifact benchmark did not improve: best CPU time
+was 1.255 ms on the baseline and 1.290 ms with the specialized driver, with
+large host outliers in both runs. The duplicate driver was reverted. This
+narrows the next vertical slice to grammar-specialized transition, reduction,
+and stack behavior together; removing control branches alone is insufficient
+for this engine's full parse product.
 
 The prepared action row now indexes ASCII single-character literals directly
 by character code. Multi-character and Unicode literals retain the existing

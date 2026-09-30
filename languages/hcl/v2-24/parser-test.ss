@@ -155,6 +155,75 @@
         (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
         (check artifact => (direct-parse-hcl hcl-v2-24-parser source #f))
         (check artifact => (parse-hcl-indexed-baseline source))))
+    (test-case "ASCII quoted strings retain ranked tokens and artifacts"
+      (for-each
+       (lambda (source)
+         (check (direct-lex-hcl source)
+                => (lex-source hcl-v2-24-parser source))
+         (let (artifact (parse-hcl-v2-24 source))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check artifact => (direct-parse-hcl hcl-v2-24-parser
+                                                source #t #f))
+           (check artifact => (parse-hcl-indexed-baseline source))))
+       '("name = \"value\"\n"
+         "name = \"a\\\"b\"\n"
+         "name = \"a\"\"b\"\n"
+         "name = \"// not a comment\"\n"
+         "name = \"a\nb\"\n")))
+    (test-case "unsupported quoted strings fall back to ranked lexing"
+      (for-each
+       (lambda (source)
+         (check (direct-lex-hcl source) => #f)
+         (check (direct-parse-hcl hcl-v2-24-parser source)
+                => (direct-parse-hcl hcl-v2-24-parser source #t #f)))
+       '("name = \"雪\"\n" "name = \"unterminated\n")))
+    (test-case "generated quoted-string tokens match ranked scanning"
+      (let ((seed 3857)
+            (pieces '#("a" "0" " " "\\\\" "\\\"" "//")))
+        (def (next-random modulus)
+          (set! seed (modulo (+ (* seed 1103515245) 12345) 2147483648))
+          (modulo seed modulus))
+        (let cases ((i 0))
+          (when (< i 128)
+            (let* ((source
+                    (call-with-output-string
+                     (lambda (port)
+                       (display "key = \"" port)
+                       (let parts ((remaining (next-random 12)))
+                         (when (> remaining 0)
+                           (display (vector-ref pieces
+                                                (next-random
+                                                 (vector-length pieces)))
+                                    port)
+                           (parts (fx- remaining 1))))
+                       (display "\"\n" port))))
+                   (fast (direct-lex-hcl source))
+                   (artifact (direct-parse-hcl hcl-v2-24-parser source)))
+              (unless (and fast
+                           (equal? fast (lex-source hcl-v2-24-parser source))
+                           (parse-artifact-success? artifact)
+                           (equal? artifact
+                                   (direct-parse-hcl hcl-v2-24-parser
+                                                     source #t #f)))
+                (error "quoted-string lexical path changed HCL" source)))
+            (cases (fx+ i 1))))))
+    (test-case "1024 ASCII string lines retain the indexed artifact"
+      (let* ((source
+              (call-with-output-string
+               (lambda (port)
+                 (let loop ((i 0))
+                   (when (< i 1024)
+                     (display "key" port)
+                     (display i port)
+                     (display " = \"value\"\n" port)
+                     (loop (fx+ i 1)))))))
+             (artifact (parse-hcl-v2-24 source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check artifact => (direct-parse-hcl hcl-v2-24-parser
+                                             source #t #f))
+        (check artifact => (parse-hcl-indexed-baseline source))))
     (test-case "simple attributes and late complex fallback retain artifacts"
       (for-each
        (lambda (source)

@@ -1012,6 +1012,45 @@ gxi -e '(import
 "1024" "20" "10")'=. These are same-process compiled-module results for a
 bounded HCL subset; standalone AOT and peak memory remain unmeasured.
 
+** Closed ASCII quoted-string scanner for HCL
+
+The generated HCL lexer previously restarted the ranked scanner for every
+quoted string, even when the source otherwise matched its closed ASCII
+subset. The new branch calls the shared =scan-quoted-string= primitive for
+escape and doubled-delimiter semantics, then emits the same =string= token and
+byte offsets as ranked scanning. It admits only ASCII characters. Unsupported
+or malformed strings still use ranked lexing for the entire source. The
+parser already needs UTF-8 source bytes for =ParseArtifact=; computing them
+before lexing lets it skip the generated scanner altogether when byte length
+differs from character length. This prevents a late Unicode character from
+forcing a second full lexical pass. The implementation is a closed generated
+scanner specialization, not a complete HCL lexical DFA.
+
+The checked-in pure Scheme benchmark alternates the ranked and generated
+lexer in one process, performs strict token and full =ParseArtifact= preflight,
+and times 20 batches of ten complete parses with a 1 GiB Gambit heap. For
+1,024 =keyN= assignments with ASCII quoted values, ranked and generated
+medians were 2.695 and 1.257 ms CPU, with 20/20 paired wins. At 3,200 lines
+they were 13.079 and 6.438 ms, also 20/20. With a Unicode value in the last
+of 1,024 lines, both paths used ranked fallback; medians were 2.292 versus
+2.377 ms CPU, with 8/20 wins for the generated path. The small residual cost
+is not a gain.
+Focused tests compare escaped, doubled, multiline, and seeded ASCII strings
+with ranked tokens and indexed full artifacts, and require Unicode and
+unterminated strings to fall back. Run =gxc -O
+t/benchmarks/hcl-scale/quoted-string-benchmark.ss=, then =gerbil env gxi -e
+'(import :gerbil-parser/t/benchmarks/hcl-scale/quoted-string-benchmark) (main
+"1024" "20" "10" "ascii")'=. These are compiled-module measurements, not
+standalone AOT throughput or peak-memory results.
+
+Two other paper-oriented candidates were rejected in this round. A closed
+block/attribute event corridor matched complete artifacts but improved
+1,024 block-rich lines by only 10-15%, while its 3,200-line results varied
+from about 1% to 12% across matched runs. Replacing canonical event-list
+construction with a preallocated vector regressed 1,024-line Basic parsing
+by 8.6%; replacing only the node-ID cons stack with a vector also regressed
+at that size. Neither change remains in the runtime.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

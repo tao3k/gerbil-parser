@@ -145,6 +145,7 @@
      (import (only-in :gerbil-parser/src/compiler/machine
                       parser-machine-trivia)
              (only-in :gerbil-parser/src/runtime/lexer lex-source)
+             (only-in :gerbil-parser/src/runtime/scan scan-quoted-string)
              (only-in :gerbil-parser/src/runtime/significant
                       parser-significant-tokens)
              (only-in :gerbil-parser/src/runtime/token
@@ -163,6 +164,14 @@
        (or (ascii-alpha? ch) (ascii-digit? ch) (char=? ch #\-)))
      (def (direct-lex-hcl source)
        (let (length (string-length source))
+         (def (scan-ascii-string start)
+           (let (end (scan-quoted-string source start "\""))
+             (and end
+                  (let check ((index start))
+                    (if (= index end)
+                      end
+                      (and (< (char->integer (string-ref source index)) 128)
+                           (check (fx+ index 1))))))))
          (let loop ((start 0) (tokens '()))
            (if (= start length)
              (reverse tokens)
@@ -176,44 +185,52 @@
                       ((or (char=? ch #\newline) (char=? ch #\return))
                        'newline)
                       ((char=? ch #\=) 'punctuation)
+                      ((char=? ch #\") 'string)
                       (else #f))))
                (if (not kind)
                  #f
-                 (let scan ((end (fx+ start 1)))
-                   (if (and (< end length)
-                            (let (next (string-ref source end))
-                              (case kind
-                                ((identifier) (ascii-ident-rest? next))
-                                ((number) (ascii-digit? next))
-                                ((horizontal-whitespace)
-                                 (or (char=? next #\space)
-                                     (char=? next #\tab)))
-                                ((newline)
-                                 (or (char=? next #\newline)
-                                     (char=? next #\return)))
-                                (else #f))))
-                     (scan (fx+ end 1))
-                     (if (and (eq? kind 'number) (< end length)
-                              (let (next (string-ref source end))
-                                (or (char=? next #\.) (char=? next #\e)
-                                    (char=? next #\E))))
-                       #f
-                       (if (and (eq? kind 'punctuation) (< end length)
-                                (char=? (string-ref source end) #\=))
-                         #f
-                         (loop end
-                               (cons (make-token kind
-                                                 (substring source start end)
-                                                 start end)
-                                     tokens))))))))))))
-     (def (direct-parse-hcl machine source (use-simple? #t))
-       (let* ((tokens (or (direct-lex-hcl source)
+                 (let (first-end (if (eq? kind 'string)
+                                    (scan-ascii-string start)
+                                    (fx+ start 1)))
+                   (and first-end
+                        (let scan ((end first-end))
+                           (if (and (< end length)
+                                    (let (next (string-ref source end))
+                                      (case kind
+                                        ((identifier) (ascii-ident-rest? next))
+                                        ((number) (ascii-digit? next))
+                                        ((horizontal-whitespace)
+                                         (or (char=? next #\space)
+                                             (char=? next #\tab)))
+                                        ((newline)
+                                         (or (char=? next #\newline)
+                                             (char=? next #\return)))
+                                        (else #f))))
+                             (scan (fx+ end 1))
+                             (if (and (eq? kind 'number) (< end length)
+                                      (let (next (string-ref source end))
+                                        (or (char=? next #\.) (char=? next #\e)
+                                            (char=? next #\E))))
+                               #f
+                               (if (and (eq? kind 'punctuation) (< end length)
+                                        (char=? (string-ref source end) #\=))
+                                 #f
+                                 (loop end
+                                       (cons (make-token kind
+                                                         (substring source start end)
+                                                         start end)
+                                             tokens))))))))))))))
+     (def (direct-parse-hcl machine source (use-simple? #t)
+                            (use-fast-lex? #t))
+       (let* ((source-bytes (string->utf8 source))
+              (byte-length (u8vector-length source-bytes))
+              (tokens (or (and use-fast-lex?
+                               (= byte-length (string-length source))
+                               (direct-lex-hcl source))
                           (lex-source machine source)))
               (significant
                (list->vector (parser-significant-tokens machine tokens)))
               (limit (vector-length significant))
-              (source-bytes (string->utf8 source))
-              (byte-length (u8vector-length source-bytes))
               (events (make-vector (* 3 (max 64 (* 6 (length tokens)))) #f))
               (event-count 0))
          (def (offset pos)

@@ -22,6 +22,12 @@
                  value-interner-hit-count
                  value-interner-intern
                  vector-intern-map)
+        (only-in ./lr-action-index
+                 index-action-row
+                 lookup-action-entry
+                 lookup-literal-action-entry
+                 lr-action-row-eof
+                 lr-action-row-tokens)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
@@ -81,11 +87,6 @@
 ;;; same terminal row.
 (defstruct lr-lexical-mode (id terminals) transparent: #t)
 
-;;; ASCII punctuation has a direct action slot; longer/Unicode literals and
-;;; token kinds retain their existing indexes. Entries remain the original
-;;; (terminal . action) pairs for GLR receipt and action identity semantics.
-(defstruct lr-action-row (ascii-literals literals tokens eof) transparent: #t)
-
 ;;; Immutable continuation of the deterministic LR machine.  The constructor
 ;;; remains private: every public checkpoint is tied to the exact prepared
 ;;; runtime and original token sequence that produced it.
@@ -135,62 +136,6 @@
   (any (lambda (irritant)
          (and (list? irritant) (assq 'failureKind irritant)))
        (error-irritants condition)))
-
-(def (index-action-entries entries)
-  (if (<= (length entries) 8)
-    entries
-    (let (index (make-table test: equal?))
-      (for-each
-       (lambda (entry)
-         (unless (table-ref index (car entry) #f)
-           (table-set! index (car entry) (cdr entry))))
-       entries)
-      index)))
-
-(def (index-action-row row)
-  (let ((ascii-literals #f) (literals '()) (tokens '()) (eof #f))
-    (for-each
-     (lambda (entry)
-       (let (terminal (car entry))
-         (case (cadr terminal)
-           ((literal)
-            (let (literal (caddr terminal))
-              (if (and (string? literal)
-                       (= (string-length literal) 1)
-                       (< (char->integer (string-ref literal 0)) 128))
-                (begin
-                  (unless ascii-literals
-                    (set! ascii-literals (make-vector 128 #f)))
-                  (let (code (char->integer (string-ref literal 0)))
-                    (unless (vector-ref ascii-literals code)
-                      (vector-set! ascii-literals code entry))))
-                (set! literals (cons (cons literal entry) literals)))))
-           ((token)
-            (set! tokens (cons (cons (caddr terminal) entry) tokens)))
-           ((eof)
-            (unless eof (set! eof entry)))
-           (else (error "unsupported LR action terminal" terminal)))))
-     row)
-    (make-lr-action-row
-     ascii-literals
-     (index-action-entries (reverse literals))
-     (index-action-entries (reverse tokens))
-     eof)))
-
-(def (lookup-action-entry index key)
-  (if (list? index)
-    (let (found (assoc key index))
-      (and found (cdr found)))
-    (table-ref index key #f)))
-
-(def (lookup-literal-action-entry row literal)
-  (if (and (string? literal)
-           (= (string-length literal) 1)
-           (< (char->integer (string-ref literal 0)) 128))
-    (let (ascii (lr-action-row-ascii-literals row))
-      (and ascii
-           (vector-ref ascii (char->integer (string-ref literal 0)))))
-    (lookup-action-entry (lr-action-row-literals row) literal)))
 
 (def (lr-prepare spec)
   (let* ((productions (lr-spec-ref spec 'productions))

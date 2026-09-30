@@ -356,6 +356,7 @@
          ;; Partition by suffix identity and top LR state. Small state buckets
          ;; use assoc; wider buckets retain structural hashing.
          (configuration-tables (make-table test: eq?))
+         (deterministic-memo-fuel 1024)
          (interned-configurations 0)
          (configuration-intern-hits 0)
          (completion-interner (make-value-interner))
@@ -504,7 +505,7 @@
                       (candidate-ambiguities candidate))
                    'ambiguous)))))
           (candidate-with-completion-count winner completion-count))))
-    (def (try-action action terminal states semantic-values rest score)
+    (def (try-action action terminal states semantic-values rest score fuel)
       (case (car action)
         ((shift)
          (and (pair? rest)
@@ -512,7 +513,7 @@
                (cons (cadr action) states)
                (cons (list (make-recognition-child #f (car rest)))
                      semantic-values)
-               (cdr rest) score)))
+               (cdr rest) score fuel)))
         ((reduce)
          (let* ((production-id (cadr action))
                 (production (vector-ref table production-id))
@@ -537,7 +538,7 @@
                                    (production-lhs production)))))
            (and target
                 (try-parse (cons target remaining-states)
-                           (cons value remaining-values) rest next-score))))))
+                           (cons value remaining-values) rest next-score fuel))))))
         ((accept)
          (and (pair? semantic-values)
               (let (children
@@ -582,7 +583,8 @@
                            (lambda (_) #f)
                            (lambda ()
                              (try-action (car branches) terminal
-                                         states semantic-values rest score)))))
+                                         states semantic-values rest score
+                                         deterministic-memo-fuel)))))
                  (unless preferred?
                    (set! speculative-depth (- speculative-depth 1)))
                  (loop (cdr branches)
@@ -597,7 +599,26 @@
                  (cons 'precedence (cadr action))
                  (cons 'associativity (caddr action)))))
         (else (error "unknown LR action" action))))
-    (def (try-parse states semantic-values rest score)
+    ;; Most configurations follow one action. Delay chart allocation until a
+    ;; fork or a long linear path needs cycle detection and result reuse.
+    ;; The bound sends a deterministic grammar cycle to the memoized engine.
+    (def (try-parse states semantic-values rest score
+                    (fuel deterministic-memo-fuel))
+      (if (positive? fuel)
+        (let (action-row
+              (current-action-row action-index (car states) rest
+                                  case-insensitive?))
+          (cond
+           ((not action-row)
+            (record-failure! (car states) rest)
+            #f)
+           ((memq (cadr action-row) '(fork accept))
+            (try-parse/memo states semantic-values rest score))
+           (else
+            (try-action (cdr action-row) (car action-row)
+                        states semantic-values rest score (fx- fuel 1)))))
+        (try-parse/memo states semantic-values rest score)))
+    (def (try-parse/memo states semantic-values rest score)
       (let* ((results (configuration-table rest))
              (state (car states))
              (bucket (table-ref results state '()))
@@ -626,7 +647,7 @@
                    (result
                     (if action-row
                       (try-action (cdr action-row) (car action-row)
-                                  states semantic-values rest score)
+                                  states semantic-values rest score 0)
                       (begin
                         (record-failure! state rest)
                         #f))))

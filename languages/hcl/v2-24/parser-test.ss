@@ -297,6 +297,70 @@
         (check artifact => (direct-parse-hcl hcl-v2-24-parser
                                              source #t #f))
         (check artifact => (parse-hcl-indexed-baseline source))))
+    (test-case "ASCII fractional and exponent numbers retain artifacts"
+      (for-each
+       (lambda (source)
+         (check (direct-lex-hcl source)
+                => (lex-source hcl-v2-24-parser source))
+         (let (artifact (parse-hcl-v2-24 source))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check artifact => (direct-parse-hcl hcl-v2-24-parser
+                                                source #t #f))
+           (check artifact => (parse-hcl-indexed-baseline source))))
+       '("key = 0.5\n" "key=12e3\n" "key=1.25E-3\n"
+         "key=7e+1\n" "key=4.0 # comment\n")))
+    (test-case "numeric boundaries and seeded literals match ranked scanning"
+      (for-each
+       (lambda (source)
+         (let (fast (direct-lex-hcl source))
+           (when fast
+             (check fast => (lex-source hcl-v2-24-parser source))))
+         (check (direct-parse-hcl hcl-v2-24-parser source)
+                => (direct-parse-hcl hcl-v2-24-parser source #t #f)))
+       '("key=1e\n" "key=1e+\n" "key=1.\n"
+         "key=1.2.3\n" "key=1e2foo\n" "key=雪2\n"))
+      (let (seed 7207)
+        (def (next-random modulus)
+          (set! seed (modulo (+ (* seed 1103515245) 12345) 2147483648))
+          (modulo seed modulus))
+        (let cases ((i 0))
+          (when (< i 128)
+            (let* ((source
+                    (string-append
+                     "key = "
+                     (number->string (fx+ 1 (next-random 999)))
+                     "."
+                     (number->string (next-random 1000))
+                     (if (even? i) "e+" "E-")
+                     (number->string (next-random 30))
+                     "\n"))
+                   (fast (direct-lex-hcl source))
+                   (artifact (direct-parse-hcl hcl-v2-24-parser source)))
+              (unless (and fast
+                           (equal? fast (lex-source hcl-v2-24-parser source))
+                           (parse-artifact-success? artifact)
+                           (equal? artifact
+                                   (direct-parse-hcl hcl-v2-24-parser
+                                                     source #t #f)))
+                (error "numeric lexical path changed HCL" source)))
+            (cases (fx+ i 1))))))
+    (test-case "1024 decimal lines retain the indexed artifact"
+      (let* ((source
+              (call-with-output-string
+               (lambda (port)
+                 (let loop ((i 0))
+                   (when (< i 1024)
+                     (display "key" port)
+                     (display i port)
+                     (display " = 1.25\n" port)
+                     (loop (fx+ i 1)))))))
+             (artifact (parse-hcl-v2-24 source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check artifact => (direct-parse-hcl hcl-v2-24-parser
+                                             source #t #f))
+        (check artifact => (parse-hcl-indexed-baseline source))))
     (test-case "simple attributes and late complex fallback retain artifacts"
       (for-each
        (lambda (source)

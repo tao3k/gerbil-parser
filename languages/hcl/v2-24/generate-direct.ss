@@ -146,7 +146,8 @@
                       parser-machine-trivia)
              (only-in :gerbil-parser/src/runtime/lexer lex-source)
              (only-in :gerbil-parser/src/runtime/scan
-                      scan-quoted-string scan-line-comment scan-block-comment)
+                      scan-quoted-string scan-line-comment scan-block-comment
+                      scan-number-literal)
              (only-in :gerbil-parser/src/runtime/significant
                       parser-significant-tokens)
              (only-in :gerbil-parser/src/runtime/token
@@ -225,19 +226,28 @@
                                              (char=? next #\return)))
                                         (else #f))))
                              (scan (fx+ end 1))
-                             (if (and (eq? kind 'number) (< end length)
-                                      (let (next (string-ref source end))
-                                        (or (char=? next #\.) (char=? next #\e)
-                                            (char=? next #\E))))
-                               #f
-                               (if (and (eq? kind 'punctuation) (< end length)
-                                        (char=? (string-ref source end) #\=))
-                                 #f
-                                 (loop end
-                                       (cons (make-token kind
-                                                         (substring source start end)
-                                                         start end)
-                                             tokens))))))))))))))
+                             (let (token-end
+                                   (if (and (eq? kind 'number) (< end length)
+                                            (let (next (string-ref source end))
+                                              (or (char=? next #\.)
+                                                  (char=? next #\e)
+                                                  (char=? next #\E))))
+                                     (ascii-range-end
+                                      start (scan-number-literal source start))
+                                     end))
+                               (and token-end
+                                    (if (and (eq? kind 'punctuation)
+                                             (< token-end length)
+                                             (char=? (string-ref source token-end)
+                                                     #\=))
+                                      #f
+                                      (loop token-end
+                                            (cons (make-token
+                                                   kind
+                                                   (substring source start
+                                                              token-end)
+                                                   start token-end)
+                                                  tokens)))))))))))))))
      (def (direct-parse-hcl machine source (use-simple? #t)
                             (use-fast-lex? #t))
        (let* ((source-bytes (string->utf8 source))

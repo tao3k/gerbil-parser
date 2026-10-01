@@ -1079,6 +1079,32 @@ CRLF, Unicode and unclosed fallback, 128 seeded ASCII cases, and a 1,024-line
 indexed-artifact comparison. These are compiled-module results; standalone
 AOT throughput and peak memory remain unmeasured.
 
+** Closed ASCII fractional and exponent scanner for HCL
+
+The generated lexer had admitted integer digits but restarted ranked lexing
+for decimal fractions and exponents. It now keeps the one-character-at-a-time
+integer path and calls the shared =scan-number-literal= primitive only when
+the digit run is followed by =.=, =e=, or =E=. An ASCII range check and the
+existing UTF-8 byte-length guard preserve the ranked fallback for unsupported
+characters. The generated lexer still uses the ranked scanner as its token
+and full =ParseArtifact= reference; this adds no second number grammar.
+
+The checked-in pure Scheme benchmark performs exact token and artifact
+preflight, then alternates ranked and generated complete parses with a 1 GiB
+heap. At 1,024 assignments, 20 batches of ten parses gave CPU medians of
+2.610 to 1.264 ms for decimal values, 2.398 to 1.277 ms for exponents, and
+2.731 to 1.466 ms for mixed integers/decimals/exponents; each candidate won
+20/20 paired batches. At 3,200 decimal assignments, 20 batches of five parses
+gave 16.900 to 4.081 ms, also 20/20. The original 1,024-line integer Basic
+benchmark recorded 1.206 ms for the generated corridor before this change
+and 1.173 ms afterward in separate runs; it shows no observed regression,
+but those two medians are not a matched A/B test. Focused tests cover numeric
+boundaries, 128 seeded valid literals, and a 1,024-line indexed artifact.
+Run =gxc -O t/benchmarks/hcl-scale/number-benchmark.ss=, then =gerbil env
+gxi -e '(import :gerbil-parser/t/benchmarks/hcl-scale/number-benchmark)
+(main "1024" "20" "10" "decimal")'=. These are compiled-module results;
+standalone AOT throughput and peak memory remain unmeasured.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

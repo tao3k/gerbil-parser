@@ -1051,6 +1051,34 @@ construction with a preallocated vector regressed 1,024-line Basic parsing
 by 8.6%; replacing only the node-ID cons stack with a vector also regressed
 at that size. Neither change remains in the runtime.
 
+** Closed ASCII comment scanner for HCL
+
+The generated lexer now recognizes =#=, =//=, and =/* ... */= comments
+without restarting the ranked lexer for each comment. It calls the shared
+=scan-line-comment= and =scan-block-comment= primitives, preserving their
+terminator and newline rules, then checks that the scanned range is ASCII.
+Unsupported characters and unterminated block comments use the ranked path.
+The parser's existing UTF-8 byte-length guard also avoids a second lexical
+pass when Unicode appears late in the source. This is a bounded HCL lexer
+specialization; the ranked lexer remains the semantic reference.
+
+The checked-in pure Scheme benchmark first compares exact tokens and full
+=ParseArtifact= values. It then alternates ranked and generated complete
+parses in one process for 20 batches of ten parses, with a 1 GiB Gambit heap.
+For 1,024 commented assignments, median CPU time in milliseconds was
+5.334 to 1.602 for =#= (20/20 paired wins), 5.807 to 1.626 for =//=
+(20/20), and 6.006 to 1.477 for =/* ... */= (20/20). For 3,200 =#=
+assignments, the medians were 17.557 to 7.692 ms (20/20). A Unicode
+character in the final comment of 1,024 lines forces ranked fallback;
+medians were 6.073 and 5.843 ms (12/20), which is not evidence of a
+generated-path gain. Run =gxc -O
+t/benchmarks/hcl-scale/comment-benchmark.ss=, then =gerbil env gxi -e
+'(import :gerbil-parser/t/benchmarks/hcl-scale/comment-benchmark) (main
+"1024" "20" "10" "hash")'=. Focused tests cover all three comment forms,
+CRLF, Unicode and unclosed fallback, 128 seeded ASCII cases, and a 1,024-line
+indexed-artifact comparison. These are compiled-module results; standalone
+AOT throughput and peak memory remain unmeasured.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

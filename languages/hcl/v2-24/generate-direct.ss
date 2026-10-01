@@ -145,7 +145,8 @@
      (import (only-in :gerbil-parser/src/compiler/machine
                       parser-machine-trivia)
              (only-in :gerbil-parser/src/runtime/lexer lex-source)
-             (only-in :gerbil-parser/src/runtime/scan scan-quoted-string)
+             (only-in :gerbil-parser/src/runtime/scan
+                      scan-quoted-string scan-line-comment scan-block-comment)
              (only-in :gerbil-parser/src/runtime/significant
                       parser-significant-tokens)
              (only-in :gerbil-parser/src/runtime/token
@@ -164,14 +165,13 @@
        (or (ascii-alpha? ch) (ascii-digit? ch) (char=? ch #\-)))
      (def (direct-lex-hcl source)
        (let (length (string-length source))
-         (def (scan-ascii-string start)
-           (let (end (scan-quoted-string source start "\""))
-             (and end
-                  (let check ((index start))
-                    (if (= index end)
-                      end
-                      (and (< (char->integer (string-ref source index)) 128)
-                           (check (fx+ index 1))))))))
+         (def (ascii-range-end start end)
+           (and end
+                (let check ((index start))
+                  (if (= index end)
+                    end
+                    (and (< (char->integer (string-ref source index)) 128)
+                         (check (fx+ index 1)))))))
          (let loop ((start 0) (tokens '()))
            (if (= start length)
              (reverse tokens)
@@ -186,12 +186,30 @@
                        'newline)
                       ((char=? ch #\=) 'punctuation)
                       ((char=? ch #\") 'string)
+                      ((char=? ch #\#) 'comment)
+                      ((and (char=? ch #\/)
+                            (< (fx+ start 1) length)
+                            (char=? (string-ref source (fx+ start 1)) #\/))
+                       'comment)
+                      ((and (char=? ch #\/)
+                            (< (fx+ start 1) length)
+                            (char=? (string-ref source (fx+ start 1)) #\*))
+                       'block-comment-token)
                       (else #f))))
                (if (not kind)
                  #f
-                 (let (first-end (if (eq? kind 'string)
-                                    (scan-ascii-string start)
-                                    (fx+ start 1)))
+                 (let (first-end
+                       (case kind
+                         ((string)
+                          (ascii-range-end
+                           start (scan-quoted-string source start "\"")))
+                         ((comment)
+                          (ascii-range-end
+                           start (scan-line-comment source start '("#" "//"))))
+                         ((block-comment-token)
+                          (ascii-range-end
+                           start (scan-block-comment source start "/*" "*/")))
+                         (else (fx+ start 1))))
                    (and first-end
                         (let scan ((end first-end))
                            (if (and (< end length)

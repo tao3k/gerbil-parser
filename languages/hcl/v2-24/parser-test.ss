@@ -224,6 +224,79 @@
         (check artifact => (direct-parse-hcl hcl-v2-24-parser
                                              source #t #f))
         (check artifact => (parse-hcl-indexed-baseline source))))
+    (test-case "ASCII comment forms retain ranked tokens and artifacts"
+      (for-each
+       (lambda (source)
+         (check (direct-lex-hcl source)
+                => (lex-source hcl-v2-24-parser source))
+         (let (artifact (parse-hcl-v2-24 source))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check artifact => (direct-parse-hcl hcl-v2-24-parser
+                                                source #t #f))
+           (check artifact => (parse-hcl-indexed-baseline source))))
+       '("# heading\nkey = 1\n"
+         "key=1 // trailing\r\n"
+         "key = 1 /* block\n comment */\n"
+         "key = \"// value\" # comment\n"
+         "/* leading */\nkey = 1\n")))
+    (test-case "Unicode and unterminated comments use ranked fallback"
+      (for-each
+       (lambda (source)
+         (check (direct-lex-hcl source) => #f)
+         (check (direct-parse-hcl hcl-v2-24-parser source)
+                => (direct-parse-hcl hcl-v2-24-parser source #t #f)))
+       '("key = 1 # 雪\n" "key = 1 /* unclosed")))
+    (test-case "generated comment tokens match ranked scanning"
+      (let ((seed 7103)
+            (comment-starts '#("#" "//" "/*"))
+            (alphabet "ab09 #/\t"))
+        (def (next-random modulus)
+          (set! seed (modulo (+ (* seed 1103515245) 12345) 2147483648))
+          (modulo seed modulus))
+        (let cases ((i 0))
+          (when (< i 128)
+            (let* ((start (vector-ref comment-starts (next-random 3)))
+                   (source
+                    (call-with-output-string
+                     (lambda (port)
+                       (display "key = 1 " port)
+                       (display start port)
+                       (let chars ((remaining (next-random 16)))
+                         (when (> remaining 0)
+                           (display (string-ref alphabet
+                                                (next-random
+                                                 (string-length alphabet)))
+                                    port)
+                           (chars (fx- remaining 1))))
+                       (when (equal? start "/*") (display "*/" port))
+                       (display "\r\n" port))))
+                   (fast (direct-lex-hcl source))
+                   (artifact (direct-parse-hcl hcl-v2-24-parser source)))
+              (unless (and fast
+                           (equal? fast (lex-source hcl-v2-24-parser source))
+                           (parse-artifact-success? artifact)
+                           (equal? artifact
+                                   (direct-parse-hcl hcl-v2-24-parser
+                                                     source #t #f)))
+                (error "comment lexical path changed HCL" source)))
+            (cases (fx+ i 1))))))
+    (test-case "1024 commented lines retain the indexed artifact"
+      (let* ((source
+              (call-with-output-string
+               (lambda (port)
+                 (let loop ((i 0))
+                   (when (< i 1024)
+                     (display "key" port)
+                     (display i port)
+                     (display " = 1 # note\n" port)
+                     (loop (fx+ i 1)))))))
+             (artifact (parse-hcl-v2-24 source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check artifact => (direct-parse-hcl hcl-v2-24-parser
+                                             source #t #f))
+        (check artifact => (parse-hcl-indexed-baseline source))))
     (test-case "simple attributes and late complex fallback retain artifacts"
       (for-each
        (lambda (source)

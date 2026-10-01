@@ -279,6 +279,34 @@ and representative parser throughput measurement remain. Keep each phase's
 state/block count and elapsed time separate;
 a smaller table is not by itself a faster parser.
 
+** Stop forward refinement at singleton blocks
+
+The direct follow constructor's forward partition previously ran one more
+global signature pass after every block had become its own group. No further
+split is possible once =group-count= equals =block-count=. It now materializes
+the result immediately at that fixed point. This follows the same monotone
+partition rule as Construction 3.27 and changes neither the partition nor the
+published LR table.
+
+The new =mixed-context-family-rules= fixture joins independent LR(1)-only
+regions with a shared recursive component. Unlike the independent family, it
+requires direct follow construction and compresses the result: at 32 regions,
+canonical has 489 states, while follow has 486 states and 1,033 blocks for
+1,161 output items. The reference test compares accepted and rejected parse
+products at 4, 16, and 32 regions. The existing pure Scheme
+=t/benchmarks/lr1-partition/route-threshold.ss= accepts =mixed= as its third
+argument, for example =gerbil env gxi
+t/benchmarks/lr1-partition/route-threshold.ss 32 20 mixed=.
+
+For a controlled 30-pair, same-process A/B at 32 regions, a temporary switch
+alternated the old confirmation round and the new termination rule. The full
+LR specs were =equal?= for every pair. The old and new CPU medians were 10.516
+and 8.636 ms; the new path won 25 pairs. The 16-region effect was smaller:
+4.093 versus 4.039 ms and 18/30 paired wins. Static predecessor grouping and
+epsilon-closure caching did not show stable whole-construction gains on this
+same direct-route fixture, so they were removed. These are grammar-construction
+measurements; parser runtime throughput is unchanged by this experiment.
+
 The benchmark reports both total time and mean microseconds per invocation.
 In one sequential run with the pinned v0.19 toolchain, 1,000 full compilations
 of the LR(1)-but-not-LALR fixture averaged 79.5 us for canonical and 409.6 us

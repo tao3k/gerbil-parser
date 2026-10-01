@@ -263,7 +263,9 @@
                                      (cons label
                                            (table-ref sources label)))
                                    (list-sort < labels))))))))
-            (if (> next-count group-count)
+            ;; A singleton partition is already stable: no block can split
+            ;; further, so skip the otherwise mandatory confirmation round.
+            (if (and (> next-count group-count) (< next-count count))
               (refine next next-count)
               (let ((merged (make-vector next-count #f))
                     (merged-shifts (make-vector next-count 0))

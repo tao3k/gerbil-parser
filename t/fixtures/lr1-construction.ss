@@ -4,6 +4,7 @@
 (export lr1-not-lalr-rules shared-lookahead-rules
         genuine-reduce-conflict-rules precedence-expression-rules
         mixed-context-rules lr1-context-family-rules
+        mixed-context-family-rules
         inactive-core-conflict-rules)
 
 ;; The c-rule item after "c" has no raw action before its nullable optional
@@ -59,6 +60,33 @@
                 (list 'alias 'SourceFile
                       (cons 'choice (reverse alternatives))))
           (reverse rules))))
+
+;; Add a shared recursive region to independent LR(1)-only contexts. Direct
+;; follow construction compresses the shared region's states and blocks, so
+;; this family exercises forward refinement rather than canonical reuse.
+(def (mixed-context-family-rules count)
+  (let* ((base (lr1-context-family-rules count))
+         (alternatives (cdr (caddr (cadr (car base)))))
+         (recursive
+          (let loop ((index 0) (found '()))
+            (if (= index count)
+              (reverse found)
+              (loop (+ index 1)
+                    (cons (list 'sequence
+                                (list 'literal
+                                      (string-append "region-"
+                                                     (number->string index) ":"))
+                                '(reference component)
+                                '(reference component))
+                          found))))))
+    (cons (list 'source-file
+                (list 'alias 'SourceFile
+                      (cons 'choice (append alternatives recursive))))
+          (append (cdr base)
+                  '((component
+                     (choice
+                      (sequence (literal "c") (reference component))
+                      (literal "d"))))))))
 
 ;; Merging the two LR(1) contexts for A -> c and B -> c creates a spurious
 ;; reduce/reduce conflict. Canonical LR(1) must keep them distinct.

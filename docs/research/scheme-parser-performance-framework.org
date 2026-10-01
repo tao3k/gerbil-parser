@@ -1137,6 +1137,29 @@ accepted artifact validity and exact roundtrip, then compares any independent
 parser routes. HCL and arithmetic tests use it; its own test exercises
 single evaluation and caller bindings with the same names as macro internals.
 
+** Closed flat-block event corridor
+
+The generated HCL module now recognizes an additional closed shape: root-level
+blocks with an identifier type, no labels, and a body containing only simple
+attributes and newlines. The fast lexer covers the braces in this shape.
+The generator emits the =HclFile=, =Block=, =Body=, and attribute fields and
+nodes directly into the canonical event stream. Labels, nested blocks, mixed
+root items, and other expressions retain the generated recursive fallback.
+The grammar digest and lexical declaration check still guard regeneration.
+The generated module remains below the 1,000-line native source-policy limit.
+
+The checked-in pure Scheme benchmark compares complete parses with the same
+fast lexer and alternates the generic and specialized order. It first checks
+exact ranked tokens and full =ParseArtifact= equality. After a clean default
+parallel build, 20 paired batches of ten parses gave median CPU times of
+1.240 versus 0.696 ms for 256 four-line blocks (1,024 lines; 19/20 paired
+wins), and 3.920 versus 2.213 ms for 800 blocks (3,200 lines; 20/20 wins).
+Run =gxc -O t/benchmarks/hcl-scale/flat-block-benchmark.ss=, then
+=gerbil env gxi -e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/flat-block-benchmark)
+(main "256" "20" "10")'=. These are compiled-module, in-process
+measurements on one host; standalone AOT and peak memory remain unmeasured.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

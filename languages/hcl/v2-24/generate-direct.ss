@@ -186,7 +186,10 @@
                        'horizontal-whitespace)
                       ((or (char=? ch #\newline) (char=? ch #\return))
                        'newline)
-                      ((char=? ch #\=) 'punctuation)
+                      ((or (char=? ch #\=)
+                           (char=? ch #\{)
+                           (char=? ch #\}))
+                       'punctuation)
                       ((char=? ch #\") 'string)
                       ((char=? ch #\#) 'comment)
                       ((and (char=? ch #\/)
@@ -348,6 +351,39 @@
                               '(number string identifier)))
                    (loop (fx+ pos 3)))
                   (else #f))))))
+         (def (simple-value-at? pos)
+           (and (< (fx+ pos 2) limit)
+                (eq? (token-kind (vector-ref significant pos)) 'identifier)
+                (equal? (token-lexeme
+                         (vector-ref significant (fx+ pos 1))) "=")
+                (memq (token-kind
+                       (vector-ref significant (fx+ pos 2)))
+                      '(number string identifier))))
+         (def (brace-at? pos brace)
+           (and (< pos limit)
+                (equal? (token-lexeme (vector-ref significant pos)) brace)))
+         (def (flat-blocks?)
+           (let root ((pos 0) (saw-block? #f))
+             (cond
+              ((= pos limit) saw-block?)
+              ((eq? (token-kind (vector-ref significant pos)) 'newline)
+               (root (fx+ pos 1) saw-block?))
+              ((and (< (fx+ pos 1) limit)
+                    (eq? (token-kind (vector-ref significant pos))
+                         'identifier)
+                    (brace-at? (fx+ pos 1) "{"))
+               (let body ((cursor (fx+ pos 2)))
+                 (cond
+                  ((= cursor limit) #f)
+                  ((brace-at? cursor "}")
+                   (root (fx+ cursor 1) #t))
+                  ((eq? (token-kind (vector-ref significant cursor))
+                        'newline)
+                   (body (fx+ cursor 1)))
+                  ((simple-value-at? cursor)
+                   (body (fx+ cursor 3)))
+                  (else #f))))
+              (else #f))))
          (def (emit-simple-attributes!)
            (emit-event! 'open-node 'HclFile 0)
            (let loop ((pos 0))
@@ -366,7 +402,7 @@
                      (vector-ref significant (fx+ pos 1))
                       (vector-ref significant (fx+ pos 2)))
                      (loop (fx+ pos 3))))))))
-         (def (make-simple-canonical-artifact)
+         (def (make-closed-canonical-artifact shape)
            (let ((remaining tokens)
                  (trivia? (parser-machine-trivia machine))
                  (canonical-events (cons #f '()))
@@ -458,6 +494,48 @@
                    (close-field! 'value value-end)
                    (close-node! attribute-id 'Attribute value-end))
                  (close-field! 'item value-end)))
+             (def (emit-flat-block! pos)
+               (let* ((type (vector-ref significant pos))
+                      (opening (vector-ref significant (fx+ pos 1)))
+                      (start (token-start type))
+                      (type-end (token-end type))
+                      (body-start (token-start
+                                   (vector-ref significant (fx+ pos 2)))))
+                 (open-field! 'item start)
+                 (let (block-id (open-node! 'Block start))
+                   (open-field! 'type start)
+                   (emit-trivia-until! start)
+                   (emit-token! type)
+                   (close-field! 'type type-end)
+                   (emit-trivia-until! (token-start opening))
+                   (emit-token! opening)
+                   (open-field! 'body body-start)
+                   (let (body-id (open-node! 'Body body-start))
+                     (let body ((cursor (fx+ pos 2))
+                                (body-end body-start))
+                       (let (input (vector-ref significant cursor))
+                         (cond
+                          ((equal? (token-lexeme input) "}")
+                           (close-node! body-id 'Body body-end)
+                           (close-field! 'body body-end)
+                           (emit-trivia-until! (token-start input))
+                           (emit-token! input)
+                           (close-node! block-id 'Block (token-end input))
+                           (close-field! 'item (token-end input))
+                           (fx+ cursor 1))
+                          ((eq? (token-kind input) 'newline)
+                           (emit-trivia-until! (token-start input))
+                           (emit-token! input)
+                           (body (fx+ cursor 1) (token-end input)))
+                          (else
+                           (let (value
+                                 (vector-ref significant (fx+ cursor 2)))
+                             (emit-attribute!
+                              input
+                              (vector-ref significant (fx+ cursor 1))
+                              value)
+                             (body (fx+ cursor 3)
+                                   (token-end value)))))))))))
              (let (root-id (open-node! 'HclFile 0))
                (let loop ((pos 0))
                  (when (< pos limit)
@@ -467,21 +545,25 @@
                          (emit-trivia-until! (token-start input))
                          (emit-token! input)
                          (loop (fx+ pos 1)))
-                       (begin
-                         (emit-attribute!
-                          input
-                          (vector-ref significant (fx+ pos 1))
-                          (vector-ref significant (fx+ pos 2)))
-                         (loop (fx+ pos 3)))))))
+                       (if (eq? shape 'flat-blocks)
+                         (loop (emit-flat-block! pos))
+                         (begin
+                           (emit-attribute!
+                            input
+                            (vector-ref significant (fx+ pos 1))
+                            (vector-ref significant (fx+ pos 2)))
+                           (loop (fx+ pos 3))))))))
                (close-node! root-id 'HclFile byte-length))
              (unless (null? remaining)
                (error "simple HCL source tokens remain" remaining))
              (make-success-parse-artifact/canonical-events
               direct-hcl-grammar-digest source (cdr canonical-events)
               source-bytes)))
-         (let (simple? (and use-simple? (simple-attributes?)))
-           (if (and simple? use-canonical?)
-             (make-simple-canonical-artifact)
+         (let* ((simple? (and use-simple? (simple-attributes?)))
+                (blocks? (and use-simple? (not simple?) (flat-blocks?))))
+           (if (and use-canonical? (or simple? blocks?))
+             (make-closed-canonical-artifact
+              (if simple? 'attributes 'flat-blocks))
              (letrec
                  ,(map (lambda (row)
                          `(,(rule-procedure (car row))
@@ -499,7 +581,7 @@
 ;;; Write the generated syntax as source, with one readable form per line of
 ;;; structure. `write` still owns escaping of symbols, strings, and literals.
 ;;; Keep the expanded module below the native source-policy limit of 1000 lines.
-(def +generated-line-width+ 205)
+(def +generated-line-width+ 260)
 (def (fits-on-line? form indent)
   (<= (+ indent
          (string-length

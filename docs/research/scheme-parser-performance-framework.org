@@ -1105,6 +1105,38 @@ gxi -e '(import :gerbil-parser/t/benchmarks/hcl-scale/number-benchmark)
 (main "1024" "20" "10" "decimal")'=. These are compiled-module results;
 standalone AOT throughput and peak memory remain unmeasured.
 
+** Committed canonical events for the HCL simple-attribute corridor
+
+The generated simple-attribute route previously wrote raw event triples to a
+request-local rollback tape and then read the tape again to allocate canonical
+events, node IDs, token IDs, and trivia. Once the closed shape is admitted,
+there is no speculative rollback. The generated route now emits the canonical
+events directly and asks the shared artifact authority to assemble the final
+value. The raw tape is allocated only when the general generated parser runs.
+The general path, including late complex syntax and rejection, continues to
+use rollback and the existing raw-tape materializer. Strict full
+=ParseArtifact= comparison against both raw-tape and indexed routes protects
+the specialized event topology.
+
+The checked-in pure Scheme benchmark alternates the old raw-tape and new
+canonical paths in one process after exact artifact preflight. For 1,024
+Basic lines, 20 batches of ten complete parses gave median CPU times 1.201
+and 0.952 ms (17/20 paired wins). For 3,200 lines the medians were 6.521
+and 5.658 ms (20/20). A 1,024-line source ending in a complex array uses
+the generic path on both sides; medians were 3.951 and 4.014 ms across ten
+batches of five parses (6/10 paired wins for the candidate). Run =gxc -O
+t/benchmarks/hcl-scale/canonical-event-benchmark.ss=, then =gerbil env gxi
+-e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/canonical-event-benchmark)
+(main "1024" "20" "10" "basic")'=. Standalone AOT throughput and peak memory
+remain unmeasured.
+
+The parser tests now share the hygienic =check-accepted-parse= syntax from
+=src/testing/parser-ast.ss=. It evaluates source and candidate once, checks
+accepted artifact validity and exact roundtrip, then compares any independent
+parser routes. HCL and arithmetic tests use it; its own test exercises
+single evaluation and caller bindings with the same names as macro internals.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

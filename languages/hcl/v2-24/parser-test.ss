@@ -18,6 +18,8 @@
         :gerbil-parser/src/language/entry
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
+        (only-in :gerbil-parser/src/testing/parser-ast
+                 check-accepted-parse)
         (only-in :gerbil-parser/language-support
                  syntax-fixture-contract
                  syntax-fixture-expected-status
@@ -150,22 +152,22 @@
                      (display " = 1\n" port)
                      (loop (fx+ i 1)))))))
              (artifact (parse-hcl-v2-24 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)
-        (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
-        (check artifact => (direct-parse-hcl hcl-v2-24-parser source #f))
-        (check artifact => (parse-hcl-indexed-baseline source))))
+        (check-accepted-parse
+         source artifact
+         (direct-parse-hcl hcl-v2-24-parser source)
+         (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+         (direct-parse-hcl hcl-v2-24-parser source #f)
+         (parse-hcl-indexed-baseline source))))
     (test-case "ASCII quoted strings retain ranked tokens and artifacts"
       (for-each
        (lambda (source)
          (check (direct-lex-hcl source)
                 => (lex-source hcl-v2-24-parser source))
-         (let (artifact (parse-hcl-v2-24 source))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check artifact => (direct-parse-hcl hcl-v2-24-parser
-                                                source #t #f))
-           (check artifact => (parse-hcl-indexed-baseline source))))
+         (check-accepted-parse
+          source (parse-hcl-v2-24 source)
+          (direct-parse-hcl hcl-v2-24-parser source #t #f)
+          (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+          (parse-hcl-indexed-baseline source)))
        '("name = \"value\"\n"
          "name = \"a\\\"b\"\n"
          "name = \"a\"\"b\"\n"
@@ -219,22 +221,21 @@
                      (display " = \"value\"\n" port)
                      (loop (fx+ i 1)))))))
              (artifact (parse-hcl-v2-24 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)
-        (check artifact => (direct-parse-hcl hcl-v2-24-parser
-                                             source #t #f))
-        (check artifact => (parse-hcl-indexed-baseline source))))
+        (check-accepted-parse
+         source artifact
+         (direct-parse-hcl hcl-v2-24-parser source #t #f)
+         (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+         (parse-hcl-indexed-baseline source))))
     (test-case "ASCII comment forms retain ranked tokens and artifacts"
       (for-each
        (lambda (source)
          (check (direct-lex-hcl source)
                 => (lex-source hcl-v2-24-parser source))
-         (let (artifact (parse-hcl-v2-24 source))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check artifact => (direct-parse-hcl hcl-v2-24-parser
-                                                source #t #f))
-           (check artifact => (parse-hcl-indexed-baseline source))))
+         (check-accepted-parse
+          source (parse-hcl-v2-24 source)
+          (direct-parse-hcl hcl-v2-24-parser source #t #f)
+          (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+          (parse-hcl-indexed-baseline source)))
        '("# heading\nkey = 1\n"
          "key=1 // trailing\r\n"
          "key = 1 /* block\n comment */\n"
@@ -292,22 +293,21 @@
                      (display " = 1 # note\n" port)
                      (loop (fx+ i 1)))))))
              (artifact (parse-hcl-v2-24 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)
-        (check artifact => (direct-parse-hcl hcl-v2-24-parser
-                                             source #t #f))
-        (check artifact => (parse-hcl-indexed-baseline source))))
+        (check-accepted-parse
+         source artifact
+         (direct-parse-hcl hcl-v2-24-parser source #t #f)
+         (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+         (parse-hcl-indexed-baseline source))))
     (test-case "ASCII fractional and exponent numbers retain artifacts"
       (for-each
        (lambda (source)
          (check (direct-lex-hcl source)
                 => (lex-source hcl-v2-24-parser source))
-         (let (artifact (parse-hcl-v2-24 source))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check artifact => (direct-parse-hcl hcl-v2-24-parser
-                                                source #t #f))
-           (check artifact => (parse-hcl-indexed-baseline source))))
+         (check-accepted-parse
+          source (parse-hcl-v2-24 source)
+          (direct-parse-hcl hcl-v2-24-parser source #t #f)
+          (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+          (parse-hcl-indexed-baseline source)))
        '("key = 0.5\n" "key=12e3\n" "key=1.25E-3\n"
          "key=7e+1\n" "key=4.0 # comment\n")))
     (test-case "numeric boundaries and seeded literals match ranked scanning"
@@ -356,20 +356,21 @@
                      (display " = 1.25\n" port)
                      (loop (fx+ i 1)))))))
              (artifact (parse-hcl-v2-24 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)
-        (check artifact => (direct-parse-hcl hcl-v2-24-parser
-                                             source #t #f))
-        (check artifact => (parse-hcl-indexed-baseline source))))
+        (check-accepted-parse
+         source artifact
+         (direct-parse-hcl hcl-v2-24-parser source #t #f)
+         (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+         (parse-hcl-indexed-baseline source))))
     (test-case "simple attributes and late complex fallback retain artifacts"
       (for-each
        (lambda (source)
          (let (artifact (parse-hcl-v2-24 source))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
-           (check artifact => (direct-parse-hcl hcl-v2-24-parser source #f))
-           (check artifact => (parse-hcl-indexed-baseline source))))
+           (check-accepted-parse
+            source artifact
+            (direct-parse-hcl hcl-v2-24-parser source)
+            (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+            (direct-parse-hcl hcl-v2-24-parser source #f)
+            (parse-hcl-indexed-baseline source))))
        '("" "\n\n" "name = \"雪\"\r\n" "flag = true\n"
          "é = 2\n" "# comment\nfoo = 2\n"
          "foo = 1 # comment\nbar = \"x\"\n"
@@ -410,7 +411,7 @@
                 (error "simple corridor changed HCL artifact" source)))
             (cases (fx+ i 1))))
         (check #t => #t)))
-    (test-case "compact HCL grows the rollback event vector losslessly"
+    (test-case "compact HCL preserves canonical and rollback event paths"
       (let* ((source
               (call-with-output-string
                (lambda (port)
@@ -421,16 +422,15 @@
                      (display "=1\n" port)
                      (loop (fx+ i 1)))))))
              (artifact (parse-hcl-v2-24 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)
-        (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
-        (check artifact => (parse-hcl-indexed-baseline source))))
+        (check-accepted-parse
+         source artifact
+         (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+         (parse-hcl-indexed-baseline source))))
     (test-case "generated events preserve Unicode byte offsets and trivia"
       (let* ((source "名称 = \"λ中😀\"\n# 注释\n")
              (artifact (parse-hcl-v2-24 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)
-        (check artifact => (parse-hcl-indexed-baseline source))))
+        (check-accepted-parse
+         source artifact (parse-hcl-indexed-baseline source))))
     (test-case "the upstream syntax identity is immutable"
       (check +hcl-native-syntax-version+ => "v2.24.0")
       (check +hcl-native-syntax-commit+
@@ -459,12 +459,13 @@
            (check (syntax-fixture-expected-status fixture) => 'accepted)
            (check (list (syntax-fixture-id fixture) accepted?)
                   => (list (syntax-fixture-id fixture) #t))
-           (check (parse-artifact-valid? artifact) => #t)
+           (check-accepted-parse
+            source artifact
+            (direct-parse-hcl hcl-v2-24-parser source)
+            (direct-parse-hcl hcl-v2-24-parser source #t #t #f)
+            (parse-hcl-indexed-baseline source))
            (check (parse-artifact-ref artifact 'sourceDigest)
                   => (syntax-fixture-source-digest fixture))
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check artifact => (direct-parse-hcl hcl-v2-24-parser source))
-           (check artifact => (parse-hcl-indexed-baseline source))
            (when accepted?
              (let* ((root (parse-artifact->cst artifact))
                     (kinds (cst-node-kinds root)))

@@ -153,7 +153,8 @@
              (only-in :gerbil-parser/src/runtime/token
                       make-token token-kind token-lexeme token-start token-end)
              (only-in :gerbil-parser/src/runtime/artifact
-                      make-success-parse-artifact/raw-event-tape))
+                      make-success-parse-artifact/raw-event-tape
+                      make-success-parse-artifact/canonical-events))
      (export direct-parse-hcl direct-lex-hcl direct-hcl-grammar-digest)
      (def direct-hcl-grammar-digest
        ,(parser-machine-grammar-digest hcl-v2-24-parser))
@@ -249,7 +250,7 @@
                                                    start token-end)
                                                   tokens)))))))))))))))
      (def (direct-parse-hcl machine source (use-simple? #t)
-                            (use-fast-lex? #t))
+                            (use-fast-lex? #t) (use-canonical? #t))
        (let* ((source-bytes (string->utf8 source))
               (byte-length (u8vector-length source-bytes))
               (tokens (or (and use-fast-lex?
@@ -259,7 +260,7 @@
               (significant
                (list->vector (parser-significant-tokens machine tokens)))
               (limit (vector-length significant))
-              (events (make-vector (* 3 (max 64 (* 6 (length tokens)))) #f))
+              (events #f)
               (event-count 0))
          (def (offset pos)
            (if (< pos limit)
@@ -269,6 +270,9 @@
            (if (= start next) (offset start)
              (token-end (vector-ref significant (fx- next 1)))))
          (def (emit-event! operation name byte-offset)
+           (unless events
+             (set! events
+                   (make-vector (* 3 (max 64 (* 6 (length tokens)))) #f)))
            (when (= (* 3 event-count) (vector-length events))
              (let* ((old events)
                     (grown (make-vector (* 2 (vector-length old)) #f)))
@@ -359,23 +363,139 @@
                    (begin
                      (emit-simple-attribute!
                       input
-                      (vector-ref significant (fx+ pos 1))
+                     (vector-ref significant (fx+ pos 1))
                       (vector-ref significant (fx+ pos 2)))
                      (loop (fx+ pos 3))))))))
-         (letrec
-             ,(map (lambda (row)
-                     `(,(rule-procedure (car row))
-                       (lambda (pos)
-                         ,(compile-expression (cadr row) 'pos))))
-                   rules)
-           (let (end (if (and use-simple? (simple-attributes?))
-                        (begin (emit-simple-attributes!) limit)
-                        (events-config-file 0)))
-             (if (and end (= end limit))
-               (make-success-parse-artifact/raw-event-tape
-                direct-hcl-grammar-digest source tokens events event-count
-                (parser-machine-trivia machine) source-bytes)
-               #f))))))))
+         (def (make-simple-canonical-artifact)
+           (let ((remaining tokens)
+                 (trivia? (parser-machine-trivia machine))
+                 (canonical-events (cons #f '()))
+             (tail #f)
+             (next-token-id 0)
+             (next-node-id 0))
+             (set! tail canonical-events)
+             (def (emit! event)
+               (let (cell (cons event '()))
+                 (set-cdr! tail cell)
+                 (set! tail cell)))
+             (def (emit-token! input)
+               (unless (and (pair? remaining) (eq? input (car remaining)))
+                 (error "simple HCL token order changed" input))
+               (emit! (vector 'token next-token-id
+                              (token-kind input) (token-lexeme input)
+                              (token-start input) (token-end input)))
+               (set! next-token-id (fx+ next-token-id 1))
+               (set! remaining (cdr remaining)))
+             (def (emit-trivia-until! boundary)
+               (let loop ()
+                 (when (and (pair? remaining)
+                            (<= (token-end (car remaining)) boundary))
+                   (unless (trivia? (car remaining))
+                     (error "unclaimed simple HCL token" (car remaining)))
+                   (emit-token! (car remaining))
+                   (loop))))
+             (def (open-node! name start)
+               (emit-trivia-until! start)
+               (let (id next-node-id)
+                 (emit! (vector 'start-node id name start))
+                 (set! next-node-id (fx+ next-node-id 1))
+                 id))
+             (def (close-node! id name end)
+               (emit-trivia-until! end)
+               (emit! (vector 'finish-node id name end)))
+             (def (open-field! name start)
+               (emit-trivia-until! start)
+               (emit! (vector 'start-field name start)))
+             (def (close-field! name end)
+               (emit! (vector 'finish-field name end)))
+             (def (emit-attribute! name equals value)
+               (let* ((start (token-start name))
+                      (name-end (token-end name))
+                      (value-start (token-start value))
+                      (value-end (token-end value))
+                      (value-node
+                       (case (token-kind value)
+                         ((number) 'NumberExpression)
+                         ((string) 'StringExpression)
+                         ((identifier) 'LiteralExpression))))
+                 (open-field! 'item start)
+                 (let (attribute-id (open-node! 'Attribute start))
+                   (open-field! 'name start)
+                   (emit-trivia-until! start)
+                   (emit-token! name)
+                   (close-field! 'name name-end)
+                   (emit-trivia-until! (token-start equals))
+                   (emit-token! equals)
+                   (open-field! 'value value-start)
+                   (let (conditional-id
+                         (open-node! 'ConditionalExpression value-start))
+                     (open-field! 'condition value-start)
+                     (let (binary-id
+                           (open-node! 'BinaryExpression value-start))
+                       (open-field! 'left value-start)
+                       (let (unary-id
+                             (open-node! 'UnaryExpression value-start))
+                         (open-field! 'operand value-start)
+                         (let (traversal-id
+                               (open-node! 'TraversalExpression value-start))
+                           (open-field! 'root value-start)
+                           (let (value-id (open-node! value-node value-start))
+                             (open-field! 'value value-start)
+                             (emit-trivia-until! value-start)
+                             (emit-token! value)
+                             (close-field! 'value value-end)
+                             (close-node! value-id value-node value-end))
+                           (close-field! 'root value-end)
+                           (close-node! traversal-id 'TraversalExpression
+                                        value-end))
+                         (close-field! 'operand value-end)
+                         (close-node! unary-id 'UnaryExpression value-end))
+                       (close-field! 'left value-end)
+                       (close-node! binary-id 'BinaryExpression value-end))
+                     (close-field! 'condition value-end)
+                     (close-node! conditional-id 'ConditionalExpression
+                                  value-end))
+                   (close-field! 'value value-end)
+                   (close-node! attribute-id 'Attribute value-end))
+                 (close-field! 'item value-end)))
+             (let (root-id (open-node! 'HclFile 0))
+               (let loop ((pos 0))
+                 (when (< pos limit)
+                   (let (input (vector-ref significant pos))
+                     (if (eq? (token-kind input) 'newline)
+                       (begin
+                         (emit-trivia-until! (token-start input))
+                         (emit-token! input)
+                         (loop (fx+ pos 1)))
+                       (begin
+                         (emit-attribute!
+                          input
+                          (vector-ref significant (fx+ pos 1))
+                          (vector-ref significant (fx+ pos 2)))
+                         (loop (fx+ pos 3)))))))
+               (close-node! root-id 'HclFile byte-length))
+             (unless (null? remaining)
+               (error "simple HCL source tokens remain" remaining))
+             (make-success-parse-artifact/canonical-events
+              direct-hcl-grammar-digest source (cdr canonical-events)
+              source-bytes)))
+         (let (simple? (and use-simple? (simple-attributes?)))
+           (if (and simple? use-canonical?)
+             (make-simple-canonical-artifact)
+             (letrec
+                 ,(map (lambda (row)
+                         `(,(rule-procedure (car row))
+                           (lambda (pos)
+                             ,(compile-expression (cadr row) 'pos))))
+                       rules)
+               (let (end (if simple?
+                            (begin (emit-simple-attributes!) limit)
+                            (events-config-file 0)))
+                 (if (and end (= end limit))
+                   (make-success-parse-artifact/raw-event-tape
+                    direct-hcl-grammar-digest source tokens events event-count
+                    (parser-machine-trivia machine) source-bytes)
+                   #f))))))))))
 ;;; Write the generated syntax as source, with one readable form per line of
 ;;; structure. `write` still owns escaping of symbols, strings, and literals.
 ;;; Keep the expanded module below the native source-policy limit of 1000 lines.

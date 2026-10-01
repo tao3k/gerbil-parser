@@ -7,11 +7,11 @@
         (only-in :gerbil-parser/src/language/entry
                  +language-parser-entry-schema+ language-parser-entry-ref)
         (only-in :gerbil-parser/src/runtime/artifact
-                 parse-artifact-ref parse-artifact-roundtrip
-                 parse-artifact-success?)
+                 parse-artifact-ref)
         (only-in :gerbil-parser/language-support
                  syntax-fixture-source syntax-fixture-source-digest)
-        (only-in :gerbil-parser/src/testing/parser-ast check-parser-ast)
+        (only-in :gerbil-parser/src/testing/parser-ast
+                 check-parser-ast check-accepted-parse)
         (only-in ./fixtures arithmetic-v1-basic-fixture)
         (only-in ./parser
                  arithmetic-parser arithmetic-v1-language
@@ -35,10 +35,9 @@
                => "v1")
         (check (language-parser-entry-ref arithmetic-v1-language 'contract)
                => "arithmetic-expression.v1")
-        (check (parse-artifact-success? artifact) => #t)
+        (check-accepted-parse source artifact)
         (check (parse-artifact-ref artifact 'sourceDigest)
-               => (syntax-fixture-source-digest fixture))
-        (check (parse-artifact-roundtrip artifact) => source)))
+               => (syntax-fixture-source-digest fixture))))
     (test-case "generated streaming LR preserves the 1024-line source"
       (let* ((source
               (call-with-output-string
@@ -49,8 +48,7 @@
                      (display "+\n" port)
                      (loop (fx- remaining 1)))))))
              (artifact (parse-arithmetic-v1 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)))
+        (check-accepted-parse source artifact)))
     (test-case "canonical AST shape is an exact parser contract"
       (check-parser-ast (parse-arithmetic-v1 "1") "1"
         (node SourceFile 0 1

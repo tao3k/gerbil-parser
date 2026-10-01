@@ -6,12 +6,27 @@
                  parse-arithmetic-v1)
         (only-in :gerbil-parser/src/runtime/cst parse-artifact->cst)
         (only-in :gerbil-parser/src/testing/parser-ast
-                 check-parser-ast parser-ast-diff parser-ast-pattern
+                 check-parser-ast check-accepted-parse
+                 parser-ast-diff parser-ast-pattern
                  parser-artifact-ast-diff))
 (export parser-ast-syntax-test)
 
 (def parser-ast-syntax-test
   (test-suite "parser-owned AST test syntax"
+    (test-case "accepted artifact macro is hygienic and evaluates once"
+      (let ((result "1")
+            (expected-source 'caller-binding)
+            (source-calls 0)
+            (candidate-calls 0))
+        (check-accepted-parse
+         (begin (set! source-calls (fx+ source-calls 1)) result)
+         (begin
+           (set! candidate-calls (fx+ candidate-calls 1))
+           (parse-arithmetic-v1 result))
+         (parse-arithmetic-v1 result))
+        (check source-calls => 1)
+        (check candidate-calls => 1)
+        (check expected-source => 'caller-binding)))
     (test-case "one source proves exact kinds, fields, spans, token and roundtrip"
       (check-parser-ast (parse-arithmetic-v1 "1") "1"
         (node SourceFile 0 1

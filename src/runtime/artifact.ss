@@ -18,6 +18,7 @@
         +diagnostic-schema+
         sha256-text
         make-success-parse-artifact
+        make-success-parse-artifact/canonical-events
         make-raw-parse-event
         make-success-parse-artifact/raw-event-tape
         make-same-width-token-artifact
@@ -242,6 +243,11 @@
                     (recognition-events tokens root trivia? source-byte-length)
                     '() source-bytes)))
     value))
+
+;;; Assemble already canonical events from a committed generated path.
+(def (make-success-parse-artifact/canonical-events
+      grammar-digest source events source-bytes)
+  (artifact grammar-digest source 'accepted events '() source-bytes))
 
 ;;; Named raw descriptors remain available for inspection. The generated HCL
 ;;; hot path stores their operation, name, and byte offset in a flat tape.

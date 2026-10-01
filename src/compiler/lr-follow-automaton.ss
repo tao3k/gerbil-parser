@@ -153,32 +153,38 @@
                 (let (new-parts '())
                   (for-each
                    (lambda (part)
-                     (let ((groups (make-table test: equal?))
-                           (keys '()))
-                       (compiler-index-set-for-each
-                        (cdr part)
-                        (lambda (lookahead)
-                          (let* ((key
-                                  (follow-successors
-                                   core lookahead metadata index))
-                                 (known (table-ref groups key #f)))
-                            (unless known (set! keys (cons key keys)))
-                            (table-set!
-                             groups key
-                             (compiler-index-set-add
-                              (or known 0) lookahead)))))
-                       (when (pair? (cdr keys))
-                         (set! changed? #t)
+                     (if (and (positive? (cdr part))
+                              (zero? (bitwise-and (cdr part)
+                                                  (- (cdr part) 1))))
+                       ;; A one-lookahead block cannot split, even when a
+                       ;; successor block changed in the previous round.
+                       (set! new-parts (cons part new-parts))
+                       (let ((groups (make-table test: equal?))
+                             (keys '()))
+                         (compiler-index-set-for-each
+                          (cdr part)
+                          (lambda (lookahead)
+                            (let* ((key
+                                    (follow-successors
+                                     core lookahead metadata index))
+                                   (known (table-ref groups key #f)))
+                              (unless known (set! keys (cons key keys)))
+                              (table-set!
+                               groups key
+                               (compiler-index-set-add
+                                (or known 0) lookahead)))))
+                         (when (pair? (cdr keys))
+                           (set! changed? #t)
+                           (for-each
+                            (lambda (dependent)
+                              (vector-set! next-active dependent #t))
+                            (vector-ref dependents core)))
                          (for-each
-                          (lambda (dependent)
-                            (vector-set! next-active dependent #t))
-                          (vector-ref dependents core)))
-                       (for-each
-                        (lambda (key)
-                          (set! new-parts
-                                (cons (cons key (table-ref groups key))
-                                      new-parts)))
-                        (reverse keys))))
+                          (lambda (key)
+                            (set! new-parts
+                                  (cons (cons key (table-ref groups key))
+                                        new-parts)))
+                          (reverse keys)))))
                    parts)
                   (vector-set! next core (reverse new-parts)))
                 (vector-set! next core parts)))

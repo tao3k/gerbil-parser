@@ -307,6 +307,24 @@ epsilon-closure caching did not show stable whole-construction gains on this
 same direct-route fixture, so they were removed. These are grammar-construction
 measurements; parser runtime throughput is unchanged by this experiment.
 
+** Skip singleton backward follow blocks
+
+Backward refinement previously recomputed a successor signature and created
+a grouping table even for a block containing only one lookahead. Such a block
+cannot split under Definition 3.19, regardless of later changes to its
+successors. The direct constructor now carries it into the next partition
+unchanged. Multi-lookahead blocks retain the existing signature refinement.
+
+The independent 32-context family takes the direct route and ends with 900
+singleton follow blocks. In a temporary same-process A/B with 30 alternating
+pairs, the complete old and new LR specs were =equal?= in every pair. The
+construction CPU medians were 7.455 and 6.486 ms; the shortcut won 25 pairs.
+At 16 contexts the medians were 3.295 and 2.994 ms, but only 17/30 pairs
+favored the shortcut. On the compressing mixed 32-context family the change
+was small (9.179 versus 8.953 ms; 17/30 wins), so this experiment does not
+claim a gain there. The checked-in =route-threshold.ss= benchmark continues
+to report the direct route's state, block, and item counts for both shapes.
+
 The benchmark reports both total time and mean microseconds per invocation.
 In one sequential run with the pinned v0.19 toolchain, 1,000 full compilations
 of the LR(1)-but-not-LALR fixture averaged 79.5 us for canonical and 409.6 us

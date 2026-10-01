@@ -239,6 +239,54 @@
                 (vector-set! ids block found))
               (block-loop (+ block 1))))
           (values ids group-count)))
+      (def (predecessor-signature block ids)
+        (let ((sources (make-table test: eq?))
+              (labels '()))
+          (for-each
+           (lambda (edge)
+             (let* ((label (car edge))
+                    (source-group (vector-ref ids (cdr edge)))
+                    (known (table-ref sources label #f)))
+               (unless known
+                 (set! labels (cons label labels)))
+               (table-set!
+                sources label
+                (compiler-index-set-add (or known 0) source-group))))
+           (vector-ref predecessors block))
+          (map (lambda (label)
+                 (cons label (table-ref sources label)))
+               (list-sort < labels))))
+      ;; Once a group has one block, its predecessor signature cannot split
+      ;; it. Preserve first-seen group numbering while constructing keys only
+      ;; for groups that can still split.
+      (def (refine-group-ids ids group-count)
+        (let ((sizes (make-vector group-count 0))
+              (next-ids (make-vector count 0))
+              (keys (make-table test: equal?))
+              (next-count 0))
+          (let count-loop ((block 0))
+            (when (< block count)
+              (let (group (vector-ref ids block))
+                (vector-set! sizes group (+ 1 (vector-ref sizes group))))
+              (count-loop (+ block 1))))
+          (let block-loop ((block 0))
+            (when (< block count)
+              (let* ((group (vector-ref ids block))
+                     (singleton? (= (vector-ref sizes group) 1)))
+                (if singleton?
+                  (begin
+                    (vector-set! next-ids block next-count)
+                    (set! next-count (+ next-count 1)))
+                  (let* ((key (cons group
+                                    (predecessor-signature block ids)))
+                         (found (table-ref keys key #f)))
+                    (unless found
+                      (set! found next-count)
+                      (set! next-count (+ next-count 1))
+                      (table-set! keys key found))
+                    (vector-set! next-ids block found))))
+              (block-loop (+ block 1))))
+          (values next-ids next-count)))
       (let-values (((initial initial-count)
                     (group-ids
                      (lambda (block)
@@ -246,29 +294,7 @@
                              (= block start))))))
         (let refine ((ids initial) (group-count initial-count))
           (let-values (((next next-count)
-                        (group-ids
-                         (lambda (block)
-                           (let ((sources (make-table test: eq?))
-                                 (labels '()))
-                             (for-each
-                              (lambda (edge)
-                                (let* ((label (car edge))
-                                       (source-group
-                                        (vector-ref ids (cdr edge)))
-                                       (known (table-ref sources label #f)))
-                                  (unless known
-                                    (set! labels (cons label labels)))
-                                  (table-set!
-                                   sources label
-                                   (compiler-index-set-add
-                                    (or known 0) source-group))))
-                              (vector-ref predecessors block))
-                             (cons
-                              (vector-ref ids block)
-                              (map (lambda (label)
-                                     (cons label
-                                           (table-ref sources label)))
-                                   (list-sort < labels))))))))
+                        (refine-group-ids ids group-count)))
             ;; A singleton partition is already stable: no block can split
             ;; further, so skip the otherwise mandatory confirmation round.
             (if (and (> next-count group-count) (< next-count count))

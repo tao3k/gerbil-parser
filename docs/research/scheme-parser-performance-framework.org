@@ -325,6 +325,33 @@ was small (9.179 versus 8.953 ms; 17/30 wins), so this experiment does not
 claim a gain there. The checked-in =route-threshold.ss= benchmark continues
 to report the direct route's state, block, and item counts for both shapes.
 
+** Refine forward groups only while they can split
+
+The forward pass used to rebuild predecessor signatures for every block in
+each round. A group containing one block cannot split under Construction 3.27,
+so the Scheme constructor now counts current group members and computes a
+signature only for blocks in groups with at least two members. It still assigns
+new group IDs in block traversal order, preserving the published LR spec's
+state and transition numbering. At 32 independent contexts, the initial
+partition has 772 groups for 900 blocks; the next two rounds reach 836 and
+900 groups. The mixed family has 905 initial groups for 1,033 blocks and
+reaches 969, then 1,033.
+
+A temporary switch compared the old and new paths in one process, alternating
+order with GC before each construction. Each of 30 pairs compared the entire
+LR spec with =equal?=. Median CPU time in ms (old to new, paired wins) was:
+
+| Contexts | Independent | Mixed |
+|----------+-------------+-------|
+| 16       | 2.914 to 2.497, 24/30 | 3.794 to 3.225, 22/30 |
+| 32       | 6.741 to 5.698, 24/30 | 8.187 to 6.415, 28/30 |
+
+The temporary switch was removed from the production module after the
+comparison. These are in-process Scheme grammar-construction measurements on
+one host; they do not imply a fresh-parse throughput change. Lowering either
+canonical-trial threshold improved the independent fixture but slowed the
+compressing mixed fixture, so those threshold experiments were reverted.
+
 The benchmark reports both total time and mean microseconds per invocation.
 In one sequential run with the pinned v0.19 toolchain, 1,000 full compilations
 of the LR(1)-but-not-LALR fixture averaged 79.5 us for canonical and 409.6 us

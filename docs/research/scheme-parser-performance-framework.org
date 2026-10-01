@@ -1165,6 +1165,33 @@ Run =gxc -O t/benchmarks/hcl-scale/flat-block-benchmark.ss=, then
 (main "256" "20" "10" "labeled")'=. These are compiled-module, in-process
 measurements on one host; standalone AOT and peak memory remain unmeasured.
 
+** Recursive closed-block generation
+
+The next candidate extended the block admission scan and canonical event
+emitter recursively through =Block → Body → Block=. Each body still accepts
+only newlines, simple attributes, and nested blocks; complex expressions and
+mixed top-level attributes fall back to the generated recursive parser. The
+recursive emitter carries the last child end into the enclosing =Body= close,
+preserving nested field ranges, trivia order, and token/node IDs. Exact full
+=ParseArtifact= comparison covers varied nesting and a 1,024-line fixture.
+
+The =nested= shape in the checked-in flat-block benchmark uses two labeled
+block levels and one simple attribute in each four-line group. Across 20
+paired batches of ten complete parses, 256 groups (1,024 lines) had generic
+and specialized median CPU times of 1.380 and 1.068 ms (19/20 paired wins);
+800 groups (3,200 lines) had 6.844 and 3.212 ms (20/20). These are
+compiled-module, in-process observations on one host after a clean default
+parallel build; standalone AOT and peak memory remain unmeasured. The
+unlabeled and labeled 1,024-line paths remained faster than generic parsing
+at 1.301 versus 0.725 ms and 1.589 versus 0.931 ms (20/20 paired wins each).
+
+A separate mixed-root prototype admitted alternating top-level attributes
+and blocks. Its exact artifact matched, but its 1,024-line medians were 1.493
+versus 1.508 ms and its 3,200-line medians were 7.104 versus 7.059 ms;
+paired wins were 11/20 and 10/20. It had no reproducible throughput gain and
+was reverted. The current closed corridor deliberately does not admit mixed
+roots.
+
 * Proposed proof sequence
 
 1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus

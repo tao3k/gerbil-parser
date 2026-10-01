@@ -373,26 +373,30 @@
                           '(string identifier))
                     (labels (fx+ cursor 1)))
                    (else #f)))))
-         (def (flat-blocks?)
+         (def (closed-blocks?)
+           (def (scan-block pos)
+             (let (opening-pos (block-opening-at pos))
+               (and opening-pos
+                    (let body ((cursor (fx+ opening-pos 1)))
+                      (cond
+                       ((= cursor limit) #f)
+                       ((brace-at? cursor "}") (fx+ cursor 1))
+                       ((eq? (token-kind (vector-ref significant cursor))
+                             'newline)
+                        (body (fx+ cursor 1)))
+                       ((simple-value-at? cursor)
+                        (body (fx+ cursor 3)))
+                       (else
+                        (let (next (scan-block cursor))
+                          (and next (body next)))))))))
            (let root ((pos 0) (saw-block? #f))
              (cond
               ((= pos limit) saw-block?)
               ((eq? (token-kind (vector-ref significant pos)) 'newline)
                (root (fx+ pos 1) saw-block?))
               (else
-               (let (opening-pos (block-opening-at pos))
-                 (and opening-pos
-                      (let body ((cursor (fx+ opening-pos 1)))
-                        (cond
-                         ((= cursor limit) #f)
-                         ((brace-at? cursor "}")
-                          (root (fx+ cursor 1) #t))
-                         ((eq? (token-kind (vector-ref significant cursor))
-                               'newline)
-                          (body (fx+ cursor 1)))
-                         ((simple-value-at? cursor)
-                          (body (fx+ cursor 3)))
-                         (else #f)))))))))
+               (let (next (scan-block pos))
+                 (and next (root next #t)))))))
          (def (emit-simple-attributes!)
            (emit-event! 'open-node 'HclFile 0)
            (let loop ((pos 0))
@@ -503,7 +507,7 @@
                    (close-field! 'value value-end)
                    (close-node! attribute-id 'Attribute value-end))
                  (close-field! 'item value-end)))
-             (def (emit-flat-block! pos)
+             (def (emit-closed-block! pos)
                (let* ((type (vector-ref significant pos))
                       (opening-pos (block-opening-at pos))
                       (opening (vector-ref significant opening-pos))
@@ -547,7 +551,7 @@
                            (emit-trivia-until! (token-start input))
                            (emit-token! input)
                            (body (fx+ cursor 1) (token-end input)))
-                          (else
+                          ((simple-value-at? cursor)
                            (let (value
                                  (vector-ref significant (fx+ cursor 2)))
                              (emit-attribute!
@@ -555,7 +559,13 @@
                               (vector-ref significant (fx+ cursor 1))
                               value)
                              (body (fx+ cursor 3)
-                                   (token-end value)))))))))))
+                                   (token-end value))))
+                          (else
+                           (let (next (emit-closed-block! cursor))
+                             (body next
+                                   (token-end
+                                    (vector-ref significant
+                                                (fx- next 1)))))))))))))
              (let (root-id (open-node! 'HclFile 0))
                (let loop ((pos 0))
                  (when (< pos limit)
@@ -566,7 +576,7 @@
                          (emit-token! input)
                          (loop (fx+ pos 1)))
                        (if (eq? shape 'flat-blocks)
-                         (loop (emit-flat-block! pos))
+                         (loop (emit-closed-block! pos))
                          (begin
                            (emit-attribute!
                             input
@@ -580,7 +590,7 @@
               direct-hcl-grammar-digest source (cdr canonical-events)
               source-bytes)))
          (let* ((simple? (and use-simple? (simple-attributes?)))
-                (blocks? (and use-simple? (not simple?) (flat-blocks?))))
+                (blocks? (and use-simple? (not simple?) (closed-blocks?))))
            (if (and use-canonical? (or simple? blocks?))
              (make-closed-canonical-artifact
               (if simple? 'attributes 'flat-blocks))

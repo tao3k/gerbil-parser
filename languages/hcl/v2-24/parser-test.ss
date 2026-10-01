@@ -439,26 +439,31 @@
          "srv { key = 1 }\n"
          "srv \"web\" { key = 1 }\n"
          "srv \"web\" internal { key = 1 }\n"
+         "srv { child { key = 1 } }\n"
+         "srv { child { grandchild { key = 1 } } }\n"
+         "srv { /* lead */ child { key = 1 } /* trail */ }\n"
+         "srv \"web\" { child \"db\" {\r\n key = 1\r\n }\r\n}\n"
+         "srv { child {}\n another { key = 2 } }\n"
          "srv /* between */ \"web\" /* label */ internal {\n}\n"
          "srv {\n key = 1\n port = 2\n}\n"
          "# before\nsrv {\r\n name = \"x\" // after\r\n}\r\n"
          "one {\n}\ntwo {\n x = 1.25e+3\n}\n")))
     (test-case "Unicode block label uses ranked lexer and exact byte offsets"
-      (let* ((source "srv \"λ\" internal { key = 1 }\n")
+      (let* ((source "srv \"λ\" internal { child \"μ\" { key = 1 } }\n")
              (artifact (parse-hcl-v2-24 source)))
         (check (direct-lex-hcl source) => #f)
         (check-accepted-parse
          source artifact
          (direct-parse-hcl hcl-v2-24-parser source #f)
          (parse-hcl-indexed-baseline source))))
-    (test-case "nested blocks and mixed roots keep generic fallback"
+    (test-case "complex nested values and mixed roots keep generic fallback"
       (for-each
        (lambda (source)
          (check-accepted-parse
           source (parse-hcl-v2-24 source)
           (direct-parse-hcl hcl-v2-24-parser source #f)
           (parse-hcl-indexed-baseline source)))
-       '("srv { child { key = 1 } }\n"
+       '("srv { child { key = [1, 2] } }\n"
          "top = 1\nsrv { key = 2 }\n")))
     (test-case "1024 flat-block lines retain the indexed artifact"
       (for-each
@@ -480,6 +485,24 @@
             (direct-parse-hcl hcl-v2-24-parser source #f)
             (parse-hcl-indexed-baseline source))))
        '("" " \"web\" internal")))
+    (test-case "1024 nested-block lines retain the indexed artifact"
+      (let (source
+            (call-with-output-string
+             (lambda (port)
+               (let loop ((i 0))
+                 (when (< i 256)
+                   (display "outer" port)
+                   (display i port)
+                   (display " \"env\" {\nsrv" port)
+                   (display i port)
+                   (display " \"web\" internal {\nkey = 1\n}}\n" port)
+                   (loop (fx+ i 1)))))))
+        (check (direct-lex-hcl source)
+               => (lex-source hcl-v2-24-parser source))
+        (check-accepted-parse
+         source (parse-hcl-v2-24 source)
+         (direct-parse-hcl hcl-v2-24-parser source #f)
+         (parse-hcl-indexed-baseline source))))
     (test-case "generated events preserve Unicode byte offsets and trivia"
       (let* ((source "名称 = \"λ中😀\"\n# 注释\n")
              (artifact (parse-hcl-v2-24 source)))

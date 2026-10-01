@@ -172,7 +172,7 @@
             tlc
             (lambda (port)
               (write-string
-               "#!/bin/sh\ncat <<'EOF'\nTLC2 Version fixture\nModel checking completed. No error has been found.\n4 states generated, 2 distinct states found, 0 states left on queue.\nThe depth of the complete state graph search is 1.\nEOF\n"
+               "#!/bin/sh\ncat <<'EOF'\nTLC2 Version fixture\nProgress(3) at 00:00:00: 7 states generated, 7 distinct states found, 5 states left on queue.\nModel checking completed. No error has been found.\n4 states generated, 2 distinct states found, 0 states left on queue.\nThe depth of the complete state graph search is 1.\nEOF\n"
                port)))
            (run-process ["chmod" "+x" tlc])
            (let (receipt
@@ -216,7 +216,7 @@
             tlc
             (lambda (port)
               (write-string
-               "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Model checking completed. No error has been found.'\n"
+               "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Progress(3) at 00:00:00: 7 states generated, 7 distinct states found, 5 states left on queue.'\necho 'Model checking completed. No error has been found.'\n"
                port)))
            (let (receipt
                  (qualify-tla-plus-model spec config tlc: tlc workers: 1))

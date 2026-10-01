@@ -42,14 +42,19 @@
 (def (line-with-prefix lines prefix)
   (find (lambda (line) (string-prefix? prefix line)) lines))
 
-(def (line-containing lines fragment)
-  (find (lambda (line) (string-contains line fragment)) lines))
+(def (final-states-line lines)
+  ;; TLC emits intermediate Progress(...) lines with the same summary phrase.
+  ;; Only the final, number-prefixed line describes the completed state space.
+  (find (lambda (line)
+          (and (decimal-prefix line)
+               (string-contains line " states generated, ")))
+        (reverse lines)))
 
 (def (parse-tlc-output output)
   (let* ((lines (string-split output #\newline))
          (version-prefix "TLC2 Version ")
          (version-line (line-with-prefix lines version-prefix))
-         (states-line (line-containing lines " states generated, "))
+         (states-line (final-states-line lines))
          (depth-line
           (line-with-prefix lines
                             "The depth of the complete state graph search is "))

@@ -23,7 +23,7 @@
                  lr1-not-lalr-rules shared-lookahead-rules
                  genuine-reduce-conflict-rules precedence-expression-rules
                  mixed-context-rules lr1-context-family-rules
-                 mixed-context-family-rules
+                 mixed-context-family-rules acyclic-mixed-context-family-rules
                  inactive-core-conflict-rules))
 
 (def (character-tokens text (base 0))
@@ -325,6 +325,34 @@
                  '("acd" "ace" "bcd" "bce" "dd" "cdd" "acc" "cd"))))
             (iota context-count))))
        '(4 16 32)))
+    (poo-flow-test-case "acyclic shared contexts still need follow compression"
+      (let* ((rules (acyclic-mixed-context-family-rules 32))
+             (canonical
+              (compile-lr-spec rules 'source-file 'reject #f
+                               'canonical-lr1))
+             (direct
+              (compile-lr-spec rules 'source-file 'reject #f
+                               'follow-partition-lr1)))
+        (check (< (lr-spec-ref direct 'state-count)
+                  (lr-spec-ref canonical 'state-count)) => #t)
+        (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
+        (for-each
+         (lambda (index)
+           (let* ((prefix
+                   (string-append "region-" (number->string index) ":"))
+                  (prefix-length (string-length prefix))
+                  (prefix-token
+                   (make-token 'punctuation prefix 0 prefix-length)))
+             (for-each
+              (lambda (body)
+                (let* ((tokens
+                        (cons prefix-token
+                              (character-tokens body prefix-length)))
+                       (expected (parse-token-result canonical tokens)))
+                  (check (equal? expected
+                                 (parse-token-result direct tokens)) => #t)))
+              '("acd" "ace" "bcd" "bce" "cc" "cd" "dc" "dd" "acc"))))
+         '(0 15 31))))
     (poo-flow-test-case "bounded canonical trial stops above its state budget"
       (let* ((productions (lower-rules lr1-not-lalr-rules 'source-file))
              (table (production-table productions)))

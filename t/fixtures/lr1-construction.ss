@@ -4,7 +4,7 @@
 (export lr1-not-lalr-rules shared-lookahead-rules
         genuine-reduce-conflict-rules precedence-expression-rules
         mixed-context-rules lr1-context-family-rules
-        mixed-context-family-rules
+        mixed-context-family-rules acyclic-mixed-context-family-rules
         inactive-core-conflict-rules)
 
 ;; The c-rule item after "c" has no raw action before its nullable optional
@@ -87,6 +87,16 @@
                      (choice
                       (sequence (literal "c") (reference component))
                       (literal "d"))))))))
+
+;; Share a finite component across all regions. This family has no recursive
+;; nonterminal dependency, but its canonical LR(1) table still needs follow
+;; compression; acyclicity alone cannot justify a canonical fast route.
+(def (acyclic-mixed-context-family-rules count)
+  (map (lambda (rule)
+         (if (eq? (car rule) 'component)
+           '(component (choice (literal "c") (literal "d")))
+           rule))
+       (mixed-context-family-rules count)))
 
 ;; Merging the two LR(1) contexts for A -> c and B -> c creates a spurious
 ;; reduce/reduce conflict. Canonical LR(1) must keep them distinct.

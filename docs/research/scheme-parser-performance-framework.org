@@ -352,6 +352,27 @@ one host; they do not imply a fresh-parse throughput change. Lowering either
 canonical-trial threshold improved the independent fixture but slowed the
 compressing mixed fixture, so those threshold experiments were reverted.
 
+A later bounded-route experiment tried canonical construction for 128--255
+productions only when the nonterminal dependency graph was acyclic. It cut
+the independent 32-context family's median from 5.283 to 2.270 ms in 30/30
+paired runs, while the recursive mixed family stayed on direct follow. The
+new =acyclic-mixed-context-family-rules= fixture is the counterexample to
+that admission rule: it shares a finite component across 32 regions, has no
+recursive dependency, and needs 485 follow states versus 487 canonical
+states. The canonical trial therefore falls back, but raises the full
+construction median from 7.050 to 9.923 ms (only 7/30 wins). The route change
+was reverted. The fixture, reference test, and =route-threshold.ss=
+=acyclic-mixed= mode retain this performance and semantic boundary for the
+next routing algorithm.
+
+Several local signature and fixed-point refinements were also rejected after
+same-process full-spec comparisons: direct comparison within small forward
+groups, propagation only to groups reached from a split, sparse predecessor
+signatures, and an extra backward singleton confirmation guard. Canonical
+closure queue deduplication, lookahead-delta propagation, and eager closure
+edge caching likewise lacked consistent paired wins. None of these temporary
+switches remains in the compiler.
+
 The benchmark reports both total time and mean microseconds per invocation.
 In one sequential run with the pinned v0.19 toolchain, 1,000 full compilations
 of the LR(1)-but-not-LALR fixture averaged 79.5 us for canonical and 409.6 us

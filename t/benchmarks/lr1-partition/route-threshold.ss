@@ -6,7 +6,8 @@
                  production-table)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/t/fixtures/lr1-construction
-                 lr1-context-family-rules mixed-context-family-rules))
+                 lr1-context-family-rules mixed-context-family-rules
+                 acyclic-mixed-context-family-rules))
 
 (def (main . args)
   (let* ((contexts (if (pair? args) (string->number (car args)) 48))
@@ -17,12 +18,13 @@
                   (string->symbol (caddr args)) 'independent)))
     (unless (and (integer? contexts) (positive? contexts)
                  (integer? samples) (positive? samples)
-                 (memq shape '(independent mixed)))
-      (error "expected positive context and sample counts, then independent/mixed"
+                 (memq shape '(independent mixed acyclic-mixed)))
+      (error "expected positive context and sample counts, then independent/mixed/acyclic-mixed"
              args))
-    (let* ((rules ((if (eq? shape 'mixed)
-                     mixed-context-family-rules
-                     lr1-context-family-rules)
+    (let* ((rules ((case shape
+                     ((mixed) mixed-context-family-rules)
+                     ((acyclic-mixed) acyclic-mixed-context-family-rules)
+                     (else lr1-context-family-rules))
                    contexts))
            (productions (vector-length
                          (production-table (lower-rules rules 'source-file)))))
@@ -46,7 +48,7 @@
                                     'canonical-lr1 'follow-partition-lr1)))
                  (canonical (if (odd? sample) second first))
                  (follow (if (odd? sample) first second)))
-            (unless (if (eq? shape 'mixed)
+            (unless (if (memq shape '(mixed acyclic-mixed))
                       (and (< (vector-ref follow 1)
                               (vector-ref canonical 1))
                            (< (vector-ref follow 2)

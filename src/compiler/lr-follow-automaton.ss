@@ -587,7 +587,11 @@
           (build-direct)))))))
 
 (def (build-states-via-follow-partition-lr1 productions table first nullable)
-  (if (>= (vector-length table) 512)
+  ;; At medium size, independent conflict contexts can already make the LR(0)
+  ;; seed and follow refinement more expensive than a bounded canonical trial.
+  ;; The state budget still sends grammars needing further compression to the
+  ;; direct follow construction.
+  (if (>= (vector-length table) 256)
     (let (trial
           (call-with-values
            (lambda ()

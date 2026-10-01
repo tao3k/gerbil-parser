@@ -262,7 +262,7 @@
            (check-exception (compile-lr-spec rules 'source-file) true)
            (check (lr-spec-ref canonical 'state-count)
                   => (lr-spec-ref direct 'state-count))
-           (when (= context-count 64)
+           (when (memv context-count '(48 64))
              (check (lr-spec-ref direct 'follow-block-count) => 0))
            (for-each
             (lambda (index)
@@ -288,7 +288,7 @@
                   (check (parse-token-result canonical tokens) => 'rejected)
                   (check (parse-token-result direct tokens) => 'rejected))))
             (iota context-count))))
-       '(4 16 64)))
+       '(4 16 48 64)))
     (poo-flow-test-case "bounded canonical trial stops above its state budget"
       (let* ((productions (lower-rules lr1-not-lalr-rules 'source-file))
              (table (production-table productions)))

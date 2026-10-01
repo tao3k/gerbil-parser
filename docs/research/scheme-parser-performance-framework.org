@@ -172,6 +172,32 @@ choices, and compares their LR parse products. Under the pinned v0.19 build,
 it also compares both routes on the generated arithmetic language using its
 actual lexer and three source expressions. It does not exercise Rowan.
 
+** Bounded canonical trial at medium grammar size
+
+The direct follow constructor has a bounded canonical trial for large
+grammars. For a medium family of independent LR(1) contexts, the previous
+512-production entry threshold instead built the LR(0) seed first. At 48
+contexts (290 productions), it then entered follow refinement, although the
+canonical automaton has only 627 states and needs no follow compression.
+The entry threshold is now 256 productions. The trial still stops at three
+times the production count and falls back to direct follow construction when
+canonical states exceed that budget. The later LR(0)-conflict lower-bound
+check and all table contracts remain in place.
+
+The pure Scheme =t/benchmarks/lr1-partition/route-threshold.ss= prepares the
+grammar once, alternates canonical and follow construction, runs =##gc=
+before each sample, and reports CPU time, state count, and follow-block
+count. Invoke it as =gerbil env gxi
+t/benchmarks/lr1-partition/route-threshold.ss 48 20= under the built package.
+In separate 20-pair local runs, the 48-context follow-route CPU median fell
+from 12.715 to 3.280 ms; the canonical reference medians were 2.880 and
+2.873 ms. At 64 contexts (386 productions), the follow-route median fell
+from 5.828 to 5.196 ms; that case already used a late canonical trial, so
+the gain is limited to avoiding the LR(0) seed. Both results report zero
+follow blocks, and the focused reference test checks parse products for all
+accepted and rejected context fixtures at 48 and 64 contexts. This is a
+construction-time route choice, not a measured runtime parse gain.
+
 ** Mapping langcc's direct construction to the Scheme compiler
 
 Construction 3.27 of /Practical LR Parser Generation/ partitions k-follow

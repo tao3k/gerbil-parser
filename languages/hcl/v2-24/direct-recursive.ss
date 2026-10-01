@@ -119,17 +119,23 @@
     (def (simple-value-at? pos)
       (and (< (fx+ pos 2) limit) (eq? (token-kind (vector-ref significant pos)) 'identifier) (equal? (token-lexeme (vector-ref significant (fx+ pos 1))) "=") (memq (token-kind (vector-ref significant (fx+ pos 2))) '(number string identifier))))
     (def (brace-at? pos brace) (and (< pos limit) (equal? (token-lexeme (vector-ref significant pos)) brace)))
+    (def (block-opening-at pos)
+      (and
+        (< pos limit)
+        (eq? (token-kind (vector-ref significant pos)) 'identifier)
+        (let labels ((cursor (fx+ pos 1))) (cond ((= cursor limit) #f) ((brace-at? cursor "{") cursor) ((memq (token-kind (vector-ref significant cursor)) '(string identifier)) (labels (fx+ cursor 1))) (else #f)))))
     (def (flat-blocks?)
       (let root
         ((pos 0) (saw-block? #f))
         (cond
           ((= pos limit) saw-block?)
           ((eq? (token-kind (vector-ref significant pos)) 'newline) (root (fx+ pos 1) saw-block?))
-          ((and (< (fx+ pos 1) limit) (eq? (token-kind (vector-ref significant pos)) 'identifier) (brace-at? (fx+ pos 1) "{"))
-            (let body
-              ((cursor (fx+ pos 2)))
-              (cond ((= cursor limit) #f) ((brace-at? cursor "}") (root (fx+ cursor 1) #t)) ((eq? (token-kind (vector-ref significant cursor)) 'newline) (body (fx+ cursor 1))) ((simple-value-at? cursor) (body (fx+ cursor 3))) (else #f))))
-          (else #f))))
+          (else
+            (let (opening-pos (block-opening-at pos))
+              (and opening-pos
+                (let body
+                  ((cursor (fx+ opening-pos 1)))
+                  (cond ((= cursor limit) #f) ((brace-at? cursor "}") (root (fx+ cursor 1) #t)) ((eq? (token-kind (vector-ref significant cursor)) 'newline) (body (fx+ cursor 1))) ((simple-value-at? cursor) (body (fx+ cursor 3))) (else #f)))))))))
     (def (emit-simple-attributes!)
       (emit-event! 'open-node 'HclFile 0)
       (let loop
@@ -188,19 +194,24 @@
               (close-node! attribute-id 'Attribute value-end))
             (close-field! 'item value-end)))
         (def (emit-flat-block! pos)
-          (let* ((type (vector-ref significant pos)) (opening (vector-ref significant (fx+ pos 1))) (start (token-start type)) (type-end (token-end type)) (body-start (token-start (vector-ref significant (fx+ pos 2)))))
+          (let* ((type (vector-ref significant pos)) (opening-pos (block-opening-at pos)) (opening (vector-ref significant opening-pos)) (start (token-start type)) (type-end (token-end type)) (body-start (token-start (vector-ref significant (fx+ opening-pos 1)))))
             (open-field! 'item start)
             (let (block-id (open-node! 'Block start))
               (open-field! 'type start)
               (emit-trivia-until! start)
               (emit-token! type)
               (close-field! 'type type-end)
+              (let labels
+                ((cursor (fx+ pos 1)))
+                (when
+                  (< cursor opening-pos)
+                  (let* ((label (vector-ref significant cursor)) (label-start (token-start label))) (emit-trivia-until! label-start) (open-field! 'label label-start) (emit-token! label) (close-field! 'label (token-end label)) (labels (fx+ cursor 1)))))
               (emit-trivia-until! (token-start opening))
               (emit-token! opening)
               (open-field! 'body body-start)
               (let (body-id (open-node! 'Body body-start))
                 (let body
-                  ((cursor (fx+ pos 2)) (body-end body-start))
+                  ((cursor (fx+ opening-pos 1)) (body-end body-start))
                   (let (input (vector-ref significant cursor))
                     (cond
                       ((equal? (token-lexeme input) "}")

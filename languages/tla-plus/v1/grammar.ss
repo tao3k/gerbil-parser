@@ -43,6 +43,7 @@
    (FunctionConstructor node (name domain body))
    (RecordExpression node (name value))
    (SetFilterExpression node (name domain predicate))
+   (SetMapExpression node (body name domain))
    (TemporalSubscriptExpression node (action subscript))
    (GroupedExpression node (expression))
    (TupleExpression node (item)) (SetExpression node (item))
@@ -70,7 +71,7 @@
    (punctuation
     (literals "<=>" "|->" "[]" "<>" "=>" "==" "/\\" "\\/"
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
-              "\\union" "\\cap" "\\cup" "\\in"
+              "\\union" "\\cap" "\\cup" "\\subseteq" "\\X" "\\in" "\\"
               ".." "<<" ">>" "<=" ">=" "->" "<-"
               "#" "=" "<" ">" "+" "-" "*" "/" "^" "'" "~"
               "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
@@ -194,7 +195,7 @@
             (field operator
              (choice (literal "=") (literal "#") (literal "<") (literal ">")
                      (literal "<=") (literal ">=") (literal "\\in")
-                     (literal "\\notin")))
+                     (literal "\\notin") (literal "\\subseteq")))
             (field right (reference expression)))))
      ;; Set union and intersection share precedence 8 in TLA+ and associate
      ;; to the left. Their ASCII aliases are spellings of the same operators.
@@ -203,7 +204,8 @@
        (seq (field left (reference expression))
             (field operator
              (choice (literal "\\cup") (literal "\\union")
-                     (literal "\\cap") (literal "\\intersect")))
+                     (literal "\\cap") (literal "\\intersect")
+                     (literal "\\")))
             (field right (reference expression)))))
      (prec left 50
       (alias Expression
@@ -217,7 +219,8 @@
      (prec left 70
       (alias Expression
        (seq (field left (reference expression))
-            (field operator (choice (literal "*") (literal "/")))
+            (field operator (choice (literal "*") (literal "/")
+                                    (literal "\\X")))
             (field right (reference expression)))))
      (prec right 80
       (alias Expression
@@ -236,6 +239,7 @@
      (prec right 1 (reference let-expression))
      (reference case-expression) (reference function-constructor)
      (reference record-expression) (reference set-filter-expression)
+     (reference set-map-expression)
      (reference temporal-subscript-expression)
      (reference grouped-expression) (reference tuple-expression)
      (reference set-expression) (reference name-expression)
@@ -336,6 +340,11 @@
      (seq (literal "{") (field name (token identifier)) (literal "\\in")
           (field domain (reference expression)) (literal ":")
           (field predicate (reference expression)) (literal "}"))))
+   (set-map-expression
+    (alias SetMapExpression
+     (seq (literal "{") (field body (reference expression)) (literal ":")
+          (field name (token identifier)) (literal "\\in")
+          (field domain (reference expression)) (literal "}"))))
    (temporal-subscript-expression
     (alias TemporalSubscriptExpression
      (seq (literal "[") (field action (reference expression)) (literal "]")

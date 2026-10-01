@@ -96,6 +96,26 @@
              (artifact (parse-tla-plus-v1 source)))
         (check (parse-artifact-success? artifact) => #f)
         (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "Temporal set maps, products, difference, and subset retain bytes"
+      (let* ((source
+              "---- MODULE TemporalSyntax ----\nIds == {o[1] : o \\in Observations}\nRemaining == Ids \\ {id}\nPairs == Ids \\X Cuts\nWithin == Remaining \\subseteq Ids\n====\n")
+             (artifact (parse-tla-plus-v1 source))
+             (kinds (and (parse-artifact-success? artifact)
+                         (cst-node-kinds (parse-artifact->cst artifact)))))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check (member 'SetMapExpression kinds) ? values)))
+    (test-case "incomplete Temporal operators remain syntax errors"
+      (for-each
+       (lambda (body)
+         (let (artifact
+               (parse-tla-plus-v1
+                (string-append "---- MODULE BrokenTemporal ----\n" body
+                               "\n====\n")))
+           (check (parse-artifact-success? artifact) => #f)))
+       '("Ids == {o[1] : o \\in}" "Pairs == Ids \\X"
+         "Remaining == Ids \\" "Within == Ids \\subseteq")))
     (test-case "incomplete modular forms remain syntax errors"
       (for-each
        (lambda (body)

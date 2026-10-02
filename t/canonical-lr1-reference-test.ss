@@ -326,7 +326,7 @@
                             => #t)))
                  '("acd" "ace" "bcd" "bce" "dd" "cdd" "acc" "cd"))))
             (iota context-count))))
-       '(4 16 32 64)))
+       '(4 16 32 64 128)))
     (poo-flow-test-case "acyclic shared contexts still need follow compression"
       (for-each
        (lambda (context-count)

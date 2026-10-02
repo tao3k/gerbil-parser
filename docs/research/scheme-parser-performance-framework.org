@@ -480,6 +480,35 @@ route at larger grammar sizes. At 16 regions, canonical and direct both made
 8.85 ms per full generation respectively. The direct route remains an
 explicit experiment, not a production default or a demonstrated speedup.
 
+** Lazy epsilon closure for large direct LR quotients
+
+A TLA+ layout grammar probe (40 source rules, 280 lowered productions)
+selected the direct follow route. Its LR(0), conflict-candidate, initial, and
+backward/forward partition stages completed quickly in CPU time, but the
+quotient NFA had 3,984 blocks and DFA construction dominated. The old
+closure walk reached state 300 with 653 states discovered at 7.85 process CPU
+seconds; a local memoized candidate reached the same point at 5.58 seconds.
+These process CPU readings include module loading and earlier phases. With
+lazy singleton-closure caching the complete TLA+ direct LR spec finished
+within a 300-second wall-clock cap: 12.925 seconds of construction CPU,
+8,149 states, 3,984 blocks, and 407,734 output items. After narrowing the
+threshold and completing a default build, the final source repeated those
+counts at 12.453 seconds of construction CPU. The old path did not
+finish within a 420-second wall-clock cap on this busy host, so there is no
+matched complete-run speedup ratio or full old/new TLA spec comparison.
+
+Epsilon closure distributes over set union. The implementation computes each
+singleton block's closure on first use, then unions cached masks for a shift
+seed. It retains the original walk below 3,500 blocks. That empirical gate
+matters: on the mixed 64-context fixture (2,057 blocks), five sample CPU
+medians rose from 17.2 to 19.6 ms; at 96 contexts (3,081 blocks), from 28.8
+to 33.5 ms. At 128 contexts (4,105 blocks), three samples were close:
+92.3 ms for the original walk and 89.7 ms for caching. The 128-context
+parse-product test now exercises the cached path against canonical LR(1).
+These observations support a large-quotient specialization, not a general
+claim that closure caching helps every grammar. They measure generator work,
+not parser throughput.
+
 ** Shared literal recognition across lexical modes
 
 =generated-lexer= now builds one trie for all complete =(literals ...)= rules,

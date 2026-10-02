@@ -351,6 +351,20 @@
           (drain))))
     reached))
 
+(def (epsilon-closure/memo initial epsilon-edges cache)
+  (let (reached 0)
+    (compiler-index-set-for-each
+     initial
+     (lambda (block)
+       (let (closure (vector-ref cache block))
+         (unless closure
+           (set! closure
+                 (epsilon-closure
+                  (compiler-index-set-singleton block) epsilon-edges))
+           (vector-set! cache block closure))
+         (set! reached (compiler-index-set-union reached closure)))))
+    reached))
+
 (def (determinize-follow-blocks blocks index metadata terminal-values
                                 layout core-symbols)
   (let* ((block-count (vector-length blocks))
@@ -394,7 +408,11 @@
     (let ((states (list->ExtensibleVector '()))
           (transitions (list->ExtensibleVector '()))
           (state-index (make-table test: equal?))
-          (queue (stdq-make-Queue)))
+          (queue (stdq-make-Queue))
+          ;; Epsilon closure distributes over union. Cache singleton closures
+          ;; only for large quotients, where repeated traversals dominate.
+          (closure-cache (and (>= block-count 3500)
+                              (make-vector block-count #f))))
       (def (intern! closure)
         (let (existing (table-ref state-index closure #f))
           (if existing
@@ -404,8 +422,12 @@
               (table-set! state-index closure id)
               (stdq-enqueue! queue id)
               id))))
-      (intern! (epsilon-closure
-                (compiler-index-set-singleton start) epsilon-edges))
+      (intern! (if closure-cache
+                 (epsilon-closure/memo
+                  (compiler-index-set-singleton start)
+                  epsilon-edges closure-cache)
+                 (epsilon-closure
+                  (compiler-index-set-singleton start) epsilon-edges)))
       (let drain ()
         (unless (stdq-queue-empty? queue)
           (let* ((state (stdq-dequeue! queue))
@@ -428,8 +450,12 @@
             (for-each
              (lambda (symbol)
                (let* ((next-closure
-                       (epsilon-closure
-                        (table-ref symbol-targets symbol) epsilon-edges))
+                       (if closure-cache
+                         (epsilon-closure/memo
+                          (table-ref symbol-targets symbol)
+                          epsilon-edges closure-cache)
+                         (epsilon-closure
+                          (table-ref symbol-targets symbol) epsilon-edges)))
                       (target (intern! next-closure)))
                  (ExtensibleVector-set!
                   transitions state

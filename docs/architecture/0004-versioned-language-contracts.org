@@ -87,6 +87,17 @@ declares its public boundary with =deflanguage-parser= and consumes the sole
 descriptor emitted by =grammar.ss=; it cannot introduce a second language
 identity, contract, machine, or language switch.
 
+A source language with context-sensitive lexical obligations can declare a
+=source-language= descriptor in =grammar.ss= instead of manufacturing an LR
+grammar for a different syntax.  Its declaration binds the language, version,
+contract, scanner, and parser once.  The same =deflanguage-parser= public entry
+accepts =(source descriptor)=; the engine checks that every returned
+=ParseArtifact= is valid and carries the declared grammar and source digests.
+The parser can retain immutable scanner checkpoints with byte offsets and
+language context, including deferred tokens such as Bash here-documents.  A
+scanner-backed language has no implicit LR fallback or checkpoint-reuse claim;
+it owns the source grammar in its versioned directory.
+
 Native examples are real source files, not Scheme string fragments.  A
 downstream test declares =defsyntax-fixture= with an immutable logical fixture
 identity, language version, contract identity, expected terminal state, root,

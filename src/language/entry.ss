@@ -5,7 +5,11 @@
         (only-in ./descriptor
                  language-grammar-contract language-grammar-language
                  language-grammar-machine language-grammar-observability
-                 language-grammar-version))
+                 language-grammar-version)
+        (only-in ./source
+                 parse-source-language source-language?
+                 source-language-contract source-language-language
+                 source-language-version))
 (export deflanguage-parser
         +language-parser-entry-schema+
         language-parser-entry-ref
@@ -24,10 +28,12 @@
 ;;; therefore request-local by construction and cannot leak into another
 ;;; language, grammar version, or concurrent parse.
 (def (parse-language-source language-grammar source)
-  (parse-source
-   (language-grammar-machine language-grammar)
-   source
-   (language-grammar-observability language-grammar)))
+  (if (source-language? language-grammar)
+    (parse-source-language language-grammar source)
+    (parse-source
+     (language-grammar-machine language-grammar)
+     source
+     (language-grammar-observability language-grammar))))
 
 ;;; This macro is the sole public projection from a versioned language
 ;;; descriptor to its runtime parse entry, keeping identity and machine bound.
@@ -44,7 +50,7 @@
 ;;       ```
 ;;     %
 (defrules deflanguage-parser
-  (grammar parse)
+  (grammar source parse)
   ((_ binding
       (grammar language-grammar-value)
       (parse parse-binding))
@@ -56,4 +62,16 @@
         (cons 'version (language-grammar-version language-grammar-value))
         (cons 'contract (language-grammar-contract language-grammar-value))))
      (def (parse-binding source)
-       (parse-language-source language-grammar-value source)))))
+       (parse-language-source language-grammar-value source))))
+  ((_ binding
+      (source source-language-value)
+      (parse parse-binding))
+   (begin
+     (def binding
+       (list
+        (cons 'schema +language-parser-entry-schema+)
+        (cons 'language (source-language-language source-language-value))
+        (cons 'version (source-language-version source-language-value))
+        (cons 'contract (source-language-contract source-language-value))))
+     (def (parse-binding source)
+       (parse-language-source source-language-value source)))))

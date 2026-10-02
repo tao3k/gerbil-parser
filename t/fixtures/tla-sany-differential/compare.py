@@ -97,11 +97,14 @@ def main():
             timeout=30,
         )
         candidate = checked_run(
-            ["gerbil", str(FIXTURE_DIR / "candidate-shape.ss"), str(path)],
+            ["gerbil", "env", "gxi", str(FIXTURE_DIR / "candidate-shape.ss"), str(path)],
             timeout=180,
         )
         if candidate.returncode != 0:
-            raise ValueError(f"candidate helper failed on {module_name}: {candidate.stderr}")
+            raise ValueError(
+                f"candidate helper failed on {module_name} with exit {candidate.returncode}: "
+                f"stdout={candidate.stdout!r} stderr={candidate.stderr!r}"
+            )
         try:
             observed = json.loads(candidate.stdout.strip())
         except json.JSONDecodeError as error:

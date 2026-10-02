@@ -193,7 +193,8 @@ jobs:
           curl --fail --location --retry 3 --silent --show-error \
             --output "$jar" \
             https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
-          python3 t/fixtures/tla-sany-differential/compare.py --sany-jar "$jar"
+          GAMBOPT=max-heap=1G,debug=q \
+            python3 t/fixtures/tla-sany-differential/compare.py --sany-jar "$jar"
 
       - name: Verify Rust/Rowan AOT generation is current
         run: |

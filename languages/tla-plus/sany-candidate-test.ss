@@ -167,6 +167,20 @@
         (check (node-kind-count (parse-artifact->cst artifact)
                                 'Expression)
                => 3)))
+    (test-case "action subscripts require SANY's closing delimiter"
+      (check (parse-artifact-success?
+              (parse-tla-plus-sany-candidate
+               "---- MODULE Bad ----\nP == [A]x\n====\n"))
+             => #f)
+      (let* ((source
+              "---- MODULE Tuple ----\nP == [A]_<<x,y>>\nQ == [][A]_(<<x,y>>)\n====\n")
+             (artifact (parse-tla-plus-sany-candidate source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check (node-kind-count (parse-artifact->cst artifact)
+                                'TemporalSubscriptExpression)
+               => 2)))
     (test-case "concurrent requests keep layout columns and frames isolated"
       (let* ((sources
               (list

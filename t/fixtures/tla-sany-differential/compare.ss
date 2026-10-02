@@ -16,7 +16,8 @@
   "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88")
 (def +cases+
   '(("TemporalPrecedence" "P" "Q" "R" "S" "T")
-    ("ArithmeticPrecedence" "P" "Q" "R" "S" "T" "U")))
+    ("ArithmeticPrecedence" "P" "Q" "R" "S" "T" "U")
+    ("TemporalTuple" "P" "Q" "R" "S")))
 
 (def (one-child node tag)
   (let (matches
@@ -156,6 +157,23 @@
      (candidate-expression (field-node node 'expression)))
     ((NameExpression)
      (field-text node 'name))
+    ((PrefixExpression)
+     (list (field-text node 'operator)
+           (candidate-expression (field-node node 'operand))))
+    ((TemporalSubscriptExpression)
+     (list "$SquareAct"
+           (candidate-expression (field-node node 'action))
+           (candidate-expression (field-node node 'subscript))))
+    ((TupleExpression)
+     (cons "$Tuple"
+           (map (lambda (field)
+                  (candidate-expression
+                   (or (first-descendant field syntax-node?)
+                       (error "tuple field has no expression"))))
+                (filter (lambda (child)
+                          (and (syntax-field? child)
+                               (eq? (syntax-field-name child) 'item)))
+                        (syntax-node-children node)))))
     (else (error "unsupported differential expression" (syntax-node-kind node)))))
 
 (def (operator-definitions value)

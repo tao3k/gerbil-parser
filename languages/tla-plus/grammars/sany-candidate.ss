@@ -77,7 +77,7 @@
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
               "\\union" "\\cap" "\\cup" "\\subseteq" "\\X" "\\in" "\\"
               "\\div" "\\leq" "\\geq"
-              ".." "<<" ">>" "<=" ">=" "=<" "/=" "->" "<-"
+              ".." "<<" ">>" "]_" "<=" ">=" "=<" "/=" "->" "<-"
               "#" "=" "<" ">" "+" "-" "*" "/" "%" "^" "'" "~" "@"
               "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
   )
@@ -456,9 +456,12 @@
           (field domain (reference expression)) (literal "}"))))
    (temporal-subscript-expression
     (alias TemporalSubscriptExpression
-     (seq (literal "[") (field action (reference expression)) (literal "]")
-          ;; SANY lexes the lossless `_name` spelling as one identifier.
-          (field subscript (token identifier)))))
+     (seq (literal "[") (field action (reference expression)) (literal "]_")
+          ;; SANY's ReducedExpression admits delimited expressions and names.
+          (field subscript
+                 (choice (reference name-expression)
+                         (reference tuple-expression)
+                         (reference grouped-expression))))))
    (grouped-expression
     (alias GroupedExpression
      (seq (literal "(") (field expression (reference expression))

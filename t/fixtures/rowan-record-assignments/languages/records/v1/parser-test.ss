@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Native conformance for a downstream-owned complete language pack.
+;;; Native conformance for the record assignments language pack.
 
 (import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/language-support
@@ -17,15 +17,15 @@
 (export records-v1-parser-tests)
 
 (def records-v1-parser-tests
-  (test-suite "downstream records v1 language pack"
+  (test-suite "record assignments language pack"
     (test-case "the public entry owns immutable language identity"
       (check (language-parser-entry-ref records-v1-language 'schema)
              => +language-parser-entry-schema+)
       (check (language-parser-entry-ref records-v1-language 'language)
-             => "downstream-records")
+             => "record-assignments")
       (check (language-parser-entry-ref records-v1-language 'version) => "v1")
       (check (language-parser-entry-ref records-v1-language 'contract)
-             => "downstream-records.v1"))
+             => "record-assignments.v1"))
     (test-case "accepted and rejected fixtures share one declared corpus"
       (for-each
        (lambda (fixture)

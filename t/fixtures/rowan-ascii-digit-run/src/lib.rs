@@ -1,4 +1,4 @@
-//! A downstream-owned parser with a build-bound artifact and external receipt.
+//! An independent ASCII digit parser with a build-bound artifact and external receipt.
 
 use gerbil_parser_rowan::{Diagnostic, EventCatalog, KindCategory, KindSpec, TreeEvent};
 use gerbil_parser_rowan_external::{
@@ -19,10 +19,10 @@ static KINDS: &[KindSpec] = &[
     },
 ];
 static LANGUAGE: ExternalLanguageSpec = ExternalLanguageSpec {
-    language: "downstream-digits",
+    language: "ascii-digit-run",
     version: "fixture",
-    contract: "downstream-digits.syntax",
-    provider: "downstream-table-parser",
+    contract: "ascii-digit-run.syntax",
+    provider: "ascii-digit-table",
     provider_version: "fixture",
     provider_digest: PROVIDER_DIGEST,
     catalog: EventCatalog {
@@ -31,11 +31,11 @@ static LANGUAGE: ExternalLanguageSpec = ExternalLanguageSpec {
     },
 };
 
-/// Parse an ASCII digit run using the build-bound downstream table.
+/// Parse an ASCII digit run using the build-bound provider table.
 ///
 /// # Errors
 ///
-/// Rejects source outside the downstream grammar or invalid source events.
+/// Rejects source outside the digit grammar or invalid source events.
 pub fn parse_digits(source: &str) -> Result<ExternalParse, ExternalParseError> {
     // The fixture interprets the artifact's declared character range itself.
     let parser_range = ARTIFACT
@@ -80,7 +80,7 @@ mod tests {
         assert_eq!(parsed.syntax().to_string(), "0123");
         assert_eq!(parsed.receipt().authority, "external-parser");
         assert_eq!(parsed.receipt().provider_digest, PROVIDER_DIGEST);
-        assert_eq!(parsed.receipt().language, "downstream-digits");
+        assert_eq!(parsed.receipt().language, "ascii-digit-run");
         assert_eq!(
             parse_digits("12x").unwrap_err().diagnostic.reason_kind,
             "provider-rejected"

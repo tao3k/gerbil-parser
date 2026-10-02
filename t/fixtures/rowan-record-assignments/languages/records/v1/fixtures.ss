@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Downstream corpus manifest embedded at macro expansion.
+;;; Record assignments corpus manifest embedded at macro expansion.
 
 (import (only-in :gerbil-parser/language-support defsyntax-corpus)
         (only-in ./grammar
@@ -8,7 +8,7 @@
 (export records-v1-fixtures)
 
 (defsyntax-corpus records-v1-fixtures
-  (identity "downstream-records"
+  (identity "record-assignments"
             +records-language-version+
             +records-syntax-contract+)
   (accepted

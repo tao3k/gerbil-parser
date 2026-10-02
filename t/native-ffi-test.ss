@@ -51,9 +51,9 @@
       (check (native-rowan-aot-abi-version) => 1)
       (let (source
             (native-rust-rowan-source
-             "t/fixtures/rust-rowan-downstream/languages/records/v1/grammar.ss"))
+             "t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss"))
         (check (not (not (string-contains
-                           source "language: \"downstream-records\""))) => #t)
+                           source "language: \"record-assignments\""))) => #t)
         (check (not (not (string-contains
                            source "grammar_digest: \"sha256:9c7e8b0f"))) => #t)
         (check (not (not (string-contains
@@ -61,7 +61,7 @@
     (test-case "module without a language descriptor fails closed"
       (check-exception
        (native-rust-rowan-source
-        "t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss")
+        "t/fixtures/rowan-record-assignments/languages/records/v1/parser.ss")
        true))))
 
 (export native-ffi-tests)

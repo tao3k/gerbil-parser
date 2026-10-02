@@ -80,7 +80,7 @@ do not change a grammar's identity, parsing semantics, or receipt schema.
 
 - Build the generic Rowan runtime with no first-party language crate linked.
 - Build and test exactly one first-party language selection and the independent
-  downstream records fixture without a Gerbil installation at parse time.
+  record assignments fixture without a Gerbil installation at parse time.
 - Build one independent external adapter against the minimal event catalog.
   Reject wrong kind categories, unbalanced events, overlapping or missing
   source bytes, invalid UTF-8 boundaries, and malformed provider identity.
@@ -110,7 +110,7 @@ Rowan crate as its direct runtime dependency and passes its two Cargo tests.
 The external adapter's two focused tests cover source-exact output, external
 receipt identity, invalid UTF-8 token range, and malformed provider digest.
 The event sink separately tests root, kind, and source-coverage rejection.
-An independent external downstream fixture builds outside the root workspace,
+An independent ASCII digit parser fixture builds outside the root workspace,
 derives its provider digest from its parser table in =build.rs=, consumes that
 same table when recognizing a digit run, and passes its lossless-tree/receipt
 test.  Production providers must apply the same artifact-binding gate to

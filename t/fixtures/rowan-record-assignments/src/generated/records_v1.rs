@@ -423,9 +423,9 @@ static PRODUCTIONS: &[Production] = &[
 ];
 
 pub static LANGUAGE: LanguageSpec = LanguageSpec {
-    language: "downstream-records",
+    language: "record-assignments",
     version: "v1",
-    contract: "downstream-records.v1",
+    contract: "record-assignments.v1",
     grammar_digest: "sha256:9c7e8b0f807fb1bf13198c417ce5b74b90f65d67f054b48188cf5268dba4d1d4",
     case_insensitive: false,
     root_kind: 0,

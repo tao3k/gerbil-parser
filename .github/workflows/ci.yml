@@ -31,13 +31,13 @@ jobs:
       - name: Verify Rust contracts
         run: cargo test --workspace --locked
 
-      - name: Verify downstream Cargo-only language consumer
-        run: cargo test --locked --manifest-path t/fixtures/rust-rowan-downstream/Cargo.toml
+      - name: Verify record assignments Cargo consumer
+        run: cargo test --locked --manifest-path t/fixtures/rowan-record-assignments/Cargo.toml
 
-      - name: Verify external downstream adapter
+      - name: Verify external ASCII digit adapter
         run: |
-          cargo fmt --manifest-path t/fixtures/rust-rowan-external-downstream/Cargo.toml -- --check
-          cargo test --locked --manifest-path t/fixtures/rust-rowan-external-downstream/Cargo.toml
+          cargo fmt --manifest-path t/fixtures/rowan-ascii-digit-run/Cargo.toml -- --check
+          cargo test --locked --manifest-path t/fixtures/rowan-ascii-digit-run/Cargo.toml
 
       - name: Verify Rust lints
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -175,9 +175,9 @@ jobs:
         run: |
           gerbil env gxc t/line-structure-assertions.ss
           gerbil env gxc \
-            t/fixtures/rust-rowan-downstream/languages/records/v1/grammar.ss \
-            t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss \
-            t/fixtures/rust-rowan-downstream/languages/records/v1/fixtures.ss
+            t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss \
+            t/fixtures/rowan-record-assignments/languages/records/v1/parser.ss \
+            t/fixtures/rowan-record-assignments/languages/records/v1/fixtures.ss
 
       - name: Run native Gerbil tests
         timeout-minutes: 15
@@ -212,9 +212,9 @@ jobs:
           gerbil env gxi t/generate-owned-word-fixture.ss "$owned_generated"
           cmp "$owned_generated" rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs
 
-      - name: Verify downstream custom Rust/Rowan language pack
+      - name: Verify record assignments Rust/Rowan language pack
         run: |
-          fixture="t/fixtures/rust-rowan-downstream"
+          fixture="t/fixtures/rowan-record-assignments"
           generated="$(mktemp)"
           clean_home="$RUNNER_TEMP/rowan-aot-home"
           mkdir -p "$clean_home"

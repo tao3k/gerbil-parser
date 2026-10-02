@@ -1,9 +1,9 @@
-//! Independent downstream consumer of one custom generated language module.
+//! Independent consumer of the generated record assignments language module.
 
 #[path = "generated/records_v1.rs"]
 pub mod records_v1;
 
-/// Parse source with the downstream-owned records grammar.
+/// Parse source with the record assignments grammar.
 ///
 /// # Errors
 ///

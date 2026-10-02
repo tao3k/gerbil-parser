@@ -1,4 +1,4 @@
-use downstream_rowan_language_fixture::parse_records;
+use rowan_record_assignments_fixture::parse_records;
 
 const ACCEPTED: &str = include_str!("../languages/records/v1/corpus/accepted.records");
 const REJECTED: &str = include_str!("../languages/records/v1/corpus/rejected.records");
@@ -7,9 +7,9 @@ const REJECTED: &str = include_str!("../languages/records/v1/corpus/rejected.rec
 fn custom_generated_language_is_lossless_and_structural() {
     let parsed = parse_records(ACCEPTED).expect("custom records grammar must accept its corpus");
     assert_eq!(parsed.syntax().to_string(), ACCEPTED);
-    assert_eq!(parsed.receipt().language, "downstream-records");
+    assert_eq!(parsed.receipt().language, "record-assignments");
     assert_eq!(parsed.receipt().version, "v1");
-    assert_eq!(parsed.receipt().contract, "downstream-records.v1");
+    assert_eq!(parsed.receipt().contract, "record-assignments.v1");
     assert!(parsed.receipt().grammar_digest.starts_with("sha256:"));
 
     let kinds = parsed
@@ -30,8 +30,8 @@ fn custom_generated_language_is_lossless_and_structural() {
 #[test]
 fn custom_generated_language_rejects_incomplete_input_with_typed_evidence() {
     let error = parse_records(REJECTED).expect_err("incomplete assignment must reject");
-    assert_eq!(error.receipt.language, "downstream-records");
-    assert_eq!(error.receipt.contract, "downstream-records.v1");
+    assert_eq!(error.receipt.language, "record-assignments");
+    assert_eq!(error.receipt.contract, "record-assignments.v1");
     assert!(!error.diagnostic.reason_kind.is_empty());
     assert!(error.diagnostic.byte_offset <= REJECTED.len());
 }

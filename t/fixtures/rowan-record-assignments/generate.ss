@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
-;;; Downstream AOT entry using only the public Rust/Rowan generator facade.
+;;; Record assignments AOT entry using only the public Rust/Rowan generator facade.
 
 (import (only-in :gerbil-parser/rust-rowan-support
                  generate-language-rust-rowan-module)

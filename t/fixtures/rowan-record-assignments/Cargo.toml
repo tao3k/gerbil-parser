@@ -1,5 +1,5 @@
 [package]
-name = "downstream-rowan-language-fixture"
+name = "rowan-record-assignments-fixture"
 version = "0.0.0"
 edition = "2024"
 publish = false

@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Downstream-owned record DSL used to qualify the public language-pack API.
+;;; Record assignments DSL used to qualify the public language-pack API.
 
 (import (only-in :gerbil-parser/rust-rowan-grammar-support deflanguage))
 (export +records-language-version+
@@ -10,10 +10,10 @@
         records-parser)
 
 (def +records-language-version+ "v1")
-(def +records-syntax-contract+ "downstream-records.v1")
+(def +records-syntax-contract+ "record-assignments.v1")
 
 (deflanguage records
-  (identity "downstream-records" +records-language-version+
+  (identity "record-assignments" +records-language-version+
             +records-syntax-contract+)
   (root document)
   (lex

@@ -1,5 +1,5 @@
 [package]
-name = "downstream-external-parser-fixture"
+name = "rowan-ascii-digit-run-fixture"
 version = "0.0.0"
 edition = "2024"
 publish = false

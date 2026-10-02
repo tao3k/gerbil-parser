@@ -53,12 +53,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "downstream-external-parser-fixture"
+name = "rowan-record-assignments-fixture"
 version = "0.0.0"
 dependencies = [
  "gerbil-parser-rowan",
- "gerbil-parser-rowan-external",
- "sha2",
 ]
 
 [[package]]
@@ -75,15 +73,6 @@ dependencies = [
 name = "gerbil-parser-rowan"
 version = "0.1.0"
 dependencies = [
- "rowan",
- "sha2",
-]
-
-[[package]]
-name = "gerbil-parser-rowan-external"
-version = "0.1.0"
-dependencies = [
- "gerbil-parser-rowan",
  "rowan",
  "sha2",
 ]

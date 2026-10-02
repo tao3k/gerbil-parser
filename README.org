@@ -111,7 +111,7 @@ Gerbil command on =PATH= and explicit expansion-metadata roots. Packaging
 those immutable interfaces with the executable remains a release boundary;
 runtime object-cache reconstruction is gone.
 
-=t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
+=t/fixtures/rowan-record-assignments= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
 Upstream generation CI verifies its Scheme source pack and checks the
 committed Rust module through the public AOT facade. The independent Cargo

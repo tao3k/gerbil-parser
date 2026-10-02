@@ -50,17 +50,17 @@
        '("( |> x END" "( |> x\n  |> y END")))
     (test-case "undeclared right-hand boundaries retain the column restriction"
       (parameterize ((current-layout-columns (make-layout-columns "( |> x END"))
-                     (current-layout-frames '((4 . "|>"))))
+                     (current-layout-frames '((3 . "|>"))))
         (let (end (make-token 'word "END" 7 10))
           (check (layout-after-end end) => #f)
           (check (layout-after-end end '("END")) => '()))))
     (test-case "closing a nested list pops exactly one reference"
       (parameterize ((current-layout-columns (make-layout-columns "( |> x END"))
-                     (current-layout-frames '((4 . "|>") (1 . "outer"))))
+                     (current-layout-frames '((3 . "|>") (1 . "outer"))))
         (check (layout-after-end (make-token 'word "END" 7 10) '("END"))
                => '((1 . "outer")))))
     (test-case "an aligned continuation remains in its list"
       (parameterize ((current-layout-columns (make-layout-columns "  |> x\n  |> y"))
-                     (current-layout-frames '((4 . "|>"))))
+                     (current-layout-frames '((3 . "|>"))))
         (check (layout-after-end (make-token 'punctuation "|>" 9 11) '("|>"))
                => #f)))))

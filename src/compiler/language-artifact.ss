@@ -22,11 +22,14 @@
 (def +parser-artifact-cache-schema+
   "gerbil-parser.parser-artifact-cache.v1")
 (def +parser-artifact-generator-contract+
-  "gerbil-parser.lalr1-generator.v1")
+  "gerbil-parser.lalr1-generator.v2")
 (def +language-declaration-cache-schema+
   "gerbil-parser.language-declaration-cache.v1")
 (def +language-declaration-generator-contract+
-  "gerbil-parser.language-declaration-generator.v1")
+  "gerbil-parser.language-declaration-generator.v2")
+
+;; v2 publishes layout-guard actions. Older declaration/parser receipts must
+;; regenerate even when their authored grammar bytes have not changed.
 
 ;; : (-> Datum String)
 (def (serialize value)

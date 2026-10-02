@@ -15,6 +15,11 @@
 (def +compiled-language-artifact-prefix+
   "gerbil-parser/compiled-language-artifacts/")
 
+(def (trace-artifact phase schema count)
+  (when (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")
+    (displayln "[gerbil-parser-artifact] phase=" phase " schema=" schema " count=" count)
+    (force-output)))
+
 ;; : (-> Datum Boolean)
 (def (sha256-identity? value)
   (and (string? value)
@@ -59,6 +64,7 @@
 (def (decode-compiled-language-artifact
       expected-schema locator compressed origin)
   (validate-compiled-language-artifact-locator expected-schema locator)
+  (trace-artifact 'decode expected-schema (u8vector-length compressed))
   (let* ((relative-path (car locator))
          (expected-digest (cadr locator))
          (serialized (utf8->string (uncompress compressed)))
@@ -66,6 +72,7 @@
     (unless (equal? actual-digest expected-digest)
       (error "compiled language artifact digest mismatch"
              expected-schema expected-digest actual-digest origin))
+    (trace-artifact 'verified expected-schema (string-length serialized))
     (call-with-input-string
      serialized
      (lambda (port)
@@ -79,6 +86,7 @@
                         (equal? (cdr row) expected-schema)))
            (error "compiled language artifact schema mismatch"
                   expected-schema value))
+         (trace-artifact 'admitted expected-schema (length value))
          value)))))
 
 ;;; Admission is fail-closed: storage location, content identity, complete

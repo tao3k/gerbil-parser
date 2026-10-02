@@ -68,9 +68,9 @@
     (and columns (vector-ref columns (token-start token)))))
 
 (def (layout-token-end-column token)
-  ;; A marker can contain a tab or multibyte character; its source end
-  ;; offset, rather than its string length, determines the reference column.
-  (vector-ref (current-layout-columns) (token-end token)))
+  ;; JavaCC uses the final characters column, not the exclusive token end.
+  ;; UTF-8 continuation bytes already carry their leading characters column.
+  (vector-ref (current-layout-columns) (- (token-end token) 1)))
 
 (def (layout-shift-allowed? token)
   (let (frames (current-layout-frames))
@@ -107,9 +107,11 @@
 
 (def (layout-ordinary-entry entry shift-allowed?)
   (if (or (not entry) shift-allowed?)
-    entry
+    (if (and entry (eq? (cadr entry) 'layout-guard))
+      (cons (car entry) (caddr entry)) entry)
     (let (action (cdr entry))
       (case (car action)
+        ((layout-guard) (cons (car entry) (caddr action)))
         ((shift) #f)
         ((fork)
          (let (admitted
@@ -123,6 +125,7 @@
 
 (def (layout-mark-action action role)
   (case (car action)
+    ((layout-guard) (layout-mark-action (cadr action) role))
     ((shift) (list 'layout-shift role (cadr action)))
     ((fork)
      (cons 'fork
@@ -137,21 +140,18 @@
 (def (layout-current-action-row row token case-insensitive?)
   (let* ((lexeme (token-lexeme token))
          (next-entry (lookup-layout-next-action-entry row lexeme))
-         (next
-          (and next-entry
-               (layout-marker-eligible? 'layout-next token)
-               (layout-mark-entry next-entry 'layout-next)))
-         (start-entry (and (not next)
-                           (lookup-layout-start-action-entry row lexeme)))
-         (start
-          (and start-entry
-               (layout-marker-eligible? 'layout-start token)
-               (layout-mark-entry start-entry 'layout-start))))
-    (or next start
-        (layout-ordinary-entry
-         (or (lookup-literal-action-entry row lexeme)
-             (and case-insensitive?
-                  (lookup-literal-action-entry row (string-upcase lexeme)))
-             (lookup-action-entry
-              (lr-action-row-tokens row) (token-kind token)))
-         (layout-shift-allowed? token)))))
+         (next (and next-entry (layout-marker-eligible? 'layout-next token)
+                    (layout-mark-entry next-entry 'layout-next)))
+         (start-entry (and (not next) (lookup-layout-start-action-entry row lexeme)))
+         (start (and start-entry (layout-marker-eligible? 'layout-start token)
+                     (layout-mark-entry start-entry 'layout-start)))
+         (ordinary
+          (layout-ordinary-entry
+           (or (lookup-literal-action-entry row lexeme)
+               (and case-insensitive?
+                    (lookup-literal-action-entry row (string-upcase lexeme)))
+               (lookup-action-entry (lr-action-row-tokens row) (token-kind token)))
+           (layout-shift-allowed? token))))
+    (or next start ordinary
+        (layout-ordinary-entry next-entry #f)
+        (layout-ordinary-entry start-entry #f))))

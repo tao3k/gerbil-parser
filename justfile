@@ -29,3 +29,7 @@ benchmark-arithmetic-stages terms="3200":
 # Complete LR construction at a scale where partition costs are visible.
 benchmark-lr-grammar-construction contexts="256" samples="3":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/lr1-partition/context-scale.ss {{contexts}} {{samples}}
+
+# Complete immutable Examples syntax and lossless artifact receipt.
+tla-sany-corpus corpus:
+    GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 gerbil env gxi t/fixtures/tla-sany-differential/watch.ss gerbil env gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' t/fixtures/tla-sany-differential/corpus.ss {{quote(corpus)}}

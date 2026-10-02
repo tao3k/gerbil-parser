@@ -36,7 +36,7 @@
                  call-with-parser-observed-phase)
         (only-in ./token
                  token-end token-kind token-lexeme token-start))
-(export lr-parse
+(export current-lr-branch-budget lr-parse
         lr-parse/receipt
         lr-parse/prepared/receipt
         lr-prepare
@@ -287,7 +287,9 @@
 ;;       ;; => (schema . "gerbil-parser.selective-glr-receipt.v1")
 ;;       ```
 ;;     %
-(def (lr-parse/prepared/receipt runtime tokens (branch-budget 256)
+(def current-lr-branch-budget (make-parameter 256))
+
+(def (lr-parse/prepared/receipt runtime tokens (branch-budget (current-lr-branch-budget))
                                 (initial-states '(0))
                                 (initial-semantic-values '())
                                 (initial-rest tokens)
@@ -306,10 +308,7 @@
                   (max offset (token-end input-token)))
                 0 tokens))
          (branches-explored 0)
-         ;; The preferred action is the deterministic continuation of a fork.
-         ;; Only fallback actions consume the speculative branch budget; a
-         ;; long preferred path must not fail merely because it visits many
-         ;; conflict cells.
+         ;; Only fallback actions consume the speculative depth budget.
          (speculative-branches-explored 0)
          (speculative-depth 0)
          (max-speculative-depth 0)
@@ -553,6 +552,10 @@
                best)
              (begin
                (set! branches-explored (+ branches-explored 1))
+               (when (and (zero? (modulo branches-explored 1000))
+                          (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1"))
+                 (displayln "[gerbil-parser-lr] branches=" branches-explored
+                            " speculative-depth=" speculative-depth) (force-output))
                (unless preferred?
                  (set! speculative-branches-explored
                        (+ speculative-branches-explored 1))
@@ -643,9 +646,7 @@
                         #f))))
               (set-car! memo (or result configuration-result-failed))
               result))))))
-    ;; The prepared fast path hands its immutable checkpoint to selective GLR.
-    ;; Starting from that checkpoint avoids replaying the deterministic prefix
-    ;; from token zero whenever the first admitted fork is encountered.
+    ;; Resume selective GLR from the immutable deterministic checkpoint.
     (let (result (try-parse initial-states initial-semantic-values
                            initial-rest 0))
       (unless result
@@ -695,7 +696,7 @@
         (cons 'winnerReason (candidate-winner-reason result))
         (cons 'dynamicScore (candidate-score result)))))))
 
-(def (lr-parse/receipt spec tokens (branch-budget 256))
+(def (lr-parse/receipt spec tokens (branch-budget (current-lr-branch-budget)))
   (lr-parse/prepared/receipt (lr-prepare spec) tokens branch-budget))
 
 ;;; Sole deterministic executor. State remains in local variables on the hot
@@ -737,7 +738,7 @@
              observability 'selective-glr-execution
              (lambda ()
                (lr-parse/prepared/receipt
-                runtime tokens 256 states semantic-values rest
+                runtime tokens (current-lr-branch-budget) states semantic-values rest
                 actions shifts)))))
         (values 'accepted (list root remaining))))
     (let loop ((states (lr-checkpoint-states checkpoint))

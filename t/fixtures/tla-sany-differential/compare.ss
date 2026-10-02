@@ -15,7 +15,8 @@
 (def +jar-digest+
   "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88")
 (def +cases+
-  '(("TemporalPrecedence" "P" "Q" "R" "S" "T")
+  '(("CaseScope" "P" "Q" "R" "S" "T")
+    ("TemporalPrecedence" "P" "Q" "R" "S" "T")
     ("ArithmeticPrecedence" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z")
     ("TemporalTuple" "P" "Q" "R" "S" "T" "U")
     ("FunctionBindings" "F" "G" "L" "M")
@@ -26,7 +27,8 @@
     ("AlignedQuantifiers" "P" "Q" "R" "S" "T" "U" "V" "W")
     ("BranchBoundaryContexts" "I" "J" "K" "L" "M" "N" "O")))
 (def +negative-cases+
-  '("InvalidActionSubscript" "InvalidTemporalBound" "InvalidDivisionChain"
+  '("InvalidProofMissingQED" "InvalidProofLevel" "InvalidProofOfHave"
+    "InvalidActionSubscript" "InvalidTemporalBound" "InvalidDivisionChain"
     "InvalidExponentChain" "InvalidFunctionPairChain" "InvalidIntegerDivisionChain"
     "InvalidJunctionIndentation"))
 (def +oracle-boundaries+
@@ -79,7 +81,9 @@
         (else name)))
 
 (def (sany-expression node context)
-  (if (eq? (car node) 'LetInNode)
+  (cond ((eq? (car node) 'StringNode) (list 'string (if (pair? (children node 'StringValue))
+                                     (child-text node 'StringValue) (xml-text node))))
+        ((eq? (car node) 'LetInNode)
     (list "LET"
           (map (lambda (reference)
                  (let* ((definition (context-ref context reference))
@@ -90,8 +94,8 @@
                          (sany-expression (car (filter pair? (cdr body))) context))))
                (children (one-child node 'opDefs) 'UserDefinedOpKindRef))
           (sany-expression
-           (car (filter pair? (cdr (one-child node 'body)))) context))
-    (sany-application node context)))
+           (car (filter pair? (cdr (one-child node 'body)))) context)))
+        (else (sany-application node context))))
 
 (def (sany-application node context)
   (unless (eq? (car node) 'OpApplNode)
@@ -257,6 +261,23 @@
            (candidate-expression (field-node node 'condition))
            (candidate-expression (field-node node 'consequent))
            (candidate-expression (field-node node 'alternative))))
+    ((CaseExpression)
+     (cons "$Case"
+      (append
+       (map (lambda (arm)
+              (list "$Pair" (candidate-expression (field-node arm 'condition))
+                    (candidate-expression (field-node arm 'result))))
+            (field-nodes node 'arm))
+       (if (pair? (field-nodes node 'other))
+         (list (list "$Pair" (list 'string "$Other")
+                     (candidate-expression (field-node node 'other)))) '()))))
+    ((FunctionApplication)
+     (let (arguments (map candidate-expression (field-nodes node 'argument)))
+       (list "$FcnApply" (candidate-expression (field-node node 'function))
+             (if (null? (cdr arguments)) (car arguments) (cons "$Tuple" arguments)))))
+    ((RecordFieldExpression)
+     (list "$RcdSelect" (candidate-expression (field-node node 'record))
+           (list 'string (field-text node 'field))))
     ((FunctionSetExpression)
      (list "$SetOfFcns"
            (candidate-expression (field-node node 'domain))

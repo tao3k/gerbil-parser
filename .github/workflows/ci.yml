@@ -183,7 +183,12 @@ jobs:
 
       - name: Run native Gerbil tests
         timeout-minutes: 15
-        run: GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/... languages/...
+        run: |
+          GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
+              gerbil env gxi \
+              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate") (preload-module "gerbil-parser/src/compiler/parser-ir") (preload-module "gerbil/tools/gxtest") (preload-tests "t") (preload-tests "languages")' \
+              -e '(import :gerbil/tools/gxtest) (main "-v" "5" "t/..." "languages/...")'
 
       - name: Compare TLA+ candidate structure with pinned SANY
         if: runner.os == 'Linux'
@@ -193,8 +198,26 @@ jobs:
             --output "$jar" \
             https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GAMBOPT=max-heap=1G,debug=q \
-            gerbil env gxi t/fixtures/tla-sany-differential/compare.ss "$jar"
+            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
+              gerbil env gxi \
+              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' \
+              t/fixtures/tla-sany-differential/compare.ss "$jar"
+
+      - name: Verify complete pinned TLA+ Examples corpus
+        if: runner.os == 'Linux'
+        run: |
+          corpus="$RUNNER_TEMP/tlaplus-examples"
+          git init "$corpus"
+          git -C "$corpus" remote add origin https://github.com/tlaplus/Examples.git
+          git -C "$corpus" fetch --depth=1 origin ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10
+          git -C "$corpus" checkout --detach FETCH_HEAD
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
+            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
+              gerbil env gxi \
+              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' \
+              t/fixtures/tla-sany-differential/corpus.ss "$corpus"
 
       - name: Verify Rust/Rowan AOT generation is current
         run: |

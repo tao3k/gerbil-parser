@@ -6,7 +6,7 @@
         (only-in ./lr
                  compute-first compute-nullable
                  lower-rules lr-spec-ref nonterminal-name nonterminal-symbol?
-                 production-id production-precedence production-table
+                 production-action production-id production-precedence production-table
                  terminal-symbol? union-values)
         (only-in ./lr-automaton
                  transition-index transition-target)
@@ -144,6 +144,10 @@
         (transitions (transition-index transitions))
         (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1"))
         (started (##current-time-point))
+        (layout? (vector-any (lambda (production)
+                     (let (action (production-action production))
+                       (or (eq? action 'layout-end)
+                           (and (pair? action) (eq? (car action) 'layout-end))))) table))
         (processed-items 0)
         (published-actions 0)
         (publication-count 0))
@@ -156,8 +160,12 @@
                  state-id state-items))
        (let ((state-actions (make-table test: equal?))
              (terminal-order '())
+             (raw-reductions (make-table test: equal?))
              (lookahead-node (vector-ref lookahead-offsets state-id)))
          (def (install! terminal action)
+           (when (and layout? (eq? (car action) 'reduce))
+             (table-set! raw-reductions terminal
+              (cons action (table-ref raw-reductions terminal '()))))
            (let (current (table-ref state-actions terminal #f))
              (if current
                (table-set! state-actions terminal
@@ -194,7 +202,13 @@
          (vector-set!
           actions state-id
           (map (lambda (terminal)
-                 (cons terminal (table-ref state-actions terminal)))
+                 (let* ((action (table-ref state-actions terminal))
+                        (reductions (table-ref raw-reductions terminal '())))
+                         (cons terminal
+                          (if (and layout? (eq? (car action) 'shift) (pair? reductions))
+                            (list 'layout-guard action
+                             (if (null? (cdr reductions)) (car reductions)
+                               (cons 'fork (reverse reductions)))) action))))
                (reverse terminal-order)))
          (set! publication-count (+ publication-count 1))
          (set! published-actions

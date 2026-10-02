@@ -12,5 +12,9 @@ gerbil-parser-rowan.workspace = true
 rowan.workspace = true
 sha2.workspace = true
 
+[[test]]
+name = "adapter"
+path = "tests/integration/adapter.rs"
+
 [lints]
 workspace = true

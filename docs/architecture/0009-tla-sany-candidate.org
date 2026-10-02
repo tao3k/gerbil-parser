@@ -27,11 +27,14 @@ The independent candidate test checks structural nodes and source-exact
 round trips for each added family.  The pinned =tlaplus/Examples= corpus at
 commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10= is a regression
 source, with per-file accepted, rejected, validity, and round-trip outcomes.
-The current candidate accepts and round-trips 188 of 424 pinned files.  The
+The current candidate accepts and round-trips 207 of 424 pinned files.  The
 =~>= addition accepted 12 more files than the preceding 164/424 candidate;
 =/== and ==<= each add one more file, without losing any accepted file.
 The SANY =]_= action delimiter and tuple subscripts add another ten files,
 also without losing any previously accepted file.
+Angle actions add two, function/LET definitions add fourteen, and tuple
+fairness adds three more files.  The shared/tuple binding migration retains
+that complete accepted set while making the binding structure explicit.
 The published layout grammar still accepts all 28 POO
 models.  This count is a syntax coverage receipt, not a semantic or SANY
 parity claim.
@@ -43,12 +46,23 @@ receipts remain required before a production full-syntax contract.
 
 An initial Scheme-owned structural differential runs the official v1.7.4 SANY
 XML exporter against the candidate on temporal and arithmetic modules.  It
-verifies the pinned =tla2tools.jar= SHA-256 and compares fifteen normalized
+verifies the pinned =tla2tools.jar= SHA-256 and compares forty normalized
 expression trees across =~>=, =/\\=, =\\/=, ==>=, =+=, =-=, =*=, =/==, and ==<=.
 This check exposed a real =A + B - C= grouping difference; the candidate now
-follows SANY's precedence for that expression.  Four action-subscript trees
-cover a tuple, a single name, a parenthesized tuple, and an =[]= prefix.
-The lexer follows SANY's =]_= token, and a negative test rejects =[A]x=.
+follows SANY's precedence for that expression.  Six action-subscript trees
+cover square and angle actions, tuples, a single name, a parenthesized tuple,
+and the =[]= / =<>= prefixes.
+The lexer follows SANY's =]_= / =>>_= tokens.  Further cases cover local
+function definitions, repeated LET definitions, weak/strong fairness,
+shared-domain and tuple bindings, function/set constructors, and bounded,
+unbounded, and temporal quantifiers.  The comparison retains every bound
+name, its domain, and the tuple marker, rather than comparing bodies alone.
+Two negative differentials require both parsers to reject =[A]x= and a
+bounded temporal quantifier; a SANY semantic/import error does not satisfy
+that negative gate.  Tuple-binding support exposed a set-filter/set-map
+ambiguity in =Digraph.tla=.  The candidate now follows SANY's
+=BraceCases/matchFcnConst= selection for that overlap, with ambiguous and
+explicitly parenthesized expression regressions.
 This remains a bounded expression gate, not structural parity for other
 constructs or the corpus.
 

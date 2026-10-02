@@ -173,14 +173,36 @@
                "---- MODULE Bad ----\nP == [A]x\n====\n"))
              => #f)
       (let* ((source
-              "---- MODULE Tuple ----\nP == [A]_<<x,y>>\nQ == [][A]_(<<x,y>>)\n====\n")
+              "---- MODULE Tuple ----\nP == [A]_<<x,y>>\nQ == [][A]_(<<x,y>>)\nR == <><<A>>_x\n====\n")
              (artifact (parse-tla-plus-sany-candidate source)))
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-valid? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)
         (check (node-kind-count (parse-artifact->cst artifact)
                                 'TemporalSubscriptExpression)
-               => 2)))
+               => 2)
+        (check (node-kind-count (parse-artifact->cst artifact)
+                                'AngleActionExpression)
+               => 1)))
+    (test-case "function definitions retain domain bindings in LET"
+      (let* ((source
+              (string-append
+               "---- MODULE Functions ----\n"
+               "F[x \\in S, y \\in T] == <<x,y>>\n"
+               "L == LET G[x \\in S] == x H[y \\in T] == y IN <<G,H>>\n====\n"))
+             (artifact (parse-tla-plus-sany-candidate source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check (node-kind-count (parse-artifact->cst artifact)
+                                'FunctionDefinition)
+               => 1)
+        (check (node-kind-count (parse-artifact->cst artifact)
+                                'LocalFunctionDefinition)
+               => 2)
+        (check (node-kind-count (parse-artifact->cst artifact)
+                                'DomainBinding)
+               => 4)))
     (test-case "concurrent requests keep layout columns and frames isolated"
       (let* ((sources
               (list

@@ -17,7 +17,12 @@
 (def +cases+
   '(("TemporalPrecedence" "P" "Q" "R" "S" "T")
     ("ArithmeticPrecedence" "P" "Q" "R" "S" "T" "U")
-    ("TemporalTuple" "P" "Q" "R" "S")))
+    ("TemporalTuple" "P" "Q" "R" "S" "T" "U")
+    ("FunctionBindings" "F" "G" "L" "M")
+    ("FairnessBindings" "P" "Q" "R" "S")
+    ("DomainBindings" "F" "G" "Q" "R" "U" "V" "W" "X" "Y" "Z" "Map")
+    ("UnboundQuantifiers" "P" "Q" "R" "S")))
+(def +negative-cases+ '("InvalidActionSubscript" "InvalidTemporalBound"))
 
 (def (one-child node tag)
   (let (matches
@@ -64,6 +69,21 @@
         (else name)))
 
 (def (sany-expression node context)
+  (if (eq? (car node) 'LetInNode)
+    (list "LET"
+          (map (lambda (reference)
+                 (let* ((definition (context-ref context reference))
+                        (body (one-child definition 'body)))
+                   (unless (null? (filter pair? (cdr (one-child definition 'params))))
+                     (error "parameterized LET definition needs explicit projection"))
+                   (list (child-text definition 'uniquename)
+                         (sany-expression (car (filter pair? (cdr body))) context))))
+               (children (one-child node 'opDefs) 'UserDefinedOpKindRef))
+          (sany-expression
+           (car (filter pair? (cdr (one-child node 'body)))) context))
+    (sany-application node context)))
+
+(def (sany-application node context)
   (unless (eq? (car node) 'OpApplNode)
     (error "SANY expression is not an application" (car node)))
   (let* ((operator (one-child node 'operator))
@@ -73,11 +93,45 @@
       (error "SANY application has no unique operator"))
     (let* ((target (context-ref context (car references)))
            (name (normalized-operator (child-text target 'uniquename)))
-           (arguments (filter pair? (cdr operands))))
-      (if (null? arguments)
-        name
-        (cons name (map (lambda (child) (sany-expression child context))
-                        arguments))))))
+           (arguments (filter pair? (cdr operands)))
+           (trees (map (lambda (child) (sany-expression child context)) arguments))
+           (bounds (children node 'boundSymbols)))
+      (cond
+       ((pair? bounds)
+        (cons name
+              (cons
+               (sany-bindings (car bounds) context)
+               trees)))
+       ((null? arguments) name)
+       (else (cons name trees))))))
+
+(def (sany-bindings node context)
+  (let ((bounded (children node 'bound)) (unbounded (children node 'unbound)))
+    (cond
+     ((and (pair? bounded) (null? unbounded))
+      (list 'bindings
+            (map (lambda (bound)
+                   (let* ((names (children bound 'FormalParamNodeRef))
+                          (tuple (children bound 'tuple))
+                          (domains
+                           (filter (lambda (child)
+                                     (and (pair? child)
+                                          (not (memq (car child) '(FormalParamNodeRef tuple)))))
+                                   (cdr bound))))
+                     (unless (and (pair? names) (= (length domains) 1)
+                                  (<= (length tuple) 1))
+                       (error "unsupported SANY binding shape"))
+                     (list (if (pair? tuple) 'tuple 'names)
+                           (map (lambda (reference)
+                                  (child-text (context-ref context reference) 'uniquename)) names)
+                           (sany-expression (car domains) context))))
+                 bounded)))
+     ((and (pair? unbounded) (null? bounded))
+      (list 'names
+            (map (lambda (bound)
+                   (child-text (context-ref context (one-child bound 'FormalParamNodeRef))
+                               'uniquename)) unbounded)))
+     (else (error "mixed or empty SANY binding shape")))))
 
 (def (sany-shapes xml module-name)
   (let* ((document (read-xml xml))
@@ -147,6 +201,36 @@
     (if token (token-lexeme token)
         (error "syntax field has no token" (syntax-node-kind node) name))))
 
+(def (field-nodes node name)
+  (map (lambda (field)
+         (or (first-descendant field syntax-node?)
+             (error "syntax field has no node" (syntax-node-kind node) name)))
+       (filter (lambda (child)
+                 (and (syntax-field? child) (eq? (syntax-field-name child) name)))
+               (syntax-node-children node))))
+
+(def (field-texts node name)
+  (map (lambda (field)
+         (let (token (first-descendant field token?))
+           (if token (token-lexeme token)
+               (error "syntax field has no token" name))))
+       (filter (lambda (child)
+                 (and (syntax-field? child) (eq? (syntax-field-name child) name)))
+               (syntax-node-children node))))
+
+(def (candidate-bindings node)
+  (list 'bindings
+        (map (lambda (binding)
+               (list (if (eq? (syntax-node-kind binding) 'TupleBinding) 'tuple 'names)
+                     (field-texts binding 'name)
+                     (candidate-expression (field-node binding 'domain))))
+             (field-nodes node 'binding))))
+
+(def (candidate-function node)
+  (list "$NonRecursiveFcnSpec"
+        (candidate-bindings node)
+        (candidate-expression (field-node node 'body))))
+
 (def (candidate-expression node)
   (case (syntax-node-kind node)
     ((Expression)
@@ -157,11 +241,58 @@
      (candidate-expression (field-node node 'expression)))
     ((NameExpression)
      (field-text node 'name))
+    ((QuantifiedExpression)
+     (let* ((quantifier (field-text node 'quantifier))
+            (bounded? (pair? (field-nodes node 'binding)))
+            (operator
+             (cond ((equal? quantifier "\\AA") "$TemporalForall")
+                   ((equal? quantifier "\\EE") "$TemporalExists")
+                   ((equal? quantifier "\\A")
+                    (if bounded? "$BoundedForall" "$UnboundedForall"))
+                   (else (if bounded? "$BoundedExists" "$UnboundedExists")))))
+       (list operator
+             (if bounded? (candidate-bindings node)
+                 (list 'names (field-texts node 'name)))
+             (candidate-expression (field-node node 'predicate)))))
+    ((FunctionConstructor SetMapExpression SetFilterExpression)
+     (list (case (syntax-node-kind node)
+             ((FunctionConstructor) "$FcnConstructor")
+             ((SetMapExpression) "$SetOfAll")
+             (else "$SubsetOf"))
+           (candidate-bindings node)
+           (candidate-expression
+            (field-node node (if (eq? (syntax-node-kind node) 'SetFilterExpression)
+                               'predicate 'body)))))
+    ((LetExpression)
+     (list "LET"
+           (map (lambda (definition)
+                  (list (field-text definition 'name)
+                        (if (eq? (syntax-node-kind definition) 'LocalFunctionDefinition)
+                          (candidate-function definition)
+                          (candidate-expression (field-node definition 'body)))))
+                (field-nodes node 'definition))
+           (candidate-expression (field-node node 'body))))
     ((PrefixExpression)
      (list (field-text node 'operator)
            (candidate-expression (field-node node 'operand))))
-    ((TemporalSubscriptExpression)
-     (list "$SquareAct"
+    ((FairnessExpression)
+     (list (if (equal? (field-text node 'operator) "WF_") "$WF" "$SF")
+           (candidate-expression (field-node node 'subscript))
+           (candidate-expression (field-node node 'action))))
+    ((OperatorApplication)
+     (let* ((name (field-text node 'operator))
+            (arguments (map candidate-expression (field-nodes node 'argument))))
+       (if (and (> (string-length name) 3)
+                (member (substring name 0 3) '("WF_" "SF_")))
+         (begin
+           (unless (= (length arguments) 1)
+             (error "fairness requires one action" name))
+           (list (if (equal? (substring name 0 3) "WF_") "$WF" "$SF")
+                 (substring name 3 (string-length name)) (car arguments)))
+         (cons name arguments))))
+    ((TemporalSubscriptExpression AngleActionExpression)
+     (list (if (eq? (syntax-node-kind node) 'TemporalSubscriptExpression)
+             "$SquareAct" "$AngleAct")
            (candidate-expression (field-node node 'action))
            (candidate-expression (field-node node 'subscript))))
     ((TupleExpression)
@@ -178,9 +309,9 @@
 
 (def (operator-definitions value)
   (cond ((syntax-node? value)
-         (append
-          (if (eq? (syntax-node-kind value) 'OperatorDefinition) (list value) [])
-          (apply append (map operator-definitions (syntax-node-children value)))))
+         (if (memq (syntax-node-kind value) '(OperatorDefinition FunctionDefinition))
+           (list value)
+           (apply append (map operator-definitions (syntax-node-children value)))))
         ((syntax-field? value)
          (apply append (map operator-definitions (syntax-field-children value))))
         (else [])))
@@ -193,7 +324,9 @@
       (error "candidate did not parse and round-trip fixture" path))
     (map (lambda (definition)
            (cons (field-text definition 'name)
-                 (candidate-expression (field-node definition 'body))))
+                 (if (eq? (syntax-node-kind definition) 'FunctionDefinition)
+                   (candidate-function definition)
+                   (candidate-expression (field-node definition 'body)))))
          (operator-definitions (parse-artifact->cst artifact)))))
 
 (def (check-case jar fixture-directory case)
@@ -223,6 +356,25 @@
     (displayln "SANY-DIFF-OK " module-name ": " (length expected)
                " expression trees")))
 
+(def (check-negative-case jar fixture-directory module-name)
+  (let* ((path (path-expand (string-append module-name ".tla") fixture-directory))
+         (source (call-with-input-file path read-all-as-string))
+         (exit-status #f)
+         (output
+          (run-process
+           ["java" "-cp" jar "tla2sany.xml.XMLExporter" "-o" path]
+           directory: fixture-directory
+           stderr-redirection: #t
+           check-status: (lambda (status settings) (set! exit-status status)))))
+    (unless (and exit-status (not (= exit-status 0))
+                 (member (string-append "Fatal errors while parsing TLA+ spec in file " path)
+                         (string-split output #\newline)))
+      (error "SANY negative fixture did not fail during syntax parsing"
+             module-name exit-status output))
+    (when (parse-artifact-success? (parse-tla-plus-sany-candidate source))
+      (error "candidate accepted SANY-negative syntax" module-name))
+    (displayln "SANY-DIFF-OK " module-name ": both reject syntax")))
+
 (def (run-differential!)
   (let* ((jar (last (command-line)))
          (fixture-directory
@@ -233,6 +385,7 @@
     (unless (equal? digest +jar-digest+)
       (error "wrong SANY jar digest" digest))
     (for-each (lambda (case) (check-case jar fixture-directory case)) +cases+)
+    (for-each (lambda (name) (check-negative-case jar fixture-directory name)) +negative-cases+)
     (displayln "SANY-DIFF-OK pinned jar, acceptance, and structure")))
 
 (run-differential!)

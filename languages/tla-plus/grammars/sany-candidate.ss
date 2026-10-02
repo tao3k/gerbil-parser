@@ -16,6 +16,9 @@
    (ConstantDeclaration node (name parameter))
    (VariableDeclaration node (name))
    (OperatorDefinition node (name parameter body))
+   (FunctionDefinition node (name binding body))
+   (DomainBinding node (name domain))
+   (TupleBinding node (name domain))
    (RecursiveDeclaration node (name parameter))
    (InstanceDeclaration node (module substitution))
    (InstanceExpression node (module substitution))
@@ -30,16 +33,17 @@
    (Expression node (left operator right))
    (IfExpression node (condition consequent alternative))
    (ChooseExpression node (name domain predicate))
-   (QuantifiedExpression node (quantifier name domain predicate))
+   (QuantifiedExpression node (quantifier name binding predicate))
    (LetExpression node (definition body))
    (LocalDefinition node (name parameter body))
+   (LocalFunctionDefinition node (name binding body))
    (CaseExpression node (arm other)) (CaseArm node (condition result))
    (PrefixExpression node (operator operand))
    (PostfixExpression node (operand operator))
    (FunctionApplication node (function argument))
    (OperatorApplication node (operator argument))
    (RecordFieldExpression node (record field))
-   (FunctionConstructor node (name domain body))
+   (FunctionConstructor node (binding body))
    (FunctionSetExpression node (domain codomain))
    (ExceptExpression node (base update))
    (ExceptUpdate node (path value))
@@ -47,9 +51,11 @@
    (AtExpression node ())
    (RecordExpression node (name value))
    (RecordSetExpression node (name domain))
-   (SetFilterExpression node (name domain predicate))
-   (SetMapExpression node (body name domain))
+   (SetFilterExpression node (binding predicate))
+   (SetMapExpression node (body binding))
    (TemporalSubscriptExpression node (action subscript))
+   (AngleActionExpression node (action subscript))
+   (FairnessExpression node (operator subscript action))
    (GroupedExpression node (expression))
    (TupleExpression node (item)) (SetExpression node (item))
    (NameExpression node (name)) (NumberExpression node (value))
@@ -77,7 +83,7 @@
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
               "\\union" "\\cap" "\\cup" "\\subseteq" "\\X" "\\in" "\\"
               "\\div" "\\leq" "\\geq"
-              ".." "<<" ">>" "]_" "<=" ">=" "=<" "/=" "->" "<-"
+              ".." "<<" ">>" "]_" ">>_" "<=" ">=" "=<" "/=" "->" "<-"
               "#" "=" "<" ">" "+" "-" "*" "/" "%" "^" "'" "~" "@"
               "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
   )
@@ -92,6 +98,7 @@
    (module-item
     (choice (reference extends-declaration) (reference constant-declaration)
             (reference variable-declaration) (reference operator-definition)
+            (reference function-definition)
             (reference infix-operator-definition)
             (reference recursive-declaration) (reference instance-declaration)
             (reference assumption-declaration) (reference theorem-declaration)
@@ -131,6 +138,33 @@
            (literal "==")
            (field body (choice (reference instance-expression)
                                (reference expression))))))
+   (function-definition
+    (alias FunctionDefinition
+     (seq (optional (literal "LOCAL")) (field name (token identifier))
+          (literal "[") (field binding (reference domain-binding))
+          (repeat (seq (literal ",")
+                       (field binding (reference domain-binding))))
+          (literal "]") (literal "==")
+          (field body (reference expression)))))
+   (domain-binding
+    (choice
+     (alias DomainBinding
+      (seq (field name (token identifier))
+           (repeat (seq (literal ",") (field name (token identifier))))
+           (literal "\\in") (field domain (reference expression))))
+     (reference tuple-domain-binding)))
+   (tuple-domain-binding
+    (alias TupleBinding
+     (seq (literal "<<") (field name (token identifier))
+          (repeat (seq (literal ",") (field name (token identifier))))
+          (literal ">>") (literal "\\in")
+          (field domain (reference expression)))))
+   (single-domain-binding
+    (choice
+     (alias DomainBinding
+      (seq (field name (token identifier)) (literal "\\in")
+           (field domain (reference expression))))
+     (reference tuple-domain-binding)))
    (infix-operator-definition
     (alias OperatorDefinition
      (seq (optional (literal "LOCAL"))
@@ -299,6 +333,8 @@
      (reference record-set-expression)
      (reference set-map-expression)
      (reference temporal-subscript-expression)
+     (reference angle-action-expression)
+     (reference fairness-expression)
      (reference grouped-expression) (reference tuple-expression)
      (reference set-expression) (reference name-expression)
      (reference at-expression)
@@ -321,25 +357,38 @@
                           (field domain (reference expression))))
            (literal ":") (field predicate (reference expression))))))
    (quantified-expression
-    (prec right 1
-     (alias QuantifiedExpression
-      (seq (field quantifier
-                  (choice (literal "\\A") (literal "\\E")
-                          (literal "\\AA") (literal "\\EE")))
-           (field name (token identifier))
-           (optional (seq (literal "\\in")
-                          (field domain (reference expression))))
-           (repeat
-            (seq (literal ",") (field name (token identifier))
-                 (optional (seq (literal "\\in")
-                                (field domain (reference expression))))))
-           (literal ":")
-           (field predicate (reference expression))))))
+    (choice
+     (prec right 1
+      (alias QuantifiedExpression
+       (seq (field quantifier (choice (literal "\\A") (literal "\\E")))
+            (field binding (reference domain-binding))
+            (repeat (seq (literal ",") (field binding (reference domain-binding))))
+            (literal ":") (field predicate (reference expression)))))
+     (prec right 1
+      (alias QuantifiedExpression
+       (seq (field quantifier
+                   (choice (literal "\\A") (literal "\\E")
+                           (literal "\\AA") (literal "\\EE")))
+            (field name (token identifier))
+            (repeat (seq (literal ",") (field name (token identifier))))
+            (literal ":") (field predicate (reference expression)))))))
    (let-expression
     (prec right 1
      (alias LetExpression
-      (seq (literal "LET") (field definition (reference local-definition))
+      (seq (literal "LET") (field definition (reference let-definition))
+           (repeat (field definition (reference let-definition)))
            (literal "IN") (field body (reference expression))))))
+   (let-definition
+    (choice (reference local-definition)
+            (reference local-function-definition)))
+   (local-function-definition
+    (alias LocalFunctionDefinition
+     (seq (field name (token identifier))
+          (literal "[") (field binding (reference domain-binding))
+          (repeat (seq (literal ",")
+                       (field binding (reference domain-binding))))
+          (literal "]") (literal "==")
+          (field body (reference expression)))))
    (local-definition
     (alias LocalDefinition
      (seq (field name (token identifier))
@@ -400,8 +449,9 @@
            (field field (token identifier))))))
    (function-constructor
     (alias FunctionConstructor
-     (seq (literal "[") (field name (token identifier)) (literal "\\in")
-          (field domain (reference expression)) (literal "|->")
+     (seq (literal "[") (field binding (reference domain-binding))
+          (repeat (seq (literal ",") (field binding (reference domain-binding))))
+          (literal "|->")
           (field body (reference expression)) (literal "]"))))
    (function-set-expression
     (alias FunctionSetExpression
@@ -445,23 +495,38 @@
                 (literal ":") (field domain (reference expression))))
           (literal "]"))))
    (set-filter-expression
-    (alias SetFilterExpression
-     (seq (literal "{") (field name (token identifier)) (literal "\\in")
-          (field domain (reference expression)) (literal ":")
-          (field predicate (reference expression)) (literal "}"))))
+    ;; SANY BraceCases/matchFcnConst selects a filter when the opening
+    ;; identifier or identifier tuple is followed by \in before the colon.
+    ;; A tuple-membership predicate can also form a syntactic set-map branch.
+    (prec dynamic 1
+     (alias SetFilterExpression
+     (seq (literal "{") (field binding (reference single-domain-binding))
+          (literal ":")
+          (field predicate (reference expression)) (literal "}")))))
    (set-map-expression
     (alias SetMapExpression
      (seq (literal "{") (field body (reference expression)) (literal ":")
-          (field name (token identifier)) (literal "\\in")
-          (field domain (reference expression)) (literal "}"))))
+          (field binding (reference domain-binding))
+          (repeat (seq (literal ",") (field binding (reference domain-binding))))
+          (literal "}"))))
    (temporal-subscript-expression
     (alias TemporalSubscriptExpression
      (seq (literal "[") (field action (reference expression)) (literal "]_")
           ;; SANY's ReducedExpression admits delimited expressions and names.
-          (field subscript
-                 (choice (reference name-expression)
-                         (reference tuple-expression)
-                         (reference grouped-expression))))))
+          (field subscript (reference reduced-subscript-expression)))))
+   (angle-action-expression
+    (alias AngleActionExpression
+     (seq (literal "<<") (field action (reference expression)) (literal ">>_")
+          (field subscript (reference reduced-subscript-expression)))))
+   (reduced-subscript-expression
+    (choice (reference name-expression)
+            (reference tuple-expression)
+            (reference grouped-expression)))
+   (fairness-expression
+    (alias FairnessExpression
+     (seq (field operator (choice (literal "WF_") (literal "SF_")))
+          (field subscript (reference reduced-subscript-expression))
+          (literal "(") (field action (reference expression)) (literal ")"))))
    (grouped-expression
     (alias GroupedExpression
      (seq (literal "(") (field expression (reference expression))
@@ -509,6 +574,7 @@
             (if "IF") (then "THEN") (else "ELSE") (choose "CHOOSE")
             (let "LET") (in "IN") (case "CASE") (other "OTHER")
             (enabled "ENABLED") (unchanged "UNCHANGED")
+            (weak-fairness "WF_") (strong-fairness "SF_")
             (subset "SUBSET") (union "UNION") (domain "DOMAIN")
             (local "LOCAL") (recursive "RECURSIVE")
             (instance "INSTANCE") (with "WITH")

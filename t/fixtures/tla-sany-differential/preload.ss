@@ -3,6 +3,11 @@
 ;;; Dependency boundaries keep cold imports subject to the same silence gate.
 (def +preloaded-modules+ '())
 
+(def (compiled-file module suffix)
+  (find file-exists?
+        (map (lambda (root) (path-expand (string-append module suffix) root))
+             (cons (path-expand "lib" (gerbil-home)) (load-path)))))
+
 (def (compiled-dependencies value)
   (cond ((and (pair? value) (eq? (car value) 'load-module)
               (pair? (cdr value)) (string? (cadr value)))
@@ -18,10 +23,7 @@
     ;; Generated wrapper modules list dependencies without evaluating their
     ;; initializers. Phase bodies (~0/~1) are admitted directly, never decoded.
     (unless (string-contains module "~")
-      (let (source
-            (find file-exists?
-                  (map (lambda (root) (path-expand (string-append module ".scm") root))
-                       (cons (path-expand "lib" (gerbil-home)) (load-path)))))
+      (let (source (compiled-file module ".scm"))
         (when source
           (for-each preload-module
                     (call-with-input-file source
@@ -32,4 +34,11 @@
                               (loop (append dependencies (compiled-dependencies value))))))))))))
     (displayln "MODULE-LOAD " module) (force-output)
     (load-module module)
-    (displayln "MODULE-LOADED " module) (force-output)))
+    (displayln "MODULE-LOADED " module) (force-output)
+    ;; Admit phase bindings incrementally as well. Deferring all .ssi imports
+    ;; until gxtest loads its first source module hides cold macro work.
+    (when (and (not (string-contains module "~"))
+               (compiled-file module ".ssi"))
+      (displayln "MODULE-IMPORT " module) (force-output)
+      (gx#import-module (string->symbol (string-append ":" module)) #f #t)
+      (displayln "MODULE-IMPORTED " module) (force-output))))

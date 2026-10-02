@@ -483,7 +483,11 @@ explicit experiment, not a production default or a demonstrated speedup.
 ** Lazy epsilon closure for large direct LR quotients
 
 A TLA+ layout grammar probe (40 source rules, 280 lowered productions)
-selected the direct follow route. Its LR(0), conflict-candidate, initial, and
+explicitly forced the experimental direct follow route. The same grammar's
+default LALR construction produced 390 states in five CPU samples with a
+66.9 ms median. The 12-second result below measures the forced experimental
+route; it is not the production table-generation latency. Its LR(0),
+conflict-candidate, initial, and
 backward/forward partition stages completed quickly in CPU time, but the
 quotient NFA had 3,984 blocks and DFA construction dominated. The old
 closure walk reached state 300 with 653 states discovered at 7.85 process CPU
@@ -1425,6 +1429,29 @@ versus 1.508 ms and its 3,200-line medians were 7.104 versus 7.059 ms;
 paired wins were 11/20 and 10/20. It had no reproducible throughput gain and
 was reverted. The current closed corridor deliberately does not admit mixed
 roots.
+
+** Fixed canonical event template for admitted HCL attributes
+
+The generated closed-shape attribute path previously called node and field
+helpers for every nested event. Each helper checked the token stream for
+trivia even though admission fixes the nested topology and trivia can only
+precede the name, equals, and value tokens. The generated Scheme path now
+assigns the six node IDs in one step and emits the same canonical vectors in
+Grammar IR order, flushing trivia at those three token boundaries. Blocks
+and nested blocks use the same attribute template; unclosed or complex forms
+still enter the existing recursive fallback.
+
+A temporary same-process A/B switch compared complete =ParseArtifact= values
+for 1,024 Basic lines, spaces, comments, CRLF, Unicode, identifier values,
+blocks, nested blocks, and a complex-value fallback; all matched exactly.
+Alternating 20 batches of ten complete parses on one host gave median CPU
+milliseconds of 1.1394 to 0.9069 at 1,024 Basic lines (19/20 candidate
+wins), and 5.7036 to 5.1664 at 3,200 lines (20/20 wins). The switch and old
+emitter were removed after the comparison. The generated module remains under
+the 1,000-line source limit. These results measure full lossless artifacts in
+compiled Scheme modules, excluding import and executable build time. A
+standalone =gxc -O -exe= link did not complete within a 240-second local cap,
+so no standalone AOT throughput is claimed.
 
 * Proposed proof sequence
 

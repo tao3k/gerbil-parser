@@ -33,15 +33,3 @@
     (displayln "MODULE-LOAD " module) (force-output)
     (load-module module)
     (displayln "MODULE-LOADED " module) (force-output)))
-
-(def (preload-tests directory)
-  (for-each
-   (lambda (name)
-     (unless (string-prefix? "." name)
-       (let (path (path-expand name directory))
-         (cond ((eq? (file-type path) 'directory) (preload-tests path))
-               ((string-suffix? "-test.ss" name)
-                (displayln "TEST-IMPORT " path) (force-output)
-                (gx#import-module path #f #t)
-                (displayln "TEST-IMPORTED " path) (force-output))))))
-   (list-sort string<? (directory-files directory))))

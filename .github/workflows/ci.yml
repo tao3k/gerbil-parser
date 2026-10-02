@@ -186,10 +186,7 @@ jobs:
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
-              gerbil env gxi \
-              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate") (preload-module "gerbil-parser/src/compiler/parser-ir") (preload-module "gerbil/tools/gxtest") (preload-tests "t") (preload-tests "languages")' \
-              -e '(import :gerbil/tools/gxtest) (main "-v" "5" "t/..." "languages/...")'
+            gerbil env gxi t/fixtures/tla-sany-differential/native-suite.ss t languages
 
       - name: Compare TLA+ candidate structure with pinned SANY
         if: runner.os == 'Linux'

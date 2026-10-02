@@ -55,10 +55,12 @@ The repository-owned Scheme =corpus.ss= verifies the checkout pin, clean
 tracked state, exact 424-file count, accepted syntax, artifact validity, and
 original bytes.  The Scheme =watch.ss= kills a check after five seconds
 without child output and bounds the batch to ten minutes.  The Scheme
-=preload.ss= reports actual dependency admission and test-module imports;
+=preload.ss= reports actual dependency admission;
 artifact tracing reports decode, digest verification, and schema admission.
 Child stdin is closed so completed noninteractive gxi scripts cannot wait
-in the REPL.  Both the corpus
+in the REPL.  The native suite runs each test module in its own process,
+retaining the 1 GB heap fence and existing performance gates without retaining
+every module's expansion context in one heap.  Both the corpus
 and structural differential are required Linux CI gates.  Import/dependency
 and semantic checks remain separate oracle outcomes.
 

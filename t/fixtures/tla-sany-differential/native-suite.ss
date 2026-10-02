@@ -22,7 +22,7 @@
        (run-process
         ["gxi" "t/fixtures/tla-sany-differential/watch.ss" "gxi"
          "-e" "(load \"t/fixtures/tla-sany-differential/preload.ss\") (preload-module \"gerbil-parser/languages/tla-plus/sany-candidate\") (preload-module \"gerbil-parser/src/compiler/parser-ir\") (preload-module \"gerbil/tools/gxtest\")"
-         "-e" (string-append "(import :gerbil/tools/gxtest) (main \"-v\" \"5\" "
+         "-e" (string-append "(import :gerbil/tools/gxtest) (main \"-v\" \"6\" "
                               (object->string file) ")")]
         stderr-redirection: #t
         coprocess:

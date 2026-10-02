@@ -228,7 +228,9 @@
           (lambda (child) (lower-to lhs owner child precedence))
           (cdr expression)))
         ((empty) (emit lhs '() 'concat precedence))
-        ((layout-end) (emit lhs '() 'layout-end precedence))
+        ((layout-end)
+         (emit lhs '() (if (null? (cdr expression)) 'layout-end expression)
+               precedence))
         ((sequence)
          (emit lhs
                (map (lambda (child)

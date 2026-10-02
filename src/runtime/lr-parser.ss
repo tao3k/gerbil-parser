@@ -30,7 +30,8 @@
                  lr-action-row-tokens)
         (only-in ./layout
                  current-layout-columns current-layout-frames
-                 layout-after-shift layout-after-end layout-current-action-row layout-productions?)
+                 layout-after-shift layout-after-end layout-current-action-row
+                 layout-productions? layout-end-action?)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
@@ -227,7 +228,7 @@
        (car source-values) (operand-actions (car rhs))
        default-offset fragment-constructor))
      ((or (eq? action 'concat) (eq? action 'pass)
-          (eq? action 'layout-end))
+          (layout-end-action? action))
       (foldl
        (lambda (operand value children)
          (recognition-sequence-append
@@ -512,8 +513,10 @@
                       (goto-target goto-index (car remaining-states)
                                    (production-lhs production)))))
            (and target
-                (if (eq? (production-action production) 'layout-end)
-                  (alet (frames (layout-after-end (and (pair? rest) (car rest))))
+                (if (layout-end-action? (production-action production))
+                  (alet (frames (layout-after-end (and (pair? rest) (car rest))
+                                  (if (pair? (production-action production))
+                                    (cdr (production-action production)) '())))
                     (parameterize ((current-layout-frames frames))
                       (try-parse (cons target remaining-states)
                                  (cons value remaining-values)

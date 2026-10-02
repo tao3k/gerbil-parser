@@ -94,6 +94,9 @@ The canonical constructors are:
 (field name expression)
 (alias NodeKind expression)
 (prec left 10 expression)
+(layout-start "/\\")
+(layout-next "/\\")
+(layout-end ")" "]")
 #+end_src
 
 Constructors lower immediately to validated canonical data.  =repeat= and
@@ -102,6 +105,15 @@ resolve in the same normalized grammar.  Every terminal kind must resolve to a
 SyntaxKind categorized as =token=.  =extras= is the sole trivia authority;
 terminal rows do not duplicate that policy.  Duplicate role rows with
 different values are rejected before parser generation.
+
+Layout markers retain a branch-local source-column reference.  An empty
+=layout-end= declaration closes at the enclosing column boundary.  A language
+may declare non-empty literal spellings in =layout-end= to close at explicit
+delimiters even when they occur to the right of the marker.  This is a
+zero-width reduction: the enclosing production still consumes the delimiter,
+and an aligned continuation marker always remains in its current list.
+The existing grammar macro projects the validated closing spellings into the
+ordinary LR reduction data; the runtime does not infer a language's delimiters.
 
 =prec= is a canonical GrammarExpr v1 constructor admitted by the sole
 LALR(1) compiler.  Static =left=, =right=, and =none= declarations resolve only

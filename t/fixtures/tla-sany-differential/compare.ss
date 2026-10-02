@@ -22,10 +22,13 @@
     ("FairnessBindings" "P" "Q" "R" "S")
     ("DomainBindings" "F" "G" "Q" "R" "U" "V" "W" "X" "Y" "Z" "Map")
     ("UnboundQuantifiers" "P" "Q" "R" "S")
-    ("SequenceFunctionOperators" "P" "Q" "R" "S" "T" "U" "V")))
+    ("SequenceFunctionOperators" "P" "Q" "R" "S" "T" "U" "V")
+    ("AlignedQuantifiers" "P" "Q" "R" "S" "T" "U" "V" "W")
+    ("BranchBoundaryContexts" "I" "J" "K" "L" "M" "N" "O")))
 (def +negative-cases+
   '("InvalidActionSubscript" "InvalidTemporalBound" "InvalidDivisionChain"
-    "InvalidExponentChain" "InvalidFunctionPairChain" "InvalidIntegerDivisionChain"))
+    "InvalidExponentChain" "InvalidFunctionPairChain" "InvalidIntegerDivisionChain"
+    "InvalidJunctionIndentation"))
 (def +oracle-boundaries+
   '(("MissingImportBoundary" . "Cannot find source file for module ")
     ("SemanticErrorBoundary" . "Semantic errors:")))
@@ -246,6 +249,18 @@
            (candidate-expression (field-node node 'right))))
     ((GroupedExpression)
      (candidate-expression (field-node node 'expression)))
+    ((JunctionExpression)
+     (cons (if (equal? (field-text node 'operator) "/\\") "$ConjList" "$DisjList")
+           (map candidate-expression (field-nodes node 'body))))
+    ((IfExpression)
+     (list "$IfThenElse"
+           (candidate-expression (field-node node 'condition))
+           (candidate-expression (field-node node 'consequent))
+           (candidate-expression (field-node node 'alternative))))
+    ((FunctionSetExpression)
+     (list "$SetOfFcns"
+           (candidate-expression (field-node node 'domain))
+           (candidate-expression (field-node node 'codomain))))
     ((NameExpression)
      (field-text node 'name))
     ((QuantifiedExpression)

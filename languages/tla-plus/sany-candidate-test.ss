@@ -75,6 +75,10 @@
       (check-layout-shape
        "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n"
        '(2)))
+    (test-case "an explicit action closer ends an aligned list on the same line"
+      (check-layout-shape
+       "---- MODULE J ----\nCONSTANT S\nVARIABLE x\nQ == [][ /\\ (\\A i \\in S : i = i)\n         /\\ (\\A j \\in S : j = j) ]_<<x>>\n====\n"
+       '(2)))
     (test-case "nested quantifier lists close at the outer reference"
       (check-layout-shape
        "---- MODULE J ----\nInit ==\n  /\\ \\E x \\in S :\n       /\\ x = 1\n       /\\ x = 2\n  /\\ TRUE\n====\n"

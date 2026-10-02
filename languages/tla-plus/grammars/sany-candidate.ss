@@ -218,13 +218,15 @@
            (field body (reference expression))
            (repeat (seq (field operator (layout-next "/\\"))
                         (field body (reference expression))))
-           (layout-end)))
+           (layout-end ")" "]" "}" ">>" "]_" ">>_"
+                       "," ":" "->" "|->" "THEN" "ELSE" "IN")))
      (alias JunctionExpression
       (seq (field operator (layout-start "\\/"))
            (field body (reference expression))
            (repeat (seq (field operator (layout-next "\\/"))
                         (field body (reference expression))))
-           (layout-end)))))
+           (layout-end ")" "]" "}" ">>" "]_" ">>_"
+                       "," ":" "->" "|->" "THEN" "ELSE" "IN")))))
    (assumption-declaration
     (alias AssumptionDeclaration
      (seq (choice (literal "ASSUME") (literal "ASSUMPTION")

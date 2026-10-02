@@ -27,7 +27,7 @@ The independent candidate test checks structural nodes and source-exact
 round trips for each added family.  The pinned =tlaplus/Examples= corpus at
 commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10= is a regression
 source, with per-file accepted, rejected, validity, and round-trip outcomes.
-The current candidate accepts and round-trips 215 of 424 pinned files.  The
+The current candidate accepts and round-trips 229 of 424 pinned files.  The
 =~>= addition accepted 12 more files than the preceding 164/424 candidate;
 =/== and ==<= each add one more file, without losing any accepted file.
 The SANY =]_= action delimiter and tuple subscripts add another ten files,
@@ -39,6 +39,8 @@ Sequence concatenation (=\\o= / =\\circ=), TLC function merge (=@@=), and
 single-point functions (=:>=) add another eight files without accepted-file
 losses.  Division, integer division, and exponentiation now reject ungrouped
 chains in accordance with SANY's non-associative operator entries.
+Grammar-owned closing boundaries add fourteen more files, including both ACP
+TLC variants and =PaxosCommit.tla=, with no previously accepted file lost.
 The published layout grammar still accepts all 28 POO
 models.  This count is a syntax coverage receipt, not a semantic or SANY
 parity claim.
@@ -50,7 +52,7 @@ receipts remain required before a production full-syntax contract.
 
 An initial Scheme-owned structural differential runs the official v1.7.4 SANY
 XML exporter against the candidate on temporal and arithmetic modules.  It
-verifies the pinned =tla2tools.jar= SHA-256 and compares fifty-two normalized
+verifies the pinned =tla2tools.jar= SHA-256 and compares sixty-seven normalized
 expression trees across =~>=, =/\\=, =\\/=, ==>=, =+=, =-=, =*=, =/==, and ==<=.
 This check exposed a real =A + B - C= grouping difference; the candidate now
 follows SANY's precedence for that expression.  Six action-subscript trees
@@ -63,8 +65,9 @@ unbounded, and temporal quantifiers.  The comparison retains every bound
 name, its domain, and the tuple marker, rather than comparing bodies alone.
 Further operator cases cover sequence aliases, function merge/pair grouping,
 and both explicit groupings of division and exponentiation.
-Six negative differentials require both parsers to reject =[A]x=, a
-bounded temporal quantifier, and ungrouped =/=, =\\div=, =^=, and =:>= chains;
+Seven negative differentials require both parsers to reject =[A]x=, a
+bounded temporal quantifier, ungrouped =/=, =\\div=, =^=, and =:>= chains,
+and an incorrectly indented junction body;
 a SANY semantic/import error does not satisfy
 that negative gate.  Two controls verify that missing imports and undeclared
 identifiers fail the oracle without being counted as syntax rejection.
@@ -72,6 +75,16 @@ Tuple-binding support exposed a set-filter/set-map ambiguity in =Digraph.tla=.
 The candidate now follows SANY's
 =BraceCases/matchFcnConst= selection for that overlap, with ambiguous and
 explicitly parenthesized expression regressions.
+Aligned junctions exposed a different boundary error: both bounded quantifiers
+parsed successfully, but a same-line =]_= to the right of the marker could not
+close the list.  The candidate now declares =)=, =]=, =}=, =>>=, =]_=, and
+=>>_= as explicit layout closing boundaries.  Eight structural cases compare
+the resulting conjunction/disjunction lists, including nested lists and
+function/set/tuple/action closers.  The indentation negative verifies that a
+closing boundary does not admit an incorrectly indented body token.
+Seven more trees retain lists that end before a comma, colon, function arrow,
+constructor arrow, or =THEN= / =ELSE= / =IN= keyword.  Those spellings are
+also declared by the candidate grammar as explicit boundaries.
 This remains a bounded expression gate, not structural parity for other
 constructs or the corpus.
 

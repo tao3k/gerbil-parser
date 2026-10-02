@@ -12,11 +12,15 @@
         current-layout-columns current-layout-frames
         layout-token-column layout-shift-allowed?
         layout-marker-eligible? layout-after-shift layout-after-end
-        layout-current-action-row layout-productions?)
+        layout-current-action-row layout-productions? layout-end-action?)
+
+(def (layout-end-action? action)
+  (or (eq? action 'layout-end)
+      (and (pair? action) (eq? (car action) 'layout-end))))
 
 (def (layout-productions? productions)
   (any (lambda (production)
-         (or (eq? (production-action production) 'layout-end)
+         (or (layout-end-action? (production-action production))
              (any (lambda (operand)
                     (let (symbol (if (and (pair? operand)
                                            (eq? (car operand) 'marked))
@@ -92,12 +96,13 @@
           (current-layout-frames))
     (current-layout-frames)))
 
-(def (layout-after-end next-token)
+(def (layout-after-end next-token (boundaries '()))
   (let (frames (current-layout-frames))
     (and (pair? frames)
          (or (not next-token)
-             (and (<= (layout-token-column next-token) (caar frames))
-                  (not (layout-marker-eligible? 'layout-next next-token))))
+             (and (not (layout-marker-eligible? 'layout-next next-token))
+                  (or (<= (layout-token-column next-token) (caar frames))
+                      (member (token-lexeme next-token) boundaries))))
          (cdr frames))))
 
 (def (layout-ordinary-entry entry shift-allowed?)

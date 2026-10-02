@@ -241,7 +241,8 @@
 ;;; remain candidates, so this filter cannot change maximal-munch decisions.
 (defrules lexical-first-character?
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number
-   identifier number-literal line-comment block-comment
+   identifier number-literal quoted-string escaped-quoted-string heredoc
+   line-comment block-comment
    nested-block-comment precedence choice character-run)
   ((_ ch (whitespace+)) (char-whitespace? ch))
   ((_ ch (horizontal-whitespace+))
@@ -254,9 +255,19 @@
    (or (char-alphabetic? ch) (char=? ch #\_)))
   ((_ ch (character-run character _minimum))
    (char=? ch (string-ref character 0)))
-  ((_ ch (number-literal _prefixes _separator _suffixes
-                         _leading-period? _trailing-period?))
-   #t)
+  ((_ ch (number-literal (prefix ...) _separator _suffixes
+                         leading-period? _trailing-period?))
+   (or (and (char>=? ch #\0) (char<=? ch #\9))
+       (and leading-period? (char=? ch #\.))
+       (or (zero? (string-length prefix))
+           (char=? ch (string-ref prefix 0))) ...))
+  ((_ ch (quoted-string delimiter ...))
+   (or (or (zero? (string-length delimiter))
+           (char=? ch (string-ref delimiter 0))) ...))
+  ((_ ch (escaped-quoted-string delimiter ...))
+   (or (or (zero? (string-length delimiter))
+           (char=? ch (string-ref delimiter 0))) ...))
+  ((_ ch (heredoc)) (char=? ch #\<))
   ((_ ch (line-comment prefix ...))
    (or (char=? ch (string-ref prefix 0)) ...))
   ((_ ch (block-comment opening _closing))

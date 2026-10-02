@@ -20,6 +20,7 @@
       (let (algorithm-receipt (recovery-frontier-scenario))
         (write algorithm-receipt)
         (newline)
+        (force-output)
         (check (recovery-frontier-scenario-pass? algorithm-receipt) => #t))
       (run-scenario)
       (##gc)
@@ -27,6 +28,8 @@
             (benchmark-contract-run benchmark-path run-scenario))
         (write benchmark-receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(export recovery-frontier-benchmark-tests)
+(def recovery-frontier-benchmark-test recovery-frontier-benchmark-tests)
+(export recovery-frontier-benchmark-tests recovery-frontier-benchmark-test)

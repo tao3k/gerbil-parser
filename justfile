@@ -10,6 +10,10 @@ test-lexical-mode:
 test-all:
     GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/... languages/...
 
+# All contracts execute from current source; every suite has a hard deadline.
+test-performance-before-compile:
+    python3 scripts/performance-preflight.py
+
 # Reports each complete language batch sample without a shell timing wrapper.
 benchmark-versioned-matched label="current" samples="20":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/versioned-languages/matched-batch.ss {{label}} {{samples}}
@@ -33,3 +37,10 @@ benchmark-lr-grammar-construction contexts="256" samples="3":
 # Complete immutable Examples syntax and lossless artifact receipt.
 tla-sany-corpus corpus:
     GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 gerbil env gxi t/fixtures/tla-sany-differential/watch.ss gerbil env gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' t/fixtures/tla-sany-differential/corpus.ss {{quote(corpus)}}
+# Stage equality is checked; these diagnostics do not replace the wall gate.
+benchmark-gql-stages samples="3" parses="100":
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --log /private/tmp/parser-gql-stages-current.log --require GQL-STAGES-OK -- gxi t/benchmarks/gql-runtime/matched-stages.ss {{samples}} {{parses}}
+
+# Current-source scanner execution; compile/preparation stay outside timing.
+benchmark-contextual-scanner axes="16" samples="20" words="128":
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --log /private/tmp/parser-contextual-scanner-scale.log --require SCANNER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-scale.ss {{axes}} {{samples}} {{words}}

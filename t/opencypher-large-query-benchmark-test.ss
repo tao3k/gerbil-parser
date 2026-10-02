@@ -20,6 +20,7 @@
       (let (algorithm-receipt (opencypher-large-query-scenario))
         (write algorithm-receipt)
         (newline)
+        (force-output)
         (check (opencypher-large-query-scenario-pass? algorithm-receipt)
                => #t))
       (run-scenario)
@@ -28,6 +29,10 @@
             (benchmark-contract-run benchmark-path run-scenario))
         (write benchmark-receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(export opencypher-large-query-benchmark-tests)
+(def opencypher-large-query-benchmark-test
+  opencypher-large-query-benchmark-tests)
+(export opencypher-large-query-benchmark-tests
+        opencypher-large-query-benchmark-test)

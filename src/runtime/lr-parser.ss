@@ -41,14 +41,10 @@
         lr-parse/prepared/receipt
         lr-prepare
         lr-parse/prepared
-        lr-checkpoint?
-        lr-initial-checkpoint
-        lr-checkpoint-advance
-        lr-checkpoint-advance-shifts
-        lr-checkpoint-resume
-        lr-checkpoint-frontier
-        lr-checkpoint-feed
-        lr-checkpoint-drive
+        lr-checkpoint? lr-initial-checkpoint lr-checkpoint-advance
+        lr-checkpoint-advance-shifts lr-checkpoint-resume lr-checkpoint-frontier
+        lr-checkpoint-feed lr-checkpoint-drive
+        lr-checkpoint-drive/contextual
         lr-checkpoint-lexical-mode
         lr-checkpoint-prefix-snapshot
         lr-prefix-snapshot-rebind
@@ -243,14 +239,21 @@
 ;;; semantic stack with cons produces the source order required by reductions.
 ;;; This also preserves the shared immutable suffix for GLR branches/checkpoints.
 (def (pop-reduction states semantic-values count)
-  (let loop ((remaining count) (states states) (semantic-rest semantic-values)
-             (source-values '()))
-    (if (zero? remaining)
-      (values source-values semantic-rest states)
-      (if (and (pair? states) (pair? semantic-rest))
-        (loop (fx- remaining 1) (cdr states) (cdr semantic-rest)
-              (cons (car semantic-rest) source-values))
-        (error "LR reduction exceeds parser stack" count)))))
+  (case count
+   ((0) (values '() semantic-values states))
+   ((1)
+    (if (and (pair? states) (pair? semantic-values))
+      (values (list (car semantic-values)) (cdr semantic-values) (cdr states))
+      (error "LR reduction exceeds parser stack" count)))
+   (else
+    (let loop ((remaining count) (states states) (semantic-rest semantic-values)
+               (source-values '()))
+      (if (zero? remaining)
+        (values source-values semantic-rest states)
+        (if (and (pair? states) (pair? semantic-rest))
+          (loop (fx- remaining 1) (cdr states) (cdr semantic-rest)
+                (cons (car semantic-rest) source-values))
+          (error "LR reduction exceeds parser stack" count)))))))
 
 ;; goto-target
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Symbol (OrFalse Fixnum))
@@ -275,18 +278,6 @@
 ;;; structurally identical ties merge and distinct equal-score ties fail closed.
 ;; lr-parse/receipt
 ;; : (-> List List Integer (Values Datum List Alist))
-;;   | doc m%
-;;       Executes immutable LR tables and publishes selective-GLR evidence.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (let-values (((root rest receipt)
-;;                     (lr-parse/receipt spec tokens)))
-;;         (assq 'schema receipt))
-;;       ;; => (schema . "gerbil-parser.selective-glr-receipt.v1")
-;;       ```
-;;     %
 (def current-lr-branch-budget (make-parameter 256))
 
 (def (lr-parse/prepared/receipt runtime tokens (branch-budget (current-lr-branch-budget))
@@ -299,6 +290,7 @@
     (error "selective GLR branch budget must be positive" branch-budget))
   (let* ((productions (lr-runtime-productions runtime))
          (table (lr-runtime-table runtime))
+         (widths (lr-runtime-reduction-widths runtime))
          (actions (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
@@ -492,9 +484,7 @@
         ((reduce)
          (let* ((production-id (cadr action))
                 (production (vector-ref table production-id))
-                (count (vector-ref
-                        (lr-runtime-reduction-widths runtime)
-                        production-id)))
+                (count (vector-ref widths production-id)))
            (let-values (((source-values remaining-values remaining-states)
                          (pop-reduction states semantic-values count)))
              (let* ((offset (if (pair? rest) (token-start (car rest))
@@ -709,7 +699,8 @@
                         (stop-at-failure? #f) (shift-target #f)
                         (stop-at-fork? #f) (feed-token #f)
                         (next-input #f) (after-shift #f)
-                        (direct-step-override 'installed))
+                        (direct-step-override 'installed)
+                        (next-input-state? #f))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
@@ -718,6 +709,8 @@
             (lr-runtime-direct-step runtime)
             direct-step-override))
          (table (lr-runtime-table runtime))
+         (widths (lr-runtime-reduction-widths runtime))
+         (modes (lr-runtime-lexical-modes runtime))
          (actions-table (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
@@ -761,9 +754,12 @@
                (rest
                 (if (and next-input (null? rest))
                   (let (input-token
-                        (next-input
-                         (vector-ref
-                          (lr-runtime-lexical-modes runtime) state)))
+                        (if next-input-state?
+                          (next-input
+                           (vector-ref modes state)
+                           state)
+                          (next-input
+                           (vector-ref modes state))))
                     (if input-token
                       (begin
                         (set! tokens (cons input-token tokens))
@@ -820,9 +816,7 @@
                          (fallback states semantic-values rest
                                    actions shifts)))
                      (let* ((production (vector-ref table production-id))
-                            (count (vector-ref
-                                    (lr-runtime-reduction-widths runtime)
-                                    production-id)))
+                            (count (vector-ref widths production-id)))
                        (let-values (((source-values remaining-values
                                       remaining-states)
                                      (pop-reduction
@@ -912,6 +906,14 @@
   (lr-run-checkpoint
    checkpoint #f observability #f #f #t #f
    next-input after-shift direct-step-override))
+
+;;; Contextual scanning needs the exact LR state as its syntactic position
+;;; axis. Existing lexer drivers keep the one-argument callback contract.
+(def (lr-checkpoint-drive/contextual checkpoint next-input after-shift
+                                     (observability #f))
+  (lr-run-checkpoint
+   checkpoint #f observability #f #f #t #f
+   next-input after-shift 'installed #t))
 
 ;;; Rebinds an unconsumed suffix to the same immutable deterministic frontier.
 ;;; Streaming GLR handoff and explicit incremental sessions share this path.

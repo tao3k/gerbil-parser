@@ -10,11 +10,17 @@
         make-contextual-method contextual-method?
         contextual-method-name contextual-method-mode
         contextual-method-position contextual-method-form
-        contextual-method-result)
+        contextual-method-result
+        make-contextual-scan-rule contextual-scan-rule?
+        contextual-scan-rule-name contextual-scan-rule-mode
+        contextual-scan-rule-form contextual-scan-rule-matcher
+        contextual-scan-rule-rank contextual-scan-rule-action)
 
 ;;; Method payloads are closed IR identities. =any= is resolved only by the
 ;;; compiler, after it checks the full axis catalogs.
 (defstruct contextual-method (name mode position form result) transparent: #t)
+(defstruct contextual-scan-rule (name mode form matcher rank action)
+  transparent: #t)
 
 (def ContextualRoleContract. (.ref ContextualRoleContract 'proto))
 

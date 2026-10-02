@@ -43,6 +43,8 @@
             (benchmark-contract-run benchmark-path parse-language-batch))
         (write receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(export versioned-language-benchmark-tests)
+(def versioned-language-benchmark-test versioned-language-benchmark-tests)
+(export versioned-language-benchmark-tests versioned-language-benchmark-test)

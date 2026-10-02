@@ -36,10 +36,15 @@
            (row-ref receipt 'relocatedSuffixTokenCount))
      (cons 'resumedSignificantTokenCount
            (row-ref receipt 'resumedSignificantTokenCount))
+     (cons 'reusedSignificantTokenCount
+           (row-ref receipt 'reusedSignificantTokenCount))
      (cons 'remainingSignificantTokenCount
            (row-ref receipt 'remainingSignificantTokenCount)))))
 
 (def (incremental-suffix-scenario-pass? receipt)
+  (let ((resumed (row-ref receipt 'resumedSignificantTokenCount))
+        (reused (row-ref receipt 'reusedSignificantTokenCount))
+        (remaining (row-ref receipt 'remainingSignificantTokenCount)))
   (and (equal? (row-ref receipt 'schema)
                "gerbil-parser.incremental-suffix.v1")
        (= (row-ref receipt 'operandCount) +operand-count+)
@@ -49,5 +54,9 @@
        (= (row-ref receipt 'reusedSuffixTokenCount)
           (row-ref receipt 'convergedSuffixTokenCount))
        (zero? (row-ref receipt 'relocatedSuffixTokenCount))
-       (> (row-ref receipt 'resumedSignificantTokenCount) 90)
-       (< (row-ref receipt 'remainingSignificantTokenCount) 120)))
+       (integer? resumed) (>= resumed 0)
+       (integer? reused) (>= reused 0)
+       (integer? remaining) (>= remaining 0)
+       (> (+ resumed reused) 90)
+       (= (+ resumed reused remaining) (+ (* 2 +operand-count+) 1))
+       (< remaining 120))))

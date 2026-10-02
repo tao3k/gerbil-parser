@@ -19,6 +19,7 @@
         scan-quoted-strings
         scan-escaped-quoted-strings
         scan-heredoc
+        scan-balanced-word
         scan-line-comment
         scan-block-comment
         scan-nested-block-comment
@@ -474,6 +475,79 @@
   (ormap (lambda (delimiter)
            (scan-quoted-string/mode source start delimiter #f))
          delimiters))
+
+;;; A closed scanner primitive for words containing quoted or balanced spans.
+;;; The language supplies only delimiter data. The scanner owns recursion,
+;;; source bounds, and failure on an unterminated span.
+(def (scan-balanced-word source start stops quotes pairs)
+  (let (length (string-length source))
+    (def (at? offset text)
+      (let (end (+ offset (string-length text)))
+        (and (<= end length)
+             (string=? (substring source offset end) text))))
+    (def (pair-at offset)
+      (foldl
+       (lambda (entry current)
+         (if (and (at? offset (car entry))
+                  (or (not current)
+                      (> (string-length (car entry))
+                         (string-length (car current)))))
+           entry current))
+       #f pairs))
+    (def (quote-at offset)
+      (find (lambda (text) (at? offset text)) quotes))
+    (def (stopped? offset)
+      (or (char-whitespace? (string-ref source offset))
+          (ormap (lambda (text) (at? offset text)) stops)))
+    (def (after-escape offset)
+      (min length (+ offset 2)))
+    (def (quoted-end offset quote)
+      (let (delimiter (string-ref quote 0))
+        (let loop ((cursor (+ offset 1)))
+          (cond
+           ((= cursor length)
+            (error "unterminated balanced word quote" offset))
+           ((char=? (string-ref source cursor) delimiter)
+            (+ cursor 1))
+           ((and (not (char=? delimiter #\'))
+                 (char=? (string-ref source cursor) #\\))
+            (loop (after-escape cursor)))
+           ((and (char=? delimiter #\") (pair-at cursor))
+            (loop (paired-end cursor (pair-at cursor))))
+           (else (loop (+ cursor 1)))))))
+    (def (paired-end offset entry)
+      (let ((opening (cadr entry))
+            (closing (caddr entry))
+            (prefix (car entry)))
+        (let loop ((cursor (+ offset (string-length prefix))) (depth 1))
+          (cond
+           ((= cursor length)
+            (error "unterminated balanced word pair" offset prefix))
+           ((char=? (string-ref source cursor) #\\)
+            (loop (after-escape cursor) depth))
+           ((quote-at cursor)
+            (loop (quoted-end cursor (quote-at cursor)) depth))
+           ((pair-at cursor)
+            (loop (paired-end cursor (pair-at cursor)) depth))
+           ((char=? (string-ref source cursor) opening)
+            (loop (+ cursor 1) (+ depth 1)))
+           ((char=? (string-ref source cursor) closing)
+            (if (= depth 1) (+ cursor 1)
+              (loop (+ cursor 1) (- depth 1))))
+           (else (loop (+ cursor 1) depth))))))
+    (and (< start length)
+         (not (stopped? start))
+         (let loop ((cursor start))
+           (cond
+            ((= cursor length) cursor)
+            ((and (> cursor start) (stopped? cursor)) cursor)
+            ((char=? (string-ref source cursor) #\\)
+             (loop (after-escape cursor)))
+            ((quote-at cursor)
+             (loop (quoted-end cursor (quote-at cursor))))
+            ((pair-at cursor)
+             (loop (paired-end cursor (pair-at cursor))))
+            (else (loop (+ cursor 1))))))))
 
 (def (line-end source start)
   (scan-while source start

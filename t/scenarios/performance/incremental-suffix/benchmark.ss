@@ -9,7 +9,7 @@
  (feature . incremental-suffix-convergence)
  (optimizationFocus . "shift-bound LR checkpoints plus lexical-mode-certified suffix token reuse")
  (inputShape . "one hundred fixed-width arithmetic operands with an equal-width edit at the midpoint")
- (expectedOutcome . "fresh-equivalent publication with more than ninety prefix shifts resumed and more than ninety suffix tokens reused")
+ (expectedOutcome . "fresh-equivalent publication with more than ninety significant tokens resumed or structurally reused, more than ninety suffix tokens reused, and conserved significant-token counts")
  (measurementPhases collect-before collect-after policy-before policy-after
                     assert-time-gate observe-runtime-memory)
  (tags performance integration parser incremental checkpoint suffix))

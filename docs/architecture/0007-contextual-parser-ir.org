@@ -158,7 +158,250 @@ product or a reusable engine.
 finite lexical mode × syntactic position × token form methods before runtime.
 It rejects incomparable methods with different results, records all origins in
 a same-result tie, and hashes the closed resolution table. The focused suite
-exercises Bash and HCL *declaration examples* through the same compiler. These
-are compiler fixtures, not migrated language packs. Scanner opcodes, state
-transitions, Grammar IR binding, generated Scheme/Rust machines, and the parity
-gates above remain unimplemented.
+exercises Bash and HCL *declaration examples* through the same compiler.
+
+=src/compiler/contextual-scanner-ir.ss= validates closed scan matchers and
+state actions; =src/runtime/contextual-scanner.ss= executes the same IR for
+both examples. The scanner digest binds the semantic opcode contract and the
+runtime rejects a different contract before scanning. Its immutable state owns source byte offsets, lexical mode,
+pending and active delimiters, and a canonical checkpoint whose scanner and
+source digests are checked on restoration. =src/runtime/scan.ss= owns generic
+balanced word scanning. Language packs may declare delimiters and actions but
+must not ship a scanner procedure. Bash nested words, multiple deferred here
+bodies and HCL template/raw delimiter fixtures pass through this one runtime.
+
+The internal =parse-source/contextual= path drives the same scanner from an LR
+machine. A focused HCL fixture reaches a real ParseArtifact through an existing
+ParserMachine; the scanner IR is bound to its grammar digest, and the compiler
+maps each LR state to a declared syntactic position using
+required and forbidden =(token name)=, =(literal text)=, and =(eof)=
+lookaheads, with specificity and ambiguity checks. Runtime preparation checks
+state uniqueness in one pass and installs a vector for state-position lookup. The LR
+executor exposes the state to this path without changing the existing lexer
+callback. Scanner compilation rejects duplicate exact match candidates and a
+dispatch table whose digest no longer matches its contents.
+
+The prepared scanner indexes rules by mode and token results by the closed
+mode/position/form key. Equal-ranked matches must agree on both token form and
+state action. The source-only scale comparison over 512 cells and 255 tokens
+preserved tokens and canonical checkpoints; five alternating pairs reduced
+median process CPU from 16.402 ms to 2.271 ms. This is a scanner execution
+receipt, not native compilation or a versioned language qualification.
+
+=just benchmark-contextual-scanner= reproduces the execution workload with
+independent CPU and wall samples. =just test-performance-before-compile= runs
+the eight existing performance contracts from current source through a private
+load-path overlay. Each suite has a 120-second deadline, streamed progress,
+complete logs, and required case/module/harness completion markers. A failed
+or timed-out suite fails the preflight; the command does not start GXC.
+
+These remain compiler fixtures, not migrated language packs. The declarations
+are currently constructed in tests; the compiler derives the LR state-position
+table from those declarations. Expansion-time
+binding to =deflanguage-grammar=, contextual GLR branch state, incremental
+checkpoints, generated Scheme/Rust machines, and the parity gates above remain
+unimplemented. The internal LR path rejects a selective-GLR fork instead of
+publishing a parser result with an incorrect scanner state.
+
+* Source performance preflight before the lexical/reduction optimization, 2026-10-02
+
+These are individual current-source runs with unchanged admission budgets,
+not a successful invocation of all eight gates and not native qualification.
+The source overlay deliberately excludes this checkout's compiled parser
+objects. A deadline includes source loading and the test harness; p95 below
+measures the contract's action after loading and warmup.
+
+| Contract | Observed p95 | Original ceiling | Result |
+|----------+--------------+------------------+--------|
+| LALR fixed point | 22.623 ms | 500 ms | pass |
+| Incremental suffix | 105.379 ms | 250 ms | pass |
+| Recovery frontier | 78.331 ms | 250 ms | pass |
+| Selective GLR | 381.145 ms | 250 ms | fail |
+| Parser hot path | no complete receipt | 900 ms | 120 s deadline |
+| ISO GQL runtime | 1027.924 ms | 150 ms | fail |
+| openCypher 100 clauses | 404.126 ms | 250 ms | fail |
+| Versioned language corpus | 235.443 ms | 500 ms | pass |
+
+The new scanner's independent scale check passes byte coverage, token counts,
+and source roundtrip over 512 dispatch cells and 255 tokens. Five execution
+samples report process CPU of 1.816–2.094 ms. This check does not replace any
+existing parser contract. No GXC step is admitted by these partial results.
+
+The host was concurrently busy (observed load averages 72.69, 77.94, 90.01).
+The wall-time failures remain failures; source execution overhead and host
+scheduling must be isolated before assigning an algorithmic cause. CPU
+diagnostics are evidence for that investigation, not alternative admission.
+An independent three-sample GQL diagnostic (100 accepted queries per sample)
+reports process CPU of 296.880, 281.457, and 287.631 ms, with wall times of
+752.520, 536.935, and 592.869 ms. CPU alone exceeds the 150 ms ceiling in this
+source execution path, so host scheduling does not fully explain that failure.
+
+* Matched optimization receipt, 2026-10-02
+
+The generated lexical first-character filter now admits numeric profiles by
+their declared prefix starts, ASCII digits and optional leading period;
+quoted rules by their declared delimiter starts; and heredocs by =<=. It
+still tests every admitted candidate, preserving maximal munch and lexical
+precedence. Unicode continues through the complete candidate set. A generated
+witness agrees with the unfiltered scanner at every offset over ordinary and
+custom radix prefixes, escaped/doubled quotes, incomplete strings, Unicode,
+and here bodies.
+
+A same-process comparison constructs the baseline lexer from immutable
+=82cebf6= source with the exact current GQL Parser IR. All five alternating
+pairs preserve complete token streams and improve CPU time; median CPU for
+100 global lexical scans falls from 44.820 ms to 21.997 ms. This is global
+lexing, not a claim that complete directed GQL parsing became twice as fast.
+
+The LR runtime handles zero/one-operand stack pops directly and retains its
+prepared width and lexical-mode vectors for the execution loop. Five
+alternating prepared-GQL comparisons preserve complete recognition values;
+four improve CPU time, with mean CPU 130.279 ms to 118.475 ms and median
+134.556 ms to 124.214 ms per 100 parses. Full selective-GLR receipts match the
+baseline for equivalent branches, dynamic precedence, fragment interning and
+unresolved ambiguity. The functional source run passes 33 cases across parser
+runtime, lexical admission and contextual parsing/scanning.
+
+Lookahead-fold caching, an alternative general reduction loop, and semantic
+stack reuse were removed after their matched CPU results were inconsistent.
+The existing admission ceilings remain unchanged. =just benchmark-gql-stages=
+reports independently checked prepared and full-source CPU/wall samples;
+it is a diagnostic, not an admission gate. The preflight records a source
+digest and rejects a run if its input files change while the suites execute.
+
+* Complete source preflight after optimization, 2026-10-02
+
+All eight suites ran sequentially with unchanged admission ceilings and a
+120-second deadline per suite. Their source digest remained
+=sha256:cdfbcaa670726b8c67516cea098f7a1be72f8e4c26bb27fc2bc8ef94d2fbc3d3=.
+The preflight returned failure; the earlier individual passing wall results
+do not qualify this later snapshot.
+
+| Contract | Observed p95 | Ceiling | Result |
+|----------+--------------+---------+--------|
+| LALR fixed point | 19.044 ms | 500 ms | pass |
+| Incremental suffix | 342.594 ms | 250 ms | fail |
+| Recovery frontier | 463.587 ms | 250 ms | fail |
+| Selective GLR | 764.256 ms | 250 ms | fail |
+| Parser hot path | 3434.241 ms | 900 ms | fail |
+| ISO GQL runtime | no complete receipt | 150 ms | 120 s deadline |
+| openCypher 100 clauses | no complete receipt | 250 ms | 120 s deadline |
+| Versioned language corpus | 1083.055 ms | 500 ms | fail |
+
+Logs are in =/private/tmp/parser-optimized-preflight/=. Host load averages
+were observed at 150.27/139.36/122.95 and 134.82/133.28/125.22 during this run.
+Scheduling is a material confounder, but it does not explain away the failed
+admission or the baseline source GQL CPU result above.
+
+The repository's existing CI executes =gerbil build= before its native
+Gerbil test suite (=.github/workflows/ci.yml=, lines 150 and 177–179). Running
+the same numerical ceilings through a source overlay therefore adds an
+interpreted execution gate beyond that workflow. The user subsequently approved
+source equivalence, complexity, and matched CPU checks as the pre-compilation
+gate, followed by bounded GXC and the original native wall-time ceilings. No
+numerical ceiling has been changed.
+
+* Native post-build qualification, 2026-10-02
+
+This section records the pre-rebase source snapshot. Its native artifacts and
+performance receipts do not qualify the later PR #13 revision described below.
+
+The parser cache was rebuilt under =/private/tmp/parser-native-build=, without
+reusing the checkout's earlier parser binaries. Existing external dependency
+artifacts were linked into this cache. Module resolution was checked through
+both =gxi= and =gerbil env gxi=; the scanner, LR runtime, and machine resolved
+to this cache's =.ssi= files.
+
+Standard =std/make= imports its target catalog before beginning compilation.
+Cold GQL/openCypher expansion in this phase triggered the initial idle
+deadlines. The core was therefore bootstrapped in dependency order, postponing
+the language-bound FFI module. The complete original 122-target package spec
+was then built with the standard optimized native settings. A temporary copy
+of the standard scheduler added dependency begin/end logging; a subprocess
+observer reported actual generated-file changes. The core completed with
+=NATIVE-CORE-BUILD-OK= in 572.78 seconds. After a 30-second idle interruption
+in the C queue, incomplete module interfaces were invalidated and the full
+spec resumed with a 600-second total deadline and a 60-second idle deadline.
+It completed with =NATIVE-BUILD-OK= and exit 0 in 404.39 seconds. These are local
+library-build receipts, not optional-command or remote-CI qualification.
+
+All eight original native performance contracts then ran against source digest
+=sha256:cdfbcaa670726b8c67516cea098f7a1be72f8e4c26bb27fc2bc8ef94d2fbc3d3=.
+
+| Contract | Native p95 | Ceiling | Result |
+|----------+------------+---------+--------|
+| LALR fixed point | 7.033 ms | 500 ms | pass |
+| Incremental suffix | 6.390 ms | 250 ms | pass |
+| Recovery frontier | 40.407 ms | 250 ms | pass |
+| Selective GLR | 12.543 ms | 250 ms | pass |
+| Parser hot path | 206.422 ms | 900 ms | pass |
+| ISO GQL runtime | 277.461 ms | 150 ms | fail |
+| openCypher 100 clauses | 50.288 ms | 250 ms | pass |
+| Versioned language corpus | 16.761 ms | 500 ms | pass |
+
+Logs are in =/private/tmp/parser-native-performance/=. The GQL minimum,
+median, and maximum were 10.985, 40.399, and 424.968 ms. The complete native
+qualification failed; seven passing contracts do not close the eighth.
+
+The same 33 focused functional cases passed natively, with five =MODULE-OK=
+markers, =HARNESS-OK=, and final =OK= in 35.17 seconds. Their log is
+=/private/tmp/parser-native-functional.log=.
+
+Native stage diagnostics retained complete artifact equality. For 100 full
+parses, one sample measured 13.395 ms CPU versus 355.403 ms wall; another was
+14.639 ms CPU versus 345.905 ms wall. Artifact publication also measured
+2.539 ms CPU versus 94.178 ms wall. This observes substantial elapsed time
+outside measured process CPU; it does not establish the cause or waive the
+150 ms admission ceiling. Prepared stages are still not a decomposition of
+the streaming parse. The log is =/private/tmp/parser-gql-native-stages.log=.
+
+A further experiment bound the lexer once per parse rather than obtaining it
+through a wrapper for every token. Six complete artifacts agreed; 33 source
+functional cases passed. Five alternating source pairs improved mean CPU
+227.735 to 203.460 ms and median 231.170 to 204.253 ms, with four wins.
+However, five native pairs of 1,000 parses regressed mean CPU 203.395 to
+209.229 ms and won only twice. The experiment was discarded, the exact source
+snapshot was restored, its digest rechecked, and the parser was recompiled
+with standard =gxc -O= settings. No lexer-binding change remains. The source
+and native pair logs are =/private/tmp/parser-lexer-bind-source-matched.log=
+and =/private/tmp/parser-lexer-bind-native-matched.log=.
+
+After this exact restoration, a focused rerun of the unchanged GQL contract
+again failed: p95 304.289 ms against 150 ms, minimum 11.041 ms, median
+38.300 ms, maximum 401.057 ms. The callback's parse-success checks completed;
+the receipt assertion failed at =t/gql-runtime-benchmark-test.ss:40=. This
+rerun did not publish =CASE-OK= or final =OK=, and cannot qualify the native
+runtime. Its log is =/private/tmp/parser-native-gql-recheck.log=. The remaining
+gate is GQL wall-time admission; its cause is not fully attributed and no
+threshold or host scheduling policy was changed.
+
+* Rebase onto PR #13, 2026-10-02
+
+The contextual branch was rebased from common ancestor =9ceca64= onto the
+verified PR head =85f62fea55b2868eb3c0adff29ce08220bdf9b8f=. The pre-rebase
+implementation is preserved at =4dbab6b2c291b862511af4356771a351112baff0=
+by =backup/contextual-checkpoint-pr13-20261002=. The earlier design commit
+was replayed unchanged. The only textual conflict was the compiler's lexical
+first-character rules: the merged rules retain upstream =character-run=
+admission and this branch's numeric, quoted-string, and heredoc admission.
+Upstream layout-aware LR execution and parser routing remain present. Export
+formatting and a redundant LR documentation example were condensed to keep
+the runtime at 1,000 lines without changing execution.
+
+The final current-source digest is
+=sha256:98bc033e5d2d843044f4ad4203452808782203c1e2c497608e74dae18e65f83c=.
+An explicit source overlay preceded compiled parser modules. Nine suites
+executed 75 cases, including contextual dispatch/scanning/parsing, Unicode
+lossless failures, upstream character runs and layout boundaries, LR/GLR
+artifact behavior, recovery, and incremental fresh equivalence. All published
+=CASE-OK=, =MODULE-OK=, =HARNESS-OK=, and final =OK=; the bounded runner exited
+zero in 23.86 seconds. The full log is
+=/private/tmp/parser-pr13-rebase-final.log=. The grammar-composition module
+was also loaded in an earlier run, but its plural suite export prevented case
+execution; it is excluded from the 75-case receipt.
+
+The remote PR head was rechecked after replay and remained =85f62fe=.
+This is local rebase and source functional evidence. Native compilation and
+the eight performance gates have not been rerun for this source revision;
+the earlier native GQL failure is historical, and its current status remains
+unqualified. No remote branch was pushed.

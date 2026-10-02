@@ -11,9 +11,16 @@
                  +diagnostic-schema+ make-failure-parse-artifact
                  make-success-parse-artifact parse-artifact-success?)
         (only-in ./lexer lex-source lex-source-from scan-source-token)
+        (only-in ./contextual-scanner
+                 prepare-contextual-scanner contextual-scanner-initial-state
+                 contextual-scanner-step
+                 contextual-scan-state-character-offset
+                 contextual-scan-state-byte-offset)
+        (only-in ./identity sha256-text)
         (only-in ./lr-parser
                  lr-runtime-layout?
                  lr-checkpoint-deterministic-shifts lr-checkpoint-drive
+                 lr-checkpoint-drive/contextual
                  lr-checkpoint-feed
                  lr-checkpoint-lexical-mode lr-checkpoint-prefix-snapshot
                  lr-lexical-mode-id
@@ -26,12 +33,120 @@
                  call-with-parser-observed-phase)
         (only-in ./significant
                  parser-significant-tokens parser-significant-joined)
-        (only-in ./token token-end token-lexeme))
+        (only-in ./token make-token token-end token-lexeme))
 (export parse-source
+        parse-source/contextual
         parse-source/checkpoints
         parse-source/checkpoints/resume
         parse-tokenized
         parse-tokenized/checkpoint)
+
+(def (contextual-ir-ref ir key)
+  (let (row (assq key ir)) (and row (cdr row))))
+
+(def (contextual-canonical value)
+  (call-with-output-string (lambda (port) (write value port))))
+
+(def (valid-contextual-product? machine product)
+  (and (list? product)
+       (equal? (contextual-ir-ref product 'schema)
+               "gerbil-parser.contextual-parser-ir.v1")
+       (equal? (contextual-ir-ref product 'base-grammar-digest)
+               (parser-machine-grammar-digest machine))
+       (equal? (contextual-ir-ref product 'parser-ir-digest)
+               (sha256-text
+                (contextual-canonical (parser-machine-ir machine))))
+       (string? (contextual-ir-ref product 'digest))
+       (equal?
+        (sha256-text
+         (contextual-canonical
+          (filter (lambda (row) (not (eq? (car row) 'digest)))
+                  product)))
+        (contextual-ir-ref product 'digest))))
+
+;;; The position table is compiler output: one entry for every LR state. The
+;;; scanner receives a finite position id, never the checkpoint or a callback.
+(def (validate-contextual-position-table machine scanner-ir table)
+  (let* ((positions (contextual-ir-ref scanner-ir 'positions))
+        (state-count
+         (vector-length
+          (cdr
+           (assq 'actions
+                 (parser-ir-ref (parser-machine-ir machine) 'lr-spec)))))
+         (index (make-vector state-count #f)))
+    (unless (and (list? table)
+                 (= (length table) state-count)
+                 (andmap
+                  (lambda (row)
+                    (and (pair? row) (integer? (car row))
+                         (<= 0 (car row))
+                         (< (car row) state-count)
+                         (memq (cdr row) positions)))
+                  table))
+      (error "invalid contextual LR position table" table))
+    (for-each
+     (lambda (row)
+       (when (vector-ref index (car row))
+         (error "invalid contextual LR position table" table))
+       (vector-set! index (car row) (cdr row)))
+     table)
+    index))
+
+;;; Internal vertical slice for a deterministic LR grammar. Full contextual
+;;; parser admission still requires declaration-macro binding and GLR branch
+;;; state. Forks produce only rejected, lossless artifacts.
+(def (parse-source/contextual machine product source)
+  (unless (and (string? source)
+               (valid-contextual-product? machine product))
+    (error "contextual parser product does not match parser machine"))
+  (let* ((scanner-ir (contextual-ir-ref product 'scanner))
+         (position-table
+          (validate-contextual-position-table
+           machine scanner-ir (contextual-ir-ref product 'state-positions)))
+         (scanner (prepare-contextual-scanner scanner-ir source))
+         (state (contextual-scanner-initial-state scanner))
+         (tokens-reversed '())
+         (trivia? (parser-machine-trivia machine))
+         (initial (lr-initial-checkpoint
+                   (parser-machine-runtime machine) '())))
+    (def (next-input _mode lr-state)
+      (let (position (vector-ref position-table lr-state))
+        (let-values (((input-token next-state)
+                      (contextual-scanner-step scanner state position)))
+          (set! state next-state)
+          (when input-token
+            (set! tokens-reversed (cons input-token tokens-reversed)))
+          (if (and input-token (trivia? input-token))
+            (next-input _mode lr-state)
+            input-token))))
+    (def (after-shift _token _states _values _actions _shifts) (void))
+    (with-catch
+     (lambda (condition)
+       (let* ((offset (contextual-scan-state-character-offset state))
+              (tokens (reverse tokens-reversed))
+              (remaining (substring source offset (string-length source))))
+         (failure-artifact
+          machine (contextual-ir-ref product 'digest) source
+          (if (zero? (string-length remaining))
+            tokens
+            (append tokens
+                    (list (make-token
+                           'unknown remaining
+                           (contextual-scan-state-byte-offset state)
+                           (u8vector-length (string->utf8 source))))))
+          condition)))
+     (lambda ()
+       (let-values (((status payload)
+                     (lr-checkpoint-drive/contextual
+                      initial next-input after-shift)))
+         (unless (eq? status 'accepted)
+           (error "contextual LR drive requires deterministic acceptance"
+                  status))
+         (unless (null? (cadr payload))
+           (error "contextual LR accepted with trailing tokens"))
+         (make-success-parse-artifact
+          (contextual-ir-ref product 'digest)
+          source (reverse tokens-reversed) (car payload) trivia?))))))
 
 ;; : (-> ParserMachine Exception Diagnostic)
 (def (diagnostic machine condition)

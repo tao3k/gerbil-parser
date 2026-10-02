@@ -36,6 +36,8 @@
             (benchmark-contract-run benchmark-path parse-gql-batch))
         (write receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(export gql-runtime-benchmark-tests)
+(def gql-runtime-benchmark-test gql-runtime-benchmark-tests)
+(export gql-runtime-benchmark-tests gql-runtime-benchmark-test)

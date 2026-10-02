@@ -32,6 +32,8 @@
              parse-batch))
         (write receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(export parser-benchmark-tests)
+(def benchmark-test parser-benchmark-tests)
+(export parser-benchmark-tests benchmark-test)

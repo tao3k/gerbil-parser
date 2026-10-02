@@ -5,6 +5,7 @@
         genuine-reduce-conflict-rules precedence-expression-rules
         mixed-context-rules lr1-context-family-rules
         mixed-context-family-rules acyclic-mixed-context-family-rules
+        unreachable-repeated-context-family-rules
         inactive-core-conflict-rules)
 
 ;; The c-rule item after "c" has no raw action before its nullable optional
@@ -97,6 +98,14 @@
            '(component (choice (literal "c") (literal "d")))
            rule))
        (mixed-context-family-rules count)))
+
+;; An unreachable repeated helper must not divert an otherwise exact
+;; canonical trial to direct follow construction.
+(def (unreachable-repeated-context-family-rules count)
+  (append (lr1-context-family-rules count)
+          '((unreachable
+             (sequence (reference helper) (reference helper)))
+            (helper (literal "x")))))
 
 ;; Merging the two LR(1) contexts for A -> c and B -> c creates a spurious
 ;; reduce/reduce conflict. Canonical LR(1) must keep them distinct.

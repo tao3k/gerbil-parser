@@ -10,7 +10,7 @@
                  compiler-index-set-add compiler-index-set-for-each
                  compiler-index-set-singleton compiler-index-set-union)
         (only-in ./lr
-                 +lr-eof+ nonterminal-name nonterminal-symbol?
+                 +lr-eof+ base-symbol nonterminal-name nonterminal-symbol?
                  production-id production-index-by-lhs production-rhs
                  production-terminal-catalog sequence-first sequence-nullable?)
         (only-in ./lr-automaton
@@ -643,25 +643,78 @@
               (build-direct)))
           (build-direct)))))))
 
+;; Repeating one nonterminal within a reachable production is evidence
+;; that canonical LR(1) may duplicate contexts which follow partitioning can
+;; share. An unreachable rule must not force the expensive direct route.
+(def (repeated-nonterminal-rhs? rhs)
+  (let symbol-loop ((remaining rhs) (first #f) (others '()))
+    (and (pair? remaining)
+         (let (symbol (car remaining))
+           (if (nonterminal-symbol? symbol)
+             (let (name (nonterminal-name symbol))
+               (cond
+                ((or (eq? name first) (memq name others)) #t)
+                (first (symbol-loop (cdr remaining) first
+                                    (cons name others)))
+                (else (symbol-loop (cdr remaining) name others))))
+             (symbol-loop (cdr remaining) first others))))))
+
+(def (reachable-repeated-nonterminal? productions table)
+  (let ((candidates (make-vector (vector-length table) #f))
+        (candidate? #f))
+    (let production-loop ((id (- (vector-length table) 1)))
+      (when (>= id 0)
+        (when (repeated-nonterminal-rhs?
+               (production-rhs (vector-ref table id)))
+          (vector-set! candidates id #t)
+          (set! candidate? #t))
+        (production-loop (- id 1))))
+    (and candidate?
+         (let ((by-lhs (production-index-by-lhs productions))
+               (seen (make-vector (vector-length table) #f))
+               (pending (stdq-make-Queue)))
+           (vector-set! seen 0 #t)
+           (stdq-enqueue! pending 0)
+           (let search ()
+             (and (not (stdq-queue-empty? pending))
+                  (let (id (stdq-dequeue! pending))
+                    (or (vector-ref candidates id)
+                        (begin
+                          (for-each
+                           (lambda (entry)
+                             (let (symbol (base-symbol entry))
+                              (when (nonterminal-symbol? symbol)
+                               (for-each
+                                (lambda (child)
+                                  (let (next (production-id child))
+                                    (unless (vector-ref seen next)
+                                      (vector-set! seen next #t)
+                                      (stdq-enqueue! pending next))))
+                                (table-ref by-lhs
+                                           (nonterminal-name symbol) '())))))
+                           (production-rhs (vector-ref table id)))
+                          (search))))))))))
+
 (def (build-states-via-follow-partition-lr1 productions table first nullable)
-  ;; At medium size, independent conflict contexts can already make the LR(0)
-  ;; seed and follow refinement more expensive than a bounded canonical trial.
-  ;; The state budget still sends grammars needing further compression to the
-  ;; direct follow construction.
+  ;; A reachable repeated nonterminal is a cheap signal that canonical LR(1)
+  ;; can duplicate contexts. Build the follow partition directly in that case.
   (if (>= (vector-length table) 256)
-    (let (trial
-          (call-with-values
-           (lambda ()
-             (build-states-via-canonical-lr1
-              productions table first nullable
-              (* 3 (vector-length table))))
-           list))
-      (if (and (= (length trial) 10)
-               (canonical-at-conflict-lower-bound? trial))
-        (apply values
-               (append (take trial 8)
-                       (list 0 (list-ref trial 9))))
-        (build-states-via-follow-partition-lr1/from-lr0
-         productions table first nullable #f)))
+    (if (reachable-repeated-nonterminal? productions table)
+      (build-states-via-follow-partition-lr1/from-lr0
+       productions table first nullable #f)
+      (let (trial
+            (call-with-values
+             (lambda ()
+               (build-states-via-canonical-lr1
+                productions table first nullable
+                (* 3 (vector-length table))))
+             list))
+        (if (and (= (length trial) 10)
+                 (canonical-at-conflict-lower-bound? trial))
+          (apply values
+                 (append (take trial 8)
+                         (list 0 (list-ref trial 9))))
+          (build-states-via-follow-partition-lr1/from-lr0
+           productions table first nullable #f))))
     (build-states-via-follow-partition-lr1/from-lr0
      productions table first nullable)))

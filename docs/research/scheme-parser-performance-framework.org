@@ -399,8 +399,7 @@ measure screens out the recursive and finite shared-component families;
 it is a route heuristic, not a correctness premise. The exact LR(0)
 state-plus-conflict lower bound remains the final admission test, and a
 canonical trial that exceeds it falls back to direct follow partitioning.
-The bounded trial leaves small grammars and the existing 256-production
-route unchanged. On this host, alternating in-process 30-pair CPU runs
+The bounded trial leaves small grammars unchanged. On this host, alternating in-process 30-pair CPU runs
 measured the independent 16-context family at 2.392 to 1.486 ms (29/30
 candidate wins) and independent 32 at 5.600 to 3.045 ms (28/30 wins).
 The recursive mixed 32 family was 7.363 to 7.324 ms (16/30); the finite
@@ -408,6 +407,24 @@ shared 32 family, after reversing the scan to reject sharing early, was
 7.245 to 6.897 ms (17/30). Those latter differences are not treated as
 wins. The direct route still builds their compressed automata. These are
 construction measurements, not fresh-parse throughput measurements.
+
+For grammars with at least 256 productions, a reachable production that
+repeats one nonterminal now selects direct follow construction before the
+large canonical trial. The quick scan finds repeated symbols, then a
+standard queue walks the production graph from the augmented start rule;
+=base-symbol= unwraps marked alias edges. This is a route heuristic, not a
+new grammar equivalence claim. A repeated rule outside the reachable graph
+leaves the canonical trial in place. The permanent
+=unreachable-repeated-context-family-rules= fixture and
+=route-threshold.ss= mode protect that boundary. In paired full-spec runs,
+recursive shared 96 contexts changed from 52.104 to 29.546 ms (30/30 wins),
+and finite shared 64 contexts from 21.682 to 16.479 ms (30/30 wins).
+Independent 64 contexts were 5.085 to 5.116 ms (21/40 wins), while an
+independent family with one unreachable repeated helper was 4.683 to
+4.964 ms (13/30 wins); the latter is a bounded screening cost, not a gain.
+The constructor still checks full parse products against canonical LR(1) in
+the focused tests, and these construction timings imply no runtime-parse
+throughput gain.
 
 The benchmark reports both total time and mean microseconds per invocation.
 In one sequential run with the pinned v0.19 toolchain, 1,000 full compilations

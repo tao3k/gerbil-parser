@@ -8,6 +8,7 @@
         (only-in :gerbil-parser/t/fixtures/lr1-construction
                  lr1-context-family-rules mixed-context-family-rules
                  acyclic-mixed-context-family-rules
+                 split-shared-context-family-rules
                  unreachable-repeated-context-family-rules))
 
 (def (main . args)
@@ -19,12 +20,13 @@
                   (string->symbol (caddr args)) 'independent)))
     (unless (and (integer? contexts) (positive? contexts)
                  (integer? samples) (positive? samples)
-                 (memq shape '(independent mixed acyclic-mixed unreachable-repeated)))
-      (error "expected positive context and sample counts, then independent/mixed/acyclic-mixed/unreachable-repeated"
+                 (memq shape '(independent mixed acyclic-mixed split-shared unreachable-repeated)))
+      (error "expected positive context and sample counts, then independent/mixed/acyclic-mixed/split-shared/unreachable-repeated"
              args))
     (let* ((rules ((case shape
                      ((mixed) mixed-context-family-rules)
                      ((acyclic-mixed) acyclic-mixed-context-family-rules)
+                     ((split-shared) split-shared-context-family-rules)
                      ((unreachable-repeated)
                       unreachable-repeated-context-family-rules)
                      (else lr1-context-family-rules))

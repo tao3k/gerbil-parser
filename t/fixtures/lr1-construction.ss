@@ -5,6 +5,7 @@
         genuine-reduce-conflict-rules precedence-expression-rules
         mixed-context-rules lr1-context-family-rules
         mixed-context-family-rules acyclic-mixed-context-family-rules
+        split-shared-context-family-rules
         unreachable-repeated-context-family-rules
         inactive-core-conflict-rules)
 
@@ -98,6 +99,32 @@
            '(component (choice (literal "c") (literal "d")))
            rule))
        (mixed-context-family-rules count)))
+
+;; Sharing a component across distinct productions does not by itself
+;; imply that direct follow construction can compress canonical LR(1) states.
+(def (split-shared-context-family-rules count)
+  (let* ((base (lr1-context-family-rules count))
+         (alternatives (cdr (caddr (cadr (car base)))))
+         (shared
+          (let loop ((index 0) (found '()))
+            (if (= index count)
+              (reverse found)
+              (let (prefix (string-append "region-"
+                                           (number->string index) ":"))
+                (loop (+ index 1)
+                      (cons (list 'sequence (list 'literal prefix)
+                                  '(reference component) '(literal "x"))
+                            (cons (list 'sequence (list 'literal prefix)
+                                        '(reference component) '(literal "y"))
+                                  found))))))))
+    (cons (list 'source-file
+                (list 'alias 'SourceFile
+                      (cons 'choice (append alternatives shared))))
+          (append (cdr base)
+                  '((component
+                     (choice
+                      (sequence (literal "c") (reference component))
+                      (literal "d"))))))))
 
 ;; An unreachable repeated helper must not divert an otherwise exact
 ;; canonical trial to direct follow construction.

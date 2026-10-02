@@ -24,6 +24,7 @@
                  genuine-reduce-conflict-rules precedence-expression-rules
                  mixed-context-rules lr1-context-family-rules
                  mixed-context-family-rules acyclic-mixed-context-family-rules
+                 split-shared-context-family-rules
                  unreachable-repeated-context-family-rules
                  inactive-core-conflict-rules))
 
@@ -357,6 +358,40 @@
                  '("acd" "ace" "bcd" "bce" "cc" "cd" "dc" "dd" "acc"))))
             (list 0 15 (- context-count 1)))))
        '(32 64)))
+    (poo-flow-test-case "split shared productions do not force compression"
+      (for-each
+       (lambda (context-count)
+         (let* ((rules (split-shared-context-family-rules context-count))
+                (canonical
+                 (compile-lr-spec rules 'source-file 'reject #f
+                                  'canonical-lr1))
+                (direct
+                 (compile-lr-spec rules 'source-file 'reject #f
+                                  'follow-partition-lr1)))
+           (check (lr-spec-ref direct 'state-count)
+                  => (lr-spec-ref canonical 'state-count))
+           (check (zero? (lr-spec-ref direct 'follow-block-count))
+                  => (>= context-count 64))
+           (for-each
+            (lambda (index)
+              (let* ((prefix
+                      (string-append "region-" (number->string index) ":"))
+                     (prefix-length (string-length prefix))
+                     (prefix-token
+                      (make-token 'punctuation prefix 0 prefix-length)))
+                (for-each
+                 (lambda (body)
+                   (let* ((tokens
+                           (cons prefix-token
+                                 (character-tokens body prefix-length)))
+                          (expected (parse-token-result canonical tokens)))
+                     (check (eq? expected 'rejected)
+                            => (equal? body "acc"))
+                     (check (equal? expected
+                                    (parse-token-result direct tokens)) => #t)))
+                 '("dx" "dy" "cdx" "cdy" "acc"))))
+            (list 0 15 (- context-count 1)))))
+       '(16 64)))
     (poo-flow-test-case "unreachable repeated helper keeps canonical route"
       (let* ((rules (unreachable-repeated-context-family-rules 64))
              (canonical

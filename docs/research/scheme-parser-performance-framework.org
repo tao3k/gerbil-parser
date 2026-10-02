@@ -426,6 +426,38 @@ The constructor still checks full parse products against canonical LR(1) in
 the focused tests, and these construction timings imply no runtime-parse
 throughput gain.
 
+A follow-up route probe placed the same recursive component once in each
+of two distinct productions per region. At 16 regions, the direct constructor
+made 262 states and 585 follow blocks, but canonical also made 262 states; at
+64 regions the existing canonical trial produced 1,030 states, equal to the
+canonical reference, with zero follow blocks. The new
+=split-shared-context-family-rules= fixture checks parse-product equality
+and preserves this counterexample in =route-threshold.ss=. Sharing a
+nonterminal across productions alone is insufficient evidence that direct
+follow partitioning will compress the table.
+
+Two temporary Construction 3.27 preparation changes were also screened and
+removed. Computing =FIRST(tail)= and tail nullability once per occurrence,
+instead of once per child production, had a 40-pair forward-follow phase median
+of 0.156 ms on both paths for independent 32 (23/40 candidate wins). Computing
+all =FIRST= suffix masks for a production in one reverse pass improved the
+initial-partition phase at recursive shared 32 from 0.5635 to 0.495 ms
+(21/30 wins), and on a synthetic long right-hand side from 0.7615 to
+0.576 ms (23/30). The complete LR specifications matched in all 30 paired
+samples for both latter families, but whole-construction wins were only
+16/30 in each: 7.9345 to 7.4035 ms for recursive shared 32 and 8.244 to
+8.224 ms for the long-right-hand-side variant. These phase savings do not
+establish a stable construction gain, so neither implementation remains.
+A third temporary route screen stopped the global production scan at its first
+repeated rule and tested repetition during reachable-graph traversal. Full
+LR specifications still matched, but recursive shared 96 construction moved
+from 28.838 to 29.317 ms (12/30 wins); the search still visits many sibling
+productions. It too was reverted. A determinization output-order trial
+replaced per-state core sorting with reversal, relying on core-ordered block
+numbering. Complete LR specs matched at recursive shared 32 and 96, but
+only 16/30 paired full-construction runs favored reversal at either size;
+it was not retained.
+
 The benchmark reports both total time and mean microseconds per invocation.
 In one sequential run with the pinned v0.19 toolchain, 1,000 full compilations
 of the LR(1)-but-not-LALR fixture averaged 79.5 us for canonical and 409.6 us

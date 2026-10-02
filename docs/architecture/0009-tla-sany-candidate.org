@@ -59,8 +59,10 @@ unbounded, and temporal quantifiers.  The comparison retains every bound
 name, its domain, and the tuple marker, rather than comparing bodies alone.
 Two negative differentials require both parsers to reject =[A]x= and a
 bounded temporal quantifier; a SANY semantic/import error does not satisfy
-that negative gate.  Tuple-binding support exposed a set-filter/set-map
-ambiguity in =Digraph.tla=.  The candidate now follows SANY's
+that negative gate.  Two controls verify that missing imports and undeclared
+identifiers fail the oracle without being counted as syntax rejection.
+Tuple-binding support exposed a set-filter/set-map ambiguity in =Digraph.tla=.
+The candidate now follows SANY's
 =BraceCases/matchFcnConst= selection for that overlap, with ambiguous and
 explicitly parenthesized expression regressions.
 This remains a bounded expression gate, not structural parity for other

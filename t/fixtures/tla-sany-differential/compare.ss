@@ -23,6 +23,9 @@
     ("DomainBindings" "F" "G" "Q" "R" "U" "V" "W" "X" "Y" "Z" "Map")
     ("UnboundQuantifiers" "P" "Q" "R" "S")))
 (def +negative-cases+ '("InvalidActionSubscript" "InvalidTemporalBound"))
+(def +oracle-boundaries+
+  '(("MissingImportBoundary" . "Cannot find source file for module ")
+    ("SemanticErrorBoundary" . "Semantic errors:")))
 
 (def (one-child node tag)
   (let (matches
@@ -356,6 +359,18 @@
     (displayln "SANY-DIFF-OK " module-name ": " (length expected)
                " expression trees")))
 
+(def (line-starts-with? line prefix)
+  (and (>= (string-length line) (string-length prefix))
+       (equal? prefix (substring line 0 (string-length prefix)))))
+
+(def (sany-root-syntax-rejected? path module-name status output)
+  (let (lines (string-split output #\newline))
+    (and status (not (= status 0))
+         (member (string-append "Fatal errors while parsing TLA+ spec in file " path) lines)
+         (member (string-append "In module " module-name) lines)
+         (null? (filter (lambda (line)
+                          (line-starts-with? line "Cannot find source file for module ")) lines)))))
+
 (def (check-negative-case jar fixture-directory module-name)
   (let* ((path (path-expand (string-append module-name ".tla") fixture-directory))
          (source (call-with-input-file path read-all-as-string))
@@ -366,14 +381,31 @@
            directory: fixture-directory
            stderr-redirection: #t
            check-status: (lambda (status settings) (set! exit-status status)))))
-    (unless (and exit-status (not (= exit-status 0))
-                 (member (string-append "Fatal errors while parsing TLA+ spec in file " path)
-                         (string-split output #\newline)))
+    (unless (sany-root-syntax-rejected? path module-name exit-status output)
       (error "SANY negative fixture did not fail during syntax parsing"
              module-name exit-status output))
     (when (parse-artifact-success? (parse-tla-plus-sany-candidate source))
       (error "candidate accepted SANY-negative syntax" module-name))
     (displayln "SANY-DIFF-OK " module-name ": both reject syntax")))
+
+(def (check-oracle-boundary jar fixture-directory case)
+  (let* ((module-name (car case))
+         (path (path-expand (string-append module-name ".tla") fixture-directory))
+         (source (call-with-input-file path read-all-as-string))
+         (status #f)
+         (output (run-process ["java" "-cp" jar "tla2sany.xml.XMLExporter" "-o" path]
+                              directory: fixture-directory stderr-redirection: #t
+                              check-status: (lambda (value settings) (set! status value))))
+         (artifact (parse-tla-plus-sany-candidate source)))
+    (unless (and status (not (= status 0))
+                 (pair? (filter (lambda (line) (line-starts-with? line (cdr case)))
+                                (string-split output #\newline)))
+                 (not (sany-root-syntax-rejected? path module-name status output))
+                 (parse-artifact-success? artifact)
+                 (parse-artifact-valid? artifact)
+                 (equal? source (parse-artifact-roundtrip artifact)))
+      (error "SANY oracle failure was mistaken for syntax rejection" module-name status output))
+    (displayln "SANY-DIFF-OK " module-name ": oracle failure excluded")))
 
 (def (run-differential!)
   (let* ((jar (last (command-line)))
@@ -386,6 +418,7 @@
       (error "wrong SANY jar digest" digest))
     (for-each (lambda (case) (check-case jar fixture-directory case)) +cases+)
     (for-each (lambda (name) (check-negative-case jar fixture-directory name)) +negative-cases+)
+    (for-each (lambda (case) (check-oracle-boundary jar fixture-directory case)) +oracle-boundaries+)
     (displayln "SANY-DIFF-OK pinned jar, acceptance, and structure")))
 
 (run-differential!)

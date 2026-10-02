@@ -559,6 +559,25 @@
                           (if (zero? (vector-ref candidates group))
                             total (+ total 1))))))))))))
 
+;; A canonical lower-bound trial is most promising when no grammar
+;; nonterminal is shared by many productions. The state lower bound below
+;; remains the exact admission test; this only avoids costly failed trials.
+(def (low-sharing-productions? table)
+  (let ((uses (make-table test: equal?))
+        (eligible? #t))
+    (let production-loop ((id (- (vector-length table) 1)))
+      (when (and eligible? (>= id 0))
+        (for-each
+         (lambda (symbol)
+           (when (nonterminal-symbol? symbol)
+             (let* ((name (nonterminal-name symbol))
+                    (count (+ 1 (table-ref uses name 0))))
+               (table-set! uses name count)
+               (when (> count 2) (set! eligible? #f)))))
+         (production-rhs (vector-ref table id)))
+        (production-loop (- id 1))))
+    eligible?))
+
 (def (build-states-via-follow-partition-lr1/from-lr0
       productions table first nullable (canonical-trial? #t))
   (let-values (((states count lookaheads offsets transitions
@@ -601,7 +620,11 @@
         (values states count lookaheads offsets transitions
                 terminal-values layout core-symbols 0
                 (vector-length lookaheads))
-        (if (and canonical-trial? (>= conflict-count 64))
+        (if (and canonical-trial?
+                (or (>= conflict-count 64)
+                    (and (>= conflict-count 8)
+                         (>= (vector-length table) 64)
+                         (low-sharing-productions? table))))
           ;; Every conflicting LR(0) state needs at least one split in an
           ;; LR(1) construction. Stop the canonical trial at that lower bound;
           ;; an exact match leaves no state compression for follow refinement.

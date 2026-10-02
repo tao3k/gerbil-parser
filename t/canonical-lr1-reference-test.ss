@@ -263,7 +263,7 @@
            (check-exception (compile-lr-spec rules 'source-file) true)
            (check (lr-spec-ref canonical 'state-count)
                   => (lr-spec-ref direct 'state-count))
-           (when (memv context-count '(48 64))
+           (when (memv context-count '(32 48 64))
              (check (lr-spec-ref direct 'follow-block-count) => 0))
            (for-each
             (lambda (index)
@@ -289,7 +289,7 @@
                   (check (parse-token-result canonical tokens) => 'rejected)
                   (check (parse-token-result direct tokens) => 'rejected))))
             (iota context-count))))
-       '(4 16 48 64)))
+       '(4 16 32 48 64)))
     (poo-flow-test-case "mixed context family compresses forward follow blocks"
       (for-each
        (lambda (context-count)

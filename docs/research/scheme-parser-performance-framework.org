@@ -513,6 +513,30 @@ These observations support a large-quotient specialization, not a general
 claim that closure caching helps every grammar. They measure generator work,
 not parser throughput.
 
+** Rejected quotient-NFA closure and follow-index experiments
+
+Three subsequent Construction 3.27 subset-construction experiments preserved
+the complete =LRSpec= on the compared fixtures but did not produce a repeatable
+full-generation gain. First, condensing epsilon-edge strongly connected
+components and unioning closures over the resulting DAG took 53.4--64.8 ms
+versus 56.0--61.2 ms for the existing lazy singleton cache across five
+paired 128-context mixed samples, winning only three. A paired TLA+ run did
+not complete its first pair within roughly three minutes under concurrent
+host load, so it supplies no TLA+ performance or equivalence claim. Second,
+memoizing complete shift-seed closures won 16/30 pairs on mixed 64 contexts
+(19.227 versus 19.075 ms CPU medians) and 11/30 on acyclic mixed 64
+(18.892 versus 19.520 ms). Third, storing a single follow block as a compact
+mask/id pair instead of a terminal-width vector won 16/30 pairs on both mixed
+64 (18.331 versus 17.697 ms) and acyclic mixed 64 (18.246 versus 18.988 ms).
+Each temporary switch and source change was removed. These measurements
+exclude module import time and do not alter the production route.
+
+The next algorithmic question is whether the conservative LALR-union conflict
+candidates can be narrowed by follow-specific LR(0) co-reachability without
+enumerating canonical LR(1) states. That is the remaining gap between the
+current seed and Definition 3.24 of the paper; benchmark and parse-product
+receipts must accompany any such change.
+
 ** Shared literal recognition across lexical modes
 
 =generated-lexer= now builds one trie for all complete =(literals ...)= rules,

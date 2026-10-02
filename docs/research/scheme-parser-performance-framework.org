@@ -680,6 +680,35 @@ An intermediate dual-namespace alternating trial had 30/30 faster candidate
 pairs, but its original copies incurred more GC than the fresh production
 baseline, so that timing ratio is not used as the production speedup.
 
+After rebasing onto PR head =7c1533356585154c8b5d340f64ffefb289d18907=,
+the upstream layout closing-boundary action semantics were preserved in the
+numeric action index. Layout reduction scratch uses terminal IDs and clears
+only touched slots together with the action row. All 53 current native
+modules passed in bounded batches, including the added SANY closure owner;
+the 36 complete grammar-family specs were regenerated from the new baseline
+and remained equal.
+
+The matched production baseline =144901c= (latest PR plus the prior local
+follow-mask and benchmark commits) and the structural source =06f7f47= were
+separately cleaned and fully rebuilt with 12 build cores. The same 20-call,
+2 GiB, pre-call-GC protocol measured TLA+ default LALR medians of 60.1065 ms
+and 44.7655 ms, respectively, about a 25.5 percent complete-call reduction.
+Both serialized complete specs were byte-identical, with 280 productions
+and 390 states. This newer result includes the layout guards; it is a
+separate matched comparison from the earlier table, not a cross-revision
+comparison of changed action semantics. CPU timing includes in-call GC and
+excludes imports, explicit pre-call GC, and equality checking.
+
+The next structural audit should attribute allocation and GC to propagation
+graph construction and immutable state/transition publication before choosing
+another graph representation. Diagnostic tracing still records 7,201 nodes
+and 23,305 propagation visits, but observed phase timings vary substantially
+between calls. These wall-clock traces include logging and are not an
+allocation profile or proof that SCC condensation is the next profitable
+algorithm. Candidate experiments are flat adjacency storage and condensation
+of nullable propagation cycles; each requires matched complete-call timing
+and complete-spec conformance before admission.
+
 Earlier separate-table prediction admission changed 54.2705 to 56.0445 ms;
 a shared-list admission prototype produced only a roughly 5 percent TLA+
 gain and was superseded. Transitive prediction alone reached 50.7895 ms.

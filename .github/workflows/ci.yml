@@ -81,7 +81,6 @@ jobs:
             openjdk-17-jre-headless \
             openssl \
             pkg-config \
-            python3 \
             sqlite3 \
             zlib1g-dev
 
@@ -195,7 +194,7 @@ jobs:
             https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
             GAMBOPT=max-heap=1G,debug=q \
-            python3 t/fixtures/tla-sany-differential/compare.py --sany-jar "$jar"
+            gerbil env gxi t/fixtures/tla-sany-differential/compare.ss "$jar"
 
       - name: Verify Rust/Rowan AOT generation is current
         run: |

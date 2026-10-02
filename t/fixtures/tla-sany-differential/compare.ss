@@ -1,0 +1,220 @@
+;;; -*- Gerbil -*-
+;;; Compare bounded TLA+ expression trees with the pinned SANY XML exporter.
+
+(import (only-in :std/misc/ports read-all-as-string read-all-as-u8vector)
+        (only-in :std/misc/process run-process)
+        (only-in :std/text/markup/xml read-xml)
+        :gerbil-parser/languages/tla-plus/sany-candidate
+        (only-in :gerbil-parser/src/runtime/artifact
+                 parse-artifact-success? parse-artifact-valid?
+                 parse-artifact-roundtrip)
+        (only-in :gerbil-parser/src/runtime/identity sha256-bytes)
+        :gerbil-parser/src/runtime/cst
+        (only-in :gerbil-parser/src/runtime/token token? token-lexeme))
+
+(def +jar-digest+
+  "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88")
+(def +cases+
+  '(("TemporalPrecedence" "P" "Q" "R" "S" "T")
+    ("ArithmeticPrecedence" "P" "Q" "R" "S" "T" "U")))
+
+(def (one-child node tag)
+  (let (matches
+        (filter (lambda (child)
+                  (and (pair? child) (eq? (car child) tag)))
+                (cdr node)))
+    (unless (= (length matches) 1)
+      (error "SANY XML missing unique child" tag (car node)))
+    (car matches)))
+
+(def (children node tag)
+  (filter (lambda (child)
+            (and (pair? child) (eq? (car child) tag)))
+          (cdr node)))
+
+(def (xml-text node)
+  (let (body (cdr node))
+    (unless (and (= (length body) 1) (string? (car body)))
+      (error "SANY XML element has no single text value" (car node)))
+    (car body)))
+
+(def (child-text node tag)
+  (xml-text (one-child node tag)))
+
+(def (context-entry entry)
+  (let* ((uid (child-text entry 'UID))
+         (nodes (filter (lambda (child)
+                          (and (pair? child) (not (eq? (car child) 'UID))))
+                        (cdr entry))))
+    (unless (= (length nodes) 1)
+      (error "SANY XML malformed context entry" uid))
+    (cons uid (car nodes))))
+
+(def (context-ref context reference)
+  (let* ((uid (child-text reference 'UID))
+         (found (assoc uid context)))
+    (unless found (error "SANY XML unresolved reference" uid))
+    (cdr found)))
+
+(def (normalized-operator name)
+  (cond ((equal? name "\\land") "/\\")
+        ((equal? name "\\lor") "\\/")
+        ((equal? name "=<") "\\leq")
+        (else name)))
+
+(def (sany-expression node context)
+  (unless (eq? (car node) 'OpApplNode)
+    (error "SANY expression is not an application" (car node)))
+  (let* ((operator (one-child node 'operator))
+         (references (filter pair? (cdr operator)))
+         (operands (one-child node 'operands)))
+    (unless (= (length references) 1)
+      (error "SANY application has no unique operator"))
+    (let* ((target (context-ref context (car references)))
+           (name (normalized-operator (child-text target 'uniquename)))
+           (arguments (filter pair? (cdr operands))))
+      (if (null? arguments)
+        name
+        (cons name (map (lambda (child) (sany-expression child context))
+                        arguments))))))
+
+(def (sany-shapes xml module-name)
+  (let* ((document (read-xml xml))
+         (module-root (one-child document 'modules))
+         (root-name (child-text module-root 'RootModule))
+         (context
+          (map context-entry
+               (children (one-child module-root 'context) 'entry))))
+    (unless (equal? root-name module-name)
+      (error "SANY XML root module differs" root-name module-name))
+    (let* ((modules
+            (filter (lambda (node)
+                      (and (eq? (car node) 'ModuleNode)
+                           (equal? (child-text node 'uniquename) module-name)))
+                    (map cdr context))))
+      (unless (= (length modules) 1)
+        (error "SANY XML missing unique root module" module-name))
+      (let loop ((references (children (car modules) 'UserDefinedOpKindRef))
+                 (result []))
+        (if (null? references)
+          result
+          (let* ((definition (context-ref context (car references)))
+                 (location (one-child definition 'location)))
+            (unless (eq? (car definition) 'UserDefinedOpKind)
+              (error "SANY module has malformed definition reference"))
+            (if (equal? (child-text location 'filename) module-name)
+              (let (name (child-text definition 'uniquename))
+                (when (assoc name result)
+                  (error "SANY XML duplicate definition" name))
+                (let* ((body (one-child definition 'body))
+                       (nodes (filter pair? (cdr body))))
+                  (unless (= (length nodes) 1)
+                    (error "SANY XML malformed definition body" name))
+                  (loop (cdr references)
+                        (cons (cons name (sany-expression (car nodes) context))
+                              result))))
+              (loop (cdr references) result))))))))
+
+(def (child-field node name)
+  (let loop ((rest (syntax-node-children node)))
+    (cond ((null? rest) (error "missing syntax field" (syntax-node-kind node) name))
+          ((and (syntax-field? (car rest))
+                (eq? (syntax-field-name (car rest)) name))
+           (car rest))
+          (else (loop (cdr rest))))))
+
+(def (first-descendant value predicate)
+  (cond ((predicate value) value)
+        ((syntax-node? value)
+         (let loop ((rest (syntax-node-children value)))
+           (and (pair? rest)
+                (or (first-descendant (car rest) predicate)
+                    (loop (cdr rest))))))
+        ((syntax-field? value)
+         (let loop ((rest (syntax-field-children value)))
+           (and (pair? rest)
+                (or (first-descendant (car rest) predicate)
+                    (loop (cdr rest))))))
+        (else #f)))
+
+(def (field-node node name)
+  (or (first-descendant (child-field node name) syntax-node?)
+      (error "syntax field has no node" (syntax-node-kind node) name)))
+
+(def (field-text node name)
+  (let (token (first-descendant (child-field node name) token?))
+    (if token (token-lexeme token)
+        (error "syntax field has no token" (syntax-node-kind node) name))))
+
+(def (candidate-expression node)
+  (case (syntax-node-kind node)
+    ((Expression)
+     (list (normalized-operator (field-text node 'operator))
+           (candidate-expression (field-node node 'left))
+           (candidate-expression (field-node node 'right))))
+    ((GroupedExpression)
+     (candidate-expression (field-node node 'expression)))
+    ((NameExpression)
+     (field-text node 'name))
+    (else (error "unsupported differential expression" (syntax-node-kind node)))))
+
+(def (operator-definitions value)
+  (cond ((syntax-node? value)
+         (append
+          (if (eq? (syntax-node-kind value) 'OperatorDefinition) (list value) [])
+          (apply append (map operator-definitions (syntax-node-children value)))))
+        ((syntax-field? value)
+         (apply append (map operator-definitions (syntax-field-children value))))
+        (else [])))
+
+(def (candidate-shapes source path)
+  (let (artifact (parse-tla-plus-sany-candidate source))
+    (unless (and (parse-artifact-success? artifact)
+                 (parse-artifact-valid? artifact)
+                 (equal? source (parse-artifact-roundtrip artifact)))
+      (error "candidate did not parse and round-trip fixture" path))
+    (map (lambda (definition)
+           (cons (field-text definition 'name)
+                 (candidate-expression (field-node definition 'body))))
+         (operator-definitions (parse-artifact->cst artifact)))))
+
+(def (check-case jar fixture-directory case)
+  (let* ((module-name (car case))
+         (expected (cdr case))
+         (path (path-expand (string-append module-name ".tla") fixture-directory))
+         (source (call-with-input-file path read-all-as-string))
+         (xml (run-process
+               ["java" "-cp" jar "tla2sany.xml.XMLExporter" "-o" path]
+               directory: fixture-directory))
+         (official (sany-shapes xml module-name))
+         (candidate (candidate-shapes source path)))
+    (unless (and (= (length official) (length expected))
+                 (= (length candidate) (length expected)))
+      (error "SANY differential definition count differs" module-name
+             (length official) (length candidate)))
+    (for-each
+     (lambda (name)
+       (let ((official-entry (assoc name official))
+             (candidate-entry (assoc name candidate)))
+         (unless (and official-entry candidate-entry)
+           (error "SANY differential missing definition" module-name name))
+         (unless (equal? (cdr official-entry) (cdr candidate-entry))
+           (error "SANY differential tree differs" module-name name
+                  (cdr official-entry) (cdr candidate-entry)))))
+     expected)
+    (displayln "SANY-DIFF-OK " module-name ": " (length expected)
+               " expression trees")))
+
+(def (run-differential!)
+  (let* ((jar (last (command-line)))
+         (fixture-directory
+          (path-expand "t/fixtures/tla-sany-differential" (current-directory)))
+         (digest (call-with-input-file jar
+                   (lambda (port)
+                     (sha256-bytes (read-all-as-u8vector port))))))
+    (unless (equal? digest +jar-digest+)
+      (error "wrong SANY jar digest" digest))
+    (for-each (lambda (case) (check-case jar fixture-directory case)) +cases+)
+    (displayln "SANY-DIFF-OK pinned jar, acceptance, and structure")))
+
+(run-differential!)

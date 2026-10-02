@@ -27,9 +27,10 @@ The independent candidate test checks structural nodes and source-exact
 round trips for each added family.  The pinned =tlaplus/Examples= corpus at
 commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10= is a regression
 source, with per-file accepted, rejected, validity, and round-trip outcomes.
-The current candidate accepts and round-trips 176 of 424 pinned files.  The
-=~>= addition accepts 12 more files than the preceding 164/424 candidate
-without losing any accepted file.  The published layout grammar still accepts all 28 POO
+The current candidate accepts and round-trips 178 of 424 pinned files.  The
+=~>= addition accepted 12 more files than the preceding 164/424 candidate;
+=/== and ==<= each add one more file, without losing any accepted file.
+The published layout grammar still accepts all 28 POO
 models.  This count is a syntax coverage receipt, not a semantic or SANY
 parity claim.
 Corpus acceptance is not a proof of SANY equivalence: some files contain
@@ -38,13 +39,13 @@ the module terminator.  SANY CST/AST differential checks, negative syntax
 tests, precedence checks, full proof and PlusCal handling, and performance
 receipts remain required before a production full-syntax contract.
 
-An initial structural differential runs the official v1.7.4 SANY XML exporter
-against the candidate on temporal and arithmetic modules.  It verifies the
-pinned =tla2tools.jar= SHA-256 and compares eight normalized expression trees
-across =~>=, =/\\=, =\\/=, ==>=, =+=, =-=, and =*=.  This check exposed a
-real =A + B - C= grouping difference; the candidate now follows SANY's
-precedence for that expression.  This remains a bounded precedence gate,
-not structural parity for other constructs or the corpus.
+An initial Scheme-owned structural differential runs the official v1.7.4 SANY
+XML exporter against the candidate on temporal and arithmetic modules.  It
+verifies the pinned =tla2tools.jar= SHA-256 and compares eleven normalized
+expression trees across =~>=, =/\\=, =\\/=, ==>=, =+=, =-=, =*=, =/==, and ==<=.
+This check exposed a real =A + B - C= grouping difference; the candidate now
+follows SANY's precedence for that expression.  This remains a bounded
+precedence gate, not structural parity for other constructs or the corpus.
 
 The candidate is not a replacement for the layout grammar in POO Flow.
 Language-pack authors select a descriptor explicitly and retain the grammar

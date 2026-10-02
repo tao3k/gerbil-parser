@@ -77,7 +77,7 @@
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
               "\\union" "\\cap" "\\cup" "\\subseteq" "\\X" "\\in" "\\"
               "\\div" "\\leq" "\\geq"
-              ".." "<<" ">>" "<=" ">=" "->" "<-"
+              ".." "<<" ">>" "<=" ">=" "=<" "/=" "->" "<-"
               "#" "=" "<" ">" "+" "-" "*" "/" "%" "^" "'" "~" "@"
               "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
   )
@@ -236,8 +236,9 @@
       (alias Expression
        (seq (field left (reference expression))
             (field operator
-             (choice (literal "=") (literal "#") (literal "<") (literal ">")
-                     (literal "<=") (literal ">=")
+             (choice (literal "=") (literal "#") (literal "/=")
+                     (literal "<") (literal ">")
+                     (literal "<=") (literal "=<") (literal ">=")
                      (literal "\\leq") (literal "\\geq")
                      (literal "\\in")
                      (literal "\\notin") (literal "\\subseteq")))

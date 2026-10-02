@@ -16,13 +16,16 @@
   "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88")
 (def +cases+
   '(("TemporalPrecedence" "P" "Q" "R" "S" "T")
-    ("ArithmeticPrecedence" "P" "Q" "R" "S" "T" "U")
+    ("ArithmeticPrecedence" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z")
     ("TemporalTuple" "P" "Q" "R" "S" "T" "U")
     ("FunctionBindings" "F" "G" "L" "M")
     ("FairnessBindings" "P" "Q" "R" "S")
     ("DomainBindings" "F" "G" "Q" "R" "U" "V" "W" "X" "Y" "Z" "Map")
-    ("UnboundQuantifiers" "P" "Q" "R" "S")))
-(def +negative-cases+ '("InvalidActionSubscript" "InvalidTemporalBound"))
+    ("UnboundQuantifiers" "P" "Q" "R" "S")
+    ("SequenceFunctionOperators" "P" "Q" "R" "S" "T" "U" "V")))
+(def +negative-cases+
+  '("InvalidActionSubscript" "InvalidTemporalBound" "InvalidDivisionChain"
+    "InvalidExponentChain" "InvalidFunctionPairChain" "InvalidIntegerDivisionChain"))
 (def +oracle-boundaries+
   '(("MissingImportBoundary" . "Cannot find source file for module ")
     ("SemanticErrorBoundary" . "Semantic errors:")))
@@ -69,6 +72,7 @@
   (cond ((equal? name "\\land") "/\\")
         ((equal? name "\\lor") "\\/")
         ((equal? name "=<") "\\leq")
+        ((equal? name "\\circ") "\\o")
         (else name)))
 
 (def (sany-expression node context)

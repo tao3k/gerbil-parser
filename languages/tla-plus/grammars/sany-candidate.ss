@@ -82,7 +82,7 @@
     (literals "<=>" "|->" "[]" "<>" "=>" "~>" "==" "/\\" "\\/"
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
               "\\union" "\\cap" "\\cup" "\\subseteq" "\\X" "\\in" "\\"
-              "\\div" "\\leq" "\\geq"
+              "\\div" "\\leq" "\\geq" "\\o" "\\circ" "@@" ":>"
               ".." "<<" ">>" "]_" ">>_" "<=" ">=" "=<" "/=" "->" "<-"
               "#" "=" "<" ">" "+" "-" "*" "/" "%" "^" "'" "~" "@"
               "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
@@ -277,6 +277,14 @@
                      (literal "\\in")
                      (literal "\\notin") (literal "\\subseteq")))
             (field right (reference expression)))))
+     (prec left 42
+      (alias Expression
+       (seq (field left (reference expression)) (field operator (literal "@@"))
+            (field right (reference expression)))))
+     (prec none 43
+      (alias Expression
+       (seq (field left (reference expression)) (field operator (literal ":>"))
+            (field right (reference expression)))))
      ;; Set union and intersection share precedence 8 in TLA+ and associate
      ;; to the left. Their ASCII aliases are spellings of the same operators.
      (prec left 45
@@ -306,11 +314,16 @@
      (prec left 70
       (alias Expression
        (seq (field left (reference expression))
-            (field operator (choice (literal "*") (literal "/")
-                                    (literal "%") (literal "\\div")
+            (field operator (choice (literal "*") (literal "\\o")
+                                    (literal "\\circ") (literal "%")
                                     (literal "\\X")))
             (field right (reference expression)))))
-     (prec right 80
+     (prec none 70
+      (alias Expression
+       (seq (field left (reference expression))
+            (field operator (choice (literal "/") (literal "\\div")))
+            (field right (reference expression)))))
+     (prec none 80
       (alias Expression
        (seq (field left (reference expression)) (field operator (literal "^"))
             (field right (reference expression)))))

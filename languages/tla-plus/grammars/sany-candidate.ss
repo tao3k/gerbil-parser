@@ -73,7 +73,7 @@
    (module-border (character-run "-" 4))
    (number (number)) (identifier (identifier))
    (punctuation
-    (literals "<=>" "|->" "[]" "<>" "=>" "==" "/\\" "\\/"
+    (literals "<=>" "|->" "[]" "<>" "=>" "~>" "==" "/\\" "\\/"
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
               "\\union" "\\cap" "\\cup" "\\subseteq" "\\X" "\\in" "\\"
               "\\div" "\\leq" "\\geq"
@@ -216,6 +216,11 @@
       (alias Expression
        (seq (field left (reference expression))
             (field operator (choice (literal "<=>") (literal "=>")))
+            (field right (reference expression)))))
+     (prec none 15
+      (alias Expression
+       (seq (field left (reference expression))
+            (field operator (literal "~>"))
             (field right (reference expression)))))
      (prec left 20
       (alias Expression

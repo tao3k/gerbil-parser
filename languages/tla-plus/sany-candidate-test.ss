@@ -154,6 +154,19 @@
         (check (node-kind-count (parse-artifact->cst artifact)
                                 'RecordExpression)
                => 1)))
+    (test-case "temporal leads-to is one lossless infix operator"
+      (let* ((source
+              (string-append
+               "---- MODULE Leads ----\n"
+               "Leads == A ~> B\n"
+               "Grouped == (A /\\ B) ~> C\n====\n"))
+             (artifact (parse-tla-plus-sany-candidate source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check (node-kind-count (parse-artifact->cst artifact)
+                                'Expression)
+               => 3)))
     (test-case "concurrent requests keep layout columns and frames isolated"
       (let* ((sources
               (list

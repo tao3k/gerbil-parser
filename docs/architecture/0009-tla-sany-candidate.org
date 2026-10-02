@@ -1,0 +1,43 @@
+#+title: RFC 0009 — Independent TLA+ SANY syntax candidate
+#+startup: overview
+
+* Contract boundary
+
+The published =tla-plus.native-layout.v2= grammar remains the syntax
+contract used by POO Flow.  Its namespace is unversioned and its identity
+lives in =languages/tla-plus/grammars/layout.ss=.  Further SANY syntax work
+uses =languages/tla-plus/grammars/sany-candidate.ss= with a separate
+=p4-draft= metadata version and =tla-plus.native-sany-candidate.p4=
+contract.  The candidate has its own parser entry and test suite.  Neither
+entry silently changes the other grammar's identity or accepted syntax.
+
+The candidate inherits the generic source-column junction semantics.  It
+adds variable-width module and separator borders, function-set expressions,
+operator constants, =EXCEPT= updates, record-field selection, instance
+qualification, infix operator definitions, symbolic qualified names, and
+several arithmetic and relation operators.  Record-set types with =:=
+fields remain distinct from record values with =|->= fields.  These are grammar-owned
+constructs.  The language-neutral engine only gained =character-run=, a
+bounded lexical primitive for repeated source characters.
+
+* Evidence and limits
+
+The independent candidate test checks structural nodes and source-exact
+round trips for each added family.  The pinned =tlaplus/Examples= corpus at
+commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10= is a regression
+source, with per-file accepted, rejected, validity, and round-trip outcomes.
+The current candidate accepts and round-trips 164 of 424 pinned files; it
+adds 15 files over the immediately preceding candidate grammar without losing
+any accepted file.  The published layout grammar still accepts all 28 POO
+models.  This count is a syntax coverage receipt, not a semantic or SANY
+parity claim.
+Corpus acceptance is not a proof of SANY equivalence: some files contain
+proof scripts, embedded PlusCal, custom operator forms, and material after
+the module terminator.  SANY CST/AST differential checks, negative syntax
+tests, precedence checks, full proof and PlusCal handling, and performance
+receipts remain required before a production full-syntax contract.
+
+The candidate is not a replacement for the layout grammar in POO Flow.
+Downstream authors select a descriptor explicitly and retain the grammar
+metadata identity in syntax receipts.  A future promotion requires a
+separate contract review and a corpus with exact structural expectations.

@@ -56,3 +56,6 @@ benchmark-contextual-deferred delimiters="512" samples="5":
 # Host-native toolchain; compiler admission and real test progress stay separate.
 test-native-local suite="rust" gerbil_path=".gerbil":
     python3 scripts/test-native-local.py --suite {{quote(suite)}} --gerbil-path {{quote(gerbil_path)}}
+# Real TLA+ grammar through the default LALR route; complete LRSpec stability.
+benchmark-lalr-construction samples="20":
+    gerbil env gxi -:max-heap=2G,debug=q t/benchmarks/lr1-partition/lalr-construction.ss {{samples}}

@@ -573,6 +573,49 @@ scanner export used by SANY and the records fixture's grammar, fixtures,
 and parser modules. Both affected tests then passed. This does not claim
 that the monolithic Just gate passed unchanged.
 
+** Further k=1 seed and LR(0) kernel experiments
+
+Three follow-up Scheme generator experiments were screened against complete
+=LRSpec= equality. Algebraically constructing the k=1 initial partition
+instead of folding singleton follows preserved all twelve fixture seeds.
+At 64 mixed contexts, 30 paired full-spec CPU medians were 17.093 versus
+17.0795 ms (15/30 wins). The local-candidate 32-context result improved from
+4.9705 to 4.660 ms (19/30), but the repeat won only 15/30. A cache of static
+epsilon-prediction target masks preserved the same complete specs but changed
+mixed 64 from 17.094 to 17.6135 ms (13/30 wins). Both were reverted; neither
+provided a repeatable complete-construction gain.
+
+LR(0) kernel interning was also tested, followed by a conservative kernel-to-
+target memo retaining the original closure-key interner. In a phase-only
+20-pair experiment reusing already lowered TLA+ grammar input, kernel
+interning reduced LR(0) graph CPU medians from 35.3445 to 13.935 ms and
+LALR graph plus propagation from 53.8545 to 31.709 ms (20/20 wins each).
+These are partial construction measurements. They exclude lowering,
+nullable/FIRST preparation, conflict resolution, and table publication.
+
+The real TLA+ layout grammar has 40 rules, 280 lowered productions and 390
+LALR states. Complete production-shaped calls did not reproduce that gain:
+the original construction took 67.650 ms, kernel interning 325.7425 ms,
+and the conservative memo 344.564 ms (20-sample medians, 2 GiB heap).
+After a full 12-core native package rebuild, the memo still took 369.0205 ms.
+The serialized complete specs were byte-identical (590,109 bytes).
+Temporary same-process comparisons also showed order-dependent timing, so
+these measurements do not identify a causal GC, hash, or compiler problem.
+The complete-call gate rejected both kernel edits and all temporary switches
+were removed. A second full 12-core native build after restoring the original
+automaton passed; the permanent default-route benchmark then returned
+69.409 ms across 20 samples, close to the original 67.650 ms baseline.
+
+=t/benchmarks/lr1-partition/lalr-construction.ss= adds the real TLA+ grammar
+to the existing benchmark infrastructure. Run =just benchmark-lalr-construction
+20= with the built package and its isolated =GERBIL_PATH=. It omits the
+construction argument to exercise the production default, warms once, emits
+each CPU sample and a median, and checks complete =LRSpec= equality outside
+the timed interval. Imports and explicit pre-sample GC are excluded; this
+measures generator construction, not parser throughput. The restored native
+canonical LR reference and TLA+ layout tests both passed with =MODULE-OK=,
+=HARNESS-OK= and final =OK=; =git diff --check= also passed.
+
 ** Shared literal recognition across lexical modes
 
 =generated-lexer= now builds one trie for all complete =(literals ...)= rules,

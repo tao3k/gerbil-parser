@@ -1,7 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Packed LR items, transition indexes, and deterministic LR(0) interning.
 
-(import (only-in :std/struct/queue
+(import (only-in ./funcs compiler-index-set-add
+                 compiler-index-set-difference compiler-index-set-for-each
+                 compiler-index-set-union)
+        (only-in :std/struct/queue
                  dequeue! enqueue! make-Queue queue-empty?)
         (only-in ./lr
                  base-symbol nonterminal-name nonterminal-symbol?
@@ -38,16 +41,6 @@
   (not (item-after-dot item layout table)))
 
 (def (item<? left right) (< left right))
-
-(def (transition-set rows symbol target)
-  (let (updated? #f)
-    (let (next
-          (map (lambda (entry)
-                 (if (equal? (car entry) symbol)
-                   (begin (set! updated? #t) (cons symbol target))
-                   entry))
-               rows))
-      (if updated? next (foldr cons (list (cons symbol target)) rows)))))
 
 (def (materialize-transitions state-transitions state-count)
   (foldr (lambda (state found)
@@ -106,25 +99,111 @@
          (rhs (production-rhs production)))
     (list-tail rhs (+ (core-item-dot item layout) 1))))
 
-(def (lr0-closure seed productions-by-lhs core-symbols layout)
-  (let (seen (make-table test: eq?))
-    (for-each (lambda (item) (table-set! seen item #t)) seed)
-    (let loop ((pending seed) (items '()))
-      (if (null? pending)
-        (list-sort < (reverse items))
-        (let* ((item (car pending))
-               (symbol (vector-ref core-symbols item))
-               (expanded (cdr pending)))
+;; LR(0) prediction is a grammar-only reachability relation. Solve it once
+;; over dense production-id masks, then apply it directly to every goto kernel.
+(def (make-core-prediction-catalog core-symbols productions-by-lhs layout)
+  (let ((name-index (make-table test: eq?))
+        (names '())
+        (node-count 0)
+        (item-nodes (make-vector (vector-length core-symbols) #f)))
+    (let index-loop ((item 0))
+      (when (< item (vector-length core-symbols))
+        (let (symbol (vector-ref core-symbols item))
           (when (and symbol (nonterminal-symbol? symbol))
+            (let* ((name (nonterminal-name symbol))
+                   (known (table-ref name-index name #f))
+                   (node (or known node-count)))
+              (unless known
+                (table-set! name-index name node)
+                (set! names (cons (cons name node) names))
+                (set! node-count (+ node-count 1)))
+              (vector-set! item-nodes item node))))
+        (index-loop (+ item 1))))
+    (let ((masks (make-vector node-count 0))
+          (pending (make-vector node-count 0))
+          (parents (make-vector node-count '()))
+          (queued (make-vector node-count #f))
+          (queue (make-Queue)))
+      (for-each
+       (lambda (entry)
+         (let ((node (cdr entry)) (own 0) (children 0))
+           (for-each
+            (lambda (production)
+              (let* ((id (production-id production))
+                     (child (vector-ref item-nodes
+                                        (make-core-item id 0 layout))))
+                (set! own (compiler-index-set-add own id))
+                (when child
+                  (set! children (compiler-index-set-add children child)))))
+            (table-ref productions-by-lhs (car entry) '()))
+           (vector-set! masks node own)
+           (vector-set! pending node own)
+           (unless (zero? own)
+             (vector-set! queued node #t)
+             (enqueue! queue node))
+           (compiler-index-set-for-each
+            children
+            (lambda (child)
+              (vector-set! parents child
+                           (cons node (vector-ref parents child)))))))
+       names)
+      ;; Reverse dependency edges carry only new production bits. Recursive
+      ;; grammar components converge before any LR state is constructed.
+      (let propagate ()
+        (unless (queue-empty? queue)
+          (let* ((node (dequeue! queue))
+                 (delta (vector-ref pending node)))
+            (vector-set! pending node 0)
+            (vector-set! queued node #f)
             (for-each
-             (lambda (production)
-               (let (candidate
-                     (make-core-item (production-id production) 0 layout))
-                 (unless (table-ref seen candidate #f)
-                   (table-set! seen candidate #t)
-                   (set! expanded (cons candidate expanded)))))
-             (table-ref productions-by-lhs (nonterminal-name symbol) '())))
-          (loop expanded (cons item items)))))))
+             (lambda (parent)
+               (let (novel
+                     (compiler-index-set-difference
+                      delta (vector-ref masks parent)))
+                 (unless (zero? novel)
+                   (vector-set! masks parent
+                                (compiler-index-set-union
+                                 (vector-ref masks parent) novel))
+                   (vector-set! pending parent
+                                (compiler-index-set-union
+                                 (vector-ref pending parent) novel))
+                   (unless (vector-ref queued parent)
+                     (vector-set! queued parent #t)
+                     (enqueue! queue parent)))))
+             (vector-ref parents node)))
+          (propagate)))
+      (let (catalog (make-vector (vector-length core-symbols) 0))
+        (let materialize ((item 0))
+          (when (< item (vector-length item-nodes))
+            (let (node (vector-ref item-nodes item))
+              (when node
+                (vector-set! catalog item (vector-ref masks node))))
+            (materialize (+ item 1))))
+        catalog))))
+
+(def (lr0-closure kernel-mask prediction-catalog layout)
+  (let ((mask 0) (seed '()) (predicted '()))
+    (compiler-index-set-for-each
+     kernel-mask
+     (lambda (item)
+       (set! seed (cons item seed))
+       (set! mask (compiler-index-set-union
+                   mask (vector-ref prediction-catalog item)))))
+    (compiler-index-set-for-each
+     mask
+     (lambda (id) (set! predicted (cons (make-core-item id 0 layout) predicted))))
+    ;; Prediction ids are dense even when packed core ids have wide dot gaps.
+    ;; Merge the sorted kernel with dot-zero predictions in canonical order.
+    (let merge ((left (reverse seed)) (right (reverse predicted))
+                (found '()))
+      (cond
+       ((null? left) (reverse (foldl cons found right)))
+       ((null? right) (reverse (foldl cons found left)))
+       ((= (car left) (car right))
+        (merge (cdr left) (cdr right) (cons (car left) found)))
+       ((< (car left) (car right))
+        (merge (cdr left) right (cons (car left) found)))
+       (else (merge left (cdr right) (cons (car right) found)))))))
 
 (def (lr0-state-kernels state core-symbols)
   (let ((kernels (make-table test: equal?)) (symbol-order '()))
@@ -132,11 +211,10 @@
      (lambda (item)
        (let (symbol (vector-ref core-symbols item))
          (when symbol
-           (unless (table-ref kernels symbol #f)
-             (set! symbol-order (cons symbol symbol-order)))
-           (table-set! kernels symbol
-                       (cons (+ item 1)
-                             (or (table-ref kernels symbol #f) '()))))))
+           (let (known (table-ref kernels symbol #f))
+             (unless known (set! symbol-order (cons symbol symbol-order)))
+             (table-set! kernels symbol
+                         (compiler-index-set-add (or known 0) (+ item 1)))))))
      state)
     (map (lambda (symbol) (cons symbol (table-ref kernels symbol)))
          (reverse symbol-order))))
@@ -159,8 +237,11 @@
 ;;     %
 (def (build-lr0-automaton productions table layout core-symbols)
   (let* ((productions-by-lhs (production-index-by-lhs productions))
-         (initial (lr0-closure (list (make-core-item 0 0 layout))
-                               productions-by-lhs core-symbols layout))
+         (prediction-catalog
+          (make-core-prediction-catalog core-symbols productions-by-lhs layout))
+         (initial-kernel (compiler-index-set-add 0 (make-core-item 0 0 layout)))
+         (initial (lr0-closure initial-kernel
+                               prediction-catalog layout))
          (states (make-vector 128 #f))
          (state-transitions (make-vector 128 '()))
          (state-index (make-table test: equal?))
@@ -168,7 +249,7 @@
          (processed-count 0)
          (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")))
     (vector-set! states 0 initial)
-    (table-set! state-index initial 0)
+    (table-set! state-index initial-kernel 0)
     (def (grow!)
       (when (= state-count (vector-length states))
         (let ((next-states (make-vector (* 2 state-count) #f))
@@ -181,11 +262,11 @@
               (copy (+ index 1))))
           (set! states next-states)
           (set! state-transitions next-transitions))))
-    (def (append-state! state)
+    (def (append-state! kernel state)
       (grow!)
       (let (index state-count)
         (vector-set! states index state)
-        (table-set! state-index state index)
+        (table-set! state-index kernel index)
         (set! state-count (+ state-count 1))
         index))
     (let (queue (make-Queue))
@@ -202,19 +283,22 @@
             (display " processed=")
             (displayln processed-count)
             (force-output))
-          (for-each
-           (lambda (kernel)
-             (let* ((symbol (car kernel))
-                    (target (lr0-closure (cdr kernel)
-                                         productions-by-lhs core-symbols
-                                         layout))
-                    (existing (table-ref state-index target #f))
-                    (target-index (or existing (append-state! target))))
-               (vector-set!
-                state-transitions index
-                (transition-set (vector-ref state-transitions index)
-                                symbol target-index))
-               (unless existing
-                 (enqueue! queue target-index))))
-           (lr0-state-kernels (vector-ref states index) core-symbols))
+          ;; Closure adds only dot-zero items. Every noninitial state is
+          ;; therefore identified exactly by its advanced-item kernel mask;
+          ;; the augmented dot-zero initial kernel has a disjoint key.
+          (let (rows '())
+            (for-each
+             (lambda (kernel)
+               (let* ((symbol (car kernel))
+                      (mask (cdr kernel))
+                      (existing (table-ref state-index mask #f))
+                      (target-index
+                       (or existing
+                           (append-state!
+                            mask (lr0-closure mask prediction-catalog layout)))))
+                 (set! rows (cons (cons symbol target-index) rows))
+                 (unless existing (enqueue! queue target-index))))
+             (lr0-state-kernels (vector-ref states index) core-symbols))
+            ;; There is exactly one kernel per symbol; publish the row once.
+            (vector-set! state-transitions index (reverse rows)))
             (loop)))))))

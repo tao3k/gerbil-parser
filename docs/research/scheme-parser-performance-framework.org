@@ -616,6 +616,79 @@ measures generator construction, not parser throughput. The restored native
 canonical LR reference and TLA+ layout tests both passed with =MODULE-OK=,
 =HARNESS-OK= and final =OK=; =git diff --check= also passed.
 
+** Grammar-wide prediction and sparse LR graph construction
+
+The implementation now factors LR(0) closure into a grammar-wide reachability
+solution and kernel application. For each referenced nonterminal A, a dense
+production-id mask starts with A's own dot-zero productions. A production
+whose first symbol is nonterminal B adds a dependency on B's mask. A reverse
+edge work queue propagates only new production bits until these masks reach
+their finite fixed point, including recursive grammar components. Each goto
+kernel unions the completed masks of its after-dot nonterminals and merges
+the resulting dot-zero items with the sorted advanced items. It no longer
+runs a prediction queue, item hash table, or full item sort for every goto.
+
+State identity is the advanced-item kernel bitset. Closure adds only dot-zero
+items, so distinct noninitial kernels identify distinct closed states. The
+augmented dot-zero initial kernel has a disjoint key. The state index is
+queried before closure; closure is computed only when a new state is
+published. Symbol discovery order and the canonical sorted state items retain
+the existing state numbering. Each state's transition row is assembled once.
+
+LALR propagation nodes occupy sorted contiguous slices in the node-item
+vector, located by state offsets. Binary search resolves graph edges without
+a packed (state,item) hash index. Symbol IDs resolve shifts through scratch
+arrays; each state/nonterminal shares one immutable prediction target list.
+Static FIRST(tail) evidence is delivered once when a node becomes reachable;
+later queue entries carry only new follow bits through nullable tails.
+
+Action construction uses the existing terminal catalog's numeric IDs for
+scratch cells and shift targets, retaining action installation order and
+precedence/conflict policy. Only touched scratch cells are cleared after row
+publication. Both graph and action scratch storage are reused across states,
+so these arrays do not allocate a state-by-symbol or state-by-terminal matrix.
+All indexes belong to one construction call; no mutable grammar cache or
+runtime selection flag was added.
+
+Validation compares complete before/after =LRSpec= snapshots for twelve
+grammar families on LALR, canonical LR(1), and direct follow construction
+(36 comparisons). TLA+ and the three larger scale fixtures are additionally
+byte-compared with the original serialized specs. The canonical reference
+test checks that every noninitial state's advanced kernel is nonempty and
+unique, and that each goto target has exactly the source items advanced over
+its symbol. Recursive, nullable, and shared-context fixtures exercise these
+invariants. All 52 native test modules passed in fresh bounded batches, with
+=MODULE-OK=, =HARNESS-OK= and final =OK=. The final 12-core package build and
+=git diff --check= passed; this does not claim the monolithic Just gate ran.
+
+The original production pipeline at =8db9386= was fully rebuilt and measured
+again before the final candidate was restored and fully rebuilt. Each run
+uses 20 complete calls, a warmup and 2 GiB heap, with explicit pre-call GC
+and complete-spec comparison outside CPU timing. In-call GC is included.
+
+| Existing workload | Original CPU median (ms) | Structural CPU median (ms) |
+|-------------------+--------------------------+----------------------------|
+| TLA+ layout, default LALR, 280 productions / 390 states | 54.7395 | 47.517 |
+| Mixed 64, direct follow, 452 productions / 966 states | 13.907 | 13.2985 |
+| Local-candidate 32, direct follow, 226 productions / 451 states | 4.8295 | 4.7335 |
+| Independent 64, direct follow, 386 productions / 835 states | 4.2635 | 3.7285 |
+
+The TLA+ complete-call reduction is about 13 percent on this host; the small
+mixed/local differences do not establish a general gain. These are Scheme
+generator construction measurements, not parser or Rust/Rowan throughput.
+An intermediate dual-namespace alternating trial had 30/30 faster candidate
+pairs, but its original copies incurred more GC than the fresh production
+baseline, so that timing ratio is not used as the production speedup.
+
+Earlier separate-table prediction admission changed 54.2705 to 56.0445 ms;
+a shared-list admission prototype produced only a roughly 5 percent TLA+
+gain and was superseded. Transitive prediction alone reached 50.7895 ms.
+A kernel-bitset prototype retaining the old downstream graph took 222.9065
+ms despite exact spec equality. Runtime statistics on a subsequent array
+prototype recorded four in-call collections and about 120 ms of GC CPU in
+a slow sample. These observations motivated the complete sparse graph and
+scratch ownership migration rather than retaining a partial phase result.
+
 ** Shared literal recognition across lexical modes
 
 =generated-lexer= now builds one trie for all complete =(literals ...)= rules,

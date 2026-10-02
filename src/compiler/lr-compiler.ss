@@ -8,8 +8,6 @@
                  lower-rules lr-spec-ref nonterminal-name nonterminal-symbol?
                  production-action production-id production-precedence production-table
                  terminal-symbol? union-values)
-        (only-in ./lr-automaton
-                 transition-index transition-target)
         (only-in ./lr-lookahead
                  build-states-via-lr0 build-states-via-canonical-lr1)
         (only-in ./lr-partition build-states-via-partitioned-lr1)
@@ -141,7 +139,13 @@
 (def (build-actions states state-count lookaheads lookahead-offsets transitions table
                     terminal-values layout core-symbols conflict-policy)
   (let ((actions (make-vector state-count '()))
-        (transitions (transition-index transitions))
+        (transition-rows
+         (index-state-rows transitions state-count cadr caddr))
+        (terminal-index (make-table test: equal?))
+        (state-actions (make-vector (vector-length terminal-values) #f))
+        (raw-reductions (make-vector (vector-length terminal-values) '()))
+        (shift-targets (make-vector (vector-length terminal-values) #f))
+        (core-terminal-ids (make-vector (vector-length core-symbols) #f))
         (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1"))
         (started (##current-time-point))
         (layout? (vector-any (lambda (production)
@@ -151,6 +155,18 @@
         (processed-items 0)
         (published-actions 0)
         (publication-count 0))
+    (let index-terminals ((id 0))
+      (when (< id (vector-length terminal-values))
+        (table-set! terminal-index (vector-ref terminal-values id) id)
+        (index-terminals (+ id 1))))
+    (let index-cores ((item 0))
+      (when (< item (vector-length core-symbols))
+        (let (symbol (vector-ref core-symbols item))
+          (when (and symbol (terminal-symbol? symbol))
+            (let (id (table-ref terminal-index symbol #f))
+              (unless id (error "LR terminal is not indexed" item symbol))
+              (vector-set! core-terminal-ids item id))))
+        (index-cores (+ item 1))))
     ;; Publish exactly one action row per state. Keeping publication outside the
     ;; item traversal avoids rebuilding the growing row on recursive returns.
     (for (state-id (in-range state-count))
@@ -158,33 +174,45 @@
        (unless (list? state-items)
          (error "LR action state is not an item list"
                  state-id state-items))
-       (let ((state-actions (make-table test: equal?))
-             (terminal-order '())
-             (raw-reductions (make-table test: equal?))
+       (let ((terminal-order '())
+             (shift-order '())
              (lookahead-node (vector-ref lookahead-offsets state-id)))
-         (def (install! terminal action)
+         (def (install! terminal-id action)
            (when (and layout? (eq? (car action) 'reduce))
-             (table-set! raw-reductions terminal
-              (cons action (table-ref raw-reductions terminal '()))))
-           (let (current (table-ref state-actions terminal #f))
+             (vector-set! raw-reductions terminal-id
+              (cons action (vector-ref raw-reductions terminal-id))))
+           (let (current (vector-ref state-actions terminal-id))
              (if current
-               (table-set! state-actions terminal
-                           (resolve-action state-id terminal current action
+               (vector-set! state-actions terminal-id
+                           (resolve-action state-id (vector-ref terminal-values terminal-id)
+                                           current action
                                            table conflict-policy))
                (begin
-                 (table-set! state-actions terminal action)
-                 (set! terminal-order (cons terminal terminal-order))))))
+                 (vector-set! state-actions terminal-id action)
+                 (set! terminal-order (cons terminal-id terminal-order))))))
+         (for-each
+          (lambda (row)
+            (when (terminal-symbol? (car row))
+              (let (id (table-ref terminal-index (car row) #f))
+                (unless id (error "LR shift terminal is not indexed" state-id row))
+                (vector-set! shift-targets id (cdr row))
+                (set! shift-order (cons id shift-order)))))
+          (vector-ref transition-rows state-id))
          (for-each
           (lambda (item)
             (set! processed-items (+ processed-items 1))
             (let* ((production-id (quotient item (cdr layout)))
-                   (symbol (vector-ref core-symbols item)))
+                   (symbol (vector-ref core-symbols item))
+                   (terminal-id (vector-ref core-terminal-ids item)))
               (cond
-               ((and symbol (terminal-symbol? symbol))
+               (terminal-id
                 (install!
-                 symbol
+                 terminal-id
                  (list 'shift
-                       (transition-target transitions state-id symbol)
+                       (let (target (vector-ref shift-targets terminal-id))
+                         (unless target (error "LR shift transition is missing"
+                                               state-id symbol))
+                         target)
                        (production-precedence
                         (vector-ref table production-id)))))
                ((not symbol)
@@ -195,24 +223,29 @@
                   (compiler-index-set-for-each
                    (vector-ref lookaheads lookahead-node)
                    (lambda (lookahead)
-                     (install! (vector-ref terminal-values lookahead)
-                               action)))))))
+                     (install! lookahead action)))))))
             (set! lookahead-node (+ lookahead-node 1)))
           state-items)
          (vector-set!
           actions state-id
-          (map (lambda (terminal)
-                 (let* ((action (table-ref state-actions terminal))
-                        (reductions (table-ref raw-reductions terminal '())))
-                         (cons terminal
-                          (if (and layout? (eq? (car action) 'shift) (pair? reductions))
-                            (list 'layout-guard action
-                             (if (null? (cdr reductions)) (car reductions)
-                               (cons 'fork (reverse reductions)))) action))))
+          (map (lambda (terminal-id)
+                 (let ((action (vector-ref state-actions terminal-id))
+                       (reductions (vector-ref raw-reductions terminal-id)))
+                   (cons (vector-ref terminal-values terminal-id)
+                    (if (and layout? (eq? (car action) 'shift) (pair? reductions))
+                      (list 'layout-guard action
+                       (if (null? (cdr reductions)) (car reductions)
+                         (cons 'fork (reverse reductions)))) action))))
                (reverse terminal-order)))
          (set! publication-count (+ publication-count 1))
          (set! published-actions
-               (+ published-actions (length terminal-order))))
+               (+ published-actions (length terminal-order)))
+         ;; Rows own copied immutable cells; clear only the touched scratch
+         ;; slots instead of allocating state-count times the terminal domain.
+         (for-each (lambda (id)
+                     (vector-set! state-actions id #f)
+                     (vector-set! raw-reductions id '())) terminal-order)
+         (for-each (lambda (id) (vector-set! shift-targets id #f)) shift-order))
        (when (and trace? (zero? (modulo (+ state-id 1) 100)))
          (display "[gerbil-parser-lr] action-states=")
          (display (+ state-id 1))

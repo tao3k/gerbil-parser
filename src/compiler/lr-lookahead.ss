@@ -71,10 +71,9 @@
     (values first-masks nullable-tails)))
 
 ;; Assign every admitted (state, core-item) pair one dense node id.  The fixed
-;; point then uses vectors for its mutable state; the packed-key table is paid
-;; only while constructing the immutable propagation graph.
-;; : (-> Vector Fixnum Fixnum (values Vector Vector Vector Table Fixnum))
-(def (index-lr0-items states state-count item-space)
+;; point and immutable graph construction both use these contiguous slices.
+;; : (-> Vector Fixnum (values Vector Vector Fixnum))
+(def (index-lr0-items states state-count)
   (let ((offsets (make-vector (+ state-count 1) 0))
         (node-count 0))
     (let count-states ((state 0))
@@ -84,93 +83,129 @@
               (+ node-count (length (vector-ref states state))))
         (count-states (+ state 1))))
     (vector-set! offsets state-count node-count)
-    (let ((node-items (make-vector node-count 0))
-          (node-states (make-vector node-count 0))
-          (node-index (make-table test: eq?)))
+    (let (node-items (make-vector node-count 0))
       (let index-states ((state 0))
         (when (< state state-count)
           (let ((node (vector-ref offsets state)))
             (for-each
              (lambda (item)
                (vector-set! node-items node item)
-               (vector-set! node-states node state)
-               (table-set! node-index (+ item (* item-space state)) node)
                (set! node (+ node 1)))
              (vector-ref states state)))
           (index-states (+ state 1))))
-      (values offsets node-items node-states node-index node-count))))
+      (values offsets node-items node-count))))
 
-;; Resolve the immutable propagation graph once through the packed-key index.
+
+;; State item rows are sorted contiguous slices. Binary search locates a node
+;; without allocating or hashing a packed (state, item) key.
+(def (lookahead-node-index offsets node-items state item)
+  (let search ((low (vector-ref offsets state))
+               (high (vector-ref offsets (+ state 1))))
+    (if (= low high)
+      #f
+      (let* ((middle (quotient (+ low high) 2))
+             (found (vector-ref node-items middle)))
+        (cond
+         ((= found item) middle)
+         ((< found item) (search (+ middle 1) high))
+         (else (search low middle)))))))
+
+;; Resolve the immutable propagation graph through sorted state item slices.
 ;; Fixed-point updates then touch vectors only.
 (def (make-lookahead-propagation-graph
-      state-transitions productions-by-lhs core-symbols layout item-space
-      node-items node-states node-index)
+      state-transitions productions-by-lhs core-symbols layout
+      node-items offsets)
   (let* ((node-count (vector-length node-items))
          (closure-targets (make-vector node-count '()))
-         (shift-targets (make-vector node-count #f)))
-    (let node-loop ((node 0))
-      (when (< node node-count)
-        (let* ((state (vector-ref node-states node))
-               (item (vector-ref node-items node))
-               (symbol (vector-ref core-symbols item)))
-          (when (and symbol (nonterminal-symbol? symbol))
-            (vector-set!
-             closure-targets node
-             (map (lambda (production)
-                    (let* ((target-item
-                            (make-core-item
-                             (production-id production) 0 layout))
-                           (target
-                            (table-ref node-index
-                                       (+ target-item (* item-space state)) #f)))
-                      (unless target
-                        (error "LR(0) closure target is not indexed"
-                               state item target-item))
-                      target))
-                  (table-ref productions-by-lhs
-                             (nonterminal-name symbol) '()))))
+         (shift-targets (make-vector node-count #f))
+         (symbol-index (make-table test: equal?))
+         (symbol-count 0)
+         (core-symbol-ids (make-vector (vector-length core-symbols) #f)))
+    (let index-symbols ((item 0))
+      (when (< item (vector-length core-symbols))
+        (let (symbol (vector-ref core-symbols item))
           (when symbol
-            (let (transition
-                  (assoc symbol (vector-ref state-transitions state)))
-              (unless transition
-                (error "LR(0) transition missing during lookahead indexing"
-                       state item symbol))
-              (let (target
-                    (table-ref node-index
-                               (+ (+ item 1) (* item-space (cdr transition)))
-                               #f))
-                (unless target
-                  (error "LR(0) shift target is not indexed"
-                         state item symbol (cdr transition)))
-                (vector-set! shift-targets node target))))
-          (node-loop (+ node 1)))))
+            (let* ((known (table-ref symbol-index symbol #f))
+                   (id (or known symbol-count)))
+              (unless known
+                (table-set! symbol-index symbol id)
+                (set! symbol-count (+ symbol-count 1)))
+              (vector-set! core-symbol-ids item id))))
+        (index-symbols (+ item 1))))
+    (let ((targets (make-vector symbol-count #f))
+          (prediction-targets (make-vector symbol-count #f)))
+     (let state-loop ((state 0))
+      (when (< state (- (vector-length offsets) 1))
+          (let (prediction-order '())
+            (for-each
+             (lambda (row)
+               (let (id (table-ref symbol-index (car row) #f))
+                 (unless id (error "LR transition symbol is not indexed" state row))
+                 (vector-set! targets id (cdr row))))
+             (vector-ref state-transitions state))
+            (let node-loop ((node (vector-ref offsets state)))
+              (when (< node (vector-ref offsets (+ state 1)))
+                (let* ((item (vector-ref node-items node))
+                       (symbol (vector-ref core-symbols item)))
+                  (when (and symbol (nonterminal-symbol? symbol))
+                    (let* ((id (vector-ref core-symbol-ids item))
+                           (known (vector-ref prediction-targets id))
+                           (predictions
+                            (or known
+                                (map
+                                 (lambda (production)
+                                   (let* ((target-item (make-core-item (production-id production) 0 layout))
+                                          (target (lookahead-node-index offsets node-items state target-item)))
+                                     (unless target
+                                       (error "LR(0) closure target is not indexed" state item target-item))
+                                     target))
+                                 (table-ref productions-by-lhs (nonterminal-name symbol) '())))))
+                      (unless known
+                        (vector-set! prediction-targets id predictions)
+                        (set! prediction-order (cons id prediction-order)))
+                      (vector-set! closure-targets node predictions)))
+                  (when symbol
+                    (let* ((target-state (vector-ref targets (vector-ref core-symbol-ids item)))
+                           (target (and target-state
+                                        (lookahead-node-index offsets node-items target-state (+ item 1)))))
+                      (unless target
+                        (error "LR(0) shift target is not indexed" state item symbol target-state))
+                      (vector-set! shift-targets node target))))
+                (node-loop (+ node 1))))
+            ;; Stored adjacency lists are immutable; discard only scratch
+            ;; references so memory grows with edges, not states times symbols.
+            (for-each (lambda (id) (vector-set! prediction-targets id #f)) prediction-order)
+            (for-each
+             (lambda (row)
+               (vector-set! targets (table-ref symbol-index (car row)) #f))
+             (vector-ref state-transitions state)))
+        (state-loop (+ state 1)))))
     (values closure-targets shift-targets)))
 
 ;;; Propagates terminal masks to a fixed point over the interned LR(0) graph.
-;;; Dense vectors replace three hash tables and quotient/modulo decoding. A
-;;; single packed-key index is retained only to resolve immutable graph edges.
+;;; Dense vectors own both graph identity and fixed-point mutable state.
 ;; propagate-lalr-lookaheads
 ;; : (-> Vector Vector Fixnum Table Vector Vector Table Table Vector Table Pair List)
 (def (propagate-lalr-lookaheads states state-transitions state-count
                                 productions-by-lhs table core-symbols
                                 tail-first-masks nullable-tails
                                 terminal-index layout)
-  (let* ((item-space (* (cdr layout) (vector-length table)))
-         (queue (stdq-make-Queue))
+  (let* ((queue (stdq-make-Queue))
          (processed-count 0)
          (started (##current-time-point))
          (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")))
-    (let-values (((offsets node-items node-states node-index node-count)
-                  (index-lr0-items states state-count item-space)))
+    (let-values (((offsets node-items node-count)
+                  (index-lr0-items states state-count)))
       (trace-lookahead-phase 'lookahead-index node-count started trace?)
       (let-values (((closure-targets shift-targets)
                     (make-lookahead-propagation-graph
                      state-transitions productions-by-lhs core-symbols layout
-                     item-space node-items node-states node-index)))
+                     node-items offsets)))
        (trace-lookahead-phase 'lookahead-graph node-count started trace?)
        (let ((lookaheads (make-vector node-count 0))
              (pending (make-vector node-count 0))
-             (queued (make-vector node-count #f)))
+             (queued (make-vector node-count #f))
+             (activated (make-vector node-count #f)))
         (def (enqueue-mask! node evidence)
           (let* ((known (vector-ref lookaheads node))
                  (novel
@@ -185,7 +220,7 @@
                 (vector-set! queued node #t)
                 (stdq-enqueue! queue node)))))
         (enqueue-mask!
-         (table-ref node-index (make-core-item 0 0 layout))
+         (lookahead-node-index offsets node-items 0 (make-core-item 0 0 layout))
          (compiler-index-set-singleton
           (table-ref terminal-index +lr-eof+)))
         (let loop ()
@@ -201,14 +236,24 @@
                 (displayln processed-count)
                 (force-output))
               (unless (null? (vector-ref closure-targets node))
-                (let (evidence
-                      (if (vector-ref nullable-tails item)
-                        (compiler-index-set-union
-                         (vector-ref tail-first-masks item) delta)
-                        (vector-ref tail-first-masks item)))
-                  (for-each
-                   (lambda (target) (enqueue-mask! target evidence))
-                   (vector-ref closure-targets node))))
+                (let* ((first? (not (vector-ref activated node)))
+                       (nullable? (vector-ref nullable-tails item))
+                       (evidence
+                        (cond
+                         (first?
+                          (if nullable?
+                            (compiler-index-set-union
+                             (vector-ref tail-first-masks item) delta)
+                            (vector-ref tail-first-masks item)))
+                         (nullable? delta)
+                         (else 0))))
+                  ;; FIRST(tail) is static; subsequent activations propagate
+                  ;; only new lookahead bits, and only through nullable tails.
+                  (vector-set! activated node #t)
+                  (unless (zero? evidence)
+                    (for-each
+                     (lambda (target) (enqueue-mask! target evidence))
+                     (vector-ref closure-targets node)))))
               (let (target (vector-ref shift-targets node))
                 (when target (enqueue-mask! target delta)))
             (loop))))

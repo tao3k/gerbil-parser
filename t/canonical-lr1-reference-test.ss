@@ -8,7 +8,9 @@
                  compiler-index-set-difference compiler-index-set-union)
         (only-in :gerbil-parser/src/compiler/lr
                  compute-first compute-nullable lower-rules lr-spec-ref
-                 production-rhs production-table)
+                 production-rhs production-table production-terminal-catalog)
+        (only-in :gerbil-parser/src/compiler/lr-automaton
+                 build-lr0-automaton make-item-layout make-core-symbol-catalog)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates
                  forward-reachable-follow-masks
@@ -174,8 +176,55 @@
                   (production-loop (+ id 1)))))
             partitions))))))
 
+;; Kernel identity is independent of closure construction and key encoding.
+;; Check its graph invariants on recursive, nullable, and shared contexts.
+(def (check-lr0-kernel-identity rules)
+  (let* ((productions (lower-rules rules 'source-file))
+         (table (production-table productions)))
+    (let-values (((terminals terminal-index)
+                  (production-terminal-catalog productions)))
+      (let* ((layout (make-item-layout table terminals))
+             (symbols (make-core-symbol-catalog table layout)))
+        (let-values (((states transitions count by-lhs visits)
+                      (build-lr0-automaton productions table layout symbols)))
+          (let ((kernels (make-vector count '()))
+                (seen (make-table test: equal?)))
+            (check visits => count)
+            (let index ((state 0))
+              (when (< state count)
+                (let (kernel
+                      (filter (lambda (item)
+                                (not (zero? (modulo item (cdr layout)))))
+                              (vector-ref states state)))
+                  (vector-set! kernels state kernel)
+                  (if (zero? state)
+                    (check kernel => '())
+                    (begin
+                      (check (pair? kernel) => #t)
+                      (check (table-ref seen kernel #f) => #f)
+                      (table-set! seen kernel state))))
+                (index (+ state 1))))
+            (let edges ((state 0))
+              (when (< state count)
+                (for-each
+                 (lambda (edge)
+                   (let* ((symbol (car edge)) (target (cdr edge))
+                          (expected
+                           (map (lambda (item) (+ item 1))
+                                (filter (lambda (item)
+                                          (equal? (vector-ref symbols item) symbol))
+                                        (vector-ref states state)))))
+                     (check (> target 0) => #t)
+                     (check (equal? expected (vector-ref kernels target)) => #t)))
+                 (vector-ref transitions state))
+                (edges (+ state 1))))))))))
+
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "LR(0) kernels uniquely identify states and goto targets"
+      (check-lr0-kernel-identity precedence-expression-rules)
+      (check-lr0-kernel-identity inactive-core-conflict-rules)
+      (check-lr0-kernel-identity (mixed-context-family-rules 16)))
     (poo-flow-test-case "forward reachable follows agree with LR(0) propagation"
       (check-forward-follows-match-lr0 lr1-not-lalr-rules)
       (check-forward-follows-match-lr0 shared-lookahead-rules)

@@ -69,6 +69,10 @@ transitions, structural actions, and typed recovery still need explicit
 admission. The Rust runtime executes the admitted table and hands source-backed
 events to the generic Rowan sink.
 
+Proposed RFC 0007 specifies the contextual Parser IR and compile-time dispatch
+boundary for this remaining work. Its current compiler fixture does not change
+the qualification or cutover claims in this RFC.
+
 The table-backed =parse_structural_lines= route is an interim compatibility
 slice, not the target parser engine for context-sensitive languages. Its Rust
 implementation currently chooses the order of block, list, heading, keyed-line,

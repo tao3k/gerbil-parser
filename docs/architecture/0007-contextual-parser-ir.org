@@ -1,0 +1,164 @@
+#+title: RFC 0007 — Contextual Parser IR and Compiler Dispatch
+#+startup: overview
+
+* Status
+
+Proposed. This RFC specifies the missing compiler boundary for languages whose
+tokens and productions depend on context. It does not admit the experimental
+Bash source parser as a public language product. Acceptance requires the
+executable gates below; a Scheme-only callback parser does not satisfy them.
+
+* Problem and authority
+
+Grammar IR v1 owns terminal identities, productions, precedence and lexical
+rules. Parser IR v1 currently compiles a fixed lexical rule set and LR machine.
+The bounded =LineStructure= product handles some contextual structure, but its
+runtime chooses a fixed recognizer order. Bash exposes the gap: quoting changes
+word scanning, reserved words depend on command position, and a here-document
+delimiter commits a later line-scanning obligation. Encoding those facts in a
+handwritten =parser.ss= creates a second grammar authority and makes each new
+language pay for another parser.
+
+The language declaration remains the sole syntax authority. POO grammar roles
+compose declarations before canonicalization. The compiler validates and
+resolves them into immutable Contextual Parser IR; Scheme and Rust backends
+consume that same IR. Runtime POO objects, MOP lookups, arbitrary callbacks,
+grammar normalization, and conflict resolution are excluded from parsing.
+
+* Independent axes
+
+The compiler treats these as distinct typed axes, rather than adding one
+language-specific branch per combination:
+
+| Axis | Declares | Example Bash values | Runtime representation |
+|------+----------+---------------------+------------------------|
+| Lexical context | Which tokens can be scanned | command, word, arithmetic, here-body | finite mode id |
+| Syntactic position | Which meaning a token can have | command-start, assignment-prefix, argument, redirect-target | parser state and expected terminals |
+| Delimiter obligation | A future source boundary | quote, substitution, here-document marker | bounded typed stack or queue |
+| Reduction action | Node, field, and context transition | redirection queues here-body | compiled action id |
+| Recovery site | Error boundary and synchronization | unterminated quote, missing =fi= | compiled policy id |
+
+POO receiver dispatch is appropriate for one extensible declaration family.
+Compiler-side multiple dispatch is appropriate when two axes grow
+independently: for example, lexical context × token form, or syntactic position
+× token role. A method contributes a *declaration*, not a parsing procedure.
+Role ancestry must use one validated C4 order. The existing grammar-role
+normalizer's recursive parent walk does not by itself establish this guarantee
+for a diamond, so contextual role migration includes a distinct linearization
+check. Method applicability is the product of the three explicit axes; a
+method is more specific only when every selector is at least as specific and
+one is strictly more specific. Methods are resolved during compilation, and
+the winning resolution and its origins are recorded. If two applicable methods
+have incomparable specificity and disagree, compilation fails with both
+owners; C4 or declaration order never silently chooses the result. An
+equal-result tie retains both origins in the receipt. Methods may not mutate
+another role's declaration. The resulting table contains only closed opcodes
+and scalar or bounded data.
+
+* Canonical Contextual Parser IR
+
+The new schema is a versioned extension of Parser IR, not a replacement grammar
+format. Each row has an identity and a source role. Canonical ordering is by
+validated role linearization, then local declaration order; numeric ids are
+assigned only after validation. The grammar identity hashes the normalized
+Grammar IR, contextual rows, scanner implementation versions, and dispatch
+resolution receipt. Generated Scheme and Rust products embed that digest.
+
+#+begin_src scheme
+(contextual-parser-ir
+  (schema "gerbil-parser.contextual-parser-ir.v1")
+  (grammar-digest SHA256)
+  (modes (command ...) (word ...) (here-body ...))
+  (state (mode-id obligation-stack pending-here-queue))
+  (scan-rules (rule-id mode-id terminal-id match-op priority transition-id) ...)
+  (reductions (rule-id node-kind field-actions context-action) ...)
+  (dispatch (parser-state mode-id expected-terminal-set rule-id) ...)
+  (recoveries (site-id policy-id diagnostic-id) ...))
+#+end_src
+
+A scan rule has an explicit match opcode from a closed, typed scanner algebra:
+literal, class run, bounded delimiter, balanced delimiter, and line-until-marker.
+Its inputs and output are byte offsets, finite mode, and bounded serializable
+obligations. No rule receives a Scheme procedure or a pointer into a mutable
+parser object. Maximal munch, declared lexical precedence, and stable rule id
+resolve ordinary matches. Remaining overlaps are compile-time errors. A parser
+state's expected terminals may narrow the admitted rules, but cannot silently
+change a token's bytes. The trace records that contextual choice.
+
+A reduction action is a closed sequence of node/field events and state
+operations (push/pop delimiter, enqueue/dequeue here marker, change mode).
+Actions are validated for kind references, stack effect, byte coverage and
+boundedness. No branch publishes events until its parse branch commits.
+
+* Checkpoints and recovery
+
+A checkpoint contains source byte offset, LR stack or branch set, lexical mode,
+delimiter stack, pending here queue, event cursor, and the exact grammar digest.
+The stack and queue are bounded by the source length plus an explicit resource
+budget; exceeding the budget is a typed rejection, never silent truncation.
+All fields have a canonical serialization; no closures or process-local object
+identity may appear. Reuse requires both digest equality and an equivalent
+state at the edit boundary. A source edit that can affect a pending delimiter
+or here marker invalidates scanning through the matched body boundary.
+
+Recovery is declared per site and compiled to typed operations. Missing token,
+unterminated delimiter, and unexpected token are separate diagnostics with
+source spans. A failed selective branch rolls back scanner state and events;
+the accepted branch alone publishes a ParseArtifact. On rejection, the source
+remains lossless and the diagnostic identifies the first certified failure.
+
+* Authoring and compilation path
+
+#+begin_src text
+grammar.ss: GrammarRole + contextual roles
+  -> POO/MOP composition and multi-axis method resolution
+  -> canonical Grammar IR + contextual rows + resolution receipt
+  -> validated Contextual Parser IR and grammar digest
+  -> generated Scheme machine / generated Rust tables
+  -> one generic runtime executor and ParseArtifact
+#+end_src
+
+The compiler first rejects unknown kinds, nonserializable state, unbounded
+transitions, conflicting methods, ambiguous scan rules, and actions with an
+invalid stack effect. It then resolves dispatch and compiles tables. Both
+backends receive the same numeric ids and state transitions; neither backend
+derives grammar decisions from source declarations. Generated source is an
+artifact of the compiler, never an author-maintained parser.
+
+The existing =LineStructure= recognizers should become declarations and rules
+in this IR. Its current order is preserved as explicit precedence during
+migration, then verified against the old product before the compatibility
+route is removed. The existing event-fold subset supplies a model for
+statically checked Scheme-to-Rust action lowering; it is not itself a second
+syntax grammar.
+
+* Qualification gates
+
+1. Two language packs use the same compiler path for one contextual mechanism
+   each: Bash quoted/parameter words and deferred here bodies; HCL quoted
+   templates or heredocs. Neither runtime contains language-name branches.
+2. The same declarations produce Scheme and Rust event streams that agree on
+   acceptance, rejection, token byte spans, node/field structure, diagnostics,
+   source roundtrip, and grammar digest over UTF-8, CRLF, nested delimiters,
+   incomplete input, and recovery fixtures.
+3. A test creates two competing, incomparable methods and proves compilation
+   rejects them with both origins. Another changes a scanner version and proves
+   the product digest and checkpoint admission change.
+4. A clean downstream build consumes the generated Rust product without
+   Gerbil at parse time. The =parser.ss= of each language pack contains only its
+   public =deflanguage-parser= entry.
+
+Until these gates pass, the Bash prototype is an experimental behavioral
+oracle. Passing its Scheme tests alone does not qualify a versioned language
+product or a reusable engine.
+
+* Current executable slice
+
+=src/compiler/contextual-dispatch.ss= admits POO contextual roles and resolves
+finite lexical mode × syntactic position × token form methods before runtime.
+It rejects incomparable methods with different results, records all origins in
+a same-result tie, and hashes the closed resolution table. The focused suite
+exercises Bash and HCL *declaration examples* through the same compiler. These
+are compiler fixtures, not migrated language packs. Scanner opcodes, state
+transitions, Grammar IR binding, generated Scheme/Rust machines, and the parity
+gates above remain unimplemented.

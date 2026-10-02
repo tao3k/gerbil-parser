@@ -4,6 +4,8 @@
 ;;; marker end column while preserving the exact source bytes.
 
 (import (only-in :std/test check test-case test-suite)
+        (only-in :std/sync/barrier
+                 barrier-post! barrier-wait! make-barrier)
         :gerbil-parser/languages/tla-plus/parser
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
@@ -58,6 +60,31 @@
       (check-layout-shape
        "---- MODULE J ----\r\nInit ==\r\n\t/\\ TRUE\r\n\t/\\ FALSE\r\n====\r\n"
        '(2)))
+    (test-case "concurrent requests keep layout columns and frames isolated"
+      (let* ((sources
+              (list
+               "---- MODULE A ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n"
+               "---- MODULE B ----\nInit ==\n  \\/ TRUE\n  \\/ FALSE\n====\n"
+               "---- MODULE C ----\nInit ==\n  /\\ \\E x \\in S :\n       /\\ x = 1\n       /\\ x = 2\n  /\\ TRUE\n====\n"))
+             (expected (map parse-tla-plus-layout sources))
+             (barrier (make-barrier 9))
+             (workers
+              (map
+               (lambda (index)
+                 (spawn
+                  (lambda ()
+                    (barrier-post! barrier)
+                    (barrier-wait! barrier)
+                    (parse-tla-plus-layout
+                     (list-ref sources (modulo index 3))))))
+               (iota 9)))
+             (actual (map thread-join! workers)))
+        (check (map parse-artifact-valid? actual)
+               => (make-list 9 #t))
+        (check actual
+               => (map (lambda (index)
+                         (list-ref expected (modulo index 3)))
+                       (iota 9)))))
     (test-case "edits reparse with the same layout semantics"
       (let* ((source
               "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n")

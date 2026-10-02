@@ -81,3 +81,20 @@ fn delimiter_bounded_atom_preserves_utf8_without_consuming_syntax() {
     assert_eq!(lexical_end(&atom, "π\u{a0}next", 0), Some(2));
     assert_eq!(lexical_end(&atom, ")", 0), None);
 }
+
+#[test]
+fn character_run_uses_maximal_extent_and_enforces_minimum() {
+    let hyphens = LexicalExpr::CharacterRun {
+        character: "-",
+        minimum: 4,
+    };
+    assert_eq!(lexical_end(&hyphens, "---- MODULE", 0), Some(4));
+    assert_eq!(lexical_end(&hyphens, "------- MODULE", 0), Some(7));
+    assert_eq!(lexical_end(&hyphens, "--- MODULE", 0), None);
+    assert_eq!(lexical_end(&hyphens, "x----", 1), Some(5));
+    let unicode = LexicalExpr::CharacterRun {
+        character: "é",
+        minimum: 2,
+    };
+    assert_eq!(lexical_end(&unicode, "ééx", 0), Some(4));
+}

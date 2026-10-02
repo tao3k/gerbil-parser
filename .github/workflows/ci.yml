@@ -34,6 +34,11 @@ jobs:
       - name: Verify downstream Cargo-only language consumer
         run: cargo test --locked --manifest-path t/fixtures/rust-rowan-downstream/Cargo.toml
 
+      - name: Verify external downstream adapter
+        run: |
+          cargo fmt --manifest-path t/fixtures/rust-rowan-external-downstream/Cargo.toml -- --check
+          cargo test --locked --manifest-path t/fixtures/rust-rowan-external-downstream/Cargo.toml
+
       - name: Verify Rust lints
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 

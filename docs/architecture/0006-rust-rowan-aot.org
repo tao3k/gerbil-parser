@@ -142,6 +142,11 @@ Downstream projects may own CST-to-domain-IR lowering, but they do not own
 another GQL parser package, syntax-kind catalog, lexer, precedence map,
 recovery table, or parser runtime.
 
+The language-pack dependency and Cargo feature boundary is specified in
+=docs/architecture/0008-extensible-language-packs.org=.  The generic Rowan
+runtime has no language registry; an optional support crate may select
+first-party packs without constraining downstream custom languages.
+
 The downstream qualification fixture owns the complete versioned language-pack
 shape: =grammar.ss=, =parser.ss=, =fixtures.ss=, =parser-test.ss=, native
 =corpus/=, and a committed generated Rust module. It deliberately has no

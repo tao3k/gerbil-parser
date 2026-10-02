@@ -1,0 +1,14 @@
+[package]
+name = "downstream-external-parser-fixture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+gerbil-parser-rowan = { path = "../../../rust/gerbil-parser-rowan" }
+gerbil-parser-rowan-external = { path = "../../../rust/gerbil-parser-rowan-external" }
+
+[build-dependencies]
+sha2 = "0.10"
+
+[workspace]

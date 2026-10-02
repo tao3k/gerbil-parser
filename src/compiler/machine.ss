@@ -10,6 +10,7 @@
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
+                 scan-character-run
                  scan-until-delimiters
                  make-literal-end-scanner make-ranked-literal-scanner
                  make-ranked-regular-scanner
@@ -105,7 +106,7 @@
    heredoc number-literal
    quoted-string escaped-quoted-string until-delimiters
    line-comment block-comment nested-block-comment
-   choice literals fallback precedence external)
+   choice literals fallback precedence external character-run)
   ((_ source offset (whitespace+))
    (scan-whitespace source offset))
   ((_ source offset (horizontal-whitespace+))
@@ -114,6 +115,8 @@
    (scan-newline source offset))
   ((_ source offset (line))
    (scan-line source offset))
+  ((_ source offset (character-run character minimum))
+   (scan-character-run source offset character minimum))
   ((_ source offset (decimal-digit+))
    (scan-decimal-digits source offset))
   ((_ source offset (number))
@@ -239,7 +242,7 @@
 (defrules lexical-first-character?
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number
    identifier number-literal line-comment block-comment
-   nested-block-comment precedence choice)
+   nested-block-comment precedence choice character-run)
   ((_ ch (whitespace+)) (char-whitespace? ch))
   ((_ ch (horizontal-whitespace+))
    (or (char=? ch #\space) (char=? ch #\tab)))
@@ -249,6 +252,8 @@
   ((_ ch (number)) (char-numeric? ch))
   ((_ ch (identifier))
    (or (char-alphabetic? ch) (char=? ch #\_)))
+  ((_ ch (character-run character _minimum))
+   (char=? ch (string-ref character 0)))
   ((_ ch (number-literal _prefixes _separator _suffixes
                          _leading-period? _trailing-period?))
    #t)

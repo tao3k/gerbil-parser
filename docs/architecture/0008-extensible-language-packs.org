@@ -1,0 +1,119 @@
+#+title: RFC 0008 — Extensible language packs and selective Rowan builds
+#+startup: overview
+
+* Decision
+
+The parser core has no built-in language registry, list of supported language
+names, or per-language dispatch branch.  A language pack owns its syntax
+authority, metadata identity, corpus, expected failures, and any semantic
+lowering.  A native pack compiles language-neutral lexical and Grammar IR into
+Parser IR and an immutable parser artifact.  An external pack may keep its own
+parser and publish source-backed lossless syntax events through the Rowan sink.
+The two authorities have distinct receipts.  For a native pack, version and
+contract live in grammar metadata; neither a namespace nor a Rust module path
+is the version authority.
+
+The Rowan runtime crate accepts an explicit =LanguageSpec= and source bytes on
+the native path.  Its event sink also accepts a minimal kind catalog and
+source-backed events without requiring LR tables.  It depends on Rowan and
+generic runtime support only.  Generated language tables, external adapters,
+and optional semantic adapters live in separate crates.  A downstream author
+can create a native language crate from the public Scheme grammar facade or
+adapt a maintained external parser.  Adding either never requires an edit to
+the engine or an upstream enum.  The existing independent records fixture
+exercises the native boundary outside the root Cargo workspace.
+
+The opt-in =gerbil-parser-rowan-external= crate owns the second receipt type.
+=ExternalLanguageSpec= supplies only provider identity and an =EventCatalog=;
+=parse_external_events= checks the generic event sink and returns
+=ExternalParseReceipt= with =authority = external-parser=.  The adapter does
+not require =LanguageSpec=, LR tables, or Scheme tooling at parse time.  Its
+runtime check establishes that the declared digest is well formed; a build
+gate must separately prove that it matches the actual external provider
+artifact.
+
+* Selective distribution
+
+A convenience language-support crate may re-export first-party language crates
+behind additive Cargo features.  Its default feature set is empty; each
+language feature enables one optional language dependency and gates its public
+re-export.  A downstream consumer can instead depend directly on one generated
+language crate, which is the smallest supported path.  The generic runtime
+does not acquire these language features or dependencies.
+
+Cargo unifies features enabled for the same package by all dependency paths.
+Therefore minimal-build evidence must inspect the resolved dependency graph,
+not just one =default-features = false= declaration.  A support crate's =all=
+feature may be a convenience for tools, but it is never a prerequisite for
+downstream custom languages.  Features select *which artifacts compile*; they
+do not change a grammar's identity, parsing semantics, or receipt schema.
+
+* Public authoring and runtime contract
+
+1. =grammar.ss= uses the public declarative facade and publishes one explicit
+   grammar identity.  Expansion emits canonical Grammar IR and Parser IR or a
+   typed rejection.  The author does not implement another scanner, LR table,
+   conflict resolver, or hand-written Rust parser behind the facade.
+2. The build product generates immutable Rust tables and their grammar digest.
+   The generator is a build or release dependency, never a parse-time
+   dependency.  A committed generated artifact is permitted when it is checked
+   against the Scheme owner and source digest.
+3. =parse(&LANGUAGE, source)= returns a lossless CST and a receipt tied to the
+   selected artifact.  The language crate may expose a semantic adapter, but
+   generic runtime output remains available without that adapter.
+4. An external parser adapter emits one balanced source-exhaustive event tree
+   whose token ranges are ordered UTF-8 boundaries and whose node/token kinds
+   belong to its declared catalog.  Its receipt binds the external provider,
+   provider version and artifact digest, syntax contract, and source digest.
+   It does not fill the native =grammar_digest= or =parser_digest= fields with
+   an unrelated provider identity, and it cannot claim Scheme Parser IR parity
+   without a separate differential gate.
+5. A service chooses a descriptor explicitly.  A registry for discovery or
+   user configuration belongs in the host and is populated from linked
+   language crates.  It cannot force every installed language into a minimal
+   executable.
+6. The Scheme actor/request layer may schedule independent calls.  Rowan FFI
+   handles need a separately verified ownership, lifetime, and thread-safety
+   contract before they are shared across such calls.
+
+* Acceptance gates
+
+- Build the generic Rowan runtime with no first-party language crate linked.
+- Build and test exactly one first-party language selection and the independent
+  downstream records fixture without a Gerbil installation at parse time.
+- Build one independent external adapter against the minimal event catalog.
+  Reject wrong kind categories, unbalanced events, overlapping or missing
+  source bytes, invalid UTF-8 boundaries, and malformed provider identity.
+  Bind and verify the provider artifact digest at build time.  Verify
+  that its receipt names the external authority and never impersonates native
+  Grammar IR.
+- Build two selected languages together and verify that identities, kind
+  catalogs, and receipts do not cross; inspect the resolved Cargo feature and
+  dependency graph for each build.
+- Regenerate a custom language from its public Scheme declaration and reject
+  stale generated tables, wrong grammar digests, invalid kind references,
+  malformed source, and unsupported Parser IR constructs.
+- Compare source bytes and structural CST projections with the Scheme parser
+  on the admitted native corpus before claiming AOT parity.  An external
+  provider has its own independent conformance corpus.  Measure binary size
+  and cold build cost for minimal and selected-language builds separately.
+
+The language feature packaging is owned by the Rowan support work.  This RFC
+fixes the common interface it must preserve; it does not add language cases to
+the generic engine.
+
+* Current evidence
+
+The generic Rowan crate resolves only =rowan= and =sha2= as direct runtime
+dependencies.  The standalone records fixture resolves only the generic
+Rowan crate as its direct runtime dependency and passes its two Cargo tests.
+The external adapter's two focused tests cover source-exact output, external
+receipt identity, invalid UTF-8 token range, and malformed provider digest.
+The event sink separately tests root, kind, and source-coverage rejection.
+An independent external downstream fixture builds outside the root workspace,
+derives its provider digest from its parser table in =build.rs=, consumes that
+same table when recognizing a digit run, and passes its lossless-tree/receipt
+test.  Production providers must apply the same artifact-binding gate to
+their actual parser artifact.  The optional language-support feature crate,
+two-language selection gate, and production-provider conformance remain
+acceptance work.

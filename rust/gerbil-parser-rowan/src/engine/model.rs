@@ -14,6 +14,14 @@ pub struct KindSpec {
     pub category: KindCategory,
 }
 
+/// The structural vocabulary needed by a lossless event producer.  It does
+/// not imply that the producer uses Gerbil Grammar IR or generated LR tables.
+#[derive(Clone, Copy, Debug)]
+pub struct EventCatalog {
+    pub root_kind: u16,
+    pub kinds: &'static [KindSpec],
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TerminalSpec {
     pub name: &'static str,
@@ -37,6 +45,10 @@ pub enum LexicalExpr {
     },
     Identifier,
     UntilDelimiters(&'static str),
+    CharacterRun {
+        character: &'static str,
+        minimum: usize,
+    },
     QuotedString(&'static [&'static str]),
     EscapedQuotedString(&'static [&'static str]),
     Heredoc,

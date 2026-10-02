@@ -9,6 +9,7 @@
         scan-horizontal-whitespace
         scan-newline
         scan-line
+        scan-character-run
         scan-until-delimiters
         scan-decimal-digits
         scan-number-literal
@@ -94,6 +95,20 @@
                (+ offset 2)
                (+ offset 1)))
             (else (loop (+ offset 1))))))))
+
+;; A maximal run of one character, admitted only when it meets the declared
+;; minimum.  The grammar owns the character and the bound.
+(def (scan-character-run source start character minimum)
+  (and (string? character)
+       (= (string-length character) 1)
+       (exact-integer? minimum)
+       (positive? minimum)
+       (<= 0 start)
+       (< start (string-length source))
+       (let (end (scan-while
+                 source start
+                 (lambda (ch) (char=? ch (string-ref character 0)))))
+         (and (>= (- end start) minimum) end))))
 
 ;; Maximal nonempty atom run, stopping before Unicode whitespace or a delimiter.
 ;; Delimiters are language-owned; this primitive knows no S-expression policy.

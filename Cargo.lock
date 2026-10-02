@@ -239,6 +239,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gerbil-parser-rowan-external"
+version = "0.1.0"
+dependencies = [
+ "gerbil-parser-rowan",
+ "rowan",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "gerbil-parser-rowan-scenarios"
 version = "0.1.0"
 dependencies = [

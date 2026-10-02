@@ -1,6 +1,6 @@
-use super::event_tree::build_rowan_events;
+use super::event_tree::{build_rowan_events, build_rowan_events_catalog};
 use super::generated_events::parse_generated_events;
-use super::model::{KindCategory, KindSpec, LanguageSpec, TreeEvent};
+use super::model::{EventCatalog, KindCategory, KindSpec, LanguageSpec, TreeEvent};
 
 static KINDS: &[KindSpec] = &[
     KindSpec {
@@ -33,6 +33,11 @@ static LANGUAGE: LanguageSpec = LanguageSpec {
     actions: &[],
     gotos: &[],
     productions: &[],
+};
+
+static EXTERNAL_CATALOG: EventCatalog = EventCatalog {
+    root_kind: 0,
+    kinds: KINDS,
 };
 
 #[test]
@@ -115,6 +120,41 @@ fn malformed_events_fail_closed() {
             .expect_err("double root finish")
             .reason_kind,
         "event-nesting"
+    );
+}
+
+#[test]
+fn external_events_need_only_a_kind_catalog_and_source_coverage() {
+    let source = "é\n";
+    let events = [
+        TreeEvent::StartNode(0),
+        TreeEvent::Token {
+            kind: 3,
+            start: 0,
+            end: source.len(),
+        },
+        TreeEvent::FinishNode,
+    ];
+    let tree = build_rowan_events_catalog(&EXTERNAL_CATALOG, source, &events)
+        .expect("external producer does not need LR tables");
+    assert_eq!(super::model::SyntaxNode::new_root(tree).to_string(), source);
+
+    let invalid = EventCatalog {
+        root_kind: 3,
+        kinds: KINDS,
+    };
+    assert_eq!(
+        build_rowan_events_catalog(&invalid, source, &events)
+            .expect_err("token kind cannot be a root")
+            .reason_kind,
+        "invalid-event-catalog"
+    );
+    let missing = [TreeEvent::StartNode(0), TreeEvent::FinishNode];
+    assert_eq!(
+        build_rowan_events_catalog(&EXTERNAL_CATALOG, source, &missing)
+            .expect_err("external events must cover all source bytes")
+            .reason_kind,
+        "event-range"
     );
 }
 

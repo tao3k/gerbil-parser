@@ -1,0 +1,16 @@
+[package]
+name = "gerbil-parser-rowan-external"
+version.workspace = true
+description = "Opt-in lossless Rowan adapter for externally maintained parsers"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+gerbil-parser-rowan.workspace = true
+rowan.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true

@@ -8,6 +8,7 @@
         (only-in :gerbil-parser/t/fixtures/lr1-construction
                  lr1-context-family-rules mixed-context-family-rules
                  acyclic-mixed-context-family-rules
+                 state-local-candidate-family-rules
                  split-shared-context-family-rules
                  unreachable-repeated-context-family-rules))
 
@@ -20,12 +21,14 @@
                   (string->symbol (caddr args)) 'independent)))
     (unless (and (integer? contexts) (positive? contexts)
                  (integer? samples) (positive? samples)
-                 (memq shape '(independent mixed acyclic-mixed split-shared unreachable-repeated)))
-      (error "expected positive context and sample counts, then independent/mixed/acyclic-mixed/split-shared/unreachable-repeated"
+                 (memq shape '(independent mixed acyclic-mixed local-candidate split-shared unreachable-repeated)))
+      (error "expected positive context and sample counts, then independent/mixed/acyclic-mixed/local-candidate/split-shared/unreachable-repeated"
              args))
     (let* ((rules ((case shape
                      ((mixed) mixed-context-family-rules)
                      ((acyclic-mixed) acyclic-mixed-context-family-rules)
+                     ((local-candidate)
+                      state-local-candidate-family-rules)
                      ((split-shared) split-shared-context-family-rules)
                      ((unreachable-repeated)
                       unreachable-repeated-context-family-rules)
@@ -36,7 +39,9 @@
       (def (measure construction)
         (##gc)
         (let* ((started (cpu-time))
-               (spec (compile-lr-spec rules 'source-file 'reject #f
+               (spec (compile-lr-spec rules 'source-file
+                                      (if (eq? shape 'local-candidate)
+                                        'selective-glr 'reject) #f
                                       construction)))
           (vector (* 1000.0 (- (cpu-time) started))
                   (lr-spec-ref spec 'state-count)
@@ -53,7 +58,7 @@
                                     'canonical-lr1 'follow-partition-lr1)))
                  (canonical (if (odd? sample) second first))
                  (follow (if (odd? sample) first second)))
-            (unless (if (memq shape '(mixed acyclic-mixed))
+            (unless (if (memq shape '(mixed acyclic-mixed local-candidate))
                       (and (< (vector-ref follow 1)
                               (vector-ref canonical 1))
                            (< (vector-ref follow 2)

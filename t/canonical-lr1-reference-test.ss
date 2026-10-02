@@ -23,6 +23,7 @@
                  lr1-not-lalr-rules shared-lookahead-rules
                  genuine-reduce-conflict-rules precedence-expression-rules
                  mixed-context-rules lr1-context-family-rules
+                 state-local-candidate-family-rules
                  mixed-context-family-rules acyclic-mixed-context-family-rules
                  split-shared-context-family-rules
                  unreachable-repeated-context-family-rules
@@ -292,6 +293,33 @@
                   (check (parse-token-result direct tokens) => 'rejected))))
             (iota context-count))))
        '(4 16 32 48 64)))
+    (poo-flow-test-case "state-local conflict candidates preserve parse products"
+      (let* ((rules (state-local-candidate-family-rules 32))
+             (canonical
+              (compile-lr-spec rules 'source-file 'selective-glr #f
+                               'canonical-lr1))
+             (direct
+              (compile-lr-spec rules 'source-file 'selective-glr #f
+                               'follow-partition-lr1)))
+        (check (< (lr-spec-ref direct 'state-count)
+                  (lr-spec-ref canonical 'state-count)) => #t)
+        (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
+        (for-each
+         (lambda (index)
+           (let* ((prefix
+                   (string-append "region-" (number->string index) ":"))
+                  (prefix-length (string-length prefix))
+                  (prefix-token
+                   (make-token 'punctuation prefix 0 prefix-length)))
+             (def (tokens body)
+               (cons prefix-token (character-tokens body prefix-length)))
+             (for-each
+              (lambda (body)
+                (let (input (tokens body))
+                  (check (equal? (parse-token-result canonical input)
+                                 (parse-token-result direct input)) => #t)))
+              '("axd" "axe" "bxxe" "bxe" "axf" "bxxd" ""))))
+         '(0 15 31))))
     (poo-flow-test-case "mixed context family compresses forward follow blocks"
       (for-each
        (lambda (context-count)

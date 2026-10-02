@@ -625,7 +625,8 @@
             (let-values (((initial seed-candidates seed-terminals)
                           (initial-backward-follow-partitions/from-lr0
                            productions table first nullable
-                           states count terminal-values candidates)))
+                           states count terminal-values candidates
+                           lookaheads offsets)))
               (let-values (((refined blocks index rounds)
                             (refine-follow-blocks
                              initial metadata (vector-length terminal-values))))

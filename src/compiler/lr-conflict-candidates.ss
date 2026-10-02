@@ -160,7 +160,8 @@
 ;; each valid dotted core contains (compatibility-mask . follow-mask) blocks.
 ;; This is only the seed: backward and forward edge refinements still follow.
 (def (initial-backward-follow-partitions/from-lr0
-      productions table first nullable states count terminals candidates)
+      productions table first nullable states count terminals candidates
+      lookaheads offsets)
     (let-values (((follows follow-terminals)
                   (forward-reachable-follow-masks
                    productions table first nullable)))
@@ -173,6 +174,7 @@
                      1 (vector->list table)))
              (core-count (* (vector-length table) dot-width))
              (action-by-core (make-vector core-count 0))
+             (completed-core (make-vector core-count #f))
              (candidate-by-core (make-vector core-count 0))
              (partitions (make-vector core-count #f)))
         (let terminal-loop ((terminal 0))
@@ -198,20 +200,32 @@
                          (table-ref terminal-index symbol)))
                        (else 0))))
                 (vector-set! action-by-core core action-mask)
+                (unless symbol
+                  (vector-set! completed-core core #t))
                 (unless (null? tail)
                   (dot-loop (cdr tail) (+ dot 1)))))
             (production-loop (+ id 1))))
         (let state-loop ((state 0))
           (when (< state count)
-            (for-each
-             (lambda (core)
-               (vector-set!
-                candidate-by-core core
-                (compiler-index-set-union
-                 (vector-ref candidate-by-core core)
-                 (bitwise-and (vector-ref candidates state)
-                              (vector-ref action-by-core core)))))
-             (vector-ref states state))
+            (let (node (vector-ref offsets state))
+              (for-each
+               (lambda (core)
+                 ;; A completed item's state-local LALR mask includes every
+                 ;; canonical follow at this LR(0) item. The production-wide
+                 ;; follow mask can mark an action that is absent here.
+                 ;; Shift actions remain independent of item lookahead.
+                 (let (action-mask
+                       (if (vector-ref completed-core core)
+                         (vector-ref lookaheads node)
+                         (vector-ref action-by-core core)))
+                   (vector-set!
+                    candidate-by-core core
+                    (compiler-index-set-union
+                     (vector-ref candidate-by-core core)
+                     (bitwise-and (vector-ref candidates state)
+                                  action-mask))))
+                 (set! node (+ node 1)))
+               (vector-ref states state)))
             (state-loop (+ state 1))))
         (let production-loop ((id 0))
           (when (< id (vector-length table))
@@ -254,8 +268,12 @@
         (values partitions candidates terminals))))
 
 (def (initial-backward-follow-partitions productions table first nullable)
-  (let-values (((states count terminals candidates)
-                (lr0-conflict-candidates
-                 productions table first nullable)))
-    (initial-backward-follow-partitions/from-lr0
-     productions table first nullable states count terminals candidates)))
+  (let-values (((states count lookaheads offsets transitions terminals
+                        layout core-symbols state-visits item-visits)
+                (build-states-via-lr0 productions table first nullable)))
+    (let (candidates
+          (raw-conflict-cells states count lookaheads offsets terminals
+                              layout core-symbols))
+      (initial-backward-follow-partitions/from-lr0
+       productions table first nullable states count terminals candidates
+       lookaheads offsets))))

@@ -2,6 +2,7 @@
 ;;; Shared grammar fixtures for the LR(1) construction test and benchmark.
 
 (export lr1-not-lalr-rules shared-lookahead-rules
+        state-local-candidate-family-rules
         genuine-reduce-conflict-rules precedence-expression-rules
         mixed-context-rules lr1-context-family-rules
         mixed-context-family-rules acyclic-mixed-context-family-rules
@@ -62,6 +63,44 @@
                 (list 'alias 'SourceFile
                       (cons 'choice (reverse alternatives))))
           (reverse rules))))
+
+;; Each region has a real A/B reduce conflict on "e" after "a x". The C
+;; reduction in that LR(0) state has only "d" locally, but C also appears on a
+;; separate "b" path followed by "e". Production-wide follows therefore mark
+;; C as a conflict candidate unless the seed consults state-local lookaheads.
+(def (state-local-candidate-family-rules count)
+  (def (region-name prefix index)
+    (string->symbol (string-append prefix (number->string index))))
+  (let ((alternatives '())
+        (rules '()))
+    (let loop ((index 0))
+      (when (< index count)
+        (let* ((prefix (string-append "region-" (number->string index) ":"))
+               (a (region-name "a-" index))
+               (b (region-name "b-" index))
+               (c (region-name "c-" index)))
+          (set! alternatives
+                (append
+                 alternatives
+                 (list
+                  (list 'sequence (list 'literal prefix) '(literal "a")
+                        (list 'reference c) '(literal "d"))
+                  (list 'sequence (list 'literal prefix) '(literal "a")
+                        (list 'reference a) '(literal "e"))
+                  (list 'sequence (list 'literal prefix) '(literal "a")
+                        (list 'reference b) '(literal "e"))
+                  (list 'sequence (list 'literal prefix) '(literal "b")
+                        (list 'reference c) (list 'reference c)
+                        '(literal "e")))))
+          (set! rules
+                (append rules
+                        (list (list a '(literal "x"))
+                              (list b '(literal "x"))
+                              (list c '(literal "x")))))
+          (loop (+ index 1)))))
+    (cons (list 'source-file
+                (list 'alias 'SourceFile (cons 'choice alternatives)))
+          rules)))
 
 ;; Add a shared recursive region to independent LR(1)-only contexts. Direct
 ;; follow construction compresses the shared region's states and blocks, so

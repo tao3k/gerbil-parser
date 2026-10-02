@@ -531,11 +531,47 @@ mask/id pair instead of a terminal-width vector won 16/30 pairs on both mixed
 Each temporary switch and source change was removed. These measurements
 exclude module import time and do not alter the production route.
 
-The next algorithmic question is whether the conservative LALR-union conflict
-candidates can be narrowed by follow-specific LR(0) co-reachability without
-enumerating canonical LR(1) states. That is the remaining gap between the
-current seed and Definition 3.24 of the paper; benchmark and parse-product
-receipts must accompany any such change.
+** State-local reduction masks in the initial candidate partition
+
+The initial backward partition now intersects each completed LR(0) item's
+state-local LALR lookahead mask with that state's raw conflict candidates.
+Previously it used the production-wide follow mask, which could mark a
+reduction on a terminal admitted only at another LR(0) state. The local LALR
+mask includes all canonical follows projected to that item, so this narrows
+an over-approximation without enumerating canonical LR(1) states. Terminal
+shift actions retain their static action mask. This is a narrower seed for
+Construction 3.27; it does not establish the exact co-reachability relation
+of Definition 3.24.
+
+The =local-candidate= route-threshold fixture replicates regions with an A/B
+reduce conflict on =e= and a C reduction whose local follow is only =d=.
+C admits =e= elsewhere, exposing the old production-wide overmarking. At 32
+regions, the direct construction fell from 483 to 451 states and from 932
+to 868 follow blocks. Two same-process alternating measurements gave CPU
+medians of 6.558 versus 5.8115 ms (15/20 pairs faster) and 6.360 versus
+5.573 ms (24/30 faster), about an 11--12 percent reduction on this fixture.
+At 8 regions the timing won only 16/30 pairs; at 64 regions only 11/20,
+so the evidence does not support a size-independent speedup. Existing mixed
+and acyclic 64-context fixtures retained identical complete =LRSpec= values
+and had no stable timing gain.
+
+The permanent canonical-reference test compares complete accepted products
+and rejection results for seven inputs in regions 0, 15, and 31. The =axe=
+input has two reduction paths with identical output; runtime completion
+deduplication accepts that common product. The test compares it directly
+with canonical LR(1), rather than expecting an ambiguity diagnostic. These
+measurements concern generator construction, not parser throughput.
+
+Local validation completed with =GERBIL_BUILD_CORES=12 gerbil build= and
+52/52 native test modules passing across the full run and fresh bounded
+processes for unfinished modules. The single =just test-all= process did
+not complete: after 46 modules passed, its large canonical case hit the
+Case duration budget under cumulative memory pressure, then the process
+reached the 300-second cap. That case passed in a fresh five-module batch.
+Two pre-existing compiled-environment gaps were refreshed locally: the
+scanner export used by SANY and the records fixture's grammar, fixtures,
+and parser modules. Both affected tests then passed. This does not claim
+that the monolithic Just gate passed unchanged.
 
 ** Shared literal recognition across lexical modes
 

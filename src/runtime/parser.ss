@@ -12,12 +12,16 @@
                  make-success-parse-artifact parse-artifact-success?)
         (only-in ./lexer lex-source lex-source-from scan-source-token)
         (only-in ./lr-parser
+                 lr-runtime-layout?
                  lr-checkpoint-deterministic-shifts lr-checkpoint-drive
                  lr-checkpoint-feed
                  lr-checkpoint-lexical-mode lr-checkpoint-prefix-snapshot
                  lr-lexical-mode-id
                  lr-checkpoint-resume
                  lr-checkpoint-resume-suffix lr-initial-checkpoint)
+        (only-in ./layout
+                 make-layout-columns current-layout-columns
+                 current-layout-frames)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./significant
@@ -86,11 +90,19 @@
 
 (def (parse-tokenized machine grammar-digest source tokens
                       (observability #f))
-  (parse-tokenized/with
-   machine grammar-digest source tokens
-   (lambda (significant observability)
-     ((parser-machine-parse machine) significant observability))
-   observability))
+  (if (lr-runtime-layout? (parser-machine-runtime machine))
+    (parameterize ((current-layout-columns (make-layout-columns source))
+                   (current-layout-frames '()))
+      (parse-tokenized/with
+       machine grammar-digest source tokens
+       (lambda (significant observability)
+         ((parser-machine-parse machine) significant observability))
+       observability))
+    (parse-tokenized/with
+     machine grammar-digest source tokens
+     (lambda (significant observability)
+       ((parser-machine-parse machine) significant observability))
+     observability)))
 
 ;;; Publishes through the same ParseArtifact boundary while the LR phase resumes
 ;;; an immutable checkpoint bound to this request's significant token stream.
@@ -352,7 +364,15 @@
                 reuse-token)))))))))
 
 (def (parse-source machine source (observability #f))
-  (parse-source/with-capture machine source observability #f))
+  (if (lr-runtime-layout? (parser-machine-runtime machine))
+    (let (digest (parser-machine-grammar-digest machine))
+      (with-catch
+       (lambda (condition)
+         (failure-artifact machine digest source '() condition))
+       (lambda ()
+         (parse-tokenized machine digest source
+                          (lex-source machine source) observability))))
+    (parse-source/with-capture machine source observability #f)))
 
 ;; Capture sparse deterministic prefixes during the initial directed parse.
 ;; A fork keeps the certified prefix; selective GLR owns the uncaptured suffix.
@@ -361,6 +381,10 @@
                                       start-character start-byte reuse-token)
   (unless (and (integer? spacing) (positive? spacing))
     (error "checkpoint spacing must be positive" spacing))
+  (if (lr-runtime-layout? (parser-machine-runtime machine))
+    ;; Layout branches carry a column-reference stack. The incremental API
+    ;; reparses this grammar in full until checkpoints can retain that stack.
+    (values (parse-source machine source) #f #f #())
   (let ((snapshots '()) (source-tokens #f) (source-modes #f))
     (let* ((artifact
             (parse-source/with-capture
@@ -387,7 +411,7 @@
             (if (parse-artifact-success? artifact)
               (list->vector (reverse snapshots))
               #())))
-      (values artifact source-tokens source-modes records))))
+      (values artifact source-tokens source-modes records)))))
 
 (def (parse-source/checkpoints machine source spacing)
   (parse-source/checkpoints/resume

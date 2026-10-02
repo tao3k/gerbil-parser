@@ -28,6 +28,9 @@
                  lookup-literal-action-entry
                  lr-action-row-eof
                  lr-action-row-tokens)
+        (only-in ./layout
+                 current-layout-columns current-layout-frames
+                 layout-after-shift layout-after-end layout-current-action-row layout-productions?)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
@@ -53,8 +56,7 @@
         lr-lexical-mode?
         lr-lexical-mode-id
         lr-lexical-mode-terminals
-        lr-runtime-lexical-mode-catalog
-        lr-runtime-direct-step
+        lr-runtime-lexical-mode-catalog lr-runtime-layout? lr-runtime-direct-step
         install-lr-runtime-direct-step!
         lr-checkpoint-interned-lexical-mode-count
         lr-checkpoint-deterministic-actions
@@ -71,8 +73,8 @@
 ;; during language-module initialization before the runtime is shared.
 (defstruct lr-runtime
   (productions table reduction-widths actions action-index gotos goto-index
-               case-insensitive? dynamic? lexical-modes lexical-mode-catalog
-               direct-step)
+               case-insensitive? dynamic? layout?
+               lexical-modes lexical-mode-catalog direct-step)
   transparent: #t)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
@@ -145,7 +147,8 @@
           (any (lambda (production)
                  (let (precedence (production-precedence production))
                    (and precedence (eq? (car precedence) 'dynamic))))
-               productions)))
+               productions))
+         (layout? (layout-productions? productions)))
     (let-values (((modes mode-catalog)
                   (vector-intern-map
                    actions
@@ -166,6 +169,7 @@
          (association-row-vector->index gotos)
          (lr-spec-ref spec 'case-insensitive?)
          dynamic?
+         layout?
          modes
          mode-catalog
          #f)))))
@@ -179,13 +183,15 @@
       ;; A literal is a contextual keyword/punctuation refinement of its
       ;; lexical token kind. It precedes the generic kind action.
       (let (input-token (car tokens))
-        (or (lookup-literal-action-entry row (token-lexeme input-token))
-            (and case-insensitive?
-                 (string? (token-lexeme input-token))
-                 (lookup-literal-action-entry
-                  row (string-upcase (token-lexeme input-token))))
-            (lookup-action-entry
-             (lr-action-row-tokens row) (token-kind input-token)))))))
+        (if (current-layout-columns)
+          (layout-current-action-row row input-token case-insensitive?)
+          (or (lookup-literal-action-entry row (token-lexeme input-token))
+              (and case-insensitive?
+                   (string? (token-lexeme input-token))
+                   (lookup-literal-action-entry
+                    row (string-upcase (token-lexeme input-token))))
+              (lookup-action-entry
+               (lr-action-row-tokens row) (token-kind input-token))))))))
 
 ;; apply-operand-action
 ;; : (-> List List Fixnum List)
@@ -220,7 +226,8 @@
       (apply-operand-actions
        (car source-values) (operand-actions (car rhs))
        default-offset fragment-constructor))
-     ((or (eq? action 'concat) (eq? action 'pass))
+     ((or (eq? action 'concat) (eq? action 'pass)
+          (eq? action 'layout-end))
       (foldl
        (lambda (operand value children)
          (recognition-sequence-append
@@ -472,6 +479,16 @@
                (cons (list (make-recognition-child #f (car rest)))
                      semantic-values)
                (cdr rest) score fuel)))
+        ((layout-shift)
+         (and (pair? rest)
+              (parameterize
+                  ((current-layout-frames
+                    (layout-after-shift (cadr action) (car rest))))
+                (try-parse
+                 (cons (caddr action) states)
+                 (cons (list (make-recognition-child #f (car rest)))
+                       semantic-values)
+                 (cdr rest) score fuel))))
         ((reduce)
          (let* ((production-id (cadr action))
                 (production (vector-ref table production-id))
@@ -495,10 +512,19 @@
                       (goto-target goto-index (car remaining-states)
                                    (production-lhs production)))))
            (and target
-                (try-parse (cons target remaining-states)
-                           (cons value remaining-values) rest next-score fuel))))))
+                (if (eq? (production-action production) 'layout-end)
+                  (alet (frames (layout-after-end (and (pair? rest) (car rest))))
+                    (parameterize ((current-layout-frames frames))
+                      (try-parse (cons target remaining-states)
+                                 (cons value remaining-values)
+                                 rest next-score fuel)))
+                  (try-parse (cons target remaining-states)
+                             (cons value remaining-values)
+                             rest next-score fuel)))))))
         ((accept)
-         (and (pair? semantic-values)
+         (and (or (not (lr-runtime-layout? runtime))
+                  (null? (current-layout-frames)))
+              (pair? semantic-values)
               (let (children
                     (recognition-sequence->list (car semantic-values)))
                 (and (pair? children)
@@ -580,7 +606,10 @@
       (let* ((results (configuration-table rest))
              (state (car states))
              (bucket (table-ref results state '()))
-             (key (list states semantic-values score))
+             (key (if (lr-runtime-layout? runtime)
+                    (list states semantic-values score
+                          (current-layout-frames))
+                    (list states semantic-values score)))
              (memo (configuration-bucket-ref bucket key))
              (cached (and memo (car memo))))
         (if memo
@@ -956,10 +985,11 @@
          (null? rest))))))
 
 (def (lr-parse/prepared runtime tokens (observability #f))
-  (lr-checkpoint-resume
-   (lr-initial-checkpoint runtime tokens) observability))
-
-;; lr-parse
-;; : (-> List List (Values Datum List))
+  (if (lr-runtime-layout? runtime)
+    (let-values (((root rest _receipt)
+                  (lr-parse/prepared/receipt runtime tokens)))
+      (values root rest))
+    (lr-checkpoint-resume
+     (lr-initial-checkpoint runtime tokens) observability)))
 (def (lr-parse spec tokens)
   (lr-parse/prepared (lr-prepare spec) tokens))

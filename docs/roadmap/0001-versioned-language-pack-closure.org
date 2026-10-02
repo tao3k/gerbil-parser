@@ -77,8 +77,11 @@ slice are executable; production-to-GrammarIR closure remains.
   compare the required structural CST projection; never downgrade an
   unsupported construct to an =unknown= acceptance path.
 
-Status: four accepted and one rejected native-core fixtures are closed.  Full
-proof, PlusCal, layout, and official-corpus conformance remain open.
+Status: the native-core fixtures retain their original contract.  A separate
+layout contract admits aligned conjunction and disjunction lists, nested
+column grouping, and the checked POO Flow temporal-model corpus.  Full proof,
+PlusCal, remaining layout constructs, and official-corpus conformance remain
+open.
 
 * P5 Algorithm and performance admission
 

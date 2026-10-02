@@ -132,31 +132,39 @@ The TLA+ contract takes the native =TLAPlusGrammar= from chapter 15 of
 /Specifying Systems/ as its language specification.  The official SANY
 =tla+.jj= source is pinned at release =v1.7.4=, commit
 =5a47802b5c391f59ecdd44117981f4ff8c0656ba=, and Git blob
-=bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56= for executable conformance.  SANY
+=bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56= for executable conformance; the
+checked-in source digest is
+=sha256:15edd079cf16cf91556ba66b496c9ffc16f26ab30856753ed58e60b0d54f2d07=.  SANY
 is not a runtime dependency or a second parser engine: native TLA+ productions
 are lowered into the same Grammar IR and compiled by gerbil-parser.  The TLA+
 Foundation Examples corpus is pinned at commit
-=ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=.  The pack version is =v1= and its
-admitted identity is =tla-plus.native-core.v1=.  The executable slice covers
+=ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10=.  Grammar metadata gives the
+core slice version =v1= and contract =tla-plus.native-core.v1=.  It covers
 module envelopes, EXTENDS, constant and variable declarations, single-line
 operator definitions, theorem declarations, precedence-bearing expressions,
 IF/THEN/ELSE, CHOOSE, bounded and unbounded quantification, tuples, sets,
 function constructors, strings, line comments, and nested block comments.  It
 includes the byte-exact official =HourClock.tla= source plus focused structural
 and negative contracts.  The 99-production SANY inventory is digest-bound and
-materialized during expansion.  The contract does not yet claim PlusCal, TLAPS
-proof syntax, indentation-sensitive or multiline definitions, or the complete
-official SANY syntax corpus.
+materialized during expansion.  The separate layout grammar has metadata
+version =v2= and contract =tla-plus.native-layout.v2=.  It admits aligned
+conjunction and disjunction lists, nested column grouping, and the checked
+POO Flow temporal-model corpus.  Both grammars live in the unversioned
+=languages/tla-plus/= namespace; their identities come from grammar metadata.
+Neither contract claims PlusCal, TLAPS proof syntax, or the complete official
+SANY syntax corpus.
 
 Model qualification is a language-pack boundary, not a parser-engine feature.
-=languages/tla-plus/v1/qualification.ss= exposes one
-=qualify-tla-plus-model= entry that first requires the native v1 ParseArtifact
+=languages/tla-plus/qualification.ss= exposes a layout entry
+=qualify-tla-plus-model= and an explicit core entry
+=qualify-tla-plus-core-model=.  Each first requires its ParseArtifact
 to be valid, accepted and byte-exact, then invokes the official external TLC
 provider over that exact source and configuration.  Its typed receipt binds
 both digests, the resolved tool identity, TLC version, exit status and complete
 state-graph summary.  Missing summary fields, remaining states, nonzero exit,
 or syntax rejection fail closed.  The language pack does not embed SANY or TLC,
-and syntax rejection prevents the provider process from starting.
+and syntax rejection prevents the provider process from starting.  The receipt
+syntax contract is read from the selected grammar metadata.
 
 Version identities are never inferred from a current branch or latest release.
 Changing an upstream edition, tag, commit, corrigendum, or admitted production

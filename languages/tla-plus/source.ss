@@ -4,6 +4,7 @@
 (import (only-in :gerbil-parser/language-support/grammar-source
                  defsyntax-javacc-source))
 (export +tla-plus-syntax-source+
+        +tla-plus-examples-commit+
         +tla-plus-sany-release+
         +tla-plus-sany-commit+
         +tla-plus-sany-grammar-blob+
@@ -11,6 +12,7 @@
         tla-plus-sany-source)
 
 (def +tla-plus-syntax-source+ "Specifying Systems, Chapter 15: TLAPlusGrammar")
+(def +tla-plus-examples-commit+ "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")
 (def +tla-plus-sany-release+ "v1.7.4")
 (def +tla-plus-sany-commit+ "5a47802b5c391f59ecdd44117981f4ff8c0656ba")
 (def +tla-plus-sany-grammar-blob+ "bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56")

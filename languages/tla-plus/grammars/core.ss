@@ -2,18 +2,14 @@
 ;;; Native TLA+ core syntax compiled by the language-neutral engine.
 
 (import (only-in :gerbil-parser/src/language/grammar deflanguage-grammar)
-        ./source)
-(export (import: ./source)
-        +tla-plus-contract-version+ +tla-plus-syntax-contract+
-        +tla-plus-examples-commit+ tla-plus-v1-language-grammar
-        tla-plus-v1-grammar tla-plus-v1-parser-ir tla-plus-v1-parser)
+        ../source)
+(export (import: ../source)
+        tla-plus-core-language-grammar
+        tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser)
 
-(def +tla-plus-contract-version+ "v1")
-(def +tla-plus-syntax-contract+ "tla-plus.native-core.v1")
-(def +tla-plus-examples-commit+ "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")
 
-(deflanguage-grammar tla-plus-v1
-  (identity "tla-plus" +tla-plus-contract-version+ +tla-plus-syntax-contract+)
+(deflanguage-grammar tla-plus-core
+  (identity "tla-plus" "v1" "tla-plus.native-core.v1")
   (syntax-kinds
    (SourceFile node (module)) (Module node (name item))
    (ExtendsDeclaration node (module)) (ConstantDeclaration node (name))

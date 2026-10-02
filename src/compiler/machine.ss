@@ -334,7 +334,7 @@
                (eq? (car terminal) 'terminal)
                (case (cadr terminal)
                  ((token) (eq? (caddr terminal) 'name))
-                 ((literal)
+                 ((literal layout-start layout-next)
                   (lexical-expression-admits-literal?
                    (caddr terminal) case-insensitive? expression))
                  (else #f))))

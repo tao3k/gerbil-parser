@@ -1,14 +1,20 @@
 ;;; -*- Gerbil -*-
 ;;; Versioned TLA+ sources embedded at expansion time.
 
-(import :gerbil-parser/languages/tla-plus/v1/parser
+(import (only-in ./grammars/core tla-plus-core-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor
+                 language-grammar-language
+                 language-grammar-version
+                 language-grammar-contract)
         (only-in :gerbil-parser/language-support
                  defsyntax-corpus syntax-fixture-expected-status))
-(export tla-plus-v1-fixtures tla-plus-v1-accepted-fixtures
-        tla-plus-v1-rejected-fixtures)
+(export tla-plus-core-fixtures tla-plus-core-accepted-fixtures
+        tla-plus-core-rejected-fixtures)
 
-(defsyntax-corpus tla-plus-v1-fixtures
-  (identity "tla-plus" +tla-plus-contract-version+ +tla-plus-syntax-contract+)
+(defsyntax-corpus tla-plus-core-fixtures
+  (identity (language-grammar-language tla-plus-core-language-grammar)
+            (language-grammar-version tla-plus-core-language-grammar)
+            (language-grammar-contract tla-plus-core-language-grammar))
   (accepted
    ("tla-plus/examples/hour-clock" tla-plus-hour-clock
     "corpus/tlaplus-examples/HourClock.tla" SourceFile
@@ -35,12 +41,12 @@
    ("tla-plus/core/malformed-if" tla-plus-malformed-if
     "corpus/core/MalformedIf.tla")))
 
-(def tla-plus-v1-accepted-fixtures
+(def tla-plus-core-accepted-fixtures
   (filter (lambda (fixture)
             (eq? (syntax-fixture-expected-status fixture) 'accepted))
-          tla-plus-v1-fixtures))
+          tla-plus-core-fixtures))
 
-(def tla-plus-v1-rejected-fixtures
+(def tla-plus-core-rejected-fixtures
   (filter (lambda (fixture)
             (eq? (syntax-fixture-expected-status fixture) 'rejected))
-          tla-plus-v1-fixtures))
+          tla-plus-core-fixtures))

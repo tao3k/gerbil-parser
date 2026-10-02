@@ -13,7 +13,8 @@
                  lr-failure-frontier-expected-terminals
                  lr-failure-frontier-remaining-tokens
                  lr-failure-frontier-resume lr-failure-frontier-state
-                 lr-initial-checkpoint lr-rejection-condition?)
+                 lr-initial-checkpoint lr-rejection-condition?
+                 lr-runtime-layout?)
         (only-in ./parser parse-source)
         (only-in ./significant parser-significant-tokens)
         (only-in ./token
@@ -185,6 +186,10 @@
      ((parse-artifact-success? artifact)
       (values artifact
               (recovery-receipt machine artifact row 'not-needed #f 0
+                                budget #f #f 0)))
+     ((lr-runtime-layout? (parser-machine-runtime machine))
+      (values artifact
+              (recovery-receipt machine artifact row 'disabled #f 0
                                 budget #f #f 0)))
      ((not row)
       (values artifact

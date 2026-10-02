@@ -18,10 +18,10 @@
                  opencypher-2024-1-accepted-fixtures)
         (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/parser
                  parse-opencypher-2024-1)
-        (only-in :gerbil-parser/languages/tla-plus/v1/fixtures
-                 tla-plus-v1-accepted-fixtures)
-        (only-in :gerbil-parser/languages/tla-plus/v1/parser
-                 parse-tla-plus-v1))
+        (only-in :gerbil-parser/languages/tla-plus/fixtures
+                 tla-plus-core-accepted-fixtures)
+        (only-in :gerbil-parser/languages/tla-plus/parser
+                 parse-tla-plus-core))
 
 (def corpus
   (list
@@ -31,8 +31,8 @@
          (map syntax-fixture-source gql-iso-official-fixtures))
    (cons parse-opencypher-2024-1
          (map syntax-fixture-source opencypher-2024-1-accepted-fixtures))
-   (cons parse-tla-plus-v1
-         (map syntax-fixture-source tla-plus-v1-accepted-fixtures))))
+   (cons parse-tla-plus-core
+         (map syntax-fixture-source tla-plus-core-accepted-fixtures))))
 
 (def (run-batch)
   (for-each

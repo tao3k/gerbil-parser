@@ -4,13 +4,17 @@
 (export index-action-row
         lookup-action-entry
         lookup-literal-action-entry
+        lookup-layout-start-action-entry
+        lookup-layout-next-action-entry
         lr-action-row-eof
         lr-action-row-tokens)
 
 ;;; ASCII punctuation has a direct action slot; longer/Unicode literals and
 ;;; token kinds retain their existing indexes. Entries remain the original
 ;;; (terminal . action) pairs for GLR receipt and action identity semantics.
-(defstruct lr-action-row (ascii-literals literals tokens eof) transparent: #t)
+(defstruct lr-action-row
+  (ascii-literals literals tokens eof layout-start layout-next)
+  transparent: #t)
 
 (def (index-action-entries entries)
   (if (<= (length entries) 8)
@@ -24,7 +28,8 @@
       index)))
 
 (def (index-action-row row)
-  (let ((ascii-literals #f) (literals '()) (tokens '()) (eof #f))
+  (let ((ascii-literals #f) (literals '()) (tokens '()) (eof #f)
+        (layout-start '()) (layout-next '()))
     (for-each
      (lambda (entry)
        (let (terminal (car entry))
@@ -43,6 +48,12 @@
                 (set! literals (cons (cons literal entry) literals)))))
            ((token)
             (set! tokens (cons (cons (caddr terminal) entry) tokens)))
+           ((layout-start)
+            (set! layout-start
+                  (cons (cons (caddr terminal) entry) layout-start)))
+           ((layout-next)
+            (set! layout-next
+                  (cons (cons (caddr terminal) entry) layout-next)))
            ((eof)
             (unless eof (set! eof entry)))
            (else (error "unsupported LR action terminal" terminal)))))
@@ -51,7 +62,9 @@
      ascii-literals
      (index-action-entries (reverse literals))
      (index-action-entries (reverse tokens))
-     eof)))
+     eof
+     (index-action-entries (reverse layout-start))
+     (index-action-entries (reverse layout-next)))))
 
 (def (lookup-action-entry index key)
   (if (list? index)
@@ -67,3 +80,9 @@
       (and ascii
            (vector-ref ascii (char->integer (string-ref literal 0)))))
     (lookup-action-entry (lr-action-row-literals row) literal)))
+
+(def (lookup-layout-start-action-entry row literal)
+  (lookup-action-entry (lr-action-row-layout-start row) literal))
+
+(def (lookup-layout-next-action-entry row literal)
+  (lookup-action-entry (lr-action-row-layout-next row) literal))

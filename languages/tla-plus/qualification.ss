@@ -4,15 +4,19 @@
 (import (only-in :std/misc/ports read-all-as-string)
         (only-in :std/misc/process run-process)
         (only-in :std/string/misc string-trim-eol)
-        (only-in ./parser parse-tla-plus-v1)
-        (only-in ../../../src/runtime/artifact
+        (only-in ./parser parse-tla-plus-core parse-tla-plus-layout)
+        (only-in ./grammars/core tla-plus-core-language-grammar)
+        (only-in ./grammars/layout tla-plus-layout-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor
+                 language-grammar-contract)
+        (only-in ../../src/runtime/artifact
                  parse-artifact-roundtrip
                  parse-artifact-success?
                  parse-artifact-valid?)
-        (only-in ../../../src/runtime/identity sha256-text))
+        (only-in ../../src/runtime/identity sha256-text))
 
 (export +tla-plus-model-qualification-schema+
-        qualify-tla-plus-model
+        qualify-tla-plus-model qualify-tla-plus-core-model
         tla-plus-model-receipt?
         tla-plus-model-receipt-admitted
         tla-plus-model-receipt-output
@@ -125,11 +129,11 @@
        (equal? (summary-ref summary 'states-left) 0)
        (natural-number? (summary-ref summary 'graph-depth))))
 
-(def (syntax-rejection-receipt model source config-source
+(def (syntax-rejection-receipt grammar model source config-source
                                syntax-accepted roundtrip tlc workers)
   (make-tla-plus-model-receipt
    +tla-plus-model-qualification-schema+
-   "tla-plus.native-core.v1"
+   (language-grammar-contract grammar)
    model
    (sha256-text source)
    (sha256-text config-source)
@@ -143,9 +147,9 @@
    (sha256-text "")
    ""))
 
-(def (qualify-tla-plus-model spec-path config-path
-                             tlc: (tlc "tlc")
-                             workers: (workers 1))
+(def (qualify-tla-plus-model/with parse grammar spec-path config-path
+                                  tlc: (tlc "tlc")
+                                  workers: (workers 1))
   (unless (and (exact-integer? workers) (> workers 0))
     (error "TLC workers must be a positive integer" workers))
   (let* ((spec (path-normalize spec-path))
@@ -156,7 +160,7 @@
              spec config))
     (let* ((source (read-text spec))
            (config-source (read-text config))
-           (artifact (parse-tla-plus-v1 source))
+           (artifact (parse source))
            (syntax-accepted
             (and (parse-artifact-success? artifact)
                  (parse-artifact-valid? artifact)))
@@ -166,7 +170,7 @@
            (model (path-strip-extension (path-strip-directory spec))))
       (if (not roundtrip)
         (syntax-rejection-receipt
-         model source config-source syntax-accepted roundtrip tlc workers)
+         grammar model source config-source syntax-accepted roundtrip tlc workers)
         (let* ((tool-path (resolve-tool tlc))
                (tool-source (read-text tool-path)))
           (call-with-tlc-temporary-directory
@@ -185,7 +189,7 @@
                         syntax-accepted roundtrip exit-status summary)))
                  (make-tla-plus-model-receipt
                   +tla-plus-model-qualification-schema+
-                  "tla-plus.native-core.v1"
+                  (language-grammar-contract grammar)
                   model
                   (sha256-text source)
                   (sha256-text config-source)
@@ -205,6 +209,20 @@
                   admitted
                   (sha256-text output)
                   output))))))))))
+
+(def (qualify-tla-plus-model spec-path config-path
+                             tlc: (tlc "tlc")
+                             workers: (workers 1))
+  (qualify-tla-plus-model/with
+   parse-tla-plus-layout tla-plus-layout-language-grammar
+   spec-path config-path tlc: tlc workers: workers))
+
+(def (qualify-tla-plus-core-model spec-path config-path
+                                  tlc: (tlc "tlc")
+                                  workers: (workers 1))
+  (qualify-tla-plus-model/with
+   parse-tla-plus-core tla-plus-core-language-grammar
+   spec-path config-path tlc: tlc workers: workers))
 
 (def (tla-plus-model-receipt->alist receipt)
   (list

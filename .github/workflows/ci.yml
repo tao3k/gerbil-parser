@@ -73,12 +73,15 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             ca-certificates \
+            curl \
             git \
             jq \
             libsqlite3-dev \
             libssl-dev \
+            openjdk-17-jre-headless \
             openssl \
             pkg-config \
+            python3 \
             sqlite3 \
             zlib1g-dev
 
@@ -182,6 +185,15 @@ jobs:
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/... languages/...
+
+      - name: Compare TLA+ candidate structure with pinned SANY
+        if: runner.os == 'Linux'
+        run: |
+          jar="$RUNNER_TEMP/tla2tools-v1.7.4.jar"
+          curl --fail --location --retry 3 --silent --show-error \
+            --output "$jar" \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          python3 t/fixtures/tla-sany-differential/compare.py --sany-jar "$jar"
 
       - name: Verify Rust/Rowan AOT generation is current
         run: |

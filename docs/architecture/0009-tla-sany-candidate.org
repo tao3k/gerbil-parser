@@ -38,6 +38,14 @@ the module terminator.  SANY CST/AST differential checks, negative syntax
 tests, precedence checks, full proof and PlusCal handling, and performance
 receipts remain required before a production full-syntax contract.
 
+An initial structural differential runs the official v1.7.4 SANY XML exporter
+against the candidate on temporal and arithmetic modules.  It verifies the
+pinned =tla2tools.jar= SHA-256 and compares eight normalized expression trees
+across =~>=, =/\\=, =\\/=, ==>=, =+=, =-=, and =*=.  This check exposed a
+real =A + B - C= grouping difference; the candidate now follows SANY's
+precedence for that expression.  This remains a bounded precedence gate,
+not structural parity for other constructs or the corpus.
+
 The candidate is not a replacement for the layout grammar in POO Flow.
 Language-pack authors select a descriptor explicitly and retain the grammar
 metadata identity in syntax receipts.  A future promotion requires a

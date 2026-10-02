@@ -259,7 +259,14 @@
      (prec left 60
       (alias Expression
        (seq (field left (reference expression))
-            (field operator (choice (literal "+") (literal "-")))
+            (field operator (literal "+"))
+            (field right (reference expression)))))
+     ;; SANY's pinned operator table gives subtraction a tighter level than
+     ;; addition; A + B - C must group as A + (B - C).
+     (prec left 65
+      (alias Expression
+       (seq (field left (reference expression))
+            (field operator (literal "-"))
             (field right (reference expression)))))
      (prec left 70
       (alias Expression

@@ -373,6 +373,25 @@ closure queue deduplication, lookahead-delta propagation, and eager closure
 edge caching likewise lacked consistent paired wins. None of these temporary
 switches remains in the compiler.
 
+A subsequent phase profile under ASP Scheme =v0.1.2.1= measured the full
+direct constructor for 32 recursive shared contexts. Over 10 local CPU
+samples, LR(0) construction took 1.321 ms median, raw conflict detection
+0.109 ms, initial backward partition 0.540 ms, metadata 0.139 ms,
+backward refinement 0.319 ms, and quotient-NFA determinization 3.230 ms.
+The latter includes roughly 1--2 ms each for forward refinement and DFA
+state expansion. These are compiler-construction costs, not parser runtime.
+
+Two reversible determinization experiments preserved the complete LR spec
+in every paired sample but did not retain a stable gain. Replacing the
+standard queue in epsilon closure with a bitset worklist changed the
+recursive shared 32-context median from 6.937 to 7.167 ms (12/30 wins).
+Indexing symbols once and reusing a vector of transition targets initially
+changed that median from 7.451 to 7.101 ms (23/30 wins), but a repeat was
+6.769 to 6.936 ms (15/30 wins) and 64 contexts were 22.579 to 22.792 ms
+(11/30 wins). Both candidate edits were reverted. The existing benchmark
+fixtures and full-spec equivalence checks remain the gate for another
+representation change.
+
 The lower-bound canonical trial now also admits medium grammars (at
 least 64 productions and eight raw conflict states) when each nonterminal
 occurs in at most two production right-hand sides. This static sharing

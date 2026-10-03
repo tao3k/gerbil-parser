@@ -8,11 +8,9 @@
     (let ((owner (import-module ':asp-gerbil-scheme/src/benchmark/gate #f #t)) (sample 0))
       (for-each
        (lambda (name)
-         (let* ((entry (find (lambda (entry)
-                              (and (fx= (module-export-phi entry) 0)
-                                   (eq? (module-export-name entry) name)))
-                            (module-context-export owner)))
-                (binding (and entry (core-resolve-module-export entry))))
+         ;; The pinned ASP source defines these runtime helpers privately.
+         ;; Resolve the actual module-local binding rather than a public export.
+         (let (binding (resolve-identifier name 0 owner))
            (unless binding (error "ASP sample observation seam is unavailable" name))
            (let* ((id (binding-id binding)) (original (eval id))
                   (observed (lambda (thunk)

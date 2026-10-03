@@ -18,7 +18,7 @@ modules += sorted(str(p) for p in Path('languages').rglob('*test.ss'))
 env = dict(os.environ, GERBIL_PATH=str(root/'.gerbil'),
            GAMBOPT='max-heap=1G,debug=q', GERBIL_PARSER_LR_TRACE='1')
 receipt = {'head': head, 'modules': len(modules), 'inactivity_seconds': 5,
-           'batch_seconds': 180, 'batches': []}
+           'batch_seconds': 180, 'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')}, 'batches': []}
 for offset in range(0, len(modules), 3):
     batch, batch_id = modules[offset:offset+3], offset//3+1
     print('BATCH', batch_id, *batch, flush=True)

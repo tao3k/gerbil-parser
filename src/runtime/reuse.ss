@@ -3,9 +3,10 @@
 (import (only-in ./source-index source-index-count make-source-index-cursor
                  source-index-cursor-copy source-index-cursor-token source-index-cursor-mode
                  source-index-cursor-rank source-index-cursor-next! source-index-cursor-seek!)
-        (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia)
+        (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?)
         (only-in ./lexer scan-source-token)
-        (only-in ./probe make-source-probe-cache source-probe-scan source-probe-take!)
+        (only-in ./probe make-source-probe-cache source-probe-scan source-probe-take!
+                 current-lr-lexical-plan-reuse-enabled?)
         (only-in ./token make-token token? token-start token-end token-kind token-lexeme)
         (only-in ./lr-parser
                  lr-checkpoint-lexical-mode lr-checkpoint-state lr-lexical-mode-id
@@ -21,20 +22,21 @@
 
 ;;; Stats: fragments, significant tokens, source tokens, source bytes,
 ;;; scanner-probe bytes, rejected candidates, normalized control probes,
-;;; consumed probe tokens/bytes, inspected grammar-cursor frames.
+;;; consumed probe tokens/bytes, inspected grammar-cursor frames,
+;;; old-source-certified lexical probe requests.
 ;;; With a captured source index, cursors share immutable chunks and no full
 ;;; token/mode vectors are built. Trial cursors do not consume rejected spans.
 ;;; Request cursors and the single probe slot expire at the end of the edit.
 (def (make-fragment-reuser machine source old-tokens old-modes root edit-start edit-end delta restart-byte
-                             (source-index #f) (on-shared #f))
+                             (source-index #f) (on-shared #f) (closed-source-owner? #f))
   (let* ((tokens (and (not source-index) (list->vector old-tokens)))
          (modes (and tokens (list->vector old-modes)))
          (input-cursor (and source-index (make-source-index-cursor source-index)))
          (count (if source-index (source-index-count source-index) (vector-length tokens))) (trivia? (parser-machine-trivia machine))
-         (stats (make-vector 10 0)) (pending (list (cons root 0)))
+         (stats (make-vector 11 0)) (pending (list (cons root 0)))
          (first-index 0) (source-length (string-length source))
-         (probe-cache (and (current-lr-probe-reuse-enabled?)
-                           (make-source-probe-cache machine source))))
+         (certified-scanning? (and closed-source-owner? (current-lr-lexical-plan-reuse-enabled?)))
+         (probe-cache #f))
     (unless (or source-index (= count (vector-length modes))) (error "invalid captured lexical modes"))
     (def (add-stat! index value)
       (vector-set! stats index (+ (vector-ref stats index) value)))
@@ -55,14 +57,47 @@
            (= (token-end fresh) (+ shift (token-end old)))
            (eq? (token-kind fresh) (token-kind old))
            (equal? (token-lexeme fresh) (token-lexeme old))))
+    ;; Speculation must never consume the grammar owner's source cursor.
+    ;; Independent lower-bound lookup is O(log n), plus a bounded index leaf.
+    (def (certified-source-probe character byte mode)
+      (let* ((suffix? (>= byte (+ edit-end delta)))
+             (shift delta)
+             (old-byte (- byte shift)))
+        (and suffix?
+             (let* ((cursor (and source-index (make-source-index-cursor source-index)))
+                    (rank (if cursor
+                            (begin (source-index-cursor-seek! cursor old-byte)
+                                   (source-index-cursor-rank cursor))
+                            (let search ((low 0) (high count))
+                              (if (= low high) low
+                                (let (middle (quotient (+ low high) 2))
+                                  (if (< (token-start (vector-ref tokens middle)) old-byte)
+                                    (search (+ middle 1) high) (search low middle)))))))
+                    (old (and (< rank count) (if cursor (source-index-cursor-token cursor) (vector-ref tokens rank))))
+                    (old-mode (and old (if cursor (source-index-cursor-mode cursor) (vector-ref modes rank)))))
+               (and old (= (token-start old) old-byte)
+                    (>= old-byte edit-end)
+                    (parser-machine-lexical-modes-compatible? machine old-mode (lr-lexical-mode-id mode)
+                      (string-ref (token-lexeme old) 0))
+                    (let (token (if (zero? shift) old
+                                  (make-token (token-kind old) (token-lexeme old)
+                                    (+ shift (token-start old)) (+ shift (token-end old)))))
+                      (add-stat! 10 1)
+                      (cons token (+ character (string-length (token-lexeme old))))))))))
+    (def (scan-certified-probe character byte mode)
+      (let (old (certified-source-probe character byte mode))
+        (if old (values (car old) (cdr old))
+          (let-values (((token next) (scan-source-token machine source character byte mode)))
+            (add-stat! 4 (- (token-end token) byte))
+            (values token next)))))
     (def (probe character byte mode)
       (with-catch (lambda (_condition) #f)
         (lambda ()
           (let-values (((token next-character)
-                        (if probe-cache
-                          (source-probe-scan probe-cache character byte mode)
-                          (scan-source-token machine source character byte mode))))
-            (add-stat! 4 (- (token-end token) byte))
+                        (cond (probe-cache (source-probe-scan probe-cache character byte mode))
+                              (certified-scanning? (scan-certified-probe character byte mode))
+                              (else (scan-source-token machine source character byte mode)))))
+            (unless certified-scanning? (add-stat! 4 (- (token-end token) byte)))
             (cons token next-character)))))
     (def (boundary-matches? piece position-delta character byte eof-offset)
       (let ((expected (lr-recognition-fragment-lookahead piece))
@@ -139,6 +174,9 @@
                      (collect next-index next-segment next-modes next-significant next-count
                               next-characters next-eof-offset cursor)))
                  #f)))))
+    (when (current-lr-probe-reuse-enabled?)
+      (set! probe-cache (make-source-probe-cache machine source
+                         (and certified-scanning? scan-certified-probe))))
     (values
      (lambda (character byte checkpoint)
        (let ((mode (lr-checkpoint-lexical-mode checkpoint))

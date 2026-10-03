@@ -1,20 +1,26 @@
 ;;; -*- Gerbil -*-
 ;;; One request-owned scanner result, reusable only in its exact lexical context.
 (import (only-in ./lexer scan-source-token))
-(export make-source-probe-cache source-probe-scan source-probe-take!)
+(export current-lr-lexical-plan-reuse-enabled? make-source-probe-cache source-probe-scan source-probe-take!)
 
-(defstruct source-probe-cache-instance (machine source slot))
-(def (make-source-probe-cache machine source)
-  (make-source-probe-cache-instance machine source #f))
+(def current-lr-lexical-plan-reuse-enabled? (make-parameter #t))
 
+(defstruct source-probe-cache-instance (machine source slot scanner))
+(def (make-source-probe-cache machine source (scanner #f))
+  (make-source-probe-cache-instance machine source #f scanner))
+
+;;; An internal source owner may provide a scanner that returns independently
+;;; certified old tokens; the slot still binds the actual requested mode.
 ;;; A failed speculative read leaves no cached error or prior stale result.
 ;;; The canonical lexer remains responsible for diagnostics.
 (def (source-probe-scan cache character byte mode)
   (source-probe-cache-instance-slot-set! cache #f)
   (let-values (((token next-character)
-                (scan-source-token (source-probe-cache-instance-machine cache)
-                                   (source-probe-cache-instance-source cache)
-                                   character byte mode)))
+                (if (source-probe-cache-instance-scanner cache)
+                  ((source-probe-cache-instance-scanner cache) character byte mode)
+                  (scan-source-token (source-probe-cache-instance-machine cache)
+                                     (source-probe-cache-instance-source cache)
+                                     character byte mode))))
     (source-probe-cache-instance-slot-set! cache
       (vector character byte mode token next-character))
     (values token next-character)))

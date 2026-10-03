@@ -3,9 +3,10 @@
 ;;; Native gxtest loads modules before emitting HARNESS/MODULE notices.
 ;;; Report real import/eval operations so an external silence watchdog can
 ;;; distinguish dependency loading from a stalled check. No timer heartbeat.
-(import :gerbil/expander
+(import "native-load-progress" :gerbil/expander
         (rename-in :gerbil/tools/gxtest (main native-test-main)))
 (def (main . args)
+  (install-native-load-progress!)
   (let ((importer (current-expander-module-import))
         (evaluator (current-expander-module-eval)))
     (parameterize

@@ -1,4 +1,4 @@
-(import :gerbil/expander)
+(import "native-load-progress" :gerbil/expander)
 (def (runtime-export? entry) (fx= (module-export-phi entry) 0))
 (def (eval-export entry)
   (eval (binding-id (core-resolve-module-export entry))))
@@ -6,6 +6,7 @@
   (find (lambda (entry) (and (runtime-export? entry) (eq? (module-export-name entry) name)))
         (module-context-export context)))
 (def (main path . args)
+  (install-native-load-progress!)
   (let ((importer (current-expander-module-import))
         (evaluator (current-expander-module-eval)))
     (parameterize

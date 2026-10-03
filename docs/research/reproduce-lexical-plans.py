@@ -21,6 +21,7 @@ if any(out.iterdir()):
 metadata = {'head': head, 'samples': args.samples, 'executor': 'native gxi',
             'inactivity_seconds': 5, 'batch_seconds': 180,
             'harness_sha256': hashlib.sha256((root/'t/benchmarks/incremental-session/benchmark.ss').read_bytes()).hexdigest(),
+            'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')},
             'jobs': []}
 jobs = [('separate-preparation-1', ['no-plan-sharing', 'lexical-plan-prepare'], 2),
         ('shared-preparation-1', ['lexical-plan-prepare'], 2),

@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; LR checkpoint resume with lexical-mode-certified token reuse.
 
-(import (only-in ./source-index
+(import (only-in ./probe current-lr-lexical-plan-reuse-enabled?)
+        (only-in ./source-index
                  source-index-count source-index-height source-index-end source-index-slice
                  make-source-index-builder source-index-builder-token! source-index-builder-shared!
                  source-index-builder-finish source-index-builder-fresh source-index-builder-shared
@@ -63,7 +64,6 @@
 (def current-lr-fragment-reuse-enabled? (make-parameter #t))
 
 ;;; Compiler candidate-set certificates affect lexical reuse only.
-(def current-lr-lexical-plan-reuse-enabled? (make-parameter #t))
 (def (source-mode-compatible? machine old-mode mode old-token)
   (let (new-mode (lr-lexical-mode-id mode))
     (or (= old-mode new-mode)
@@ -784,7 +784,7 @@
          (index-builder #f) (index-origin #f) (provenance-cursor #f)
          (new-source (apply-edit old-source source-edit))
          (source-byte-length (u8vector-length (string->utf8 new-source)))
-         (fragment-stats (make-vector 10 0)))
+         (fragment-stats (make-vector 11 0)))
     (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
                  fresh? (reused-events #f) (replaced-significant-count 0))
       (let* ((artifact (incremental-session-artifact next))
@@ -821,7 +821,8 @@
                    (cons 'fragmentControlProbeCount (vector-ref fragment-stats 6))
                    (cons 'fragmentProbeReuseTokenCount (vector-ref fragment-stats 7))
                    (cons 'fragmentProbeReuseByteCount (vector-ref fragment-stats 8))
-                   (cons 'fragmentCursorVisitCount (vector-ref fragment-stats 9))) '())
+                   (cons 'fragmentCursorVisitCount (vector-ref fragment-stats 9))
+                   (cons 'certifiedLexicalProbeTokenCount (vector-ref fragment-stats 10))) '())
           (cond
            (fresh? (cons (cons 'freshFallback? #t) fields))
            (reused-events
@@ -829,7 +830,7 @@
            (else fields)))
           artifact (and (not reused-events) shifted)))))
     (def (fallback)
-      (set! fragment-stats (make-vector 10 0))
+      (set! fragment-stats (make-vector 11 0))
       (set! index-builder #f) (set! index-origin #f)
       (finish (session-from-directed machine new-source
                                      (incremental-session-state-capture? session))
@@ -944,7 +945,8 @@
                              (incremental-session-recognition-root session)
                              (edit-start-byte source-edit) edit-end byte-delta restart-byte
                              old-index (and old-index (lambda (start count delta)
-                               (set! index-origin (vector start count delta #f)))))
+                               (set! index-origin (vector start count delta #f))))
+                             #t)
                             (values #f fragment-stats #f))))
               (set! fragment-stats stats)
               (when (and (incremental-session-state-capture? session) (current-lr-source-index-enabled?))

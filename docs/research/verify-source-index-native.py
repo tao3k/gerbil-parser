@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bounded native module qualification with real progress and sealed logs."""
 from pathlib import Path
-import argparse, hashlib, json, os, signal, subprocess, threading, time
+import argparse, hashlib, json, os, platform, re, shutil, signal, subprocess, threading, time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
@@ -18,6 +18,24 @@ modules = sorted(str(p) for p in Path('t').glob('*-test.ss'))
 modules += sorted(str(p) for p in Path('languages').rglob('*test.ss'))
 env = dict(os.environ, GERBIL_PATH=str(root/'.gerbil'),
            GAMBOPT='max-heap=1G,debug=q', GERBIL_PARSER_LR_TRACE='1')
+executor = shutil.which('gxi')
+if not executor:
+    raise SystemExit('gxi is unavailable')
+unload_progress = platform.system() == 'Darwin'
+if unload_progress:
+    # System-shell launchers discard DYLD_* settings. Preserve their literal
+    # Gerbil mappings and invoke the same native binary directly. dyld emits
+    # actual dlopen/dlsym/dlclose operations; no timed heartbeat is added.
+    launcher = Path(executor).read_bytes()[:8192].decode(errors='ignore')
+    mappings = dict(re.findall(r'export (GERBIL_(?:HOME|PREFIX))="([^"$]+)"', launcher))
+    if 'GERBIL_HOME' in mappings:
+        env.update(mappings)
+        home = mappings['GERBIL_HOME']
+        executor = str(Path(home)/'bin/gxi')
+        env['GAMBOPT'] += f',~~={home},~~bin={home}/bin,~~lib={home}/lib'
+    if Path(executor).read_bytes()[:2] == b'#!':
+        raise SystemExit('Darwin unload progress requires a native gxi binary')
+    env['DYLD_PRINT_APIS'] = '1'
 fixture_build = None
 if not args.resume:
     command = ['gxc', '-O', 't/fixtures/lr1-construction.ss']
@@ -32,11 +50,12 @@ if not args.resume:
         raise SystemExit('Native fixture build failed: '+str(status))
     print('BUILD-TEST-FIXTURE-OK', flush=True)
 receipt = {'head': head, 'modules': len(modules), 'inactivity_seconds': 5,
-           'batch_seconds': 180, 'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')}, 'batches': [], 'fixture_build': fixture_build}
+           'batch_seconds': 180, 'executor': executor, 'dyld_api_progress': unload_progress,
+           'executor_sha256': hashlib.sha256(Path(executor).read_bytes()).hexdigest(), 'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')}, 'batches': [], 'fixture_build': fixture_build}
 receipt['fixture_sha256']['lr1-construction.ss'] = hashlib.sha256((root/'t/fixtures/lr1-construction.ss').read_bytes()).hexdigest()
 if args.resume:
     previous = json.loads((out/'metadata.json').read_text())
-    for key in ['head', 'modules', 'fixture_sha256']:
+    for key in ['head', 'modules', 'fixture_sha256', 'executor', 'executor_sha256', 'dyld_api_progress']:
         if previous.get(key) != receipt[key]:
             raise SystemExit('Resume pin changed: '+key)
     if previous.get('complete') or not previous['batches']:
@@ -68,7 +87,7 @@ for offset in range(3*len(receipt['batches']), len(modules), 3):
     batch, batch_id = modules[offset:offset+3], offset//3+1
     print('BATCH', batch_id, *batch, flush=True)
     activity, quiet = [time.monotonic()], threading.Event()
-    proc = subprocess.Popen(['gxi', '-:max-heap=1G,debug=q', 't/fixtures/native-progress.ss',
+    proc = subprocess.Popen([executor, '-:max-heap=1G,debug=q', 't/fixtures/native-progress.ss',
                              '-v', '6', *batch], env=env, stdin=subprocess.DEVNULL,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, start_new_session=True)

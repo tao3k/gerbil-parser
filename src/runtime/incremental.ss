@@ -1048,7 +1048,14 @@
                       reuse-fragment))
                    (incremental-session-state-capture? session)))))
               (if (not (parse-artifact-success? artifact))
-                (fallback)
+                (begin
+                  (when (getenv "GERBIL_PARSER_LR_TRACE" #f)
+                    (write (list 'CHECKPOINT-RESUME-REJECTED 'index index
+                             'checkpoint-count (vector-length checkpoints)
+                             'restart-byte restart-byte
+                             'diagnostics (parse-artifact-ref artifact 'diagnostics)))
+                    (newline) (force-output))
+                  (fallback))
                 (let* ((next-checkpoints
                         ;; Every checkpoint strictly before the selected one
                         ;; belongs to the unchanged prefix. A successful short

@@ -25,7 +25,8 @@
                  lr-checkpoint-deterministic-shifts
                  lr-checkpoint-remaining-token-count
                  lr-checkpoint-advance lr-checkpoint-resume
-                 lr-initial-checkpoint lr-parse lr-parse/receipt lr-prepare)
+                 lr-initial-checkpoint lr-parse lr-parse/receipt lr-prepare
+                 lr-runtime-lexical-mode-catalog)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         :gerbil-parser/src/runtime/token
         :gerbil-parser/src/compiler/machine
@@ -341,6 +342,24 @@
         (check (map token-kind global-tokens) => '(first space first))
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => "x x")))
+    (test-case "character certificates veto competing token identities"
+      (for-each
+       (lambda (machine)
+         (let* ((catalog (lr-runtime-lexical-mode-catalog (parser-machine-runtime machine)))
+                (lexer (parser-machine-lex machine)) (competing 0))
+           (for-each
+            (lambda (i)
+              (for-each
+               (lambda (j)
+                 (let-values (((left left-end) (lexer "x" 0 0 (vector-ref catalog i)))
+                              ((right right-end) (lexer "x" 0 0 (vector-ref catalog j))))
+                   (unless (eq? (token-kind left) (token-kind right))
+                     (set! competing (+ competing 1))
+                     (check (parser-machine-lexical-modes-compatible? machine i j #\x) => #f))))
+               (iota (vector-length catalog))))
+            (iota (vector-length catalog)))
+           (check (> competing 0) => #t)))
+       (list directed-lexical-mode-parser directed-regular-mode-parser)))
     (test-case "incremental reuse honors LR lexical modes on identical spellings"
       (let* ((source (make-string 96 #\x))
              (source-edit (make-edit 48 1 "y"))

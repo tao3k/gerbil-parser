@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import (only-in ../runtime/funcs vector-intern-map)
+(import (only-in ../runtime/funcs vector-intern-map make-value-interner value-interner-intern)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
@@ -54,16 +54,46 @@
 ;;       ```
 ;;     %
 (defstruct parser-machine
-  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexer-factory)
+  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory)
   transparent: #t)
 
 (def current-lexical-plan-sharing-enabled? (make-parameter #t))
 (def (parser-machine-prepare-lexer machine)
   ((parser-machine-lexer-factory machine)))
-(def (parser-machine-lexical-modes-compatible? machine old-mode new-mode)
+(def (parser-machine-lexical-modes-compatible? machine old-mode new-mode (first-character #f))
   (or (= old-mode new-mode)
       (let (plans (parser-machine-lexical-plans machine))
-        (eq? (vector-ref plans old-mode) (vector-ref plans new-mode)))))
+        (eq? (vector-ref plans old-mode) (vector-ref plans new-mode)))
+      (and first-character (< (char->integer first-character) 128)
+           (let* ((certificates (parser-machine-lexical-certificates machine))
+                  (class (vector-ref (vector-ref certificates 0) (char->integer first-character)))
+                  (modes (vector-ref certificates 1)))
+             (eq? (vector-ref (vector-ref modes old-mode) class)
+                  (vector-ref (vector-ref modes new-mode) class))))))
+
+;;; Quotient conservative first-transition masks, then full admission masks.
+;;; A certificate retains every admitted rule that could match the input's
+;;; first character. Rule ordinal preserves kind, precedence, and tie order;
+;;; equal candidate sets and the common all-rule fallback prove equal scans.
+;;; Non-ASCII and unknown lexical expressions keep their conservative path.
+(def (prepare-lexical-certificates rules mode-keys)
+  (let (interner (make-value-interner))
+    (let-values (((classes masks)
+                  (vector-intern-map
+                   (vector-map/index (lambda (code _) code) (make-vector 128 #f))
+                   (lambda (code)
+                     (list->vector (map (lambda (rule) ((vector-ref rule 5) (integer->char code))) rules)))
+                   (lambda (key id) (cons id key)))))
+      (let-values (((modes ignored)
+                    (vector-intern-map mode-keys (lambda (key) key)
+                      (lambda (key _id)
+                        (vector-map/index
+                         (lambda (_index mask)
+                           (let (candidate
+                                 (vector-map/index
+                                  (lambda (ordinal admitted) (and admitted (vector-ref (cdr mask) ordinal))) key))
+                             (value-interner-intern interner candidate (lambda () candidate)))) masks)))))
+        (vector (vector-map/index (lambda (_index entry) (car entry)) classes) modes)))))
 
 ;;; A generated driver is admitted only for the exact Parser IR whose digest
 ;;; was embedded in its source. Install during language-module initialization,
@@ -254,7 +284,7 @@
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number
    identifier number-literal quoted-string escaped-quoted-string heredoc
    line-comment block-comment
-   nested-block-comment precedence choice character-run)
+   nested-block-comment precedence choice character-run literals)
   ((_ ch (whitespace+)) (char-whitespace? ch))
   ((_ ch (horizontal-whitespace+))
    (or (char=? ch #\space) (char=? ch #\tab)))
@@ -278,6 +308,9 @@
   ((_ ch (escaped-quoted-string delimiter ...))
    (or (or (zero? (string-length delimiter))
            (char=? ch (string-ref delimiter 0))) ...))
+  ((_ ch (literals value ...))
+   (or (or (zero? (string-length value))
+           (char-ci=? ch (string-ref value 0))) ...))
   ((_ ch (heredoc)) (char=? ch #\<))
   ((_ ch (line-comment prefix ...))
    (or (char=? ch (string-ref prefix 0)) ...))
@@ -598,16 +631,18 @@
            (lambda (terminals)
              (list->vector (map (lambda (rule) (and ((vector-ref rule 0) terminals) #t)) rules))))
           (all-scanners (prepare-scanners (admission-key #f)))
+          (mode-keys (vector-map/index
+                      (lambda (_index mode) (admission-key (lr-lexical-mode-terminals mode))) mode-catalog))
+          (certificates (prepare-lexical-certificates rules mode-keys))
           (mode-scanners
            (if (current-lexical-plan-sharing-enabled?)
              (let-values (((plans unique)
-                           (vector-intern-map mode-catalog
-                             (lambda (mode) (admission-key (lr-lexical-mode-terminals mode)))
+                           (vector-intern-map mode-keys
+                             (lambda (key) key)
                              (lambda (key _id) (prepare-scanners key))))) plans)
              (vector-map/index
-              (lambda (_index mode)
-                (prepare-scanners (admission-key (lr-lexical-mode-terminals mode))))
-              mode-catalog))))
+              (lambda (_index key) (prepare-scanners key))
+              mode-keys))))
      (letrec
        ((scan-one
          (lambda (source offset byte-offset mode)
@@ -646,7 +681,7 @@
       ((source offset byte-offset)
        (scan-from source offset byte-offset))
       ((source offset byte-offset mode)
-       (scan-one source offset byte-offset mode))) mode-scanners)))))
+       (scan-one source offset byte-offset mode))) mode-scanners certificates)))))
 
 ;;; Connects immutable parser IR to generated lexer and LR runtime entrypoints once.
 ;;; Runtime calls receive the compiled machine and never re-enter grammar expansion.
@@ -679,7 +714,7 @@
                         (extras extra-name ...)
                         (cdr (assq 'case-insensitive? parser-ir))
                         (lr-runtime-lexical-mode-catalog runtime)))))
-       (let-values (((lexer plans) (factory)))
+       (let-values (((lexer plans certificates) (factory)))
          (make-parser-machine
           parser-ir parser-artifact-digest lexer
           (lambda (input-token) (memq (token-kind input-token) '(extra-name ...)))
@@ -687,4 +722,4 @@
           (lambda (tokens . maybe-observability)
             (lr-parse/prepared runtime tokens
               (if (null? maybe-observability) #f (car maybe-observability))))
-          #f #f plans factory))))))
+          #f #f plans certificates factory))))))

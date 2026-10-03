@@ -19,8 +19,8 @@
     (test-case "plan sharing changes construction count but preserves every mode scan"
       (for-each
        (lambda (machine)
-         (let-values (((shared plans) (parameterize ((current-lexical-plan-sharing-enabled? #t)) (parser-machine-prepare-lexer machine)))
-                      ((separate controls) (parameterize ((current-lexical-plan-sharing-enabled? #f)) (parser-machine-prepare-lexer machine))))
+         (let-values (((shared plans shared-certificates) (parameterize ((current-lexical-plan-sharing-enabled? #t)) (parser-machine-prepare-lexer machine)))
+                      ((separate controls control-certificates) (parameterize ((current-lexical-plan-sharing-enabled? #f)) (parser-machine-prepare-lexer machine))))
            (check (< (unique-count plans) (vector-length plans)) => #t)
            (check (unique-count controls) => (vector-length controls))
            (for-each
@@ -32,7 +32,7 @@
     (test-case "equivalent plans preserve token output across distinct LR modes"
       (let* ((plans (parser-machine-lexical-plans hcl-v2-24-parser))
              (catalog (lr-runtime-lexical-mode-catalog (parser-machine-runtime hcl-v2-24-parser))))
-        (let-values (((lexer ignored) (parser-machine-prepare-lexer hcl-v2-24-parser)))
+        (let-values (((lexer ignored certificates) (parser-machine-prepare-lexer hcl-v2-24-parser)))
           (for-each
            (lambda (i)
              (for-each
@@ -42,6 +42,35 @@
                   (check (scan lexer "value" (vector-ref catalog i)) => (scan lexer "value" (vector-ref catalog j)))))
               (iota (vector-length plans))))
            (iota (vector-length plans))))))
+    (test-case "first-character certificates preserve competition across distinct modes"
+      (for-each
+       (lambda (machine)
+         (let* ((catalog (lr-runtime-lexical-mode-catalog (parser-machine-runtime machine)))
+                (n (vector-length catalog)) (refined 0) (vetoed 0))
+           (let-values (((lexer plans certificates) (parser-machine-prepare-lexer machine)))
+             (for-each
+              (lambda (i)
+                (for-each
+                 (lambda (j)
+                   (for-each
+                    (lambda (text)
+                      (let ((compatible (parser-machine-lexical-modes-compatible? machine i j (string-ref text 0)))
+                            (left (scan lexer text (vector-ref catalog i)))
+                            (right (scan lexer text (vector-ref catalog j))))
+                        (when compatible
+                          ;; Rejection mode objects differ; compare outcome, while
+                          ;; successful scans compare complete token and offset.
+                          (check (if (eq? (car left) 'rejected) 'rejected left)
+                                 => (if (eq? (car right) 'rejected) 'rejected right))
+                          (unless (parser-machine-lexical-modes-compatible? machine i j)
+                            (set! refined (+ refined 1))))
+                        (when (and (not compatible) (not (equal? left right)))
+                          (set! vetoed (+ vetoed 1)))))
+                    '("\n" " " "x" "value" "001" ".2" "**" "*" "+" "/* λ */" "\"λ中😀\"" "<<EOF\na\nEOF\n" "λ中" "@")))
+                 (iota n))) (iota n)))
+           (check (> refined 0) => #t)
+           (when (eq? machine hcl-v2-24-parser) (check (> vetoed 0) => #t))))
+       (list hcl-v2-24-parser arithmetic-parser)))
     (test-case "six-edit token convergence preserves full artifacts and original folds"
       (let* ((line "value = 001\n") (source (apply string-append (make-list 80 line)))
              (session (make-incremental-session hcl-v2-24-parser source #t)))

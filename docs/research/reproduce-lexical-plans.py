@@ -34,7 +34,7 @@ for family, command, expected in [
     for repeat, order in [(1, ['strict', 'equivalent']), (2, ['equivalent', 'strict'])]:
         for variant in order:
             jobs.append((f'{variant}-{family}-{repeat}',
-                         (['no-plan-reuse'] if variant == 'strict' else []) + command, expected))
+                         (['no-plan-reuse'] if variant == 'strict' else ['plan-reuse']) + command, expected))
 for name, command, expected in jobs:
     print('BENCHMARK', name, 'HEAD', head, flush=True)
     activity = [time.monotonic()]

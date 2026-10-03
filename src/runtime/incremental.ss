@@ -62,15 +62,17 @@
 ;;; enabled/disabled. Ordinary sessions still do not capture a grammar forest.
 (def current-lr-fragment-reuse-enabled? (make-parameter #t))
 
-;;; Same-head native measurements currently favor vector convergence for full
-;;; ParseArtifact edits. Persistent provenance remains an explicit experiment
-;;; for the later local-recognition/publication boundary (RFC 0011).
+;;; Compiler candidate-set certificates affect lexical reuse only.
 (def current-lr-lexical-plan-reuse-enabled? (make-parameter #t))
-(def (source-mode-compatible? machine old-mode mode)
+(def (source-mode-compatible? machine old-mode mode old-token)
   (let (new-mode (lr-lexical-mode-id mode))
     (or (= old-mode new-mode)
         (and (current-lr-lexical-plan-reuse-enabled?)
-             (parser-machine-lexical-modes-compatible? machine old-mode new-mode)))))
+             (parser-machine-lexical-modes-compatible? machine old-mode new-mode
+               (string-ref (token-lexeme old-token) 0))))))
+;;; Same-head native measurements currently favor vector convergence for full
+;;; ParseArtifact edits. Persistent provenance remains an explicit experiment
+;;; for the later local-recognition/publication boundary (RFC 0011).
 (def current-lr-source-index-enabled? (make-parameter #f))
 (defstruct incremental-session-state
   (machine source artifact tokens modes checkpoints capture? recognition-root source-index)
@@ -883,7 +885,7 @@
                         (let ((old-token (source-index-cursor-token source-cursor))
                               (old-mode (source-index-cursor-mode source-cursor)))
                           (and old-token (= (+ (token-start old-token) byte-delta) byte)
-                               (source-mode-compatible? machine old-mode mode)
+                               (source-mode-compatible? machine old-mode mode old-token)
                                (let ((rank (source-index-cursor-rank source-cursor))
                                      (token (if (zero? byte-delta) old-token (relocate-token old-token byte-delta))))
                                  (set! index-origin (vector rank 1 byte-delta
@@ -909,7 +911,7 @@
                          (pair? mode-rest)
                          (= (+ (token-start (car old-rest)) byte-delta)
                             byte)
-                         (source-mode-compatible? machine (car mode-rest) mode)
+                         (source-mode-compatible? machine (car mode-rest) mode (car old-rest))
                          (let* ((old-token (car old-rest))
                                 (new-token
                                  (if (zero? byte-delta)

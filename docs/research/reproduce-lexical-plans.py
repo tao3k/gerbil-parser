@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Matched native lexical-plan construction and convergence controls using the existing session benchmark."""
 from pathlib import Path
-import argparse, hashlib, json, os, signal, subprocess, threading, time
+import argparse, hashlib, json, os, platform, re, shutil, signal, subprocess, threading, time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
@@ -21,7 +21,28 @@ out = args.output.resolve()
 out.mkdir(parents=True, exist_ok=True)
 if any(out.iterdir()) and not args.resume:
     raise SystemExit('Output directory must be empty to avoid mixing receipts')
-metadata = {'head': head, 'samples': args.samples, 'sequence_fusion': args.sequence_fusion, 'preparation_only': args.preparation_only, 'executor': 'native gxi',
+env = dict(os.environ, GERBIL_PATH=str(root/'.gerbil'),
+           GAMBOPT='max-heap=1G,debug=q',
+           GERBIL_PARSER_BENCHMARK_SAMPLES=str(args.samples), GERBIL_PARSER_LR_TRACE='1')
+executor = shutil.which('gxi')
+if not executor:
+    raise SystemExit('gxi is unavailable')
+unload_progress = platform.system() == 'Darwin'
+if unload_progress:
+    # System-shell launchers discard DYLD_* settings. Preserve their literal
+    # Gerbil mappings and invoke the same native binary directly. dyld emits
+    # actual dlopen/dlsym/dlclose operations; no timed heartbeat is added.
+    launcher = Path(executor).read_bytes()[:8192].decode(errors='ignore')
+    mappings = dict(re.findall(r'export (GERBIL_(?:HOME|PREFIX))="([^"$]+)"', launcher))
+    if 'GERBIL_HOME' in mappings:
+        env.update(mappings)
+        home = mappings['GERBIL_HOME']
+        executor = str(Path(home)/'bin/gxi')
+        env['GAMBOPT'] += f',~~={home},~~bin={home}/bin,~~lib={home}/lib'
+    if Path(executor).read_bytes()[:2] == b'#!':
+        raise SystemExit('Darwin unload progress requires a native gxi binary')
+    env['DYLD_PRINT_APIS'] = '1'
+metadata = {'head': head, 'samples': args.samples, 'sequence_fusion': args.sequence_fusion, 'preparation_only': args.preparation_only, 'executor': executor, 'executor_sha256': hashlib.sha256(Path(executor).read_bytes()).hexdigest(), 'dyld_api_progress': unload_progress,
             'inactivity_seconds': 5, 'batch_seconds': 180,
             'harness_sha256': hashlib.sha256((root/'t/benchmarks/incremental-session/benchmark.ss').read_bytes()).hexdigest(),
             'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')},
@@ -47,7 +68,7 @@ for family, command, expected in ([] if args.preparation_only else [
                          ((['no-sequence-fusion'] if variant == 'strict' else ['sequence-fusion']) if args.sequence_fusion else (['no-plan-reuse'] if variant == 'strict' else ['plan-reuse'])) + command, expected))
 if args.resume:
     previous = json.loads((out/'metadata.json').read_text())
-    for key in ['head', 'samples', 'sequence_fusion', 'preparation_only', 'harness_sha256', 'fixture_sha256']:
+    for key in ['head', 'samples', 'sequence_fusion', 'preparation_only', 'executor', 'executor_sha256', 'dyld_api_progress', 'harness_sha256', 'fixture_sha256']:
         if previous.get(key) != metadata[key]:
             raise SystemExit('Resume pin changed: '+key)
     if previous.get('complete') or not previous['jobs']:
@@ -79,9 +100,7 @@ for name, command, expected in jobs[len(metadata['jobs']):]:
     print('BENCHMARK', name, 'HEAD', head, flush=True)
     activity = [time.monotonic()]
     failed = threading.Event()
-    env = dict(os.environ, GERBIL_PATH=str(root/'.gerbil'),
-               GERBIL_PARSER_BENCHMARK_SAMPLES=str(args.samples), GERBIL_PARSER_LR_TRACE='1')
-    proc = subprocess.Popen(['gxi', '-:max-heap=1G,debug=q', 't/fixtures/benchmark-progress.ss',
+    proc = subprocess.Popen([executor, '-:max-heap=1G,debug=q', 't/fixtures/benchmark-progress.ss',
                              't/benchmarks/incremental-session/benchmark.ss', *command],
                             env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, start_new_session=True)

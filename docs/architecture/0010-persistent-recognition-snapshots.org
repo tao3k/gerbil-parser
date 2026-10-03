@@ -403,3 +403,56 @@ gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.
 - Expand to other deterministic repeat grammars only with owned corpus gates;
   layout, external scanner state, dynamic precedence, ambiguity and recovery
   require additional proofs and stay excluded from this admission.
+
+** Final matched measurements and native qualification
+
+[[file:../research/data/recognition-reuse-matched-2026-10-03.sexp][144 matched measurement rows]] pin the exact implementation/benchmark source head
+and retain every CPU sample. They cover 60 distinct first/middle/last insertion
+and deletion workloads across arithmetic 2/400/800/1600/3200 and HCL sibling
+2/100/200/400/800, with transfers disabled and enabled, plus reverse-order
+400/800 HCL repeats. Every row passed fresh complete-artifact equality,
+independent forward projection, inverse artifact equality and independent inverse
+projection. The initial rejected prototype is not included in these final rows.
+
+For HCL 800, ranges below contain the two five-sample CPU medians, in milliseconds.
+The control and enabled runs use the same capture executor and full API boundary:
+
+| Edit | Transfer disabled ms | Transfer enabled ms | Remaining significant tokens, disabled -> enabled |
+| First insertion | 11.685–12.855 | 7.456–7.515 | 3204 -> 804 |
+| First deletion | 9.745–9.840 | 7.270–7.288 | 3196 -> 799 |
+| Middle insertion | 5.654–5.708 | 4.642–4.735 | 1636 -> 412 |
+| Middle deletion | 5.579–5.627 | 4.528–4.605 | 1628 -> 407 |
+| Last insertion | 1.465–1.488 | 1.462–1.469 | 36 -> 36 |
+| Last deletion | 1.408–1.428 | 1.442–1.463 | 28 -> 28 |
+
+First insertion transfers 800 fragments / 2400 significant tokens; middle
+insertion transfers 408 / 1224. The direction repeats in reversed execution order;
+these are bounded single-machine observations. Control raw samples show substantial
+spread (for first insertion, approximately 9.68 to 20.56 ms in the first pass);
+enabled samples also vary. Report the recorded paired medians and repeated
+direction, rather than a universal fixed percentage gain. Last edits admit no transfers:
+small timing differences are not a recognition speedup. Arithmetic admits no
+transfers and retains the exact remaining-token counts of the control.
+
+Certificate probes are separately counted: first HCL insertion probes 4800 bytes.
+The existing relexedByteCount field does not include speculative certificate
+probes. It must not be read alone as total scanner work. Boundary probing and
+ordinary scanning can read a boundary token twice; a future bounded probe cache
+must key exact source position and lexical mode and preserve diagnostic ownership.
+That is a falsifiable next experiment, not an implemented gain.
+
+HCL direct fresh parsing remains approximately 0.6 ms for 800 declarations, much
+faster than the captured session path. The table proves the transfer improvement
+within that session path; it does not establish parity with the separate direct
+executor or qualify capture as the default API mode. Complete v1 publication
+still materializes approximately 27,000 events and hashes the complete source.
+
+[[file:../research/data/recognition-reuse-native-2026-10-03.sexp][Native qualification receipt]] records all 54 native modules, nine bounded
+batches and the final 15-case snapshot recheck. Runtime source built successfully
+with 12 build cores. Each batch requires its exact MODULE-OK count, HARNESS-OK and
+final OK, with five-second real-output inactivity and 180-second batch limits.
+One loading attempt was rejected for silence; only subsequent passing runs are
+qualified. The strengthened final fallback test uses a large eligible tail and
+checks fresh malformed-input equality, cleared root and cleared transfer receipts.
+
+No push, merge or exact-head remote CI result is implied by this local receipt.

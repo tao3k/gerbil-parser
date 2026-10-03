@@ -7,20 +7,22 @@
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?)
         (only-in :gerbil-parser/src/runtime/funcs recognition-sequence->list)
+        (only-in :gerbil-parser/src/runtime/recognition
+                 recognition-child-value recognition-node? recognition-node-kind)
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-layout-parser)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  current-lr-recognition-observer lr-prepare lr-parse/prepared
                  install-lr-runtime-direct-step! lr-runtime-fragment-reuse-safe? lr-initial-checkpoint
-                 lr-checkpoint-before-shift lr-checkpoint-fragment-compatible?
+                 lr-checkpoint-feed lr-checkpoint-before-shift lr-checkpoint-fragment-compatible?
                  lr-recognition-view?
                  lr-recognition-view-base lr-recognition-view-delta
                  lr-recognition-fragment? lr-recognition-fragment-children lr-recognition-fragment-end
                  lr-recognition-fragment-token-count lr-recognition-fragment-value
                  lr-recognition-project)
         (only-in :gerbil-parser/src/runtime/incremental
-                 make-incremental-session incremental-session-artifact
+                 current-lr-probe-reuse-enabled? make-incremental-session incremental-session-artifact
                  incremental-session-recognition-root incremental-session-project-artifact
                  parse-incremental-session apply-edit make-edit))
 
@@ -116,6 +118,21 @@
           (check (incremental-session-artifact next)
                  => (parse-hcl-v2-24 (string-append "other = 002\n" source)))
           (check-projection hcl-v2-24-parser source next))))
+    (test-case "probe reuse preserves the entire captured transfer result"
+      (let* ((source (apply string-append (make-list 80 "value = 001\n")))
+             (session (make-incremental-session hcl-v2-24-parser source #t))
+             (edit (make-edit 0 0 "other = 002\n")))
+        (let-values (((cached receipt) (parse-incremental-session session edit)))
+          (parameterize ((current-lr-probe-reuse-enabled? #f))
+            (let-values (((control control-receipt) (parse-incremental-session session edit)))
+              (check (incremental-session-artifact cached)
+                     => (incremental-session-artifact control))
+              (check (cdr (assq 'remainingSignificantTokenCount receipt))
+                     => (cdr (assq 'remainingSignificantTokenCount control-receipt)))
+              (check (> (cdr (assq 'fragmentProbeReuseTokenCount receipt)) 0) => #t)
+              (check (cdr (assq 'fragmentProbeReuseTokenCount control-receipt)) => 0)
+              (check-projection hcl-v2-24-parser source cached)
+              (check-projection hcl-v2-24-parser source control))))))
     (test-case "relative positions compose across edits inside reused suffixes"
       (check-edits (apply string-append (make-list 12 "value = 001\n"))
                    (list (make-edit 0 0 "other = 002\n")
@@ -176,6 +193,57 @@
         (check (lr-checkpoint-fragment-compatible?
                 (lr-checkpoint-before-shift (lr-initial-checkpoint second '()) token)
                 captured) => #f)))
+    (test-case "Wagner context-dependent repetition rejects identical public Item kinds"
+      ;; A c+ / B d+ shares the X X yield and semantic Item kind, while
+      ;; the distant marker selects a different grammar nonterminal/context.
+      (let* ((runtime
+              (lr-prepare
+               (compile-lr-spec
+                '((source-file
+                   (alias SourceFile
+                     (choice
+                      (sequence (literal "A") (repeat1 (reference c)))
+                      (sequence (literal "B") (repeat1 (reference d))))))
+                  (c (alias Item (sequence (token identifier) (token identifier))))
+                  (d (alias Item (sequence (token identifier) (token identifier)))))
+                'source-file)))
+             (tokens (map (lambda (index) (make-token 'identifier "X" index (+ index 1)))
+                          (iota 80 1)))
+             (captured #f))
+        (check (lr-runtime-fragment-reuse-safe? runtime) => #t)
+        (parameterize ((current-lr-recognition-observer
+                        (lambda (root) (set! captured root))))
+          (let-values (((root rest)
+                        (lr-parse/prepared runtime
+                          (cons (make-token 'identifier "A" 0 1) tokens))))
+            (check rest => '())))
+        (let (item
+              (let walk ((pending (list captured)))
+                (and (pair? pending)
+                     (let (piece (car pending))
+                       (if (not (lr-recognition-fragment? piece)) (walk (cdr pending))
+                         (let (children (recognition-sequence->list
+                                         (lr-recognition-fragment-value piece)))
+                           (if (and (= (lr-recognition-fragment-token-count piece) 2)
+                                    (pair? children) (null? (cdr children))
+                                    (recognition-node? (recognition-child-value (car children)))
+                                    (eq? (recognition-node-kind
+                                          (recognition-child-value (car children))) 'Item))
+                             piece
+                             (walk (append (lr-recognition-fragment-children piece)
+                                           (cdr pending))))))))))
+          (check (lr-recognition-fragment? item) => #t)
+          (let-values (((status after-marker)
+                        (lr-checkpoint-feed (lr-initial-checkpoint runtime '())
+                                            (make-token 'identifier "B" 0 1))))
+            (check status => 'checkpoint)
+            (check (lr-checkpoint-fragment-compatible?
+                    (lr-checkpoint-before-shift after-marker (car tokens)) item) => #f)))
+        (let-values (((root rest)
+                      (lr-parse/prepared runtime
+                        (cons (make-token 'identifier "B" 0 1) tokens))))
+          (check (recognition-node-kind root) => 'SourceFile)
+          (check rest => '()))))
     (test-case "deep left recursion projects without recursive Scheme traversal"
       (let* ((source (string-join (make-list 1600 "001") " + "))
              (session (make-incremental-session arithmetic-parser source #t)))

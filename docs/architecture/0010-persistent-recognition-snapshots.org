@@ -436,10 +436,9 @@ transfers and retains the exact remaining-token counts of the control.
 
 Certificate probes are separately counted: first HCL insertion probes 4800 bytes.
 The existing relexedByteCount field does not include speculative certificate
-probes. It must not be read alone as total scanner work. Boundary probing and
-ordinary scanning can read a boundary token twice; a future bounded probe cache
-must key exact source position and lexical mode and preserve diagnostic ownership.
-That is a falsifiable next experiment, not an implemented gain.
+probes. It must not be read alone as total scanner work. At this historical source head, boundary probing and ordinary scanning could
+read a boundary token twice. The implementation receipt below completes the
+bounded, context-bound probe handoff and measures it separately.
 
 HCL direct fresh parsing remains approximately 0.6 ms for 800 declarations, much
 faster than the captured session path. The table proves the transfer improvement
@@ -456,3 +455,96 @@ qualified. The strengthened final fallback test uses a large eligible tail and
 checks fresh malformed-input equality, cleared root and cleared transfer receipts.
 
 No push, merge or exact-head remote CI result is implied by this local receipt.
+
+* Paper-driven continuation: lexical context and sequence semantics
+
+** Rebase and primary-source bindings
+
+The working branch was fetched and rebased onto PR #13's head
+=7c1533356585154c8b5d340f64ffefb289d18907=. Git reported that it was already up to
+date; the rebase did not rewrite the existing implementation commits. This is
+remote revision evidence, not remote CI qualification or push authorization.
+
+Primary implementation sources inspected for this continuation are immutable:
+
+- [[https://github.com/tree-sitter/tree-sitter/blob/20cf25c10f13ed9b8c499dd966b4e7a57bedbf81/lib/src/parser.c#L703][Tree-sitter token cache]], revision =20cf25c10f13ed9b8c499dd966b4e7a57bedbf81=.
+  Its cached token is tied to byte position, external-scanner state and a current
+  parse-state admissibility check. This supplies a context-checking pattern;
+  its external-scanner contract is not implemented by the current closed scanner.
+- [[https://github.com/lezer-parser/lr/blob/ed59b8b9c0c26164d6483f4c881a8c200184894e/src/parse.ts#L105][Lezer TokenCache]], revision =ed59b8b9c0c26164d6483f4c881a8c200184894e=.
+  Token position, tokenizer mask, context and contextual-tokenizer behavior
+  participate in admission. Numeric mode IDs alone are not a transferable
+  context proof. The current runtime's immutable, interned mode objects provide
+  a narrower exact-identity key.
+- [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Wagner and Graham, sections 7 and 7.1]] requires associative sequence
+  representation and appropriate context independence for locality. An earlier
+  context marker can change an entire sequence's grammatical interpretation.
+  Generic grammar subtree rebalancing does not establish that guarantee.
+
+** Implemented source-probe handoff
+
+=src/runtime/probe.ss= holds one successful token result per edit request, bound
+to the exact machine/source, character position, byte position and interned
+lexical-mode object. =source-probe-scan= clears the previous slot before calling
+the source scanner and records only a successful return. Exceptions still
+propagate to the existing speculative veto handler; canonical scanning and parse
+failure retain diagnostic authority. A source token returned by an unsuccessful
+fragment certificate can still be consumed only when its exact lexical context
+matches; fragment validity and token-scan validity are different proofs.
+
+=source-probe-take!= returns the exact scanned token object to ordinary source
+consumption. The slot is cleared when consumed or when the cursor passes it;
+intervening trivia can precede a future-position slot. It does not retain a
+source-size cache or any cross-session history. This closes the boundary between
+certification and canonical token consumption while leaving the nonterminal
+entry/goto/lookahead certificate intact. It does not cache errors or admit
+external scanner, layout, dynamic precedence or ambiguous execution.
+
+The default parameter is enabled only inside the already-admitted experimental
+capture/fragment path. =current-lr-probe-reuse-enabled?= provides the same-runtime
+control. Normal capture-disabled sessions allocate no probe cache.
+
+The receipt adds =fragmentProbeReuseTokenCount= and =fragmentProbeReuseByteCount=.
+Probe/control rejection evidence is retained even when no fragment is accepted;
+fresh fallback clears transfer/probe receipts. The historical =relexedByteCount=
+field remains the token-convergence measure, not the complete scanner workload.
+On successful benchmark cases, separately report the scanner token-yield extent
+sum =relexedByteCount + fragmentCertificateProbeByteCount - fragmentProbeReuseByteCount=.
+This is token extent accounting, not an instruction/character-probe count for
+all internal scanner alternatives, and it does not include failed exploratory
+reads discarded by fresh fallback.
+
+** Executable paper boundary and next structural gate
+
+=t/recognition-snapshot-test.ss= now compiles an =A c+ | B d+= grammar where both
+=c= and =d= consume =X X= and export the same =Item= kind. The runtime contains
+admissible repeat structure. Changing the distant marker to =B= nevertheless
+rejects the old =c= fragment via its actual LR entry/goto context; ordinary parsing
+continues successfully. Public node-kind equality cannot substitute for this
+proof. The existing full-artifact/projector tests also compare cache enabled and
+disabled with the same transfer counts and remaining significant-token count.
+
+The next balanced-repeat implementation needs an explicit grammar fold contract:
+
+| Required owner / artifact | Concrete gate |
+| Grammar lowering / Parser IR | Preserve the explicit repeat origin, item operand actions and concat fold; distinguish associative list construction from operator alias reductions |
+| Repeat representation | Group immutable items in a balanced physical index while preserving left-to-right field/trivia order and the original semantic fold |
+| LR transfer | Certify the repeat segment's actual entry/exit control and prefix-semantic transformation; an old left-recursive production cannot be relabeled as a binary-group production |
+| Independent publication | Replay the original grammar fold to the identical canonical flat artifact, IDs, offsets and SHA256 |
+| Context / scale | Reject the A/B counterexample; compare sequential first/middle/last edits, construction cost, index work, retained memory and complete export separately |
+
+Balancing an auxiliary index can improve lookup yet leave linear grammar ancestry
+reconstruction. Changing the actual production to a binary repetition can create
+ambiguity and different LR tables. Neither is a proof of local recognition under
+the existing deterministic certificate. A compressed, certified repeat fold must
+be designed and qualified before claiming logarithmic updates. Operator ancestry
+and the complete flat publication bound remain outside that locality claim.
+
+** Reproduction
+
+#+begin_src sh
+GERBIL_BUILD_CORES=12 gerbil build
+GERBIL_PARSER_LR_TRACE=1 gerbil env gxi -:max-heap=1G,debug=q t/fixtures/native-progress.ss -v 4 t/source-probe-test.ss t/recognition-snapshot-test.ss
+GERBIL_PARSER_BENCHMARK_SAMPLES=20 gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss no-probe-reuse topology-hcl-capture 2 100 200 400 800
+GERBIL_PARSER_BENCHMARK_SAMPLES=20 gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-hcl-capture 2 100 200 400 800
+#+end_src

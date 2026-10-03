@@ -2,6 +2,7 @@
 ;;; Source-owner certificates for deterministic nonterminal transfers.
 (import (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia)
         (only-in ./lexer scan-source-token)
+        (only-in ./probe make-source-probe-cache source-probe-scan source-probe-take!)
         (only-in ./token make-token token? token-start token-end token-kind token-lexeme)
         (only-in ./lr-parser
                  lr-checkpoint-lexical-mode lr-checkpoint-state lr-lexical-mode-id
@@ -12,18 +13,23 @@
                  lr-recognition-fragment-offset lr-recognition-fragment-token-count
                  lr-recognition-fragment-lookahead lr-recognition-fragment-children
                  lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta))
-(export make-fragment-reuser)
+(export make-fragment-reuser current-lr-probe-reuse-enabled?)
+(def current-lr-probe-reuse-enabled? (make-parameter #t))
 
 ;;; Stats: fragments, significant tokens, source tokens, source bytes,
-;;; scanner-probe bytes (including rejected-candidate probes), rejected probes, control probes.
-;;; Neither a view nor a callback retains a historical session/source stream.
+;;; scanner-probe bytes (including rejected-candidate probes), rejected probes, control probes,
+;;; consumed probe tokens, consumed probe bytes.
+;;; Persistent views retain no session/source stream. Callback/catalog/token
+;;; vectors and the bounded scanner slot live only during the current edit.
 (def (make-fragment-reuser machine source old-tokens old-modes root edit-start edit-end delta restart-byte)
   (let* ((tokens (list->vector old-tokens)) (modes (list->vector old-modes))
          (count (vector-length tokens)) (trivia? (parser-machine-trivia machine))
          (starts (make-table test: eqv?)) (ends (make-table test: eqv?))
          (significant-prefix (make-vector (+ count 1) 0))
-         (catalog (make-table test: eqv?)) (stats (make-vector 7 0))
-         (source-length (string-length source)))
+         (catalog (make-table test: eqv?)) (stats (make-vector 9 0))
+         (source-length (string-length source))
+         (probe-cache (and (current-lr-probe-reuse-enabled?)
+                           (make-source-probe-cache machine source))))
     (unless (= count (vector-length modes)) (error "invalid captured lexical modes"))
     (def (add-stat! index value)
       (vector-set! stats index (+ (vector-ref stats index) value)))
@@ -96,7 +102,9 @@
       ;; parse still owns diagnostics; speculative lexical failures are vetoes.
       (with-catch (lambda (_condition) #f)
         (lambda ()
-          (let-values (((token next-character) (scan-source-token machine source character byte mode)))
+          (let-values (((token next-character) (if probe-cache
+                                   (source-probe-scan probe-cache character byte mode)
+                                   (scan-source-token machine source character byte mode))))
             (add-stat! 4 (- (token-end token) byte))
             (cons token next-character)))))
     (def (boundary-matches? piece position-delta character byte eof-offset)
@@ -163,4 +171,11 @@
                                            (reverse segment) (reverse segment-modes) next-character next-byte))
                                         (begin (add-stat! 5 1) (choose (cdr entries)))))))
                                 (begin (add-stat! 5 1) (choose (cdr entries))))))))))))
-     stats)))
+     stats
+     (and probe-cache
+          (lambda (character byte mode)
+            (let (result (source-probe-take! probe-cache character byte mode))
+              (when result
+                (add-stat! 7 1)
+                (add-stat! 8 (- (token-end (car result)) byte)))
+              result))))))

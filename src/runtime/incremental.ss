@@ -15,7 +15,7 @@
                  token-event-lexeme token-event-token-kind)
         (only-in ./recognition recognition-child-value)
         (only-in ./funcs recognition-sequence->list)
-        (only-in ./reuse make-fragment-reuser)
+        (only-in ./reuse make-fragment-reuser current-lr-probe-reuse-enabled?)
         (only-in ./identity sha256-text)
         (only-in ./lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
@@ -29,7 +29,7 @@
         (only-in ./significant parser-significant-tokens)
         (only-in ./token
                  make-token token-end token-kind token-lexeme token-start))
-(export current-lr-fragment-reuse-enabled?
+(export current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled?
         +edit-schema+
         +incremental-receipt-schema+
         make-edit
@@ -734,7 +734,7 @@
          (checkpoints (incremental-session-state-checkpoints session))
          (new-source (apply-edit old-source source-edit))
          (source-byte-length (u8vector-length (string->utf8 new-source)))
-         (fragment-stats (make-vector 7 0)))
+         (fragment-stats (make-vector 9 0)))
     (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
                  fresh? (reused-events #f) (replaced-significant-count 0))
       (let* ((artifact (incremental-session-artifact next))
@@ -755,11 +755,15 @@
          next
          (incremental-receipt
           (append
-           (if (positive? (vector-ref fragment-stats 0))
+           (if (or (positive? (vector-ref fragment-stats 0))
+                   (positive? (vector-ref fragment-stats 6))
+                   (positive? (vector-ref fragment-stats 7)))
              (list (cons 'reusedRecognitionFragmentCount (vector-ref fragment-stats 0))
                    (cons 'fragmentCertificateProbeByteCount (vector-ref fragment-stats 4))
                    (cons 'fragmentRejectedProbeCount (vector-ref fragment-stats 5))
-                   (cons 'fragmentControlProbeCount (vector-ref fragment-stats 6))) '())
+                   (cons 'fragmentControlProbeCount (vector-ref fragment-stats 6))
+                   (cons 'fragmentProbeReuseTokenCount (vector-ref fragment-stats 7))
+                   (cons 'fragmentProbeReuseByteCount (vector-ref fragment-stats 8))) '())
           (cond
            (fresh? (cons (cons 'freshFallback? #t) fields))
            (reused-events
@@ -767,7 +771,7 @@
            (else fields)))
           artifact (and (not reused-events) shifted)))))
     (def (fallback)
-      (set! fragment-stats (make-vector 7 0))
+      (set! fragment-stats (make-vector 9 0))
       (finish (session-from-directed machine new-source
                                      (incremental-session-state-capture? session))
               0 0 0 0 0 #t))
@@ -850,7 +854,7 @@
                  (rebound
                   (lr-prefix-snapshot-rebind
                    (vector-ref saved 1) prefix '() restart-byte)))
-            (let-values (((reuse-fragment stats)
+            (let-values (((reuse-fragment stats reuse-probe)
                           (if (and (incremental-session-state-capture? session)
                                    (incremental-session-recognition-root session)
                                    (current-lr-fragment-reuse-enabled?)
@@ -863,7 +867,7 @@
                              machine new-source old-tokens old-modes
                              (incremental-session-recognition-root session)
                              (edit-start-byte source-edit) edit-end byte-delta restart-byte)
-                            (values #f fragment-stats))))
+                            (values #f fragment-stats #f))))
               (set! fragment-stats stats)
             (let-values
                 (((artifact tokens modes records root)
@@ -872,7 +876,12 @@
                      (parse-source/checkpoints/resume
                       machine new-source +checkpoint-spacing+ rebound
                       prefix prefix-modes restart-character restart-byte
-                      reuse-token reuse-fragment))
+                      (if reuse-probe
+                        (lambda (character byte mode)
+                          (or (reuse-probe character byte mode)
+                              (reuse-token character byte mode)))
+                        reuse-token)
+                      reuse-fragment))
                    (incremental-session-state-capture? session))))
               (if (not (parse-artifact-success? artifact))
                 (fallback)

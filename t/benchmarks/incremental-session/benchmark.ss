@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
-                 current-lr-fragment-reuse-enabled? apply-edit incremental-session-artifact
+                 current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled? apply-edit incremental-session-artifact
                  make-edit make-incremental-session incremental-session-project-artifact
                  parse-incremental-session parse-source/incremental))
 
@@ -176,14 +176,23 @@
     (if (odd? n) (list-ref sorted mid)
       (/ (+ (list-ref sorted (- mid 1)) (list-ref sorted mid)) 2.0))))
 
-(def (topology-samples thunk)
-  (map (lambda (_)
+(def +topology-sample-count+
+  (let (count (string->number (or (getenv "GERBIL_PARSER_BENCHMARK_SAMPLES" #f) "5")))
+    (unless (and (integer? count) (<= 1 count 100))
+      (error "topology sample count must be an integer from 1 to 100"))
+    count))
+
+(def (topology-samples thunk (phase 'unspecified))
+  (map (lambda (index)
          (##gc)
          (let* ((started (cpu-time)) (result (thunk))
                 (elapsed (* 1000.0 (- (cpu-time) started))))
            (unless result (error "topology benchmark returned no result"))
+           ;; Real sample completion, outside the measured call; no heartbeat.
+           (write (list 'topology-sample phase (+ index 1) 'cpu-ms elapsed))
+           (newline) (force-output)
            elapsed))
-       (iota 5)))
+       (iota +topology-sample-count+)))
 
 (def (measure-topology terms location operation (family 'arithmetic) (capture? #f))
   (let* ((hcl? (eq? family 'hcl-siblings))
@@ -220,16 +229,16 @@
             (unless (equal? (incremental-session-project-artifact restored)
                             (incremental-session-artifact session))
               (error "inverse captured projection differs" terms location operation)))))
-      (let ((fresh-times (topology-samples (lambda () (parse changed))))
+      (let ((fresh-times (topology-samples (lambda () (parse changed)) 'fresh))
             (cached-times
              (topology-samples
               (lambda ()
                 (let-values (((result ignored) (parse-incremental-session session edit)))
-                  (incremental-session-artifact result))))))
+                  (incremental-session-artifact result))) 'cached)))
         (write
          (list (cons 'workload 'significant-token-topology-change)
                (cons 'family family) (cons 'input-units terms) (cons 'location location) (cons 'operation operation)
-               (cons 'samples 5) (cons 'recognition-capture? capture?)
+               (cons 'samples +topology-sample-count+) (cons 'recognition-capture? capture?)
                (cons 'complete-artifact-equal? #t) (cons 'inverse-edit-equal? #t)
                (cons 'events (length (parse-artifact-events fresh)))
                (cons 'resumed-shifts (cdr (assq 'resumedSignificantTokenCount receipt)))
@@ -242,6 +251,7 @@
                      (let (entry (assq 'reusedRecognitionEventCount receipt))
                        (if entry (cdr entry) 0)))
                (cons 'fragment-reuse-enabled? (current-lr-fragment-reuse-enabled?))
+               (cons 'probe-reuse-enabled? (current-lr-probe-reuse-enabled?))
                (cons 'reused-recognition-fragments
                      (let (entry (assq 'reusedRecognitionFragmentCount receipt))
                        (if entry (cdr entry) 0)))
@@ -250,6 +260,12 @@
                        (if entry (cdr entry) 0)))
                (cons 'certificate-probe-bytes
                      (let (entry (assq 'fragmentCertificateProbeByteCount receipt))
+                       (if entry (cdr entry) 0)))
+               (cons 'reused-probe-tokens
+                     (let (entry (assq 'fragmentProbeReuseTokenCount receipt))
+                       (if entry (cdr entry) 0)))
+               (cons 'reused-probe-bytes
+                     (let (entry (assq 'fragmentProbeReuseByteCount receipt))
                        (if entry (cdr entry) 0)))
                (cons 'fresh-cpu-samples-ms fresh-times)
                (cons 'cached-cpu-samples-ms cached-times)
@@ -286,6 +302,9 @@
 
 
 (def (main . args)
+  (when (and (pair? args) (equal? (car args) "no-probe-reuse"))
+    (current-lr-probe-reuse-enabled? #f)
+    (set! args (cdr args)))
   (when (and (pair? args) (equal? (car args) "no-reuse"))
     (current-lr-fragment-reuse-enabled? #f)
     (set! args (cdr args)))

@@ -80,6 +80,7 @@
                      (recognition-sequence-relocate sequence 17) -17)))
         (check (eq? (event-program-value-body program) sequence) => #t)
         (check (event-program-sequence-arity sequence) => 2)
+        (check (<= (event-program-sequence-height sequence) 12) => #t)
         (check (recognition-sequence-start sequence 99) => 0)
         (check (recognition-sequence-end sequence 99) => 10000)
         (check (recognition-sequence-start view 99) => 0)
@@ -117,6 +118,27 @@
         (check (length (parse-artifact-events artifact)) => 20001)
         (check (car (parse-artifact-events artifact)) => (vector 'start-node 0 'Node 0))
         (check (last (parse-artifact-events artifact)) => (vector 'finish-node 0 'Node 1))))
+    (test-case "asymmetric balanced joins preserve complete source order and old operands"
+      (def (range start count)
+        (let loop ((n 0) (value #f))
+          (if (= n count) value
+            (loop (+ n 1) (event-program-append value
+              (make-token 'number "1" (+ start n) (+ start n 1)))))))
+      (for-each
+       (lambda (sizes)
+         (let* ((left-size (car sizes)) (right-size (cadr sizes))
+                (left (range 0 left-size)) (right (range left-size right-size))
+                (joined (event-program-append left right)) (seen 0) (valid? #t))
+           (event-program-walk
+            (lambda (operation token offset delta moved?)
+              (set! valid? (and valid? (eq? operation 'token) (= offset seen)))
+              (set! seen (+ seen 1))) joined)
+           (check valid? => #t)
+           (check seen => (+ left-size right-size))
+           (check (<= (event-program-sequence-height joined) 12) => #t)
+           (check (length (recognition-sequence->list left)) => left-size)
+           (check (length (recognition-sequence->list right)) => right-size)))
+       '((1 5000) (5000 1) (257 4096) (4096 257) (33 33))))
     (test-case "lowering snapshots field names rather than caching mutable children"
       (let* ((token (make-token 'number "1" 0 1))
              (child (make-recognition-child #f token))

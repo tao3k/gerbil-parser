@@ -10,9 +10,10 @@
         event-program-sequence? event-program-sequence-arity
         event-program-sequence-start event-program-sequence-end
         event-program-sequence-field? event-program-sequence-for-each
+        event-program-sequence-height
         event-program-value-body)
 
-(defstruct event-code-branch (left right start end))
+(defstruct event-code-branch (left right start end height))
 (defstruct event-code-view (code delta))
 (defstruct event-code-chunk (items start end))
 (defstruct event-field-frame (name start end body))
@@ -22,9 +23,8 @@
 (def (event-program-value-code value) value)
 (def (event-program-token token) token)
 (def +event-chunk-capacity+ 16)
-;;; Only a bounded leaf block may be copied. A large prefix remains shared;
-;;; append fills its rightmost block with one copied branch, never walks the
-;;; existing sequence or rewrites retained blocks.
+;;; Only bounded leaf blocks may be copied. Persistent AVL join copies the
+;;; logarithmic boundary path, retaining every untouched subtree and block.
 (def (event-block-width code)
   (cond ((event-code-chunk? code) (vector-length (event-code-chunk-items code)))
         ((event-code-branch? code) (+ +event-chunk-capacity+ 1))
@@ -46,21 +46,49 @@
     (copy-block right right-width left-width)
     (make-event-code-chunk items (event-program-sequence-start left 0)
                                 (event-program-sequence-end right 0))))
+(def (event-program-sequence-height code)
+  ;; Semantic nodes, fields and position views are opaque rope leaves. Their
+  ;; bodies retain their own balanced storage and depth fallback independently.
+  (if (event-code-branch? code) (event-code-branch-height code) 0))
 (def (event-branch left right)
   (make-event-code-branch left right (event-program-sequence-start left 0)
-                                   (event-program-sequence-end right 0)))
+    (event-program-sequence-end right 0)
+    (+ 1 (max (event-program-sequence-height left) (event-program-sequence-height right)))))
+(def (event-balance left right)
+  (let ((left-height (event-program-sequence-height left))
+        (right-height (event-program-sequence-height right)))
+    (cond
+     ((> left-height (+ right-height 1))
+      (let ((a (event-code-branch-left left)) (b (event-code-branch-right left)))
+        (if (>= (event-program-sequence-height a) (event-program-sequence-height b))
+          (event-branch a (event-branch b right))
+          (event-branch (event-branch a (event-code-branch-left b))
+                        (event-branch (event-code-branch-right b) right)))))
+     ((> right-height (+ left-height 1))
+      (let ((b (event-code-branch-left right)) (c (event-code-branch-right right)))
+        (if (>= (event-program-sequence-height c) (event-program-sequence-height b))
+          (event-branch (event-branch left b) c)
+          (event-branch (event-branch left (event-code-branch-left b))
+                        (event-branch (event-code-branch-right b) c)))))
+     (else (event-branch left right)))))
+(def (event-rope-join left right)
+  (let ((left-height (event-program-sequence-height left))
+        (right-height (event-program-sequence-height right)))
+    (cond
+     ((> left-height (+ right-height 1))
+      (event-balance (event-code-branch-left left)
+                     (event-rope-join (event-code-branch-right left) right)))
+     ((> right-height (+ left-height 1))
+      (event-balance (event-rope-join left (event-code-branch-left right))
+                     (event-code-branch-right right)))
+     ((and (= left-height 0) (= right-height 0)
+           (<= (+ (event-block-width left) (event-block-width right)) +event-chunk-capacity+))
+      (event-block-join left right))
+     (else (event-branch left right)))))
 (def (event-program-append left right)
-  (cond
-   ((or (not left) (null? left)) right)
-   ((or (not right) (null? right)) left)
-   ((<= (+ (event-block-width left) (event-block-width right)) +event-chunk-capacity+)
-    (event-block-join left right))
-   ((and (event-code-branch? left)
-         (<= (+ (event-block-width (event-code-branch-right left)) (event-block-width right))
-             +event-chunk-capacity+))
-    (event-branch (event-code-branch-left left)
-                  (event-block-join (event-code-branch-right left) right)))
-   (else (event-branch left right))))
+  (cond ((or (not left) (null? left)) right)
+        ((or (not right) (null? right)) left)
+        (else (event-rope-join left right))))
 (def (event-program-relocate code delta (moved? #t))
   (cond ((not code) #f) ((not moved?) code)
         ((event-code-view? code)

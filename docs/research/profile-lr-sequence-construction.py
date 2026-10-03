@@ -108,27 +108,42 @@ mapping = dict(re.findall(r'export (GERBIL_(?:HOME|PREFIX))="([^"$]+)"', launche
 home = mapping['GERBIL_HOME']
 env = dict(os.environ, **mapping, GERBIL_PATH=str(study/'.gerbil'),
            GAMBOPT=f'max-heap=1G,debug=q,~~={home},~~bin={home}/bin,~~lib={home}/lib')
-print('BUILD-ISOLATED-INSTRUMENTATION', flush=True)
-started = time.monotonic()
-with (out/'build.log').open('w') as log:
-    build = subprocess.Popen(['gxc', '-O', 'src/runtime/event-program.ss'], cwd=study, env=env,
-                             stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-    try:
-        status = build.wait(timeout=180)
-    except subprocess.TimeoutExpired:
-        os.killpg(build.pid, signal.SIGKILL)
-        status = build.wait()
+# Recompile callers of inline constructors, not just the defining module.
+# Otherwise old .ssxi expansions silently bypass allocation counters.
+batches = [
+ ['src/runtime/event-program.ss', 'src/runtime/event-reduce.ss', 'src/runtime/funcs.ss'],
+ ['src/runtime/lr-parser.ss', 'src/runtime/artifact.ss', 'src/runtime/incremental.ss'],
+ ['languages/hcl/v2-24/direct-step.ss'],
+]
 receipt = dict(head=head, schema='gerbil-parser.lr-construction-profile.v1',
                scope='Instrumented operation counts only; no CPU performance claim',
                source_sha256=hashlib.sha256(original.encode()).hexdigest(),
                instrumented_sha256=hashlib.sha256(s.encode()).hexdigest(),
                harness_sha256=hashlib.sha256(harness.read_bytes()).hexdigest(),
-               build_exit=status, build_wall_seconds=time.monotonic()-started,
-               build_batch_seconds=180, complete=False)
-(out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
-if status:
-    raise SystemExit('Isolated instrumentation build failed')
-print('BUILD-ISOLATED-INSTRUMENTATION-OK', flush=True)
+               builds=[], build_batch_seconds=180, complete=False)
+owner_native = root/'.gerbil/lib/gerbil-parser/src/runtime'
+before_native = {f.name: hashlib.sha256(f.read_bytes()).hexdigest()
+                 for f in owner_native.glob('event-program*') if f.is_file()}
+for index, sources in enumerate(batches, 1):
+    print('BUILD-ISOLATED-INSTRUMENTATION', index, flush=True)
+    started = time.monotonic()
+    command = ['gxc', '-O', *sources]
+    log_path = out/f'build-{index}.log'
+    with log_path.open('w') as log:
+        build = subprocess.Popen(command, cwd=study, env=env,
+                                 stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            status = build.wait(timeout=180)
+        except subprocess.TimeoutExpired:
+            os.killpg(build.pid, signal.SIGKILL)
+            status = build.wait()
+    receipt['builds'].append(dict(command=command, exit=status,
+                                 wall_seconds=time.monotonic()-started,
+                                 log_sha256=hashlib.sha256(log_path.read_bytes()).hexdigest()))
+    (out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
+    if status:
+        raise SystemExit('Isolated instrumentation build failed')
+    print('BUILD-ISOLATED-INSTRUMENTATION-OK', index, flush=True)
 if platform.system() == 'Darwin':
     env['DYLD_PRINT_APIS'] = '1'
 command = [str(Path(home)/'bin/gxi'), 't/fixtures/benchmark-progress.ss', 'profile.ss']
@@ -153,7 +168,7 @@ with (out/'profile.log').open('w') as log:
         log.write(line)
         log.flush()
         if line.startswith(('((workload .', 'LR-CONSTRUCTION-PROFILE-ALL-OK')):
-            print(line, end='', flush=True)
+            print('PROFILE-STAGE-OK' if line.startswith('((workload .') else line.strip(), flush=True)
 status = proc.wait()
 monitor.join()
 lines = (out/'profile.log').read_text().splitlines()
@@ -166,13 +181,16 @@ complete = (status == 0 and not reason[0] and len(rows) == 26
             and all(row['complete-artifact-equal?'] == '#t' for row in rows)
             and all(int(row['append-calls']) == sum(int(row[k]) for k in
                     ['empty-left','empty-right','singleton-appends','multi-concats']) for row in rows)
+            and all(int(row['field-allocations']) > 0 and int(row['node-allocations']) > 0
+                    for row in rows if row['stage'] == 'initial')
             and 'LR-CONSTRUCTION-PROFILE-ALL-OK' in lines
             and not any('*** ERROR' in line for line in lines))
 receipt.update(command=command, exit=status, watchdog=reason[0], inactivity_seconds=5,
                batch_seconds=180, rows=rows, complete=complete,
                owner_source_unchanged=(root/'src/runtime/event-program.ss').read_text() == original,
-               log_sha256=hashlib.sha256((out/'profile.log').read_bytes()).hexdigest(),
-               build_log_sha256=hashlib.sha256((out/'build.log').read_bytes()).hexdigest())
+               owner_native_unchanged=before_native == {f.name: hashlib.sha256(f.read_bytes()).hexdigest()
+                 for f in owner_native.glob('event-program*') if f.is_file()},
+               log_sha256=hashlib.sha256((out/'profile.log').read_bytes()).hexdigest())
 (out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
 print('LR-CONSTRUCTION-PROFILE-COMPLETE', complete, 'ROWS', len(rows), flush=True)
-raise SystemExit(0 if complete and receipt['owner_source_unchanged'] else 1)
+raise SystemExit(0 if complete and receipt['owner_source_unchanged'] and receipt['owner_native_unchanged'] else 1)

@@ -3,6 +3,15 @@
 ;;; Dependency boundaries keep cold imports subject to the same silence gate.
 (def +preloaded-modules+ '())
 
+(def (prefer-native-interfaces!)
+  ;; Called only by the native suite; source benchmark entries retain their
+  ;; source overlay. FFI C forms require the compiled module interface.
+  (let (native-root (getenv "GERBIL_PATH" #f))
+    (when native-root
+      (let (library (path-expand "lib" native-root))
+        (when (file-exists? library)
+          (add-load-path! library))))))
+
 (def (compiled-file module suffix)
   (find file-exists?
         (map (lambda (root) (path-expand (string-append module suffix) root))
@@ -50,7 +59,10 @@
   (cond ((symbol? value)
          (let (name (symbol->string value))
            (when (string-prefix? ":" name)
-             (preload-module (substring name 1 (string-length name))))))
+             (let (module (substring name 1 (string-length name)))
+               (when (or (compiled-file module ".ssi")
+                         (compiled-file module ".scm"))
+                 (preload-module module))))))
         ((pair? value) (for-each preload-import-set value))))
 
 (def (preload-test-imports file)

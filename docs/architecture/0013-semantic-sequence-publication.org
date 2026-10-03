@@ -277,3 +277,10 @@ LR event lowering, fully green native timing gates or remote CI is made.
 - [[../research/data/sequence-publication-direct-list-native-2026-10-03.json][58 actually selected modules, 485 started / 483 passed cases, two retained timing failures]].
 - [[../research/data/sequence-publication-native-failure-2026-10-03.json][Initial complete 485-case audit and seven failures]].
 - [[../research/data/sequence-publication-native-isolated-2026-10-03.json][Independent FFI/style passes and unchanged-gate performance failures]].
+
+* Subsequent event-program implementation
+
+RFC [[file:0014-persistent-lr-event-programs.org][0014]] records the subsequent persistent LR event program implementation,
+its runtime ownership correction and its measured evidence. The negative
+sequence-fusion evidence above remains a historical receipt for its pinned
+source. The new implementation has a separate performance admission boundary.

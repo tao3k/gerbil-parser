@@ -1,0 +1,252 @@
+{
+  "head": "e1cb12d51a2e5da31bae60f5aecc4bbb2389187e",
+  "samples": 20,
+  "baseline": null,
+  "sequence_fusion": false,
+  "event_program": true,
+  "preparation_only": false,
+  "executor": "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+  "executor_sha256": "b10537c3ef42b79eb4024e9df9f6e6f3b04cbd40e8c02c8aa946a12d4b89b986",
+  "dyld_api_progress": true,
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "harness_sha256": "e8d3ea1b96cb30ca1a637dba692d3454a6e1fd018e1c9f9c63f3d5f354e47335",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50"
+  },
+  "jobs": [
+    {
+      "name": "strict-flat-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "c8f31b595f2d463194fb70479881d00658c64bc5f5c751f7d2ddae32293347b4"
+    },
+    {
+      "name": "equivalent-flat-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "e54f58bd3fd11aaf1ff95d244117bec6740915463b7b7e3ed3f47b24b854cf97"
+    },
+    {
+      "name": "equivalent-flat-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "ce1c39fb59fdef373fb6c73311368f62d07768f2ab33d99a0ce94cbd9015f3ac"
+    },
+    {
+      "name": "strict-flat-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "2f077e8e69d1c96c155c30163e3b1127455ddc083a1b9ad9cef7aac88b91989e"
+    },
+    {
+      "name": "strict-nested-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "c05a90626868e1a8290541ac00e8965b730ef5eae1e753606a5c59943750b7dc"
+    },
+    {
+      "name": "equivalent-nested-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "e5f0600749d50723c6011706aae4ba29867ce6576e602f6d4012ddba19d2bfb4"
+    },
+    {
+      "name": "equivalent-nested-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "712e9a3b81d11f6c66c85458cf6da3109ff1f5e4f5488ff987fb2ad28325c03f"
+    },
+    {
+      "name": "strict-nested-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "5a1d79114e910d0853942d3fbc9c871774039a572d8c40497102623a80cbb341"
+    },
+    {
+      "name": "strict-history-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "a279e869a59a162af11d21996a96578471ce00ad20a213a27095a3ebfc79e7a6"
+    },
+    {
+      "name": "equivalent-history-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "1784b2987afc16ee413213c67fc88742b5f35a2e6898cbd24f8d28f1ca13137f"
+    },
+    {
+      "name": "equivalent-history-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "2e3051296838edac73b3b768cd3c2fb0b00de32ea8ac6d512dd366b074d2234f"
+    },
+    {
+      "name": "strict-history-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "73c42fa9cdd910195469f72a217cbe549e6493d7311ba9fc137a53733b493e45"
+    },
+    {
+      "name": "strict-history-nested-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "181bdfb75893ff980d352d5cde32fa9fbb840b729f3c02f72ce150a8d673a6d1"
+    },
+    {
+      "name": "equivalent-history-nested-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "35f32d70df2ffc9423a46c766ab24076a510e09c56196a56256b07627ea06d34"
+    },
+    {
+      "name": "equivalent-history-nested-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "event-program",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "7f53865784f2c4e3c67d035827a66d5bd34b515cd37dfcf171cfe57ebcc8418e"
+    },
+    {
+      "name": "strict-history-nested-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-event-program",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "86264d222fe0e2c3ff6b7dbea2e2923b1c70c6e0a08c30a5dc3b237e224de9cb"
+    }
+  ],
+  "complete": true,
+  "schema": "gerbil-parser.event-program-matched.v1",
+  "qualification": "complete-matched-run",
+  "build_qualification": "incrementally-rebuilt-native",
+  "build_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "reproduction_recipe_sha256": "e0c645214e4af4463f794a58df3b22bebbbfe4e509ac56235c58abc9e861b1ee",
+  "measurement_rows": 112
+}

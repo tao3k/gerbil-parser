@@ -65,7 +65,7 @@
       (let (plans (parser-machine-lexical-plans machine))
         (eq? (vector-ref plans old-mode) (vector-ref plans new-mode)))
       (and first-character (< (char->integer first-character) 128)
-           (let* ((certificates (parser-machine-lexical-certificates machine))
+           (let* ((certificates (force (parser-machine-lexical-certificates machine)))
                   (class (vector-ref (vector-ref certificates 0) (char->integer first-character)))
                   (modes (vector-ref certificates 1)))
              (eq? (vector-ref (vector-ref modes old-mode) class)
@@ -696,8 +696,10 @@
           (all-scanners (prepare-scanners (admission-key #f)))
           (mode-keys (vector-map/index
                       (lambda (_index mode) (admission-key (lr-lexical-mode-terminals mode))) mode-catalog))
-          (certificates (prepare-lexical-certificates rules mode-keys (admission-key #f)
-                          (list (lexical-rule-certificate-template row) ...)))
+          ;; Normal parsing uses full plans only. Materialize ASCII certificates
+          ;; once, on the first request that needs the stronger quotient.
+          (certificates (delay (prepare-lexical-certificates rules mode-keys (admission-key #f)
+                                 (list (lexical-rule-certificate-template row) ...))))
           (mode-scanners
            (if (current-lexical-plan-sharing-enabled?)
              (let-values (((plans unique)

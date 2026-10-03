@@ -24,6 +24,11 @@ for field, path in [('build_log_sha256', args.build_log), ('clean_log_sha256', a
         metadata[field] = hashlib.sha256(path.read_bytes()).hexdigest()
 if args.primary:
     metadata['primary_source'] = json.loads(args.primary.read_text())
+metadata['reproduction_recipe_sha256'] = hashlib.sha256((Path.cwd()/'docs/research/reproduce-lexical-plans.py').read_bytes()).hexdigest()
+for job in metadata.get('failed_attempts', []):
+    path = args.input/job['log_name']
+    if hashlib.sha256(path.read_bytes()).hexdigest() != job['sha256']:
+        parser.error('Changed failed-attempt log: '+job['name'])
 rows = []
 for job in metadata['jobs']:
     path = args.input/(job['name']+'.log')

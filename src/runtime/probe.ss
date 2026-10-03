@@ -3,7 +3,9 @@
 (import (only-in ./lexer scan-source-token))
 (export current-lr-lexical-plan-reuse-enabled? make-source-probe-cache source-probe-scan source-probe-take!)
 
-(def current-lr-lexical-plan-reuse-enabled? (make-parameter #t))
+;;; Complete-edit controls favor some flat prefixes, but nested and history
+;;; gains are not stable. Keep stronger lexical reuse an explicit experiment.
+(def current-lr-lexical-plan-reuse-enabled? (make-parameter #f))
 
 (defstruct source-probe-cache-instance (machine source slot scanner))
 (def (make-source-probe-cache machine source (scanner #f))

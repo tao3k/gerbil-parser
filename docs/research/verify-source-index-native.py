@@ -45,11 +45,22 @@ if not args.resume:
     command = ['gxc', '-O', *fixture_sources]
     print('BUILD-TEST-FIXTURE', *command, flush=True)
     log = out/'fixture-build.log'
+    build_started = time.monotonic()
+    build_timeout = False
     with log.open('w') as output:
-        status = subprocess.run(command, env=env, stdout=output, stderr=subprocess.STDOUT,
-                                timeout=30).returncode
-    fixture_build = {'command': command, 'exit': status,
+        build = subprocess.Popen(command, env=env, stdout=output, stderr=subprocess.STDOUT,
+                                 start_new_session=True)
+        try:
+            status = build.wait(timeout=180)
+        except subprocess.TimeoutExpired:
+            build_timeout = True
+            os.killpg(build.pid, signal.SIGKILL)
+            status = build.wait()
+    fixture_build = {'command': command, 'exit': status, 'timeout': build_timeout,
+                     'wall_seconds': time.monotonic()-build_started,
+                     'build_batch_seconds': 180,
                      'sha256': hashlib.sha256(log.read_bytes()).hexdigest()}
+    (out/'fixture-build-metadata.json').write_text(json.dumps(fixture_build, indent=2)+'\n')
     if status:
         raise SystemExit('Native fixture build failed: '+str(status))
     print('BUILD-TEST-FIXTURE-OK', flush=True)

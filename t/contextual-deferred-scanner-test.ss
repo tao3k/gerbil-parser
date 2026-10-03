@@ -75,6 +75,37 @@
 
 (def contextual-deferred-scanner-test
   (test-suite "generic deferred delimiter scanner"
+    (test-case "queued checkpoints preserve FIFO order across independent futures"
+      (let* ((source "<<A <<B <<C\nα\nA\nβ\nB\nγ\nC\n")
+             (scanner (deferred-scanner source 'queue-checkpoint 'raw '("<<")))
+             (initial (contextual-scanner-initial-state scanner)))
+        (def (advance state count)
+          (if (zero? count) state
+            (let-values (((_token next)
+                          (contextual-scanner-step scanner state 'command)))
+              (advance next (- count 1)))))
+        (def (suffix state)
+          (let loop ((state state) (trace '()))
+            (let-values (((token next)
+                          (contextual-scanner-step scanner state 'command)))
+              (if token
+                (loop next
+                      (cons (list (token-kind token) (token-lexeme token)
+                                  (contextual-scan-state-canonical next)) trace))
+                (reverse trace)))))
+        (let* ((after-a (advance initial 2))
+               (receipt (contextual-scan-state-canonical after-a))
+               (restored (restore-contextual-scan-state scanner receipt))
+               (after-b (advance restored 3))
+               (second (contextual-scan-state-canonical after-b)))
+          (check (cdr (assq 'pending second)) => '(("A" #f #f) ("B" #f #f)))
+          (check (suffix after-a) => (suffix restored))
+          (check (suffix after-b)
+                 => (suffix (restore-contextual-scan-state scanner second)))
+          (check (map cadr (filter (lambda (row) (eq? (car row) 'here-end))
+                                  (suffix restored)))
+                 => '("A\n" "B\n" "C\n"))
+          (check (contextual-scan-state-canonical after-a) => receipt))))
     (test-case "Bash here bodies preserve marker order and CRLF bytes"
       (let* ((source "cat <<'A' <<-B\r\n$x α\r\nA\r\n\tβ $x\r\n\tB\r\n")
              (scanner

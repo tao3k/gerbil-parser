@@ -36,6 +36,31 @@
 (defstruct delimiter-obligation (marker strip-tabs? quoted?)
   transparent: #t)
 
+;;; Immutable FIFO: front is ordered, rear is reversed. Enqueue never copies
+;;; the pending batch. A linear scan reverses each rear at most once; replaying
+;;; an old checkpoint can repeat that work, so no branching amortized bound is
+;;; claimed. Canonical checkpoints retain their ordered list representation.
+(defstruct delimiter-queue (front rear) transparent: #t)
+(def +empty-delimiter-queue+ (make-delimiter-queue '() '()))
+
+(def (delimiter-queue-empty? queue)
+  (and (null? (delimiter-queue-front queue))
+       (null? (delimiter-queue-rear queue))))
+
+(def (delimiter-queue-list queue)
+  (append (delimiter-queue-front queue) (reverse (delimiter-queue-rear queue))))
+
+(def (delimiter-queue-enqueue queue obligation)
+  (make-delimiter-queue (delimiter-queue-front queue)
+                        (cons obligation (delimiter-queue-rear queue))))
+
+(def (delimiter-queue-take queue)
+  (let* ((front (delimiter-queue-front queue))
+         (rear (delimiter-queue-rear queue))
+         (ready (if (null? front) (reverse rear) front)))
+    (values (car ready)
+            (make-delimiter-queue (cdr ready) (if (null? front) '() rear)))))
+
 (def (ir-ref ir key)
   (let (row (assq key ir)) (and row (cdr row))))
 
@@ -97,7 +122,7 @@
 (def (contextual-scanner-initial-state scanner)
   (make-contextual-scan-state scanner 0 0
                               (contextual-scanner-initial-mode scanner)
-                              '() #f #f))
+                              +empty-delimiter-queue+ #f #f))
 
 (def (contextual-scan-state-with-mode state mode)
   (unless (and (contextual-scan-state? state)
@@ -132,7 +157,8 @@
           (cons 'byteOffset (contextual-scan-state-byte-offset state))
           (cons 'mode (contextual-scan-state-mode state))
           (cons 'pending
-                (map obligation-row (contextual-scan-state-pending state)))
+                (map obligation-row
+                     (delimiter-queue-list (contextual-scan-state-pending state))))
           (cons 'active
                 (and (contextual-scan-state-active state)
                      (obligation-row (contextual-scan-state-active state))))
@@ -180,7 +206,7 @@
       (error "invalid contextual scanner checkpoint" receipt))
     (make-contextual-scan-state
      scanner character-offset byte-offset mode
-     (map restore-obligation pending-rows)
+     (make-delimiter-queue (map restore-obligation pending-rows) '())
      (and active-row (restore-obligation active-row))
      expecting)))
 
@@ -362,23 +388,24 @@
        (if expecting
          (updated-state
           state mode
-          (append pending
-                  (list (decode-marker policy lexeme
-                                       (eq? expecting 'strip-tabs))))
+          (delimiter-queue-enqueue
+           pending (decode-marker policy lexeme (eq? expecting 'strip-tabs)))
           active #f)
          state))
       (['activate-next body-mode]
        (when expecting
          (error "missing deferred delimiter before newline"))
-       (if (pair? pending)
-         (updated-state state body-mode (cdr pending) (car pending) #f)
+       (if (not (delimiter-queue-empty? pending))
+         (let-values (((active rest) (delimiter-queue-take pending)))
+           (updated-state state body-mode rest active #f))
          state))
       (['finish-marker base-mode body-mode]
        (unless active
          (error "deferred delimiter closed without an active marker"))
-       (if (pair? pending)
-         (updated-state state body-mode (cdr pending) (car pending) #f)
-         (updated-state state base-mode '() #f #f)))
+       (if (not (delimiter-queue-empty? pending))
+         (let-values (((next rest) (delimiter-queue-take pending)))
+           (updated-state state body-mode rest next #f))
+         (updated-state state base-mode +empty-delimiter-queue+ #f #f)))
       (else (error "unknown contextual scan action" action)))))
 
 ;;; A checkpoint is immutable and bound to the prepared scanner. Parser
@@ -395,7 +422,7 @@
     (if (= start (string-length source))
       (begin
         (when (or (contextual-scan-state-active state)
-                  (pair? (contextual-scan-state-pending state))
+                  (not (delimiter-queue-empty? (contextual-scan-state-pending state)))
                   (contextual-scan-state-expecting state))
           (error "unfinished contextual scanner obligation"))
         (values #f state))

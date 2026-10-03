@@ -463,3 +463,86 @@ run versus over 130 in the earlier run; these receipts establish current local
 admission, not a matched causal speedup from the rebase. Declaration-macro
 binding and contextual scanner state across GLR branches remain outside this
 implemented vertical slice. No remote branch was pushed.
+
+* Deferred FIFO complexity and matched optimization, 2026-10-03
+
+A fresh fetch/rebase confirmed that PR #13 still points to =7c15333=; the
+optimization baseline is the local qualified commit =718ffc5=. The existing
+scanner appended each new delimiter to its immutable pending list, copying
+k(k-1)/2 existing cells over k consecutive declarations. This is quadratic
+queue-maintenance work even though token scanning itself can remain linear.
+
+The candidate uses a private two-list FIFO: an ordered front and reversed rear.
+Enqueue allocates one rear cell; dequeue reverses a rear only when the front
+is empty. Queue maintenance is O(k) along one enqueue/drain execution path.
+Individual reversals and canonical serialization remain O(k). Independent
+futures can repeat a reversal, so this does not claim an amortized bound across
+arbitrary persistent branching. The distinction follows Okasaki's discussion
+of strict queues and multiple futures in /Purely Functional Data Structures/
+(1996), https://www.cs.cmu.edu/~rwh/students/okasaki.pdf, sections 3.1–3.2.
+This is not a lazy banker queue or a worst-case real-time queue.
+
+The seven scanner-state fields, opcode contract, canonical schema, and ordered
+pending-delimiter receipts are preserved. Restoring a checkpoint builds an
+ordered front; subsequent enqueues can populate its rear. A new semantic test
+compares complete token/checkpoint suffix traces from original, restored, and
+independently replayed checkpoints, including mixed front/rear states. Source
+validation passed all 23 focused scanner/parser cases before native compilation.
+
+The added =t/benchmarks/contextual-scanner/deferred-scale.ss= extends the
+existing scanner benchmark family with full deferred batches, Unicode payloads,
+CRLF, token order, UTF-8 coverage, and final pending/active checks. Preparation
+and IR compilation are untimed. The exact old runtime was saved and imported
+under a separate namespace; both native modules used =gxc -O=. Paired scans
+alternate execution order, discard three warmups, and compare complete public
+token traces and canonical final checkpoints. Each cell below summarizes five
+paired samples; small native cases batch multiple scans to reduce timing noise.
+Timing includes final checkpoint serialization and source digest computation.
+
+| Delimiters | Native scans/batch | Before CPU ms/scan | After CPU ms/scan | Median change | Wins |
+|------------+--------------------+--------------------+-------------------+---------------+------|
+| 1 | 2048 | 0.005601 | 0.005331 | -4.83% | 3/5 |
+| 8 | 256 | 0.035730 | 0.026258 | -26.51% | 3/5 |
+| 32 | 64 | 0.107906 | 0.113578 | +5.26% | 2/5 |
+| 128 | 16 | 0.425438 | 0.411938 | -3.17% | 4/5 |
+| 512 | 4 | 2.169000 | 1.987750 | -8.36% | 3/5 |
+| 2048 | 1 | 13.057000 | 7.865000 | -39.76% | 5/5 |
+| 4096 | 1 | 125.764000 | 18.692000 | -85.14% | 5/5 |
+
+Source execution at 2048 delimiters improved median CPU 169.514 to 143.288 ms
+with five wins; at 32 and 128 it regressed 2.54% and 5.09%, while 512 was
+approximately unchanged. The optimization is retained for removing quadratic
+copying and reproducible large-batch gains. These results do not establish a
+universal small-input speedup or improved ordinary GQL throughput. No peak
+memory improvement is claimed from the structural allocation argument alone.
+
+The retained snapshot is
+=sha256:b01800c0dca6af19f423931df9444408a4231a8977c509a5a0207ddc799651ac=.
+The standard 128-target native dependency build passed in 13.55 seconds after
+the focused native compilation. All 76 native functional cases passed in nine
+suites, with exit zero, final =OK=, and the existing heap/silence fences.
+The original performance ceilings and workloads were unchanged:
+
+| Contract | p95 ms | Existing ceiling ms | Result |
+|----------+--------+---------------------+--------|
+| LALR fixed point | 2.279 | 500 | PASS |
+| Incremental suffix | 0.689 | 250 | PASS |
+| Recovery frontier | 0.798 | 250 | PASS |
+| Selective GLR | 3.398 | 250 | PASS |
+| Arithmetic hot path | 18.904 | 900 | PASS |
+| ISO GQL | 16.725 | 150 | PASS |
+| openCypher 100 clauses | 8.001 | 250 | PASS |
+| Versioned language batch | 9.309 | 500 | PASS |
+
+The first GLR run published a passing numerical receipt and final =OK= but
+timed out during process termination. It was excluded from qualification;
+only this remaining gate was repeated. The focused rerun completed with exit
+zero under the same five-second output fence. Other gates were not repeated.
+Raw evidence, baseline source, source/native paired runners, both GLR attempts,
+=matched-receipt.json=, and =qualification-receipt.json= are preserved under
+=.data/deferred-queue-experiment/=. The scale entrypoint is
+=just benchmark-contextual-deferred 4096 5=.
+
+These are current local implementation and admission receipts. Remote CI,
+declaration-macro binding, and contextual GLR scanner-state admission remain
+separate gates. No remote branch was pushed.

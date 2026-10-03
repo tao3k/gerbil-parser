@@ -6,7 +6,7 @@
         (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser parse-hcl-v2-24)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?)
-        (only-in :gerbil-parser/src/runtime/funcs recognition-sequence->list)
+        (only-in :gerbil-parser/src/runtime/funcs recognition-sequence->list current-recognition-sequence-fusion-enabled?)
         (only-in :gerbil-parser/src/runtime/recognition
                  recognition-child-value recognition-node? recognition-node-kind)
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-layout-parser)
@@ -109,6 +109,13 @@
     (test-case "full artifact capture defaults to the qualified vector path"
       (check (current-lr-source-index-enabled?) => #f)
       (check (incremental-session-source-index (make-incremental-session hcl-v2-24-parser "value = 1\n" #t)) => #f))
+    (test-case "fused semantic publication matches original replay across edits"
+      (parameterize ((current-recognition-sequence-fusion-enabled? #t))
+        (check-edits "value = \"λ中😀\" /* trivia */\nother = { nested = [1, 2] }\n"
+          (list (make-edit 0 0 "first = 001\n")
+                (make-edit 0 12 "")
+                (make-edit 0 0 "block { value = 3 }\n")
+                (make-edit 0 (string-length "block { value = 3 }\n") "")))))
     (test-case "ordinary sessions allocate no grammar snapshot"
       (check (incremental-session-recognition-root
               (make-incremental-session arithmetic-parser "1 + 2")) => #f))

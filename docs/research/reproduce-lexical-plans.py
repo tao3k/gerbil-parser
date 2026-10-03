@@ -5,6 +5,7 @@ import argparse, hashlib, json, os, signal, subprocess, threading, time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
+parser.add_argument('--sequence-fusion', action='store_true', help='Measure semantic sequence fusion with the same edit workloads')
 parser.add_argument('--samples', type=int, default=20)
 parser.add_argument('--preparation-only', action='store_true', help='Measure scanner-only and proof-inclusive construction controls')
 parser.add_argument('--resume', action='store_true', help='Retry only a final output-complete watchdog failure once, retaining its failed receipt')
@@ -20,7 +21,7 @@ out = args.output.resolve()
 out.mkdir(parents=True, exist_ok=True)
 if any(out.iterdir()) and not args.resume:
     raise SystemExit('Output directory must be empty to avoid mixing receipts')
-metadata = {'head': head, 'samples': args.samples, 'preparation_only': args.preparation_only, 'executor': 'native gxi',
+metadata = {'head': head, 'samples': args.samples, 'sequence_fusion': args.sequence_fusion, 'preparation_only': args.preparation_only, 'executor': 'native gxi',
             'inactivity_seconds': 5, 'batch_seconds': 180,
             'harness_sha256': hashlib.sha256((root/'t/benchmarks/incremental-session/benchmark.ss').read_bytes()).hexdigest(),
             'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')},
@@ -29,6 +30,8 @@ jobs = [('separate-preparation-1', ['no-plan-sharing', 'lexical-plan-prepare'], 
         ('shared-preparation-1', ['lexical-plan-prepare'], 2),
         ('shared-preparation-2', ['lexical-plan-prepare'], 2),
         ('separate-preparation-2', ['no-plan-sharing', 'lexical-plan-prepare'], 2)]
+if args.sequence_fusion:
+    jobs = []
 if args.preparation_only:
     jobs += [(name.replace('preparation', 'certificate-preparation'),
               [arg.replace('lexical-plan-prepare', 'lexical-certificate-prepare') for arg in command], expected)
@@ -41,10 +44,10 @@ for family, command, expected in ([] if args.preparation_only else [
     for repeat, order in [(1, ['strict', 'equivalent']), (2, ['equivalent', 'strict'])]:
         for variant in order:
             jobs.append((f'{variant}-{family}-{repeat}',
-                         (['no-plan-reuse'] if variant == 'strict' else ['plan-reuse']) + command, expected))
+                         ((['no-sequence-fusion'] if variant == 'strict' else ['sequence-fusion']) if args.sequence_fusion else (['no-plan-reuse'] if variant == 'strict' else ['plan-reuse'])) + command, expected))
 if args.resume:
     previous = json.loads((out/'metadata.json').read_text())
-    for key in ['head', 'samples', 'preparation_only', 'harness_sha256', 'fixture_sha256']:
+    for key in ['head', 'samples', 'sequence_fusion', 'preparation_only', 'harness_sha256', 'fixture_sha256']:
         if previous.get(key) != metadata[key]:
             raise SystemExit('Resume pin changed: '+key)
     if previous.get('complete') or not previous['jobs']:

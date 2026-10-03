@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
-(import (only-in :std/func compose every-of)
+(import (only-in ./funcs recognition-sequence-for-each)
+        (only-in :std/func compose every-of)
         (only-in ../modules/parser/types
                  +diagnostic-schema+ +parse-artifact-schema+)
         (only-in ./identity sha256-bytes sha256-text)
@@ -151,9 +152,10 @@
       ;; The canonical event always uses this request's actual source token.
       (emit-source-token! (car remaining)))
     (def (emit-children! children end delta translated?)
-      (for-each (lambda (child)
-                  (emit-value! (recognition-child-value child)
-                               (recognition-child-field child) delta translated? #f)) children)
+      (recognition-sequence-for-each
+       (lambda (child child-delta child-translated?)
+         (emit-value! (recognition-child-value child) (recognition-child-field child)
+                      (+ delta child-delta) (or translated? child-translated?) #f)) children)
       (emit-trivia-until! end))
     (def (emit-value! value field delta translated? root?)
       (cond

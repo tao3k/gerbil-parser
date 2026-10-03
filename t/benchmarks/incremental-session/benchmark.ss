@@ -308,6 +308,7 @@
                (cons 'probe-reuse-enabled? (current-lr-probe-reuse-enabled?))
                (cons 'certified-lexical-probe-tokens (let (entry (assq 'certifiedLexicalProbeTokenCount receipt)) (if entry (cdr entry) 0)))
                (cons 'lexical-plan-reuse-enabled? (current-lr-lexical-plan-reuse-enabled?))
+               (cons 'sequence-fusion-enabled? (current-recognition-sequence-fusion-enabled?))
                (cons 'source-index-enabled? (current-lr-source-index-enabled?))
                (cons 'source-index-token-count (source-index-count (incremental-session-source-index session)))
                (cons 'source-index-height (source-index-height (incremental-session-source-index next)))
@@ -386,6 +387,7 @@
                    (cons 'certified-lexical-probe-tokens certified-probes)
                    (cons 'certificate-probe-bytes scanner-probe-bytes)
                (cons 'lexical-plan-reuse-enabled? (current-lr-lexical-plan-reuse-enabled?))
+               (cons 'sequence-fusion-enabled? (current-recognition-sequence-fusion-enabled?))
                (cons 'source-index-enabled? (current-lr-source-index-enabled?))
                    (cons 'complete-artifact-equal? #t) (cons 'inverse-edit-equal? #t)
                    (cons 'cached-cpu-samples-ms times) (cons 'cached-cpu-median-ms (median times))))
@@ -410,7 +412,11 @@
   (measure-mixed-window 100))
 
 
+(import (only-in :gerbil-parser/src/runtime/funcs current-recognition-sequence-fusion-enabled?))
 (def (main . args)
+  (when (and (pair? args) (member (car args) '("sequence-fusion" "no-sequence-fusion")))
+    (current-recognition-sequence-fusion-enabled? (equal? (car args) "sequence-fusion"))
+    (set! args (cdr args)))
   (when (and (pair? args) (equal? (car args) "no-plan-sharing"))
     (current-lexical-plan-sharing-enabled? #f)
     (set! args (cdr args)))

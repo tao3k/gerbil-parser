@@ -3,7 +3,7 @@
 
 (import (only-in ./recognition
                  make-recognition-child recognition-child-field recognition-child-value
-                 relocate-recognition-value)
+                 relocate-recognition-value recognition-value-start recognition-value-end)
         (only-in :std/list/list-builder with-list-builder)
         (only-in :std/vector/vector vector-map/index))
 (export association-row-vector->index
@@ -16,7 +16,10 @@
         recognition-sequence-append
         recognition-sequence-concatenate
         recognition-sequence->list
-        recognition-sequence-relocate)
+        recognition-sequence-relocate
+        current-recognition-sequence-fusion-enabled?
+        recognition-sequence-arity recognition-sequence-start recognition-sequence-end
+        recognition-sequence-for-each)
 
 ;;; Request-local hash-consing over immutable structural keys. Gerbil's
 ;;; standard equal?-table owns lookup; callers provide the canonical value
@@ -106,7 +109,8 @@
 ;; singleton shifts and already-materialized field/alias results allocate no
 ;; wrapper. This turns left-recursive repetition from repeated list copying
 ;; into constant-time concatenation.
-(defstruct recognition-sequence-branch (left right) transparent: #t)
+(def current-recognition-sequence-fusion-enabled? (make-parameter #f))
+(defstruct recognition-sequence-branch (left right arity start end) transparent: #t)
 
 (defstruct recognition-sequence-position-view (value delta) transparent: #t)
 (def (recognition-sequence-relocate value delta)
@@ -122,7 +126,9 @@
   (cond
    ((null? left) right)
    ((null? right) left)
-   (else (make-recognition-sequence-branch left right))))
+   (else (make-recognition-sequence-branch left right
+          (min 2 (+ (recognition-sequence-arity left) (recognition-sequence-arity right)))
+          (recognition-sequence-start left 0) (recognition-sequence-end right 0)))))
 
 ;; : (-> (List RecognitionSequence) RecognitionSequence)
 (def (recognition-sequence-concatenate sequences)
@@ -131,34 +137,52 @@
          '()
          sequences))
 
-;; Iterative depth-first traversal avoids both quadratic append and stack
-;; growth when a repeat production has built a deeply left-associated rope.
-;; : (-> RecognitionSequence List)
-(def (recognition-sequence->list sequence)
+;;; Cardinality is capped at two: semantic fields distinguish empty,
+;;; singleton and multiple children, not the total length of a sequence.
+(def (recognition-sequence-arity sequence)
+  (cond ((recognition-sequence-position-view? sequence)
+         (recognition-sequence-arity (recognition-sequence-position-view-value sequence)))
+        ((recognition-sequence-branch? sequence) (recognition-sequence-branch-arity sequence))
+        ((null? sequence) 0) ((null? (cdr sequence)) 1) (else 2)))
+(def (recognition-sequence-bound sequence default-offset end?)
+  (cond ((= (recognition-sequence-arity sequence) 0) default-offset)
+        ((recognition-sequence-position-view? sequence)
+         (+ (recognition-sequence-position-view-delta sequence)
+            (recognition-sequence-bound (recognition-sequence-position-view-value sequence) default-offset end?)))
+        ((recognition-sequence-branch? sequence)
+         (if end? (recognition-sequence-branch-end sequence) (recognition-sequence-branch-start sequence)))
+        (else ((if end? recognition-value-end recognition-value-start)
+               (recognition-child-value (if end? (last sequence) (car sequence)))))))
+(def (recognition-sequence-start sequence default-offset)
+  (recognition-sequence-bound sequence default-offset #f))
+(def (recognition-sequence-end sequence default-offset)
+  (recognition-sequence-bound sequence default-offset #t))
+
+;;; Consume original child order and accumulated position views without
+;;; building a translated child list. The visitor owns publication/materialization.
+(def (recognition-sequence-for-each visit sequence)
   (if (list? sequence)
-    sequence
+    (for-each (lambda (child) (visit child 0 #f)) sequence)
+    (let loop ((pending (list (vector sequence 0 #f))))
+      (unless (null? pending)
+        (let* ((frame (car pending)) (current (vector-ref frame 0))
+               (delta (vector-ref frame 1)) (moved? (vector-ref frame 2)))
+          (cond
+           ((recognition-sequence-position-view? current)
+            (loop (cons (vector (recognition-sequence-position-view-value current)
+                                (+ delta (recognition-sequence-position-view-delta current)) #t) (cdr pending))))
+           ((recognition-sequence-branch? current)
+            (loop (cons (vector (recognition-sequence-branch-left current) delta moved?)
+                        (cons (vector (recognition-sequence-branch-right current) delta moved?) (cdr pending)))))
+           (else
+            (for-each (lambda (child) (visit child delta moved?)) current)
+            (loop (cdr pending)))))))))
+(def (recognition-sequence->list sequence)
+  (if (list? sequence) sequence
     (with-list-builder (collect!)
-      (let loop ((pending (list (vector sequence 0 #f))))
-        (unless (null? pending)
-          (let* ((frame (car pending)) (current (vector-ref frame 0)) (delta (vector-ref frame 1))
-                 (moved? (vector-ref frame 2)))
-            (cond
-             ((recognition-sequence-position-view? current)
-              (loop (cons
-                     (vector (recognition-sequence-position-view-value current)
-                             (+ delta (recognition-sequence-position-view-delta current)) #t)
-                     (cdr pending))))
-             ((recognition-sequence-branch? current)
-              (loop (cons (vector (recognition-sequence-branch-left current) delta moved?)
-                          (cons (vector (recognition-sequence-branch-right current) delta moved?)
-                                (cdr pending)))))
-             (else
-              (for-each
-               (lambda (child)
-                 (collect!
-                  (if (not moved?) child
-                    (make-recognition-child
-                     (recognition-child-field child)
-                     (relocate-recognition-value (recognition-child-value child) delta #t)))))
-               current)
-              (loop (cdr pending))))))))))
+      (recognition-sequence-for-each
+       (lambda (child delta moved?)
+         (collect! (if (not moved?) child
+                     (make-recognition-child (recognition-child-field child)
+                       (relocate-recognition-value (recognition-child-value child) delta #t)))))
+       sequence))))

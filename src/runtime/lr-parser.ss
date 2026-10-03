@@ -18,7 +18,7 @@
                  make-value-interner
                  recognition-sequence-relocate
                  recognition-sequence-append
-                 recognition-sequence->list
+                 recognition-sequence->list current-recognition-sequence-fusion-enabled?
                  value-interner-created-count
                  value-interner-hit-count
                  value-interner-intern
@@ -171,7 +171,11 @@
 ;;; Iterative postorder projection reevaluates semantic actions from retained
 ;;; productions and token leaves. It deliberately does not trust cached values.
 ;;; Left-recursive trees therefore do not consume the Scheme call stack.
+;;; Keep the independent replay on the materialized semantic path.
 (def (lr-recognition-project root (source-tokens #f))
+  (parameterize ((current-recognition-sequence-fusion-enabled? #f))
+    (lr-recognition-project/materialized root source-tokens)))
+(def (lr-recognition-project/materialized root source-tokens)
   (unless (or (lr-recognition-fragment? root) (lr-recognition-view? root))
     (error "recognition projection requires a grammar fragment" root))
   (let (tokens-by-start (and source-tokens (make-table test: eqv?)))
@@ -314,7 +318,8 @@
 ;; : (-> List List Fixnum List)
 (def (apply-operand-action action children default-offset
                            fragment-constructor)
-  (let (materialized (recognition-sequence->list children))
+  (let (materialized (if (current-recognition-sequence-fusion-enabled?) children
+                        (recognition-sequence->list children)))
   (case (car action)
     ((field)
      (recognition-children-field
@@ -399,7 +404,18 @@
 ;; : (-> List List Integer (Values Datum List Alist))
 (def current-lr-branch-budget (make-parameter 256))
 
+;;; GLR equivalence compares canonical trees, never rope association shapes.
 (def (lr-parse/prepared/receipt runtime tokens (branch-budget (current-lr-branch-budget))
+                                (initial-states '(0))
+                                (initial-semantic-values '())
+                                (initial-rest tokens)
+                                (deterministic-prefix-actions 0)
+                                (deterministic-prefix-shifts 0))
+  (parameterize ((current-recognition-sequence-fusion-enabled? #f))
+    (lr-parse/prepared/receipt/materialized runtime tokens branch-budget
+      initial-states initial-semantic-values initial-rest
+      deterministic-prefix-actions deterministic-prefix-shifts)))
+(def (lr-parse/prepared/receipt/materialized runtime tokens (branch-budget (current-lr-branch-budget))
                                 (initial-states '(0))
                                 (initial-semantic-values '())
                                 (initial-rest tokens)

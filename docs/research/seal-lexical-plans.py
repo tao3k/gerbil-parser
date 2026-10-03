@@ -7,6 +7,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('input', type=Path)
 parser.add_argument('output_stem', type=Path)
 parser.add_argument('--partial', action='store_true')
+parser.add_argument('--incremental-rebuild', action='store_true', help='Record an incremental native rebuild rather than a clean rebuild')
 parser.add_argument('--primary', type=Path)
 parser.add_argument('--build-log', type=Path)
 parser.add_argument('--clean-log', type=Path)
@@ -14,10 +15,11 @@ args = parser.parse_args()
 metadata = json.loads((args.input/'metadata.json').read_text())
 if not metadata.get('complete') and not args.partial:
     parser.error('Incomplete run requires explicit --partial qualification')
-metadata['schema'] = 'gerbil-parser.lexical-plan-matched.v1'
+schema = 'gerbil-parser.sequence-fusion-matched.v1' if metadata.get('sequence_fusion') else 'gerbil-parser.lexical-plan-matched.v1'
+metadata['schema'] = schema
 metadata['qualification'] = 'completed-jobs-only' if args.partial else 'complete-matched-run'
-metadata['build_qualification'] = 'development-observation' if args.partial else 'clean-rebuilt-native'
-if not args.partial and (not args.build_log or not args.clean_log):
+metadata['build_qualification'] = 'development-observation' if args.partial else ('incrementally-rebuilt-native' if args.incremental_rebuild else 'clean-rebuilt-native')
+if not args.partial and (not args.build_log or (not args.incremental_rebuild and not args.clean_log)):
     parser.error('Final qualification requires clean and build log receipts')
 for field, path in [('build_log_sha256', args.build_log), ('clean_log_sha256', args.clean_log)]:
     if path:
@@ -43,6 +45,6 @@ for job in metadata['jobs']:
 metadata['measurement_rows'] = len(rows)
 args.output_stem.parent.mkdir(parents=True, exist_ok=True)
 args.output_stem.with_suffix('.json').write_text(json.dumps(metadata, indent=2)+'\n')
-header = '(receipt (schema . gerbil-parser.lexical-plan-matched.v1) (source-head . '+json.dumps(metadata['head'])+') (rows . '+str(len(rows))+') (qualification . '+metadata['qualification']+'))'
+header = '(receipt (schema . '+schema+') (source-head . '+json.dumps(metadata['head'])+') (rows . '+str(len(rows))+') (qualification . '+metadata['qualification']+'))'
 args.output_stem.with_suffix('.sexp').write_text(header+'\n'+'\n'.join(rows)+'\n')
 print('SEALED', len(rows), metadata['head'], metadata['qualification'])

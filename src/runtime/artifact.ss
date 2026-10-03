@@ -152,10 +152,16 @@
       ;; The canonical event always uses this request's actual source token.
       (emit-source-token! (car remaining)))
     (def (emit-children! children end delta translated?)
-      (recognition-sequence-for-each
-       (lambda (child child-delta child-translated?)
-         (emit-value! (recognition-child-value child) (recognition-child-field child)
-                      (+ delta child-delta) (or translated? child-translated?) #f)) children)
+      ;; Most production children already are canonical lists. Retain their
+      ;; direct consumer rather than adding sequence callbacks and zero deltas.
+      (if (list? children)
+        (for-each (lambda (child)
+                    (emit-value! (recognition-child-value child)
+                                 (recognition-child-field child) delta translated? #f)) children)
+        (recognition-sequence-for-each
+         (lambda (child child-delta child-translated?)
+           (emit-value! (recognition-child-value child) (recognition-child-field child)
+                        (+ delta child-delta) (or translated? child-translated?) #f)) children))
       (emit-trivia-until! end))
     (def (emit-value! value field delta translated? root?)
       (cond

@@ -1,0 +1,92 @@
+{
+  "head": "2cdf4b6f6c082d9c3d5c759f9a7104e71e19c8ad",
+  "samples": 20,
+  "baseline": {
+    "repo": "tao3k/gerbil-parser",
+    "head": "44aab77710ce79fd3952588803650732360211b3",
+    "source_tree": "8c57f63976784f33e3a3d9a0af644d342245546f",
+    "dependency_cache": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser/.gerbil",
+    "build_log_sha256": "b189d457210279afe25924986ce3f4e60b64354fc4b5c9a2ac508d745aecc1bd",
+    "build_exit": 0,
+    "harness_sha256": "b4058b28ae1bdf949e2fc940a5c6b6f2a203d5f8c3138d9c90e57d0d000fb566",
+    "runtime_module_sha256": "40fa3fba20f06a3cbdd70f2b26a681d2308397fb63fc0b298872acc35d5df9b2"
+  },
+  "sequence_fusion": false,
+  "preparation_only": false,
+  "executor": "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+  "executor_sha256": "b10537c3ef42b79eb4024e9df9f6e6f3b04cbd40e8c02c8aa946a12d4b89b986",
+  "dyld_api_progress": true,
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "harness_sha256": "b4058b28ae1bdf949e2fc940a5c6b6f2a203d5f8c3138d9c90e57d0d000fb566",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50"
+  },
+  "jobs": [
+    {
+      "name": "previous-flat-1",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "54d59ba96aeaaae475bcf75a8227cbdfd007c29c452ba560a8d38b1b76f35361"
+    },
+    {
+      "name": "candidate-flat-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "61b77cfd9a744da6591ef04cd576f7666b33b3839f07595de7ef02ebef722afa"
+    },
+    {
+      "name": "candidate-flat-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "c8a39089d7fb2d2949aeb6d81c93e06b1072aec4323ab8f1e9aa97de6a2069d2"
+    },
+    {
+      "name": "previous-flat-2",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "05a78229236da2fe10da0f5003909c8d57765b3bfbe99c3ceed7562346a93c28"
+    }
+  ],
+  "intentional_stop": "Two-order flat control confirms default regression; superseded by direct-list publication correction. No incomplete job is admitted.",
+  "complete": false,
+  "schema": "gerbil-parser.publication-baseline-matched.v1",
+  "qualification": "completed-jobs-only",
+  "build_qualification": "development-observation",
+  "reproduction_recipe_sha256": "eb6884e900765f128edd79b831c4d10d59f5a289957b1f5852babf47f8e5c33c",
+  "measurement_rows": 48
+}

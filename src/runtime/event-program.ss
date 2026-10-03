@@ -101,7 +101,8 @@
     (event-append-block (cdr blocks) (event-branch (car blocks) block))
     (cons block blocks)))
 (def (event-snoc left right)
-  (if (event-code-append? left)
+  (cond
+   ((event-code-append? left)
     (let* ((tail (event-code-append-tail left))
            (full? (= (event-block-width tail) +event-chunk-capacity+))
            (blocks (if full? (event-append-block (event-code-append-blocks left) tail)
@@ -110,13 +111,18 @@
            (height (max (event-code-append-height left)
                         (if full? (+ 1 (event-rope-height (car blocks))) 1))))
       (make-event-code-append (event-code-append-prefix left) blocks next-tail
-        (event-code-append-start left) (event-program-sequence-end right 0) height))
-    (let* ((single? (= (event-program-sequence-arity left) 1))
-           (prefix (if single? #f left))
-           (tail (if single? (event-block-join left right) right)))
-      (make-event-code-append prefix '() tail
-        (event-program-sequence-start left 0) (event-program-sequence-end right 0)
-        (+ 1 (event-program-sequence-height prefix))))))
+        (event-code-append-start left) (event-program-sequence-end right 0) height)))
+   ((or (= (event-program-sequence-arity left) 1)
+        (and (event-code-chunk? left) (< (event-block-width left) +event-chunk-capacity+)))
+    ;; Small grammar actions retain one leaf block, with no empty envelope.
+    (event-block-join left right))
+   ((event-code-chunk? left)
+    (make-event-code-append #f (list left) right
+      (event-code-chunk-start left) (event-program-sequence-end right 0) 1))
+   (else
+    (make-event-code-append left '() right
+      (event-program-sequence-start left 0) (event-program-sequence-end right 0)
+      (+ 1 (event-program-sequence-height left))))))
 (def (event-append-tree code)
   ;; Normalize only at multi-sequence concat: newest/smallest blocks first.
   ;; Increasing ranks make the carry/join work telescope along the end path.

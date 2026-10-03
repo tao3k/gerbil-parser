@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in ./event-reduce event-children-field event-children-alias)
+(import (only-in ./event-program event-program-append)
+        (only-in ./event-reduce event-children-field event-children-alias)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr
                  lr-spec-ref operand-actions production-action
@@ -420,9 +421,9 @@
         (operand-actions (car rhs)) offset #f))
      ((memq action '(pass concat))
       (foldl (lambda (operand value children)
-               (recognition-sequence-append children
+               (event-program-append children
                  (apply-operand-actions/events value (operand-actions operand) offset #f)))
-             '() rhs source-values))
+             #f rhs source-values))
      (else (error "unsupported event LR production" action)))))
 
 ;;; Pop LR states and semantic values together. Accumulating the top-first
@@ -909,6 +910,7 @@
             (lr-runtime-direct-step runtime)
             direct-step-override))
          (semantic-reducer (lr-runtime-semantic-reducer runtime))
+         (event-semantics? (eq? semantic-reducer reduce-value/events))
          (table (lr-runtime-table runtime))
          (widths (lr-runtime-reduction-widths runtime))
          (modes (lr-runtime-lexical-modes runtime))
@@ -997,7 +999,8 @@
                  (if (pair? rest)
                    (let ((next-states (cons (cadr action) states))
                          (next-values
-                          (cons (list (make-recognition-child #f (car rest)))
+                          (cons (if event-semantics? (car rest)
+                                    (list (make-recognition-child #f (car rest))))
                                 semantic-values))
                          (next-actions (fx+ actions 1))
                          (next-shifts (fx+ shifts 1)))

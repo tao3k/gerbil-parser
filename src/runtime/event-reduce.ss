@@ -3,7 +3,10 @@
 (import (only-in ./event-program
                  event-program-value? event-program-value-code
                  event-program-token event-program-append event-program-relocate
-                 event-program-field event-program-node-value event-program-fragment-value)
+                 event-program-field event-program-node-value event-program-fragment-value
+                 event-program-sequence? event-program-sequence-arity
+                 event-program-sequence-start event-program-sequence-end
+                 event-program-sequence-field?)
         (only-in ./recognition
                  recognition-child-field recognition-child-value make-recognition-child
                  recognition-value-start recognition-value-end
@@ -39,6 +42,7 @@
        (children-code (recognition-fragment-children value)))))
    (else (error "invalid semantic value for event lowering"))))
 (def (children-code children)
+  (if (event-program-sequence? children) children
   (let (code #f)
     (recognition-sequence-for-each
      (lambda (child delta moved?)
@@ -52,30 +56,30 @@
                 (event-program-field field (recognition-value-start value)
                                            (recognition-value-end value) body)
                 body) delta moved?))))) children)
-    code))
+    code)))
 
-(def (event-children-field name children offset
-                          (unused-fragment-constructor #f))
-  (case (recognition-sequence-arity children)
-    ((0) '())
-    ((1)
-     (let (child (car (recognition-sequence->list children)))
-       (if (recognition-child-field child)
-         (list (make-recognition-child name
-                 (event-program-fragment-value
-                  (recognition-sequence-start children offset)
-                  (recognition-sequence-end children offset)
-                  (children-code children))))
-         (list (make-recognition-child name (recognition-child-value child))))))
-    (else
-     (list (make-recognition-child name
-             (event-program-fragment-value
-              (recognition-sequence-start children offset)
-              (recognition-sequence-end children offset)
-              (children-code children)))))))
+(def (event-children-field name children offset (unused-fragment-constructor #f))
+  (let (code (children-code children))
+    (case (event-program-sequence-arity code)
+      ((0) #f)
+      ((1)
+       (event-program-field name
+         (event-program-sequence-start code offset)
+         (event-program-sequence-end code offset)
+         (if (event-program-sequence-field? code)
+           (event-program-fragment-value
+             (event-program-sequence-start code offset)
+             (event-program-sequence-end code offset) code)
+           code)))
+      (else
+       (event-program-field name
+         (event-program-sequence-start code offset)
+         (event-program-sequence-end code offset)
+         (event-program-fragment-value
+           (event-program-sequence-start code offset)
+           (event-program-sequence-end code offset) code))))))
 (def (event-children-alias kind children offset)
-  (list (make-recognition-child #f
-          (event-program-node-value kind
-            (recognition-sequence-start children offset)
-            (recognition-sequence-end children offset)
-            (children-code children)))))
+  (let (code (children-code children))
+    (event-program-node-value kind
+      (event-program-sequence-start code offset)
+      (event-program-sequence-end code offset) code)))

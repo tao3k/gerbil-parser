@@ -1,7 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; Small immutable sequence algorithms for the LR semantic hot path.
 
-(import (only-in ./recognition
+(import (only-in ./event-program
+                 event-program-sequence? event-program-sequence-arity
+                 event-program-sequence-start event-program-sequence-end
+                 event-program-sequence-for-each event-program-relocate)
+        (only-in ./recognition
                  make-recognition-child recognition-child-field recognition-child-value
                  relocate-recognition-value recognition-value-start recognition-value-end)
         (only-in :std/list/list-builder with-list-builder)
@@ -116,6 +120,7 @@
 (defstruct recognition-sequence-position-view (value delta) transparent: #t)
 (def (recognition-sequence-relocate value delta)
   (cond
+   ((event-program-sequence? value) (event-program-relocate value delta))
    ((null? value) '())
    ((recognition-sequence-position-view? value)
     (make-recognition-sequence-position-view
@@ -146,10 +151,14 @@
    ;; Append removes empty operands and relocate preserves empty as empty.
    ;; Therefore a branch always contains at least two semantic children.
    ((recognition-sequence-branch? sequence) 2)
+   ((and (not (pair? sequence)) (event-program-sequence? sequence))
+    (event-program-sequence-arity sequence))
    ((null? sequence) 0) ((null? (cdr sequence)) 1) (else 2)))
 (def (recognition-sequence-bound sequence default-offset end?)
   (let loop ((current sequence) (delta 0))
     (cond
+     ((and (not (pair? current)) (event-program-sequence? current))
+      (+ delta ((if end? event-program-sequence-end event-program-sequence-start) current default-offset)))
      ((null? current) default-offset)
      ((recognition-sequence-position-view? current)
       (loop (recognition-sequence-position-view-value current)
@@ -169,6 +178,10 @@
 (def (recognition-sequence-for-each visit sequence)
   (if (list? sequence)
     (for-each (lambda (child) (visit child 0 #f)) sequence)
+    (if (event-program-sequence? sequence)
+      (event-program-sequence-for-each
+       (lambda (field value delta moved?)
+         (visit (make-recognition-child field value) delta moved?)) sequence)
     (let loop ((current sequence) (delta 0) (moved? #f) (pending '()))
       (cond
        ((recognition-sequence-position-view? current)
@@ -183,7 +196,7 @@
         (unless (null? pending)
           (let (frame (car pending))
             (loop (vector-ref frame 0) (vector-ref frame 1) (vector-ref frame 2)
-                  (cdr pending)))))))))
+                  (cdr pending))))))))))
 (def (recognition-sequence->list sequence)
   (if (list? sequence) sequence
     (with-list-builder (collect!)

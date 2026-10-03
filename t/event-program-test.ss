@@ -69,10 +69,25 @@
            (set! count (+ count 1))) moved)
         (check count => 10000)
         (check valid? => #t)))
+    (test-case "LR aliases retain the sole semantic sequence with cached boundaries"
+      (let* ((sequence (let loop ((n 0) (sequence #f))
+                         (if (= n 10000) sequence
+                           (loop (+ n 1) (event-program-append sequence
+                             (make-token 'number "1" n (+ n 1)))))))
+             (program (event-children-alias 'Root sequence 0))
+             (view (recognition-sequence-relocate
+                     (recognition-sequence-relocate sequence 17) -17)))
+        (check (eq? (event-program-value-body program) sequence) => #t)
+        (check (event-program-sequence-arity sequence) => 2)
+        (check (recognition-sequence-start sequence 99) => 0)
+        (check (recognition-sequence-end sequence 99) => 10000)
+        (check (recognition-sequence-start view 99) => 0)
+        (check (recognition-sequence-end view 99) => 10000)
+        (check (length (recognition-sequence->list view)) => 10000)))
     (test-case "lowering snapshots field names rather than caching mutable children"
       (let* ((token (make-token 'number "1" 0 1))
              (child (make-recognition-child #f token))
-             (program (recognition-child-value (car (event-children-alias 'Root (list child) 0))))
+             (program (recognition-child-value (car (recognition-sequence->list (event-children-alias 'Root (list child) 0)))))
              (expected (artifact-for "1" (list token)
                          (recognition-child-value
                           (car (recognition-children-alias 'Root (list (make-recognition-child #f token)) 0))))))
@@ -87,11 +102,11 @@
               (list (make-recognition-child 'outer
                       (make-recognition-fragment 0 1 children))))
              (program-root (recognition-child-value
-                            (car (event-children-alias 'Root program-children 0))))
+                            (car (recognition-sequence->list (event-children-alias 'Root program-children 0)))))
              (moved-program (recognition-child-value
-                              (car (event-children-alias 'Root
+                              (car (recognition-sequence->list (event-children-alias 'Root
                                      (recognition-sequence-relocate
-                                      (recognition-sequence-relocate program-children 7) -7) 0))))
+                                      (recognition-sequence-relocate program-children 7) -7) 0)))))
              (moved-ordinary (recognition-child-value
                                (car (recognition-children-alias 'Root
                                       (recognition-sequence->list
@@ -108,7 +123,7 @@
              (fresh (make-token 'number "1" 1 2))
              (tokens (list (make-token 'ws " " 0 1) fresh))
              (children (list (make-recognition-child #f old)))
-             (program (recognition-child-value (car (event-children-alias 'Root children 0))))
+             (program (recognition-child-value (car (recognition-sequence->list (event-children-alias 'Root children 0)))))
              (ordinary (recognition-child-value (car (recognition-children-alias 'Root children 0))))
              (trivia? (lambda (token) (eq? (token-kind token) 'ws))))
         (check (make-success-parse-artifact "event-test" " 1" tokens
@@ -124,6 +139,16 @@
         (let* ((source (string-append "# 前置\n" (string-join (make-list 100 "a = 1 # 中\n") "") "# 尾部\n"))
                (session (make-incremental-session hcl-v2-24-parser source #t)))
           (check (event-program-value? (program-root session)) => #t)
+          (check
+           (let loop ((pending (list (incremental-session-recognition-root session))))
+             (if (null? pending) #t
+               (let (piece (base-root (car pending)))
+                 (and (or (not (lr-recognition-fragment? piece))
+                          (null? (lr-recognition-fragment-value piece))
+                          (event-program-sequence? (lr-recognition-fragment-value piece)))
+                      (loop (append (if (lr-recognition-fragment? piece)
+                                      (lr-recognition-fragment-children piece) '())
+                                    (cdr pending))))))) => #t)
           (check (lr-runtime-event-program?
                   (lr-recognition-fragment-runtime (base-root (incremental-session-recognition-root session)))) => #t)
           (check (incremental-session-artifact session) => (parse-hcl-v2-24 source))

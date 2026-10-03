@@ -96,6 +96,7 @@
 (def (event-step-definition form)
   (cond
    ((eq? form 'direct-step) 'direct-event-step)
+   ((eq? form 'recognition-sequence-append) 'event-program-append)
    ((eq? form 'recognition-children-field) 'event-children-field)
    ((eq? form 'recognition-children-alias) 'event-children-alias)
    ((not (pair? form)) form)
@@ -106,7 +107,8 @@
                (event-step-definition (cdr form))))))
 (def (module-expression)
   `(begin
-     (import (only-in :gerbil-parser/src/runtime/recognition make-recognition-fragment)
+     (import (only-in :gerbil-parser/src/runtime/event-program event-program-append)
+             (only-in :gerbil-parser/src/runtime/recognition make-recognition-fragment)
              (only-in :gerbil-parser/src/runtime/reduce
                       recognition-children-field recognition-children-alias)
              (only-in :gerbil-parser/src/runtime/event-reduce

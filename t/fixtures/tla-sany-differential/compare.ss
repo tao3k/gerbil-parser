@@ -397,7 +397,8 @@
                   (cdr official-entry) (cdr candidate-entry)))))
      expected)
     (displayln "SANY-DIFF-OK " module-name ": " (length expected)
-               " expression trees")))
+               " expression trees")
+    (force-output)))
 
 (def (line-starts-with? line prefix)
   (and (>= (string-length line) (string-length prefix))
@@ -426,7 +427,8 @@
              module-name exit-status output))
     (when (parse-artifact-success? (parse-tla-plus-sany-candidate source))
       (error "candidate accepted SANY-negative syntax" module-name))
-    (displayln "SANY-DIFF-OK " module-name ": both reject syntax")))
+    (displayln "SANY-DIFF-OK " module-name ": both reject syntax")
+    (force-output)))
 
 (def (check-oracle-boundary jar fixture-directory case)
   (let* ((module-name (car case))
@@ -445,7 +447,8 @@
                  (parse-artifact-valid? artifact)
                  (equal? source (parse-artifact-roundtrip artifact)))
       (error "SANY oracle failure was mistaken for syntax rejection" module-name status output))
-    (displayln "SANY-DIFF-OK " module-name ": oracle failure excluded")))
+    (displayln "SANY-DIFF-OK " module-name ": oracle failure excluded")
+    (force-output)))
 
 (def (run-differential!)
   (let* ((jar (last (command-line)))
@@ -459,6 +462,7 @@
     (for-each (lambda (case) (check-case jar fixture-directory case)) +cases+)
     (for-each (lambda (name) (check-negative-case jar fixture-directory name)) +negative-cases+)
     (for-each (lambda (case) (check-oracle-boundary jar fixture-directory case)) +oracle-boundaries+)
-    (displayln "SANY-DIFF-OK pinned jar, acceptance, and structure")))
+    (displayln "SANY-DIFF-OK pinned jar, acceptance, and structure")
+    (force-output)))
 
 (run-differential!)

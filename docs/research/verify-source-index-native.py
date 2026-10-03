@@ -117,13 +117,23 @@ for offset in range(3*len(receipt['batches']), len(modules), 3):
     status = proc.wait()
     monitor.join()
     lines = log.read_text().splitlines()
+    module_cases = dict.fromkeys(batch, 0)
+    active_module = None
+    for line in lines:
+        if line.startswith('MODULE '):
+            active_module = line[len('MODULE '):]
+        elif line.startswith('CASE-OK ') and active_module in module_cases:
+            module_cases[active_module] += 1
+        elif line.startswith('MODULE-OK '):
+            active_module = None
     passed = sum(line.startswith('MODULE-OK ') for line in lines)
     ok = (not quiet.is_set() and status == 0 and passed == len(batch)
+          and all(module_cases.values())
           and any(line.startswith('HARNESS-OK ') for line in lines) and 'OK' in lines
           and not any(marker in line for line in lines
                       for marker in ['ERROR CHECK', 'ERROR HARNESS', '*** ERROR']))
     receipt['batches'].append({'batch': batch_id, 'modules': batch, 'passed': passed,
-                               'cases': sum(line.startswith('CASE-OK ') for line in lines),
+                               'cases': sum(line.startswith('CASE-OK ') for line in lines), 'module_cases': module_cases,
                                'exit': status, 'watchdog': quiet.is_set(), 'ok': ok,
                                'sha256': hashlib.sha256(log.read_bytes()).hexdigest()})
     (out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')

@@ -48,4 +48,5 @@
     (test-case "GLR completion evidence remains canonical with fusion requested"
       (parameterize ((current-recognition-sequence-fusion-enabled? #t))
         (check (selective-glr-scenario-pass? (selective-glr-scenario)) => #t)))))
-(export recognition-sequence-tests)
+(def recognition-sequence-test recognition-sequence-tests)
+(export recognition-sequence-tests recognition-sequence-test)

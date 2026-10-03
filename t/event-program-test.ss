@@ -10,7 +10,7 @@
         :gerbil-parser/src/runtime/funcs
         (only-in :gerbil-parser/src/runtime/token make-token token-kind)
         (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact
-                 parse-artifact-valid? parse-artifact-events)
+                 parse-artifact-valid? parse-artifact-events sha256-text)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  current-lr-event-program-enabled? lr-runtime-event-program?
                  lr-recognition-fragment-runtime lr-recognition-fragment-value
@@ -111,7 +111,8 @@
              (program (let loop ((n 0) (body token))
                         (if (= n 10000) body
                           (loop (+ n 1) (event-program-node-value 'Node 0 1 body)))))
-             (artifact (artifact-for "1" (list token) program)))
+             (artifact (make-success-parse-artifact (sha256-text "event-test") "1"
+                         (list token) program (lambda (token) #f))))
         (check (parse-artifact-valid? artifact) => #t)
         (check (length (parse-artifact-events artifact)) => 20001)
         (check (car (parse-artifact-events artifact)) => (vector 'start-node 0 'Node 0))

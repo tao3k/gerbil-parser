@@ -145,59 +145,91 @@
 ;;; Execute the instruction DAG with an explicit continuation stack. No flat
 ;;; intermediate tape or translated token objects are allocated. Position views
 ;;; retain moved provenance even when repeated translations cancel to zero.
-;;; Specialize the consumer at expansion time. The same traversal serves the
-;;; generic inspection API, but canonical publication has no per-event dynamic
-;;; callback or runtime operation switch after constant operation specialization.
+;;; One traversal template specializes both inspection and publication. Ordinary
+;;; depth uses native call frames; explicit continuations handle deep subgraphs.
+;;; An opening node may return consumer state, retained only until its footer.
 (defsyntax (event-program-walk/inline stx)
   (syntax-case stx (lambda)
-    ((_ (lambda (op name offset shift moved) effect ...) initial-code)
-     #'
-  (let loop ((code initial-code) (finish? #f) (delta 0) (moved? #f) (pending '()))
-    (cond
-     ((not code)
-      (unless (null? pending)
-        (let* ((frame (car pending)) (next (vector-ref frame 0)))
-          (if (and (event-code-chunk? next) (integer? (vector-ref frame 1)))
-            (let* ((items (event-code-chunk-items next)) (i (vector-ref frame 1))
-                   (last? (= (+ i 1) (vector-length items))))
-              (unless last? (vector-set! frame 1 (+ i 1)))
-              (loop (vector-ref items i) #f (vector-ref frame 2) (vector-ref frame 3)
-                    (if last? (cdr pending) pending)))
-            (loop next (vector-ref frame 1) (vector-ref frame 2) (vector-ref frame 3)
-                  (cdr pending))))))
-     (finish?
-      (cond
-       ((event-program-value? code)
-        (if (event-program-value-kind code)
-          ((lambda (op name offset shift moved) effect ...) 'close-node (event-program-value-kind code) (event-program-value-end code) delta moved?)
-          ((lambda (op name offset shift moved) effect ...) 'boundary #f (event-program-value-end code) delta moved?)))
-       ((event-field-frame? code)
-        ((lambda (op name offset shift moved) effect ...) 'close-field (event-field-frame-name code) (event-field-frame-end code) delta moved?))
-       (else (error "invalid event continuation")))
-      (loop #f #f delta moved? pending))
-     ((event-code-view? code)
-      (loop (event-code-view-code code) #f (+ delta (event-code-view-delta code)) #t pending))
-     ((event-code-branch? code)
-      (loop (event-code-branch-left code) #f delta moved?
-            (cons (vector (event-code-branch-right code) #f delta moved?) pending)))
-     ((event-code-chunk? code)
-      (loop (vector-ref (event-code-chunk-items code) 0) #f delta moved?
-            (cons (vector code 1 delta moved?) pending)))
-     ((event-program-value? code)
-      (when (event-program-value-kind code)
-        ((lambda (op name offset shift moved) effect ...) 'open-node (event-program-value-kind code) (event-program-value-start code) delta moved?))
-      (loop (event-program-value-body code) #f delta moved?
-            (cons (vector code #t delta moved?) pending)))
-     ((event-field-frame? code)
-      ((lambda (op name offset shift moved) effect ...) 'open-field (event-field-frame-name code) (event-field-frame-start code) delta moved?)
-      (loop (event-field-frame-body code) #f delta moved?
-            (cons (vector code #t delta moved?) pending)))
-     ((token? code)
-      ((lambda (op name offset shift moved) effect ...) 'token code (token-start code) delta moved?)
-      (loop #f #f delta moved? pending))
-     (else (error "invalid event instruction"))))
-)))
+    ((_ (lambda (op name offset shift moved context) effect ...) initial-code)
+     #'(let ()
+         (def (iterative initial delta moved?)
+           (let loop ((code initial) (finish? #f) (delta delta) (moved? moved?)
+                      (state #f) (pending '()))
+             (cond
+              ((not code)
+               (unless (null? pending)
+                 (let* ((frame (car pending)) (next (vector-ref frame 0)))
+                   (if (and (event-code-chunk? next) (integer? (vector-ref frame 1)))
+                     (let* ((items (event-code-chunk-items next)) (i (vector-ref frame 1))
+                            (last? (= (+ i 1) (vector-length items))))
+                       (unless last? (vector-set! frame 1 (+ i 1)))
+                       (loop (vector-ref items i) #f (vector-ref frame 2) (vector-ref frame 3)
+                             #f (if last? (cdr pending) pending)))
+                     (loop next (vector-ref frame 1) (vector-ref frame 2) (vector-ref frame 3)
+                           (if (= (vector-length frame) 5) (vector-ref frame 4) #f)
+                           (cdr pending))))))
+              (finish?
+               (cond
+                ((event-program-value? code)
+                 (if (event-program-value-kind code)
+                   ((lambda (op name offset shift moved context) effect ...) 'close-node (event-program-value-kind code) (event-program-value-end code) delta moved? state)
+                   ((lambda (op name offset shift moved context) effect ...) 'boundary #f (event-program-value-end code) delta moved? #f)))
+                ((event-field-frame? code)
+                 ((lambda (op name offset shift moved context) effect ...) 'close-field (event-field-frame-name code) (event-field-frame-end code) delta moved? #f))
+                (else (error "invalid event continuation")))
+               (loop #f #f delta moved? #f pending))
+              ((event-code-view? code)
+               (loop (event-code-view-code code) #f (+ delta (event-code-view-delta code)) #t #f pending))
+              ((event-code-branch? code)
+               (loop (event-code-branch-left code) #f delta moved? #f
+                     (cons (vector (event-code-branch-right code) #f delta moved?) pending)))
+              ((event-code-chunk? code)
+               (loop (vector-ref (event-code-chunk-items code) 0) #f delta moved? #f
+                     (cons (vector code 1 delta moved?) pending)))
+              ((event-program-value? code)
+               (let (node-state (and (event-program-value-kind code)
+                                 ((lambda (op name offset shift moved context) effect ...) 'open-node (event-program-value-kind code)
+                                   (event-program-value-start code) delta moved? #f)))
+                 (loop (event-program-value-body code) #f delta moved? #f
+                       (cons (vector code #t delta moved? node-state) pending))))
+              ((event-field-frame? code)
+               ((lambda (op name offset shift moved context) effect ...) 'open-field (event-field-frame-name code) (event-field-frame-start code) delta moved? #f)
+               (loop (event-field-frame-body code) #f delta moved? #f
+                     (cons (vector code #t delta moved? #f) pending)))
+              ((token? code)
+               ((lambda (op name offset shift moved context) effect ...) 'token code (token-start code) delta moved? #f)
+               (loop #f #f delta moved? #f pending))
+              (else (error "invalid event instruction")))))
+         (def (walk code delta moved? depth)
+           (cond
+            ((not code) (void))
+            ((>= depth 64) (iterative code delta moved?))
+            ((event-program-value? code)
+             (let* ((kind (event-program-value-kind code))
+                    (node-state (and kind ((lambda (op name offset shift moved context) effect ...) 'open-node kind (event-program-value-start code) delta moved? #f))))
+               (walk (event-program-value-body code) delta moved? (+ depth 1))
+               (if kind
+                 ((lambda (op name offset shift moved context) effect ...) 'close-node kind (event-program-value-end code) delta moved? node-state)
+                 ((lambda (op name offset shift moved context) effect ...) 'boundary #f (event-program-value-end code) delta moved? #f))))
+            ((event-field-frame? code)
+             ((lambda (op name offset shift moved context) effect ...) 'open-field (event-field-frame-name code) (event-field-frame-start code) delta moved? #f)
+             (walk (event-field-frame-body code) delta moved? (+ depth 1))
+             ((lambda (op name offset shift moved context) effect ...) 'close-field (event-field-frame-name code) (event-field-frame-end code) delta moved? #f))
+            ((token? code) ((lambda (op name offset shift moved context) effect ...) 'token code (token-start code) delta moved? #f))
+            ((event-code-view? code)
+             (walk (event-code-view-code code) (+ delta (event-code-view-delta code)) #t (+ depth 1)))
+            ((event-code-chunk? code)
+             (let* ((items (event-code-chunk-items code)) (n (vector-length items)))
+               (let loop ((i 0))
+                 (when (< i n)
+                   (walk (vector-ref items i) delta moved? (+ depth 1))
+                   (loop (+ i 1))))))
+            ((event-code-branch? code)
+             (walk (event-code-branch-left code) delta moved? (+ depth 1))
+             (walk (event-code-branch-right code) delta moved? (+ depth 1)))
+            (else (error "invalid event instruction"))))
+         (walk initial-code 0 #f 0)))))
 (def (event-program-walk visit code)
   (event-program-walk/inline
-   (lambda (operation name offset delta moved?)
+   (lambda (operation name offset delta moved? state)
      (visit operation name offset delta moved?)) code))

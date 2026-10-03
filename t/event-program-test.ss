@@ -9,7 +9,8 @@
         (only-in :gerbil-parser/src/runtime/reduce recognition-children-alias)
         :gerbil-parser/src/runtime/funcs
         (only-in :gerbil-parser/src/runtime/token make-token token-kind)
-        (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact)
+        (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact
+                 parse-artifact-valid? parse-artifact-events)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  current-lr-event-program-enabled? lr-runtime-event-program?
                  lr-recognition-fragment-runtime lr-recognition-fragment-value
@@ -105,6 +106,16 @@
            (set! count (+ count 1))) moved)
         (check count => 34)
         (check valid? => #t)))
+    (test-case "deep node publication retains opening IDs through the bounded fallback"
+      (let* ((token (make-token 'number "1" 0 1))
+             (program (let loop ((n 0) (body token))
+                        (if (= n 10000) body
+                          (loop (+ n 1) (event-program-node-value 'Node 0 1 body)))))
+             (artifact (artifact-for "1" (list token) program)))
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (length (parse-artifact-events artifact)) => 20001)
+        (check (car (parse-artifact-events artifact)) => (vector 'start-node 0 'Node 0))
+        (check (last (parse-artifact-events artifact)) => (vector 'finish-node 0 'Node 1))))
     (test-case "lowering snapshots field names rather than caching mutable children"
       (let* ((token (make-token 'number "1" 0 1))
              (child (make-recognition-child #f token))

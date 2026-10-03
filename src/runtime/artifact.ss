@@ -255,7 +255,7 @@
         (event-program-relocate (event-program-value-code value) delta moved?)))))
 (def (event-program-events tokens root trivia? source-byte-length)
   (let ((remaining tokens) (events (cons #f '())) (next-token-id 0)
-        (next-node-id 0) (node-ids '()))
+        (next-node-id 0))
     (let (tail events)
       (def (emit! event)
         (let (cell (cons event '())) (set-cdr! tail cell) (set! tail cell)))
@@ -272,7 +272,7 @@
               (error "unclaimed significant program token" (token-kind (car remaining))))
             (emit-source-token!) (loop))))
       (event-program-walk/inline
-       (lambda (operation name offset delta moved?)
+       (lambda (operation name offset delta moved? node-id)
          (let (position (+ offset delta))
            (case operation
              ((token)
@@ -292,14 +292,15 @@
                 (emit-trivia-until! start)
                 (emit! (vector 'start-node id name start))
                 (set! next-node-id (+ next-node-id 1))
-                (set! node-ids (cons (cons id name) node-ids))))
+                id))
              ((close-node)
-              (unless (and (pair? node-ids) (eq? name (cdar node-ids)))
-                (error "event program node stack mismatch"))
-              (let (end (if (null? (cdr node-ids)) source-byte-length position))
+              ;; The immutable node instruction supplies its own footer. Its
+              ;; opening ID is retained by the traversal frame, including the
+              ;; iterative depth fallback, rather than a second node-ID stack.
+              (unless (integer? node-id) (error "event node has no opening ID"))
+              (let (end (if (= node-id 0) source-byte-length position))
                 (emit-trivia-until! end)
-                (emit! (vector 'finish-node (caar node-ids) name end))
-                (set! node-ids (cdr node-ids))))
+                (emit! (vector 'finish-node node-id name end))))
              ((open-field)
               (emit-trivia-until! position)
               (emit! (vector 'start-field name position)))
@@ -307,7 +308,7 @@
              ((boundary) (emit-trivia-until! position))
              (else (error "unknown committed event program operation" operation)))))
        (event-program-root-code root))
-      (unless (and (null? remaining) (null? node-ids))
+      (unless (null? remaining)
         (error "event program is incomplete"))
       (cdr events))))
 

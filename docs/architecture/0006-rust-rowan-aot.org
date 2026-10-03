@@ -209,3 +209,45 @@ the Rust backend must add and qualify:
 the generated GQL product passes the full pinned corpus and malformed-input
 differential gates.  Its private CST-to-=MetaQueryIR= lowering remains a
 downstream semantic owner and is not moved into =gerbil-parser=.
+
+* Local host-native qualification
+
+=python3 scripts/test-native-local.py= separates cold native compilation from
+running tests. =--suite rust= builds the complete workspace with =--no-run=
+first, then runs the tests with =--nocapture=. The compiler retains a 240s total
+and 30s output-idle bound; executing tests retain a 120s total and 5s output-idle
+bound. Compiler time does not become a parser or FFI latency claim.
+
+The local entry chooses matching Cargo/rustc tools. On macOS it discovers the
+Apple SDK with =xcrun= and uses =/usr/bin/clang= rather than a Nix compiler
+wrapper. It explicitly excludes ambient Rust profile, target, wrapper and
+compiler-flag overrides from this qualification environment. The Cargo root
+owns the optimized Dev/build and Release profiles, retaining full Dev debug
+information, assertions and overflow checks. Dependency workspace profiles
+are not inherited by a downstream Cargo root.
+
+=scripts/rustc-progress.py= forwards the compiler command, stdout, status and
+Cargo jobserver descriptors. It reports only changed, nonempty output files
+matching that invocation's crate name and Cargo output suffix. It emits no
+periodic progress line when those files do not change. These are build-work
+observations, not a completed-crate or passing-test claim. An unchanged compiler
+still reaches the existing idle deadline.
+
+For Gerbil, pass =--gerbil-path= pointing to the freshly built checkout's
+native package root. =--suite gql= requires compiled parser objects and executes
+the existing 100-parse, 40-sample, 150ms wall-clock contract through the native
+suite loader. =--suite ffi= runs the strict C header check and existing native
+payload/build-owner tests. =--suite aot= builds the canonical generator and
+executes it with =PATH=/usr/bin:/bin= and only the declared expansion metadata;
+formatted generated Rust must exactly match the record-assignment consumer.
+This tests the closed executable route; it does not add a shared-library
+Rust-to-Gerbil call or qualify arbitrary Scheme procedures.
+
+On 2026-10-04 the unchanged GQL gate passed locally at p95 11.742ms, and passed
+again at 62.282ms while the optional generator was building. The earlier local
+390.17ms failure is retained as a failed wall-clock receipt. The new entry
+repairs reproducibility and compiler-progress visibility; these observations
+alone do not identify the earlier host scheduling cause or prove an algorithm
+change. The optimized Rust workspace build and tests completed with exit zero;
+real native object writes kept the original idle bound observable. The closed
+AOT generator also produced an exact Rust fixture in the clean environment.

@@ -8,6 +8,25 @@ members = [
 ]
 resolver = "2"
 
+# Dependency workspaces do not export profiles to this Cargo root. Match the
+# native Gerbil AOT contract while retaining debugger and safety checks.
+[profile.dev]
+opt-level = 2
+debug = 2
+debug-assertions = true
+overflow-checks = true
+
+[profile.dev.build-override]
+opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+overflow-checks = true
+
+[profile.release.build-override]
+opt-level = 3
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"

@@ -8,7 +8,7 @@
                  incremental-session-recognition-root)
         (only-in :gerbil-parser/src/runtime/event-program event-program-walk)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-recognition-view?
-                 lr-recognition-view-base lr-recognition-fragment-children)
+                 lr-recognition-view-base lr-recognition-fragment? lr-recognition-fragment-children)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-events parse-artifact-valid?))
 (def (median values)
   (let* ((sorted (list-sort < values)) (mid (quotient (length sorted) 2)))
@@ -36,7 +36,7 @@
           (let unwrap ((piece (car pending)))
             (if (lr-recognition-view? piece)
               (unwrap (lr-recognition-view-base piece))
-              (if (hash-get table piece)
+              (if (or (not (lr-recognition-fragment? piece)) (hash-get table piece)
                 (loop (cdr pending))
                 (begin
                   (hash-put! table piece #t)

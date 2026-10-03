@@ -65,3 +65,7 @@
        true))))
 
 (export native-ffi-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def native-ffi-test native-ffi-tests)
+(export native-ffi-test)

@@ -601,3 +601,7 @@
              => #f))))
 
 (export grammar-composition-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def grammar-composition-test grammar-composition-tests)
+(export grammar-composition-test)

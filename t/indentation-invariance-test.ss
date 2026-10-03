@@ -72,3 +72,7 @@
        "---- MODULE Indent ----\n    VARIABLE   x\n        Init   ==   x   =   1\n====\n"))))
 
 (export indentation-invariance-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def indentation-invariance-test indentation-invariance-tests)
+(export indentation-invariance-test)

@@ -42,3 +42,23 @@
       (displayln "MODULE-IMPORT " module) (force-output)
       (gx#import-module (string->symbol (string-append ":" module)) #f #t)
       (displayln "MODULE-IMPORTED " module) (force-output))))
+
+;; Admit the compiled dependencies named by this test's import declarations.
+;; Source forms are read as data; unrelated language packs stay outside the
+;; test process. Relative test helper imports remain with gxtest's source owner.
+(def (preload-import-set value)
+  (cond ((symbol? value)
+         (let (name (symbol->string value))
+           (when (string-prefix? ":" name)
+             (preload-module (substring name 1 (string-length name))))))
+        ((pair? value) (for-each preload-import-set value))))
+
+(def (preload-test-imports file)
+  (call-with-input-file file
+    (lambda (port)
+      (let loop ()
+        (let (form (read port))
+          (unless (eof-object? form)
+            (when (and (pair? form) (eq? (car form) 'import))
+              (for-each preload-import-set (cdr form)))
+            (loop)))))))

@@ -43,3 +43,7 @@
        true))))
 
 (export javacc-source-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def javacc-source-test javacc-source-tests)
+(export javacc-source-test)

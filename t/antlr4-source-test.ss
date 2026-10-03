@@ -115,3 +115,7 @@
         (check (> (lr-spec-ref spec 'state-count) 0) => #t)))))
 
 (export antlr4-source-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def antlr4-source-test antlr4-source-tests)
+(export antlr4-source-test)

@@ -32,3 +32,7 @@
              '(("word" first 1 3)
                ("word" second 1 4))))
         (check (scan "word!" 0) => '(first 4 1 3))))))
+
+;; gxtest discovers only exported names ending in -test.
+(def ranked-literal-scanner-test ranked-literal-scanner-tests)
+(export ranked-literal-scanner-test)

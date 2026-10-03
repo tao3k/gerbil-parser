@@ -49,3 +49,7 @@
       (check (regular-scanner "?" 0) => #f))))
 
 (export ranked-regular-scanner-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def ranked-regular-scanner-test ranked-regular-scanner-tests)
+(export ranked-regular-scanner-test)

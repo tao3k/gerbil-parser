@@ -40,3 +40,7 @@
            (when accepted?
              (check (parse-artifact-roundtrip artifact) => source))))
        records-v1-fixtures))))
+
+;; gxtest discovers only exported names ending in -test.
+(def parser-test records-v1-parser-tests)
+(export parser-test)

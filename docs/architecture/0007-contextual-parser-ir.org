@@ -1257,12 +1257,48 @@ representations:
    ceilings remain required for retaining a runtime candidate. Operation counts
    alone cannot qualify a change.
 
-The current =direct-step.ss= header names =generate-step.ss=, but that generator
-is absent from this checkout; the available =generate-direct.ss= produces the
-recursive source parser. A generated-step experiment first needs a reproducible
-Parser IR emitter or a documented authoritative producer. Manually editing the
-large generated expression would not supply that generation boundary.
-These are proposed experiments, not implemented reduction capabilities.
+The authoritative HCL reduction emitter is
+=t/benchmarks/hcl-scale/generate-step.ss=. The generated header uses its
+basename; the producer is outside the language directory. The CI check invokes
+that emitter against =languages/hcl/v2-24/direct-step.ss=. Reduction experiments
+must change this emitter and regenerate the product, preserving the Parser IR
+and exact artifact boundary. The earlier directory-scoped producer search was
+incomplete. These are proposed experiments, not implemented reduction capabilities.
 
-PR #13 was read again and remains open at =7c15333=, already included in this
-branch. No remote push was performed.
+At the profiling checkpoint, PR #13 remained open at =7c15333=, already
+included in this branch; that checkpoint did not include a remote push.
+
+
+* Latest revision and comprehensive native test admission
+
+On 2026-10-03 the accumulated branch was pushed to PR #13 at =07ae542=.
+Fetching and rebasing against both that PR head and =origin/main= at
+=c6ecb40= reported that the branch was already up to date. The exact-head
+Rust/Rowan CI passed, while both native jobs hit the five-second silence
+watchdog in =t/benchmark-test.ss=.
+
+The test batch now reports only completed 1,000-parse batches. Its output cost
+remains inside the measured thunk; the 900ms ceiling, twenty samples and
+five-second silence fence are unchanged. A local completed batch run admitted
+p95 =191.662ms=. This is a gate receipt, not a matched optimization comparison.
+
+The full native entry now preloads the imports declared by each test rather
+than unconditionally admitting the TLA+ candidate. It validates completed
+=CASE-OK= output so a module running zero cases cannot pass. Sixteen existing
+suites exported only plural names (or no suite); gxtest discovers only exported
+names ending in =-test=. Each now has one discoverable suite binding. Newly
+admitted ANTLR cases passed six cases; the build-product contract passed two
+after replacing its obsolete POO Flow dependency assertion with the current
+complete immutable dependency identities from =gerbil.pkg=.
+
+A disposable native test child publishes the harness return status, completes
+its final GC, flushes both output streams, then exits with that exact status.
+The child boundary uses C11 =_Exit=; native library teardown is outside this
+harness receipt. A separate status probe completed with process exit =42=,
+confirming that a nonzero result is retained. Five-second silence enforcement
+continues throughout imports and test execution. This does not qualify native
+library unload behavior or resource-finalizer integration.
+
+The inventory contains 59 native test modules. Full-suite admission and the
+new GitHub revision's CI must be recorded separately; the focused receipts
+above do not claim completion of that inventory.

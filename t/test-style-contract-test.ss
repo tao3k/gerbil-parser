@@ -64,3 +64,7 @@
                 "t/generate-event-fold-ir.ss"
                 "t/generate-owned-word-fixture.ss"))
              => '()))))
+
+;; gxtest discovers only exported names ending in -test.
+(def test-style-contract-test test-style-contract-tests)
+(export test-style-contract-test)

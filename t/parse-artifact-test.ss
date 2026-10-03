@@ -91,3 +91,7 @@
                => #t)))))
 
 (export parse-artifact-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def parse-artifact-test parse-artifact-tests)
+(export parse-artifact-test)

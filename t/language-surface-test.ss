@@ -164,3 +164,7 @@
         (check (map token-end tokens) => '(2 3 5 6))))))
 
 (export concise-v1-language-surface-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def language-surface-test concise-v1-language-surface-tests)
+(export language-surface-test)

@@ -16,7 +16,11 @@
        (parse-artifact-success?
         (parse-source arithmetic-parser "1 + 2 * value - 3 / 4"))
        (error "benchmark parse failed"))
-      (loop (- remaining 1)))))
+      (loop (- remaining 1))))
+  ;; Emit only after a real batch completes. The measured thunk includes this
+  ;; output cost, so the unchanged wall-time ceiling remains conservative.
+  (displayln "BENCHMARK-BATCH-OK parses=1000")
+  (force-output))
 
 (def parser-benchmark-tests
   (test-suite "standard parser benchmark"

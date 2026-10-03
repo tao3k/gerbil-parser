@@ -89,3 +89,7 @@
                => #t)))))
 
 (export core-observability-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def core-observability-test core-observability-tests)
+(export core-observability-test)

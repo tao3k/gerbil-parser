@@ -18,7 +18,7 @@
                  make-value-interner
                  recognition-sequence-relocate
                  recognition-sequence-append
-                 recognition-sequence->list current-recognition-sequence-fusion-enabled?
+                 recognition-sequence->list recognition-sequence-for-action current-recognition-sequence-fusion-enabled?
                  value-interner-created-count
                  value-interner-hit-count
                  value-interner-intern
@@ -318,8 +318,7 @@
 ;; : (-> List List Fixnum List)
 (def (apply-operand-action action children default-offset
                            fragment-constructor)
-  (let (materialized (if (current-recognition-sequence-fusion-enabled?) children
-                        (recognition-sequence->list children)))
+  (let (materialized (recognition-sequence-for-action children))
   (case (car action)
     ((field)
      (recognition-children-field

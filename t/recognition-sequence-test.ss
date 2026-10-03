@@ -17,6 +17,19 @@
         (let (values (recognition-sequence->list moved))
           (check (recognition-value-start (recognition-child-value (car values))) => 8)
           (check (recognition-value-end (recognition-child-value (last values))) => 10008))))
+    (test-case "measured sequences can append a retained unmeasured prefix"
+      (let (bare
+            (parameterize ((current-recognition-sequence-fusion-enabled? #f))
+              (recognition-sequence-append
+               (list (make-recognition-child #f (make-token 'number "1" 1 2)))
+               (list (make-recognition-child #f (make-token 'number "2" 3 4))))))
+        (parameterize ((current-recognition-sequence-fusion-enabled? #t))
+          (let (measured (recognition-sequence-append bare
+                          (list (make-recognition-child #f (make-token 'number "3" 5 6)))))
+            (check (recognition-sequence-arity measured) => 2)
+            (check (recognition-sequence-start measured 0) => 1)
+            (check (recognition-sequence-end measured 0) => 6)
+            (check (length (recognition-sequence->list measured)) => 3)))))
     (test-case "field nesting and alias ranges survive deferred materialization"
       (let* ((one (list (make-recognition-child 'inner (make-token 'number "1" 3 4))))
              (two (recognition-sequence-append one (list (make-recognition-child #f (make-token 'number "2" 5 6)))))

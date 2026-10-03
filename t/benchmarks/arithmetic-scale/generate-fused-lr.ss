@@ -40,11 +40,11 @@
            (case (car action)
              ((field)
               `(recognition-children-field ',(cadr action)
-                 (recognition-sequence->list ,current) offset
+                 (recognition-sequence-for-action ,current) offset
                  make-recognition-fragment))
              ((alias)
               `(recognition-children-alias ',(cadr action)
-                 (recognition-sequence->list ,current) offset))
+                 (recognition-sequence-for-action ,current) offset))
              (else (error "unsupported operand action" action))))
          value (operand-actions operand)))
 
@@ -235,7 +235,7 @@
              (only-in :gerbil-parser/src/runtime/reduce
                       recognition-children-field recognition-children-alias)
              (only-in :gerbil-parser/src/runtime/funcs
-                      recognition-sequence->list recognition-sequence-append)
+                      recognition-sequence->list recognition-sequence-for-action recognition-sequence-append)
              (only-in :gerbil-parser/src/runtime/token
                       token-kind token-lexeme token-start token-end))
      (export direct-parse direct-drive)
@@ -269,7 +269,7 @@
              (only-in :gerbil-parser/src/runtime/reduce
                       recognition-children-field recognition-children-alias)
              (only-in :gerbil-parser/src/runtime/funcs
-                      recognition-sequence->list recognition-sequence-append)
+                      recognition-sequence->list recognition-sequence-for-action recognition-sequence-append)
              (only-in :gerbil-parser/src/runtime/token
                       token-kind token-lexeme token-start token-end))
      (export direct-drive direct-grammar-digest)

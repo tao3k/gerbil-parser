@@ -8,7 +8,7 @@
                  parse-artifact-success?)
         (only-in :gerbil-parser/src/runtime/funcs recognition-sequence->list current-recognition-sequence-fusion-enabled?)
         (only-in :gerbil-parser/src/runtime/recognition
-                 recognition-child-value recognition-node? recognition-node-kind)
+                 recognition-child-value recognition-node? recognition-node-kind recognition-node-children recognition-fragment? recognition-fragment-children)
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-layout-parser)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/runtime/token make-token)
@@ -111,6 +111,20 @@
       (check (incremental-session-source-index (make-incremental-session hcl-v2-24-parser "value = 1\n" #t)) => #f))
     (test-case "fused semantic publication matches original replay across edits"
       (parameterize ((current-recognition-sequence-fusion-enabled? #t))
+        (let* ((session (make-incremental-session hcl-v2-24-parser "a = 1\nb = 2\n" #t))
+               (root (incremental-session-recognition-root session))
+               (value (recognition-child-value (car (recognition-sequence->list (lr-recognition-fragment-value root))))))
+          (check (recognition-node? value) => #t)
+          (check
+           (let loop ((pending (list value)))
+             (and (pair? pending)
+                  (let* ((value (car pending))
+                         (children (cond ((recognition-node? value) (recognition-node-children value))
+                                         ((recognition-fragment? value) (recognition-fragment-children value))
+                                         (else '()))))
+                    (or (not (list? children))
+                        (loop (append (map recognition-child-value children) (cdr pending)))))))
+           => #t))
         (check-edits "value = \"λ中😀\" /* trivia */\nother = { nested = [1, 2] }\n"
           (list (make-edit 0 0 "first = 001\n")
                 (make-edit 0 12 "")

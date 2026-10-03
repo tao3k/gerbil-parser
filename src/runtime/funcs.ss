@@ -16,6 +16,7 @@
         recognition-sequence-append
         recognition-sequence-concatenate
         recognition-sequence->list
+        recognition-sequence-for-action
         recognition-sequence-relocate
         current-recognition-sequence-fusion-enabled?
         recognition-sequence-arity recognition-sequence-start recognition-sequence-end
@@ -110,11 +111,15 @@
 ;; wrapper. This turns left-recursive repetition from repeated list copying
 ;; into constant-time concatenation.
 (def current-recognition-sequence-fusion-enabled? (make-parameter #f))
-(defstruct recognition-sequence-branch (left right arity start end) transparent: #t)
+(defstruct recognition-sequence-branch (left right) transparent: #t)
+;;; The admitted list path pays no summary storage or summary maintenance.
+(defstruct (recognition-sequence-measured-branch recognition-sequence-branch)
+  (arity start end) transparent: #t)
 
 (defstruct recognition-sequence-position-view (value delta) transparent: #t)
 (def (recognition-sequence-relocate value delta)
   (cond
+   ((null? value) '())
    ((recognition-sequence-position-view? value)
     (make-recognition-sequence-position-view
      (recognition-sequence-position-view-value value)
@@ -126,9 +131,12 @@
   (cond
    ((null? left) right)
    ((null? right) left)
-   (else (make-recognition-sequence-branch left right
-          (min 2 (+ (recognition-sequence-arity left) (recognition-sequence-arity right)))
-          (recognition-sequence-start left 0) (recognition-sequence-end right 0)))))
+   (else
+    (if (current-recognition-sequence-fusion-enabled?)
+      (make-recognition-sequence-measured-branch left right
+        (min 2 (+ (recognition-sequence-arity left) (recognition-sequence-arity right)))
+        (recognition-sequence-start left 0) (recognition-sequence-end right 0))
+      (make-recognition-sequence-branch left right)))))
 
 ;; : (-> (List RecognitionSequence) RecognitionSequence)
 (def (recognition-sequence-concatenate sequences)
@@ -140,19 +148,43 @@
 ;;; Cardinality is capped at two: semantic fields distinguish empty,
 ;;; singleton and multiple children, not the total length of a sequence.
 (def (recognition-sequence-arity sequence)
-  (cond ((recognition-sequence-position-view? sequence)
-         (recognition-sequence-arity (recognition-sequence-position-view-value sequence)))
-        ((recognition-sequence-branch? sequence) (recognition-sequence-branch-arity sequence))
-        ((null? sequence) 0) ((null? (cdr sequence)) 1) (else 2)))
+  (cond
+   ((recognition-sequence-position-view? sequence)
+    (recognition-sequence-arity (recognition-sequence-position-view-value sequence)))
+   ((recognition-sequence-measured-branch? sequence)
+    (recognition-sequence-measured-branch-arity sequence))
+   ((recognition-sequence-branch? sequence) (recognition-sequence-unmeasured-arity sequence))
+   ((null? sequence) 0) ((null? (cdr sequence)) 1) (else 2)))
+(def (recognition-sequence-unmeasured-arity sequence)
+  (let loop ((pending (list sequence)) (count 0))
+    (cond ((>= count 2) 2) ((null? pending) count)
+          (else
+           (let (current (car pending))
+             (cond
+              ((recognition-sequence-position-view? current)
+               (loop (cons (recognition-sequence-position-view-value current) (cdr pending)) count))
+              ((recognition-sequence-measured-branch? current)
+               (loop (cdr pending) (+ count (recognition-sequence-measured-branch-arity current))))
+              ((recognition-sequence-branch? current)
+               (loop (cons (recognition-sequence-branch-left current)
+                           (cons (recognition-sequence-branch-right current) (cdr pending))) count))
+              ((null? current) (loop (cdr pending) count))
+              (else (loop (cdr pending) (+ count (if (null? (cdr current)) 1 2))))))))))
 (def (recognition-sequence-bound sequence default-offset end?)
-  (cond ((= (recognition-sequence-arity sequence) 0) default-offset)
-        ((recognition-sequence-position-view? sequence)
-         (+ (recognition-sequence-position-view-delta sequence)
-            (recognition-sequence-bound (recognition-sequence-position-view-value sequence) default-offset end?)))
-        ((recognition-sequence-branch? sequence)
-         (if end? (recognition-sequence-branch-end sequence) (recognition-sequence-branch-start sequence)))
-        (else ((if end? recognition-value-end recognition-value-start)
-               (recognition-child-value (if end? (last sequence) (car sequence)))))))
+  (let loop ((current sequence) (delta 0))
+    (cond
+     ((null? current) default-offset)
+     ((recognition-sequence-position-view? current)
+      (loop (recognition-sequence-position-view-value current)
+            (+ delta (recognition-sequence-position-view-delta current))))
+     ((recognition-sequence-measured-branch? current)
+      (+ delta (if end? (recognition-sequence-measured-branch-end current)
+                        (recognition-sequence-measured-branch-start current))))
+     ((recognition-sequence-branch? current)
+      (loop (if end? (recognition-sequence-branch-right current)
+                      (recognition-sequence-branch-left current)) delta))
+     (else (+ delta ((if end? recognition-value-end recognition-value-start)
+                    (recognition-child-value (if end? (last current) (car current)))))))))
 (def (recognition-sequence-start sequence default-offset)
   (recognition-sequence-bound sequence default-offset #f))
 (def (recognition-sequence-end sequence default-offset)
@@ -186,3 +218,8 @@
                      (make-recognition-child (recognition-child-field child)
                        (relocate-recognition-value (recognition-child-value child) delta #t)))))
        sequence))))
+
+;;; The interpreter and generated operand actions share this one boundary.
+(def (recognition-sequence-for-action children)
+  (if (current-recognition-sequence-fusion-enabled?) children
+    (recognition-sequence->list children)))

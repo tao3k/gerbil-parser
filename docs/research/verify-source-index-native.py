@@ -36,9 +36,10 @@ if unload_progress:
     if Path(executor).read_bytes()[:2] == b'#!':
         raise SystemExit('Darwin unload progress requires a native gxi binary')
     env['DYLD_PRINT_APIS'] = '1'
+fixture_sources = ['t/fixtures/lr1-construction.ss', 't/line-structure-assertions.ss']
 fixture_build = None
 if not args.resume:
-    command = ['gxc', '-O', 't/fixtures/lr1-construction.ss']
+    command = ['gxc', '-O', *fixture_sources]
     print('BUILD-TEST-FIXTURE', *command, flush=True)
     log = out/'fixture-build.log'
     with log.open('w') as output:
@@ -52,7 +53,8 @@ if not args.resume:
 receipt = {'head': head, 'modules': len(modules), 'inactivity_seconds': 5,
            'batch_seconds': 180, 'executor': executor, 'dyld_api_progress': unload_progress,
            'executor_sha256': hashlib.sha256(Path(executor).read_bytes()).hexdigest(), 'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')}, 'batches': [], 'fixture_build': fixture_build}
-receipt['fixture_sha256']['lr1-construction.ss'] = hashlib.sha256((root/'t/fixtures/lr1-construction.ss').read_bytes()).hexdigest()
+for name in fixture_sources:
+    receipt['fixture_sha256'][name] = hashlib.sha256((root/name).read_bytes()).hexdigest()
 if args.resume:
     previous = json.loads((out/'metadata.json').read_text())
     for key in ['head', 'modules', 'fixture_sha256', 'executor', 'executor_sha256', 'dyld_api_progress']:

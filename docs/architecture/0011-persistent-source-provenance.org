@@ -1,0 +1,232 @@
+#+title: RFC 0011 — Persistent source provenance through certified recognition
+#+startup: overview
+
+* Decision and scope
+
+This extends RFC 0010's existing deterministic capture pipeline. The connected
+path is source token/mode storage -> recognition certificates -> original
+production replay -> canonical ParseArtifact publication. This implementation
+changes storage and provenance while preserving grammar productions.
+
+The implementation uses an eager, chunked AVL rope. It remains explicitly experimental: matched whole-edit measurements reject
+default admission for the current complete-artifact API. Normal sessions
+still pass capture? =#f= and allocate neither this index nor a grammar forest.
+The parameter =current-lr-source-index-enabled?= independently controls captured
+sessions. The vector control uses the same compiled scanner, LR runtime,
+grammar cursor, certificates and artifact publisher.
+
+* Algorithm families and actual transfer limits
+
+| Primary source | Transfer to this code | Limit and falsifiable gate |
+| [[https://www.cs.tufts.edu/comp/150FP/archive/hans-boehm/ropes.pdf][Boehm, Atkinson and Plass, Ropes (1995)]] | Ordered immutable leaves, cached length measures, shared slices and copied boundary paths; source-index.ss | A balanced AVL join is used, rather than the paper's deferred balancing policy. Verify leaf identity, tree measures, UTF8 positions and complete artifacts after sequential edits. |
+| [[https://www.cs.tufts.edu/comp/150FP/archive/ralf-hinze/finger-trees.pdf][Hinze and Paterson, Finger Trees (2006)]] | Additive token/byte/character measures separate physical sequence shape from semantic fold; source-index.ss and funcs.ss | Their persistent amortized bounds rely on laziness. This eager implementation cannot inherit those bounds or rebalance arbitrary semantic reductions. Test the existing context-dependent repeat veto and preserve projector equality. |
+| [[https://rtheunissen.github.io/bst/docs/references/2012_bagwell_rompf.pdf][Bagwell and Rompf, RRB Trees (2012 preprint)]] and [[https://github.com/TiarkRompf/rrbtrees][author implementation]] | Chunk locality and a focused traversal cursor avoid repeated root lookups; measured native cursor access | This is a binary AVL rope, not an RRB implementation. Wide-node copying, prefix-size search and Gerbil's object costs require their own experiment. No borrowed constant-factor or radix bound is claimed. |
+| [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Wagner and Graham, incremental parsing]] | Retain recognizable subtrees and verify context at reuse boundaries; reuse.ss and lr-parser.ss | Source identity does not prove a valid LR transfer. Runtime, stack/state, original production semantics, lexical mode and lookahead admission remain mandatory. |
+
+The papers suggest distinct seams, not interchangeable implementations. Source
+sequence balancing is lawful because token order and additive measures are
+preserved. Rebalancing a recognition repeat changes a production fold unless
+its sequence origin and original reduction order are retained. Arithmetic's
+nested reductions therefore remain unchanged. A balanced token tree does not
+close the repeat semantic contract in RFC 0010.
+
+* Storage and provenance contract
+
+=source-index.ss= stores paired token/mode vectors in leaves of at most 64
+slots. Internal nodes cache token count, byte span, character span and height.
+A relative position view wraps shared storage; nested adjacent translations
+collapse and zero translation returns the underlying piece. This uses UTF8 byte
+positions for edits and character counts for scanner movement separately.
+
+Leaves and published nodes never mutate during parser operation. Fresh builder
+buffers and request cursors mutate only before publication. This follows the
+existing token-vector ownership convention; it is not defensive deep immutability
+against callers mutating private token objects.
+
+The parser's private source-stream observer records fresh scanner tokens,
+successful nonterminal transfers and ordinary lexical convergence. Accepted old
+source ranges coalesce before tree slicing. Rejected candidate cursors are
+copies and cannot consume the owner. Prefix storage is sliced from the previous
+index. The next index is assembled from provenance while parsing; there is no
+post-parse whole-token traversal to reconstruct it.
+
+Certificate scanning can hand a boundary token directly to the source driver.
+The observer reconciles that token with the old source only outside the changed
+byte interval, after exact kind, lexeme and shifted byte-span checks. This is
+storage provenance for an already scanned token, not recognition admission.
+Its actual captured mode must be retained even when the old token's mode differs.
+Sorted sparse mode patches copy one bounded mode vector per touched leaf while
+retaining token backing vectors. Adjacent source spans still coalesce.
+
+Certified event-window edits splice this index too, even when their grammar
+forest is dropped. Resumed deterministic parses can capture a new forest later.
+Failure, layout parsing and GLR without a complete deterministic source origin
+do not publish a partial index. Source-index modes are checked against the
+actual captured stream. Independently fresh parsing verifies token contents and
+coordinates; historical/normalized modes need not equal those of a fresh path.
+
+* Why the first representation failed
+
+Sharing grammar fragments alone left scanned boundary newlines classified as
+fresh input. On 400 sibling declarations, this made 401 small fresh token chunks
+for a first insertion; 800 declarations made 801. Each boundary split the old
+origin, causing tree joins and bounded leaf work repeatedly.
+
+Matching mode IDs as a condition for token sharing did not remove that pattern:
+the scanner boundary path can record a different mode for the identical token.
+The correction separates token provenance from mode updates, without dropping
+the mode check during future lexical reuse. The source-index tests include an
+actual mode 0 override across the 63/64 leaf boundary and prove the old version
+is unchanged and token backing vectors are physically shared.
+
+A second locality issue was a root-based byte seek at every nearby declaration
+boundary. The cursor now advances within its current chunk, using the tree
+search only when the target lies beyond that chunk. Both experiments are
+reported as intermediate failures, not qualified speedups.
+
+* Cost model and evidence boundary
+
+Let N be source tokens, C reachable chunks, F fresh tokens, R disjoint reused
+origin ranges, P changed mode positions, and L touched mode chunks.
+
+- Indexed count and height use cached measures; byte seek outside the current
+  chunk descends a balanced tree and scans at most one bounded leaf.
+- Slice and join copy boundary paths and bounded leaf descriptors. An unchanged
+  accepted source interval retains token backing storage.
+- The builder assembles coalesced ranges rather than flattening all N old tokens
+  into two vectors for each edit. Fresh token chunks contain only F new entries.
+- Sparse mode relabeling traverses affected paths and copies at most 64 slots
+  per touched mode chunk. P or L can still scale with the unchanged suffix.
+- Certificates and flat publication still enumerate accepted tokens. Relative
+  token materialization allocates absolute tokens for published artifacts.
+  Counters describe builder storage operations, not total heap allocation.
+- Source patching, checkpoint prefix lists, absolute event publication, complete
+  reused-ID receipts and whole-source SHA256 remain linear. Whole-edit time is
+  not logarithmic.
+- Sliced backing vectors retain up to a bounded leaf's unused slots. Repeated
+  edits can fragment leaves; tree balance alone does not prove a live-heap bound
+  independent of edit history. No heap/resident-memory win is claimed.
+
+* Validation and matched experiment
+
+The source-index unit suite checks empty input, UTF8 translation, cursor trials,
+sliced storage identity, coalesced sources, sparse modes and 180 deterministic
+splices against an independently rebuilt flat reference. The integrated snapshot
+suite checks real sequential edits, complete fresh artifacts, independent
+production projection, captured mode equality, retained old versions, event
+windows and the same-head vector control.
+
+The existing =t/benchmarks/incremental-session/benchmark.ss= now supports explicit
+=source-index= and =no-source-index= switches. Topology workloads retain first,
+middle and last insert/delete scenarios. History workloads apply six edits to
+successive sessions; validation and index audits run outside measured calls.
+Each timed call publishes complete artifacts. The history timing is the complete
+six-edit chain, not a per-edit distribution.
+
+=docs/research/reproduce-source-index.py= pins the clean source HEAD, preserves
+raw logs and hashes, runs both variants with reversed order on the second pass,
+and uses 20 CPU-time samples per row by default. There is a five-second real
+output inactivity watchdog and a 180-second batch limit; it kills the process
+group. Import, LR and completed-sample output provide progress, without heartbeats.
+
+** Fixed-head results and admission
+
+Runtime/harness measurement head: =99dee96f43587bdb72125a982c2983c69e756fce=.
+PR #13 was fetched/rebased again at
+=7c1533356585154c8b5d340f64ffefb289d18907=; Git reported the branch up to date.
+Both benchmark controls run native runtime modules from that same HEAD.
+
+All 16 jobs completed with exit zero, no watchdog failure and exactly 112 rows.
+Each row has 20 CPU samples. Full artifact equality, inverse edits and source
+mode audits pass. The two variants agree on recognition fragment reuse, skipped
+significant tokens, resumed shifts, remaining tokens, grammar cursor visits and
+probe reuse. The changed storage does not buy extra LR work skipping.
+
+Selected complete-edit CPU medians in milliseconds; history rows are SIX edits:
+
+| Workload | vector pass 1 | index pass 1 | vector reversed pass | index reversed pass |
+| HCL 400 first insertion | 2.5550 | 3.6420 | 2.5290 | 3.6720 |
+| HCL 800 first insertion | 6.0515 | 7.1870 | 4.8285 | 7.3190 |
+| Nested 16 first deletion | 2.4375 | 3.7565 | 2.3830 | 3.7970 |
+| HCL 800 six-edit history | 17.9635 | 26.2425 | 18.5220 | 25.5110 |
+| Nested 16 six-edit history | 17.3645 | 22.9615 | 17.3235 | 22.8865 |
+
+The flat workload's 24 paired medians all regress. All eight history comparisons
+regress. Three of the 24 nested comparisons have a lower index median; the best
+first-pass ratio, 0.824 on the last deletion at 16 blocks, becomes 0.996 on the
+reversed pass. That does not support a stable useful gain.
+
+The storage result remains real and narrower: the 400 first insertion creates
+one fresh token chunk, shares all 2400 old source tokens and copies 38 bounded
+mode chunks. The 800 case shares 4800 old tokens and copies 75 mode chunks.
+Mode churn spans the unchanged suffix, so removing full token vectors does not
+remove all suffix-sized metadata work. These counters are not heap measurements.
+
+Admission commit =8f003df06917853e2b31a5f0a3474fadd0eedcab= sets the source-index
+parameter to =#f= by default. Explicit =source-index= experiments still exercise
+the fully integrated path. Existing certified grammar cursor/probe reuse stays
+available on the faster vector source path. No source-index CPU speedup is claimed.
+
+Receipts:
+
+- [[../research/data/source-index-matched-2026-10-03.sexp][112 exact measurement rows]], schema, runtime pin and harness hash.
+- [[../research/data/source-index-matched-2026-10-03.json][Job arguments, exits, watchdog outcomes and raw-log hashes]].
+- [[../research/data/source-index-native-2026-10-03.json][Final gated native qualification]] at exact HEAD =8f003df06917853e2b31a5f0a3474fadd0eedcab=:
+  56 modules, 19 bounded batches and 310 test cases; every batch exits zero,
+  reports MODULE-OK/HARNESS-OK/final OK, and has no watchdog failure. Raw-log
+  hashes are sealed in the receipt. This is local native evidence, not remote CI
+  or a deployed downstream qualification.
+
+#+begin_src sh
+GERBIL_BUILD_CORES=12 gerbil build
+python3 docs/research/reproduce-source-index.py /private/tmp/source-index-reproduction
+python3 docs/research/verify-source-index-native.py /private/tmp/source-index-native-reproduction
+#+end_src
+
+The data pin measures the candidate before default admission was rejected; the
+later switch changes the default, and benchmark variants explicitly override it.
+The reproduction entrypoint records the calling checkout's clean runtime HEAD.
+
+** Implications for the next algorithm change
+
+The experiment falsifies the assumption that persistent token storage alone
+makes this complete-artifact edit path faster. It does not isolate CPU time among
+cursor access, mode patches, token relocation and publication. Their separate
+phase timings must be measured before claiming a dominant cause.
+
+There are two concrete compiler/runtime seams to study next:
+
+1. Mode provenance: normalized grammar transfers can change boundary modes on
+   unchanged text. Exact numeric mode certificates are conservative and simple,
+   but source locality is not mode-update locality. Factoring lexical behavior
+   into compiler-proved equivalence classes could avoid some churn. Any such
+   quotient must account for literal priority, longest-match behavior, trivia,
+   accepted terminals and scanner closure; equal token contents alone are not
+   a universal mode certificate. Opaque scanners and contextual repeat vetoes
+   remain counterexamples until proved otherwise.
+2. Recognition/publication: the current injector builds flat token segments and
+   binds absolute token instances even for reused grammar interiors. A future
+   local-recognition operation must retain certified token ranges and replay the
+   original semantic fold only at the required boundary. Generated scanners also
+   consume flat source strings today. Source-rope scanning, fragment range
+   binding and an explicit materialization operation therefore form one path;
+   hiding a flattening pass in any of them would invalidate local-update claims.
+
+The current API still publishes the complete authoritative ParseArtifact, with
+whole-source SHA256. A private retained snapshot or local query is not a second
+canonical artifact. Changing this boundary must preserve exact published events,
+current token identities, original production folding and invalidation behavior.
+
+* Following the full optimization path
+
+1. Admit persistent source storage only at an explicit measured boundary. Treat
+   source/token sharing, mode copying and complete edit CPU as separate facts.
+2. Retain sequence origins in grammar repetition and replay the original fold;
+   test the context-dependent veto before balancing recognition ancestry.
+3. Expose local persistent recognition queries separately from complete flat
+   publication. Keep ParseArtifact v1 digest, token identity and event order as
+   authority, and measure the remaining whole-source work explicitly.
+
+This sequence keeps source storage, LR context, semantic folding and publication
+connected. It cannot be completed by renaming the flat artifact or merely adding
+a tree beside a later full rebuild.

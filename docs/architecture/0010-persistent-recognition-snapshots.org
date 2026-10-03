@@ -655,3 +655,15 @@ python3 docs/research/reproduce-recognition-cursor.py /private/tmp/recognition-c
 
 The cursor removes one full-forest preparation pass. It does not close these
 three gaps or establish logarithmic whole-edit complexity.
+
+
+** Follow-up: persistent source provenance experiment
+
+[[file:0011-persistent-source-provenance.org][RFC 0011]] connects measured token/mode storage to the existing grammar cursor
+and explicit publication boundary. Its integrated immutable chunk storage passes
+semantic checks, but 112 same-head native rows reject default admission for
+complete-artifact CPU time. The source index is explicitly experimental and
+defaults off; the existing vector/certified recognition path remains the measured
+fast path. Mode churn on unchanged text and flat token binding are now separate,
+falsifiable compiler/runtime research seams. Neither balanced repeat folds nor
+local publication has been claimed complete.

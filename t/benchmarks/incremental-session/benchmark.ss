@@ -416,7 +416,8 @@
 
 (import (only-in :gerbil-parser/src/runtime/funcs current-recognition-sequence-fusion-enabled? recognition-sequence->list)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?
-                 lr-runtime-event-program? lr-recognition-fragment-runtime lr-recognition-fragment-value)
+                 lr-runtime-event-program? lr-recognition-fragment-runtime lr-recognition-fragment-value lr-recognition-fragment-executor)
+        (only-in :gerbil-parser/languages/hcl/v2-24/direct-step direct-event-step)
         (only-in :gerbil-parser/src/runtime/event-program event-program-value?)
         (only-in :gerbil-parser/src/runtime/recognition recognition-child-value))
 (def (assert-event-backend session)
@@ -424,6 +425,7 @@
     (let (root (let base ((piece (incremental-session-recognition-root session)))
                  (if (lr-recognition-view? piece) (base (lr-recognition-view-base piece)) piece)))
       (unless (and root (lr-runtime-event-program? (lr-recognition-fragment-runtime root))
+                   (eq? (lr-recognition-fragment-executor root) direct-event-step)
                    (event-program-value? (recognition-child-value
                      (car (recognition-sequence->list (lr-recognition-fragment-value root))))))
         (error "event benchmark did not execute the event backend")))))

@@ -12,7 +12,10 @@
         (only-in :gerbil-parser/src/runtime/lr-parser
                  current-lr-event-program-enabled? lr-runtime-event-program?
                  lr-recognition-fragment-runtime lr-recognition-fragment-value
-                 lr-recognition-view? lr-recognition-view-base)
+                 lr-recognition-view? lr-recognition-view-base lr-recognition-fragment?
+                 lr-recognition-fragment-children lr-recognition-fragment-end
+                 lr-recognition-fragment-token-count lr-recognition-fragment-executor)
+        (only-in :gerbil-parser/languages/hcl/v2-24/direct-step direct-event-step)
         (only-in :gerbil-parser/src/runtime/incremental
                  make-incremental-session incremental-session-artifact
                  incremental-session-recognition-root incremental-session-project-artifact
@@ -25,6 +28,27 @@
   (recognition-child-value
    (car (recognition-sequence->list
          (lr-recognition-fragment-value (base-root (incremental-session-recognition-root session)))))))
+(def (find-program-piece root bound)
+  (let loop ((pending (list root)))
+    (and (pair? pending)
+         (let (piece (base-root (car pending)))
+           (if (lr-recognition-fragment? piece)
+             (let (values (recognition-sequence->list (lr-recognition-fragment-value piece)))
+               (if (and (< (lr-recognition-fragment-end piece) bound)
+                        (> (lr-recognition-fragment-token-count piece) 2)
+                        (pair? values) (null? (cdr values))
+                        (event-program-value? (recognition-child-value (car values))))
+                 piece
+                 (loop (append (lr-recognition-fragment-children piece) (cdr pending)))))
+             (loop (cdr pending)))))))
+(def (contains-piece? root expected)
+  (let loop ((pending (list root)))
+    (and (pair? pending)
+         (let (piece (base-root (car pending)))
+           (or (eq? piece expected)
+               (loop (append (if (lr-recognition-fragment? piece)
+                               (lr-recognition-fragment-children piece) '())
+                             (cdr pending))))))))
 (def (artifact-for source tokens root)
   (make-success-parse-artifact "event-test" source tokens root
                               (lambda (token) #f)))
@@ -86,6 +110,22 @@
           (check (lr-runtime-event-program?
                   (lr-recognition-fragment-runtime (base-root (incremental-session-recognition-root session)))) => #t)
           (check (incremental-session-artifact session) => (parse-hcl-v2-24 source))
+          (check (eq? (lr-recognition-fragment-executor
+                       (base-root (incremental-session-recognition-root session))) direct-event-step) => #t)
+          (let* ((piece (find-program-piece (incremental-session-recognition-root session) 500))
+                 (code (and piece (event-program-value-code
+                         (recognition-child-value (car (recognition-sequence->list
+                           (lr-recognition-fragment-value piece)))))))
+                 (edit (make-edit (u8vector-length (string->utf8 source)) 0 "last = 2\n")))
+            (check (not (not piece)) => #t)
+            (let-values (((next receipt) (parse-incremental-session session edit)))
+              (set! source (apply-edit source edit)) (set! session next)
+              (check (contains-piece? (incremental-session-recognition-root session) piece) => #t)
+              (check (eq? code (event-program-value-code
+                        (recognition-child-value (car (recognition-sequence->list
+                          (lr-recognition-fragment-value piece)))))) => #t)
+              (check (incremental-session-artifact session) => (parse-hcl-v2-24 source))
+              (check (incremental-session-project-artifact session) => (incremental-session-artifact session))))
           (for-each
            (lambda (edit)
              (let-values (((next receipt) (parse-incremental-session session edit)))

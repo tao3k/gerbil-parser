@@ -41,9 +41,9 @@ tla-sany-corpus corpus:
 benchmark-gql-stages samples="3" parses="100":
     GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --log /private/tmp/parser-gql-stages-current.log --require GQL-STAGES-OK -- gxi t/benchmarks/gql-runtime/matched-stages.ss {{samples}} {{parses}}
 
-# Current-source scanner execution; compile/preparation stay outside timing.
-benchmark-contextual-scanner axes="16" samples="20" words="128" literals="0":
-    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-scanner-scale.log --require SCANNER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-scale.ss {{axes}} {{samples}} {{words}} {{literals}}
+# Current-source scanner execution; optional prepare-scan phase includes preparation.
+benchmark-contextual-scanner axes="16" samples="20" words="128" literals="0" phase="scan":
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-scanner-scale.log --require SCANNER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-scale.ss {{axes}} {{samples}} {{words}} {{literals}} {{quote(phase)}}
 
 # Complete deferred batches; each sample reports real token and byte coverage.
 benchmark-contextual-deferred delimiters="512" samples="5":

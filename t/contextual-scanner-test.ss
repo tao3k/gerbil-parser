@@ -85,8 +85,48 @@
          (ir (compile-contextual-scanner rules dispatch 'template)))
     (values (prepare-contextual-scanner ir source) ir)))
 
+(def (with-cells ir cells)
+  (let (body (map (lambda (row) (if (eq? (car row) 'cells) (cons 'cells cells) row))
+                 (filter (lambda (row) (not (eq? (car row) 'digest))) ir)))
+    (append body (list (cons 'digest (sha256-text
+                                     (call-with-output-string (lambda (port) (write body port)))))))))
+
 (def contextual-scanner-test
   (test-suite "generic contextual scanner"
+    (test-case "dispatch indexing preserves negative sparse and duplicate cells"
+      (let-values (((_scanner ir) (bash-scanner ";")))
+        (let* ((cells (cdr (assq 'cells ir)))
+               (target (find (lambda (cell) (equal? (take cell 3) '(command argument operator))) cells))
+               (negative (map (lambda (cell) (if (eq? cell target)
+                                                (append (take cell 3) '(#f)) cell)) cells))
+               (sparse (filter (lambda (cell) (not (eq? cell target))) cells)))
+          (for-each
+           (lambda (rows)
+             (let (scanner (prepare-contextual-scanner (with-cells ir rows) ";"))
+               (check
+                (with-catch (lambda (condition) (error-message condition))
+                  (lambda () (contextual-scanner-step scanner
+                               (contextual-scanner-initial-state scanner) 'argument) #f))
+                => "missing contextual scanner dispatch")))
+           (list negative sparse))
+          (check
+           (with-catch (lambda (condition) (error-message condition))
+             (lambda () (prepare-contextual-scanner (with-cells ir (cons target negative)) ";") #f))
+           => "duplicate contextual scanner dispatch cell")
+          (let* ((wide (append cells
+                        (map (lambda (n) (list 'command 'argument
+                                          (string->symbol (string-append "extra" (number->string n)))
+                                          '(unused))) (iota 9))))
+                 (single (filter (lambda (cell) (eq? (cadr cell) 'argument)) cells))
+                 (structural (cons (list '(foreign mode) 'argument 'foreign '(unused)) cells)))
+            (for-each
+             (lambda (rows)
+               (let (scanner (prepare-contextual-scanner (with-cells ir rows) ";"))
+                 (let-values (((token next) (contextual-scanner-step scanner
+                                              (contextual-scanner-initial-state scanner) 'argument)))
+                   (check (token-kind token) => 'operator)
+                   (check (token-lexeme token) => ";"))))
+             (list wide single structural))))))
     (test-case "position admission rejects undeclared identities even at EOF"
       (let-values (((scanner _ir) (bash-scanner "if")))
         (let (initial (contextual-scanner-initial-state scanner))

@@ -657,3 +657,151 @@ results. Public declaration-macro binding, contextual GLR scanner-state
 admission, optional CLI builds, and remote CI remain separate. The remote PR
 head was checked again and is still =7c15333=, already an ancestor of this
 branch. No remote push was performed.
+
+* 2026-10-03: scanner preparation study and bounded dispatch factoring
+
+This experiment starts at =038aec59f15dafda647ed39c10957e7a164f5e64= and uses
+the existing =matched-scale.ss= fixture with 1/16/64 mode and position axes,
+0/128 literals, ASCII identifiers and Unicode fallback words. The exact runtime
+is retained separately for source/native pairs, with complete public token
+traces and canonical final checkpoint equality. Compilation is untimed.
+
+Source preparation was first split into digest admission, rule preparation,
+and cell indexing. At 64 axes with 128 literals, the three post-warmup median
+CPU times per preparation were 22.815, 0.543, and 7.172 ms respectively.
+The digest remains the largest component; no validation or digest check was
+removed, memoized against mutable caller data, or treated as trusted.
+
+Three representation candidates were considered:
+
+- Direct UTF-8 byte serialization removes the intermediate canonical string.
+  The default byte port changed Unicode digests and failed equivalence before
+  any production change. Explicit UTF-8/LF settings restored equality, as
+  documented by the Gambit byte-port/settings interface:
+  https://gambitscheme.org/4.9.8/manual/#U8vector_002dports . Native digest-only
+  medians at 64 axes improved for the zero-literal cell but the Unicode catalog
+  had only two of five wins. This candidate was rejected; the original
+  canonical string and SHA-256 path remain.
+- A full Cartesian vector avoided composite keys, but constructing ordinal
+  maps and performing three lookups per cell increased source costs. The
+  zero-literal 64-axis preparation-plus-scan median regressed 37.70%, with zero
+  wins. This candidate was rejected before its native compilation. No dense
+  product allocation or new IR axis catalog was retained.
+- Factoring dispatch by mode and position leaves a short form association row.
+  This removes the three-pair composite key allocation at token dispatch and
+  reduces prepared cell key storage. It uses two symbolic hash lookups plus a
+  bounded form row lookup. The prepared index is private and read-only after
+  construction; scanner/state field counts, canonical checkpoints, IR schemas and opcode
+  contracts retain their existing representation and meaning.
+
+The retained eligibility guard requires multiple mode/position rows, symbolic
+keys, and at most eight distinct forms. A single-row native probe regressed
+7.95% even after batching 100 scans per sample, so that shape retains the
+original hash path. Wide form catalogs and structural keys also retain it.
+The row search is bounded by eight; sparse rows do not allocate a Cartesian
+product. Duplicate detection checks presence independently of the result,
+so a negative cell cannot hide a duplicate. New tests exercise negative and
+missing cells, duplicate negative cells, sparse dispatch, single-row, wide
+catalog and structural-key fallback while preserving admitted token results.
+
+The preliminary grouped source probe was mixed: the 16-axis zero/128-literal preparation-plus-
+scan cells improved median 14.65%/8.24%, with 3/5 and 5/5 wins. The 64-axis
+zero-literal cell regressed 29.93%, and the 128-literal cell regressed 3.44%.
+These observations precede the single-row and primitive type guards and do
+not establish final source acceleration.
+Native execution is measured separately. There is no peak-memory claim.
+
+The existing public scanner benchmark now accepts =scan= (default) or
+=prepare-scan= as its fifth argument. The latter times fresh scanner admission
+and index construction with each complete scan; IR compilation remains outside
+measurement. For example:
+
+#+begin_src sh
+just benchmark-contextual-scanner 16 5 128 128 prepare-scan
+#+end_src
+
+The default token workload and original wall ceilings are unchanged. All
+experiments and exact baseline source live under
+=.data/scanner-prepare-experiment/=. One native startup exceeded the five-second
+silence fence; explicit native module loading supplied genuine progress for
+the rerun. An initial grouped grid later timed out in its last large cell;
+that run is excluded from final qualification. Each completed timed half now
+reports genuine scan count and CPU progress after its timer stops. The final
+native grid uses three warmups, five alternating pairs and five scans per
+sample. A combined source harness startup also timed out; its remaining
+scanner gate passed a focused rerun under the same fence.
+
+The final implementation tests =table?= directly at dispatch. The prior generic
+record predicate retained a roughly 9% single-row scan penalty despite choosing
+the original index, so this extra cost was removed. The final matrix below
+includes this change. CPU medians are per scan; preparation rows include fresh
+IR digest admission and scanner indexes on every scan.
+
+| Axes | Literals | Includes preparation | Before CPU ms | After CPU ms | Change | Wins |
+|------+----------+----------------------+---------------+--------------+--------+------|
+| 1 | 0 | no | 0.229200 | 0.230600 | +0.61% | 1/5 |
+| 1 | 0 | yes | 0.244600 | 0.251000 | +2.62% | 1/5 |
+| 1 | 128 | no | 0.268200 | 0.264200 | -1.49% | 3/5 |
+| 1 | 128 | yes | 0.410800 | 0.370000 | -9.93% | 3/5 |
+| 16 | 0 | no | 0.368000 | 0.213000 | -42.12% | 5/5 |
+| 16 | 0 | yes | 2.553000 | 2.007000 | -21.39% | 4/5 |
+| 16 | 128 | no | 0.417200 | 0.259400 | -37.82% | 5/5 |
+| 16 | 128 | yes | 3.128800 | 3.119000 | -0.31% | 3/5 |
+| 64 | 0 | no | 0.262200 | 0.228000 | -13.04% | 5/5 |
+| 64 | 0 | yes | 27.548200 | 25.553400 | -7.24% | 3/5 |
+| 64 | 128 | no | 0.299000 | 0.277000 | -7.36% | 3/5 |
+| 64 | 128 | yes | 26.547200 | 22.180800 | -16.45% | 5/5 |
+
+The 16-axis prepared-scan gains are 37.82%/42.12%, with five wins each. At 64
+axes with 128 literals, preparation plus scanning improves 16.45%, also with
+five wins. Other preparation cells have only three or four wins; the 16-axis
+128-literal cell is effectively unchanged. Single-row cells still have small
+positive/negative changes (including a +2.62% preparation median), so no
+universal latency improvement is established. Source interpreter regressions
+and the untouched digest bottleneck remain explicit limitations. This is a
+bounded contextual scanner result, not ordinary-language parser throughput.
+
+The first native functional harness completed all 80 cases and printed =OK=
+but timed out during exit, and is excluded. The final native functional rerun
+and its process exit are qualified separately. Final source scanner validation
+used explicit standard-library admission logs to keep cold imports within the
+same five-second progress policy; parser modules remained on the source overlay.
+
+Final source execution was measured again after both guards. Its results are
+mixed: at 16 axes, preparation-plus-scan medians improve 8.82%/20.73% for
+zero/128 literals, but only three pairs win. At 64 axes those medians regress
+4.29%/15.30%, with two/zero wins. Prepared source scanning at 16 axes regresses
+17.51%/8.27%; the 64-axis 128-literal cell regresses 18.53%. These source results
+are not replaced by the stronger native receipts. The optimization is retained
+for the measured native multi-row workloads; interpreter acceleration and
+universal fallback no-regression remain unestablished.
+
+Final local qualification binds =sha256:d2f7a27a1e1ce98cf02f3e5742bd6f1efe30c639cb09b9e0168cf515a7835497=. The standard 128-target native
+library build and all 80 native functional cases completed with exit zero.
+All eight unchanged wall contracts passed:
+
+| Contract | p95 ms | Existing ceiling ms | Result |
+|----------+--------+---------------------+--------|
+| lalr | 3.435 | 500 | PASS |
+| incremental | 1.549 | 250 | PASS |
+| recovery | 1.321 | 250 | PASS |
+| glr | 3.276 | 250 | PASS |
+| hot-path | 14.112 | 900 | PASS |
+| gql | 20.078 | 150 | PASS |
+| opencypher | 7.607 | 250 | PASS |
+| languages | 8.294 | 500 | PASS |
+
+The language batch twice printed passing receipts and =OK= but timed out in
+its trailing expression/exit phase. Both attempts are excluded and preserved.
+A diagnostic rerun put harness execution, recording its actual return status,
+and normal =##exit= into one pre-expanded expression. It reported
+=HARNESS-RETURN status=0= and completed with process exit zero under the
+unchanged five-second silence policy. This isolates successful harness return
+and exit; it does not prove an operating-system cleanup root cause. The seven
+already completed wall gates were not repeated for this remaining gate.
+
+=matched-receipt.json= and =qualification-receipt.json= record the final local
+boundaries. PR #13 was rechecked and remains open at =7c15333=, already included
+in this branch. Remote CI, optional CLI qualification, public declaration-macro
+binding and contextual GLR scanner-state admission remain separate. No remote
+push was performed.

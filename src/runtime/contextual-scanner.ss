@@ -110,7 +110,7 @@
      (reverse rows))
     index))
 
-(def (index-cells cells)
+(def (index-cells/hash cells)
   (let ((index (make-table test: equal?))
         (missing (gensym 'missing-cell)))
     (for-each
@@ -122,6 +122,45 @@
          (table-set! index key (and result (car result)))))
      cells)
     index))
+
+(defstruct grouped-dispatch (modes))
+
+(def (multiple-dispatch-rows? cells)
+  (and (pair? cells)
+       (let ((mode (caar cells)) (position (cadar cells)))
+         (any (lambda (cell) (or (not (eq? mode (car cell)))
+                                 (not (eq? position (cadr cell)))))
+              (cdr cells)))))
+
+(def (short-symbolic-cells? cells)
+  (let loop ((rest cells) (forms '()))
+    (or (null? rest)
+        (let* ((cell (car rest)) (form (caddr cell)))
+          (and (symbol? (car cell)) (symbol? (cadr cell)) (symbol? form)
+               (let (next (if (memq form forms) forms (cons form forms)))
+                 (and (<= (length next) 8) (loop (cdr rest) next))))))))
+
+;;; Factor the composite key into mode/position indexes and short form rows.
+;;; Multiple rows and at most eight forms bound row search. Single rows, wide
+;;; form catalogs, and structural keys retain the original hash path.
+(def (index-cells cells)
+  (if (and (multiple-dispatch-rows? cells) (short-symbolic-cells? cells))
+    (let (modes (make-table test: eq?))
+      (for-each
+       (lambda (cell)
+         (let* ((mode (car cell)) (position (cadr cell)) (form (caddr cell))
+                (positions (or (table-ref modes mode #f)
+                               (let (index (make-table test: eq?))
+                                 (table-set! modes mode index) index)))
+                (row (table-ref positions position '()))
+                (result (list-ref cell 3)))
+           (when (assq form row)
+             (error "duplicate contextual scanner dispatch cell" (take cell 3)))
+           (table-set! positions position
+                       (cons (cons form (and result (car result))) row))))
+       cells)
+      (make-grouped-dispatch modes))
+    (index-cells/hash cells)))
 
 (def (prepare-contextual-scanner ir source)
   (unless (and (string? source)
@@ -329,8 +368,13 @@
               (contextual-scan-state-mode state) '())))
 
 (def (result-kind scanner mode position form)
-  (let (kind (table-ref (contextual-scanner-cells scanner)
-                        (list mode position form) #f))
+  (let* ((index (contextual-scanner-cells scanner))
+         (kind (if (table? index)
+                 (table-ref index (list mode position form) #f)
+                 (let* ((positions (table-ref (grouped-dispatch-modes index) mode #f))
+                        (row (and positions (table-ref positions position '())))
+                        (cell (and row (assq form row))))
+                   (and cell (cdr cell))))))
     (unless kind
       (error "missing contextual scanner dispatch"
              mode position form))

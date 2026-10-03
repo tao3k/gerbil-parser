@@ -64,6 +64,14 @@ complete = (status == 0 and not reason[0] and len(rows) == 48 and len(pairs) == 
             and 'EDITED-PUBLICATION-ALL-OK' in lines
             and all(set(modes) == {'canonical', 'unified-event'} for modes in pairs.values())
             and all(row['samples'] == '20' and row['complete-artifact-equal?'] == '#t' for row in rows)
+            and all(int(row['shared-fragments']) > 0 for row in rows)
+            and all(row['location'] == 'last' or
+                    (int(row['reused-fragments']) > 0 and int(row['moved-program-tokens']) > 0)
+                    for row in rows)
+            and all(all(modes['canonical'][key] == modes['unified-event'][key]
+                        for key in ['events', 'shared-fragments', 'reused-fragments',
+                                    'moved-program-tokens', 'unmoved-program-tokens'])
+                    for modes in pairs.values() if set(modes) == {'canonical', 'unified-event'})
             and not any('*** ERROR' in line for line in lines))
 receipt = dict(schema='gerbil-parser.edited-publication.v1', head=head,
                command=command, samples=20, rows=len(rows), complete=complete,

@@ -22,9 +22,19 @@
                  lr-recognition-fragment-token-count lr-recognition-fragment-value
                  lr-recognition-project)
         (only-in :gerbil-parser/src/runtime/incremental
-                 current-lr-probe-reuse-enabled? make-incremental-session incremental-session-artifact
+                 current-lr-probe-reuse-enabled? current-lr-source-index-enabled? incremental-session-source-index incremental-session-source-modes make-incremental-session incremental-session-artifact
                  incremental-session-recognition-root incremental-session-project-artifact
                  parse-incremental-session apply-edit make-edit))
+
+(import (only-in :gerbil-parser/src/runtime/source-index source-index->lists source-index-audit source-index-storage source-index-count))
+(def (index-lists session)
+  (call-with-values (lambda () (source-index->lists (incremental-session-source-index session))) list))
+(def (check-source-index source session)
+  (check (source-index-audit (incremental-session-source-index session)) => #t)
+  (if (incremental-session-source-modes session)
+    (check (cadr (index-lists session)) => (incremental-session-source-modes session))
+    (check (incremental-session-source-index session) => #f))
+  (check (car (index-lists session)) => (car (index-lists (make-incremental-session hcl-v2-24-parser source #t)))))
 
 (def (check-projection machine source session)
   (let (root (incremental-session-recognition-root session))
@@ -41,6 +51,7 @@
        (let-values (((next receipt) (parse-incremental-session session edit)))
          (set! source (apply-edit source edit))
          (set! session next)
+         (check-source-index source next)
          (check (incremental-session-artifact next) => (parse-hcl-v2-24 source))
          (when (incremental-session-recognition-root next)
            (check-projection hcl-v2-24-parser source next))))
@@ -71,6 +82,28 @@
 
 (def recognition-snapshot-test
   (test-suite "private grammar recognition snapshots"
+    (test-case "source provenance shares old chunks and matches vector control"
+      (let* ((source (apply string-append (make-list 80 "value = 001\n")))
+             (session (make-incremental-session hcl-v2-24-parser source #t))
+             (before (index-lists session)) (edit (make-edit 0 0 "other = 002\n")))
+        (let-values (((next receipt) (parse-incremental-session session edit)))
+          (check-source-index (apply-edit source edit) next)
+          (check (index-lists session) => before)
+          (check (> (cdr (assq 'sourceIndexSharedTokenCount receipt)) 300) => #t)
+          (check (< (cdr (assq 'sourceIndexFreshTokenCount receipt)) 100) => #t)
+          (check (+ (cdr (assq 'sourceIndexFreshTokenCount receipt)) (cdr (assq 'sourceIndexSharedTokenCount receipt)))
+                 => (source-index-count (incremental-session-source-index next)))
+          (check (> (length (filter (lambda (storage) (memq storage (source-index-storage (incremental-session-source-index session))))
+                                    (source-index-storage (incremental-session-source-index next)))) 5) => #t)
+          (parameterize ((current-lr-source-index-enabled? #f))
+            (let-values (((control ignored) (parse-incremental-session session edit)))
+              (check (incremental-session-source-index control) => #f)
+              (check (incremental-session-artifact control) => (incremental-session-artifact next))
+              (check (incremental-session-project-artifact control) => (incremental-session-project-artifact next)))))))
+    (test-case "event window splices preserve index when grammar capture is dropped"
+      (check-edits "value = 1\nother = 2\n"
+                   (list (make-edit 8 1 "9") (make-edit 9 0 " /* λ中😀 */")
+                         (make-edit 9 17 "") (make-edit 8 1 "1"))))
     (test-case "ordinary sessions allocate no grammar snapshot"
       (check (incremental-session-recognition-root
               (make-incremental-session arithmetic-parser "1 + 2")) => #f))
@@ -306,10 +339,12 @@
              tla-plus-layout-parser
              "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n" #t))
         (check (parse-artifact-success? (incremental-session-artifact session)) => #t)
-        (check (incremental-session-recognition-root session) => #f)))
+        (check (incremental-session-recognition-root session) => #f)
+        (check (incremental-session-source-index session) => #f)))
     (test-case "invalid input cannot retain a reusable root"
       (let (session (make-incremental-session arithmetic-parser "1 +" #t))
         (check (parse-artifact-success? (incremental-session-artifact session)) => #f)
-        (check (incremental-session-recognition-root session) => #f)))))
+        (check (incremental-session-recognition-root session) => #f)
+        (check (incremental-session-source-index session) => #f)))))
 
 (export recognition-snapshot-test)

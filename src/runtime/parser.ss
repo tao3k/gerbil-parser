@@ -34,7 +34,7 @@
         (only-in ./significant
                  parser-significant-tokens parser-significant-joined)
         (only-in ./token make-token token-end token-lexeme))
-(export parse-source
+(export current-source-stream-observer parse-source
         parse-source/contextual
         prepare-contextual-parser
         parse-source/contextual/prepared
@@ -178,6 +178,8 @@
           source (reverse tokens-reversed) (car payload) trivia?))))))
 
 ;; : (-> ParserMachine Exception Diagnostic)
+(def current-source-stream-observer (make-parameter #f))
+
 (def (diagnostic machine condition)
   (let* ((recoveries (parser-ir-ref (parser-machine-ir machine) 'recoveries))
          (row (and (pair? recoveries) (car recoveries)))
@@ -347,7 +349,8 @@
                             initial prefix-tokens prefix-modes
                             start-character start-byte reuse-token reuse-fragment)
   (let ((source-length (string-length source))
-        (trivia? (parser-machine-trivia machine)))
+        (trivia? (parser-machine-trivia machine))
+        (source-observer (current-source-stream-observer)))
     (def (publish tokens modes root rest)
       (unless (null? rest)
         (error "unexpected trailing token" (token-lexeme (car rest))))
@@ -379,6 +382,7 @@
                    (segment-modes (vector-ref fragment 2))
                    (next-character (vector-ref fragment 3)) (next-byte (vector-ref fragment 4))
                    (next-count (+ token-count (length segment))))
+              (when source-observer (source-observer segment segment-modes #t))
               (when capture (capture next #f #f next-count next-byte #t))
               (loop next-character next-byte next
                     (append (reverse segment) tokens-reversed)
@@ -397,6 +401,7 @@
                        (values (car reused) (cdr reused))
                        (scan-source-token
                         machine source character-offset byte-offset mode)))))))
+            (when source-observer (source-observer input-token (lr-lexical-mode-id mode) #f))
             (if (call-with-parser-observed-phase
                  observability 'significant-token-filter
                  (lambda () (trivia? input-token)))

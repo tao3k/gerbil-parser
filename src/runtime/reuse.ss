@@ -1,6 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Source-owner certificates for deterministic nonterminal transfers.
-(import (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia)
+(import (only-in ./source-index source-index-count make-source-index-cursor
+                 source-index-cursor-copy source-index-cursor-token source-index-cursor-mode
+                 source-index-cursor-rank source-index-cursor-next! source-index-cursor-seek!)
+        (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia)
         (only-in ./lexer scan-source-token)
         (only-in ./probe make-source-probe-cache source-probe-scan source-probe-take!)
         (only-in ./token make-token token? token-start token-end token-kind token-lexeme)
@@ -19,15 +22,20 @@
 ;;; Stats: fragments, significant tokens, source tokens, source bytes,
 ;;; scanner-probe bytes, rejected candidates, normalized control probes,
 ;;; consumed probe tokens/bytes, inspected grammar-cursor frames.
-;;; Vectors, cursor and single probe slot live only during this source edit.
-(def (make-fragment-reuser machine source old-tokens old-modes root edit-start edit-end delta restart-byte)
-  (let* ((tokens (list->vector old-tokens)) (modes (list->vector old-modes))
-         (count (vector-length tokens)) (trivia? (parser-machine-trivia machine))
+;;; With a captured source index, cursors share immutable chunks and no full
+;;; token/mode vectors are built. Trial cursors do not consume rejected spans.
+;;; Request cursors and the single probe slot expire at the end of the edit.
+(def (make-fragment-reuser machine source old-tokens old-modes root edit-start edit-end delta restart-byte
+                             (source-index #f) (on-shared #f))
+  (let* ((tokens (and (not source-index) (list->vector old-tokens)))
+         (modes (and tokens (list->vector old-modes)))
+         (input-cursor (and source-index (make-source-index-cursor source-index)))
+         (count (if source-index (source-index-count source-index) (vector-length tokens))) (trivia? (parser-machine-trivia machine))
          (stats (make-vector 10 0)) (pending (list (cons root 0)))
          (first-index 0) (source-length (string-length source))
          (probe-cache (and (current-lr-probe-reuse-enabled?)
                            (make-source-probe-cache machine source))))
-    (unless (= count (vector-length modes)) (error "invalid captured lexical modes"))
+    (unless (or source-index (= count (vector-length modes))) (error "invalid captured lexical modes"))
     (def (add-stat! index value)
       (vector-set! stats index (+ (vector-ref stats index) value)))
     (def (advance!) (set! pending (cdr pending)))
@@ -75,36 +83,44 @@
                             (equal? (token-lexeme token) (cdr expected)))))))))))
     ;; Source-token lookup advances monotonically. Rejected ancestor attempts
     ;; leave its first index in place so a smaller same-start node can retry.
+    (def (old-token index cursor)
+      (if cursor (source-index-cursor-token cursor) (vector-ref tokens index)))
+    (def (old-mode index cursor)
+      (if cursor (source-index-cursor-mode cursor) (vector-ref modes index)))
     (def (seek-token! start)
-      (let loop ()
-        (when (and (< first-index count)
-                   (< (token-start (vector-ref tokens first-index)) start))
-          (set! first-index (+ first-index 1)) (loop)))
+      (if input-cursor
+        (begin (source-index-cursor-seek! input-cursor start)
+               (set! first-index (source-index-cursor-rank input-cursor)))
+        (let loop ()
+          (when (and (< first-index count) (< (token-start (vector-ref tokens first-index)) start))
+            (set! first-index (+ first-index 1)) (loop))))
       (and (< first-index count)
-           (= (token-start (vector-ref tokens first-index)) start) first-index))
+           (= (token-start (old-token first-index input-cursor)) start) first-index))
     (def (try-fragment piece position-delta shift old-start old-end
                        character byte mode first-probe normalized)
       (let (first (seek-token! old-start))
         (and first
-             (not (trivia? (vector-ref tokens first)))
-             (= (lr-lexical-mode-id mode) (vector-ref modes first))
-             (same-token? (car first-probe) (vector-ref tokens first) shift)
+             (not (trivia? (old-token first input-cursor)))
+             (= (lr-lexical-mode-id mode) (old-mode first input-cursor))
+             (same-token? (car first-probe) (old-token first input-cursor) shift)
              (let collect ((index first) (segment '()) (segment-modes '())
                            (significant '()) (significant-count 0)
-                           (characters 0) (eof-offset byte))
-               (if (and (< index count) (<= (token-end (vector-ref tokens index)) old-end))
-                 (let* ((old (vector-ref tokens index))
+                           (characters 0) (eof-offset byte)
+                           (cursor (and input-cursor (source-index-cursor-copy input-cursor))))
+               (if (and (< index count) (<= (token-end (old-token index cursor)) old-end))
+                 (let* ((old (old-token index cursor))
                         (token (if (zero? shift) old
                                  (make-token (token-kind old) (token-lexeme old)
                                    (+ shift (token-start old)) (+ shift (token-end old)))))
                         (trivia-token? (trivia? token))
                         (next-index (+ index 1))
                         (next-segment (cons token segment))
-                        (next-modes (cons (vector-ref modes index) segment-modes))
+                        (next-modes (cons (old-mode index cursor) segment-modes))
                         (next-significant (if trivia-token? significant (cons token significant)))
                         (next-count (+ significant-count (if trivia-token? 0 1)))
                         (next-characters (+ characters (string-length (token-lexeme token))))
                         (next-eof-offset (if trivia-token? eof-offset (token-end token))))
+                   (when cursor (source-index-cursor-next! cursor))
                    (if (= (token-end old) old-end)
                      (let ((next-character (+ character next-characters))
                            (next-byte (+ old-end shift)))
@@ -114,12 +130,14 @@
                               (add-stat! 0 1) (add-stat! 1 next-count)
                               (add-stat! 2 (- next-index first)) (add-stat! 3 (- next-byte byte))
                               (set! first-index next-index)
+                              (when cursor (set! input-cursor cursor))
+                              (when on-shared (on-shared first (- next-index first) shift))
                               (vector
                                (lr-checkpoint-inject-fragment normalized piece position-delta
                                                               (reverse next-significant))
                                (reverse next-segment) (reverse next-modes) next-character next-byte))))
                      (collect next-index next-segment next-modes next-significant next-count
-                              next-characters next-eof-offset)))
+                              next-characters next-eof-offset cursor)))
                  #f)))))
     (values
      (lambda (character byte checkpoint)

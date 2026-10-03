@@ -1,7 +1,14 @@
 ;;; -*- Gerbil -*-
 ;;; LR checkpoint resume with lexical-mode-certified token reuse.
 
-(import (only-in ../compiler/machine
+(import (only-in ./source-index
+                 source-index-count source-index-height source-index-end source-index-slice
+                 make-source-index-builder source-index-builder-token! source-index-builder-shared!
+                 source-index-builder-finish source-index-builder-fresh source-index-builder-shared
+                 source-index-builder-chunks source-index-builder-mode-chunks make-source-index-cursor source-index-cursor-token
+                 source-index-cursor-mode source-index-cursor-rank source-index-cursor-next!
+                 source-index-cursor-seek!)
+        (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-runtime parser-machine-trivia)
         (only-in ../compiler/parser-ir parser-ir-ref)
@@ -24,12 +31,13 @@
                  lr-prefix-snapshot-rebind current-lr-recognition-observer lr-recognition-project)
         (only-in ./lexer scan-source-token)
         (only-in ./parser
-                 parse-source/checkpoints
+                 current-source-stream-observer parse-source/checkpoints
                  parse-source/checkpoints/resume)
         (only-in ./significant parser-significant-tokens)
         (only-in ./token
                  make-token token-end token-kind token-lexeme token-start))
-(export current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled?
+(export current-lr-source-index-enabled? incremental-session-source-index incremental-session-source-modes
+        current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled?
         +edit-schema+
         +incremental-receipt-schema+
         make-edit
@@ -54,11 +62,14 @@
 ;;; enabled/disabled. Ordinary sessions still do not capture a grammar forest.
 (def current-lr-fragment-reuse-enabled? (make-parameter #t))
 
+(def current-lr-source-index-enabled? (make-parameter #t))
 (defstruct incremental-session-state
-  (machine source artifact tokens modes checkpoints capture? recognition-root)
+  (machine source artifact tokens modes checkpoints capture? recognition-root source-index)
   transparent: #t)
 (def incremental-session? incremental-session-state?)
 (def incremental-session-artifact incremental-session-state-artifact)
+(def incremental-session-source-index incremental-session-state-source-index)
+(def incremental-session-source-modes incremental-session-state-modes)
 ;;; Private session execution metadata for conformance and future reuse.
 ;;; ParseArtifact remains the only published parse result.
 (def incremental-session-recognition-root incremental-session-state-recognition-root)
@@ -201,14 +212,35 @@
     (values (incremental-session-artifact next) receipt)))
 
 (def (session-from-directed machine source (capture? #f))
-  (let-values (((artifact source-tokens source-modes checkpoints root)
-                (capture-session-parse
-                 (lambda () (parse-source/checkpoints
-                             machine source +checkpoint-spacing+)) capture?)))
-    (make-incremental-session-state
-     machine source artifact
-     (or source-tokens (artifact-tokens artifact))
-     source-modes checkpoints capture? root)))
+  (let (builder (and capture? (current-lr-source-index-enabled?) (make-source-index-builder)))
+    (let-values (((artifact source-tokens source-modes checkpoints root)
+                  (parameterize
+                      ((current-source-stream-observer
+                        (and builder (lambda (token mode fragment?)
+                          (when fragment? (error "fresh source driver transferred a fragment"))
+                          (source-index-builder-token! builder token mode)))))
+                    (capture-session-parse
+                     (lambda () (parse-source/checkpoints machine source +checkpoint-spacing+)) capture?))))
+      (make-incremental-session-state
+       machine source artifact (or source-tokens (artifact-tokens artifact))
+       source-modes checkpoints capture? root
+       (and builder root source-modes (parse-artifact-success? artifact)
+            (source-index-builder-finish builder))))))
+
+;;; Certified event-window edits have an exact source-token splice. Preserve
+;;; outside chunks even when the fast artifact path drops its grammar forest.
+(def (splice-session-index session start deleted tokens modes delta)
+  (let (old (and (current-lr-source-index-enabled?) (incremental-session-source-index session)))
+    (and old
+         (let (builder (make-source-index-builder (source-index-slice old 0 start)))
+           (let loop ((tokens tokens) (modes modes))
+             (unless (null? tokens)
+               (unless (pair? modes) (error "source splice has missing lexical modes"))
+               (source-index-builder-token! builder (car tokens) (car modes))
+               (loop (cdr tokens) (cdr modes))))
+           (source-index-builder-shared! builder old (+ start deleted)
+              (- (source-index-count old) start deleted) delta)
+           (source-index-builder-finish builder)))))
 
 (def (make-incremental-session machine source (capture? #f))
   (unless (boolean? capture?) (error "invalid recognition capture option" capture?))
@@ -421,7 +453,8 @@
                                    (make-incremental-session-state
                                     machine new-source artifact next-tokens
                                     old-modes next-checkpoints
-                                    (incremental-session-state-capture? session) #f)))
+                                    (incremental-session-state-capture? session) #f
+                                    (splice-session-index session index 1 (list new-token) (list (car modes)) delta))))
                              (vector next index (length (cdr tokens))
                                      (- (u8vector-length
                                          (string->utf8 new-source))
@@ -717,7 +750,11 @@
                                           (make-incremental-session-state
                                            machine new-source artifact next-tokens
                                            next-modes next-checkpoints
-                                           (incremental-session-state-capture? session) #f)
+                                           (incremental-session-state-capture? session) #f
+                                           (splice-session-index session index (length old-window) new-window
+                                             (cond (scanned (reverse window-modes))
+                                                   (aligned (vector-ref aligned 1))
+                                                   (else (make-list (length new-window) (car window-modes)))) delta))
                                           index (length rest) suffix-bytes
                                           start shared
                                           (cond (scanned (cdr scanned))
@@ -732,6 +769,8 @@
          (old-tokens (incremental-session-state-tokens session))
          (old-modes (incremental-session-state-modes session))
          (checkpoints (incremental-session-state-checkpoints session))
+         (old-index (and (current-lr-source-index-enabled?) (incremental-session-source-index session)))
+         (index-builder #f) (index-origin #f) (provenance-cursor #f)
          (new-source (apply-edit old-source source-edit))
          (source-byte-length (u8vector-length (string->utf8 new-source)))
          (fragment-stats (make-vector 10 0)))
@@ -755,6 +794,12 @@
          next
          (incremental-receipt
           (append
+           (if (and index-builder (or (incremental-session-source-index next) (zero? source-byte-length)))
+             (list (cons 'sourceIndexFreshTokenCount (source-index-builder-fresh index-builder))
+                   (cons 'sourceIndexSharedTokenCount (source-index-builder-shared index-builder))
+                   (cons 'sourceIndexNewChunkCount (source-index-builder-chunks index-builder))
+                   (cons 'sourceIndexNewModeChunkCount (source-index-builder-mode-chunks index-builder))
+                   (cons 'sourceIndexHeight (source-index-height (incremental-session-source-index next)))) '())
            (if (or (positive? (vector-ref fragment-stats 0))
                    (positive? (vector-ref fragment-stats 6))
                    (positive? (vector-ref fragment-stats 7))
@@ -774,6 +819,7 @@
           artifact (and (not reused-events) shifted)))))
     (def (fallback)
       (set! fragment-stats (make-vector 10 0))
+      (set! index-builder #f) (set! index-origin #f)
       (finish (session-from-directed machine new-source
                                      (incremental-session-state-capture? session))
               0 0 0 0 0 #t))
@@ -819,8 +865,24 @@
                      (edit-delete-byte-length source-edit)))
                  (reused-count 0)
                  (reused-bytes 0)
+                 (source-cursor (and old-index (make-source-index-cursor old-index (vector-ref saved 2))))
                  (reuse-token
                   (lambda (character byte mode)
+                    (if source-cursor
+                      (begin
+                        (source-index-cursor-seek! source-cursor (max edit-end (- byte byte-delta)))
+                        (let ((old-token (source-index-cursor-token source-cursor))
+                              (old-mode (source-index-cursor-mode source-cursor)))
+                          (and old-token (= (+ (token-start old-token) byte-delta) byte)
+                               (= old-mode (lr-lexical-mode-id mode))
+                               (let ((rank (source-index-cursor-rank source-cursor))
+                                     (token (if (zero? byte-delta) old-token (relocate-token old-token byte-delta))))
+                                 (set! index-origin (vector rank 1 byte-delta #f))
+                                 (source-index-cursor-next! source-cursor)
+                                 (set! reused-count (+ reused-count 1))
+                                 (set! reused-bytes (+ reused-bytes (- (token-end old-token) (token-start old-token))))
+                                 (cons token (+ character (string-length (token-lexeme old-token))))))))
+                      (begin
                     (when (null? mode-rest)
                       (set! old-rest '()))
                     (let skip ()
@@ -852,7 +914,7 @@
                                        (token-start old-token))))
                            (cons new-token
                                  (+ character
-                                    (string-length (token-lexeme old-token))))))))
+                                    (string-length (token-lexeme old-token))))))))))
                  (rebound
                   (lr-prefix-snapshot-rebind
                    (vector-ref saved 1) prefix '() restart-byte)))
@@ -862,18 +924,67 @@
                                    (current-lr-fragment-reuse-enabled?)
                                    ;; A short checkpoint tail costs less to replay than
                                    ;; to index/certify. Keep its existing LR path.
-                                   (> (- (length old-tokens) (vector-ref saved 2))
+                                   (> (- (if old-index (source-index-count old-index) (length old-tokens)) (vector-ref saved 2))
                                       (* 2 +checkpoint-spacing+))
                                    (lr-runtime-fragment-reuse-safe? (parser-machine-runtime machine)))
                             (make-fragment-reuser
                              machine new-source old-tokens old-modes
                              (incremental-session-recognition-root session)
-                             (edit-start-byte source-edit) edit-end byte-delta restart-byte)
+                             (edit-start-byte source-edit) edit-end byte-delta restart-byte
+                             old-index (and old-index (lambda (start count delta)
+                               (set! index-origin (vector start count delta #f)))))
                             (values #f fragment-stats #f))))
               (set! fragment-stats stats)
+              (when (and (incremental-session-state-capture? session) (current-lr-source-index-enabled?))
+                (set! provenance-cursor (and old-index (make-source-index-cursor old-index (vector-ref saved 2))))
+                (set! index-builder (make-source-index-builder
+                  (and old-index (source-index-slice old-index 0 (vector-ref saved 2)))))
+                ;; A newly enabled index has no old prefix tree: capture that
+                ;; already-required prefix once, rather than invent provenance.
+                (when (and (not old-index) (pair? prefix))
+                  (let seed ((tokens prefix) (modes prefix-modes))
+                    (unless (null? tokens)
+                      (source-index-builder-token! index-builder (car tokens) (car modes))
+                      (seed (cdr tokens) (cdr modes))))))
             (let-values
                 (((artifact tokens modes records root)
-                  (capture-session-parse
+                  (parameterize
+                      ((current-source-stream-observer
+                        (and index-builder
+                          (lambda (piece modes fragment?)
+                            ;; A scanner certificate may consume the boundary
+                            ;; token before ordinary convergence runs. Recover
+                            ;; source provenance only by exact token equality;
+                            ;; a changed mode copies only bounded mode storage.
+                            ;; Shared positions must be outside the changed bytes.
+                            (when (and provenance-cursor (not fragment?) (not index-origin)
+                                       (or (<= (token-end piece) (edit-start-byte source-edit))
+                                           (>= (token-start piece) (+ edit-end byte-delta))))
+                              (let (shift (if (<= (token-end piece) (edit-start-byte source-edit)) 0 byte-delta))
+                                (source-index-cursor-seek! provenance-cursor (- (token-start piece) shift))
+                                (let (old (source-index-cursor-token provenance-cursor))
+                                  (when (and old
+                                             (= (token-start piece) (+ shift (token-start old)))
+                                             (= (token-end piece) (+ shift (token-end old)))
+                                             (eq? (token-kind piece) (token-kind old))
+                                             (equal? (token-lexeme piece) (token-lexeme old)))
+                                    (set! index-origin (vector (source-index-cursor-rank provenance-cursor) 1 shift
+                                      (and (not (= modes (source-index-cursor-mode provenance-cursor))) modes)))))))
+                            (if index-origin
+                              (begin
+                                (when (and fragment? (not (= (length piece) (vector-ref index-origin 1))))
+                                  (error "source provenance disagrees with fragment extent"))
+                                (source-index-builder-shared! index-builder old-index
+                                  (vector-ref index-origin 0) (vector-ref index-origin 1) (vector-ref index-origin 2) (vector-ref index-origin 3))
+                                (set! index-origin #f))
+                              (if fragment?
+                                ;; The vector control has no persistent origin.
+                                (let append ((tokens piece) (modes modes))
+                                  (unless (null? tokens)
+                                    (source-index-builder-token! index-builder (car tokens) (car modes))
+                                    (append (cdr tokens) (cdr modes))))
+                                (source-index-builder-token! index-builder piece modes)))))))
+                    (capture-session-parse
                    (lambda ()
                      (parse-source/checkpoints/resume
                       machine new-source +checkpoint-spacing+ rebound
@@ -884,7 +995,7 @@
                               (reuse-token character byte mode)))
                         reuse-token)
                       reuse-fragment))
-                   (incremental-session-state-capture? session))))
+                   (incremental-session-state-capture? session)))))
               (if (not (parse-artifact-success? artifact))
                 (fallback)
                 (let* ((next-checkpoints
@@ -897,7 +1008,12 @@
                        (next
                         (make-incremental-session-state
                          machine new-source artifact tokens modes
-                         next-checkpoints (incremental-session-state-capture? session) root)))
+                         next-checkpoints (incremental-session-state-capture? session) root
+                         (and index-builder root modes
+                              (let (tree (source-index-builder-finish index-builder))
+                                (unless (or (and (not tree) (zero? source-byte-length))
+                                            (= (source-index-end tree) source-byte-length))
+                                  (error "source index does not cover successful source")) tree)))))
                   (finish next (vector-ref saved 2) shifted
                           (+ reused-count (vector-ref fragment-stats 2))
                           (+ reused-bytes (vector-ref fragment-stats 3)) restart-byte #f)))))))))))))))

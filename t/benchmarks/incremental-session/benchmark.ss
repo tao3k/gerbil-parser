@@ -9,13 +9,23 @@
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
-                 current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled? apply-edit incremental-session-artifact
+                 current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled? current-lr-source-index-enabled? incremental-session-source-index incremental-session-source-modes apply-edit incremental-session-artifact
                  make-edit make-incremental-session incremental-session-project-artifact incremental-session-recognition-root
                  parse-incremental-session parse-source/incremental))
 
 (import (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-recognition-fragment? lr-recognition-fragment-children
                  lr-recognition-view? lr-recognition-view-base))
+
+(import (only-in :gerbil-parser/src/runtime/source-index source-index-count source-index-height source-index-audit source-index->lists))
+
+(def (audit-source-index session)
+  (when (and (current-lr-source-index-enabled?) (incremental-session-source-modes session))
+    (let (tree (incremental-session-source-index session))
+      (unless (source-index-audit tree) (error "source index measures differ"))
+      (let-values (((tokens modes) (source-index->lists tree)))
+        (unless (equal? modes (incremental-session-source-modes session))
+          (error "source index modes differ from captured parser stream"))))))
 
 (def (grammar-fragment-count session)
   (let loop ((pending (list (incremental-session-recognition-root session))) (count 0))
@@ -236,6 +246,7 @@
                    (equal? fresh (incremental-session-artifact next)))
         (error "topology edit differs from fresh parse" terms location operation))
       (when capture?
+        (audit-source-index next)
         (unless (equal? (incremental-session-project-artifact next) fresh)
           (error "captured topology projection differs" terms location operation)))
       (let* ((restored-text (substring source start (+ start deleted)))
@@ -245,6 +256,7 @@
                           (incremental-session-artifact session))
             (error "inverse topology edit differs from original" terms location operation))
           (when capture?
+            (audit-source-index restored)
             (unless (equal? (incremental-session-project-artifact restored)
                             (incremental-session-artifact session))
               (error "inverse captured projection differs" terms location operation)))))
@@ -272,6 +284,13 @@
                        (if entry (cdr entry) 0)))
                (cons 'fragment-reuse-enabled? (current-lr-fragment-reuse-enabled?))
                (cons 'probe-reuse-enabled? (current-lr-probe-reuse-enabled?))
+               (cons 'source-index-enabled? (current-lr-source-index-enabled?))
+               (cons 'source-index-token-count (source-index-count (incremental-session-source-index session)))
+               (cons 'source-index-height (source-index-height (incremental-session-source-index next)))
+               (cons 'source-index-fresh-tokens (let (entry (assq 'sourceIndexFreshTokenCount receipt)) (and entry (cdr entry))))
+               (cons 'source-index-shared-tokens (let (entry (assq 'sourceIndexSharedTokenCount receipt)) (and entry (cdr entry))))
+               (cons 'source-index-new-mode-chunks (let (entry (assq 'sourceIndexNewModeChunkCount receipt)) (and entry (cdr entry))))
+               (cons 'source-index-new-chunks (let (entry (assq 'sourceIndexNewChunkCount receipt)) (and entry (cdr entry))))
                (cons 'reused-recognition-fragments
                      (let (entry (assq 'reusedRecognitionFragmentCount receipt))
                        (if entry (cdr entry) 0)))
@@ -305,6 +324,41 @@
      (measure-topology terms location 'delete family capture?))
    '(first middle last)))
 
+(def (measure-history units nested?)
+  (let* ((line (if nested? (string-append "group {\n" (apply string-append (make-list 80 "value = 001\n")) "}\n") "value = 001\n"))
+         (inserted (if nested? line "other = 002\n"))
+         (width (string-length inserted)) (mid (* (quotient units 2) (string-length line)))
+         (source (apply string-append (make-list units line)))
+         (session (make-incremental-session hcl-v2-24-parser source #t))
+         (edits (list (make-edit 0 0 inserted) (make-edit (+ mid width) 0 inserted)
+                      (make-edit 0 width "") (make-edit mid width "")
+                      (make-edit (string-length source) 0 inserted)
+                      (make-edit (string-length source) width ""))))
+    (write (list 'history-size units 'nested? nested? 'phase 'semantic-preflight)) (newline) (force-output)
+    (let validate ((rest edits) (current session) (text source))
+      (unless (null? rest)
+        (let-values (((next receipt) (parse-incremental-session current (car rest))))
+          (let* ((changed (apply-edit text (car rest))) (fresh (parse-hcl-v2-24 changed)))
+            (unless (and (equal? fresh (incremental-session-artifact next))
+                         (equal? fresh (incremental-session-project-artifact next)))
+              (error "history artifact/projector differs" units (length rest)))
+            (audit-source-index next)
+            (validate (cdr rest) next changed)))))
+    (let (times (topology-samples
+                (lambda ()
+                  (let loop ((rest edits) (current session))
+                    (if (null? rest) (incremental-session-artifact current)
+                      (let-values (((next receipt) (parse-incremental-session current (car rest))))
+                        (loop (cdr rest) next))))) 'history))
+      (write (list (cons 'workload 'sequential-source-history)
+                   (cons 'family (if nested? 'hcl-nested-siblings 'hcl-siblings))
+                   (cons 'input-units units) (cons 'edits 6)
+                   (cons 'samples +topology-sample-count+)
+                   (cons 'source-index-enabled? (current-lr-source-index-enabled?))
+                   (cons 'complete-artifact-equal? #t) (cons 'inverse-edit-equal? #t)
+                   (cons 'cached-cpu-samples-ms times) (cons 'cached-cpu-median-ms (median times))))
+      (newline) (force-output))))
+
 (def (main-default args)
   (for-each measure
             (if (null? args) '(400 800 1600)
@@ -325,12 +379,21 @@
 
 
 (def (main . args)
+  (when (and (pair? args) (equal? (car args) "source-index"))
+    (current-lr-source-index-enabled? #t)
+    (set! args (cdr args)))
+  (when (and (pair? args) (equal? (car args) "no-source-index"))
+    (current-lr-source-index-enabled? #f)
+    (set! args (cdr args)))
   (when (and (pair? args) (equal? (car args) "no-probe-reuse"))
     (current-lr-probe-reuse-enabled? #f)
     (set! args (cdr args)))
   (when (and (pair? args) (equal? (car args) "no-reuse"))
     (current-lr-fragment-reuse-enabled? #f)
     (set! args (cdr args)))
+  (if (and (pair? args) (member (car args) '("history-hcl-capture" "history-hcl-nested-capture")))
+    (for-each (lambda (size) (measure-history size (equal? (car args) "history-hcl-nested-capture")))
+              (map string->number (cdr args)))
   (if (and (pair? args) (member (car args) '("topology" "topology-hcl" "topology-capture" "topology-hcl-capture" "topology-hcl-nested-capture")))
     (let (sizes (if (null? (cdr args)) '(400 800 1600 3200)
                  (map string->number (cdr args))))
@@ -343,6 +406,6 @@
                           (else 'arithmetic))
                     (if (member (car args) '("topology-capture" "topology-hcl-capture" "topology-hcl-nested-capture")) #t #f)))
                 sizes))
-    (main-default args)))
+    (main-default args))))
 
 (export main)

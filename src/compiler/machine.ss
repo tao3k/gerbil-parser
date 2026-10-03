@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import (only-in :std/vector/vector vector-map/index)
+(import (only-in ../runtime/funcs vector-intern-map)
+        (only-in :std/vector/vector vector-map/index)
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-prepare lr-parse/prepared
@@ -20,7 +21,9 @@
                  scan-escaped-quoted-strings scan-quoted-strings scan-whitespace
                  scan-emit)
         (only-in ../runtime/token token-end token-kind))
-(export defgeneral-parser-machine
+(export current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer
+        parser-machine-lexical-plans parser-machine-lexical-modes-compatible?
+        defgeneral-parser-machine
         lexical-end
         lexical-choice
         lexical-dispatch
@@ -51,8 +54,16 @@
 ;;       ```
 ;;     %
 (defstruct parser-machine
-  (ir grammar-digest lex trivia runtime parse direct-drive direct-source)
+  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexer-factory)
   transparent: #t)
+
+(def current-lexical-plan-sharing-enabled? (make-parameter #t))
+(def (parser-machine-prepare-lexer machine)
+  ((parser-machine-lexer-factory machine)))
+(def (parser-machine-lexical-modes-compatible? machine old-mode new-mode)
+  (or (= old-mode new-mode)
+      (let (plans (parser-machine-lexical-plans machine))
+        (eq? (vector-ref plans old-mode) (vector-ref plans new-mode)))))
 
 ;;; A generated driver is admitted only for the exact Parser IR whose digest
 ;;; was embedded in its source. Install during language-module initialization,
@@ -495,7 +506,7 @@
            (and (pair? literal-entries)
                 (make-ranked-literal-scanner literal-entries)))
           (prepare-scanners
-           (lambda (terminals)
+           (lambda (admissions)
              (let ((admitted-literals (make-vector (length rules) #f)))
                (let loop ((remaining rules) (ordinal 0)
                           (has-literals? #f) (scanners '())
@@ -551,7 +562,7 @@
                               (literal-scanner source offset admitted-literals))
                              selected)))))
                    (let* ((rule (car remaining))
-                          (admitted? ((vector-ref rule 0) terminals))
+                          (admitted? (vector-ref admissions ordinal))
                           (literals (and admitted? (vector-ref rule 2)))
                           (regular-kind (and admitted? (vector-ref rule 6))))
                      (cond
@@ -583,12 +594,20 @@
                        (loop (cdr remaining) (+ ordinal 1)
                              has-literals? scanners regular-entries
                              regular-first-predicates)))))))))
-          (all-scanners (prepare-scanners #f))
+          (admission-key
+           (lambda (terminals)
+             (list->vector (map (lambda (rule) (and ((vector-ref rule 0) terminals) #t)) rules))))
+          (all-scanners (prepare-scanners (admission-key #f)))
           (mode-scanners
-           (vector-map/index
-            (lambda (_index mode)
-              (prepare-scanners (lr-lexical-mode-terminals mode)))
-            mode-catalog)))
+           (if (current-lexical-plan-sharing-enabled?)
+             (let-values (((plans unique)
+                           (vector-intern-map mode-catalog
+                             (lambda (mode) (admission-key (lr-lexical-mode-terminals mode)))
+                             (lambda (key _id) (prepare-scanners key))))) plans)
+             (vector-map/index
+              (lambda (_index mode)
+                (prepare-scanners (admission-key (lr-lexical-mode-terminals mode))))
+              mode-catalog))))
      (letrec
        ((scan-one
          (lambda (source offset byte-offset mode)
@@ -622,12 +641,12 @@
                                (scan-one source offset byte-offset #f)))
                    (loop end (token-end output-token)
                          (cons output-token tokens)))))))))
-     (case-lambda
+     (values (case-lambda
       ((source) (scan-from source 0 0))
       ((source offset byte-offset)
        (scan-from source offset byte-offset))
       ((source offset byte-offset mode)
-       (scan-one source offset byte-offset mode)))))))
+       (scan-one source offset byte-offset mode))) mode-scanners)))))
 
 ;;; Connects immutable parser IR to generated lexer and LR runtime entrypoints once.
 ;;; Runtime calls receive the compiled machine and never re-enter grammar expansion.
@@ -653,24 +672,19 @@
       (parser-entrypoints
        (root-rule root-action root-effect) entry-row ...))
    (def binding
-     (let (runtime
-           (lr-prepare (cdr (assq 'lr-spec parser-ir))))
-       (make-parser-machine
-        parser-ir
-        parser-artifact-digest
-        (generated-lexer
-         (lexical-rules lexical-row ...)
-         (extras extra-name ...)
-         (cdr (assq 'case-insensitive? parser-ir))
-         (lr-runtime-lexical-mode-catalog runtime))
-        (lambda (input-token)
-          (memq (token-kind input-token) '(extra-name ...)))
-        runtime
-        (lambda (tokens . maybe-observability)
-          (lr-parse/prepared
-           runtime tokens
-           (if (null? maybe-observability)
-             #f
-             (car maybe-observability))))
-        #f
-        #f)))))
+     (let* ((runtime (lr-prepare (cdr (assq 'lr-spec parser-ir))))
+            (factory (lambda ()
+                       (generated-lexer
+                        (lexical-rules lexical-row ...)
+                        (extras extra-name ...)
+                        (cdr (assq 'case-insensitive? parser-ir))
+                        (lr-runtime-lexical-mode-catalog runtime)))))
+       (let-values (((lexer plans) (factory)))
+         (make-parser-machine
+          parser-ir parser-artifact-digest lexer
+          (lambda (input-token) (memq (token-kind input-token) '(extra-name ...)))
+          runtime
+          (lambda (tokens . maybe-observability)
+            (lr-parse/prepared runtime tokens
+              (if (null? maybe-observability) #f (car maybe-observability))))
+          #f #f plans factory))))))

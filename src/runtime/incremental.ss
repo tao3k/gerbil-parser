@@ -10,7 +10,7 @@
                  source-index-cursor-seek!)
         (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
-                 parser-machine-runtime parser-machine-trivia)
+                 parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?)
         (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ./artifact
                  event-end event-start make-success-parse-artifact make-same-width-token-artifact
@@ -36,7 +36,7 @@
         (only-in ./significant parser-significant-tokens)
         (only-in ./token
                  make-token token-end token-kind token-lexeme token-start))
-(export current-lr-source-index-enabled? incremental-session-source-index incremental-session-source-modes
+(export current-lr-lexical-plan-reuse-enabled? current-lr-source-index-enabled? incremental-session-source-index incremental-session-source-modes
         current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled?
         +edit-schema+
         +incremental-receipt-schema+
@@ -65,6 +65,12 @@
 ;;; Same-head native measurements currently favor vector convergence for full
 ;;; ParseArtifact edits. Persistent provenance remains an explicit experiment
 ;;; for the later local-recognition/publication boundary (RFC 0011).
+(def current-lr-lexical-plan-reuse-enabled? (make-parameter #t))
+(def (source-mode-compatible? machine old-mode mode)
+  (let (new-mode (lr-lexical-mode-id mode))
+    (or (= old-mode new-mode)
+        (and (current-lr-lexical-plan-reuse-enabled?)
+             (parser-machine-lexical-modes-compatible? machine old-mode new-mode)))))
 (def current-lr-source-index-enabled? (make-parameter #f))
 (defstruct incremental-session-state
   (machine source artifact tokens modes checkpoints capture? recognition-root source-index)
@@ -877,10 +883,11 @@
                         (let ((old-token (source-index-cursor-token source-cursor))
                               (old-mode (source-index-cursor-mode source-cursor)))
                           (and old-token (= (+ (token-start old-token) byte-delta) byte)
-                               (= old-mode (lr-lexical-mode-id mode))
+                               (source-mode-compatible? machine old-mode mode)
                                (let ((rank (source-index-cursor-rank source-cursor))
                                      (token (if (zero? byte-delta) old-token (relocate-token old-token byte-delta))))
-                                 (set! index-origin (vector rank 1 byte-delta #f))
+                                 (set! index-origin (vector rank 1 byte-delta
+                                   (and (not (= old-mode (lr-lexical-mode-id mode))) (lr-lexical-mode-id mode))))
                                  (source-index-cursor-next! source-cursor)
                                  (set! reused-count (+ reused-count 1))
                                  (set! reused-bytes (+ reused-bytes (- (token-end old-token) (token-start old-token))))
@@ -902,7 +909,7 @@
                          (pair? mode-rest)
                          (= (+ (token-start (car old-rest)) byte-delta)
                             byte)
-                         (= (car mode-rest) (lr-lexical-mode-id mode))
+                         (source-mode-compatible? machine (car mode-rest) mode)
                          (let* ((old-token (car old-rest))
                                 (new-token
                                  (if (zero? byte-delta)

@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
-                 current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled? current-lr-source-index-enabled? incremental-session-source-index incremental-session-source-modes apply-edit incremental-session-artifact
+                 current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled? current-lr-source-index-enabled? current-lr-lexical-plan-reuse-enabled? incremental-session-source-index incremental-session-source-modes apply-edit incremental-session-artifact
                  make-edit make-incremental-session incremental-session-project-artifact incremental-session-recognition-root
                  parse-incremental-session parse-source/incremental))
 
@@ -18,6 +18,26 @@
                  lr-recognition-view? lr-recognition-view-base))
 
 (import (only-in :gerbil-parser/src/runtime/source-index source-index-count source-index-height source-index-audit source-index->lists))
+
+(import (only-in :gerbil-parser/src/compiler/machine
+                 current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer parser-machine-lexical-plans))
+(def (plan-count plans)
+  (length (foldl (lambda (plan found) (if (memq plan found) found (cons plan found))) '() (vector->list plans))))
+(def (measure-lexical-preparation)
+  (for-each
+   (lambda (row)
+     (let* ((machine (cdr row)) (plans (parser-machine-lexical-plans machine))
+            (times (topology-samples
+                     (lambda ()
+                       (let-values (((lexer prepared) (parser-machine-prepare-lexer machine))) prepared)) 'lexical-preparation)))
+       (let-values (((lexer prepared) (parser-machine-prepare-lexer machine)))
+         (write (list (cons 'workload 'lexical-plan-preparation)
+                      (cons 'family (car row)) (cons 'samples +topology-sample-count+)
+                      (cons 'plan-sharing-enabled? (current-lexical-plan-sharing-enabled?))
+                      (cons 'lr-modes (vector-length plans)) (cons 'prepared-plans (plan-count prepared))
+                      (cons 'cpu-samples-ms times) (cons 'cpu-median-ms (median times))))
+         (newline) (force-output))))
+   (list (cons 'arithmetic arithmetic-parser) (cons 'hcl hcl-v2-24-parser))))
 
 (def (audit-source-index session)
   (when (and (current-lr-source-index-enabled?) (incremental-session-source-modes session))
@@ -284,6 +304,7 @@
                        (if entry (cdr entry) 0)))
                (cons 'fragment-reuse-enabled? (current-lr-fragment-reuse-enabled?))
                (cons 'probe-reuse-enabled? (current-lr-probe-reuse-enabled?))
+               (cons 'lexical-plan-reuse-enabled? (current-lr-lexical-plan-reuse-enabled?))
                (cons 'source-index-enabled? (current-lr-source-index-enabled?))
                (cons 'source-index-token-count (source-index-count (incremental-session-source-index session)))
                (cons 'source-index-height (source-index-height (incremental-session-source-index next)))
@@ -354,7 +375,8 @@
                    (cons 'family (if nested? 'hcl-nested-siblings 'hcl-siblings))
                    (cons 'input-units units) (cons 'edits 6)
                    (cons 'samples +topology-sample-count+)
-                   (cons 'source-index-enabled? (current-lr-source-index-enabled?))
+                   (cons 'lexical-plan-reuse-enabled? (current-lr-lexical-plan-reuse-enabled?))
+               (cons 'source-index-enabled? (current-lr-source-index-enabled?))
                    (cons 'complete-artifact-equal? #t) (cons 'inverse-edit-equal? #t)
                    (cons 'cached-cpu-samples-ms times) (cons 'cached-cpu-median-ms (median times))))
       (newline) (force-output))))
@@ -379,6 +401,15 @@
 
 
 (def (main . args)
+  (when (and (pair? args) (equal? (car args) "no-plan-sharing"))
+    (current-lexical-plan-sharing-enabled? #f)
+    (set! args (cdr args)))
+  (when (and (pair? args) (equal? (car args) "no-plan-reuse"))
+    (current-lr-lexical-plan-reuse-enabled? #f)
+    (set! args (cdr args)))
+  (when (and (pair? args) (equal? (car args) "lexical-plan-prepare"))
+    (measure-lexical-preparation)
+    (exit 0))
   (when (and (pair? args) (equal? (car args) "source-index"))
     (current-lr-source-index-enabled? #t)
     (set! args (cdr args)))

@@ -360,7 +360,9 @@
        (lambda ()
          (make-success-parse-artifact
           grammar-digest source tokens root trivia?))))
-    (when capture (capture initial #f #f 0 start-byte))
+    ;; A resumed checkpoint owns the retained source-token prefix, including
+    ;; trivia. Its byte cursor and token cursor must describe the same prefix.
+    (when capture (capture initial #f #f (length prefix-tokens) start-byte))
     (let loop ((character-offset start-character)
                (byte-offset start-byte)
                (checkpoint initial)

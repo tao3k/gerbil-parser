@@ -36,7 +36,7 @@
           (let unwrap ((piece (car pending)))
             (if (lr-recognition-view? piece)
               (unwrap (lr-recognition-view-base piece))
-              (if (or (not (lr-recognition-fragment? piece)) (hash-get table piece)
+              (if (or (not (lr-recognition-fragment? piece)) (hash-get table piece))
                 (loop (cdr pending))
                 (begin
                   (hash-put! table piece #t)

@@ -67,3 +67,10 @@ benchmark-incremental-topology sizes="400 800 1600 3200":
 # Independent siblings distinguish avoidable suffix replay from expression ancestry.
 benchmark-incremental-siblings sizes="100 200 400 800":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-hcl {{sizes}}
+
+# Capture gate reevaluates productions and compares both forward/inverse artifacts.
+benchmark-incremental-capture sizes="2 400 800 1600 3200":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-capture {{sizes}}
+
+benchmark-incremental-siblings-capture sizes="2 100 200 400 800":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-hcl-capture {{sizes}}

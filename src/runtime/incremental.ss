@@ -6,18 +6,20 @@
                  parser-machine-runtime parser-machine-trivia)
         (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ./artifact
-                 event-end event-start make-same-width-token-artifact
+                 event-end event-start make-success-parse-artifact make-same-width-token-artifact
                  make-shifted-token-artifact
                  make-certified-window-artifact
                  parse-artifact-events
                  parse-artifact-ref parse-artifact-success?
                  parse-artifact-valid? token-event?
                  token-event-lexeme token-event-token-kind)
+        (only-in ./recognition recognition-child-value)
+        (only-in ./funcs recognition-sequence->list)
         (only-in ./identity sha256-text)
         (only-in ./lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-runtime-lexical-mode-catalog
-                 lr-prefix-snapshot-rebind)
+                 lr-prefix-snapshot-rebind current-lr-recognition-observer lr-recognition-project)
         (only-in ./lexer scan-source-token)
         (only-in ./parser
                  parse-source/checkpoints
@@ -37,6 +39,8 @@
         make-incremental-session
         incremental-session?
         incremental-session-artifact
+        incremental-session-recognition-root
+        incremental-session-project-artifact
         parse-incremental-session)
 
 (def +edit-schema+ "gerbil-parser.edit.v1")
@@ -45,10 +49,42 @@
 (def +checkpoint-spacing+ 32)
 
 (defstruct incremental-session-state
-  (machine source artifact tokens modes checkpoints)
+  (machine source artifact tokens modes checkpoints capture? recognition-root)
   transparent: #t)
 (def incremental-session? incremental-session-state?)
 (def incremental-session-artifact incremental-session-state-artifact)
+;;; Private session execution metadata for conformance and future reuse.
+;;; ParseArtifact remains the only published parse result.
+(def incremental-session-recognition-root incremental-session-state-recognition-root)
+
+(def (incremental-session-project-artifact session)
+  (let* ((root (incremental-session-recognition-root session))
+         (machine (incremental-session-state-machine session)))
+    (unless root (error "session has no certified grammar snapshot"))
+    (let (children (recognition-sequence->list (lr-recognition-project root)))
+      (unless (and (pair? children) (null? (cdr children)))
+        (error "grammar snapshot projection does not have one root"))
+      ;; Publication consumes the exact captured source token instances, whose
+      ;; identity is checked by the artifact owner against recognition leaves.
+      (make-success-parse-artifact
+       (parser-machine-grammar-digest machine)
+       (incremental-session-state-source session)
+       (incremental-session-state-tokens session)
+       (recognition-child-value (car children)) (parser-machine-trivia machine)))))
+
+(def (capture-session-parse thunk capture?)
+  (if (not capture?)
+    (let-values (((artifact tokens modes checkpoints) (thunk)))
+      (values artifact tokens modes checkpoints #f))
+  (let ((root #f) (observer (current-lr-recognition-observer)))
+    (parameterize
+        ((current-lr-recognition-observer
+          (lambda (value)
+            (set! root value)
+            (when observer (observer value)))))
+      (let-values (((artifact tokens modes checkpoints) (thunk)))
+        (values artifact tokens modes checkpoints
+                (and (parse-artifact-success? artifact) root)))))))
 
 ;; : (-> String Nat Nat String EditRecord)
 (defstruct edit-record (schema start-byte delete-byte-length inserted-text)
@@ -157,17 +193,19 @@
                  (session-from-directed machine old-source) source-edit)))
     (values (incremental-session-artifact next) receipt)))
 
-(def (session-from-directed machine source)
-  (let-values (((artifact source-tokens source-modes checkpoints)
-                (parse-source/checkpoints
-                 machine source +checkpoint-spacing+)))
+(def (session-from-directed machine source (capture? #f))
+  (let-values (((artifact source-tokens source-modes checkpoints root)
+                (capture-session-parse
+                 (lambda () (parse-source/checkpoints
+                             machine source +checkpoint-spacing+)) capture?)))
     (make-incremental-session-state
      machine source artifact
      (or source-tokens (artifact-tokens artifact))
-     source-modes checkpoints)))
+     source-modes checkpoints capture? root)))
 
-(def (make-incremental-session machine source)
-  (session-from-directed machine source))
+(def (make-incremental-session machine source (capture? #f))
+  (unless (boolean? capture?) (error "invalid recognition capture option" capture?))
+  (session-from-directed machine source capture?))
 
 ;; The checkpoint stores its exact source-token cursor, including trivia.
 ;; Return both sides so the edit driver never scans the accepted prefix again.
@@ -375,7 +413,8 @@
                                   (next
                                    (make-incremental-session-state
                                     machine new-source artifact next-tokens
-                                    old-modes next-checkpoints)))
+                                    old-modes next-checkpoints
+                                    (incremental-session-state-capture? session) #f)))
                              (vector next index (length (cdr tokens))
                                      (- (u8vector-length
                                          (string->utf8 new-source))
@@ -670,7 +709,8 @@
                                          (vector
                                           (make-incremental-session-state
                                            machine new-source artifact next-tokens
-                                           next-modes next-checkpoints)
+                                           next-modes next-checkpoints
+                                           (incremental-session-state-capture? session) #f)
                                           index (length rest) suffix-bytes
                                           start shared
                                           (cond (scanned (cdr scanned))
@@ -713,7 +753,8 @@
            (else fields))
           artifact (and (not reused-events) shifted)))))
     (def (fallback)
-      (finish (session-from-directed machine new-source)
+      (finish (session-from-directed machine new-source
+                                     (incremental-session-state-capture? session))
               0 0 0 0 0 #t))
     (let (token-reuse
           (certified-token-reuse session source-edit new-source))
@@ -795,11 +836,14 @@
                   (lr-prefix-snapshot-rebind
                    (vector-ref saved 1) prefix '() restart-byte)))
             (let-values
-                (((artifact tokens modes records)
-                  (parse-source/checkpoints/resume
-                   machine new-source +checkpoint-spacing+ rebound
-                   prefix prefix-modes restart-character restart-byte
-                   reuse-token)))
+                (((artifact tokens modes records root)
+                  (capture-session-parse
+                   (lambda ()
+                     (parse-source/checkpoints/resume
+                      machine new-source +checkpoint-spacing+ rebound
+                      prefix prefix-modes restart-character restart-byte
+                      reuse-token))
+                   (incremental-session-state-capture? session))))
               (if (not (parse-artifact-success? artifact))
                 (fallback)
                 (let* ((next-checkpoints
@@ -812,6 +856,6 @@
                        (next
                         (make-incremental-session-state
                          machine new-source artifact tokens modes
-                         next-checkpoints)))
+                         next-checkpoints (incremental-session-state-capture? session) root)))
                   (finish next (vector-ref saved 2) shifted
                           reused-count reused-bytes restart-byte #f))))))))))))))

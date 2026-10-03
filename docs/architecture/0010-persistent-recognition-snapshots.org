@@ -3,9 +3,12 @@
 
 * Status and decision
 
-Research decision, 2026-10-03. Runtime migration is proposed, not implemented.
+Research decision, 2026-10-03. The deterministic grammar-capture slice is now
+implemented as an explicit session option. Relative coordinates and certified
+suffix recognition reuse remain proposed; the complete migration is unfinished.
 Measured runtime baseline: =21510a44cadb0d6dcdc3c2c4f973bcf9c372bc43=.
-This change implements topology benchmark coverage and preserves its receipts.
+Topology benchmark coverage and its receipts are retained. The implementation
+receipt below distinguishes captured structure from skipped recognition.
 It does not replace the ParseArtifact v1 authority or introduce a public tree API.
 
 The next structural work is one dependency chain: capture reusable grammar
@@ -233,3 +236,82 @@ passed complete-artifact and inverse-edit equality. Timings are five-sample
 single-machine observations, not universal speedup claims or remote CI evidence.
 The source metadata and corpus/construction receipts remain in
 [[file:../research/scheme-parser-performance-framework.org][the existing Scheme parser performance framework]].
+
+* Implementation receipt: deterministic grammar capture
+
+The generic LR capture part of the first dependency gate is executable in Scheme.
+Equivalent capture inside generated direct-source/drive executors remains pending:
+
+- =src/runtime/lr-parser.ss= maintains an optional grammar stack parallel to LR
+  states and semantic values. Reductions retain production ID, exact prepared
+  runtime and actual generated/indexed reduction executor identity, entry/goto
+  state, child grammar fragments/token leaves, significant
+  token extent/count, lookahead kind/lexeme, cached semantic value and the exact
+  default reduction offset. It captures grammar information erased by semantic
+  projection; semantic AST kinds are not substituted for grammar nonterminals.
+- Prefix snapshots persist the grammar stack alongside semantic values. Their
+  immutable list tails and retained child nodes share unchanged prefix structure.
+  They do not retain a historical complete source token list.
+- =lr-recognition-project= evaluates the captured productions in iterative
+  postorder, without reading cached semantic values. It handles deeply left
+  recursive grammar structure without recursive Scheme descent.
+- =make-incremental-session machine source #t= enables capture. The option persists
+  across resumed, fallback and event-window edits. Default sessions keep capture
+  disabled while recognition reuse is unfinished; ordinary reductions avoid
+  fragment-construction calls and allocate no grammar nodes.
+- =incremental-session-project-artifact= publishes the independently projected
+  root through the existing artifact owner using the session's exact token
+  objects. Token object identity is part of artifact admission; retokenizing the
+  source for this check would violate that pre-existing contract.
+- GLR/fork and recovery continuations discard deterministic grammar evidence;
+  layout sessions do not produce this root. Event-only edit shortcuts clear the
+  stale root; a later captured LR resume rebuilds it from a valid saved prefix.
+
+The internal metadata and conformance projection live in runtime modules; they
+are not a new public tree authority or a change to ParseArtifact v1 fields.
+Positions in this first slice remain absolute. No suffix fragments are skipped
+by this implementation, and no incremental speedup is claimed.
+
+[[file:../research/data/recognition-capture-2026-10-03.sexp][60 capture edit receipts]] cover arithmetic sizes 2/400/800/1600/3200 and HCL
+independent-sibling sizes 2/100/200/400/800. Every first/middle/last insertion and
+deletion checks fresh complete-artifact equality, independent forward grammar
+projection, inverse edit equality and independent inverse projection. Capture qualification may run alongside native conformance tests; the timing
+fields are diagnostic, not matched performance qualification.
+
+=t/recognition-snapshot-test.ss= also covers nullable input, nested aliases/fields,
+UTF8 and trivia, physically shared prefix pieces, successive edits, event-fast
+path invalidation followed by recapture, deep left recursion, GLR and layout veto,
+invalid-input veto and default capture-disabled behavior.
+
+#+begin_src sh
+just benchmark-incremental-capture
+just benchmark-incremental-siblings-capture
+GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/recognition-snapshot-test.ss
+#+end_src
+
+Next gate: retain relocatable positions and canonical token/event projection
+without copying every unchanged grammar node, then admit fragment reuse using
+this captured runtime/production/control information. Flat publication remains
+a separate linear cost throughout that migration.
+
+** Current qualification
+
+Final source built successfully with =GERBIL_BUILD_CORES=12 gerbil build=.
+All 54 native test modules passed in nine bounded batches, each with exact
+=MODULE-OK= counts, =HARNESS-OK= and final =OK=, without error markers.
+This includes the new nine-case snapshot suite. The original 400-term benchmark
+entry also completed its unchanged fresh-equivalence checks.
+
+Native gxtest imports/evaluates test modules before its HARNESS notice. Initial
+attempts correctly failed the five-second silence gate during this loading phase.
+=t/fixtures/native-progress.ss= records actual expander import/eval operations
+while calling the existing native gxtest owner; it adds no heartbeat or replacement
+assertion engine. Qualification used that wrapper with real LR construction trace,
+five-second stdout inactivity rejection and a 180-second per-batch bound. A failed
+batch kills its process group. Earlier silent failures are not passing evidence.
+
+#+begin_src sh
+GERBIL_PARSER_LR_TRACE=1 gerbil env gxi -:max-heap=1G,debug=q t/fixtures/native-progress.ss -v 4 t/recognition-snapshot-test.ss
+#+end_src
+
+This is local bounded native qualification. No remote CI run or push is implied.

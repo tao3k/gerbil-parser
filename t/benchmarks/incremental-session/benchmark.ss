@@ -10,7 +10,7 @@
                  parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
                  apply-edit incremental-session-artifact
-                 make-edit make-incremental-session
+                 make-edit make-incremental-session incremental-session-project-artifact
                  parse-incremental-session parse-source/incremental))
 
 (def (samples thunk)
@@ -185,7 +185,7 @@
            elapsed))
        (iota 5)))
 
-(def (measure-topology terms location operation (family 'arithmetic))
+(def (measure-topology terms location operation (family 'arithmetic) (capture? #f))
   (let* ((hcl? (eq? family 'hcl-siblings))
          (line "value = 001\n")
          (machine (if hcl? hcl-v2-24-parser arithmetic-parser))
@@ -201,18 +201,25 @@
          (inserted (if (eq? operation 'insert) (if hcl? "other = 002\n" "002 + ") ""))
          (edit (make-edit start deleted inserted))
          (changed (apply-edit source edit))
-         (session (make-incremental-session machine source))
+         (session (make-incremental-session machine source capture?))
          (fresh (parse changed)))
     (let-values (((next receipt) (parse-incremental-session session edit)))
       (unless (and (parse-artifact-valid? fresh)
                    (equal? fresh (incremental-session-artifact next)))
         (error "topology edit differs from fresh parse" terms location operation))
+      (when capture?
+        (unless (equal? (incremental-session-project-artifact next) fresh)
+          (error "captured topology projection differs" terms location operation)))
       (let* ((restored-text (substring source start (+ start deleted)))
              (inverse (make-edit start (string-length inserted) restored-text)))
         (let-values (((restored ignored) (parse-incremental-session next inverse)))
           (unless (equal? (incremental-session-artifact restored)
                           (incremental-session-artifact session))
-            (error "inverse topology edit differs from original" terms location operation))))
+            (error "inverse topology edit differs from original" terms location operation))
+          (when capture?
+            (unless (equal? (incremental-session-project-artifact restored)
+                            (incremental-session-artifact session))
+              (error "inverse captured projection differs" terms location operation)))))
       (let ((fresh-times (topology-samples (lambda () (parse changed))))
             (cached-times
              (topology-samples
@@ -222,7 +229,7 @@
         (write
          (list (cons 'workload 'significant-token-topology-change)
                (cons 'family family) (cons 'input-units terms) (cons 'location location) (cons 'operation operation)
-               (cons 'samples 5)
+               (cons 'samples 5) (cons 'recognition-capture? capture?)
                (cons 'complete-artifact-equal? #t) (cons 'inverse-edit-equal? #t)
                (cons 'events (length (parse-artifact-events fresh)))
                (cons 'resumed-shifts (cdr (assq 'resumedSignificantTokenCount receipt)))
@@ -238,13 +245,13 @@
                (cons 'cached-cpu-median-ms (median cached-times))))
         (newline) (force-output)))))
 
-(def (measure-topology-size terms (family 'arithmetic))
+(def (measure-topology-size terms (family 'arithmetic) (capture? #f))
   (write (list 'topology-size terms 'phase 'semantic-preflight))
   (newline) (force-output)
   (for-each
    (lambda (location)
-     (measure-topology terms location 'insert family)
-     (measure-topology terms location 'delete family))
+     (measure-topology terms location 'insert family capture?)
+     (measure-topology terms location 'delete family capture?))
    '(first middle last)))
 
 (def (main-default args)
@@ -267,14 +274,16 @@
 
 
 (def (main . args)
-  (if (and (pair? args) (member (car args) '("topology" "topology-hcl")))
+  (if (and (pair? args) (member (car args) '("topology" "topology-hcl" "topology-capture" "topology-hcl-capture")))
     (let (sizes (if (null? (cdr args)) '(400 800 1600 3200)
                  (map string->number (cdr args))))
       (unless (every (lambda (size) (and (integer? size) (>= size 2))) sizes)
         (error "topology sizes must be integers of at least two" args))
       (for-each (lambda (size)
                   (measure-topology-size size
-                    (if (equal? (car args) "topology-hcl") 'hcl-siblings 'arithmetic)))
+                    (if (member (car args) '("topology-hcl" "topology-hcl-capture"))
+                      'hcl-siblings 'arithmetic)
+                    (if (member (car args) '("topology-capture" "topology-hcl-capture")) #t #f)))
                 sizes))
     (main-default args)))
 

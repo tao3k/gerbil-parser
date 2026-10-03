@@ -271,7 +271,7 @@
             (unless (trivia? (car remaining))
               (error "unclaimed significant program token" (token-kind (car remaining))))
             (emit-source-token!) (loop))))
-      (event-program-walk
+      (event-program-walk/inline
        (lambda (operation name offset delta moved?)
          (let (position (+ offset delta))
            (case operation

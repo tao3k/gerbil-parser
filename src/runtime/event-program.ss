@@ -6,7 +6,7 @@
         event-program-value-end event-program-value-code
         event-program-token event-program-append event-program-relocate
         event-program-field event-program-node-value event-program-fragment-value
-        event-program-walk
+        event-program-walk event-program-walk/inline
         event-program-sequence? event-program-sequence-arity
         event-program-sequence-start event-program-sequence-end
         event-program-sequence-field? event-program-sequence-for-each
@@ -145,8 +145,14 @@
 ;;; Execute the instruction DAG with an explicit continuation stack. No flat
 ;;; intermediate tape or translated token objects are allocated. Position views
 ;;; retain moved provenance even when repeated translations cancel to zero.
-(def (event-program-walk visit code)
-  (let loop ((code code) (finish? #f) (delta 0) (moved? #f) (pending '()))
+;;; Specialize the consumer at expansion time. The same traversal serves the
+;;; generic inspection API, but canonical publication has no per-event dynamic
+;;; callback or runtime operation switch after constant operation specialization.
+(defsyntax (event-program-walk/inline stx)
+  (syntax-case stx (lambda)
+    ((_ (lambda (op name offset shift moved) effect ...) initial-code)
+     #'
+  (let loop ((code initial-code) (finish? #f) (delta 0) (moved? #f) (pending '()))
     (cond
      ((not code)
       (unless (null? pending)
@@ -162,10 +168,11 @@
      (finish?
       (cond
        ((event-program-value? code)
-        (visit (if (event-program-value-kind code) 'close-node 'boundary)
-               (event-program-value-kind code) (event-program-value-end code) delta moved?))
+        (if (event-program-value-kind code)
+          ((lambda (op name offset shift moved) effect ...) 'close-node (event-program-value-kind code) (event-program-value-end code) delta moved?)
+          ((lambda (op name offset shift moved) effect ...) 'boundary #f (event-program-value-end code) delta moved?)))
        ((event-field-frame? code)
-        (visit 'close-field (event-field-frame-name code) (event-field-frame-end code) delta moved?))
+        ((lambda (op name offset shift moved) effect ...) 'close-field (event-field-frame-name code) (event-field-frame-end code) delta moved?))
        (else (error "invalid event continuation")))
       (loop #f #f delta moved? pending))
      ((event-code-view? code)
@@ -178,14 +185,19 @@
             (cons (vector code 1 delta moved?) pending)))
      ((event-program-value? code)
       (when (event-program-value-kind code)
-        (visit 'open-node (event-program-value-kind code) (event-program-value-start code) delta moved?))
+        ((lambda (op name offset shift moved) effect ...) 'open-node (event-program-value-kind code) (event-program-value-start code) delta moved?))
       (loop (event-program-value-body code) #f delta moved?
             (cons (vector code #t delta moved?) pending)))
      ((event-field-frame? code)
-      (visit 'open-field (event-field-frame-name code) (event-field-frame-start code) delta moved?)
+      ((lambda (op name offset shift moved) effect ...) 'open-field (event-field-frame-name code) (event-field-frame-start code) delta moved?)
       (loop (event-field-frame-body code) #f delta moved?
             (cons (vector code #t delta moved?) pending)))
      ((token? code)
-      (visit 'token code (token-start code) delta moved?)
+      ((lambda (op name offset shift moved) effect ...) 'token code (token-start code) delta moved?)
       (loop #f #f delta moved? pending))
-     (else (error "invalid event instruction")))))
+     (else (error "invalid event instruction"))))
+)))
+(def (event-program-walk visit code)
+  (event-program-walk/inline
+   (lambda (operation name offset delta moved?)
+     (visit operation name offset delta moved?)) code))

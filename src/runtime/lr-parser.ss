@@ -4,7 +4,7 @@
 (import (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr
                  lr-spec-ref operand-actions production-action
-                 production-lhs production-precedence production-rhs
+                 production-lhs production-precedence production-rhs base-symbol
                  production-table)
         (only-in ./recognition
                  make-recognition-child make-recognition-fragment
@@ -16,6 +16,7 @@
                  association-row-index-ref
                  association-row-vector->index
                  make-value-interner
+                 recognition-sequence-relocate
                  recognition-sequence-append
                  recognition-sequence->list
                  value-interner-created-count
@@ -35,8 +36,13 @@
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
-                 token? token-end token-kind token-lexeme token-start))
-(export current-lr-recognition-observer
+                 make-token token? token-end token-kind token-lexeme token-start))
+(export lr-checkpoint-state lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
+        lr-recognition-relocate lr-checkpoint-before-shift
+        lr-checkpoint-fragment-compatible? lr-checkpoint-inject-fragment
+        lr-runtime-fragment-reuse-safe?
+        lr-recognition-fragment-offset lr-recognition-fragment-exit-mode
+        current-lr-recognition-observer
         lr-recognition-fragment? lr-recognition-fragment-production-id
         lr-recognition-fragment-runtime lr-recognition-fragment-executor
         lr-recognition-fragment-entry-state
@@ -115,16 +121,34 @@
            start end token-count offset)
   transparent: #t)
 
+(defstruct lr-recognition-view (base delta) transparent: #t)
+(def (lr-recognition-relocate piece delta)
+  (if (lr-recognition-view? piece)
+    (make-lr-recognition-view (lr-recognition-view-base piece)
+                             (+ delta (lr-recognition-view-delta piece)))
+    (make-lr-recognition-view piece delta)))
+
 ;;; Observer receives the accepted deterministic root, or #f when execution
 ;;; enters a path whose structure cannot be certified (GLR/layout/recovery).
 (def current-lr-recognition-observer (make-parameter #f))
 
 (def (recognition-piece-start piece)
-  (if (token? piece) (token-start piece) (lr-recognition-fragment-start piece)))
+  (cond ((lr-recognition-view? piece)
+         (+ (lr-recognition-view-delta piece)
+            (recognition-piece-start (lr-recognition-view-base piece))))
+        ((token? piece) (token-start piece))
+        (else (lr-recognition-fragment-start piece))))
 (def (recognition-piece-end piece)
-  (if (token? piece) (token-end piece) (lr-recognition-fragment-end piece)))
+  (cond ((lr-recognition-view? piece)
+         (+ (lr-recognition-view-delta piece)
+            (recognition-piece-end (lr-recognition-view-base piece))))
+        ((token? piece) (token-end piece))
+        (else (lr-recognition-fragment-end piece))))
 (def (recognition-piece-token-count piece)
-  (if (token? piece) 1 (lr-recognition-fragment-token-count piece)))
+  (cond ((lr-recognition-view? piece)
+         (recognition-piece-token-count (lr-recognition-view-base piece)))
+        ((token? piece) 1)
+        (else (lr-recognition-fragment-token-count piece))))
 
 (def (capture-reduction runtime executor production-id states stack rest offset value target)
   (if (not stack) #f
@@ -147,34 +171,52 @@
 ;;; Iterative postorder projection reevaluates semantic actions from retained
 ;;; productions and token leaves. It deliberately does not trust cached values.
 ;;; Left-recursive trees therefore do not consume the Scheme call stack.
-(def (lr-recognition-project root)
-  (unless (lr-recognition-fragment? root)
+(def (lr-recognition-project root (source-tokens #f))
+  (unless (or (lr-recognition-fragment? root) (lr-recognition-view? root))
     (error "recognition projection requires a grammar fragment" root))
-  (let loop ((pending (list (cons #f root))) (values-stack '()))
-    (if (null? pending)
-      (if (and (pair? values-stack) (null? (cdr values-stack)))
-        (car values-stack)
-        (error "invalid recognition projection stack"))
-      (let* ((frame (car pending)) (piece (cdr frame)))
-        (cond
-         ((token? piece)
-          (loop (cdr pending)
-                (cons (list (make-recognition-child #f piece)) values-stack)))
-         ((car frame)
-          (let* ((count (length (lr-recognition-fragment-children piece)))
-                 (children (reverse (take values-stack count)))
-                 (runtime (lr-recognition-fragment-runtime piece))
-                 (production (vector-ref (lr-runtime-table runtime)
-                                (lr-recognition-fragment-production-id piece)))
-                 (value (reduce-value production children
-                          (lr-recognition-fragment-offset piece)
-                          make-recognition-fragment)))
-            (loop (cdr pending) (cons value (drop values-stack count)))))
-         (else
-          (loop (append (map (lambda (child) (cons #f child))
-                             (lr-recognition-fragment-children piece))
-                        (cons (cons #t piece) (cdr pending)))
-                values-stack)))))))
+  (let (tokens-by-start (and source-tokens (make-table test: eqv?)))
+    (when tokens-by-start
+      (for-each (lambda (token) (table-set! tokens-by-start (token-start token) token))
+                source-tokens))
+    (let loop ((pending (list (vector #f root 0))) (values-stack '()))
+      (if (null? pending)
+        (if (and (pair? values-stack) (null? (cdr values-stack)))
+          (car values-stack) (error "invalid recognition projection stack"))
+        (let* ((frame (car pending)) (piece (vector-ref frame 1))
+               (delta (vector-ref frame 2)))
+          (cond
+           ((lr-recognition-view? piece)
+            (loop (cons (vector #f (lr-recognition-view-base piece)
+                                (+ delta (lr-recognition-view-delta piece))) (cdr pending))
+                  values-stack))
+           ((token? piece)
+            (let (token
+                  (if tokens-by-start
+                    (table-ref tokens-by-start (+ delta (token-start piece)) #f)
+                    (if (zero? delta) piece
+                      (make-token (token-kind piece) (token-lexeme piece)
+                                  (+ delta (token-start piece)) (+ delta (token-end piece))))))
+              (unless (and token (eq? (token-kind token) (token-kind piece))
+                           (equal? (token-lexeme token) (token-lexeme piece))
+                           (= (token-end token) (+ delta (token-end piece))))
+                (error "grammar position view does not bind the current token"))
+              (loop (cdr pending)
+                    (cons (list (make-recognition-child #f token)) values-stack))))
+           ((vector-ref frame 0)
+            (let* ((count (length (lr-recognition-fragment-children piece)))
+                   (children (reverse (take values-stack count)))
+                   (runtime (lr-recognition-fragment-runtime piece))
+                   (production (vector-ref (lr-runtime-table runtime)
+                                           (lr-recognition-fragment-production-id piece)))
+                   (value (reduce-value production children
+                                        (+ delta (lr-recognition-fragment-offset piece))
+                                        make-recognition-fragment)))
+              (loop (cdr pending) (cons value (drop values-stack count)))))
+           (else
+            (loop (append (map (lambda (child) (vector #f child delta))
+                               (lr-recognition-fragment-children piece))
+                          (cons (vector #t piece delta) (cdr pending)))
+                  values-stack))))))))
 
 ;;; A deterministic failure frontier retains the exact immutable continuation
 ;;; and the terminals admitted by its LR state. Recovery can therefore test a
@@ -777,7 +819,7 @@
                         (stop-at-fork? #f) (feed-token #f)
                         (next-input #f) (after-shift #f)
                         (direct-step-override 'installed)
-                        (next-input-state? #f))
+                        (next-input-state? #f) (stop-before-shift? #f))
   (unless (lr-checkpoint? checkpoint)
     (error "LR execution requires an immutable checkpoint" checkpoint))
   (let* ((runtime (lr-checkpoint-runtime checkpoint))
@@ -866,6 +908,10 @@
             (let (action (cdr action-row))
               (case (car action)
                 ((shift)
+                 (if stop-before-shift?
+                   (values 'checkpoint
+                           (make-lr-checkpoint runtime tokens input-end-offset
+                             states semantic-values rest actions shifts recognition-stack))
                  (if (pair? rest)
                    (let ((next-states (cons (cadr action) states))
                          (next-values
@@ -882,7 +928,7 @@
                                 (fx- remaining-budget 1))
                            (and recognition-stack
                                 (cons (car rest) recognition-stack))))
-                   (fallback states semantic-values rest actions shifts)))
+                   (fallback states semantic-values rest actions shifts))))
                 ((reduce)
                  (let (production-id (cadr action))
                    (if direct-step
@@ -993,6 +1039,71 @@
    checkpoint #f observability #f
    (fx+ (lr-checkpoint-deterministic-shifts checkpoint) 1)
    #t input-token))
+
+(def (lr-checkpoint-state checkpoint) (car (lr-checkpoint-states checkpoint)))
+
+(def (lr-checkpoint-before-shift checkpoint token)
+  (let-values (((status next)
+                (lr-run-checkpoint checkpoint #f #f #t #f #t token
+                                   #f #f 'installed #f #t)))
+    (and (eq? status 'checkpoint) next)))
+
+(def (lr-runtime-fragment-reuse-safe? runtime)
+  (and (not (lr-runtime-layout? runtime)) (not (lr-runtime-dynamic? runtime))
+       ;; Admit the repeated-structure family first. Operator ancestry has no
+       ;; such concat recurrence and does not justify building a reuse catalog.
+       (vector-any
+        (lambda (production)
+          (let (rhs (production-rhs production))
+            (and (eq? (production-action production) 'concat)
+                 (= (length rhs) 2)
+                 (equal? (base-symbol (car rhs))
+                         (list 'nonterminal (production-lhs production))))))
+        (lr-runtime-table runtime))
+       (not (vector-any
+             (lambda (row) (any (lambda (entry) (eq? (cadr entry) 'fork)) row))
+             (lr-runtime-actions runtime)))))
+
+(def (lr-checkpoint-fragment-compatible? checkpoint fragment)
+  (let ((runtime (lr-checkpoint-runtime checkpoint))
+        (state (car (lr-checkpoint-states checkpoint))))
+    (and (lr-recognition-fragment? fragment)
+         (eq? runtime (lr-recognition-fragment-runtime fragment))
+         (eq? (lr-runtime-direct-step runtime) (lr-recognition-fragment-executor fragment))
+         (not (lr-runtime-layout? runtime)) (not (lr-runtime-dynamic? runtime))
+         (= state (lr-recognition-fragment-entry-state fragment))
+         (let (target
+               (goto-target (lr-runtime-goto-index runtime) state
+                            (production-lhs (vector-ref (lr-runtime-table runtime)
+                              (lr-recognition-fragment-production-id fragment)))))
+           (and target (= target (lr-recognition-fragment-exit-state fragment)))))))
+
+(def (lr-recognition-fragment-exit-mode fragment)
+  (vector-ref (lr-runtime-lexical-modes (lr-recognition-fragment-runtime fragment))
+              (lr-recognition-fragment-exit-state fragment)))
+
+;;; The source owner has certified unchanged yield and both lexical boundaries.
+;;; Transfer one actual nonterminal, not an exported AST kind or an LR suffix.
+(def (lr-checkpoint-inject-fragment checkpoint fragment delta significant-tokens)
+  (unless (and (lr-checkpoint-fragment-compatible? checkpoint fragment)
+               (pair? (lr-checkpoint-rest checkpoint))
+               (positive? (lr-recognition-fragment-token-count fragment))
+               (= (length significant-tokens) (lr-recognition-fragment-token-count fragment)))
+    (error "uncertified LR fragment transfer"))
+  (let* ((piece (lr-recognition-relocate fragment delta))
+         (end (recognition-piece-end piece))
+         (count (lr-recognition-fragment-token-count fragment)))
+    (make-lr-checkpoint
+     (lr-checkpoint-runtime checkpoint)
+     (append (reverse significant-tokens) (cdr (lr-checkpoint-tokens checkpoint)))
+     (max (lr-checkpoint-input-end-offset checkpoint) end)
+     (cons (lr-recognition-fragment-exit-state fragment) (lr-checkpoint-states checkpoint))
+     (cons (recognition-sequence-relocate (lr-recognition-fragment-value fragment) delta)
+           (lr-checkpoint-semantic-values checkpoint))
+     '() (+ 1 (lr-checkpoint-deterministic-actions checkpoint))
+     (+ count (lr-checkpoint-deterministic-shifts checkpoint))
+     (and (lr-checkpoint-recognition-stack checkpoint)
+          (cons piece (lr-checkpoint-recognition-stack checkpoint))))))
 
 ;;; Drives one deterministic LR loop while the source owner supplies tokens
 ;;; under the current lexical mode. The callback records shifted source tokens.

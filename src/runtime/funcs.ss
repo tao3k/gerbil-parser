@@ -1,7 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Small immutable sequence algorithms for the LR semantic hot path.
 
-(import (only-in :std/list/list-builder with-list-builder)
+(import (only-in ./recognition
+                 make-recognition-child recognition-child-field recognition-child-value
+                 relocate-recognition-value)
+        (only-in :std/list/list-builder with-list-builder)
         (only-in :std/vector/vector vector-map/index))
 (export association-row-vector->index
         association-row-index-ref
@@ -12,7 +15,8 @@
         vector-intern-map
         recognition-sequence-append
         recognition-sequence-concatenate
-        recognition-sequence->list)
+        recognition-sequence->list
+        recognition-sequence-relocate)
 
 ;;; Request-local hash-consing over immutable structural keys. Gerbil's
 ;;; standard equal?-table owns lookup; callers provide the canonical value
@@ -104,6 +108,15 @@
 ;; into constant-time concatenation.
 (defstruct recognition-sequence-branch (left right) transparent: #t)
 
+(defstruct recognition-sequence-position-view (value delta) transparent: #t)
+(def (recognition-sequence-relocate value delta)
+  (cond
+   ((recognition-sequence-position-view? value)
+    (make-recognition-sequence-position-view
+     (recognition-sequence-position-view-value value)
+     (+ delta (recognition-sequence-position-view-delta value))))
+   (else (make-recognition-sequence-position-view value delta))))
+
 ;; : (-> RecognitionSequence RecognitionSequence RecognitionSequence)
 (def (recognition-sequence-append left right)
   (cond
@@ -122,17 +135,30 @@
 ;; growth when a repeat production has built a deeply left-associated rope.
 ;; : (-> RecognitionSequence List)
 (def (recognition-sequence->list sequence)
-  (if (not (recognition-sequence-branch? sequence))
+  (if (list? sequence)
     sequence
     (with-list-builder (collect!)
-      (let loop ((pending (list sequence)))
+      (let loop ((pending (list (vector sequence 0 #f))))
         (unless (null? pending)
-          (let (current (car pending))
-            (if (recognition-sequence-branch? current)
-              (loop
-               (cons (recognition-sequence-branch-left current)
-                     (cons (recognition-sequence-branch-right current)
-                           (cdr pending))))
-              (begin
-                (for-each collect! current)
-                (loop (cdr pending))))))))))
+          (let* ((frame (car pending)) (current (vector-ref frame 0)) (delta (vector-ref frame 1))
+                 (moved? (vector-ref frame 2)))
+            (cond
+             ((recognition-sequence-position-view? current)
+              (loop (cons
+                     (vector (recognition-sequence-position-view-value current)
+                             (+ delta (recognition-sequence-position-view-delta current)) #t)
+                     (cdr pending))))
+             ((recognition-sequence-branch? current)
+              (loop (cons (vector (recognition-sequence-branch-left current) delta moved?)
+                          (cons (vector (recognition-sequence-branch-right current) delta moved?)
+                                (cdr pending)))))
+             (else
+              (for-each
+               (lambda (child)
+                 (collect!
+                  (if (not moved?) child
+                    (make-recognition-child
+                     (recognition-child-field child)
+                     (relocate-recognition-value (recognition-child-value child) delta #t)))))
+               current)
+              (loop (cdr pending))))))))))

@@ -15,10 +15,12 @@
                  token-event-lexeme token-event-token-kind)
         (only-in ./recognition recognition-child-value)
         (only-in ./funcs recognition-sequence->list)
+        (only-in ./reuse make-fragment-reuser)
         (only-in ./identity sha256-text)
         (only-in ./lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-runtime-lexical-mode-catalog
+                 lr-runtime-fragment-reuse-safe?
                  lr-prefix-snapshot-rebind current-lr-recognition-observer lr-recognition-project)
         (only-in ./lexer scan-source-token)
         (only-in ./parser
@@ -27,7 +29,8 @@
         (only-in ./significant parser-significant-tokens)
         (only-in ./token
                  make-token token-end token-kind token-lexeme token-start))
-(export +edit-schema+
+(export current-lr-fragment-reuse-enabled?
+        +edit-schema+
         +incremental-receipt-schema+
         make-edit
         edit?
@@ -47,6 +50,9 @@
 (def +incremental-receipt-schema+
   "gerbil-parser.incremental-receipt.v1")
 (def +checkpoint-spacing+ 32)
+;;; Experimental capture sessions can compare the same executor with transfers
+;;; enabled/disabled. Ordinary sessions still do not capture a grammar forest.
+(def current-lr-fragment-reuse-enabled? (make-parameter #t))
 
 (defstruct incremental-session-state
   (machine source artifact tokens modes checkpoints capture? recognition-root)
@@ -61,7 +67,8 @@
   (let* ((root (incremental-session-recognition-root session))
          (machine (incremental-session-state-machine session)))
     (unless root (error "session has no certified grammar snapshot"))
-    (let (children (recognition-sequence->list (lr-recognition-project root)))
+    (let (children (recognition-sequence->list (lr-recognition-project root
+                                 (incremental-session-state-tokens session))))
       (unless (and (pair? children) (null? (cdr children)))
         (error "grammar snapshot projection does not have one root"))
       ;; Publication consumes the exact captured source token instances, whose
@@ -726,7 +733,8 @@
          (old-modes (incremental-session-state-modes session))
          (checkpoints (incremental-session-state-checkpoints session))
          (new-source (apply-edit old-source source-edit))
-         (source-byte-length (u8vector-length (string->utf8 new-source))))
+         (source-byte-length (u8vector-length (string->utf8 new-source)))
+         (fragment-stats (make-vector 7 0)))
     (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
                  fresh? (reused-events #f) (replaced-significant-count 0))
       (let* ((artifact (incremental-session-artifact next))
@@ -741,18 +749,25 @@
                restart-byte significant-count
                (if reused-events
                  (- significant-count replaced-significant-count)
-                 0)
+                 (vector-ref fragment-stats 1))
                (and reused-events (- source-byte-length reused-bytes)))))
         (values
          next
          (incremental-receipt
+          (append
+           (if (positive? (vector-ref fragment-stats 0))
+             (list (cons 'reusedRecognitionFragmentCount (vector-ref fragment-stats 0))
+                   (cons 'fragmentCertificateProbeByteCount (vector-ref fragment-stats 4))
+                   (cons 'fragmentRejectedProbeCount (vector-ref fragment-stats 5))
+                   (cons 'fragmentControlProbeCount (vector-ref fragment-stats 6))) '())
           (cond
            (fresh? (cons (cons 'freshFallback? #t) fields))
            (reused-events
             (cons (cons 'reusedRecognitionEventCount reused-events) fields))
-           (else fields))
+           (else fields)))
           artifact (and (not reused-events) shifted)))))
     (def (fallback)
+      (set! fragment-stats (make-vector 7 0))
       (finish (session-from-directed machine new-source
                                      (incremental-session-state-capture? session))
               0 0 0 0 0 #t))
@@ -835,6 +850,21 @@
                  (rebound
                   (lr-prefix-snapshot-rebind
                    (vector-ref saved 1) prefix '() restart-byte)))
+            (let-values (((reuse-fragment stats)
+                          (if (and (incremental-session-state-capture? session)
+                                   (incremental-session-recognition-root session)
+                                   (current-lr-fragment-reuse-enabled?)
+                                   ;; A short checkpoint tail costs less to replay than
+                                   ;; to index/certify. Keep its existing LR path.
+                                   (> (- (length old-tokens) (vector-ref saved 2))
+                                      (* 2 +checkpoint-spacing+))
+                                   (lr-runtime-fragment-reuse-safe? (parser-machine-runtime machine)))
+                            (make-fragment-reuser
+                             machine new-source old-tokens old-modes
+                             (incremental-session-recognition-root session)
+                             (edit-start-byte source-edit) edit-end byte-delta restart-byte)
+                            (values #f fragment-stats))))
+              (set! fragment-stats stats)
             (let-values
                 (((artifact tokens modes records root)
                   (capture-session-parse
@@ -842,7 +872,7 @@
                      (parse-source/checkpoints/resume
                       machine new-source +checkpoint-spacing+ rebound
                       prefix prefix-modes restart-character restart-byte
-                      reuse-token))
+                      reuse-token reuse-fragment))
                    (incremental-session-state-capture? session))))
               (if (not (parse-artifact-success? artifact))
                 (fallback)
@@ -858,4 +888,5 @@
                          machine new-source artifact tokens modes
                          next-checkpoints (incremental-session-state-capture? session) root)))
                   (finish next (vector-ref saved 2) shifted
-                          reused-count reused-bytes restart-byte #f))))))))))))))
+                          (+ reused-count (vector-ref fragment-stats 2))
+                          (+ reused-bytes (vector-ref fragment-stats 3)) restart-byte #f)))))))))))))))

@@ -6,6 +6,7 @@
                  +diagnostic-schema+ +parse-artifact-schema+)
         (only-in ./identity sha256-bytes sha256-text)
         (only-in ./recognition
+                 recognition-relocation? recognition-relocation-value recognition-relocation-delta
                  recognition-child-field recognition-child-value
                  recognition-fragment-children recognition-fragment-end
                  recognition-fragment-start
@@ -121,96 +122,74 @@
 ;; recognition-events
 ;; : (-> List Recognition Boolean Fixnum List)
 (def (recognition-events tokens root trivia? source-byte-length)
-  (let* ((remaining tokens)
-         (events (cons #f '()))
-         (tail events)
-         (next-node-id 0)
-         (next-token-id 0))
-    (letrec
-        ((emit!
-          (lambda (event)
-            (let (cell (cons event '()))
-              (set-cdr! tail cell)
-              (set! tail cell))))
-         (emit-source-token!
-          (lambda (source-token)
-            (emit! (make-token-event next-token-id source-token))
-            (set! next-token-id (+ next-token-id 1))
-            (set! remaining (cdr remaining))))
-         (emit-trivia-until!
-          (lambda (boundary)
-            (let loop ()
-              (when (and (pair? remaining)
-                         (<= (token-end (car remaining)) boundary))
-                (unless (trivia? (car remaining))
-                  (error "unclaimed significant token"
-                         (token-kind (car remaining))
-                         (token-start (car remaining))))
-                (emit-source-token! (car remaining))
-                (loop)))))
-         (emit-child!
-          (lambda (child)
-            (let ((value (recognition-child-value child))
-                  (field (recognition-child-field child)))
-              (cond
-               ((token? value)
-                (let (start (token-start value))
-                  (emit-trivia-until! start)
-                  (when field (emit! (vector 'start-field field start)))
-                  (emit-token! value)
-                  (when field
-                    (emit! (vector 'finish-field field (token-end value))))))
-               ((recognition-node? value)
-                (let (start (recognition-node-start value))
-                  (emit-trivia-until! start)
-                  (when field (emit! (vector 'start-field field start)))
-                  (emit-node! value #f)
-                  (when field
-                    (emit! (vector 'finish-field field
-                                   (recognition-node-end value))))))
-               ((recognition-fragment? value)
-                (let (start (recognition-fragment-start value))
-                  (emit-trivia-until! start)
-                  (when field (emit! (vector 'start-field field start)))
-                  (emit-fragment! value)
-                  (when field
-                    (emit! (vector 'finish-field field
-                                   (recognition-fragment-end value))))))
-               (else (error "invalid recognition value" value))))))
-         (emit-children!
-          (lambda (children end)
-            (for-each emit-child! children)
-            (emit-trivia-until! end)))
-         (emit-node!
-          (lambda (node root?)
-            (let* ((id next-node-id)
-                   (kind (recognition-node-kind node))
-                   (start (if root? 0 (recognition-node-start node)))
-                   (end (if root?
-                          source-byte-length
-                          (recognition-node-end node))))
-              (set! next-node-id (+ next-node-id 1))
-              (emit! (vector 'start-node id kind start))
-              (emit-children! (recognition-node-children node) end)
-              (emit! (vector 'finish-node id kind end)))))
-         (emit-fragment!
-          (lambda (fragment)
-            (emit-children! (recognition-fragment-children fragment)
-                            (recognition-fragment-end fragment))))
-         (emit-token!
-          (lambda (source-token)
-            (unless (and (pair? remaining)
-                         (eq? source-token (car remaining)))
-              (error "recognition token does not match source order"
-                     (token-kind source-token)
-                     (token-start source-token)))
-            (emit-source-token! source-token))))
-      (unless (recognition-node? root)
-        (error "parse root must be a recognition node" root))
-      (emit-node! root #t)
-      (unless (null? remaining)
-        (error "source tokens remain outside parse root" remaining))
-      (cdr events))))
+  (let* ((remaining tokens) (events (cons #f '())) (tail events)
+         (next-node-id 0) (next-token-id 0))
+    (def (emit! event)
+      (let (cell (cons event '())) (set-cdr! tail cell) (set! tail cell)))
+    (def (emit-source-token! source-token)
+      (emit! (make-token-event next-token-id source-token))
+      (set! next-token-id (+ next-token-id 1))
+      (set! remaining (cdr remaining)))
+    (def (emit-trivia-until! boundary)
+      (let loop ()
+        (when (and (pair? remaining) (<= (token-end (car remaining)) boundary))
+          (unless (trivia? (car remaining))
+            (error "unclaimed significant token" (token-kind (car remaining))
+                   (token-start (car remaining))))
+          (emit-source-token! (car remaining)) (loop))))
+    (def (emit-token! source-token delta translated?)
+      (unless (and (pair? remaining)
+                   (if translated?
+                     (let (current (car remaining))
+                       (and (= (token-start current) (+ (token-start source-token) delta))
+                            (= (token-end current) (+ (token-end source-token) delta))
+                            (eq? (token-kind current) (token-kind source-token))
+                            (equal? (token-lexeme current) (token-lexeme source-token))))
+                     (eq? source-token (car remaining))))
+        (error "recognition token does not match source order"
+               (token-kind source-token) (+ delta (token-start source-token))))
+      ;; The canonical event always uses this request's actual source token.
+      (emit-source-token! (car remaining)))
+    (def (emit-children! children end delta translated?)
+      (for-each (lambda (child)
+                  (emit-value! (recognition-child-value child)
+                               (recognition-child-field child) delta translated? #f)) children)
+      (emit-trivia-until! end))
+    (def (emit-value! value field delta translated? root?)
+      (cond
+       ((recognition-relocation? value)
+        (emit-value! (recognition-relocation-value value) field
+                     (+ delta (recognition-relocation-delta value)) #t root?))
+       ((token? value)
+        (when root? (error "parse root must be a recognition node" value))
+        (let ((start (+ delta (token-start value))) (end (+ delta (token-end value))))
+          (emit-trivia-until! start)
+          (when field (emit! (vector 'start-field field start)))
+          (emit-token! value delta translated?)
+          (when field (emit! (vector 'finish-field field end)))))
+       ((recognition-node? value)
+        (let* ((start (if root? 0 (+ delta (recognition-node-start value))))
+               (end (if root? source-byte-length (+ delta (recognition-node-end value))))
+               (id next-node-id) (kind (recognition-node-kind value)))
+          (emit-trivia-until! start)
+          (when field (emit! (vector 'start-field field start)))
+          (set! next-node-id (+ next-node-id 1))
+          (emit! (vector 'start-node id kind start))
+          (emit-children! (recognition-node-children value) end delta translated?)
+          (emit! (vector 'finish-node id kind end))
+          (when field (emit! (vector 'finish-field field end)))))
+       ((recognition-fragment? value)
+        (when root? (error "parse root must be a recognition node" value))
+        (let ((start (+ delta (recognition-fragment-start value)))
+              (end (+ delta (recognition-fragment-end value))))
+          (emit-trivia-until! start)
+          (when field (emit! (vector 'start-field field start)))
+          (emit-children! (recognition-fragment-children value) end delta translated?)
+          (when field (emit! (vector 'finish-field field end)))))
+       (else (error "invalid recognition value" value))))
+    (emit-value! root #f 0 #f #t)
+    (unless (null? remaining) (error "source tokens remain outside parse root" remaining))
+    (cdr events)))
 
 ;; flat-token-events
 ;; : (-> List List)

@@ -345,7 +345,7 @@
 ;;; scans the remaining suffix once and transfers the exact checkpoint to GLR.
 (def (parse-source/directed machine grammar-digest source observability capture
                             initial prefix-tokens prefix-modes
-                            start-character start-byte reuse-token)
+                            start-character start-byte reuse-token reuse-fragment)
   (let ((source-length (string-length source))
         (trivia? (parser-machine-trivia machine)))
     (def (publish tokens modes root rest)
@@ -373,6 +373,17 @@
           (publish (reverse tokens-reversed)
                    (and capture (reverse modes-reversed))
                    root rest))
+        (let (fragment (and reuse-fragment (reuse-fragment character-offset byte-offset checkpoint)))
+          (if fragment
+            (let* ((next (vector-ref fragment 0)) (segment (vector-ref fragment 1))
+                   (segment-modes (vector-ref fragment 2))
+                   (next-character (vector-ref fragment 3)) (next-byte (vector-ref fragment 4))
+                   (next-count (+ token-count (length segment))))
+              (when capture (capture next #f #f next-count next-byte #t))
+              (loop next-character next-byte next
+                    (append (reverse segment) tokens-reversed)
+                    (if capture (append (reverse segment-modes) modes-reversed) modes-reversed)
+                    next-count))
         (let (mode (lr-checkpoint-lexical-mode checkpoint))
           (let-values
               (((input-token next-character-offset)
@@ -445,13 +456,13 @@
                          (publish tokens #f root rest)))))
                   (else
                    (error "parser-directed feed did not yield a checkpoint"
-                          status)))))))))))
+                          status)))))))))))))
 
 ;; : (-> ParserMachine String ParseArtifact)
 (def (parse-source/with-capture machine source observability capture
                                 (checkpoint #f) (prefix-tokens '())
                                 (prefix-modes '()) (start-character 0)
-                                (start-byte 0) (reuse-token #f))
+                                (start-byte 0) (reuse-token #f) (reuse-fragment #f))
   (unless (string? source)
     (error "parse source must be a string" source))
   (let (grammar-digest (parser-machine-grammar-digest machine))
@@ -485,7 +496,7 @@
                (and (not observability) (not capture)
                     (not checkpoint) (null? prefix-tokens)
                     (zero? start-character) (zero? start-byte)
-                    (not reuse-token)))
+                    (not reuse-token) (not reuse-fragment)))
               (direct-source
                (and fresh? (parser-machine-direct-source machine)))
               (candidate
@@ -505,7 +516,7 @@
                (parse-source/directed
                 machine grammar-digest source observability capture initial
                 prefix-tokens prefix-modes start-character start-byte
-                reuse-token)))))))))
+                reuse-token reuse-fragment)))))))))
 
 (def (parse-source machine source (observability #f))
   (if (lr-runtime-layout? (parser-machine-runtime machine))
@@ -522,7 +533,7 @@
 ;; A fork keeps the certified prefix; selective GLR owns the uncaptured suffix.
 (def (parse-source/checkpoints/resume machine source spacing checkpoint
                                       prefix-tokens prefix-modes
-                                      start-character start-byte reuse-token)
+                                      start-character start-byte reuse-token (reuse-fragment #f))
   (unless (and (integer? spacing) (positive? spacing))
     (error "checkpoint spacing must be positive" spacing))
   (if (lr-runtime-layout? (parser-machine-runtime machine))
@@ -533,12 +544,12 @@
     (let* ((artifact
             (parse-source/with-capture
              machine source #f
-             (lambda (checkpoint tokens modes token-count byte-end)
+             (lambda (checkpoint tokens modes token-count byte-end (force? #f))
                (cond
                 (checkpoint
                  (let (shifts
                        (lr-checkpoint-deterministic-shifts checkpoint))
-                   (when (zero? (modulo shifts spacing))
+                   (when (or force? (zero? (modulo shifts spacing)))
                      (set! snapshots
                             (cons
                             (vector shifts
@@ -550,7 +561,7 @@
                  (when modes (set! source-modes modes)))
                 (modes (set! source-modes modes))))
              checkpoint prefix-tokens prefix-modes
-             start-character start-byte reuse-token))
+             start-character start-byte reuse-token reuse-fragment))
            (records
             (if (parse-artifact-success? artifact)
               (list->vector (reverse snapshots))

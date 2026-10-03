@@ -12,6 +12,10 @@
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  current-lr-recognition-observer lr-prepare lr-parse/prepared
+                 install-lr-runtime-direct-step! lr-runtime-fragment-reuse-safe? lr-initial-checkpoint
+                 lr-checkpoint-before-shift lr-checkpoint-fragment-compatible?
+                 lr-recognition-view?
+                 lr-recognition-view-base lr-recognition-view-delta
                  lr-recognition-fragment? lr-recognition-fragment-children lr-recognition-fragment-end
                  lr-recognition-fragment-token-count lr-recognition-fragment-value
                  lr-recognition-project)
@@ -21,13 +25,24 @@
                  parse-incremental-session apply-edit make-edit))
 
 (def (check-projection machine source session)
-  (let* ((root (incremental-session-recognition-root session))
-         (projected (and root (lr-recognition-project root))))
-    (check (lr-recognition-fragment? root) => #t)
-    (check (recognition-sequence->list projected)
-           => (recognition-sequence->list (lr-recognition-fragment-value root)))
+  (let (root (incremental-session-recognition-root session))
+    (check (or (lr-recognition-fragment? root) (lr-recognition-view? root)) => #t)
+    ;; Independent production replay publishes the full canonical artifact,
+    ;; including current token identity and coordinates after relative moves.
     (check (incremental-session-project-artifact session)
            => (incremental-session-artifact session))))
+
+(def (check-edits source edits)
+  (let (session (make-incremental-session hcl-v2-24-parser source #t))
+    (for-each
+     (lambda (edit)
+       (let-values (((next receipt) (parse-incremental-session session edit)))
+         (set! source (apply-edit source edit))
+         (set! session next)
+         (check (incremental-session-artifact next) => (parse-hcl-v2-24 source))
+         (when (incremental-session-recognition-root next)
+           (check-projection hcl-v2-24-parser source next))))
+     edits)))
 
 (def (retained-prefix-piece root bound)
   (let loop ((pending (list root)))
@@ -45,8 +60,11 @@
     (and (pair? pending)
          (or (eq? (car pending) expected)
              (loop (append
-                    (if (lr-recognition-fragment? (car pending))
-                      (lr-recognition-fragment-children (car pending)) '())
+                    (cond ((lr-recognition-view? (car pending))
+                           (list (lr-recognition-view-base (car pending))))
+                          ((lr-recognition-fragment? (car pending))
+                           (lr-recognition-fragment-children (car pending)))
+                          (else '()))
                     (cdr pending)))))))
 
 (def recognition-snapshot-test
@@ -88,6 +106,76 @@
                       (parse-incremental-session session (make-edit 480 0 "other = 002\n"))))
           (check (contains-identical-piece? (incremental-session-recognition-root next) piece)
                  => #t))))
+    (test-case "nonterminal transfers skip unchanged declarations"
+      (let* ((source (apply string-append (make-list 80 "value = 001\n")))
+             (session (make-incremental-session hcl-v2-24-parser source #t)))
+        (let-values (((next receipt)
+                      (parse-incremental-session session (make-edit 0 0 "other = 002\n"))))
+          (check (> (cdr (assq 'reusedRecognitionFragmentCount receipt)) 0) => #t)
+          (check (> (cdr (assq 'reusedSignificantTokenCount receipt)) 200) => #t)
+          (check (incremental-session-artifact next)
+                 => (parse-hcl-v2-24 (string-append "other = 002\n" source)))
+          (check-projection hcl-v2-24-parser source next))))
+    (test-case "relative positions compose across edits inside reused suffixes"
+      (check-edits (apply string-append (make-list 12 "value = 001\n"))
+                   (list (make-edit 0 0 "other = 002\n")
+                         (make-edit 36 0 "third = 003\n")
+                         (make-edit 0 12 "")
+                         (make-edit 24 12 "")
+                         (make-edit 0 0 "other = 002\n")
+                         (make-edit 0 12 ""))))
+    (test-case "UTF8 and lexical boundary changes retain canonical ownership"
+      (check-edits "value = \"λ中😀\"\nother = [1, 2]\n"
+                   (list (make-edit 0 0 "prefix = 0\n")
+                         (make-edit 0 11 "")
+                         (make-edit 0 0 "/* λ */ ")
+                         (make-edit 0 9 "")))
+      (check-edits "value = 1\nother = 2\nthird = 3\n"
+                   (list (make-edit 9 0 " + 4")
+                         (make-edit 9 4 "")
+                         (make-edit 9 0 " /* comment */")
+                         (make-edit 9 14 "")
+                         (make-edit 0 0 "value = ")
+                         (make-edit 0 8 ""))))
+    (test-case "UTF8 token leaves move inside actually reused structures"
+      (check-edits (apply string-append (make-list 30 "value = \"λ中😀\"\n"))
+                   (list (make-edit 0 0 "prefix = 0\n")
+                         (make-edit 0 11 ""))))
+    (test-case "failed parse clears transferred-work receipts"
+      ;; Trivia makes this checkpoint tail large enough to admit the catalog;
+      ;; unchanged declarations before the bad final identifier can transfer.
+      (let* ((line "value /* a */ = /* b */ 001 /* c */\n")
+             (source (apply string-append (make-list 80 line)))
+             (edit (make-edit (* 79 (string-length line)) 1 "@"))
+             (session (make-incremental-session hcl-v2-24-parser source #t)))
+        (let-values (((next receipt) (parse-incremental-session session edit)))
+          (check (incremental-session-artifact next)
+                 => (parse-hcl-v2-24 (apply-edit source edit)))
+          (check (incremental-session-recognition-root next) => #f)
+          (check (cdr (assq 'freshFallback? receipt)) => #t)
+          (check (assq 'reusedRecognitionFragmentCount receipt) => #f))))
+    (test-case "an equivalent grammar in another prepared runtime is rejected"
+      (let* ((spec (compile-lr-spec
+                    '((source-file (alias SourceFile (token identifier))))
+                    'source-file))
+             (first (lr-prepare spec)) (second (lr-prepare spec))
+             (token (make-token 'identifier "x" 0 1)) (captured #f))
+        (parameterize ((current-lr-recognition-observer
+                        (lambda (root) (set! captured root))))
+          (let-values (((root rest) (lr-parse/prepared first (list token))))
+            (check rest => '())))
+        (check (lr-recognition-fragment? captured) => #t)
+        (check (lr-checkpoint-fragment-compatible?
+                (lr-checkpoint-before-shift (lr-initial-checkpoint first '()) token)
+                captured) => #t)
+        (install-lr-runtime-direct-step! first
+          (lambda args (error "rejection test must not execute replacement reducer")))
+        (check (lr-checkpoint-fragment-compatible?
+                (lr-checkpoint-before-shift (lr-initial-checkpoint first '()) token)
+                captured) => #f)
+        (check (lr-checkpoint-fragment-compatible?
+                (lr-checkpoint-before-shift (lr-initial-checkpoint second '()) token)
+                captured) => #f)))
     (test-case "deep left recursion projects without recursive Scheme traversal"
       (let* ((source (string-join (make-list 1600 "001") " + "))
              (session (make-incremental-session arithmetic-parser source #t)))
@@ -116,7 +204,8 @@
           (let-values (((root rest)
                         (lr-parse/prepared runtime (list (make-token 'identifier "x" 0 1)))))
             (check rest => '())))
-        (check observed => #f)))
+        (check observed => #f)
+        (check (lr-runtime-fragment-reuse-safe? runtime) => #f)))
     (test-case "layout execution retains only its authoritative artifact"
       (let (session
             (make-incremental-session

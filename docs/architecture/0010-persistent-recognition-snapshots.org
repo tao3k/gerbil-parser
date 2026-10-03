@@ -3,15 +3,16 @@
 
 * Status and decision
 
-Research decision, 2026-10-03. The deterministic grammar-capture slice is now
-implemented as an explicit session option. Relative coordinates and certified
-suffix recognition reuse remain proposed; the complete migration is unfinished.
+Research and implementation decision, 2026-10-03. The connected deterministic
+capture/relative-position/certified-nonterminal-transfer/publication path is now
+implemented in explicit capture sessions. Balanced repetition indexes, local
+snapshot queries and equivalent generated streaming capture remain unfinished.
 Measured runtime baseline: =21510a44cadb0d6dcdc3c2c4f973bcf9c372bc43=.
 Topology benchmark coverage and its receipts are retained. The implementation
 receipt below distinguishes captured structure from skipped recognition.
 It does not replace the ParseArtifact v1 authority or introduce a public tree API.
 
-The next structural work is one dependency chain: capture reusable grammar
+The structural work follows one dependency chain: capture reusable grammar
 structure, retain it with relative coordinates, certify reuse during recognition,
 and materialize the existing canonical artifact at an explicit boundary.
 Changing action dispatch alone does not address the measured suffix replay.
@@ -257,7 +258,7 @@ Equivalent capture inside generated direct-source/drive executors remains pendin
   recursive grammar structure without recursive Scheme descent.
 - =make-incremental-session machine source #t= enables capture. The option persists
   across resumed, fallback and event-window edits. Default sessions keep capture
-  disabled while recognition reuse is unfinished; ordinary reductions avoid
+  disabled while generated-executor coherence remains unqualified; ordinary reductions avoid
   fragment-construction calls and allocate no grammar nodes.
 - =incremental-session-project-artifact= publishes the independently projected
   root through the existing artifact owner using the session's exact token
@@ -294,9 +295,9 @@ without copying every unchanged grammar node, then admit fragment reuse using
 this captured runtime/production/control information. Flat publication remains
 a separate linear cost throughout that migration.
 
-** Current qualification
+** Historical capture-only qualification
 
-Final source built successfully with =GERBIL_BUILD_CORES=12 gerbil build=.
+Capture-only source built successfully with =GERBIL_BUILD_CORES=12 gerbil build=.
 All 54 native test modules passed in nine bounded batches, each with exact
 =MODULE-OK= counts, =HARNESS-OK= and final =OK=, without error markers.
 This includes the new nine-case snapshot suite. The original 400-term benchmark
@@ -315,3 +316,90 @@ GERBIL_PARSER_LR_TRACE=1 gerbil env gxi -:max-heap=1G,debug=q t/fixtures/native-
 #+end_src
 
 This is local bounded native qualification. No remote CI run or push is implied.
+
+* Implementation receipt: connected relative-position and reuse path
+
+This implementation extends the capture-only slice rather than establishing
+another published representation:
+
+1. Grammar fragments and semantic sequences accept immutable position views.
+   Repeated moves collapse the outer view. A zero-net displacement still records
+   source rebinding: returning to an old offset does not restore old token identity.
+2. The source owner catalogs unedited prefix/suffix fragments with a precise
+   relocation map, source-token boundaries and captured lexical-mode evidence.
+   LR entry state indexes each position's candidates; incompatible ancestor
+   states are not linearly retried. Traversal prunes complete subtrees ending
+   before the resume point and subtrees with fewer than two significant tokens.
+3. Before shifting a candidate's first token, deterministic pending reductions
+   are normalized. Admission checks the exact runtime, installed reduction
+   executor, entry state, actual grammar LHS goto/exit state, first token/mode,
+   following significant token kind/spelling and exact reduction lookahead offset.
+   A positive-width certified yield transfers one nonterminal; token convergence
+   alone never increments the recognition-reuse counters.
+4. Transfer shares cached grammar/semantic subtrees through position views,
+   advances conceptual consumed-token counters and retains an immutable resumable
+   checkpoint at the transferred boundary. It skips internal LR recognition.
+5. The existing artifact owner walks views, validates translated leaf spelling,
+   kind and byte extent against the current canonical token stream, and emits
+   those current token instances. IDs, flat events and full-source SHA256 keep
+   their existing contract. Independent grammar-action replay rebinds the same
+   current token stream and must publish the identical complete artifact.
+
+Admission is deliberately narrower than successful deterministic input: the
+whole LR table must contain no fork, no dynamic/layout execution, and a lowered
+concat recurrence for repeated structure. Short remaining source-token tails
+(up to twice the existing checkpoint spacing) use ordinary replay; building a
+catalog there costs more than the bounded replay. Arithmetic operator ancestry
+stays on the existing path. These are performance-family admission rules, not a
+claim that repetition proves arbitrary context independence. Every admitted
+individual nonterminal still requires the complete certificate above.
+
+Catalog construction still takes O(T + visited grammar nodes), and the current
+left-recursive ancestry can be linear. Each independent sibling transfer also
+has constant-boundary probes and a checkpoint. No O(K log N) local-update claim
+is established. Position views retain relevant immutable subtrees, not historical
+session/source objects; retained heap size over a long edit stream remains a
+separate measurement gate.
+
+** Rejected attempt and resulting algorithm change
+
+The first connected prototype skipped approximately 75 percent of significant
+HCL sibling tokens but rebuilt/scanned all candidates without entry-state indexing.
+At 800 declarations, first insertion was approximately 10.75 to 9.99 ms, middle
+insertion 5.61 to 8.29 ms, and last insertion 1.47 to 6.31 ms. This was rejected as
+a performance result. These diagnostic prototype observations do not qualify the
+final implementation. The structural response was state-indexed candidate lookup,
+spatial/size pruning and explicit short-tail/nonrepeat replay admission.
+
+** Reproduction
+
+The benchmark control changes only the transfer admission parameter. Capture,
+executor, initial session, edit topology, heap and complete publication are the same.
+Five CPU samples per case, explicit GC before each timed call, session creation
+outside the timer; receipt construction remains inside. Preflight checks compare
+complete fresh artifacts, independent forward projection, inverse artifacts and
+independent inverse projection. Repeat the HCL 400/800 runs in reverse order to
+check whether the observed direction survives ordering.
+
+#+begin_src sh
+gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss no-reuse topology-hcl-capture 2 100 200 400 800
+gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-hcl-capture 2 100 200 400 800
+gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss no-reuse topology-capture 2 400 800 1600 3200
+gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-capture 2 400 800 1600 3200
+#+end_src
+
+** Remaining structural work, in dependency order
+
+- Make the reuse index persistent and suitable repeat structure balanced, with
+  a certified grammar fold. Current spatial pruning still traverses affected
+  left-recursive ancestry; it does not establish logarithmic update cost.
+- Qualify equivalent capture in generated streaming executors. The HCL fresh
+  direct parser and generic captured session remain different execution paths;
+  their timing difference cannot be credited to the transfer optimization.
+- Separate an explicitly admitted local snapshot/query interface from complete
+  v1 publication. Full event serialization, source patching, token projection,
+  digest and receipt lists remain linear. A faster private recognizer cannot
+  remove those costs without a separately decided contract.
+- Expand to other deterministic repeat grammars only with owned corpus gates;
+  layout, external scanner state, dynamic precedence, ambiguity and recovery
+  require additional proofs and stay excluded from this admission.

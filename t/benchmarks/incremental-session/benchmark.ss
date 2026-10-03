@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
-                 apply-edit incremental-session-artifact
+                 current-lr-fragment-reuse-enabled? apply-edit incremental-session-artifact
                  make-edit make-incremental-session incremental-session-project-artifact
                  parse-incremental-session parse-source/incremental))
 
@@ -241,6 +241,18 @@
                (cons 'reused-recognition-events
                      (let (entry (assq 'reusedRecognitionEventCount receipt))
                        (if entry (cdr entry) 0)))
+               (cons 'fragment-reuse-enabled? (current-lr-fragment-reuse-enabled?))
+               (cons 'reused-recognition-fragments
+                     (let (entry (assq 'reusedRecognitionFragmentCount receipt))
+                       (if entry (cdr entry) 0)))
+               (cons 'reused-significant-tokens
+                     (let (entry (assq 'reusedSignificantTokenCount receipt))
+                       (if entry (cdr entry) 0)))
+               (cons 'certificate-probe-bytes
+                     (let (entry (assq 'fragmentCertificateProbeByteCount receipt))
+                       (if entry (cdr entry) 0)))
+               (cons 'fresh-cpu-samples-ms fresh-times)
+               (cons 'cached-cpu-samples-ms cached-times)
                (cons 'fresh-cpu-median-ms (median fresh-times))
                (cons 'cached-cpu-median-ms (median cached-times))))
         (newline) (force-output)))))
@@ -274,6 +286,9 @@
 
 
 (def (main . args)
+  (when (and (pair? args) (equal? (car args) "no-reuse"))
+    (current-lr-fragment-reuse-enabled? #f)
+    (set! args (cdr args)))
   (if (and (pair? args) (member (car args) '("topology" "topology-hcl" "topology-capture" "topology-hcl-capture")))
     (let (sizes (if (null? (cdr args)) '(400 800 1600 3200)
                  (map string->number (cdr args))))

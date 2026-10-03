@@ -2,7 +2,9 @@
 ;;; Private recognition values produced by generated parser machines.
 
 (import (only-in ./token token? token-end token-start))
-(export make-recognition-node
+(export relocate-recognition-value
+        recognition-relocation? recognition-relocation-value recognition-relocation-delta
+        make-recognition-node
         recognition-node?
         recognition-node-kind
         recognition-node-start
@@ -25,9 +27,24 @@
 (defstruct recognition-fragment (start end children) transparent: #t)
 (defstruct recognition-child (field value) transparent: #t)
 
+
+;;; Position views share the semantic subtree. Collapse repeated moves of the
+;;; same view so successive edits do not retain a chain of source snapshots.
+(defstruct recognition-relocation (value delta) transparent: #t)
+(def (relocate-recognition-value value delta (force? #f))
+  (cond
+   ((recognition-relocation? value)
+    (make-recognition-relocation (recognition-relocation-value value)
+                                (+ delta (recognition-relocation-delta value))))
+   ((and (zero? delta) (not force?)) value)
+   (else (make-recognition-relocation value delta))))
+
 ;; : (-> RecognitionValue Nat)
 (def (recognition-value-start value)
   (cond
+   ((recognition-relocation? value)
+    (+ (recognition-relocation-delta value)
+       (recognition-value-start (recognition-relocation-value value))))
    ((token? value) (token-start value))
    ((recognition-node? value) (recognition-node-start value))
    ((recognition-fragment? value) (recognition-fragment-start value))
@@ -36,6 +53,9 @@
 ;; : (-> RecognitionValue Nat)
 (def (recognition-value-end value)
   (cond
+   ((recognition-relocation? value)
+    (+ (recognition-relocation-delta value)
+       (recognition-value-end (recognition-relocation-value value))))
    ((token? value) (token-end value))
    ((recognition-node? value) (recognition-node-end value))
    ((recognition-fragment? value) (recognition-fragment-end value))

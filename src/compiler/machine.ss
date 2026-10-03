@@ -5,7 +5,7 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
-                 lr-prepare lr-parse/prepared
+                 lr-prepare lr-parse/prepared lr-runtime-for-current-semantic-backend
                  lr-runtime-lexical-mode-catalog
                  install-lr-runtime-direct-step! install-lr-runtime-event-step!)
         (only-in ../runtime/scan
@@ -21,7 +21,8 @@
                  scan-escaped-quoted-strings scan-quoted-strings scan-whitespace
                  scan-emit)
         (only-in ../runtime/token token-end token-kind))
-(export current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer
+(export parser-machine-for-current-semantic-backend
+        current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer
         parser-machine-lexical-plans parser-machine-lexical-modes-compatible?
         defgeneral-parser-machine
         lexical-end
@@ -56,6 +57,21 @@
 (defstruct parser-machine
   (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory)
   transparent: #t)
+
+;;; A captured session owns the selected runtime together with its parser machine.
+;;; This preserves the exact runtime identity required by certified fragment reuse.
+(def (parser-machine-for-current-semantic-backend machine)
+  (let (runtime (lr-runtime-for-current-semantic-backend (parser-machine-runtime machine)))
+    (if (eq? runtime (parser-machine-runtime machine)) machine
+      (make-parser-machine
+       (parser-machine-ir machine) (parser-machine-grammar-digest machine)
+       (parser-machine-lex machine) (parser-machine-trivia machine) runtime
+       (lambda (tokens . maybe-observability)
+         (lr-parse/prepared runtime tokens
+           (if (null? maybe-observability) #f (car maybe-observability))))
+       (parser-machine-direct-drive machine) (parser-machine-direct-source machine)
+       (parser-machine-lexical-plans machine) (parser-machine-lexical-certificates machine)
+       (parser-machine-lexer-factory machine)))))
 
 (def current-lexical-plan-sharing-enabled? (make-parameter #t))
 (def (parser-machine-prepare-lexer machine)

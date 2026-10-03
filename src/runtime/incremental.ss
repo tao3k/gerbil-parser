@@ -11,7 +11,8 @@
                  source-index-cursor-seek!)
         (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
-                 parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?)
+                 parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?
+                 parser-machine-for-current-semantic-backend)
         (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ./artifact
                  event-end event-start make-success-parse-artifact make-same-width-token-artifact
@@ -255,7 +256,9 @@
 
 (def (make-incremental-session machine source (capture? #f))
   (unless (boolean? capture?) (error "invalid recognition capture option" capture?))
-  (session-from-directed machine source capture?))
+  (session-from-directed
+   (if capture? (parser-machine-for-current-semantic-backend machine) machine)
+   source capture?))
 
 ;; The checkpoint stores its exact source-token cursor, including trivia.
 ;; Return both sides so the edit driver never scans the accepted prefix again.

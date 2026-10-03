@@ -153,6 +153,40 @@
            (list (make-edit 0 0 "x = 2\n") (make-edit 0 6 "")
                  (make-edit 9 0 "y = 3\n") (make-edit 9 6 "")
                  (make-edit 0 0 "# é\n") (make-edit 0 5 ""))))))
+    (test-case "selected machine preserves certified transfers and backend ownership across flag changes"
+      (let* ((source (string-join (make-list 100 "a = 1\n") ""))
+             (control (parameterize ((current-lr-event-program-enabled? #f))
+                        (make-incremental-session hcl-v2-24-parser source #t)))
+             (candidate (parameterize ((current-lr-event-program-enabled? #t))
+                          (make-incremental-session hcl-v2-24-parser source #t)))
+             (edit (make-edit 0 0 "b = 2\n")))
+        (let-values (((control-next control-receipt)
+                      (parameterize ((current-lr-event-program-enabled? #f))
+                        (parse-incremental-session control edit)))
+                     ((candidate-next candidate-receipt)
+                      (parameterize ((current-lr-event-program-enabled? #t))
+                        (parse-incremental-session candidate edit))))
+          (check (> (cdr (assq 'reusedRecognitionFragmentCount candidate-receipt)) 0) => #t)
+          (for-each
+           (lambda (key)
+             (check (assq key candidate-receipt) => (assq key control-receipt)))
+           '(reusedRecognitionFragmentCount fragmentCertificateProbeByteCount
+             fragmentRejectedProbeCount fragmentControlProbeCount
+             fragmentProbeReuseTokenCount fragmentProbeReuseByteCount fragmentCursorVisitCount
+             remainingSignificantTokenCount relexedByteCount reusedSignificantTokenCount))
+          (check (incremental-session-artifact candidate-next)
+                 => (incremental-session-artifact control-next))
+          (check (incremental-session-project-artifact candidate-next)
+                 => (incremental-session-artifact candidate-next))
+          (let-values (((restored receipt)
+                        (parameterize ((current-lr-event-program-enabled? #f))
+                          (parse-incremental-session candidate-next (make-edit 0 6 "")))))
+            (check (event-program-value? (program-root restored)) => #t)
+            (check (lr-runtime-event-program? (lr-recognition-fragment-runtime
+                    (base-root (incremental-session-recognition-root restored)))) => #t)
+            (check (incremental-session-artifact restored) => (parse-hcl-v2-24 source))
+            (check (incremental-session-project-artifact restored)
+                   => (incremental-session-artifact restored))))))
     (test-case "generic deterministic LR lowers events without a generated executor"
       (parameterize ((current-lr-event-program-enabled? #t))
         (let* ((source "1+2*3")

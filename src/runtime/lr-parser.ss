@@ -71,6 +71,7 @@
         lr-runtime-lexical-mode-catalog lr-runtime-layout? lr-runtime-direct-step
         install-lr-runtime-direct-step! install-lr-runtime-event-step!
         current-lr-event-program-enabled? lr-runtime-event-program?
+        lr-runtime-for-current-semantic-backend
         lr-checkpoint-interned-lexical-mode-count
         lr-checkpoint-deterministic-actions
         lr-checkpoint-deterministic-shifts
@@ -113,7 +114,7 @@
 ;;; The backend is selected at the prepared-runtime boundary. Checkpoints and
 ;;; retained fragments keep that runtime identity across edits; no semantic
 ;;; action reads a dynamic switch. Only deterministic pass/concat LR is admitted.
-(def (lr-event-runtime runtime)
+(def (lr-runtime-for-current-semantic-backend runtime)
   (cond
    ((or (not (current-lr-event-program-enabled?))
         (lr-runtime-event-program? runtime)) runtime)
@@ -272,7 +273,7 @@
   transparent: #t)
 
 (def (lr-initial-checkpoint runtime tokens)
-  (lr-initial-checkpoint/selected (lr-event-runtime runtime) tokens))
+  (lr-initial-checkpoint/selected (lr-runtime-for-current-semantic-backend runtime) tokens))
 (def (lr-initial-checkpoint/selected runtime tokens)
   (make-lr-checkpoint
    runtime tokens

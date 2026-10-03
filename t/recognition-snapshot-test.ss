@@ -141,6 +141,32 @@
                          (make-edit 24 12 "")
                          (make-edit 0 0 "other = 002\n")
                          (make-edit 0 12 ""))))
+    (test-case "cursor maps bulk deletion and empty-source transitions"
+      (let (line "value = 001\n")
+        (check-edits (apply string-append (make-list 80 line))
+                     (list (make-edit 240 84 "")
+                           (make-edit 0 0 (apply string-append (make-list 5 "other = 002\n")))
+                           (make-edit 0 60 "")
+                           (make-edit 240 0 (apply string-append (make-list 7 line)))
+                           (make-edit 0 960 "")
+                           (make-edit 0 0 (apply string-append (make-list 80 line)))))))
+    (test-case "unchanged nested blocks skip their complete grammar interior"
+      (let* ((body (apply string-append (make-list 80 "  value = 001\n")))
+             (source (string-append "group {\n" body "}\n"))
+             (session (make-incremental-session hcl-v2-24-parser source #t)))
+        (check (parse-artifact-success? (incremental-session-artifact session)) => #t)
+        (let-values (((next receipt)
+                      (parse-incremental-session session (make-edit 0 0 "top = 0\n"))))
+          (check (incremental-session-artifact next)
+                 => (parse-hcl-v2-24 (string-append "top = 0\n" source)))
+          (check (> (cdr (assq 'reusedSignificantTokenCount receipt)) 300) => #t)
+          (check (< (cdr (assq 'fragmentCursorVisitCount receipt)) 30) => #t)
+          (check-projection hcl-v2-24-parser source next))
+        (check-edits source
+                     (list (make-edit 568 0 "  other = 002\n")
+                           (make-edit 568 14 "")
+                           (make-edit 0 0 "top = 0\n")
+                           (make-edit 0 8 "")))))
     (test-case "UTF8 and lexical boundary changes retain canonical ownership"
       (check-edits "value = \"λ中😀\"\nother = [1, 2]\n"
                    (list (make-edit 0 0 "prefix = 0\n")

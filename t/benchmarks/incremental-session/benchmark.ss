@@ -10,8 +10,22 @@
                  parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
                  current-lr-probe-reuse-enabled? current-lr-fragment-reuse-enabled? apply-edit incremental-session-artifact
-                 make-edit make-incremental-session incremental-session-project-artifact
+                 make-edit make-incremental-session incremental-session-project-artifact incremental-session-recognition-root
                  parse-incremental-session parse-source/incremental))
+
+(import (only-in :gerbil-parser/src/runtime/lr-parser
+                 lr-recognition-fragment? lr-recognition-fragment-children
+                 lr-recognition-view? lr-recognition-view-base))
+
+(def (grammar-fragment-count session)
+  (let loop ((pending (list (incremental-session-recognition-root session))) (count 0))
+    (if (null? pending) count
+      (let (piece (car pending))
+        (cond ((lr-recognition-view? piece)
+               (loop (cons (lr-recognition-view-base piece) (cdr pending)) count))
+              ((lr-recognition-fragment? piece)
+               (loop (append (lr-recognition-fragment-children piece) (cdr pending)) (+ count 1)))
+              (else (loop (cdr pending) count)))))))
 
 (def (samples thunk)
   (map (lambda (_)
@@ -195,8 +209,12 @@
        (iota +topology-sample-count+)))
 
 (def (measure-topology terms location operation (family 'arithmetic) (capture? #f))
-  (let* ((hcl? (eq? family 'hcl-siblings))
-         (line "value = 001\n")
+  (let* ((hcl? (memq family '(hcl-siblings hcl-nested-siblings)))
+         (nested? (eq? family 'hcl-nested-siblings))
+         (line (if nested?
+                 (string-append "group {\n"
+                   (apply string-append (make-list 80 "value = 001\n")) "}\n")
+                 "value = 001\n"))
          (machine (if hcl? hcl-v2-24-parser arithmetic-parser))
          (parse (if hcl? parse-hcl-v2-24 parse-arithmetic-v1))
          (source (if hcl? (apply string-append (make-list terms line))
@@ -207,10 +225,11 @@
                   (if (and (eq? operation 'delete) (= index (- terms 1)))
                     (- (* index 6) 3) (* index 6))))
          (deleted (if (eq? operation 'delete) (if hcl? (string-length line) 6) 0))
-         (inserted (if (eq? operation 'insert) (if hcl? "other = 002\n" "002 + ") ""))
+         (inserted (if (eq? operation 'insert) (if hcl? (if nested? line "other = 002\n") "002 + ") ""))
          (edit (make-edit start deleted inserted))
          (changed (apply-edit source edit))
          (session (make-incremental-session machine source capture?))
+         (forest-count (grammar-fragment-count session))
          (fresh (parse changed)))
     (let-values (((next receipt) (parse-incremental-session session edit)))
       (unless (and (parse-artifact-valid? fresh)
@@ -241,6 +260,7 @@
                (cons 'samples +topology-sample-count+) (cons 'recognition-capture? capture?)
                (cons 'complete-artifact-equal? #t) (cons 'inverse-edit-equal? #t)
                (cons 'events (length (parse-artifact-events fresh)))
+               (cons 'initial-grammar-fragments forest-count)
                (cons 'resumed-shifts (cdr (assq 'resumedSignificantTokenCount receipt)))
                (cons 'remaining-significant-tokens
                      (cdr (assq 'remainingSignificantTokenCount receipt)))
@@ -266,6 +286,9 @@
                        (if entry (cdr entry) 0)))
                (cons 'reused-probe-bytes
                      (let (entry (assq 'fragmentProbeReuseByteCount receipt))
+                       (if entry (cdr entry) 0)))
+               (cons 'cursor-visited-frames
+                     (let (entry (assq 'fragmentCursorVisitCount receipt))
                        (if entry (cdr entry) 0)))
                (cons 'fresh-cpu-samples-ms fresh-times)
                (cons 'cached-cpu-samples-ms cached-times)
@@ -308,16 +331,17 @@
   (when (and (pair? args) (equal? (car args) "no-reuse"))
     (current-lr-fragment-reuse-enabled? #f)
     (set! args (cdr args)))
-  (if (and (pair? args) (member (car args) '("topology" "topology-hcl" "topology-capture" "topology-hcl-capture")))
+  (if (and (pair? args) (member (car args) '("topology" "topology-hcl" "topology-capture" "topology-hcl-capture" "topology-hcl-nested-capture")))
     (let (sizes (if (null? (cdr args)) '(400 800 1600 3200)
                  (map string->number (cdr args))))
       (unless (every (lambda (size) (and (integer? size) (>= size 2))) sizes)
         (error "topology sizes must be integers of at least two" args))
       (for-each (lambda (size)
                   (measure-topology-size size
-                    (if (member (car args) '("topology-hcl" "topology-hcl-capture"))
-                      'hcl-siblings 'arithmetic)
-                    (if (member (car args) '("topology-capture" "topology-hcl-capture")) #t #f)))
+                    (cond ((equal? (car args) "topology-hcl-nested-capture") 'hcl-nested-siblings)
+                          ((member (car args) '("topology-hcl" "topology-hcl-capture")) 'hcl-siblings)
+                          (else 'arithmetic))
+                    (if (member (car args) '("topology-capture" "topology-hcl-capture" "topology-hcl-nested-capture")) #t #f)))
                 sizes))
     (main-default args)))
 

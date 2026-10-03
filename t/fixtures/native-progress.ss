@@ -21,4 +21,6 @@
             (let (result (evaluator context))
               (displayln "EVAL-OK " (module-context-id context)) (force-output)
               result))))
-      (apply native-test-main args))))
+      ;; Propagate the native harness status instead of returning into gxi.
+      ;; This also makes completion explicit for the silence watchdog.
+      (exit (apply native-test-main args)))))

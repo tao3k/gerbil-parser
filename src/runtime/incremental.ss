@@ -734,7 +734,7 @@
          (checkpoints (incremental-session-state-checkpoints session))
          (new-source (apply-edit old-source source-edit))
          (source-byte-length (u8vector-length (string->utf8 new-source)))
-         (fragment-stats (make-vector 9 0)))
+         (fragment-stats (make-vector 10 0)))
     (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
                  fresh? (reused-events #f) (replaced-significant-count 0))
       (let* ((artifact (incremental-session-artifact next))
@@ -757,13 +757,15 @@
           (append
            (if (or (positive? (vector-ref fragment-stats 0))
                    (positive? (vector-ref fragment-stats 6))
-                   (positive? (vector-ref fragment-stats 7)))
+                   (positive? (vector-ref fragment-stats 7))
+                   (positive? (vector-ref fragment-stats 9)))
              (list (cons 'reusedRecognitionFragmentCount (vector-ref fragment-stats 0))
                    (cons 'fragmentCertificateProbeByteCount (vector-ref fragment-stats 4))
                    (cons 'fragmentRejectedProbeCount (vector-ref fragment-stats 5))
                    (cons 'fragmentControlProbeCount (vector-ref fragment-stats 6))
                    (cons 'fragmentProbeReuseTokenCount (vector-ref fragment-stats 7))
-                   (cons 'fragmentProbeReuseByteCount (vector-ref fragment-stats 8))) '())
+                   (cons 'fragmentProbeReuseByteCount (vector-ref fragment-stats 8))
+                   (cons 'fragmentCursorVisitCount (vector-ref fragment-stats 9))) '())
           (cond
            (fresh? (cons (cons 'freshFallback? #t) fields))
            (reused-events
@@ -771,7 +773,7 @@
            (else fields)))
           artifact (and (not reused-events) shifted)))))
     (def (fallback)
-      (set! fragment-stats (make-vector 9 0))
+      (set! fragment-stats (make-vector 10 0))
       (finish (session-from-directed machine new-source
                                      (incremental-session-state-capture? session))
               0 0 0 0 0 #t))

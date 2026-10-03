@@ -1,0 +1,280 @@
+{
+  "head": "beb6f012d4bd6b7621839a65d46d5445220a24f0",
+  "samples": 20,
+  "baseline": {
+    "repo": "tao3k/gerbil-parser",
+    "head": "44aab77710ce79fd3952588803650732360211b3",
+    "source_tree": "8c57f63976784f33e3a3d9a0af644d342245546f",
+    "dependency_cache": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser/.gerbil",
+    "build_log_sha256": "b189d457210279afe25924986ce3f4e60b64354fc4b5c9a2ac508d745aecc1bd",
+    "build_exit": 0,
+    "harness_sha256": "b4058b28ae1bdf949e2fc940a5c6b6f2a203d5f8c3138d9c90e57d0d000fb566",
+    "runtime_module_sha256": "40fa3fba20f06a3cbdd70f2b26a681d2308397fb63fc0b298872acc35d5df9b2"
+  },
+  "sequence_fusion": false,
+  "preparation_only": false,
+  "executor": "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+  "executor_sha256": "b10537c3ef42b79eb4024e9df9f6e6f3b04cbd40e8c02c8aa946a12d4b89b986",
+  "dyld_api_progress": true,
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "harness_sha256": "b4058b28ae1bdf949e2fc940a5c6b6f2a203d5f8c3138d9c90e57d0d000fb566",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50"
+  },
+  "jobs": [
+    {
+      "name": "previous-flat-1",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "60cd8b8cf6b67c55e2ca5a8419ee82d9f868f7a05f6bae69509495ba2ae1d52f"
+    },
+    {
+      "name": "candidate-flat-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "a75e5cd90aa0b6167909951696f98807f64b8da8f5ff8ecfb643968c197f1e13"
+    },
+    {
+      "name": "candidate-flat-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "51535a25d0080f862fe50b5526b75e2e57b77468583b39e84f43e50e6a5a3f80"
+    },
+    {
+      "name": "previous-flat-2",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "97652f3883011bf9bde0b968d4ae6cee548bc172c83d444e41e57e70e0f34784"
+    },
+    {
+      "name": "previous-nested-1",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "e3810301025bbdf29cb0af4081d18441298c190335f732b4f06096ca2560aecb"
+    },
+    {
+      "name": "candidate-nested-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "b1adf7032502bc807fd292085853fe93c6e016407b708a883e2f80067d2cd24a"
+    },
+    {
+      "name": "candidate-nested-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "a21b9bb9ff9ff7a8d184136f4b3bff840e30a12960556b943d1af3b0a18e24a8"
+    },
+    {
+      "name": "previous-nested-2",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "3b2ffff41526f61119942c801c002a0de387d7221f9c73df140c0c993ae164d3"
+    },
+    {
+      "name": "previous-history-1",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "154db67d88a79aa823b562e2946e33655e81037ccae63ac7cf56aa25c2a3b8d6"
+    },
+    {
+      "name": "candidate-history-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "516be3e438350b993c464f5e72e9b9dcb45c7f74b8dd403522000522850478a4"
+    },
+    {
+      "name": "candidate-history-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "c398de764c0aeee665677d8e83f809956a5ae289dd52ad44f1821bd0f7f2d5dd"
+    },
+    {
+      "name": "previous-history-2",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "ada1d6473d22325ef0f3f3d18e3e2e4bf1e2d598d8d4d9bb52186503a7f3fdab"
+    },
+    {
+      "name": "previous-history-nested-1",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "fc4e850dc2be895d3da8b37336d94fb24d97592a4d60d67d2c1b22e3f1e1023d"
+    },
+    {
+      "name": "candidate-history-nested-1",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "6bb313ea7e8886272116528adf49cb47d3e184d66c25f3c06e4e1d13d6273fc3"
+    },
+    {
+      "name": "candidate-history-nested-2",
+      "cwd": "/Users/guangtao/.codex/worktrees/incremental-structure-reuse/gerbil-parser",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "94e9bcb971a83acaf2b5a1a3c491533105ecea792950309957d463243997ce6e"
+    },
+    {
+      "name": "previous-history-nested-2",
+      "cwd": "/private/tmp/sequence-publication-baseline",
+      "args": [
+        "no-plan-reuse",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "a4aceaff73c66adb69e42172281ed880f6393298b816b6ef1827fe6f0eb37483"
+    }
+  ],
+  "complete": true,
+  "schema": "gerbil-parser.publication-baseline-matched.v1",
+  "qualification": "complete-matched-run",
+  "build_qualification": "incrementally-rebuilt-native",
+  "build_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "primary_source": {
+    "head": "beb6f012d4bd6b7621839a65d46d5445220a24f0",
+    "command": [
+      "gxc",
+      "-O",
+      "src/runtime/artifact.ss"
+    ],
+    "exit": 0,
+    "qualification": "incremental-native-rebuild",
+    "compiler_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_sha256": "af3a472bdca68f8f97bd1a5c546774fbcc582203bc857a01f4089601b440e19a",
+    "artifact_modules": {
+      "artifact~0.o1": "c96fa7bca23d69caec14f15605503067d7ca42842e7931b5675752eb58dbd2df",
+      "artifact~1.o1": "bcdc8dfc79221dfb1819e3c9acf9570cf46005cfe95817b674037a61c0208fca",
+      "artifact.o1": "1b5201f6bc53c100fc121d0d1687b21b77ded5262dd5c1c73d9d2276ddfd18f4"
+    },
+    "preceding_native_build_log_sha256": "31bc3a0188e5dc4e1479a817bf3ca545c54a8b997afb8d98f0bd055d879f41ad"
+  },
+  "reproduction_recipe_sha256": "eb6884e900765f128edd79b831c4d10d59f5a289957b1f5852babf47f8e5c33c",
+  "measurement_rows": 112,
+  "performance_admission": false,
+  "performance_admission_reason": "Default comparison shows no stable complete-request gain: 16 workloads slower in both orders, 1 faster, 11 mixed. Candidate remains local research."
+}

@@ -214,16 +214,20 @@ measurements, not whole-parser startup or complete-edit improvements. Forcing a
 fresh table still costs work; the stronger proof is computed once per owning
 machine when first requested.
 
-At that same final head, all 57 native test modules and 315 test cases pass in
-19 batches. Every batch exits 0 without a watchdog event, and every sealed log
-hash has been rechecked. The five lexical-plan cases cover complete scan
+The historical receipt loaded 57 native test modules and passed 315 selected
+test cases in 19 normally exiting batches without watchdog events. A subsequent
+suite-selection audit (RFC 0013) found that only 34 modules actually executed
+cases: 22 exported names ended in =-tests= rather than gxtest's =-test= suffix,
+and one language-pack wrapper registered no cases. Consequently this receipt
+is not full-suite qualification. Its log hashes and the 315 actual passed
+cases remain valid; the original sealed receipt is preserved. The five lexical-plan cases cover complete scan
 outputs and offsets across modes, fallback precedence/order counterexamples,
 Unicode shifted boundaries in vector/indexed owners, six-edit artifacts and the
 independent original projector. Existing cross-runtime probe guards also pass.
 
 - [[../research/data/lexical-effective-matched-2026-10-03.sexp][120 complete matched preparation/edit/history rows]] and [[../research/data/lexical-effective-matched-2026-10-03.json][Exact source/harness/fixture pins, normal exits and retained failed attempts]].
 - [[../research/data/lexical-lazy-preparation-2026-10-03.sexp][16 final scanner-only and proof-inclusive preparation rows]] and [[../research/data/lexical-lazy-preparation-2026-10-03.json][Final preparation receipts]].
-- [[../research/data/lexical-effective-native-2026-10-03.json][57 modules / 315 cases, executable/build/fixture/log hashes and prior unqualified environment runs]].
+- [[../research/data/lexical-effective-native-2026-10-03.json][Historical 57 module loads / 315 selected cases; see suite-selection correction above]].
 
 The edit data pin precedes admission and lazy preparation. Its controls already
 explicitly override the runtime policy; the original warmed proof lookup and

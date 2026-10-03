@@ -1,0 +1,527 @@
+{
+  "head": "beb6f012d4bd6b7621839a65d46d5445220a24f0",
+  "modules": 58,
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "executor": "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+  "dyld_api_progress": true,
+  "executor_sha256": "b10537c3ef42b79eb4024e9df9f6e6f3b04cbd40e8c02c8aa946a12d4b89b986",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50",
+    "t/fixtures/lr1-construction.ss": "c884530c1dd7530fa07fdab93f38a53bac819420d3af2b399f957b8b958a0a55",
+    "t/line-structure-assertions.ss": "ff79bc7f4e656adad425a8e3eeb9b0b138a0d08549b5b22f4d3a6e565e35a826"
+  },
+  "batches": [
+    {
+      "batch": 1,
+      "modules": [
+        "t/antlr4-source-test.ss",
+        "t/benchmark-test.ss",
+        "t/bound-ir-index-test.ss"
+      ],
+      "passed": 3,
+      "cases": 10,
+      "module_cases": {
+        "t/antlr4-source-test.ss": 6,
+        "t/benchmark-test.ss": 1,
+        "t/bound-ir-index-test.ss": 3
+      },
+      "module_started_cases": {
+        "t/antlr4-source-test.ss": 6,
+        "t/benchmark-test.ss": 1,
+        "t/bound-ir-index-test.ss": 3
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "e9375f776b3c12940b6f4828499730a92f6fd554265210ebfb4e2be7a9644fbd"
+    },
+    {
+      "batch": 2,
+      "modules": [
+        "t/build-product-contract-test.ss",
+        "t/canonical-lr1-reference-test.ss",
+        "t/core-observability-test.ss"
+      ],
+      "passed": 3,
+      "cases": 22,
+      "module_cases": {
+        "t/build-product-contract-test.ss": 2,
+        "t/canonical-lr1-reference-test.ss": 17,
+        "t/core-observability-test.ss": 3
+      },
+      "module_started_cases": {
+        "t/build-product-contract-test.ss": 2,
+        "t/canonical-lr1-reference-test.ss": 17,
+        "t/core-observability-test.ss": 4
+      },
+      "exit": 42,
+      "watchdog": false,
+      "ok": false,
+      "sha256": "f426abef3e32061dcfbd332596f694a8da11f6d49b3465afb9b3e0b12393d2bc"
+    },
+    {
+      "batch": 3,
+      "modules": [
+        "t/event-fold-test.ss",
+        "t/event-strategy-test.ss",
+        "t/follow-partition-language-test.ss"
+      ],
+      "passed": 3,
+      "cases": 48,
+      "module_cases": {
+        "t/event-fold-test.ss": 36,
+        "t/event-strategy-test.ss": 4,
+        "t/follow-partition-language-test.ss": 8
+      },
+      "module_started_cases": {
+        "t/event-fold-test.ss": 36,
+        "t/event-strategy-test.ss": 4,
+        "t/follow-partition-language-test.ss": 8
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "39e9d54dd65d62cb3eabfff69dccf6beb898da2764b72152ca9caebaf47c4d20"
+    },
+    {
+      "batch": 4,
+      "modules": [
+        "t/gql-runtime-benchmark-test.ss",
+        "t/grammar-composition-test.ss",
+        "t/graph-projection-aot-test.ss"
+      ],
+      "passed": 3,
+      "cases": 37,
+      "module_cases": {
+        "t/gql-runtime-benchmark-test.ss": 0,
+        "t/grammar-composition-test.ss": 31,
+        "t/graph-projection-aot-test.ss": 6
+      },
+      "module_started_cases": {
+        "t/gql-runtime-benchmark-test.ss": 1,
+        "t/grammar-composition-test.ss": 31,
+        "t/graph-projection-aot-test.ss": 6
+      },
+      "exit": 42,
+      "watchdog": false,
+      "ok": false,
+      "sha256": "0f2d3eda9cc95026476bcf9d7c44a45e47699fd6a9aede184e01d3ad5c814a3d"
+    },
+    {
+      "batch": 5,
+      "modules": [
+        "t/graph-query-test.ss",
+        "t/incremental-suffix-benchmark-test.ss",
+        "t/indentation-invariance-test.ss"
+      ],
+      "passed": 3,
+      "cases": 4,
+      "module_cases": {
+        "t/graph-query-test.ss": 2,
+        "t/incremental-suffix-benchmark-test.ss": 1,
+        "t/indentation-invariance-test.ss": 1
+      },
+      "module_started_cases": {
+        "t/graph-query-test.ss": 2,
+        "t/incremental-suffix-benchmark-test.ss": 1,
+        "t/indentation-invariance-test.ss": 1
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "2e979c702a081f9a4723e2aaa9b2a0e75ab19366d70bc4da4aaf0a3bba0284d1"
+    },
+    {
+      "batch": 6,
+      "modules": [
+        "t/installed-language-consumer-test.ss",
+        "t/iso-bnf-source-test.ss",
+        "t/javacc-source-test.ss"
+      ],
+      "passed": 3,
+      "cases": 11,
+      "module_cases": {
+        "t/installed-language-consumer-test.ss": 2,
+        "t/iso-bnf-source-test.ss": 5,
+        "t/javacc-source-test.ss": 4
+      },
+      "module_started_cases": {
+        "t/installed-language-consumer-test.ss": 2,
+        "t/iso-bnf-source-test.ss": 5,
+        "t/javacc-source-test.ss": 4
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "f08f870cdaa46a39717512b84d5ecc0654ad40de63eee302d519e598d8837bbb"
+    },
+    {
+      "batch": 7,
+      "modules": [
+        "t/lalr-fixed-point-benchmark-test.ss",
+        "t/language-artifact-test.ss",
+        "t/language-surface-test.ss"
+      ],
+      "passed": 3,
+      "cases": 14,
+      "module_cases": {
+        "t/lalr-fixed-point-benchmark-test.ss": 1,
+        "t/language-artifact-test.ss": 10,
+        "t/language-surface-test.ss": 3
+      },
+      "module_started_cases": {
+        "t/lalr-fixed-point-benchmark-test.ss": 1,
+        "t/language-artifact-test.ss": 10,
+        "t/language-surface-test.ss": 3
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "f2cf91c6806e80108775a36d38f1e47a8b6a0028feec7fba26c645ea69073ff9"
+    },
+    {
+      "batch": 8,
+      "modules": [
+        "t/layout-boundary-test.ss",
+        "t/lexical-character-run-test.ss",
+        "t/lexical-line-test.ss"
+      ],
+      "passed": 3,
+      "cases": 9,
+      "module_cases": {
+        "t/layout-boundary-test.ss": 5,
+        "t/lexical-character-run-test.ss": 2,
+        "t/lexical-line-test.ss": 2
+      },
+      "module_started_cases": {
+        "t/layout-boundary-test.ss": 5,
+        "t/lexical-character-run-test.ss": 2,
+        "t/lexical-line-test.ss": 2
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "ffb1037aa737d28c281735754c9d1fea67b758dd62607d18ec556155388a1853"
+    },
+    {
+      "batch": 9,
+      "modules": [
+        "t/lexical-plan-test.ss",
+        "t/lexical-until-delimiters-test.ss",
+        "t/line-structure-aot-test.ss"
+      ],
+      "passed": 3,
+      "cases": 26,
+      "module_cases": {
+        "t/lexical-plan-test.ss": 5,
+        "t/lexical-until-delimiters-test.ss": 3,
+        "t/line-structure-aot-test.ss": 18
+      },
+      "module_started_cases": {
+        "t/lexical-plan-test.ss": 5,
+        "t/lexical-until-delimiters-test.ss": 3,
+        "t/line-structure-aot-test.ss": 18
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "76c058f83e368f8ee0fde402cb55e05014450fe76260cd84aaf0cda526344061"
+    },
+    {
+      "batch": 10,
+      "modules": [
+        "t/native-ffi-test.ss",
+        "t/opencypher-large-query-benchmark-test.ss",
+        "t/parse-artifact-test.ss"
+      ],
+      "passed": 3,
+      "cases": 14,
+      "module_cases": {
+        "t/native-ffi-test.ss": 6,
+        "t/opencypher-large-query-benchmark-test.ss": 1,
+        "t/parse-artifact-test.ss": 7
+      },
+      "module_started_cases": {
+        "t/native-ffi-test.ss": 6,
+        "t/opencypher-large-query-benchmark-test.ss": 1,
+        "t/parse-artifact-test.ss": 7
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "24b558ffd0916252bfa71698afac0ac953cd60ac32ac334c6fb762780b262cba"
+    },
+    {
+      "batch": 11,
+      "modules": [
+        "t/parser-ast-syntax-test.ss",
+        "t/parser-runtime-test.ss",
+        "t/ranked-literal-scanner-test.ss"
+      ],
+      "passed": 3,
+      "cases": 17,
+      "module_cases": {
+        "t/parser-ast-syntax-test.ss": 5,
+        "t/parser-runtime-test.ss": 10,
+        "t/ranked-literal-scanner-test.ss": 2
+      },
+      "module_started_cases": {
+        "t/parser-ast-syntax-test.ss": 5,
+        "t/parser-runtime-test.ss": 10,
+        "t/ranked-literal-scanner-test.ss": 2
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "fb102f3e77c991301812e340d27ab2a69bcc4eb7958eb7a94011d6602c34b908"
+    },
+    {
+      "batch": 12,
+      "modules": [
+        "t/ranked-regular-scanner-test.ss",
+        "t/recognition-sequence-test.ss",
+        "t/recognition-snapshot-test.ss"
+      ],
+      "passed": 3,
+      "cases": 29,
+      "module_cases": {
+        "t/ranked-regular-scanner-test.ss": 2,
+        "t/recognition-sequence-test.ss": 4,
+        "t/recognition-snapshot-test.ss": 23
+      },
+      "module_started_cases": {
+        "t/ranked-regular-scanner-test.ss": 2,
+        "t/recognition-sequence-test.ss": 4,
+        "t/recognition-snapshot-test.ss": 23
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "8dfeaa4963664445fa1f293e6b3cce4d8c338e788440bf0b322c1ebe5685c71a"
+    },
+    {
+      "batch": 13,
+      "modules": [
+        "t/recovery-frontier-benchmark-test.ss",
+        "t/recovery-incremental-test.ss",
+        "t/rust-rowan-generation-test.ss"
+      ],
+      "passed": 3,
+      "cases": 36,
+      "module_cases": {
+        "t/recovery-frontier-benchmark-test.ss": 1,
+        "t/recovery-incremental-test.ss": 30,
+        "t/rust-rowan-generation-test.ss": 5
+      },
+      "module_started_cases": {
+        "t/recovery-frontier-benchmark-test.ss": 1,
+        "t/recovery-incremental-test.ss": 30,
+        "t/rust-rowan-generation-test.ss": 5
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "66be098bcde1c8b94b61cb55ae76e2128b5e496563e84c5ddcd06fa33d23360e"
+    },
+    {
+      "batch": 14,
+      "modules": [
+        "t/rust-syntax-test.ss",
+        "t/selective-glr-benchmark-test.ss",
+        "t/source-fragment-test.ss"
+      ],
+      "passed": 3,
+      "cases": 23,
+      "module_cases": {
+        "t/rust-syntax-test.ss": 17,
+        "t/selective-glr-benchmark-test.ss": 1,
+        "t/source-fragment-test.ss": 5
+      },
+      "module_started_cases": {
+        "t/rust-syntax-test.ss": 17,
+        "t/selective-glr-benchmark-test.ss": 1,
+        "t/source-fragment-test.ss": 5
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "280655bca41edac7bac5e20fd75c27d3d5b66b4786d9c63a9972a10c1be5ed30"
+    },
+    {
+      "batch": 15,
+      "modules": [
+        "t/source-index-test.ss",
+        "t/source-probe-test.ss",
+        "t/test-style-contract-test.ss"
+      ],
+      "passed": 3,
+      "cases": 16,
+      "module_cases": {
+        "t/source-index-test.ss": 7,
+        "t/source-probe-test.ss": 5,
+        "t/test-style-contract-test.ss": 4
+      },
+      "module_started_cases": {
+        "t/source-index-test.ss": 7,
+        "t/source-probe-test.ss": 5,
+        "t/test-style-contract-test.ss": 4
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "13b4bc0f5961479809a409836052b8214fde1d75fb7d348a79a192a960d01741"
+    },
+    {
+      "batch": 16,
+      "modules": [
+        "t/versioned-language-benchmark-test.ss",
+        "t/versioned-language-pack-test.ss",
+        "languages/arithmetic/v1/parser-test.ss"
+      ],
+      "passed": 3,
+      "cases": 74,
+      "module_cases": {
+        "t/versioned-language-benchmark-test.ss": 1,
+        "t/versioned-language-pack-test.ss": 69,
+        "languages/arithmetic/v1/parser-test.ss": 4
+      },
+      "module_started_cases": {
+        "t/versioned-language-benchmark-test.ss": 1,
+        "t/versioned-language-pack-test.ss": 69,
+        "languages/arithmetic/v1/parser-test.ss": 4
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "e8a1510656b14900962176d33e502eb4366e8e0da869797301407c9581faf0d7"
+    },
+    {
+      "batch": 17,
+      "modules": [
+        "languages/cypher/opencypher-2024-1/parser-test.ss",
+        "languages/fhirpath/v2.0.0/parser-test.ss",
+        "languages/gql/iso-39075-2024/parser-test.ss"
+      ],
+      "passed": 3,
+      "cases": 15,
+      "module_cases": {
+        "languages/cypher/opencypher-2024-1/parser-test.ss": 4,
+        "languages/fhirpath/v2.0.0/parser-test.ss": 4,
+        "languages/gql/iso-39075-2024/parser-test.ss": 7
+      },
+      "module_started_cases": {
+        "languages/cypher/opencypher-2024-1/parser-test.ss": 4,
+        "languages/fhirpath/v2.0.0/parser-test.ss": 4,
+        "languages/gql/iso-39075-2024/parser-test.ss": 7
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "3a9134060c0d1b15f77ebe85727fc5761629695c04f4dcf2db78886868f55821"
+    },
+    {
+      "batch": 18,
+      "modules": [
+        "languages/gql/iso-39075-2024/query-syntax-test.ss",
+        "languages/hcl/v2-24/parser-test.ss",
+        "languages/hl7/v2-2.5.1/parser-test.ss"
+      ],
+      "passed": 3,
+      "cases": 30,
+      "module_cases": {
+        "languages/gql/iso-39075-2024/query-syntax-test.ss": 1,
+        "languages/hcl/v2-24/parser-test.ss": 27,
+        "languages/hl7/v2-2.5.1/parser-test.ss": 2
+      },
+      "module_started_cases": {
+        "languages/gql/iso-39075-2024/query-syntax-test.ss": 1,
+        "languages/hcl/v2-24/parser-test.ss": 27,
+        "languages/hl7/v2-2.5.1/parser-test.ss": 2
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "293a745ee21983c60a97f06bef550c9f2a840a26c5ed257c673ddc528e8ebaca"
+    },
+    {
+      "batch": 19,
+      "modules": [
+        "languages/tla-plus/core-test.ss",
+        "languages/tla-plus/layout-test.ss",
+        "languages/tla-plus/sany-candidate-test.ss"
+      ],
+      "passed": 3,
+      "cases": 41,
+      "module_cases": {
+        "languages/tla-plus/core-test.ss": 15,
+        "languages/tla-plus/layout-test.ss": 8,
+        "languages/tla-plus/sany-candidate-test.ss": 18
+      },
+      "module_started_cases": {
+        "languages/tla-plus/core-test.ss": 15,
+        "languages/tla-plus/layout-test.ss": 8,
+        "languages/tla-plus/sany-candidate-test.ss": 18
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "69e6b1f594c9a2791f4a2de6661a4033bbb56eee76a408ffde2f256b5306e0cc"
+    },
+    {
+      "batch": 20,
+      "modules": [
+        "languages/tla-plus/sany-closure-test.ss"
+      ],
+      "passed": 1,
+      "cases": 7,
+      "module_cases": {
+        "languages/tla-plus/sany-closure-test.ss": 7
+      },
+      "module_started_cases": {
+        "languages/tla-plus/sany-closure-test.ss": 7
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "53333dceb9bcca53b35084beb5dfd33bcd546590b71a21d4f82ecacb48987338"
+    }
+  ],
+  "fixture_build": {
+    "command": [
+      "gxc",
+      "-O",
+      "t/fixtures/lr1-construction.ss",
+      "t/line-structure-assertions.ss"
+    ],
+    "exit": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "audit_complete": true,
+  "complete": false,
+  "schema": "gerbil-parser.native-suite-audit.v1",
+  "qualification": "complete-audit-performance-gates-failed",
+  "started_cases": 485,
+  "passed_cases": 483,
+  "reproduction_recipe_sha256": "1d20022600e6c5a882bd6204e0aae3ebd9f401b547f85af7002bd406e81e402c",
+  "native_rebuild": {
+    "head": "beb6f012d4bd6b7621839a65d46d5445220a24f0",
+    "command": [
+      "gxc",
+      "-O",
+      "src/runtime/artifact.ss"
+    ],
+    "exit": 0,
+    "qualification": "incremental-native-rebuild",
+    "compiler_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_sha256": "af3a472bdca68f8f97bd1a5c546774fbcc582203bc857a01f4089601b440e19a",
+    "artifact_modules": {
+      "artifact~0.o1": "c96fa7bca23d69caec14f15605503067d7ca42842e7931b5675752eb58dbd2df",
+      "artifact~1.o1": "bcdc8dfc79221dfb1819e3c9acf9570cf46005cfe95817b674037a61c0208fca",
+      "artifact.o1": "1b5201f6bc53c100fc121d0d1687b21b77ded5262dd5c1c73d9d2276ddfd18f4"
+    },
+    "preceding_native_build_log_sha256": "31bc3a0188e5dc4e1479a817bf3ca545c54a8b997afb8d98f0bd055d879f41ad"
+  }
+}

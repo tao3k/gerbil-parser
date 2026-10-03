@@ -1,0 +1,430 @@
+{
+  "head": "beb6f012d4bd6b7621839a65d46d5445220a24f0",
+  "complete": true,
+  "paired_workloads": 28,
+  "rows": [
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "400",
+        "first",
+        "insert"
+      ],
+      "previous_ms": 2.6452499999998214,
+      "candidate_ms": 2.566250000000214,
+      "changes_pct": [
+        -6.058941973260734,
+        0.2930832356538682
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "400",
+        "first",
+        "delete"
+      ],
+      "previous_ms": 2.554500000000237,
+      "candidate_ms": 2.6052500000002254,
+      "changes_pct": [
+        1.2352827639463326,
+        2.7595791145497817
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "400",
+        "middle",
+        "insert"
+      ],
+      "previous_ms": 1.7445000000002597,
+      "candidate_ms": 1.7927499999998986,
+      "changes_pct": [
+        3.3990288488672027,
+        2.128271498409018
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "400",
+        "middle",
+        "delete"
+      ],
+      "previous_ms": 1.683499999999949,
+      "candidate_ms": 1.7062500000000203,
+      "changes_pct": [
+        -1.763515466887966,
+        4.641221374043147
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "400",
+        "last",
+        "insert"
+      ],
+      "previous_ms": 0.8777500000003435,
+      "candidate_ms": 0.9014999999998885,
+      "changes_pct": [
+        2.046617396229089,
+        3.3675799085893354
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "400",
+        "last",
+        "delete"
+      ],
+      "previous_ms": 0.8275000000002031,
+      "candidate_ms": 0.8712499999998791,
+      "changes_pct": [
+        4.7590361445498885,
+        5.818181818128587
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "800",
+        "first",
+        "insert"
+      ],
+      "previous_ms": 5.254749999999753,
+      "candidate_ms": 5.4712499999998165,
+      "changes_pct": [
+        2.7851337777618834,
+        5.572109654326263
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "800",
+        "first",
+        "delete"
+      ],
+      "previous_ms": 5.162500000000403,
+      "candidate_ms": 5.229000000000372,
+      "changes_pct": [
+        -0.9747326582691174,
+        3.659625111565168
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "800",
+        "middle",
+        "insert"
+      ],
+      "previous_ms": 3.3729999999998483,
+      "candidate_ms": 3.3807499999998214,
+      "changes_pct": [
+        2.9469846574299963,
+        -2.3592415689518087
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "800",
+        "middle",
+        "delete"
+      ],
+      "previous_ms": 3.2679999999998266,
+      "candidate_ms": 3.3212500000003864,
+      "changes_pct": [
+        -0.5178979436048059,
+        3.7959120946649882
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "800",
+        "last",
+        "insert"
+      ],
+      "previous_ms": 1.5107499999986729,
+      "candidate_ms": 1.5579999999992822,
+      "changes_pct": [
+        2.021876035873804,
+        4.2300066093967414
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-siblings",
+        "800",
+        "last",
+        "delete"
+      ],
+      "previous_ms": 1.4467499999986089,
+      "candidate_ms": 1.5090000000004267,
+      "changes_pct": [
+        4.885654885887902,
+        3.7228541882396993
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "8",
+        "first",
+        "insert"
+      ],
+      "previous_ms": 2.5497499999997952,
+      "candidate_ms": 2.603249999999946,
+      "changes_pct": [
+        -1.0382618727167503,
+        5.362144857956097
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "8",
+        "first",
+        "delete"
+      ],
+      "previous_ms": 1.1972499999999275,
+      "candidate_ms": 1.2205000000001798,
+      "changes_pct": [
+        1.919866444100804,
+        1.9640618470689208
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "8",
+        "middle",
+        "insert"
+      ],
+      "previous_ms": 2.4522499999997116,
+      "candidate_ms": 2.518499999999424,
+      "changes_pct": [
+        0.8016032064003697,
+        4.669018468551589
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "8",
+        "middle",
+        "delete"
+      ],
+      "previous_ms": 1.2610000000006227,
+      "candidate_ms": 1.2842499999998758,
+      "changes_pct": [
+        1.3417521704228053,
+        2.350597609500227
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "8",
+        "last",
+        "insert"
+      ],
+      "previous_ms": 2.355250000000364,
+      "candidate_ms": 2.414250000000173,
+      "changes_pct": [
+        0.1667708985015226,
+        4.930795847708569
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "8",
+        "last",
+        "delete"
+      ],
+      "previous_ms": 1.1224999999996932,
+      "candidate_ms": 1.1450000000001737,
+      "changes_pct": [
+        0.840336134531694,
+        3.18528488112233
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "16",
+        "first",
+        "insert"
+      ],
+      "previous_ms": 3.7799999999998946,
+      "candidate_ms": 3.8249999999999673,
+      "changes_pct": [
+        -1.7167935975207937,
+        4.24521904245565
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "16",
+        "first",
+        "delete"
+      ],
+      "previous_ms": 2.4169999999994474,
+      "candidate_ms": 2.4634999999992857,
+      "changes_pct": [
+        1.8701191943613749,
+        1.9783423573880077
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "16",
+        "middle",
+        "insert"
+      ],
+      "previous_ms": 3.738750000000124,
+      "candidate_ms": 3.6567499999997644,
+      "changes_pct": [
+        0.05455537366347851,
+        -4.355240718857345
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "16",
+        "middle",
+        "delete"
+      ],
+      "previous_ms": 2.3487500000003436,
+      "candidate_ms": 2.438749999999601,
+      "changes_pct": [
+        4.360711261613415,
+        3.296938557019291
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "16",
+        "last",
+        "insert"
+      ],
+      "previous_ms": 3.414499999999876,
+      "candidate_ms": 3.4902500000013603,
+      "changes_pct": [
+        -0.2993585174158375,
+        4.877314466395255
+      ]
+    },
+    {
+      "key": [
+        "significant-token-topology-change",
+        "hcl-nested-siblings",
+        "16",
+        "last",
+        "delete"
+      ],
+      "previous_ms": 2.181249999998691,
+      "candidate_ms": 2.2250000000001435,
+      "changes_pct": [
+        2.4960290447700872,
+        1.5053265401320237
+      ]
+    },
+    {
+      "key": [
+        "sequential-source-history",
+        "hcl-siblings",
+        "400",
+        "",
+        ""
+      ],
+      "previous_ms": 10.152500000000009,
+      "candidate_ms": 10.488750000000046,
+      "changes_pct": [
+        5.247997119454673,
+        0.9732492387978908
+      ]
+    },
+    {
+      "key": [
+        "sequential-source-history",
+        "hcl-siblings",
+        "800",
+        "",
+        ""
+      ],
+      "previous_ms": 19.964250000000018,
+      "candidate_ms": 19.762499999999797,
+      "changes_pct": [
+        -1.908943168314925,
+        -0.051773233237595306
+      ]
+    },
+    {
+      "key": [
+        "sequential-source-history",
+        "hcl-nested-siblings",
+        "8",
+        "",
+        ""
+      ],
+      "previous_ms": 11.508000000000074,
+      "candidate_ms": 11.586999999999904,
+      "changes_pct": [
+        -0.6753117620274973,
+        2.187714089974424
+      ]
+    },
+    {
+      "key": [
+        "sequential-source-history",
+        "hcl-nested-siblings",
+        "16",
+        "",
+        ""
+      ],
+      "previous_ms": 19.637999999999934,
+      "candidate_ms": 19.219999999999793,
+      "changes_pct": [
+        -7.441340250344353,
+        3.9830276485055327
+      ]
+    }
+  ],
+  "schema": "gerbil-parser.publication-baseline-summary.v1",
+  "method": "Paired per-row CPU medians; two variant orders with 20 samples per row. Times shown are medians of the two row medians; percentages preserve each paired order. Scanner and reuse counters must match.",
+  "performance_admission": false
+}

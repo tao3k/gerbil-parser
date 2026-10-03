@@ -1,0 +1,509 @@
+{
+  "head": "6ac3f22509de0370d9bc1656ccc93b4a42b26e18",
+  "modules": 58,
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "executor": "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+  "dyld_api_progress": true,
+  "executor_sha256": "b10537c3ef42b79eb4024e9df9f6e6f3b04cbd40e8c02c8aa946a12d4b89b986",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50",
+    "t/fixtures/lr1-construction.ss": "c884530c1dd7530fa07fdab93f38a53bac819420d3af2b399f957b8b958a0a55",
+    "t/line-structure-assertions.ss": "ff79bc7f4e656adad425a8e3eeb9b0b138a0d08549b5b22f4d3a6e565e35a826"
+  },
+  "batches": [
+    {
+      "batch": 1,
+      "modules": [
+        "t/antlr4-source-test.ss",
+        "t/benchmark-test.ss",
+        "t/bound-ir-index-test.ss"
+      ],
+      "passed": 3,
+      "cases": 10,
+      "module_cases": {
+        "t/antlr4-source-test.ss": 6,
+        "t/benchmark-test.ss": 1,
+        "t/bound-ir-index-test.ss": 3
+      },
+      "module_started_cases": {
+        "t/antlr4-source-test.ss": 6,
+        "t/benchmark-test.ss": 1,
+        "t/bound-ir-index-test.ss": 3
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "fe95445571437d3c6c6b2d60a9717535a8435dee023a8665a873179af95830c3"
+    },
+    {
+      "batch": 2,
+      "modules": [
+        "t/build-product-contract-test.ss",
+        "t/canonical-lr1-reference-test.ss",
+        "t/core-observability-test.ss"
+      ],
+      "passed": 3,
+      "cases": 22,
+      "module_cases": {
+        "t/build-product-contract-test.ss": 2,
+        "t/canonical-lr1-reference-test.ss": 17,
+        "t/core-observability-test.ss": 3
+      },
+      "module_started_cases": {
+        "t/build-product-contract-test.ss": 2,
+        "t/canonical-lr1-reference-test.ss": 17,
+        "t/core-observability-test.ss": 4
+      },
+      "exit": 42,
+      "watchdog": false,
+      "ok": false,
+      "sha256": "dd32bb9253f9bbee15f2aefe49cb64497a385074177d26a0d7711f531047f0f9"
+    },
+    {
+      "batch": 3,
+      "modules": [
+        "t/event-fold-test.ss",
+        "t/event-strategy-test.ss",
+        "t/follow-partition-language-test.ss"
+      ],
+      "passed": 3,
+      "cases": 48,
+      "module_cases": {
+        "t/event-fold-test.ss": 36,
+        "t/event-strategy-test.ss": 4,
+        "t/follow-partition-language-test.ss": 8
+      },
+      "module_started_cases": {
+        "t/event-fold-test.ss": 36,
+        "t/event-strategy-test.ss": 4,
+        "t/follow-partition-language-test.ss": 8
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "eeb7558cbc1d0474e9e0744d9d82510e73b005e4bd8856c961ab4e00f769878d"
+    },
+    {
+      "batch": 4,
+      "modules": [
+        "t/gql-runtime-benchmark-test.ss",
+        "t/grammar-composition-test.ss",
+        "t/graph-projection-aot-test.ss"
+      ],
+      "passed": 3,
+      "cases": 37,
+      "module_cases": {
+        "t/gql-runtime-benchmark-test.ss": 0,
+        "t/grammar-composition-test.ss": 31,
+        "t/graph-projection-aot-test.ss": 6
+      },
+      "module_started_cases": {
+        "t/gql-runtime-benchmark-test.ss": 1,
+        "t/grammar-composition-test.ss": 31,
+        "t/graph-projection-aot-test.ss": 6
+      },
+      "exit": 42,
+      "watchdog": false,
+      "ok": false,
+      "sha256": "9b88b2f379c2fd9da5d39414ca7c559409acf9b76e8cb101de235340d66c6870"
+    },
+    {
+      "batch": 5,
+      "modules": [
+        "t/graph-query-test.ss",
+        "t/incremental-suffix-benchmark-test.ss",
+        "t/indentation-invariance-test.ss"
+      ],
+      "passed": 3,
+      "cases": 4,
+      "module_cases": {
+        "t/graph-query-test.ss": 2,
+        "t/incremental-suffix-benchmark-test.ss": 1,
+        "t/indentation-invariance-test.ss": 1
+      },
+      "module_started_cases": {
+        "t/graph-query-test.ss": 2,
+        "t/incremental-suffix-benchmark-test.ss": 1,
+        "t/indentation-invariance-test.ss": 1
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "9963eb4735bfec00faf16b6bf7b3562fbee9d5ad009cecbe7e337f55f6835a3c"
+    },
+    {
+      "batch": 6,
+      "modules": [
+        "t/installed-language-consumer-test.ss",
+        "t/iso-bnf-source-test.ss",
+        "t/javacc-source-test.ss"
+      ],
+      "passed": 3,
+      "cases": 11,
+      "module_cases": {
+        "t/installed-language-consumer-test.ss": 2,
+        "t/iso-bnf-source-test.ss": 5,
+        "t/javacc-source-test.ss": 4
+      },
+      "module_started_cases": {
+        "t/installed-language-consumer-test.ss": 2,
+        "t/iso-bnf-source-test.ss": 5,
+        "t/javacc-source-test.ss": 4
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "83abd4f41b5bd3b55c6ba2a3c7ec24542ca3a0383465b8fa959a9b31efe3bd7c"
+    },
+    {
+      "batch": 7,
+      "modules": [
+        "t/lalr-fixed-point-benchmark-test.ss",
+        "t/language-artifact-test.ss",
+        "t/language-surface-test.ss"
+      ],
+      "passed": 3,
+      "cases": 14,
+      "module_cases": {
+        "t/lalr-fixed-point-benchmark-test.ss": 1,
+        "t/language-artifact-test.ss": 10,
+        "t/language-surface-test.ss": 3
+      },
+      "module_started_cases": {
+        "t/lalr-fixed-point-benchmark-test.ss": 1,
+        "t/language-artifact-test.ss": 10,
+        "t/language-surface-test.ss": 3
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "f9c4ae2b3efb6607d41ce9b77da36f3dcb2657b3ed5d87f098628c02da16d74a"
+    },
+    {
+      "batch": 8,
+      "modules": [
+        "t/layout-boundary-test.ss",
+        "t/lexical-character-run-test.ss",
+        "t/lexical-line-test.ss"
+      ],
+      "passed": 3,
+      "cases": 9,
+      "module_cases": {
+        "t/layout-boundary-test.ss": 5,
+        "t/lexical-character-run-test.ss": 2,
+        "t/lexical-line-test.ss": 2
+      },
+      "module_started_cases": {
+        "t/layout-boundary-test.ss": 5,
+        "t/lexical-character-run-test.ss": 2,
+        "t/lexical-line-test.ss": 2
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "e806a980e078fd37f84b41517dc0489ce6da9801d19eda6d27b550d9796dca34"
+    },
+    {
+      "batch": 9,
+      "modules": [
+        "t/lexical-plan-test.ss",
+        "t/lexical-until-delimiters-test.ss",
+        "t/line-structure-aot-test.ss"
+      ],
+      "passed": 3,
+      "cases": 26,
+      "module_cases": {
+        "t/lexical-plan-test.ss": 5,
+        "t/lexical-until-delimiters-test.ss": 3,
+        "t/line-structure-aot-test.ss": 18
+      },
+      "module_started_cases": {
+        "t/lexical-plan-test.ss": 5,
+        "t/lexical-until-delimiters-test.ss": 3,
+        "t/line-structure-aot-test.ss": 18
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "2f4aedb983c28df9314e22b0200d0c7671ef65468bb44fa768b1139554a14d78"
+    },
+    {
+      "batch": 10,
+      "modules": [
+        "t/native-ffi-test.ss",
+        "t/opencypher-large-query-benchmark-test.ss",
+        "t/parse-artifact-test.ss"
+      ],
+      "passed": 2,
+      "cases": 8,
+      "module_cases": {
+        "t/native-ffi-test.ss": 0,
+        "t/opencypher-large-query-benchmark-test.ss": 1,
+        "t/parse-artifact-test.ss": 7
+      },
+      "module_started_cases": {
+        "t/native-ffi-test.ss": 0,
+        "t/opencypher-large-query-benchmark-test.ss": 1,
+        "t/parse-artifact-test.ss": 7
+      },
+      "exit": 42,
+      "watchdog": false,
+      "ok": false,
+      "sha256": "f08252218a5bf7b35f21aca828a6ad8d81b2505853518df655ccf1b794d94e41"
+    },
+    {
+      "batch": 11,
+      "modules": [
+        "t/parser-ast-syntax-test.ss",
+        "t/parser-runtime-test.ss",
+        "t/ranked-literal-scanner-test.ss"
+      ],
+      "passed": 3,
+      "cases": 17,
+      "module_cases": {
+        "t/parser-ast-syntax-test.ss": 5,
+        "t/parser-runtime-test.ss": 10,
+        "t/ranked-literal-scanner-test.ss": 2
+      },
+      "module_started_cases": {
+        "t/parser-ast-syntax-test.ss": 5,
+        "t/parser-runtime-test.ss": 10,
+        "t/ranked-literal-scanner-test.ss": 2
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "31a8b78cb7deed388b4118fc5f0afe537d1dbe2cff4cc8998f90464866fc7c6d"
+    },
+    {
+      "batch": 12,
+      "modules": [
+        "t/ranked-regular-scanner-test.ss",
+        "t/recognition-sequence-test.ss",
+        "t/recognition-snapshot-test.ss"
+      ],
+      "passed": 3,
+      "cases": 29,
+      "module_cases": {
+        "t/ranked-regular-scanner-test.ss": 2,
+        "t/recognition-sequence-test.ss": 4,
+        "t/recognition-snapshot-test.ss": 23
+      },
+      "module_started_cases": {
+        "t/ranked-regular-scanner-test.ss": 2,
+        "t/recognition-sequence-test.ss": 4,
+        "t/recognition-snapshot-test.ss": 23
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "bae223c49968a2251edaf2f74ad3da712e0c36c435b647e61f4b5ef2fce81d30"
+    },
+    {
+      "batch": 13,
+      "modules": [
+        "t/recovery-frontier-benchmark-test.ss",
+        "t/recovery-incremental-test.ss",
+        "t/rust-rowan-generation-test.ss"
+      ],
+      "passed": 3,
+      "cases": 36,
+      "module_cases": {
+        "t/recovery-frontier-benchmark-test.ss": 1,
+        "t/recovery-incremental-test.ss": 30,
+        "t/rust-rowan-generation-test.ss": 5
+      },
+      "module_started_cases": {
+        "t/recovery-frontier-benchmark-test.ss": 1,
+        "t/recovery-incremental-test.ss": 30,
+        "t/rust-rowan-generation-test.ss": 5
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "1d4ed1ae20a74dd37b46ee2c1c06823e5f251d7f3dd7d707a58ca2d1426ecfef"
+    },
+    {
+      "batch": 14,
+      "modules": [
+        "t/rust-syntax-test.ss",
+        "t/selective-glr-benchmark-test.ss",
+        "t/source-fragment-test.ss"
+      ],
+      "passed": 3,
+      "cases": 23,
+      "module_cases": {
+        "t/rust-syntax-test.ss": 17,
+        "t/selective-glr-benchmark-test.ss": 1,
+        "t/source-fragment-test.ss": 5
+      },
+      "module_started_cases": {
+        "t/rust-syntax-test.ss": 17,
+        "t/selective-glr-benchmark-test.ss": 1,
+        "t/source-fragment-test.ss": 5
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "9b33cd8ffcef7b4ba0de00f884d6c969beb246655a59a2d10fe60bfdd4161c91"
+    },
+    {
+      "batch": 15,
+      "modules": [
+        "t/source-index-test.ss",
+        "t/source-probe-test.ss",
+        "t/test-style-contract-test.ss"
+      ],
+      "passed": 3,
+      "cases": 16,
+      "module_cases": {
+        "t/source-index-test.ss": 7,
+        "t/source-probe-test.ss": 5,
+        "t/test-style-contract-test.ss": 4
+      },
+      "module_started_cases": {
+        "t/source-index-test.ss": 7,
+        "t/source-probe-test.ss": 5,
+        "t/test-style-contract-test.ss": 4
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "6a5d25b107bc772f18748c5495d4f9eb6737319648e6290c576542b8652a07ec"
+    },
+    {
+      "batch": 16,
+      "modules": [
+        "t/versioned-language-benchmark-test.ss",
+        "t/versioned-language-pack-test.ss",
+        "languages/arithmetic/v1/parser-test.ss"
+      ],
+      "passed": 3,
+      "cases": 74,
+      "module_cases": {
+        "t/versioned-language-benchmark-test.ss": 1,
+        "t/versioned-language-pack-test.ss": 69,
+        "languages/arithmetic/v1/parser-test.ss": 4
+      },
+      "module_started_cases": {
+        "t/versioned-language-benchmark-test.ss": 1,
+        "t/versioned-language-pack-test.ss": 69,
+        "languages/arithmetic/v1/parser-test.ss": 4
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "aeb33e5d06d786e475ec2f29e2df0b22802156052b1d482585afe1bbf55665b5"
+    },
+    {
+      "batch": 17,
+      "modules": [
+        "languages/cypher/opencypher-2024-1/parser-test.ss",
+        "languages/fhirpath/v2.0.0/parser-test.ss",
+        "languages/gql/iso-39075-2024/parser-test.ss"
+      ],
+      "passed": 3,
+      "cases": 15,
+      "module_cases": {
+        "languages/cypher/opencypher-2024-1/parser-test.ss": 4,
+        "languages/fhirpath/v2.0.0/parser-test.ss": 4,
+        "languages/gql/iso-39075-2024/parser-test.ss": 7
+      },
+      "module_started_cases": {
+        "languages/cypher/opencypher-2024-1/parser-test.ss": 4,
+        "languages/fhirpath/v2.0.0/parser-test.ss": 4,
+        "languages/gql/iso-39075-2024/parser-test.ss": 7
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "cfc9803c1b2f84084e52fd4385f0c58bbe1964c358813c2cf53397558aa1e8c3"
+    },
+    {
+      "batch": 18,
+      "modules": [
+        "languages/gql/iso-39075-2024/query-syntax-test.ss",
+        "languages/hcl/v2-24/parser-test.ss",
+        "languages/hl7/v2-2.5.1/parser-test.ss"
+      ],
+      "passed": 3,
+      "cases": 30,
+      "module_cases": {
+        "languages/gql/iso-39075-2024/query-syntax-test.ss": 1,
+        "languages/hcl/v2-24/parser-test.ss": 27,
+        "languages/hl7/v2-2.5.1/parser-test.ss": 2
+      },
+      "module_started_cases": {
+        "languages/gql/iso-39075-2024/query-syntax-test.ss": 1,
+        "languages/hcl/v2-24/parser-test.ss": 27,
+        "languages/hl7/v2-2.5.1/parser-test.ss": 2
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "5c9c0a42fef3ca6d70e18933b3bd2ed522c43b055bdcbd59bef2cd492d22861b"
+    },
+    {
+      "batch": 19,
+      "modules": [
+        "languages/tla-plus/core-test.ss",
+        "languages/tla-plus/layout-test.ss",
+        "languages/tla-plus/sany-candidate-test.ss"
+      ],
+      "passed": 3,
+      "cases": 41,
+      "module_cases": {
+        "languages/tla-plus/core-test.ss": 15,
+        "languages/tla-plus/layout-test.ss": 8,
+        "languages/tla-plus/sany-candidate-test.ss": 18
+      },
+      "module_started_cases": {
+        "languages/tla-plus/core-test.ss": 15,
+        "languages/tla-plus/layout-test.ss": 8,
+        "languages/tla-plus/sany-candidate-test.ss": 18
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "a2bd89faf68c72385a9cb3d1ded72d994f79ae837556a4d91d91d2280a6b689e"
+    },
+    {
+      "batch": 20,
+      "modules": [
+        "languages/tla-plus/sany-closure-test.ss"
+      ],
+      "passed": 1,
+      "cases": 7,
+      "module_cases": {
+        "languages/tla-plus/sany-closure-test.ss": 7
+      },
+      "module_started_cases": {
+        "languages/tla-plus/sany-closure-test.ss": 7
+      },
+      "exit": 0,
+      "watchdog": false,
+      "ok": true,
+      "sha256": "713082c6dbb9fe2dc1e9cfab481970e04ab7a6f3294c8b8e6e98fb0d17e3d72f"
+    }
+  ],
+  "fixture_build": {
+    "command": [
+      "gxc",
+      "-O",
+      "t/fixtures/lr1-construction.ss",
+      "t/line-structure-assertions.ss"
+    ],
+    "exit": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "audit_complete": true,
+  "complete": false,
+  "schema": "gerbil-parser.native-suite-audit.v1",
+  "qualification": "complete-audit-failed",
+  "started_cases": 479,
+  "passed_cases": 477,
+  "note": "FFI and style follow-up changes were committed after their batches; this failed intermediate audit is not final-head full qualification."
+}

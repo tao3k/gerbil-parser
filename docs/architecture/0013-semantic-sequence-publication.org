@@ -101,8 +101,8 @@ attempts are not admitted as timing or test passes.
 Focused native qualification checks a 10,000-child left-associated sequence,
 nested fields, positive/negative views, Unicode source edits, canonical LR
 references and selective GLR evidence. Full qualification additionally runs
-all repository native test modules. Final receipts and default decision follow
-below after the exact-head matrix completes.
+all repository native test modules. Suite selection and remaining qualification
+gates are recorded below; a loaded module is not a passed suite.
 
 The generic-only development runs at =3fc78ea= / =aff2651= are explicitly
 unadmitted. AOT operand actions still materialized their children in those runs,
@@ -158,3 +158,122 @@ No direct LR event lowering or reusable event program is claimed implemented
 by this RFC. A blind event cache indexed by mutable semantic child identity
 would not establish the required contract. Full canonical output and source
 digests still impose a linear publication cost.
+
+* Native suite-selection audit and remaining gates
+
+The native harness selects exported names ending in =-test=. Twenty-two old
+suites exported only =-tests=, and the language-pack wrapper constructed an
+empty suite instead of registering its six imported language suites. The new
+sequence suite initially had the same naming error. These are now corrected;
+qualification separately counts each module's started and passed cases and
+rejects empty modules. The four new sequence cases actually execute, including
+the 10,000-child case. RFC 0012's historical 57-module claim is corrected;
+its 315 passed selected cases and original sealed logs are preserved.
+
+The complete first selection-corrected audit executed 485 cases, passed 478
+and failed seven cases in four batches. Its failure receipt is
+=sequence-publication-native-failure-2026-10-03.json=. This exposed stale
+package pins, a suffix fixture intercepted by the event fast path, JSON
+representation assumptions, source-AST false positives and a real wall-clock
+performance gate failure. The package manifest is unchanged. The suffix edit
+now changes token topology within the same three-byte width, exercising the
+original LR prefix/suffix assertions. Descriptor tests use the installed JSON
+decoder's WAList accessor. Display into a lexically bound fixture string port
+is allowed only in the test-display policy; Rust source assembly remains
+forbidden. Progress records remain real completed scenario batches.
+
+The repaired complete intermediate audit starts 479 cases and passes 477,
+with failures in three batches: the two wall-clock gates and the descriptor
+accessor's expansion error before any of its six cases start. Those last FFI
+and style changes were committed after the relevant audit batches; that
+intermediate receipt is explicitly not final-head full qualification.
+The subsequent independent-process checks normally pass all six FFI cases and
+all four style cases. Their sealed source/log hashes are in
+=sequence-publication-native-isolated-2026-10-03.json=.
+
+Performance thresholds remain 100ms p95 for 50 checked GrammarRole/Grammar
+pairs and 150ms p95 for 100 complete GQL parses, with the original 20/40
+samples. The complete intermediate audit observes approximately 251ms and
+321ms respectively. Independent processes do not close these gates: object
+construction triggers the five-second real-output watchdog, while GQL exits
+normally with a failed timing receipt. Several unrelated long-running host
+processes were simultaneously consuming CPU. This observation does not prove
+that contention explains every timing failure. No thresholds, sample counts,
+GC policies or inactivity limits are relaxed, and no production speedup or
+fully green native gate is claimed. The next required performance receipt is
+an unchanged-gate run in an adequately available execution environment.
+
+* Default-path regression and correction
+
+The preceding-head comparison first completed 48 normally exiting flat rows
+at =2cdf4b6=, using the exact =44aab77= benchmark source for both versions.
+Ten of twelve workloads slowed in both variant orders, with a largest
+observed 14.2% regression. These superseded rows are retained as
+=sequence-publication-baseline-interim-2026-10-03.{json,sexp}=; the run was
+intentionally stopped after both flat orders. No partially completed nested
+job or whole-matrix claim is admitted from that experiment.
+
+The experiment had routed already materialized ordinary children through a
+general sequence visitor, adding a callback and zero-delta composition for
+every child even with fusion disabled. =recognition-events= now retains the
+preceding direct list consumer whenever children are a proper list, and uses
+the deferred-sequence visitor only for branches/views. Token proofs, event
+ordering, nested fields, canonical IDs, trivia and digest are unchanged.
+A fresh full default comparison and native audit qualify this correction.
+
+The corrected =beb6f01= complete native audit actually starts 485 cases across
+all 58 modules and passes 483. Every module executes cases. All new sequence,
+FFI, source-style, suffix and language semantic cases pass; the only two
+failures are the unchanged object-construction and GQL wall-clock gates.
+Both failed batches exit 42 normally, without watchdog events. This is
+=sequence-publication-direct-list-native-2026-10-03.json=, with per-module
+started/passed counts, normal-exit status, compiler/source/module hashes and
+all log hashes. It is explicitly a complete failed audit, not a fully passed
+native gate or a remote CI receipt.
+
+* Completed default comparison and overall decision
+
+The corrected =beb6f01= comparison completes 112 rows in 16 normally exiting
+jobs without watchdog events, with 28 paired workloads, two variant orders and
+20 CPU samples per row. It uses the exact preceding =44aab77= benchmark source
+in both native namespaces. Complete artifacts, inverse edits and independent
+original-production projections match; scanner and recognition reuse counters
+also match. The sealed receipt is
+=sequence-publication-default-final-2026-10-03.{json,sexp}=; the paired values
+and per-order changes are in
+=sequence-publication-default-summary-2026-10-03.json=.
+
+| Six-edit history | Preceding CPU ms | Candidate CPU ms | Paired changes |
+|------------------+------------------+------------------+----------------|
+| Flat 400         |           10.153 |           10.489 | +5.2%, +1.0%   |
+| Flat 800         |           19.964 |           19.762 | -1.9%, -0.1%   |
+| Nested 8         |           11.508 |           11.587 | -0.7%, +2.2%   |
+| Nested 16        |           19.638 |           19.220 | -7.4%, +4.0%   |
+
+Times in the table are medians of the two row medians; paired changes retain
+each run order rather than using a ratio of pooled values. Across all 28
+workloads, 16 slow in both orders, one improves in both and 11 are mixed.
+Several flat workloads still slow by approximately 2–6% in both orders after
+the direct list consumer is restored. These small effects are not a sufficient
+basis for claiming a throughput benefit. The single-continuation walker still
+halves pending frame creation at each branch by construction, but that source
+fact does not justify admitting the combined runtime change.
+
+Accordingly neither fusion nor the combined default-path candidate is
+performance-admitted. Fusion remains disabled; the implementation and receipts
+are retained in this local research branch, and no remote production update is
+made. In particular, “fusion disabled” does not imply that the combined default
+has no overhead. The remaining representation/action boundaries need further
+work before publication. The raw LR event-program seam described above is the
+next structural hypothesis, with the existing canonical publisher and original
+production replay oracle as its required contract. No claim of implemented
+LR event lowering, fully green native timing gates or remote CI is made.
+
+* Receipts
+
+- [[../research/data/sequence-fusion-final-matched-2026-10-03.json][Complete 112-row fusion experiment and exact pins]].
+- [[../research/data/sequence-publication-default-final-2026-10-03.json][Complete 112-row default comparison and explicit rejected performance admission]].
+- [[../research/data/sequence-publication-default-summary-2026-10-03.json][All 28 paired workloads and per-order CPU changes]].
+- [[../research/data/sequence-publication-direct-list-native-2026-10-03.json][58 actually selected modules, 485 started / 483 passed cases, two retained timing failures]].
+- [[../research/data/sequence-publication-native-failure-2026-10-03.json][Initial complete 485-case audit and seven failures]].
+- [[../research/data/sequence-publication-native-isolated-2026-10-03.json][Independent FFI/style passes and unchanged-gate performance failures]].

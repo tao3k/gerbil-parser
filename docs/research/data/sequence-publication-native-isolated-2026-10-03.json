@@ -1,0 +1,50 @@
+{
+  "schema": "gerbil-parser.native-isolated-audit.v1",
+  "head": "2cdf4b6f6c082d9c3d5c759f9a7104e71e19c8ad",
+  "qualification": "failed-performance-gates-retained",
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "recipe_sha256": "54548f77fe3263de4ccba428a591bcf015121a5c3e19cdaa3388b1e196d95c6d",
+  "jobs": [
+    {
+      "module": "t/test-style-contract-test.ss",
+      "started_cases": 4,
+      "passed_cases": 4,
+      "exit": 0,
+      "watchdog": false,
+      "normal_success": true,
+      "log_sha256": "0dfa2562187566bda64e659c6c0d0e6d682656cc1dd6cddc4eefa5bb0fbc74d7",
+      "source_sha256": "e99036fd72c8b1cf918d5da0ee51d795ea1e1188b2f2605df228a779ce6e257d"
+    },
+    {
+      "module": "t/native-ffi-test.ss",
+      "started_cases": 6,
+      "passed_cases": 6,
+      "exit": 0,
+      "watchdog": false,
+      "normal_success": true,
+      "log_sha256": "7dd7db4265f4603d908559c9fb6bd8dee4cec57d3060d66d675f3744a313cd6d",
+      "source_sha256": "b82f12be76a97545657287b030ef2ff7c0c71216b25fa888fbe26bedf0b4bfb0"
+    },
+    {
+      "module": "t/core-observability-test.ss",
+      "started_cases": 3,
+      "passed_cases": 2,
+      "exit": -9,
+      "watchdog": true,
+      "normal_success": false,
+      "log_sha256": "61873de8b58fa8a3d417bc33071044bcc69bf35b7cc6995cd535a8e4bb62d870",
+      "source_sha256": "7f5bf36c54ae0383c47e531929b719f741bac2dc369e1dde3a8f058718f78ce1"
+    },
+    {
+      "module": "t/gql-runtime-benchmark-test.ss",
+      "started_cases": 1,
+      "passed_cases": 0,
+      "exit": 42,
+      "watchdog": false,
+      "normal_success": false,
+      "log_sha256": "54f84f71736e8664a4f815a25ff6501ebaaa87409cccc2814479005ddd918d61",
+      "source_sha256": "1075adcac361eca4257a9fb176cee34487f22a762f56f4e9ddbb4143dc33b38a"
+    }
+  ]
+}

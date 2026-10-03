@@ -1,5 +1,5 @@
 {
-  "head": "015573a379468310a6b6b8e3551dd5ed05014193",
+  "head": "c5ad64ae8dfc38abd6dd497aa5da80a661db5d6b",
   "modules": 58,
   "inactivity_seconds": 5,
   "batch_seconds": 180,
@@ -22,11 +22,17 @@
         "t/bound-ir-index-test.ss"
       ],
       "passed": 3,
-      "cases": 3,
+      "cases": 10,
+      "module_cases": {
+        "t/antlr4-source-test.ss": 6,
+        "t/benchmark-test.ss": 1,
+        "t/bound-ir-index-test.ss": 3
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "73a3847f876f17e677984d1e0b2e126fecda6442b8934364d917eb957d79e667"
+      "sha256": "01b9e63438e61f436bc2c6335dedc0bef4b2563f25517779a28824593eb07dba",
+      "started_cases": 10
     },
     {
       "batch": 2,
@@ -36,11 +42,17 @@
         "t/core-observability-test.ss"
       ],
       "passed": 3,
-      "cases": 17,
-      "exit": 0,
+      "cases": 21,
+      "module_cases": {
+        "t/build-product-contract-test.ss": 1,
+        "t/canonical-lr1-reference-test.ss": 17,
+        "t/core-observability-test.ss": 3
+      },
+      "exit": 42,
       "watchdog": false,
-      "ok": true,
-      "sha256": "bfc84328a8b5b1a01d4b5754a91f3f5c5d5fd6f2ad9e37b232b0a4b092dfc8f0"
+      "ok": false,
+      "sha256": "4eb21b9c2762ad180120d630c00a1b27ab3ec38c0d045b8153092651293655f7",
+      "started_cases": 23
     },
     {
       "batch": 3,
@@ -51,10 +63,16 @@
       ],
       "passed": 3,
       "cases": 48,
+      "module_cases": {
+        "t/event-fold-test.ss": 36,
+        "t/event-strategy-test.ss": 4,
+        "t/follow-partition-language-test.ss": 8
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "e6d651c4d00f1f30b7088351367c03b48691c2f8504d2c6f4613bae86e676743"
+      "sha256": "7b1e722ac1ae7bb01473aa2952529dd24101c367d7f437730624519ef7fe6d32",
+      "started_cases": 48
     },
     {
       "batch": 4,
@@ -64,11 +82,17 @@
         "t/graph-projection-aot-test.ss"
       ],
       "passed": 3,
-      "cases": 6,
+      "cases": 38,
+      "module_cases": {
+        "t/gql-runtime-benchmark-test.ss": 1,
+        "t/grammar-composition-test.ss": 31,
+        "t/graph-projection-aot-test.ss": 6
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "3b3cd7d632a8a97941dff92f48fa39ba01e3307c08fda0163231a7f069733f36"
+      "sha256": "0f0d4f6cce9e55c1d72e2688d86276ce97c99ed287d1aa3bef61f0c12b6d2d38",
+      "started_cases": 38
     },
     {
       "batch": 5,
@@ -78,11 +102,17 @@
         "t/indentation-invariance-test.ss"
       ],
       "passed": 3,
-      "cases": 2,
-      "exit": 0,
+      "cases": 3,
+      "module_cases": {
+        "t/graph-query-test.ss": 2,
+        "t/incremental-suffix-benchmark-test.ss": 0,
+        "t/indentation-invariance-test.ss": 1
+      },
+      "exit": 42,
       "watchdog": false,
-      "ok": true,
-      "sha256": "77cb1190f3c0d0c1bb12af95539dd0d8488d49c85ae1841dbff79dbd16fe5478"
+      "ok": false,
+      "sha256": "ce855aaea2ad536a9bf43701d67a07501f14bf5aabc705a46ef7fb23cd6ce7c2",
+      "started_cases": 4
     },
     {
       "batch": 6,
@@ -92,11 +122,17 @@
         "t/javacc-source-test.ss"
       ],
       "passed": 3,
-      "cases": 0,
+      "cases": 11,
+      "module_cases": {
+        "t/installed-language-consumer-test.ss": 2,
+        "t/iso-bnf-source-test.ss": 5,
+        "t/javacc-source-test.ss": 4
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "6b57a548cc27f951a2b8f8d58d4f026f59d41fdec2bf570afa298d833bf83de9"
+      "sha256": "bd7c2d6faf33a8da0b6e87fc09655589963b3163bc4bed18223744aaad55a8a6",
+      "started_cases": 11
     },
     {
       "batch": 7,
@@ -106,11 +142,17 @@
         "t/language-surface-test.ss"
       ],
       "passed": 3,
-      "cases": 0,
+      "cases": 14,
+      "module_cases": {
+        "t/lalr-fixed-point-benchmark-test.ss": 1,
+        "t/language-artifact-test.ss": 10,
+        "t/language-surface-test.ss": 3
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "1b778a943e5fc589d58a7abe68e98ed76889696c4eca31480ff10e7af4a43019"
+      "sha256": "529c01ca03f5a2ec8752e7ad8e665a250669c07f47226ea43e0a71cf108d29ac",
+      "started_cases": 14
     },
     {
       "batch": 8,
@@ -121,10 +163,16 @@
       ],
       "passed": 3,
       "cases": 9,
+      "module_cases": {
+        "t/layout-boundary-test.ss": 5,
+        "t/lexical-character-run-test.ss": 2,
+        "t/lexical-line-test.ss": 2
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "5631e87420ca24057e4192746737414a4a77c9d0da958d5380c235f07af12425"
+      "sha256": "c7e9f4b817ca509643673eb75092df53fc23c734f00d5b5d70655bb54f5557d0",
+      "started_cases": 9
     },
     {
       "batch": 9,
@@ -135,10 +183,16 @@
       ],
       "passed": 3,
       "cases": 26,
+      "module_cases": {
+        "t/lexical-plan-test.ss": 5,
+        "t/lexical-until-delimiters-test.ss": 3,
+        "t/line-structure-aot-test.ss": 18
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "955ab2efb4f8bd203eab84490a76de4c9b3483021b83b9bb39eec9682cadf7b5"
+      "sha256": "c143f6e5e0bfd9e7be4fec92fc1283043952b0649554e250edf6a9958e5bfd7d",
+      "started_cases": 26
     },
     {
       "batch": 10,
@@ -148,11 +202,17 @@
         "t/parse-artifact-test.ss"
       ],
       "passed": 3,
-      "cases": 0,
-      "exit": 0,
+      "cases": 12,
+      "module_cases": {
+        "t/native-ffi-test.ss": 4,
+        "t/opencypher-large-query-benchmark-test.ss": 1,
+        "t/parse-artifact-test.ss": 7
+      },
+      "exit": 42,
       "watchdog": false,
-      "ok": true,
-      "sha256": "c18aa228690eab808bd0b09527cfd3a9f1d6c762891a6a5e1bbd5df05a5927ff"
+      "ok": false,
+      "sha256": "885a1902ae139822c5457fee17c3de24ec88dbe095eaed9becfddeb949ba1b8a",
+      "started_cases": 14
     },
     {
       "batch": 11,
@@ -162,11 +222,17 @@
         "t/ranked-literal-scanner-test.ss"
       ],
       "passed": 3,
-      "cases": 15,
+      "cases": 17,
+      "module_cases": {
+        "t/parser-ast-syntax-test.ss": 5,
+        "t/parser-runtime-test.ss": 10,
+        "t/ranked-literal-scanner-test.ss": 2
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "e05bb88193230b2cd9cbc6541f1181e5b889ca436348dbf27cf347db4a229f59"
+      "sha256": "ce69288aa9c4e60331de4893d2540a425465665da62ff99058a75b61d4f2c853",
+      "started_cases": 17
     },
     {
       "batch": 12,
@@ -176,11 +242,17 @@
         "t/recognition-snapshot-test.ss"
       ],
       "passed": 3,
-      "cases": 23,
+      "cases": 29,
+      "module_cases": {
+        "t/ranked-regular-scanner-test.ss": 2,
+        "t/recognition-sequence-test.ss": 4,
+        "t/recognition-snapshot-test.ss": 23
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "6d8cbdc3bb26c95ab83fc1bb45cd12fd6d284b138d5f749cfbdec0c822d66157"
+      "sha256": "572434b47c4c2908e86da146a44d7552af59a5e7ccb58198496dce366bdb02c3",
+      "started_cases": 29
     },
     {
       "batch": 13,
@@ -190,11 +262,17 @@
         "t/rust-rowan-generation-test.ss"
       ],
       "passed": 3,
-      "cases": 35,
+      "cases": 36,
+      "module_cases": {
+        "t/recovery-frontier-benchmark-test.ss": 1,
+        "t/recovery-incremental-test.ss": 30,
+        "t/rust-rowan-generation-test.ss": 5
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "a7728329ee11cf12af6ff316ad8fca8e4c1e68c1c35e899667fa5b77739fc8a2"
+      "sha256": "149aa0df4b972d7e898d82e8f63ee317febde2f39b5fc217c810289398f4c993",
+      "started_cases": 36
     },
     {
       "batch": 14,
@@ -205,10 +283,16 @@
       ],
       "passed": 3,
       "cases": 23,
+      "module_cases": {
+        "t/rust-syntax-test.ss": 17,
+        "t/selective-glr-benchmark-test.ss": 1,
+        "t/source-fragment-test.ss": 5
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "5d0d1b4fa8a6c45587d29d30a83d6760418fe2d3bf58218032a41196e787d323"
+      "sha256": "3966e21be550341b4ca2981ab29cd5a21d25fc03783c05f998d2334db86aa049",
+      "started_cases": 23
     },
     {
       "batch": 15,
@@ -218,11 +302,17 @@
         "t/test-style-contract-test.ss"
       ],
       "passed": 3,
-      "cases": 12,
-      "exit": 0,
+      "cases": 14,
+      "module_cases": {
+        "t/source-index-test.ss": 7,
+        "t/source-probe-test.ss": 5,
+        "t/test-style-contract-test.ss": 2
+      },
+      "exit": 42,
       "watchdog": false,
-      "ok": true,
-      "sha256": "935ca394cf4136b4de896705868fec5ed51abf86fe2de506730540943368141c"
+      "ok": false,
+      "sha256": "5595831bdc6feaca23513c0dde1a813af578ea7c3f21fd51097696ae0e050a91",
+      "started_cases": 16
     },
     {
       "batch": 16,
@@ -232,11 +322,17 @@
         "languages/arithmetic/v1/parser-test.ss"
       ],
       "passed": 3,
-      "cases": 4,
+      "cases": 74,
+      "module_cases": {
+        "t/versioned-language-benchmark-test.ss": 1,
+        "t/versioned-language-pack-test.ss": 69,
+        "languages/arithmetic/v1/parser-test.ss": 4
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "04545a43e12a00b465aaf1bcb52c28a19c6b8450a64aaaccbaf85e86b46c7cb2"
+      "sha256": "2f1624e96e8eab0d70aa81e99b9c1adef3b3ee8210e1f42a13677508cf86ca71",
+      "started_cases": 74
     },
     {
       "batch": 17,
@@ -247,10 +343,16 @@
       ],
       "passed": 3,
       "cases": 15,
+      "module_cases": {
+        "languages/cypher/opencypher-2024-1/parser-test.ss": 4,
+        "languages/fhirpath/v2.0.0/parser-test.ss": 4,
+        "languages/gql/iso-39075-2024/parser-test.ss": 7
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "b1e8dee818cd72b52a32220efd8a09be214919a4b28039da5837f8acd5b1c4e0"
+      "sha256": "6668d66cd2d652a1145cfbc47a385f365bdd2e1a1b04ee06d57217c0c505cda9",
+      "started_cases": 15
     },
     {
       "batch": 18,
@@ -261,10 +363,16 @@
       ],
       "passed": 3,
       "cases": 30,
+      "module_cases": {
+        "languages/gql/iso-39075-2024/query-syntax-test.ss": 1,
+        "languages/hcl/v2-24/parser-test.ss": 27,
+        "languages/hl7/v2-2.5.1/parser-test.ss": 2
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "4b940d9b9cfa70f72c5069fbe3cd09e5574a7da89229a6d6dbc4bd5331b2bfcc"
+      "sha256": "6e02606dc83aa1877288d252373be7cae913d00e77ff28ba039682bbbb543c93",
+      "started_cases": 30
     },
     {
       "batch": 19,
@@ -275,10 +383,16 @@
       ],
       "passed": 3,
       "cases": 41,
+      "module_cases": {
+        "languages/tla-plus/core-test.ss": 15,
+        "languages/tla-plus/layout-test.ss": 8,
+        "languages/tla-plus/sany-candidate-test.ss": 18
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "23481c8e582e129e4ff7cae39759cd968b71eda967f0cb20a911b545f5465dd6"
+      "sha256": "93b6c0ab29d2e65aeb211d28d7662f5d4fb4bc778bf2b39665f319df11c9acf9",
+      "started_cases": 41
     },
     {
       "batch": 20,
@@ -287,10 +401,14 @@
       ],
       "passed": 1,
       "cases": 7,
+      "module_cases": {
+        "languages/tla-plus/sany-closure-test.ss": 7
+      },
       "exit": 0,
       "watchdog": false,
       "ok": true,
-      "sha256": "1b5ebd8e8cd09facf1843134d3cd0cf932f84a9211dfaf5a8438ca59095962b3"
+      "sha256": "ab32271f9805cafd5e2376f88e53ab1563f78cc118cfae0a866393e77553d3ce",
+      "started_cases": 7
     }
   ],
   "fixture_build": {
@@ -303,15 +421,17 @@
     "exit": 0,
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
-  "complete": true,
-  "qualification": "complete-native-processes-incomplete-new-suite-coverage",
-  "reason": "recognition-sequence-test.ss lacked filename-matching suite binding; four new cases were not selected",
-  "subsequent_suite_selection_correction": {
-    "required_export_suffix": "-test",
-    "exact_filename_match_required": false,
-    "additional_existing_unselected_modules": 23,
-    "loaded_modules": 58,
-    "modules_with_executed_cases": 34,
-    "scope": "The complete flag records process completion only; no complete suite qualification is admitted."
-  }
+  "audit_complete": true,
+  "complete": false,
+  "schema": "gerbil-parser.native-suite-audit.v1",
+  "qualification": "complete-audit-failed",
+  "started_cases": 485,
+  "passed_cases": 478,
+  "failed_batches": [
+    2,
+    5,
+    10,
+    15
+  ],
+  "reproduction_recipe_sha256": "0d8354063393073042a53361dc1fe13e45fc6c896d724bb04f45ccf32f27f7ed"
 }

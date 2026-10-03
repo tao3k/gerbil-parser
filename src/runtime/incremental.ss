@@ -1050,12 +1050,14 @@
               (if (not (parse-artifact-success? artifact))
                 (fallback)
                 (let* ((next-checkpoints
-                        (if (zero? (vector-length records))
-                          #()
-                          (list->vector
-                           (append
-                            (take (vector->list checkpoints) index)
-                            (vector->list records)))))
+                        ;; Every checkpoint strictly before the selected one
+                        ;; belongs to the unchanged prefix. A successful short
+                        ;; tail may emit no new sample; retain that prefix so
+                        ;; the next edit can resume rather than reparse in full.
+                        (list->vector
+                         (append
+                          (take (vector->list checkpoints) index)
+                          (vector->list records))))
                        (next
                         (make-incremental-session-state
                          machine new-source artifact tokens modes

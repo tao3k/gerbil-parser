@@ -13,7 +13,7 @@
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/lr-parser
-                 current-lr-recognition-observer lr-prepare lr-parse/prepared
+                 current-lr-event-program-enabled? current-lr-recognition-observer lr-prepare lr-parse/prepared
                  install-lr-runtime-direct-step! lr-runtime-fragment-reuse-safe? lr-initial-checkpoint
                  lr-checkpoint-feed lr-checkpoint-before-shift lr-checkpoint-fragment-compatible?
                  lr-recognition-view?
@@ -329,6 +329,29 @@
                         (cons (make-token 'identifier "B" 0 1) tokens))))
           (check (recognition-node-kind root) => 'SourceFile)
           (check rest => '()))))
+    (test-case "short tail edits retain earlier checkpoints for inverse edits on both backends"
+      (for-each
+       (lambda (event?)
+         (parameterize ((current-lr-event-program-enabled? event?))
+           (for-each
+            (lambda (units)
+              (let* ((source (string-join (make-list units "a = 1\n") ""))
+                     (session (make-incremental-session hcl-v2-24-parser source #t))
+                     (start (* 6 (- units 1))))
+                (for-each
+                 (lambda (insert?)
+                   (let* ((edit (make-edit start (if insert? 0 6) (if insert? "b = 2\n" "")))
+                          (inverse (make-edit start (if insert? 6 0) (if insert? "" "a = 1\n"))))
+                     (let-values (((next receipt) (parse-incremental-session session edit)))
+                       (check (incremental-session-artifact next) => (parse-hcl-v2-24 (apply-edit source edit)))
+                       (check-projection hcl-v2-24-parser (apply-edit source edit) next)
+                       (let-values (((restored receipt) (parse-incremental-session next inverse)))
+                         (check (assq 'freshFallback? receipt) => #f)
+                         (check (> (cdr (assq 'checkpointReusedShiftCount receipt)) 0) => #t)
+                         (check (< (cdr (assq 'remainingSignificantTokenCount receipt)) units) => #t)
+                         (check (incremental-session-artifact restored) => (parse-hcl-v2-24 source))
+                         (check-projection hcl-v2-24-parser source restored))))) '(#t #f)))) '(400 800))))
+       '(#f #t)))
     (test-case "deep left recursion projects without recursive Scheme traversal"
       (let* ((source (string-join (make-list 1600 "001") " + "))
              (session (make-incremental-session arithmetic-parser source #t)))

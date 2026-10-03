@@ -52,25 +52,38 @@
       (gx#import-module (string->symbol (string-append ":" module)) #f #t)
       (displayln "MODULE-IMPORTED " module) (force-output))))
 
-;; Admit the compiled dependencies named by this test's import declarations.
-;; Source forms are read as data; unrelated language packs stay outside the
-;; test process. Relative test helper imports remain with gxtest's source owner.
-(def (preload-import-set value)
-  (cond ((symbol? value)
-         (let (name (symbol->string value))
-           (when (string-prefix? ":" name)
-             (let (module (substring name 1 (string-length name)))
-               (when (or (compiled-file module ".ssi")
-                         (compiled-file module ".scm"))
-                 (preload-module module))))))
-        ((pair? value) (for-each preload-import-set value))))
+;; Admit compiled dependencies declared by tests and their source helpers.
+;; Reading import forms does not evaluate a helper or replace gxtest's owner.
+(def +preloaded-sources+ '())
+
+(def (preload-import-set value source)
+  (cond
+   ((symbol? value)
+    (let (name (symbol->string value))
+      (when (string-prefix? ":" name)
+        (let (module (substring name 1 (string-length name)))
+          (when (or (compiled-file module ".ssi")
+                    (compiled-file module ".scm"))
+            (preload-module module))))))
+   ((string? value)
+    (let (file (path-expand
+                (if (string-suffix? ".ss" value) value
+                    (string-append value ".ss"))
+                (path-directory source)))
+      (when (file-exists? file) (preload-test-imports file))))
+   ((pair? value)
+    (for-each (lambda (entry) (preload-import-set entry source)) value))))
 
 (def (preload-test-imports file)
-  (call-with-input-file file
-    (lambda (port)
-      (let loop ()
-        (let (form (read port))
-          (unless (eof-object? form)
-            (when (and (pair? form) (eq? (car form) 'import))
-              (for-each preload-import-set (cdr form)))
-            (loop)))))))
+  (let (source (path-expand file))
+    (unless (member source +preloaded-sources+)
+      (set! +preloaded-sources+ (cons source +preloaded-sources+))
+      (call-with-input-file source
+        (lambda (port)
+          (let loop ()
+            (let (form (read port))
+              (unless (eof-object? form)
+                (when (and (pair? form) (eq? (car form) 'import))
+                  (for-each (lambda (entry) (preload-import-set entry source))
+                            (cdr form)))
+                (loop)))))))))

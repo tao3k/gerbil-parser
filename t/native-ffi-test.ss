@@ -16,7 +16,8 @@
   (test-suite "parser-owned native ParseArtifact v1 ABI"
     (test-case "descriptor publishes the parser-owned grammar surface"
       (check (native-abi-version) => 1)
-      (let (descriptor (string->json (native-descriptor-payload "gql")))
+      (let (descriptor (string->json (native-descriptor-payload "gql")
+                                    (JSONReadOptions object-as-hash: #t)))
         (check (hash-get descriptor "schema")
                => "gerbil-parser.native-descriptor.v1")
         (check (hash-get descriptor "language") => "gql")
@@ -36,7 +37,8 @@
                => (+ 80 (* 24 (u8vector-u32-ref artifact 12 little))))))
     (test-case "openCypher uses its own descriptor and parser"
       (let* ((descriptor
-              (string->json (native-descriptor-payload "cypher")))
+              (string->json (native-descriptor-payload "cypher")
+                            (JSONReadOptions object-as-hash: #t)))
              (artifact
               (native-parse-binary-payload
                "cypher" "MATCH (n:Person) RETURN n\n")))

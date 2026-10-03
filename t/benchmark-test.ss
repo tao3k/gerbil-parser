@@ -5,7 +5,8 @@
         :asp-gerbil-scheme/src/benchmark/framework
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/parser
-        :gerbil-parser/languages/arithmetic/v1/parser)
+        :gerbil-parser/languages/arithmetic/v1/parser
+        (only-in :gerbil-parser/t/fixtures/progress report-parser-batch!))
 
 (def benchmark-path "t/benchmarks/parser-hot-path/benchmark.ss")
 
@@ -19,8 +20,7 @@
       (loop (- remaining 1))))
   ;; Emit only after a real batch completes. The measured thunk includes this
   ;; output cost, so the unchanged wall-time ceiling remains conservative.
-  (displayln "BENCHMARK-BATCH-OK parses=1000")
-  (force-output))
+  (report-parser-batch! 1000))
 
 (def parser-benchmark-tests
   (test-suite "standard parser benchmark"

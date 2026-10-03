@@ -18,7 +18,8 @@
 (def (accepted-tree source)
   (let (artifact (parse-tla-plus-sany-candidate source))
     (unless (parse-artifact-success? artifact)
-      (displayln (parse-artifact-ref artifact 'diagnostics)))
+      (error "SANY closure fixture rejected"
+             (parse-artifact-ref artifact 'diagnostics)))
     (check (parse-artifact-success? artifact) => #t)
     (check (parse-artifact-valid? artifact) => #t)
     (check (parse-artifact-roundtrip artifact) => source)

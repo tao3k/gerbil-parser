@@ -3,7 +3,8 @@
 
 (import :std/test
         :asp-gerbil-scheme/src/benchmark/framework
-        "./scenarios/performance/opencypher-large-query/scenario")
+        "./scenarios/performance/opencypher-large-query/scenario"
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 
 (def benchmark-path
   "t/scenarios/performance/opencypher-large-query/benchmark.ss")
@@ -13,7 +14,7 @@
            (opencypher-large-query-scenario))
     (error "large openCypher query scenario failed"))
   (when (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")
-    (displayln "SCENARIO-OK opencypher-large-query clauses=100")
+    (report-test-progress! "SCENARIO-OK opencypher-large-query clauses=100")
     (force-output)))
 
 (def opencypher-large-query-benchmark-tests

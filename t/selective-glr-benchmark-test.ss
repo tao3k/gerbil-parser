@@ -3,7 +3,8 @@
 
 (import :std/test
         :asp-gerbil-scheme/src/benchmark/framework
-        "./scenarios/performance/selective-glr/scenario")
+        "./scenarios/performance/selective-glr/scenario"
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 
 (def benchmark-path
   "t/scenarios/performance/selective-glr/benchmark.ss")
@@ -15,7 +16,7 @@
         (error "selective GLR correctness scenario failed"))
       (loop (- remaining 1))))
   (when (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")
-    (displayln "SCENARIO-BATCH-OK selective-glr groups=100")
+    (report-test-progress! "SCENARIO-BATCH-OK selective-glr groups=100")
     (force-output)))
 
 (def selective-glr-benchmark-tests

@@ -124,9 +124,7 @@
 ;;; Node/token identifiers are allocated once; source gaps become trivia only here.
 ;; recognition-events
 ;; : (-> List Recognition Boolean Fixnum List)
-(def (if (event-program-value? root)
-                      (event-program-events tokens root trivia? source-byte-length)
-                      (recognition-events tokens root trivia? source-byte-length))
+(def (recognition-events tokens root trivia? source-byte-length)
   (let* ((remaining tokens) (events (cons #f '())) (tail events)
          (next-node-id 0) (next-token-id 0))
     (def (emit! event)
@@ -231,7 +229,9 @@
          (source-byte-length (u8vector-length source-bytes))
          (value
           (artifact grammar-digest source 'accepted
-                    (recognition-events tokens root trivia? source-byte-length)
+                    (if (event-program-value? root)
+                      (event-program-events tokens root trivia? source-byte-length)
+                      (recognition-events tokens root trivia? source-byte-length))
                     '() source-bytes)))
     value))
 

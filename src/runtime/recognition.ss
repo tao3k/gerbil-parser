@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Private recognition values produced by generated parser machines.
 
-(import (only-in ./token token? token-end token-start))
+(import (only-in ./token token? token-end token-start)
+        (only-in ./event-program event-program-value? event-program-value-start event-program-value-end))
 (export relocate-recognition-value
         recognition-relocation? recognition-relocation-value recognition-relocation-delta
         make-recognition-node
@@ -48,6 +49,7 @@
    ((token? value) (token-start value))
    ((recognition-node? value) (recognition-node-start value))
    ((recognition-fragment? value) (recognition-fragment-start value))
+   ((event-program-value? value) (event-program-value-start value))
    (else (error "invalid recognition value" value))))
 
 ;; : (-> RecognitionValue Nat)
@@ -59,4 +61,5 @@
    ((token? value) (token-end value))
    ((recognition-node? value) (recognition-node-end value))
    ((recognition-fragment? value) (recognition-fragment-end value))
+   ((event-program-value? value) (event-program-value-end value))
    (else (error "invalid recognition value" value))))

@@ -6,12 +6,13 @@ import argparse, hashlib, io, json, os, platform, re, shutil, signal, subprocess
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
 parser.add_argument('--baseline', type=Path, help='Compare production defaults with an isolated exact-commit archive using its benchmark for both variants')
+parser.add_argument('--event-program', action='store_true', help='Measure direct LR event programs with physical backend assertions')
 parser.add_argument('--sequence-fusion', action='store_true', help='Measure semantic sequence fusion with the same edit workloads')
 parser.add_argument('--samples', type=int, default=20)
 parser.add_argument('--preparation-only', action='store_true', help='Measure scanner-only and proof-inclusive construction controls')
 parser.add_argument('--resume', action='store_true', help='Retry only a final output-complete watchdog failure once, retaining its failed receipt')
 args = parser.parse_args()
-if (args.sequence_fusion and args.preparation_only) or (args.baseline and (args.sequence_fusion or args.preparation_only)):
+if sum(bool(x) for x in [args.sequence_fusion, args.event_program, args.preparation_only, args.baseline]) > 1:
     parser.error('baseline, sequence-fusion and preparation-only are mutually exclusive')
 if not 1 <= args.samples <= 100:
     parser.error('samples must be between 1 and 100')
@@ -70,7 +71,7 @@ if baseline:
         raise SystemExit('Baseline harness or parser output namespace is not isolated')
     baseline_origin = dict(baseline_origin, harness_sha256=hashlib.sha256(expected).hexdigest(),
                            runtime_module_sha256=hashlib.sha256((baseline/'.gerbil/lib/gerbil-parser/src/runtime/funcs.o1').read_bytes()).hexdigest())
-metadata = {'head': head, 'samples': args.samples, 'baseline': baseline_origin, 'sequence_fusion': args.sequence_fusion, 'preparation_only': args.preparation_only, 'executor': executor, 'executor_sha256': hashlib.sha256(Path(executor).read_bytes()).hexdigest(), 'dyld_api_progress': unload_progress,
+metadata = {'head': head, 'samples': args.samples, 'baseline': baseline_origin, 'sequence_fusion': args.sequence_fusion, 'event_program': args.event_program, 'preparation_only': args.preparation_only, 'executor': executor, 'executor_sha256': hashlib.sha256(Path(executor).read_bytes()).hexdigest(), 'dyld_api_progress': unload_progress,
             'inactivity_seconds': 5, 'batch_seconds': 180,
             'harness_sha256': hashlib.sha256(harness.read_bytes()).hexdigest(),
             'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')},
@@ -79,7 +80,7 @@ jobs = [('separate-preparation-1', ['no-plan-sharing', 'lexical-plan-prepare'], 
         ('shared-preparation-1', ['lexical-plan-prepare'], 2),
         ('shared-preparation-2', ['lexical-plan-prepare'], 2),
         ('separate-preparation-2', ['no-plan-sharing', 'lexical-plan-prepare'], 2)]
-if args.sequence_fusion or baseline:
+if args.sequence_fusion or args.event_program or baseline:
     jobs = []
 if args.preparation_only:
     jobs += [(name.replace('preparation', 'certificate-preparation'),
@@ -94,13 +95,15 @@ for family, command, expected in ([] if args.preparation_only else [
     for repeat, order in [(1, [previous, candidate]), (2, [candidate, previous])]:
         for variant in order:
             flags = ['no-plan-reuse'] if baseline else (
+                (['no-event-program'] if variant == 'strict' else ['event-program'])
+                if args.event_program else
                 (['no-sequence-fusion'] if variant == 'strict' else ['sequence-fusion'])
                 if args.sequence_fusion else
                 (['no-plan-reuse'] if variant == 'strict' else ['plan-reuse']))
             jobs.append((f'{variant}-{family}-{repeat}', flags + command, expected))
 if args.resume:
     previous = json.loads((out/'metadata.json').read_text())
-    for key in ['head', 'samples', 'baseline', 'sequence_fusion', 'preparation_only', 'executor', 'executor_sha256', 'dyld_api_progress', 'harness_sha256', 'fixture_sha256']:
+    for key in ['head', 'samples', 'baseline', 'sequence_fusion', 'event_program', 'preparation_only', 'executor', 'executor_sha256', 'dyld_api_progress', 'harness_sha256', 'fixture_sha256']:
         if previous.get(key) != metadata[key]:
             raise SystemExit('Resume pin changed: '+key)
     if previous.get('complete') or not previous['jobs']:

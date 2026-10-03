@@ -85,27 +85,40 @@
                   (cons value remaining-values))
           (values #f #f #f))))))
 
+(def (step-definition)
+  `(def (direct-step production-id states semantic-values rest
+                      input-end-offset goto-index)
+     (case production-id
+       ,@(let loop ((i 0) (acc '()))
+           (if (= i (vector-length table)) (reverse acc)
+             (loop (fx+ i 1) (cons (step-clause i) acc))))
+       (else (error "unknown generated HCL step" production-id)))))
+(def (event-step-definition form)
+  (cond
+   ((eq? form 'direct-step) 'direct-event-step)
+   ((eq? form 'recognition-children-field) 'event-children-field)
+   ((eq? form 'recognition-children-alias) 'event-children-alias)
+   ((not (pair? form)) form)
+   ((eq? (car form) 'recognition-sequence-for-action)
+    (event-step-definition (cadr form)))
+   ((eq? (car form) 'quote) form)
+   (else (cons (event-step-definition (car form))
+               (event-step-definition (cdr form))))))
 (def (module-expression)
   `(begin
-     (import (only-in :gerbil-parser/src/runtime/recognition
-                      make-recognition-fragment)
+     (import (only-in :gerbil-parser/src/runtime/recognition make-recognition-fragment)
              (only-in :gerbil-parser/src/runtime/reduce
                       recognition-children-field recognition-children-alias)
+             (only-in :gerbil-parser/src/runtime/event-reduce
+                      event-children-field event-children-alias)
              (only-in :gerbil-parser/src/runtime/funcs
-                      association-row-index-ref
-                      recognition-sequence->list recognition-sequence-for-action recognition-sequence-append)
+                      association-row-index-ref recognition-sequence->list
+                      recognition-sequence-for-action recognition-sequence-append)
              (only-in :gerbil-parser/src/runtime/token token-start))
-     (export direct-step direct-grammar-digest)
-     (def direct-grammar-digest
-       ,(parser-machine-grammar-digest hcl-v2-24-parser))
-     (def (direct-step production-id states semantic-values rest
-                       input-end-offset goto-index)
-       (case production-id
-         ,@(let loop ((i 0) (acc '()))
-             (if (= i (vector-length table))
-               (reverse acc)
-               (loop (fx+ i 1) (cons (step-clause i) acc))))
-         (else (error "unknown generated HCL step" production-id))))))
+     (export direct-step direct-event-step direct-grammar-digest)
+     (def direct-grammar-digest ,(parser-machine-grammar-digest hcl-v2-24-parser))
+     ,(step-definition)
+     ,(event-step-definition (step-definition))))
 
 (def (emit-module port)
   (display ";;; Generated from HCL v2.24 Parser IR; regenerate with generate-step.ss.\n"

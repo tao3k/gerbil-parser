@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in :std/vector/vector vector-map/index)
+(import (only-in ./event-reduce event-children-field event-children-alias)
+        (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr
                  lr-spec-ref operand-actions production-action
                  production-lhs production-precedence production-rhs base-symbol
@@ -68,7 +69,8 @@
         lr-lexical-mode-id
         lr-lexical-mode-terminals
         lr-runtime-lexical-mode-catalog lr-runtime-layout? lr-runtime-direct-step
-        install-lr-runtime-direct-step!
+        install-lr-runtime-direct-step! install-lr-runtime-event-step!
+        current-lr-event-program-enabled? lr-runtime-event-program?
         lr-checkpoint-interned-lexical-mode-count
         lr-checkpoint-deterministic-actions
         lr-checkpoint-deterministic-shifts
@@ -85,7 +87,7 @@
 (defstruct lr-runtime
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
-               lexical-modes lexical-mode-catalog direct-step)
+               lexical-modes lexical-mode-catalog direct-step semantic-reducer event-step event-runtime)
   transparent: #t)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
@@ -94,7 +96,46 @@
                (procedure? step)
                (not (lr-runtime-direct-step runtime)))
     (error "invalid generated LR reduction step"))
-  (lr-runtime-direct-step-set! runtime step))
+  (lr-runtime-direct-step-set! runtime step)
+  (lr-runtime-event-runtime-set! runtime #f))
+
+(def current-lr-event-program-enabled? (make-parameter #f))
+(def (lr-runtime-event-program? runtime)
+  (eq? (lr-runtime-semantic-reducer runtime) reduce-value/events))
+(def (install-lr-runtime-event-step! runtime step)
+  (unless (and (lr-runtime? runtime) (procedure? step)
+               (not (lr-runtime-event-step runtime))
+               (not (lr-runtime-event-program? runtime)))
+    (error "invalid generated LR event step"))
+  (lr-runtime-event-step-set! runtime step)
+  (lr-runtime-event-runtime-set! runtime #f))
+
+;;; The backend is selected at the prepared-runtime boundary. Checkpoints and
+;;; retained fragments keep that runtime identity across edits; no semantic
+;;; action reads a dynamic switch. Only deterministic pass/concat LR is admitted.
+(def (lr-event-runtime runtime)
+  (if (or (not (current-lr-event-program-enabled?))
+          (lr-runtime-event-program? runtime)
+          (lr-runtime-layout? runtime) (lr-runtime-dynamic? runtime)
+          (vector-any (lambda (row)
+                        (any (lambda (entry) (eq? (cadr entry) 'fork)) row))
+                      (lr-runtime-actions runtime))
+          (vector-any (lambda (production)
+                        (not (memq (production-action production) '(pass concat))))
+                      (lr-runtime-table runtime)))
+    runtime
+    (or (lr-runtime-event-runtime runtime)
+        (let (selected
+              (make-lr-runtime
+               (lr-runtime-productions runtime) (lr-runtime-table runtime)
+               (lr-runtime-reduction-widths runtime) (lr-runtime-actions runtime)
+               (lr-runtime-action-index runtime) (lr-runtime-gotos runtime)
+               (lr-runtime-goto-index runtime) (lr-runtime-case-insensitive? runtime)
+               #f #f (lr-runtime-lexical-modes runtime)
+               (lr-runtime-lexical-mode-catalog runtime)
+               (lr-runtime-event-step runtime) reduce-value/events #f #f))
+          (lr-runtime-event-runtime-set! runtime selected)
+          selected))))
 
 ;;; Interned parser-directed lexical expectation shared by LR states with the
 ;;; same terminal row.
@@ -229,6 +270,8 @@
   transparent: #t)
 
 (def (lr-initial-checkpoint runtime tokens)
+  (lr-initial-checkpoint/selected (lr-event-runtime runtime) tokens))
+(def (lr-initial-checkpoint/selected runtime tokens)
   (make-lr-checkpoint
    runtime tokens
    (fold (lambda (input-token offset)
@@ -293,7 +336,7 @@
          layout?
          modes
          mode-catalog
-         #f)))))
+         #f reduce-value #f #f)))))
 
 ;; current-action-row
 ;; : (-> Vector Fixnum List Boolean (OrFalse Pair))
@@ -358,6 +401,26 @@
            fragment-constructor)))
        '() rhs source-values))
      (else (error "unknown LR semantic action" action)))))
+
+(def (apply-operand-actions/events value actions offset ignored-constructor)
+  (foldl (lambda (action children)
+           (case (car action)
+             ((field) (event-children-field (cadr action) children offset))
+             ((alias) (event-children-alias (cadr action) children offset))
+             (else (error "unknown event semantic action" action))))
+         value actions))
+(def (reduce-value/events production source-values offset ignored-constructor)
+  (let ((rhs (production-rhs production)) (action (production-action production)))
+    (cond
+     ((and (eq? action 'pass) (pair? rhs) (null? (cdr rhs)))
+      (apply-operand-actions/events (car source-values)
+        (operand-actions (car rhs)) offset #f))
+     ((memq action '(pass concat))
+      (foldl (lambda (operand value children)
+               (recognition-sequence-append children
+                 (apply-operand-actions/events value (operand-actions operand) offset #f)))
+             '() rhs source-values))
+     (else (error "unsupported event LR production" action)))))
 
 ;;; Pop LR states and semantic values together. Accumulating the top-first
 ;;; semantic stack with cons produces the source order required by reductions.
@@ -842,6 +905,7 @@
           (if (eq? direct-step-override 'installed)
             (lr-runtime-direct-step runtime)
             direct-step-override))
+         (semantic-reducer (lr-runtime-semantic-reducer runtime))
          (table (lr-runtime-table runtime))
          (widths (lr-runtime-reduction-widths runtime))
          (modes (lr-runtime-lexical-modes runtime))
@@ -973,7 +1037,7 @@
                                  (if (pair? rest) (token-start (car rest))
                                      input-end-offset))
                                 (value
-                                 (reduce-value
+                                 (semantic-reducer
                                   production source-values offset
                                   make-recognition-fragment))
                                 (target

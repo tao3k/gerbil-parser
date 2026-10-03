@@ -15,8 +15,9 @@ args = parser.parse_args()
 metadata = json.loads((args.input/'metadata.json').read_text())
 if not metadata.get('complete') and not args.partial:
     parser.error('Incomplete run requires explicit --partial qualification')
-schema = ('gerbil-parser.publication-baseline-matched.v1' if metadata.get('baseline') else
-          ('gerbil-parser.sequence-fusion-matched.v1' if metadata.get('sequence_fusion') else 'gerbil-parser.lexical-plan-matched.v1'))
+schema = ('gerbil-parser.event-program-matched.v1' if metadata.get('event_program') else
+          ('gerbil-parser.publication-baseline-matched.v1' if metadata.get('baseline') else
+          ('gerbil-parser.sequence-fusion-matched.v1' if metadata.get('sequence_fusion') else 'gerbil-parser.lexical-plan-matched.v1')))
 metadata['schema'] = schema
 metadata['qualification'] = 'completed-jobs-only' if args.partial else 'complete-matched-run'
 metadata['build_qualification'] = 'development-observation' if args.partial else ('incrementally-rebuilt-native' if args.incremental_rebuild else 'clean-rebuilt-native')

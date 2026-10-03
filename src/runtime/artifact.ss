@@ -1,7 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
-(import (only-in ./funcs recognition-sequence-for-each)
+(import (only-in ./event-program event-program-value? event-program-value-kind
+                 event-program-value-code event-program-walk)
+        (only-in ./funcs recognition-sequence-for-each)
         (only-in :std/func compose every-of)
         (only-in ../modules/parser/types
                  +diagnostic-schema+ +parse-artifact-schema+)
@@ -122,7 +124,9 @@
 ;;; Node/token identifiers are allocated once; source gaps become trivia only here.
 ;; recognition-events
 ;; : (-> List Recognition Boolean Fixnum List)
-(def (recognition-events tokens root trivia? source-byte-length)
+(def (if (event-program-value? root)
+                      (event-program-events tokens root trivia? source-byte-length)
+                      (recognition-events tokens root trivia? source-byte-length))
   (let* ((remaining tokens) (events (cons #f '())) (tail events)
          (next-node-id 0) (next-token-id 0))
     (def (emit! event)
@@ -230,6 +234,69 @@
                     (recognition-events tokens root trivia? source-byte-length)
                     '() source-bytes)))
     value))
+
+;;; Interpret committed event bytecode directly into the canonical artifact.
+;;; The program retains old source tokens only as proof operands: moved leaves
+;;; bind and verify the actual current source token, never a copied substitute.
+(def (event-program-events tokens root trivia? source-byte-length)
+  (unless (event-program-value-kind root)
+    (error "event program root must be a node"))
+  (let ((remaining tokens) (events (cons #f '())) (next-token-id 0)
+        (next-node-id 0) (node-ids '()))
+    (let (tail events)
+      (def (emit! event)
+        (let (cell (cons event '())) (set-cdr! tail cell) (set! tail cell)))
+      (def (emit-source-token!)
+        (let (input (car remaining))
+          (emit! (vector 'token next-token-id (token-kind input) (token-lexeme input)
+                         (token-start input) (token-end input)))
+          (set! next-token-id (+ next-token-id 1))
+          (set! remaining (cdr remaining))))
+      (def (emit-trivia-until! boundary)
+        (let loop ()
+          (when (and (pair? remaining) (<= (token-end (car remaining)) boundary))
+            (unless (trivia? (car remaining))
+              (error "unclaimed significant program token" (token-kind (car remaining))))
+            (emit-source-token!) (loop))))
+      (event-program-walk
+       (lambda (operation name offset delta moved?)
+         (let (position (+ offset delta))
+           (case operation
+             ((token)
+              (emit-trivia-until! position)
+              (unless (and (pair? remaining)
+                           (if moved?
+                             (let (actual (car remaining))
+                               (and (= (token-start actual) (+ (token-start name) delta))
+                                    (= (token-end actual) (+ (token-end name) delta))
+                                    (eq? (token-kind actual) (token-kind name))
+                                    (equal? (token-lexeme actual) (token-lexeme name))))
+                             (eq? name (car remaining))))
+                (error "event program token does not bind current source"))
+              (emit-source-token!))
+             ((open-node)
+              (let ((start (if (= next-node-id 0) 0 position)) (id next-node-id))
+                (emit-trivia-until! start)
+                (emit! (vector 'start-node id name start))
+                (set! next-node-id (+ next-node-id 1))
+                (set! node-ids (cons (cons id name) node-ids))))
+             ((close-node)
+              (unless (and (pair? node-ids) (eq? name (cdar node-ids)))
+                (error "event program node stack mismatch"))
+              (let (end (if (null? (cdr node-ids)) source-byte-length position))
+                (emit-trivia-until! end)
+                (emit! (vector 'finish-node (caar node-ids) name end))
+                (set! node-ids (cdr node-ids))))
+             ((open-field)
+              (emit-trivia-until! position)
+              (emit! (vector 'start-field name position)))
+             ((close-field) (emit! (vector 'finish-field name position)))
+             ((boundary) (emit-trivia-until! position))
+             (else (error "unknown committed event program operation" operation)))))
+       (event-program-value-code root))
+      (unless (and (null? remaining) (null? node-ids))
+        (error "event program is incomplete"))
+      (cdr events))))
 
 ;;; Assemble already canonical events from a committed generated path.
 (def (make-success-parse-artifact/canonical-events

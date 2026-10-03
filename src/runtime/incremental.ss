@@ -22,7 +22,8 @@
                  parse-artifact-ref parse-artifact-success?
                  parse-artifact-valid? token-event?
                  token-event-lexeme token-event-token-kind)
-        (only-in ./recognition recognition-child-value)
+        (only-in ./recognition recognition-child-value relocate-recognition-value)
+        (only-in ./event-program event-program-value? event-program-relocate)
         (only-in ./funcs recognition-sequence->list)
         (only-in ./reuse make-fragment-reuser current-lr-probe-reuse-enabled?)
         (only-in ./identity sha256-text)
@@ -30,7 +31,9 @@
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-runtime-lexical-mode-catalog
                  lr-runtime-fragment-reuse-safe?
-                 lr-prefix-snapshot-rebind current-lr-recognition-observer lr-recognition-project)
+                 lr-prefix-snapshot-rebind current-lr-recognition-observer lr-recognition-project
+                 lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
+                 lr-recognition-fragment-value)
         (only-in ./lexer scan-source-token)
         (only-in ./parser
                  current-source-stream-observer parse-source/checkpoints
@@ -54,6 +57,7 @@
         incremental-session-artifact
         incremental-session-recognition-root
         incremental-session-project-artifact
+        incremental-session-publication-comparison
         parse-incremental-session)
 
 (def +edit-schema+ "gerbil-parser.edit.v1")
@@ -101,6 +105,36 @@
        (incremental-session-state-source session)
        (incremental-session-state-tokens session)
        (recognition-child-value (car children)) (parser-machine-trivia machine)))))
+
+;;; Internal diagnostic: projection is outside timing; publication thunks retain
+;;; the session's exact machine, source and token identities. No token vector or
+;;; mutable session execution field is exposed. Generic publication proofs stay.
+(def (incremental-session-publication-comparison session)
+  (unless (incremental-session? session) (error "publication requires a session"))
+  (let* ((root (incremental-session-recognition-root session))
+         (machine (incremental-session-state-machine session))
+         (source (incremental-session-state-source session))
+         (tokens (incremental-session-state-tokens session)))
+    (unless root (error "publication requires a captured grammar root"))
+    (def (single-value sequence)
+      (let (children (recognition-sequence->list sequence))
+        (unless (and (pair? children) (null? (cdr children)))
+          (error "publication requires one semantic root"))
+        (recognition-child-value (car children))))
+    (let unwrap ((piece root) (delta 0) (moved? #f))
+      (if (lr-recognition-view? piece)
+        (unwrap (lr-recognition-view-base piece)
+          (+ delta (lr-recognition-view-delta piece)) #t)
+        (let* ((value (single-value (lr-recognition-fragment-value piece)))
+               (canonical (single-value (lr-recognition-project root tokens)))
+               (publish (lambda (value)
+                          (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                            source tokens value (parser-machine-trivia machine)))))
+          (unless (event-program-value? value)
+            (error "publication comparison requires the event backend"))
+          (let (program (if moved? (relocate-recognition-value value delta #t) value))
+            (values (lambda () (publish canonical)) (lambda () (publish program))
+                    (if moved? (event-program-relocate value delta #t) value))))))))
 
 (def (capture-session-parse thunk capture?)
   (if (not capture?)

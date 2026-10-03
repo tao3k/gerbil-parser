@@ -21,6 +21,7 @@
         (only-in :gerbil-parser/src/runtime/incremental
                  make-incremental-session incremental-session-artifact
                  incremental-session-recognition-root incremental-session-project-artifact
+                 incremental-session-publication-comparison
                  parse-incremental-session make-edit apply-edit)
         "./scenarios/performance/selective-glr/scenario")
 
@@ -313,6 +314,23 @@
             (check (incremental-session-artifact restored) => (parse-hcl-v2-24 source))
             (check (incremental-session-project-artifact restored)
                    => (incremental-session-artifact restored))))))
+    (test-case "publication closures retain edited source and token binding across inverse edits"
+      (let* ((source (string-join (make-list 100 "a = 1\n") ""))
+             (session (parameterize ((current-lr-event-program-enabled? #t))
+                        (make-incremental-session hcl-v2-24-parser source #t))))
+        (let-values (((next receipt) (parse-incremental-session session (make-edit 0 0 "b = 2\n"))))
+          (let-values (((control candidate code) (incremental-session-publication-comparison next)))
+            (let ((expected (parse-hcl-v2-24 (string-append "b = 2\n" source))) (moved 0))
+              (event-program-walk
+               (lambda (op value offset delta moved?)
+                 (when (and (eq? op 'token) moved?) (set! moved (+ moved 1)))) code)
+              (check (> moved 0) => #t)
+              (parameterize ((current-lr-event-program-enabled? #f))
+                (let-values (((restored receipt) (parse-incremental-session next (make-edit 0 6 ""))))
+                  (check (incremental-session-artifact restored) => (parse-hcl-v2-24 source))
+                  (check (control) => expected)
+                  (check (candidate) => expected)
+                  (check (incremental-session-artifact session) => (parse-hcl-v2-24 source)))))))))
     (test-case "generic deterministic LR lowers events without a generated executor"
       (parameterize ((current-lr-event-program-enabled? #t))
         (let* ((source "1+2*3")

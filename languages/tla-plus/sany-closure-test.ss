@@ -20,6 +20,7 @@
     (unless (parse-artifact-success? artifact)
       (error "SANY closure fixture rejected"
              (parse-artifact-ref artifact 'diagnostics)))
+    (check (parse-artifact-ref artifact 'diagnostics) => '())
     (check (parse-artifact-success? artifact) => #t)
     (check (parse-artifact-valid? artifact) => #t)
     (check (parse-artifact-roundtrip artifact) => source)

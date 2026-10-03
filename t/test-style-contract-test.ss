@@ -27,12 +27,16 @@
         (and (test-form-allowed? (car form) forbidden owned-ports)
              (test-form-allowed? (cdr form) forbidden owned-ports)))))
    ((and (symbol? (car form)) (memq (car form) forbidden))
-    ;; Fixture construction and IR serialization may write to a fresh owned
-    ;; port. Console display remains forbidden; payload assembly is inspected.
+    ;; Fixture serialization owns its port; console output stays forbidden.
     (and (memq (car form) '(display write-string))
          (list? form) (= (length form) 3)
          (memq (caddr form) owned-ports)
          (test-form-allowed? (cadr form) forbidden owned-ports)))
+   ;; A nested lambda cannot inherit authority for a shadowed port argument.
+   ((and (eq? (car form) 'lambda) (pair? (cdr form))
+         (list? (cadr form)))
+    (test-form-allowed? (cddr form) forbidden
+      (filter (lambda (port) (not (memq port (cadr form)))) owned-ports)))
    (else (and (test-form-allowed? (car form) forbidden owned-ports)
               (test-form-allowed? (cdr form) forbidden owned-ports)))))
 
@@ -60,6 +64,20 @@
   (test-suite "parser test AST contract"
     (test-case "reject output calls but allow quoted negative fixtures"
       (check (test-form-allowed? '(display "snapshot") '(display)) => #f)
+      (check (test-form-allowed?
+              '(call-with-output-string (lambda (port) (display "input" port)))
+              '(display)) => #t)
+      (check (test-form-allowed? '(display "snapshot" port) '(display)) => #f)
+      (check (test-form-allowed? '(display "snapshot" (current-output-port))
+                                 '(display)) => #f)
+      (check (test-form-allowed?
+              '(call-with-output-string
+                 (lambda (port) (display (display "snapshot") port)))
+              '(display)) => #f)
+      (check (test-form-allowed?
+              '(call-with-output-string
+                 (lambda (port) (lambda (port) (display "snapshot" port))))
+              '(display)) => #f)
       (check (test-form-allowed? '(quote (display input)) '(display)) => #t)
       (check (test-form-allowed? '(check value => expected) '(display))
              => #t))
@@ -97,7 +115,6 @@
                 "src/compiler/event-fold-aot.ss"
                 "t/generate-event-strategy-fixture.ss"
                 "t/generate-event-strategy-grammar.ss"
-                "t/generate-event-fold-ir.ss"
                 "t/generate-owned-word-fixture.ss"))
              => '()))))
 

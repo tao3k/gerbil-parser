@@ -11,7 +11,7 @@
   (string-append
    "(" (string-join (make-list +operand-count+ "001") " + ") ")"))
 (def +edit-start+ (+ 1 (* 50 6)))
-(def +edit+ (make-edit +edit-start+ 3 "002"))
+(def +edit+ (make-edit +edit-start+ 3 "0+2"))
 (def +base-artifact+ (parse-arithmetic-v1 +source+))
 (def +fresh-artifact+
   (parse-arithmetic-v1 (apply-edit +source+ +edit+)))

@@ -5,8 +5,11 @@ import argparse, hashlib, json, os, platform, re, shutil, signal, subprocess, th
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
+parser.add_argument('--keep-going', action='store_true', help='Audit every independent batch while retaining failures and an overall failed status')
 parser.add_argument('--resume', action='store_true', help='Retry a final fully checked watchdog failure once, retaining its failed log')
 args = parser.parse_args()
+if args.keep_going and args.resume:
+    parser.error('keep-going audit and resume are mutually exclusive')
 root, out = Path.cwd(), args.output.resolve()
 head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 if subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'languages', 't']).returncode:
@@ -138,8 +141,15 @@ for offset in range(3*len(receipt['batches']), len(modules), 3):
                                'sha256': hashlib.sha256(log.read_bytes()).hexdigest()})
     (out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
     if not ok:
-        raise SystemExit('BATCH-FAIL '+str(batch_id))
-    print('BATCH-OK', batch_id, 'TOTAL', offset+passed, flush=True)
-receipt['complete'] = True
+        print('BATCH-FAIL', batch_id, flush=True)
+        if not args.keep_going:
+            raise SystemExit(1)
+    else:
+        print('BATCH-OK', batch_id, 'TOTAL', offset+passed, flush=True)
+receipt['audit_complete'] = True
+receipt['complete'] = all(batch['ok'] for batch in receipt['batches'])
 (out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
+if not receipt['complete']:
+    print('NATIVE-AUDIT-FAILED', sum(not batch['ok'] for batch in receipt['batches']), flush=True)
+    raise SystemExit(1)
 print('NATIVE-ALL-OK', len(modules), flush=True)

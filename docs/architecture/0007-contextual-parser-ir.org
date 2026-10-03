@@ -1126,3 +1126,143 @@ The verified command uses the final source and checks full artifact equality.
 and excluded attempts. PR #13 remains open at =7c15333=, already included in
 this branch. Local qualification does not establish remote CI; no push was
 performed.
+
+
+* 2026-10-03: prepared request phase study and two rejected scanner candidates
+
+This study starts from the prepared contextual parser at =4dadaf7=. The HCL
+fixture already installs its generated =direct-step= during grammar-module
+initialization; adding another action-dispatch layer is not the next
+experiment. An isolated copy of =src/runtime/parser.ss= records CPU around
+=lr-checkpoint-drive/contextual= and successful artifact construction. An
+independent scan-only loop uses the same compiled scanner product and constant
+=line= position, which is the fixture's position for every LR state.
+Production instrumentation and runtime code are unchanged by this profile.
+
+The existing =parser-fixture.ss= family supplies accepted ASCII and Unicode
+assignments at 1/32/256 lines. Plans and fixture compilation are outside
+measurement. Each sample performs eight prepared requests, with three warmups
+and five measured samples per cell. Artifacts satisfy validity and lossless
+roundtrip; independent scans cover exactly six tokens per line. The source
+profile completed normally in 30.73 seconds and the native profile in 12.20
+seconds under 120-second total and five-second silence fences. Only profiling
+copies were compiled with =gxc -O=; neither proposed production candidate below
+reached native compilation.
+
+CPU medians per eight-request sample:
+
+| Runtime | Lines | Text | Total ms | Drive ms | Artifact ms | Scan-only ms |
+|---------+-------+------+----------+----------+-------------+--------------|
+| source | 1 | ASCII | 2.284 | 1.850 | 0.318 | 0.503 |
+| source | 1 | Unicode | 1.955 | 1.591 | 0.281 | 0.499 |
+| source | 32 | ASCII | 53.828 | 49.491 | 4.102 | 16.501 |
+| source | 32 | Unicode | 57.444 | 51.496 | 5.450 | 17.303 |
+| source | 256 | ASCII | 615.094 | 578.936 | 38.013 | 190.241 |
+| source | 256 | Unicode | 540.467 | 507.871 | 32.489 | 154.691 |
+| native | 1 | ASCII | 0.204 | 0.144 | 0.041 | 0.052 |
+| native | 1 | Unicode | 0.196 | 0.137 | 0.040 | 0.050 |
+| native | 32 | ASCII | 3.202 | 2.848 | 0.311 | 0.992 |
+| native | 32 | Unicode | 2.818 | 2.500 | 0.286 | 0.966 |
+| native | 256 | ASCII | 23.000 | 20.560 | 2.180 | 8.249 |
+| native | 256 | Unicode | 26.441 | 23.853 | 2.247 | 7.978 |
+
+Drive includes contextual scanning and reduction. Scan-only is a separate run,
+not an instrumented component that can be subtracted to prove exact LR cost.
+Each column's median is computed independently, so medians need not add up.
+The profile adds timer and counter work; short-input percentages are especially
+sensitive to that overhead. Artifact timing excludes argument evaluation such
+as reversing the token list. Source behavior and native behavior remain
+separate evidence.
+
+At 256 lines, native drive accounts for approximately 89%/90% of total for
+ASCII/Unicode; artifact construction is approximately 9.5%/8.5%. Independent
+scan-only medians are approximately 36%/30% of total. Thus substantial work
+remains inside LR drive beyond scanning. This is a bounded hotspot hypothesis,
+not an allocation count, concurrency proof or all-language attribution.
+
+** Rejected candidate 1: scalar match selection
+
+=best-match= currently constructs =scan-match= records while folding over rules.
+The prototype removed that private record, retained selected rule/end in loop
+variables and hoisted source/start reads. It preserved longest extent, rank
+priority, equal form/action tie handling and ambiguity rejection. The three
+existing scanner/parser/deferred suites passed in source with normal exit.
+Full prepared request pairs also matched every ParseArtifact, including
+rejected inputs and Unicode suffix coverage.
+
+** Rejected candidate 2: ASCII opcode byte width
+
+=horizontal-whitespace+= accepts only space/tab; =newline= and =newline-one=
+accept CR/LF. Their consumed character width is therefore their UTF-8 byte
+width. The prototype used this closed-opcode fact to avoid allocating a UTF-8
+vector solely for token length, and retained the existing encoder path for
+other matchers. It did not cache literal widths from mutable caller IR.
+Full prepared request pairs again matched every artifact. This establishes
+conformance only for the measured shapes, not every opcode or invalid input.
+
+** Source admission gate
+
+Both candidates used the exact =4dadaf7= parser and scanner copies as baseline.
+Both sides prepared their plans once before timing: these are steady prepared
+request batches, not the prior raw-versus-plan amortization comparison.
+The existing four-shape fixture cycles short accepted input, 32 Unicode
+assignments, incomplete input and an unscanned Unicode suffix. Request counts
+4/16/64 cover all shapes. Three warmups and five alternating pairs are used;
+complete ParseArtifact equality, validity and roundtrip are checked outside
+measurement. The scalar run completed normally in 10.75 seconds; the byte
+width run in 12.90 seconds.
+
+| Candidate | Requests | Before CPU ms | Candidate CPU ms | Change | Wins |
+|-----------+----------+---------------+------------------+--------+------|
+| scalar-selection | 4 | 6.183 | 6.031 | -2.46% | 3/5 |
+| scalar-selection | 16 | 23.023 | 23.670 | +2.81% | 1/5 |
+| scalar-selection | 64 | 95.989 | 94.950 | -1.08% | 4/5 |
+| ascii-byte-width | 4 | 6.139 | 9.194 | +49.76% | 1/5 |
+| ascii-byte-width | 16 | 24.912 | 30.314 | +21.68% | 2/5 |
+| ascii-byte-width | 64 | 105.924 | 104.270 | -1.56% | 3/5 |
+
+Neither candidate has stable whole-request gains. Scalar selection regresses
+at sixteen requests and wins only three/four pairs in the other cells. ASCII
+byte width regresses at four/sixteen requests and has only three wins at
+sixty-four. Both were withdrawn before GXC. No native speedup or reduced total
+allocation is claimed; eliminating an explicit object or encoding call does
+not itself establish whole-parser improvement.
+
+The prototypes, paired console logs and JSON receipts are retained locally in
+=.data/prepared-parser-hot-path/=. =scalar-rejected.ss= and =byte-rejected.ss=
+record the attempted code. The final production scanner is byte-for-byte equal
+to the committed baseline. Only this research record is retained in the repo.
+Existing production build/functional/wall qualification belongs to =4dadaf7=;
+it was not rerun or represented as a new gate for this documentation change.
+
+** Next falsifiable experiment: reduction and recognition materialization
+
+The next probe should count the actual semantic operations before changing
+representations:
+
+1. Count generated =direct-step= production frequencies and classify pass,
+   field and alias reductions, including reduction widths.
+2. Count =recognition-children-field= singleton versus fragment-wrapping paths,
+   and =recognition-sequence->list= calls that actually flatten a rope. The
+   existing rope already gives constant-time concatenation; introducing a
+   second concatenation representation is not justified by this profile.
+3. Select a measured hot class, then test fusion of adjacent field/alias work
+   only where the Parser IR proves the shape. Nested field scopes, empty
+   reductions, byte boundaries and immutable shared children must be preserved.
+   The public field setter means mutating or reusing children cannot be assumed
+   safe merely because the final tree looks similar.
+4. Compare complete prepared artifacts against the indexed/generated baseline
+   on short, long, Unicode and rejected shapes. Source CPU admission comes
+   before native compilation; native paired evidence and the original wall
+   ceilings remain required for retaining a runtime candidate. Operation counts
+   alone cannot qualify a change.
+
+The current =direct-step.ss= header names =generate-step.ss=, but that generator
+is absent from this checkout; the available =generate-direct.ss= produces the
+recursive source parser. A generated-step experiment first needs a reproducible
+Parser IR emitter or a documented authoritative producer. Manually editing the
+large generated expression would not supply that generation boundary.
+These are proposed experiments, not implemented reduction capabilities.
+
+PR #13 was read again and remains open at =7c15333=, already included in this
+branch. No remote push was performed.

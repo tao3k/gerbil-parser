@@ -212,3 +212,46 @@ reported budget. Report the specific unfinished gate at the deadline instead
 of retrying the full audit. Run the full suite once at an integration boundary,
 not after every experiment. Parallel timings cannot qualify a CPU comparison:
 performance measurements require an isolated, bounded run.
+
+* Local closure follow-up
+
+No remote push was performed. The follow-up separates the two remaining
+admission owners: fifty checked grammar/role constructions and one hundred
+complete GQL parses. Checkpoint reuse does not execute either fresh workload.
+
+The five-sample stage diagnostic validates one complete GQL artifact and reports
+CPU and wall time separately. Median CPU milliseconds per hundred operations:
+complete GQL 17.166, lexing 2.353, significant filtering 0.110, LR execution
+13.208, publication 1.449. The phase timings are separate executions, so they
+are not additive. Wall time varies substantially; observed host load averages
+were 152.54, 133.84 and 117.08. This supports scheduling interference as a
+hypothesis, not exclusive causal attribution or a replacement admission metric.
+
+POO role construction takes median 11.180 CPU milliseconds per fifty operations;
+grammar construction with a preexisting role takes 20.831. Rechecking a role
+costs 9.845 and rechecking a grammar 15.069. The latter stages use already-created
+objects; they do not reproduce the complete POO admission workload. The contract
+owner regenerates full responsibility evidence during element checks. A future
+reuse design must preserve open prototype behavior, current slot values and
+obligations; global identity caching cannot be assumed sound.
+
+=docs/research/verify-focused-native.py= selects explicit modules, executes up to
+three independent functional groups, and enforces one aggregate budget (at most
+90 seconds) plus the unchanged five-second silence guard. Performance modules
+require one worker. It uses existing native products and does not compile or
+qualify the whole repository. Compile affected dependencies separately first.
+
+The actual two-worker run selected source-index and native-FFI modules with a
+30-second total budget. All thirteen case checks complete, but the FFI process
+is killed at the deadline during unloading. Its overall receipt remains failed;
+case completion is not substituted for successful process exit. No retry was
+started. The deadline and concurrency behavior are implemented and exercised;
+full exit/performance closure remains open.
+
+#+begin_src sh
+python3 docs/research/verify-focused-native.py OUTPUT --module t/source-index-test.ss --module t/native-ffi-test.ss --workers 2 --wall-seconds 30
+#+end_src
+
+Sealed phase rows and selected-run metadata are in
+=docs/research/data/runtime-closure-phases-2026-10-03.*= and
+=docs/research/data/focused-parallel-deadline-2026-10-03.json=.

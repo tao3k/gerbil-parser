@@ -114,28 +114,30 @@
 ;;; retained fragments keep that runtime identity across edits; no semantic
 ;;; action reads a dynamic switch. Only deterministic pass/concat LR is admitted.
 (def (lr-event-runtime runtime)
-  (if (or (not (current-lr-event-program-enabled?))
-          (lr-runtime-event-program? runtime)
-          (lr-runtime-layout? runtime) (lr-runtime-dynamic? runtime)
-          (vector-any (lambda (row)
-                        (any (lambda (entry) (eq? (cadr entry) 'fork)) row))
-                      (lr-runtime-actions runtime))
-          (vector-any (lambda (production)
-                        (not (memq (production-action production) '(pass concat))))
-                      (lr-runtime-table runtime)))
-    runtime
-    (or (lr-runtime-event-runtime runtime)
-        (let (selected
-              (make-lr-runtime
-               (lr-runtime-productions runtime) (lr-runtime-table runtime)
-               (lr-runtime-reduction-widths runtime) (lr-runtime-actions runtime)
-               (lr-runtime-action-index runtime) (lr-runtime-gotos runtime)
-               (lr-runtime-goto-index runtime) (lr-runtime-case-insensitive? runtime)
-               #f #f (lr-runtime-lexical-modes runtime)
-               (lr-runtime-lexical-mode-catalog runtime)
-               (lr-runtime-event-step runtime) reduce-value/events #f #f))
-          (lr-runtime-event-runtime-set! runtime selected)
-          selected))))
+  (cond
+   ((or (not (current-lr-event-program-enabled?))
+        (lr-runtime-event-program? runtime)) runtime)
+   ;; Check the selected runtime before scanning grammar eligibility again.
+   ((lr-runtime-event-runtime runtime) => identity)
+   ((or (lr-runtime-layout? runtime) (lr-runtime-dynamic? runtime)
+        (vector-any (lambda (row)
+                      (any (lambda (entry) (eq? (cadr entry) 'fork)) row))
+                    (lr-runtime-actions runtime))
+        (vector-any (lambda (production)
+                      (not (memq (production-action production) '(pass concat))))
+                    (lr-runtime-table runtime))) runtime)
+   (else
+    (let (selected
+          (make-lr-runtime
+           (lr-runtime-productions runtime) (lr-runtime-table runtime)
+           (lr-runtime-reduction-widths runtime) (lr-runtime-actions runtime)
+           (lr-runtime-action-index runtime) (lr-runtime-gotos runtime)
+           (lr-runtime-goto-index runtime) (lr-runtime-case-insensitive? runtime)
+           #f #f (lr-runtime-lexical-modes runtime)
+           (lr-runtime-lexical-mode-catalog runtime)
+           (lr-runtime-event-step runtime) reduce-value/events #f #f))
+      (lr-runtime-event-runtime-set! runtime selected)
+      selected))))
 
 ;;; Interned parser-directed lexical expectation shared by LR states with the
 ;;; same terminal row.

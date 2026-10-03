@@ -5,21 +5,66 @@ import argparse, hashlib, json, os, signal, subprocess, threading, time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
+parser.add_argument('--resume', action='store_true', help='Retry a final fully checked watchdog failure once, retaining its failed log')
 args = parser.parse_args()
 root, out = Path.cwd(), args.output.resolve()
 head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 if subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'languages', 't']).returncode:
     raise SystemExit('Commit runtime and tests before qualification')
 out.mkdir(parents=True, exist_ok=True)
-if any(out.iterdir()):
+if any(out.iterdir()) and not args.resume:
     raise SystemExit('Output directory must be empty')
 modules = sorted(str(p) for p in Path('t').glob('*-test.ss'))
 modules += sorted(str(p) for p in Path('languages').rglob('*test.ss'))
 env = dict(os.environ, GERBIL_PATH=str(root/'.gerbil'),
            GAMBOPT='max-heap=1G,debug=q', GERBIL_PARSER_LR_TRACE='1')
+fixture_build = None
+if not args.resume:
+    command = ['gxc', '-O', 't/fixtures/lr1-construction.ss']
+    print('BUILD-TEST-FIXTURE', *command, flush=True)
+    log = out/'fixture-build.log'
+    with log.open('w') as output:
+        status = subprocess.run(command, env=env, stdout=output, stderr=subprocess.STDOUT,
+                                timeout=30).returncode
+    fixture_build = {'command': command, 'exit': status,
+                     'sha256': hashlib.sha256(log.read_bytes()).hexdigest()}
+    if status:
+        raise SystemExit('Native fixture build failed: '+str(status))
+    print('BUILD-TEST-FIXTURE-OK', flush=True)
 receipt = {'head': head, 'modules': len(modules), 'inactivity_seconds': 5,
-           'batch_seconds': 180, 'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')}, 'batches': []}
-for offset in range(0, len(modules), 3):
+           'batch_seconds': 180, 'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')}, 'batches': [], 'fixture_build': fixture_build}
+receipt['fixture_sha256']['lr1-construction.ss'] = hashlib.sha256((root/'t/fixtures/lr1-construction.ss').read_bytes()).hexdigest()
+if args.resume:
+    previous = json.loads((out/'metadata.json').read_text())
+    for key in ['head', 'modules', 'fixture_sha256']:
+        if previous.get(key) != receipt[key]:
+            raise SystemExit('Resume pin changed: '+key)
+    if previous.get('complete') or not previous['batches']:
+        raise SystemExit('Resume requires a failed final batch')
+    for index, batch in enumerate(previous['batches']):
+        expected = modules[index*3:index*3+3]
+        data = (out/f"batch-{index+1}.log").read_bytes()
+        if batch['modules'] != expected or hashlib.sha256(data).hexdigest() != batch['sha256']:
+            raise SystemExit('Resume batch or log changed')
+        if index < len(previous['batches'])-1 and not batch['ok']:
+            raise SystemExit('Earlier batch is unqualified')
+    failed = previous['batches'][-1]
+    lines = data.decode().splitlines()
+    if not (failed['watchdog'] and failed['exit'] == -9 and failed['passed'] == len(expected)
+            and 'OK' in lines and any(line.startswith('HARNESS-OK ') for line in lines)
+            and not any(marker in line for line in lines for marker in ['ERROR CHECK', 'ERROR HARNESS', '*** ERROR'])):
+        raise SystemExit('Only fully checked final watchdog failures can be resumed')
+    failures = previous.setdefault('failed_attempts', [])
+    if any(batch['batch'] == failed['batch'] for batch in failures):
+        raise SystemExit('One fresh retry per batch is the bound')
+    retained = f"batch-{failed['batch']}.failed-1.log"
+    (out/f"batch-{failed['batch']}.log").rename(out/retained)
+    failures.append(dict(failed, log_name=retained, qualification='failed-output-complete-watchdog'))
+    previous['batches'].pop()
+    receipt = previous
+    (out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
+    print('RETRY-FAILED-RETAINED', retained, flush=True)
+for offset in range(3*len(receipt['batches']), len(modules), 3):
     batch, batch_id = modules[offset:offset+3], offset//3+1
     print('BATCH', batch_id, *batch, flush=True)
     activity, quiet = [time.monotonic()], threading.Event()

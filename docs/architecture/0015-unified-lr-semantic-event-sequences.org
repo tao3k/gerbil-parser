@@ -252,3 +252,10 @@ The HCL generated-source check completed with normal exit zero and
 =GENERATED-HCL-STEP-OK=. Focused 63-case, full-audit, generated-source and
 native-section manifests are separately sealed. No PR push or merge was
 performed. The ASP dependency remains pinned to formal release =v0.1.2.2=.
+
+* Subsequent end-append experiment
+
+RFC [[file:0016-persistent-lr-append-buffers.org][0016]] implements the subsequent immutable end buffer and binary block
+carry experiment. It records constructor allocation evidence and its separate
+112-row request comparison; it preserves this RFC's historical results and
+keeps production-default admission separate.

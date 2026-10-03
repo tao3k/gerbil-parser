@@ -1,0 +1,17 @@
+{
+  "head": "51d4787ee09d0b696d804356eb29989c5d7de8fb",
+  "command": [
+    "gxc",
+    "-O",
+    "src/runtime/event-program.ss"
+  ],
+  "exit": 0,
+  "wall_seconds": 31.97947833299986,
+  "build_batch_seconds": 180,
+  "source_sha256": "51d41b4a78b0bc2e49fe05b1af40109a2c09e96589dd86bd4a00edfeb6adcc33",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "complete": true,
+  "sealed_logs": {
+    "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

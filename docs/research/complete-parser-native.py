@@ -88,6 +88,20 @@ for index, source in enumerate(sources, 1):
         raise SystemExit('Native section compilation failed: '+relative)
     print('NATIVE-SECTION-OK', relative, flush=True)
 receipt['remaining_incomplete_sections'] = [str(s.relative_to(base)) for s in incomplete()]
+manifest = []
+for source in sorted(base.rglob('*.scm')):
+    relative = source.relative_to(base)
+    if relative.parts[0] in ['compiled-language-declaration-cache', 'compiled-language-parser-cache']:
+        continue
+    binaries = [b for b in source.parent.glob(source.stem+'.o*') if b.suffix[2:].isdigit()]
+    manifest.append(dict(source=str(relative), source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+                         binaries=[dict(file=str(b.relative_to(base)), sha256=hashlib.sha256(b.read_bytes()).hexdigest())
+                                   for b in sorted(binaries)]))
+manifest_path = out/'native-manifest.json'
+manifest_path.write_text(json.dumps(manifest, indent=2)+'\n')
+receipt['native_manifest_sha256'] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+receipt['inspected_generated_sections'] = len(manifest)
+receipt['native_namespace'] = str(base)
 receipt['complete'] = not receipt['remaining_incomplete_sections']
 (out/'metadata.json').write_text(json.dumps(receipt, indent=2)+'\n')
 if not receipt['complete']:

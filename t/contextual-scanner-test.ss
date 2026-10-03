@@ -87,6 +87,22 @@
 
 (def contextual-scanner-test
   (test-suite "generic contextual scanner"
+    (test-case "position admission rejects undeclared identities even at EOF"
+      (let-values (((scanner _ir) (bash-scanner "if")))
+        (let (initial (contextual-scanner-initial-state scanner))
+          (check
+           (with-catch (lambda (condition) (error-message condition))
+             (lambda () (contextual-scanner-step scanner initial (gensym 'argument)) #f))
+           => "invalid contextual scanner checkpoint or position")
+          (let-values (((token next) (contextual-scanner-step scanner initial 'argument)))
+            (check (token-kind token) => 'word)
+            (check
+             (with-catch (lambda (condition) (error-message condition))
+               (lambda () (contextual-scanner-step scanner next 'undeclared) #f))
+             => "invalid contextual scanner checkpoint or position")
+            (let-values (((token final) (contextual-scanner-step scanner next 'command-start)))
+              (check token => #f)
+              (check (contextual-scan-state-byte-offset final) => 2))))))
     (test-case "Bash nested word scans without a language callback"
       (let-values (((scanner ir)
                     (bash-scanner "if printf %s \"${x:-$(printf '%s' '}')}\"\n")))
@@ -135,6 +151,32 @@
             (check (token-start (list-ref tokens 6)) => (token-end (list-ref tokens 5)))
             (check (contextual-scan-state-byte-offset g)
                    => (u8vector-length (string->utf8 "hello ${name} α")))))))
+    (test-case "literal catalogs preserve longest complete Unicode prefixes across modes"
+      (let* ((role (make-contextual-role 'prefixes
+                     (list (method 'literal 'any 'any 'literal 'literal))))
+             (dispatch (compile-contextual-dispatch
+                        (list role) '(first second) '(token) '(literal)))
+             (catalog (append '("α" "αβ" "αβγ")
+                              (map (lambda (n) (string-append "padding" (number->string n)))
+                                   (iota 128))))
+             (ir (compile-contextual-scanner
+                  (list (rule 'first 'first 'literal (list 'literals catalog) 0)
+                        (rule 'second 'second 'literal (list 'literals catalog) 0))
+                  dispatch 'first))
+             (scanner (prepare-contextual-scanner ir (string-append "αβαβx" (make-string 64 #\x)))))
+        (let-values (((a next) (contextual-scanner-step
+                                scanner (contextual-scanner-initial-state scanner) 'token)))
+          (check (token-lexeme a) => "αβ")
+          (check (list (token-start a) (token-end a)) => '(0 4))
+          (let-values (((b last) (contextual-scanner-step
+                                  scanner (contextual-scan-state-with-mode next 'second) 'token)))
+            (check (token-lexeme b) => "αβ")
+            (check (list (token-start b) (token-end b)) => '(4 8))
+            (check (contextual-scan-state-byte-offset last) => 8)
+            (check
+             (with-catch (lambda (condition) (error-message condition))
+               (lambda () (contextual-scanner-step scanner last 'token) #f))
+             => "contextual scanner has no match")))))
     (test-case "equal token forms do not hide conflicting scanner actions"
       (let* ((role (make-contextual-role
                     'redirect
@@ -156,6 +198,26 @@
              scanner (contextual-scanner-initial-state scanner) 'command)
             #f))
          => "ambiguous contextual scanner match")))
+    (test-case "input IR cannot admit the private prepared trie matcher"
+      (let-values (((_scanner ir) (bash-scanner "if")))
+        (let* ((body
+                (map (lambda (row)
+                       (if (eq? (car row) 'rules)
+                         (cons 'rules
+                               (map (lambda (rule)
+                                      (list (car rule) (cadr rule) (caddr rule)
+                                            '(literal-trie 42)
+                                            (list-ref rule 4) (list-ref rule 5)))
+                                    (cdr row))) row))
+                     (filter (lambda (row) (not (eq? (car row) 'digest))) ir)))
+               (altered (append body
+                                (list (cons 'digest
+                                            (sha256-text (call-with-output-string
+                                                          (lambda (port) (write body port)))))))))
+          (check
+           (with-catch (lambda (condition) (error-message condition))
+             (lambda () (prepare-contextual-scanner altered "if") #f))
+           => "private contextual scanner matcher in input IR"))))
     (test-case "a self-consistent digest cannot admit a foreign opcode contract"
       (let-values (((_scanner ir) (bash-scanner "if")))
         (let* ((body

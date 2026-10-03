@@ -9,13 +9,13 @@
  (only-in :gerbil-parser/src/modules/parser/contextual-objects
           make-contextual-role make-contextual-method make-contextual-scan-rule)
  (only-in :gerbil-parser/src/runtime/token token-lexeme token-kind))
-(export main)
+(export main fixture-ir)
 
 (def (catalog prefix size)
   (map (lambda (n) (string->symbol (string-append prefix (number->string n))))
        (iota size)))
 
-(def (fixture axes source)
+(def (fixture-ir axes (literals '()))
   (let* ((modes (catalog "m" axes))
          (positions (catalog "p" axes))
          (role (make-contextual-role
@@ -28,16 +28,24 @@
           (apply append
            (map
             (lambda (mode)
+              (append (if (null? literals) '()
+                        (list (make-contextual-scan-rule
+                               (string->symbol (string-append (symbol->string mode) "-catalog"))
+                               mode 'word (list 'literals literals) 10 'keep)))
               (list
                (make-contextual-scan-rule
                 (string->symbol (string-append (symbol->string mode) "-word"))
                 mode 'word '(identifier) 0 'keep)
                (make-contextual-scan-rule
                 (string->symbol (string-append (symbol->string mode) "-space"))
-                mode 'space '(horizontal-whitespace+) 0 'keep)))
+                mode 'space '(horizontal-whitespace+) 0 'keep))))
             modes)))
          (ir (compile-contextual-scanner rules dispatch (last modes))))
-    (values (prepare-contextual-scanner ir source) (last positions))))
+    (values ir (last positions))))
+
+(def (fixture axes source (literals '()))
+  (let-values (((ir position) (fixture-ir axes literals)))
+    (values (prepare-contextual-scanner ir source) position)))
 
 (def (scan-all scanner position)
   (let loop ((state (contextual-scanner-initial-state scanner)) (tokens '()))
@@ -48,14 +56,20 @@
 (def (main . args)
   (let* ((axes (if (pair? args) (string->number (car args)) 16))
          (samples (if (> (length args) 1) (string->number (cadr args)) 20))
-         (words (if (> (length args) 2) (string->number (caddr args)) 128)))
+         (words (if (> (length args) 2) (string->number (caddr args)) 128))
+         (literal-count (if (> (length args) 3) (string->number (list-ref args 3)) 0)))
     (unless (and (integer? axes) (<= 1 axes 64)
                  (integer? samples) (positive? samples)
-                 (integer? words) (positive? words))
-      (error "expected axes in 1..64 and positive sample and word counts" args))
-    (let (source (string-join (make-list words "word") " "))
-      (let-values (((scanner position) (fixture axes source)))
-        (write (list (cons 'axes axes) (cons 'cells (* 2 axes axes))
+                 (integer? words) (positive? words)
+                 (integer? literal-count) (<= 0 literal-count 512))
+      (error "expected axes in 1..64, positive samples/words, and catalog in 0..512" args))
+    (let* ((literals (map (lambda (n) (string-append "word" (number->string n)))
+                          (iota literal-count)))
+           (source (string-join (if (zero? literal-count) (make-list words "word")
+                                 (map (lambda (n) (list-ref '("word0" "word7" "word127" "wording")
+                                                            (modulo n 4))) (iota words))) " ")))
+      (let-values (((scanner position) (fixture axes source literals)))
+        (write (list (cons 'axes axes) (cons 'literals literal-count) (cons 'cells (* 2 axes axes))
                      (cons 'tokens (- (* 2 words) 1)) (cons 'samples samples)))
         (newline) (force-output)
         (let loop ((sample 0))
@@ -67,7 +81,7 @@
                       (wall-ms (* 1000.0 (- (##current-time-point) started))))
                   (unless (and (= (length tokens) (- (* 2 words) 1))
                                (= byte-end (string-length source))
-                               (equal? (apply string-append (map token-lexeme tokens)) source)
+                               (equal? (string-join (map token-lexeme tokens) "") source)
                                (= (length (filter (lambda (token) (eq? (token-kind token) 'word)) tokens)) words))
                     (error "scanner scale receipt failed semantic or byte coverage"))
                   (when (>= sample 3)

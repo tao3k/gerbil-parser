@@ -3,6 +3,7 @@
 ;;; closed engine opcodes; a language contributes data, never a scan callback.
 
 (import (only-in ./scan
+                 make-literal-end-scanner
                  scan-balanced-word scan-horizontal-whitespace scan-identifier
                  scan-line scan-longest-literal scan-newline
                  scan-quoted-strings)
@@ -76,17 +77,33 @@
                             ir)))
         (ir-ref ir 'digest))))
 
-(def (decode-rule row)
+;;; Trie construction pays off for larger catalogs scanned over longer sources.
+;;; Keep small catalogs and short one-shot inputs on the linear path.
+(def (decode-rule row literal-cache source-length)
   (match row
     ([name mode form matcher rank action]
-     (make-runtime-scan-rule name mode form matcher rank action))
+     (let (prepared
+           (match matcher
+             (['literals values]
+              (if (and (>= source-length 64) (>= (length values) 128))
+                (let (scanner (or (table-ref literal-cache values #f)
+                                  (let (scanner (make-literal-end-scanner values))
+                                    (table-set! literal-cache values scanner)
+                                    scanner)))
+                  (list 'literal-trie scanner))
+                matcher))
+             (['literal-trie _]
+              (error "private contextual scanner matcher in input IR"))
+             (else matcher)))
+       (make-runtime-scan-rule name mode form prepared rank action)))
     (else (error "invalid contextual scanner rule" row))))
 
-(def (index-rules rows)
-  (let (index (make-table test: eq?))
+(def (index-rules rows source-length)
+  (let ((index (make-table test: eq?))
+        (literal-cache (make-table test: equal?)))
     (for-each
      (lambda (row)
-       (let* ((rule (decode-rule row))
+       (let* ((rule (decode-rule row literal-cache source-length))
               (mode (runtime-scan-rule-mode rule)))
          (table-set! index mode
                      (cons rule (table-ref index mode '())))))
@@ -117,7 +134,7 @@
   (make-contextual-scanner
    source (ir-ref ir 'digest) (ir-ref ir 'initial-mode)
    (ir-ref ir 'modes) (ir-ref ir 'positions)
-   (index-rules (ir-ref ir 'rules)) (index-cells (ir-ref ir 'cells))))
+   (index-rules (ir-ref ir 'rules) (string-length source)) (index-cells (ir-ref ir 'cells))))
 
 (def (contextual-scanner-initial-state scanner)
   (make-contextual-scan-state scanner 0 0
@@ -260,6 +277,7 @@
 (def (matcher-end source start expression state)
   (match expression
     (['literal value] (literal-end source start value))
+    (['literal-trie scanner] (scanner source start))
     (['literals values]
      (let (found (scan-longest-literal source start values))
        (and found (+ start (string-length found)))))

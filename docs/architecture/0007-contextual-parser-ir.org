@@ -546,3 +546,114 @@ Raw evidence, baseline source, source/native paired runners, both GLR attempts,
 These are current local implementation and admission receipts. Remote CI,
 declaration-macro binding, and contextual GLR scanner-state admission remain
 separate gates. No remote branch was pushed.
+
+* 2026-10-03: bounded contextual literal catalog tries
+
+The exact PR #13 remote revision at this session's start was
+=7c1533356585154c8b5d340f64ffefb289d18907=. The local experiment starts at
+=81ae6ebea466af2557f6b4ca6f36e772839dcb46=, which already contains that
+revision. No additional rebase was required at that boundary.
+
+A position-admission hash index was tested first against the existing 1/4/16/64
+axis scanner scenarios, comparing full token and final checkpoint traces.
+ASCII source CPU medians changed by +0.44%, -0.31%, +0.20%, and +0.21%; Unicode
+changes were -3.18%, +0.19%, -2.04%, and -0.80%. This did not establish a
+consistent material gain. The runtime change was discarded before GXC; the
+negative undeclared-position/EOF admission test remains.
+
+The next candidate reuses =make-literal-end-scanner= from =src/runtime/scan.ss=,
+already used by the ordinary scanner compiler. A linear catalog scan tests all
+literal prefixes at each position; the trie follows the matching character
+prefix and retains its longest accepting node. For one catalog this changes
+recognition from work proportional to all candidate prefix comparisons to
+work proportional to the source prefix traversed, assuming ordinary hash
+lookup cost. Trie preparation requires work and space proportional to catalog
+characters. This does not reduce the number of contextual rules considered.
+
+The first unconditional candidate exposed native small-catalog and one-word
+preparation regressions. The retained variant constructs a trie only when the
+catalog has at least 128 literals and the input has at least 64 characters.
+These are conservative workload guards, not a proven optimal crossover or a
+universal throughput guarantee. Equal catalogs share one trie within each
+prepared scanner; equal-key hashing/comparison and IR/digest admission still
+contribute to preparation cost. There is no global cross-request cache.
+
+External IR remains raw literal data with the same schema and opcode contract.
+The prepared matcher is engine-owned; input IR explicitly rejects its private
+=literal-trie= tag, including a forged but self-consistent digest. Tests exercise
+longest complete Unicode prefixes, an incomplete longer alternative,
+UTF-8 offsets, cross-mode catalog reuse, and the existing no-match failure.
+Rule precedence and conflicting-action ambiguity remain in the existing
+selection path. Checkpoint layout and canonical data are unchanged.
+
+=t/benchmarks/contextual-scanner/matched-scale.ss= now exports the existing
+IR fixture and accepts an optional catalog count. Its default scenario is
+unchanged. =just benchmark-contextual-scanner 16 5 128 512= reproduces the
+catalog scanning workload with token-count/kind/lexeme and byte coverage
+checks. Its timing excludes compilation and scanner preparation. The separate
+paired experiment also measures preparation plus scanning, using the same IR
+and source, exact baseline runtime under another namespace, =gxc -O=, three
+warmups, five alternating pairs, and complete token/checkpoint equality.
+
+Raw experiments, discarded candidates, final native pairs, short-input probes,
+source admission failures/reruns, and native qualification logs are retained in
+=.data/literal-trie-experiment/=; the position probe is in
+=.data/position-index-experiment/=. The first expanded semantic test incorrectly
+expected an unknown fallback where this scanner's established contract raises
+=no match=; it was fixed. One source harness startup exceeded the five-second
+silence fence and was excluded, then the remaining scanner gate completed.
+The source guarded timing run overlapped a short semantic rerun near its end;
+those figures are not used as the final performance claim. Native pairs and
+qualification run sequentially.
+
+Final native measurements below use 128 words (positive literal matches,
+identifier fallback, and Unicode words), 20 scans per sample, and five pairs.
+CPU medians are per scan; equality covers kind/lexeme/start/end and canonical
+final checkpoint, including UTF-8 coverage.
+
+| Axes | Literals | Includes preparation | Before CPU ms | After CPU ms | Change | Wins |
+|------+----------+----------------------+---------------+--------------+--------+------|
+| 1 | 128 | no | 0.648300 | 0.276750 | -57.31% | 5/5 |
+| 1 | 128 | yes | 0.696750 | 0.343150 | -50.75% | 5/5 |
+| 1 | 512 | no | 1.919300 | 0.282900 | -85.26% | 5/5 |
+| 1 | 512 | yes | 2.492350 | 0.687150 | -72.43% | 5/5 |
+| 16 | 128 | no | 0.872750 | 0.442750 | -49.27% | 5/5 |
+| 16 | 128 | yes | 3.638500 | 3.220700 | -11.48% | 3/5 |
+| 16 | 512 | no | 2.109300 | 0.473050 | -77.57% | 5/5 |
+| 16 | 512 | yes | 6.982950 | 3.658400 | -47.61% | 3/5 |
+
+Prepared scanning improves 49.27% to 85.26% in all four retained large-catalog
+cells, with five wins each. Single-axis preparation plus scanning also has five
+wins. The 16-axis preparation cells have only three wins, and earlier probes
+included a +23.2% regression at 512 literals; their final medians do not
+establish a stable end-to-end preparation gain. IR/cell size, repeated admission,
+and allocation/GC are material remaining costs. There is no whole-language or
+public contextual-parser throughput claim.
+
+Short-input probes use one word and 100 scans per sample. The source-length
+guard keeps them on the linear path; measured small deltas remain, so no
+universal no-regression claim is made. Small catalogs remain linear as well.
+The threshold of 128 uses the observed large-catalog native gain boundary;
+64-character source admission is a conservative preparation guard rather than
+a measured optimal length crossover. Peak memory was not measured.
+
+The final qualified source digest is =sha256:97e5a427498c6fb583f8e4eddfddf145f3757138ad3de8dc0dacf29c1718e894=. The standard 128-target
+native library build and all 79 native functional cases passed with exit zero.
+All eight original native wall contracts passed at unchanged ceilings:
+
+| Contract | p95 ms | Ceiling ms | Result |
+|----------+--------+------------+--------|
+| lalr | 3.894 | 500 | PASS |
+| incremental | 0.694 | 250 | PASS |
+| recovery | 1.325 | 250 | PASS |
+| glr | 3.390 | 250 | PASS |
+| hot-path | 13.842 | 900 | PASS |
+| gql | 19.362 | 150 | PASS |
+| opencypher | 11.077 | 250 | PASS |
+| languages | 8.195 | 500 | PASS |
+
+=matched-receipt.json= and =qualification-receipt.json= bind these local
+results. Public declaration-macro binding, contextual GLR scanner-state
+admission, optional CLI builds, and remote CI remain separate. The remote PR
+head was checked again and is still =7c15333=, already an ancestor of this
+branch. No remote push was performed.

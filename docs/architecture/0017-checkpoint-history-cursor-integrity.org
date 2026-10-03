@@ -1,0 +1,214 @@
+#+title: RFC 0017: Checkpoint history cursor integrity and edited-root evidence
+#+date: 2026-10-03
+#+status: Implemented; qualified history repair; absolute performance gates remain open
+
+* Objective and evidence boundary
+
+Continue RFC 0016 by measuring actual edited recognition roots and locating
+structural work that persists across edit histories. Source/token binding,
+prepared runtime identity, complete artifacts, independent original-production
+projection, and moved provenance remain mandatory.
+
+The isolated owner branch contains PR 13's verified remote head
+=7c1533356585154c8b5d340f64ffefb289d18907=. Local changes have not been pushed.
+The ASP dependency remains =v0.1.2.2=.
+
+* Complete publication of actual edited roots
+
+=incremental-session-publication-comparison= captures the exact machine,
+source and token list of one session in two publication closures. The canonical
+root is independently projected before timing; the event root retains its
+moved leaves and must still pass generic publication proofs. Neither closure
+reselects the backend or accesses a later session's execution state.
+
+The experiment at =edfa115fff3c534e77a65bef3f2dd63ee61562a8= qualified 48 rows:
+400/800 declarations, first/middle/last insertion/deletion, both execution
+orders, 20 CPU samples per mode. Every full artifact matches fresh parsing and
+independent projection. Physical fragment sharing is checked by identity;
+first/middle cases additionally require positive certified transfers and moved
+tokens. Tail cases retain checkpoint prefixes with zero moved tokens and zero
+new transfer count, and are labelled accordingly.
+
+| Declarations | Location | Event publication change vs canonical publication | Moved tokens |
+|--------------+----------+----------------------------------------------------+--------------|
+|          400 | first    | +22.78% to +26.18%                                  | 1197/1200    |
+|          400 | middle   | +15.87% to +18.46%                                  | 621/624      |
+|          400 | last     | -2.83% to +8.78%                                    | 0            |
+|          800 | first    | +23.61% to +24.69%                                  | 2397/2400    |
+|          800 | middle   | +9.38% to +19.88%                                   | 1221/1224    |
+|          800 | last     | -2.75% to +11.08%                                   | 0            |
+
+This excludes editing, scanning, projection and root retention. The canonical
+root has already rebound its tokens outside timing. These numbers identify a
+phase with a relocation-associated penalty; they do not isolate proof checks
+from view traversal and do not establish an end-to-end speedup or regression.
+
+The first failed measurement assumed positive transfer count for every tail
+case. That assumption was rejected rather than weakening moved-case gates.
+Two subsequent harness failures are retained as typed diagnostics, followed by
+the complete corrected matrix.
+
+* Actual LR construction operations
+
+=profile-lr-sequence-construction.py= archives the exact commit, copies native
+libraries into an independent namespace, and instruments only that copy.
+Allocation counters require recompilation of inline callers: event reducers,
+semantic sequence adapters, LR execution, publication, session execution and
+the generated HCL step. Nonzero initial field/node counts and native/source
+ownership hashes are admission gates. Instrumented CPU times are not used.
+
+The qualified baseline at =8a2502c425a83a452566d0f0699e424734ab31fd= has 26
+stages: initial construction and six edits with their inverses at each size.
+Every artifact equals fresh parsing and independent projection. All 26 stages
+have zero multi-sequence concats and zero append-buffer normalizations. This
+bounds the conclusion to these flat HCL workloads; it does not characterize
+arbitrary LR grammars.
+
+| Size | Stage               | Append calls | Singleton appends | Fields | Nodes | Full fallback |
+|------+---------------------+--------------+-------------------+--------+-------+---------------|
+|  400 | initial             |         6000 |              1599 |   3200 |  2401 | n/a           |
+|  400 | first insert        |         1615 |               803 |      8 |     7 | no            |
+|  400 | tail insert inverse |         6034 |              1616 |   3200 |  2402 | yes           |
+|  400 | tail delete inverse |         6045 |              1618 |   3208 |  2408 | yes           |
+|  800 | initial             |        12000 |              3199 |   6400 |  4801 | n/a           |
+|  800 | first insert        |         3215 |              1603 |      8 |     7 | no            |
+|  800 | tail insert inverse |        12034 |              3216 |   6400 |  4802 | yes           |
+|  800 | tail delete inverse |        12045 |              3218 |   6408 |  4808 | yes           |
+
+The initial incomplete instrumentation reported zero constructor allocations
+because old native callers retained inline expansions. Its counts are excluded
+from allocation conclusions and its failure explanation is sealed.
+
+* Structural cause and implementation
+
+A checkpoint combines an immutable LR prefix snapshot, a source-token cursor
+including trivia, and a byte cursor. These must describe the same retained
+prefix. The directed resume loop correctly initialized its token count from
+=length(prefix-tokens)=, while its initial capture callback unconditionally
+recorded zero. A subsequent edit could select a late byte cursor with a token
+cursor at the start, omit the prefix token stream, and fail publication.
+
+The failing regression produced a typed resume rejection at byte 2352:
+=recognition token does not match source order=. Fresh fallback masked the
+checkpoint error by reconstructing the whole source correctly.
+
+The implementation records the retained prefix token count in that initial
+capture. It also preserves checkpoints strictly before the chosen snapshot
+when a successful short tail emits no replacement samples. It never retains
+checkpoints from the edited suffix. Existing LR trace mode now emits the actual
+resume rejection diagnostics before fallback; successful requests add no trace
+output.
+
+The regression covers canonical and event backends, 400/800 declarations,
+tail insertion/deletion and their inverses. It requires complete artifact and
+projector equality, no fresh fallback, positive checkpoint reuse and fewer
+remaining significant tokens than declarations. Failed parses, full deletion,
+Unicode, selective GLR and layout ownership remain in the existing suite.
+
+This removes a history-dependent full-reparse path for the qualified cases.
+Full source hashing and full artifact publication still visit the whole output;
+no sublinear complete-request complexity claim follows.
+
+* Qualified construction result
+
+The fixed 26-stage run at =12974bfb91252014928b2bcc6a6fd6cdf1b7a02b= passes the strict tail-resume gate,
+complete fresh/projector equality, and source/native ownership checks.
+The before/after comparison requires identical instrumentation and harness
+hashes. It covers tail insertion and deletion inverses at both sizes.
+
+| Size | Remaining significant tokens | Append calls      | Fields       | Nodes          | Reused shifts |
+|------+------------------------------+-------------------+--------------+----------------+---------------|
+|  400 | 1600 -> 32                   | 6034/6045 -> 122  | 3200/3208 -> 64 | 2402/2408 -> 49 |          1568 |
+|  800 | 3200 -> 32                   | 12034/12045 -> 122 | 6400/6408 -> 64 | 4802/4808 -> 49 |          3168 |
+
+These are 98%/99% reductions in remaining token work for the qualified history
+cases. Both backend regression tests pass; the operation profile runs the
+event backend. The output still contains the entire source. No measured
+whole-request CPU improvement is claimed from these instrumented counters.
+
+Five focused native modules pass all 67 cases at
+=c873d1c764530d38afc7dd4a5204a88d3379f971=, including the new dual-backend
+history regression and immutable publication-closure binding. The profiling
+script added its strict gate afterwards; runtime/test sources are unchanged.
+
+* Research connection and next structural experiment
+
+[[https://www.cs.ox.ac.uk/ralf.hinze/publications/FingerTrees.pdf][Hinze and Paterson's finger trees]] provide end access and measured splitting,
+with persistence bounds that rely on laziness. Strict Scheme binary carries
+cannot inherit that bound without a separate evaluation/branching proof.
+[[https://www.cs.purdue.edu/homes/rompf/papers/stucki-icfp15.pdf][Stucki et al.'s RRB vector]] supplies a framework for immutable sequence
+concatenation and splitting. These are relevant to future mixed concat/split
+workloads; zero observed multi concats makes that replacement an unsupported
+priority for the current flat workloads.
+
+For the moved publication phase, the next falsifiable representation experiment
+is to coalesce adjacent semantic relocation runs with the same offset action.
+Composition must add deltas and OR moved provenance, preserving moved status
+when deltas cancel. Node/field/trivia boundaries and token proof must survive.
+Measure construction plus complete publication, retained old roots and repeated
+branches, and the complete edit/history matrix. A publication-only measurement
+with rebinding moved outside the timer cannot qualify the change.
+
+This is a proposed experiment, not an implemented capability. The checkpoint
+cursor repair is the implemented structural change in this RFC.
+
+* Reproduction
+
+#+begin_src sh
+python3 docs/research/reproduce-edited-publication.py OUTPUT
+python3 docs/research/profile-lr-sequence-construction.py BASELINE_OUTPUT
+python3 docs/research/profile-lr-sequence-construction.py FIXED_OUTPUT --require-tail-resume
+python3 docs/research/analyze-checkpoint-history.py BASELINE_OUTPUT/metadata.json FIXED_OUTPUT/metadata.json COMPARISON.json
+python3 docs/research/verify-source-index-native.py NATIVE_OUTPUT --keep-going
+#+end_src
+
+Every benchmark/test batch retains the 5-second real-output watchdog and
+180-second wall bound. Silent native compilation uses its own 180-second bound.
+
+* Sealed receipts
+
+Data is stored in =docs/research/data/checkpoint-history-*=:
+- edited publication: 48 raw rows and a qualified paired receipt;
+- construction: two 26-stage scalar receipts, raw rows and four comparisons;
+- focused native: 67 cases, propagated exit and final =OK=;
+- native compilation and section completeness;
+- failed harness premises, inline instrumentation and typed cursor rejection.
+
+The RFC 0016 full request matrix remains historical evidence at its own head.
+It is not presented as a new CPU qualification for this checkpoint repair.
+
+* Rejected native sample observer and remaining gates
+
+The first full 59-module audit terminated three benchmark batches under the
+unchanged 5-second silence guard. Those failed receipts are retained. A test
+observer prototype resolved private ASP helper bindings and passed a direct
+thunk/payload probe. Compiled ASP callers bypassed that runtime wrapper: the
+subsequent full audit emitted zero sample completion notices. That observer is
+rejected and removed; it is not an implemented native progress capability.
+A proper ASP owner callback would need to survive native compilation.
+
+The full audit at =8d28436467bf190bab57a497b5e6a10dc8194840= starts all 497 cases, passes 495 and retains
+two genuine performance failures, with no watchdog termination:
+- =GERBIL-PARSER-POO-GRAMMAR-OBJECTS=: p95 456.498ms, unchanged ceiling 100ms;
+- =GERBIL-PARSER-GQL-RUNTIME=: p95 252.182ms, unchanged ceiling 150ms.
+
+All source/runtime semantic cases, language packs, package/build/style and
+version contracts complete. The timing data is not a before/after comparison
+and establishes neither a causal regression nor performance closure. The
+candidate event backend remains disabled by default. The observer attempt did
+not change the benchmark input, sample count, timer or thresholds; it is excluded
+from sample-progress qualification and the driver is restored byte-for-byte.
+
+* Verification budget after this audit
+
+The follow-up audit with the restored driver was explicitly stopped after the
+user objected to the accumulated eight-minute verification wait. Its partial
+output is not a completed qualification. No further test run was started.
+
+For subsequent iterations, compile affected modules once, then run independent
+focused test groups concurrently. Keep the 5-second real-output guard and set a
+90-second aggregate test-phase budget; native compilation has a separate,
+reported budget. Report the specific unfinished gate at the deadline instead
+of retrying the full audit. Run the full suite once at an integration boundary,
+not after every experiment. Parallel timings cannot qualify a CPU comparison:
+performance measurements require an isolated, bounded run.

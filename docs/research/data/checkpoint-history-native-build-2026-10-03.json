@@ -1,0 +1,15 @@
+{
+  "head": "c873d1c764530d38afc7dd4a5204a88d3379f971",
+  "command": [
+    "gxc",
+    "-O",
+    "src/runtime/parser.ss",
+    "src/runtime/incremental.ss"
+  ],
+  "exit": 0,
+  "wall_seconds": 75.82903408299899,
+  "build_batch_seconds": 180,
+  "source_sha256": "bcbe2fab1835cf995424cf595623c444ab4d872d1cfd7ecfb434c6c7904eb557",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "complete": true
+}

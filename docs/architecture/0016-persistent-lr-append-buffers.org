@@ -183,3 +183,11 @@ for review in this single RFC and its receipt family.
 The HCL generated-source check completed with normal exit zero and
 =GENERATED-HCL-STEP-OK= at the same source head. Its executor command and
 log hash are sealed separately. The production default remains canonical.
+
+* Follow-up: checkpoint history integrity
+
+[[file:0017-checkpoint-history-cursor-integrity.org][RFC 0017]] measures actual moved edited roots and native LR construction
+operations. It identifies and repairs a resumed-checkpoint token cursor defect
+that caused tail inverse edits to discard successful incremental work and
+reparse in full. Its operation counts and publication-only measurements have
+separate evidence boundaries from this RFC's constructor and request matrix.

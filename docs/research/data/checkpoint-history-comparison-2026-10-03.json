@@ -1,0 +1,117 @@
+{
+  "schema": "gerbil-parser.checkpoint-history-comparison.v1",
+  "before_head": "8a2502c425a83a452566d0f0699e424734ab31fd",
+  "after_head": "12974bfb91252014928b2bcc6a6fd6cdf1b7a02b",
+  "complete": true,
+  "scope": "Instrumented operation counts; no CPU or complete-request speedup claim",
+  "comparisons": [
+    {
+      "input_units": 400,
+      "stage": "last-insert-inverse",
+      "checkpoint_shifts": 1568,
+      "counts": {
+        "append-calls": {
+          "before": 6034,
+          "after": 122,
+          "reduction_pct": 97.97812396420285
+        },
+        "field-allocations": {
+          "before": 3200,
+          "after": 64,
+          "reduction_pct": 98.0
+        },
+        "node-allocations": {
+          "before": 2402,
+          "after": 49,
+          "reduction_pct": 97.96003330557869
+        },
+        "remainingSignificantTokenCount": {
+          "before": 1600,
+          "after": 32,
+          "reduction_pct": 98.0
+        }
+      }
+    },
+    {
+      "input_units": 400,
+      "stage": "last-delete-inverse",
+      "checkpoint_shifts": 1568,
+      "counts": {
+        "append-calls": {
+          "before": 6045,
+          "after": 122,
+          "reduction_pct": 97.98180314309346
+        },
+        "field-allocations": {
+          "before": 3208,
+          "after": 64,
+          "reduction_pct": 98.00498753117208
+        },
+        "node-allocations": {
+          "before": 2408,
+          "after": 49,
+          "reduction_pct": 97.96511627906976
+        },
+        "remainingSignificantTokenCount": {
+          "before": 1600,
+          "after": 32,
+          "reduction_pct": 98.0
+        }
+      }
+    },
+    {
+      "input_units": 800,
+      "stage": "last-insert-inverse",
+      "checkpoint_shifts": 3168,
+      "counts": {
+        "append-calls": {
+          "before": 12034,
+          "after": 122,
+          "reduction_pct": 98.98620575037394
+        },
+        "field-allocations": {
+          "before": 6400,
+          "after": 64,
+          "reduction_pct": 99.0
+        },
+        "node-allocations": {
+          "before": 4802,
+          "after": 49,
+          "reduction_pct": 98.9795918367347
+        },
+        "remainingSignificantTokenCount": {
+          "before": 3200,
+          "after": 32,
+          "reduction_pct": 99.0
+        }
+      }
+    },
+    {
+      "input_units": 800,
+      "stage": "last-delete-inverse",
+      "checkpoint_shifts": 3168,
+      "counts": {
+        "append-calls": {
+          "before": 12045,
+          "after": 122,
+          "reduction_pct": 98.98713158987131
+        },
+        "field-allocations": {
+          "before": 6408,
+          "after": 64,
+          "reduction_pct": 99.00124843945068
+        },
+        "node-allocations": {
+          "before": 4808,
+          "after": 49,
+          "reduction_pct": 98.98086522462563
+        },
+        "remainingSignificantTokenCount": {
+          "before": 3200,
+          "after": 32,
+          "reduction_pct": 99.0
+        }
+      }
+    }
+  ]
+}

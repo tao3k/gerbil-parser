@@ -1,0 +1,14 @@
+{
+  "head": "7570df3df745605a520f59e51717e4bee6d986eb",
+  "ok": true,
+  "exit": 0,
+  "watchdog": false,
+  "log_sha256": "edf807e82f9278d1358a7e82995be727b1f60cc58c2a4507647c0e2ad442606a",
+  "command": [
+    "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+    "t/fixtures/benchmark-progress.ss",
+    "t/benchmarks/hcl-scale/generate-step.ss",
+    "check",
+    "languages/hcl/v2-24/direct-step.ss"
+  ]
+}

@@ -1,0 +1,254 @@
+#+title: RFC 0015 — One persistent sequence for LR semantics and events
+#+startup: overview
+
+* Question and fixed comparison
+
+RFC [[file:0014-persistent-lr-event-programs.org][0014]] established that the first event backend added request cost even
+when certified transfer and scanner counters matched. All 28 matched requests
+were slower in both orders. This experiment targets the duplicated semantic
+sequence construction, rather than changing dispatch syntax or relaxing proofs.
+The production default remains canonical while qualification is pending.
+
+* Research transfer and its limits
+
+[[https://homepages.inf.ed.ac.uk/wadler/topics/deforestation.html][Wadler's deforestation]] identifies intermediate producer/consumer trees as
+a transformation target, under restrictions on the input functions. We do not
+implement that compiler transformation or inherit a speed claim. We specialize
+the known field/alias LR algebra so the semantic sequence already is the event
+sequence. This is an implementation inference from that structural principle.
+
+[[https://github.com/lezer-parser/common/blob/main/src/tree.ts][Lezer's tree implementation]] makes storage, traversal and reusable fragments
+explicit. Its TreeBuffer stores 16-bit type/start/end/end-index quads. Our
+immutable Scheme records retain full UTF-8 byte offsets, field labels, original
+token references and position views; there is no port of the packing scheme.
+The existing LR and lexical certificates still admit every reused fragment.
+
+* Representation and operation contracts
+
+| Semantic value | Shared instruction | LR operation |
+|----------------+--------------------+--------------|
+| Empty sequence | false              | append identity |
+| Unnamed token  | original token     | shift retains the token |
+| Node/fragment  | program value      | opaque semantic singleton |
+| Named child    | immutable field frame | label frozen at construction |
+| Multiple children | balanced append branch with cached start/end/height | both operands retained |
+| Moved sequence | composed position view | body retained; zero-sum moves remain moved |
+
+Branch bounds are calculated once from operand bounds. Field construction
+uses capped arity to distinguish empty, unnamed singleton, named singleton
+and multiple children. Named singleton/multiple fields retain a fragment
+boundary so the final trivia flush agrees with canonical publication. Alias
+construction retains the sequence directly as its body. Neither operation
+visits all children on the normal event path.
+
+A private semantic visitor is the explicit inspection/materialization boundary.
+It treats nodes and fragments as leaves, preserves field names and moved
+provenance, and constructs conventional recognition children only on demand.
+The event publisher walks the same DAG directly and still allocates the full
+canonical event list. Complete-output construction remains linear; this
+experiment cannot remove the output-size lower bound.
+
+* Runtime, generated code and proof ownership
+
+The selected ParserMachine owns the selected LR runtime, lexical plans and
+rebound token parser closure. The LR loop binds its semantic mode once;
+event shifts retain raw tokens, and the original branch retains its ordinary
+children. Generic pass/concat and generated HCL event reductions both use
+=event-program-append=. The HCL generator derives this from the sole Parser IR.
+GLR, dynamic semantics and layout remain on their existing admitted backend.
+
+The strict prepared-runtime and executor identities, entry/exit LR state,
+lookahead, lexical modes and token-binding checks are unchanged. The original
+production projector still uses the original reducer; it cannot validate the
+new representation by replaying that same representation. Legacy child
+conversion snapshots mutable field labels and is limited to explicit legacy
+inputs, not used for normal event reductions.
+
+* Physical and semantic qualification
+
+The native suite checks alias body identity on a 10,000-leaf sequence,
+cached bounds after composed/cancelled moves, and the representation of
+actual captured HCL fragment values. Existing checks cover named fields,
+mutable field snapshots, moved token proofs, UTF-8, inverse/history edits,
+positive transfer count equality, cross-runtime rejection, canonical LR,
+GLR/layout boundaries and full original-production projection.
+
+At implementation source =2d6011fac87303744b79229a237fadb515efa753=,
+five native modules completed 60 cases with normal exits, explicit module,
+harness and final completion. All generated native sections were complete.
+The first development build failed on a bracket error and remains preserved;
+it is not a qualification receipt.
+
+* Measurement and admission
+
+Use the entire existing 112-row matrix, 20 CPU samples, both variant orders:
+flat 400/800 declarations, nested 8/16 groups, first/middle/last insert/delete
+and six-edit histories. Require physical event-root/executor assertions,
+complete fresh artifacts, inverse edits, independent original-production
+projection and equality of every scalar transfer/scanner counter.
+
+#+begin_src sh
+python3 docs/research/reproduce-lexical-plans.py OUTPUT --event-program
+python3 docs/research/analyze-event-programs.py OUTPUT SUMMARY
+python3 docs/research/verify-source-index-native.py NATIVE_OUTPUT --keep-going
+#+end_src
+
+Five seconds without real test/benchmark output and 180 seconds per batch
+remain failures. Native compilation has its separately bounded silent C
+phases. Local conformance, same-head backend cost, production-default impact
+and remote CI remain separate qualifications. No default admission or speedup
+is claimed before the results below are complete.
+
+* Unchunked result and the identified consumer cost
+
+The unchunked =2d6011f= experiment completed all 112 rows. All semantic
+and scalar transfer/scanner counters matched, but all 28 workloads were
+slower in both orders. Family geometric mean increases were 20.6% / 17.0%
+for flat topology edits, 21.2% / 24.4% for nested topology edits, 10.3% /
+10.0% for flat histories and 20.6% / 21.7% for nested histories.
+
+A separate same-token publication experiment reconstructs the canonical
+root through the original production projector outside timing. Both roots
+must reproduce the entire captured artifact. It measures only
+=make-success-parse-artifact=, with 20 CPU samples and both orders on flat
+400/800 and nested 8/16 sources. All 16 rows passed equality, but the event
+consumer was 79.1% to 86.4% slower. These are publication-only measurements,
+not a profile claiming that all request cost belongs to publication. They
+establish that producer fusion alone leaves a substantially costlier consumer.
+
+* Bounded blocks and persistent traversal
+
+The next implementation retains the shared semantic/instruction algebra,
+but packs up to 16 semantic leaves into a private vector block. Append
+copies a bounded leaf block and the boundary path of an AVL join, sharing
+unchanged subtrees. Join cost is logarithmic in sequence size, with at most
+16 leaf references copied per block. Cached branch height excludes opaque
+node/field bodies, which own their own sequence balance. An existing block
+is never rewritten. Moving a multi-leaf
+block retains a position view, rather than eagerly translating its leaves.
+Node, field and fragment boundaries remain explicit instructions.
+
+A traversal creates one mutable, private cursor per block and advances it
+through the immutable leaves. It no longer allocates a continuation vector
+for every binary concatenation inside that block. The cursor never escapes
+or mutates the program. The materialization visitor follows the same block
+contract; output order, capped arity and cached bounds agree across both
+consumers.
+
+The first block regression run revealed that a deferred right-branch frame
+can point to a block without being a block cursor. That caused an out-of-range
+index and failed native cases; this failed receipt is retained. Cursor and
+deferred-frame forms are explicitly distinguished in the correction. Updated
+semantic, request and publication results must all qualify this correction.
+
+* Specializing the consumer and controlling traversal depth
+
+The block correction passed five native modules and 61 cases, but isolated
+publication still cost 80.5% to 87.5% more than canonical publication. Blocks
+alone did not solve the consumer cost. The next experiment expanded a single
+traversal template into the publisher, with literal operation consumers. The
+general inspection walker uses the same template. Generated native Scheme
+contained no call to the generic event walker. This passed 61 cases, but
+publication still cost 61.5% to 73.5% more. Neither intermediate candidate
+was given an additional full request matrix after this phase gate failed.
+
+The template now traverses ordinary code directly up to depth 64 and falls
+back to explicit continuations beyond that bound. Opening a node returns
+its publication ID; the corresponding traversal activation retains that ID
+until closing. This removes the duplicate node-ID stack. The fallback stores
+that same context in its node footer, including when nested inside blocks
+and moved views. Root clamps, token proofs and complete-output checks remain
+in the consumer.
+
+A 10,000-node artifact must validate with all 20,001 events, matching root
+opening/closing ID zero. Together with the prior cases this passed 62 native
+cases. Publication at 400 declarations was mixed (-4.0% / +1.45%); nested
+8/16 groups improved 5.1% to 7.1%, while 800 declarations still cost 31.2%
+to 33.4% more. The linear sequence height was a plausible cause of early
+fallback, rather than an observed profile of fallback calls.
+
+The final candidate uses persistent AVL joins so broad sequences have
+logarithmic height. Native cases additionally require a height at most 12
+for 10,000 leaves and asymmetric joins of 1/5,000, 257/4,096 and their
+reverse orders. They require complete order and unchanged old operands.
+The implementation now qualifies the entire producer, storage and consumer
+pipeline together; its final receipts are recorded below.
+
+* Completed balanced candidate and admission decision
+
+At source =7570df3df745605a520f59e51717e4bee6d986eb=, all native sections were
+complete and five focused modules passed 63 cases. The complete publication
+experiment produced 16 equal-artifact rows. Flat 800 publication changed
++0.83% / -1.87%, eliminating the large observed 31%–33% regression of the
+unbalanced predecessor. Flat 400 changed +0.58% / -4.02%; nested 8 changed
+-3.58% / -5.07%; nested 16 changed +2.04% / -4.90%. These mixed orders do
+not establish a universal publication speedup.
+
+The complete same-head request matrix produced 112 rows and 28 paired
+workloads. Fresh output, inverse output, independent original-production
+projection and every scalar transfer/scanner counter matched. Fourteen
+workloads improved in both orders, ten regressed in both, and four were
+mixed. Family geometric means by execution order were:
+
+| Family | Order 1 | Order 2 |
+|--------+---------+---------|
+| Flat topology | +12.99% | +12.86% |
+| Nested topology | -3.88% | -2.21% |
+| Flat six-edit histories | +19.22% | +16.92% |
+| Nested six-edit histories | +0.42% | -1.02% |
+
+This qualifies the shared representation and removes the earlier broad
+consumer regression, but rejects a general performance/default-admission
+claim. The canonical production default remains selected. These are local
+same-head comparisons, not a production-default before/after experiment
+or remote CI qualification. Runtime certificates and existing performance
+thresholds remain unchanged.
+
+Receipts are in =docs/research/data/unified-lr-*=. The balanced matched JSON
+and S-expression contain exact source, recipe, native build and per-job
+hashes plus every sample. The balanced publication pair retains raw samples
+and its explicitly narrower timing scope. Earlier phase results and the
+block cursor failure are retained with their own source identities.
+
+* Next structural hypothesis and falsifiable experiment
+
+AVL joining makes the traversal height logarithmic but copies the boundary
+path for repeated singleton append. A flat reduction stream can therefore
+pay logarithmic path allocation at each append. The request regression and
+near-canonical publication make producer/storage cost a concrete candidate;
+this is a hypothesis, not an allocation profile establishing sole causation.
+
+[[https://www.staff.city.ac.uk/~ross/papers/FingerTree.html][Hinze and Paterson's 2–3 finger trees]] provide persistent sequence end access
+in amortized constant time and concatenation/splitting logarithmic in the
+smaller side. That is a relevant alternative for the prefix-plus-singleton
+LR reduction pattern. The Scheme implementation must establish its own
+strict evaluation/scheduling and allocation behavior; the Haskell design's
+complexity claims cannot be inherited by a direct eager transcription.
+The authors' published correction explicitly warns that a smart measured
+constructor can force a recursive call and lose laziness crucial to the
+analysis; a Scheme adaptation needs a scheduling proof or a more limited
+complexity claim.
+
+The next experiment should replace only the shared sequence join policy,
+retaining frozen field/node/token/view leaves and the original independent
+projector. It should measure constructor allocations and producer-only cost
+for 400/800/1,600 sequential appends and uneven concatenations, retaining all
+prior roots. Admission still requires the entire 112-row request matrix,
+all counter invariants, deep fallback and zero-sum movement checks, and
+separate production-default impact. A lower isolated publication median is
+insufficient. No finger-tree implementation or speed claim is made here.
+
+* Full native and generated-source boundary
+
+The same implementation head completed the full native audit of 59 modules:
+492 of 493 started cases passed. The only failure was the existing
+=GERBIL-PARSER-POO-GRAMMAR-OBJECTS= performance gate: p95 106.286 ms against
+100 ms. The build/dependency version contract passed. GQL's unchanged
+150 ms gate passed at p95 53.815 ms. The audit propagated the failure with
+nonzero exit; harness output alone is not presented as success. There is
+no threshold relaxation or claim of complete local/remote qualification.
+
+The HCL generated-source check completed with normal exit zero and
+=GENERATED-HCL-STEP-OK=. Focused 63-case, full-audit, generated-source and
+native-section manifests are separately sealed. No PR push or merge was
+performed. The ASP dependency remains pinned to formal release =v0.1.2.2=.

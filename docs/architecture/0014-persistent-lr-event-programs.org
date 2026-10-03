@@ -189,3 +189,9 @@ cases passed with normal exit and explicit MODULE/HARNESS/final completion.
 Runtime, language and dependency source is unchanged since the whole audit.
 The whole audit and this focused correction are distinct receipts; the
 remaining observed gate failure is grammar-object construction time.
+
+* Subsequent producer/storage/consumer experiment
+
+RFC [[file:0015-unified-lr-semantic-event-sequences.org][0015]] records the shared LR/event sequence, bounded blocks, specialized
+consumer and persistent AVL joins. Its independent 112-row result is mixed,
+so it does not supersede the canonical default admission decision above.

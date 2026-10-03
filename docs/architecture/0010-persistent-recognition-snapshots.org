@@ -553,7 +553,7 @@ GERBIL_PARSER_BENCHMARK_SAMPLES=20 gerbil env gxi -:max-heap=1G,debug=q t/benchm
 
 The catalog transfer implementation above rebuilt candidate start/end tables and
 significant-token prefix counts by enumerating the captured grammar forest on
- every edit. The continuation replaces that catalog with a request-owned,
+every edit. The continuation replaces that catalog with a request-owned,
 preorder cursor, following the admission/traversal separation in
 [[https://github.com/tree-sitter/tree-sitter/blob/20cf25c10f13ed9b8c499dd966b4e7a57bedbf81/lib/src/parser.c][Tree-sitter's pinned reuse-node implementation]]. The existing LR certificate
 remains the admission authority; a source interval alone is insufficient.
@@ -580,3 +580,78 @@ tokens; left-recursive affected ancestry can remain linear; the frontier uses
 O(H) space. Flat event publication and whole-source hashing retain their previous
 linear lower bound. A balanced repeat semantic fold remains a separate, explicitly
 unimplemented step under the sequence-semantics contract above.
+
+** Qualified native cursor experiment
+
+[[file:../research/data/recognition-cursor-matched-2026-10-03.sexp][180 measurement rows with raw CPU samples]] pin runtime and benchmark source
+=7cb11943fa5cd4afcd6cf3f6abff8e1e14574f55=. The control uses the catalog function
+from =0032a6251ce423bed1b8894d5654bb29f1204c8c= inside the same native executor,
+scanner, certificate, projector and publisher. Its only source adaptations are
+absolute module imports and padding the statistics vector from nine to ten
+slots. It is compiled with =gxc -O= and installed as an isolated native module;
+the test fixture replaces the exported finder binding only in its subprocess.
+The receipt retains original/adapted source hashes and native object hashes.
+A zero cursor count in the catalog rows is a padding value, not an observed
+zero traversal cost.
+
+Each flat/nested matched case uses 20 fresh and 20 cached samples, followed by
+another complete matched pass. Initial session capture, forest counting,
+explicit GC and completion printing are outside the timer. Complete artifact
+publication and edit receipts remain inside. Every row checks fresh artifact
+equality, independent forward projection, inverse edit equality and independent
+inverse projection. Five-sample scale/guard rows cover flat HCL 2/100/200/400/800
+and arithmetic 2/400/800/1600/3200. All eleven batches ran serially with a 1G heap,
+closed stdin, five-second output inactivity limit and 180-second batch limit.
+
+Representative complete-edit CPU medians (milliseconds):
+
+| Workload and edit                | Catalog pass 1 | Cursor pass 1 | Catalog pass 2 | Cursor pass 2 |
+|---------------------------------+----------------+---------------+----------------+---------------|
+| HCL 800, first insertion         |          7.809 |         5.543 |          7.498 |         5.048 |
+| HCL 800, middle insertion        |          5.206 |         3.302 |          4.843 |         3.240 |
+| HCL 16 nested blocks, first insert |        9.043 |         3.825 |          9.065 |         3.692 |
+| HCL 16 nested blocks, first delete |        7.678 |         2.408 |          7.594 |         2.394 |
+
+For the 400/800 flat cases, first/middle edits improve by 27.5–45.2% across the
+two passes; short-tail cases do not establish a stable algorithm gain. In the
+16-block nested case, first insertion improves by 57.7/59.3%, and first deletion
+by 68.6/68.5%. Its initial forest has 28,354 grammar fragments; the cursor
+inspects 567 frames for first insertion and 76 for first deletion. These are
+frame observations rather than unique-node counts. Matched controls retain
+identical reused/remaining significant-token counts: the gain comes from
+candidate discovery cost, not a broader admission rule.
+
+The scanner-probe off/on control has mixed CPU differences and does not establish
+an independent throughput gain. Its bounded token handoff and context checks
+are qualified capabilities; no separate CPU improvement is claimed. Arithmetic
+still uses the existing guarded path and does not acquire repeat transfers.
+
+[[file:../research/data/recognition-cursor-native-2026-10-03.sexp][Native qualification]] records all 55 modules in 19 batches, including 19
+recognition-snapshot cases and five lexical-probe cases. The harness propagates
+the native status via explicit exit; real import/eval, CASE/CHECK and LR progress
+support the unchanged silence gate. Earlier post-OK stalls, copied-checkout
+startup failures, contended runs and interpreted-catalog CPU runs are excluded.
+These receipts qualify local native behavior; remote CI for this local source
+head has not been run.
+
+Reproduce from a checkout whose runtime, language and benchmark sources match
+=7cb1194=; the receipt commit supplies the runner and fixture:
+
+#+begin_src sh
+GERBIL_BUILD_CORES=12 gerbil build
+python3 docs/research/reproduce-recognition-cursor.py /private/tmp/recognition-cursor-reproduction
+#+end_src
+
+** Remaining structural work after the cursor
+
+1. Replace per-edit token/mode vector construction with persistent ordered source
+   storage. Measure setup allocation and lookup work separately from LR replay.
+2. Introduce balanced repeat storage only with the sequence-origin and semantic
+   fold contract above. Preserve the context-dependent repeat veto and original
+   reduction semantics; tree shape alone cannot prove admissibility.
+3. Separate persistent recognition output from flat artifact materialization.
+   The current complete-publication API and SHA256 identity still impose linear
+   work even when recognition transfer is local.
+
+The cursor removes one full-forest preparation pass. It does not close these
+three gaps or establish logarithmic whole-edit complexity.

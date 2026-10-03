@@ -255,3 +255,27 @@ python3 docs/research/verify-focused-native.py OUTPUT --module t/source-index-te
 Sealed phase rows and selected-run metadata are in
 =docs/research/data/runtime-closure-phases-2026-10-03.*= and
 =docs/research/data/focused-parallel-deadline-2026-10-03.json=.
+
+* Latest PR rebase and conditional publication authority
+
+The human explicitly authorized committing and pushing to the existing GitHub
+PR after closure. This authorization persists; no additional push confirmation
+is needed once the remaining gates are actually satisfied.
+
+PR 13 was refreshed at =07ae54248e0ed7a2525c4291f81243f54131c4ff=. Its nine commits include contextual
+scanner/parser state, prepared request plans, and runtime optimizations. The
+78 local commits were rebased from =51a65ccee78d8fe2a463f02819c63d695347fa4a= to =a9c05c2a376c983122feb49f2466fa5b758be1a2=. Independent Justfile
+entries and equivalent suite exports were retained. The LR executor now keeps
+both contextual state callbacks and stop-before-shift behavior; the latter
+caller supplies false for contextual state before enabling its stop flag.
+Upstream ASCII numeric/empty-delimiter predicates survive the lexical merge.
+The incremental workload retains a topology-changing input and the upstream
+significant-token conservation checks.
+
+Twelve merged files pass Scheme reading and the diff passes whitespace checks.
+This 1.53-second check is syntax evidence only. Previous native, timing and
+structural receipts remain tied to their recorded pre-rebase heads. New native
+build/integration, both unchanged wall p95 gates and FFI successful exit remain
+open. Observed host load subsequently reached 201.52; no timing retry or remote
+push was performed to manufacture closure. The sealed rebase receipt is
+=docs/research/data/checkpoint-history-rebase-2026-10-03.json=.

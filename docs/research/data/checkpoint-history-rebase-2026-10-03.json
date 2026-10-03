@@ -1,0 +1,22 @@
+{
+  "schema": "gerbil-parser.rebase-source-check.v1",
+  "prior_head": "51a65ccee78d8fe2a463f02819c63d695347fa4a",
+  "upstream_head": "07ae54248e0ed7a2525c4291f81243f54131c4ff",
+  "rebased_head": "a9c05c2a376c983122feb49f2466fa5b758be1a2",
+  "replayed_commits": 78,
+  "remote_mutation": false,
+  "source_read_check": {
+    "files": 12,
+    "exit": 0,
+    "wall_seconds": 1.53,
+    "log_sha256": "9f64018deb618e3ba460161907bab8347d19bded4b549d5f84bfab215d523c7e"
+  },
+  "native_qualification": false,
+  "remaining_gates": [
+    "rebased native build and semantic integration",
+    "POO wall p95 <= 100ms",
+    "GQL wall p95 <= 150ms",
+    "FFI successful native process exit"
+  ],
+  "push_authority": "Human explicitly authorized updating the existing GitHub PR after closure; do not ask again and do not claim old receipts qualify this rebased head."
+}

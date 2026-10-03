@@ -52,3 +52,7 @@ benchmark-contextual-parser requests="16" samples="5":
 # Complete deferred batches; each sample reports real token and byte coverage.
 benchmark-contextual-deferred delimiters="512" samples="5":
     GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-deferred-scale.log --require DEFERRED-SCALE-OK -- gxi t/benchmarks/contextual-scanner/deferred-scale.ss {{delimiters}} {{samples}}
+
+# Host-native toolchain; compiler admission and real test progress stay separate.
+test-native-local suite="rust" gerbil_path=".gerbil":
+    python3 scripts/test-native-local.py --suite {{quote(suite)}} --gerbil-path {{quote(gerbil_path)}}

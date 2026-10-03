@@ -1,0 +1,235 @@
+#+title: RFC 0010 — Persistent recognition snapshots and explicit publication
+#+startup: overview
+
+* Status and decision
+
+Research decision, 2026-10-03. Runtime migration is proposed, not implemented.
+Measured runtime baseline: =21510a44cadb0d6dcdc3c2c4f973bcf9c372bc43=.
+This change implements topology benchmark coverage and preserves its receipts.
+It does not replace the ParseArtifact v1 authority or introduce a public tree API.
+
+The next structural work is one dependency chain: capture reusable grammar
+structure, retain it with relative coordinates, certify reuse during recognition,
+and materialize the existing canonical artifact at an explicit boundary.
+Changing action dispatch alone does not address the measured suffix replay.
+
+The completed grammar-construction work stays in place: grammar-wide prediction,
+shared LR(0) prediction templates, kernel-first identity, and sparse LALR graphs.
+Earlier matched complete TLA construction measured 46.5365 ms versus 15.229 ms;
+that receipt is in the linked performance framework. It is construction evidence,
+not a claim about parse throughput or incremental updates.
+
+* Cost model and authority
+
+Let B be source bytes, T significant tokens, E published events, K affected input,
+and H affected grammar ancestry. Separate these costs:
+
+| Operation | Existing costs and ownership |
+| Grammar generation | LR state construction, closure/template work, lookahead propagation; compiler/lr-automaton.ss |
+| Fresh parse | Lexing, deterministic recognition or bounded ambiguity search, event construction, publication |
+| Session edit | Source patch, token convergence, checkpoint selection, suffix recognition, event relocation, publication, receipt |
+| Complete publication | Flat events, absolute offsets and token identities, whole-source SHA256, diagnostics |
+
+=src/runtime/artifact.ss= constructs a canonical alist with grammarDigest,
+sourceDigest, sourceByteLength, status, events and diagnostics. Its sourceDigest
+is SHA256 of the complete source bytes; events are an actual flat list.
+Consequently full publication remains Omega(B + E), even if recognition becomes
+local. =make-certified-window-artifact= still rebuilds the flat event result.
+The incremental receipt's complete =reusedTokenIds= list can itself be linear.
+Source patching currently also traverses UTF8 text. These are distinct costs,
+not one LR-loop problem.
+
+RFC 0003 makes ParseArtifact the sole published authority. RFC 0005 governs
+sidecar evolution. A private snapshot may accelerate production of that artifact;
+it cannot silently become a different published authority. Merkle source identity
+must not be substituted for the existing SHA256 identity. Lazy event objects must
+not be returned in the v1 flat events field.
+
+Existing private recognition sequences already use O(1) concatenation ropes.
+Adding a rope around semantic concatenation alone would repeat existing work.
+What is missing is reusable grammar reduction structure and its admissibility
+proof before semantic actions erase grammar nonterminals through pass/alias/inline.
+
+* Executable evidence
+
+[[file:../research/data/incremental-topology-2026-10-03.sexp][54 topology measurements]] retain sizes, edit positions, operation, equality
+checks, recognition counters, lexical convergence and CPU medians.
+Each case compares the complete artifact with fresh parsing and applies an inverse
+edit to recover the original complete artifact. Five CPU samples per side, with
+explicit GC before each call outside the timer; session creation is excluded.
+Full artifact production and incremental receipt construction are included.
+
+| Family / size / insertion position | Fresh CPU median ms | Session CPU median ms | Remaining significant tokens |
+| Arithmetic / 3200 / first | 6.805 | 10.442 | 6401 |
+| Arithmetic / 3200 / middle | 8.579 | 6.743 | 3201 |
+| Arithmetic / 3200 / last | 7.045 | 3.343 | 33 |
+| Independent HCL attributes / 800 / first | 0.671 | 8.266 | 3204 |
+| Independent HCL attributes / 800 / middle | 0.674 | 4.851 | 1636 |
+| Independent HCL attributes / 800 / last | 0.689 | 1.751 | 36 |
+
+HCL first insertion relexes only 12 bytes and converges on 4800 suffix tokens,
+but the recognition reuse count is zero. Token convergence is insufficient for
+recognition convergence. Counters report the receipt's remaining-token measure;
+they are not independently instrumented transition or reduction counts.
+
+HCL fresh parsing and captured sessions have different executor paths: generated
+language parsing versus generic LR capture. This is an end-to-end API comparison,
+not a matched inner-loop comparison. The architecture must cover both owners;
+otherwise sessions can retain an executor penalty after subtree reuse is added.
+
+Arithmetic has a separate semantic constraint: inserting the first operand into
+a left-associated expression changes its ancestor chain. Rebalancing operator
+semantics is inadmissible. HCL sibling declarations isolate repeated independent
+structure; they do not prove that the current grammar already admits balanced
+reductions. A repeat transformation must preserve its published output exactly.
+
+Existing same-width generic-token edits, 400 to 3200 arithmetic terms, increase
+cached best wall time from about 0.252 to 1.954 ms despite the event-window fast
+path. This supports the publication concern; it is not CPU median evidence.
+Prepared-token stage timings are a different executor path and cannot be summed
+or used as percentages of the direct streaming fresh-parser total.
+
+* Algorithm study and transfer boundary
+
+** Incremental LR and balanced sequences
+
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Wagner and Graham, Efficient and Flexible Incremental Parsing]] provides the
+primary incremental-LR model. Its local-update complexity depends on maintained
+structural information and balancing suitable sequences. Context-dependent
+productions can invalidate locality. Transfer the reusable grammar fragments and
+context checks; do not transfer a logarithmic bound to arbitrary CFGs, arithmetic
+ancestry, or whole-artifact publication.
+
+** Maintained implementations
+
+[[https://raw.githubusercontent.com/tree-sitter/tree-sitter/master/lib/src/parser.c][Tree-sitter parser implementation]] validates reuse against parser/lexical
+state, changed ranges, fragile or erroneous nodes and external scanner context.
+Its useful seam here is reuse admission before ordinary recognition work.
+Matching byte positions alone cannot certify it. Its public tree contract differs
+from the existing flat artifact contract.
+
+[[https://raw.githubusercontent.com/lezer-parser/lr/main/src/parse.ts][Lezer LR implementation]] tests goto availability for a cached node and strict
+context compatibility. Transfer the nonterminal transition check plus context
+binding. A matching exported AST kind alone is insufficient: semantic actions
+can erase the grammar LHS. Neither implementation is a drop-in executor for the
+current Scheme-owned language machines.
+
+** Generation, ambiguity and recovery
+
+[[https://arxiv.org/abs/2209.08383][langcc: A Next-Generation Compiler Compiler]] is relevant to generated parser
+control flow and grammar transformation. Evaluate complete language behavior and
+build cost before transferring its generation strategy. It does not resolve the
+flat-publication bound or supply current session reuse certificates.
+
+The current bounded ambiguity executor is not a graph-structured-stack/shared
+packed-forest implementation. A future GSS/SPPF change needs its own equivalence
+experiment: all viable alternatives, scoring, deterministic selection, budget
+exhaustion and diagnostics. Reusing a selected AST alone can hide alternatives.
+That work is outside the first deterministic snapshot admission.
+
+[[https://soft-dev.org/pubs/html/diekmann_tratt__dont_panic/][CPCT+ recovery study]] addresses repair quality. Synthetic token values and
+semantic actions require an explicit recovery contract before adoption. Recovery
+quality, search completeness and valid-input throughput are different metrics.
+Recovered or ambiguous regions initially veto snapshot reuse.
+
+* Proposed architecture and invariants
+
+** Private source and recognition snapshot
+
+Keep a session-owned immutable source snapshot and a grammar-annotated forest.
+Record production/LHS, subtree extent, executor binding, boundary context and
+recognition evidence before executing erasing semantic projections. Represent
+positions relative to persistent source spans. Unchanged suffix nodes then need
+no per-node absolute-offset rewrite during private updates.
+
+Persistent internal identities are not canonical exported token or node IDs.
+Export derives the existing IDs and absolute coordinates in canonical order.
+Store the internal event projection in an indexed persistent sequence so local
+queries and updates can avoid flattening. Retain grammar annotations separately
+from public semantic node kinds.
+
+Balance only compiler-certified, context-independent repetition structure. Keep
+left/right operator associativity and ordered events unchanged. Materialization
+must reconstruct the original grammar/semantic fold; a balanced physical repeat
+index is not permission to reassociate semantic expressions.
+
+** Reuse certificate
+
+Admit a cached fragment only when all applicable checks hold:
+
+1. Exact grammar and executor/control-table binding; grammarDigest alone does
+   not identify an executor representation or checkpoint schema.
+2. Unchanged covered source and an exact relocation mapping; UTF8 byte boundaries
+   remain valid and zero-length fragments cannot stall traversal.
+3. The current entry control admits the fragment's actual grammar nonterminal;
+   its exit transition and relevant lookahead agree.
+4. Lexical mode, external scanner state where present, and layout/frame context
+   agree at boundaries. Edits inside comments/strings invalidate relevant context.
+5. No ambiguity, recovery, error fragility or incomplete recognition proof is
+   hidden by reuse. Initially restrict to certified deterministic regions.
+6. Projected canonical events and diagnostics retain their lossless ordering,
+   extents, identity rules and grammar-specific semantics.
+
+A mismatch falls back to ordinary recognition. Evidence must make the reason
+visible in internal counters rather than reporting token reuse as tree reuse.
+
+** Publication and consumption
+
+Continue returning ParseArtifact v1 from current entrypoints. Explicit full export
+traverses the private snapshot, derives canonical events and hashes the full
+source. It remains linear and must be timed independently.
+
+A future local-query or snapshot-update public API could expose a lower-cost
+consumption boundary, but it requires RFC 0003/0005 authority design first.
+Until that exists, report only private recognition gains plus actual complete
+API latency. Do not advertise sublinear end-to-end edits from internal counters.
+
+* Migration order and falsifiable gates
+
+These steps are dependent parts of one architecture, not independent tuning tasks.
+
+| Step | Owner / concrete change | Required gate before the next step |
+| 1. Preserve structure | Compiler production metadata; generic LR reduction capture; generated parser equivalent metadata | Snapshot-to-v1 projection equals fresh complete artifacts, including aliases/pass/inline, nullable productions and ordered trivia |
+| 2. Persistent representation | Session source spans, relative event/grammar positions, certified repeat indexing | Sequential edits and inverse edits preserve every event, byte offset, token ID, digest and diagnostic; bounded retained history |
+| 3. Certified recognition reuse | LR entry/goto/lookahead checks and lexical/layout boundary evidence | HCL first/middle/last insertion/deletion shows real skipped recognition fragments, with fresh equality and explicit rejection tests |
+| 4. Executor coherence | Generated-language and generic LR capture share snapshot invariants | Same workload reports executor identity, local update CPU and complete export CPU separately; no hidden session capture slowdown |
+| 5. Broaden semantics | Additional languages, layout, recovery/ambiguity only with explicit proofs | Existing native conformance and owned language corpus gates; selected-tree equality alone cannot admit GLR reuse |
+
+At each step, run the existing relevant test modules and scenario infrastructure.
+When runtime or compiler owners change, requalify the complete native suite and
+applicable owned language corpus. The 53-module prior baseline qualification is
+historical evidence, not validation of this proposed migration.
+
+Mandatory edit cases: repeated sequential edits, inverse edits, UTF8 boundaries,
+length-changing and zero-width edits, newline/layout changes, lexical mode shifts,
+comment/string boundary crossings, malformed input, nullable reductions and
+same-kind nodes with incompatible grammar context. Include an ambiguity veto and
+fallback equivalence before any selective reuse crosses ambiguity boundaries.
+
+Measure K and affected ancestry, actual reused fragments, shifts/reductions,
+source bytes copied, events materialized, digest bytes, allocations, GC time and
+retained snapshot memory. Report initial construction, local update/query and
+full publication separately. Accept locality only on certified grammar families;
+a flat full-export slope is expected, not a reason to change digest semantics.
+
+Stop or redesign if complete output changes, memory grows with unbounded session
+history, certificates cannot distinguish erased nonterminals, or private gains
+are hidden by executor/materialization overhead. A public snapshot API without
+an explicit authority decision is not an acceptable shortcut.
+
+* Reproduction and evidence boundary
+
+#+begin_src sh
+just benchmark-incremental-topology
+just benchmark-incremental-siblings
+# Boundary size and original mode compatibility:
+gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology 2
+gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-hcl 2
+gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss 400
+#+end_src
+
+The recorded topology sweep covers 24 arithmetic and 30 HCL cases; every case
+passed complete-artifact and inverse-edit equality. Timings are five-sample
+single-machine observations, not universal speedup claims or remote CI evidence.
+The source metadata and corpus/construction receipts remain in
+[[file:../research/scheme-parser-performance-framework.org][the existing Scheme parser performance framework]].

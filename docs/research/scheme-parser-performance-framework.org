@@ -1,4 +1,8 @@
 #+TITLE: High-performance parsing framework for the Scheme-owned engine
+
+Current architecture decision and unified acceptance plan:
+[[file:../architecture/0010-persistent-recognition-snapshots.org][RFC 0010: Persistent recognition snapshots and explicit publication]].
+Historical experiments below remain receipts, rather than independent migration priorities.
 #+DATE: 2026-09-28
 #+OPTIONS: toc:2
 

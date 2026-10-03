@@ -6,6 +6,8 @@
                  arithmetic-parser parse-arithmetic-v1)
         (only-in :gerbil-parser/languages/hcl/v2-24/parser
                  hcl-v2-24-parser parse-hcl-v2-24)
+        (only-in :gerbil-parser/src/runtime/artifact
+                 parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
                  apply-edit incremental-session-artifact
                  make-edit make-incremental-session
@@ -166,7 +168,86 @@
    (make-edit (+ (* (quotient lines 2) 12) 4)
               7 "3 /*a*/ /*b*/")))
 
-(def (main . args)
+;; Topology-changing edits deliberately cross the event-window admission
+;; boundary. Each location measures a complete fresh artifact against a cached
+;; session update, retaining exact equality and inverse-edit receipts.
+(def (median values)
+  (let* ((sorted (list-sort < values)) (n (length sorted)) (mid (quotient n 2)))
+    (if (odd? n) (list-ref sorted mid)
+      (/ (+ (list-ref sorted (- mid 1)) (list-ref sorted mid)) 2.0))))
+
+(def (topology-samples thunk)
+  (map (lambda (_)
+         (##gc)
+         (let* ((started (cpu-time)) (result (thunk))
+                (elapsed (* 1000.0 (- (cpu-time) started))))
+           (unless result (error "topology benchmark returned no result"))
+           elapsed))
+       (iota 5)))
+
+(def (measure-topology terms location operation (family 'arithmetic))
+  (let* ((hcl? (eq? family 'hcl-siblings))
+         (line "value = 001\n")
+         (machine (if hcl? hcl-v2-24-parser arithmetic-parser))
+         (parse (if hcl? parse-hcl-v2-24 parse-arithmetic-v1))
+         (source (if hcl? (apply string-append (make-list terms line))
+                     (string-join (make-list terms "001") " + ")))
+         (index (case location ((first) 0) ((middle) (quotient terms 2))
+                      (else (- terms 1))))
+         (start (if hcl? (* index (string-length line))
+                  (if (and (eq? operation 'delete) (= index (- terms 1)))
+                    (- (* index 6) 3) (* index 6))))
+         (deleted (if (eq? operation 'delete) (if hcl? (string-length line) 6) 0))
+         (inserted (if (eq? operation 'insert) (if hcl? "other = 002\n" "002 + ") ""))
+         (edit (make-edit start deleted inserted))
+         (changed (apply-edit source edit))
+         (session (make-incremental-session machine source))
+         (fresh (parse changed)))
+    (let-values (((next receipt) (parse-incremental-session session edit)))
+      (unless (and (parse-artifact-valid? fresh)
+                   (equal? fresh (incremental-session-artifact next)))
+        (error "topology edit differs from fresh parse" terms location operation))
+      (let* ((restored-text (substring source start (+ start deleted)))
+             (inverse (make-edit start (string-length inserted) restored-text)))
+        (let-values (((restored ignored) (parse-incremental-session next inverse)))
+          (unless (equal? (incremental-session-artifact restored)
+                          (incremental-session-artifact session))
+            (error "inverse topology edit differs from original" terms location operation))))
+      (let ((fresh-times (topology-samples (lambda () (parse changed))))
+            (cached-times
+             (topology-samples
+              (lambda ()
+                (let-values (((result ignored) (parse-incremental-session session edit)))
+                  (incremental-session-artifact result))))))
+        (write
+         (list (cons 'workload 'significant-token-topology-change)
+               (cons 'family family) (cons 'input-units terms) (cons 'location location) (cons 'operation operation)
+               (cons 'samples 5)
+               (cons 'complete-artifact-equal? #t) (cons 'inverse-edit-equal? #t)
+               (cons 'events (length (parse-artifact-events fresh)))
+               (cons 'resumed-shifts (cdr (assq 'resumedSignificantTokenCount receipt)))
+               (cons 'remaining-significant-tokens
+                     (cdr (assq 'remainingSignificantTokenCount receipt)))
+               (cons 'relexed-bytes (cdr (assq 'relexedByteCount receipt)))
+               (cons 'converged-suffix-tokens
+                     (cdr (assq 'convergedSuffixTokenCount receipt)))
+               (cons 'reused-recognition-events
+                     (let (entry (assq 'reusedRecognitionEventCount receipt))
+                       (if entry (cdr entry) 0)))
+               (cons 'fresh-cpu-median-ms (median fresh-times))
+               (cons 'cached-cpu-median-ms (median cached-times))))
+        (newline) (force-output)))))
+
+(def (measure-topology-size terms (family 'arithmetic))
+  (write (list 'topology-size terms 'phase 'semantic-preflight))
+  (newline) (force-output)
+  (for-each
+   (lambda (location)
+     (measure-topology terms location 'insert family)
+     (measure-topology terms location 'delete family))
+   '(first middle last)))
+
+(def (main-default args)
   (for-each measure
             (if (null? args) '(400 800 1600)
                 (map string->number args)))
@@ -183,5 +264,18 @@
        (map string->number args)))
   (measure-trivia-window 100)
   (measure-mixed-window 100))
+
+
+(def (main . args)
+  (if (and (pair? args) (member (car args) '("topology" "topology-hcl")))
+    (let (sizes (if (null? (cdr args)) '(400 800 1600 3200)
+                 (map string->number (cdr args))))
+      (unless (every (lambda (size) (and (integer? size) (>= size 2))) sizes)
+        (error "topology sizes must be integers of at least two" args))
+      (for-each (lambda (size)
+                  (measure-topology-size size
+                    (if (equal? (car args) "topology-hcl") 'hcl-siblings 'arithmetic)))
+                sizes))
+    (main-default args)))
 
 (export main)

@@ -59,3 +59,11 @@ test-native-local suite="rust" gerbil_path=".gerbil":
 # Real TLA+ grammar through the default LALR route; complete LRSpec stability.
 benchmark-lalr-construction samples="20":
     gerbil env gxi -:max-heap=2G,debug=q t/benchmarks/lr1-partition/lalr-construction.ss {{samples}}
+
+# Complete output equality and inverse edits before CPU sampling.
+benchmark-incremental-topology sizes="400 800 1600 3200":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology {{sizes}}
+
+# Independent siblings distinguish avoidable suffix replay from expression ancestry.
+benchmark-incremental-siblings sizes="100 200 400 800":
+    gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-hcl {{sizes}}

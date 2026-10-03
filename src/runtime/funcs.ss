@@ -112,9 +112,6 @@
 ;; into constant-time concatenation.
 (def current-recognition-sequence-fusion-enabled? (make-parameter #f))
 (defstruct recognition-sequence-branch (left right) transparent: #t)
-;;; The admitted list path pays no summary storage or summary maintenance.
-(defstruct (recognition-sequence-measured-branch recognition-sequence-branch)
-  (arity start end) transparent: #t)
 
 (defstruct recognition-sequence-position-view (value delta) transparent: #t)
 (def (recognition-sequence-relocate value delta)
@@ -131,12 +128,7 @@
   (cond
    ((null? left) right)
    ((null? right) left)
-   (else
-    (if (current-recognition-sequence-fusion-enabled?)
-      (make-recognition-sequence-measured-branch left right
-        (min 2 (+ (recognition-sequence-arity left) (recognition-sequence-arity right)))
-        (recognition-sequence-start left 0) (recognition-sequence-end right 0))
-      (make-recognition-sequence-branch left right)))))
+   (else (make-recognition-sequence-branch left right))))
 
 ;; : (-> (List RecognitionSequence) RecognitionSequence)
 (def (recognition-sequence-concatenate sequences)
@@ -151,25 +143,10 @@
   (cond
    ((recognition-sequence-position-view? sequence)
     (recognition-sequence-arity (recognition-sequence-position-view-value sequence)))
-   ((recognition-sequence-measured-branch? sequence)
-    (recognition-sequence-measured-branch-arity sequence))
-   ((recognition-sequence-branch? sequence) (recognition-sequence-unmeasured-arity sequence))
+   ;; Append removes empty operands and relocate preserves empty as empty.
+   ;; Therefore a branch always contains at least two semantic children.
+   ((recognition-sequence-branch? sequence) 2)
    ((null? sequence) 0) ((null? (cdr sequence)) 1) (else 2)))
-(def (recognition-sequence-unmeasured-arity sequence)
-  (let loop ((pending (list sequence)) (count 0))
-    (cond ((>= count 2) 2) ((null? pending) count)
-          (else
-           (let (current (car pending))
-             (cond
-              ((recognition-sequence-position-view? current)
-               (loop (cons (recognition-sequence-position-view-value current) (cdr pending)) count))
-              ((recognition-sequence-measured-branch? current)
-               (loop (cdr pending) (+ count (recognition-sequence-measured-branch-arity current))))
-              ((recognition-sequence-branch? current)
-               (loop (cons (recognition-sequence-branch-left current)
-                           (cons (recognition-sequence-branch-right current) (cdr pending))) count))
-              ((null? current) (loop (cdr pending) count))
-              (else (loop (cdr pending) (+ count (if (null? (cdr current)) 1 2))))))))))
 (def (recognition-sequence-bound sequence default-offset end?)
   (let loop ((current sequence) (delta 0))
     (cond
@@ -177,9 +154,6 @@
      ((recognition-sequence-position-view? current)
       (loop (recognition-sequence-position-view-value current)
             (+ delta (recognition-sequence-position-view-delta current))))
-     ((recognition-sequence-measured-branch? current)
-      (+ delta (if end? (recognition-sequence-measured-branch-end current)
-                        (recognition-sequence-measured-branch-start current))))
      ((recognition-sequence-branch? current)
       (loop (if end? (recognition-sequence-branch-right current)
                       (recognition-sequence-branch-left current)) delta))
@@ -195,20 +169,21 @@
 (def (recognition-sequence-for-each visit sequence)
   (if (list? sequence)
     (for-each (lambda (child) (visit child 0 #f)) sequence)
-    (let loop ((pending (list (vector sequence 0 #f))))
-      (unless (null? pending)
-        (let* ((frame (car pending)) (current (vector-ref frame 0))
-               (delta (vector-ref frame 1)) (moved? (vector-ref frame 2)))
-          (cond
-           ((recognition-sequence-position-view? current)
-            (loop (cons (vector (recognition-sequence-position-view-value current)
-                                (+ delta (recognition-sequence-position-view-delta current)) #t) (cdr pending))))
-           ((recognition-sequence-branch? current)
-            (loop (cons (vector (recognition-sequence-branch-left current) delta moved?)
-                        (cons (vector (recognition-sequence-branch-right current) delta moved?) (cdr pending)))))
-           (else
-            (for-each (lambda (child) (visit child delta moved?)) current)
-            (loop (cdr pending)))))))))
+    (let loop ((current sequence) (delta 0) (moved? #f) (pending '()))
+      (cond
+       ((recognition-sequence-position-view? current)
+        (loop (recognition-sequence-position-view-value current)
+              (+ delta (recognition-sequence-position-view-delta current)) #t pending))
+       ((recognition-sequence-branch? current)
+        ;; Descend left in registers; only the deferred right side needs a frame.
+        (loop (recognition-sequence-branch-left current) delta moved?
+              (cons (vector (recognition-sequence-branch-right current) delta moved?) pending)))
+       (else
+        (for-each (lambda (child) (visit child delta moved?)) current)
+        (unless (null? pending)
+          (let (frame (car pending))
+            (loop (vector-ref frame 0) (vector-ref frame 1) (vector-ref frame 2)
+                  (cdr pending)))))))))
 (def (recognition-sequence->list sequence)
   (if (list? sequence) sequence
     (with-list-builder (collect!)

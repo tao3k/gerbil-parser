@@ -1,0 +1,32 @@
+{
+  "head": "3fc78ead7ca774ed30a0a27c3a3cdda39096c4fe",
+  "samples": 20,
+  "sequence_fusion": true,
+  "preparation_only": false,
+  "executor": "native gxi",
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "harness_sha256": "d18184e2f11e298685764ecf19d1a6f7f7b35ca12de6d148b53ec31f43ecd3dc",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50"
+  },
+  "jobs": [
+    {
+      "name": "strict-flat-1",
+      "args": [
+        "no-sequence-fusion",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": -9,
+      "watchdog": true,
+      "rows": 12,
+      "sha256": "164a8e18f5d08ee76b55ced81e6853cfcee74bf4820d44ed2accc48f83169b75"
+    }
+  ],
+  "qualification": "unadmitted-development-run",
+  "reason": "HCL AOT operand actions materialized children unconditionally; fusion not exercised in the measured language"
+}

@@ -1,0 +1,113 @@
+#+title: RFC 0013 — Ordered semantic sequence publication
+#+startup: overview
+
+* Algorithm and actual seam
+
+RFCs 0010–0012 reduce scanner and grammar replay work. The complete artifact
+still requires every canonical event, current token binding, trivia and digest.
+This experiment targets the remaining intermediate semantic children lists.
+
+[[https://homepages.inf.ed.ac.uk/wadler/topics/deforestation.html][Wadler, Deforestation, TCS 73 (1990), 231–248]] supplies the idea of
+eliminating intermediate trees between a producer and its consumer. Its
+syntactic transformation applies to a restricted function form. This runtime
+implements an explicit producer/consumer fusion at a known seam; it does not
+implement that general compiler transformation or inherit its performance.
+
+The semantic producer is =reduce-value= / =apply-operand-action= in
+=src/runtime/lr-parser.ss=. The consumer is =recognition-events= in
+=src/runtime/artifact.ss=. Previously each field/alias action flattened its
+ordered recognition sequence before storing node/fragment children. Publication
+then traversed that intermediate list. Generated HCL/arithmetic operand actions
+also use the same =recognition-sequence-for-action= boundary; root acceptance
+still explicitly materializes and validates the singleton root.
+
+The candidate retains the ordered sequence in multi-child fields and aliases.
+Publication consumes leaves directly with an explicit traversal stack and a
+cumulative position delta. It allocates neither an intermediate children list
+nor relocated child/value wrappers for those leaves. Single-child fields still
+materialize the singleton because nested field wrapping has distinct semantics.
+
+* Nonempty concatenation invariant and cost model
+
+=recognition-sequence-append= removes empty operands. Relocating an empty
+sequence returns the empty sequence. Consequently a branch contains at least
+two semantic children, and field cardinality is determined by shape alone:
+empty list, singleton list, other list or branch. No count field is necessary.
+
+Both controls now retain the original two-field concatenation nodes. There is
+no fusion switch read, cached summary update or extra summary allocation on
+concatenation. Field/alias bounds follow only the relevant left/right edge with
+a tail-recursive walker and compose position deltas. The bound cost is O(edge
+depth), and an arbitrary proper-list leaf still requires its last element for
+an end bound. Publication consumes the ordered leaves with an explicit stack. The walker
+descends left in local variables and saves only the deferred right side, using
+one pending vector/cons per branch instead of two. List materialization also
+uses this walker; that common improvement is not isolated by the fusion switch.
+
+A first candidate cached arity/start/end on every concatenation. Its flat
+matched measurements were not beneficial; those completed observations are
+retained as =sequence-fusion-measured-interim-2026-10-03=. The final candidate
+removes those summaries using the nonempty invariant rather than trying to
+reduce the cost of summary maintenance. The matched complete-request control
+includes all actual publication and edge-bound work.
+
+An explicit traversal stack avoids Scheme recursion on a left-associated
+sequence. Position views compose translation without copying a subtree.
+Publication remains O(events + tokens); source hashing and canonical output
+remain linear. This experiment cannot remove that output lower bound.
+
+* Semantic contract and independent oracle
+
+- Original production and operand action order is unchanged.
+- Empty fields, already-named singleton field wrapping, alias bounds and
+  existing nested fields retain their behavior.
+- The event publisher accumulates sequence and value translations, validates
+  moved leaves against current tokens, and retains strict identity for unmoved
+  tokens. A view remains a moved view even when cumulative delta cancels to zero.
+- Trivia interleaving, root clamps, event IDs, digest and artifact schema remain
+  the existing publisher's responsibility.
+- =lr-recognition-project= explicitly disables fusion while independently
+  replaying original productions and rebinding current tokens. This preserves
+  a materialized semantic oracle for the candidate.
+- Selective GLR explicitly disables fusion while constructing alternatives:
+  candidate tree equality must compare canonical children lists. A pre-fork
+  deterministic prefix is shared by all alternatives. The new scenario test
+  requests fusion and checks the established fork completion evidence.
+- Recognition child fields have a public mutator. No object-identity event tape
+  cache or assumption of deep immutability is introduced.
+
+The experimental switch is =current-recognition-sequence-fusion-enabled?=,
+initially false. Semantic children exposed by private runtime accessors may be
+ordered sequences under this switch; callers needing a list use the existing
+=recognition-sequence->list= boundary.
+
+* Reproduction and evidence
+
+Use the existing native incremental session matrix, with both variant orders
+and two repetitions. Each measurement uses 20 CPU samples. The 112 rows cover
+flat HCL 400/800, nested HCL 8/16 (80 declarations per group), first/middle/last
+insert/delete, and six-edit histories. Fresh full artifacts, inverse edits and
+independent production replay are checked outside timed samples.
+
+#+begin_src sh
+python3 docs/research/reproduce-lexical-plans.py OUTPUT --sequence-fusion
+python3 docs/research/verify-source-index-native.py NATIVE_OUTPUT
+#+end_src
+
+The existing five-second real child-output inactivity and 180-second batch
+limits are unchanged. Only normal-exit completed rows qualify. Retained failed
+attempts are not admitted as timing or test passes.
+
+Focused native qualification checks a 10,000-child left-associated sequence,
+nested fields, positive/negative views, Unicode source edits, canonical LR
+references and selective GLR evidence. Full qualification additionally runs
+all repository native test modules. Final receipts and default decision follow
+below after the exact-head matrix completes.
+
+The generic-only development runs at =3fc78ea= / =aff2651= are explicitly
+unadmitted. AOT operand actions still materialized their children in those runs,
+so they did not exercise fusion in HCL. Their metadata (including the failed
+unload gate and deliberately interrupted superseded batch) is retained as
+=sequence-fusion-unload-failure-2026-10-03.json= and
+=sequence-fusion-generic-interim-2026-10-03.json=. The added physical sequence
+assertion detects this omission before the final matrix.

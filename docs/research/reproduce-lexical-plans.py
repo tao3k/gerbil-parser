@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Matched native lexical-plan construction and convergence controls using the existing session benchmark."""
+"""Matched native lexical-plan and semantic sequence controls using the existing session benchmark."""
 from pathlib import Path
 import argparse, hashlib, json, os, platform, re, shutil, signal, subprocess, threading, time
 

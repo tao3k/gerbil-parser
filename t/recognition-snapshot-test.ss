@@ -45,6 +45,7 @@
            => (incremental-session-artifact session))))
 
 (def (check-edits source edits)
+  (parameterize ((current-lr-source-index-enabled? #t))
   (let (session (make-incremental-session hcl-v2-24-parser source #t))
     (for-each
      (lambda (edit)
@@ -55,7 +56,7 @@
          (check (incremental-session-artifact next) => (parse-hcl-v2-24 source))
          (when (incremental-session-recognition-root next)
            (check-projection hcl-v2-24-parser source next))))
-     edits)))
+     edits))))
 
 (def (retained-prefix-piece root bound)
   (let loop ((pending (list root)))
@@ -83,6 +84,7 @@
 (def recognition-snapshot-test
   (test-suite "private grammar recognition snapshots"
     (test-case "source provenance shares old chunks and matches vector control"
+      (parameterize ((current-lr-source-index-enabled? #t))
       (let* ((source (apply string-append (make-list 80 "value = 001\n")))
              (session (make-incremental-session hcl-v2-24-parser source #t))
              (before (index-lists session)) (edit (make-edit 0 0 "other = 002\n")))
@@ -99,11 +101,14 @@
             (let-values (((control ignored) (parse-incremental-session session edit)))
               (check (incremental-session-source-index control) => #f)
               (check (incremental-session-artifact control) => (incremental-session-artifact next))
-              (check (incremental-session-project-artifact control) => (incremental-session-project-artifact next)))))))
+              (check (incremental-session-project-artifact control) => (incremental-session-project-artifact next))))))))
     (test-case "event window splices preserve index when grammar capture is dropped"
       (check-edits "value = 1\nother = 2\n"
                    (list (make-edit 8 1 "9") (make-edit 9 0 " /* λ中😀 */")
                          (make-edit 9 17 "") (make-edit 8 1 "1"))))
+    (test-case "full artifact capture defaults to the qualified vector path"
+      (check (current-lr-source-index-enabled?) => #f)
+      (check (incremental-session-source-index (make-incremental-session hcl-v2-24-parser "value = 1\n" #t)) => #f))
     (test-case "ordinary sessions allocate no grammar snapshot"
       (check (incremental-session-recognition-root
               (make-incremental-session arithmetic-parser "1 + 2")) => #f))

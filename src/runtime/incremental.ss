@@ -62,7 +62,10 @@
 ;;; enabled/disabled. Ordinary sessions still do not capture a grammar forest.
 (def current-lr-fragment-reuse-enabled? (make-parameter #t))
 
-(def current-lr-source-index-enabled? (make-parameter #t))
+;;; Same-head native measurements currently favor vector convergence for full
+;;; ParseArtifact edits. Persistent provenance remains an explicit experiment
+;;; for the later local-recognition/publication boundary (RFC 0011).
+(def current-lr-source-index-enabled? (make-parameter #f))
 (defstruct incremental-session-state
   (machine source artifact tokens modes checkpoints capture? recognition-root source-index)
   transparent: #t)

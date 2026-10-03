@@ -84,6 +84,27 @@
         (check (recognition-sequence-start view 99) => 0)
         (check (recognition-sequence-end view 99) => 10000)
         (check (length (recognition-sequence->list view)) => 10000)))
+    (test-case "bounded block append preserves frozen prefixes and composed moves"
+      (let* ((prefix (let loop ((n 0) (value #f))
+                       (if (= n 33) value
+                         (loop (+ n 1) (event-program-append value
+                           (make-token 'number "1" n (+ n 1)))))))
+             (prefix-list (recognition-sequence->list prefix))
+             (next (event-program-append prefix (make-token 'number "1" 33 34)))
+             (moved (event-program-append
+                      (event-program-relocate prefix 10) (make-token 'number "1" 43 44)))
+             (count 0) (valid? #t))
+        (check (recognition-sequence->list prefix) => prefix-list)
+        (check (length (recognition-sequence->list next)) => 34)
+        (check (recognition-sequence-start moved 99) => 10)
+        (check (recognition-sequence-end moved 99) => 44)
+        (event-program-walk
+         (lambda (operation token offset delta moved?)
+           (set! valid? (and valid? (eq? operation 'token)
+                            (= (+ offset delta) (+ count 10))))
+           (set! count (+ count 1))) moved)
+        (check count => 34)
+        (check valid? => #t)))
     (test-case "lowering snapshots field names rather than caching mutable children"
       (let* ((token (make-token 'number "1" 0 1))
              (child (make-recognition-child #f token))

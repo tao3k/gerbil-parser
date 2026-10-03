@@ -1,0 +1,242 @@
+{
+  "head": "015573a379468310a6b6b8e3551dd5ed05014193",
+  "samples": 20,
+  "sequence_fusion": true,
+  "preparation_only": false,
+  "executor": "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+  "executor_sha256": "b10537c3ef42b79eb4024e9df9f6e6f3b04cbd40e8c02c8aa946a12d4b89b986",
+  "dyld_api_progress": true,
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "harness_sha256": "d18184e2f11e298685764ecf19d1a6f7f7b35ca12de6d148b53ec31f43ecd3dc",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50"
+  },
+  "jobs": [
+    {
+      "name": "strict-flat-1",
+      "args": [
+        "no-sequence-fusion",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "444ae8da1ca28537f0f944c1d879145b837f460e25be4f8ff426d1a970e5646f"
+    },
+    {
+      "name": "equivalent-flat-1",
+      "args": [
+        "sequence-fusion",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "8f389023a01b48ade2d29494bb404f5bd156018ad4ea3bb023757f2fcf2c1f9d"
+    },
+    {
+      "name": "equivalent-flat-2",
+      "args": [
+        "sequence-fusion",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "fe270d3f753086beed11a74f8bc3ecd49c03e2cd54d995b73b0cd8f659bf8e64"
+    },
+    {
+      "name": "strict-flat-2",
+      "args": [
+        "no-sequence-fusion",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "55619b3c270b75ed5cedf0add11f8c580380401f1a41623b1a0bee77e901e631"
+    },
+    {
+      "name": "strict-nested-1",
+      "args": [
+        "no-sequence-fusion",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "c397844e3defc87982ee4d24dda02a0fe4dc7674a425fb0cc7a764d167f3b1c2"
+    },
+    {
+      "name": "equivalent-nested-1",
+      "args": [
+        "sequence-fusion",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "561a2e8f0bcb8de63b741d5677d6f0180afff932b8dc606508c9d1d3a912342f"
+    },
+    {
+      "name": "equivalent-nested-2",
+      "args": [
+        "sequence-fusion",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "d9d4cde7ce410b7196468f76d0b3f058a4371db6356fba18cbb5dfbd04b03c88"
+    },
+    {
+      "name": "strict-nested-2",
+      "args": [
+        "no-sequence-fusion",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "22bcd648a79bd77092a1596027274e3e0f6af826d0841f418df7f08f7c6d7130"
+    },
+    {
+      "name": "strict-history-1",
+      "args": [
+        "no-sequence-fusion",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "2ec719b92552b2900422a008cdfff4cae9a8af9ef6c17636d79f26315892bf82"
+    },
+    {
+      "name": "equivalent-history-1",
+      "args": [
+        "sequence-fusion",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "3df8df837848ca51f9f901cba1ab835b614f460ad6dd155e042304c9416f239c"
+    },
+    {
+      "name": "equivalent-history-2",
+      "args": [
+        "sequence-fusion",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "38e3255f667bc02d3616e9112f693c0c67dcc7b91e5c6134ae08d69bdd0ed28d"
+    },
+    {
+      "name": "strict-history-2",
+      "args": [
+        "no-sequence-fusion",
+        "history-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "6c24abcad1cdd6cb53df272938d80679eb7a50f7c45cd27f1d58b22ca103fd25"
+    },
+    {
+      "name": "strict-history-nested-1",
+      "args": [
+        "no-sequence-fusion",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "163d81a2e646daac59b6656fd0036e44a886b40d28fe4c2c6a883e70d49bc28e"
+    },
+    {
+      "name": "equivalent-history-nested-1",
+      "args": [
+        "sequence-fusion",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "ea9c37b522daf7d97a77289e8933b2cb2603a130779be929b28bdfa8568d4ec1"
+    },
+    {
+      "name": "equivalent-history-nested-2",
+      "args": [
+        "sequence-fusion",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "1ca6e2ffb1481b89671c6914044f569941fa1fee30b87149bcd3f34ac0dab86e"
+    },
+    {
+      "name": "strict-history-nested-2",
+      "args": [
+        "no-sequence-fusion",
+        "history-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "6e2c6ae346c7faef5c0acb7d353730fa3dabb9d936cb425ef0154fee790eb634"
+    }
+  ],
+  "complete": true,
+  "schema": "gerbil-parser.sequence-fusion-matched.v1",
+  "qualification": "complete-matched-run",
+  "build_qualification": "incrementally-rebuilt-native",
+  "build_log_sha256": "31bc3a0188e5dc4e1479a817bf3ca545c54a8b997afb8d98f0bd055d879f41ad",
+  "primary_source": {
+    "author": "Philip Wadler",
+    "title": "Deforestation: transforming programs to eliminate trees",
+    "publication": "Theoretical Computer Science 73, 231-248 (1990)",
+    "url": "https://homepages.inf.ed.ac.uk/wadler/topics/deforestation.html",
+    "verified_date": "2026-10-03",
+    "transfer": "Explicit ordered semantic producer/consumer fusion only; general compiler transformation not implemented"
+  },
+  "reproduction_recipe_sha256": "00ed92775b5c1da5fb4a97fd36189d6c1c58f4a8ab97abc6c61bf1c2fedcb4e5",
+  "measurement_rows": 112
+}

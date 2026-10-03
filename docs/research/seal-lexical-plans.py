@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Seal completed native lexical-plan jobs without admitting interrupted jobs."""
 from pathlib import Path
-import argparse, hashlib, json
+import argparse, hashlib, json, subprocess
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('input', type=Path)
@@ -15,7 +15,8 @@ args = parser.parse_args()
 metadata = json.loads((args.input/'metadata.json').read_text())
 if not metadata.get('complete') and not args.partial:
     parser.error('Incomplete run requires explicit --partial qualification')
-schema = 'gerbil-parser.sequence-fusion-matched.v1' if metadata.get('sequence_fusion') else 'gerbil-parser.lexical-plan-matched.v1'
+schema = ('gerbil-parser.publication-baseline-matched.v1' if metadata.get('baseline') else
+          ('gerbil-parser.sequence-fusion-matched.v1' if metadata.get('sequence_fusion') else 'gerbil-parser.lexical-plan-matched.v1'))
 metadata['schema'] = schema
 metadata['qualification'] = 'completed-jobs-only' if args.partial else 'complete-matched-run'
 metadata['build_qualification'] = 'development-observation' if args.partial else ('incrementally-rebuilt-native' if args.incremental_rebuild else 'clean-rebuilt-native')
@@ -26,7 +27,8 @@ for field, path in [('build_log_sha256', args.build_log), ('clean_log_sha256', a
         metadata[field] = hashlib.sha256(path.read_bytes()).hexdigest()
 if args.primary:
     metadata['primary_source'] = json.loads(args.primary.read_text())
-metadata['reproduction_recipe_sha256'] = hashlib.sha256((Path.cwd()/'docs/research/reproduce-lexical-plans.py').read_bytes()).hexdigest()
+metadata['reproduction_recipe_sha256'] = hashlib.sha256(subprocess.check_output(
+    ['git', 'show', metadata['head']+':docs/research/reproduce-lexical-plans.py'])).hexdigest()
 for job in metadata.get('failed_attempts', []):
     path = args.input/job['log_name']
     if hashlib.sha256(path.read_bytes()).hexdigest() != job['sha256']:

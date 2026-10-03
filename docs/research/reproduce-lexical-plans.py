@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Matched native lexical-plan and semantic sequence controls using the existing session benchmark."""
 from pathlib import Path
-import argparse, hashlib, json, os, platform, re, shutil, signal, subprocess, threading, time
+import argparse, hashlib, io, json, os, platform, re, shutil, signal, subprocess, tarfile, threading, time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
+parser.add_argument('--baseline', type=Path, help='Compare production defaults with an isolated exact-commit archive using its benchmark for both variants')
 parser.add_argument('--sequence-fusion', action='store_true', help='Measure semantic sequence fusion with the same edit workloads')
 parser.add_argument('--samples', type=int, default=20)
 parser.add_argument('--preparation-only', action='store_true', help='Measure scanner-only and proof-inclusive construction controls')
 parser.add_argument('--resume', action='store_true', help='Retry only a final output-complete watchdog failure once, retaining its failed receipt')
 args = parser.parse_args()
+if (args.sequence_fusion and args.preparation_only) or (args.baseline and (args.sequence_fusion or args.preparation_only)):
+    parser.error('baseline, sequence-fusion and preparation-only are mutually exclusive')
 if not 1 <= args.samples <= 100:
     parser.error('samples must be between 1 and 100')
 root = Path.cwd()
@@ -42,16 +45,41 @@ if unload_progress:
     if Path(executor).read_bytes()[:2] == b'#!':
         raise SystemExit('Darwin unload progress requires a native gxi binary')
     env['DYLD_PRINT_APIS'] = '1'
-metadata = {'head': head, 'samples': args.samples, 'sequence_fusion': args.sequence_fusion, 'preparation_only': args.preparation_only, 'executor': executor, 'executor_sha256': hashlib.sha256(Path(executor).read_bytes()).hexdigest(), 'dyld_api_progress': unload_progress,
+baseline = args.baseline.resolve() if args.baseline else None
+baseline_origin = None
+harness = root/'t/benchmarks/incremental-session/benchmark.ss'
+if baseline:
+    baseline_origin = json.loads((baseline/'baseline-origin.json').read_text())
+    if baseline_origin.get('repo') != 'tao3k/gerbil-parser':
+        raise SystemExit('Unexpected baseline repository identity')
+    pinned = baseline_origin['head']
+    subprocess.check_call(['git', 'cat-file', '-e', pinned+'^{commit}'])
+    tree = subprocess.check_output(['git', 'rev-parse', pinned+'^{tree}'], text=True).strip()
+    if baseline_origin.get('source_tree') != tree or baseline_origin.get('build_exit') != 0:
+        raise SystemExit('Baseline tree or native build receipt is unqualified')
+    archive = subprocess.check_output(['git', 'archive', pinned])
+    with tarfile.open(fileobj=io.BytesIO(archive)) as original:
+        for entry in original.getmembers():
+            if entry.isfile() and (entry.name.startswith(('src/', 'languages/', 't/fixtures/'))
+                                   or entry.name in ['gerbil.pkg', 'build.ss']):
+                if (baseline/entry.name).read_bytes() != original.extractfile(entry).read():
+                    raise SystemExit('Baseline source changed: '+entry.name)
+    harness = baseline/'t/benchmarks/incremental-session/benchmark.ss'
+    expected = subprocess.check_output(['git', 'show', pinned+':t/benchmarks/incremental-session/benchmark.ss'])
+    if harness.read_bytes() != expected or (baseline/'.gerbil/lib/gerbil-parser').is_symlink():
+        raise SystemExit('Baseline harness or parser output namespace is not isolated')
+    baseline_origin = dict(baseline_origin, harness_sha256=hashlib.sha256(expected).hexdigest(),
+                           runtime_module_sha256=hashlib.sha256((baseline/'.gerbil/lib/gerbil-parser/src/runtime/funcs.o1').read_bytes()).hexdigest())
+metadata = {'head': head, 'samples': args.samples, 'baseline': baseline_origin, 'sequence_fusion': args.sequence_fusion, 'preparation_only': args.preparation_only, 'executor': executor, 'executor_sha256': hashlib.sha256(Path(executor).read_bytes()).hexdigest(), 'dyld_api_progress': unload_progress,
             'inactivity_seconds': 5, 'batch_seconds': 180,
-            'harness_sha256': hashlib.sha256((root/'t/benchmarks/incremental-session/benchmark.ss').read_bytes()).hexdigest(),
+            'harness_sha256': hashlib.sha256(harness.read_bytes()).hexdigest(),
             'fixture_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (root/'t/fixtures').glob('*progress.ss')},
             'jobs': []}
 jobs = [('separate-preparation-1', ['no-plan-sharing', 'lexical-plan-prepare'], 2),
         ('shared-preparation-1', ['lexical-plan-prepare'], 2),
         ('shared-preparation-2', ['lexical-plan-prepare'], 2),
         ('separate-preparation-2', ['no-plan-sharing', 'lexical-plan-prepare'], 2)]
-if args.sequence_fusion:
+if args.sequence_fusion or baseline:
     jobs = []
 if args.preparation_only:
     jobs += [(name.replace('preparation', 'certificate-preparation'),
@@ -62,13 +90,17 @@ for family, command, expected in ([] if args.preparation_only else [
     ('nested', ['topology-hcl-nested-capture', '8', '16'], 12),
     ('history', ['history-hcl-capture', '400', '800'], 2),
     ('history-nested', ['history-hcl-nested-capture', '8', '16'], 2)]):
-    for repeat, order in [(1, ['strict', 'equivalent']), (2, ['equivalent', 'strict'])]:
+    previous, candidate = ('previous', 'candidate') if baseline else ('strict', 'equivalent')
+    for repeat, order in [(1, [previous, candidate]), (2, [candidate, previous])]:
         for variant in order:
-            jobs.append((f'{variant}-{family}-{repeat}',
-                         ((['no-sequence-fusion'] if variant == 'strict' else ['sequence-fusion']) if args.sequence_fusion else (['no-plan-reuse'] if variant == 'strict' else ['plan-reuse'])) + command, expected))
+            flags = ['no-plan-reuse'] if baseline else (
+                (['no-sequence-fusion'] if variant == 'strict' else ['sequence-fusion'])
+                if args.sequence_fusion else
+                (['no-plan-reuse'] if variant == 'strict' else ['plan-reuse']))
+            jobs.append((f'{variant}-{family}-{repeat}', flags + command, expected))
 if args.resume:
     previous = json.loads((out/'metadata.json').read_text())
-    for key in ['head', 'samples', 'sequence_fusion', 'preparation_only', 'executor', 'executor_sha256', 'dyld_api_progress', 'harness_sha256', 'fixture_sha256']:
+    for key in ['head', 'samples', 'baseline', 'sequence_fusion', 'preparation_only', 'executor', 'executor_sha256', 'dyld_api_progress', 'harness_sha256', 'fixture_sha256']:
         if previous.get(key) != metadata[key]:
             raise SystemExit('Resume pin changed: '+key)
     if previous.get('complete') or not previous['jobs']:
@@ -97,12 +129,14 @@ if args.resume:
     (out/'metadata.json').write_text(json.dumps(metadata, indent=2)+'\n')
     print('RETRY-FAILED-RETAINED', retained, flush=True)
 for name, command, expected in jobs[len(metadata['jobs']):]:
-    print('BENCHMARK', name, 'HEAD', head, flush=True)
+    job_root = baseline if baseline and name.startswith('previous-') else root
+    job_env = dict(env, GERBIL_PATH=str(job_root/'.gerbil'))
+    print('BENCHMARK', name, 'HEAD', baseline_origin['head'] if job_root == baseline else head, flush=True)
     activity = [time.monotonic()]
     failed = threading.Event()
     proc = subprocess.Popen([executor, '-:max-heap=1G,debug=q', 't/fixtures/benchmark-progress.ss',
-                             't/benchmarks/incremental-session/benchmark.ss', *command],
-                            env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             str(harness), *command],
+                            cwd=job_root, env=job_env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, start_new_session=True)
     def guard():
         started = time.monotonic()
@@ -131,7 +165,7 @@ for name, command, expected in jobs[len(metadata['jobs']):]:
                 bad = True
     status = proc.wait()
     monitor.join()
-    job = {'name': name, 'args': command, 'exit': status, 'watchdog': failed.is_set(),
+    job = {'name': name, 'cwd': str(job_root), 'args': command, 'exit': status, 'watchdog': failed.is_set(),
            'rows': len(rows), 'sha256': hashlib.sha256(log.read_bytes()).hexdigest()}
     metadata['jobs'].append(job)
     (out/'metadata.json').write_text(json.dumps(metadata, indent=2)+'\n')

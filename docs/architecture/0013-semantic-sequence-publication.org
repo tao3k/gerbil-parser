@@ -111,3 +111,50 @@ unload gate and deliberately interrupted superseded batch) is retained as
 =sequence-fusion-unload-failure-2026-10-03.json= and
 =sequence-fusion-generic-interim-2026-10-03.json=. The added physical sequence
 assertion detects this omission before the final matrix.
+
+* Completed fusion matrix and admission
+
+The final =015573a= matrix has 112 normal-exit rows, 28 paired workloads,
+20 CPU samples per row and both variant orders. All complete artifacts, inverse
+edits and materialized original-production projections match. Scanner work and
+recognition reuse counters also match between modes. The receipt is
+=sequence-fusion-final-matched-2026-10-03.{json,sexp}=, with exact harness,
+recipe, fixture, native executor and incremental build hashes.
+
+Fusion is not admitted as the production default. Flat and nested results do
+not show a stable complete-request benefit. In particular, the flat 800-unit
+six-edit history is 19.1–33.0% slower, and the nested 16-unit history is
+20.4–20.9% slower. The switch remains false. The common single-continuation
+walker reduces pending frame creation by construction; the fusion matrix does
+not isolate its production throughput effect.
+
+A separate comparison therefore builds the preceding production head
+=44aab77710ce79fd3952588803650732360211b3= in an isolated archive/output
+namespace and compares it with the current default, using the exact same
+preceding-head benchmark source in both processes. Runtime/language/fixture
+sources are checked against the archived Git tree. This comparison includes
+all current default-path overhead; it does not attribute a combined result
+to the walker alone.
+
+#+begin_src sh
+python3 docs/research/reproduce-lexical-plans.py OUTPUT --baseline BASELINE_ARCHIVE
+#+end_src
+
+* Next structural seam
+
+The repository already provides
+=make-success-parse-artifact/raw-event-tape= in =src/runtime/artifact.ss= and
+uses it in =languages/hcl/v2-24/direct-recursive.ss=. This publishes a flat
+operation/name/offset tape, resolves trivia and assigns canonical IDs once.
+The next falsifiable algorithm experiment is to lower original LR operand
+semantics to that existing event-program seam and retain reusable relative
+program fragments. Its acceptance conditions must include named singleton
+field nesting, multi-child wrapping, source-token identity after relocation,
+root clamps, exact canonical IDs, trivia and digest. Original production replay
+remains the independent artifact oracle. Dynamic/GLR alternatives retain their
+canonical semantic merge path until equivalence is separately proved.
+
+No direct LR event lowering or reusable event program is claimed implemented
+by this RFC. A blind event cache indexed by mutable semantic child identity
+would not establish the required contract. Full canonical output and source
+digests still impose a linear publication cost.

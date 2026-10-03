@@ -117,11 +117,22 @@
       (make-event-code-append prefix '() tail
         (event-program-sequence-start left 0) (event-program-sequence-end right 0)
         (+ 1 (event-program-sequence-height prefix))))))
+(def (event-append-tree code)
+  ;; Normalize only at multi-sequence concat: newest/smallest blocks first.
+  ;; Increasing ranks make the carry/join work telescope along the end path.
+  ;; Prefixes are already AVL ropes; singleton append never nests envelopes.
+  (if (event-code-append? code)
+    (let (tree (event-code-append-tail code))
+      (for-each (lambda (block) (set! tree (event-rope-join block tree)))
+                (event-code-append-blocks code))
+      (let (prefix (event-code-append-prefix code))
+        (if prefix (event-rope-join prefix tree) tree)))
+    code))
 (def (event-program-append left right)
   (cond ((or (not left) (null? left)) right)
         ((or (not right) (null? right)) left)
         ((= (event-program-sequence-arity right) 1) (event-snoc left right))
-        (else (event-rope-join left right))))
+        (else (event-rope-join (event-append-tree left) (event-append-tree right)))))
 (def (event-program-relocate code delta (moved? #t))
   (cond ((not code) #f) ((not moved?) code)
         ((event-code-view? code)

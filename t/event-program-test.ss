@@ -170,6 +170,21 @@
              ((open-node) (set! opens (+ opens 1)))
              ((close-node) (set! closes (+ closes 1))))) root)
         (check count => 1025) (check opens => 100) (check closes => 100)))
+    (test-case "alternating singleton and multi-sequence joins retain bounded rope height"
+      (let* ((tokens (list->vector (map (lambda (i) (make-token 'number "1" i (+ i 1))) (iota 3000))))
+             (sequence (let loop ((i 0) (value #f))
+                         (if (= i 3000) value
+                           (let* ((one (event-program-append value (vector-ref tokens i)))
+                                  (two (event-program-append (vector-ref tokens (+ i 1))
+                                                            (vector-ref tokens (+ i 2)))))
+                             (loop (+ i 3) (event-program-append one two))))))
+             (count 0))
+        (check (<= (event-program-sequence-height sequence) 12) => #t)
+        (event-program-sequence-for-each
+         (lambda (field value delta moved?)
+           (check (eq? value (vector-ref tokens count)) => #t)
+           (set! count (+ count 1))) sequence)
+        (check count => 3000)))
     (test-case "lowering snapshots field names rather than caching mutable children"
       (let* ((token (make-token 'number "1" 0 1))
              (child (make-recognition-child #f token))

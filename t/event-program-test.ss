@@ -8,7 +8,7 @@
         :gerbil-parser/src/runtime/recognition
         (only-in :gerbil-parser/src/runtime/reduce recognition-children-alias)
         :gerbil-parser/src/runtime/funcs
-        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/token make-token token-kind)
         (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  current-lr-event-program-enabled? lr-runtime-event-program?
@@ -103,6 +103,22 @@
         (check (artifact-for "1" (list fresh) moved-program)
                => (artifact-for "1" (list fresh) moved-ordinary))
         (check-exception (artifact-for "1" (list fresh) program-root) true)))
+    (test-case "relocated program roots retain token proof and root clamps"
+      (let* ((old (make-token 'number "1" 0 1))
+             (fresh (make-token 'number "1" 1 2))
+             (tokens (list (make-token 'ws " " 0 1) fresh))
+             (children (list (make-recognition-child #f old)))
+             (program (recognition-child-value (car (event-children-alias 'Root children 0))))
+             (ordinary (recognition-child-value (car (recognition-children-alias 'Root children 0))))
+             (trivia? (lambda (token) (eq? (token-kind token) 'ws))))
+        (check (make-success-parse-artifact "event-test" " 1" tokens
+                 (relocate-recognition-value program 1) trivia?)
+               => (make-success-parse-artifact "event-test" " 1" tokens
+                    (relocate-recognition-value ordinary 1) trivia?))
+        (check (make-success-parse-artifact "event-test" " 1" tokens
+                 (relocate-recognition-value (relocate-recognition-value program 8) -7) trivia?)
+               => (make-success-parse-artifact "event-test" " 1" tokens
+                    (relocate-recognition-value ordinary 1) trivia?))))
     (test-case "HCL events actually execute generated steps across topology Unicode and history edits"
       (parameterize ((current-lr-event-program-enabled? #t))
         (let* ((source (string-append "# 前置\n" (string-join (make-list 100 "a = 1 # 中\n") "") "# 尾部\n"))

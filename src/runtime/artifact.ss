@@ -2,7 +2,7 @@
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
 (import (only-in ./event-program event-program-value? event-program-value-kind
-                 event-program-value-code event-program-walk)
+                 event-program-value-code event-program-walk event-program-relocate)
         (only-in ./funcs recognition-sequence-for-each)
         (only-in :std/func compose every-of)
         (only-in ../modules/parser/types
@@ -229,7 +229,9 @@
          (source-byte-length (u8vector-length source-bytes))
          (value
           (artifact grammar-digest source 'accepted
-                    (if (event-program-value? root)
+                    (if (or (event-program-value? root)
+                            (and (recognition-relocation? root)
+                                 (event-program-root? root)))
                       (event-program-events tokens root trivia? source-byte-length)
                       (recognition-events tokens root trivia? source-byte-length))
                     '() source-bytes)))
@@ -238,9 +240,20 @@
 ;;; Interpret committed event bytecode directly into the canonical artifact.
 ;;; The program retains old source tokens only as proof operands: moved leaves
 ;;; bind and verify the actual current source token, never a copied substitute.
+(def (event-program-root? value)
+  (if (recognition-relocation? value)
+    (event-program-root? (recognition-relocation-value value))
+    (event-program-value? value)))
+(def (event-program-root-code root)
+  (let loop ((value root) (delta 0) (moved? #f))
+    (if (recognition-relocation? value)
+      (loop (recognition-relocation-value value)
+            (+ delta (recognition-relocation-delta value)) #t)
+      (begin
+        (unless (and (event-program-value? value) (event-program-value-kind value))
+          (error "event program root must be a node"))
+        (event-program-relocate (event-program-value-code value) delta moved?)))))
 (def (event-program-events tokens root trivia? source-byte-length)
-  (unless (event-program-value-kind root)
-    (error "event program root must be a node"))
   (let ((remaining tokens) (events (cons #f '())) (next-token-id 0)
         (next-node-id 0) (node-ids '()))
     (let (tail events)
@@ -293,7 +306,7 @@
              ((close-field) (emit! (vector 'finish-field name position)))
              ((boundary) (emit-trivia-until! position))
              (else (error "unknown committed event program operation" operation)))))
-       (event-program-value-code root))
+       (event-program-root-code root))
       (unless (and (null? remaining) (null? node-ids))
         (error "event program is incomplete"))
       (cdr events))))

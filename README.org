@@ -8,7 +8,7 @@ Parser IR tables without running Scheme at parse-request time.
 The language-neutral compiler and runtime live under =src/=.  Their public
 language-import API is the top-level =language-support.ss= facade beside
 =build.ss=, so package imports do not expose the physical =src/= directory.
-Its implementations remain under =src/language-support/=.  Bundled and downstream language packs live under
+Its implementations live under the top-level =language-support/=.  Bundled and downstream language packs live under
 =languages/<language>/<version>/=; grammar, parser entry, fixtures, tests, and
 native corpus stay together.  POO and =poo-flow=
 are used only while compiling grammar object graphs; generated parser hot paths
@@ -37,6 +37,17 @@ fail-closed ambiguity rejection.  The pinned 14-source OpenGQL corpus is the
 first GQL admission gate.  Pinned external scanners, recovery parity,
 generated field accessors, and wider differential corpora remain explicit
 downstream-cutover gates; directory presence alone does not claim them.
+
+** POO graph-query extension
+
+=graph-query-support.ss= admits a language-owned POO graph view and constructs
+one native query context with indexed record identities. Its generic map,
+lineage, and scoped =any=/=at=/=child-of=/=descendant-of= selection take a
+language-owned predicate; graph traversal does not interpret Org fields or
+Contract assertions. The Cargo-only counterpart is the reusable
+=GraphIndex= / =GraphRelation= API in =gerbil-parser-rowan=. A downstream
+language supplies its own property semantics and AOT query declarations while
+reusing these graph operations; neither API parses source a second time.
 
 ** Rust consumer contract
 
@@ -100,7 +111,7 @@ Gerbil command on =PATH= and explicit expansion-metadata roots. Packaging
 those immutable interfaces with the executable remains a release boundary;
 runtime object-cache reconstruction is gone.
 
-=t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
+=t/fixtures/rowan-record-assignments= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
 Upstream generation CI verifies its Scheme source pack and checks the
 committed Rust module through the public AOT facade. The independent Cargo
@@ -114,20 +125,22 @@ gerbil env gxi generate-rust-rowan.ss \
   rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
 cargo fmt --all
 cargo test --workspace --locked
-cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- \
+cargo test --release -p gerbil-parser-build-support --test performance_test -- \
   --ignored --nocapture --test-threads=1
 #+end_src
 
-The workspace =Build Support= crate owns the ASP Rust policy and its
-=tests/asp-rust-gate.rs= activation once. Product crates do not depend on Build
-Support; =cargo test -p gerbil-parser-build-support --test asp-rust-gate=
-activates the =Dev Gate= only in the development workspace.
+The workspace =Build Support= crate owns shared policy and Scenario macros.
+Its ASP Rust packages are =dev-dependencies=, and the ASP-backed policy and
+performance targets live in that crate's =tests/= directory. Other packages
+depend only on Build Support for dependency-free test helpers.
+=cargo test -p gerbil-parser-build-support --test asp-rust-gate= activates the
+=Dev Gate= once in the development workspace.
 The gate runs in =deny= mode, so every ASP Rust warning or error is
 test-blocking. CI runs that target separately with =--nocapture= so policy
 diagnostics remain visible instead of being hidden by libtest output capture.
 Immutable language-crate tables are compiler output verified against Grammar IR
 in native CI; policy governs their generator and handwritten runtime owners.
-Normal and build dependency graphs do not contain Build Support or ASP Rust.
+Normal and build dependency graphs do not contain ASP Rust.
 
 * Native command
 
@@ -161,7 +174,7 @@ ParseArtifact events, and diagnostics remain in their library owners.
 
 The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
 grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
-small performance-sensitive parser functions.  The single public authoring
+small performance-sensitive parser functions. The grammar authoring
 boundary is the top-level =language-support.ss= facade; its re-exported
 =deflanguage-grammar= macro expands
 one declaration into the grammar object, canonical Parser IR, native machine,
@@ -194,7 +207,7 @@ structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
 
 Grammar-source formats are language-neutral engine adapters.  ISO WG3 BNF,
 ANTLR4 source admission, and fixture/corpus declaration machinery are internal
-to =src/language-support/= and exported only through
+to =language-support/= and exported through
 =:gerbil-parser/language-support=.  A language pack only
 selects a pinned source and declares its versioned lowering under
 =languages/<language>/<version>/=.  The openCypher 2024.1 pack validates and

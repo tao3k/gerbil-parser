@@ -2,7 +2,8 @@
 ;;; Selective-GLR completion, merge, ranking, and ambiguity receipts.
 
 (import (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
-        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/receipt)
+        (only-in :gerbil-parser/src/runtime/lr-parser
+                 lr-prepare lr-parse/prepared/receipt)
         (only-in :gerbil-parser/src/runtime/recognition recognition-node-kind)
         (only-in :gerbil-parser/src/runtime/token make-token))
 (export selective-glr-scenario
@@ -47,6 +48,10 @@
   (compile-lr-spec dynamic-rules 'source-file 'selective-glr))
 (def fragment-spec
   (compile-lr-spec fragment-rules 'source-file 'selective-glr))
+(def equivalent-runtime (lr-prepare equivalent-spec))
+(def distinct-runtime (lr-prepare distinct-spec))
+(def dynamic-runtime (lr-prepare dynamic-spec))
+(def fragment-runtime (lr-prepare fragment-spec))
 (def input-token (make-token 'identifier "x" 0 1))
 (def fragment-input
   (list input-token (make-token 'identifier "y" 2 3)))
@@ -54,9 +59,9 @@
 (def (row-ref row key)
   (let (entry (assq key row)) (and entry (cdr entry))))
 
-(def (parse-receipt spec (tokens (list input-token)))
+(def (parse-receipt runtime (tokens (list input-token)))
   (let-values (((root rest receipt)
-                (lr-parse/receipt spec tokens)))
+                (lr-parse/prepared/receipt runtime tokens)))
     (list (cons 'rootKind (recognition-node-kind root))
           (cons 'remainingTokenCount (length rest))
           (cons 'receipt receipt))))
@@ -68,15 +73,16 @@
        (and (pair? irritants) (car irritants))))
    (lambda ()
      (call-with-values
-      (lambda () (lr-parse/receipt distinct-spec (list input-token)))
+      (lambda ()
+        (lr-parse/prepared/receipt distinct-runtime (list input-token)))
       (lambda _ #f)))))
 
 (def (selective-glr-scenario)
   (list
    (cons 'schema "gerbil-parser.selective-glr-correctness-receipt.v1")
-   (cons 'equivalent (parse-receipt equivalent-spec))
-   (cons 'dynamic (parse-receipt dynamic-spec))
-   (cons 'interned (parse-receipt fragment-spec fragment-input))
+   (cons 'equivalent (parse-receipt equivalent-runtime))
+   (cons 'dynamic (parse-receipt dynamic-runtime))
+   (cons 'interned (parse-receipt fragment-runtime fragment-input))
    (cons 'ambiguous (ambiguity-receipt))))
 
 (def (parse-case-pass? case expected-root expected-distinct expected-reason)

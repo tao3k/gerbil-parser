@@ -166,6 +166,11 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
         LexicalExpr::UntilDelimiters(delimiters) => consume_while(source, offset, |character| {
             !character.is_whitespace() && !delimiters.contains(character)
         }),
+        LexicalExpr::CharacterRun { character, minimum } => {
+            let symbol = character.chars().next()?;
+            let end = consume_while(source, offset, |ch| ch == symbol)?;
+            (source[offset..end].chars().count() >= *minimum).then_some(end)
+        }
         LexicalExpr::QuotedString(delimiters) => delimiters
             .iter()
             .find_map(|delimiter| quoted_string_end(source, offset, delimiter, true)),

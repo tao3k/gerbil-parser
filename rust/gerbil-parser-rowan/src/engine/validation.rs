@@ -190,6 +190,11 @@ fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
         LexicalExpr::Literals(values) if values.is_empty() || !nonempty(values) => {
             Err("literal expression requires non-empty spellings".into())
         }
+        LexicalExpr::CharacterRun { character, minimum }
+            if character.chars().count() != 1 || *minimum == 0 =>
+        {
+            Err("character run requires one character and a positive minimum".into())
+        }
         _ => Ok(()),
     }
 }

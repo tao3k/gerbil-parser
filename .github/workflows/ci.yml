@@ -31,8 +31,13 @@ jobs:
       - name: Verify Rust contracts
         run: cargo test --workspace --locked
 
-      - name: Verify downstream Cargo-only language consumer
-        run: cargo test --locked --manifest-path t/fixtures/rust-rowan-downstream/Cargo.toml
+      - name: Verify record assignments Cargo consumer
+        run: cargo test --locked --manifest-path t/fixtures/rowan-record-assignments/Cargo.toml
+
+      - name: Verify external ASCII digit adapter
+        run: |
+          cargo fmt --manifest-path t/fixtures/rowan-ascii-digit-run/Cargo.toml -- --check
+          cargo test --locked --manifest-path t/fixtures/rowan-ascii-digit-run/Cargo.toml
 
       - name: Verify Rust lints
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -41,7 +46,7 @@ jobs:
         run: cargo package -p gerbil-parser-rowan --locked --allow-dirty
 
       - name: Verify generated-table Rowan engine red zones
-        run: cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- --ignored --nocapture --test-threads=1
+        run: cargo test --release -p gerbil-parser-build-support --test performance_test -- --ignored --nocapture --test-threads=1
 
   native-gerbil:
     name: Native Gerbil parser and language packs (${{ matrix.os }})
@@ -68,10 +73,12 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             ca-certificates \
+            curl \
             git \
             jq \
             libsqlite3-dev \
             libssl-dev \
+            openjdk-17-jre-headless \
             openssl \
             pkg-config \
             sqlite3 \
@@ -152,6 +159,15 @@ jobs:
             -Wno-unused-command-line-argument -fsyntax-only \
             -Iinclude t/native-ffi-header-smoke.c
 
+      - name: Verify generated arithmetic Scheme LR is current
+        run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/v1/direct-lr.ss
+
+      - name: Verify generated HCL Scheme LR step is current
+        run: gerbil env gxi t/benchmarks/hcl-scale/generate-step.ss check languages/hcl/v2-24/direct-step.ss
+
+      - name: Verify generated HCL recursive parser is current
+        run: gerbil env gxi languages/hcl/v2-24/generate-direct.ss check languages/hcl/v2-24/direct-recursive.ss
+
       - name: Build optional native commands
         run: |
           gerbil env gxi build-gparse.ss compile
@@ -160,14 +176,52 @@ jobs:
       - name: Compile Scheme test support
         run: |
           gerbil env gxc t/line-structure-assertions.ss
+          if [ "$RUNNER_OS" = macOS ]; then
+            gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
+              t/fixtures/tla-sany-differential/exit-child-process.ss
+          else
+            gerbil env gxc t/fixtures/tla-sany-differential/exit-child-process.ss
+          fi
           gerbil env gxc \
-            t/fixtures/rust-rowan-downstream/languages/records/v1/grammar.ss \
-            t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss \
-            t/fixtures/rust-rowan-downstream/languages/records/v1/fixtures.ss
+            t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss \
+            t/fixtures/rowan-record-assignments/languages/records/v1/parser.ss \
+            t/fixtures/rowan-record-assignments/languages/records/v1/fixtures.ss
 
       - name: Run native Gerbil tests
         timeout-minutes: 15
-        run: gerbil test -v 3 t/... languages/...
+        run: |
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
+            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi t/fixtures/tla-sany-differential/native-suite.ss t languages
+
+      - name: Compare TLA+ candidate structure with pinned SANY
+        if: runner.os == 'Linux'
+        run: |
+          jar="$RUNNER_TEMP/tla2tools-v1.7.4.jar"
+          curl --fail --location --retry 3 --silent --show-error \
+            --output "$jar" \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
+            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
+              gerbil env gxi \
+              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' \
+              t/fixtures/tla-sany-differential/compare.ss "$jar"
+
+      - name: Verify complete pinned TLA+ Examples corpus
+        if: runner.os == 'Linux'
+        run: |
+          corpus="$RUNNER_TEMP/tlaplus-examples"
+          git init "$corpus"
+          git -C "$corpus" remote add origin https://github.com/tlaplus/Examples.git
+          git -C "$corpus" fetch --depth=1 origin ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10
+          git -C "$corpus" checkout --detach FETCH_HEAD
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
+            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
+              gerbil env gxi \
+              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' \
+              t/fixtures/tla-sany-differential/corpus.ss "$corpus"
 
       - name: Verify Rust/Rowan AOT generation is current
         run: |
@@ -198,9 +252,9 @@ jobs:
           gerbil env gxi t/generate-owned-word-fixture.ss "$owned_generated"
           cmp "$owned_generated" rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs
 
-      - name: Verify downstream custom Rust/Rowan language pack
+      - name: Verify record assignments Rust/Rowan language pack
         run: |
-          fixture="t/fixtures/rust-rowan-downstream"
+          fixture="t/fixtures/rowan-record-assignments"
           generated="$(mktemp)"
           clean_home="$RUNNER_TEMP/rowan-aot-home"
           mkdir -p "$clean_home"

@@ -16,7 +16,8 @@
   (test-suite "parser-owned native ParseArtifact v1 ABI"
     (test-case "descriptor publishes the parser-owned grammar surface"
       (check (native-abi-version) => 1)
-      (let (descriptor (string->json (native-descriptor-payload "gql")))
+      (let (descriptor (string->json (native-descriptor-payload "gql")
+                                    (JSONReadOptions object-as-hash: #t)))
         (check (hash-get descriptor "schema")
                => "gerbil-parser.native-descriptor.v1")
         (check (hash-get descriptor "language") => "gql")
@@ -36,7 +37,8 @@
                => (+ 80 (* 24 (u8vector-u32-ref artifact 12 little))))))
     (test-case "openCypher uses its own descriptor and parser"
       (let* ((descriptor
-              (string->json (native-descriptor-payload "cypher")))
+              (string->json (native-descriptor-payload "cypher")
+                            (JSONReadOptions object-as-hash: #t)))
              (artifact
               (native-parse-binary-payload
                "cypher" "MATCH (n:Person) RETURN n\n")))
@@ -51,9 +53,9 @@
       (check (native-rowan-aot-abi-version) => 1)
       (let (source
             (native-rust-rowan-source
-             "t/fixtures/rust-rowan-downstream/languages/records/v1/grammar.ss"))
+             "t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss"))
         (check (not (not (string-contains
-                           source "language: \"downstream-records\""))) => #t)
+                           source "language: \"record-assignments\""))) => #t)
         (check (not (not (string-contains
                            source "grammar_digest: \"sha256:9c7e8b0f"))) => #t)
         (check (not (not (string-contains
@@ -61,7 +63,11 @@
     (test-case "module without a language descriptor fails closed"
       (check-exception
        (native-rust-rowan-source
-        "t/fixtures/rust-rowan-downstream/languages/records/v1/parser.ss")
+        "t/fixtures/rowan-record-assignments/languages/records/v1/parser.ss")
        true))))
 
 (export native-ffi-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def native-ffi-test native-ffi-tests)
+(export native-ffi-test)

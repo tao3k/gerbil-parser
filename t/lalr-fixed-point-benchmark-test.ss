@@ -23,6 +23,7 @@
       (let (algorithm-receipt (lalr-fixed-point-scenario))
         (write algorithm-receipt)
         (newline)
+        (force-output)
         (check (lalr-fixed-point-scenario-pass? algorithm-receipt) => #t))
       (run-scenario-batch)
       (##gc)
@@ -30,6 +31,8 @@
             (benchmark-contract-run benchmark-path run-scenario-batch))
         (write benchmark-receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(export lalr-fixed-point-benchmark-tests)
+(def lalr-fixed-point-benchmark-test lalr-fixed-point-benchmark-tests)
+(export lalr-fixed-point-benchmark-tests lalr-fixed-point-benchmark-test)

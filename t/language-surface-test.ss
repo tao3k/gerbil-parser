@@ -18,8 +18,11 @@
                  defgrammar-syntax)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-roundtrip parse-artifact-success?)
+        (only-in :gerbil-parser/src/runtime/lexer lex-source)
         (only-in :gerbil-parser/src/runtime/scan
                  make-literal-end-scanner)
+        (only-in :gerbil-parser/src/runtime/token
+                 token-kind token-start token-end)
         (only-in :gerbil-parser/src/runtime/parser parse-source))
 
 ;;; These direct expansion witnesses keep the compiler's closed lexical algebra
@@ -152,6 +155,16 @@
       (check external-scanner-witness => 2)
       (check (literal-trie-witness "<=" 0) => 2)
       (check (literal-trie-witness "MATCHED suffix" 0) => 7)
-      (check (literal-trie-witness "missing" 0) => #f))))
+      (check (literal-trie-witness "missing" 0) => #f))
+    (test-case "mode dispatch keeps Unicode and fallback byte boundaries"
+      (let (tokens (lex-source concise-v1-witness-parser "α β?"))
+        (check (map token-kind tokens)
+               => '(identifier whitespace identifier unknown))
+        (check (map token-start tokens) => '(0 2 3 5))
+        (check (map token-end tokens) => '(2 3 5 6))))))
 
 (export concise-v1-language-surface-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def language-surface-test concise-v1-language-surface-tests)
+(export language-surface-test)

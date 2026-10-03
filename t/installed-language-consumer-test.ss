@@ -35,3 +35,7 @@
              => '(#t #t #t)))))
 
 (export installed-language-consumer-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def installed-language-consumer-test installed-language-consumer-tests)
+(export installed-language-consumer-test)

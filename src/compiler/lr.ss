@@ -194,7 +194,8 @@
         name))
     (def (lower-symbol owner expression precedence)
       (case (car expression)
-        ((literal) (list 'terminal 'literal (cadr expression)))
+        ((literal layout-start layout-next)
+         (list 'terminal (car expression) (cadr expression)))
         ((token) (list 'terminal 'token (cadr expression)))
         ((reference) (list 'nonterminal (cadr expression)))
         (else
@@ -227,6 +228,9 @@
           (lambda (child) (lower-to lhs owner child precedence))
           (cdr expression)))
         ((empty) (emit lhs '() 'concat precedence))
+        ((layout-end)
+         (emit lhs '() (if (null? (cdr expression)) 'layout-end expression)
+               precedence))
         ((sequence)
          (emit lhs
                (map (lambda (child)
@@ -255,7 +259,7 @@
         ((alias)
          (emit lhs (list (lower-operand owner expression precedence))
                'pass precedence))
-        ((literal token reference)
+        ((literal layout-start layout-next token reference)
          (emit lhs (list (lower-symbol owner expression precedence))
                'pass precedence))
         (else (error "unsupported GrammarExpr in LR lowering" owner expression))))

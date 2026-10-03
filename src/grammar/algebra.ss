@@ -17,7 +17,11 @@
        (case (car value)
          ((empty)
           (null? (cdr value)))
-         ((literal)
+         ((layout-end)
+          (every (lambda (boundary)
+                   (and (string? boundary) (positive? (string-length boundary))))
+                 (cdr value)))
+         ((literal layout-start layout-next)
           (and (= (length value) 2)
                (string? (cadr value))
                (positive? (string-length (cadr value)))))
@@ -67,6 +71,16 @@
   (unless (and (string? value) (positive? (string-length value)))
     (error "grammar literal must be a non-empty string" value))
   (list 'literal value))
+
+(def (grammar-layout-marker role value)
+  (unless (and (memq role '(layout-start layout-next))
+               (string? value) (positive? (string-length value)))
+    (error "layout marker must be a non-empty literal" role value))
+  (list role value))
+
+(def (grammar-layout-end (boundaries '()))
+  (let (expression (cons 'layout-end boundaries))
+    (require-expression expression 'layout-end)))
 
 ;; grammar-token
 ;; : (-> Symbol List)
@@ -156,12 +170,19 @@
 ;;       ```
 ;;     %
 (defrules grammar-expression
-  (empty literal token reference seq choice optional repeat repeat1
+  (empty literal layout-start layout-next layout-end
+   token reference seq choice optional repeat repeat1
    field alias prec none left right dynamic)
   ((_ (empty))
    (grammar-empty))
   ((_ (literal value))
    (grammar-literal value))
+  ((_ (layout-start value))
+   (grammar-layout-marker 'layout-start value))
+  ((_ (layout-next value))
+   (grammar-layout-marker 'layout-next value))
+  ((_ (layout-end boundary ...))
+   (grammar-layout-end (list boundary ...)))
   ((_ (token name))
    (grammar-token 'name))
   ((_ (reference name))
@@ -209,7 +230,7 @@
 (def (grammar-expression-nullable? expression)
   (require-expression expression 'nullable)
   (case (car expression)
-    ((empty optional repeat) #t)
+    ((empty layout-end optional repeat) #t)
     ((sequence)
      (let loop ((rest (cdr expression)))
        (or (null? rest)

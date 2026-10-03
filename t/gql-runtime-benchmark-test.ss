@@ -10,7 +10,8 @@
         (only-in :gerbil-parser/languages/gql/iso-39075-2024/parser
                  parse-gql-iso-39075-2024)
         (only-in :gerbil-parser/src/runtime/artifact
-                 parse-artifact-success?))
+                 parse-artifact-success?)
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 
 (def benchmark-path
   (path-expand "benchmarks/gql-runtime/benchmark.ss"
@@ -24,7 +25,8 @@
        (parse-artifact-success?
         (parse-gql-iso-39075-2024 +gql-representative-query+))
        (error "GQL runtime benchmark parse failed"))
-      (loop (- remaining 1)))))
+      (loop (- remaining 1))))
+  (report-test-progress! "GQL-BATCH-OK parses=" +parse-count+))
 
 (def gql-runtime-benchmark-tests
   (test-suite "ISO GQL parser runtime benchmark"
@@ -36,6 +38,8 @@
             (benchmark-contract-run benchmark-path parse-gql-batch))
         (write receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(export gql-runtime-benchmark-tests)
+(def gql-runtime-benchmark-test gql-runtime-benchmark-tests)
+(export gql-runtime-benchmark-tests gql-runtime-benchmark-test)

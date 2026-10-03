@@ -6,14 +6,17 @@
                  parser-machine-runtime)
         (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ./artifact
-                 parse-artifact-ref parse-artifact-success?)
+                 parse-artifact-ref parse-artifact-success?
+                 parse-artifact-events token-event? token-event-token-kind
+                 token-event-lexeme event-start event-end)
         (only-in ./lexer lex-source)
         (only-in ./lr-parser
                  lr-checkpoint-frontier lr-failure-frontier?
                  lr-failure-frontier-expected-terminals
                  lr-failure-frontier-remaining-tokens
                  lr-failure-frontier-resume lr-failure-frontier-state
-                 lr-initial-checkpoint lr-rejection-condition?)
+                 lr-initial-checkpoint lr-rejection-condition?
+                 lr-runtime-layout?)
         (only-in ./parser parse-source)
         (only-in ./significant parser-significant-tokens)
         (only-in ./token
@@ -23,6 +26,25 @@
 
 (def +recovery-receipt-schema+
   "gerbil-parser.recovery-receipt.v1")
+
+;;; The ordinary rejected artifact already owns the complete fallback lexical
+;;; stream. Reuse it for private recovery instead of scanning the source again.
+;;; A lexical failure may publish no tokens; retain the existing fallback then.
+(def (rejected-artifact-tokens artifact)
+  (let ((events (parse-artifact-events artifact))
+        (length (parse-artifact-ref artifact 'sourceByteLength)))
+    (let loop ((rest events) (offset 0) (tokens '()))
+      (cond
+       ((null? rest) (and (= offset length) (reverse tokens)))
+       ((and (token-event? (car rest))
+             (= (event-start (car rest)) offset))
+        (let (event (car rest))
+          (loop (cdr rest) (event-end event)
+                (cons (make-token (token-event-token-kind event)
+                                  (token-event-lexeme event)
+                                  offset (event-end event))
+                      tokens))))
+       (else #f)))))
 
 ;; : (-> Terminal (OrFalse String))
 (def (terminal-literal terminal)
@@ -186,6 +208,10 @@
       (values artifact
               (recovery-receipt machine artifact row 'not-needed #f 0
                                 budget #f #f 0)))
+     ((lr-runtime-layout? (parser-machine-runtime machine))
+      (values artifact
+              (recovery-receipt machine artifact row 'disabled #f 0
+                                budget #f #f 0)))
      ((not row)
       (values artifact
               (recovery-receipt machine artifact #f 'disabled #f 0
@@ -195,7 +221,8 @@
             (with-catch (lambda (_) '())
               (lambda ()
                 (parser-significant-tokens machine
-                                           (lex-source machine source)))))
+                 (or (rejected-artifact-tokens artifact)
+                     (lex-source machine source))))))
         (let-values (((operation attempts exhausted? frontier)
                       (find-recovery machine tokens budget)))
           (values artifact

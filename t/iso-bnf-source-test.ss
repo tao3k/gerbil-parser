@@ -157,3 +157,7 @@
          true)))))
 
 (export iso-bnf-source-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def iso-bnf-source-test iso-bnf-source-tests)
+(export iso-bnf-source-test)

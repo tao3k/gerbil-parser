@@ -4,7 +4,7 @@ use gerbil_parser_rowan_arithmetic::LANGUAGE;
 fn generated_arithmetic_parser_builds_a_lossless_rowan_tree() {
     let source = "  alpha + 2 * (beta - -3)  \n";
     let parsed = gerbil_parser_rowan::parse(&LANGUAGE, source).expect("accepted arithmetic");
-    assert_eq!(parsed.syntax().to_string(), source);
+    gerbil_parser_build_support::assert_rowan_lossless!(parsed, source);
     assert_eq!(parsed.receipt().language, "arithmetic");
     assert_eq!(parsed.receipt().version, "v1");
     assert_eq!(parsed.receipt().contract, "arithmetic-expression.v1");
@@ -48,5 +48,5 @@ fn generated_arithmetic_parser_fails_closed() {
 fn generated_arithmetic_identifier_matches_the_declared_scanner() {
     let source = "λ-value_2 + ٣";
     let parsed = gerbil_parser_rowan::parse(&LANGUAGE, source).expect("Unicode arithmetic");
-    assert_eq!(parsed.syntax().to_string(), source);
+    gerbil_parser_build_support::assert_rowan_lossless!(parsed, source);
 }

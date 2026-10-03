@@ -3,6 +3,7 @@
 
 (import :std/test
         :gerbil-parser/src/runtime/artifact
+        (only-in :gerbil-parser/src/runtime/identity sha256-bytes)
         :gerbil-parser/src/runtime/cst
         :gerbil-parser/src/runtime/parser
         :gerbil-parser/languages/arithmetic/v1/parser)
@@ -35,6 +36,15 @@
         (check (parse-artifact-ref first 'sourceDigest)
                => (sha256-text source))
         (check first-cst => second-cst)))
+    (test-case "source identity keeps UTF-8 byte extent"
+      (let* ((source "λ + @")
+             (artifact (parse-source arithmetic-parser source))
+             (bytes (string->utf8 source)))
+        (check (parse-artifact-ref artifact 'sourceByteLength)
+               => (u8vector-length bytes))
+        (check (parse-artifact-ref artifact 'sourceDigest)
+               => (sha256-text source))
+        (check (sha256-bytes bytes) => (sha256-text source))))
     (test-case "a missing token event fails closed"
       (let* ((artifact (parse-source arithmetic-parser "1 + 2"))
              (corrupt
@@ -81,3 +91,7 @@
                => #t)))))
 
 (export parse-artifact-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def parse-artifact-test parse-artifact-tests)
+(export parse-artifact-test)

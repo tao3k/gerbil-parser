@@ -5,12 +5,16 @@
         (only-in ./funcs compiler-index-set-for-each)
         (only-in ./lr
                  compute-first compute-nullable
-                 lower-rules nonterminal-name nonterminal-symbol?
-                 production-id production-precedence production-table
+                 lower-rules lr-spec-ref nonterminal-name nonterminal-symbol?
+                 production-action production-id production-precedence production-table
                  terminal-symbol? union-values)
         (only-in ./lr-automaton
                  transition-index transition-target)
-        (only-in ./lr-lookahead build-states-via-lr0))
+        (only-in ./lr-lookahead
+                 build-states-via-lr0 build-states-via-canonical-lr1)
+        (only-in ./lr-partition build-states-via-partitioned-lr1)
+        (only-in ./lr-follow-automaton
+                 build-states-via-follow-partition-lr1))
 (export compile-lr-spec)
 
 ;; fork-action
@@ -26,7 +30,7 @@
 
 ;; : (-> Symbol List List String Datum List)
 (def (fork-or-reject conflict-policy shift reduce message evidence)
-  (if (eq? conflict-policy 'selective-glr)
+  (if (memq conflict-policy '(selective-glr probe))
     (fork-action shift reduce)
     (error message evidence)))
 
@@ -79,7 +83,8 @@
        (list terminal left-production right-production)))
      ((> left-rank right-rank) left)
      ((< left-rank right-rank) right)
-     ((eq? conflict-policy 'selective-glr) (fork-action left right))
+     ((memq conflict-policy '(selective-glr probe))
+      (fork-action left right))
      (else
       (error "unresolved reduce/reduce conflict"
              terminal left-production right-production)))))
@@ -139,6 +144,10 @@
         (transitions (transition-index transitions))
         (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1"))
         (started (##current-time-point))
+        (layout? (vector-any (lambda (production)
+                     (let (action (production-action production))
+                       (or (eq? action 'layout-end)
+                           (and (pair? action) (eq? (car action) 'layout-end))))) table))
         (processed-items 0)
         (published-actions 0)
         (publication-count 0))
@@ -151,8 +160,12 @@
                  state-id state-items))
        (let ((state-actions (make-table test: equal?))
              (terminal-order '())
+             (raw-reductions (make-table test: equal?))
              (lookahead-node (vector-ref lookahead-offsets state-id)))
          (def (install! terminal action)
+           (when (and layout? (eq? (car action) 'reduce))
+             (table-set! raw-reductions terminal
+              (cons action (table-ref raw-reductions terminal '()))))
            (let (current (table-ref state-actions terminal #f))
              (if current
                (table-set! state-actions terminal
@@ -189,7 +202,13 @@
          (vector-set!
           actions state-id
           (map (lambda (terminal)
-                 (cons terminal (table-ref state-actions terminal)))
+                 (let* ((action (table-ref state-actions terminal))
+                        (reductions (table-ref raw-reductions terminal '())))
+                         (cons terminal
+                          (if (and layout? (eq? (car action) 'shift) (pair? reductions))
+                            (list 'layout-guard action
+                             (if (null? (cdr reductions)) (car reductions)
+                               (cons 'fork (reverse reductions)))) action))))
                (reverse terminal-order)))
          (set! publication-count (+ publication-count 1))
          (set! published-actions
@@ -234,8 +253,11 @@
 ;;; resolution, and publication into the canonical immutable LR spec v1.
 ;; compile-lr-spec
 ;; : (-> List Symbol Symbol Boolean List)
-(def (compile-lr-spec rules root (conflict-policy 'reject)
-                      (case-insensitive? #f))
+(def (compile-lr-spec/selected rules root conflict-policy
+                               case-insensitive? construction)
+  (unless (memq construction
+                '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1))
+    (error "unknown LR construction" construction))
   (let* ((started (##current-time-point))
          (productions
           (lower-rules rules root (eq? conflict-policy 'selective-glr)))
@@ -250,7 +272,12 @@
         (let-values (((states state-count lookaheads lookahead-offsets transitions
                               terminal-values layout core-symbols
                              lr0-state-visit-count lookahead-item-visit-count)
-                      (build-states-via-lr0
+                      ((case construction
+                         ((canonical-lr1) build-states-via-canonical-lr1)
+                         ((partitioned-lr1) build-states-via-partitioned-lr1)
+                         ((follow-partition-lr1)
+                          build-states-via-follow-partition-lr1)
+                         (else build-states-via-lr0))
                        productions table first-index nullable-index)))
           (trace-lr-phase 'states state-count started)
           (let-values (((actions action-state-publication-count)
@@ -264,15 +291,67 @@
             (trace-lr-phase 'actions (vector-length actions) started)
             (let (gotos (build-gotos transitions state-count))
               (trace-lr-phase 'gotos (vector-length gotos) started)
-              (list
-               (cons 'schema "gerbil-parser.lr-spec.v1")
-               (cons 'case-insensitive? case-insensitive?)
-               (cons 'productions productions)
-               (cons 'nullable nullable)
-               (cons 'first first)
-               (cons 'algorithm 'lalr1-lr0-fixed-point-v1)
-               (cons 'state-count state-count)
-               (cons 'lr0-state-visit-count lr0-state-visit-count)
-               (cons 'lookahead-item-visit-count lookahead-item-visit-count)
-               (cons 'actions actions)
-               (cons 'gotos gotos)))))))))
+              (let (spec
+                    (list
+                     (cons 'schema "gerbil-parser.lr-spec.v1")
+                     (cons 'case-insensitive? case-insensitive?)
+                     (cons 'productions productions)
+                     (cons 'nullable nullable)
+                     (cons 'first first)
+                     (cons 'algorithm
+                           (case construction
+                             ((canonical-lr1) 'canonical-lr1-reference-v1)
+                             ((partitioned-lr1)
+                              'conflict-partitioned-lr1-v1)
+                             ((follow-partition-lr1)
+                              'follow-partition-lr1-v1)
+                             (else 'lalr1-lr0-fixed-point-v1)))
+                     (cons 'state-count state-count)
+                     (cons 'lr0-state-visit-count
+                           (and (eq? construction 'lalr)
+                                lr0-state-visit-count))
+                     (cons 'lookahead-item-visit-count
+                           (and (eq? construction 'lalr)
+                                lookahead-item-visit-count))
+                     (cons 'actions actions)
+                     (cons 'gotos gotos)))
+                (case construction
+                  ((lalr) spec)
+                  ((follow-partition-lr1)
+                   (cons (cons 'follow-block-count
+                               lr0-state-visit-count)
+                         (cons (cons 'output-item-count
+                                     lookahead-item-visit-count)
+                               spec)))
+                  (else
+                   (cons (cons 'canonical-state-count
+                               lr0-state-visit-count)
+                         (cons (cons 'output-item-count
+                                     lookahead-item-visit-count)
+                               spec))))))))))))
+
+;;; The ordinary path stays LALR. Probe publishes unresolved cells as forks
+;;; without admitting GLR lowering; only those cells trigger the LR(1) route.
+;;; This avoids using exception construction as routine algorithm selection.
+(def (lr-spec-has-fork? spec)
+  (vector-any
+   (lambda (row)
+     (any (lambda (entry) (eq? (car (cdr entry)) 'fork)) row))
+   (lr-spec-ref spec 'actions)))
+
+(def (compile-lr-spec rules root (conflict-policy 'reject)
+                      (case-insensitive? #f) (construction 'lalr))
+  (if (eq? construction 'lalr-then-follow)
+    (if (eq? conflict-policy 'reject)
+      (let (probe
+            (compile-lr-spec/selected
+             rules root 'probe case-insensitive? 'lalr))
+        (if (lr-spec-has-fork? probe)
+          (compile-lr-spec/selected
+           rules root conflict-policy case-insensitive?
+           'follow-partition-lr1)
+          probe))
+      (compile-lr-spec/selected
+       rules root conflict-policy case-insensitive? 'lalr))
+    (compile-lr-spec/selected
+     rules root conflict-policy case-insensitive? construction)))

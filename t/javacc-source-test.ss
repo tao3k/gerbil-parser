@@ -3,7 +3,7 @@
 
 (import :std/test
         :gerbil-parser/language-support
-        :gerbil-parser/languages/tla-plus/v1/source)
+        :gerbil-parser/languages/tla-plus/source)
 
 (def javacc-source-tests
   (test-suite "JavaCC native grammar source"
@@ -43,3 +43,7 @@
        true))))
 
 (export javacc-source-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def javacc-source-test javacc-source-tests)
+(export javacc-source-test)

@@ -22,35 +22,41 @@
 (def +parser-artifact-cache-schema+
   "gerbil-parser.parser-artifact-cache.v1")
 (def +parser-artifact-generator-contract+
-  "gerbil-parser.lalr1-generator.v1")
+  "gerbil-parser.lalr1-generator.v2")
 (def +language-declaration-cache-schema+
   "gerbil-parser.language-declaration-cache.v1")
 (def +language-declaration-generator-contract+
-  "gerbil-parser.language-declaration-generator.v1")
+  "gerbil-parser.language-declaration-generator.v2")
+
+;; v2 publishes layout-guard actions. Older declaration/parser receipts must
+;; regenerate even when their authored grammar bytes have not changed.
 
 ;; : (-> Datum String)
 (def (serialize value)
   (call-with-output-string (lambda (port) (write value port))))
 
-;; : (-> String String Boolean)
-(def (materialized-content-matches? path serialized)
+;; : (-> String String (-> InputPort String) Boolean)
+(def (content-matches? path serialized read-content)
   (and (file-exists? path)
        (with-exception-catcher
         (lambda (_) #f)
         (lambda ()
           (equal? serialized
-                  (utf8->string
-                   (uncompress
-                    (call-with-input-file path read-all-as-u8vector))))))))
+                  (call-with-input-file path read-content))))))
 
-;; A content-addressed target is immutable. Existing corrupt content is never
-;; silently replaced; a competing writer is accepted only after the winner's
-;; complete bytes have been independently verified.
-;; : (-> String U8Vector String Void)
-(def (publish-materialized-content! path bytes serialized)
+(def (materialized-content-matches? path serialized)
+  (content-matches?
+   path serialized
+   (lambda (port)
+     (utf8->string (uncompress (read-all-as-u8vector port))))))
+
+;; Both sidecars and cache receipts are immutable. A competing writer is
+;; accepted only after its complete content has been independently verified.
+(def (publish-immutable-content! path serialized matches? write-content!
+                                 conflict-message temporary-message)
   (if (file-exists? path)
-    (unless (materialized-content-matches? path serialized)
-      (error "compiled language artifact target contains different bytes" path))
+    (unless (matches? path serialized)
+      (error conflict-message path))
     (let make-temporary ()
       (let (temporary
             (string-append path ".tmp."
@@ -61,18 +67,23 @@
            (lambda (exception)
              (when (file-exists? temporary)
                (delete-file temporary))
-             (if (materialized-content-matches? path serialized)
+             (if (matches? path serialized)
                (void)
                (raise exception)))
            (lambda ()
-             (call-with-output-file
-              temporary
-              (lambda (port)
-                (write-subu8vector bytes 0 (u8vector-length bytes) port)))
-             (unless (materialized-content-matches? temporary serialized)
-               (error "compiled language artifact temporary write is invalid"
-                      temporary))
+             (call-with-output-file temporary write-content!)
+             (unless (matches? temporary serialized)
+               (error temporary-message temporary))
              (rename-file temporary path #f))))))))
+
+;; : (-> String U8Vector String Void)
+(def (publish-materialized-content! path bytes serialized)
+  (publish-immutable-content!
+   path serialized materialized-content-matches?
+   (lambda (port)
+     (write-subu8vector bytes 0 (u8vector-length bytes) port))
+   "compiled language artifact target contains different bytes"
+   "compiled language artifact temporary write is invalid"))
 
 ;; : (forall (a) (-> a [String] [String]))
 ;; : (-> Datum List List)
@@ -106,51 +117,35 @@
 
 ;; : (-> String String Boolean)
 (def (text-content-matches? path serialized)
-  (and (file-exists? path)
-       (with-exception-catcher
-        (lambda (_) #f)
-        (lambda ()
-          (equal? serialized
-                  (call-with-input-file
-                   path (lambda (port) (read-line port #f))))))))
+  (content-matches?
+   path serialized
+   (lambda (port) (read-line port #f))))
 
 ;; : (-> String String Void)
 (def (publish-text-content! path serialized)
-  (if (file-exists? path)
-    (unless (text-content-matches? path serialized)
-      (error "compiled language cache receipt contains different bytes" path))
-    (let make-temporary ()
-      (let (temporary
-            (string-append path ".tmp."
-                           (number->string (random-integer 1073741824))))
-        (if (file-exists? temporary)
-          (make-temporary)
-          (with-exception-catcher
-           (lambda (exception)
-             (when (file-exists? temporary)
-               (delete-file temporary))
-             (if (text-content-matches? path serialized)
-               (void)
-               (raise exception)))
-           (lambda ()
-             (call-with-output-file
-              temporary (lambda (port) (display serialized port)))
-             (unless (text-content-matches? temporary serialized)
-               (error "compiled language cache temporary write is invalid"
-                      temporary))
-             (rename-file temporary path #f))))))))
+  (publish-immutable-content!
+   path serialized text-content-matches?
+   (lambda (port) (display serialized port))
+   "compiled language cache receipt contains different bytes"
+   "compiled language cache temporary write is invalid"))
 
 ;; : (-> String String)
 (def (parser-cache-relative-path key)
   (string-append "gerbil-parser/compiled-language-parser-cache/"
                  (sha256-identity-filename key) ".scm"))
 
-;; : (-> String List (Maybe List))
-(def (read-parser-cache-receipt key output-dirs)
-  (let* ((relative-path (parser-cache-relative-path key))
-         (path (find file-exists?
-                     (map (lambda (root) (path-expand relative-path root))
-                          output-dirs))))
+(def (cache-receipt-field receipt field)
+  (let (row (assq field receipt))
+    (and row (cdr row))))
+
+;; A receipt must contain exactly one datum with the expected identity and
+;; all fields needed by its caller. Cache kinds differ only in their schema
+;; and required locator fields.
+(def (read-cache-receipt relative-path output-dirs schema key required-fields
+                         invalid-message)
+  (let (path (find file-exists?
+                   (map (lambda (root) (path-expand relative-path root))
+                        output-dirs)))
     (and path
          (call-with-input-file
           path
@@ -158,16 +153,20 @@
             (let ((receipt (read port)) (trailing (read port)))
               (unless (and (eof-object? trailing)
                            (list? receipt)
-                           (let (row (assq 'schema receipt))
-                             (and row
-                                  (equal? (cdr row)
-                                          +parser-artifact-cache-schema+)))
-                           (let (row (assq 'key receipt))
-                             (and row (equal? (cdr row) key)))
-                           (assq 'artifact receipt))
-                (error "invalid compiled language parser cache receipt"
-                       path receipt))
+                           (equal? (cache-receipt-field receipt 'schema)
+                                   schema)
+                           (equal? (cache-receipt-field receipt 'key) key)
+                           (andmap (lambda (field) (assq field receipt))
+                                   required-fields))
+                (error invalid-message path receipt))
               receipt))))))
+
+;; : (-> String List (Maybe List))
+(def (read-parser-cache-receipt key output-dirs)
+  (read-cache-receipt
+   (parser-cache-relative-path key) output-dirs
+   +parser-artifact-cache-schema+ key '(artifact)
+   "invalid compiled language parser cache receipt"))
 
 ;; : (-> Alist Alist)
 (def (parser-artifact-with-materialization value)
@@ -187,7 +186,7 @@
             (list +parser-artifact-generator-contract+ grammar))))
          (receipt (read-parser-cache-receipt key output-dirs)))
     (if receipt
-      (let (locator (cdr (assq 'artifact receipt)))
+      (let (locator (cache-receipt-field receipt 'artifact))
         (values
          (load-compiled-language-artifact/roots
           "gerbil-parser.parser-ir.v1" locator output-dirs)
@@ -258,29 +257,10 @@
 
 ;; : (-> String List (Maybe List))
 (def (read-declaration-cache-receipt key output-dirs)
-  (let* ((relative-path (declaration-cache-relative-path key))
-         (path (find file-exists?
-                     (map (lambda (root) (path-expand relative-path root))
-                          output-dirs))))
-    (and path
-         (call-with-input-file
-          path
-          (lambda (port)
-            (let ((receipt (read port)) (trailing (read port)))
-              (unless (and (eof-object? trailing)
-                           (list? receipt)
-                           (let (row (assq 'schema receipt))
-                             (and row
-                                  (equal? (cdr row)
-                                          +language-declaration-cache-schema+)))
-                           (let (row (assq 'key receipt))
-                             (and row (equal? (cdr row) key)))
-                           (assq 'grammar receipt)
-                           (assq 'bound receipt)
-                           (assq 'parser receipt))
-                (error "invalid compiled language declaration cache receipt"
-                       path receipt))
-              receipt))))))
+  (read-cache-receipt
+   (declaration-cache-relative-path key) output-dirs
+   +language-declaration-cache-schema+ key '(grammar bound parser)
+   "invalid compiled language declaration cache receipt"))
 
 ;;; Caches the complete declaration projection, not just the final parser IR.
 ;;; On a hit expansion receives receipt-bound content-addressed locators and avoids
@@ -296,9 +276,9 @@
                   declaration-identity grammar))))
          (receipt (read-declaration-cache-receipt key output-dirs)))
     (if receipt
-      (values (cdr (assq 'grammar receipt))
-              (cdr (assq 'bound receipt))
-              (cdr (assq 'parser receipt))
+      (values (cache-receipt-field receipt 'grammar)
+              (cache-receipt-field receipt 'bound)
+              (cache-receipt-field receipt 'parser)
               'hit)
       (let* ((grammar-locator
               (materialize-compiled-language-artifact/output-dirs

@@ -44,6 +44,12 @@ contains no language-specific recognition or recovery policy. The event sink
 constructs nodes bottom-up without Rowan's node-cache hash recursion, so deep
 but valid hierarchies do not incur quadratic hashing in the generic layer.
 
+The event-fold =join-once= form only factors a normal shared continuation out
+of Scheme-authored branches. Its IR requires nonempty branches and continuation,
+and an explicit =set-bool= of the join's handled marker in a branch. It is not
+an error-recovery fallback or an implicit parser alternative; malformed joins
+fail during Scheme validation and again at the Rust AOT boundary.
+
 The sink is not itself an AOT compiler for procedural =parser.ss= code.  A
 downstream script that prints a handwritten Rust scanner or event algorithm is
 not an implementation of the single-authority decision above, even when it
@@ -62,6 +68,10 @@ Other line/byte recognition, lexical state
 transitions, structural actions, and typed recovery still need explicit
 admission. The Rust runtime executes the admitted table and hands source-backed
 events to the generic Rowan sink.
+
+Proposed RFC 0007 specifies the contextual Parser IR and compile-time dispatch
+boundary for this remaining work. Its current compiler fixture does not change
+the qualification or cutover claims in this RFC.
 
 The table-backed =parse_structural_lines= route is an interim compatibility
 slice, not the target parser engine for context-sensitive languages. Its Rust
@@ -135,6 +145,11 @@ grammar.ss
 Downstream projects may own CST-to-domain-IR lowering, but they do not own
 another GQL parser package, syntax-kind catalog, lexer, precedence map,
 recovery table, or parser runtime.
+
+The language-pack dependency and Cargo feature boundary is specified in
+=docs/architecture/0008-extensible-language-packs.org=.  The generic Rowan
+runtime has no language registry; an optional support crate may select
+first-party packs without constraining downstream custom languages.
 
 The downstream qualification fixture owns the complete versioned language-pack
 shape: =grammar.ss=, =parser.ss=, =fixtures.ss=, =parser-test.ss=, native

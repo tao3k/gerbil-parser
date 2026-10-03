@@ -1,0 +1,51 @@
+#+title: RFC 0007 — Scheme parser request concurrency
+#+startup: overview
+
+* Decision
+
+A parse of one source is a synchronous call over one immutable compiled
+ParserMachine.  The scanner, LR/GLR executor, layout frames, diagnostics, and
+ParseArtifact stay in that call.  Gerbil actors or threads may schedule
+independent parse requests around this boundary; they do not become grammar
+operators, LR actions, or a second parsing algorithm.  The public parse API
+remains a function from a parser and source to a ParseArtifact.
+
+The host may use =:std/actor= for a service with a bounded request queue,
+reply routing, deadlines, and supervision.  A library caller may instead use
+=spawn= and =thread-join!= directly.  Neither policy is imposed by the parser
+package.  Capacity and queue limits belong to the host because an actor per
+source without admission could multiply heap use during GLR parses.  Throughput
+and CPU parallelism must be measured on the selected Gambit build and workload;
+the existence of actor threads alone is not a multicore performance receipt.
+
+* State and failure boundary
+
+- A request owns its source bytes, token stream, diagnostics, observability,
+  GLR configuration memo, and layout-column vector.  Layout frames are copied
+  into each GLR branch.  =current-layout-columns= and =current-layout-frames=
+  are dynamically scoped for the request; no request writes a shared parser
+  descriptor while parsing.
+- An actor message identifies the requested grammar artifact and source and
+  returns one success or failure ParseArtifact.  An actor must not expose its
+  mutable work buffers through a reply.  A caller can discard a late reply
+  after its deadline; hard interruption of an active parser call requires a
+  separately validated cancellation boundary.
+- Incremental checkpoints must carry all context needed to resume a request.
+  Layout parsing currently reparses the full source on edits and leaves
+  recovery disabled because its layout-frame state is not serialized into
+  checkpoints.  An actor must not make that incomplete checkpoint portable by
+  passing it between requests.
+- AOT/Rowan FFI is a separate ownership and thread-affinity contract.  Before
+  concurrent FFI calls are admitted, generated and native artifacts need an
+  explicit Send/Sync or single-owner rule, lifetime rule for source buffers,
+  and differential parse receipts.  The Scheme actor decision grants no
+  implicit permission to share Rowan handles across threads.
+
+* Acceptance
+
+The TLA+ layout test runs nine simultaneous requests against one compiled
+parser, using three sources with different marker kinds and nesting.  It checks
+that each result equals its sequential ParseArtifact and remains valid.  This
+is a reentrancy check, not a throughput claim.  A production actor adapter
+would additionally require bounded admission, deadline and shutdown tests,
+error delivery, and workload measurements before becoming a public API.

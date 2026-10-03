@@ -20,6 +20,7 @@
       (let (algorithm-receipt (incremental-suffix-scenario))
         (write algorithm-receipt)
         (newline)
+        (force-output)
         (check (incremental-suffix-scenario-pass? algorithm-receipt) => #t))
       (run-scenario)
       (##gc)
@@ -27,6 +28,8 @@
             (benchmark-contract-run benchmark-path run-scenario))
         (write benchmark-receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
 
-(export incremental-suffix-benchmark-tests)
+(def incremental-suffix-benchmark-test incremental-suffix-benchmark-tests)
+(export incremental-suffix-benchmark-tests incremental-suffix-benchmark-test)

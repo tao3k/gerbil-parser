@@ -10,8 +10,8 @@
         :gerbil-parser/languages/gql/iso-39075-2024/parser
         :gerbil-parser/languages/cypher/opencypher-2024-1/fixtures
         :gerbil-parser/languages/cypher/opencypher-2024-1/parser
-        :gerbil-parser/languages/tla-plus/v1/fixtures
-        :gerbil-parser/languages/tla-plus/v1/parser
+        :gerbil-parser/languages/tla-plus/fixtures
+        :gerbil-parser/languages/tla-plus/parser
         :gerbil-parser/src/runtime/artifact)
 
 (def benchmark-path "t/benchmarks/versioned-languages/benchmark.ss")
@@ -31,7 +31,7 @@
   (parse-corpus parse-gql-iso-39075-2024 gql-iso-official-fixtures)
   (parse-corpus parse-opencypher-2024-1
                 opencypher-2024-1-accepted-fixtures)
-  (parse-corpus parse-tla-plus-v1 tla-plus-v1-accepted-fixtures))
+  (parse-corpus parse-tla-plus-core tla-plus-core-accepted-fixtures))
 
 (def versioned-language-benchmark-tests
   (test-suite "versioned language benchmark"
@@ -43,6 +43,8 @@
             (benchmark-contract-run benchmark-path parse-language-batch))
         (write receipt)
         (newline)
+        (force-output)
         (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
-(export versioned-language-benchmark-tests)
+(def versioned-language-benchmark-test versioned-language-benchmark-tests)
+(export versioned-language-benchmark-tests versioned-language-benchmark-test)

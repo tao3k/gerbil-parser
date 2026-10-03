@@ -10,7 +10,8 @@
         rust-function rust-function-value rust-block rust-let rust-call rust-method
         rust-tuple-index rust-before rust-after rust-first-word
         rust-words rust-any rust-fold
-        rust-empty rust-string-in rust-if
+        rust-empty rust-string-in rust-single-ascii-uppercase
+        rust-unsigned-at-most rust-if
         rust-binary
         rust-line-event-function rust-event-node rust-event-token rust-event-if
         rust-line-event-function-form? rust-line-event-function-form-name
@@ -37,7 +38,7 @@
         rust-identifier-form? rust-identifier-form-value
         rust-some-form? rust-some-form-value
         rust-number-form? rust-number-form-value
-        rust-module-form? rust-module-form-item
+        rust-module-form? rust-module-form-item rust-module-form-origin
         rust-static-form? rust-static-form-value)
 
 (defstruct rust-field (name value) transparent: #t)
@@ -64,6 +65,8 @@
 (defstruct rust-fold-form (iterator accumulator item initial step) transparent: #t)
 (defstruct rust-empty-form (value) transparent: #t)
 (defstruct rust-string-in-form (value collection) transparent: #t)
+(defstruct rust-single-ascii-uppercase-form (value) transparent: #t)
+(defstruct rust-unsigned-at-most-form (value maximum) transparent: #t)
 (defstruct rust-if-form (condition consequent alternate) transparent: #t)
 (defstruct rust-binary-form (operator left right) transparent: #t)
 (defstruct rust-line-event-function-form (name root body digest) transparent: #t)
@@ -88,7 +91,9 @@
 (def (rust-number value) (make-rust-number-form value))
 (def (rust-string value) (make-rust-string-form value))
 (def (rust-identifier value) (make-rust-identifier-form value))
-(def (rust-module imports item (origin "line-structure-rowan.ss"))
+;; Required arity keeps compiled cross-module callers on the same symbol;
+;; an optional origin compiled one caller to an undefined rust-module__%.
+(def (rust-module imports item origin)
   (unless (and (string? origin) (not (string-contains origin "\n")))
     (error "invalid Rust module origin" origin))
   (make-rust-module-form imports item origin))
@@ -148,6 +153,12 @@
 (def (rust-empty value) (make-rust-empty-form value))
 (def (rust-string-in value collection)
   (make-rust-string-in-form value collection))
+(def (rust-single-ascii-uppercase value)
+  (make-rust-single-ascii-uppercase-form value))
+(def (rust-unsigned-at-most value maximum)
+  (unless (and (integer? maximum) (exact? maximum) (<= 0 maximum))
+    (error "Rust unsigned bound must be nonnegative" maximum))
+  (make-rust-unsigned-at-most-form value maximum))
 (def (rust-if condition consequent alternate)
   (make-rust-if-form condition consequent alternate))
 (def (rust-binary operator left right)
@@ -387,6 +398,16 @@
     (display ".contains(&" port)
     (render-node port (rust-string-in-form-value node))
     (display ")" port))
+   ((rust-single-ascii-uppercase-form? node)
+    (write-string "{ let candidate = " port)
+    (render-node port (rust-single-ascii-uppercase-form-value node))
+    (write-string "; candidate.len() == 1 && candidate.as_bytes()[0].is_ascii_uppercase() }" port))
+   ((rust-unsigned-at-most-form? node)
+    (write-string "{ let candidate = " port)
+    (render-node port (rust-unsigned-at-most-form-value node))
+    (write-string "; !candidate.is_empty() && candidate.bytes().all(|byte| byte.is_ascii_digit()) && candidate.parse::<u64>().is_ok_and(|number| number <= " port)
+    (write (rust-unsigned-at-most-form-maximum node) port)
+    (write-string ") }" port))
    ((rust-if-form? node)
     (display "if " port)
     (render-node port (rust-if-form-condition node))
@@ -485,6 +506,15 @@
           (value (rust-expression-ir (rust-string-in-form-value node)))
           (collection
            (rust-expression-ir (rust-string-in-form-collection node)))))
+   ((rust-single-ascii-uppercase-form? node)
+    (hash (kind "single_ascii_uppercase")
+          (value (rust-expression-ir
+                  (rust-single-ascii-uppercase-form-value node)))))
+   ((rust-unsigned-at-most-form? node)
+    (hash (kind "unsigned_at_most")
+          (value (rust-expression-ir
+                  (rust-unsigned-at-most-form-value node)))
+          (maximum (rust-unsigned-at-most-form-maximum node))))
    ((rust-if-form? node)
     (hash (kind "if")
           (condition (rust-expression-ir (rust-if-form-condition node)))

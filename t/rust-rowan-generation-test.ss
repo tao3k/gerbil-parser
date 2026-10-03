@@ -84,6 +84,30 @@
                                      "LexicalRule { terminal: \"number\", expression: LexicalExpr::Line")
                     #t)
                => #t)))
+    (test-case "bounded character runs lower without language-specific code"
+      (let* ((run-ir
+              (map (lambda (entry)
+                     (if (eq? (car entry) 'lexical-rules)
+                       (cons 'lexical-rules
+                             (map (lambda (row)
+                                    (if (eq? (car row) 'number)
+                                      '(number (character-run "-" 4))
+                                      row))
+                                  (cdr entry)))
+                       entry))
+                   arithmetic-parser-ir))
+             (source
+              (rust-rowan-module-source
+               "arithmetic" +arithmetic-language-version+
+               +arithmetic-syntax-contract+
+               (parser-machine-grammar-digest arithmetic-parser)
+               run-ir)))
+        (check (and
+                (string-contains
+                 source
+                 "LexicalExpr::CharacterRun { character: \"-\", minimum: 4 }")
+                #t)
+               => #t)))
     (test-case "the language descriptor is the complete generation input"
       (let (path (make-temporary-file-name "gerbil-parser-rowan"))
         (try

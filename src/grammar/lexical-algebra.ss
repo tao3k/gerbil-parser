@@ -38,6 +38,12 @@
           (and (= (length value) 2)
                (string? (cadr value))
                (positive? (string-length (cadr value)))))
+         ((character-run)
+          (and (= (length value) 3)
+               (string? (cadr value))
+               (= (string-length (cadr value)) 1)
+               (exact-integer? (caddr value))
+               (positive? (caddr value))))
          ((line-comment)
           (and (pair? (cdr value)) (strings? (cdr value))))
          ((block-comment nested-block-comment)
@@ -100,7 +106,7 @@
 (defrules lexical-expression
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string escaped-quoted-string until-delimiters
+   quoted-string escaped-quoted-string until-delimiters character-run
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ (whitespace+))
@@ -127,6 +133,8 @@
    (cons 'escaped-quoted-string (list delimiter ...)))
   ((_ (until-delimiters characters))
    (list 'until-delimiters characters))
+  ((_ (character-run character minimum))
+   (list 'character-run character minimum))
   ((_ (heredoc))
    (lexical-primitive 'heredoc))
   ((_ (line-comment start ...))

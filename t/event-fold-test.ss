@@ -85,6 +85,178 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                => "line_blank")))
+    (test-case "checked source slices compare names across physical lines"
+      (let ((initial '((name-start 0) (name-end 0)))
+            (forms
+             '((if (line-starts-with "name:")
+                   ((set-uint name-start (offset (line-prefix-end "name:")))
+                    (set-uint name-end (offset (line-content-end)))
+                    (token Line start end))
+                   ((if (source-slices-equal-ascii-ci?
+                         (state-offset name-start) (state-offset name-end)
+                         start (line-content-end))
+                        ((start-node Heading) (token Line start end)
+                         (finish-node))
+                        ((start-node Text) (token Line start end)
+                         (finish-node))))))))
+        (check (run-event-fold "name:ALPHA\nalpha\nother\n"
+                               'Document initial forms '())
+               => '((start Document) (token Line 0 11)
+                    (start Heading) (token Line 11 17) (finish)
+                    (start Text) (token Line 17 23) (finish)
+                    (finish)))
+        (let* ((wire (event-fold-ir-json
+                      'source_slices event-lines-language-grammar
+                      'Document initial forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t))))
+          (check (hash-ref ir "name") => "source_slices"))))
+    (test-case "named future marker respects names headings and parent closes"
+      (let* ((name-start '(line-prefix-end "#+BEGIN_"))
+             (name-end `(line-scan-key ,name-start))
+             (future `(future-named-line-marker-before-boundary?
+                       ,name-start ,name-end "#+END_" "" "#+END_CENTER"
+                       "*" " " #t #t #t))
+             (forms
+              `((if (line-starts-with-ascii-ci "#+BEGIN_")
+                    ((if ,future
+                         ((start-node Heading) (token Line start end)
+                          (finish-node))
+                         ((start-node Text) (token Line start end)
+                          (finish-node))))
+                    ((token Line start end))))))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_foo\n#+end_FOO\n#+BEGIN_bar\n* Next\n#+END_bar\n#+BEGIN_baz\n#+END_CENTER\n#+END_baz\n#+BEGIN_qux\n#+END_other\n#+END_QUX\n"
+                             'Document '() forms '())))
+               => '(Document Heading Text Text Heading))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_foo\n#+BEGIN_foo\n#+END_foo\n"
+                             'Document '() forms '())))
+               => '(Document Heading Heading))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_foo\r\n  #+end_FOO \r\n"
+                             'Document '() forms '())))
+               => '(Document Heading))
+        (let* ((wire (event-fold-ir-json
+                      'future_named event-lines-language-grammar
+                      'Document '() forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t)))
+               (outer (vector-ref (hash-ref ir "line") 0))
+               (inner (vector-ref (hash-ref outer "consequent") 0)))
+          (check (hash-ref (hash-ref inner "condition") "kind")
+                 => "future_named_line_marker_before_boundary"))))
+    (test-case "named future marker stops at a source-named parent closer"
+      (let* ((name-start '(line-prefix-end "#+BEGIN_"))
+             (name-end `(line-scan-key ,name-start))
+             (future
+              `(future-named-line-marker-before-boundary?
+                ,name-start ,name-end "#+END_" "" ""
+                "*" " " #t #t #t
+                (state-offset parent-start) (state-offset parent-end)
+                "#+CLOSE_" "" #t))
+             (initial '((parent-start 0) (parent-end 0)))
+             (forms
+              `((if (line-starts-with "#+BEGIN_OUTER")
+                    ((set-uint parent-start (offset ,name-start))
+                     (set-uint parent-end (offset ,name-end))
+                     (token Line start end))
+                    ((if (line-starts-with "#+BEGIN_INNER")
+                         ((if ,future
+                              ((start-node Heading) (token Line start end)
+                               (finish-node))
+                              ((start-node Text) (token Line start end)
+                               (finish-node))))
+                         ((token Line start end))))))))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+CLOSE_outer\n#+END_inner\n"
+                             'Document initial forms '())))
+               => '(Document Text))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_inner\n#+CLOSE_outer\n"
+                             'Document initial forms '())))
+               => '(Document Heading))
+        (let* ((wire (event-fold-ir-json
+                      'future_named_parent event-lines-language-grammar
+                      'Document initial forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t)))
+               (outer (vector-ref (hash-ref ir "line") 0))
+               (inner (vector-ref (hash-ref outer "alternate") 0))
+               (future-ir (hash-ref (vector-ref (hash-ref inner "consequent") 0)
+                                    "condition")))
+          (check (hash-ref future-ir "stop_prefix") => "#+CLOSE_")
+          (check (hash-ref future-ir "stop_ascii_case_insensitive") => #t))))
+    (test-case "named future marker keeps parent case sensitivity independent"
+      (let* ((name-start '(line-prefix-end "#+BEGIN_"))
+             (name-end `(line-scan-key ,name-start))
+             (future `(future-named-line-marker-before-boundary?
+                       ,name-start ,name-end "#+END_" "" ""
+                       "*" " " #t #t #t
+                       (state-offset parent-start) (state-offset parent-end)
+                       "#+END_" "" #f))
+             (initial '((parent-start 0) (parent-end 0)))
+             (forms
+              `((if (line-starts-with "#+BEGIN_OUTER")
+                    ((set-uint parent-start (offset ,name-start))
+                     (set-uint parent-end (offset ,name-end))
+                     (token Line start end))
+                    ((if (line-starts-with "#+BEGIN_INNER")
+                         ((if ,future
+                              ((start-node Heading) (finish-node))
+                              ((start-node Text) (finish-node))))
+                         ((token Line start end))))))))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_outer\n#+END_inner\n"
+                             'Document initial forms '())))
+               => '(Document Heading))
+        (check (map cadr
+                    (filter (lambda (event) (eq? (car event) 'start))
+                            (run-event-fold
+                             "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_OUTER\n#+END_inner\n"
+                             'Document initial forms '())))
+               => '(Document Text))))
+    (test-case "state-only frame pop does not close Rowan nodes"
+      (let ((initial '((saved (uint-stack))))
+            (forms '((push-frame saved (uint 7))
+                     (pop-frame saved)
+                     (token Line start end))))
+        (check (run-event-fold "a\n" 'Document initial forms '())
+               => '((start Document) (token Line 0 2) (finish)))
+        (let* ((wire (event-fold-ir-json
+                      'state_pop event-lines-language-grammar
+                      'Document initial forms '()))
+               (ir (string->json wire
+                                 (JSONReadOptions object-as-hash: #t
+                                                  array-as-vector: #t))))
+          (check (hash-ref (vector-ref (hash-ref ir "line") 1) "kind")
+                 => "pop_frame"))))
+    (test-case "single frame close preserves nested equal frame scopes"
+      (let ((initial '((frames (uint-stack))))
+            (forms '((start-node Heading)
+                     (push-frame frames (uint 7))
+                     (start-node Text)
+                     (push-frame frames (uint 7))
+                     (close-frame frames 1)
+                     (close-frame frames 1))))
+        (check (run-event-fold "a\n" 'Document initial forms '())
+               => '((start Document) (start Heading) (start Text)
+                    (finish) (finish) (finish)))))
     (test-case "byte-set membership is a boolean state value"
       (let (forms '((set-bool match
                                (line-bytes-any-in? start (line-step start)
@@ -103,6 +275,133 @@
                          'byte_set_bool event-lines-language-grammar
                          'Document '((match #f)) forms '()))
                => #t)))
+    (test-case "bounded static name set executes and lowers as one predicate"
+      (let* ((forms '((if (line-bytes-in-set? start (line-content-end)
+                                             ("alpha" "beta"))
+                          ((start-node Heading) (token Line start end)
+                           (finish-node))
+                          ((start-node Text) (token Line start end)
+                           (finish-node)))))
+             (wire (event-fold-ir-json
+                    'static_name_set event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "alpha\nbeta\nother\n" 'Document '() forms '())
+               => '((start Document)
+                    (start Heading) (token Line 0 6) (finish)
+                    (start Heading) (token Line 6 11) (finish)
+                    (start Text) (token Line 11 17) (finish)
+                    (finish)))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind")
+               => "line_bytes_in_set")))
+    (test-case "saved source bounds scan one UTF-8 span across physical lines"
+      (let* ((initial '((span-start 0) (span-end 0)))
+             (line '((set-uint span-end (offset end))))
+             (finish
+              '((with-source-bounds (state-offset span-start)
+                                    (state-offset span-end)
+                  ((if (line-bytes-any-in? start end (10))
+                       ((start-node Text) (token Line start end)
+                        (finish-node)) ())))))
+             (wire (event-fold-ir-json
+                    'source_span event-lines-language-grammar
+                    'Document initial line finish))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "ab\ncd\n" 'Document initial line finish)
+               => '((start Document) (start Text) (token Line 0 6)
+                    (finish) (finish)))
+        (check (hash-ref (vector-ref (hash-ref ir "finish") 0) "kind")
+               => "with_source_bounds")))
+    (test-case "source-local helper executes once and stays typed in event IR"
+      (let* ((initial '((span-start 0) (span-end 0)))
+             (line '((set-uint span-end (offset end))))
+             (finish '((call-source-helper inline-span
+                                           (state-offset span-start)
+                                           (state-offset span-end))))
+             (helpers
+              '((inline-span
+                 ((cursor 0))
+                 ((set-uint cursor (offset start))
+                  (if (line-bytes-any-in? start end (10))
+                      ((start-node Text)
+                       (token Line (state-offset cursor) end)
+                       (finish-node)) ())))))
+             (wire (event-fold-ir-json
+                    'source_helper event-lines-language-grammar
+                    'Document initial line finish helpers))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "ab\ncd\n" 'Document initial line finish helpers)
+               => '((start Document) (start Text) (token Line 0 6)
+                    (finish) (finish)))
+        (check (hash-ref (vector-ref (hash-ref ir "finish") 0) "kind")
+               => "call_source_helper")
+        (check (vector-length (hash-ref ir "helpers")) => 1)))
+    (test-case "typed helper arguments flow through Scheme execution and IR"
+      (let* ((initial '((threshold 2)))
+             (line '((call-source-helper local-span start end
+                                         ((state threshold)))))
+             (helpers
+              '((local-span ((threshold 2))
+                            ((if (uint-equal? (state threshold) (uint 2))
+                                 ((start-node Heading) (finish-node))
+                                 ((start-node Text) (finish-node))))
+                            (threshold))))
+             (wire (event-fold-ir-json
+                    'typed_helper event-lines-language-grammar
+                    'Document initial line '() helpers))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "x\n" 'Document initial line '() helpers)
+               => '((start Document) (start Heading) (finish) (finish)))
+        (check (run-event-fold "x\n" 'Document initial line '() helpers
+                               '((threshold . 5)))
+               => '((start Document) (start Text) (finish) (finish)))
+        (check (vector-length (hash-ref
+                               (vector-ref (hash-ref ir "line") 0)
+                               "arguments"))
+               => 1)
+        (check (vector-ref
+                (hash-ref (vector-ref (hash-ref ir "helpers") 0)
+                          "parameters") 0)
+               => "threshold")
+        (check-exception
+         (event-fold-ir-json
+          'bad_helper_arity event-lines-language-grammar 'Document initial
+          '((call-source-helper local-span start end)) '() helpers)
+         true)))
+    (test-case "source helpers compose without recursive execution"
+      (let* ((line '((call-source-helper outer start end)))
+             (helpers
+              '((outer () ((call-source-helper inner start end)))
+                (inner () ((start-node Text)
+                           (token Line start end)
+                           (finish-node)))))
+             (wire (event-fold-ir-json
+                    'nested_helpers event-lines-language-grammar
+                    'Document '() line '() helpers))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "ab\n" 'Document '() line '() helpers)
+               => '((start Document) (start Text) (token Line 0 3)
+                    (finish) (finish)))
+        (check (hash-ref (vector-ref
+                          (hash-ref (vector-ref (hash-ref ir "helpers") 0)
+                                    "body") 0) "kind")
+               => "call_source_helper")
+        (check-exception
+         (run-event-fold "ab\n" 'Document '() line '()
+                         '((outer () ((call-source-helper inner start end)))
+                           (inner () ((call-source-helper outer start end)))))
+         true)))
     (test-case "future marker search stops at heading or parent boundary"
       (let* ((condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
                               (future-line-marker-before-boundary?
@@ -134,6 +433,24 @@
                                    (vector-ref (hash-ref ir "line") 0)
                                    "condition") "left") "kind")
                => "future_line_marker_before_boundary")))
+    (test-case "future marker answers stay within one source"
+      (let* ((condition '(future-line-marker-before-boundary?
+                          "END" "STOP" "*" " " #t #t ""))
+             (forms `((if ,condition
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node))))))
+        (check (run-event-fold "x\nx\nEND\n" 'Document '() forms '())
+               => '((start Document)
+                    (start Heading) (finish)
+                    (start Heading) (finish)
+                    (start Text) (finish)
+                    (finish)))
+        (check (run-event-fold "x\nSTOP\nEND\n" 'Document '() forms '())
+               => '((start Document)
+                    (start Text) (finish)
+                    (start Heading) (finish)
+                    (start Text) (finish)
+                    (finish)))))
     (test-case "future marker can require a key-value body"
       (let* ((condition '(future-line-marker-before-boundary?
                           ":END:" "" "*" " " #t #t ":"))
@@ -151,7 +468,22 @@
                => '((start Document) (start Heading) (finish)
                     (start Heading) (finish) (start Text) (finish)
                     (finish)))
+        (check (run-event-fold ":PROPERTIES:\n:header-args:python: :session local\n:END:\n"
+                               'Document '() forms '())
+               => '((start Document) (start Heading) (finish)
+                    (start Heading) (finish) (start Text) (finish)
+                    (finish)))
+        (check (run-event-fold ":PROPERTIES:\n:ID: value:more\n:END:\n"
+                               'Document '() forms '())
+               => '((start Document) (start Heading) (finish)
+                    (start Heading) (finish) (start Text) (finish)
+                    (finish)))
         (check (run-event-fold ":PROPERTIES:\nmalformed\n:END:\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Heading) (finish) (start Text) (finish)
+                    (finish)))
+        (check (run-event-fold ":PROPERTIES:\n:header args:python: x\n:END:\n"
                                'Document '() forms '())
                => '((start Document) (start Text) (finish)
                     (start Heading) (finish) (start Text) (finish)
@@ -159,6 +491,70 @@
         (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "body_key_marker")
                => 58)))
+    (test-case "future heading title respects level and exact suffix"
+      (let* ((condition '(future-heading-title? "*" " " 4 "END"))
+             (forms `((if ,condition
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node)))))
+             (wire (event-fold-ir-json
+                    'future_heading event-lines-language-grammar
+                    'Document '() forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "**** Task\n* Outline\n***** END  \r\n"
+                               'Document '() forms '())
+               => '((start Document) (start Heading) (finish)
+                    (start Heading) (finish) (start Text) (finish) (finish)))
+        (check (run-event-fold "**** Task\n*** END\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Text) (finish) (finish)))
+        (check (run-event-fold "**** Task\n**** END extra\n"
+                               'Document '() forms '())
+               => '((start Document) (start Text) (finish)
+                    (start Text) (finish) (finish)))
+        (check (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
+                                   "condition") "kind")
+               => "future_heading_title")
+        (check-exception
+         (event-fold-ir-json
+          'bad_heading event-lines-language-grammar 'Document '()
+          '((if (future-heading-title? "*" " " 0 "END") () ())) '())
+         true)
+        (let ((dynamic-forms
+               '((if (future-heading-title? "*" " " (state threshold) "END")
+                     ((start-node Heading) (finish-node))
+                     ((start-node Text) (finish-node))))))
+          (check (run-event-fold "x\n END\n" 'Document '((threshold 1))
+                                 dynamic-forms '() '() '((threshold . 0)))
+                 => '((start Document) (start Text) (finish)
+                      (start Text) (finish) (finish))))))
+    (test-case "typed parameter has one Scheme fold and AOT declaration"
+      (let* ((initial '((threshold 4)))
+             (forms '((if (uint-equal? (state threshold) (uint 7))
+                          ((start-node Heading) (finish-node))
+                          ((start-node Text) (finish-node)))))
+             (wire (event-fold-ir-json
+                    'parameterized event-lines-language-grammar
+                    'Document initial forms '() '()
+                    '((configured_threshold threshold 4))))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t))))
+        (check (run-event-fold "x\n" 'Document initial forms '())
+               => '((start Document) (start Text) (finish) (finish)))
+        (check (run-event-fold "x\n" 'Document initial forms '() '()
+                               '((threshold . 7)))
+               => '((start Document) (start Heading) (finish) (finish)))
+        (check (hash-ref (vector-ref (hash-ref ir "parameters") 0) "state")
+               => "threshold")
+        (check-exception
+         (event-fold-ir-json
+          'parameterized event-lines-language-grammar
+          'Document initial forms '() '()
+          '((configured_threshold threshold 5)))
+         true)))
     (test-case "n-ary boolean predicates evaluate every operand and lower to IR"
       (let* ((forms '((if (and (bool #t) (bool #t) (bool #f))
                           ((start-node Heading) (finish-node))
@@ -441,6 +837,79 @@
                => "state_offset")
         (check (hash-ref (hash-ref token "end") "kind")
                => "state_offset")))
+    (test-case "final transition may flush a saved source-backed token"
+      (let* ((initial '((pending #f) (pending-start 0) (pending-end 0)))
+             (line '((if (line-blank?)
+                         ((set-bool pending (bool #t))
+                          (set-uint pending-start (offset start))
+                          (set-uint pending-end (offset end))) ())))
+             (finish '((if (state pending)
+                           ((token Line (state-offset pending-start)
+                                   (state-offset pending-end))) ())))
+             (wire (event-fold-ir-json
+                    'flush_pending event-lines-language-grammar
+                    'Document initial line finish))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t)))
+             (flush (vector-ref
+                     (hash-ref (vector-ref (hash-ref ir "finish") 0)
+                               "consequent") 0)))
+        (check (run-event-fold "\n" 'Document initial line finish)
+               => '((start Document) (token Line 0 1) (finish)))
+        (check (hash-ref (hash-ref flush "start") "kind")
+               => "state_offset")
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar
+                             'Document initial '()
+                             '((token Line start end))) true)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar
+                             'Document initial '()
+                             '((token Line
+                                      (line-step (state-offset pending-start))
+                                      (state-offset pending-end)))) true)))
+    (test-case "join-once converges branches before the shared continuation"
+      (let* ((initial '())
+             (forms '((join-once handled
+                        ((if (line-starts-with "#")
+                             ((start-node Heading) (token Line start end)
+                              (finish-node)
+                              (set-bool handled (bool #t))) ()))
+                        ((start-node Text) (token Line start end)
+                         (finish-node)))))
+             (wire (event-fold-ir-json
+                    'joined event-lines-language-grammar 'Document
+                    initial forms '()))
+             (ir (string->json wire
+                               (JSONReadOptions object-as-hash: #t
+                                                array-as-vector: #t)))
+             (join (vector-ref (hash-ref ir "line") 0)))
+        (check (run-event-fold "# H\nbody\n" 'Document initial forms '())
+               => '((start Document)
+                    (start Heading) (token Line 0 4) (finish)
+                    (start Text) (token Line 4 9) (finish)
+                    (finish)))
+        (check (hash-ref join "kind") => "join_once")
+        (check (vector-length (hash-ref join "continuation")) => 3)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
+                             initial '((join-once handled ((finish-node)) ())) '())
+         true)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
+                             initial '((join-once handled ((finish-node))
+                                                  ((token Line start end)))) '())
+         true)
+        (check-exception
+         (run-event-fold "text\n" 'Document initial
+                         '((join-once handled ((finish-node))
+                                      ((token Line start end)))) '())
+         true)
+        (check-exception
+         (event-fold-ir-json 'invalid event-lines-language-grammar 'Document
+                             '((handled #f)) forms '())
+         true)))
     (test-case "undeclared state and unsupported effects fail closed"
       (check-exception
        (event-fold-ir-json 'invalid event-lines-language-grammar 'Document

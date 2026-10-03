@@ -321,7 +321,8 @@
           (text_token (kind-value kinds (text-line-token text) 'token))
           (inline_link
            (optional-value (text-line-inline-link text)
-                           (lambda (value) (inline-link-value kinds value)))))))))
+                           (lambda (value) (inline-link-value kinds value))))))
+      "line-structure-rowan.ss")))
 
 (def (line-structure-rowan-source language-grammar structure)
   (rust-render (line-structure-rowan-syntax language-grammar structure)))

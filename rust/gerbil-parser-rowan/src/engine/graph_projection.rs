@@ -6,7 +6,7 @@ use super::model::{Diagnostic, KindCategory, LanguageSpec, SyntaxNode};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GraphFieldRule {
-    /// Syntax token whose text is projected into this field.
+    /// Syntax token, or a node for a node-text mode, whose text is projected.
     pub token_kind: u16,
     /// Public field name on the graph record.
     pub name: &'static str,
@@ -14,7 +14,7 @@ pub struct GraphFieldRule {
     pub mode: GraphFieldMode,
 }
 
-/// AOT-declared cardinality for repeated graph field tokens.
+/// AOT-declared source and cardinality for graph fields.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GraphFieldMode {
     /// Join adjacent token text into one field value.
@@ -23,6 +23,10 @@ pub enum GraphFieldMode {
     Each,
     /// Join token text, or project an empty value when no token is present.
     AppendOrEmpty,
+    /// Project the complete source text of a descendant syntax node.
+    NodeText,
+    /// Keep each descendant syntax node's complete text as a separate field.
+    EachNodeText,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -56,6 +60,8 @@ pub struct GraphRecord {
 pub struct GraphFieldValue {
     pub name: &'static str,
     pub value: String,
+    /// Smallest source span covering all tokens or nodes in this field.
+    pub range: TextRange,
 }
 
 impl GraphRecord {
@@ -74,6 +80,15 @@ impl GraphRecord {
             .iter()
             .find(|field| field.name == name)
             .map(|field| field.value.as_str())
+    }
+
+    /// Return the source span of the first projected field value.
+    #[must_use]
+    pub fn field_range(&self, name: &str) -> Option<TextRange> {
+        self.fields
+            .iter()
+            .find(|field| field.name == name)
+            .map(|field| field.range)
     }
 }
 
@@ -141,17 +156,19 @@ pub fn project_syntax_graph(
                                 .iter_mut()
                                 .find(|value| value.name == field.name)
                         {
-                            value.value.push_str(token.text());
+                            append_field_value(value, token.text(), token.text_range());
                             continue;
                         }
                         records[id].fields.push(GraphFieldValue {
                             name: field.name,
                             value: token.text().to_owned(),
+                            range: token.text_range(),
                         });
                     }
                 }
             }
             WalkEvent::Leave(NodeOrToken::Node(node)) => {
+                project_node_text_fields(&mut records, &rules, &projected_stack, &node);
                 if let Some(rule) = rules.get(usize::from(node.kind().0)).and_then(|rule| *rule) {
                     if let Some(&id) = projected_stack.last() {
                         for field in rule
@@ -164,9 +181,11 @@ pub fn project_syntax_graph(
                                 .iter()
                                 .any(|value| value.name == field.name)
                             {
+                                let empty_range = TextRange::empty(records[id].range.end());
                                 records[id].fields.push(GraphFieldValue {
                                     name: field.name,
                                     value: String::new(),
+                                    range: empty_range,
                                 });
                             }
                         }
@@ -178,6 +197,58 @@ pub fn project_syntax_graph(
         }
     }
     Ok(records)
+}
+
+fn project_node_text_fields(
+    records: &mut [GraphRecord],
+    rules: &[Option<&GraphNodeRule>],
+    projected_stack: &[usize],
+    node: &SyntaxNode,
+) {
+    let Some(&id) = projected_stack.last() else {
+        return;
+    };
+    let Some(rule) = rules
+        .get(usize::from(records[id].syntax_kind))
+        .and_then(|rule| *rule)
+    else {
+        return;
+    };
+    for field in rule.fields.iter().filter(|field| {
+        matches!(
+            field.mode,
+            GraphFieldMode::NodeText | GraphFieldMode::EachNodeText
+        ) && field.token_kind == node.kind().0
+    }) {
+        let value = node.text().to_string();
+        if field.mode == GraphFieldMode::EachNodeText {
+            records[id].fields.push(GraphFieldValue {
+                name: field.name,
+                value,
+                range: node.text_range(),
+            });
+        } else if let Some(existing) = records[id]
+            .fields
+            .iter_mut()
+            .find(|existing| existing.name == field.name)
+        {
+            append_field_value(existing, &value, node.text_range());
+        } else {
+            records[id].fields.push(GraphFieldValue {
+                name: field.name,
+                value,
+                range: node.text_range(),
+            });
+        }
+    }
+}
+
+fn append_field_value(field: &mut GraphFieldValue, text: &str, range: TextRange) {
+    field.value.push_str(text);
+    field.range = TextRange::new(
+        field.range.start().min(range.start()),
+        field.range.end().max(range.end()),
+    );
 }
 
 fn validate_rules<'a>(
@@ -213,10 +284,18 @@ fn validate_rules<'a>(
             return Err(invalid("graph node kind is invalid or declared twice"));
         }
         for field in rule.fields {
+            let expected_category = if matches!(
+                field.mode,
+                GraphFieldMode::NodeText | GraphFieldMode::EachNodeText
+            ) {
+                KindCategory::Node
+            } else {
+                KindCategory::Token
+            };
             if language
                 .kinds
                 .get(usize::from(field.token_kind))
-                .is_none_or(|kind| kind.category != KindCategory::Token)
+                .is_none_or(|kind| kind.category != expected_category)
                 || field.name.is_empty()
             {
                 return Err(invalid("graph field references an invalid token or name"));

@@ -6,7 +6,7 @@
         :gerbil-parser/languages/cypher/opencypher-2024-1/parser
         :gerbil-parser/languages/gql/iso-39075-2024/parser
         :gerbil-parser/languages/hcl/v2-24/parser
-        :gerbil-parser/languages/tla-plus/v1/parser
+        :gerbil-parser/languages/tla-plus/parser
         (only-in :gerbil-parser/src/compiler/machine parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?)
@@ -67,8 +67,12 @@
        "resource \"x\" \"y\" {\nvalue = 1\n}\n"
        "resource   \"x\"   \"y\" {\n      value   =   1\n}\n")
       (check-indentation-invariance
-       tla-plus-v1-parser parse-tla-plus-v1
+       tla-plus-core-parser parse-tla-plus-core
        "---- MODULE Indent ----\nVARIABLE x\nInit == x = 1\n====\n"
        "---- MODULE Indent ----\n    VARIABLE   x\n        Init   ==   x   =   1\n====\n"))))
 
 (export indentation-invariance-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def indentation-invariance-test indentation-invariance-tests)
+(export indentation-invariance-test)

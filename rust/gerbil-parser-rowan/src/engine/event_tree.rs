@@ -1,8 +1,8 @@
-//! Validated Rowan sink for structure emitted by Scheme-AOT parsers.
+//! Validated Rowan sink for source-backed structure events.
 
 use rowan::{GreenNode, GreenToken, NodeOrToken};
 
-use super::model::{Diagnostic, KindCategory, LanguageSpec, TreeEvent};
+use super::model::{Diagnostic, EventCatalog, KindCategory, LanguageSpec, TreeEvent};
 use super::validation::validate_spec_once;
 
 /// Build one lossless Rowan tree from AOT parser events.
@@ -21,6 +21,40 @@ pub fn build_rowan_events(
     events: &[TreeEvent],
 ) -> Result<GreenNode, Diagnostic> {
     validate_spec_once(spec).map_err(|message| diagnostic("invalid-aot-artifact", 0, message))?;
+    build_rowan_events_catalog(
+        &EventCatalog {
+            root_kind: spec.root_kind,
+            kinds: spec.kinds,
+        },
+        source,
+        events,
+    )
+}
+
+/// Build one lossless tree from an independently authored event producer.
+/// This validates structure and source coverage, not the producer's grammar
+/// or its authority receipt.
+///
+/// # Errors
+///
+/// Rejects an invalid kind catalog or event stream.
+pub fn build_rowan_events_catalog(
+    catalog: &EventCatalog,
+    source: &str,
+    events: &[TreeEvent],
+) -> Result<GreenNode, Diagnostic> {
+    if catalog.kinds.len() > usize::from(u16::MAX) + 1
+        || catalog
+            .kinds
+            .get(usize::from(catalog.root_kind))
+            .is_none_or(|root| root.category != KindCategory::Node)
+    {
+        return Err(diagnostic(
+            "invalid-event-catalog",
+            0,
+            "event catalog requires a declared node root and bounded kinds",
+        ));
+    }
     let mut frames: Vec<(u16, Vec<NodeOrToken<GreenNode, GreenToken>>)> = Vec::new();
     let mut root = None;
     let mut offset = 0usize;
@@ -28,14 +62,14 @@ pub fn build_rowan_events(
     for event in events {
         match *event {
             TreeEvent::StartNode(kind) => {
-                if root.is_some() || (frames.is_empty() && kind != spec.root_kind) {
+                if root.is_some() || (frames.is_empty() && kind != catalog.root_kind) {
                     return Err(diagnostic(
                         "event-root",
                         offset,
                         "events must contain exactly one declared root node",
                     ));
                 }
-                validate_kind(spec, kind, KindCategory::Node, offset)?;
+                validate_kind(catalog, kind, KindCategory::Node, offset)?;
                 frames.push((kind, Vec::new()));
             }
             TreeEvent::Token { kind, start, end } => {
@@ -46,7 +80,7 @@ pub fn build_rowan_events(
                         "a token must be inside the root node",
                     ));
                 };
-                validate_kind(spec, kind, KindCategory::Token, start)?;
+                validate_kind(catalog, kind, KindCategory::Token, start)?;
                 if start != offset
                     || end <= start
                     || end > source.len()
@@ -112,12 +146,12 @@ pub fn build_rowan_events(
 }
 
 fn validate_kind(
-    spec: &LanguageSpec,
+    catalog: &EventCatalog,
     kind: u16,
     category: KindCategory,
     offset: usize,
 ) -> Result<(), Diagnostic> {
-    if spec
+    if catalog
         .kinds
         .get(usize::from(kind))
         .is_none_or(|entry| entry.category != category)

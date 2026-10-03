@@ -3,7 +3,7 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import (only-in :gerbil-parser/src/language-support/grammar-source
+(import (only-in :gerbil-parser/language-support/grammar-source
                  defsyntax-antlr4-source))
 (export +fhirpath-standard-reference+
         +fhirpath-standard-version+

@@ -2,12 +2,14 @@
 ;;; Language-neutral scanner primitives used by generated lexers.
 
 (import (only-in :std/func any-of)
+        (only-in :std/vector/vector vector-map/index)
         (only-in ./token make-token))
 
 (export scan-whitespace
         scan-horizontal-whitespace
         scan-newline
         scan-line
+        scan-character-run
         scan-until-delimiters
         scan-decimal-digits
         scan-number-literal
@@ -17,10 +19,13 @@
         scan-quoted-strings
         scan-escaped-quoted-strings
         scan-heredoc
+        scan-balanced-word
         scan-line-comment
         scan-block-comment
         scan-nested-block-comment
         make-literal-end-scanner
+        make-ranked-literal-scanner
+        make-ranked-regular-scanner
         scan-longest-literal
         scan-emit)
 
@@ -91,6 +96,20 @@
                (+ offset 2)
                (+ offset 1)))
             (else (loop (+ offset 1))))))))
+
+;; A maximal run of one character, admitted only when it meets the declared
+;; minimum.  The grammar owns the character and the bound.
+(def (scan-character-run source start character minimum)
+  (and (string? character)
+       (= (string-length character) 1)
+       (exact-integer? minimum)
+       (positive? minimum)
+       (<= 0 start)
+       (< start (string-length source))
+       (let (end (scan-while
+                 source start
+                 (lambda (ch) (char=? ch (string-ref character 0)))))
+         (and (>= (- end start) minimum) end))))
 
 ;; Maximal nonempty atom run, stopping before Unicode whitespace or a delimiter.
 ;; Delimiters are language-owned; this primitive knows no S-expression policy.
@@ -265,6 +284,139 @@
 (def scan-identifier
   (cut scan-nonempty-while identifier-start? identifier-rest? <> <>))
 
+;;; Closed run expressions share one subset DFA. The number rule has pending
+;;; fraction/exponent states; the last accepting state is the maximal match.
+;;; Mode-specific winners are compiled once.
+(def (regular-kind-bit kind)
+  (case kind
+    ((whitespace+) 1)
+    ((horizontal-whitespace+) 2)
+    ((newline+) 4)
+    ((decimal-digit+) 8)
+    ((identifier) 16)
+    ((number) 32)
+    (else (error "unsupported regular lexical expression" kind))))
+
+(def (regular-character-mask ch first?)
+  (bitwise-ior
+   (if (char-whitespace? ch) 1 0)
+   (if (horizontal-whitespace? ch) 2 0)
+   (if (newline? ch) 4 0)
+   (if (char-numeric? ch) 8 0)
+   (if (if first? (identifier-start? ch) (identifier-rest? ch)) 16 0)
+   (if (and first? (char-numeric? ch)) 32 0)))
+
+(def regular-ascii-first
+  (vector-map/index
+   (lambda (index _) (regular-character-mask (integer->char index) #t))
+   (make-vector 128)))
+(def regular-ascii-rest
+  (vector-map/index
+   (lambda (index _) (regular-character-mask (integer->char index) #f))
+   (make-vector 128)))
+
+(def (regular-mask ch first?)
+  (let (code (char->integer ch))
+    (if (< code 128)
+      (vector-ref (if first? regular-ascii-first regular-ascii-rest) code)
+      (regular-character-mask ch first?))))
+
+;; Number states: whole=32, dot=64, fraction=128, exponent=256,
+;; sign=512, exponent-digits=1024. Only whole/fraction/exponent-digits accept.
+(def (regular-accept-mask active)
+  (bitwise-ior
+   (bitwise-and active 31)
+   (if (zero? (bitwise-and active 1184)) 0 32)))
+
+(def (regular-number-transition active ch numeric?)
+  (cond
+   (numeric?
+    (bitwise-ior
+     (if (zero? (bitwise-and active 32)) 0 32)
+     (if (zero? (bitwise-and active 192)) 0 128)
+     (if (zero? (bitwise-and active 1792)) 0 1024)))
+   ((char=? ch #\.)
+    (if (zero? (bitwise-and active 32)) 0 64))
+   ((or (char=? ch #\e) (char=? ch #\E))
+    (if (zero? (bitwise-and active 160)) 0 256))
+   ((or (char=? ch #\+) (char=? ch #\-))
+    (if (zero? (bitwise-and active 256)) 0 512))
+   (else 0)))
+
+(def (regular-transition active ch)
+  (let (mask (regular-mask ch #f))
+    (bitwise-ior
+     (bitwise-and active mask)
+     (regular-number-transition
+      active ch (not (zero? (bitwise-and mask 8)))))))
+
+;;; entries: (expression-kind token-name precedence declaration-index).
+;;; A lexical mode admits whole rules before building this scanner.
+(def (make-ranked-regular-scanner entries)
+  (let* ((available
+          (fold (lambda (entry mask)
+                  (bitwise-ior mask (regular-kind-bit (car entry))))
+                0 entries))
+         (winners
+          (vector-map/index
+           (lambda (mask _)
+             (fold
+              (lambda (entry best)
+                (if (zero? (bitwise-and mask (regular-kind-bit (car entry))))
+                  best
+                  (let (candidate (cdr entry))
+                    (if (or (not best)
+                            (> (cadr candidate) (cadr best))
+                            (and (= (cadr candidate) (cadr best))
+                                 (< (caddr candidate) (caddr best))))
+                      candidate best))))
+              #f entries))
+           (make-vector (if (zero? (bitwise-and available 32)) 32 64)))))
+    (if (zero? (bitwise-and available 32))
+      (lambda (source start)
+        (let* ((length (string-length source))
+               (initial
+                (and (< start length)
+                     (bitwise-and available
+                                  (regular-mask (string-ref source start) #t)))))
+          (and initial
+               (not (zero? initial))
+               (let loop ((offset (+ start 1)) (active initial))
+                 (let (next
+                       (if (< offset length)
+                         (bitwise-and active
+                                      (regular-mask (string-ref source offset) #f))
+                         0))
+                   (if (zero? next)
+                     (let (winner (vector-ref winners active))
+                       (list (car winner) offset
+                             (cadr winner) (caddr winner)))
+                     (loop (+ offset 1) next)))))))
+      (lambda (source start)
+        (let* ((length (string-length source))
+               (initial
+                (and (< start length)
+                     (bitwise-and available
+                                  (regular-mask (string-ref source start) #t)))))
+          (and initial
+               (not (zero? initial))
+               (let loop ((offset (+ start 1)) (active initial)
+                          (accepted initial) (accepted-end (+ start 1)))
+                 (let* ((next
+                         (if (< offset length)
+                           (regular-transition active (string-ref source offset))
+                           0))
+                        (accept (regular-accept-mask next)))
+                   (cond
+                    ((zero? next)
+                     (let (winner (vector-ref winners accepted))
+                       (list (car winner) accepted-end
+                             (cadr winner) (caddr winner))))
+                    ((zero? accept)
+                     (loop (+ offset 1) next accepted accepted-end))
+                    (else
+                     (loop (+ offset 1) next accept (+ offset 1))))))))))))
+
 ;; scan-quoted-string
 ;;   : (-> String Fixnum String Fixnum)
 ;;   | doc m%
@@ -323,6 +475,79 @@
   (ormap (lambda (delimiter)
            (scan-quoted-string/mode source start delimiter #f))
          delimiters))
+
+;;; A closed scanner primitive for words containing quoted or balanced spans.
+;;; The language supplies only delimiter data. The scanner owns recursion,
+;;; source bounds, and failure on an unterminated span.
+(def (scan-balanced-word source start stops quotes pairs)
+  (let (length (string-length source))
+    (def (at? offset text)
+      (let (end (+ offset (string-length text)))
+        (and (<= end length)
+             (string=? (substring source offset end) text))))
+    (def (pair-at offset)
+      (foldl
+       (lambda (entry current)
+         (if (and (at? offset (car entry))
+                  (or (not current)
+                      (> (string-length (car entry))
+                         (string-length (car current)))))
+           entry current))
+       #f pairs))
+    (def (quote-at offset)
+      (find (lambda (text) (at? offset text)) quotes))
+    (def (stopped? offset)
+      (or (char-whitespace? (string-ref source offset))
+          (ormap (lambda (text) (at? offset text)) stops)))
+    (def (after-escape offset)
+      (min length (+ offset 2)))
+    (def (quoted-end offset quote)
+      (let (delimiter (string-ref quote 0))
+        (let loop ((cursor (+ offset 1)))
+          (cond
+           ((= cursor length)
+            (error "unterminated balanced word quote" offset))
+           ((char=? (string-ref source cursor) delimiter)
+            (+ cursor 1))
+           ((and (not (char=? delimiter #\'))
+                 (char=? (string-ref source cursor) #\\))
+            (loop (after-escape cursor)))
+           ((and (char=? delimiter #\") (pair-at cursor))
+            (loop (paired-end cursor (pair-at cursor))))
+           (else (loop (+ cursor 1)))))))
+    (def (paired-end offset entry)
+      (let ((opening (cadr entry))
+            (closing (caddr entry))
+            (prefix (car entry)))
+        (let loop ((cursor (+ offset (string-length prefix))) (depth 1))
+          (cond
+           ((= cursor length)
+            (error "unterminated balanced word pair" offset prefix))
+           ((char=? (string-ref source cursor) #\\)
+            (loop (after-escape cursor) depth))
+           ((quote-at cursor)
+            (loop (quoted-end cursor (quote-at cursor)) depth))
+           ((pair-at cursor)
+            (loop (paired-end cursor (pair-at cursor)) depth))
+           ((char=? (string-ref source cursor) opening)
+            (loop (+ cursor 1) (+ depth 1)))
+           ((char=? (string-ref source cursor) closing)
+            (if (= depth 1) (+ cursor 1)
+              (loop (+ cursor 1) (- depth 1))))
+           (else (loop (+ cursor 1) depth))))))
+    (and (< start length)
+         (not (stopped? start))
+         (let loop ((cursor start))
+           (cond
+            ((= cursor length) cursor)
+            ((and (> cursor start) (stopped? cursor)) cursor)
+            ((char=? (string-ref source cursor) #\\)
+             (loop (after-escape cursor)))
+            ((quote-at cursor)
+             (loop (quoted-end cursor (quote-at cursor))))
+            ((pair-at cursor)
+             (loop (paired-end cursor (pair-at cursor))))
+            (else (loop (+ cursor 1))))))))
 
 (def (line-end source start)
   (scan-while source start
@@ -480,6 +705,68 @@
                 (let (next (+ offset 1))
                   (loop child next
                         (if (vector-ref child 0) next selected)))
+                selected))))))))
+
+;;; Merge literal-only lexical rules into one trie shared by every LR mode.
+;;; Entries carry (literal name precedence declaration-index); the optional
+;;; admitted vector filters complete rules without copying the trie per mode.
+(def (make-ranked-literal-scanner entries)
+  (def (make-node) (vector '() (make-table test: eqv?)))
+  (def (best-admitted candidates admitted)
+    (let loop ((remaining candidates) (best #f))
+      (if (null? remaining)
+        best
+        (let (candidate (car remaining))
+          (loop
+           (cdr remaining)
+           (if (and (or (not admitted)
+                        (vector-ref admitted (caddr candidate)))
+                    (or (not best)
+                        (> (cadr candidate) (cadr best))
+                        (and (= (cadr candidate) (cadr best))
+                             (< (caddr candidate) (caddr best)))))
+             candidate
+             best))))))
+  (let (root (make-node))
+    (for-each
+     (lambda (entry)
+       (let ((literal (car entry))
+             (name (cadr entry))
+             (rank (caddr entry))
+             (ordinal (cadddr entry)))
+         (unless (and (string? literal)
+                      (positive? (string-length literal)))
+           (error "lexer literals must be non-empty strings" literal))
+         (let insert ((node root) (index 0))
+           (if (= index (string-length literal))
+             (vector-set! node 0
+                          (cons (list name rank ordinal)
+                                (vector-ref node 0)))
+             (let* ((children (vector-ref node 1))
+                    (character (string-ref literal index))
+                    (child (table-ref children character #f)))
+               (unless child
+                 (set! child (make-node))
+                 (table-set! children character child))
+               (insert child (+ index 1)))))))
+     entries)
+    (lambda (source start (admitted #f))
+      (let (source-length (string-length source))
+        (let scan ((node root) (offset start) (selected #f))
+          (if (= offset source-length)
+            selected
+            (let (child
+                  (table-ref (vector-ref node 1)
+                             (string-ref source offset) #f))
+              (if child
+                (let* ((next (+ offset 1))
+                       (terminal
+                        (best-admitted (vector-ref child 0) admitted)))
+                  (scan child next
+                        (if terminal
+                          (list (car terminal) next
+                                (cadr terminal) (caddr terminal))
+                          selected)))
                 selected))))))))
 
 ;; scan-longest-literal

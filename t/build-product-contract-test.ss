@@ -34,11 +34,9 @@
                                      "\"src/ffi/rust-rowan-aot-main.ss\"")
                     #t)
                => #t)
-        (check (and (string-contains package-source
-                                     "poo-flow@a321c63")
-                    (not (string-contains package-source
-                                          "asp-gerbil-scheme@")))
-               => #t)
+        (check (cadr (member 'depend: (call-with-input-string package-source read)))
+               => '("github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
+                    "github.com/tao3k/asp-gerbil-scheme@v0.1.2.1"))
         (check (string-contains library-source
                                 "(exe: \"src/main\"")
                => #f)
@@ -74,3 +72,7 @@
                => '(tls))))))
 
 (export build-product-contract-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def build-product-contract-test build-product-contract-tests)
+(export build-product-contract-test)

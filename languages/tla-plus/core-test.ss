@@ -1,0 +1,294 @@
+#!/usr/bin/env gxi
+;;; -*- Gerbil -*-
+;;; Acceptance owner for pinned TLA+ sources, structural CST obligations,
+;;; nested-comment losslessness, and typed unterminated-comment failure.
+
+(import (only-in :std/test check test-case test-suite)
+        (only-in :std/misc/process run-process)
+        (only-in :std/string/misc string-trim-eol)
+        :gerbil-parser/languages/tla-plus/parser
+        (only-in :gerbil-parser/languages/tla-plus/source
+                 +tla-plus-syntax-source+ +tla-plus-sany-release+
+                 +tla-plus-sany-commit+ +tla-plus-sany-grammar-blob+
+                 +tla-plus-sany-grammar-digest+ +tla-plus-examples-commit+)
+        (only-in :gerbil-parser/languages/tla-plus/grammars/core
+                 tla-plus-core-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor
+                 language-grammar-version language-grammar-contract)
+        (only-in :gerbil-parser/languages/tla-plus/qualification
+                 +tla-plus-model-qualification-schema+
+                 qualify-tla-plus-core-model
+                 tla-plus-model-receipt-admitted
+                 tla-plus-model-receipt->alist)
+        :gerbil-parser/src/runtime/artifact
+        :gerbil-parser/src/runtime/cst
+        (only-in :gerbil-parser/language-support
+                 syntax-fixture-required-kinds
+                 syntax-fixture-source
+                 syntax-fixture-source-digest
+                 syntax-fixture-version syntax-fixture-contract
+                 syntax-fixture-expected-status)
+        (only-in ./fixtures tla-plus-core-fixtures
+                 tla-plus-core-accepted-fixtures
+                 tla-plus-core-rejected-fixtures))
+(export tla-plus-core-parser-test)
+
+(def (receipt-ref receipt key)
+  (let (entry (assq key (tla-plus-model-receipt->alist receipt)))
+    (and entry (cdr entry))))
+
+(def (call-with-qualification-fixture procedure)
+  (let* ((template
+          (path-expand "gerbil-parser-tlc-test.XXXXXX"
+                       (getenv "TMPDIR" "/tmp")))
+         (directory
+          (string-trim-eol (run-process ["mktemp" "-d" template]))))
+    (unwind-protect
+      (procedure directory)
+      (when (file-exists? directory)
+        (delete-file-or-directory directory #t)))))
+
+;;; CST traversal intentionally treats fields as transparent containers; the
+;;; observable contract is the ordered set of emitted syntax-node kinds.
+;; : (-> CSTValue (List Symbol))
+(def (cst-node-kinds value)
+  (cond
+   ((syntax-node? value)
+    (cons (syntax-node-kind value)
+          (apply append (map cst-node-kinds (syntax-node-children value)))))
+   ((syntax-field? value)
+    (apply append (map cst-node-kinds (syntax-field-children value))))
+   (else '())))
+
+;; : (-> ParseArtifact Symbol Integer)
+(def (artifact-token-count artifact kind)
+  (length
+   (filter (lambda (event)
+             (and (token-event? event)
+                  (eq? (token-event-token-kind event) kind)))
+           (parse-artifact-events artifact))))
+
+;; : TestSuite
+(def tla-plus-core-parser-test
+  (test-suite "TLA+ core grammar"
+    (test-case "modular multiline action contracts keep native source bytes"
+      (let* ((source
+              "---- MODULE Modular ----\nVARIABLES active,\n queued\nWork == INSTANCE WorkLifecycle\nInit ==\n  /\\ Work!Init\n  /\\ active = TRUE\nNext == Work!Step \\/\n        (active' = FALSE /\\\n         UNCHANGED <<queued,\n                    active>>)\n====\n")
+             (artifact (parse-tla-plus-core source))
+             (kinds (and (parse-artifact-success? artifact)
+                         (cst-node-kinds (parse-artifact->cst artifact)))))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (for-each
+         (lambda (kind) (check (member kind kinds) ? values))
+         '(InstanceExpression QualifiedNameExpression JunctionExpression))))
+    (test-case "set union and intersection keep official ASCII spellings"
+      (for-each
+       (lambda (operator)
+         (let* ((source
+                 (string-append
+                  "---- MODULE SetOperator ----\n"
+                  "Left == {\"a\"} " operator " {\"b\"}\n"
+                  "Right == Left \\in {\"a\", \"b\"}\n====\n"))
+                (artifact (parse-tla-plus-core source)))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check (member 'Expression
+                          (cst-node-kinds (parse-artifact->cst artifact)))
+                  ? values)))
+       '("\\cup" "\\union" "\\cap" "\\intersect")))
+    (test-case "set operators require a right operand"
+      (let* ((source
+              "---- MODULE BrokenSet ----\nLeft == {\"a\"} \\cup\n====\n")
+             (artifact (parse-tla-plus-core source)))
+        (check (parse-artifact-success? artifact) => #f)
+        (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "Temporal set maps, products, difference, and subset retain bytes"
+      (let* ((source
+              "---- MODULE TemporalSyntax ----\nIds == {o[1] : o \\in Observations}\nRemaining == Ids \\ {id}\nPairs == Ids \\X Cuts\nWithin == Remaining \\subseteq Ids\n====\n")
+             (artifact (parse-tla-plus-core source))
+             (kinds (and (parse-artifact-success? artifact)
+                         (cst-node-kinds (parse-artifact->cst artifact)))))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check (member 'SetMapExpression kinds) ? values)))
+    (test-case "incomplete Temporal operators remain syntax errors"
+      (for-each
+       (lambda (body)
+         (let (artifact
+               (parse-tla-plus-core
+                (string-append "---- MODULE BrokenTemporal ----\n" body
+                               "\n====\n")))
+           (check (parse-artifact-success? artifact) => #f)))
+       '("Ids == {o[1] : o \\in}" "Pairs == Ids \\X"
+         "Remaining == Ids \\" "Within == Ids \\subseteq")))
+    (test-case "incomplete modular forms remain syntax errors"
+      (for-each
+       (lambda (body)
+         (let* ((source (string-append "---- MODULE Broken ----\n" body "\n====\n"))
+                (artifact (parse-tla-plus-core source)))
+           (check (parse-artifact-success? artifact) => #f)
+           (check (parse-artifact-roundtrip artifact) => source)))
+       '("Work == INSTANCE" "Value == Work!" "VARIABLES active,\n"
+         "Init ==\n /\\" "Next == TRUE /\\\n")))
+    (test-case "native syntax and corpus identities are immutable"
+      (check (syntax-fixture-version (car tla-plus-core-fixtures))
+             => (language-grammar-version tla-plus-core-language-grammar))
+      (check (syntax-fixture-contract (car tla-plus-core-fixtures))
+             => (language-grammar-contract tla-plus-core-language-grammar))
+      (check +tla-plus-syntax-source+
+             => "Specifying Systems, Chapter 15: TLAPlusGrammar")
+      (check +tla-plus-sany-release+ => "v1.7.4")
+      (check +tla-plus-sany-commit+
+             => "5a47802b5c391f59ecdd44117981f4ff8c0656ba")
+      (check +tla-plus-sany-grammar-blob+
+             => "bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56")
+      (check +tla-plus-sany-grammar-digest+
+             => "sha256:15edd079cf16cf91556ba66b496c9ffc16f26ab30856753ed58e60b0d54f2d07")
+      (check +tla-plus-examples-commit+
+             => "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")
+      (check (length tla-plus-core-fixtures) => 6)
+      (check (length tla-plus-core-accepted-fixtures) => 5)
+      (check (length tla-plus-core-rejected-fixtures) => 1)
+      (check (syntax-fixture-source-digest (car tla-plus-core-fixtures))
+             => "sha256:985903176db4725f9cf25df84ad84dcd53ba94be80d26298b87ec86fbc9b08b3"))
+    (test-case "all admitted modules publish lossless structural CSTs"
+      (for-each
+       (lambda (fixture)
+         (let* ((source (syntax-fixture-source fixture))
+                (artifact (parse-tla-plus-core source))
+                (root (and (parse-artifact-success? artifact)
+                           (parse-artifact->cst artifact)))
+                (kinds (and root (cst-node-kinds root))))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check (syntax-node-kind root) => 'SourceFile)
+           (for-each
+            (lambda (kind) (check (member kind kinds) ? values))
+            (syntax-fixture-required-kinds fixture))))
+       tla-plus-core-accepted-fixtures))
+    (test-case "nested block comments remain one lossless trivia token"
+      (let* ((fixture (caddr tla-plus-core-accepted-fixtures))
+             (artifact (parse-tla-plus-core
+                        (syntax-fixture-source fixture))))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (artifact-token-count artifact 'comment) => 1)))
+    (test-case "unary negation is admitted by the native lexical contract"
+      (let* ((source
+              "---- MODULE Negation ----\nVARIABLES enabled, ready\nDisabled == ~enabled /\\ ready\nNext == enabled' = FALSE /\\ ready' = TRUE\n====\n")
+             (artifact (parse-tla-plus-core source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "one qualification API composes parser and TLC receipts"
+      (call-with-qualification-fixture
+       (lambda (directory)
+         (let ((spec (path-expand "Qualified.tla" directory))
+               (config (path-expand "Qualified.cfg" directory))
+               (tlc (path-expand "tlc-fixture" directory)))
+           (call-with-output-file
+            spec
+            (lambda (port)
+              (write-string
+               "---- MODULE Qualified ----\nVARIABLE enabled\nInit == enabled = FALSE\nNext == enabled' = TRUE\n====\n"
+               port)))
+           (call-with-output-file
+            config
+            (lambda (port) (write-string "INIT Init\nNEXT Next\n" port)))
+           (call-with-output-file
+            tlc
+            (lambda (port)
+              (write-string
+               "#!/bin/sh\ncat <<'EOF'\nTLC2 Version fixture\nProgress(3) at 00:00:00: 7 states generated, 7 distinct states found, 5 states left on queue.\nModel checking completed. No error has been found.\n4 states generated, 2 distinct states found, 0 states left on queue.\nThe depth of the complete state graph search is 1.\nEOF\n"
+               port)))
+           (run-process ["chmod" "+x" tlc])
+           (let (receipt
+                 (qualify-tla-plus-core-model spec config tlc: tlc workers: 1))
+             (check +tla-plus-model-qualification-schema+
+                    => "gerbil-parser.tla-plus-model-qualification.v1")
+             (check (tla-plus-model-receipt-admitted receipt) => #t)
+             (check (receipt-ref receipt 'syntax-accepted) => #t)
+             (check (receipt-ref receipt 'roundtrip) => #t)
+             (check (receipt-ref receipt 'states-generated) => 4)
+             (check (receipt-ref receipt 'distinct-states) => 2)
+             (check (receipt-ref receipt 'states-left) => 0)
+             (check (receipt-ref receipt 'graph-depth) => 1))))))
+    (test-case "qualification fails closed on misleading TLC completion"
+      (call-with-qualification-fixture
+       (lambda (directory)
+         (let ((spec (path-expand "Rejected.tla" directory))
+               (config (path-expand "Rejected.cfg" directory))
+               (tlc (path-expand "tlc-fixture" directory)))
+           (call-with-output-file
+            spec
+            (lambda (port)
+              (write-string
+               "---- MODULE Rejected ----\nVARIABLE enabled\nInit == enabled = FALSE\nNext == enabled' = TRUE\n====\n"
+               port)))
+           (call-with-output-file
+            config
+            (lambda (port) (write-string "INIT Init\nNEXT Next\n" port)))
+           (call-with-output-file
+            tlc
+            (lambda (port)
+              (write-string
+               "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Model checking completed. No error has been found.'\necho '4 states generated, 2 distinct states found, 0 states left on queue.'\necho 'The depth of the complete state graph search is 1.'\nexit 7\n"
+               port)))
+           (run-process ["chmod" "+x" tlc])
+           (let (receipt
+                 (qualify-tla-plus-core-model spec config tlc: tlc workers: 1))
+             (check (tla-plus-model-receipt-admitted receipt) => #f)
+             (check (zero? (receipt-ref receipt 'exit-status)) => #f))
+           (call-with-output-file
+            tlc
+            (lambda (port)
+              (write-string
+               "#!/bin/sh\necho 'TLC2 Version fixture'\necho 'Progress(3) at 00:00:00: 7 states generated, 7 distinct states found, 5 states left on queue.'\necho 'Model checking completed. No error has been found.'\n"
+               port)))
+           (let (receipt
+                 (qualify-tla-plus-core-model spec config tlc: tlc workers: 1))
+             (check (tla-plus-model-receipt-admitted receipt) => #f)
+             (check (receipt-ref receipt 'states-generated) => #f))))))
+    (test-case "syntax rejection stops before resolving TLC"
+      (call-with-qualification-fixture
+       (lambda (directory)
+         (let ((spec (path-expand "Malformed.tla" directory))
+               (config (path-expand "Malformed.cfg" directory)))
+           (call-with-output-file
+            spec
+            (lambda (port)
+              (write-string
+               "---- MODULE Malformed ----\nVARIABLE x\nBroken == IF x = 0 THEN ELSE x\n====\n"
+               port)))
+           (call-with-output-file
+            config
+            (lambda (port) (write-string "INIT Broken\n" port)))
+           (let (receipt
+                 (qualify-tla-plus-core-model
+                  spec config tlc: "this-tlc-must-not-be-resolved"))
+             (check (tla-plus-model-receipt-admitted receipt) => #f)
+             (check (receipt-ref receipt 'syntax-accepted) => #f)
+             (check (receipt-ref receipt 'tool-path) => #f)
+             (check (receipt-ref receipt 'exit-status) => #f))))))
+    (test-case "unterminated nested comments fail as one typed artifact"
+      (let (artifact
+            (parse-tla-plus-core
+             "---- MODULE Broken ----\n(* outer (* nested *)\nVARIABLE x\n====\n"))
+        (check (parse-artifact-success? artifact) => #f)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))
+    (test-case "recognized but malformed expressions fail closed"
+      (for-each
+       (lambda (fixture)
+         (let* ((source (syntax-fixture-source fixture))
+                (artifact (parse-tla-plus-core source)))
+           (check (syntax-fixture-expected-status fixture) => 'rejected)
+           (check (parse-artifact-success? artifact) => #f)
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check (length (parse-artifact-ref artifact 'diagnostics)) => 1)))
+       tla-plus-core-rejected-fixtures))))

@@ -9,6 +9,7 @@
         :asp-gerbil-scheme/src/benchmark/framework
         :core/observability/debug
         :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!)
         "./scenarios/observability/opencypher-grammar-phases/scenario")
 
 (def benchmark-path "t/benchmarks/poo-grammar-objects/benchmark.ss")
@@ -24,7 +25,7 @@
 (def (make-observed-grammar-batch)
   (let loop ((remaining 50) (grammars '()))
     (if (zero? remaining)
-      grammars
+      (begin (report-test-progress! "OBJECT-BATCH-OK grammars=50") grammars)
       (loop (- remaining 1)
             (cons (make-observed-grammar) grammars)))))
 
@@ -89,3 +90,7 @@
                => #t)))))
 
 (export core-observability-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def core-observability-test core-observability-tests)
+(export core-observability-test)

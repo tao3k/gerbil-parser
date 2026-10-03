@@ -270,3 +270,7 @@
                  (check parser-count => 1))))))))))
 
 (export language-artifact-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def language-artifact-test language-artifact-tests)
+(export language-artifact-test)

@@ -36,7 +36,8 @@
          (stats (make-vector 11 0)) (pending (list (cons root 0)))
          (first-index 0) (source-length (string-length source))
          (certified-scanning? (and closed-source-owner? (current-lr-lexical-plan-reuse-enabled?)))
-         (probe-cache #f))
+         (probe-cache #f) (probe-index 0)
+         (probe-cursor (and source-index (make-source-index-cursor source-index))))
     (unless (or source-index (= count (vector-length modes))) (error "invalid captured lexical modes"))
     (def (add-stat! index value)
       (vector-set! stats index (+ (vector-ref stats index) value)))
@@ -57,22 +58,43 @@
            (= (token-end fresh) (+ shift (token-end old)))
            (eq? (token-kind fresh) (token-kind old))
            (equal? (token-lexeme fresh) (token-lexeme old))))
-    ;; Speculation must never consume the grammar owner's source cursor.
-    ;; Independent lower-bound lookup is O(log n), plus a bounded index leaf.
+    ;; The speculative lookup finger is separate from the grammar cursor.
+    ;; Forward exponential bracketing depends on query distance, not total
+    ;; source size; backward queries reset with a full binary lower bound.
+    (def (vector-probe-rank byte)
+      (def (lower-bound low high)
+        (if (= low high) low
+          (let (middle (quotient (+ low high) 2))
+            (if (< (token-start (vector-ref tokens middle)) byte)
+              (lower-bound (+ middle 1) high) (lower-bound low middle)))))
+      (let (rank
+            (cond ((or (= probe-index count)
+                       (< byte (token-start (vector-ref tokens probe-index))))
+                   (lower-bound 0 count))
+                  ((= byte (token-start (vector-ref tokens probe-index))) probe-index)
+                  (else
+                   (let bracket ((low probe-index) (step 1))
+                     (let (high (min count (+ low step)))
+                       (if (and (< high count) (< (token-start (vector-ref tokens high)) byte))
+                         (bracket high (* step 2))
+                         (lower-bound (+ low 1) (min count (+ high 1)))))))))
+        (set! probe-index rank) rank))
     (def (certified-source-probe character byte mode)
       (let* ((suffix? (>= byte (+ edit-end delta)))
              (shift delta)
              (old-byte (- byte shift)))
         (and suffix?
-             (let* ((cursor (and source-index (make-source-index-cursor source-index)))
+             (let* ((cursor
+                     (and source-index
+                          (begin
+                            (let (current (source-index-cursor-token probe-cursor))
+                              (when (or (not current) (> (token-start current) old-byte))
+                                (set! probe-cursor (make-source-index-cursor source-index))))
+                            probe-cursor)))
                     (rank (if cursor
                             (begin (source-index-cursor-seek! cursor old-byte)
                                    (source-index-cursor-rank cursor))
-                            (let search ((low 0) (high count))
-                              (if (= low high) low
-                                (let (middle (quotient (+ low high) 2))
-                                  (if (< (token-start (vector-ref tokens middle)) old-byte)
-                                    (search (+ middle 1) high) (search low middle)))))))
+                            (vector-probe-rank old-byte)))
                     (old (and (< rank count) (if cursor (source-index-cursor-token cursor) (vector-ref tokens rank))))
                     (old-mode (and old (if cursor (source-index-cursor-mode cursor) (vector-ref modes rank)))))
                (and old (= (token-start old) old-byte)

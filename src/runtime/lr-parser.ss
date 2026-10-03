@@ -276,7 +276,6 @@
 ;;; Executes immutable tables and evaluates every admitted fork within a
 ;;; deterministic branch budget. Dynamic precedence scores complete branches;
 ;;; structurally identical ties merge and distinct equal-score ties fail closed.
-;; lr-parse/receipt
 ;; : (-> List List Integer (Values Datum List Alist))
 (def current-lr-branch-budget (make-parameter 256))
 

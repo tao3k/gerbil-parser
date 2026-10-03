@@ -405,3 +405,61 @@ This is local rebase and source functional evidence. Native compilation and
 the eight performance gates have not been rerun for this source revision;
 the earlier native GQL failure is historical, and its current status remains
 unqualified. No remote branch was pushed.
+
+* Latest PR revision and native qualification, 2026-10-03
+
+PR #13's history was subsequently rewritten to
+=7c1533356585154c8b5d340f64ffefb289d18907=. Only this branch's two commits
+were replayed onto that revision. The overlap retained upstream's configurable
+=current-lr-branch-budget= and the SANY corpus command. The prior local state
+remains reachable through =backup/contextual-before-pr13-refresh-20261003=.
+The remote revision was rechecked after validation and remained unchanged.
+
+The standard =gxi build.ss compile= library projection completed all 128
+targets in 101.65 seconds, using four build workers and the existing 1 GiB
+heap fence. The independent cache at =.data/native-pr13-7c15333= initially
+contained no parser binaries; only external dependency artifacts were linked.
+The parser, LR runtime, and machine resolve to this cache's =.ssi= files.
+This receipt does not cover optional commands or remote CI.
+
+Current-source functional validation executed 75 cases in nine suites, with
+real LR/admission traces and a five-second output watchdog. The same 75 cases
+then passed against the newly compiled native modules in 25.03 seconds. Both
+runs published all case/module/harness markers and final =OK=, with exit zero.
+
+The final qualification snapshot is
+=sha256:1dcd1645eede849f2d973bc1a0c8bfaefed8011d54ea17f78435c857cb2db5ba=.
+All eight original native wall-time contracts passed without changed inputs,
+sample counts, or numerical ceilings:
+
+| Contract | p95 ms | Existing ceiling ms | Result |
+|----------+--------+---------------------+--------|
+| LALR fixed point | 3.635 | 500 | PASS |
+| Incremental suffix | 0.769 | 250 | PASS |
+| Recovery frontier | 0.891 | 250 | PASS |
+| Selective GLR | 5.317 | 250 | PASS |
+| Arithmetic hot path | 16.305 | 900 | PASS |
+| ISO GQL | 33.006 | 150 | PASS |
+| openCypher 100 clauses | 8.466 | 250 | PASS |
+| Versioned language batch | 6.155 | 500 | PASS |
+
+Cold admission is logged through the upstream compiled-module preloader.
+Early attempts failed the silence watchdog before test execution; a later
+attempt also retained a process after final =OK=. The final runner preloads
+the relevant production and benchmark dependencies and explicitly exits after
+the harness returns. These failed attempts are retained, not counted as
+qualification. The openCypher test now reports each completed 100-clause
+scenario under =GERBIL_PARSER_LR_TRACE=, matching the upstream GLR progress
+pattern. Its logging cost remains inside the timed callback. Each final
+contract had a 120-second total deadline, five-second output deadline, final
+=OK=, and exit zero.
+
+The complete build, source/native functional logs, per-contract logs, runner
+scripts, and machine-readable receipt are retained under
+=.data/qualification-pr13-7c15333/=. The final performance logs are in
+=qualified/=; =receipt.json= binds the source digest and timings. Earlier
+native failures above remain historical. Host load was about 27 during this
+run versus over 130 in the earlier run; these receipts establish current local
+admission, not a matched causal speedup from the rebase. Declaration-macro
+binding and contextual scanner state across GLR branches remain outside this
+implemented vertical slice. No remote branch was pushed.

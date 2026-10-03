@@ -11,7 +11,10 @@
 (def (run-scenario)
   (unless (opencypher-large-query-scenario-pass?
            (opencypher-large-query-scenario))
-    (error "large openCypher query scenario failed")))
+    (error "large openCypher query scenario failed"))
+  (when (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")
+    (displayln "SCENARIO-OK opencypher-large-query clauses=100")
+    (force-output)))
 
 (def opencypher-large-query-benchmark-tests
   (test-suite "openCypher large-query complexity scenario"

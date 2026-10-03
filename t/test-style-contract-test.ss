@@ -28,7 +28,10 @@
              (test-form-allowed? (cdr form) forbidden owned-ports)))))
    ((and (symbol? (car form)) (memq (car form) forbidden))
     ;; Fixture serialization owns its port; console output stays forbidden.
-    (and (memq (car form) '(display write-string))
+    (and (or (eq? (car form) 'write-string)
+             (and (eq? (car form) 'display)
+                  (or (equal? forbidden '(display))
+                      (equal? forbidden '(display displayln)))))
          (list? form) (= (length form) 3)
          (memq (caddr form) owned-ports)
          (test-form-allowed? (cadr form) forbidden owned-ports)))
@@ -67,6 +70,9 @@
       (check (test-form-allowed?
               '(call-with-output-string (lambda (port) (display "input" port)))
               '(display)) => #t)
+      (check (test-form-allowed?
+              '(call-with-output-string (lambda (port) (display "Rust" port)))
+              '(display displayln write-string string-append format)) => #f)
       (check (test-form-allowed? '(display "snapshot" port) '(display)) => #f)
       (check (test-form-allowed? '(display "snapshot" (current-output-port))
                                  '(display)) => #f)

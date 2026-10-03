@@ -206,6 +206,17 @@
                 (index (+ state 1))))
             (let edges ((state 0))
               (when (< state count)
+                ;; Every after-dot symbol must be published exactly once, in
+                ;; sorted-item discovery order, including shared predictions.
+                (let ((expected '()) (symbols-seen (make-table test: equal?)))
+                  (for-each
+                   (lambda (item)
+                     (let (symbol (vector-ref symbols item))
+                       (when (and symbol (not (table-ref symbols-seen symbol #f)))
+                         (table-set! symbols-seen symbol #t)
+                         (set! expected (cons symbol expected)))))
+                   (vector-ref states state))
+                  (check (map car (vector-ref transitions state)) => (reverse expected)))
                 (for-each
                  (lambda (edge)
                    (let* ((symbol (car edge)) (target (cdr edge))
@@ -224,7 +235,9 @@
     (poo-flow-test-case "LR(0) kernels uniquely identify states and goto targets"
       (check-lr0-kernel-identity precedence-expression-rules)
       (check-lr0-kernel-identity inactive-core-conflict-rules)
-      (check-lr0-kernel-identity (mixed-context-family-rules 16)))
+      (check-lr0-kernel-identity (mixed-context-family-rules 16))
+      (check-lr0-kernel-identity (state-local-candidate-family-rules 16))
+      (check-lr0-kernel-identity (lr1-context-family-rules 16)))
     (poo-flow-test-case "forward reachable follows agree with LR(0) propagation"
       (check-forward-follows-match-lr0 lr1-not-lalr-rules)
       (check-forward-follows-match-lr0 shared-lookahead-rules)

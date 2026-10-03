@@ -181,43 +181,108 @@
             (materialize (+ item 1))))
         catalog))))
 
-(def (lr0-closure kernel-mask prediction-catalog layout)
-  (let ((mask 0) (seed '()) (predicted '()))
-    (compiler-index-set-for-each
-     kernel-mask
-     (lambda (item)
-       (set! seed (cons item seed))
-       (set! mask (compiler-index-set-union
-                   mask (vector-ref prediction-catalog item)))))
+;; Symbol IDs are local to one construction, including template scratch.
+(def (make-lr0-symbol-catalog core-symbols)
+  (let ((index (make-table test: equal?))
+        (ids (make-vector (vector-length core-symbols) #f))
+        (count 0))
+    (let loop ((item 0))
+      (when (< item (vector-length core-symbols))
+        (let (symbol (vector-ref core-symbols item))
+          (when symbol
+            (let (id (table-ref index symbol #f))
+              (unless id
+                (set! id count)
+                (set! count (+ count 1))
+                (table-set! index symbol id))
+              (vector-set! ids item id))))
+        (loop (+ item 1))))
+    (let (symbols (make-vector count #f))
+      (hash-for-each (lambda (symbol id) (vector-set! symbols id symbol)) index)
+      (values symbols ids))))
+
+;; Each distinct prediction mask owns one immutable template: sorted dot-zero
+;; items, goto groups ordered by their earliest item, and a sparse group index.
+;; A row is #(first-item symbol-id advanced-kernel). Templates share across
+;; states; their group masks never enter mutable scratch by reference mutation.
+(def (make-prediction-template mask layout symbol-ids)
+  (let ((items '()) (order '()) (groups (make-table test: eq?)))
     (compiler-index-set-for-each
      mask
-     (lambda (id) (set! predicted (cons (make-core-item id 0 layout) predicted))))
-    ;; Prediction ids are dense even when packed core ids have wide dot gaps.
-    ;; Merge the sorted kernel with dot-zero predictions in canonical order.
-    (let merge ((left (reverse seed)) (right (reverse predicted))
+     (lambda (production-id)
+       (let* ((item (make-core-item production-id 0 layout))
+              (id (vector-ref symbol-ids item)))
+         (set! items (cons item items))
+         (when id
+           (let (row (table-ref groups id #f))
+             (unless row
+               (set! row (vector item id 0))
+               (set! order (cons id order))
+               (table-set! groups id row))
+             (vector-set! row 2
+                          (compiler-index-set-add (vector-ref row 2) (+ item 1))))))))
+    (vector (reverse items)
+            (map (lambda (id) (table-ref groups id)) (reverse order))
+            groups)))
+
+(def (lr0-closure kernel-mask template)
+  (let (seed '())
+    (compiler-index-set-for-each
+     kernel-mask (lambda (item) (set! seed (cons item seed))))
+    ;; Retain the immutable template suffix when the kernel is exhausted.
+    (let merge ((left (reverse seed)) (right (vector-ref template 0))
                 (found '()))
       (cond
-       ((null? left) (reverse (foldl cons found right)))
-       ((null? right) (reverse (foldl cons found left)))
+       ((null? left) (foldl cons right found))
+       ((null? right) (foldl cons left found))
        ((= (car left) (car right))
         (merge (cdr left) (cdr right) (cons (car left) found)))
        ((< (car left) (car right))
         (merge (cdr left) right (cons (car left) found)))
        (else (merge left (cdr right) (cons (car right) found)))))))
 
-(def (lr0-state-kernels state core-symbols)
-  (let ((kernels (make-table test: equal?)) (symbol-order '()))
-    (for-each
+(def (lr0-state-kernels kernel-mask template symbol-ids masks first-items)
+  (let ((order '()) (groups (vector-ref template 2)))
+    ;; Only advanced kernel items contribute new groups or alter template
+    ;; groups. The full closure is never hashed or grouped again per state.
+    (compiler-index-set-for-each
+     kernel-mask
      (lambda (item)
-       (let (symbol (vector-ref core-symbols item))
-         (when symbol
-           (let (known (table-ref kernels symbol #f))
-             (unless known (set! symbol-order (cons symbol symbol-order)))
-             (table-set! kernels symbol
-                         (compiler-index-set-add (or known 0) (+ item 1)))))))
-     state)
-    (map (lambda (symbol) (cons symbol (table-ref kernels symbol)))
-         (reverse symbol-order))))
+       (let (id (vector-ref symbol-ids item))
+         (when id
+           (when (zero? (vector-ref masks id))
+             (set! order (cons id order))
+             (vector-set! first-items id item))
+           (vector-set! masks id
+                        (compiler-index-set-add (vector-ref masks id) (+ item 1)))))))
+    (let (own
+          (list-sort
+           (lambda (left right) (< (vector-ref left 0) (vector-ref right 0)))
+           (map
+            (lambda (id)
+              (let ((shared (table-ref groups id #f))
+                    (first (vector-ref first-items id))
+                    (mask (vector-ref masks id)))
+                (if shared
+                  (vector (min first (vector-ref shared 0)) id
+                          (compiler-index-set-union mask (vector-ref shared 2)))
+                  (vector first id mask))))
+            order)))
+      ;; Earliest-item order reproduces the original sorted-closure symbol
+      ;; discovery order, including kernel symbols that precede predictions.
+      (let (rows
+            (let merge ((left own) (right (vector-ref template 1)) (found '()))
+              (cond
+               ((and (pair? right)
+                     (not (zero? (vector-ref masks (vector-ref (car right) 1)))))
+                (merge left (cdr right) found))
+               ((null? right) (foldl cons left found))
+               ((null? left) (merge left (cdr right) (cons (car right) found)))
+               ((< (vector-ref (car left) 0) (vector-ref (car right) 0))
+                (merge (cdr left) right (cons (car left) found)))
+               (else (merge left (cdr right) (cons (car right) found))))))
+        (for-each (lambda (id) (vector-set! masks id 0)) order)
+        rows))))
 
 ;;; Owns LR(0) state interning and transition discovery as one work queue.
 ;;; Each state is published once; vector growth preserves assigned indices.
@@ -240,32 +305,52 @@
          (prediction-catalog
           (make-core-prediction-catalog core-symbols productions-by-lhs layout))
          (initial-kernel (compiler-index-set-add 0 (make-core-item 0 0 layout)))
-         (initial (lr0-closure initial-kernel
-                               prediction-catalog layout))
+         (templates (make-table test: equal?))
          (states (make-vector 128 #f))
          (state-transitions (make-vector 128 '()))
+         (kernel-plans (make-vector 128 #f))
          (state-index (make-table test: equal?))
          (state-count 1)
          (processed-count 0)
          (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")))
-    (vector-set! states 0 initial)
+    (let-values (((symbols symbol-ids) (make-lr0-symbol-catalog core-symbols)))
+     (let ((masks (make-vector (vector-length symbols) 0))
+           (first-items (make-vector (vector-length symbols) 0)))
+    (def (template-for kernel)
+      (let (mask 0)
+        (compiler-index-set-for-each
+         kernel
+         (lambda (item)
+           (set! mask (compiler-index-set-union
+                       mask (vector-ref prediction-catalog item)))))
+        (or (table-ref templates mask #f)
+            (let (template (make-prediction-template mask layout symbol-ids))
+              (table-set! templates mask template)
+              template))))
+    (let (template (template-for initial-kernel))
+      (vector-set! states 0 (lr0-closure initial-kernel template))
+      (vector-set! kernel-plans 0 (cons initial-kernel template)))
     (table-set! state-index initial-kernel 0)
     (def (grow!)
       (when (= state-count (vector-length states))
         (let ((next-states (make-vector (* 2 state-count) #f))
-              (next-transitions (make-vector (* 2 state-count) '())))
+              (next-transitions (make-vector (* 2 state-count) '()))
+              (next-plans (make-vector (* 2 state-count) #f)))
           (let copy ((index 0))
             (when (< index state-count)
               (vector-set! next-states index (vector-ref states index))
               (vector-set! next-transitions index
                            (vector-ref state-transitions index))
+              (vector-set! next-plans index (vector-ref kernel-plans index))
               (copy (+ index 1))))
           (set! states next-states)
-          (set! state-transitions next-transitions))))
-    (def (append-state! kernel state)
+          (set! state-transitions next-transitions)
+          (set! kernel-plans next-plans))))
+    (def (append-state! kernel)
       (grow!)
-      (let (index state-count)
-        (vector-set! states index state)
+      (let ((index state-count) (template (template-for kernel)))
+        (vector-set! states index (lr0-closure kernel template))
+        (vector-set! kernel-plans index (cons kernel template))
         (table-set! state-index kernel index)
         (set! state-count (+ state-count 1))
         index))
@@ -286,19 +371,18 @@
           ;; Closure adds only dot-zero items. Every noninitial state is
           ;; therefore identified exactly by its advanced-item kernel mask;
           ;; the augmented dot-zero initial kernel has a disjoint key.
-          (let (rows '())
+          (let ((rows '()) (plan (vector-ref kernel-plans index)))
             (for-each
              (lambda (kernel)
-               (let* ((symbol (car kernel))
-                      (mask (cdr kernel))
+               (let* ((symbol (vector-ref symbols (vector-ref kernel 1)))
+                      (mask (vector-ref kernel 2))
                       (existing (table-ref state-index mask #f))
                       (target-index
                        (or existing
-                           (append-state!
-                            mask (lr0-closure mask prediction-catalog layout)))))
+                           (append-state! mask))))
                  (set! rows (cons (cons symbol target-index) rows))
                  (unless existing (enqueue! queue target-index))))
-             (lr0-state-kernels (vector-ref states index) core-symbols))
+             (lr0-state-kernels (car plan) (cdr plan) symbol-ids masks first-items))
             ;; There is exactly one kernel per symbol; publish the row once.
             (vector-set! state-transitions index (reverse rows)))
-            (loop)))))))
+            (loop)))))))))

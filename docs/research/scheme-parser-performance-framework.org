@@ -718,6 +718,75 @@ prototype recorded four in-call collections and about 120 ms of GC CPU in
 a slow sample. These observations motivated the complete sparse graph and
 scratch ownership migration rather than retaining a partial phase result.
 
+** Shared LR(0) prediction templates
+
+The next audit used the existing TLA+ default-LALR construction benchmark.
+Temporary phase-statistics instrumentation observed about 4--6 ms of
+lookahead propagation, with substantial GC time in slower complete calls.
+On the 390-state automaton, the sorted state items contain 6,224 dot-zero
+prediction occurrences and 977 advanced kernel occurrences. Only 63 distinct
+dot-zero item sets occur; their unique templates contain 876 items in total.
+This count includes the augmented initial dot-zero item. It identifies
+repeated prediction grouping across states as a structural reuse opportunity.
+
+=src/compiler/lr-automaton.ss= now interns a template by the completed dense
+production-id prediction mask. A template owns its sorted predicted item
+list, goto groups, and sparse symbol-id group index. Each goto group stores
+its earliest item and immutable advanced-kernel mask. A new state's closure
+merges its kernel with this shared list, retaining an unchanged template
+suffix when the kernel is exhausted. Its transitions group only its own
+kernel items, merge overlapping template groups, and combine the two rows
+by earliest item. This reproduces sorted-closure symbol discovery order
+without regrouping every closed-state item. Only the small kernel group row
+is sorted; the shared prediction group row is already ordered.
+
+Template ownership lasts for one construction call. Numeric symbol IDs and
+scratch vectors belong to that same call. Scratch masks are cleared for
+kernel symbols only; template groups remain immutable after construction.
+Every template is requested by a newly admitted state, so the template count
+is bounded by the state count. The automaton still publishes the same item
+lists, state IDs, transitions and visit count. Complete LRSpec comparisons
+also retain lookahead masks, conflict actions and diagnostic counters.
+
+The baseline is =9d6d32f=, following the prior structural migration and latest
+PR rebase. The same complete construction benchmark measured a 20-call CPU
+median of 46.5365 ms before this change. A clean 12-core production rebuild
+of the template implementation measured 15.229 ms; an independent 20-call
+repeat measured 15.567 ms. All use a 2 GiB heap and explicit pre-call GC,
+with imports, pre-call GC and equality checking outside CPU timing; in-call
+GC stays inside. The complete serialized before/after TLA+ specs are
+byte-identical, at 280 productions and 390 states. This is about a 67 percent
+complete-call reduction on this host and workload.
+
+Separate four-call process-statistics samples observed in-call collection
+counts of =(0 1 1 1)= for the baseline, with roughly 25--29 ms GC CPU in the
+three collecting calls, and =(0 0 0 0)= for the template implementation.
+The existing =lalr-construction.ss= benchmark now reports per-call collection
+count and GC CPU time plus their medians, using Gambit's statistics slots
+3/4 for GC user/system time and slot 6 for collection count. Its 20-call
+qualification measured 14.908 ms and median in-call GC count zero. GC is a
+material contributor to this speedup; these samples do not establish that
+all heaps or workloads avoid collections.
+
+The final production build passed all 53 native test modules in bounded
+batches with =MODULE-OK=, =HARNESS-OK= and final =OK=. All 36 complete specs
+for twelve grammar families on three routes remained equal. Independent
+goto tests now also check symbol completeness, uniqueness and discovery
+order, alongside exact advanced kernels. The larger mixed-64, local-32 and
+independent-64 direct-follow fixtures retained byte-identical complete specs;
+their candidate CPU medians were 13.4945, 4.9255 and 3.7585 ms. Those scale
+runs qualify compatibility and bounded construction; they are not a matched
+claim of a common speedup across all grammar families. =git diff --check=
+passed. The monolithic Just gate and remote CI are separate gates.
+
+Algorithm references for the audit are GNU Bison's
+https://raw.githubusercontent.com/akimd/bison/master/src/lalr.c
+(nonterminal-goto READS/INCLUDES relations and digraph propagation), and
+Gambit's https://raw.githubusercontent.com/gambit/gambit/master/lib/_kernel.scm
+(process-statistics counter definitions). Relation condensation remains a
+candidate for a later graph audit; this accepted change shares prediction
+templates while retaining the existing lookahead fixed-point algorithm.
+
 ** Shared literal recognition across lexical modes
 
 =generated-lexer= now builds one trie for all complete =(literals ...)= rules,

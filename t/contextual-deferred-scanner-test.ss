@@ -10,7 +10,7 @@
         (only-in :gerbil-parser/src/compiler/contextual-scanner-ir
                  compile-contextual-scanner)
         (only-in :gerbil-parser/src/runtime/contextual-scanner
-                 prepare-contextual-scanner contextual-scanner-initial-state
+                 prepare-contextual-scanner prepare-contextual-scanner-plan contextual-scanner-initial-state
                  contextual-scanner-step contextual-scan-state-byte-offset
                  contextual-scan-state-mode contextual-scan-state-canonical
                  restore-contextual-scan-state)
@@ -29,7 +29,7 @@
     "<<" ">>" "<>" "<&" ">&" ">|" "&>" ";" "&" "|" "(" ")"
     "<" ">"))
 
-(def (deferred-scanner source owner marker-policy operators)
+(def (deferred-scanner-ir owner marker-policy operators)
   (let* ((role
           (make-contextual-role
            owner
@@ -62,7 +62,10 @@
                       '(finish-marker command here-body))
                 (rule 'body 'here-body 'body '(body-line) 0 'keep)))
          (ir (compile-contextual-scanner rules dispatch 'command)))
-    (prepare-contextual-scanner ir source)))
+    ir))
+
+(def (deferred-scanner source owner marker-policy operators)
+  (prepare-contextual-scanner (deferred-scanner-ir owner marker-policy operators) source))
 
 (def (scan-all scanner)
   (let loop ((state (contextual-scanner-initial-state scanner))
@@ -75,6 +78,21 @@
 
 (def contextual-deferred-scanner-test
   (test-suite "generic deferred delimiter scanner"
+    (test-case "shared scanner plans keep delimiter queues source-local"
+      (let* ((ir (deferred-scanner-ir 'plan-queues 'raw '("<<")))
+             (plan (prepare-contextual-scanner-plan ir))
+             (a (prepare-contextual-scanner plan "<<A\nα\nA\n"))
+             (b (prepare-contextual-scanner plan "<<B\nβ\nB\n")))
+        (def (queued scanner)
+          (let-values (((open next) (contextual-scanner-step scanner (contextual-scanner-initial-state scanner) 'command)))
+            (let-values (((word next) (contextual-scanner-step scanner next 'command))) next)))
+        (check (cdr (assq 'pending (contextual-scan-state-canonical (queued a)))) => '(("A" #f #f)))
+        (check (cdr (assq 'pending (contextual-scan-state-canonical (contextual-scanner-initial-state b)))) => '())
+        (check (cdr (assq 'pending (contextual-scan-state-canonical (queued b)))) => '(("B" #f #f)))
+        (let-values (((tokens final) (scan-all a)))
+          (check (map token-lexeme tokens) => '("<<" "A" "\n" "α\n" "A\n")))
+        (let-values (((tokens final) (scan-all b)))
+          (check (map token-lexeme tokens) => '("<<" "B" "\n" "β\n" "B\n")))))
     (test-case "queued checkpoints preserve FIFO order across independent futures"
       (let* ((source "<<A <<B <<C\nα\nA\nβ\nB\nγ\nC\n")
              (scanner (deferred-scanner source 'queue-checkpoint 'raw '("<<")))

@@ -10,9 +10,10 @@
         (only-in :gerbil-parser/src/compiler/contextual-scanner-ir
                  compile-contextual-scanner contextual-scanner-ir-ref)
         (only-in :gerbil-parser/src/runtime/contextual-scanner
-                 prepare-contextual-scanner contextual-scanner-initial-state
+                 prepare-contextual-scanner prepare-contextual-scanner-plan contextual-scanner-initial-state
                  contextual-scanner-step contextual-scan-state-byte-offset
-                 contextual-scan-state-mode contextual-scan-state-with-mode)
+                 contextual-scan-state-mode contextual-scan-state-with-mode
+                 contextual-scan-state-canonical)
         (only-in :gerbil-parser/src/runtime/token
                  token-end token-kind token-lexeme token-start)
         (only-in :gerbil-parser/src/runtime/identity sha256-text))
@@ -91,8 +92,54 @@
     (append body (list (cons 'digest (sha256-text
                                      (call-with-output-string (lambda (port) (write body port)))))))))
 
+(def (plan-fixture)
+  (let* ((literal (string-copy "if"))
+         (role (make-contextual-role 'plan-fixture
+                  (list (method 'literal 'any 'any 'literal 'keyword)
+                        (method 'word 'any 'any 'word 'word))))
+         (dispatch (compile-contextual-dispatch (list role) (list 'normal)
+                      (list 'token) (list 'literal 'word)))
+         (ir (compile-contextual-scanner
+              (list (rule 'literal 'normal 'literal (list 'literal literal) 10)
+                    (rule 'word 'normal 'word '(identifier) 0)) dispatch 'normal)))
+    (values ir literal)))
+
 (def contextual-scanner-test
   (test-suite "generic contextual scanner"
+    (test-case "scanner plans own IR and bind independent checkpoint identities"
+      (let-values (((ir literal) (plan-fixture)))
+        (let* ((digest (string-copy (cdr (assq 'digest ir))))
+               (plan (prepare-contextual-scanner-plan ir))
+               (a (prepare-contextual-scanner plan "if"))
+               (receipt (contextual-scan-state-canonical (contextual-scanner-initial-state a))))
+          (string-set! literal 0 #\x)
+          (set-car! (cdr (assq 'modes ir)) 'foreign)
+          (string-set! (cdr (assq 'digest ir)) 0 #\x)
+          (string-set! (cdr (assq 'scannerDigest receipt)) 0 #\x)
+          (check
+           (with-catch (lambda (condition) (error-message condition))
+             (lambda () (prepare-contextual-scanner ir "if") #f))
+           => "contextual scanner requires compiled IR and source")
+          (let* ((b (prepare-contextual-scanner plan "if"))
+                 (initial (contextual-scanner-initial-state b))
+                 (canonical (contextual-scan-state-canonical initial)))
+            (check (cdr (assq 'scannerDigest canonical)) => digest)
+            (let-values (((token next) (contextual-scanner-step b initial 'token)))
+              (check (token-kind token) => 'keyword)
+              (check (token-lexeme token) => "if")))
+          (let (b (prepare-contextual-scanner plan "αβ"))
+            (let-values (((token next) (contextual-scanner-step b (contextual-scanner-initial-state b) 'token)))
+              (check (token-kind token) => 'word)
+              (check (token-end token) => 4))))))
+    (test-case "scanner plans reject cycles and callback data"
+      (let (cycle (list 'cycle))
+        (set-cdr! cycle cycle)
+        (check (with-catch (lambda (condition) (error-message condition))
+                 (lambda () (prepare-contextual-scanner-plan cycle) #f))
+               => "cyclic contextual scanner plan IR"))
+      (check (with-catch (lambda (condition) (error-message condition))
+               (lambda () (prepare-contextual-scanner-plan (list (lambda () #f))) #f))
+             => "contextual scanner plan requires closed IR data"))
     (test-case "dispatch indexing preserves negative sparse and duplicate cells"
       (let-values (((_scanner ir) (bash-scanner ";")))
         (let* ((cells (cdr (assq 'cells ir)))

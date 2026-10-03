@@ -805,3 +805,174 @@ boundaries. PR #13 was rechecked and remains open at =7c15333=, already included
 in this branch. Remote CI, optional CLI qualification, public declaration-macro
 binding and contextual GLR scanner-state admission remain separate. No remote
 push was performed.
+
+
+* 2026-10-03: explicit reusable contextual scanner plans
+
+The remaining preparation profile motivated separating validated static scanner
+work from per-input state. The ownership pattern is comparable to the fixed
+compiled pattern and separate match data described by the [[https://www.pcre.org/current/doc/html/pcre2api.html][PCRE2 API]]. This
+transfers a staging/ownership idea; it supplies no scanner algorithm or Gerbil
+concurrency proof.
+
+=prepare-contextual-scanner-plan= takes an explicit owned snapshot of compiled
+scanner IR and validates its schema, opcode contract and digest. It copies
+pairs and strings, preserves DAG sharing and symbol identities, and rejects
+cycles and values outside closed scalar/list data. Rule and dispatch indexes
+are built once. Catalogs of at least 128 literals retain both the linear short
+input variant and the trie variant selected at 64 source characters. No
+process-global identity cache is introduced.
+
+#+begin_src scheme
+(def plan (prepare-contextual-scanner-plan compiled-scanner-ir))
+(def first (prepare-contextual-scanner plan first-source))
+(def second (prepare-contextual-scanner plan second-source))
+#+end_src
+
+Each binding creates a new scanner and initial state; delimiter queues remain
+input-local. The digest string is copied per binding because canonical
+checkpoint receipts expose it. Subsequent mutation of the original IR or a
+bound scanner's checkpoint digest cannot change the plan or other bindings.
+Caller changes to the original IR require a new plan to take effect. Callers
+must avoid modifying IR concurrently during plan creation. Source strings
+retain the existing ownership contract and must stay stable while scanned.
+The raw IR entrypoint continues digest admission on every call.
+
+The plan is opaque through the exported API; constructors, predicates and
+accessors are private. It is not a serialized receipt. Scanner IR, opcode and
+checkpoint schemas, state field count and scan semantics remain unchanged.
+This is an opt-in scanner interface: =parse-source/contextual= still accepts
+its existing product and prepares raw scanner IR. Full parser product plans,
+public declaration-macro binding and contextual GLR state admission are not
+implemented by this change.
+
+** Source gate before native compilation
+
+The two scanner suites passed with normal exit under a 120-second total and
+five-second silence fence. Three additional cases cover mutable input and
+checkpoint isolation, rejection of cycles/callbacks, and independent deferred
+queues. An exact =568c317= runtime copy was then measured against the candidate
+in the existing =fixture-ir= scale family: axes 1/16/64, catalogs 0/128 and
+request batches 1/4/16. Sources alternate a one-word short input and a 128-word
+input containing Unicode. One-request batches contain only the short input.
+IR compilation is outside the timer. Baseline batches prepare raw IR for each
+input. Candidate batches include snapshotting, validation and index creation
+once, then fresh binding and scanning for each input. Both timers include
+complete token trace and canonical final checkpoint construction.
+
+Each cell has three warmups and five alternating paired measurements. Full
+kind/lexeme/start/end traces and final checkpoints match for every request;
+concatenated lexemes and UTF-8 byte coverage are checked outside the timer.
+The source runner completed normally in 30.48 seconds. Source CPU median
+changes, including upfront plan construction, were:
+
+| Axes | Literals | Requests | Change | Wins |
+|------+----------+----------+--------+------|
+| 1 | 0 | 1 | +24.53% | 1/5 |
+| 1 | 0 | 4 | -2.18% | 4/5 |
+| 1 | 0 | 16 | -21.84% | 5/5 |
+| 1 | 128 | 1 | +186.43% | 0/5 |
+| 1 | 128 | 4 | -7.52% | 5/5 |
+| 1 | 128 | 16 | -10.94% | 5/5 |
+| 16 | 0 | 1 | +113.68% | 0/5 |
+| 16 | 0 | 4 | -23.20% | 5/5 |
+| 16 | 0 | 16 | -60.76% | 5/5 |
+| 16 | 128 | 1 | +167.29% | 0/5 |
+| 16 | 128 | 4 | -17.42% | 5/5 |
+| 16 | 128 | 16 | -53.31% | 5/5 |
+| 64 | 0 | 1 | +195.15% | 0/5 |
+| 64 | 0 | 4 | -27.12% | 5/5 |
+| 64 | 0 | 16 | -76.28% | 5/5 |
+| 64 | 128 | 1 | +182.53% | 0/5 |
+| 64 | 128 | 4 | -27.61% | 5/5 |
+| 64 | 128 | 16 | -78.25% | 5/5 |
+
+Single-use snapshot costs regress. The source reuse gate passed for the 16/64
+axis cells at four and sixteen requests; the one-axis zero-catalog four-request
+cell is small and has only four wins. No universal source acceleration claim
+is made.
+
+** Matched native evidence
+
+The same pair was compiled with =gxc -O= into the dedicated native cache.
+The native runner completed normally in 38.31 seconds. CPU medians are per
+whole request batch, including plan creation, rather than per token or scan:
+
+| Axes | Literals | Requests | Before CPU ms | Plan CPU ms | Change | Wins |
+|------+----------+----------+---------------+-------------+--------+------|
+| 1 | 0 | 1 | 0.070 | 0.087 | +24.29% | 0/5 |
+| 1 | 0 | 4 | 0.489 | 0.410 | -16.16% | 5/5 |
+| 1 | 0 | 16 | 1.694 | 1.371 | -19.07% | 5/5 |
+| 1 | 128 | 1 | 0.113 | 0.197 | +74.34% | 0/5 |
+| 1 | 128 | 4 | 0.768 | 0.613 | -20.18% | 5/5 |
+| 1 | 128 | 16 | 2.839 | 1.831 | -35.51% | 5/5 |
+| 16 | 0 | 1 | 5.861 | 4.209 | -28.19% | 3/5 |
+| 16 | 0 | 4 | 28.281 | 4.515 | -84.04% | 5/5 |
+| 16 | 0 | 16 | 59.327 | 5.378 | -90.93% | 5/5 |
+| 16 | 128 | 1 | 6.403 | 5.947 | -7.12% | 3/5 |
+| 16 | 128 | 4 | 28.580 | 6.458 | -77.40% | 5/5 |
+| 16 | 128 | 16 | 169.058 | 9.118 | -94.61% | 5/5 |
+| 64 | 0 | 1 | 25.598 | 48.214 | +88.35% | 0/5 |
+| 64 | 0 | 4 | 119.396 | 42.030 | -64.80% | 5/5 |
+| 64 | 0 | 16 | 720.086 | 55.090 | -92.35% | 5/5 |
+| 64 | 128 | 1 | 25.680 | 43.655 | +70.00% | 0/5 |
+| 64 | 128 | 4 | 118.600 | 41.089 | -65.35% | 5/5 |
+| 64 | 128 | 16 | 519.275 | 39.717 | -92.35% | 5/5 |
+
+Four- and sixteen-request batches win all five pairs in every native cell.
+The 16/64-axis four-request improvements range from 64.80% to 84.04%; their
+sixteen-request improvements range from 90.93% to 94.61%. One-request 16-axis
+cells have only three wins and do not establish single-use benefit. One-axis
+and 64-axis single requests regress. Use a plan when IR is reused across
+inputs; do not switch one-shot preparation to this API based on these results.
+Host scheduling and allocation/GC variation remain visible in raw samples.
+No memory-footprint or concurrent-execution bound is claimed.
+
+The existing =matched-scale.ss= / =benchmark-contextual-scanner= entrypoint adds
+=plan-batch= and a request count. =prepare-scan= with the same count provides
+a current-runtime raw-preparation control. Plan creation is included in each
+sample; IR compilation stays outside. For example:
+
+#+begin_src sh
+just benchmark-contextual-scanner 16 5 128 128 prepare-scan 4
+just benchmark-contextual-scanner 16 5 128 128 plan-batch 4
+#+end_src
+
+The default =scan= phase and one-request default remain. A source smoke run of
+the new batch phase passed. Frozen baseline, paired drivers, raw logs and
+JSON medians are in local =.data/scanner-plan-experiment/=. These exploratory
+receipts are not a replacement for the unchanged eight wall gates.
+
+** Qualification boundary
+
+The standard native build projected 128 targets and completed with exit zero.
+Nine focused native modules passed 83 cases with =MODULE-OK=, =HARNESS-OK=,
+=HARNESS-RETURN status=0= and normal process exit. All eight original wall
+ceilings passed at source digest =sha256:58089d751ad7a37916e2a94114b591fd3408a0e1022611e7b5add6c648862b2f=:
+
+| Gate | p95 ms | Ceiling ms | Result |
+|------+--------+------------+--------|
+| lalr | 3.725 | 500 | PASS |
+| incremental | 1.785 | 250 | PASS |
+| recovery | 0.736 | 250 | PASS |
+| glr | 2.989 | 250 | PASS |
+| hot-path | 14.870 | 900 | PASS |
+| gql | 32.541 | 150 | PASS |
+| opencypher | 10.136 | 250 | PASS |
+| languages | 6.247 | 500 | PASS |
+
+The first language gate attempt printed passing receipts and harness return
+but triggered the unchanged five-second silence fence during process completion.
+Its runner exit 124 is excluded and its log is retained as
+=native-gates/languages-idle-timeout.log=. Only this remaining gate was rerun;
+the rerun completed normally with process and runner exit zero. No operating
+system cleanup cause is claimed.
+
+The latest PR #13 head was read again as =7c15333= and verified to be an ancestor
+of this local branch. No new rebase was necessary at that remote head. Native
+qualification and local commits do not establish remote CI or deployed behavior;
+no push was performed. Optional CLI qualification remains separate.
+
+The existing benchmark entrypoint also passed native smoke checks for
+=prepare-scan= and =plan-batch= at four requests, and default =scan= at one
+request, with normal process and runner exit zero.

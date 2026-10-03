@@ -11,6 +11,7 @@
         (only-in ./identity sha256-text))
 (export +contextual-scanner-opcode-contract+
         prepare-contextual-scanner
+        prepare-contextual-scanner-plan
         contextual-scanner-initial-state
         contextual-scanner-step
         contextual-scan-state?
@@ -28,6 +29,10 @@
 
 (defstruct contextual-scanner (source digest initial-mode modes positions rules cells)
   transparent: #t)
+;;; Static indexes are owned by the opaque plan and read only after admission.
+(defstruct contextual-scanner-plan
+  (digest initial-mode modes positions short-rules long-rules cells))
+
 (defstruct contextual-scan-state
   (scanner character-offset byte-offset mode pending active expecting)
   transparent: #t)
@@ -162,18 +167,71 @@
       (make-grouped-dispatch modes))
     (index-cells/hash cells)))
 
-(def (prepare-contextual-scanner ir source)
-  (unless (and (string? source)
-               (equal? (ir-ref ir 'schema)
+(def (validate-scanner-ir! ir)
+  (unless (and (equal? (ir-ref ir 'schema)
                        "gerbil-parser.contextual-scanner-ir.v1")
                (equal? (ir-ref ir 'opcode-contract)
                        +contextual-scanner-opcode-contract+)
                (scanner-ir-digest-valid? ir))
+    (error "contextual scanner requires compiled IR and source")))
+
+;;; Preserve DAG sharing and symbol identities while taking ownership of every
+;;; pair and string. Cycles and non-data values cannot enter a reusable plan.
+(def (snapshot-scanner-ir ir)
+  (let ((copies (make-table test: eq?)) (active (make-table test: eq?)))
+    (def (copy value)
+      (cond
+       ((pair? value)
+        (when (table-ref active value #f)
+          (error "cyclic contextual scanner plan IR"))
+        (or (table-ref copies value #f)
+            (begin
+              (table-set! active value #t)
+              (let (result (cons (copy (car value)) (copy (cdr value))))
+                (table-set! active value #f)
+                (table-set! copies value result)
+                result))))
+       ((string? value)
+        (or (table-ref copies value #f)
+            (let (result (string-copy value))
+              (table-set! copies value result) result)))
+       ((or (null? value) (symbol? value) (number? value)
+            (boolean? value) (char? value)) value)
+       (else (error "contextual scanner plan requires closed IR data"))))
+    (copy ir)))
+
+(def (prepare-contextual-scanner-plan ir)
+  (let (owned (snapshot-scanner-ir ir))
+    (validate-scanner-ir! owned)
+    (let* ((rules (ir-ref owned 'rules))
+           (short-rules (index-rules rules 0))
+           (has-trie? (any (lambda (row)
+                            (match (list-ref row 3)
+                              (['literals values] (>= (length values) 128))
+                              (else #f))) rules)))
+      (make-contextual-scanner-plan
+       (ir-ref owned 'digest) (ir-ref owned 'initial-mode)
+       (ir-ref owned 'modes) (ir-ref owned 'positions)
+       short-rules (if has-trie? (index-rules rules 64) short-rules)
+       (index-cells (ir-ref owned 'cells))))))
+
+(def (prepare-contextual-scanner ir source)
+  (unless (string? source)
     (error "contextual scanner requires compiled IR and source"))
-  (make-contextual-scanner
-   source (ir-ref ir 'digest) (ir-ref ir 'initial-mode)
-   (ir-ref ir 'modes) (ir-ref ir 'positions)
-   (index-rules (ir-ref ir 'rules) (string-length source)) (index-cells (ir-ref ir 'cells))))
+  (if (contextual-scanner-plan? ir)
+    (make-contextual-scanner
+     source (string-copy (contextual-scanner-plan-digest ir))
+     (contextual-scanner-plan-initial-mode ir)
+     (contextual-scanner-plan-modes ir) (contextual-scanner-plan-positions ir)
+     (if (< (string-length source) 64)
+       (contextual-scanner-plan-short-rules ir) (contextual-scanner-plan-long-rules ir))
+     (contextual-scanner-plan-cells ir))
+    (begin
+      (validate-scanner-ir! ir)
+      (make-contextual-scanner
+       source (ir-ref ir 'digest) (ir-ref ir 'initial-mode)
+       (ir-ref ir 'modes) (ir-ref ir 'positions)
+       (index-rules (ir-ref ir 'rules) (string-length source)) (index-cells (ir-ref ir 'cells))))))
 
 (def (contextual-scanner-initial-state scanner)
   (make-contextual-scan-state scanner 0 0

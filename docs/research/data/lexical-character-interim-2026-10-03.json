@@ -1,0 +1,128 @@
+{
+  "head": "7a699612585eec22ea1c118376ae9ffa95812ae9",
+  "samples": 20,
+  "executor": "native gxi",
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "harness_sha256": "ac73ed90e3a33ebed602856533ac0ed69b0838100da766bd7d97a5fec8a11bb4",
+  "jobs": [
+    {
+      "name": "separate-preparation-1",
+      "args": [
+        "no-plan-sharing",
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "1f1158a45cedbddb34917d8ecb21fb3c62764cca7f638767099daf0734a318c4"
+    },
+    {
+      "name": "shared-preparation-1",
+      "args": [
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "183ec532a2a38f295bc49a92b63ad4d097175ebd6cc61fff9382d051ca388a42"
+    },
+    {
+      "name": "shared-preparation-2",
+      "args": [
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "4f7d7448bcb0b60018feb15813a2256d0a17e58f19e1a95943e492564c9a22a1"
+    },
+    {
+      "name": "separate-preparation-2",
+      "args": [
+        "no-plan-sharing",
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "f6e4c54e7509222fc8108a276945c3af1912127dc5740c531b8e25b2926b88b0"
+    },
+    {
+      "name": "strict-flat-1",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "dcbe0a500e27a8ae13fedcb070e340d6c98bb90b987de6d4f482722bc228db0f"
+    },
+    {
+      "name": "equivalent-flat-1",
+      "args": [
+        "plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "8138972e53e0457dd709072d20ad187a425598bc5dbf7cff678ee7fc09b5892a"
+    },
+    {
+      "name": "equivalent-flat-2",
+      "args": [
+        "plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "0015f7315d8c80f3fa1e84921229d1edd8fcc421958403d1e06c86cc9a9b521b"
+    },
+    {
+      "name": "strict-flat-2",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-capture",
+        "400",
+        "800"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "247744c849a52a5de277aa0f52a8b57245f0c86615ccc180dce2a68a64a89999"
+    },
+    {
+      "name": "strict-nested-1",
+      "args": [
+        "no-plan-reuse",
+        "topology-hcl-nested-capture",
+        "8",
+        "16"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 12,
+      "sha256": "67a899eb355ad4c3fa690c922c00ed9fe86ebbede6290945af48754406220ab8"
+    }
+  ],
+  "schema": "gerbil-parser.lexical-plan-matched.v1",
+  "qualification": "completed-jobs-only",
+  "build_qualification": "development-observation",
+  "primary_source": {
+    "repository": "tree-sitter/tree-sitter",
+    "revision": "20cf25c10f13ed9b8c499dd966b4e7a57bedbf81",
+    "path": "crates/generate/src/build_tables/build_lex_table.rs",
+    "git_blob": "ef4d162c1178c04fda8b283a82b2f131fd3fe7a8",
+    "sha256": "e91a1ad27c7d30bd0c34ceb6df559d0af531ede2f34ea67a7809a93e12a2da1c"
+  },
+  "measurement_rows": 68
+}

@@ -1,0 +1,124 @@
+{
+  "head": "7fb9cba974b3ab5d855c436e89713949c1065277",
+  "samples": 20,
+  "preparation_only": true,
+  "executor": "native gxi",
+  "inactivity_seconds": 5,
+  "batch_seconds": 180,
+  "harness_sha256": "b4058b28ae1bdf949e2fc940a5c6b6f2a203d5f8c3138d9c90e57d0d000fb566",
+  "fixture_sha256": {
+    "benchmark-progress.ss": "8c89e5f85fec2fe11f12b98e8bf0aa881138d837210fda1516fcf8a3d07dcaa9",
+    "native-progress.ss": "3db9ab88e71b9b78d93ea942b61c894e10e309fac44e59725734e143395aa3f9",
+    "native-load-progress.ss": "ad22a3fea7fe4b14c4c1a948ea955865ec00809532a085018476e0d93a35ed50"
+  },
+  "jobs": [
+    {
+      "name": "separate-preparation-1",
+      "args": [
+        "no-plan-sharing",
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "bb7a526bc9a7a70d4ac02ab66a9b17af143e3b953876cf9339f241e8cb8cfeed"
+    },
+    {
+      "name": "shared-preparation-1",
+      "args": [
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "5ad93908d124f8e15c1537a848d6311e8311c3de1fa933927fc8b1e399ebab9a"
+    },
+    {
+      "name": "shared-preparation-2",
+      "args": [
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "1ac52e4cf720b4e21fc6dd84daeaf70be1721de496954baa1f031ad4e040b005"
+    },
+    {
+      "name": "separate-preparation-2",
+      "args": [
+        "no-plan-sharing",
+        "lexical-plan-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "80584c22cbd84fc92329dee2ea8e6b79adea7626da5e531d9dda3609ba911a2d"
+    },
+    {
+      "name": "separate-certificate-preparation-1",
+      "args": [
+        "no-plan-sharing",
+        "lexical-certificate-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "136ab6819c098edb2ffe052cc06c4b317be310fe5e6d3d1f153faffaeb67fd5f"
+    },
+    {
+      "name": "shared-certificate-preparation-1",
+      "args": [
+        "lexical-certificate-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "0127cb7d11463430362f913959b15c5599619b989869dec43ecc5470e76d659b"
+    },
+    {
+      "name": "shared-certificate-preparation-2",
+      "args": [
+        "lexical-certificate-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "0b4ad6597d712d96f4f4921818b8505315a486522933f556a539d62f9b286475"
+    },
+    {
+      "name": "separate-certificate-preparation-2",
+      "args": [
+        "no-plan-sharing",
+        "lexical-certificate-prepare"
+      ],
+      "exit": 0,
+      "watchdog": false,
+      "rows": 2,
+      "sha256": "7cc9b8be6be9ec19f9ba06d8b5bd43495635107dfc64ab6850595996613af21b"
+    }
+  ],
+  "complete": true,
+  "schema": "gerbil-parser.lexical-plan-matched.v1",
+  "qualification": "complete-matched-run",
+  "build_qualification": "clean-rebuilt-native",
+  "build_log_sha256": "a4a56c7a60f7d6cfa6423f71978833519e6f2d1fa0f822b0a3989c011d8ace3f",
+  "clean_log_sha256": "f95c1b2c18a8924903d0e92898af6b40bf8e76f6fc47a053c018ed9c5494839a",
+  "primary_source": {
+    "repository": "tree-sitter/tree-sitter",
+    "revision": "20cf25c10f13ed9b8c499dd966b4e7a57bedbf81",
+    "path": "crates/generate/src/build_tables/build_lex_table.rs",
+    "git_blob": "ef4d162c1178c04fda8b283a82b2f131fd3fe7a8",
+    "sha256": "e91a1ad27c7d30bd0c34ceb6df559d0af531ede2f34ea67a7809a93e12a2da1c",
+    "additional_sources": [
+      {
+        "repository": "python/cpython",
+        "revision": "v3.14.0",
+        "path": "Objects/listsort.txt",
+        "git_blob": "f387d9c116e5028ce06b9c71de8c8f6160c94a3c",
+        "sha256": "17b8346dd506cfb85f12374b17661c146e407798b82112eecd006ccf42a9aaf3"
+      }
+    ]
+  },
+  "reproduction_recipe_sha256": "b0752ab9516d7595a6efab25bb85f2ae918a5ff1062f0d206679a374ade8755d",
+  "measurement_rows": 16
+}

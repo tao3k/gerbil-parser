@@ -9,6 +9,7 @@ from pathlib import Path
 import argparse, hashlib, io, json, os, platform, re, shutil, signal, subprocess, tarfile, threading, time
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('output', type=Path)
+p.add_argument('--require-tail-resume', action='store_true', help='Reject full-parse fallback on tail inverse edits')
 a = p.parse_args()
 root, out = Path.cwd().resolve(), a.output.resolve()
 if subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'src', 'languages', 't']).returncode:
@@ -112,7 +113,7 @@ env = dict(os.environ, **mapping, GERBIL_PATH=str(study/'.gerbil'),
 # Otherwise old .ssxi expansions silently bypass allocation counters.
 batches = [
  ['src/runtime/event-program.ss', 'src/runtime/event-reduce.ss', 'src/runtime/funcs.ss'],
- ['src/runtime/lr-parser.ss', 'src/runtime/artifact.ss', 'src/runtime/incremental.ss'],
+ ['src/runtime/lr-parser.ss', 'src/runtime/artifact.ss', 'src/runtime/parser.ss', 'src/runtime/incremental.ss'],
  ['languages/hcl/v2-24/direct-step.ss'],
 ]
 receipt = dict(head=head, schema='gerbil-parser.lr-construction-profile.v1',
@@ -183,9 +184,14 @@ complete = (status == 0 and not reason[0] and len(rows) == 26
                     ['empty-left','empty-right','singleton-appends','multi-concats']) for row in rows)
             and all(int(row['field-allocations']) > 0 and int(row['node-allocations']) > 0
                     for row in rows if row['stage'] == 'initial')
+            and (not a.require_tail_resume or all(
+                    row.get('freshFallback?') != '#t'
+                    and int(row['checkpointReusedShiftCount']) > 0
+                    and int(row['remainingSignificantTokenCount']) < int(row['input-units'])
+                    for row in rows if row['stage'] in ['last-insert-inverse', 'last-delete-inverse']))
             and 'LR-CONSTRUCTION-PROFILE-ALL-OK' in lines
             and not any('*** ERROR' in line for line in lines))
-receipt.update(command=command, exit=status, watchdog=reason[0], inactivity_seconds=5,
+receipt.update(require_tail_resume=a.require_tail_resume, command=command, exit=status, watchdog=reason[0], inactivity_seconds=5,
                batch_seconds=180, rows=rows, complete=complete,
                owner_source_unchanged=(root/'src/runtime/event-program.ss').read_text() == original,
                owner_native_unchanged=before_native == {f.name: hashlib.sha256(f.read_bytes()).hexdigest()

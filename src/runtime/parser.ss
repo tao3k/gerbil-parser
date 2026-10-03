@@ -12,7 +12,7 @@
                  make-success-parse-artifact parse-artifact-success?)
         (only-in ./lexer lex-source lex-source-from scan-source-token)
         (only-in ./contextual-scanner
-                 prepare-contextual-scanner contextual-scanner-initial-state
+                 prepare-contextual-scanner prepare-contextual-scanner-plan contextual-scanner-initial-state
                  contextual-scanner-step
                  contextual-scan-state-character-offset
                  contextual-scan-state-byte-offset)
@@ -36,6 +36,8 @@
         (only-in ./token make-token token-end token-lexeme))
 (export parse-source
         parse-source/contextual
+        prepare-contextual-parser
+        parse-source/contextual/prepared
         parse-source/checkpoints
         parse-source/checkpoints/resume
         parse-tokenized
@@ -81,6 +83,7 @@
                     (and (pair? row) (integer? (car row))
                          (<= 0 (car row))
                          (< (car row) state-count)
+                         (symbol? (cdr row))
                          (memq (cdr row) positions)))
                   table))
       (error "invalid contextual LR position table" table))
@@ -92,19 +95,45 @@
      table)
     index))
 
-;;; Internal vertical slice for a deterministic LR grammar. Full contextual
-;;; parser admission still requires declaration-macro binding and GLR branch
-;;; state. Forks produce only rejected, lossless artifacts.
+;;; Bind immutable generated machine data once; product-owned mutable values
+;;; become private indexes, an owned scanner plan and a copied digest.
+(defstruct contextual-parser-plan (machine scanner positions digest))
+
+(def (prepare-contextual-parser machine product)
+  (unless (valid-contextual-product? machine product)
+    (error "contextual parser product does not match parser machine"))
+  (let* ((scanner-ir (contextual-ir-ref product 'scanner))
+         (positions (validate-contextual-position-table
+                     machine scanner-ir (contextual-ir-ref product 'state-positions)))
+         (scanner (prepare-contextual-scanner-plan scanner-ir)))
+    (make-contextual-parser-plan machine scanner positions
+                                 (string-copy (contextual-ir-ref product 'digest)))))
+
+;;; Internal deterministic LR slice. Full contextual admission still requires
+;;; declaration-macro binding and GLR branch state. Forks yield rejected artifacts.
 (def (parse-source/contextual machine product source)
   (unless (and (string? source)
                (valid-contextual-product? machine product))
     (error "contextual parser product does not match parser machine"))
   (let* ((scanner-ir (contextual-ir-ref product 'scanner))
-         (position-table
-          (validate-contextual-position-table
-           machine scanner-ir (contextual-ir-ref product 'state-positions)))
-         (scanner (prepare-contextual-scanner scanner-ir source))
-         (state (contextual-scanner-initial-state scanner))
+         (positions (validate-contextual-position-table
+                     machine scanner-ir (contextual-ir-ref product 'state-positions)))
+         (scanner (prepare-contextual-scanner scanner-ir source)))
+    (parse-contextual machine (contextual-ir-ref product 'digest) positions scanner source)))
+
+(def (parse-source/contextual/prepared plan source)
+  (unless (and (contextual-parser-plan? plan) (string? source))
+    (error "contextual parser requires prepared plan and source"))
+  (parse-contextual
+   (contextual-parser-plan-machine plan)
+   ;; Artifacts expose their digest string; keep publication input-local.
+   (string-copy (contextual-parser-plan-digest plan))
+   (contextual-parser-plan-positions plan)
+   (prepare-contextual-scanner (contextual-parser-plan-scanner plan) source)
+   source))
+
+(def (parse-contextual machine digest position-table scanner source)
+  (let* ((state (contextual-scanner-initial-state scanner))
          (tokens-reversed '())
          (trivia? (parser-machine-trivia machine))
          (initial (lr-initial-checkpoint
@@ -126,7 +155,7 @@
               (tokens (reverse tokens-reversed))
               (remaining (substring source offset (string-length source))))
          (failure-artifact
-          machine (contextual-ir-ref product 'digest) source
+          machine digest source
           (if (zero? (string-length remaining))
             tokens
             (append tokens
@@ -145,7 +174,7 @@
          (unless (null? (cadr payload))
            (error "contextual LR accepted with trailing tokens"))
          (make-success-parse-artifact
-          (contextual-ir-ref product 'digest)
+          digest
           source (reverse tokens-reversed) (car payload) trivia?))))))
 
 ;; : (-> ParserMachine Exception Diagnostic)

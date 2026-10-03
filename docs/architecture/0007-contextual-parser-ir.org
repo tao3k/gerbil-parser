@@ -976,3 +976,153 @@ no push was performed. Optional CLI qualification remains separate.
 The existing benchmark entrypoint also passed native smoke checks for
 =prepare-scan= and =plan-batch= at four requests, and default =scan= at one
 request, with normal process and runner exit zero.
+
+
+* 2026-10-03: prepared contextual parser requests
+
+The scanner plan is now usable through a complete contextual parser request.
+=prepare-contextual-parser machine product= validates the product's schema,
+base grammar, machine Parser IR digest, product digest, LR position table and
+scanner admission once. It binds the generated machine, an owned scanner plan,
+a private position vector and a copied product digest. Position IDs must be
+symbols, matching the compiler's existing declaration contract; even a
+self-consistent forged string-position product is rejected. Copying the table
+spine alone would leave mutable position values shared.
+
+#+begin_src scheme
+(def plan (prepare-contextual-parser machine compiled-product))
+(def first (parse-source/contextual/prepared plan first-source))
+(def second (parse-source/contextual/prepared plan second-source))
+#+end_src
+
+Every request creates fresh scanner state, token accumulation and LR checkpoint.
+Raw and prepared entrypoints share the same deterministic drive and artifact
+construction. =parse-source/contextual= still admits raw product data on every
+call. The prepared entrypoint accepts only an opaque plan and a source, so it
+cannot be used with another machine argument. It copies the published product
+digest per request: mutating an artifact's =grammarDigest= cannot poison future
+plan requests. Scanner plans already isolate their checkpoint digest strings.
+
+Generated =ParserMachine= AOT IR and runtime must remain immutable after module
+initialization, as declared by =src/compiler/machine.ss=. This plan references
+the machine; it does not snapshot its executable runtime or protect against
+violating that machine contract. Prepare after initialization and driver
+installation. Caller-owned product data may change after preparation without
+changing the plan. Avoid concurrent mutation during preparation. Input source
+strings retain their existing stability requirement while being parsed.
+Changes to the product require a new plan to take effect.
+
+This extends the internal contextual deterministic LR slice. Public contextual
+declaration-macro binding, contextual GLR branch state and optional CLI
+qualification remain separate. Existing generated language parsers do not
+switch to this API automatically; the HCL grammar supplies the bounded
+integration fixture, rather than a full language scanner implementation.
+
+** Full artifact source and native matched gates
+
+The HCL product fixture was moved unchanged into
+=t/benchmarks/contextual-scanner/parser-fixture.ss= and is shared by integration
+tests and =matched-parser.ss=. This remains in the existing contextual scanner
+benchmark family. Each batch cycles through an accepted six-byte assignment,
+32 Unicode assignments, an incomplete assignment and a rejected input with an
+unscanned Unicode suffix. A one-request batch covers only the short accepted
+assignment; four-request batches cover all shapes, and sixteen repeat them.
+IR and product compilation are outside the timer. Raw batches admit and
+prepare on every request; prepared batches include plan creation once followed
+by request binding, scanning, LR drive and full ParseArtifact construction.
+
+The frozen baseline is the exact parser runtime at =5548a0e=. Both sides use the
+same machine, scanner runtime and artifact implementation. Three warmups and
+five alternating pairs are run per cell. Full ParseArtifacts match field for
+field for every request, including events, diagnostics, identities and byte
+coverage. Artifact validity and lossless roundtrip are checked outside timing.
+Final source and native matched runners completed normally in 9.70 and 12.01
+seconds, under the unchanged 120-second total and five-second silence fences.
+Native libraries were compiled with =gxc -O= in the dedicated cache.
+
+Final source CPU medians per whole batch, including plan creation:
+
+| Requests | Raw CPU ms | Prepared CPU ms | Change | Wins |
+|----------+------------+-----------------+--------+------|
+| 1 | 3.941 | 4.940 | +25.35% | 2/5 |
+| 4 | 33.370 | 10.369 | -68.93% | 5/5 |
+| 16 | 103.928 | 27.009 | -74.01% | 5/5 |
+
+Final native CPU medians per whole batch:
+
+| Requests | Raw CPU ms | Prepared CPU ms | Change | Wins |
+|----------+------------+-----------------+--------+------|
+| 1 | 4.013 | 4.509 | +12.36% | 0/5 |
+| 4 | 21.467 | 6.651 | -69.02% | 5/5 |
+| 16 | 78.253 | 10.826 | -86.17% | 5/5 |
+
+Four- and sixteen-request native batches reduce CPU by 69.02% and 86.17%, with
+all five pairs winning. The source cells reduce CPU by 68.93% and 74.01%, also
+with five wins each. Single-use plans regress on both final runs. The earlier
+native probe before the symbolic position guard showed larger reuse medians
+and a three-win single-use cell; those figures are not the final-code evidence.
+Allocation/GC and host variation are visible in raw samples. No single-use,
+all-language throughput, memory-footprint or concurrent-execution improvement
+is claimed.
+
+The durable current-runtime command compares raw and prepared full requests:
+
+#+begin_src sh
+just benchmark-contextual-parser 16 5
+#+end_src
+
+It reports both CPU and wall times and rejects any full-artifact mismatch.
+Frozen source, paired drivers, raw logs and JSON medians are retained locally
+under =.data/contextual-parser-plan-experiment/=. These measurements complement
+the existing wall-time gates; they do not replace their workloads or ceilings.
+
+** Final qualification and exit boundary
+
+The standard native build projected 128 targets and completed with normal
+exit. The same nine focused functional modules were ultimately qualified
+individually: 86 unique cases, one =MODULE-OK= per module, =HARNESS-OK=,
+=HARNESS-RETURN status=0=, and normal process and runner exit zero. Batch and
+individual attempts that printed passing checks but exceeded five seconds of
+silence during completion are excluded and retained in their console logs;
+the original nine-module raw log is =native-functional-idle-timeout.log=.
+Functional receipts bind each qualified module to its successful console/log.
+No assertion failure is being counted as a successful exit.
+
+A single real =##gc= after harness return was added to diagnostic wrappers,
+with =FINAL-GC-OK= emitted only after collection completes. This runs outside
+benchmark measurement intervals and remains under the same silence fence.
+It did not eliminate every completion timeout. The GLR, hot-path and GQL wall
+attempts still exceeded the fence after passing receipts and final collection;
+their =*-idle-timeout.log= files are excluded. Only these remaining gates were
+rerun: the harness status was checked, then the interpreter completed through
+its ordinary CLI return rather than an explicit =##exit=. Each rerun invoked
+the harness exactly once and completed normally. This establishes an exit
+boundary, not an operating-system cleanup or garbage-collector root cause.
+No timeout was enlarged and no heartbeat was counted as child progress.
+
+All original eight wall workloads and ceilings passed at final source digest
+=sha256:4133021870234cea00e7862e0bca5f17f940355c48446332ca5b517e117c158a=:
+
+| Gate | p95 ms | Ceiling ms | Result |
+|------+--------+------------+--------|
+| lalr | 3.800 | 500 | PASS |
+| incremental | 1.761 | 250 | PASS |
+| recovery | 2.102 | 250 | PASS |
+| glr | 4.298 | 250 | PASS |
+| hot-path | 16.203 | 900 | PASS |
+| gql | 22.596 | 150 | PASS |
+| opencypher | 14.427 | 250 | PASS |
+| languages | 8.246 | 500 | PASS |
+
+The documented =just benchmark-contextual-parser 4 2= command also completed
+normally. Its first cold launch timed out before a receipt; the recipe now
+uses genuine standard-library preload events from the existing preload helper.
+A subsequent direct-script fixture import failed because it lacked the module
+context needed for a relative import; the fixture is now imported by its full
+package identity. Both failed command consoles are retained and excluded.
+The verified command uses the final source and checks full artifact equality.
+
+=qualification-receipt.json= records the qualified gates, functional receipts,
+and excluded attempts. PR #13 remains open at =7c15333=, already included in
+this branch. Local qualification does not establish remote CI; no push was
+performed.

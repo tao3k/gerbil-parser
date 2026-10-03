@@ -45,6 +45,10 @@ benchmark-gql-stages samples="3" parses="100":
 benchmark-contextual-scanner axes="16" samples="20" words="128" literals="0" phase="scan" requests="1":
     GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-scanner-scale.log --require SCANNER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-scale.ss {{axes}} {{samples}} {{words}} {{literals}} {{quote(phase)}} {{requests}}
 
+# Complete contextual ParseArtifact pairs; plan creation is included per batch.
+benchmark-contextual-parser requests="16" samples="5":
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GERBIL_PARSER_LR_TRACE=1 GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-parser-scale.log --require CONTEXTUAL-PARSER-SCALE-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil/tools/gxtest")' t/benchmarks/contextual-scanner/matched-parser.ss {{requests}} {{samples}}
+
 # Complete deferred batches; each sample reports real token and byte coverage.
 benchmark-contextual-deferred delimiters="512" samples="5":
     GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-deferred-scale.log --require DEFERRED-SCALE-OK -- gxi t/benchmarks/contextual-scanner/deferred-scale.ss {{delimiters}} {{samples}}

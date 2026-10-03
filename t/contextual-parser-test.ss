@@ -5,14 +5,12 @@
         (only-in :gerbil-parser/languages/hcl/v2-24/grammar
                  hcl-v2-24-parser)
         (only-in :gerbil-parser/src/compiler/machine
-                 parser-machine-grammar-digest parser-machine-ir)
-        (only-in :gerbil-parser/src/modules/parser/contextual-objects
-                 make-contextual-method make-contextual-role
-                 make-contextual-scan-rule)
-        (only-in :gerbil-parser/src/compiler/contextual-parser-ir
-                 compile-contextual-parser)
+                 parser-machine-grammar-digest)
+        (only-in :gerbil-parser/t/benchmarks/contextual-scanner/parser-fixture
+                 contextual-product)
         (only-in :gerbil-parser/src/runtime/parser
-                 parse-source/contextual)
+                 parse-source/contextual prepare-contextual-parser
+                 parse-source/contextual/prepared)
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-events
@@ -21,36 +19,72 @@
                  token-event? token-event-token-kind token-event-lexeme))
 (export contextual-parser-test)
 
-(def (method name form result)
-  (make-contextual-method name 'any 'any form result))
-
-(def (rule name form matcher rank)
-  (make-contextual-scan-rule name 'normal form matcher rank 'keep))
-
-(def (contextual-product machine grammar-digest
-                         (positions '(line))
-                         (clauses '((line () ())))
-                         (number-literal "1"))
-  (let (role (make-contextual-role
-              'hcl-parser-fixture
-              (list (method 'identifier 'identifier 'identifier)
-                    (method 'number 'number 'number)
-                    (method 'punctuation 'punctuation 'punctuation)
-                    (method 'space 'space 'horizontal-whitespace)
-                    (method 'newline 'newline 'newline))))
-    (compile-contextual-parser
-     (parser-machine-ir machine) grammar-digest (list role)
-     '(normal) positions
-     '(identifier number punctuation space newline)
-     (list (rule 'identifier 'identifier '(identifier) 0)
-           (rule 'number 'number (list 'literal number-literal) 0)
-           (rule 'punctuation 'punctuation '(literal "=") 0)
-           (rule 'space 'space '(horizontal-whitespace+) 0)
-           (rule 'newline 'newline '(newline-one) 0))
-     'normal clauses)))
-
 (def contextual-parser-test
   (test-suite "contextual scanner LR integration"
+    (test-case "prepared parser owns product and published artifact identities"
+      (let* ((machine hcl-v2-24-parser)
+             (literal (string-copy "1"))
+             (product (contextual-product machine (parser-machine-grammar-digest machine)
+                                          '(line) '((line () ())) literal))
+             (plan (prepare-contextual-parser machine product))
+             (sources '("x = 1\n" "名字 = 1\n" "x = " "x = @你好\n"))
+             (expected
+              (map (lambda (source)
+                     (let (artifact (parse-source/contextual machine product source))
+                       ;; Raw artifacts expose the product digest; freeze the reference.
+                       (set-cdr! (assq 'grammarDigest artifact)
+                                 (string-copy (parse-artifact-ref artifact 'grammarDigest)))
+                       artifact)) sources)))
+        (string-set! literal 0 #\2)
+        (set-cdr! (car (cdr (assq 'state-positions product))) 'foreign)
+        (string-set! (cdr (assq 'digest product)) 0 #\x)
+        (let (artifact (parse-source/contextual/prepared plan (car sources)))
+          (string-set! (parse-artifact-ref artifact 'grammarDigest) 0 #\x))
+        (for-each
+         (lambda (source reference)
+           (let (artifact (parse-source/contextual/prepared plan source))
+             (check artifact => reference)
+             (check (parse-artifact-valid? artifact) => #t)
+             (check (parse-artifact-roundtrip artifact) => source)))
+         sources expected)
+        (check (with-catch (lambda (condition) (error-message condition))
+                 (lambda () (parse-source/contextual machine product "x = 1\n") #f))
+               => "contextual parser product does not match parser machine")))
+    (test-case "prepared parser rejects mismatched products and raw plan inputs"
+      (check (with-catch (lambda (condition) (error-message condition))
+               (lambda () (prepare-contextual-parser hcl-v2-24-parser
+                              (contextual-product hcl-v2-24-parser "other")) #f))
+             => "contextual parser product does not match parser machine")
+      (check (with-catch (lambda (condition) (error-message condition))
+               (lambda () (parse-source/contextual/prepared '() "") #f))
+             => "contextual parser requires prepared plan and source"))
+    (test-case "self-consistent non-symbol positions fail both runtime admissions"
+      (def (resign datum)
+        (let (body (filter (lambda (row) (not (eq? (car row) 'digest))) datum))
+          (append body (list (cons 'digest (sha256-text
+                           (call-with-output-string (lambda (port) (write body port)))))))))
+      (let* ((machine hcl-v2-24-parser)
+             (product (contextual-product machine (parser-machine-grammar-digest machine)))
+             (position (string-copy "line"))
+             (scanner (resign
+                       (map (lambda (row) (if (eq? (car row) 'positions)
+                                            (cons 'positions (list position)) row))
+                            (cdr (assq 'scanner product)))))
+             (altered (resign
+                       (map (lambda (row)
+                              (case (car row)
+                                ((scanner) (cons 'scanner scanner))
+                                ((state-positions)
+                                 (cons 'state-positions
+                                       (map (lambda (entry) (cons (car entry) position)) (cdr row))))
+                                (else row))) product))))
+        (for-each
+         (lambda (admit)
+           (check (with-catch (lambda (condition) (error-message condition))
+                    (lambda () (admit) #f))
+                  => "invalid contextual LR position table"))
+         (list (lambda () (prepare-contextual-parser machine altered))
+               (lambda () (parse-source/contextual machine altered "x = 1\n"))))))
     (test-case "HCL grammar accepts tokens from the generic scanner"
       (let* ((source "x = 1\n")
              (machine hcl-v2-24-parser)
@@ -165,6 +199,11 @@
          (with-catch
           (lambda (condition) (error-message condition))
           (lambda () (parse-source/contextual machine altered "x = 1\n") #f))
+         => "invalid contextual LR position table")
+        (check
+         (with-catch
+          (lambda (condition) (error-message condition))
+          (lambda () (prepare-contextual-parser machine altered) #f))
          => "invalid contextual LR position table")))
     (test-case "unknown lookaheads fail declaration admission"
       (let ((machine hcl-v2-24-parser))

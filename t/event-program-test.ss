@@ -139,6 +139,37 @@
            (check (length (recognition-sequence->list left)) => left-size)
            (check (length (recognition-sequence->list right)) => right-size)))
        '((1 5000) (5000 1) (257 4096) (4096 257) (33 33))))
+    (test-case "binary block carries preserve branching roots and deep fallback order"
+      (let* ((tokens (list->vector (map (lambda (i) (make-token 'number "1" i (+ i 1))) (iota 1025))))
+             (retained '())
+             (sequence (let loop ((i 0) (value #f))
+                         (when (memv i '(16 17 32 33 255 256 257 1024))
+                           (set! retained (cons (cons i value) retained)))
+                         (if (= i 1025) value
+                           (loop (+ i 1) (event-program-append value (vector-ref tokens i))))))
+             (control (let loop ((i 0) (value #f))
+                        (if (= i 1025) value
+                          (loop (+ i 1) (event-program-append/avl value (vector-ref tokens i))))))
+             (root (let loop ((i 0) (value sequence))
+                     (if (= i 100) value
+                       (loop (+ i 1) (event-program-node-value 'Root 0 1025 value)))))
+             (count 0) (opens 0) (closes 0))
+        (check (recognition-sequence->list sequence) => (recognition-sequence->list control))
+        (for-each
+         (lambda (entry)
+           (let* ((n (car entry)) (old (cdr entry))
+                  (a (event-program-append old (vector-ref tokens n)))
+                  (b (event-program-append old (vector-ref tokens n))))
+             (check (length (recognition-sequence->list old)) => n)
+             (check (recognition-sequence->list a) => (recognition-sequence->list b))
+             (check (recognition-sequence-end a 0) => (+ n 1)))) retained)
+        (event-program-walk
+         (lambda (operation value offset delta moved?)
+           (case operation
+             ((token) (check offset => count) (set! count (+ count 1)))
+             ((open-node) (set! opens (+ opens 1)))
+             ((close-node) (set! closes (+ closes 1))))) root)
+        (check count => 1025) (check opens => 100) (check closes => 100)))
     (test-case "lowering snapshots field names rather than caching mutable children"
       (let* ((token (make-token 'number "1" 0 1))
              (child (make-recognition-child #f token))

@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Direct event lowering must match the independent original-production replay.
 (import :std/test
+        (only-in :gerbil-parser/languages/arithmetic/v1/parser arithmetic-parser parse-arithmetic-v1)
         (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser parse-hcl-v2-24)
         :gerbil-parser/src/runtime/event-program
         :gerbil-parser/src/runtime/event-reduce
@@ -136,6 +137,19 @@
            (list (make-edit 0 0 "x = 2\n") (make-edit 0 6 "")
                  (make-edit 9 0 "y = 3\n") (make-edit 9 6 "")
                  (make-edit 0 0 "# é\n") (make-edit 0 5 ""))))))
+    (test-case "generic deterministic LR lowers events without a generated executor"
+      (parameterize ((current-lr-event-program-enabled? #t))
+        (let* ((source "1+2*3")
+               (session (make-incremental-session arithmetic-parser source #t))
+               (root (base-root (incremental-session-recognition-root session))))
+          (check (event-program-value? (program-root session)) => #t)
+          (check (lr-runtime-event-program? (lr-recognition-fragment-runtime root)) => #t)
+          (check (lr-recognition-fragment-executor root) => #f)
+          (check (incremental-session-artifact session) => (parse-arithmetic-v1 source))
+          (let-values (((next receipt) (parse-incremental-session session (make-edit 0 0 "0+"))))
+            (check (event-program-value? (program-root next)) => #t)
+            (check (incremental-session-artifact next) => (parse-arithmetic-v1 "0+1+2*3"))
+            (check (incremental-session-project-artifact next) => (incremental-session-artifact next))))))
     (test-case "unsupported selective GLR remains on the canonical backend"
       (parameterize ((current-lr-event-program-enabled? #t))
         (check (selective-glr-scenario-pass? (selective-glr-scenario)) => #t)))))

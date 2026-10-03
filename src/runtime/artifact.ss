@@ -2,7 +2,7 @@
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
 (import (only-in ./event-program event-program-value? event-program-value-kind
-                 event-program-value-code event-program-walk event-program-relocate)
+                 event-program-value-code event-program-walk/inline event-program-relocate)
         (only-in ./funcs recognition-sequence-for-each)
         (only-in :std/func compose every-of)
         (only-in ../modules/parser/types

@@ -1,5 +1,5 @@
 //! Scheme-generated scanner IR executes identical UTF-8 token traces in Rust.
-#[path = "fixtures/shared_scanner_generated.rs"]
+#[path = "../fixtures/shared_scanner_generated.rs"]
 mod generated;
 use gerbil_parser_rowan::scanner::ContextualScanner;
 #[test]

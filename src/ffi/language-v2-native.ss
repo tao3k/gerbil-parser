@@ -36,24 +36,27 @@ void gerbil_parser_result_v2_init(gerbil_parser_result_v2 *r) {
 void gerbil_parser_result_v2_release(gerbil_parser_result_v2 *r) {
   if (r) { free(r->payload); gerbil_parser_result_v2_init(r); }
 }
-int32_t gerbil_parser_language_descriptor_impl(uint64_t, gerbil_parser_result_v2 *);
-int32_t gerbil_parser_language_parse_impl(uint64_t, unsigned char *, uint64_t, gerbil_parser_result_v2 *);
-int32_t gerbil_parser_language_release_impl(uint64_t);
+/* Match Gambit's generated c-define types at this private boundary. On
+   LP64 Linux uint64_t may be unsigned long while ___U64 is unsigned long long.
+   Public declarations retain their fixed-width C ABI types. */
+___S32 gerbil_parser_language_descriptor_impl(___U64, gerbil_parser_result_v2 *);
+___S32 gerbil_parser_language_parse_impl(___U64, ___U8 *, ___U64, gerbil_parser_result_v2 *);
+___S32 gerbil_parser_language_release_impl(___U64);
 int32_t gerbil_parser_language_descriptor(uint64_t language, gerbil_parser_result_v2 *r) {
   if (!r) return -1;
   if (!gerbil_parser_language_is_owner_thread()) { gerbil_parser_result_v2_release(r); r->status=-1; return -1; }
-  return gerbil_parser_language_descriptor_impl(language, r);
+  return gerbil_parser_language_descriptor_impl((___U64)language, r);
 }
 int32_t gerbil_parser_language_parse(uint64_t language, const uint8_t *source, size_t length, gerbil_parser_result_v2 *r) {
   if (!r) return -1;
   if (!gerbil_parser_language_is_owner_thread() || (!source && length) || length > 67108864) {
     gerbil_parser_result_v2_release(r); r->status = -1; return -1;
   }
-  return gerbil_parser_language_parse_impl(language, (unsigned char *)source, length, r);
+  return gerbil_parser_language_parse_impl((___U64)language, (___U8 *)source, (___U64)length, r);
 }
 int32_t gerbil_parser_language_release(uint64_t language) {
   if (!gerbil_parser_language_is_owner_thread()) return -1;
-  return gerbil_parser_language_release_impl(language);
+  return gerbil_parser_language_release_impl((___U64)language);
 }
 END-C
  )

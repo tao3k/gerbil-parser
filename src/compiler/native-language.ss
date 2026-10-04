@@ -31,7 +31,7 @@
            "(def (create-native-language-handle) (register-native-language! " (symbol->string descriptor-export)
            (if contextual-export (string-append " " (symbol->string contextual-export)) "") "))\n"
            "(begin-foreign\n (namespace (\"" module-id "#\" native-create-callback))\n"
-           " (c-declare \"#include <gerbil-parser/language-v2.h>\\nuint64_t " c-prefix "_language_create_impl(void);\\nuint64_t " c-prefix "_language_create(void) { return gerbil_parser_language_is_owner_thread() ? " c-prefix "_language_create_impl() : 0; }\")\n"
+           " (c-declare \"#include <gerbil-parser/language-v2.h>\\n___U64 " c-prefix "_language_create_impl(void);\\nuint64_t " c-prefix "_language_create(void) { return gerbil_parser_language_is_owner_thread() ? " c-prefix "_language_create_impl() : 0; }\")\n"
            " (c-define (native-create-callback) () unsigned-int64 \"" c-prefix "_language_create_impl\" \"extern\"\n"
            "  (with-exception-catcher (lambda (_) 0) (lambda () (" module-id "#create-native-language-handle)))))\n"))
          (header

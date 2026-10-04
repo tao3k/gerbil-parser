@@ -1,5 +1,5 @@
 //! Complete descriptor + shared scanner AOT, with no language callbacks.
-#[path = "fixtures/records_contextual_generated.rs"]
+#[path = "../fixtures/records_contextual_generated.rs"]
 mod generated;
 use gerbil_parser_rowan::{parse, parse_contextual};
 #[test]

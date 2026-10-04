@@ -231,3 +231,18 @@ These are paired measurements of substantial non-CPU delay, not an identified
 OS cause. The failed gate remains failed; these observations do not authorize
 raising its ceiling. The earlier clean CPU/allocation controls remain useful
 historical comparisons, with the runtime revision explicitly recorded.
+
+## Multi-operand reduction callbacks
+
+The generic materialized and event reducers now consume operand and semantic
+value lists through private tail-recursive helpers. Offset and constructor are
+explicit parameters, so each concatenating reduction avoids a captured fold
+callback. Operand order, nullable reductions and `foldl2` termination behavior
+are preserved; token admission and artifact publication keep their existing
+owners. Generated direct reducers and selective GLR admission are unchanged.
+
+Use the existing 40 x 100 component diagnostics to compare allocated bytes and
+paired CPU/GC observations. `lr-empty-action-test.ss` also asserts exact field
+and token order for three operands, trivia and a nullable middle operand, in
+addition to backend equality and incremental production replay. An allocation
+change alone does not satisfy the 150ms wall P95 contract.

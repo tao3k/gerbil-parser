@@ -386,6 +386,18 @@
            value
            actions)))
 
+;;; Keep the two-list reduction loop closed: offset and constructor travel
+;;; as explicit parameters, so no callback captures them for each reduction.
+;;; Like foldl2, consume the lists together in source order.
+(def (reduce-operands operands values offset constructor children)
+  (if (and (pair? operands) (pair? values))
+    (reduce-operands
+     (cdr operands) (cdr values) offset constructor
+     (recognition-sequence-append
+      children (apply-operand-actions
+                (car values) (operand-actions (car operands)) offset constructor)))
+    children))
+
 ;; reduce-value
 ;; : (-> List List Fixnum List)
 (def (reduce-value production source-values default-offset
@@ -399,14 +411,7 @@
        default-offset fragment-constructor))
      ((or (eq? action 'concat) (eq? action 'pass)
           (layout-end-action? action))
-      (foldl
-       (lambda (operand value children)
-         (recognition-sequence-append
-          children
-          (apply-operand-actions
-           value (operand-actions operand) default-offset
-           fragment-constructor)))
-       '() rhs source-values))
+      (reduce-operands rhs source-values default-offset fragment-constructor '()))
      (else (error "unknown LR semantic action" action)))))
 
 (def (apply-operand-actions/events value actions offset ignored-constructor)
@@ -417,6 +422,14 @@
                ((alias) (event-children-alias (cadr action) children offset))
                (else (error "unknown event semantic action" action))))
            value actions)))
+(def (reduce-operands/events operands values offset children)
+  (if (and (pair? operands) (pair? values))
+    (reduce-operands/events
+     (cdr operands) (cdr values) offset
+     (event-program-append
+      children (apply-operand-actions/events
+                (car values) (operand-actions (car operands)) offset #f)))
+    children))
 (def (reduce-value/events production source-values offset ignored-constructor)
   (let ((rhs (production-rhs production)) (action (production-action production)))
     (cond
@@ -424,10 +437,7 @@
       (apply-operand-actions/events (car source-values)
         (operand-actions (car rhs)) offset #f))
      ((memq action '(pass concat))
-      (foldl (lambda (operand value children)
-               (event-program-append children
-                 (apply-operand-actions/events value (operand-actions operand) offset #f)))
-             #f rhs source-values))
+      (reduce-operands/events rhs source-values offset #f))
      (else (error "unsupported event LR production" action)))))
 
 ;;; Pop LR states and semantic values together. Accumulating the top-first

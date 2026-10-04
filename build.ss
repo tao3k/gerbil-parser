@@ -12,7 +12,7 @@
 ;; Reference corpora are not Gerbil package sources. clan's native defaults
 ;; already exclude t/, .git/, and .gerbil/.
 (def gerbil-parser-exclude-dirs
-  (cons ".data" (cons "target" default-exclude-dirs)))
+  (cons "benchmarks" (cons ".data" (cons "target" default-exclude-dirs))))
 
 ;; These source files belong to executable and test owners, not the production
 ;; library catalog. Keep the boundary declarative so PackageSpec still performs
@@ -31,6 +31,9 @@
     "languages/arithmetic/v1/parser-test.ss"
     "languages/cypher/opencypher-2024-1/parser-test.ss"
     "languages/gql/iso-39075-2024/parser-test.ss"
+    "languages/gql/iso-39075-2024/runtime-benchmark-test.ss"
+    "languages/gql/iso-39075-2024/benchmark-profile-test.ss"
+    "languages/gql/iso-39075-2024/actor-test.ss"
     "languages/gql/iso-39075-2024/query-syntax-test.ss"
     "languages/hcl/v2-24/parser-test.ss"
     "languages/hcl/v2-24/generate-direct.ss"

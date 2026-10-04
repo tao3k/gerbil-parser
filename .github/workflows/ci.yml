@@ -178,13 +178,15 @@ jobs:
 
       - name: Compile Scheme test support
         run: |
-          gerbil env gxc t/line-structure-assertions.ss
+          gerbil env gxc t/line-structure-assertions.ss \
+            languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss \
+            languages/gql/iso-39075-2024/benchmarks/runtime/actors.ss
           gerbil env gxi build-native-test-driver.ss compile
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
-              t/benchmarks/gql-runtime/native-timing.ss
+              languages/gql/iso-39075-2024/benchmarks/runtime/native-timing.ss
           else
-            gerbil env gxc t/benchmarks/gql-runtime/native-timing.ss
+            gerbil env gxc languages/gql/iso-39075-2024/benchmarks/runtime/native-timing.ss
           fi
           gerbil env gxc \
             t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss \
@@ -207,6 +209,12 @@ jobs:
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/native-suite.ss t languages
+
+      - name: Report GQL native component and actor costs
+        run: |
+          gerbil env python3 scripts/test-native-local.py \
+            --suite gql-profile --suite gql-actors \
+            --gerbil-path .gerbil --log-dir .data/gql-diagnostics
 
       - name: Compare TLA+ candidate structure with pinned SANY
         if: runner.os == 'Linux'

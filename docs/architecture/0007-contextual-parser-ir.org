@@ -264,7 +264,7 @@ runtime, lexical admission and contextual parsing/scanning.
 
 Lookahead-fold caching, an alternative general reduction loop, and semantic
 stack reuse were removed after their matched CPU results were inconsistent.
-The existing admission ceilings remain unchanged. =just benchmark-gql-stages=
+The existing admission ceilings remain unchanged. =just benchmark-gql=
 reports independently checked prepared and full-source CPU/wall samples;
 it is a diagnostic, not an admission gate. The preflight records a source
 digest and rejects a run if its input files change while the suites execute.

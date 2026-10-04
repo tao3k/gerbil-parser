@@ -19,8 +19,12 @@ def native_environment():
         cargo = subprocess.check_output([str(rustup), "which", "cargo"], text=True, timeout=5).strip()
     tool_directory = Path(cargo).resolve().parent
     # Select cargo and rustc together. Avoid Nix cc wrappers in an Apple build.
+    gerbil = shutil.which("gxi")
+    native_tools = [str(tool_directory)]
+    if gerbil:
+        native_tools.append(str(Path(gerbil).resolve().parent))
     environment["PATH"] = os.pathsep.join(
-        [str(tool_directory), "/opt/homebrew/bin", "/usr/local/bin",
+        native_tools + ["/opt/homebrew/bin", "/usr/local/bin",
          "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
     excluded = []
     for name in list(environment):
@@ -48,7 +52,7 @@ def native_environment():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=["rust", "gql", "ffi", "aot"], action="append")
+    parser.add_argument("--suite", choices=["rust", "gql", "gql-profile", "gql-actors", "ffi", "aot"], action="append")
     parser.add_argument("--gerbil-path", type=Path, default=Path(".gerbil"))
     parser.add_argument("--log-dir", type=Path, default=Path(".data/local-native"))
     parser.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 1))
@@ -79,7 +83,7 @@ def main():
         print("NATIVE-STAGE-OK", label, flush=True)
 
     suites = args.suite or ["rust", "gql", "ffi", "aot"]
-    if any(suite in ("gql", "ffi") for suite in suites):
+    if any(suite in ("gql", "gql-profile", "gql-actors", "ffi") for suite in suites):
         run("test-driver-build", ["gxi", "build-native-test-driver.ss", "compile"], build=True)
     for suite in suites:
         if suite == "rust":
@@ -88,6 +92,21 @@ def main():
                                "--jobs", str(args.jobs), "--verbose"], build=True)
             run("rust-test", ["cargo", "test", "--workspace", "--locked", "--",
                               "--nocapture"], required=[r"test result: ok\."])
+        elif suite == "gql-profile":
+            run("gql-profile-build", ["gxc", "-V",
+                "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss"], build=True)
+            run("gql-profile", ["gxi", "-e",
+                '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
+                '(import :gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
+                required=["GQL-STAGES-OK", "GQL-STAGE-SUMMARY"])
+        elif suite == "gql-actors":
+            run("gql-actors-build", ["gxc", "-V",
+                "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss",
+                "languages/gql/iso-39075-2024/benchmarks/runtime/actors.ss"], build=True)
+            run("gql-actors", ["gxi", "-e",
+                '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/actors") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
+                '(import :gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/actors :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
+                required=["GQL-ACTORS-OK", "GQL-STAGE-SUMMARY"])
         elif suite == "aot":
             run("aot-build", ["gxi", "build-rust-rowan-aot.ss", "compile"], build=True)
             gerbil_home = subprocess.check_output(
@@ -119,7 +138,12 @@ def main():
                 object_file = native_root / "lib/gerbil-parser" / (module + ".o1")
                 if not object_file.is_file():
                     raise SystemExit(f"missing compiled module {object_file}; build this checkout first")
-            files = (["t/gql-runtime-benchmark-test.ss"] if suite == "gql"
+            if suite == "gql":
+                run("gql-profile-build", ["gxc", "-V",
+                    "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss"], build=True)
+            files = (["languages/gql/iso-39075-2024/runtime-benchmark-test.ss",
+                      "languages/gql/iso-39075-2024/benchmark-profile-test.ss",
+                      "languages/gql/iso-39075-2024/actor-test.ss"] if suite == "gql"
                      else ["t/native-ffi-test.ss", "t/build-product-contract-test.ss"])
             run(suite, ["gxi", "t/fixtures/tla-sany-differential/native-suite.ss"] + files,
                 required=[f"NATIVE-SUITE-OK modules={len(files)}", r"^OK$"])

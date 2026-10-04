@@ -290,7 +290,7 @@ to keep cold imports under the original five-second silence fence.
 
 * GQL native timing diagnostics
 
-=t/benchmarks/gql-runtime/native-timing.ss= records the original 100 parses
+=languages/gql/iso-39075-2024/benchmarks/runtime/native-timing.ss= records the original 100 parses
 per sample across 40 samples after one warmup and one initial GC. It compares
 CLOCK_MONOTONIC, wall time, CPU time, cumulative GC counters, allocation,
 page faults and voluntary/involuntary OS context switches. Output is emitted only after a completed sample. This diagnostic
@@ -381,3 +381,15 @@ while dynamically importing the real parser used as a negative grammar-module
 fixture. The test now declares that fixture in its import set, so the existing
 native admission loader records its actual imports before test execution.
 The negative exported-descriptor assertion and all six original cases remain.
+
+* Language-owned runtime benchmarks
+
+GQL now owns its unchanged 40 x 100 admission contract, phase controls,
+monotonic/native timing diagnostics and semantic profiling tests beneath
+=languages/gql/iso-39075-2024=. See =benchmarks/README.md= there for executable
+commands, batch versus per-parse units, local CPU/GC/allocation measurements
+and the boundaries of prepared controls versus actual streamed parsing.
+The optional =src/runtime/actor= library provides application-owned Gerbil
+local actors without starting background services on import. Its separate
+language benchmark measures complete concurrent request batches rather than
+claiming that actor scheduling speeds up the LR algorithm.

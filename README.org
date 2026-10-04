@@ -21,6 +21,23 @@ normalization, conflict-resolution, and table-generation authority.  The first
 executable reference grammar proves both the pure Scheme runtime and the
 Rust/Rowan AOT path from the same immutable Parser IR.
 
+* Optional library actors and language benchmarks
+
+=parser-actor-support.ss= is the public facade for explicitly created local
+Gerbil actors. Applications own worker count and lifecycle; imports start no
+background service. =spawn-parser-actor= accepts an already prepared machine,
+=parser-actor-parse= returns the same lossless artifact as synchronous parsing,
+and =parser-actor-stop!= joins the worker. Timeout bounds reply waiting rather
+than preempting an active parse. Keep the shared machine immutable after
+initialization; actor scheduling does not change the LR algorithm.
+
+GQL owns its performance contract, semantic profiling tests, component controls
+and actor request benchmarks beside its parser under
+=languages/gql/iso-39075-2024/=. See
+[[file:languages/gql/iso-39075-2024/benchmarks/README.md][GQL benchmark commands and measured cost boundaries]].
+=just benchmark-gql= reports CPU/wall P50/P95, GC and allocation;
+=just benchmark-gql-actors= reports separate concurrent request batch costs.
+
 * Rust/Rowan AOT product
 
 =src/compiler/rust-rowan.ss= lowers canonical Parser IR v1 to immutable Rust

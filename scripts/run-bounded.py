@@ -18,6 +18,8 @@ def main():
     parser.add_argument("--idle-timeout", type=float)
     parser.add_argument("--log", type=Path, required=True)
     parser.add_argument("--require", action="append", default=[])
+    parser.add_argument("--full-output", action="store_true",
+                        help="preserve complete evidence lines on stdout as well as in the log")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command
@@ -42,7 +44,7 @@ def main():
 
     def emit(line):
         text = line.decode("utf-8", errors="replace")
-        print(text[:1800], flush=True)
+        print(text if args.full_output else text[:1800], flush=True)
 
     def stop_group():
         # The wrapper may have exited while a compiler/interpreter child lives.

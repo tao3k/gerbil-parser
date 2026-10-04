@@ -26,6 +26,20 @@
                  (compiled-dependencies (cdr value))))
         (else '())))
 
+;; Runtime wrappers do not list compile-time imports from .ssi interfaces.
+;; Use the expander's import parameter to report the real nested admission
+;; work. Delegate unchanged and restore the parameter on return or exception.
+(def (import-native-interface! module)
+  (let (importer (gx#current-expander-module-import))
+    (parameterize
+        ((gx#current-expander-module-import
+          (lambda (path reload?)
+            (displayln "INTERFACE-IMPORT " path) (force-output)
+            (let (context (importer path reload?))
+              (displayln "INTERFACE-IMPORTED " path) (force-output)
+              context))))
+      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
+
 (def (preload-module module)
   (unless (member module +preloaded-modules+)
     (set! +preloaded-modules+ (cons module +preloaded-modules+))
@@ -49,7 +63,7 @@
     (when (and (not (string-contains module "~"))
                (compiled-file module ".ssi"))
       (displayln "MODULE-IMPORT " module) (force-output)
-      (gx#import-module (string->symbol (string-append ":" module)) #f #t)
+      (import-native-interface! module)
       (displayln "MODULE-IMPORTED " module) (force-output))))
 
 ;; Admit compiled dependencies declared by tests and their source helpers.

@@ -90,6 +90,10 @@
                  +language-parser-entry-schema+
                  deflanguage-parser
                  language-parser-entry-ref)
+        (only-in ./src/language/source
+                 +source-language-schema+
+                 declare-source-language
+                 source-language?)
         (only-in ./src/runtime/artifact
                  parse-artifact-ref
                  parse-artifact-roundtrip
@@ -160,7 +164,10 @@
         deflanguage-grammar
         defgrammar-syntax
         +language-parser-entry-schema+
+        +source-language-schema+
         deflanguage-parser
+        declare-source-language
+        source-language?
         language-parser-entry-ref
         defsyntax-fixture
         defsyntax-corpus

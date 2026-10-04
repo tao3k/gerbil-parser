@@ -161,7 +161,19 @@
                          (parse-source unary-stack-probe-parser source)) => artifact)
                 (let-values (((next receipt) (parse-incremental-session session edit)))
                   (check (incremental-session-artifact next)
-                         => (parse-source unary-stack-probe-parser (apply-edit source edit)))))))
+                         => (parse-source unary-stack-probe-parser (apply-edit source edit)))
+                  ;; Two successors must retain independent semantics while the
+                  ;; source session and its previously published artifact stay valid.
+                  (let (other-edit (make-edit 0 1 "gamma"))
+                    (let-values (((other other-receipt)
+                                  (parse-incremental-session session other-edit)))
+                      (check (incremental-session-artifact other)
+                             => (parse-source unary-stack-probe-parser
+                                              (apply-edit source other-edit)))
+                      (check (incremental-session-artifact next)
+                             => (parse-source unary-stack-probe-parser
+                                              (apply-edit source edit)))
+                      (check (incremental-session-artifact session) => artifact)))))))
           '(#f #t)))
        '("a;b" "a ; β")))
     (test-case "editing through empty source matches independent production replay"

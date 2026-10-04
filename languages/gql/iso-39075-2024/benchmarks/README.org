@@ -480,3 +480,73 @@ were no visited non-EOF literal-free rows for the guard to eliminate. The
 candidate was withdrawn; no timing improvement is claimed. The diagnostic-enabled 40 x 100 control retained the same medians and
 no-GC observation counts, confirming that the added trace is outside the
 measured batches.
+
+* Withdrawn unary stack identity experiment
+
+The installed Gerbil 0.19 runtime's =util.ss= returns existing list tails in
+=memf= and returns the original list in =remf= when no element is removed.
+These structural-sharing examples motivated a parser-owned experiment using
+[[https://gerbil.scheme.org/reference/gerbil/runtime/lists.html][core list primitives]] and
+[[https://gerbil.scheme.org/guide/intro.html#additional-syntactic-sugar][ordinary defrule syntax]].
+Scheme pairs are mutable; this parser's semantic stack spines are immutable.
+
+After a successful unary pop, =remaining-values= is the original stack's
+=cdr=. If the reducer returns the original =car= by =eq?=, the pushed stack
+can be the entire original stack. Distinct decorated values, empty and wider
+reductions retain a new head. The state stack still advances to the new goto.
+The experiment replaced the three generic semantic pushes in the deterministic
+and selective GLR consumers with this private macro:
+
+#+begin_src scheme
+(defrule (push-reduction-value value count semantic-values remaining-values)
+  (let* ((result value) (width count)
+         (original semantic-values) (suffix remaining-values))
+    (if (and (eqv? width 1) (eq? result (car original)))
+      original
+      (cons result suffix))))
+#+end_src
+
+Each argument is bound once. Native generated Scheme contains the three
+expanded identity checks and no runtime helper procedure. A preceding ordinary
+function variant used the same guard. Both variants were tested against
+=f923edcd089034cccf0f4339d680a277ae1ed4a8=, each in baseline, candidate,
+restored-baseline and repeated-candidate phases. Each phase used the same
+138-byte input, native toolchain, heap and 40 x 100 component configuration.
+The subsequent =4dfccd2= rebase changed documentation and Cargo README metadata;
+the LR source remained byte-identical to the restored baseline.
+
+Both four-phase series produced these median allocated bytes per parse in
+no-GC batches:
+
+| Implementation | Global lexing | Prepared LR | Publication | Full source | No-GC observations by stage |
+|----------------+---------------+-------------+-------------+-------------+----------------------------|
+| Original / restored | 50,724 | 82,484 | 44,324 | 173,052.32 | 40 / 39 / 40 / 37 |
+| Candidate / repeat | 50,724 | 78,596 | 44,324 | 169,164.32 | 40 / 39 / 40 / 38 |
+
+The repeatable saving is 3,888 bytes per parse: 4.7% of prepared LR allocation
+and 2.2% of full-source allocation. This is an execution measurement, not a
+portable pair-size or selected-production-count formula.
+
+CPU measurements did not establish a consistent improvement. The following
+are no-GC median CPU milliseconds per 100-call batch, in execution order:
+
+| Phase | Function prepared LR | Function full source | Macro prepared LR | Macro full source |
+|-------+----------------------+----------------------+-------------------+-------------------|
+| Baseline | 10.143 | 13.052 | 11.118 | 14.824 |
+| Candidate | 9.086 | 14.633 | 12.290 | 16.331 |
+| Restored baseline | 11.253 | 13.624 | 12.765 | 16.971 |
+| Repeated candidate | 11.270 | 14.830 | 11.724 | 16.676 |
+
+The changing original controls prevent attributing all differences to the
+candidate. These results qualify neither a CPU/wall speedup nor the cause of
+a regression. Both candidates were withdrawn. The published runtime retains
+the original stack push; the lower allocation row describes the experiment.
+Diagnostic completion does not satisfy the unchanged 150ms wall admission
+contract, and no compiler, GC or watchdog settings were changed.
+
+Both candidate forms passed the five native LR operand/action cases, including
+Unicode, fields, aliases and both semantic backends. The restored production
+implementation was rebuilt and checked again. The retained regression extends
+=t/lr-empty-action-test.ss=: two edits derived from the same incremental
+session must each match an independent full parse, while the first successor
+and the original published artifact remain unchanged.

@@ -2,8 +2,7 @@
 ;;; Bash 5.3 command scanning with immutable deferred here-document state.
 
 (import (only-in :gerbil-parser/src/runtime/source-scanner
-                 make-source-scanner source-scanner-initial-state
-                 source-scanner-step)
+                 make-source-scanner source-scanner-tokens)
         (only-in ./scan-words
                  bash-at? bash-operator-at bash-word-end))
 (export make-bash-scanner bash-scan
@@ -134,8 +133,4 @@
                        scan-bash-token))
 
 (def (bash-scan source)
-  (let* ((scanner (make-bash-scanner source))
-         (initial (source-scanner-initial-state scanner)))
-    (let loop ((state initial) (tokens '()))
-      (let-values (((token next) (source-scanner-step scanner state 'command)))
-        (if token (loop next (cons token tokens)) (reverse tokens))))))
+  (source-scanner-tokens (make-bash-scanner source) 'command))

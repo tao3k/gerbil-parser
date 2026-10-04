@@ -6,9 +6,13 @@
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in :gerbil-parser/src/language/entry
                  deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
-                 language-parser-entry-ref)
+                 language-parser-entry-ref check-language-loader-fixtures!)
         (only-in :gerbil-parser/languages/arithmetic/v1/grammar
                  arithmetic-language-grammar)
+        (only-in :gerbil-parser/languages/arithmetic/v1/fixtures arithmetic-v1-basic-fixture)
+        (only-in :gerbil-parser/languages/bash/v5-3/scanner make-bash-scanner)
+        (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
+        (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/language/source declare-source-language)
         (only-in :gerbil-parser/languages/bash/v5-3/grammar bash-v5-3-source-language)
         (only-in :gerbil-parser/src/runtime/artifact
@@ -113,6 +117,38 @@
         (check (.ref source-loader 'summary) => "Bash")
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "POO pack metadata and named services inherit without eager execution"
+      (def calls 0)
+      (def Pack.
+        (.o (:: self Dialect.)
+            metadata: (.o edition: "v1")
+            fixtures: (lambda () (set! calls (+ calls 1)) (list arithmetic-v1-basic-fixture))
+            tests: (list (cons 'fixtures check-language-loader-fixtures!))
+            scan-workers: (list (cons 'bash-command make-bash-scanner))))
+      (deflanguage-parser-loader (pack-loader :: self Pack.)
+        (grammar arithmetic-language-grammar) (parse parse-pack))
+      (check calls => 0)
+      (check (.ref (.ref pack-loader 'metadata) 'edition) => "v1")
+      (check (.ref pack-loader 'grammars) => (list arithmetic-language-grammar))
+      (let (artifacts ((cdr (assq 'fixtures (.ref pack-loader 'tests))) pack-loader))
+        (check (length artifacts) => 1)
+        (check (parse-artifact-success? (car artifacts)) => #t))
+      (check calls => 1)
+      (let* ((source "echo α\n")
+             (worker ((cdr (assq 'bash-command (.ref pack-loader 'scan-workers))) source)))
+        (check (apply string-append (map token-lexeme (source-scanner-tokens worker 'command))) => source)))
+    (test-case "metadata admission rejects invalid descriptors and service registries"
+      (for-each
+       (lambda (row)
+         (check (element? LanguageLoaderContract (.cc arithmetic-loader (car row) (cdr row))) => #f))
+       (list (cons 'grammars '()) (cons 'grammars (list #f))
+             (cons 'metadata '()) (cons 'fixtures '())
+             (cons 'tests (list (cons 'bad #f)))
+             (cons 'tests (list (cons 'same void) (cons 'same void)))
+             (cons 'scan-workers (list (cons 'bad #f)))))
+      (check (rejects? (lambda ()
+                        (check-language-loader-fixtures!
+                         (.cc arithmetic-loader 'fixtures (lambda () '(invalid)))))) => #t))
     (test-case "parsing reuses the loaded entry without extension admission"
       (let (before dialect-admissions)
         (for-each

@@ -1,7 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; One POO admission and entry boundary for every versioned language pack.
 
-(import (only-in :clan/poo/object .o .ref .slot? object?)
+(import (only-in ../../language-support/fixture
+                 syntax-fixture? syntax-fixture-id syntax-fixture-source
+                 syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
+        (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../runtime/parser parse-source)
@@ -10,6 +13,7 @@
         (only-in ../runtime/token make-token)
         (only-in ../runtime/artifact
                  parse-artifact-success? parse-artifact-valid? parse-artifact-ref
+                 parse-artifact-roundtrip parse-artifact-status event-kind
                  parse-artifact-events token-event? token-event-token-kind
                  token-event-lexeme event-start event-end make-failure-parse-artifact)
         (only-in ./descriptor
@@ -23,7 +27,7 @@
                  source-language-version))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
-        call-with-language-parser-policy)
+        check-language-loader-fixtures! call-with-language-parser-policy)
 
 (def +language-parser-entry-schema+ "gerbil-parser.language-entry.v1")
 
@@ -94,10 +98,20 @@
       ((version) (language-grammar-version descriptor))
       ((contract) (language-grammar-contract descriptor)))))
 
+(def (named-services? rows)
+  (and (list? rows)
+       (every (lambda (row)
+                (and (pair? row) (symbol? (car row)) (procedure? (cdr row)))) rows)
+       (let loop ((remaining rows) (seen '()))
+         (or (null? remaining)
+             (and (not (memq (caar remaining) seen))
+                  (loop (cdr remaining) (cons (caar remaining) seen)))))))
+
 (def (loader-shape? candidate)
   (and (object? candidate)
        (andmap (lambda (slot) (.slot? candidate slot))
-               '(schema descriptor language version contract capabilities .parse))
+               '(schema descriptor language version contract capabilities .parse
+                 grammars metadata fixtures tests scan-workers))
        (equal? (.ref candidate 'schema) +language-parser-entry-schema+)
        (let (descriptor (.ref candidate 'descriptor))
          (and (or (language-grammar? descriptor) (source-language? descriptor))
@@ -108,7 +122,15 @@
                       '(language version contract))
               (equal? (.ref candidate 'capabilities)
                       (descriptor-capabilities descriptor))
-              (procedure? (.ref candidate '.parse))))))
+              (procedure? (.ref candidate '.parse))
+              (let (grammars (.ref candidate 'grammars))
+                (and (list? grammars) (memq descriptor grammars)
+                     (every (lambda (grammar)
+                              (or (language-grammar? grammar) (source-language? grammar))) grammars)))
+              (object? (.ref candidate 'metadata))
+              (procedure? (.ref candidate 'fixtures))
+              (named-services? (.ref candidate 'tests))
+              (named-services? (.ref candidate 'scan-workers))))))
 
 (define-type (LanguageLoaderContract @ PooFlowContract.)
   identity: 'gerbil-parser/language-loader
@@ -125,6 +147,13 @@
   (.o (:: self)
       schema: +language-parser-entry-schema+
       descriptor: #f
+      ;; Language-facing extension slots are inherited POO services. Providers
+      ;; remain lazy: loader admission never runs fixtures, tests or scanners.
+      (grammars (list (.ref self 'descriptor)))
+      metadata: (.o)
+      fixtures: (lambda () '())
+      tests: '()
+      scan-workers: '()
       (language (descriptor-ref (.ref self 'descriptor) 'language))
       (version (descriptor-ref (.ref self 'descriptor) 'version))
       (contract (descriptor-ref (.ref self 'descriptor) 'contract))
@@ -237,3 +266,25 @@
              (descriptor normalized-descriptor) (parse parse-binding)
              slot-section contract-section))))
     (_ (raise-syntax-error #f "invalid language loader declaration" stx))))
+
+;;; Named test services accept a loader. Fixtures stay lazy until requested;
+;;; the engine verifies statuses, lossless source and required public node kinds.
+(def (check-language-loader-fixtures! loader)
+  (let (fixtures ((.ref loader 'fixtures)))
+    (unless (and (list? fixtures) (every syntax-fixture? fixtures))
+      (error "language loader fixtures must return syntax fixtures"))
+    (map
+     (lambda (fixture)
+       (let* ((source (syntax-fixture-source fixture))
+              (artifact ((.ref loader '.parse) source))
+              (kinds (filter-map
+                      (lambda (event)
+                        (and (eq? (event-kind event) 'start-node) (vector-ref event 2)))
+                      (parse-artifact-events artifact))))
+         (unless (and (eq? (parse-artifact-status artifact) (syntax-fixture-expected-status fixture))
+                      (equal? (parse-artifact-roundtrip artifact) source)
+                      (or (not (parse-artifact-success? artifact))
+                          (and (pair? kinds) (eq? (car kinds) (syntax-fixture-root-kind fixture))))
+                      (every (lambda (kind) (memq kind kinds)) (syntax-fixture-required-kinds fixture)))
+           (error "language fixture conformance failed" (syntax-fixture-id fixture)))
+         artifact)) fixtures)))

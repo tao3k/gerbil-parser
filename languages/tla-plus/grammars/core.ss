@@ -1,77 +1,34 @@
 ;;; -*- Gerbil -*-
 ;;; Native TLA+ core syntax compiled by the language-neutral engine.
 
-(import (only-in :gerbil-parser/language-support deflanguage-grammar)
+(import (only-in :gerbil-parser/language-support deflanguage)
         ../source)
 (export (import: ../source)
         tla-plus-core-language-grammar
         tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser)
 
-
-(deflanguage-grammar tla-plus-core
+(deflanguage tla-plus-core
   (identity "tla-plus" "v1" "tla-plus.native-core.v1")
-  (syntax-kinds
-   (SourceFile node (module)) (Module node (name item))
-   (ExtendsDeclaration node (module)) (ConstantDeclaration node (name))
-   (VariableDeclaration node (name))
-   (OperatorDefinition node (name parameter body))
-   (RecursiveDeclaration node (name parameter))
-   (InstanceDeclaration node (module substitution))
-   (InstanceExpression node (module substitution))
-   (QualifiedNameExpression node (module name))
-   (JunctionExpression node (operator body))
-   (Substitution node (name value))
-   (AssumptionDeclaration node (name body))
-   (TheoremDeclaration node (name body))
-   (UseHideDeclaration node (item))
-   (Separator node ()) (EmptyLine node ())
-   (Expression node (left operator right))
-   (IfExpression node (condition consequent alternative))
-   (ChooseExpression node (name domain predicate))
-   (QuantifiedExpression node (quantifier name domain predicate))
-   (LetExpression node (definition body))
-   (LocalDefinition node (name parameter body))
-   (CaseExpression node (arm other)) (CaseArm node (condition result))
-   (PrefixExpression node (operator operand))
-   (PostfixExpression node (operand operator))
-   (FunctionApplication node (function argument))
-   (OperatorApplication node (operator argument))
-   (FunctionConstructor node (name domain body))
-   (RecordExpression node (name value))
-   (SetFilterExpression node (name domain predicate))
-   (SetMapExpression node (body name domain))
-   (TemporalSubscriptExpression node (action subscript))
-   (GroupedExpression node (expression))
-   (TupleExpression node (item)) (SetExpression node (item))
-   (NameExpression node (name)) (NumberExpression node (value))
-   (StringExpression node (value)) (Identifier token (text))
-   (Number token (text)) (String token (text))
-   (HorizontalWhitespace token (text)) (Newline token (text))
-   (Comment token (text)) (ModuleBorder token (text))
-   (ModuleEnd token (text)) (SeparatorLine token (text))
-   (Punctuation token (text)))
-  (terminals
-   (identifier Identifier) (number Number) (string String)
-   (horizontal-whitespace HorizontalWhitespace) (newline Newline)
-   (comment Comment) (module-border ModuleBorder) (module-end ModuleEnd)
-   (separator-line SeparatorLine) (punctuation Punctuation))
-  (lexical-rules
-   (horizontal-whitespace (horizontal-whitespace+)) (newline (newline+))
-   (comment
+
+  (root source-file)
+  (lex
+   (horizontal-whitespace HorizontalWhitespace (horizontal-whitespace+))
+   (newline Newline (newline+))
+   (comment Comment
     (choice (line-comment "\\*") (nested-block-comment "(*" "*)")))
-   (string (quoted-string "\""))
-   (module-end (literals "==============================================================" "===="))
-   (separator-line (literals "--------------------------------------------------------------"))
-   (module-border (literals "----------------------" "----"))
-   (number (number)) (identifier (identifier))
-   (punctuation
+   (string String (quoted-string "\""))
+   (module-end ModuleEnd (literals "==============================================================" "===="))
+   (separator-line SeparatorLine (literals "--------------------------------------------------------------"))
+   (module-border ModuleBorder (literals "----------------------" "----"))
+   (number Number (number))
+   (identifier Identifier (identifier))
+   (punctuation Punctuation
     (literals "<=>" "|->" "[]" "<>" "=>" "==" "/\\" "\\/"
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"
               "\\union" "\\cap" "\\cup" "\\subseteq" "\\X" "\\in" "\\"
               ".." "<<" ">>" "<=" ">=" "->" "<-"
               "#" "=" "<" ">" "+" "-" "*" "/" "^" "'" "~"
-              "(" ")" "[" "]" "{" "}" "," ":" "!" "_" "."))
-  )
+              "(" ")" "[" "]" "{" "}" "," ":" "!" "_" ".")))
   (rules
    (source-file (alias SourceFile (field module (reference module))))
    (module
@@ -384,8 +341,54 @@
             (instance "INSTANCE") (with "WITH")
             (assume "ASSUME") (assumption "ASSUMPTION") (axiom "AXIOM")
             (proposition "PROPOSITION") (use "USE") (hide "HIDE"))
-  (parser-entrypoints (source-file parse pure))
+
   (recoveries (module "GERBIL-PARSER-TLA-PLUS-V1" preserve-source))
   (conflicts selective-glr)
   (case-insensitive #f)
-  (flow (source lexical) (lexical tla-plus-module) (tla-plus-module cst)))
+  (flow (source lexical) (lexical tla-plus-module) (tla-plus-module cst))
+  (catalog
+   (syntax-kinds
+    (SourceFile node (module)) (Module node (name item))
+    (ExtendsDeclaration node (module)) (ConstantDeclaration node (name))
+    (VariableDeclaration node (name))
+    (OperatorDefinition node (name parameter body))
+    (RecursiveDeclaration node (name parameter))
+    (InstanceDeclaration node (module substitution))
+    (InstanceExpression node (module substitution))
+    (QualifiedNameExpression node (module name))
+    (JunctionExpression node (operator body))
+    (Substitution node (name value))
+    (AssumptionDeclaration node (name body))
+    (TheoremDeclaration node (name body))
+    (UseHideDeclaration node (item))
+    (Separator node ()) (EmptyLine node ())
+    (Expression node (left operator right))
+    (IfExpression node (condition consequent alternative))
+    (ChooseExpression node (name domain predicate))
+    (QuantifiedExpression node (quantifier name domain predicate))
+    (LetExpression node (definition body))
+    (LocalDefinition node (name parameter body))
+    (CaseExpression node (arm other)) (CaseArm node (condition result))
+    (PrefixExpression node (operator operand))
+    (PostfixExpression node (operand operator))
+    (FunctionApplication node (function argument))
+    (OperatorApplication node (operator argument))
+    (FunctionConstructor node (name domain body))
+    (RecordExpression node (name value))
+    (SetFilterExpression node (name domain predicate))
+    (SetMapExpression node (body name domain))
+    (TemporalSubscriptExpression node (action subscript))
+    (GroupedExpression node (expression))
+    (TupleExpression node (item)) (SetExpression node (item))
+    (NameExpression node (name)) (NumberExpression node (value))
+    (StringExpression node (value)) (Identifier token (text))
+    (Number token (text)) (String token (text))
+    (HorizontalWhitespace token (text)) (Newline token (text))
+    (Comment token (text)) (ModuleBorder token (text))
+    (ModuleEnd token (text)) (SeparatorLine token (text))
+    (Punctuation token (text)))
+   (terminals
+    (identifier Identifier) (number Number) (string String)
+    (horizontal-whitespace HorizontalWhitespace) (newline Newline)
+    (comment Comment) (module-border ModuleBorder) (module-end ModuleEnd)
+    (separator-line SeparatorLine) (punctuation Punctuation))))

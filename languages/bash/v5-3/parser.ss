@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Public versioned Bash parser entry and here-document span receipt.
 
-(import (only-in :gerbil-parser/language-support deflanguage-parser-loader)
+(import (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
         (only-in :gerbil-parser/src/language/source
                  source-language-digest)
         (only-in ./grammar bash-v5-3-source-language)
@@ -10,7 +11,7 @@
                  bash-here-document-link-marker-start
                  bash-here-document-link-body-start
                  parse-bash-core/receipt)
-        (only-in ./scanner bash-scan))
+        (only-in ./scanner bash-scan make-bash-scanner))
 (export bash-v5-3-language
         parse-bash-v5-3
         parse-bash-v5-3/receipt
@@ -18,9 +19,11 @@
         bash-here-document-link-marker-start
         bash-here-document-link-body-start)
 
-(deflanguage-parser-loader bash-v5-3-language
+(deflanguage-parser-loader (bash-v5-3-language :: self LanguageLoader.)
   (source bash-v5-3-source-language)
-  (parse parse-bash-v5-3))
+  (parse parse-bash-v5-3)
+  (slots metadata: (.o grammar-format: 'source-parser)
+         scan-workers: (list (cons 'command make-bash-scanner))))
 
 (def (parse-bash-v5-3/receipt source)
   (parse-bash-core/receipt

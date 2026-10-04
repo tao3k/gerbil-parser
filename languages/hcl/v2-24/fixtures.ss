@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; HCL v2.24.0 official specsuite sources embedded at expansion time.
 
-(import :gerbil-parser/languages/hcl/v2-24/parser
+(import :gerbil-parser/languages/hcl/v2-24/grammar
         (only-in :gerbil-parser/language-support
                  defsyntax-corpus
                  defsyntax-fixture

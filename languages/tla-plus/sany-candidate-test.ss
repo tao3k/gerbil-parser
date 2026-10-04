@@ -10,7 +10,8 @@
         (only-in :gerbil-parser/languages/tla-plus/grammars/layout
                  tla-plus-layout-language-grammar)
         (only-in :gerbil-parser/src/language/descriptor
-                 language-grammar-contract language-grammar-version)
+                 language-grammar-contract language-grammar-version language-grammar-grammar)
+        (only-in :gerbil-parser/src/compiler/normalize grammar-ir-ref)
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst
         (only-in :gerbil-parser/src/runtime/incremental
@@ -57,6 +58,17 @@
                 (junctions (parse-artifact->cst artifact)))
            => expected)))
 
+(def (terminal-proof-fields value)
+  (cond
+   ((syntax-node? value)
+    (append
+     (if (eq? (syntax-node-kind value) 'TerminalProof)
+       (map syntax-field-name (filter syntax-field? (syntax-node-children value))) '())
+     (apply append (map terminal-proof-fields (syntax-node-children value)))))
+   ((syntax-field? value)
+    (apply append (map terminal-proof-fields (syntax-field-children value))))
+   (else '())))
+
 (def tla-plus-sany-candidate-parser-test
   (test-suite "TLA+ SANY candidate grammar"
     (test-case "candidate identity is distinct from the published layout contract"
@@ -69,6 +81,16 @@
               (language-grammar-version
                tla-plus-sany-candidate-language-grammar))
              => #t))
+    (test-case "TerminalProof metadata admits the fields emitted by its fact list"
+      (check (assq 'TerminalProof
+                   (grammar-ir-ref (language-grammar-grammar tla-plus-sany-candidate-language-grammar)
+                                   'syntax-kinds))
+             => '(TerminalProof node (fact definition item)))
+      (let* ((source "---- MODULE P ----\nTHEOREM TRUE\nBY TRUE\n====\n")
+             (artifact (parse-tla-plus-sany-candidate source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check (not (not (memq 'item (terminal-proof-fields (parse-artifact->cst artifact))))) => #t)))
     (test-case "aligned markers make one list"
       (check-layout-shape
        "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n"

@@ -4,7 +4,7 @@
 
 (import (only-in :std/string/utf8 string-utf8-length)
         (only-in ./token make-token))
-(export make-source-scanner
+(export source-scanner-driver? source-scanner-tokens make-source-scanner
         source-scanner-initial-state
         source-scanner-step
         source-scan-state?
@@ -65,3 +65,11 @@
           (unless (= start length)
             (error "source scanner stopped before EOF" start length))
           (values #f (source-scan-state-with-context state context)))))))
+
+;;; A scan worker drains its own immutable checkpoints. Language callbacks only
+;;; decide the next token and context; traversal and token ownership stay here.
+(def (source-scanner-tokens scanner mode)
+  (unless (source-scanner-driver? scanner) (error "invalid source scanner worker"))
+  (let loop ((state (source-scanner-initial-state scanner)) (tokens '()))
+    (let-values (((token next) (source-scanner-step scanner state mode)))
+      (if token (loop next (cons token tokens)) (reverse tokens)))))

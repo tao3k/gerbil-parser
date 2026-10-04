@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Build-time storage boundary for materialized language IR.
 
-(import (only-in ../runtime/identity sha256-text)
+(import (only-in :std/list/list delete-duplicates/hash)
+        (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/language-artifact
                  compiled-language-artifact-relative-path
                  load-compiled-language-artifact/roots
@@ -11,7 +12,7 @@
         (only-in :std/encoding/base64 base64-encode)
         (only-in :std/string/utf8 utf8->string)
         (only-in :std/encoding/zlib compress uncompress))
-(export materialize-compiled-language-artifact
+(export project-language-catalog materialize-compiled-language-artifact
         materialize-compiled-language-artifact/output-dirs
         compile-language-parser-artifact
         compile-language-parser-artifact/output-dirs
@@ -323,3 +324,54 @@
 (def (materialize-compiled-language-artifact value)
   (materialize-compiled-language-artifact/output-dirs
    value (current-artifact-output-dirs)))
+
+;;; Validate a published ABI projection over already inferred concise syntax.
+;;; Unused token kinds require an explicit reservation rather than lexer remaps.
+(def (project-language-catalog inferred-kinds inferred-terminals catalog)
+  (def (require condition message) (unless condition (error message)))
+  (def (unique rows) (delete-duplicates/hash rows))
+  (if (not catalog)
+    (values inferred-kinds inferred-terminals)
+    (begin
+      (require (and (list? catalog) (memv (length catalog) '(3 4))
+                    (every (lambda (row) (and (list? row) (pair? row))) (cdr catalog))
+                    (equal? (map car (cdr catalog))
+                            (if (= (length catalog) 3) '(syntax-kinds terminals)
+                                '(syntax-kinds terminals reserved-token-kinds))))
+               "catalog requires syntax-kinds and terminals sections")
+      (let ((kinds (cdadr catalog)) (terminals (cdaddr catalog))
+            (reserved (if (= (length catalog) 4) (cdr (list-ref catalog 3)) '())))
+        (require (every (lambda (row)
+                          (and (list? row) (= (length row) 3)
+                               (symbol? (car row)) (memq (cadr row) '(node token))
+                               (list? (caddr row)) (every symbol? (caddr row))
+                               (= (length (caddr row)) (length (unique (caddr row)))))) kinds)
+                 "catalog has an invalid syntax-kind row")
+        (require (and (pair? kinds) (eq? (cadar kinds) 'node))
+                 "catalog must start with a node kind")
+        (require (= (length kinds) (length (unique (map car kinds))))
+                 "catalog has duplicate syntax kinds")
+        (for-each
+         (lambda (inferred)
+           (let (published (assq (car inferred) kinds))
+             (require (and published (eq? (cadr published) (cadr inferred))
+                           (every (lambda (field) (memq field (caddr published))) (caddr inferred)))
+                      "catalog must retain every inferred kind, category and field"))) inferred-kinds)
+        (require (and (every symbol? reserved) (= (length reserved) (length (unique reserved)))
+                      (every (lambda (name)
+                               (let (row (assq name kinds))
+                                 (and row (eq? (cadr row) 'token)
+                                      (not (assq name inferred-kinds))))) reserved))
+                 "catalog reservations must name unique unused token kinds")
+        (require (every (lambda (row)
+                          (or (assq (car row) inferred-kinds) (eq? (cadr row) 'node)
+                              (memq (car row) reserved))) kinds)
+                 "catalog may reserve nodes but cannot invent token kinds")
+        (require (every (lambda (row)
+                          (and (list? row) (= (length row) 2) (every symbol? row))) terminals)
+                 "catalog has an invalid terminal row")
+        (require (and (= (length terminals) (length inferred-terminals))
+                      (= (length terminals) (length (unique (map car terminals))))
+                      (every (lambda (row) (equal? (assq (car row) terminals) row)) inferred-terminals))
+                 "catalog must retain the exact inferred terminal mapping")
+        (values kinds terminals)))))

@@ -89,6 +89,7 @@
         (only-in ./src/language/entry
                  +language-parser-entry-schema+
                  deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        check-language-loader-fixtures!
                  language-parser-entry-ref)
         (only-in ./src/language/descriptor
                  language-grammar-with-parser-policy)
@@ -168,6 +169,7 @@
         +language-parser-entry-schema+
         +source-language-schema+
         deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        check-language-loader-fixtures!
         declare-source-language
         language-grammar-with-parser-policy
         source-language?

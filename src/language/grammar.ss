@@ -4,7 +4,7 @@
 (import (for-syntax (only-in ../compiler/parser-ir compile-parser)
                     (only-in ../compiler/bound-ir bind-grammar-ir)
                     (only-in ../compiler/language-artifact
-                             compile-language-declaration-artifacts
+                             compile-language-declaration-artifacts project-language-catalog
                              encode-compiled-language-artifact)
                     (only-in :gerbil/expander core-expand1)
                     (only-in :std/list/list delete-duplicates/hash))
@@ -565,11 +565,16 @@
        (require (memq root-value rule-names)
                 "concise language root must name a declared rule")
        (require (every (lambda (row)
-                         (and (pair? row) (memq (car row) '(node-fields flow backends))))
+                         (and (pair? row) (memq (car row) '(node-fields catalog flow backends))))
                        options)
                 "unknown concise language option")
        (require (= (length options) (length (unique (map car options))))
                 "duplicate concise language option")
+       (def (published-catalog inferred-kinds inferred-terminals)
+         (with-catch (lambda (condition) (syntax-failure (error-message condition)))
+           (lambda ()
+             (project-language-catalog inferred-kinds inferred-terminals
+                                       (assq 'catalog options)))))
        (def (record-node! kind fields)
          (require (symbol? kind)
                   "concise node kind must be an identifier")
@@ -752,6 +757,11 @@
                 (lexical-rules
                  (map (lambda (row) (list (car row) (caddr row)))
                       lexical-rows))
+                (catalog-values
+                 (call-with-values
+                  (lambda () (published-catalog syntax-kinds terminals)) list))
+                (syntax-kinds (car catalog-values))
+                (terminals (cadr catalog-values))
                 (arguments
                  `(,prefix-name
                    (identity ,(syntax->datum #'language-value)
@@ -806,7 +816,7 @@
                             (and (pair? datum) (car datum)))) rows)))
        (require (every (lambda (name)
                          (memq name '(extras keywords recoveries conflicts
-                                      case-insensitive node-fields flow backends))) names)
+                                      case-insensitive node-fields catalog flow backends))) names)
                 "unknown concise language option")
        (require (= (length names) (length (unique names)))
                 "duplicate concise language option")
@@ -821,7 +831,7 @@
                        (case-row (section 'case-insensitive '(case-insensitive #f)))
                        ((option ...)
                         (filter (lambda (row)
-                                  (memq (car (syntax->datum row)) '(node-fields flow backends)))
+                                  (memq (car (syntax->datum row)) '(node-fields catalog flow backends)))
                                 rows)))
            #'(deflanguage prefix identity-row root-row lex-row rules-row
                extras-row keywords-row recoveries-row conflicts-row case-row

@@ -193,6 +193,18 @@ jobs:
             t/fixtures/rowan-record-assignments/languages/records/v1/parser.ss \
             t/fixtures/rowan-record-assignments/languages/records/v1/fixtures.ss
 
+      - name: Verify shared scanner and contextual Rust AOT regeneration
+        run: |
+          gerbil env gxi t/fixtures/shared-scanner/generate.ss /tmp/shared-scanner.rs
+          gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
+          rustfmt --edition 2024 /tmp/shared-scanner.rs /tmp/records-contextual.rs
+          cmp /tmp/shared-scanner.rs rust/gerbil-parser-rowan/tests/fixtures/shared_scanner_generated.rs
+          cmp /tmp/records-contextual.rs rust/gerbil-parser-rowan/tests/fixtures/records_contextual_generated.rs
+          gerbil env gxi t/fixtures/shared-scanner/generate-native.ss /tmp/records-native.ss /tmp/records-native.h
+          cmp /tmp/records-native.ss t/fixtures/shared-scanner/records-native.ss
+          cmp /tmp/records-native.h t/fixtures/shared-scanner/records-native.h
+          gerbil env gxc t/fixtures/shared-scanner/records.ss
+
       - name: Compile and call public native C ABI
         run: |
           GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-native-ffi-tests.ss compile
@@ -202,6 +214,15 @@ jobs:
             --require 'ABI-ROWAN-GENERATED-MATCH calls=3' \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")' \
             -e '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'
+
+      - name: Verify language-independent C ABI and ASP performance
+        run: |
+          GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+            gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log .data/native-language-abi.log --require LANGUAGE-ABI-OK \
+            --require LANGUAGE-ABI-100-CALLS \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")' \
+            -e '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'
 
       - name: Run native Gerbil tests
         timeout-minutes: 15

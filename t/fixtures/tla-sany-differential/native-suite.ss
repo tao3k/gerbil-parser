@@ -27,7 +27,6 @@
            "-e" (string-append
                     "(load \"t/fixtures/tla-sany-differential/preload.ss\") "
                     "(prefer-native-interfaces!) "
-                    "(preload-module \"gerbil-parser/src/compiler/parser-ir\") "
                     "(preload-module \"gerbil/tools/gxtest\") "
                     "(preload-module \"gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process\") "
                     "(preload-test-imports " (object->string file) ")")

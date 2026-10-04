@@ -136,6 +136,10 @@ def main():
                     '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
                     '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'],
                     required=["NATIVE-ABI-OK", "ABI-ROWAN-GENERATED-MATCH calls=3"])
+                run("native-language-abi", ["gxi", "-e",
+                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")', "-e",
+                    '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'],
+                    required=["LANGUAGE-ABI-OK", "LANGUAGE-ABI-100-CALLS"])
             modules = (["languages/gql/iso-39075-2024/parser", "src/runtime/parser"]
                        if suite == "gql" else ["src/ffi/rust-rowan-aot-v1"])
             for module in modules:
@@ -149,7 +153,8 @@ def main():
             files = (["languages/gql/iso-39075-2024/runtime-benchmark-test.ss",
                       "languages/gql/iso-39075-2024/benchmark-profile-test.ss",
                       "languages/gql/iso-39075-2024/actor-test.ss"] if suite == "gql"
-                     else ["t/native-ffi-test.ss", "t/build-product-contract-test.ss"])
+                     else ["t/native-ffi-test.ss", "t/build-product-contract-test.ss",
+                           "t/native-language-test.ss", "t/native-language-benchmark-test.ss"])
             run(suite, ["gxi", "t/fixtures/tla-sany-differential/native-suite.ss"] + files,
                 required=[f"NATIVE-SUITE-OK modules={len(files)}", r"^OK$"])
     print("LOCAL-NATIVE-OK " + ",".join(suites), flush=True)

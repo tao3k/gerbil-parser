@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Thin request boundary over generated machines and ParseArtifact admission.
 
-(import (only-in ../compiler/parser-ir parser-ir-ref)
+(import (only-in ./parser-ir-data parser-ir-ref)
         (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-parse parser-machine-runtime

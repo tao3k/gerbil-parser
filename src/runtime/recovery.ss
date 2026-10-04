@@ -4,7 +4,7 @@
 (import (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-runtime)
-        (only-in ../compiler/parser-ir parser-ir-ref)
+        (only-in ./parser-ir-data parser-ir-ref)
         (only-in ./artifact
                  parse-artifact-ref parse-artifact-success?
                  parse-artifact-events token-event? token-event-token-kind

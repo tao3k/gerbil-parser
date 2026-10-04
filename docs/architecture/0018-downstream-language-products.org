@@ -4,9 +4,9 @@
 
 * Status and scope
 
-Proposed product contract, grounded in PR 13 head
+Product contract and implementation track. The original proposal was grounded in PR 13 head
 =675755009e46824327a1c05d5c787087c1297af4=. The interfaces and commands described
-as targets below are not implemented by this RFC. This proposal extends RFCs
+as targets below remain targets unless listed in the implementation section. This proposal extends RFCs
 0004, 0006, 0007 and 0008; it does not introduce another grammar authority.
 Bash 5.3 source syntax is the first demanding consumer. Shell execution,
 expansion evaluation and alias execution are outside its parser contract.
@@ -238,3 +238,72 @@ GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   --require 'NATIVE-SUITE-OK modules=1' --require '^OK$' \
   -- gxi t/fixtures/tla-sany-differential/native-suite.ss t/bash-v5-3-test.ss
 #+end_src
+
+* Shared scanner / contextual AOT / language C ABI implementation
+
+The public =rust-rowan-support= facade now exports
+=generate-rust-scanner-module= and
+=generate-contextual-language-rust-rowan-module=. The latter takes the existing
+LanguageGrammar descriptor and its Scheme-compiled contextual product. It
+emits ordinary Rust data: LanguageSpec, shared ScannerSpec, LR state positions
+and ContextualParserSpec. =parse_contextual(&CONTEXTUAL, source)= uses the LR
+state's position, retaining lookahead across reductions and every trivia byte.
+The generator admits the Scheme product against its parser machine before
+writing output; Rust binds the scanner's base grammar identity to LanguageSpec.
+Generated identities assume a trusted AOT producer, as existing LR tables do.
+
+Rust executes the closed =contextual-scanner-opcodes.v1= contract: longest
+match/rank, balanced nested words, quote removal, UTF-8 ranges and FIFO deferred
+markers. Mode and dispatch indexes are prepared once per scanner. Immutable
+checkpoints share persistent two-stack FIFO storage; enqueue and checkpoint
+clone are constant work. Rear reversal is amortized along one linear scan;
+replaying old branches can repeat reversals. Iterative nesting and iterative
+unique-tail release avoid recursive stack growth. Contextual GLR forks fail
+explicitly, matching the current Scheme contextual admission boundary.
+
+The independent Records fixture compares canonical Scheme/contextual events,
+canonical Rust/contextual Rowan trees, and a generated language C entry. Scanner
+traces come from Scheme execution of the same IR. Committed generated Rust
+fixtures belong to the Cargo package, and native CI regenerates/compares all
+three products. No downstream Rust scanner or core builtin dispatch change is
+required. These bounded fixtures do not establish complete Bash AOT support.
+
+The =native-language-support= facade exports =generate-native-language-pack=,
+=register-native-language!= and =release-native-language!=. The generator takes
+module/export identities and creates a normal Scheme native module plus a C
+header with =PREFIX_language_create(void)=. Each successful create returns a
+new opaque uint64 handle; zero means admission failure. Native package builders
+compile the generated entry with =-I/path/to/gerbil-parser/include=. ELF clients
+link the generic ABI object and selected language entry object explicitly.
+Language/compiler dependencies remain selected by the downstream descriptor.
+
+=include/gerbil-parser/language-v2.h= is language independent. It accepts an
+explicit source pointer/length, preserves embedded NUL, rejects noncanonical
+UTF-8 and enforces 64 MiB before copying. Successful parsing transports the
+existing GPA1 event format, with syntax acceptance in its header. Results are
+C-owned and replaced/released explicitly. Handles never reuse released numeric
+identities. The runtime owner OS thread is pinned at native module initialization;
+foreign pthread calls fail before entering Gambit. Scheme logical-thread checks
+remain in the handle owner. This API requires an initialized embedding runtime
+and loaded libraries; startup/shutdown, unloading and a safe Rust FFI owner are
+not established by the native child exit test.
+
+Performance is measured by =t/benchmarks/native-language/benchmark.ss= through
+=t/native-language-benchmark-test.ss=. The ASP test framework is outside the
+native C consumer's dependency closure. The fixture's contextual product is
+compiled during macro expansion, then embedded as immutable data; runtime
+language creation prepares its scanner/LR binding once per handle. A repeated
+C call does not spawn a process, recreate a runtime or compile a grammar.
+=src/runtime/parser-ir-data.ss= owns runtime-only IR access. Parser, recovery
+and incremental modules no longer import =src/compiler/parser-ir= for that
+accessor, removing a runtime edge to the LR construction dependency closure.
+Report startup, handle creation and warm callback batches separately. A process
+wall time that includes module loading is never a per-call throughput metric.
+The 100-call UTF-8 workload uses 40 samples with an unchanged 100 ms p95 ceiling
+and a 20 ms target. Passing the ceiling alone does not establish the target or
+an advantage over another parser.
+
+Remaining product work includes generic generated Cargo/native package manifests,
+atomic publication across products, standalone runtime lifecycle and Rust FFI
+ownership, typed accessors, contextual GLR branch state, and the canonical Bash
+syntax/field port. There is no comparative Tree-sitter performance claim.

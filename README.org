@@ -38,6 +38,23 @@ and actor request benchmarks beside its parser under
 =just benchmark-gql= reports CPU/wall P50/P95, GC and allocation;
 =just benchmark-gql-actors= reports separate concurrent request batch costs.
 
+* Shared contextual scanner and language C products
+
+=:gerbil-parser/rust-rowan-support= exports
+=generate-contextual-language-rust-rowan-module output descriptor product=.
+The generated =CONTEXTUAL= value runs with
+=gerbil_parser_rowan::parse_contextual(&CONTEXTUAL, source)=; both LR positions
+and deferred scanner state come from shared Scheme IR.
+
+=:gerbil-parser/native-language-support= exports
+=generate-native-language-pack source header module-id grammar-module descriptor-export c-prefix [contextual-export]=.
+Compile its Scheme output through the normal native builder; C clients call
+the generated =PREFIX_language_create()= then the generic length-bearing
+=gerbil_parser_language_parse(handle, bytes, length, result)= in
+=include/gerbil-parser/language-v2.h=. The embedding host initializes the Gerbil
+runtime; calls belong to its owner thread. See RFC 0018 for lifecycle boundaries
+and the independent Records example.
+
 * Rust/Rowan AOT product
 
 =src/compiler/rust-rowan.ss= lowers canonical Parser IR v1 to immutable Rust

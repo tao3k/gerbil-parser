@@ -1,5 +1,6 @@
 //! Generated-table execution owners for the Rowan runtime.
 
+mod contextual_parser;
 mod event_tree;
 mod generated_events;
 mod graph_index;
@@ -15,6 +16,7 @@ mod structural_list;
 mod structural_table;
 mod validation;
 
+pub use contextual_parser::{ContextualParserSpec, parse_contextual};
 pub use event_tree::{build_rowan_events, build_rowan_events_catalog};
 pub use generated_events::parse_generated_events;
 pub use graph_index::{GraphIndex, GraphIndexError, GraphRelation};

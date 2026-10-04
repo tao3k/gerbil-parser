@@ -1,6 +1,7 @@
 ;;; Grammar IR to immutable parser-machine IR compilation.
 
-(import (only-in ./lr-compiler compile-lr-spec)
+(import (prefix-in ../runtime/parser-ir-data irdata-)
+        (only-in ./lr-compiler compile-lr-spec)
         (only-in ../grammar/algebra
                  grammar-expression? grammar-expression-references
                  grammar-expression-terminals)
@@ -147,9 +148,7 @@
 
 ;; parser-ir-ref
 ;; : (-> Alist Symbol Datum)
-(def (parser-ir-ref ir key)
-  (alet (entry (assq key ir))
-    (cdr entry)))
+(def parser-ir-ref irdata-parser-ir-ref)
 
 (def (parser-ir-canonical ir)
   (call-with-output-string

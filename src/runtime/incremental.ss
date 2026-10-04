@@ -13,7 +13,7 @@
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?
                  parser-machine-for-current-semantic-backend)
-        (only-in ../compiler/parser-ir parser-ir-ref)
+        (only-in ./parser-ir-data parser-ir-ref)
         (only-in ./artifact
                  event-end event-start make-success-parse-artifact make-same-width-token-artifact
                  make-shifted-token-artifact

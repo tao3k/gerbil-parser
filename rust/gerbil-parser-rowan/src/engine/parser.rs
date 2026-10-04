@@ -98,11 +98,11 @@ fn parse_inner<'source>(
 const SELECTIVE_GLR_BRANCH_BUDGET: usize = 256;
 
 #[derive(Clone, Debug)]
-struct ParserConfiguration {
-    states: Vec<u32>,
-    values: Vec<Value>,
-    cursor: usize,
-    score: i32,
+pub(super) struct ParserConfiguration {
+    pub(super) states: Vec<u32>,
+    pub(super) values: Vec<Value>,
+    pub(super) cursor: usize,
+    pub(super) score: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -281,7 +281,7 @@ fn run_configuration(
     }
 }
 
-fn apply_reduce(
+pub(super) fn apply_reduce(
     spec: &LanguageSpec,
     tokens: &[Token<'_>],
     token: Option<&Token<'_>>,
@@ -546,7 +546,11 @@ fn current_offset(tokens: &[Token<'_>], significant: &[usize], cursor: usize) ->
     )
 }
 
-fn find_action(spec: &LanguageSpec, state: u32, token: Option<&Token<'_>>) -> Option<ParserAction> {
+pub(super) fn find_action(
+    spec: &LanguageSpec,
+    state: u32,
+    token: Option<&Token<'_>>,
+) -> Option<ParserAction> {
     let row = spec.actions.get(state as usize)?;
     if let Some(token) = token {
         let mut token_action = None;

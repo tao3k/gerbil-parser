@@ -1,0 +1,50 @@
+//! Complete descriptor + shared scanner AOT, with no language callbacks.
+#[path = "fixtures/records_contextual_generated.rs"]
+mod generated;
+use gerbil_parser_rowan::{parse, parse_contextual};
+#[test]
+fn contextual_lr_matches_canonical_lossless_tree() {
+    for source in [
+        "",
+        "α=1\n",
+        "a = 1\r\nb=\"β\"\n",
+        "name=value",
+        "a=\"x\"\"y\"\n",
+    ] {
+        let expected = parse(&generated::LANGUAGE, source).expect("canonical");
+        let actual = parse_contextual(&generated::CONTEXTUAL, source).expect("contextual");
+        assert_eq!(
+            format!("{:#?}", actual.syntax()),
+            format!("{:#?}", expected.syntax())
+        );
+        assert_eq!(actual.syntax().to_string(), source);
+        assert_eq!(
+            actual.receipt().parser_digest,
+            Some(generated::CONTEXTUAL.parser_digest)
+        );
+        assert_eq!(
+            actual.receipt().scanner_digest,
+            Some(generated::CONTEXTUAL.scanner.digest)
+        );
+    }
+}
+#[test]
+fn contextual_rejects_incomplete_source() {
+    for source in ["a=", "a=\"unclosed", "=1", "a=2"] {
+        assert!(parse_contextual(&generated::CONTEXTUAL, source).is_err());
+    }
+}
+
+#[test]
+fn scanner_from_another_grammar_is_rejected_before_execution() {
+    use gerbil_parser_rowan::{ContextualParserSpec, scanner::ScannerSpec};
+    static OTHER: ScannerSpec = ScannerSpec {
+        base_grammar_digest: None,
+        ..generated::contextual_scanner::SCANNER
+    };
+    static PRODUCT: ContextualParserSpec = ContextualParserSpec {
+        scanner: &OTHER,
+        ..generated::CONTEXTUAL
+    };
+    assert!(parse_contextual(&PRODUCT, "a=1").is_err());
+}

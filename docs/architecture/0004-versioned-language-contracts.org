@@ -240,7 +240,7 @@ emitted by =grammar.ss=. The macro seals engine identity and dispatch slots,
 checks optional extension contracts after prototype inheritance, and captures
 the descriptor in the parse method once. Parsing does not repeat slot lookup,
 POO admission, compilation or runtime initialization. The public authoring and
-extension examples are in =languages/README.md=.
+extension examples are in =languages/README.org=.
 
 The author's source-level scenarios use =defsyntax-fixture=, or
 =defsyntax-corpus= when a fixed upstream example set contains multiple files.

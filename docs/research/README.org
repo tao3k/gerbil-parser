@@ -1,13 +1,13 @@
-# Parser research
+#+title: Parser research
 
 Research documents explain algorithm choices and their relation to the public
 Grammar/Parser/Scanner IR. Executable correctness belongs in Scheme test suites;
-performance admission belongs in the ASP `benchmark.ss` contracts.
+performance admission belongs in the ASP =benchmark.ss= contracts.
 
-Use the repository's native harness and existing `Justfile` entries. Keep
+Use the repository's native harness and existing =Justfile= entries. Keep
 workloads, samples and thresholds in their Scheme owners. Research documentation
 has no generated result snapshots, separate JSON report schemas, source-rewriting
 instrumentation or runtime-binding replacement wrappers.
 
 The paper/framework synthesis remains in
-[scheme-parser-performance-framework.org](scheme-parser-performance-framework.org).
+[[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].

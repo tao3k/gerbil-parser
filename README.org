@@ -34,7 +34,7 @@ initialization; actor scheduling does not change the LR algorithm.
 GQL owns its performance contract, semantic profiling tests, component controls
 and actor request benchmarks beside its parser under
 =languages/gql/iso-39075-2024/=. See
-[[file:languages/gql/iso-39075-2024/benchmarks/README.md][GQL benchmark commands and measured cost boundaries]].
+[[file:languages/gql/iso-39075-2024/benchmarks/README.org][GQL benchmark commands and measured cost boundaries]].
 =just benchmark-gql= reports CPU/wall P50/P95, GC and allocation;
 =just benchmark-gql-actors= reports separate concurrent request batch costs.
 

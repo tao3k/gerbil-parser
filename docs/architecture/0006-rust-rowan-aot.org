@@ -386,7 +386,7 @@ The negative exported-descriptor assertion and all six original cases remain.
 
 GQL now owns its unchanged 40 x 100 admission contract, phase controls,
 monotonic/native timing diagnostics and semantic profiling tests beneath
-=languages/gql/iso-39075-2024=. See =benchmarks/README.md= there for executable
+=languages/gql/iso-39075-2024=. See =benchmarks/README.org= there for executable
 commands, batch versus per-parse units, local CPU/GC/allocation measurements
 and the boundaries of prepared controls versus actual streamed parsing.
 The optional =src/runtime/actor= library provides application-owned Gerbil

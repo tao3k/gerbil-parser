@@ -64,8 +64,13 @@ def main():
     environment = native_environment()
     environment["RUSTC_WRAPPER"] = str(root / "scripts/rustc-progress.py")
     native_root = args.gerbil_path.resolve()
+    # Immutable CI releases are relocated. Preserve their ~~ runtime mappings;
+    # replacing GAMBOPT makes gxc look for gsc at the release builder's path.
+    runtime_options = environment.get("GAMBOPT", "")
+    heap_options = "max-heap=1G,debug=q"
     environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=os.pathsep.join([str(native_root / "lib"), str(root)]),
-                       GAMBOPT="max-heap=1G,debug=q", GERBIL_PARSER_LR_TRACE="1", GERBIL_BUILD_VERBOSE="1")
+                       GAMBOPT=runtime_options + ("," if runtime_options else "") + heap_options,
+                       GERBIL_PARSER_LR_TRACE="1", GERBIL_BUILD_VERBOSE="1")
     logs = args.log_dir.resolve()
     logs.mkdir(parents=True, exist_ok=True)
 

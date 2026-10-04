@@ -71,8 +71,10 @@ modules, and all of its intermediate files are removed. Do not mix an
 unoptimized module with previously generated optimizer interfaces or consumers;
 rebuild the producer and consumers through their normal build owner.
 
-C hosts include `gerbil-parser/runtime.h`, initialize once, use generated pack
-factories and the generic language ABI, release all handles and results, and
+The C ABI headers and lifecycle implementation live together in
+`include/gerbil-parser/`; the bundle builder compiles `runtime.c` once with the
+SDK compiler. C hosts include `gerbil-parser/runtime.h`, initialize once, use
+generated pack factories and the generic language ABI, release all handles and results, and
 shut down on the initializing OS thread. Status `-2` retains a live runtime
 while C resources exist. Successful shutdown uses normal Gambit cleanup and
 permanently closes admission. Loading another Gambit VM or restarting this

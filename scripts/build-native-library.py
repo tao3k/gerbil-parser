@@ -50,7 +50,7 @@ def main():
             "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-fPIC", "-I" + str(Path(home) / "include"),
             "-I" + str(root / "include"),
             "-DGERBIL_PARSER_LINKER=___LNK_gpembed____exe__",
-            "-c", str(root / "native/runtime.c"), "-o", str(shim)], check=True)
+            "-c", str(root / "include/gerbil-parser/runtime.c"), "-o", str(shim)], check=True)
         # A fixed compiler output basename defines the SDK linker identifier.
         # The source module identity is unique to avoid static-cache collisions.
         bundle = directory / "gpembed"

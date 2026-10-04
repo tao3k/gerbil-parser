@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Bash 5.3 source syntax identity and stateful scanner ownership.
 
-(import (only-in :gerbil-parser/src/language/source
+(import (only-in :gerbil-parser/language-support
                  declare-source-language)
         (only-in ./parser-core parse-bash-core)
         (only-in ./scanner bash-scan))

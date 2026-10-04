@@ -228,7 +228,7 @@ languages/hcl/v2-24/
 
 =grammar.ss= owns the versioned identity and one =deflanguage-grammar= or
 =deflanguage-antlr4-grammar= declaration.  =parser.ss= uses
-=deflanguage-parser= with that descriptor to
+=deflanguage-parser-loader= with that descriptor to
 generate the public parse function; it cannot repeat or replace the identity,
 contract, or machine.  Fixtures and tests never move into =src/= and do not
 enter the =gparse= executable closure.

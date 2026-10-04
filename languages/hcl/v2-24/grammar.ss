@@ -1,10 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Version-pinned HCL native syntax grammar owner.
 
-(import (only-in :gerbil-parser/src/language/grammar deflanguage)
-        (only-in :gerbil-parser/src/compiler/machine
-                 install-parser-machine-direct-step! install-parser-machine-event-step!
-                 install-parser-machine-direct-source!)
+(import (only-in :gerbil-parser/language-support deflanguage)
         (only-in ./direct-step direct-step direct-event-step direct-grammar-digest)
         (only-in ./direct-recursive
                  direct-parse-hcl direct-hcl-grammar-digest))
@@ -182,13 +179,8 @@
   (flow
    (source lexical)
    (lexical hcl-structural-core)
-   (hcl-structural-core cst)))
-
-(install-parser-machine-direct-step!
- hcl-v2-24-parser direct-grammar-digest direct-step)
-
-(install-parser-machine-direct-source!
- hcl-v2-24-parser direct-hcl-grammar-digest direct-parse-hcl)
-
-(install-parser-machine-event-step!
- hcl-v2-24-parser direct-grammar-digest direct-event-step)
+   (hcl-structural-core cst))
+  (backends
+   (step direct-grammar-digest direct-step)
+   (source direct-hcl-grammar-digest direct-parse-hcl)
+   (event-step direct-grammar-digest direct-event-step)))

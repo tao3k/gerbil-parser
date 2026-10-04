@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Column-sensitive TLA+ syntax compiled by the language-neutral engine.
 
-(import (only-in :gerbil-parser/src/language/grammar deflanguage-grammar)
+(import (only-in :gerbil-parser/language-support deflanguage-grammar)
         ../source ../sany-scanner)
 (export (import: ../source)
         tla-plus-sany-candidate-language-grammar

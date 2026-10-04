@@ -6,7 +6,8 @@
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
                  lr-prepare lr-parse/prepared lr-runtime-for-current-semantic-backend
-                 lr-runtime-lexical-mode-catalog
+                 lr-runtime-lexical-mode-catalog lr-runtime-direct-step lr-runtime-event-step
+                 lr-runtime-event-program?
                  install-lr-runtime-direct-step! install-lr-runtime-event-step!)
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
@@ -38,6 +39,7 @@
         parser-machine-parse
         parser-machine-direct-drive
         parser-machine-direct-source
+        install-parser-machine-backends!
         install-parser-machine-direct-drive!
         install-parser-machine-direct-source!
         install-parser-machine-direct-step! install-parser-machine-event-step!)
@@ -182,6 +184,38 @@
                (procedure? step))
     (error "generated LR event step does not match parser machine" digest))
   (install-lr-runtime-event-step! (parser-machine-runtime machine) step))
+
+;;; Check the entire declaration before mutating any machine/runtime slot.
+;;; Each row is (kind exact-parser-ir-digest generated-procedure).
+(def (install-parser-machine-backends! machine rows)
+  (unless (and (parser-machine? machine) (list? rows))
+    (error "invalid parser backend declaration" rows))
+  (let ((seen '()) (runtime (parser-machine-runtime machine)))
+    (for-each
+     (lambda (row)
+       (unless (and (list? row) (= (length row) 3)
+                    (memq (car row) '(drive source step event-step))
+                    (not (memq (car row) seen))
+                    (string? (cadr row))
+                    (equal? (cadr row) (parser-machine-grammar-digest machine))
+                    (procedure? (caddr row)))
+         (error "invalid or stale parser backend declaration" row))
+       (when (case (car row)
+               ((drive) (parser-machine-direct-drive machine))
+               ((source) (parser-machine-direct-source machine))
+               ((step) (lr-runtime-direct-step runtime))
+               ((event-step) (or (lr-runtime-event-step runtime)
+                                (lr-runtime-event-program? runtime))))
+         (error "parser backend slot is already installed" (car row)))
+       (set! seen (cons (car row) seen))) rows)
+    (for-each
+     (lambda (row)
+       ((case (car row)
+          ((drive) install-parser-machine-direct-drive!)
+          ((source) install-parser-machine-direct-source!)
+          ((step) install-parser-machine-direct-step!)
+          ((event-step) install-parser-machine-event-step!))
+        machine (cadr row) (caddr row))) rows)))
 
 ;;; Expands one closed lexical algebra case into its ordinary scanner call.
 ;;; The templates preserve source/offset bindings; runtime behavior stays in scan.ss.

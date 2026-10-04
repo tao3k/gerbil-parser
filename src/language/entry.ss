@@ -13,7 +13,7 @@
                  parse-source-language source-language?
                  source-language-contract source-language-language
                  source-language-version))
-(export deflanguage-loader deflanguage-parser LanguageLoader. LanguageLoaderContract
+(export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         +language-parser-entry-schema+ language-parser-entry-ref parse-language-source)
 
 (def +language-parser-entry-schema+ "gerbil-parser.language-entry.v1")
@@ -28,6 +28,16 @@
     (parse-source (language-grammar-machine descriptor) source
                   (language-grammar-observability descriptor)))
    (else (error "language loader requires a language descriptor" descriptor))))
+
+(def (require-grammar-descriptor descriptor)
+  (unless (language-grammar? descriptor)
+    (error "grammar loader requires a generated language descriptor" descriptor))
+  descriptor)
+
+(def (require-source-descriptor descriptor)
+  (unless (source-language? descriptor)
+    (error "source loader requires a source language descriptor" descriptor))
+  descriptor)
 
 (def (descriptor-ref descriptor field)
   (if (source-language? descriptor)
@@ -84,7 +94,7 @@
 ;;; Public slot extensions are ordinary POO expressions and may inherit from
 ;;; a user prototype. Engine identity/dispatch slots are sealed by this macro.
 ;;; Additional contracts validate the effective object after inheritance.
-(defsyntax (deflanguage-loader stx)
+(defsyntax (deflanguage-parser-loader stx)
   (syntax-case stx (@ descriptor parse slots contracts grammar source)
     ((_ (binding :: loader-self prototype)
         (descriptor descriptor-value)
@@ -140,26 +150,24 @@
            (def parse-binding (.ref binding '.parse)))))
     ((_ (binding @ prototype) (descriptor descriptor-value)
         (parse parse-binding) (slots slot ...) (contracts extension-contract ...))
-     #'(deflanguage-loader (binding :: self prototype)
+     #'(deflanguage-parser-loader (binding :: self prototype)
          (descriptor descriptor-value) (parse parse-binding)
          (slots slot ...) (contracts extension-contract ...)))
     ((_ (binding @ prototype) (descriptor descriptor-value)
         (parse parse-binding) (slots slot ...))
-     #'(deflanguage-loader (binding @ prototype)
+     #'(deflanguage-parser-loader (binding @ prototype)
          (descriptor descriptor-value) (parse parse-binding)
          (slots slot ...) (contracts)))
     ((_ (binding @ prototype) (descriptor descriptor-value) (parse parse-binding))
-     #'(deflanguage-loader (binding @ prototype)
+     #'(deflanguage-parser-loader (binding @ prototype)
          (descriptor descriptor-value) (parse parse-binding) (slots) (contracts)))
     ((_ binding (descriptor descriptor-value) (parse parse-binding))
-     #'(deflanguage-loader (binding @ LanguageLoader.)
+     #'(deflanguage-parser-loader (binding @ LanguageLoader.)
          (descriptor descriptor-value) (parse parse-binding) (slots) (contracts)))
     ((_ binding (grammar descriptor-value) (parse parse-binding))
-     #'(deflanguage-loader binding (descriptor descriptor-value) (parse parse-binding)))
+     #'(deflanguage-parser-loader binding
+         (descriptor (require-grammar-descriptor descriptor-value)) (parse parse-binding)))
     ((_ binding (source descriptor-value) (parse parse-binding))
-     #'(deflanguage-loader binding (descriptor descriptor-value) (parse parse-binding)))
+     #'(deflanguage-parser-loader binding
+         (descriptor (require-source-descriptor descriptor-value)) (parse parse-binding)))
     (_ (raise-syntax-error #f "invalid language loader declaration" stx))))
-
-;;; Existing entries delegate to the same loader, never a second assembly path.
-(defrules deflanguage-parser ()
-  ((_ argument ...) (deflanguage-loader argument ...)))

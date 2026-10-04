@@ -9,7 +9,7 @@
                  make-failure-parse-artifact)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-branch-budget)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader)
         (only-in ./grammars/sany-candidate
                  tla-plus-sany-candidate-language-grammar
                  tla-plus-sany-candidate-parser))
@@ -17,7 +17,7 @@
         tla-plus-sany-candidate-parser
         parse-tla-plus-sany-candidate)
 
-(deflanguage-parser tla-plus-sany-candidate-language
+(deflanguage-parser-loader tla-plus-sany-candidate-language
   (grammar tla-plus-sany-candidate-language-grammar)
   (parse parse-tla-plus-sany-candidate/default-budget))
 

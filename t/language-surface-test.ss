@@ -11,7 +11,9 @@
         (only-in :gerbil-parser/src/compiler/normalize grammar-ir-ref)
         (only-in :gerbil-parser/src/compiler/machine
                  lexical-choice lexical-dispatch lexical-dispatch/ranked
-                 lexical-end)
+                 lexical-end install-parser-machine-backends!
+                 parser-machine-grammar-digest parser-machine-direct-drive
+                 parser-machine-direct-source)
         (only-in :gerbil-parser/src/language/grammar
                  deflanguage
                  deflanguage-grammar
@@ -220,3 +222,57 @@
 ;; gxtest discovers only exported names ending in -test.
 (def language-surface-test concise-v1-language-surface-tests)
 (export language-surface-test)
+
+;;; Generated source specializations may decline a shape and use ordinary LR.
+(def backend-source-fallback (lambda (_machine _source) #f))
+(deflanguage backend-admission-witness
+  (identity "backend-witness" "v1" "backend-witness.v1")
+  (root name)
+  (lex (identifier Identifier (identifier)))
+  (rules (name (node Name (field value identifier))))
+  (backends
+   (source (parser-machine-grammar-digest backend-admission-witness-parser)
+           backend-source-fallback)))
+
+(def (backend-rejects? thunk)
+  (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
+
+(def language-backend-test
+  (test-suite "Engine-owned parser backend admission"
+    (test-case "declarative source backend retains the ordinary LR fallback"
+      (check (eq? (parser-machine-direct-source backend-admission-witness-parser)
+                  backend-source-fallback) => #t)
+      (let (artifact (parse-source backend-admission-witness-parser "example"))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => "example")))
+    (test-case "a stale later row cannot partially install an earlier backend"
+      (check
+       (backend-rejects?
+        (lambda ()
+          (install-parser-machine-backends!
+           explicit-v1-witness-parser
+           (list (list 'drive (parser-machine-grammar-digest explicit-v1-witness-parser)
+                       (lambda _ #f))
+                 (list 'step "sha256:stale" (lambda _ #f)))))) => #t)
+      (check (parser-machine-direct-drive explicit-v1-witness-parser) => #f))
+    (test-case "unknown duplicate and occupied backend slots reject"
+      (let ((digest (parser-machine-grammar-digest explicit-v1-witness-parser))
+            (procedure (lambda _ #f)))
+        (for-each
+         (lambda (rows)
+           (check (backend-rejects?
+                   (lambda () (install-parser-machine-backends!
+                               explicit-v1-witness-parser rows))) => #t)
+           (check (parser-machine-direct-drive explicit-v1-witness-parser) => #f))
+         (list (list (list 'unknown digest procedure))
+               (list (list 'drive digest procedure) (list 'drive digest procedure))
+               (list (list 'drive digest #f))))
+        (check
+         (backend-rejects?
+          (lambda ()
+            (install-parser-machine-backends!
+             backend-admission-witness-parser
+             (list (list 'source
+                         (parser-machine-grammar-digest backend-admission-witness-parser)
+                         procedure))))) => #t)))))
+(export language-backend-test)

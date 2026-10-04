@@ -69,7 +69,7 @@
         lr-lexical-mode?
         lr-lexical-mode-id
         lr-lexical-mode-terminals
-        lr-runtime-lexical-mode-catalog lr-runtime-layout? lr-runtime-direct-step
+        lr-runtime-lexical-mode-catalog lr-runtime-layout? lr-runtime-direct-step lr-runtime-event-step
         install-lr-runtime-direct-step! install-lr-runtime-event-step!
         current-lr-event-program-enabled? lr-runtime-event-program?
         lr-runtime-for-current-semantic-backend

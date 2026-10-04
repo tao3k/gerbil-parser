@@ -6,7 +6,7 @@
 ;;; Native, lossless projection of the pinned normative ANTLR grammar.  This
 ;;; module owns syntax only; FHIR model navigation and function semantics are
 ;;; deliberately outside the parser authority.
-(import :gerbil-parser/src/language/grammar
+(import (only-in :gerbil-parser/language-support deflanguage)
         ./scanner
         ./source)
 (export (import: ./source)

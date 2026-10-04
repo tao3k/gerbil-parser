@@ -24,7 +24,7 @@ flowchart LR
   CA --> C
   C --> N[Canonical Grammar IR v1]
   C --> M[Hygienic native machine]
-  M --> E[deflanguage-loader]
+  M --> E[deflanguage-parser-loader]
   S[Source bytes] --> M
   M --> A[ParseArtifact v1]
   A --> R[Replay-only CST sinks]
@@ -83,14 +83,14 @@ bind consumers to the internal =src/= layout.  A
 supported language owns one directory at
 =languages/<language>/<version>/=.  Its =grammar.ss=, =parser.ss=,
 =fixtures.ss=, =parser-test.ss=, and =corpus/= are colocated.  The parser module
-declares its public boundary with =deflanguage-loader= and consumes the sole
+declares its public boundary with =deflanguage-parser-loader= and consumes the sole
 descriptor emitted by =grammar.ss=; it cannot introduce a second language
 identity, contract, machine, or language switch.
 
 A source language with context-sensitive lexical obligations can declare a
 =source-language= descriptor in =grammar.ss= instead of manufacturing an LR
 grammar for a different syntax.  Its declaration binds the language, version,
-contract, scanner, and parser once.  The same =deflanguage-loader= public entry
+contract, scanner, and parser once.  The same =deflanguage-parser-loader= public entry
 accepts =(source descriptor)=; the engine checks that every returned
 =ParseArtifact= is valid and carries the declared grammar and source digests.
 The parser can retain immutable scanner checkpoints with byte offsets and
@@ -229,7 +229,7 @@ entrypoint yields exactly one unfielded root.  The author does not modify
 The language's =parser.ss= then declares exactly one public entry:
 
 #+begin_src scheme
-(deflanguage-loader hcl-v2-24-language
+(deflanguage-parser-loader hcl-v2-24-language
   (grammar hcl-v2-24-language-grammar)
   (parse parse-hcl-v2-24))
 #+end_src

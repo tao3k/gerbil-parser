@@ -1,15 +1,19 @@
 # Language pack boundary
 
-Each language exposes one public `parser.ss` module. Its entry is defined with
-`deflanguage-loader` from `:gerbil-parser/language-support`. Grammar rules, lexical
+A language pack normally exposes its public entry in `parser.ss`. TLA+ retains
+a separate SANY candidate entry in `sany-candidate.ss`; its policy discrepancy
+is listed in the audit below. Every syntax-scope entry is defined with
+`deflanguage-parser-loader` from `:gerbil-parser/language-support`. Grammar rules, lexical
 roles and language-specific syntax remain in the pack; validation, compilation,
 artifact admission and parser assembly belong to the engine.
 
 ```scheme
 (import (only-in :gerbil-parser/language-support
-                 deflanguage-loader LanguageLoader.))
+                 deflanguage-parser-loader LanguageLoader.)
+        ./grammar)
+(export example-language parse-example)
 
-(deflanguage-loader example-language
+(deflanguage-parser-loader example-language
   (grammar example-language-grammar)
   (parse parse-example))
 ```
@@ -29,7 +33,7 @@ check the effective inherited object before its parse entry is published.
 ```scheme
 (import (only-in :clan/poo/object .ref))
 
-(deflanguage-loader (example-language :: self ExampleDialect.)
+(deflanguage-parser-loader (example-language :: self ExampleDialect.)
   (descriptor example-language-grammar)
   (parse parse-example)
   (slots display-name: "Example"
@@ -50,7 +54,10 @@ own artifact/capability checks.
 ## Grammar DSL
 
 Native grammar packs use `deflanguage`: `identity`, `root`, `lex` and `rules`
-define the syntax. The engine infers syntax kinds, fields, terminals and lexical
+define the syntax. `extras`, `keywords` and `recoveries` default to empty;
+`conflicts` defaults to `reject` and `case-insensitive` to `#f`. Optional sections
+can be declared in any order; unknown or duplicate sections reject.
+The engine infers syntax kinds, fields, terminals and lexical
 rules. Alternatives of the same named node contribute to one field catalog.
 Use explicit `(token name)` or `(reference name)` when both namespaces contain
 the same name; an ambiguous bare identifier is rejected.
@@ -59,6 +66,25 @@ the same name; an ambiguous bare identifier is rejected.
 contract, without repeating the complete inferred catalog. `flow` can retain a
 pack's phase names; the default is source → lexical → parser → CST. The engine
 validates both through the same canonical Grammar IR compiler.
+
+A minimal `grammar.ss` is:
+
+```scheme
+(import (only-in :gerbil-parser/language-support deflanguage))
+(export example-language-grammar)
+
+(deflanguage example
+  (identity "example" "v1" "example.syntax.v1")
+  (root document)
+  (lex (word Identifier (identifier)))
+  (rules (document (node SourceFile (field name word)))))
+```
+
+The `parser.ss` example above imports `./grammar` and exports
+`example-language` and `parse-example`. The compiler generates
+`example-language-grammar`; the pack does not write its own terminal catalog,
+Parser IR assembler, backend installer or Rust/C bridge. Product generation
+still uses the engine's build entrypoints and each target's capability admission.
 
 Imported ANTLR/ISO-BNF grammars keep their source-admission DSL; they produce the
 same generated descriptor and use the same loader. Bash's handwritten source
@@ -75,3 +101,123 @@ boundaries. Their shared-IR migration is not implied by entry unification.
 - Generated backends: engine-owned IR derivations. Existing checked-in HCL and
   arithmetic specializations still require digest checks and deterministic
   regeneration; they are not an authoring requirement for new packs.
+
+## `deflanguage-parser-loader` contract
+
+This is the single public macro name. The former `deflanguage-parser` and
+`deflanguage-loader` names have been removed from this development branch;
+existing packs and the external record-pack fixture use the canonical name.
+`LanguageLoader.` is its POO prototype and `LanguageLoaderContract` is the
+engine admission contract.
+
+The declaration defines two bindings: the admitted loader object and the
+procedure named in `(parse ...)`. It does not read files, resolve package names,
+start a VM, emit C or Rust, or compile a grammar on a parse request.
+
+The following forms show the arguments after `deflanguage-parser-loader`.
+
+| Form | Required input | Result |
+| --- | --- | --- |
+| `(name (grammar descriptor) (parse procedure))` | Generated `language-grammar` descriptor | Grammar/Parser IR Scheme entry |
+| `(name (source descriptor) (parse procedure))` | `source-language` descriptor | Scheme source entry |
+| `(name (descriptor descriptor) (parse procedure))` | Either descriptor type | Descriptor-selected entry |
+| `((name @ prototype) (descriptor descriptor) (parse procedure) (slots ...) (contracts ...))` | POO parent plus either descriptor | Inherited extension object, then engine and extension admission |
+| `((name :: self prototype) (descriptor descriptor) (parse procedure) (slots ...) (contracts ...))` | Same, with an explicit self binding | Computed extension slots can refer to the effective object |
+
+For `@`, `slots` and `contracts` may be omitted. For the explicit `self` form,
+write both sections, including empty `(slots)` / `(contracts)` when appropriate.
+The `grammar` and `source` forms reject a descriptor of the other kind.
+
+Protected slots are `schema`, `descriptor`, `language`, `version`, `contract`,
+`capabilities`, and `.parse`. The macro rejects direct extension overrides and
+binds these slots at the leaf so inherited methods cannot replace them.
+User slots can describe dialects, editor services, query/projection services,
+and other language-specific options; additional POO contracts constrain these
+slots after inheritance. Adding a slot alone does not make the recognition
+engine consume it. New recognition policies require an engine-owned consumer
+and a defined artifact/capability contract.
+
+`language-parser-entry-ref` reads metadata. The exported parse binding captures
+the descriptor once; it performs no per-call POO lookup or extension admission.
+A prototype's own `.parse` cannot override engine recognition. General POO
+updates to a separate object do not rebind an already exported parse procedure;
+create a new loader declaration when defining a different language entry.
+
+The language-independent C ABI currently admits descriptors through
+`register-native-language!`. Its current codec requires a generated
+`language-grammar` descriptor; Bash source descriptors are not admitted by that
+codec. It does not serialize loader slots or POO callbacks.
+Standalone Rust AOT consumes admitted portable IR. Neither path automatically
+inherits arbitrary Scheme extension behavior. A policy shared across Scheme,
+C ABI and Rust must first have an explicit portable representation, or remain
+an explicitly Scheme-only capability.
+
+## Generated backend declarations
+
+`deflanguage` accepts an optional `backends` section for existing generated
+specializations. Packs declare what they supply; the engine installs it.
+
+```scheme
+(backends
+ (step direct-grammar-digest direct-step)
+ (source direct-hcl-grammar-digest direct-parse-hcl)
+ (event-step direct-grammar-digest direct-event-step))
+```
+
+The closed kinds are `drive`, `source`, `step`, and `event-step`. The engine
+checks every row's kind, exact Parser IR digest, procedure, duplicate kind, and
+occupied slot before installing any row. A rejected later row cannot leave an
+earlier backend installed. This check establishes identity and assembly safety;
+semantic equivalence still requires regeneration and language conformance tests.
+The declaration is excluded from Grammar/Parser IR, so installing the same
+specialization does not change syntax identity. New ordinary language packs do
+not need a specialization or this section.
+
+## Migration audit and remaining engine work
+
+This inventory describes implementation boundaries, not equivalent syntax
+coverage across the languages.
+
+| Pack | Current authoring / entry | Remaining work |
+| --- | --- | --- |
+| Arithmetic v1 | Concise DSL, canonical loader, declarative generated drive | Replace the retained specialization only when a generic engine strategy proves equivalent |
+| HCL v2.24 | Concise DSL, canonical loader, declarative step/source/event backends | Retained source/event generator still contains HCL-specific lowering assumptions |
+| HL7 v2.5.1 | Concise DSL, canonical loader | Message-local ER7 delimiter scanners remain Scheme callbacks; portable scanner lowering is unqualified |
+| FHIRPath v2.0.0 | Concise DSL, canonical loader | Domain projection stays in the pack; custom scanner portability requires separate admission |
+| openCypher 2024.1 | Pinned ISO-BNF admission, canonical loader | Keep source identity and engine source normalization; no duplicate native grammar is needed |
+| GQL ISO-39075-2024 | Pinned ANTLR4 admission, canonical loader | Graph domain semantics remain in the pack; general parser/actor/transport mechanisms belong to the engine |
+| TLA+ core/layout/SANY candidate | Three explicit grammar scopes, canonical loaders | Migrate all three verbose catalogs to concise DSL with exact rule/scanner/field equivalence; reconcile candidate policy below |
+| Bash 5.3 | Source descriptor, canonical loader | Stateful scanner and handwritten recognition are not shared Scanner/Parser IR or standalone Rust AOT |
+
+The next structural work has the following dependency order:
+
+1. **Unify SANY candidate policy.** `sany-candidate.ss` currently exports a
+   wrapper that sets branch budget 4096 and validates proof levels, while its
+   loader `.parse` binds the underlying parser. These entries differ. The
+   engine must own recognition-budget application and post-parse artifact
+   rejection, including lossless token retention. The proof-level rule itself
+   remains TLA+-owned. Put policy admission in the descriptor/engine boundary
+   before claiming the same behavior through C ABI or Rust; replacing `.parse`
+   with an unchecked POO callback would bypass the loader contract.
+2. **Migrate TLA+ catalogs.** Preserve core/layout/candidate identities and
+   lexical declaration order, compare canonical rules/LR tables/layout/external
+   scanner declarations and node fields, then run their scope conformance
+   suites. Merging the three scopes into one grammar would change coverage and
+   admission; directory naming alone cannot establish this migration.
+3. **Lower stateful scanners into shared IR.** Bash here-document queues,
+   quote/context state and word nesting, HL7 message-local delimiters, and TLA+
+   source-sensitive scanning need explicit state transitions, checkpoint
+   ownership and byte-offset behavior. Generic state/storage/checkpoint
+   mechanisms belong to the engine; delimiter/word/proof rules stay in packs.
+   Scheme and Rust must consume the same admitted representation before pure
+   Rust capability is advertised.
+4. **Converge recognition/artifact assembly.** Bash still constructs fallback
+   tokens and success/failure artifacts in `parser-core.ss`; SANY reconstructs
+   rejection tokens in its wrapper. A shared engine result boundary should own
+   these mechanisms and preserve language-specific diagnostics and deferred
+   here-document span links. Move them with lossless accepted/rejected and
+   UTF-8 span witnesses, not by copying language functions into another folder.
+5. **Generalize retained generators.** HCL and Arithmetic checked-in backends
+   are version-pinned exceptions. General strategy selection, emission and
+   digest admission belong to the engine; syntax-specific assumptions must be
+   represented and validated before their generated modules can be replaced.

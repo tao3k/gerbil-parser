@@ -3,12 +3,12 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import (only-in :gerbil-parser/language-support deflanguage-loader)
+(import (only-in :gerbil-parser/language-support deflanguage-parser-loader)
         ./grammar)
 (export (import: ./grammar)
         fhirpath-v2-language
         parse-fhirpath-v2)
 
-(deflanguage-loader fhirpath-v2-language
+(deflanguage-parser-loader fhirpath-v2-language
   (grammar fhirpath-v2-language-grammar)
   (parse parse-fhirpath-v2))

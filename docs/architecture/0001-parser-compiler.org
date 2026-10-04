@@ -59,7 +59,7 @@ $
 =build.ss= discovers Gerbil modules and owns AOT staging.  A language's
 =grammar.ss= contains one declaration that generates grammar, parser IR,
 machine, and descriptor bindings.  Its =parser.ss= contains only the public
-=deflanguage-parser= entry.  Tests live under =t/= or beside a versioned
+=deflanguage-parser-loader= entry.  Tests live under =t/= or beside a versioned
 language pack and benchmarks use the ASP Gerbil Scheme benchmark API.
 
 The repository owns no Rust, Rowan, language-specific AST, semantic-analysis,

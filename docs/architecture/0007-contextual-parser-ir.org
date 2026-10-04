@@ -146,7 +146,7 @@ syntax grammar.
    the product digest and checkpoint admission change.
 4. A clean downstream build consumes the generated Rust product without
    Gerbil at parse time. The =parser.ss= of each language pack contains only its
-   public =deflanguage-parser= entry.
+   public =deflanguage-parser-loader= entry.
 
 Until these gates pass, the Bash prototype is an experimental behavioral
 oracle. Passing its Scheme tests alone does not qualify a versioned language

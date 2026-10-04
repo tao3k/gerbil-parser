@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Public versioned Bash parser entry and here-document span receipt.
 
-(import (only-in :gerbil-parser/language-support deflanguage-loader)
+(import (only-in :gerbil-parser/language-support deflanguage-parser-loader)
         (only-in :gerbil-parser/src/language/source
                  source-language-digest)
         (only-in ./grammar bash-v5-3-source-language)
@@ -18,7 +18,7 @@
         bash-here-document-link-marker-start
         bash-here-document-link-body-start)
 
-(deflanguage-loader bash-v5-3-language
+(deflanguage-parser-loader bash-v5-3-language
   (source bash-v5-3-source-language)
   (parse parse-bash-v5-3))
 

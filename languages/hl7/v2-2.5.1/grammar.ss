@@ -3,7 +3,7 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import :gerbil-parser/src/language/grammar
+(import (only-in :gerbil-parser/language-support deflanguage)
         ./scanner)
 (export +hl7v2-language-version+
         +hl7v2-syntax-contract+

@@ -5,10 +5,11 @@
         (only-in :clan/poo/mop define-type element? validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in :gerbil-parser/src/language/entry
-                 deflanguage-loader LanguageLoader. LanguageLoaderContract
+                 deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
                  language-parser-entry-ref)
         (only-in :gerbil-parser/languages/arithmetic/v1/grammar
                  arithmetic-language-grammar)
+        (only-in :gerbil-parser/src/language/source declare-source-language)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip))
 
@@ -30,7 +31,7 @@
                   'loader-test/dialect candidate ok?
                   (if ok? '() '((invalid dialect))) context))))
 
-(deflanguage-loader (arithmetic-loader :: self Dialect.)
+(deflanguage-parser-loader (arithmetic-loader :: self Dialect.)
   (descriptor arithmetic-language-grammar)
   (parse parse-loaded-arithmetic)
   (slots dialect-name: "Arithmetic"
@@ -48,12 +49,12 @@
    #'engine-slot-rejection-message
    (string-append
     (message
-     #'(deflanguage-loader (invalid-loader @ LanguageLoader.)
+     #'(deflanguage-parser-loader (invalid-loader @ LanguageLoader.)
          (descriptor #f) (parse invalid-parse)
          (slots (.parse (lambda (_) #f))) (contracts)))
     " | "
     (message
-     #'(deflanguage-loader (invalid-keyword-loader @ LanguageLoader.)
+     #'(deflanguage-parser-loader (invalid-keyword-loader @ LanguageLoader.)
          (descriptor #f) (parse invalid-keyword-parse)
          (slots schema: "invalid") (contracts))))))
 
@@ -85,11 +86,25 @@
     (test-case "rejects engine slot overrides during macro expansion"
       (check (engine-slot-rejection-message)
              => "language loader extension overrides an engine slot | language loader extension overrides an engine slot"))
+    (test-case "grammar and source declarations enforce their descriptor kind"
+      (let (source-descriptor
+            (declare-source-language "source-test" "v1" "source-test.v1"
+                                     (lambda _ #f) (lambda _ #f)))
+        (check
+         (rejects? (lambda ()
+                     (deflanguage-parser-loader wrong-grammar
+                       (grammar source-descriptor) (parse parse-wrong-grammar))
+                     wrong-grammar)) => #t)
+        (check
+         (rejects? (lambda ()
+                     (deflanguage-parser-loader wrong-source
+                       (source arithmetic-language-grammar) (parse parse-wrong-source))
+                     wrong-source)) => #t)))
     (test-case "extension contracts validate the effective slot object"
       (check
        (rejects?
         (lambda ()
-          (deflanguage-loader (invalid-dialect @ Dialect.)
+          (deflanguage-parser-loader (invalid-dialect @ Dialect.)
             (descriptor arithmetic-language-grammar)
             (parse parse-invalid-dialect)
             (slots (dialect 'other))

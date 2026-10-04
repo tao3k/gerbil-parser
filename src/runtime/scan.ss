@@ -5,7 +5,8 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in ./token make-token))
 
-(export scan-whitespace
+(export identifier-start? horizontal-whitespace? newline?
+        scan-whitespace
         scan-horizontal-whitespace
         scan-newline
         scan-line
@@ -41,12 +42,12 @@
 ;; identifier-start?
 ;; : (-> Char Boolean)
 (def (identifier-start? ch)
-  (any-of (list char-alphabetic? (cut char=? <> #\_)) ch))
+  (or (char-alphabetic? ch) (char=? ch #\_)))
 
 ;; identifier-rest?
 ;; : (-> Char Boolean)
 (def (identifier-rest? ch)
-  (any-of (list identifier-start? char-numeric? (cut char=? <> #\-)) ch))
+  (or (identifier-start? ch) (char-numeric? ch) (char=? ch #\-)))
 
 ;; scan-nonempty-while
 ;; : (-> Procedure Procedure String Fixnum Fixnum)
@@ -62,7 +63,7 @@
 ;; horizontal-whitespace?
 ;; : (-> Char Boolean)
 (def (horizontal-whitespace? ch)
-  (any-of (list (cut char=? <> #\space) (cut char=? <> #\tab)) ch))
+  (or (char=? ch #\space) (char=? ch #\tab)))
 
 ;; scan-horizontal-whitespace
 ;; : (-> String Fixnum Fixnum)
@@ -73,7 +74,7 @@
 ;; newline?
 ;; : (-> Char Boolean)
 (def (newline? ch)
-  (any-of (list (cut char=? <> #\newline) (cut char=? <> #\return)) ch))
+  (or (char=? ch #\newline) (char=? ch #\return)))
 
 ;; scan-newline
 ;; : (-> String Fixnum Fixnum)

@@ -1,21 +1,25 @@
 ;;; -*- Gerbil -*-
 ;;; Parser-owned C ABI for language-selected ParseArtifact v1 surfaces.
 
-(import (only-in :std/vector/u8vector little u8vector-u32-set! u8vector-u64-set!)
+(import (only-in :std/crypto/digest sha256)
+        (only-in ../runtime/token token-kind token-start token-end)
+        (only-in :std/vector/u8vector little u8vector-u32-set! u8vector-u64-set!)
         (only-in :std/list/list delete-duplicates/hash)
         :std/encoding/json
         (only-in :std/encoding/hex hex-decode)
         (only-in ../grammar/algebra grammar-expression-fields)
         (only-in ../language/descriptor language-grammar-grammar language-grammar-language language-grammar-machine)
-        (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref)
+        (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
         (only-in ../language/entry parse-language-source)
-        (only-in ../runtime/parser prepare-contextual-parser parse-source/contextual/prepared))
+        (only-in ../runtime/parser prepare-contextual-parser parse-source/contextual/prepared
+                 parse-source/contextual/prepared/deferred))
 (export make-native-language-context
         bind-native-language
         native-language?
         native-abi-version
         native-descriptor-payload
         native-parse-binary-payload
+        native-parse-binary-payload/bytes
         native-error-payload)
 
 (def +gerbil-parser-native-abi-version+ 1)
@@ -32,7 +36,7 @@
            (lambda (port) (display-exception exception port)))))))
 
 (defstruct native-language
-  (id grammar parser syntax-kind-index terminal-index field-symbols field-index)
+  (id grammar parser syntax-kind-index terminal-index field-symbols field-index plan)
   transparent: #t)
 
 (def (grammar-section grammar name)
@@ -86,7 +90,7 @@
      (indexed-symbols (map car (grammar-section grammar 'syntax-kinds)))
      (indexed-symbols (map car (grammar-section grammar 'terminals)))
      field-symbols
-     (indexed-symbols field-symbols))))
+     (indexed-symbols field-symbols) #f)))
 
 (def (required-index table symbol domain)
   (or (hash-get table symbol)
@@ -162,6 +166,80 @@
               (iota (length events)))
     payload))
 
+;;; Validate/count without event objects, then publish one exact-sized buffer.
+;;; Both passes consume the same immutable recognition/program representation.
+;;; The thunk keeps binary allocation/catalog failures outside the parse catch.
+(def (native-event-payload language grammar-digest source-digest walk)
+  (let (count 0)
+    (def (count-node _tag _id _kind _position) (set! count (+ count 1)))
+    (def (count-field _tag _field _position) (set! count (+ count 1)))
+    (def (count-token _id _token) (set! count (+ count 1)))
+    (walk count-node count-field count-token)
+    (lambda ()
+      (let ((payload (make-u8vector (+ +binary-header-size+ (* count +binary-event-size+)) 0))
+            (row 0))
+        (def (emit-row! tag index id start end)
+          (let (offset (+ +binary-header-size+ (* row +binary-event-size+)))
+            (u8vector-u32-set! payload offset tag little)
+            (u8vector-u32-set! payload (+ offset 4) index little)
+            (u8vector-u64-set! payload (+ offset 8) id little)
+            (u8vector-u32-set! payload (+ offset 16) start little)
+            (u8vector-u32-set! payload (+ offset 20) end little)
+            (set! row (+ row 1))))
+        (def (emit-node! tag id kind position)
+          (emit-row! (if (eq? tag 'start-node) 1 2)
+                     (required-index (native-language-syntax-kind-index language) kind 'syntax-kind)
+                     id (if (eq? tag 'start-node) position 0)
+                     (if (eq? tag 'finish-node) position 0)))
+        (def (emit-field! tag field position)
+          (emit-row! (if (eq? tag 'start-field) 3 4)
+                     (required-index (native-language-field-index language) field 'field)
+                     0 (if (eq? tag 'start-field) position 0)
+                     (if (eq? tag 'finish-field) position 0)))
+        (def (emit-token! id token)
+          (emit-row! 5 (required-index (native-language-terminal-index language)
+                                      (token-kind token) 'token-kind)
+                     id (token-start token) (token-end token)))
+        (walk emit-node! emit-field! emit-token!)
+        (unless (= row count) (error "native event count changed during publication"))
+        (subu8vector-move! #u8(71 80 65 49) 0 4 payload 0)
+        (u8vector-u32-set! payload 4 1 little)
+        (u8vector-u32-set! payload 12 count little)
+        (copy-digest! payload 16 grammar-digest)
+        (subu8vector-move! source-digest 0 32 payload 48)
+        payload))))
+
+(def (native-parse-binary-payload/bytes language bytes)
+  (let (source (utf8->string bytes))
+    ;; Preserve strict admission even on decoders that replace invalid sequences.
+    (unless (equal? bytes (string->utf8 source))
+      (error "native source is not canonical UTF-8"))
+    (let (plan (native-language-plan language))
+      (if (not plan)
+        (native-parse-binary-payload language source)
+        (let ((source-byte-length (u8vector-length bytes)) (source-digest (sha256 bytes)))
+          (parse-source/contextual/prepared/deferred
+           plan source source-byte-length
+           (lambda (digest _source tokens root trivia?)
+             (native-event-payload
+              language digest source-digest
+              (lambda (node-emitter field-emitter token-emitter)
+                (with-parse-event-walk tokens root trivia? source-byte-length
+                                      node-emitter field-emitter token-emitter))))
+           (lambda (_machine digest _source tokens _condition)
+             (let (publish
+                   (native-event-payload
+                    language digest source-digest
+                    (lambda (_node-emitter _field-emitter token-emitter)
+                      (let loop ((remaining tokens) (id 0))
+                        (when (pair? remaining)
+                          (token-emitter id (car remaining))
+                          (loop (cdr remaining) (+ id 1)))))))
+               (lambda ()
+                 (let (payload (publish))
+                   (u8vector-u32-set! payload 8 1 little)
+                   payload))))))))))
+
 (def (native-descriptor-payload language)
   (begin
     (json->string
@@ -186,10 +264,13 @@
 
 ;;; A language pack supplies its descriptor once; no builtin language imports.
 (def (bind-native-language descriptor (contextual-product #f))
-  (let (plan (and contextual-product
-                 (prepare-contextual-parser (language-grammar-machine descriptor) contextual-product)))
-    (make-native-language-context
-     (language-grammar-language descriptor) descriptor
-     (lambda (source)
-       (if plan (parse-source/contextual/prepared plan source)
-           (parse-language-source descriptor source))))))
+  (let* ((plan (and contextual-product
+                    (prepare-contextual-parser (language-grammar-machine descriptor) contextual-product)))
+         (language
+          (make-native-language-context
+           (language-grammar-language descriptor) descriptor
+           (lambda (source)
+             (if plan (parse-source/contextual/prepared plan source)
+                 (parse-language-source descriptor source))))))
+    (native-language-plan-set! language plan)
+    language))

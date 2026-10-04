@@ -3,7 +3,7 @@
 ;;; closed engine opcodes; a language contributes data, never a scan callback.
 
 (import (only-in ./scan
-                 make-literal-end-scanner
+                 make-literal-end-scanner identifier-start? horizontal-whitespace? newline?
                  scan-balanced-word scan-horizontal-whitespace scan-identifier
                  scan-line scan-longest-literal scan-newline
                  scan-quoted-strings)
@@ -95,15 +95,15 @@
                                   (let (scanner (make-literal-end-scanner values))
                                     (table-set! literal-cache values scanner)
                                     scanner)))
-                  (list 'literal-trie scanner))
+                  (list 'literal-trie scanner values))
                 matcher))
-             (['literal-trie _]
+             (['literal-trie . _]
               (error "private contextual scanner matcher in input IR"))
              (else matcher)))
        (make-runtime-scan-rule name mode form prepared rank action)))
     (else (error "invalid contextual scanner rule" row))))
 
-(def (index-rules rows source-length)
+(def (index-rules rows source-length (prefix-index? #f))
   (let ((index (make-table test: eq?))
         (literal-cache (make-table test: equal?)))
     (for-each
@@ -113,7 +113,91 @@
          (table-set! index mode
                      (cons rule (table-ref index mode '())))))
      (reverse rows))
+    (when prefix-index?
+      ;; Publish only after the entire ordered mode row is prepared.
+      (for-each (lambda (entry)
+                  (table-set! index (car entry) (prepare-first-character-rules (cdr entry))))
+                (table->list index)))
     index))
+
+;;; Prefix pruning admits every rule that could match. Stateful and unknown
+;;; opcode families remain universal candidates, retaining their executor and
+;;; source-order tie/ambiguity semantics. No candidate list is built per token.
+(defstruct first-character-rules (ascii wide alpha other))
+(def (literal-first-characters values)
+  (if (any (lambda (value) (zero? (string-length value))) values)
+    'any
+    (let (characters (make-table test: eqv?))
+      (for-each (lambda (value) (table-set! characters (string-ref value 0) #t)) values)
+      characters)))
+(def (rule-first-characters rule)
+  (match (runtime-scan-rule-matcher rule)
+    (['literal value] (literal-first-characters (list value)))
+    (['literals values] (literal-first-characters values))
+    (['literal-trie _ values] (literal-first-characters values))
+    (['quoted-string delimiters] (literal-first-characters delimiters))
+    (['identifier] 'identifier)
+    (['horizontal-whitespace+] 'horizontal)
+    ((or ['newline] ['newline-one]) 'newline)
+    (else 'any)))
+(def (first-character-admits? hint character)
+  (case hint
+    ((any) #t)
+    ((identifier) (identifier-start? character))
+    ((horizontal) (horizontal-whitespace? character))
+    ((newline) (newline? character))
+    (else (table-ref hint character #f))))
+(def (merge-ordered-rule-references left right)
+  (cond ((null? left) right)
+        ((null? right) left)
+        ((< (caar left) (caar right))
+         (cons (car left) (merge-ordered-rule-references (cdr left) right)))
+        (else (cons (car right) (merge-ordered-rule-references left (cdr right))))))
+(def (prepare-first-character-rules rules)
+  (let* ((references (map cons (iota (length rules)) rules))
+         (hints (map (lambda (reference)
+                       (cons reference (rule-first-characters (cdr reference)))) references))
+         (ascii (make-vector 128 '()))
+         (wide (make-table test: eqv?))
+         (alpha (map car (filter (lambda (entry) (memq (cdr entry) '(any identifier))) hints)))
+         (other (map car (filter (lambda (entry) (eq? (cdr entry) 'any)) hints))))
+    (let loop ((code 0))
+      (when (< code 128)
+        (let (character (integer->char code))
+          (vector-set! ascii code
+                       (map (lambda (entry) (cdar entry))
+                            (filter (lambda (entry) (first-character-admits? (cdr entry) character)) hints))))
+        (loop (+ code 1))))
+    ;; Each finite prefix is inserted once per rule. Universal/class rows are
+    ;; merged in original order; Unicode prefix construction avoids U*R scans.
+    (for-each
+     (lambda (entry)
+       (let ((reference (car entry)) (hint (cdr entry)))
+         (unless (symbol? hint)
+           (for-each
+            (lambda (prefix)
+              (let (character (car prefix))
+                (when (>= (char->integer character) 128)
+                  (table-set! wide character
+                              (cons reference (table-ref wide character '()))))))
+            (table->list hint)))))
+     (reverse hints))
+    (for-each
+     (lambda (entry)
+       (let ((character (car entry)) (specific (cdr entry)))
+         (table-set! wide character
+                     (map cdr (merge-ordered-rule-references
+                               (if (identifier-start? character) alpha other) specific)))))
+     (table->list wide))
+    (make-first-character-rules ascii wide (map cdr alpha) (map cdr other))))
+(def (first-character-candidates index character)
+  (let (code (char->integer character))
+    (if (< code 128)
+      (vector-ref (first-character-rules-ascii index) code)
+      (or (table-ref (first-character-rules-wide index) character #f)
+          (if (identifier-start? character)
+            (first-character-rules-alpha index)
+            (first-character-rules-other index))))))
 
 (def (index-cells/hash cells)
   (let ((index (make-table test: equal?))
@@ -204,7 +288,7 @@
   (let (owned (snapshot-scanner-ir ir))
     (validate-scanner-ir! owned)
     (let* ((rules (ir-ref owned 'rules))
-           (short-rules (index-rules rules 0))
+           (short-rules (index-rules rules 0 #t))
            (has-trie? (any (lambda (row)
                             (match (list-ref row 3)
                               (['literals values] (>= (length values) 128))
@@ -212,7 +296,7 @@
       (make-contextual-scanner-plan
        (ir-ref owned 'digest) (ir-ref owned 'initial-mode)
        (ir-ref owned 'modes) (ir-ref owned 'positions)
-       short-rules (if has-trie? (index-rules rules 64) short-rules)
+       short-rules (if has-trie? (index-rules rules 64 #t) short-rules)
        (index-cells (ir-ref owned 'cells))))))
 
 (def (prepare-contextual-scanner ir source)
@@ -374,7 +458,7 @@
 (def (matcher-end source start expression state)
   (match expression
     (['literal value] (literal-end source start value))
-    (['literal-trie scanner] (scanner source start))
+    (['literal-trie scanner _values] (scanner source start))
     (['literals values]
      (let (found (scan-longest-literal source start values))
        (and found (+ start (string-length found)))))
@@ -422,8 +506,13 @@
                                (runtime-scan-rule-matcher rule) state))
          (if end (prefer-match current (make-scan-match rule end)) current)))
    #f
-   (table-ref (contextual-scanner-rules scanner)
-              (contextual-scan-state-mode state) '())))
+   (let (rules (table-ref (contextual-scanner-rules scanner)
+                          (contextual-scan-state-mode state) '()))
+     (if (first-character-rules? rules)
+       (first-character-candidates rules
+         (string-ref (contextual-scanner-source scanner)
+                     (contextual-scan-state-character-offset state)))
+       rules))))
 
 (def (result-kind scanner mode position form)
   (let* ((index (contextual-scanner-cells scanner))

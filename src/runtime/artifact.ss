@@ -31,6 +31,7 @@
         make-failure-parse-artifact
         parse-artifact-ref
         parse-artifact-events
+        with-parse-event-walk
         parse-artifact-status
         parse-artifact-success?
         parse-artifact-valid?
@@ -124,13 +125,12 @@
 ;;; Node/token identifiers are allocated once; source gaps become trivia only here.
 ;; recognition-events
 ;; : (-> List Recognition Boolean Fixnum List)
-(def (recognition-events tokens root trivia? source-byte-length)
-  (let* ((remaining tokens) (events (cons #f '())) (tail events)
+(defrule (with-recognition-event-walk tokens root trivia? source-byte-length
+                                            node-emitter field-emitter token-emitter)
+  (let* ((remaining tokens)
          (next-node-id 0) (next-token-id 0))
-    (def (emit! event)
-      (let (cell (cons event '())) (set-cdr! tail cell) (set! tail cell)))
     (def (emit-source-token! source-token)
-      (emit! (make-token-event next-token-id source-token))
+      (token-emitter next-token-id source-token)
       (set! next-token-id (+ next-token-id 1))
       (set! remaining (cdr remaining)))
     (def (emit-trivia-until! boundary)
@@ -174,32 +174,46 @@
         (when root? (error "parse root must be a recognition node" value))
         (let ((start (+ delta (token-start value))) (end (+ delta (token-end value))))
           (emit-trivia-until! start)
-          (when field (emit! (vector 'start-field field start)))
+          (when field (field-emitter 'start-field field start))
           (emit-token! value delta translated?)
-          (when field (emit! (vector 'finish-field field end)))))
+          (when field (field-emitter 'finish-field field end))))
        ((recognition-node? value)
         (let* ((start (if root? 0 (+ delta (recognition-node-start value))))
                (end (if root? source-byte-length (+ delta (recognition-node-end value))))
                (id next-node-id) (kind (recognition-node-kind value)))
           (emit-trivia-until! start)
-          (when field (emit! (vector 'start-field field start)))
+          (when field (field-emitter 'start-field field start))
           (set! next-node-id (+ next-node-id 1))
-          (emit! (vector 'start-node id kind start))
+          (node-emitter 'start-node id kind start)
           (emit-children! (recognition-node-children value) end delta translated?)
-          (emit! (vector 'finish-node id kind end))
-          (when field (emit! (vector 'finish-field field end)))))
+          (node-emitter 'finish-node id kind end)
+          (when field (field-emitter 'finish-field field end))))
        ((recognition-fragment? value)
         (when root? (error "parse root must be a recognition node" value))
         (let ((start (+ delta (recognition-fragment-start value)))
               (end (+ delta (recognition-fragment-end value))))
           (emit-trivia-until! start)
-          (when field (emit! (vector 'start-field field start)))
+          (when field (field-emitter 'start-field field start))
           (emit-children! (recognition-fragment-children value) end delta translated?)
-          (when field (emit! (vector 'finish-field field end)))))
+          (when field (field-emitter 'finish-field field end))))
        (else (error "invalid recognition value" value))))
     (emit-value! root #f 0 #f #t)
     (unless (null? remaining) (error "source tokens remain outside parse root" remaining))
+    (void)))
+
+(defrule (collect-canonical-events node-emitter field-emitter token-emitter walk)
+  (let* ((events (cons #f '())) (tail events))
+    (def (emit! event)
+      (let (cell (cons event '())) (set-cdr! tail cell) (set! tail cell)))
+    (def (node-emitter tag id kind position) (emit! (vector tag id kind position)))
+    (def (field-emitter tag field position) (emit! (vector tag field position)))
+    (def (token-emitter id token) (emit! (make-token-event id token)))
+    walk
     (cdr events)))
+(def (recognition-events tokens root trivia? source-byte-length)
+  (collect-canonical-events node-emitter field-emitter token-emitter
+    (with-recognition-event-walk tokens root trivia? source-byte-length
+                                node-emitter field-emitter token-emitter)))
 
 ;; flat-token-events
 ;; : (-> List List)
@@ -253,16 +267,14 @@
         (unless (and (event-program-value? value) (event-program-value-kind value))
           (error "event program root must be a node"))
         (event-program-relocate (event-program-value-code value) delta moved?)))))
-(def (event-program-events tokens root trivia? source-byte-length)
-  (let ((remaining tokens) (events (cons #f '())) (next-token-id 0)
+(defrule (with-event-program-walk tokens root trivia? source-byte-length
+                                       node-emitter field-emitter token-emitter)
+  (let ((remaining tokens) (next-token-id 0)
         (next-node-id 0))
-    (let (tail events)
-      (def (emit! event)
-        (let (cell (cons event '())) (set-cdr! tail cell) (set! tail cell)))
+    (let ()
       (def (emit-source-token!)
         (let (input (car remaining))
-          (emit! (vector 'token next-token-id (token-kind input) (token-lexeme input)
-                         (token-start input) (token-end input)))
+          (token-emitter next-token-id input)
           (set! next-token-id (+ next-token-id 1))
           (set! remaining (cdr remaining))))
       (def (emit-trivia-until! boundary)
@@ -290,7 +302,7 @@
              ((open-node)
               (let ((start (if (= next-node-id 0) 0 position)) (id next-node-id))
                 (emit-trivia-until! start)
-                (emit! (vector 'start-node id name start))
+                (node-emitter 'start-node id name start)
                 (set! next-node-id (+ next-node-id 1))
                 id))
              ((close-node)
@@ -300,17 +312,33 @@
               (unless (integer? node-id) (error "event node has no opening ID"))
               (let (end (if (= node-id 0) source-byte-length position))
                 (emit-trivia-until! end)
-                (emit! (vector 'finish-node node-id name end))))
+                (node-emitter 'finish-node node-id name end)))
              ((open-field)
               (emit-trivia-until! position)
-              (emit! (vector 'start-field name position)))
-             ((close-field) (emit! (vector 'finish-field name position)))
+              (field-emitter 'start-field name position))
+             ((close-field) (field-emitter 'finish-field name position))
              ((boundary) (emit-trivia-until! position))
              (else (error "unknown committed event program operation" operation)))))
        (event-program-root-code root))
       (unless (null? remaining)
         (error "event program is incomplete"))
-      (cdr events))))
+      (void))))
+
+(def (event-program-events tokens root trivia? source-byte-length)
+  (collect-canonical-events node-emitter field-emitter token-emitter
+    (with-event-program-walk tokens root trivia? source-byte-length
+                             node-emitter field-emitter token-emitter)))
+
+;;; One source-order authority; sinks choose their own representation. Expansion
+;;; keeps canonical emitters local and avoids imposing a generic event object.
+(defrule (with-parse-event-walk tokens root trivia? source-byte-length
+                              node-emitter field-emitter token-emitter)
+  (if (or (event-program-value? root)
+          (and (recognition-relocation? root) (event-program-root? root)))
+    (with-event-program-walk tokens root trivia? source-byte-length
+                             node-emitter field-emitter token-emitter)
+    (with-recognition-event-walk tokens root trivia? source-byte-length
+                                node-emitter field-emitter token-emitter)))
 
 ;;; Assemble already canonical events from a committed generated path.
 (def (make-success-parse-artifact/canonical-events

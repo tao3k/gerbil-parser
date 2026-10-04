@@ -106,6 +106,23 @@
 
 (def contextual-scanner-test
   (test-suite "generic contextual scanner"
+    (test-case "prepared prefixes preserve full-row outcomes and checkpoint receipts"
+      (for-each
+       (lambda (source)
+         (let-values (((linear ir) (bash-scanner source)))
+           (let ((indexed (prepare-contextual-scanner (prepare-contextual-scanner-plan ir) source)))
+             (let loop ((a (contextual-scanner-initial-state linear))
+                        (b (contextual-scanner-initial-state indexed)))
+               (let-values (((left next-left) (contextual-scanner-step linear a 'argument))
+                            ((right next-right) (contextual-scanner-step indexed b 'argument)))
+                 (check (and left (list (token-kind left) (token-lexeme left)
+                                       (token-start left) (token-end left)))
+                        => (and right (list (token-kind right) (token-lexeme right)
+                                            (token-start right) (token-end right))))
+                 (check (contextual-scan-state-canonical next-left)
+                        => (contextual-scan-state-canonical next-right))
+                 (when left (loop next-left next-right)))))))
+       '("" "if αβ && name\n" "echo \"α\" |& next\r\n" "α $(echo x) >> file\n")))
     (test-case "scanner plans own IR and bind independent checkpoint identities"
       (let-values (((ir literal) (plan-fixture)))
         (let* ((digest (string-copy (cdr (assq 'digest ir))))
@@ -250,7 +267,8 @@
                   (list (rule 'first 'first 'literal (list 'literals catalog) 0)
                         (rule 'second 'second 'literal (list 'literals catalog) 0))
                   dispatch 'first))
-             (scanner (prepare-contextual-scanner ir (string-append "αβαβx" (make-string 64 #\x)))))
+             (scanner (prepare-contextual-scanner (prepare-contextual-scanner-plan ir)
+                        (string-append "αβαβx" (make-string 64 #\x)))))
         (let-values (((a next) (contextual-scanner-step
                                 scanner (contextual-scanner-initial-state scanner) 'token)))
           (check (token-lexeme a) => "αβ")
@@ -276,7 +294,7 @@
                         (rule 'plain 'command 'redirect
                               '(literals ("<<")) 0 'keep))
                   dispatch 'command))
-             (scanner (prepare-contextual-scanner ir "<<")))
+             (scanner (prepare-contextual-scanner (prepare-contextual-scanner-plan ir) "<<")))
         (check
          (with-catch
           (lambda (condition) (error-message condition))

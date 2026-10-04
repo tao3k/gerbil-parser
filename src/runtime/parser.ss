@@ -38,6 +38,7 @@
         parse-source/contextual
         prepare-contextual-parser
         parse-source/contextual/prepared
+        parse-source/contextual/prepared/deferred
         parse-source/checkpoints
         parse-source/checkpoints/resume
         parse-tokenized
@@ -132,7 +133,24 @@
    (prepare-contextual-scanner (contextual-parser-plan-scanner plan) source)
    source))
 
-(def (parse-contextual machine digest position-table scanner source)
+;;; The admitted byte length belongs to this source. Builders validate/count
+;;; inside the parse catch and return publication thunks. Serialization errors
+;;; therefore remain publication errors, rather than becoming rejected parses.
+(def (parse-source/contextual/prepared/deferred plan source source-byte-length success failure)
+  (unless (and (contextual-parser-plan? plan) (string? source)
+               (integer? source-byte-length) (>= source-byte-length 0)
+               (procedure? success) (procedure? failure))
+    (error "contextual deferred parser requires admitted source and builders"))
+  ((parse-contextual
+    (contextual-parser-plan-machine plan)
+    (string-copy (contextual-parser-plan-digest plan))
+    (contextual-parser-plan-positions plan)
+    (prepare-contextual-scanner (contextual-parser-plan-scanner plan) source)
+    source success failure source-byte-length)))
+
+(def (parse-contextual machine digest position-table scanner source
+                      (success make-success-parse-artifact)
+                      (failure failure-artifact) (source-byte-length #f))
   (let* ((state (contextual-scanner-initial-state scanner))
          (tokens-reversed '())
          (trivia? (parser-machine-trivia machine))
@@ -154,7 +172,7 @@
        (let* ((offset (contextual-scan-state-character-offset state))
               (tokens (reverse tokens-reversed))
               (remaining (substring source offset (string-length source))))
-         (failure-artifact
+         (failure
           machine digest source
           (if (zero? (string-length remaining))
             tokens
@@ -162,7 +180,7 @@
                     (list (make-token
                            'unknown remaining
                            (contextual-scan-state-byte-offset state)
-                           (u8vector-length (string->utf8 source))))))
+                           (or source-byte-length (u8vector-length (string->utf8 source)))))))
           condition)))
      (lambda ()
        (let-values (((status payload)
@@ -173,7 +191,7 @@
                   status))
          (unless (null? (cadr payload))
            (error "contextual LR accepted with trailing tokens"))
-         (make-success-parse-artifact
+         (success
           digest
           source (reverse tokens-reversed) (car payload) trivia?))))))
 

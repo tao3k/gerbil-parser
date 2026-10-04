@@ -6,7 +6,14 @@
         (only-in :gerbil-parser/src/ffi/language-handles register-native-language! release-native-language!
                  native-language-handle-descriptor native-language-handle-parse)
         (only-in :gerbil-parser/src/runtime/parser prepare-contextual-parser parse-source/contextual/prepared)
-        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
+        (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine
+                 language-grammar-schema language-grammar-language language-grammar-version
+                 language-grammar-contract language-grammar-grammar language-grammar-ir
+                 language-grammar-observability make-language-grammar)
+        (only-in :gerbil-parser/src/ffi/language-artifact-codec
+                 bind-native-language native-parse-binary-payload native-parse-binary-payload/bytes)
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!)
         (only-in :gerbil-parser/src/language/entry parse-language-source)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-events parse-artifact-ref)
         (only-in :gerbil-parser/src/compiler/native-language generate-native-language-pack))
@@ -21,6 +28,40 @@
              (check (parse-artifact-ref contextual 'status) => (parse-artifact-ref canonical 'status))
              (check (parse-artifact-events contextual) => (parse-artifact-events canonical))))
          '("" "α=1\n" "a = 1\r\nb=\"β\"\n" "name=value"))))
+    (test-case "direct publication matches every canonical payload byte at scale"
+      (for-each
+       (lambda (events?)
+        (parameterize ((current-lr-event-program-enabled? events?))
+         (let (language (bind-native-language records-language-grammar records-contextual-product))
+        (for-each
+         (lambda (source)
+           (check (native-parse-binary-payload/bytes language (string->utf8 source))
+                  => (native-parse-binary-payload language source))
+           (report-test-progress! "NATIVE-PAYLOAD-PARITY-OK bytes="
+                                  (u8vector-length (string->utf8 source))))
+         (append '("" "α=1\n" "a = 1\r\nb=\"β\"\n" "name=value" "a=1\x0;!" "a=1\n!")
+                 (map (lambda (row) (apply string-append (make-list 4096 row)))
+                      '("a=1\n" "α=1\r\n")))))))
+       '(#f #t)))
+    (test-case "strict byte admission rejects noncanonical UTF-8 before publication"
+      (let (language (bind-native-language records-language-grammar records-contextual-product))
+        (for-each
+         (lambda (bytes) (check-exception (native-parse-binary-payload/bytes language bytes) true))
+         '(#u8(255) #u8(192 175) #u8(237 160 128) #u8(244 144 128 128) #u8(226 130)))))
+    (test-case "binary catalog errors escape rather than become rejected source"
+      (let* ((descriptor records-language-grammar)
+             (grammar (map (lambda (row) (if (eq? (car row) 'syntax-kinds)
+                                             (cons 'syntax-kinds '()) row))
+                           (language-grammar-grammar descriptor)))
+             (invalid (make-language-grammar
+                       (language-grammar-schema descriptor) (language-grammar-language descriptor)
+                       (language-grammar-version descriptor) (language-grammar-contract descriptor)
+                       grammar (language-grammar-ir descriptor) (language-grammar-machine descriptor)
+                       (language-grammar-observability descriptor)))
+             (language (bind-native-language invalid records-contextual-product)))
+        (check-exception (native-parse-binary-payload/bytes language (string->utf8 "a=1\n"))
+                         (lambda (e) (equal? (error-message e)
+                                            "native ParseArtifact symbol is outside descriptor")))))
     (test-case "two handles retain distinct lifetimes and descriptor identity"
       (let ((a (register-native-language! records-language-grammar records-contextual-product))
             (b (register-native-language! records-language-grammar)))

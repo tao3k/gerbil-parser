@@ -510,3 +510,34 @@ to approximately 34.6 MB in this fixture; it is a distinct compilation cost
 from the parse-call measurements. A previous Clang qualification does not
 qualify the GCC product. Exact-head Ubuntu qualification remains a
 separate CI gate.
+
+* Prepared scanner candidate indexes and direct native publication
+
+Reusable contextual scanner plans prepare first-character candidate rows once.
+ASCII rows use a fixed vector; Unicode literal prefixes use an indexed table
+with the same identifier-start predicate as the executor. Candidate rows retain
+original rule order, ranks, tie handling and ambiguity checks. Stateful and
+unknown matcher families remain universal candidates. Bare IR one-shot scanner
+construction keeps its existing row traversal. The shared scanner IR and opcode
+contract are unchanged; no language pack contributes a scanning callback.
+
+The contextual native handle uses the canonical recognition/event-program
+walker to validate and count events, then walks the same representation again
+to write one exact-sized GPA1 byte buffer. It avoids constructing canonical
+event vectors, their linked list and the event-index list before serialization.
+The ordinary Scheme artifact API retains its canonical event representation;
+non-contextual native handles retain their existing publication path.
+
+Strict UTF-8 admission happens before parsing. The validated input byte length
+and SHA-256 are reused for publication. Binary allocation and descriptor catalog
+errors remain outside the parser exception boundary, so they cannot become a
+syntax rejection. Tests compare every output byte with canonical publication
+for both recognition and event-program backends, including Unicode, CRLF,
+empty input, embedded NUL, rejection and 4096-row inputs.
+
+The C input copy and malloc-owned output copy remain the ABI ownership boundary.
+Rust continues borrowing a validated C result only during that result's lifetime.
+These changes do not claim zero-copy Scheme GC storage or a new ABI version.
+Complete-call Scheme/ASP benchmarks retain CPU, wall time, GC and allocation
+observations. Same-host alternating baseline/optimized runs are required for a
+runtime speedup claim; separate CI runner times do not establish that claim.

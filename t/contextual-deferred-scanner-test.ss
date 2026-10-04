@@ -65,7 +65,8 @@
     ir))
 
 (def (deferred-scanner source owner marker-policy operators)
-  (prepare-contextual-scanner (deferred-scanner-ir owner marker-policy operators) source))
+  (prepare-contextual-scanner
+   (prepare-contextual-scanner-plan (deferred-scanner-ir owner marker-policy operators)) source))
 
 (def (scan-all scanner)
   (let loop ((state (contextual-scanner-initial-state scanner))

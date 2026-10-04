@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Language-independent native admission. All calls belong to one runtime thread.
 (import (only-in ./language-artifact-codec bind-native-language
-                 native-parse-binary-payload native-descriptor-payload))
+                 native-parse-binary-payload/bytes native-descriptor-payload))
 (export register-native-language! release-native-language!
         native-language-handle-descriptor native-language-handle-parse
         native-language-handle-owner! native-language-handle-count +native-source-byte-limit+)
@@ -38,8 +38,4 @@
     (unless (and (u8vector? bytes)
                  (<= (u8vector-length bytes) +native-source-byte-limit+))
       (error "invalid or oversized native source bytes"))
-    (let (source (utf8->string bytes))
-      ;; Some decoders replace invalid sequences; never parse replacement text.
-      (unless (equal? bytes (string->utf8 source))
-        (error "native source is not canonical UTF-8"))
-      (native-parse-binary-payload language source))))
+    (native-parse-binary-payload/bytes language bytes)))

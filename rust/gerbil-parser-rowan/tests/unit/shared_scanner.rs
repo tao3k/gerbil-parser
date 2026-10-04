@@ -111,3 +111,25 @@ fn large_fifo_preserves_old_checkpoints_and_drains_in_order() {
     assert_eq!(initial.pending_markers(), 0);
     assert_eq!(initial.byte_offset(), 0);
 }
+
+#[test]
+fn shared_plan_keeps_parallel_inputs_and_obligations_independent() {
+    std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..8)
+            .map(|_| {
+                scope.spawn(|| {
+                    for _ in 0..8 {
+                        for (source, expected) in generated::TRACES {
+                            let scanner =
+                                ContextualScanner::new(&generated::SCANNER, source).expect("spec");
+                            assert_eq!(scanner.scan("command").expect("complete scan"), *expected);
+                        }
+                    }
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().expect("independent parser thread");
+        }
+    });
+}

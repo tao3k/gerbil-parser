@@ -1,11 +1,12 @@
 //! Deterministic LR pulls from the shared scanner at the generated state position.
+use super::contextual_plan::{ContextualPlan, prepare_once};
 use super::model::{
     Diagnostic, LanguageSpec, Parse, ParseError, ParseReceipt, ParserAction, SelectiveGlrReceipt,
     Token, Value,
 };
 use super::parser::{ParserConfiguration, apply_reduce, find_action};
 use super::rowan_tree::build_green;
-use super::validation::{canonical_sha256_digest, receipt, validate_spec_once};
+use super::validation::receipt;
 use crate::scanner::{ContextualScanner, ScannerCheckpoint, ScannerSpec};
 
 /// A Scheme-compiled contextual parser binds scanner and LR identities.
@@ -42,20 +43,7 @@ pub fn parse_contextual(
         byte_offset: offset,
         message: message.into(),
     };
-    validate_spec_once(spec).map_err(|message| failure(reject(0, &message)))?;
-    if product.scanner.base_grammar_digest != Some(spec.grammar_digest)
-        || !canonical_sha256_digest(product.parser_digest)
-        || product.state_positions.len() != spec.actions.len()
-        || product
-            .state_positions
-            .iter()
-            .any(|p| !product.scanner.positions.contains(p))
-    {
-        return Err(failure(reject(
-            0,
-            "invalid contextual parser identity or state positions",
-        )));
-    }
+    let plan = prepare_once(product).map_err(&failure)?;
     let scanner = ContextualScanner::new(product.scanner, source).map_err(&failure)?;
     let mut state = scanner.initial_state();
     let mut tokens = Vec::new();
@@ -78,7 +66,7 @@ pub fn parse_contextual(
                 .get(lr_state as usize)
                 .ok_or_else(|| failure(reject(state.byte_offset(), "undeclared LR state")))?;
             lookahead =
-                pull_token(&scanner, &mut state, position, spec, &mut tokens).map_err(&failure)?;
+                pull_token(&scanner, &mut state, position, &plan, &mut tokens).map_err(&failure)?;
             eof = lookahead.is_none();
         }
 
@@ -133,7 +121,7 @@ fn pull_token<'scanner, 'source>(
     scanner: &'scanner ContextualScanner<'source>,
     state: &mut ScannerCheckpoint<'scanner, 'source>,
     position: &str,
-    spec: &LanguageSpec,
+    plan: &ContextualPlan,
     tokens: &mut Vec<Token<'source>>,
 ) -> Result<Option<usize>, Diagnostic> {
     loop {
@@ -142,20 +130,12 @@ fn pull_token<'scanner, 'source>(
         let Some(lexeme) = lexeme else {
             return Ok(None);
         };
-        let terminal = spec
-            .terminals
-            .iter()
-            .find(|t| t.name == lexeme.terminal)
-            .ok_or_else(|| {
-                crate::scanner::error(lexeme.start, "scanner terminal is outside language")
-            })?;
-        let rule = spec
-            .lexical_rules
-            .iter()
-            .find(|r| r.terminal == lexeme.terminal)
-            .ok_or_else(|| {
-                crate::scanner::error(lexeme.start, "scanner terminal has no lexical rule")
-            })?;
+        let terminal = plan.terminals.get(lexeme.terminal).ok_or_else(|| {
+            crate::scanner::error(lexeme.start, "scanner terminal is outside language")
+        })?;
+        let rule = plan.lexical.get(lexeme.terminal).ok_or_else(|| {
+            crate::scanner::error(lexeme.start, "scanner terminal has no lexical rule")
+        })?;
         let index = tokens.len();
         tokens.push(Token {
             terminal: terminal.name,

@@ -9,7 +9,7 @@ use crate::{Diagnostic, ScannedToken};
 use matching::{matcher_end, shell_delimiter};
 use obligations::Obligations;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 
 pub const SCANNER_OPCODE_CONTRACT: &str = "gerbil-parser.contextual-scanner-opcodes.v1";
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,17 +79,23 @@ pub struct ScannerSpec {
     pub cells: &'static [ScannerCell],
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct Obligation {
-    marker: String,
-    strip_tabs: bool,
-    quoted: bool,
+pub(super) struct Obligation {
+    pub(super) marker: String,
+    pub(super) strip_tabs: bool,
+    pub(super) quoted: bool,
 }
+/// Scanner indexes admitted once for each immutable generated specification.
+#[derive(Debug)]
+struct ScannerPlan {
+    rules: HashMap<&'static str, Vec<&'static ScannerRule>>,
+    dispatch: HashMap<(&'static str, &'static str), HashMap<&'static str, &'static str>>,
+}
+/// Source-local executor sharing immutable scanner indexes across parses.
 #[derive(Debug)]
 pub struct ContextualScanner<'source> {
     spec: &'static ScannerSpec,
     source: &'source str,
-    rules: HashMap<&'static str, Vec<&'static ScannerRule>>,
-    dispatch: HashMap<(&'static str, &'static str), HashMap<&'static str, &'static str>>,
+    plan: Arc<ScannerPlan>,
 }
 /// Immutable checkpoint bound to the prepared scanner and exact source.
 #[derive(Clone, Debug)]
@@ -135,70 +141,8 @@ impl<'source> ContextualScanner<'source> {
     /// # Errors
     /// Invalid scanner identity, declaration or action target.
     pub fn new(spec: &'static ScannerSpec, source: &'source str) -> Result<Self, Diagnostic> {
-        if spec.opcode_contract != SCANNER_OPCODE_CONTRACT
-            || !spec.digest.strip_prefix("sha256:").is_some_and(|s| {
-                s.len() == 64
-                    && s.bytes()
-                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-            })
-            || !spec.modes.contains(&spec.initial_mode)
-            || spec.positions.is_empty()
-        {
-            return Err(error(0, "invalid scanner contract or identity"));
-        }
-        admission::rules(spec)?;
-        for (i, cell) in spec.cells.iter().enumerate() {
-            if cell.form.is_empty()
-                || cell.terminal.is_empty()
-                || !spec.modes.contains(&cell.mode)
-                || !spec.positions.contains(&cell.position)
-                || spec.cells[..i]
-                    .iter()
-                    .any(|c| (c.mode, c.position, c.form) == (cell.mode, cell.position, cell.form))
-            {
-                return Err(error(0, "invalid or duplicate scanner dispatch cell"));
-            }
-        }
-        for rule in spec.rules {
-            if !spec.modes.contains(&rule.mode)
-                || spec.positions.iter().any(|p| {
-                    !spec
-                        .cells
-                        .iter()
-                        .any(|c| c.mode == rule.mode && c.position == *p && c.form == rule.form)
-                })
-            {
-                return Err(error(0, "scanner rule has no dispatch"));
-            }
-            match rule.action {
-                ScannerAction::ActivateNext(mode) if !spec.modes.contains(&mode) => {
-                    return Err(error(0, "undeclared action mode"));
-                }
-                ScannerAction::FinishMarker { base, body }
-                    if !spec.modes.contains(&base) || !spec.modes.contains(&body) =>
-                {
-                    return Err(error(0, "undeclared action mode"));
-                }
-                _ => {}
-            }
-        }
-        let mut rules: HashMap<_, Vec<_>> = HashMap::new();
-        for rule in spec.rules.iter().rev() {
-            rules.entry(rule.mode).or_default().push(rule);
-        }
-        let mut dispatch: HashMap<_, HashMap<_, _>> = HashMap::new();
-        for cell in spec.cells {
-            dispatch
-                .entry((cell.mode, cell.position))
-                .or_default()
-                .insert(cell.form, cell.terminal);
-        }
-        Ok(Self {
-            spec,
-            source,
-            rules,
-            dispatch,
-        })
+        let plan = prepare_spec_once(spec)?;
+        Ok(Self { spec, source, plan })
     }
     #[must_use]
     pub fn initial_state(&self) -> ScannerCheckpoint<'_, 'source> {
@@ -258,7 +202,7 @@ impl<'source> ContextualScanner<'source> {
         }
         let mut best: Option<(&ScannerRule, usize)> = None;
         // Scheme index-rules reverses declaration order; equivalent ties retain that order.
-        for rule in self.rules.get(state.mode).into_iter().flatten() {
+        for rule in self.plan.rules.get(state.mode).into_iter().flatten() {
             if let Some(end) = matcher_end(
                 self.source,
                 state.offset,
@@ -285,6 +229,7 @@ impl<'source> ContextualScanner<'source> {
         let (rule, end) =
             best.ok_or_else(|| error(state.offset, "contextual scanner has no match"))?;
         let terminal = self
+            .plan
             .dispatch
             .get(&(state.mode, position))
             .and_then(|forms| forms.get(rule.form))
@@ -361,4 +306,78 @@ impl<'source> ContextualScanner<'source> {
             }
         }
     }
+}
+
+// This cache follows the LR validate_spec_once boundary. A static specification
+// has a process-long identity; input strings and checkpoints never enter it.
+fn prepare_spec_once(spec: &'static ScannerSpec) -> Result<Arc<ScannerPlan>, Diagnostic> {
+    static PLANS: OnceLock<Mutex<HashMap<usize, Arc<ScannerPlan>>>> = OnceLock::new();
+    let key = std::ptr::from_ref(spec) as usize;
+    let mut plans = PLANS
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .map_err(|_| error(0, "scanner plan registry poisoned"))?;
+    if let Some(plan) = plans.get(&key) {
+        return Ok(Arc::clone(plan));
+    }
+    let plan = Arc::new(prepare_spec(spec)?);
+    plans.insert(key, Arc::clone(&plan));
+    Ok(plan)
+}
+
+fn prepare_spec(spec: &'static ScannerSpec) -> Result<ScannerPlan, Diagnostic> {
+    if spec.opcode_contract != SCANNER_OPCODE_CONTRACT
+        || !spec.digest.strip_prefix("sha256:").is_some_and(|s| {
+            s.len() == 64
+                && s.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+        || !spec.modes.contains(&spec.initial_mode)
+        || spec.positions.is_empty()
+    {
+        return Err(error(0, "invalid scanner contract or identity"));
+    }
+    admission::rules(spec)?;
+    let mut dispatch: HashMap<_, HashMap<_, _>> = HashMap::new();
+    for cell in spec.cells {
+        if cell.form.is_empty()
+            || cell.terminal.is_empty()
+            || !spec.modes.contains(&cell.mode)
+            || !spec.positions.contains(&cell.position)
+            || dispatch
+                .entry((cell.mode, cell.position))
+                .or_default()
+                .insert(cell.form, cell.terminal)
+                .is_some()
+        {
+            return Err(error(0, "invalid or duplicate scanner dispatch cell"));
+        }
+    }
+    for rule in spec.rules {
+        if !spec.modes.contains(&rule.mode)
+            || spec.positions.iter().any(|p| {
+                !dispatch
+                    .get(&(rule.mode, *p))
+                    .is_some_and(|forms| forms.contains_key(rule.form))
+            })
+        {
+            return Err(error(0, "scanner rule has no dispatch"));
+        }
+        match rule.action {
+            ScannerAction::ActivateNext(mode) if !spec.modes.contains(&mode) => {
+                return Err(error(0, "undeclared action mode"));
+            }
+            ScannerAction::FinishMarker { base, body }
+                if !spec.modes.contains(&base) || !spec.modes.contains(&body) =>
+            {
+                return Err(error(0, "undeclared action mode"));
+            }
+            _ => {}
+        }
+    }
+    let mut rules: HashMap<_, Vec<_>> = HashMap::new();
+    for rule in spec.rules.iter().rev() {
+        rules.entry(rule.mode).or_default().push(rule);
+    }
+    Ok(ScannerPlan { rules, dispatch })
 }

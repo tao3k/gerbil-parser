@@ -254,7 +254,15 @@ Generated identities assume a trusted AOT producer, as existing LR tables do.
 
 Rust executes the closed =contextual-scanner-opcodes.v1= contract: longest
 match/rank, balanced nested words, quote removal, UTF-8 ranges and FIFO deferred
-markers. Mode and dispatch indexes are prepared once per scanner. Immutable
+markers. Successful admission and mode/dispatch indexes are cached once per
+immutable static ScannerSpec identity, matching the LR validation boundary.
+Contextual product admission and terminal/lexical catalogs are also indexed
+once per static product. Pulling each token uses indexed lookups instead of
+scanning both full catalogs; first-declared duplicate lookup semantics remain.
+The caches retain no input text, checkpoint or marker obligations. Each source
+executor shares its read-only plan through Arc; checkpoints still reject another
+executor even when both share that plan. Dispatch admission checks duplicate
+keys by indexed insertion rather than scanning all preceding cells. Immutable
 checkpoints share persistent two-stack FIFO storage; enqueue and checkpoint
 clone are constant work. Rear reversal is amortized along one linear scan;
 replaying old branches can repeat reversals. Iterative nesting and iterative
@@ -286,7 +294,10 @@ identities. The runtime owner OS thread is pinned at native module initializatio
 foreign pthread calls fail before entering Gambit. Scheme logical-thread checks
 remain in the handle owner. This API requires an initialized embedding runtime
 and loaded libraries; startup/shutdown, unloading and a safe Rust FFI owner are
-not established by the native child exit test.
+not established by the native child exit test. Private generated callbacks use
+Gambit ___U64/___S32 declarations, while public headers use uint64_t/int32_t.
+Their widths agree without assuming that the platform's C typedef spellings
+are compatible (unsigned long and unsigned long long differ on Linux LP64).
 
 Performance is measured by =t/benchmarks/native-language/benchmark.ss= through
 =t/native-language-benchmark-test.ss=. The ASP test framework is outside the
@@ -300,8 +311,14 @@ accessor, removing a runtime edge to the LR construction dependency closure.
 Report startup, handle creation and warm callback batches separately. A process
 wall time that includes module loading is never a per-call throughput metric.
 The 100-call UTF-8 workload uses 40 samples with an unchanged 100 ms p95 ceiling
-and a 20 ms target. Passing the ceiling alone does not establish the target or
-an advantage over another parser.
+and a 20 ms target. Each attempt preserves paired process CPU/GC counters and
+inner C-batch wall time. benchmark-run/result returns the exact ASP-admitted
+attempt, so a separately ranked CPU percentile cannot be substituted for the
+wall p95 observation. Progress output remains inside the ASP timed thunk and
+outside the inner C-batch timer; both boundaries are explicit. Allocation
+counters are raw process observations, not exclusive parser allocation claims.
+Passing the ceiling alone does not establish the target or an advantage over
+another parser.
 
 Remaining product work includes generic generated Cargo/native package manifests,
 atomic publication across products, standalone runtime lifecycle and Rust FFI

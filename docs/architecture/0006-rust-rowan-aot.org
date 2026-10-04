@@ -284,6 +284,9 @@ The separately qualified Rowan executable remains the standalone AOT product.
 The local runner places the native library directory before source directories
 in =GERBIL_LOADPATH=. Checking that an object exists alone cannot ensure that
 Gerbil loaded it; the C consumer fails if the loader interprets an FFI module.
+The existing native-suite preload helper admits cold compiled dependencies
+with actual module load/import receipts. The ABI runner uses this same helper
+to keep cold imports under the original five-second silence fence.
 
 * GQL native timing diagnostics
 

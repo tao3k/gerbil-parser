@@ -30,7 +30,14 @@ Every prepared artifact is checked against the full public result. Each
 component warms up once and performs one initial GC, followed by natural GC
 during the samples. Receipts include wall and CPU P50/P95 **per 100-call
 batch**, wall P50/P95 per parse, bytes allocated per parse, and each sample's
-GC count/time. Setup, output and semantic comparisons are outside the timed
+GC count/time. `wallP50Sample`, `wallP95Sample` and `maxWallSample` retain
+CPU, GC and allocation counters from the **same wall-ranked observation**.
+Independent wall/CPU percentiles may select different observations and must
+not be subtracted to attribute tail latency. Each sample also reports signed
+`wall-minus-cpu-ms`; this can include elapsed waiting and measurement noise
+(and can be negative), so it does not identify the responsible scheduler or
+OS mechanism. GC time is already included in wall time and is not an extra
+additive stage. Setup, output and semantic comparisons are outside the timed
 batch. These component controls **must not be summed or used as exact shares
 of the streaming full-source time**. They do identify which components warrant
 further profiling without silently switching the production parse algorithm.
@@ -78,6 +85,34 @@ The maximum full-source sample was 95.279ms, with 58.364ms CPU and one
 41.271ms GC: it also includes elapsed time without CPU consumption. These
 are current local receipts, not universal latency guarantees or an explanation
 of the different historical 137ms/593ms outliers.
+
+## Paired tail observations on `74f104c`
+
+The Ubuntu native CI run [37174656471](https://github.com/tao3k/gerbil-parser/actions/runs/37174656471)
+completed the unchanged admission gate at 81.257ms wall P95. Its separate
+40 x 100 full-source diagnostic selected these actual observations:
+
+| Wall rank | Sample | Wall | CPU | GC wall | GC count |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| P50 | 14 | 24.873ms | 24.878ms | 0ms | 0 |
+| P95 | 19 | 79.411ms | 79.387ms | 54.006ms | 1 |
+| Maximum | 9 | 80.609ms | 80.595ms | 55.386ms | 1 |
+
+The P95 sample spends about 68% of its elapsed time in GC. This is a paired
+observation, not the difference between independent percentiles. The ordinary
+no-GC P50 batch allocates 22,887,376 bytes (about 228,874 per parse). Allocation
+in the prepared LR control therefore remains a concrete investigation target;
+these measurements do not locate an individual allocation site or establish
+that changing the heap policy improves parsing.
+
+On the same source revision, the local diagnostic's wall P95 observation was
+sample 29: 212.683ms wall, 58.673ms CPU, one GC taking 199.528ms wall. Its
+maximum, sample 32, had 439.664ms wall, 29.318ms CPU and **no GC**. The latter
+rules out GC as the cause of that particular maximum and demonstrates elapsed
+time without comparable CPU consumption. It does not identify the waiting
+mechanism. The unchanged local admission gate failed at 214.611ms P95; the
+Linux pass does not replace that failure. These historical samples are tied
+to `74f104c`, not measurements of subsequent diagnostic changes.
 
 ## Optional actor library
 

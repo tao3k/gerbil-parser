@@ -10,11 +10,24 @@
         :gerbil-parser/src/runtime/significant
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/token)
-(export main profile-gql-stages measure-gql-component)
+(export main profile-gql-stages measure-gql-component sample-at-percentile)
 
 (def (percentile rows key rank)
   (let (values (list-sort < (map (lambda (row) (cdr (assq key row))) rows)))
     (list-ref values (benchmark-percentile-index (length values) rank))))
+
+;; Select the actual wall-ranked observation, preserving its CPU/GC counters.
+;; Sample number breaks ties deterministically; independent CPU percentiles
+;; cannot explain what happened in the wall P95 observation.
+(def (sample-at-percentile rows key rank)
+  (let (ordered
+        (list-sort
+         (lambda (left right)
+           (let ((a (cdr (assq key left))) (b (cdr (assq key right))))
+             (if (= a b)
+               (< (cdr (assq 'sample left)) (cdr (assq 'sample right)))
+               (< a b)))) rows))
+    (list-ref ordered (benchmark-percentile-index (length ordered) rank))))
 
 ;; One warmup and one initial GC per component; timed samples retain naturally
 ;; occurring GC. Validation and logging are outside the measured batch.
@@ -31,6 +44,9 @@
                   (cons 'wallP95Ms (percentile rows 'wall-ms 95))
                   (cons 'cpuP50Ms (percentile rows 'cpu-ms 50))
                   (cons 'cpuP95Ms (percentile rows 'cpu-ms 95))
+                  (cons 'wallP50Sample (sample-at-percentile rows 'wall-ms 50))
+                  (cons 'wallP95Sample (sample-at-percentile rows 'wall-ms 95))
+                  (cons 'maxWallSample (sample-at-percentile rows 'wall-ms 100))
                   (cons 'wallP50MsPerParse (/ (percentile rows 'wall-ms 50) batch-count))
                   (cons 'wallP95MsPerParse (/ (percentile rows 'wall-ms 95) batch-count))
                   (cons 'allocationScope allocation-scope)
@@ -54,6 +70,10 @@
              (row (list (cons 'sample sample)
                         (cons 'wall-ms wall-ms)
                         (cons 'cpu-ms (* 1000 (+ (delta 0) (delta 1))))
+                        ;; Signed observation, not a scheduler attribution. It
+                        ;; includes counter/timing noise and may be negative.
+                        (cons 'wall-minus-cpu-ms
+                              (- wall-ms (* 1000 (+ (delta 0) (delta 1)))))
                         (cons 'gc-count (delta 6))
                         (cons 'gc-wall-ms (* 1000 (delta 5)))
                         (cons 'allocated-bytes (delta 7)))))

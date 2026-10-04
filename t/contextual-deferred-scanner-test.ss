@@ -15,7 +15,7 @@
                  contextual-scan-state-mode contextual-scan-state-canonical
                  restore-contextual-scan-state)
         (only-in :gerbil-parser/src/runtime/token
-                 token-kind token-lexeme))
+                 token-kind token-lexeme token-start token-end))
 (export contextual-deferred-scanner-test)
 
 (def (method name mode position form result)
@@ -189,6 +189,22 @@
                       (filter (lambda (token) (eq? (token-kind token) 'here-end))
                               tokens))
                  => '("\n")))))
+    (test-case "checkpoint restore counts a Unicode source prefix and resumes its tail"
+      (let* ((source "<<EOF\nα😀\nEOF\n")
+             (scanner (deferred-scanner source 'hcl-deferred 'raw '("<<" "<<-"))))
+        (let advance ((remaining 4) (state (contextual-scanner-initial-state scanner)))
+          (if (positive? remaining)
+            (let-values (((_token next) (contextual-scanner-step scanner state 'command)))
+              (advance (- remaining 1) next))
+            (let* ((receipt (contextual-scan-state-canonical state))
+                   (restored (restore-contextual-scan-state scanner receipt)))
+              (check (contextual-scan-state-byte-offset restored) => 13)
+              (check (contextual-scan-state-canonical restored) => receipt)
+              (let-values (((tail next) (contextual-scanner-step scanner restored 'command)))
+                (check (token-lexeme tail) => "EOF\n")
+                (check (token-start tail) => 13)
+                (check (token-end tail) => 17)
+                (check (contextual-scan-state-byte-offset next) => 17)))))))
     (test-case "checkpoint restores only for the same source and machine"
       (let* ((source "<<EOF\nα\nEOF\n")
              (scanner (deferred-scanner source 'hcl-deferred

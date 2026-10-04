@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; LR checkpoint resume with lexical-mode-certified token reuse.
 
-(import (only-in ./probe current-lr-lexical-plan-reuse-enabled?)
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./probe current-lr-lexical-plan-reuse-enabled?)
         (only-in ./source-index
                  source-index-count source-index-height source-index-end source-index-slice
                  make-source-index-builder source-index-builder-token! source-index-builder-shared!
@@ -319,7 +320,7 @@
       (loop (- index 1)))))
 
 (def (edit-byte-delta source-edit)
-  (- (u8vector-length (string->utf8 (edit-inserted-text source-edit)))
+  (- (string-utf8-length (edit-inserted-text source-edit))
      (edit-delete-byte-length source-edit)))
 
 (def (directed-edit-fields machine old-source new-source source-edit
@@ -327,7 +328,7 @@
                            reused-tail-bytes restart-byte significant-count
                            (reused-significant-count 0)
                            (relex-stop-byte #f))
-  (let* ((source-byte-length (u8vector-length (string->utf8 new-source)))
+  (let* ((source-byte-length (string-utf8-length new-source))
          (byte-delta (edit-byte-delta source-edit)))
     (list
      (cons 'schema +incremental-receipt-schema+)
@@ -820,7 +821,7 @@
          (old-index (and (current-lr-source-index-enabled?) (incremental-session-source-index session)))
          (index-builder #f) (index-origin #f) (provenance-cursor #f)
          (new-source (apply-edit old-source source-edit))
-         (source-byte-length (u8vector-length (string->utf8 new-source)))
+         (source-byte-length (string-utf8-length new-source))
          (fragment-stats (make-vector 11 0)))
     (def (finish next prefix-count shifted reused-count reused-bytes restart-byte
                  fresh? (reused-events #f) (replaced-significant-count 0))

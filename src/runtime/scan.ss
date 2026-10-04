@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Language-neutral scanner primitives used by generated lexers.
 
-(import (only-in :std/func any-of)
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in :std/func any-of)
         (only-in :std/vector/vector vector-map/index)
         (only-in ./token make-token))
 
@@ -795,5 +796,5 @@
 
 (def (scan-emit source kind start end byte-start)
   (let* ((lexeme (substring source start end))
-         (byte-end (+ byte-start (u8vector-length (string->utf8 lexeme)))))
+         (byte-end (+ byte-start (string-utf8-length lexeme))))
     (make-token kind lexeme byte-start byte-end)))

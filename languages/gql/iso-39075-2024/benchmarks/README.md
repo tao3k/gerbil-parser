@@ -317,3 +317,48 @@ the remaining live objects, measure an FPO executable, qualify latency under
 host contention, or establish a Gambit defect. Functional source tests still
 need their macro interfaces; those and runtime-only deployment are distinct
 measurement contexts.
+
+
+## Counting UTF-8 bytes without encoding temporary buffers
+
+The scanner and incremental runtime use Gerbil's `:std/string/utf8`
+`string-utf8-length` for eight length-only calls. The installed standard
+implementation delegates to Gambit's `##string->utf8-length`; the
+[official UTF-8 documentation](https://gerbil.scheme.org/reference/std/text/utf8.html)
+also describes its optional start/end interval. Checkpoint validation counts
+that interval directly instead of first copying the source prefix. Hashing,
+byte slicing and boundary validation still use actual UTF-8 buffers where
+those bytes are needed.
+
+A controlled native comparison against revision
+`ceab4bee9e6a14f9bc85053750b1b6d06466889d` on the representative 138-byte GQL query
+(51 tokens, 37 significant), with 40 batches of 100 calls per stage and a
+1 GiB heap cap, produced the following median bytes per parse among batches
+with no collection:
+
+| Implementation | Global lexing | Prepared LR | Artifact publication | Full source |
+| --- | ---: | ---: | ---: | ---: |
+| Original | 52,356 | 111,140 | 44,324 | 203,340.32 |
+| Direct length | 50,724 | 111,140 | 44,324 | 201,708.32 |
+| Original restored | 52,356 | 111,140 | 44,324 | 203,340.32 |
+| Direct length repeated | 50,724 | 111,140 | 44,324 | 201,708.32 |
+
+Each row retains 40, 39, 40 and 37 no-GC observations respectively. The four
+runs used the same Gerbil 0.19 / Gambit
+`dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813` toolchain, optimized native module
+build, input and harness; compiler optimization settings were unchanged.
+The 1,632-byte reduction is about 3.1% of lexical allocation and 0.8% of
+full-source allocation on this input. Prepared LR and publication serve as
+unchanged stage controls. This result measures allocation, not retained heap
+or a latency improvement; host contention prevented a wall-time conclusion,
+and the 150ms admission gate remains unchanged.
+
+After rebasing onto `df43581dba835a2b044056a39e6b7c96ab83ea50`, a fresh
+original/candidate pair with the same 40 x 100 configuration reproduced every
+allocation median in the first two rows, including both unchanged controls.
+This pair preserves the newer scanner index and native publication changes.
+
+Regression coverage exercises 1–4-byte scalars, NUL and combining marks,
+Unicode checkpoint restoration, contextual scanning, Bash, incremental edits
+and matched GQL artifacts. Reproduce the comparison with the matched-stage
+command above, rebuilding each implementation before its fresh-process run.

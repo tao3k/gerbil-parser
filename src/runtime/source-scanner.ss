@@ -2,7 +2,8 @@
 ;;; Immutable source-scanner state for languages whose lexical context changes
 ;;; across token boundaries. A state is a reusable checkpoint for one source.
 
-(import (only-in ./token make-token))
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./token make-token))
 (export make-source-scanner
         source-scanner-initial-state
         source-scanner-step
@@ -54,7 +55,7 @@
             (error "source scanner did not advance" kind start end))
           (let* ((lexeme (substring source start end))
                  (byte-end (+ (source-scan-state-byte-offset state)
-                              (u8vector-length (string->utf8 lexeme))))
+                              (string-utf8-length lexeme)))
                  (token (make-token kind lexeme
                                     (source-scan-state-byte-offset state)
                                     byte-end)))

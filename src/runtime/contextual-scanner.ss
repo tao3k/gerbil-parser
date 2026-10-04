@@ -2,7 +2,8 @@
 ;;; Generic executor for validated contextual scanner IR. All recognizers are
 ;;; closed engine opcodes; a language contributes data, never a scan callback.
 
-(import (only-in ./scan
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./scan
                  make-literal-end-scanner identifier-start? horizontal-whitespace? newline?
                  scan-balanced-word scan-horizontal-whitespace scan-identifier
                  scan-line scan-longest-literal scan-newline
@@ -396,8 +397,7 @@
                  (<= 0 character-offset (string-length source))
                  (integer? byte-offset)
                  (= byte-offset
-                    (u8vector-length
-                     (string->utf8 (substring source 0 character-offset))))
+                    (string-utf8-length source 0 character-offset))
                  (memq mode (contextual-scanner-modes scanner))
                  (list? pending-rows)
                  (memq expecting '(#f plain strip-tabs)))
@@ -642,7 +642,7 @@
                (end (scan-match-end match))
                (lexeme (substring source start end))
                (byte-end (+ byte-start
-                            (u8vector-length (string->utf8 lexeme))))
+                            (string-utf8-length lexeme)))
                (kind (result-kind scanner mode position
                                   (runtime-scan-rule-form rule))))
           (unless (< start end)

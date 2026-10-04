@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Thin request boundary over generated machines and ParseArtifact admission.
 
-(import (only-in ./parser-ir-data parser-ir-ref)
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./parser-ir-data parser-ir-ref)
         (only-in ../compiler/machine
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-parse parser-machine-runtime
@@ -180,7 +181,7 @@
                     (list (make-token
                            'unknown remaining
                            (contextual-scan-state-byte-offset state)
-                           (or source-byte-length (u8vector-length (string->utf8 source)))))))
+                           (or source-byte-length (string-utf8-length source))))))
           condition)))
      (lambda ()
        (let-values (((status payload)

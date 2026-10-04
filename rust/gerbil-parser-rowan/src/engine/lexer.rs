@@ -177,6 +177,11 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
         LexicalExpr::EscapedQuotedString(delimiters) => delimiters
             .iter()
             .find_map(|delimiter| quoted_string_end(source, offset, delimiter, false)),
+        LexicalExpr::QuotedStringProfile {
+            delimiter,
+            escapes,
+            unicode_width,
+        } => quoted_string_profile_end(source, offset, delimiter, escapes, *unicode_width),
         LexicalExpr::Heredoc => heredoc_end(source, offset),
         LexicalExpr::LineComment(prefixes) => line_comment_end(source, offset, prefixes),
         LexicalExpr::BlockComment { opening, closing } => {
@@ -475,4 +480,44 @@ fn consume_while(source: &str, offset: usize, predicate: impl Fn(char) -> bool) 
         end += character.len_utf8();
     }
     (end > offset).then_some(end)
+}
+
+fn quoted_string_profile_end(
+    source: &str,
+    offset: usize,
+    delimiter: &str,
+    escapes: &str,
+    unicode_width: usize,
+) -> Option<usize> {
+    let quote = delimiter.chars().next()?;
+    if delimiter.chars().count() != 1 || unicode_width > 8 {
+        return None;
+    }
+    let mut characters = source[offset..].char_indices();
+    if characters.next()?.1 != quote {
+        return None;
+    }
+    while let Some((position, character)) = characters.next() {
+        if character == quote {
+            return Some(offset + position + character.len_utf8());
+        }
+        if character == '\\' {
+            let escape = characters.next()?.1;
+            if escapes.contains(escape) {
+                continue;
+            }
+            if escape != 'u' || unicode_width == 0 {
+                return None;
+            }
+            for _ in 0..unicode_width {
+                let digit = characters.next()?.1;
+                if !super::unicode_numeric::is_scheme_numeric(digit)
+                    && !matches!(digit, 'a'..='f' | 'A'..='F')
+                {
+                    return None;
+                }
+            }
+        }
+    }
+    None
 }

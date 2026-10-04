@@ -51,6 +51,11 @@ pub enum LexicalExpr {
     },
     QuotedString(&'static [&'static str]),
     EscapedQuotedString(&'static [&'static str]),
+    QuotedStringProfile {
+        delimiter: &'static str,
+        escapes: &'static str,
+        unicode_width: usize,
+    },
     Heredoc,
     LineComment(&'static [&'static str]),
     BlockComment {

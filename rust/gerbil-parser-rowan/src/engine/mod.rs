@@ -15,6 +15,7 @@ mod structural_key_line;
 mod structural_lines;
 mod structural_list;
 mod structural_table;
+mod unicode_numeric;
 mod validation;
 
 pub use contextual_parser::{ContextualParserSpec, parse_contextual};

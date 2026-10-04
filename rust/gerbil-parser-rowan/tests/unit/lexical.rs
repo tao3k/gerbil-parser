@@ -98,3 +98,81 @@ fn character_run_uses_maximal_extent_and_enforces_minimum() {
     };
     assert_eq!(lexical_end(&unicode, "ééx", 0), Some(4));
 }
+
+#[test]
+fn strict_quoted_profile_validates_escape_width_and_byte_offsets() {
+    let profile = LexicalExpr::QuotedStringProfile {
+        delimiter: "'",
+        escapes: "`'\\/fnrt",
+        unicode_width: 4,
+    };
+    for (source, end) in [
+        ("'α'next", Some(4)),
+        ("'a''b'", Some(3)),
+        ("'a\nb'", Some(5)),
+        ("'\\n'", Some(4)),
+        ("'\\u0041'", Some(8)),
+        ("'\\u١٢٣٤'", Some(12)),
+        ("'\\u00411'", Some(9)),
+        ("'\\x'", None),
+        ("'\\u123'", None),
+        ("'\\uGGGG'", None),
+        ("'\\u²Ⅻ½４'", None),
+        ("'\\", None),
+        ("'", None),
+    ] {
+        assert_eq!(lexical_end(&profile, source, 0), end, "{source:?}");
+    }
+    assert_eq!(lexical_end(&profile, "x'α'", 1), Some(5));
+    let unicode_quote = LexicalExpr::QuotedStringProfile {
+        delimiter: "§",
+        escapes: "",
+        unicode_width: 0,
+    };
+    assert_eq!(lexical_end(&unicode_quote, "§α§tail", 0), Some(6));
+    let no_unicode = LexicalExpr::QuotedStringProfile {
+        delimiter: "'",
+        escapes: "",
+        unicode_width: 0,
+    };
+    assert_eq!(lexical_end(&no_unicode, "'\\u0041'", 0), None);
+}
+
+#[path = "../fixtures/quoted_profile_generated.rs"]
+mod quoted_profile_generated;
+
+#[test]
+fn scheme_generated_profile_grammar_accepts_and_rejects_strict_escapes() {
+    for source in ["'α'", "`name`", "'\\u0041'", "'\\u١٢٣٤'", "'a\nb'"] {
+        let parsed = crate::parse(&quoted_profile_generated::LANGUAGE, source).unwrap();
+        assert_eq!(parsed.syntax().to_string(), source);
+    }
+    for source in ["'\\q'", "'\\u123'", "'a''b'", "`unterminated"] {
+        assert!(
+            crate::parse(&quoted_profile_generated::LANGUAGE, source).is_err(),
+            "{source:?}"
+        );
+    }
+}
+
+#[test]
+fn malformed_quoted_profiles_fail_product_admission() {
+    for (delimiter, unicode_width) in [("", 4), ("''", 4), ("'", 9)] {
+        let rules = Box::leak(Box::new([crate::LexicalRule {
+            terminal: "string",
+            expression: LexicalExpr::QuotedStringProfile {
+                delimiter,
+                escapes: "",
+                unicode_width,
+            },
+            precedence: 0,
+            extra: false,
+        }]));
+        let language = Box::leak(Box::new(crate::LanguageSpec {
+            lexical_rules: rules,
+            ..quoted_profile_generated::LANGUAGE
+        }));
+        let error = crate::parse(language, "''").unwrap_err();
+        assert_eq!(error.diagnostic.reason_kind, "invalid-aot-artifact");
+    }
+}

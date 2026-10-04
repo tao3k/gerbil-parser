@@ -34,6 +34,11 @@
                (boolean? (cadr (cddddr value)))))
          ((quoted-string escaped-quoted-string)
           (and (pair? (cdr value)) (strings? (cdr value))))
+         ((quoted-string-profile)
+          (and (= (length value) 4)
+               (string? (cadr value)) (= (string-length (cadr value)) 1)
+               (string? (caddr value))
+               (exact-integer? (cadddr value)) (<= 0 (cadddr value) 8)))
          ((until-delimiters)
           (and (= (length value) 2)
                (string? (cadr value))
@@ -106,7 +111,7 @@
 (defrules lexical-expression
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string escaped-quoted-string until-delimiters character-run
+   quoted-string escaped-quoted-string quoted-string-profile until-delimiters character-run
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ (whitespace+))
@@ -131,6 +136,8 @@
    (cons 'quoted-string (list delimiter ...)))
   ((_ (escaped-quoted-string delimiter ...))
    (cons 'escaped-quoted-string (list delimiter ...)))
+  ((_ (quoted-string-profile delimiter escapes unicode-width))
+   (list 'quoted-string-profile delimiter escapes unicode-width))
   ((_ (until-delimiters characters))
    (list 'until-delimiters characters))
   ((_ (character-run character minimum))

@@ -4,8 +4,6 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
 (export scan-fhirpath-identifier
-        scan-fhirpath-delimited-identifier
-        scan-fhirpath-string
         scan-fhirpath-number
         scan-fhirpath-date
         scan-fhirpath-datetime
@@ -32,48 +30,6 @@
   (and (< start (string-length source))
        (identifier-start? (string-ref source start))
        (scan-while source (+ start 1) identifier-continue?)))
-
-(def (hex-character? character)
-  (or (char-numeric? character)
-      (and (char>=? character #\a) (char<=? character #\f))
-      (and (char>=? character #\A) (char<=? character #\F))))
-
-(def (escaped-end source slash-offset)
-  (let* ((length (string-length source))
-         (escape-offset (+ slash-offset 1)))
-    (and (< escape-offset length)
-         (let (escape (string-ref source escape-offset))
-           (cond
-            ((memv escape '(#\` #\' #\\ #\/ #\f #\n #\r #\t))
-             (+ escape-offset 1))
-            ((and (char=? escape #\u)
-                  (<= (+ escape-offset 5) length)
-                  (let loop ((offset (+ escape-offset 1)))
-                    (or (= offset (+ escape-offset 5))
-                        (and (hex-character? (string-ref source offset))
-                             (loop (+ offset 1))))))
-             (+ escape-offset 5))
-            (else #f))))))
-
-(def (scan-quoted source start quote)
-  (let (length (string-length source))
-    (and (< start length)
-         (char=? (string-ref source start) quote)
-         (let loop ((offset (+ start 1)))
-           (and (< offset length)
-                (let (character (string-ref source offset))
-                  (cond
-                   ((char=? character quote) (+ offset 1))
-                   ((char=? character #\\)
-                    (alet (end (escaped-end source offset))
-                      (loop end)))
-                   (else (loop (+ offset 1))))))))))
-
-(def (scan-fhirpath-delimited-identifier source start)
-  (scan-quoted source start #\`))
-
-(def (scan-fhirpath-string source start)
-  (scan-quoted source start #\'))
 
 (def (scan-digits source start count)
   (let (end (+ start count))

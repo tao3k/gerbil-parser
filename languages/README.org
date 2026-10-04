@@ -104,6 +104,44 @@ same generated descriptor and use the same loader. Bash's handwritten source
 parser and TLA+'s multiple grammar scopes remain explicit implementation
 boundaries. Their shared-IR migration is not implied by entry unification.
 
+** Strict quoted text in shared lexical IR
+
+Use =(quoted-string-profile delimiter escapes unicode-width)= for quoted text
+whose backslash escapes must be admitted explicitly. For example, FHIRPath
+strings and delimited identifiers declare:
+
+#+begin_src scheme
+(lex
+ (string StringToken (quoted-string-profile "'" "`'\\/fnrt" 4))
+ (delimited-identifier DelimitedIdentifierToken
+  (quoted-string-profile "`" "`'\\/fnrt" 4)))
+#+end_src
+
+=delimiter= is exactly one character. =escapes= lists accepted single-character
+backslash escapes. =unicode-width= is an exact integer from 0 to 8; zero disables
+special =\u= handling. Simple escapes take priority, so including =u= in
+=escapes= makes it a one-character escape. Otherwise =\u= requires exactly
+=unicode-width= numeric or ASCII A–F/a–f source characters. Recognition preserves
+source spelling without decoding Unicode values. The numeric class retains the
+existing Scheme scanner contract, including non-ASCII decimal digits. Rust uses
+a generated range table from the pinned native =char-numeric?= implementation;
+superscripts, fractions and Roman numeral characters remain rejected.
+
+Raw newlines remain accepted; adjacent quoted values stay separate. Unknown
+escapes, incomplete hex sequences and missing closing delimiters fail closed.
+The descriptor owns these rules: loader extension slots and scan workers cannot
+redefine an admitted lexical profile. Scheme executes the compiled profile with
+character endpoints; generated Rust executes the same data with UTF-8 byte
+endpoints. Grammar identity includes the declaration.
+
+FHIRPath now uses this shared form for strings and backtick identifiers, removing
+two external callbacks. Its identifier, number, date, datetime and time callbacks
+still require separate lowering before standalone Rust AOT can be admitted.
+=t/quoted-string-profile-test.ss= owns Scheme semantics and the portable grammar
+witness. =t/generate-quoted-string-profile.ss OUTPUT.rs= emits that witness for
+Rust; CI regenerates it and Cargo tests its accepted/rejected source behavior.
+
+
 * POO pack metadata and services
 
 Every shipped public entry uses the explicit =(name :: self LanguageLoader.)=
@@ -387,7 +425,7 @@ coverage across the languages.
 | Arithmetic v1 | Concise DSL, canonical loader, declarative generated drive | Replace the retained specialization only when a generic engine strategy proves equivalent |
 | HCL v2.24 | Concise DSL, canonical loader, declarative step/source/event backends | Retained source/event generator still contains HCL-specific lowering assumptions |
 | HL7 v2.5.1 | Concise DSL, canonical loader | Message-local ER7 delimiter scanners remain Scheme callbacks; portable scanner lowering is unqualified |
-| FHIRPath v2.0.0 | Concise DSL, canonical loader | Domain projection stays in the pack; custom scanner portability requires separate admission |
+| FHIRPath v2.0.0 | Concise DSL, canonical loader, shared strict quote profiles | Domain projection stays in the pack; identifier/number/temporal scanner callbacks still require portable lowering |
 | openCypher 2024.1 | Pinned ISO-BNF admission, canonical loader | Keep source identity and engine source normalization; no duplicate native grammar is needed |
 | GQL ISO-39075-2024 | Pinned ANTLR4 admission, canonical loader | Graph domain semantics remain in the pack; general parser/actor/transport mechanisms belong to the engine |
 | TLA+ core/layout/SANY candidate | Concise DSL with validated catalogs, explicit POO loaders | Core/layout preserve IR and digests; candidate corrects the missing TerminalProof item field and regenerates its identity. Stateful scanner lowering remains separate. |

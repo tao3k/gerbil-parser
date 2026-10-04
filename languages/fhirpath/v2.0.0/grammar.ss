@@ -29,9 +29,8 @@
    (time TimeToken (external fhirpath-time-v2 scan-fhirpath-time))
    (date DateToken (external fhirpath-date-v2 scan-fhirpath-date))
    (delimited-identifier DelimitedIdentifierToken
-    (external fhirpath-delimited-identifier-v2
-              scan-fhirpath-delimited-identifier))
-   (string StringToken (external fhirpath-string-v2 scan-fhirpath-string))
+    (quoted-string-profile "`" "`'\\/fnrt" 4))
+   (string StringToken (quoted-string-profile "'" "`'\\/fnrt" 4))
    (number NumberToken (external fhirpath-number-v2 scan-fhirpath-number))
    (identifier IdentifierToken (external fhirpath-identifier-v2 scan-fhirpath-identifier))
    (punctuation PunctuationToken

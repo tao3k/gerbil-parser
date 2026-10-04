@@ -20,6 +20,7 @@
         scan-quoted-string
         scan-quoted-strings
         scan-escaped-quoted-strings
+        scan-quoted-string/profile
         scan-heredoc
         scan-balanced-word
         scan-line-comment
@@ -798,3 +799,41 @@
   (let* ((lexeme (substring source start end))
          (byte-end (+ byte-start (string-utf8-length lexeme))))
     (make-token kind lexeme byte-start byte-end)))
+
+;;; A closed lexical profile validates escaped source without decoding it.
+;;; Simple escapes consume one character; \u consumes exactly the configured
+;;; number of hex characters. Zero disables that escape; adjacent quotes remain
+;;; distinct. Numeric hex characters retain the existing Scheme lexical class.
+(def (scan-quoted-string/profile source start delimiter escapes unicode-width)
+  (let ((length (string-length source)) (delimiter-char (string-ref delimiter 0)))
+    (def (hex? ch)
+      (or (char-numeric? ch)
+          (and (char>=? ch #\a) (char<=? ch #\f))
+          (and (char>=? ch #\A) (char<=? ch #\F))))
+    (def (simple? ch)
+      (let loop ((index 0))
+        (and (< index (string-length escapes))
+             (or (char=? ch (string-ref escapes index)) (loop (+ index 1))))))
+    (def (escape-end slash)
+      (let (next (+ slash 1))
+        (and (< next length)
+             (let (ch (string-ref source next))
+               (cond
+                ((simple? ch) (+ next 1))
+                ((and (positive? unicode-width) (char=? ch #\u))
+                 (let (end (+ next 1 unicode-width))
+                   (and (<= end length)
+                        (let check ((index (+ next 1)))
+                          (or (= index end)
+                              (and (hex? (string-ref source index))
+                                   (check (+ index 1)))))
+                        end)))
+                (else #f))))))
+    (and (< start length) (char=? (string-ref source start) delimiter-char)
+         (let loop ((offset (+ start 1)))
+           (and (< offset length)
+                (let (ch (string-ref source offset))
+                  (cond
+                   ((char=? ch delimiter-char) (+ offset 1))
+                   ((char=? ch #\\) (alet (end (escape-end offset)) (loop end)))
+                   (else (loop (+ offset 1))))))))))

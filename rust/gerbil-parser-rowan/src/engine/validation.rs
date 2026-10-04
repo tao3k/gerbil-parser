@@ -171,6 +171,13 @@ fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
         {
             Err("quoted string requires non-empty delimiters".into())
         }
+        LexicalExpr::QuotedStringProfile {
+            delimiter,
+            unicode_width,
+            ..
+        } if delimiter.chars().count() != 1 || *unicode_width > 8 => Err(
+            "quoted string profile requires one delimiter and at most eight hex characters".into(),
+        ),
         LexicalExpr::LineComment(prefixes) if prefixes.is_empty() || !nonempty(prefixes) => {
             Err("line comment requires non-empty prefixes".into())
         }

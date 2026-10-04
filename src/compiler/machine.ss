@@ -19,7 +19,7 @@
                  scan-longest-literal
                  scan-nested-block-comment scan-newline
                  scan-number-literal scan-number-literal/profile
-                 scan-escaped-quoted-strings scan-quoted-strings scan-whitespace
+                 scan-escaped-quoted-strings scan-quoted-strings scan-quoted-string/profile scan-whitespace
                  scan-emit)
         (only-in ../runtime/token token-end token-kind))
 (export parser-machine-for-current-semantic-backend
@@ -234,7 +234,7 @@
 (defrules lexical-end
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string escaped-quoted-string until-delimiters
+   quoted-string escaped-quoted-string quoted-string-profile until-delimiters
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external character-run)
   ((_ source offset (whitespace+))
@@ -263,6 +263,8 @@
    (scan-quoted-strings source offset (list delimiter ...)))
   ((_ source offset (escaped-quoted-string delimiter ...))
    (scan-escaped-quoted-strings source offset (list delimiter ...)))
+  ((_ source offset (quoted-string-profile delimiter escapes unicode-width))
+   (scan-quoted-string/profile source offset delimiter escapes unicode-width))
   ((_ source offset (until-delimiters characters))
    (scan-until-delimiters source offset characters))
   ((_ source offset (heredoc))
@@ -371,7 +373,7 @@
 ;;; remain candidates, so this filter cannot change maximal-munch decisions.
 (defrules lexical-first-character?
   (whitespace+ horizontal-whitespace+ newline+ decimal-digit+ number
-   identifier number-literal quoted-string escaped-quoted-string heredoc
+   identifier number-literal quoted-string escaped-quoted-string quoted-string-profile heredoc
    line-comment block-comment
    nested-block-comment precedence choice character-run literals)
   ((_ ch (whitespace+)) (char-whitespace? ch))
@@ -397,6 +399,8 @@
   ((_ ch (escaped-quoted-string delimiter ...))
    (or (or (zero? (string-length delimiter))
            (char=? ch (string-ref delimiter 0))) ...))
+  ((_ ch (quoted-string-profile delimiter _escapes _unicode-width))
+   (char=? ch (string-ref delimiter 0)))
   ((_ ch (literals value ...))
    (or (or (zero? (string-length value))
            (char-ci=? ch (string-ref value 0))) ...))

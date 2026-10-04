@@ -62,6 +62,15 @@
          "4.5 'mg'"
          "text.`div`.exists()"
          "value is FHIR.string")))
+    (test-case "strict string and delimited identifier profiles preserve rejection"
+      (for-each
+       (lambda (row)
+         (let* ((source (car row)) (artifact (parse-fhirpath-v2 source)))
+           (check (parse-artifact-success? artifact) => (cdr row))
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)))
+       '(("'α'" . #t) ("'\\u0041'" . #t) ("`a\\`b`" . #t)
+         ("'\\q'" . #f) ("'\\u123'" . #f) ("`a\\x`" . #f))))
     (test-case "an incomplete invocation fails closed"
       (let (artifact (parse-fhirpath-v2 "Patient.name.where("))
         (check (parse-artifact-success? artifact) => #f)))))

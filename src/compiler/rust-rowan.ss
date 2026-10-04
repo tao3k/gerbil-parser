@@ -6,7 +6,7 @@
                  language-grammar-ir
                  language-grammar-language
                  language-grammar-machine
-                 language-grammar-version)
+                 language-grammar-version require-portable-language-policy!)
         (only-in ./machine parser-machine-grammar-digest))
 (export generate-language-rust-rowan-module
         generate-rust-rowan-module
@@ -348,6 +348,7 @@
 ;;; descriptor already owns identity, Parser IR, machine, and grammar digest;
 ;;; repository/release tooling supplies only the Rust artifact destination.
 (def (generate-language-rust-rowan-module output-path language-grammar)
+  (require-portable-language-policy! language-grammar)
   (generate-rust-rowan-module
    output-path
    (language-grammar-language language-grammar)

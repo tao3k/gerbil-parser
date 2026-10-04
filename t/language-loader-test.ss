@@ -10,6 +10,7 @@
         (only-in :gerbil-parser/languages/arithmetic/v1/grammar
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/src/language/source declare-source-language)
+        (only-in :gerbil-parser/languages/bash/v5-3/grammar bash-v5-3-source-language)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip))
 
@@ -58,6 +59,23 @@
          (descriptor #f) (parse invalid-keyword-parse)
          (slots schema: "invalid") (contracts))))))
 
+(defsyntax (invalid-declaration-messages stx)
+  (def (message form)
+    (with-catch (lambda (condition) (error-message condition))
+      (lambda () (core-expand form))))
+  (datum->syntax
+   #'invalid-declaration-messages
+   (cons 'quote (list (list
+    (message #'(deflanguage-parser-loader bad (grammar #f) (parse parse-bad)
+                 (slots) (slots)))
+    (message #'(deflanguage-parser-loader bad (grammar #f) (parse parse-bad)
+                 (contracts) (slots)))
+    (message #'(deflanguage-parser-loader bad (grammar #f) (parse parse-bad)
+                 (options)))
+    (message #'(deflanguage-parser-loader (bad marker self LanguageLoader.)
+                 (descriptor #f) (parse parse-bad) (slots) (contracts)))
+    (message #'(deflanguage-parser-loader bad (grammar #f) (parse "bad"))))))))
+
 (def language-loader-test
   (test-suite "POO language loader admission"
     (test-case "inherits extensions and binds engine identity and dispatch"
@@ -69,6 +87,30 @@
       (check (language-parser-entry-ref arithmetic-loader 'language) => "arithmetic")
       (check (.ref arithmetic-loader 'capabilities) => '(grammar-ir parser-ir scheme))
       (let* ((source "a + 2 * b") (artifact (parse-loaded-arithmetic source)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (parse-artifact-roundtrip artifact) => source)))
+    (test-case "typed declarations compose with POO extension forms and optional sections"
+      (deflanguage-parser-loader (typed-loader :: self Dialect.)
+        (grammar arithmetic-language-grammar) (parse parse-typed)
+        (slots label: "typed" (summary (.ref self 'label))))
+      (deflanguage-parser-loader (contract-loader @ Dialect.)
+        (grammar arithmetic-language-grammar) (parse parse-contract)
+        (contracts DialectContract))
+      (deflanguage-parser-loader (self-loader :: self Dialect.)
+        (grammar arithmetic-language-grammar) (parse parse-self))
+      (deflanguage-parser-loader (self-contract-loader :: self Dialect.)
+        (grammar arithmetic-language-grammar) (parse parse-self-contract)
+        (contracts DialectContract))
+      (check (.ref typed-loader 'summary) => "typed")
+      (for-each (lambda (parse) (check (parse-artifact-success? (parse "a+1")) => #t))
+                (list parse-typed parse-contract parse-self parse-self-contract)))
+    (test-case "source declarations use the same extension normalization and lossless dispatch"
+      (deflanguage-parser-loader (source-loader :: self LanguageLoader.)
+        (source bash-v5-3-source-language) (parse parse-source-loaded)
+        (slots label: "Bash" (summary (.ref self 'label))))
+      (let* ((source "echo α\n") (artifact (parse-source-loaded source)))
+        (check (.ref source-loader 'capabilities) => '(scheme-source))
+        (check (.ref source-loader 'summary) => "Bash")
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)))
     (test-case "parsing reuses the loaded entry without extension admission"
@@ -86,6 +128,13 @@
     (test-case "rejects engine slot overrides during macro expansion"
       (check (engine-slot-rejection-message)
              => "language loader extension overrides an engine slot | language loader extension overrides an engine slot"))
+    (test-case "normalization rejects malformed declarations before publishing a loader"
+      (check (invalid-declaration-messages)
+             => '("duplicate or out-of-order language loader slots"
+                  "duplicate or out-of-order language loader slots"
+                  "unknown language loader section"
+                  "invalid language loader binding"
+                  "language loader parse binding must be an identifier")))
     (test-case "grammar and source declarations enforce their descriptor kind"
       (let (source-descriptor
             (declare-source-language "source-test" "v1" "source-test.v1"

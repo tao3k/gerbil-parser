@@ -8,9 +8,11 @@
         :std/encoding/json
         (only-in :std/encoding/hex hex-decode)
         (only-in ../grammar/algebra grammar-expression-fields)
-        (only-in ../language/descriptor language-grammar-grammar language-grammar-language language-grammar-machine)
+        (only-in ../language/descriptor language-grammar-grammar language-grammar-language language-grammar-machine
+                 language-grammar-parser-policy language-parser-policy-identity
+                 language-parser-policy-branch-budget)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
-        (only-in ../language/entry parse-language-source)
+        (only-in ../language/entry parse-language-source call-with-language-parser-policy)
         (only-in ../runtime/parser prepare-contextual-parser parse-source/contextual/prepared
                  parse-source/contextual/prepared/deferred))
 (export make-native-language-context
@@ -215,7 +217,8 @@
     (unless (equal? bytes (string->utf8 source))
       (error "native source is not canonical UTF-8"))
     (let (plan (native-language-plan language))
-      (if (not plan)
+      (if (or (not plan)
+              (language-grammar-parser-policy (native-language-grammar language)))
         (native-parse-binary-payload language source)
         (let ((source-byte-length (u8vector-length bytes)) (source-digest (sha256 bytes)))
           (parse-source/contextual/prepared/deferred
@@ -241,9 +244,8 @@
                    payload))))))))))
 
 (def (native-descriptor-payload language)
-  (begin
-    (json->string
-     (hash (schema +gerbil-parser-native-descriptor-schema+)
+  (let (payload
+        (hash (schema +gerbil-parser-native-descriptor-schema+)
          (language (native-language-id language))
          (grammarDigest
           (parse-artifact-ref ((native-language-parser language) "")
@@ -260,7 +262,14 @@
           (list->vector (map terminal->json
                              (grammar-section
                               (native-language-grammar language)
-                              'terminals))))))))
+                              'terminals))))))
+    (let (policy (language-grammar-parser-policy (native-language-grammar language)))
+      (when policy
+        (hash-put! payload 'parserPolicy
+                   (hash (identity (language-parser-policy-identity policy))
+                         (branchBudget (language-parser-policy-branch-budget policy))
+                         (schemeCstValidation #t) (portable #f)))))
+    (json->string payload)))
 
 ;;; A language pack supplies its descriptor once; no builtin language imports.
 (def (bind-native-language descriptor (contextual-product #f))
@@ -270,7 +279,9 @@
           (make-native-language-context
            (language-grammar-language descriptor) descriptor
            (lambda (source)
-             (if plan (parse-source/contextual/prepared plan source)
-                 (parse-language-source descriptor source))))))
+             (if plan
+               (call-with-language-parser-policy
+                descriptor source (lambda () (parse-source/contextual/prepared plan source)))
+               (parse-language-source descriptor source))))))
     (native-language-plan-set! language plan)
     language))

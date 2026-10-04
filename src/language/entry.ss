@@ -5,28 +5,72 @@
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../runtime/parser parse-source)
+        (only-in ../runtime/lr-parser current-lr-branch-budget)
+        (only-in ../runtime/cst parse-artifact->cst)
+        (only-in ../runtime/token make-token)
+        (only-in ../runtime/artifact
+                 parse-artifact-success? parse-artifact-valid? parse-artifact-ref
+                 parse-artifact-events token-event? token-event-token-kind
+                 token-event-lexeme event-start event-end make-failure-parse-artifact)
         (only-in ./descriptor
                  language-grammar? language-grammar-contract language-grammar-language
                  language-grammar-machine language-grammar-observability
-                 language-grammar-version)
+                 language-grammar-version language-grammar-parser-policy
+                 language-parser-policy-branch-budget language-parser-policy-cst-validator)
         (only-in ./source
                  parse-source-language source-language?
                  source-language-contract source-language-language
                  source-language-version))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
-        +language-parser-entry-schema+ language-parser-entry-ref parse-language-source)
+        +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
+        call-with-language-parser-policy)
 
 (def +language-parser-entry-schema+ "gerbil-parser.language-entry.v1")
 
 (def (language-parser-entry-ref entry key)
   (and (object? entry) (.slot? entry key) (.ref entry key)))
 
+(def (descriptor-capabilities descriptor)
+  (cond ((source-language? descriptor) '(scheme-source))
+        ((language-grammar-parser-policy descriptor)
+         '(grammar-ir parser-ir scheme scheme-policy))
+        (else '(grammar-ir parser-ir scheme))))
+
+;;; The engine owns budgeting and lossless rejection assembly. Language policy
+;;; callbacks inspect a successful CST and return #f or a diagnostic, never a
+;;; replacement parser or artifact. Exceptions and invalid diagnostics escape.
+(def (call-with-language-parser-policy descriptor source recognize)
+  (let (policy (language-grammar-parser-policy descriptor))
+    (if (not policy) (recognize)
+      (parameterize ((current-lr-branch-budget (language-parser-policy-branch-budget policy)))
+        (let* ((artifact (recognize))
+               (diagnostic
+                (and (parse-artifact-success? artifact)
+                     ((language-parser-policy-cst-validator policy)
+                      (parse-artifact->cst artifact)))))
+          (if (not diagnostic) artifact
+            (let (rejected
+                  (make-failure-parse-artifact
+                   (parse-artifact-ref artifact 'grammarDigest) source
+                   (map (lambda (event)
+                          (make-token (token-event-token-kind event)
+                                      (token-event-lexeme event)
+                                      (event-start event) (event-end event)))
+                        (filter token-event? (parse-artifact-events artifact)))
+                   diagnostic))
+              (unless (parse-artifact-valid? rejected)
+                (error "language parser policy returned an invalid diagnostic" diagnostic))
+              rejected)))))))
+
 (def (parse-language-source descriptor source)
   (cond
    ((source-language? descriptor) (parse-source-language descriptor source))
    ((language-grammar? descriptor)
-    (parse-source (language-grammar-machine descriptor) source
-                  (language-grammar-observability descriptor)))
+    (call-with-language-parser-policy
+     descriptor source
+     (lambda ()
+       (parse-source (language-grammar-machine descriptor) source
+                     (language-grammar-observability descriptor)))))
    (else (error "language loader requires a language descriptor" descriptor))))
 
 (def (require-grammar-descriptor descriptor)
@@ -63,9 +107,7 @@
                                (equal? value (.ref candidate slot)))))
                       '(language version contract))
               (equal? (.ref candidate 'capabilities)
-                      (if (source-language? descriptor)
-                        '(scheme-source)
-                        '(grammar-ir parser-ir scheme)))
+                      (descriptor-capabilities descriptor))
               (procedure? (.ref candidate '.parse))))))
 
 (define-type (LanguageLoaderContract @ PooFlowContract.)
@@ -86,8 +128,7 @@
       (language (descriptor-ref (.ref self 'descriptor) 'language))
       (version (descriptor-ref (.ref self 'descriptor) 'version))
       (contract (descriptor-ref (.ref self 'descriptor) 'contract))
-      (capabilities (if (source-language? (.ref self 'descriptor))
-                      '(scheme-source) '(grammar-ir parser-ir scheme)))
+      (capabilities (descriptor-capabilities (.ref self 'descriptor)))
       (.parse (let (descriptor (.ref self 'descriptor))
                 (lambda (source) (parse-language-source descriptor source))))))
 
@@ -96,12 +137,13 @@
 ;;; Additional contracts validate the effective object after inheritance.
 (defsyntax (deflanguage-parser-loader stx)
   (syntax-case stx (@ descriptor parse slots contracts grammar source)
-    ((_ (binding :: loader-self prototype)
+    ((_ (binding marker loader-self prototype)
         (descriptor descriptor-value)
         (parse parse-binding)
         (slots slot ...)
         (contracts extension-contract ...))
      (and (identifier? #'binding) (identifier? #'loader-self)
+          (eq? (syntax->datum #'marker) '::)
           (identifier? #'parse-binding))
      (let ()
        (def (check-slot! name location)
@@ -138,8 +180,7 @@
                        (language (descriptor-ref (.ref loader-self 'descriptor) 'language))
                        (version (descriptor-ref (.ref loader-self 'descriptor) 'version))
                        (contract (descriptor-ref (.ref loader-self 'descriptor) 'contract))
-                       (capabilities (if (source-language? (.ref loader-self 'descriptor))
-                                       '(scheme-source) '(grammar-ir parser-ir scheme)))
+                       (capabilities (descriptor-capabilities (.ref loader-self 'descriptor)))
                        (.parse (let (descriptor (.ref loader-self 'descriptor))
                                  (lambda (source)
                                    (parse-language-source descriptor source))))
@@ -148,26 +189,51 @@
                (validate extension-contract candidate) ...
                candidate))
            (def parse-binding (.ref binding '.parse)))))
-    ((_ (binding @ prototype) (descriptor descriptor-value)
-        (parse parse-binding) (slots slot ...) (contracts extension-contract ...))
-     #'(deflanguage-parser-loader (binding :: self prototype)
-         (descriptor descriptor-value) (parse parse-binding)
-         (slots slot ...) (contracts extension-contract ...)))
-    ((_ (binding @ prototype) (descriptor descriptor-value)
-        (parse parse-binding) (slots slot ...))
-     #'(deflanguage-parser-loader (binding @ prototype)
-         (descriptor descriptor-value) (parse parse-binding)
-         (slots slot ...) (contracts)))
-    ((_ (binding @ prototype) (descriptor descriptor-value) (parse parse-binding))
-     #'(deflanguage-parser-loader (binding @ prototype)
-         (descriptor descriptor-value) (parse parse-binding) (slots) (contracts)))
-    ((_ binding (descriptor descriptor-value) (parse parse-binding))
-     #'(deflanguage-parser-loader (binding @ LanguageLoader.)
-         (descriptor descriptor-value) (parse parse-binding) (slots) (contracts)))
-    ((_ binding (grammar descriptor-value) (parse parse-binding))
-     #'(deflanguage-parser-loader binding
-         (descriptor (require-grammar-descriptor descriptor-value)) (parse parse-binding)))
-    ((_ binding (source descriptor-value) (parse parse-binding))
-     #'(deflanguage-parser-loader binding
-         (descriptor (require-source-descriptor descriptor-value)) (parse parse-binding)))
+    ((_ binding (kind descriptor-value) (parse parse-binding) section ...)
+     (let ()
+       (unless (identifier? #'parse-binding)
+         (raise-syntax-error #f "language loader parse binding must be an identifier" #'parse-binding))
+       (def normalized-binding
+         (if (identifier? #'binding)
+           #'(binding :: self LanguageLoader.)
+           (syntax-case #'binding (@)
+             ((name @ prototype)
+              (identifier? #'name)
+              #'(name :: self prototype))
+             ((name marker self prototype)
+              (and (identifier? #'name) (identifier? #'self)
+                   (eq? (syntax->datum #'marker) '::))
+              #'(name :: self prototype))
+             (_ (raise-syntax-error #f "invalid language loader binding" #'binding)))))
+       (def normalized-descriptor
+         (case (syntax->datum #'kind)
+           ((descriptor) #'descriptor-value)
+           ((grammar) #'(require-grammar-descriptor descriptor-value))
+           ((source) #'(require-source-descriptor descriptor-value))
+           (else (raise-syntax-error #f "invalid language loader descriptor kind" #'kind))))
+       (def slot-section #'(slots))
+       (def contract-section #'(contracts))
+       (def seen-slots? #f)
+       (def seen-contracts? #f)
+       (for-each
+        (lambda (row)
+          (syntax-case row (slots contracts)
+            ((slots slot ...)
+             (begin
+               (when (or seen-slots? seen-contracts?)
+                 (raise-syntax-error #f "duplicate or out-of-order language loader slots" row))
+               (set! seen-slots? #t) (set! slot-section row)))
+            ((contracts contract ...)
+             (begin
+               (when seen-contracts?
+                 (raise-syntax-error #f "duplicate language loader contracts" row))
+               (set! seen-contracts? #t) (set! contract-section row)))
+            (_ (raise-syntax-error #f "unknown language loader section" row))))
+        (stx-map (lambda (row) row) #'(section ...)))
+       (with-syntax ((normalized-binding normalized-binding)
+                     (normalized-descriptor normalized-descriptor)
+                     (slot-section slot-section) (contract-section contract-section))
+         #'(deflanguage-parser-loader normalized-binding
+             (descriptor normalized-descriptor) (parse parse-binding)
+             slot-section contract-section))))
     (_ (raise-syntax-error #f "invalid language loader declaration" stx))))

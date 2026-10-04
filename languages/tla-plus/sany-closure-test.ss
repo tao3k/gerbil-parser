@@ -2,6 +2,11 @@
 ;;; -*- Gerbil -*-
 ;;; Structural and rejection regressions for the complete pinned corpus slice.
 (import :std/test
+        (only-in :clan/poo/object .ref)
+        (only-in :gerbil-parser/src/language/entry parse-language-source)
+        (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-native-language native-parse-binary-payload/bytes)
+        (only-in :std/vector/u8vector little u8vector-u32-ref)
+        (only-in :gerbil-parser/src/ffi/rust-rowan-aot-v1 native-rust-rowan-source)
         :gerbil-parser/languages/tla-plus/sany-candidate
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/cst)
@@ -56,6 +61,23 @@
         (check (kind-count tree 'ProofStep) => 5)
         (check (kind-count tree 'AssumeProve) => 2)
         (check (kind-count tree 'SelectorArguments) => 1)))
+    (test-case "public loader descriptor and native entry share proof admission"
+      (let (native (bind-native-language tla-plus-sany-candidate-language-grammar))
+        (for-each
+         (lambda (row)
+           (let* ((source (string-append "---- MODULE Entry ----\nTHEOREM TRUE\n" (car row) "\n====\n"))
+                  (artifact (parse-tla-plus-sany-candidate source)))
+             (check (parse-artifact-success? artifact) => (cdr row))
+             (check artifact => ((.ref tla-plus-sany-candidate-language '.parse) source))
+             (check artifact => (parse-language-source tla-plus-sany-candidate-language-grammar source))
+             (check (u8vector-u32-ref (native-parse-binary-payload/bytes native (string->utf8 source)) 8 little)
+                    => (if (cdr row) 0 1))))
+         '(("OBVIOUS" . #t) ("<1>1. TRUE OBVIOUS" . #f)))))
+    (test-case "build ABI rejects public candidate policy rather than emitting recognition only"
+      (check-exception (native-rust-rowan-source "languages/tla-plus/sany-candidate.ss")
+                       (lambda (e)
+                         (equal? (error-message e)
+                                 "language parser policy is unsupported by standalone Rust AOT"))))
     (test-case "missing QED inconsistent levels and proof of HAVE reject"
       (for-each
        (lambda (proof)

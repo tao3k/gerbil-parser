@@ -1,8 +1,8 @@
 #+title: Language pack boundary
 
 A language pack normally exposes its public entry in =parser.ss=. TLA+ retains
-a separate SANY candidate entry in =sany-candidate.ss=; its policy discrepancy
-is listed in the audit below. Every syntax-scope entry is defined with
+a separate SANY candidate entry in =sany-candidate.ss= with its descriptor-bound
+proof policy. Every syntax-scope entry is defined with
 =deflanguage-parser-loader= from =:gerbil-parser/language-support=. Grammar rules, lexical
 roles and language-specific syntax remain in the pack; validation, compilation,
 artifact admission and parser assembly belong to the engine.
@@ -31,7 +31,20 @@ POO contracts when an extension needs additional constraints. These contracts
 check the effective inherited object before its parse entry is published.
 
 #+begin_src scheme
-(import (only-in :clan/poo/object .ref))
+(import (only-in :clan/poo/object .o .ref)
+        (only-in :clan/poo/mop define-type)
+        (only-in :core/types PooFlowContract. poo-flow-classification-evidence))
+
+(def ExampleDialect.
+  (.o (:: @ LanguageLoader.) dialect: 'example))
+
+(define-type (ExampleDialectContract @ PooFlowContract.)
+  identity: 'example/dialect
+  .classify: (lambda (candidate context)
+               (let (accepted? (eq? (.ref candidate 'dialect) 'example))
+                 (poo-flow-classification-evidence
+                  'example/dialect candidate accepted?
+                  (if accepted? '() '((invalid dialect))) context))))
 
 (deflanguage-parser-loader (example-language :: self ExampleDialect.)
   (descriptor example-language-grammar)
@@ -124,9 +137,11 @@ The following forms show the arguments after =deflanguage-parser-loader=.
 | =((name @ prototype) (descriptor descriptor) (parse procedure) (slots ...) (contracts ...))= | POO parent plus either descriptor | Inherited extension object, then engine and extension admission |
 | =((name :: self prototype) (descriptor descriptor) (parse procedure) (slots ...) (contracts ...))= | Same, with an explicit self binding | Computed extension slots can refer to the effective object |
 
-For =@=, =slots= and =contracts= may be omitted. For the explicit =self= form,
-write both sections, including empty =(slots)= / =(contracts)= when appropriate.
-The =grammar= and =source= forms reject a descriptor of the other kind.
+For both =@= and explicit =self=, =slots= and =contracts= may be omitted,
+including a contracts-only declaration. When both are supplied, =slots= precedes
+=contracts=. =grammar= and =source= may replace =descriptor= in any prototype
+form and reject a descriptor of the other kind. All forms normalize to the same
+admission and dispatch implementation.
 
 Protected slots are =schema=, =descriptor=, =language=, =version=, =contract=,
 =capabilities=, and =.parse=. The macro rejects direct extension overrides and
@@ -148,9 +163,96 @@ The language-independent C ABI currently admits descriptors through
 =language-grammar= descriptor; Bash source descriptors are not admitted by that
 codec. It does not serialize loader slots or POO callbacks.
 Standalone Rust AOT consumes admitted portable IR. Neither path automatically
-inherits arbitrary Scheme extension behavior. A policy shared across Scheme,
-C ABI and Rust must first have an explicit portable representation, or remain
-an explicitly Scheme-only capability.
+inherits arbitrary POO extension behavior. Descriptor-bound Scheme policies
+are consumed by the loader and native C ABI; standalone Rust AOT rejects them
+before emission until a portable policy representation exists.
+
+* Parser policy and capability admission
+
+Use =language-grammar-with-parser-policy= from the public language-support facade
+when a generated language needs a recognition budget and a successful-CST
+validation rule. Configure the descriptor before declaring the loader; export
+that configured descriptor from the public entry module.
+
+#+begin_src scheme
+(def example-language-grammar
+  (language-grammar-with-parser-policy
+   recognition-language-grammar "example.validation.v1" 4096 example-cst-diagnostic))
+
+(deflanguage-parser-loader (example-language :: self ExampleDialect.)
+  (grammar example-language-grammar)
+  (parse parse-example)
+  (slots display-name: "Example"))
+#+end_src
+
+=recognition-language-grammar= is the raw grammar descriptor imported under a
+local name. The policy identity is a nonempty, versioned author-owned string;
+the budget must be a positive fixnum and the checker a procedure. The checker
+receives a successful CST and returns =#f= to accept or a valid
+=gerbil-parser.diagnostic.v1= diagnostic to reject. Recognition failures skip
+the checker. Exceptions propagate, and an invalid diagnostic cannot publish an
+artifact. The engine retains all token spans and source bytes in a rejection.
+
+The budget is dynamically scoped to recognition and validation, including
+exceptional exits. =language-grammar-with-observability= preserves this policy.
+The loader advertises =scheme-policy= in addition to its generated-grammar
+capabilities. Extension contracts still run only during loader admission;
+the CST checker runs once for each successful recognition.
+
+The configured descriptor is the product boundary: pass it to
+=register-native-language!= or export it from the module named by
+=generate-native-language-pack=. A prepared contextual native parser applies
+the same policy; its deferred event publication cannot bypass the CST checker.
+Native descriptor metadata contains =parserPolicy= with identity, branch
+budget, =schemeCstValidation=true= and =portable=false=. The recognition grammar
+digest remains the syntax identity; it does not fingerprint callback code.
+Version the policy identity when the rule changes.
+
+The standalone Rust descriptor generator and build ABI reject this Scheme
+policy before writing output. Generating raw recognition IR is a narrower
+syntax-only product and cannot establish policy equivalence. A Rust caller using
+the native C ABI does execute the Scheme policy through that ABI. Do not
+advertise a standalone Rust policy capability until its shared representation,
+lowering and parity tests exist.
+
+* A downstream language repository
+
+The minimum authored files are =gerbil.pkg=, =grammar.ss= and =parser.ss=;
+conformance fixtures belong alongside them. Choose a package namespace and pin
+engine dependencies through the normal Gerbil package workflow. Neither a new
+language name in the engine nor a custom C dispatcher is required.
+
+1. Declare syntax in =grammar.ss= using the minimal DSL example above. Keep its
+   language, version and syntax-contract identities explicit.
+2. Declare the public loader in =parser.ss=. Export its parse procedure, loader
+   object and configured descriptor when native consumers need it. Import only
+   the required names from =:gerbil-parser/language-support=.
+3. Validate accepted and rejected source, lossless roundtrip, UTF-8/CRLF spans,
+   field catalogs and any language policy using Scheme tests. POO extension
+   tests must include inherited values, invalid values and sealed-slot rejection.
+4. Select a product using the table below. Generate it through the engine and
+   run downstream semantic parity; a successful loader admission alone does not
+   qualify a target.
+
+| Product | Engine admission | Downstream responsibility |
+|---+---+---|
+| Scheme | =deflanguage-parser-loader= | Syntax declarations, optional POO services/contracts, conformance fixtures |
+| Native C ABI / Rust native wrapper | =generate-native-language-pack= and =register-native-language!= | Export the configured descriptor, link the generated factory with the normal SDK builder, use generic handle/result ownership |
+| Standalone Rust/Rowan | =generate-language-rust-rowan-module= or the engine build ABI | Supply an admitted portable descriptor, consume generated Rust with =gerbil_parser_rowan=, compare accepted/rejected artifacts |
+| Scheme source parser | =(source descriptor)= | Declare a source descriptor and language-specific recognition; current native codec and standalone Rust do not admit it |
+
+The C factory generator takes output Scheme/header paths, the generated module
+identity, the descriptor-exporting module, its descriptor name and a C symbol
+prefix. Its optional contextual export must come from that same module. It
+emits integration code; the normal Gerbil builder owns compilation and linking.
+Create a language handle once and reuse it across parses; initialize the runtime
+once and release results and handles through the generic ABI. Per-call VM or
+process creation is outside the loader contract.
+
+For working native ownership examples see
+[[file:../rust/gerbil-parser-native/README.org][Rust native wrapper guide]]. For the standalone build ABI, portable scanner
+admission and external consumer witness see
+[[file:../docs/architecture/0006-rust-rowan-aot.org][Rust/Rowan AOT design]].
 
 * Generated backend declarations
 
@@ -186,19 +288,17 @@ coverage across the languages.
 | FHIRPath v2.0.0 | Concise DSL, canonical loader | Domain projection stays in the pack; custom scanner portability requires separate admission |
 | openCypher 2024.1 | Pinned ISO-BNF admission, canonical loader | Keep source identity and engine source normalization; no duplicate native grammar is needed |
 | GQL ISO-39075-2024 | Pinned ANTLR4 admission, canonical loader | Graph domain semantics remain in the pack; general parser/actor/transport mechanisms belong to the engine |
-| TLA+ core/layout/SANY candidate | Three explicit grammar scopes, canonical loaders | Migrate all three verbose catalogs to concise DSL with exact rule/scanner/field equivalence; reconcile candidate policy below |
+| TLA+ core/layout/SANY candidate | Three explicit grammar scopes, canonical loaders | Migrate all three verbose catalogs to concise DSL with exact rule/scanner/field equivalence; candidate proof policy now shares loader/native admission |
 | Bash 5.3 | Source descriptor, canonical loader | Stateful scanner and handwritten recognition are not shared Scanner/Parser IR or standalone Rust AOT |
 
 The next structural work has the following dependency order:
 
-1. *Unify SANY candidate policy.* =sany-candidate.ss= currently exports a
-   wrapper that sets branch budget 4096 and validates proof levels, while its
-   loader =.parse= binds the underlying parser. These entries differ. The
-   engine must own recognition-budget application and post-parse artifact
-   rejection, including lossless token retention. The proof-level rule itself
-   remains TLA+-owned. Put policy admission in the descriptor/engine boundary
-   before claiming the same behavior through C ABI or Rust; replacing =.parse=
-   with an unchecked POO callback would bypass the loader contract.
+1. *Represent policies for portable execution.* SANY's public descriptor now
+   binds branch budget 4096 and the TLA+-owned proof checker. Public Scheme,
+   loader and native descriptor entries share the engine's budgeting and
+   lossless rejection mechanism. The raw internal grammar remains a narrower
+   recognition scope. Standalone Rust rejects the configured Scheme policy;
+   policy IR and Rust lowering remain separate required work.
 2. *Migrate TLA+ catalogs.* Preserve core/layout/candidate identities and
    lexical declaration order, compare canonical rules/LR tables/layout/external
    scanner declarations and node fields, then run their scope conformance
@@ -212,9 +312,9 @@ The next structural work has the following dependency order:
    Scheme and Rust must consume the same admitted representation before pure
    Rust capability is advertised.
 4. *Converge recognition/artifact assembly.* Bash still constructs fallback
-   tokens and success/failure artifacts in =parser-core.ss=; SANY reconstructs
-   rejection tokens in its wrapper. A shared engine result boundary should own
-   these mechanisms and preserve language-specific diagnostics and deferred
+   tokens and success/failure artifacts in =parser-core.ss=. Descriptor-bound
+   post-parse rejection now belongs to the engine; Bash's source-parser assembly
+   remains to migrate to the shared engine result boundary and preserve language-specific diagnostics and deferred
    here-document span links. Move them with lossless accepted/rejected and
    UTF-8 span witnesses, not by copying language functions into another folder.
 5. *Generalize retained generators.* HCL and Arithmetic checked-in backends

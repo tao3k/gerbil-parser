@@ -221,6 +221,21 @@ API, but must call =compile-grammar= to cross into canonical Grammar IR before
 =compile-parser=. POO assembles and validates the loader when the language
 module loads; the bound recognition method performs no POO lookup or admission.
 Standalone generated Rust AOT products do not include the Scheme loader.
+
+Loader declarations normalize typed =grammar= / =source= input and POO prototype
+extensions to one admitted form. Engine identity and parse slots remain sealed;
+extension contracts check the effective object once when the module loads.
+
+A generated descriptor may bind an explicit Scheme parser policy with
+=language-grammar-with-parser-policy=. The engine scopes its branch budget and
+assembles lossless rejection artifacts from a language-owned successful-CST
+checker. The public entry exports that configured descriptor for native product
+admission. Scheme loader and contextual/native C ABI entries consume the same
+policy, including the byte publication path. Its identity is separate from the
+syntax digest. Standalone Rust descriptor generation rejects the unlowered
+callback policy before emission; raw recognition IR is a narrower product.
+See [[file:../../languages/README.org][the language extension guide]] for the authoring forms and product boundaries.
+
 Every terminal has exactly one lexical rule, every reference
 resolves, repetitions are non-nullable, the flow is connected, and the
 entrypoint yields exactly one unfielded root.  The author does not modify

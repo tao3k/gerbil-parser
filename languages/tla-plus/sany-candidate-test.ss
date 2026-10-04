@@ -7,8 +7,6 @@
         (only-in :std/sync/barrier
                  barrier-post! barrier-wait! make-barrier)
         :gerbil-parser/languages/tla-plus/sany-candidate
-        (only-in :gerbil-parser/languages/tla-plus/grammars/sany-candidate
-                 tla-plus-sany-candidate-language-grammar)
         (only-in :gerbil-parser/languages/tla-plus/grammars/layout
                  tla-plus-layout-language-grammar)
         (only-in :gerbil-parser/src/language/descriptor

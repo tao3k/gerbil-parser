@@ -90,6 +90,8 @@
                  +language-parser-entry-schema+
                  deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
                  language-parser-entry-ref)
+        (only-in ./src/language/descriptor
+                 language-grammar-with-parser-policy)
         (only-in ./src/language/source
                  +source-language-schema+
                  declare-source-language
@@ -167,6 +169,7 @@
         +source-language-schema+
         deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         declare-source-language
+        language-grammar-with-parser-policy
         source-language?
         language-parser-entry-ref
         defsyntax-fixture

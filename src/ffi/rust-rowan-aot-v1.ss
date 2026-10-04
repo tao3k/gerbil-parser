@@ -11,7 +11,7 @@
                  language-grammar-ir
                  language-grammar-language
                  language-grammar-machine
-                 language-grammar-version))
+                 language-grammar-version require-portable-language-policy!))
 (export native-rowan-aot-abi-version
         native-rust-rowan-source
         native-rowan-aot-error-payload)
@@ -53,6 +53,7 @@
 
 (def (native-rust-rowan-source grammar-path)
   (let (language (grammar-module-language grammar-path))
+    (require-portable-language-policy! language)
     (rust-rowan-module-source
      (language-grammar-language language)
      (language-grammar-version language)

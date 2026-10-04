@@ -29,6 +29,10 @@ def main():
         args.idle_timeout is not None and args.idle_timeout <= 0
     ):
         parser.error("expected a command and positive timeout values")
+    # Gerbil run-process can pass a nonblocking stdout pipe. Python's buffered
+    # print/flush cannot retry partial EAGAIN writes; restore ordinary blocking
+    # pipe semantics before publishing evidence to the draining parent.
+    os.set_blocking(sys.stdout.fileno(), True)
     args.log.parent.mkdir(parents=True, exist_ok=True)
     start = last_output = time.monotonic()
     next_progress = start + 5

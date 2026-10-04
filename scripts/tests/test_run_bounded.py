@@ -2,9 +2,11 @@
 """Exercise evidence completeness and failure propagation through the process runner."""
 
 from pathlib import Path
+import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 RUNNER = Path(__file__).resolve().parents[1] / "run-bounded.py"
@@ -30,6 +32,33 @@ class BoundedEvidenceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(receipt + "\n", result.stdout)
         self.assertIn(receipt + "\n", log)
+
+    def test_inherited_nonblocking_pipe_preserves_burst_evidence(self):
+        with tempfile.TemporaryDirectory(prefix="parser-bounded-pipe-") as directory:
+            log = Path(directory) / "child.log"
+            receipt = "PIPE-PROGRESS " + "λ" * 1000
+            program = f"print(({receipt!r} + '\\n') * 2000, end=''); print('OK')"
+            readfd, writefd = os.pipe()
+            os.set_blocking(writefd, False)
+            process = subprocess.Popen(
+                [sys.executable, str(RUNNER), "--timeout", "5", "--log", str(log),
+                 "--full-output", "--require", "^OK$", "--",
+                 sys.executable, "-u", "-c", program],
+                stdout=writefd, stderr=subprocess.PIPE)
+            os.close(writefd)
+            process.stdout = os.fdopen(readfd, "rb")
+            try:
+                # Force backpressure before draining the inherited pipe.
+                time.sleep(0.05)
+                stdout, stderr = process.communicate(timeout=10)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate()
+            self.assertEqual(process.returncode, 0, stderr.decode())
+            self.assertEqual(stdout.decode().count(receipt + "\n"), 2000)
+            self.assertEqual(log.read_text().count(receipt + "\n"), 2000)
+            self.assertIn(b"reason=completed", stdout)
 
     def test_zero_exit_without_final_ok_is_rejected(self):
         result, _ = self.run_child("print('CASE-OK owner'); print('HARNESS-OK')",

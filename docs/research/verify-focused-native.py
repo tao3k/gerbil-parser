@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Explicit native test selection, bounded concurrency and an aggregate deadline.
 
-Uses existing native products. Compile changed dependencies before this command.
+Uses existing native products and the upstream disposable test child.
+Compile changed dependencies before this command.
 Functional concurrency is supported; benchmark modules require --workers 1.
 """
 from pathlib import Path
@@ -40,7 +41,9 @@ def summarize(lines, module, status, stopped):
     ok = (status == 0 and stopped is None and started > 0 and started == passed
           and f'MODULE-OK {module}' in lines
           and any(line.startswith('HARNESS-OK ') for line in lines)
-          and 'OK' in lines and not errors)
+          and 'OK' in lines and 'HARNESS-RETURN status=0' in lines
+          and 'FINAL-GC-OK' in lines and 'NATIVE-SUITE-OK modules=1' in lines
+          and not errors)
     return dict(module=module, started=started, passed=passed, exit=status,
                 stopped=stopped, ok=ok)
 
@@ -97,9 +100,9 @@ def main():
                    workers=args.workers, aggregate_seconds=args.wall_seconds,
                    inactivity_seconds=5, executor=executor,
                    executor_sha256=digest(Path(executor)),
-                   fixture_sha256={p.name: digest(p) for p in (root / 't/fixtures').glob('*progress.ss')},
+                   fixture_sha256={str(p.relative_to(root)): digest(p) for p in [root / 't/fixtures/tla-sany-differential' / name for name in ('native-suite.ss', 'preload.ss', 'watch.ss', 'exit-child-process.ss')]},
                    module_sha256={m: digest(root / m) for m in modules},
-                   scope='Selected modules with existing native products; no rebuild or full-suite qualification',
+                   scope='Selected modules with existing native products and upstream child exit; no rebuild, full-suite or library-unload qualification',
                    jobs=[], complete=False)
     start = time.monotonic()
     deadline = start + args.wall_seconds
@@ -110,7 +113,7 @@ def main():
             return dict(module=module, started=0, passed=0, exit=None,
                         stopped='aggregate-deadline-before-start', ok=False)
         command = [executor, '-:max-heap=1G,debug=q',
-                   't/fixtures/native-progress.ss', '-v', '6', module]
+                   't/fixtures/tla-sany-differential/native-suite.ss', module]
         with print_lock:
             print('START', index, module, flush=True)
         proc = subprocess.Popen(command, cwd=root, env=env,

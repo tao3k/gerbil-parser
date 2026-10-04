@@ -496,15 +496,17 @@ The native compiler must consume coherent package outputs. A stale optimizer
 interface can make a consumer call an internal dispatch entry absent from an
 unoptimized producer. The normal Gerbil package owner must rebuild producers
 and consumers together; the native library builder does not manufacture or
-repair those optimizer interfaces. The compiler's installed ABI configuration
-is retained when its official C compiler selection is carried through the SDK's
-=GERBIL_GSC= entrypoint. No runtime replacement is installed.
+repair those optimizer interfaces. The native bundle uses the installed SDK's
+GCC compiler with its complete optimization flags and ABI configuration.
+Ambient =CC= and =GERBIL_GSC= overrides do not replace that compiler.
+The C runtime shim and standalone host use the same SDK-configured compiler.
+No runtime replacement is installed.
 
-A local complete qualification used coherent optimized package outputs, the
-installed SDK's ABI macros and its official Clang selection. The build finished
-in 59.54 seconds under the original 90/30 gate. Independent C and Rust processes
-then completed normal SDK cleanup, with 100-call wall measurements of 12.337 ms
-and 8.019 ms respectively. These are current measurements on a shared host,
-not a controlled speedup claim. The Rust process admitted all five source cases,
-compared native contextual trees with Rust AOT, and released two handles and
-111 results. Exact-head Ubuntu qualification remains a separate CI gate.
+Standalone GCC build and lifecycle qualification must pass the original
+90/30 build gate before the product is admitted. The build log records actual
+preprocessing/assembly/object publication times and separate whole-AOT wall
+and child CPU costs. The SDK-generated linker metadata currently preprocesses
+to approximately 34.6 MB in this fixture; it is a distinct compilation cost
+from the parse-call measurements. A previous Clang qualification does not
+qualify the GCC product. Exact-head Ubuntu qualification remains a
+separate CI gate.

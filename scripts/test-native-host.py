@@ -14,6 +14,11 @@ def main():
     environment = os.environ.copy()
     environment.update(CARGO_TARGET_DIR=str(root / "target"),
                        RUSTC_WRAPPER=str(root / "scripts/rustc-progress.py"))
+    home = environment.get("GERBIL_HOME") or subprocess.check_output(
+        ["gxi", "-e", "(display (gerbil-home))"], text=True, timeout=5).strip()
+    compiler = shlex.split(subprocess.check_output(
+        [str(Path(home) / "bin/gambuild-C"), "C_COMPILER"],
+        text=True, timeout=5).strip())
     logs = root / ".data/native-host"
     logs.mkdir(parents=True, exist_ok=True)
 
@@ -39,7 +44,7 @@ def main():
                            "t/fixtures/rust-native-language/Cargo.toml",
                            "--features", "standalone"], build=True)
         host = directory / "native-host"
-        run("link", shlex.split(environment.get("CC", "cc")) + [
+        run("link", compiler + [
             "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-Iinclude", "-I.",
             "t/native-runtime-host.c", str(root / "target/debug/librust_native_language_fixture.a"),
             str(library), "-lpthread", "-lm"] +

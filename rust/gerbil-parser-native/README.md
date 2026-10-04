@@ -64,8 +64,9 @@ python3 scripts/build-native-library.py --language-module my-language/native \
 
 Use `.dylib` on macOS. Repeat `--language-module` for additional packs. The
 builder delegates Scheme generation, dependency closure and static compilation
-to the public Gerbil compiler API. `CC` is carried through the SDK's official
-compiler entrypoint; its installed ABI macros are retained. Its temporary root emits no unused dynamic
+to the public Gerbil compiler API. The installed SDK's GCC compiler,
+optimization flags and ABI macros are retained; ambient `CC` does not replace
+the Scheme compiler. Its temporary root emits no unused dynamic
 modules, and all of its intermediate files are removed. Do not mix an
 unoptimized module with previously generated optimizer interfaces or consumers;
 rebuild the producer and consumers through their normal build owner.

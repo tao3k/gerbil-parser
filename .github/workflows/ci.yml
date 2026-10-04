@@ -78,7 +78,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
-            clang \
             ca-certificates \
             curl \
             git \
@@ -244,7 +243,7 @@ jobs:
 
       - name: Verify independent C and Rust runtime lifecycle
         run: |
-          CC=clang GERBIL_BUILD_CORES=4 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+          GERBIL_BUILD_CORES=4 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env python3 scripts/test-native-host.py
 
       - name: Verify language-independent C ABI and ASP performance

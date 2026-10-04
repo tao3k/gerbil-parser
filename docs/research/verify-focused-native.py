@@ -83,6 +83,7 @@ def main():
     if not executor:
         parser.error('gxi is unavailable')
     env = dict(os.environ, GERBIL_PATH=str(root / '.gerbil'),
+               GERBIL_LOADPATH=os.pathsep.join([str(root / '.gerbil/lib'), str(root)]),
                GAMBOPT='max-heap=1G,debug=q')
     if platform.system() == 'Darwin':
         launcher = Path(executor).read_bytes()[:8192].decode(errors='ignore')

@@ -377,11 +377,14 @@
 ;; apply-operand-actions
 ;; : (-> List List Fixnum List)
 (def (apply-operand-actions value actions default-offset fragment-constructor)
-  (foldl (lambda (action children)
-           (apply-operand-action
-            action children default-offset fragment-constructor))
-         value
-         actions))
+  ;; Empty operand actions are common in generated pass productions. Return
+  ;; before allocating the fold callback that captures offset and constructor.
+  (if (null? actions) value
+    (foldl (lambda (action children)
+             (apply-operand-action
+              action children default-offset fragment-constructor))
+           value
+           actions)))
 
 ;; reduce-value
 ;; : (-> List List Fixnum List)
@@ -407,12 +410,13 @@
      (else (error "unknown LR semantic action" action)))))
 
 (def (apply-operand-actions/events value actions offset ignored-constructor)
-  (foldl (lambda (action children)
-           (case (car action)
-             ((field) (event-children-field (cadr action) children offset))
-             ((alias) (event-children-alias (cadr action) children offset))
-             (else (error "unknown event semantic action" action))))
-         value actions))
+  (if (null? actions) value
+    (foldl (lambda (action children)
+             (case (car action)
+               ((field) (event-children-field (cadr action) children offset))
+               ((alias) (event-children-alias (cadr action) children offset))
+               (else (error "unknown event semantic action" action))))
+           value actions)))
 (def (reduce-value/events production source-values offset ignored-constructor)
   (let ((rhs (production-rhs production)) (action (production-action production)))
     (cond

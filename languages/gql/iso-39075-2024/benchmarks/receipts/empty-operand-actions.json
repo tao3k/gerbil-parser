@@ -1,0 +1,3052 @@
+{
+  "schema": "gerbil-parser.gql-empty-operand-actions.v1",
+  "date": "2026-10-04",
+  "baselineRevision": "a5b0a0f302fdcc96ff3974dc3fe6d053bbf7b76a",
+  "candidateSource": "src/runtime/lr-parser.ss",
+  "candidateSourceSha256": "c3342c13e65b01e4de367c0e8b289bcbdedc975daa5d4ba797578b24dc0331a7",
+  "compiler": "Gerbil v0.19, gxc -O -V; native .o1 execution",
+  "heapLimit": "1G",
+  "workload": {
+    "source": "+gql-representative-query+",
+    "sourceBytes": 138,
+    "tokens": 51,
+    "significantTokens": 37,
+    "samples": 40,
+    "parsesPerSample": 100
+  },
+  "limitations": [
+    "Single loaded macOS host; not a timing regression/admission gate",
+    "CPU/wall differences are not qualified speedups",
+    "Prepared LR control is not an additive share of streaming full-source",
+    "Failed restoration compile hit unchanged 30s idle fence; subsequent metadata-cleaned compile and restored run passed"
+  ],
+  "phases": {
+    "allocation-baseline": {
+      "prepared-lr": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 38,
+        "noGcCpuMedianBatchMs": 12.605500000000047,
+        "noGcAllocatedBytesPerParse": 136771.36,
+        "wallP95Sample": {
+          "sample": 16,
+          "wall-ms": 561.2149238586426,
+          "cpu-ms": 58.82900000000002,
+          "wall-minus-cpu-ms": 502.38592385864257,
+          "gc-count": 1.0,
+          "gc-wall-ms": 551.7199039459229,
+          "allocated-bytes": 13677344.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 128.03411483764648,
+            "cpu-ms": 11.980999999999575,
+            "wall-minus-cpu-ms": 116.05311483764692,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 229.74801063537598,
+            "cpu-ms": 12.850999999999946,
+            "wall-minus-cpu-ms": 216.89701063537603,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 335.0560665130615,
+            "cpu-ms": 15.966000000000147,
+            "wall-minus-cpu-ms": 319.0900665130614,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 268.4061527252197,
+            "cpu-ms": 12.516000000000416,
+            "wall-minus-cpu-ms": 255.8901527252193,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 94.49505805969238,
+            "cpu-ms": 10.300999999999894,
+            "wall-minus-cpu-ms": 84.1940580596925,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 157.7470302581787,
+            "cpu-ms": 13.584999999999514,
+            "wall-minus-cpu-ms": 144.1620302581792,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 247.50399589538574,
+            "cpu-ms": 16.69300000000029,
+            "wall-minus-cpu-ms": 230.81099589538545,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 86.6539478302002,
+            "cpu-ms": 10.565000000000158,
+            "wall-minus-cpu-ms": 76.08894783020004,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 82.20410346984863,
+            "cpu-ms": 10.013999999999745,
+            "wall-minus-cpu-ms": 72.19010346984889,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 223.20199012756348,
+            "cpu-ms": 13.472999999999624,
+            "wall-minus-cpu-ms": 209.72899012756386,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 421.7641353607178,
+            "cpu-ms": 19.828999999999873,
+            "wall-minus-cpu-ms": 401.9351353607179,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 161.58318519592285,
+            "cpu-ms": 14.915000000000678,
+            "wall-minus-cpu-ms": 146.66818519592218,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 116.14584922790527,
+            "cpu-ms": 21.662999999999766,
+            "wall-minus-cpu-ms": 94.4828492279055,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 70.42908668518066,
+            "cpu-ms": 10.27900000000015,
+            "wall-minus-cpu-ms": 60.15008668518051,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 227.44178771972656,
+            "cpu-ms": 11.964000000000308,
+            "wall-minus-cpu-ms": 215.47778771972625,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 191.91598892211914,
+            "cpu-ms": 15.593999999999886,
+            "wall-minus-cpu-ms": 176.32198892211926,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 561.2149238586426,
+            "cpu-ms": 58.82900000000002,
+            "wall-minus-cpu-ms": 502.38592385864257,
+            "gc-count": 1.0,
+            "gc-wall-ms": 551.7199039459229,
+            "allocated-bytes": 13677344.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 299.69096183776855,
+            "cpu-ms": 13.519999999999976,
+            "wall-minus-cpu-ms": 286.1709618377686,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 9.106874465942383,
+            "cpu-ms": 9.110000000000174,
+            "wall-minus-cpu-ms": -0.003125534057790702,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 330.4860591888428,
+            "cpu-ms": 11.36299999999979,
+            "wall-minus-cpu-ms": 319.123059188843,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 8.98885726928711,
+            "cpu-ms": 8.991000000000193,
+            "wall-minus-cpu-ms": -0.002142730713083907,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 425.3661632537842,
+            "cpu-ms": 14.56899999999961,
+            "wall-minus-cpu-ms": 410.79716325378456,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 9.112834930419922,
+            "cpu-ms": 9.116000000000124,
+            "wall-minus-cpu-ms": -0.003165069580202129,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 748.6920356750488,
+            "cpu-ms": 19.19499999999985,
+            "wall-minus-cpu-ms": 729.497035675049,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 51.329851150512695,
+            "cpu-ms": 10.80300000000034,
+            "wall-minus-cpu-ms": 40.52685115051236,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 319.9930191040039,
+            "cpu-ms": 16.111999999999682,
+            "wall-minus-cpu-ms": 303.8810191040042,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 18.908977508544922,
+            "cpu-ms": 12.519000000000169,
+            "wall-minus-cpu-ms": 6.389977508544753,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 110.08286476135254,
+            "cpu-ms": 10.288999999999993,
+            "wall-minus-cpu-ms": 99.79386476135255,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 462.8760814666748,
+            "cpu-ms": 15.845999999999805,
+            "wall-minus-cpu-ms": 447.03008146667503,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 20.06387710571289,
+            "cpu-ms": 12.691999999999926,
+            "wall-minus-cpu-ms": 7.371877105712965,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 15.210866928100586,
+            "cpu-ms": 12.917999999999763,
+            "wall-minus-cpu-ms": 2.292866928100823,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 194.7798728942871,
+            "cpu-ms": 10.998000000000063,
+            "wall-minus-cpu-ms": 183.78187289428703,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 1262.6450061798096,
+            "cpu-ms": 69.08300000000023,
+            "wall-minus-cpu-ms": 1193.5620061798093,
+            "gc-count": 1.0,
+            "gc-wall-ms": 713.054895401001,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 203.08399200439453,
+            "cpu-ms": 13.788000000000578,
+            "wall-minus-cpu-ms": 189.29599200439395,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 108.14499855041504,
+            "cpu-ms": 10.898000000000074,
+            "wall-minus-cpu-ms": 97.24699855041496,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 100.85201263427734,
+            "cpu-ms": 10.809999999999542,
+            "wall-minus-cpu-ms": 90.0420126342778,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 196.11215591430664,
+            "cpu-ms": 13.673999999999742,
+            "wall-minus-cpu-ms": 182.4381559143069,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 125.58197975158691,
+            "cpu-ms": 11.07100000000072,
+            "wall-minus-cpu-ms": 114.51097975158619,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 175.42314529418945,
+            "cpu-ms": 17.608999999999988,
+            "wall-minus-cpu-ms": 157.81414529418947,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 39.97993469238281,
+            "cpu-ms": 11.511000000000271,
+            "wall-minus-cpu-ms": 28.46893469238254,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          }
+        ]
+      },
+      "full-source": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 36,
+        "noGcCpuMedianBatchMs": 15.161000000000534,
+        "noGcAllocatedBytesPerParse": 228873.76,
+        "wallP95Sample": {
+          "sample": 19,
+          "wall-ms": 906.121015548706,
+          "cpu-ms": 70.16999999999962,
+          "wall-minus-cpu-ms": 835.9510155487064,
+          "gc-count": 1.0,
+          "gc-wall-ms": 889.5230293273926,
+          "allocated-bytes": 22747280.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 107.90109634399414,
+            "cpu-ms": 13.838999999999269,
+            "wall-minus-cpu-ms": 94.06209634399487,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 45.90296745300293,
+            "cpu-ms": 12.442000000000064,
+            "wall-minus-cpu-ms": 33.460967453002866,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 319.1947937011719,
+            "cpu-ms": 14.97200000000043,
+            "wall-minus-cpu-ms": 304.22279370117144,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 136.51204109191895,
+            "cpu-ms": 14.135000000000453,
+            "wall-minus-cpu-ms": 122.3770410919185,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 175.97603797912598,
+            "cpu-ms": 22.04900000000043,
+            "wall-minus-cpu-ms": 153.92703797912554,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 35.221099853515625,
+            "cpu-ms": 19.392000000000298,
+            "wall-minus-cpu-ms": 15.829099853515327,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 20.314931869506836,
+            "cpu-ms": 16.165000000000205,
+            "wall-minus-cpu-ms": 4.149931869506631,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 325.7770538330078,
+            "cpu-ms": 16.937000000000204,
+            "wall-minus-cpu-ms": 308.84005383300763,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 311.9051456451416,
+            "cpu-ms": 20.507000000000275,
+            "wall-minus-cpu-ms": 291.3981456451413,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 1359.381914138794,
+            "cpu-ms": 67.4010000000007,
+            "wall-minus-cpu-ms": 1291.9809141387932,
+            "gc-count": 1.0,
+            "gc-wall-ms": 1119.9061870574951,
+            "allocated-bytes": 22747624.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 436.0780715942383,
+            "cpu-ms": 16.612000000000513,
+            "wall-minus-cpu-ms": 419.46607159423775,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 546.7672348022461,
+            "cpu-ms": 17.769000000000148,
+            "wall-minus-cpu-ms": 528.998234802246,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 41.973114013671875,
+            "cpu-ms": 13.834000000000568,
+            "wall-minus-cpu-ms": 28.139114013671307,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 19.54793930053711,
+            "cpu-ms": 14.890999999999988,
+            "wall-minus-cpu-ms": 4.656939300537122,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 655.7471752166748,
+            "cpu-ms": 34.66000000000014,
+            "wall-minus-cpu-ms": 621.0871752166747,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 13.463973999023438,
+            "cpu-ms": 12.883999999999451,
+            "wall-minus-cpu-ms": 0.579973999023986,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 493.12806129455566,
+            "cpu-ms": 22.52500000000035,
+            "wall-minus-cpu-ms": 470.6030612945553,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 97.8231430053711,
+            "cpu-ms": 14.273999999999676,
+            "wall-minus-cpu-ms": 83.54914300537142,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 12.035131454467773,
+            "cpu-ms": 12.036999999999631,
+            "wall-minus-cpu-ms": -0.0018685455318578903,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 906.121015548706,
+            "cpu-ms": 70.16999999999962,
+            "wall-minus-cpu-ms": 835.9510155487064,
+            "gc-count": 1.0,
+            "gc-wall-ms": 889.5230293273926,
+            "allocated-bytes": 22747280.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 12.629985809326172,
+            "cpu-ms": 12.180999999999775,
+            "wall-minus-cpu-ms": 0.44898580932639653,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 120.32699584960938,
+            "cpu-ms": 12.884999999999591,
+            "wall-minus-cpu-ms": 107.44199584960978,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 109.47489738464355,
+            "cpu-ms": 13.33899999999999,
+            "wall-minus-cpu-ms": 96.13589738464357,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 422.5959777832031,
+            "cpu-ms": 17.17100000000049,
+            "wall-minus-cpu-ms": 405.4249777832026,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 121.62995338439941,
+            "cpu-ms": 17.14799999999994,
+            "wall-minus-cpu-ms": 104.48195338439947,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 321.2120532989502,
+            "cpu-ms": 18.78199999999941,
+            "wall-minus-cpu-ms": 302.4300532989508,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 96.07696533203125,
+            "cpu-ms": 14.355999999999591,
+            "wall-minus-cpu-ms": 81.72096533203165,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 169.32106018066406,
+            "cpu-ms": 22.11799999999986,
+            "wall-minus-cpu-ms": 147.2030601806642,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 128.28397750854492,
+            "cpu-ms": 13.895999999999686,
+            "wall-minus-cpu-ms": 114.38797750854523,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 1027.451992034912,
+            "cpu-ms": 75.82400000000034,
+            "wall-minus-cpu-ms": 951.6279920349118,
+            "gc-count": 1.0,
+            "gc-wall-ms": 1015.1290893554688,
+            "allocated-bytes": 22747280.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 178.36618423461914,
+            "cpu-ms": 15.637000000000567,
+            "wall-minus-cpu-ms": 162.72918423461857,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 191.40100479125977,
+            "cpu-ms": 16.310000000000045,
+            "wall-minus-cpu-ms": 175.0910047912597,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 12.207984924316406,
+            "cpu-ms": 12.212000000000334,
+            "wall-minus-cpu-ms": -0.004015075683927449,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 12.065887451171875,
+            "cpu-ms": 12.07000000000047,
+            "wall-minus-cpu-ms": -0.004112548828594242,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 267.6839828491211,
+            "cpu-ms": 25.109999999999523,
+            "wall-minus-cpu-ms": 242.57398284912156,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 11.96599006652832,
+            "cpu-ms": 11.969000000000118,
+            "wall-minus-cpu-ms": -0.0030099334717981208,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 287.98699378967285,
+            "cpu-ms": 15.350000000000641,
+            "wall-minus-cpu-ms": 272.6369937896722,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 203.62401008605957,
+            "cpu-ms": 13.566999999999663,
+            "wall-minus-cpu-ms": 190.0570100860599,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 250.84686279296875,
+            "cpu-ms": 19.10500000000015,
+            "wall-minus-cpu-ms": 231.7418627929686,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 518.5282230377197,
+            "cpu-ms": 61.28799999999978,
+            "wall-minus-cpu-ms": 457.24022303771994,
+            "gc-count": 1.0,
+            "gc-wall-ms": 335.9379768371582,
+            "allocated-bytes": 22747336.0
+          }
+        ]
+      }
+    },
+    "allocation-candidate": {
+      "prepared-lr": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 38,
+        "noGcCpuMedianBatchMs": 13.05200000000023,
+        "noGcAllocatedBytesPerParse": 124483.36,
+        "wallP95Sample": {
+          "sample": 7,
+          "wall-ms": 284.9161624908447,
+          "cpu-ms": 20.744000000000206,
+          "wall-minus-cpu-ms": 264.1721624908445,
+          "gc-count": 0.0,
+          "gc-wall-ms": 0.0,
+          "allocated-bytes": 12448336.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 46.23293876647949,
+            "cpu-ms": 12.05799999999979,
+            "wall-minus-cpu-ms": 34.1749387664797,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 146.5451717376709,
+            "cpu-ms": 16.495999999999732,
+            "wall-minus-cpu-ms": 130.04917173767117,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 36.99898719787598,
+            "cpu-ms": 12.896999999999714,
+            "wall-minus-cpu-ms": 24.101987197876262,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 53.56407165527344,
+            "cpu-ms": 9.208999999999467,
+            "wall-minus-cpu-ms": 44.355071655273974,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 74.18298721313477,
+            "cpu-ms": 11.060999999999988,
+            "wall-minus-cpu-ms": 63.12198721313478,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 64.3758773803711,
+            "cpu-ms": 10.74499999999967,
+            "wall-minus-cpu-ms": 53.63087738037142,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 42.47617721557617,
+            "cpu-ms": 10.321000000000357,
+            "wall-minus-cpu-ms": 32.15517721557582,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 284.9161624908447,
+            "cpu-ms": 20.744000000000206,
+            "wall-minus-cpu-ms": 264.1721624908445,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 80.32894134521484,
+            "cpu-ms": 14.628000000000752,
+            "wall-minus-cpu-ms": 65.70094134521409,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 96.71497344970703,
+            "cpu-ms": 12.60899999999998,
+            "wall-minus-cpu-ms": 84.10597344970705,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 129.62698936462402,
+            "cpu-ms": 12.409000000000002,
+            "wall-minus-cpu-ms": 117.21798936462402,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 26.794910430908203,
+            "cpu-ms": 11.742000000000141,
+            "wall-minus-cpu-ms": 15.052910430908062,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 88.41705322265625,
+            "cpu-ms": 10.322999999999304,
+            "wall-minus-cpu-ms": 78.09405322265695,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 166.9619083404541,
+            "cpu-ms": 15.8540000000007,
+            "wall-minus-cpu-ms": 151.1079083404534,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 72.68691062927246,
+            "cpu-ms": 14.010999999999774,
+            "wall-minus-cpu-ms": 58.675910629272686,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 62.705039978027344,
+            "cpu-ms": 15.552000000000564,
+            "wall-minus-cpu-ms": 47.15303997802678,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 16.516923904418945,
+            "cpu-ms": 13.207000000000747,
+            "wall-minus-cpu-ms": 3.3099239044181985,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 220.4279899597168,
+            "cpu-ms": 15.512000000000302,
+            "wall-minus-cpu-ms": 204.91598995971648,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 313.8399124145508,
+            "cpu-ms": 64.20899999999963,
+            "wall-minus-cpu-ms": 249.63091241455115,
+            "gc-count": 1.0,
+            "gc-wall-ms": 211.03501319885254,
+            "allocated-bytes": 12448544.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 8.753061294555664,
+            "cpu-ms": 8.754999999999736,
+            "wall-minus-cpu-ms": -0.001938705444072042,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 199.99217987060547,
+            "cpu-ms": 12.84200000000013,
+            "wall-minus-cpu-ms": 187.15017987060534,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 135.96391677856445,
+            "cpu-ms": 15.127000000000223,
+            "wall-minus-cpu-ms": 120.83691677856423,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 309.1151714324951,
+            "cpu-ms": 16.745999999999373,
+            "wall-minus-cpu-ms": 292.36917143249576,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 132.08508491516113,
+            "cpu-ms": 14.353999999999868,
+            "wall-minus-cpu-ms": 117.73108491516126,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 215.14582633972168,
+            "cpu-ms": 12.046999999999809,
+            "wall-minus-cpu-ms": 203.09882633972188,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 105.59296607971191,
+            "cpu-ms": 15.821000000000197,
+            "wall-minus-cpu-ms": 89.77196607971172,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 172.6670265197754,
+            "cpu-ms": 14.317999999999941,
+            "wall-minus-cpu-ms": 158.34902651977546,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 46.852827072143555,
+            "cpu-ms": 14.93200000000028,
+            "wall-minus-cpu-ms": 31.920827072143275,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 206.83884620666504,
+            "cpu-ms": 14.607999999999732,
+            "wall-minus-cpu-ms": 192.23084620666532,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 94.43998336791992,
+            "cpu-ms": 13.92099999999996,
+            "wall-minus-cpu-ms": 80.51898336791996,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 66.39885902404785,
+            "cpu-ms": 16.780000000000573,
+            "wall-minus-cpu-ms": 49.61885902404728,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 26.421070098876953,
+            "cpu-ms": 10.566999999999771,
+            "wall-minus-cpu-ms": 15.854070098877182,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 82.69596099853516,
+            "cpu-ms": 9.8899999999994,
+            "wall-minus-cpu-ms": 72.80596099853575,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 99.9140739440918,
+            "cpu-ms": 13.56099999999949,
+            "wall-minus-cpu-ms": 86.3530739440923,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 59.906005859375,
+            "cpu-ms": 13.843000000000272,
+            "wall-minus-cpu-ms": 46.06300585937473,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 141.31903648376465,
+            "cpu-ms": 11.559999999999127,
+            "wall-minus-cpu-ms": 129.75903648376553,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 268.3119773864746,
+            "cpu-ms": 62.519000000000325,
+            "wall-minus-cpu-ms": 205.7929773864743,
+            "gc-count": 1.0,
+            "gc-wall-ms": 213.76800537109375,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 74.41997528076172,
+            "cpu-ms": 11.279000000000593,
+            "wall-minus-cpu-ms": 63.140975280761126,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 8.694887161254883,
+            "cpu-ms": 8.696000000000481,
+            "wall-minus-cpu-ms": -0.0011128387455983102,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 69.39816474914551,
+            "cpu-ms": 9.559999999999459,
+            "wall-minus-cpu-ms": 59.838164749146046,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          }
+        ]
+      },
+      "full-source": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 37,
+        "noGcCpuMedianBatchMs": 16.127000000000447,
+        "noGcAllocatedBytesPerParse": 216585.76,
+        "wallP95Sample": {
+          "sample": 17,
+          "wall-ms": 407.8199863433838,
+          "cpu-ms": 26.505000000000777,
+          "wall-minus-cpu-ms": 381.314986343383,
+          "gc-count": 0.0,
+          "gc-wall-ms": 0.0,
+          "allocated-bytes": 21658576.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 21.611928939819336,
+            "cpu-ms": 14.681000000000498,
+            "wall-minus-cpu-ms": 6.930928939818838,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 150.2230167388916,
+            "cpu-ms": 18.473000000000074,
+            "wall-minus-cpu-ms": 131.75001673889153,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 84.19203758239746,
+            "cpu-ms": 16.127000000000447,
+            "wall-minus-cpu-ms": 68.06503758239701,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 51.41496658325195,
+            "cpu-ms": 15.67900000000022,
+            "wall-minus-cpu-ms": 35.73596658325173,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 244.21310424804688,
+            "cpu-ms": 22.006999999999778,
+            "wall-minus-cpu-ms": 222.2061042480471,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 162.0321273803711,
+            "cpu-ms": 17.35100000000056,
+            "wall-minus-cpu-ms": 144.68112738037053,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 120.06616592407227,
+            "cpu-ms": 13.622999999999719,
+            "wall-minus-cpu-ms": 106.44316592407255,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 207.02314376831055,
+            "cpu-ms": 18.656999999999368,
+            "wall-minus-cpu-ms": 188.3661437683112,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 65.22512435913086,
+            "cpu-ms": 18.627000000000614,
+            "wall-minus-cpu-ms": 46.598124359130246,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 229.17580604553223,
+            "cpu-ms": 15.986999999999973,
+            "wall-minus-cpu-ms": 213.18880604553226,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 493.3300018310547,
+            "cpu-ms": 64.40199999999996,
+            "wall-minus-cpu-ms": 428.92800183105476,
+            "gc-count": 1.0,
+            "gc-wall-ms": 474.4439125061035,
+            "allocated-bytes": 21510624.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 109.81297492980957,
+            "cpu-ms": 15.564999999999163,
+            "wall-minus-cpu-ms": 94.24797492981041,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 146.06595039367676,
+            "cpu-ms": 16.116999999999937,
+            "wall-minus-cpu-ms": 129.94895039367682,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 60.32204627990723,
+            "cpu-ms": 13.053999999999455,
+            "wall-minus-cpu-ms": 47.26804627990777,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 60.94813346862793,
+            "cpu-ms": 13.248000000000037,
+            "wall-minus-cpu-ms": 47.7001334686279,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 163.34795951843262,
+            "cpu-ms": 20.1600000000004,
+            "wall-minus-cpu-ms": 143.18795951843222,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 209.66506004333496,
+            "cpu-ms": 17.696000000000154,
+            "wall-minus-cpu-ms": 191.96906004333482,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 407.8199863433838,
+            "cpu-ms": 26.505000000000777,
+            "wall-minus-cpu-ms": 381.314986343383,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 102.77795791625977,
+            "cpu-ms": 16.983999999999778,
+            "wall-minus-cpu-ms": 85.79395791625998,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 189.68486785888672,
+            "cpu-ms": 24.290000000000035,
+            "wall-minus-cpu-ms": 165.3948678588867,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 605.8309078216553,
+            "cpu-ms": 66.71099999999952,
+            "wall-minus-cpu-ms": 539.1199078216557,
+            "gc-count": 1.0,
+            "gc-wall-ms": 414.4599437713623,
+            "allocated-bytes": 21510272.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 11.979103088378906,
+            "cpu-ms": 11.981999999999825,
+            "wall-minus-cpu-ms": -0.002896911620918985,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 12.031078338623047,
+            "cpu-ms": 12.035000000000684,
+            "wall-minus-cpu-ms": -0.0039216613776371645,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 52.0930290222168,
+            "cpu-ms": 13.23600000000058,
+            "wall-minus-cpu-ms": 38.85702902221622,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 184.0071678161621,
+            "cpu-ms": 23.206999999999645,
+            "wall-minus-cpu-ms": 160.80016781616246,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 106.70804977416992,
+            "cpu-ms": 18.421999999999606,
+            "wall-minus-cpu-ms": 88.28604977417032,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 96.78387641906738,
+            "cpu-ms": 17.63099999999995,
+            "wall-minus-cpu-ms": 79.15287641906744,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 43.49493980407715,
+            "cpu-ms": 16.24199999999987,
+            "wall-minus-cpu-ms": 27.25293980407728,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 158.42390060424805,
+            "cpu-ms": 15.878999999999422,
+            "wall-minus-cpu-ms": 142.54490060424862,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 45.17793655395508,
+            "cpu-ms": 12.519999999999865,
+            "wall-minus-cpu-ms": 32.65793655395521,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 11.883974075317383,
+            "cpu-ms": 11.885999999999841,
+            "wall-minus-cpu-ms": -0.0020259246824583244,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 302.81996726989746,
+            "cpu-ms": 67.87500000000047,
+            "wall-minus-cpu-ms": 234.944967269897,
+            "gc-count": 1.0,
+            "gc-wall-ms": 141.65997505187988,
+            "allocated-bytes": 21510272.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 350.51703453063965,
+            "cpu-ms": 22.130000000000205,
+            "wall-minus-cpu-ms": 328.3870345306394,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 74.47290420532227,
+            "cpu-ms": 12.756999999999795,
+            "wall-minus-cpu-ms": 61.715904205322474,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 123.9309310913086,
+            "cpu-ms": 16.785999999999635,
+            "wall-minus-cpu-ms": 107.14493109130896,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 114.03989791870117,
+            "cpu-ms": 16.516999999999783,
+            "wall-minus-cpu-ms": 97.52289791870139,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 11.886119842529297,
+            "cpu-ms": 11.88800000000012,
+            "wall-minus-cpu-ms": -0.0018801574708238178,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 143.2211399078369,
+            "cpu-ms": 18.284999999999997,
+            "wall-minus-cpu-ms": 124.93613990783692,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 112.2281551361084,
+            "cpu-ms": 14.684000000000363,
+            "wall-minus-cpu-ms": 97.54415513610803,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 15.290021896362305,
+            "cpu-ms": 12.300999999999785,
+            "wall-minus-cpu-ms": 2.9890218963625195,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          }
+        ]
+      }
+    },
+    "allocation-reversal": {
+      "prepared-lr": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 38,
+        "noGcCpuMedianBatchMs": 11.389499999999497,
+        "noGcAllocatedBytesPerParse": 136771.36,
+        "wallP95Sample": {
+          "sample": 3,
+          "wall-ms": 265.54107666015625,
+          "cpu-ms": 16.223000000000543,
+          "wall-minus-cpu-ms": 249.3180766601557,
+          "gc-count": 0.0,
+          "gc-wall-ms": 0.0,
+          "allocated-bytes": 13677136.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 88.74797821044922,
+            "cpu-ms": 14.42400000000077,
+            "wall-minus-cpu-ms": 74.32397821044844,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 8.929967880249023,
+            "cpu-ms": 8.931999999999828,
+            "wall-minus-cpu-ms": -0.0020321197508046396,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 52.93011665344238,
+            "cpu-ms": 9.228000000000458,
+            "wall-minus-cpu-ms": 43.70211665344193,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 265.54107666015625,
+            "cpu-ms": 16.223000000000543,
+            "wall-minus-cpu-ms": 249.3180766601557,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 65.33098220825195,
+            "cpu-ms": 10.07700000000067,
+            "wall-minus-cpu-ms": 55.25398220825129,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 177.90699005126953,
+            "cpu-ms": 14.686999999999673,
+            "wall-minus-cpu-ms": 163.21999005126986,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 156.174898147583,
+            "cpu-ms": 18.56499999999961,
+            "wall-minus-cpu-ms": 137.6098981475834,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 9.490013122558594,
+            "cpu-ms": 9.492000000000278,
+            "wall-minus-cpu-ms": -0.0019868774416842427,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 9.417057037353516,
+            "cpu-ms": 9.418000000000038,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 9.414911270141602,
+            "cpu-ms": 9.417999999999815,
+            "wall-minus-cpu-ms": -0.0030887298582129574,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 159.56592559814453,
+            "cpu-ms": 13.35099999999989,
+            "wall-minus-cpu-ms": 146.21492559814465,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 14.528989791870117,
+            "cpu-ms": 12.634999999999286,
+            "wall-minus-cpu-ms": 1.8939897918708315,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 9.474992752075195,
+            "cpu-ms": 9.47800000000032,
+            "wall-minus-cpu-ms": -0.00300724792512419,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 89.59507942199707,
+            "cpu-ms": 15.121999999999524,
+            "wall-minus-cpu-ms": 74.47307942199754,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 17.51112937927246,
+            "cpu-ms": 12.80899999999907,
+            "wall-minus-cpu-ms": 4.702129379273391,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 208.8339328765869,
+            "cpu-ms": 12.510000000000021,
+            "wall-minus-cpu-ms": 196.3239328765869,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 258.558988571167,
+            "cpu-ms": 57.174999999999756,
+            "wall-minus-cpu-ms": 201.38398857116724,
+            "gc-count": 1.0,
+            "gc-wall-ms": 230.87310791015625,
+            "allocated-bytes": 13677344.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 257.63797760009766,
+            "cpu-ms": 14.769000000000032,
+            "wall-minus-cpu-ms": 242.86897760009762,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 234.2979907989502,
+            "cpu-ms": 14.893999999999963,
+            "wall-minus-cpu-ms": 219.40399079895025,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 8.81195068359375,
+            "cpu-ms": 8.813999999999545,
+            "wall-minus-cpu-ms": -0.0020493164057953095,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 8.816003799438477,
+            "cpu-ms": 8.819000000000132,
+            "wall-minus-cpu-ms": -0.0029962005616557263,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 254.83393669128418,
+            "cpu-ms": 13.147000000000242,
+            "wall-minus-cpu-ms": 241.68693669128393,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 166.47601127624512,
+            "cpu-ms": 18.800999999999735,
+            "wall-minus-cpu-ms": 147.67501127624539,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 86.93289756774902,
+            "cpu-ms": 11.76900000000014,
+            "wall-minus-cpu-ms": 75.16389756774888,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 9.084939956665039,
+            "cpu-ms": 9.087999999999429,
+            "wall-minus-cpu-ms": -0.003060043334389917,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 9.263038635253906,
+            "cpu-ms": 9.25399999999932,
+            "wall-minus-cpu-ms": 0.009038635254587035,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 142.81082153320312,
+            "cpu-ms": 11.03700000000063,
+            "wall-minus-cpu-ms": 131.7738215332025,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 155.1990509033203,
+            "cpu-ms": 12.597000000000303,
+            "wall-minus-cpu-ms": 142.60205090332002,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 9.326934814453125,
+            "cpu-ms": 9.329000000000253,
+            "wall-minus-cpu-ms": -0.002065185547127868,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 58.09187889099121,
+            "cpu-ms": 9.951999999999849,
+            "wall-minus-cpu-ms": 48.13987889099136,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 132.8270435333252,
+            "cpu-ms": 10.763999999999552,
+            "wall-minus-cpu-ms": 122.06304353332564,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 9.22083854675293,
+            "cpu-ms": 9.22299999999976,
+            "wall-minus-cpu-ms": -0.002161453246829481,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 503.2651424407959,
+            "cpu-ms": 55.190000000000516,
+            "wall-minus-cpu-ms": 448.0751424407954,
+            "gc-count": 1.0,
+            "gc-wall-ms": 493.81303787231445,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 38.7880802154541,
+            "cpu-ms": 14.900999999999831,
+            "wall-minus-cpu-ms": 23.88708021545427,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 135.46109199523926,
+            "cpu-ms": 11.154999999999582,
+            "wall-minus-cpu-ms": 124.30609199523968,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 14.167070388793945,
+            "cpu-ms": 13.457000000000274,
+            "wall-minus-cpu-ms": 0.710070388793671,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 8.836984634399414,
+            "cpu-ms": 8.840000000000181,
+            "wall-minus-cpu-ms": -0.003015365600766984,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 103.11317443847656,
+            "cpu-ms": 11.623999999999413,
+            "wall-minus-cpu-ms": 91.48917443847715,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 340.5580520629883,
+            "cpu-ms": 17.79300000000017,
+            "wall-minus-cpu-ms": 322.7650520629881,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 9.015083312988281,
+            "cpu-ms": 9.017000000000053,
+            "wall-minus-cpu-ms": -0.0019166870117715007,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 13677136.0
+          }
+        ]
+      },
+      "full-source": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 36,
+        "noGcCpuMedianBatchMs": 14.042999999999694,
+        "noGcAllocatedBytesPerParse": 228873.76,
+        "wallP95Sample": {
+          "sample": 39,
+          "wall-ms": 286.4499092102051,
+          "cpu-ms": 69.81999999999955,
+          "wall-minus-cpu-ms": 216.62990921020554,
+          "gc-count": 1.0,
+          "gc-wall-ms": 230.2091121673584,
+          "allocated-bytes": 22747280.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 114.50600624084473,
+            "cpu-ms": 13.727000000000045,
+            "wall-minus-cpu-ms": 100.77900624084468,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 153.13386917114258,
+            "cpu-ms": 23.462000000000536,
+            "wall-minus-cpu-ms": 129.67186917114205,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 257.80606269836426,
+            "cpu-ms": 27.067000000000398,
+            "wall-minus-cpu-ms": 230.73906269836385,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 26.31998062133789,
+            "cpu-ms": 16.140999999999963,
+            "wall-minus-cpu-ms": 10.178980621337928,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 12.185096740722656,
+            "cpu-ms": 12.187000000000614,
+            "wall-minus-cpu-ms": -0.0019032592779577584,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 210.74199676513672,
+            "cpu-ms": 17.381000000000313,
+            "wall-minus-cpu-ms": 193.3609967651364,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 12.573003768920898,
+            "cpu-ms": 12.575999999999476,
+            "wall-minus-cpu-ms": -0.002996231078578049,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 12.111902236938477,
+            "cpu-ms": 12.112000000000567,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 118.83711814880371,
+            "cpu-ms": 14.092999999999245,
+            "wall-minus-cpu-ms": 104.74411814880446,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 441.7738914489746,
+            "cpu-ms": 59.68800000000063,
+            "wall-minus-cpu-ms": 382.085891448974,
+            "gc-count": 1.0,
+            "gc-wall-ms": 339.21289443969727,
+            "allocated-bytes": 22747624.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 48.88200759887695,
+            "cpu-ms": 12.522000000000144,
+            "wall-minus-cpu-ms": 36.360007598876805,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 190.43898582458496,
+            "cpu-ms": 14.75399999999949,
+            "wall-minus-cpu-ms": 175.68498582458548,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 11.966943740844727,
+            "cpu-ms": 11.969999999999814,
+            "wall-minus-cpu-ms": -0.0030562591550875595,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 193.74608993530273,
+            "cpu-ms": 17.93800000000023,
+            "wall-minus-cpu-ms": 175.80808993530252,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 11.940956115722656,
+            "cpu-ms": 11.943999999999955,
+            "wall-minus-cpu-ms": -0.003043884277298403,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 11.88206672668457,
+            "cpu-ms": 11.883999999999784,
+            "wall-minus-cpu-ms": -0.001933273315213313,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 11.897802352905273,
+            "cpu-ms": 11.899000000000104,
+            "wall-minus-cpu-ms": -0.0011976470948305007,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 11.907100677490234,
+            "cpu-ms": 11.906999999999446,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 165.42291641235352,
+            "cpu-ms": 13.735000000000497,
+            "wall-minus-cpu-ms": 151.68791641235302,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 103.79219055175781,
+            "cpu-ms": 54.12499999999976,
+            "wall-minus-cpu-ms": 49.667190551758054,
+            "gc-count": 1.0,
+            "gc-wall-ms": 40.740013122558594,
+            "allocated-bytes": 22747280.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 11.929035186767578,
+            "cpu-ms": 11.930999999999914,
+            "wall-minus-cpu-ms": -0.0019648132323357714,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 239.22109603881836,
+            "cpu-ms": 18.933000000000312,
+            "wall-minus-cpu-ms": 220.28809603881805,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 20.77198028564453,
+            "cpu-ms": 16.46800000000015,
+            "wall-minus-cpu-ms": 4.303980285644382,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 166.11504554748535,
+            "cpu-ms": 22.28899999999978,
+            "wall-minus-cpu-ms": 143.82604554748556,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 57.68299102783203,
+            "cpu-ms": 14.108999999999705,
+            "wall-minus-cpu-ms": 43.57399102783233,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 91.05896949768066,
+            "cpu-ms": 16.82600000000045,
+            "wall-minus-cpu-ms": 74.23296949768022,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 11.987924575805664,
+            "cpu-ms": 11.99099999999964,
+            "wall-minus-cpu-ms": -0.0030754241939767724,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 11.941194534301758,
+            "cpu-ms": 11.942999999999815,
+            "wall-minus-cpu-ms": -0.0018054656980570627,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 93.46413612365723,
+            "cpu-ms": 15.634999999999843,
+            "wall-minus-cpu-ms": 77.82913612365738,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 653.6610126495361,
+            "cpu-ms": 67.58999999999982,
+            "wall-minus-cpu-ms": 586.0710126495363,
+            "gc-count": 1.0,
+            "gc-wall-ms": 380.6030750274658,
+            "allocated-bytes": 22747280.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 90.04688262939453,
+            "cpu-ms": 14.364999999999961,
+            "wall-minus-cpu-ms": 75.68188262939456,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 11.965036392211914,
+            "cpu-ms": 11.967000000000283,
+            "wall-minus-cpu-ms": -0.001963607788368904,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 12.029170989990234,
+            "cpu-ms": 12.031000000000347,
+            "wall-minus-cpu-ms": -0.0018290100101125972,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 11.95979118347168,
+            "cpu-ms": 11.961999999999584,
+            "wall-minus-cpu-ms": -0.002208816527904389,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 203.16600799560547,
+            "cpu-ms": 23.24099999999918,
+            "wall-minus-cpu-ms": 179.92500799560628,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 118.94893646240234,
+            "cpu-ms": 14.45799999999986,
+            "wall-minus-cpu-ms": 104.49093646240249,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 60.845136642456055,
+            "cpu-ms": 13.993000000000144,
+            "wall-minus-cpu-ms": 46.85213664245591,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 186.356782913208,
+            "cpu-ms": 15.635000000000288,
+            "wall-minus-cpu-ms": 170.72178291320773,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 94.13504600524902,
+            "cpu-ms": 25.303000000000075,
+            "wall-minus-cpu-ms": 68.83204600524894,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 22887376.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 286.4499092102051,
+            "cpu-ms": 69.81999999999955,
+            "wall-minus-cpu-ms": 216.62990921020554,
+            "gc-count": 1.0,
+            "gc-wall-ms": 230.2091121673584,
+            "allocated-bytes": 22747280.0
+          }
+        ]
+      }
+    },
+    "allocation-restored-current": {
+      "prepared-lr": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 38,
+        "noGcCpuMedianBatchMs": 10.125000000000217,
+        "noGcAllocatedBytesPerParse": 124483.36,
+        "wallP95Sample": {
+          "sample": 10,
+          "wall-ms": 167.99402236938477,
+          "cpu-ms": 16.300000000000313,
+          "wall-minus-cpu-ms": 151.69402236938444,
+          "gc-count": 0.0,
+          "gc-wall-ms": 0.0,
+          "allocated-bytes": 12448336.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 8.74781608581543,
+            "cpu-ms": 8.752000000000425,
+            "wall-minus-cpu-ms": -0.00418391418499553,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 41.02611541748047,
+            "cpu-ms": 10.612000000000288,
+            "wall-minus-cpu-ms": 30.414115417480183,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 88.09494972229004,
+            "cpu-ms": 13.071000000000055,
+            "wall-minus-cpu-ms": 75.02394972228998,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 83.62913131713867,
+            "cpu-ms": 11.08000000000009,
+            "wall-minus-cpu-ms": 72.54913131713857,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 88.07992935180664,
+            "cpu-ms": 10.734000000000465,
+            "wall-minus-cpu-ms": 77.34592935180618,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 57.14011192321777,
+            "cpu-ms": 17.271999999999956,
+            "wall-minus-cpu-ms": 39.86811192321782,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 29.282093048095703,
+            "cpu-ms": 11.305000000000675,
+            "wall-minus-cpu-ms": 17.97709304809503,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 109.55691337585449,
+            "cpu-ms": 12.127000000000333,
+            "wall-minus-cpu-ms": 97.42991337585416,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 114.90917205810547,
+            "cpu-ms": 12.545999999999946,
+            "wall-minus-cpu-ms": 102.36317205810552,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 40.76194763183594,
+            "cpu-ms": 9.274999999999922,
+            "wall-minus-cpu-ms": 31.486947631836017,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 167.99402236938477,
+            "cpu-ms": 16.300000000000313,
+            "wall-minus-cpu-ms": 151.69402236938444,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 9.184122085571289,
+            "cpu-ms": 9.188000000000528,
+            "wall-minus-cpu-ms": -0.0038779144292391265,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 9.15217399597168,
+            "cpu-ms": 9.153999999999662,
+            "wall-minus-cpu-ms": -0.0018260040279827194,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 9.151935577392578,
+            "cpu-ms": 9.149000000000296,
+            "wall-minus-cpu-ms": 0.0029355773922823403,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 9.195089340209961,
+            "cpu-ms": 9.179000000000382,
+            "wall-minus-cpu-ms": 0.01608934020957875,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 56.52213096618652,
+            "cpu-ms": 9.37399999999955,
+            "wall-minus-cpu-ms": 47.148130966186976,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 9.12022590637207,
+            "cpu-ms": 9.122000000000074,
+            "wall-minus-cpu-ms": -0.0017740936280041808,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 9.155035018920898,
+            "cpu-ms": 9.155999999999498,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 438.50207328796387,
+            "cpu-ms": 67.11599999999984,
+            "wall-minus-cpu-ms": 371.386073287964,
+            "gc-count": 1.0,
+            "gc-wall-ms": 429.54111099243164,
+            "allocated-bytes": 12448544.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 46.59700393676758,
+            "cpu-ms": 15.980000000000881,
+            "wall-minus-cpu-ms": 30.617003936766697,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 9.301900863647461,
+            "cpu-ms": 8.89099999999987,
+            "wall-minus-cpu-ms": 0.4109008636475906,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 34.63101387023926,
+            "cpu-ms": 9.068999999999994,
+            "wall-minus-cpu-ms": 25.562013870239262,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 13.684988021850586,
+            "cpu-ms": 12.49699999999998,
+            "wall-minus-cpu-ms": 1.1879880218506056,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 80.97290992736816,
+            "cpu-ms": 10.823999999999835,
+            "wall-minus-cpu-ms": 70.14890992736832,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 126.41096115112305,
+            "cpu-ms": 10.94100000000009,
+            "wall-minus-cpu-ms": 115.46996115112296,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 11.173009872436523,
+            "cpu-ms": 10.893000000000042,
+            "wall-minus-cpu-ms": 0.2800098724364819,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 40.33303260803223,
+            "cpu-ms": 10.355000000000004,
+            "wall-minus-cpu-ms": 29.978032608032223,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 164.99018669128418,
+            "cpu-ms": 11.63000000000003,
+            "wall-minus-cpu-ms": 153.36018669128416,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 8.950948715209961,
+            "cpu-ms": 8.953999999999795,
+            "wall-minus-cpu-ms": -0.0030512847898336304,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 16.51906967163086,
+            "cpu-ms": 9.332000000000118,
+            "wall-minus-cpu-ms": 7.187069671630741,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 151.77106857299805,
+            "cpu-ms": 11.486000000000551,
+            "wall-minus-cpu-ms": 140.2850685729975,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 61.248064041137695,
+            "cpu-ms": 9.895000000000431,
+            "wall-minus-cpu-ms": 51.353064041137266,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 144.40178871154785,
+            "cpu-ms": 11.499000000000038,
+            "wall-minus-cpu-ms": 132.90278871154783,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 9.072065353393555,
+            "cpu-ms": 9.074999999999832,
+            "wall-minus-cpu-ms": -0.0029346466062776244,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 103.9578914642334,
+            "cpu-ms": 9.541999999999717,
+            "wall-minus-cpu-ms": 94.41589146423368,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 16.736984252929688,
+            "cpu-ms": 11.359000000000119,
+            "wall-minus-cpu-ms": 5.3779842529295685,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 236.11998558044434,
+            "cpu-ms": 54.894999999999804,
+            "wall-minus-cpu-ms": 181.22498558044452,
+            "gc-count": 1.0,
+            "gc-wall-ms": 227.1730899810791,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 8.651971817016602,
+            "cpu-ms": 8.655000000000301,
+            "wall-minus-cpu-ms": -0.0030281829836997787,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 8.655786514282227,
+            "cpu-ms": 8.658000000000388,
+            "wall-minus-cpu-ms": -0.002213485718161934,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 8.634090423583984,
+            "cpu-ms": 8.636999999999674,
+            "wall-minus-cpu-ms": -0.00290957641568923,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 12448336.0
+          }
+        ]
+      },
+      "full-source": {
+        "samples": 40,
+        "callsPerSample": 100,
+        "noGcSampleCount": 37,
+        "noGcCpuMedianBatchMs": 14.126000000000417,
+        "noGcAllocatedBytesPerParse": 216585.76,
+        "wallP95Sample": {
+          "sample": 39,
+          "wall-ms": 381.26397132873535,
+          "cpu-ms": 16.773999999999624,
+          "wall-minus-cpu-ms": 364.48997132873575,
+          "gc-count": 0.0,
+          "gc-wall-ms": 0.0,
+          "allocated-bytes": 21658576.0
+        },
+        "observations": [
+          {
+            "sample": 0,
+            "wall-ms": 133.18991661071777,
+            "cpu-ms": 18.532000000000103,
+            "wall-minus-cpu-ms": 114.65791661071768,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 1,
+            "wall-ms": 17.934799194335938,
+            "cpu-ms": 11.960000000000415,
+            "wall-minus-cpu-ms": 5.974799194335523,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 2,
+            "wall-ms": 199.01704788208008,
+            "cpu-ms": 14.34900000000039,
+            "wall-minus-cpu-ms": 184.6680478820797,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 3,
+            "wall-ms": 12.103080749511719,
+            "cpu-ms": 12.097000000000468,
+            "wall-minus-cpu-ms": 0.006080749511250261,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 4,
+            "wall-ms": 141.16811752319336,
+            "cpu-ms": 17.125000000000725,
+            "wall-minus-cpu-ms": 124.04311752319263,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 5,
+            "wall-ms": 192.3210620880127,
+            "cpu-ms": 20.60500000000043,
+            "wall-minus-cpu-ms": 171.71606208801228,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 6,
+            "wall-ms": 114.46905136108398,
+            "cpu-ms": 18.55699999999927,
+            "wall-minus-cpu-ms": 95.9120513610847,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 7,
+            "wall-ms": 40.49205780029297,
+            "cpu-ms": 15.809999999999992,
+            "wall-minus-cpu-ms": 24.682057800292977,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 8,
+            "wall-ms": 14.713048934936523,
+            "cpu-ms": 13.47900000000013,
+            "wall-minus-cpu-ms": 1.2340489349363928,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 9,
+            "wall-ms": 12.05897331237793,
+            "cpu-ms": 12.060999999999655,
+            "wall-minus-cpu-ms": -0.0020266876217256424,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 10,
+            "wall-ms": 319.1051483154297,
+            "cpu-ms": 54.627999999999346,
+            "wall-minus-cpu-ms": 264.4771483154303,
+            "gc-count": 1.0,
+            "gc-wall-ms": 237.28609085083008,
+            "allocated-bytes": 21510624.0
+          },
+          {
+            "sample": 11,
+            "wall-ms": 49.85213279724121,
+            "cpu-ms": 15.996000000000233,
+            "wall-minus-cpu-ms": 33.856132797240974,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 12,
+            "wall-ms": 68.99285316467285,
+            "cpu-ms": 12.40299999999972,
+            "wall-minus-cpu-ms": 56.58985316467313,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 13,
+            "wall-ms": 126.74403190612793,
+            "cpu-ms": 17.695000000000014,
+            "wall-minus-cpu-ms": 109.04903190612791,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 14,
+            "wall-ms": 75.8051872253418,
+            "cpu-ms": 16.1300000000002,
+            "wall-minus-cpu-ms": 59.675187225341595,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 15,
+            "wall-ms": 123.88396263122559,
+            "cpu-ms": 13.979999999999881,
+            "wall-minus-cpu-ms": 109.90396263122571,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 16,
+            "wall-ms": 88.42897415161133,
+            "cpu-ms": 13.535999999999548,
+            "wall-minus-cpu-ms": 74.89297415161178,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 17,
+            "wall-ms": 11.938095092773438,
+            "cpu-ms": 11.940000000000616,
+            "wall-minus-cpu-ms": -0.0019049072271783984,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 18,
+            "wall-ms": 179.32796478271484,
+            "cpu-ms": 16.993000000000478,
+            "wall-minus-cpu-ms": 162.33496478271437,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 19,
+            "wall-ms": 26.7641544342041,
+            "cpu-ms": 17.488000000000614,
+            "wall-minus-cpu-ms": 9.276154434203487,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 20,
+            "wall-ms": 568.5951709747314,
+            "cpu-ms": 71.82600000000016,
+            "wall-minus-cpu-ms": 496.7691709747313,
+            "gc-count": 1.0,
+            "gc-wall-ms": 393.0480480194092,
+            "allocated-bytes": 21510272.0
+          },
+          {
+            "sample": 21,
+            "wall-ms": 29.534101486206055,
+            "cpu-ms": 13.508000000000187,
+            "wall-minus-cpu-ms": 16.026101486205867,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 22,
+            "wall-ms": 11.847972869873047,
+            "cpu-ms": 11.849999999999916,
+            "wall-minus-cpu-ms": -0.002027130126869281,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 23,
+            "wall-ms": 307.86800384521484,
+            "cpu-ms": 17.512999999999444,
+            "wall-minus-cpu-ms": 290.3550038452154,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 24,
+            "wall-ms": 57.99508094787598,
+            "cpu-ms": 14.126000000000417,
+            "wall-minus-cpu-ms": 43.86908094787556,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 25,
+            "wall-ms": 11.916160583496094,
+            "cpu-ms": 11.918000000000095,
+            "wall-minus-cpu-ms": -0.0018394165040014343,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 26,
+            "wall-ms": 17.937183380126953,
+            "cpu-ms": 12.515000000000608,
+            "wall-minus-cpu-ms": 5.422183380126345,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 27,
+            "wall-ms": 138.73887062072754,
+            "cpu-ms": 23.11199999999969,
+            "wall-minus-cpu-ms": 115.62687062072786,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 28,
+            "wall-ms": 80.8720588684082,
+            "cpu-ms": 16.74200000000081,
+            "wall-minus-cpu-ms": 64.13005886840739,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 29,
+            "wall-ms": 134.8249912261963,
+            "cpu-ms": 19.69599999999938,
+            "wall-minus-cpu-ms": 115.12899122619692,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 30,
+            "wall-ms": 356.0371398925781,
+            "cpu-ms": 22.064000000000416,
+            "wall-minus-cpu-ms": 333.9731398925777,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 31,
+            "wall-ms": 613.2721900939941,
+            "cpu-ms": 72.30300000000011,
+            "wall-minus-cpu-ms": 540.969190093994,
+            "gc-count": 1.0,
+            "gc-wall-ms": 371.22416496276855,
+            "allocated-bytes": 21510272.0
+          },
+          {
+            "sample": 32,
+            "wall-ms": 108.09803009033203,
+            "cpu-ms": 14.70300000000002,
+            "wall-minus-cpu-ms": 93.39503009033201,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 33,
+            "wall-ms": 18.206119537353516,
+            "cpu-ms": 12.34000000000024,
+            "wall-minus-cpu-ms": 5.866119537353276,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 34,
+            "wall-ms": 12.070178985595703,
+            "cpu-ms": 12.072000000000415,
+            "wall-minus-cpu-ms": -0.0018210144047117183,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 35,
+            "wall-ms": 12.048006057739258,
+            "cpu-ms": 12.050000000000004,
+            "wall-minus-cpu-ms": -0.0019939422607464508,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 36,
+            "wall-ms": 12.094974517822266,
+            "cpu-ms": 12.097000000000136,
+            "wall-minus-cpu-ms": -0.0020254821778706855,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 37,
+            "wall-ms": 11.94000244140625,
+            "cpu-ms": 11.93999999999984,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 38,
+            "wall-ms": 130.90801239013672,
+            "cpu-ms": 12.291999999999526,
+            "wall-minus-cpu-ms": 118.6160123901372,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          },
+          {
+            "sample": 39,
+            "wall-ms": 381.26397132873535,
+            "cpu-ms": 16.773999999999624,
+            "wall-minus-cpu-ms": 364.48997132873575,
+            "gc-count": 0.0,
+            "gc-wall-ms": 0.0,
+            "allocated-bytes": 21658576.0
+          }
+        ]
+      }
+    }
+  }
+}

@@ -18,7 +18,8 @@
 ;; library catalog. Keep the boundary declarative so PackageSpec still performs
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
-  '("build-native-ffi-tests.ss"
+  '("build-native-test-driver.ss"
+    "build-native-ffi-tests.ss"
     "build-gparse.ss"
     "build-rust-rowan-aot.ss"
     "generate-rust-rowan.ss"

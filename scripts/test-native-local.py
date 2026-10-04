@@ -79,6 +79,8 @@ def main():
         print("NATIVE-STAGE-OK", label, flush=True)
 
     suites = args.suite or ["rust", "gql", "ffi", "aot"]
+    if any(suite in ("gql", "ffi") for suite in suites):
+        run("test-driver-build", ["gxi", "build-native-test-driver.ss", "compile"], build=True)
     for suite in suites:
         if suite == "rust":
             # A cold compiler and a running test have different evidence boundaries.

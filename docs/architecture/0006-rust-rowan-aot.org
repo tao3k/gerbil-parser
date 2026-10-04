@@ -337,3 +337,32 @@ claim a faster production constructor. The prior Linux 103.173315ms failure
 against the unchanged 100ms ceiling remains a failed receipt. A candidate that
 moved constant slots into prototypes failed locally at 124.627ms and was
 rejected without changing the production constructors.
+
+* Digest encoding allocation
+
+The native matched-stage diagnostic now records cumulative allocated bytes
+alongside CPU and wall time. Its prepared LR and publication inputs reproduce
+the directed parser's complete artifact, but are not a decomposition of the
+streaming source path. Each informational sample starts with GC; the production
+40-sample wall-clock admission gate keeps its original single initial GC.
+
+On 2026-10-04, three samples of 100 representative GQL parses each measured
+23,052,240 allocated bytes before and 22,865,040 after replacing the digest
+encoder's two temporary index lists with indexed loops. Publication alone
+changed from 4,658,384 to 4,471,184 bytes. Lexing and prepared LR allocation
+were unchanged. This saves 1,872 bytes per artifact (about 0.81% of full-source
+allocation and 4.02% of publication allocation). Timing samples varied, so
+these receipts establish allocation reduction, not a latency improvement or
+closure of the observed non-CPU delays.
+
+SHA-256 remains owned by =:std/crypto/digest=, as documented in the official
+[[https://gerbil.scheme.org/reference/std/crypto.html][Gerbil crypto reference]]. Canonical digest tests use fixed empty, ASCII,
+UTF-8 and all-256-byte vectors independently computed with Python hashlib.
+The existing artifact identity, byte-extent and replay assertions remain in
+the same native test owner.
+
+The focused native suite passed all 19 cases across digest/artifact contracts,
+language artifact contracts and the original GQL runtime gate. The latter
+recorded p95 137.469ms over 40 samples against the unchanged 150ms ceiling
+(maximum 180.129ms). This is a passing local admission receipt, not proof that
+host-dependent wait outliers have disappeared.

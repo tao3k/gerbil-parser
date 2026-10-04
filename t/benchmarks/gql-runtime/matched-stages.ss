@@ -15,17 +15,22 @@
   (let loop ((sample 0))
     (when (< sample samples)
       (##gc)
-      (let* ((cpu-start (cpu-time)) (wall-start (##current-time-point))
+      (let* ((stats-before (##process-statistics))
+             (cpu-start (cpu-time)) (wall-start (##current-time-point))
              (result
               (let repeat ((remaining batch-count) (last-result #f))
                 (if (zero? remaining) last-result
                   (repeat (- remaining 1) (thunk)))))
              (cpu-ms (* 1000 (- (cpu-time) cpu-start)))
-             (wall-ms (* 1000 (- (##current-time-point) wall-start))))
+             (wall-ms (* 1000 (- (##current-time-point) wall-start)))
+             (allocated-bytes
+              (- (f64vector-ref (##process-statistics) 7)
+                 (f64vector-ref stats-before 7))))
         (unless (equal? result expected)
           (error "GQL stage changed its semantic result" name sample))
         (write (list name (cons 'sample sample) (cons 'parses batch-count)
-                     (cons 'cpu-ms cpu-ms) (cons 'elapsed-ms wall-ms)))
+                     (cons 'cpu-ms cpu-ms) (cons 'elapsed-ms wall-ms)
+                     (cons 'allocated-bytes allocated-bytes)))
         (newline) (force-output))
       (loop (+ sample 1)))))
 

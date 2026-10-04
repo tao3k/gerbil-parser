@@ -24,6 +24,20 @@
 
 (def parse-artifact-tests
   (test-suite "ParseArtifact contract"
+    (test-case "canonical SHA-256 identities match fixed digest vectors"
+      (check (sha256-text "")
+             => "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+      (check (sha256-text "abc")
+             => "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+      (check (sha256-text "λ中文🙂")
+             => "sha256:769868d0dd7575e844f10175e18222eb50c31aacd8f3cce0f3ce55fe2f0e53e2")
+      (let ((bytes (make-u8vector 256)))
+        (let fill ((index 0))
+          (when (< index 256)
+            (u8vector-set! bytes index index)
+            (fill (+ index 1))))
+        (check (sha256-bytes bytes)
+               => "sha256:40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880")))
     (test-case "identity and event replay are deterministic"
       (let* ((source "alpha + (2 * beta)")
              (first (parse-source arithmetic-parser source))

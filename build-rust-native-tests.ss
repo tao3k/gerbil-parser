@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Link the real Rust static consumer through Gerbil's normal build owner.
-(import (only-in :std/build-script defbuild-script))
+(import (only-in :std/build-script defbuild-script)
+        (only-in :std/source this-source-file))
 (def archive (getenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" #f))
 (unless archive (error "GERBIL_PARSER_RUST_NATIVE_ARCHIVE must name the Cargo staticlib"))
 (defbuild-script

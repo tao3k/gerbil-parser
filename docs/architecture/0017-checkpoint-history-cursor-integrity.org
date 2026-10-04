@@ -279,3 +279,57 @@ build/integration, both unchanged wall p95 gates and FFI successful exit remain
 open. Observed host load subsequently reached 201.52; no timing retry or remote
 push was performed to manufacture closure. The sealed rebase receipt is
 =docs/research/data/checkpoint-history-rebase-2026-10-03.json=.
+
+
+* 2026-10-04 local closure after the latest PR rebase
+
+The 79 local commits were rebased onto PR 13 revision
+=638e544493c43db6f3f706aa34ffcbf3dce3f692=. Contextual source fixtures,
+JSON hash representation, package pins and upstream native child exit semantics
+were preserved. ASP remains pinned to =v0.1.2.2= and POO to its immutable SHA.
+
+Native dependency builds used two workers and a 180-second aggregate budget.
+The affected DAG completed in 42.56 seconds, retaining earlier successful
+prerequisites with matching source hashes; the two changed FFI implementations
+compiled in another 5.92 seconds. A preliminary =gxc -v= invocation only printed
+the version and is rejected as build evidence. Both direct =_Exit= and =_exit=
+links failed on the Homebrew GCC Mach-O bundle path. The C11 =_Exit= implementation
+was restored, the existing Darwin dynamic-lookup policy was applied, and an
+actual child returned 42 after publishing its output. The dedicated
+=build-native-test-driver.ss= now owns this FFI build for both CI and local runs.
+Production package discovery excludes that test build entry.
+
+The first parallel functional batch reached its 90-second aggregate deadline.
+Six modules and 71 cases passed; its overall receipt remains failed. Missing
+source fixture admission was fixed by explicitly setting native and source load
+paths; changed native FFI modules were rebuilt. Only the four unresolved modules
+were then run: all 52 cases passed in 12.56 seconds. The combined selected scope
+is ten modules and 123 cases, including forward/inverse checkpoint history on
+both parser backends, complete artifact projection, contextual scanning, test
+style, package dependency pins and native FFI. Every accepted module has matching
+CASE/MODULE/HARNESS receipts, final GC, native child status zero and suite exit
+zero. Historical failures remain in the sealed receipt.
+
+Unmodified performance contracts ran serially in 23.92 seconds:
+
+| Owner | Work per sample | Samples | Wall p95 | Ceiling | Result |
+|-------+-----------------+---------+----------+---------+--------|
+| POO   | 50 object pairs |      20 | 53.698ms |   100ms | pass   |
+| GQL   | 100 full parses |      40 | 28.385ms |   150ms | pass   |
+
+These are current local wall-time admissions, not a causal comparison with
+historical overloaded-host measurements. The earlier structural work counters
+remain the evidence for checkpoint history reuse. The event backend stays
+opt-in; this closure does not admit the slower relocation experiment as default.
+
+The public C ABI probe completed 1,000 parse calls and three Rowan generated
+source comparisons, checked UTF-8/error result reuse and released owned payloads,
+then exited zero in 10.59 seconds. The header smoke check and two compiler-proxy
+unit tests passed. Selected-module closure does not qualify library teardown or
+all language suites. Linux/macOS and Rust integration remain remote CI gates
+at the published head; no merge was requested.
+
+=docs/research/data/checkpoint-history-closure-2026-10-04.json= seals source and
+fixture hashes, the failed first batch, repaired selection, native build receipts
+and the reviewed source-tree identities. The unmodified performance receipts are
+=docs/research/data/checkpoint-history-performance-2026-10-04.sexp=.

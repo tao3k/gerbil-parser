@@ -2,7 +2,8 @@
 ;;; Public versioned Bash parser entry and here-document span receipt.
 
 (import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
+                 defsyntax-corpus check-language-loader-fixtures!)
         (only-in :gerbil-parser/src/language/source
                  source-language-digest)
         (only-in ./grammar bash-v5-3-source-language)
@@ -19,10 +20,19 @@
         bash-here-document-link-marker-start
         bash-here-document-link-body-start)
 
+(defsyntax-corpus bash-v5-3-fixtures
+  (identity "bash" "5.3" "bash-5.3-structured-source.v1")
+  (accepted
+   ("bash/heredoc" bash-heredoc (text "cat <<EOF\nα\nEOF\n") BashFile (HereDocument)))
+  (rejected
+   ("bash/incomplete-if" bash-incomplete-if (text "if true; then\n"))))
+
 (deflanguage-parser-loader (bash-v5-3-language :: self LanguageLoader.)
   (source bash-v5-3-source-language)
   (parse parse-bash-v5-3)
   (slots metadata: (.o grammar-format: 'source-parser)
+         fixtures: (lambda () bash-v5-3-fixtures)
+         tests: (list (cons 'fixtures check-language-loader-fixtures!))
          scan-workers: (list (cons 'command make-bash-scanner))))
 
 (def (parse-bash-v5-3/receipt source)

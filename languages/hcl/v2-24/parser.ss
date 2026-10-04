@@ -2,9 +2,9 @@
 ;;; Canonical public parser entry for HCL native syntax v2.24.0.
 
 (import (only-in ./fixtures hcl-v2-24-official-fixtures)
-        (only-in :gerbil-parser/src/language/entry check-language-loader-fixtures!)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
+                 check-language-loader-fixtures!)
         ./grammar)
 (export (import: ./grammar)
         hcl-v2-24-language

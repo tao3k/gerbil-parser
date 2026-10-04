@@ -2,9 +2,9 @@
 ;;; Canonical public parser entry for the arithmetic v1 reference language.
 
 (import (only-in ./fixtures arithmetic-v1-basic-fixture)
-        (only-in :gerbil-parser/src/language/entry check-language-loader-fixtures!)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
+                 check-language-loader-fixtures!)
         (only-in ./grammar
                  +arithmetic-language-version+
                  +arithmetic-syntax-contract+

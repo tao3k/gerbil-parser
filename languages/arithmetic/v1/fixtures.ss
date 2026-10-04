@@ -6,7 +6,7 @@
 
 (defsyntax-fixture arithmetic-v1-basic-fixture
   (identity "arithmetic/v1/basic"
-            "arithmetic reference language"
+            "arithmetic"
             "v1"
             "arithmetic-expression.v1")
   (source "corpus/basic.expr")

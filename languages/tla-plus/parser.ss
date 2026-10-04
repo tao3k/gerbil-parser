@@ -2,9 +2,10 @@
 ;;; Parser names describe syntax scope; grammar metadata owns version identity.
 
 (import (only-in ./fixtures tla-plus-core-fixtures)
-        (only-in :gerbil-parser/src/language/entry check-language-loader-fixtures!)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
+                 defsyntax-corpus
+                 check-language-loader-fixtures!)
         (only-in ./grammars/core
                  tla-plus-core-language-grammar tla-plus-core-parser)
         (only-in ./grammars/layout
@@ -20,9 +21,18 @@
          fixtures: (lambda () tla-plus-core-fixtures)
          tests: (list (cons 'fixtures check-language-loader-fixtures!))))
 
+(defsyntax-corpus tla-plus-layout-fixtures
+  (identity "tla-plus" "v2" "tla-plus.native-layout.v2")
+  (accepted
+   ("tla-plus/layout/aligned" tla-layout-aligned (text "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n") SourceFile (JunctionExpression)))
+  (rejected
+   ("tla-plus/layout/incomplete" tla-layout-incomplete (text "---- MODULE J ----\nInit ==\n  /\\\n====\n"))))
+
 (deflanguage-parser-loader (tla-plus-layout-language :: self LanguageLoader.)
   (grammar tla-plus-layout-language-grammar)
   (parse parse-tla-plus-layout)
-  (slots metadata: (.o grammar-format: 'concise-dsl)))
+  (slots metadata: (.o grammar-format: 'concise-dsl)
+         fixtures: (lambda () tla-plus-layout-fixtures)
+         tests: (list (cons 'fixtures check-language-loader-fixtures!))))
 
 (def parse-tla-plus parse-tla-plus-layout)

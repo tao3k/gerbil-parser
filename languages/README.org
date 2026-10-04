@@ -133,12 +133,38 @@ conformance service through POO rather than another language-specific wrapper:
 ((cdr (assq 'fixtures (.ref hcl-v2-24-language 'tests))) hcl-v2-24-language)
 #+end_src
 
-=check-language-loader-fixtures!= owns status, roundtrip, root and required-kind
-checks and returns the admitted artifacts. A provider must return syntax
-fixtures; a mismatch raises an error. Loader admission checks service shapes
-but never executes a provider, test or scan worker. Ordinary parsing does not
+=check-language-loader-fixtures!= first admits the whole corpus: fixture IDs
+must be unique and every fixture's language/version/contract must match the
+loader. A foreign fixture or duplicate ID rejects before any source is parsed.
+It then owns status, roundtrip, root and required-kind checks and returns the
+admitted artifacts. Lexical rejection retains the complete source bytes as an
+opaque token when the lexer cannot publish a token stream. This makes negative
+fixtures lossless even when a language has no fallback lexical rule.
+A provider must return syntax fixtures; a mismatch raises an error. Loader
+admission checks service shapes but never executes a provider, test or scan worker. Ordinary parsing does not
 resolve these services. Fixture modules depend on =grammar.ss=, not the public
 parser that exposes their provider, avoiding dependency cycles.
+
+All shipped language entries register their corpus conformance service, including
+HL7, FHIRPath, Bash, TLA layout and the policy-bound SANY candidate. The services
+use the public =language-support= facade. A short fixture can be declared inside
+=parser.ss= without a new source file:
+
+#+begin_src scheme
+(defsyntax-corpus example-fixtures
+  (identity "example" "v1" "example.syntax.v1")
+  (accepted ("example/word" example-word (text "hello") SourceFile ()))
+  (rejected ("example/empty" example-empty (text ""))))
+#+end_src
+
+A corpus source is either a path string relative to the declaration or
+=(text "source bytes")=. Both produce the same immutable =syntax-fixture=
+representation and SHA-256 source identity. =defsyntax-fixture= likewise accepts
+=(source "path")= or =(text "source bytes")=. Providers are still ordinary POO
+slots and are invoked only when the test service is explicitly run; file sources
+are embedded at expansion, so runtime conformance has no filesystem dependency.
+These syntax fixtures complement language-specific projection, concurrency and
+incremental tests; they do not stand in for those assertions.
 
 Bash registers its =command= source-scanner factory. The engine's
 =source-scanner-tokens= owns traversal, checkpoint progression, UTF-8 offsets and
@@ -232,6 +258,10 @@ The language-independent C ABI currently admits descriptors through
 =register-native-language!=. Its current codec requires a generated
 =language-grammar= descriptor; Bash source descriptors are not admitted by that
 codec. It does not serialize loader slots or POO callbacks.
+An opaque lexical rejection uses the =unknown= token. GPA1 serialization requires
+that token in the descriptor terminal catalog; descriptors without it receive an
+explicit catalog error. Scheme fixture conformance alone does not qualify that
+C ABI rejection path.
 Standalone Rust AOT consumes admitted portable IR. Neither path automatically
 inherits arbitrary POO extension behavior. Descriptor-bound Scheme policies
 are consumed by the loader and native C ABI; standalone Rust AOT rejects them

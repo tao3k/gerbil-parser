@@ -48,32 +48,30 @@
 ;;       Result: the binding contains source bytes and their SHA-256 identity.
 ;;     %
 (defsyntax (defsyntax-fixture stx)
-  (syntax-case stx (identity source expect)
-    ((_ binding
-        (identity fixture-id language version contract)
-        (source path)
-        (expect expected-status root-kind (required-kind ...)))
-     (and (identifier? #'binding)
-          (stx-string? #'fixture-id)
-          (stx-string? #'path)
-          (memq (stx-e #'expected-status) '(accepted rejected))
-          (if (eq? (stx-e #'expected-status) 'accepted)
-            (identifier? #'root-kind)
-            (eq? (stx-e #'root-kind) #f)))
-     (let* ((resolved (gx#core-resolve-path #'path (stx-source stx)))
-            (content (call-with-input-file resolved read-all-as-string)))
-       (with-syntax ((fixture-content content))
+  (def (emit binding identity-clause expected-clause content)
+    (with-syntax ((binding binding) (identity-clause identity-clause)
+                  (expected-clause expected-clause) (fixture-content content))
+      (syntax-case #'(identity-clause expected-clause) (identity expect)
+        (((identity fixture-id language version contract)
+          (expect expected-status root-kind (required-kind ...)))
+         (and (identifier? #'binding) (stx-string? #'fixture-id)
+              (memq (stx-e #'expected-status) '(accepted rejected))
+              (if (eq? (stx-e #'expected-status) 'accepted)
+                (identifier? #'root-kind) (eq? (stx-e #'root-kind) #f)))
          #'(def binding
-             (make-syntax-fixture
-              fixture-id
-              language
-              version
-              contract
-              (sha256-text fixture-content)
-              fixture-content
-              'expected-status
-              'root-kind
-              '(required-kind ...))))))
+             (make-syntax-fixture fixture-id language version contract
+                                  (sha256-text fixture-content) fixture-content
+                                  'expected-status 'root-kind '(required-kind ...))))
+        (_ (raise-syntax-error #f "invalid native-syntax fixture declaration" stx)))))
+  (syntax-case stx (source text)
+    ((_ binding identity-clause (source path) expected-clause)
+     (stx-string? #'path)
+     (let (resolved (gx#core-resolve-path #'path (stx-source stx)))
+       (emit #'binding #'identity-clause #'expected-clause
+             (call-with-input-file resolved read-all-as-string))))
+    ((_ binding identity-clause (text content) expected-clause)
+     (stx-string? #'content)
+     (emit #'binding #'identity-clause #'expected-clause (stx-e #'content)))
     (_ (raise-syntax-error #f "invalid native-syntax fixture declaration" stx))))
 
 ;;; A corpus is an expansion-time manifest: paths stay reviewable in source,
@@ -95,6 +93,12 @@
 ;;       Result: accepted rows precede rejected rows exactly as declared.
 ;;     %
 (defsyntax (defsyntax-corpus stx)
+  (def (source-clause source-stx)
+    (with-syntax ((value source-stx))
+      (if (stx-string? source-stx) #'(source value)
+        (syntax-case source-stx (text)
+          ((text content) (stx-string? #'content) #'(text content))
+          (_ (raise-syntax-error #f "corpus source requires a path or (text string)" stx source-stx))))))
   (syntax-case stx (identity accepted rejected)
     ((_ binding
         (identity language-value version-value contract-value)
@@ -103,15 +107,17 @@
                      (required-kind ...)) ...)
         (rejected
          (rejected-id rejected-binding rejected-path) ...))
-     #'(begin
+     (with-syntax (((accepted-source ...) (stx-map source-clause #'(path ...)))
+                   ((rejected-source ...) (stx-map source-clause #'(rejected-path ...))))
+       #'(begin
          (defsyntax-fixture accepted-binding
            (identity fixture-id language-value version-value contract-value)
-           (source path)
+           accepted-source
            (expect accepted root-kind (required-kind ...))) ...
          (defsyntax-fixture rejected-binding
            (identity rejected-id language-value version-value contract-value)
-           (source rejected-path)
+           rejected-source
            (expect rejected #f ())) ...
          (def binding
-           (list accepted-binding ... rejected-binding ...))))
+           (list accepted-binding ... rejected-binding ...)))))
     (_ (raise-syntax-error #f "invalid native-syntax corpus declaration" stx))))

@@ -3,6 +3,7 @@
 
 (import (only-in ../../language-support/fixture
                  syntax-fixture? syntax-fixture-id syntax-fixture-source
+                 syntax-fixture-language syntax-fixture-version syntax-fixture-contract
                  syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
         (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
@@ -273,6 +274,19 @@
   (let (fixtures ((.ref loader 'fixtures)))
     (unless (and (list? fixtures) (every syntax-fixture? fixtures))
       (error "language loader fixtures must return syntax fixtures"))
+    (let ((seen (make-table test: equal?))
+          (language (.ref loader 'language))
+          (version (.ref loader 'version))
+          (contract (.ref loader 'contract)))
+      (for-each
+       (lambda (fixture)
+         (let (id (syntax-fixture-id fixture))
+           (unless (and (string? id) (not (table-ref seen id #f))
+                        (equal? (syntax-fixture-language fixture) language)
+                        (equal? (syntax-fixture-version fixture) version)
+                        (equal? (syntax-fixture-contract fixture) contract))
+             (error "language fixture identity does not match loader or is duplicated" id))
+           (table-set! seen id #t))) fixtures))
     (map
      (lambda (fixture)
        (let* ((source (syntax-fixture-source fixture))

@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Report real compiled-module admission before the test entry imports it.
 ;;; Dependency boundaries keep cold imports subject to the same silence gate.
-(def +preloaded-modules+ '())
+(def +preloaded-modules+ (make-table test: equal?))
+(def +compiled-files+ (make-table test: equal?))
 
 (def (prefer-native-interfaces!)
   ;; Called only by the native suite; source benchmark entries retain their
@@ -13,9 +14,16 @@
           (add-load-path! library))))))
 
 (def (compiled-file module suffix)
-  (find file-exists?
-        (map (lambda (root) (path-expand (string-append module suffix) root))
-             (cons (path-expand "lib" (gerbil-home)) (load-path)))))
+  ;; Native products are admitted before the child starts. Cache successful
+  ;; lookups only, so a later load-path addition can still resolve a miss.
+  (let (key (cons module suffix))
+    (or (table-ref +compiled-files+ key #f)
+        (let (path (find file-exists?
+                        (map (lambda (root)
+                               (path-expand (string-append module suffix) root))
+                             (cons (path-expand "lib" (gerbil-home)) (load-path)))))
+          (when path (table-set! +compiled-files+ key path))
+          path))))
 
 (def (compiled-dependencies value)
   (cond ((and (pair? value) (eq? (car value) 'load-module)
@@ -46,8 +54,8 @@
      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
 
 (def (preload-module module)
-  (unless (member module +preloaded-modules+)
-    (set! +preloaded-modules+ (cons module +preloaded-modules+))
+  (unless (table-ref +preloaded-modules+ module #f)
+    (table-set! +preloaded-modules+ module #t)
     ;; Generated wrapper modules list dependencies without evaluating their
     ;; initializers. Phase bodies (~0/~1) are admitted directly, never decoded.
     (unless (string-contains module "~")
@@ -73,7 +81,7 @@
 
 ;; Admit compiled dependencies declared by tests and their source helpers.
 ;; Reading import forms does not evaluate a helper or replace gxtest's owner.
-(def +preloaded-sources+ '())
+(def +preloaded-sources+ (make-table test: equal?))
 
 (def (preload-import-set value source)
   (cond
@@ -95,8 +103,8 @@
 
 (def (preload-test-imports file)
   (let (source (path-expand file))
-    (unless (member source +preloaded-sources+)
-      (set! +preloaded-sources+ (cons source +preloaded-sources+))
+    (unless (table-ref +preloaded-sources+ source #f)
+      (table-set! +preloaded-sources+ source #t)
       (call-with-input-file source
         (lambda (port)
           (let loop ()

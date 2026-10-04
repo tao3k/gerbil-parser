@@ -219,7 +219,13 @@
 ;; : (-> ParserMachine Digest String (List Token) Exception ParseArtifact)
 (def (failure-artifact machine grammar-digest source tokens condition)
   (make-failure-parse-artifact
-   grammar-digest source tokens (diagnostic machine condition)))
+   grammar-digest source
+   ;; Atomic lexing may fail before publishing any tokens. A rejection still
+   ;; owns every source byte; expose it as one opaque token, never a partial CST.
+   (if (and (null? tokens) (positive? (string-length source)))
+     (list (make-token 'unknown source 0 (string-utf8-length source)))
+     tokens)
+   (diagnostic machine condition)))
 
 ;; : (-> ParserMachine Digest String (List Token) ParseArtifact)
 (def (parse-tokenized/with machine grammar-digest source tokens

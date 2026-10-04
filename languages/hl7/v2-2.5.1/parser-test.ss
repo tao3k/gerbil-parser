@@ -28,6 +28,14 @@
         (check (cdr (assq 'identifierValue projection)) => "8003608166690503")
         (check (cdr (assq 'familyName projection)) => "Nguyen")
         (check (cdr (assq 'givenNames projection)) => '("Ava"))))
+    (test-case "a missing delimiter header rejects with a valid lossless artifact"
+      (for-each
+       (lambda (source)
+         (let (artifact (parse-hl7v2 source))
+           (check (parse-artifact-success? artifact) => #f)
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)))
+       '("PID|1\r" "PID|α\r")))
     (test-case "message-local delimiter declaration is parsed losslessly"
       (let* ((source
               "MSH*$%!?*LEGACY*AU*FHIR*AU*202609170900**ADT$A08*1*P*2.5.1\r")

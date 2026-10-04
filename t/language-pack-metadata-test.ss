@@ -40,7 +40,9 @@
            (check (pair? artifacts) => #t)
            (check (every parse-artifact-valid? artifacts) => #t)))
        (list arithmetic-v1-language hcl-v2-24-language
-             gql-iso-39075-2024-language opencypher-2024-1-language tla-plus-core-language)))
+             gql-iso-39075-2024-language opencypher-2024-1-language
+             hl7v2-language fhirpath-v2-language bash-v5-3-language
+             tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language)))
     (test-case "Bash workers retain independent deferred scanner obligations"
       (let* ((make-worker (cdr (assq 'command (.ref bash-v5-3-language 'scan-workers))))
              (first "cat <<EOF\nα\nEOF\n") (second "echo β\n")

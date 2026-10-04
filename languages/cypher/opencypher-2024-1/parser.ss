@@ -2,9 +2,9 @@
 ;;; Canonical public parser entry for openCypher 2024.1.
 
 (import (only-in ./fixtures opencypher-2024-1-fixtures)
-        (only-in :gerbil-parser/src/language/entry check-language-loader-fixtures!)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
+                 check-language-loader-fixtures!)
         ./grammar)
 (export (import: ./grammar)
         opencypher-2024-1-language

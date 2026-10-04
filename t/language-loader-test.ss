@@ -9,6 +9,9 @@
                  language-parser-entry-ref check-language-loader-fixtures!)
         (only-in :gerbil-parser/languages/arithmetic/v1/grammar
                  arithmetic-language-grammar)
+        (only-in :gerbil-parser/language-support/fixture
+                 defsyntax-fixture defsyntax-corpus syntax-fixture-source syntax-fixture-source-digest)
+        (only-in :gerbil-parser/src/runtime/identity sha256-text)
         (only-in :gerbil-parser/languages/arithmetic/v1/fixtures arithmetic-v1-basic-fixture)
         (only-in :gerbil-parser/languages/bash/v5-3/scanner make-bash-scanner)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
@@ -80,6 +83,39 @@
                  (descriptor #f) (parse parse-bad) (slots) (contracts)))
     (message #'(deflanguage-parser-loader bad (grammar #f) (parse "bad"))))))))
 
+(defsyntax (inline-fixture-rejections stx)
+  (def (rejects form)
+    (with-catch (lambda (_) #t) (lambda () (core-expand form) #f)))
+  (datum->syntax
+   #'inline-fixture-rejections
+   (list 'quote
+         (list
+          (rejects #'(defsyntax-fixture invalid-fixture
+                       (identity "bad" "lang" "v1" "contract")
+                       (text 17) (expect accepted Root ())))
+          (rejects #'(defsyntax-fixture invalid-fixture
+                       (identity "bad" "lang" "v1" "contract")
+                       (text "x") (expect unknown Root ())))
+          (rejects #'(defsyntax-corpus invalid-corpus
+                       (identity "lang" "v1" "contract")
+                       (accepted ("bad" invalid-fixture (text 17) Root ()))
+                       (rejected)))))))
+
+(defsyntax-corpus inline-arithmetic-fixtures
+  (identity "arithmetic" "v1" "arithmetic-expression.v1")
+  (accepted ("loader/inline/unicode" inline-unicode (text "α + 2") SourceFile (Expression)))
+  (rejected ("loader/inline/incomplete" inline-incomplete (text "1 +") )))
+
+(defsyntax-fixture foreign-language
+  (identity "foreign/language" "foreign" "v1" "arithmetic-expression.v1")
+  (text "1") (expect accepted SourceFile ()))
+(defsyntax-fixture foreign-version
+  (identity "foreign/version" "arithmetic" "v2" "arithmetic-expression.v1")
+  (text "1") (expect accepted SourceFile ()))
+(defsyntax-fixture foreign-contract
+  (identity "foreign/contract" "arithmetic" "v1" "foreign.v1")
+  (text "1") (expect accepted SourceFile ()))
+
 (def language-loader-test
   (test-suite "POO language loader admission"
     (test-case "inherits extensions and binds engine identity and dispatch"
@@ -149,6 +185,25 @@
       (check (rejects? (lambda ()
                         (check-language-loader-fixtures!
                          (.cc arithmetic-loader 'fixtures (lambda () '(invalid)))))) => #t))
+    (test-case "inline corpora preserve source bytes, digest and positive/negative conformance"
+      (check (inline-fixture-rejections) => '(#t #t #t))
+      (let* ((loader (.cc arithmetic-loader 'fixtures (lambda () inline-arithmetic-fixtures)))
+             (artifacts (check-language-loader-fixtures! loader)))
+        (check (map parse-artifact-success? artifacts) => '(#t #f))
+        (check (syntax-fixture-source inline-unicode) => "α + 2")
+        (check (syntax-fixture-source-digest inline-unicode) => (sha256-text "α + 2"))))
+    (test-case "fixture admission rejects foreign identities and duplicate IDs before parsing"
+      (def calls 0)
+      (for-each
+       (lambda (fixtures)
+         (let (loader (.cc (.cc arithmetic-loader 'fixtures (lambda () fixtures))
+                          '.parse (lambda (_) (set! calls (+ calls 1)) #f)))
+           (check (rejects? (lambda () (check-language-loader-fixtures! loader))) => #t)))
+       (list (list foreign-language) (list foreign-version) (list foreign-contract)
+             (list arithmetic-v1-basic-fixture arithmetic-v1-basic-fixture)
+             ;; Admission covers the whole corpus before parsing its valid prefix.
+             (list arithmetic-v1-basic-fixture foreign-contract)))
+      (check calls => 0))
     (test-case "parsing reuses the loaded entry without extension admission"
       (let (before dialect-admissions)
         (for-each

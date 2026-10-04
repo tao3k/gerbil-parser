@@ -24,14 +24,11 @@
   ___CAST(___U8*, ___BODY_AS((obj), ___tSUBTYPED))
 #define GERBIL_PARSER_U8_LEN(obj) ___HD_BYTES(___HEADER(obj))
 
-typedef struct {
-  int32_t status;
-  uint8_t *payload;
-  size_t length;
-} gerbil_parser_rowan_result_v1;
+#include <gerbil-parser/rust-rowan-aot-v1.h>
 
 void gerbil_parser_rowan_result_v1_init(
     gerbil_parser_rowan_result_v1 *result) {
+  if (result == NULL) return;
   result->status = 0;
   result->payload = NULL;
   result->length = 0;
@@ -39,12 +36,26 @@ void gerbil_parser_rowan_result_v1_init(
 
 void gerbil_parser_rowan_result_v1_release(
     gerbil_parser_rowan_result_v1 *result) {
+  if (result == NULL) return;
   if (result->payload != NULL) {
     free(result->payload);
   }
   result->status = 0;
   result->payload = NULL;
   result->length = 0;
+}
+
+/* Gambit's UTF-8-string callback accepts char*. The public API reads
+   immutable strings; conversion does not modify the caller's buffer. */
+int32_t gerbil_parser_rowan_compile_impl(char *grammar_path, gerbil_parser_rowan_result_v1 *result);
+int32_t gerbil_parser_rowan_compile(const char *grammar_path, gerbil_parser_rowan_result_v1 *result) {
+  if (result == NULL) return -1;
+  if (grammar_path == NULL) {
+    gerbil_parser_rowan_result_v1_release(result);
+    result->status = -1;
+    return -1;
+  }
+  return gerbil_parser_rowan_compile_impl((char *)grammar_path, result);
 }
 END-C
   )
@@ -66,16 +77,20 @@ END-C
   (define gerbil-parser-rowan-result-v1-set-bytes!
     (c-lambda (gerbil_parser_rowan_result_v1-borrowed-ptr* scheme-object) void
     #<<END-C
-___arg1->length = GERBIL_PARSER_U8_LEN(___arg2);
-___arg1->payload = (uint8_t *)malloc(___arg1->length);
-if (___arg1->payload == NULL && ___arg1->length > 0) {
-  ___arg1->length = 0;
+size_t length = GERBIL_PARSER_U8_LEN(___arg2);
+uint8_t *payload = length == 0 ? NULL : (uint8_t *)malloc(length);
+if (payload == NULL && length > 0) {
+  gerbil_parser_rowan_result_v1_release(___arg1);
   ___arg1->status = -1;
   ___return;
 }
-if (___arg1->length > 0) {
-  memcpy(___arg1->payload, GERBIL_PARSER_U8_DATA(___arg2), ___arg1->length);
+if (length > 0) {
+  memcpy(payload, GERBIL_PARSER_U8_DATA(___arg2), length);
 }
+/* Results must be initialized once; every call replaces their owned buffer. */
+free(___arg1->payload);
+___arg1->payload = payload;
+___arg1->length = length;
 ___return;
 END-C
     ))
@@ -86,7 +101,7 @@ END-C
 
   (c-define (gerbil-parser-rowan-compile grammar-path result)
     (UTF-8-string gerbil_parser_rowan_result_v1-borrowed-ptr*) int32
-    "gerbil_parser_rowan_compile" "extern"
+    "gerbil_parser_rowan_compile_impl" "extern"
     (with-exception-catcher
      (lambda (exception)
        (gerbil_parser_rowan_result_v1-status-set! result -1)

@@ -2,7 +2,8 @@
 ;;; -*- Gerbil -*-
 ;;; Thin package-build entrypoint; the PackageSpec owns project topology.
 
-(import (only-in :std/build-script defbuild-script)
+(import (only-in :std/source this-source-file)
+        (only-in :std/build-script defbuild-script)
         (only-in :asp-gerbil-scheme/building-api
                  default-exclude-dirs
                  asp-gerbil-scheme-library-package-prototype
@@ -17,7 +18,8 @@
 ;; library catalog. Keep the boundary declarative so PackageSpec still performs
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
-  '("build-gparse.ss"
+  '("build-native-ffi-tests.ss"
+    "build-gparse.ss"
     "build-rust-rowan-aot.ss"
     "generate-rust-rowan.ss"
     "src/main.ss"
@@ -43,15 +45,17 @@
 ;; FFI bundle; the final AOT consumer resolves these symbols when it links the
 ;; native runtime.
 (def gerbil-parser-native-ffi-specs
-  (cond-expand
-   (darwin
-    '((gxc: "src/ffi/parse-artifact-v1-native"
-            "-ld-options" "-Wl,-undefined,dynamic_lookup")
-      (gxc: "src/ffi/rust-rowan-aot-v1-native"
-            "-ld-options" "-Wl,-undefined,dynamic_lookup")))
-   (else
-    '((gxc: "src/ffi/parse-artifact-v1-native")
-      (gxc: "src/ffi/rust-rowan-aot-v1-native")))))
+  (let ((include-option
+         (string-append "-I" (path-expand "include"
+                             (path-directory (this-source-file)))))
+        (link-options
+         (cond-expand
+          (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
+          (else '()))))
+    (map (lambda (module)
+           `(gxc: ,module "-cc-options" ,include-option ,@link-options))
+         '("src/ffi/parse-artifact-v1-native"
+           "src/ffi/rust-rowan-aot-v1-native"))))
 
 ;; PackageSpec remains here because the Build API derives project ownership
 ;; from this declaration's source location. Its default native projection owns

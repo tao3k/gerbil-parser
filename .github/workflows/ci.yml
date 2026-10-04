@@ -190,6 +190,15 @@ jobs:
             t/fixtures/rowan-record-assignments/languages/records/v1/parser.ss \
             t/fixtures/rowan-record-assignments/languages/records/v1/fixtures.ss
 
+      - name: Compile and call public native C ABI
+        run: |
+          GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-native-ffi-tests.ss compile
+          GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+            gerbil env python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 \
+            --log .data/native-abi.log --require NATIVE-ABI-OK \
+            --require 'ABI-ROWAN-GENERATED-MATCH calls=3' \
+            -- gxi -e '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe) (main)'
+
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: |

@@ -251,3 +251,53 @@ alone do not identify the earlier host scheduling cause or prove an algorithm
 change. The optimized Rust workspace build and tests completed with exit zero;
 real native object writes kept the original idle bound observable. The closed
 AOT generator also produced an exact Rust fixture in the clean environment.
+
+* Native C ABI qualification and ownership
+
+The FFI implementation follows Gerbil's official C-interface guide
+(https://gerbil.scheme.org/guide/ffi.html): =begin-foreign= delegates callbacks
+and UTF-8 conversion to Gambit, while =c-declare= includes the public C header.
+The =std/build-script= / =std/make= owners supply the header include directory
+as described in https://gerbil.scheme.org/reference/dev/build.html.
+
+Both v1 result structs must be initialized once before use. A descriptor,
+parse, or Rowan generation call replaces the result's owned payload; errors
+also replace it. Allocation failure clears the old payload and sets status
+=-1=. Release frees the buffer and resets the result; repeated release and
+NULL init/release are safe. NULL request inputs return =-1= and clear an
+initialized result. These calls require Gerbil's initialized runtime and its
+calling thread. Gambit's generated callbacks use =char *= for UTF-8 strings;
+the public =const char *= entrypoints forward read-only inputs to those
+callbacks without changing the public v1 signature.
+
+=build-native-ffi-tests.ss= compiles a real C consumer through the standard
+module build owner. Its tests invoke both public APIs, reuse a parse result
+1,000 times, cover UTF-8/error/NULL/release behavior, and compare three Rowan
+payloads byte-for-byte with the canonical Scheme generator. CI runs this on
+Linux and macOS. This establishes compiled callback conformance; it does not
+establish a standalone shared-library distribution for arbitrary Cargo hosts.
+The separately qualified Rowan executable remains the standalone AOT product.
+
+The local runner places the native library directory before source directories
+in =GERBIL_LOADPATH=. Checking that an object exists alone cannot ensure that
+Gerbil loaded it; the C consumer fails if the loader interprets an FFI module.
+
+* GQL native timing diagnostics
+
+=t/benchmarks/gql-runtime/native-timing.ss= records the original 100 parses
+per sample across 40 samples after one warmup and one initial GC. It compares
+CLOCK_MONOTONIC, wall time, CPU time, cumulative GC counters, allocation and
+page faults. Output is emitted only after a completed sample. This diagnostic
+never replaces the unchanged wall-clock p95 admission gate of 150ms.
+
+On the local native run of 2026-10-04, normal samples took approximately
+11--15ms. Four samples included one GC each, taking 52--54ms, with 40--42ms
+attributed to GC. Wall and monotonic time agreed. Each batch allocated about
+23MB. This demonstrates current GC-related variation, but does not establish
+the cause of the historical 390ms/593ms p95 failures. Those failures need an
+outlier captured with these counters before assigning a cause.
+
+To compile the diagnostic, use =gxc -V= with the same native package path as
+the parser. On Darwin add =-ld-options "-Wl,-undefined,dynamic_lookup"= for
+the loadable C module. Run its exported =main= with the native library directory
+first in =GERBIL_LOADPATH=, under the existing 5-second silence fence.

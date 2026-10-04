@@ -60,7 +60,7 @@ def main():
     environment = native_environment()
     environment["RUSTC_WRAPPER"] = str(root / "scripts/rustc-progress.py")
     native_root = args.gerbil_path.resolve()
-    environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=str(root),
+    environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=os.pathsep.join([str(native_root / "lib"), str(root)]),
                        GAMBOPT="max-heap=1G,debug=q", GERBIL_PARSER_LR_TRACE="1", GERBIL_BUILD_VERBOSE="1")
     logs = args.log_dir.resolve()
     logs.mkdir(parents=True, exist_ok=True)
@@ -105,6 +105,10 @@ def main():
                 run("ffi-header", [environment.get("CC", "cc"), "-std=c11", "-Wall",
                     "-Wextra", "-Werror", "-Wno-unused-command-line-argument",
                     "-fsyntax-only", "-Iinclude", "t/native-ffi-header-smoke.c"])
+                run("ffi-abi-build", ["gxi", "build-native-ffi-tests.ss", "compile"], build=True)
+                run("ffi-abi", ["gxi", "-e",
+                    '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe) (main)'],
+                    required=["NATIVE-ABI-OK", "ABI-ROWAN-GENERATED-MATCH calls=3"])
             modules = (["languages/gql/iso-39075-2024/parser", "src/runtime/parser"]
                        if suite == "gql" else ["src/ffi/rust-rowan-aot-v1"])
             for module in modules:

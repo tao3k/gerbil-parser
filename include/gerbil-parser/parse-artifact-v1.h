@@ -8,6 +8,9 @@
 extern "C" {
 #endif
 
+/* Initialize before first use. Calls replace the owned payload, including
+ * on errors. Release after last use; repeated release and NULL are safe.
+ * Calls require the initialized Gerbil runtime and its calling thread. */
 typedef struct {
   int32_t status;
   uint8_t *payload;

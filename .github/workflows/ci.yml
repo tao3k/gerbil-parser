@@ -179,13 +179,12 @@ jobs:
       - name: Compile Scheme test support
         run: |
           gerbil env gxc t/line-structure-assertions.ss
+          gerbil env gxi build-native-test-driver.ss compile
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
-              t/fixtures/tla-sany-differential/exit-child-process.ss \
               t/benchmarks/gql-runtime/native-timing.ss
           else
-            gerbil env gxc t/fixtures/tla-sany-differential/exit-child-process.ss \
-              t/benchmarks/gql-runtime/native-timing.ss
+            gerbil env gxc t/benchmarks/gql-runtime/native-timing.ss
           fi
           gerbil env gxc \
             t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss \

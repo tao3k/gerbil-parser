@@ -403,3 +403,39 @@ above retained left siblings, both semantic backends, Unicode, source order
 and incremental edits against independent full replay. Existing empty and
 multi-operand cases remain covered. Host contention still prevents a latency
 conclusion; the existing admission deadlines remain unchanged.
+
+## Binding reduction stacks into the consumer
+
+The next source-composition experiment replaces the private `pop-reduction`
+procedure and its two immediately unpacking `let-values` callers with
+`with-pop-reduction`. This uses Gerbil's ordinary
+[`defrule` syntax](https://gerbil.scheme.org/guide/intro.html#additional-syntactic-sugar)
+and a named `let`: the loop binds the source-order operands and remaining
+immutable stack suffixes directly into the reducer body. Arguments are
+evaluated once. Empty, borrowed unary and wider reductions retain their
+previous values, ordering and underflow check. No compiler or GC settings
+change.
+
+The first native A/B pair on `ba072f486e64d464764431a4a8546bc77754593f`
+used the same 138-byte input, toolchain, heap and 40 x 100 configuration.
+A second pair rebuilt the LR module against
+`617fb7ce783d031f29571de210208df7059720c0`, retaining the same native
+dependency cache for the matched controls. Both pairs produced:
+
+| Implementation | Global lexing | Prepared LR | Artifact publication | Full source |
+| --- | ---: | ---: | ---: | ---: |
+| Three-value helper | 50,724 | 100,916 | 44,324 | 191,484.32 |
+| Bind into consumer | 50,724 | 82,484 | 44,324 | 173,052.32 |
+
+These are median allocated bytes per parse in no-GC batches; each row has
+40, 39, 40 and 37 observations respectively. The saving is 18,432 bytes per
+parse, about 18.3% of prepared LR allocation and 9.6% of full-source
+allocation. The native preprocessed C for the original helper contains
+the three-value return-container allocation; that helper and its return
+protocol are absent from the candidate. This is measured execution-path
+evidence, not a portable object-size or selected-reduction-count formula.
+
+Wall and CPU samples remain paired in the raw benchmark output. Host
+contention prevents attributing P50/P95 changes to this allocation reduction;
+collection frequency and latency are separate questions. The existing
+bounded test and benchmark deadlines remain unchanged.

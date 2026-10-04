@@ -441,28 +441,26 @@
       (reduce-operands/events rhs source-values offset #f))
      (else (error "unsupported event LR production" action)))))
 
-;;; Pop LR states and semantic values together. Accumulating the top-first
-;;; semantic stack with cons produces the source order required by reductions.
-;;; This also preserves the shared immutable suffix for GLR branches/checkpoints.
-;;; Unary reducers inspect only one RHS operand, so they can borrow the stack's
-;;; first cell. Its tail is outside the RHS and is never consumed by the two
-;;; private reduction backends. Wider reductions still build source-order lists.
-(def (pop-reduction states semantic-values count)
-  (case count
-   ((0) (values '() semantic-values states))
-   ((1)
-    (if (and (pair? states) (pair? semantic-values))
-      (values semantic-values (cdr semantic-values) (cdr states))
-      (error "LR reduction exceeds parser stack" count)))
-   (else
-    (let loop ((remaining count) (states states) (semantic-rest semantic-values)
-               (source-values '()))
+;;; Bind the popped immutable stack prefixes directly into the reduction body.
+;;; Both private reducers stop at the RHS width, so unary reductions borrow the
+;;; first semantic cell. Wider reductions build a source-order value list.
+;;; The named loop passes the suffixes as locals instead of returning an
+;;; intermediate multiple-value container to an immediately unpacking caller.
+(defrule (with-pop-reduction states semantic-values count
+                             (source-values remaining-values remaining-states)
+                             body ...)
+  (let* ((initial-states states) (initial-values semantic-values)
+         (width count) (unary? (eqv? width 1)))
+    (let pop ((remaining width) (remaining-states initial-states)
+              (remaining-values initial-values)
+              (source-values (if unary? initial-values '())))
       (if (zero? remaining)
-        (values source-values semantic-rest states)
-        (if (and (pair? states) (pair? semantic-rest))
-          (loop (fx- remaining 1) (cdr states) (cdr semantic-rest)
-                (cons (car semantic-rest) source-values))
-          (error "LR reduction exceeds parser stack" count)))))))
+        (begin body ...)
+        (if (and (pair? remaining-states) (pair? remaining-values))
+          (pop (fx- remaining 1) (cdr remaining-states) (cdr remaining-values)
+               (if unary? source-values
+                 (cons (car remaining-values) source-values)))
+          (error "LR reduction exceeds parser stack" width))))))
 
 ;; goto-target
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Symbol (OrFalse Fixnum))
@@ -704,8 +702,8 @@
          (let* ((production-id (cadr action))
                 (production (vector-ref table production-id))
                 (count (vector-ref widths production-id)))
-           (let-values (((source-values remaining-values remaining-states)
-                         (pop-reduction states semantic-values count)))
+           (with-pop-reduction states semantic-values count
+             (source-values remaining-values remaining-states)
              (let* ((offset (if (pair? rest) (token-start (car rest))
                             input-end-offset))
                 (value
@@ -1053,10 +1051,8 @@
                                    actions shifts)))
                      (let* ((production (vector-ref table production-id))
                             (count (vector-ref widths production-id)))
-                       (let-values (((source-values remaining-values
-                                      remaining-states)
-                                     (pop-reduction
-                                      states semantic-values count)))
+                       (with-pop-reduction states semantic-values count
+                         (source-values remaining-values remaining-states)
                          (let* ((offset
                                  (if (pair? rest) (token-start (car rest))
                                      input-end-offset))

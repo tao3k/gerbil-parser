@@ -106,7 +106,9 @@
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Value (OrFalse Pair))
 (def (association-row-index-ref indexes state key)
   (let (index (vector-ref indexes state))
-    (if (list? index)
+    ;; Preparation admits only proper lists or tables. Inspect the outer
+    ;; representation rather than traversing a whole list before assoc.
+    (if (or (pair? index) (null? index))
       (assoc key index)
       (hash-get index key))))
 

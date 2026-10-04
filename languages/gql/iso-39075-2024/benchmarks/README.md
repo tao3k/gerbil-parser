@@ -114,6 +114,38 @@ mechanism. The unchanged local admission gate failed at 214.611ms P95; the
 Linux pass does not replace that failure. These historical samples are tied
 to `74f104c`, not measurements of subsequent diagnostic changes.
 
+## Standard library review: prepared index dispatch
+
+[SRFI-1's reference implementation guidance](https://srfi.schemers.org/srfi-1/srfi-1.html#Rationale)
+prefers common-case fast paths, constant-space iteration and avoiding temporary
+structures. The installed Gerbil v0.19 compiler's `generate-runtime-begin%`
+and `generate-runtime-define-values%` similarly use explicit pair matching,
+tail recursion and reverse accumulators. Existing recognition materialization
+already uses Gerbil's `:std/list/list-builder`, retaining its implementation
+rather than duplicating a list builder.
+
+The concrete change from this review is narrower: prepared LR action and goto
+indexes contain only proper association lists or their prepared tables.
+Lookup now dispatches with `pair?`/`null?`, instead of traversing the complete
+list with `list?` before `assoc`. The association scan, equality behavior,
+first-duplicate rule and original entry identity remain unchanged. This removes
+one redundant traversal on list-backed queries; it does not reduce recognition
+allocation or claim to solve the observed GC/waiting tail. `t/lr-index-test.ss`
+covers empty, singleton, threshold and wide rows, misses, equal string keys,
+and duplicate entry identity in both index representations. End-to-end cost
+must still be judged from native prepared-LR and full-source samples.
+
+Native comparison must retain the same compiler configuration. Gerbil
+`:std/make` defaults to `optimize: #t`; a plain `gxc` rebuild of a production
+module does not match that configuration. Rebuild production modules with the
+package graph or matching `gxc -O` settings before comparing allocation/CPU
+receipts. Diagnostic support compilation alone is not production qualification.
+The rebased change passed 11 native cases across the index, GQL profile and
+recognition-sequence/GLR modules after compiling the affected GQL runtime
+modules with optimization enabled. The separate complete local package build
+was stopped by the unchanged 30-second output-idle fence after its import
+closure projection; these focused passes do not establish a full package pass.
+
 ## Optional actor library
 
 The package remains a library. Importing `parser-actor-support` starts no worker,

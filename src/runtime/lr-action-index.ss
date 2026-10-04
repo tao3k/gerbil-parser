@@ -67,7 +67,9 @@
      (index-action-entries (reverse layout-next)))))
 
 (def (lookup-action-entry index key)
-  (if (list? index)
+  ;; Preparation admits only proper lists or tables. Inspect the outer
+  ;; representation rather than traversing a whole list before assoc.
+  (if (or (pair? index) (null? index))
     (let (found (assoc key index))
       (and found (cdr found)))
     (table-ref index key #f)))

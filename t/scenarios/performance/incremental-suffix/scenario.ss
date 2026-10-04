@@ -58,5 +58,7 @@
        (integer? reused) (>= reused 0)
        (integer? remaining) (>= remaining 0)
        (> (+ resumed reused) 90)
-       (= (+ resumed reused remaining) (+ (* 2 +operand-count+) 1))
+       ;; Replacing one number with "0+2" adds a second number and operator.
+       ;; Count the edited stream (203), not the original 201-token stream.
+       (= (+ resumed reused remaining) (+ (* 2 +operand-count+) 3))
        (< remaining 120))))

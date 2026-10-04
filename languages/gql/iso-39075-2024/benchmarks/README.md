@@ -132,3 +132,15 @@ about 23.6MB). Their cause is unqualified. Actor receipts preserve those raw
 process deltas and label their scope `process-with-thread-switches`; they report
 `allocatedBytesPerParse` as unavailable rather than assigning the jumps to
 requests or presenting a misleading median as per-request memory cost.
+
+## Rebased runtime measurement
+
+After rebasing onto `1cdab80` and rebuilding with ASP v0.1.2.2, the unchanged
+local runtime gate failed at 214.611ms batch P95. The diagnostic completed
+40 samples and reported full-source wall P50/P95 19.782/212.683ms versus CPU
+P50/P95 14.614/58.673ms. One no-GC sample took 439.664ms wall but 29.318ms CPU;
+a later GC sample took 327.971ms wall, 66.641ms CPU and 287.830ms GC wall.
+These are paired measurements of substantial non-CPU delay, not an identified
+OS cause. The failed gate remains failed; these observations do not authorize
+raising its ceiling. The earlier clean CPU/allocation controls remain useful
+historical comparisons, with the runtime revision explicitly recorded.

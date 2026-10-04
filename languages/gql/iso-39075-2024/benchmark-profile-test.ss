@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Profiling must preserve lossless Unicode artifacts and LR token admission.
 (import :std/test
-        (only-in ./benchmarks/runtime/matched-stages profile-gql-stages))
+        (only-in "./benchmarks/runtime/matched-stages" profile-gql-stages))
 (export gql-benchmark-profile-test)
 (def gql-benchmark-profile-test
   (test-suite "GQL language performance diagnostics"

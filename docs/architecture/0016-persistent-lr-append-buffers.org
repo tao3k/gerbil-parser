@@ -70,14 +70,6 @@ collection settles Gambit allocation and retained-live counters; those byte
 receipts include the observation/collection overhead and are not pure
 constructor instruction counts. The same overhead applies to both policies.
 
-#+begin_src sh
-python3 docs/research/reproduce-semantic-sequence.py OUTPUT
-python3 docs/research/reproduce-semantic-publication.py PUBLICATION_OUTPUT
-python3 docs/research/reproduce-lexical-plans.py MATCHED_OUTPUT --event-program
-python3 docs/research/analyze-event-programs.py MATCHED_OUTPUT SUMMARY
-python3 docs/research/verify-source-index-native.py NATIVE_OUTPUT --keep-going
-#+end_src
-
 Five-second inactivity and 180-second batch gates remain. Native compilation
 has its separate bounded C phase. Constructor improvement alone is not an
 admission result: the full 112 rows must preserve all scalar counters and
@@ -145,12 +137,6 @@ slower workloads prevent broad performance/default admission. The production
 default remains canonical, with all original ownership and reuse checks.
 No production-default before/after or remote CI qualification is claimed.
 
-The earlier AVL and current candidate matrices are separate same-head
-backend comparisons. Their timings are not a paired cross-head speedup
-experiment. All constructor, publication, matrix, native and failure receipts
-retain their own source and executor identities under
-=docs/research/data/append-buffer-*=.
-
 * Next evidence boundary
 
 The current publication phase uses fresh roots, whereas topology edits can
@@ -191,3 +177,13 @@ operations. It identifies and repairs a resumed-checkpoint token cursor defect
 that caused tail inverse edits to discard successful incremental work and
 reparse in full. Its operation counts and publication-only measurements have
 separate evidence boundaries from this RFC's constructor and request matrix.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

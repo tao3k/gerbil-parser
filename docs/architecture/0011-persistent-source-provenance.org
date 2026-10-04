@@ -123,12 +123,6 @@ successive sessions; validation and index audits run outside measured calls.
 Each timed call publishes complete artifacts. The history timing is the complete
 six-edit chain, not a per-edit distribution.
 
-=docs/research/reproduce-source-index.py= pins the clean source HEAD, preserves
-raw logs and hashes, runs both variants with reversed order on the second pass,
-and uses 20 CPU-time samples per row by default. There is a five-second real
-output inactivity watchdog and a 180-second batch limit; it kills the process
-group. Import, LR and completed-sample output provide progress, without heartbeats.
-
 ** Fixed-head results and admission
 
 Runtime/harness measurement head: =99dee96f43587bdb72125a982c2983c69e756fce=.
@@ -168,20 +162,6 @@ the fully integrated path. Existing certified grammar cursor/probe reuse stays
 available on the faster vector source path. No source-index CPU speedup is claimed.
 
 Receipts:
-
-- [[../research/data/source-index-matched-2026-10-03.sexp][112 exact measurement rows]], schema, runtime pin and harness hash.
-- [[../research/data/source-index-matched-2026-10-03.json][Job arguments, exits, watchdog outcomes and raw-log hashes]].
-- [[../research/data/source-index-native-2026-10-03.json][Final gated native qualification]] at exact HEAD =8f003df06917853e2b31a5f0a3474fadd0eedcab=:
-  56 modules, 19 bounded batches and 310 test cases; every batch exits zero,
-  reports MODULE-OK/HARNESS-OK/final OK, and has no watchdog failure. Raw-log
-  hashes are sealed in the receipt. This is local native evidence, not remote CI
-  or a deployed downstream qualification.
-
-#+begin_src sh
-GERBIL_BUILD_CORES=12 gerbil build
-python3 docs/research/reproduce-source-index.py /private/tmp/source-index-reproduction
-python3 docs/research/verify-source-index-native.py /private/tmp/source-index-native-reproduction
-#+end_src
 
 The data pin measures the candidate before default admission was rejected; the
 later switch changes the default, and benchmark variants explicitly override it.
@@ -230,3 +210,13 @@ current token identities, original production folding and invalidation behavior.
 This sequence keeps source storage, LR context, semantic folding and publication
 connected. It cannot be completed by renaming the flat artifact or merely adding
 a tree beside a later full rebuild.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

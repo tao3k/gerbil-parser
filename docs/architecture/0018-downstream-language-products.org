@@ -11,15 +11,6 @@ as targets below are not implemented by this RFC. This proposal extends RFCs
 Bash 5.3 source syntax is the first demanding consumer. Shell execution,
 expansion evaluation and alias execution are outside its parser contract.
 
-The preserved experiment =3b0441c02c23862b71e65e073f833f51a540a310= was initially preserved only on
-=codex/bash-source-prototype=. Its grammar declaration wraps a handwritten
-source scanner/parser rather than a canonical Grammar/Parser IR language.
-The source files and test corpus are useful porting evidence, but neither Bash
-AOT compatibility nor full Bash conformance follows from that experiment.
-Its file identities are sealed in
-=docs/research/data/bash-source-oracle-audit-2026-10-04.json=; the initial audit did not execute its tests. The integration receipt below
-records the subsequent native test run.
-
 * Current executable seams and gaps
 
 | Seam | Implemented at the audited head | Missing product behavior |
@@ -214,8 +205,7 @@ Upstream reference interfaces:
 This order is one downstream-language product track. Completing packaging alone
 or preserving the historical source parser does not close Bash/Rust support.
 
-
-* Bash branch integration receipt
+* Bash source integration and verification
 
 At the human's explicit direction, the existing Bash branch was integrated into
 PR 13 rather than kept as an unsubmitted experiment. Its original head is
@@ -235,5 +225,16 @@ receipts. No full Bash language conformance, Rust AOT parity or standalone C
 language product is claimed. The preserved source implementation is now
 available for users and for the canonical-IR port.
 
-=docs/research/data/bash-source-merge-native-2026-10-04.json= seals the build,
-selected test source hashes and branch/merge identities.
+Verification is owned by =t/bash-v5-3-test.ss= and the shared native Scheme
+harness. Language/FFI performance admission uses the ASP =benchmark.ss=
+contracts. The Bash corpus and implementation live in =languages/bash/v5-3=;
+there is no document-side parser audit, snapshot format or analysis pipeline.
+
+#+begin_src sh
+gerbil env gxi build-native-test-driver.ss compile
+GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+  GAMBOPT=max-heap=1G,debug=q \
+  python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 --log /private/tmp/parser-bash-source.log \
+  --require 'NATIVE-SUITE-OK modules=1' --require '^OK$' \
+  -- gxi t/fixtures/tla-sany-differential/native-suite.ss t/bash-v5-3-test.ss
+#+end_src

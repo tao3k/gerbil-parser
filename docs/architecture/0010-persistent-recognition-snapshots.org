@@ -56,13 +56,6 @@ proof before semantic actions erase grammar nonterminals through pass/alias/inli
 
 * Executable evidence
 
-[[file:../research/data/incremental-topology-2026-10-03.sexp][54 topology measurements]] retain sizes, edit positions, operation, equality
-checks, recognition counters, lexical convergence and CPU medians.
-Each case compares the complete artifact with fresh parsing and applies an inverse
-edit to recover the original complete artifact. Five CPU samples per side, with
-explicit GC before each call outside the timer; session creation is excluded.
-Full artifact production and incremental receipt construction are included.
-
 | Family / size / insertion position | Fresh CPU median ms | Session CPU median ms | Remaining significant tokens |
 | Arithmetic / 3200 / first | 6.805 | 10.442 | 6401 |
 | Arithmetic / 3200 / middle | 8.579 | 6.743 | 3201 |
@@ -92,8 +85,6 @@ cached best wall time from about 0.252 to 1.954 ms despite the event-window fast
 path. This supports the publication concern; it is not CPU median evidence.
 Prepared-token stage timings are a different executor path and cannot be summed
 or used as percentages of the direct streaming fresh-parser total.
-
-* Algorithm study and transfer boundary
 
 ** Incremental LR and balanced sequences
 
@@ -135,8 +126,6 @@ That work is outside the first deterministic snapshot admission.
 semantic actions require an explicit recovery contract before adoption. Recovery
 quality, search completeness and valid-input throughput are different metrics.
 Recovered or ambiguous regions initially veto snapshot reuse.
-
-* Proposed architecture and invariants
 
 ** Private source and recognition snapshot
 
@@ -273,12 +262,6 @@ are not a new public tree authority or a change to ParseArtifact v1 fields.
 Positions in this first slice remain absolute. No suffix fragments are skipped
 by this implementation, and no incremental speedup is claimed.
 
-[[file:../research/data/recognition-capture-2026-10-03.sexp][60 capture edit receipts]] cover arithmetic sizes 2/400/800/1600/3200 and HCL
-independent-sibling sizes 2/100/200/400/800. Every first/middle/last insertion and
-deletion checks fresh complete-artifact equality, independent forward grammar
-projection, inverse edit equality and independent inverse projection. Capture qualification may run alongside native conformance tests; the timing
-fields are diagnostic, not matched performance qualification.
-
 =t/recognition-snapshot-test.ss= also covers nullable input, nested aliases/fields,
 UTF8 and trivia, physically shared prefix pieces, successive edits, event-fast
 path invalidation followed by recapture, deep left recursion, GLR and layout veto,
@@ -303,17 +286,7 @@ All 54 native test modules passed in nine bounded batches, each with exact
 This includes the new nine-case snapshot suite. The original 400-term benchmark
 entry also completed its unchanged fresh-equivalence checks.
 
-Native gxtest imports/evaluates test modules before its HARNESS notice. Initial
-attempts correctly failed the five-second silence gate during this loading phase.
-=t/fixtures/native-progress.ss= records actual expander import/eval operations
-while calling the existing native gxtest owner; it adds no heartbeat or replacement
-assertion engine. Qualification used that wrapper with real LR construction trace,
-five-second stdout inactivity rejection and a 180-second per-batch bound. A failed
-batch kills its process group. Earlier silent failures are not passing evidence.
 
-#+begin_src sh
-GERBIL_PARSER_LR_TRACE=1 gerbil env gxi -:max-heap=1G,debug=q t/fixtures/native-progress.ss -v 4 t/recognition-snapshot-test.ss
-#+end_src
 
 This is local bounded native qualification. No remote CI run or push is implied.
 
@@ -406,14 +379,6 @@ gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.
 
 ** Final matched measurements and native qualification
 
-[[file:../research/data/recognition-reuse-matched-2026-10-03.sexp][144 matched measurement rows]] pin the exact implementation/benchmark source head
-and retain every CPU sample. They cover 60 distinct first/middle/last insertion
-and deletion workloads across arithmetic 2/400/800/1600/3200 and HCL sibling
-2/100/200/400/800, with transfers disabled and enabled, plus reverse-order
-400/800 HCL repeats. Every row passed fresh complete-artifact equality,
-independent forward projection, inverse artifact equality and independent inverse
-projection. The initial rejected prototype is not included in these final rows.
-
 For HCL 800, ranges below contain the two five-sample CPU medians, in milliseconds.
 The control and enabled runs use the same capture executor and full API boundary:
 
@@ -446,17 +411,7 @@ within that session path; it does not establish parity with the separate direct
 executor or qualify capture as the default API mode. Complete v1 publication
 still materializes approximately 27,000 events and hashes the complete source.
 
-[[file:../research/data/recognition-reuse-native-2026-10-03.sexp][Native qualification receipt]] records all 54 native modules, nine bounded
-batches and the final 15-case snapshot recheck. Runtime source built successfully
-with 12 build cores. Each batch requires its exact MODULE-OK count, HARNESS-OK and
-final OK, with five-second real-output inactivity and 180-second batch limits.
-One loading attempt was rejected for silence; only subsequent passing runs are
-qualified. The strengthened final fallback test uses a large eligible tail and
-checks fresh malformed-input equality, cleared root and cleared transfer receipts.
-
 No push, merge or exact-head remote CI result is implied by this local receipt.
-
-* Paper-driven continuation: lexical context and sequence semantics
 
 ** Rebase and primary-source bindings
 
@@ -540,15 +495,6 @@ the existing deterministic certificate. A compressed, certified repeat fold must
 be designed and qualified before claiming logarithmic updates. Operator ancestry
 and the complete flat publication bound remain outside that locality claim.
 
-** Reproduction
-
-#+begin_src sh
-GERBIL_BUILD_CORES=12 gerbil build
-GERBIL_PARSER_LR_TRACE=1 gerbil env gxi -:max-heap=1G,debug=q t/fixtures/native-progress.ss -v 4 t/source-probe-test.ss t/recognition-snapshot-test.ss
-GERBIL_PARSER_BENCHMARK_SAMPLES=20 gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss no-probe-reuse topology-hcl-capture 2 100 200 400 800
-GERBIL_PARSER_BENCHMARK_SAMPLES=20 gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/incremental-session/benchmark.ss topology-hcl-capture 2 100 200 400 800
-#+end_src
-
 * Monotone grammar cursor: eliminate per-edit whole-forest enumeration
 
 The catalog transfer implementation above rebuilt candidate start/end tables and
@@ -583,17 +529,6 @@ unimplemented step under the sequence-semantics contract above.
 
 ** Qualified native cursor experiment
 
-[[file:../research/data/recognition-cursor-matched-2026-10-03.sexp][180 measurement rows with raw CPU samples]] pin runtime and benchmark source
-=7cb11943fa5cd4afcd6cf3f6abff8e1e14574f55=. The control uses the catalog function
-from =0032a6251ce423bed1b8894d5654bb29f1204c8c= inside the same native executor,
-scanner, certificate, projector and publisher. Its only source adaptations are
-absolute module imports and padding the statistics vector from nine to ten
-slots. It is compiled with =gxc -O= and installed as an isolated native module;
-the test fixture replaces the exported finder binding only in its subprocess.
-The receipt retains original/adapted source hashes and native object hashes.
-A zero cursor count in the catalog rows is a padding value, not an observed
-zero traversal cost.
-
 Each flat/nested matched case uses 20 fresh and 20 cached samples, followed by
 another complete matched pass. Initial session capture, forest counting,
 explicit GC and completion printing are outside the timer. Complete artifact
@@ -626,21 +561,8 @@ an independent throughput gain. Its bounded token handoff and context checks
 are qualified capabilities; no separate CPU improvement is claimed. Arithmetic
 still uses the existing guarded path and does not acquire repeat transfers.
 
-[[file:../research/data/recognition-cursor-native-2026-10-03.sexp][Native qualification]] records all 55 modules in 19 batches, including 19
-recognition-snapshot cases and five lexical-probe cases. The harness propagates
-the native status via explicit exit; real import/eval, CASE/CHECK and LR progress
-support the unchanged silence gate. Earlier post-OK stalls, copied-checkout
-startup failures, contended runs and interpreted-catalog CPU runs are excluded.
-These receipts qualify local native behavior; remote CI for this local source
-head has not been run.
-
 Reproduce from a checkout whose runtime, language and benchmark sources match
 =7cb1194=; the receipt commit supplies the runner and fixture:
-
-#+begin_src sh
-GERBIL_BUILD_CORES=12 gerbil build
-python3 docs/research/reproduce-recognition-cursor.py /private/tmp/recognition-cursor-reproduction
-#+end_src
 
 ** Remaining structural work after the cursor
 
@@ -656,7 +578,6 @@ python3 docs/research/reproduce-recognition-cursor.py /private/tmp/recognition-c
 The cursor removes one full-forest preparation pass. It does not close these
 three gaps or establish logarithmic whole-edit complexity.
 
-
 ** Follow-up: persistent source provenance experiment
 
 [[file:0011-persistent-source-provenance.org][RFC 0011]] connects measured token/mode storage to the existing grammar cursor
@@ -667,3 +588,13 @@ defaults off; the existing vector/certified recognition path remains the measure
 fast path. Mode churn on unchanged text and flat token binding are now separate,
 falsifiable compiler/runtime research seams. Neither balanced repeat folds nor
 local publication has been claimed complete.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

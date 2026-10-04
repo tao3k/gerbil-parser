@@ -87,12 +87,6 @@ and six-edit histories. Require physical event-root/executor assertions,
 complete fresh artifacts, inverse edits, independent original-production
 projection and equality of every scalar transfer/scanner counter.
 
-#+begin_src sh
-python3 docs/research/reproduce-lexical-plans.py OUTPUT --event-program
-python3 docs/research/analyze-event-programs.py OUTPUT SUMMARY
-python3 docs/research/verify-source-index-native.py NATIVE_OUTPUT --keep-going
-#+end_src
-
 Five seconds without real test/benchmark output and 180 seconds per batch
 remain failures. Native compilation has its separately bounded silent C
 phases. Local conformance, same-head backend cost, production-default impact
@@ -204,12 +198,6 @@ same-head comparisons, not a production-default before/after experiment
 or remote CI qualification. Runtime certificates and existing performance
 thresholds remain unchanged.
 
-Receipts are in =docs/research/data/unified-lr-*=. The balanced matched JSON
-and S-expression contain exact source, recipe, native build and per-job
-hashes plus every sample. The balanced publication pair retains raw samples
-and its explicitly narrower timing scope. Earlier phase results and the
-block cursor failure are retained with their own source identities.
-
 * Next structural hypothesis and falsifiable experiment
 
 AVL joining makes the traversal height logarithmic but copies the boundary
@@ -259,3 +247,13 @@ RFC [[file:0016-persistent-lr-append-buffers.org][0016]] implements the subseque
 carry experiment. It records constructor allocation evidence and its separate
 112-row request comparison; it preserves this RFC's historical results and
 keeps production-default admission separate.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

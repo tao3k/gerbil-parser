@@ -40,28 +40,7 @@ The Tree-sitter receipt pins revision
 The exact source groups token sets before creating lexical states and then
 minimizes transitions. No performance number from that project is transferred.
 
-* Three successive hypotheses on the same seam
-
-** Complete-plan identity
-
-Interning complete admission masks reduced duplicated scanner construction.
-However, ordinary edit convergence still rejected different plans, even when a
-particular boundary character could only trigger the same rules. In the first
-experiment, edit relex counts were unchanged and CPU results did not justify
-admitting the added hot comparison. The 92 completed rows at =fc0ae97= are preserved
-as =lexical-plan-interim-2026-10-03= development observations; the interrupted
-remainder is unqualified.
-
 ** Conservative first-transition projection
-
-For ASCII character c, form P(c), the rules that could start at c. Unknown forms
-are always included; closed literals, strings, comments and numeric profiles
-use conservative prefix tests. Project each mode's admission vector through
-P(c). Equal projected vectors preserve every possible competing rule, so they
-prove equal scans for any remaining source beginning with c. Non-ASCII input
-uses complete-plan identity. The 68 completed rows at =7a69961= are preserved as
-=lexical-character-interim-2026-10-03= development observations; its interrupted
-remainder is unqualified.
 
 This projection still missed the common all-rule fallback. When the directed
 mode has no matching candidates, generated-lexer scans with all rules to produce
@@ -117,20 +96,6 @@ reuse is excluded: changing later characters can extend a longest match that
 formerly ended before the edit. Source bytes after the suffix boundary are
 unchanged; external prefix-dependent scanners remain excluded.
 
-Lookup has its own finger in the existing sorted vector. Forward queries use
-exponential bracketing and binary search in the resulting interval, costing
-O(log(1 + rank-distance)); a repeated boundary costs O(1). Backward queries reset
-with an O(log n) lower bound. The persistent-index variant keeps its separate
-cursor, uses the existing bounded-leaf/byte-measure seek, and resets that cursor
-on backward queries. Neither finger consumes the grammar owner's cursor when
-a candidate is rejected. This extends the existing monotone grammar traversal
-to the lexical probe interface. The initial global-binary variant's 56 completed
-rows at =543c66a= are preserved as =lexical-probe-binary-interim-2026-10-03=;
-they are not substituted for final matched receipts. The
-ordinary bounded probe slot stores the resulting token under the actual
-requested mode and retains its exact mode-object/cross-runtime guard. No LR
-fragment stack or semantic certificate is relaxed.
-
 =fragmentCertificateProbeByteCount= counts successful fresh scanner probe bytes.
 =certifiedLexicalProbeTokenCount= counts old-source-certified probe requests,
 including speculative requests; it is not a count of distinct published tokens.
@@ -148,14 +113,6 @@ preserved all nine elements. The final design places pure-fallback flags and
 guaranteed-acceptance predicates in a separate AOT certificate column aligned
 by declared rule ordinal, preserving the scanner's existing internal layout.
 There is no legacy-row adapter.
-
-During investigation, the package clean entrypoint left 7,874 numbered Gambit
-bundles behind. clean-parser-native.py can clean the isolated generated parser
-namespace while preserving other packages and source checkouts; this is build
-hygiene, not the repair for the metadata loss. Earlier partial datasets remain
-development observations and do not establish final default admission. The
-final gate validates all HCL mode pairs at newline boundaries and seals the
-exact source, fixtures and clean/build receipts.
 
 The complete matched run contains 120 admitted rows at runtime head
 =27ec5c694336be773da581f2cc2c7ae0f28c2b96=. Twenty jobs exited normally with
@@ -225,10 +182,6 @@ outputs and offsets across modes, fallback precedence/order counterexamples,
 Unicode shifted boundaries in vector/indexed owners, six-edit artifacts and the
 independent original projector. Existing cross-runtime probe guards also pass.
 
-- [[../research/data/lexical-effective-matched-2026-10-03.sexp][120 complete matched preparation/edit/history rows]] and [[../research/data/lexical-effective-matched-2026-10-03.json][Exact source/harness/fixture pins, normal exits and retained failed attempts]].
-- [[../research/data/lexical-lazy-preparation-2026-10-03.sexp][16 final scanner-only and proof-inclusive preparation rows]] and [[../research/data/lexical-lazy-preparation-2026-10-03.json][Final preparation receipts]].
-- [[../research/data/lexical-effective-native-2026-10-03.json][Historical 57 module loads / 315 selected cases; see suite-selection correction above]].
-
 The edit data pin precedes admission and lazy preparation. Its controls already
 explicitly override the runtime policy; the original warmed proof lookup and
 source-owner algorithm remain unchanged. Final native tests validate the lazy
@@ -274,16 +227,6 @@ fresh retry per output-complete final watchdog failure, preserves that failed
 log and its hash, and rejects incomplete-result or semantic failures. The fixtures report actual nested native-module loads as well as import/eval
 operations. No timer heartbeat substitutes for actual child progress; five seconds of silence or 180 seconds per batch fails. The final native gate also reports real unload operations on Darwin.
 
-#+begin_src sh
-python3 docs/research/clean-parser-native.py > /private/tmp/lexical-clean.log 2>&1
-GERBIL_PATH="$PWD/.gerbil" GERBIL_BUILD_CORES=12 gerbil build > /private/tmp/lexical-build.log 2>&1
-python3 docs/research/reproduce-lexical-plans.py /private/tmp/lexical-final
-python3 docs/research/seal-lexical-plans.py /private/tmp/lexical-final docs/research/data/lexical-effective-matched-2026-10-03 --clean-log /private/tmp/lexical-clean.log --build-log /private/tmp/lexical-build.log
-python3 docs/research/verify-source-index-native.py /private/tmp/lexical-final-native
-python3 docs/research/reproduce-lexical-plans.py --preparation-only /private/tmp/lexical-final-preparation
-python3 docs/research/seal-lexical-plans.py /private/tmp/lexical-final-preparation docs/research/data/lexical-lazy-preparation --clean-log /private/tmp/lexical-clean.log --build-log /private/tmp/lexical-build.log
-#+end_src
-
 * Remaining structural limit and next experiment
 
 The source/provenance index in RFC 0011 stays experimental. Its balanced storage
@@ -323,3 +266,13 @@ semantic preflights run it outside the warmed timed edit samples. Its cost must
 not be attributed to the timed request without an actual phase measurement.
 The listed seams identify experiments, not a measured CPU profile or completed
 local-result implementation.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

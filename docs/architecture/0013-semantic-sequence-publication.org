@@ -44,13 +44,6 @@ descends left in local variables and saves only the deferred right side, using
 one pending vector/cons per branch instead of two. List materialization also
 uses this walker; that common improvement is not isolated by the fusion switch.
 
-A first candidate cached arity/start/end on every concatenation. Its flat
-matched measurements were not beneficial; those completed observations are
-retained as =sequence-fusion-measured-interim-2026-10-03=. The final candidate
-removes those summaries using the nonempty invariant rather than trying to
-reduce the cost of summary maintenance. The matched complete-request control
-includes all actual publication and edge-bound work.
-
 An explicit traversal stack avoids Scheme recursion on a left-associated
 sequence. Position views compose translation without copying a subtree.
 Publication remains O(events + tokens); source hashing and canonical output
@@ -89,11 +82,6 @@ flat HCL 400/800, nested HCL 8/16 (80 declarations per group), first/middle/last
 insert/delete, and six-edit histories. Fresh full artifacts, inverse edits and
 independent production replay are checked outside timed samples.
 
-#+begin_src sh
-python3 docs/research/reproduce-lexical-plans.py OUTPUT --sequence-fusion
-python3 docs/research/verify-source-index-native.py NATIVE_OUTPUT
-#+end_src
-
 The existing five-second real child-output inactivity and 180-second batch
 limits are unchanged. Only normal-exit completed rows qualify. Retained failed
 attempts are not admitted as timing or test passes.
@@ -104,22 +92,7 @@ references and selective GLR evidence. Full qualification additionally runs
 all repository native test modules. Suite selection and remaining qualification
 gates are recorded below; a loaded module is not a passed suite.
 
-The generic-only development runs at =3fc78ea= / =aff2651= are explicitly
-unadmitted. AOT operand actions still materialized their children in those runs,
-so they did not exercise fusion in HCL. Their metadata (including the failed
-unload gate and deliberately interrupted superseded batch) is retained as
-=sequence-fusion-unload-failure-2026-10-03.json= and
-=sequence-fusion-generic-interim-2026-10-03.json=. The added physical sequence
-assertion detects this omission before the final matrix.
-
 * Completed fusion matrix and admission
-
-The final =015573a= matrix has 112 normal-exit rows, 28 paired workloads,
-20 CPU samples per row and both variant orders. All complete artifacts, inverse
-edits and materialized original-production projections match. Scanner work and
-recognition reuse counters also match between modes. The receipt is
-=sequence-fusion-final-matched-2026-10-03.{json,sexp}=, with exact harness,
-recipe, fixture, native executor and incremental build hashes.
 
 Fusion is not admitted as the production default. Flat and nested results do
 not show a stable complete-request benefit. In particular, the flat 800-unit
@@ -135,10 +108,6 @@ preceding-head benchmark source in both processes. Runtime/language/fixture
 sources are checked against the archived Git tree. This comparison includes
 all current default-path overhead; it does not attribute a combined result
 to the walker alone.
-
-#+begin_src sh
-python3 docs/research/reproduce-lexical-plans.py OUTPUT --baseline BASELINE_ARCHIVE
-#+end_src
 
 * Next structural seam
 
@@ -170,27 +139,6 @@ rejects empty modules. The four new sequence cases actually execute, including
 the 10,000-child case. RFC 0012's historical 57-module claim is corrected;
 its 315 passed selected cases and original sealed logs are preserved.
 
-The complete first selection-corrected audit executed 485 cases, passed 478
-and failed seven cases in four batches. Its failure receipt is
-=sequence-publication-native-failure-2026-10-03.json=. This exposed stale
-package pins, a suffix fixture intercepted by the event fast path, JSON
-representation assumptions, source-AST false positives and a real wall-clock
-performance gate failure. The package manifest is unchanged. The suffix edit
-now changes token topology within the same three-byte width, exercising the
-original LR prefix/suffix assertions. Descriptor tests use the installed JSON
-decoder's WAList accessor. Display into a lexically bound fixture string port
-is allowed only in the test-display policy; Rust source assembly remains
-forbidden. Progress records remain real completed scenario batches.
-
-The repaired complete intermediate audit starts 479 cases and passes 477,
-with failures in three batches: the two wall-clock gates and the descriptor
-accessor's expansion error before any of its six cases start. Those last FFI
-and style changes were committed after the relevant audit batches; that
-intermediate receipt is explicitly not final-head full qualification.
-The subsequent independent-process checks normally pass all six FFI cases and
-all four style cases. Their sealed source/log hashes are in
-=sequence-publication-native-isolated-2026-10-03.json=.
-
 Performance thresholds remain 100ms p95 for 50 checked GrammarRole/Grammar
 pairs and 150ms p95 for 100 complete GQL parses, with the original 20/40
 samples. The complete intermediate audit observes approximately 251ms and
@@ -205,14 +153,6 @@ an unchanged-gate run in an adequately available execution environment.
 
 * Default-path regression and correction
 
-The preceding-head comparison first completed 48 normally exiting flat rows
-at =2cdf4b6=, using the exact =44aab77= benchmark source for both versions.
-Ten of twelve workloads slowed in both variant orders, with a largest
-observed 14.2% regression. These superseded rows are retained as
-=sequence-publication-baseline-interim-2026-10-03.{json,sexp}=; the run was
-intentionally stopped after both flat orders. No partially completed nested
-job or whole-matrix claim is admitted from that experiment.
-
 The experiment had routed already materialized ordinary children through a
 general sequence visitor, adding a callback and zero-delta composition for
 every child even with fusion disabled. =recognition-events= now retains the
@@ -221,27 +161,7 @@ the deferred-sequence visitor only for branches/views. Token proofs, event
 ordering, nested fields, canonical IDs, trivia and digest are unchanged.
 A fresh full default comparison and native audit qualify this correction.
 
-The corrected =beb6f01= complete native audit actually starts 485 cases across
-all 58 modules and passes 483. Every module executes cases. All new sequence,
-FFI, source-style, suffix and language semantic cases pass; the only two
-failures are the unchanged object-construction and GQL wall-clock gates.
-Both failed batches exit 42 normally, without watchdog events. This is
-=sequence-publication-direct-list-native-2026-10-03.json=, with per-module
-started/passed counts, normal-exit status, compiler/source/module hashes and
-all log hashes. It is explicitly a complete failed audit, not a fully passed
-native gate or a remote CI receipt.
-
 * Completed default comparison and overall decision
-
-The corrected =beb6f01= comparison completes 112 rows in 16 normally exiting
-jobs without watchdog events, with 28 paired workloads, two variant orders and
-20 CPU samples per row. It uses the exact preceding =44aab77= benchmark source
-in both native namespaces. Complete artifacts, inverse edits and independent
-original-production projections match; scanner and recognition reuse counters
-also match. The sealed receipt is
-=sequence-publication-default-final-2026-10-03.{json,sexp}=; the paired values
-and per-order changes are in
-=sequence-publication-default-summary-2026-10-03.json=.
 
 | Six-edit history | Preceding CPU ms | Candidate CPU ms | Paired changes |
 |------------------+------------------+------------------+----------------|
@@ -269,18 +189,19 @@ next structural hypothesis, with the existing canonical publisher and original
 production replay oracle as its required contract. No claim of implemented
 LR event lowering, fully green native timing gates or remote CI is made.
 
-* Receipts
-
-- [[../research/data/sequence-fusion-final-matched-2026-10-03.json][Complete 112-row fusion experiment and exact pins]].
-- [[../research/data/sequence-publication-default-final-2026-10-03.json][Complete 112-row default comparison and explicit rejected performance admission]].
-- [[../research/data/sequence-publication-default-summary-2026-10-03.json][All 28 paired workloads and per-order CPU changes]].
-- [[../research/data/sequence-publication-direct-list-native-2026-10-03.json][58 actually selected modules, 485 started / 483 passed cases, two retained timing failures]].
-- [[../research/data/sequence-publication-native-failure-2026-10-03.json][Initial complete 485-case audit and seven failures]].
-- [[../research/data/sequence-publication-native-isolated-2026-10-03.json][Independent FFI/style passes and unchanged-gate performance failures]].
-
 * Subsequent event-program implementation
 
 RFC [[file:0014-persistent-lr-event-programs.org][0014]] records the subsequent persistent LR event program implementation,
 its runtime ownership correction and its measured evidence. The negative
 sequence-fusion evidence above remains a historical receipt for its pinned
 source. The new implementation has a separate performance admission boundary.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

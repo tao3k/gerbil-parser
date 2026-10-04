@@ -81,11 +81,6 @@ compares the complete artifact against fresh parsing and original-production
 projection outside timed samples. Retained program identity is separately
 checked by the native event-program suite.
 
-#+begin_src sh
-python3 docs/research/reproduce-lexical-plans.py OUTPUT --event-program
-python3 docs/research/verify-source-index-native.py NATIVE_OUTPUT --keep-going
-#+end_src
-
 Measurements require all 112 normal-exit rows and preserved log hashes.
 Five seconds without real child output and 180 seconds per test/benchmark
 batch remain failure conditions. A partial build or loaded module is not a
@@ -101,16 +96,6 @@ manifest SHA256 =861003d6a37ebbc535a08363dadd7ead22f7c65f97f20e761c2fddd02275c47
 The first focused run failed while loading a stale/missing native section;
 that failed receipt remains preserved and is not counted as a pass.
 
-The first complete 112-row event matrix is sealed in
-=docs/research/event-program-owner-rejection-2026-10-03.{json,sexp}=;
-the full paired analysis is in
-=docs/research/event-program-owner-rejection-summary-2026-10-03.json=.
-All semantic checks passed, but all 28 workloads were slower in both orders.
-Reuse counters differed: the session retained the canonical machine while
-fragments belonged to the selected event runtime. The strict owner check
-correctly rejected these transfers. This measurement is rejected as a backend
-performance comparison; no speedup or default admission is claimed.
-
 The subsequent correction binds the selected machine at captured-session
 creation and adds a positive transfer/count equality test plus backend
 persistence after changing the dynamic switch. ASP Scheme is upgraded from
@@ -118,13 +103,6 @@ persistence after changing the dynamic switch. ASP Scheme is upgraded from
 =f5b7c009d2cab61144a8af18008a0bfba3056584=.
 Updated native qualification and matched performance must be recorded below
 before drawing a performance conclusion from the corrected implementation.
-
-At corrected source =4b4ea7c=, the updated three-module focused run selected
-48 cases; all completed normally, including positive fragment reuse and
-control/candidate counter equality. The CI dependency imports (POO interface,
-ASP building API and benchmark framework) also load successfully under the
-installed =v0.1.2.2= revision. The sealed upgrade receipt is
-=docs/research/asp-scheme-v0.1.2.2-upgrade-2026-10-03.json=.
 
 * Next structural experiment if the corrected comparison remains negative
 
@@ -152,14 +130,6 @@ of append or visitor dispatch alone do not establish request improvement.
 
 * Corrected complete-request comparison
 
-The corrected =4b4ea7c= matrix completed all 112 rows (20 CPU samples,
-28 workloads, both execution orders). Complete fresh artifacts, inverse edits
-and original-production replay passed. All scalar semantic/reuse counters
-matched. Raw rows and log hashes are sealed in
-=docs/research/event-program-owned-machine-matched-2026-10-03.{json,sexp}=;
-all workload pairs are analyzed in
-=docs/research/event-program-owned-machine-summary-2026-10-03.json=.
-
 All 28 workloads were slower in both orders. Geometric mean request cost
 increases were 24.3% / 23.2% for flat topology edits, 21.8% / 27.0% for nested
 topology edits, 19.0% / 17.8% for flat histories and 21.0% / 21.9% for nested
@@ -174,16 +144,6 @@ and measured. Generated HCL source consistency passed at this same source.
 
 * Whole native audit on the upgraded dependency
 
-The =4b4ea7c= audit ran all 59 modules with 489 started cases: 487 passed,
-two failed normally in one batch, with no watchdog failures. The retained
-whole audit is =docs/research/event-program-asp0122-native-audit-2026-10-03.json=.
-One failure was a package contract still asserting the obsolete ASP tag;
-that assertion is corrected in the subsequent local commit. The other is
-the existing 100ms checked grammar-object construction budget: p95 was
-133.072ms. The GQL 100-parse time contract passed in this run. No timing
-threshold is changed, and this is not a fully green native receipt or remote
-CI qualification.
-
 The corrected package contract was separately rerun on its new commit: both
 cases passed with normal exit and explicit MODULE/HARNESS/final completion.
 Runtime, language and dependency source is unchanged since the whole audit.
@@ -195,3 +155,13 @@ remaining observed gate failure is grammar-object construction time.
 RFC [[file:0015-unified-lr-semantic-event-sequences.org][0015]] records the shared LR/event sequence, bounded blocks, specialized
 consumer and persistent AVL joins. Its independent 112-row result is mixed,
 so it does not supersede the canonical default admission decision above.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

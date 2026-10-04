@@ -806,7 +806,6 @@ in this branch. Remote CI, optional CLI qualification, public declaration-macro
 binding and contextual GLR scanner-state admission remain separate. No remote
 push was performed.
 
-
 * 2026-10-03: explicit reusable contextual scanner plans
 
 The remaining preparation profile motivated separating validated static scanner
@@ -977,7 +976,6 @@ The existing benchmark entrypoint also passed native smoke checks for
 =prepare-scan= and =plan-batch= at four requests, and default =scan= at one
 request, with normal process and runner exit zero.
 
-
 * 2026-10-03: prepared contextual parser requests
 
 The scanner plan is now usable through a complete contextual parser request.
@@ -1127,7 +1125,6 @@ and excluded attempts. PR #13 remains open at =7c15333=, already included in
 this branch. Local qualification does not establish remote CI; no push was
 performed.
 
-
 * 2026-10-03: prepared request phase study and two rejected scanner candidates
 
 This study starts from the prepared contextual parser at =4dadaf7=. The HCL
@@ -1267,7 +1264,6 @@ incomplete. These are proposed experiments, not implemented reduction capabiliti
 
 At the profiling checkpoint, PR #13 remained open at =7c15333=, already
 included in this branch; that checkpoint did not include a remote push.
-
 
 * Latest revision and comprehensive native test admission
 

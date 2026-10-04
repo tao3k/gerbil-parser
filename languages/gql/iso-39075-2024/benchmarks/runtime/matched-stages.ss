@@ -11,7 +11,7 @@
         :gerbil-parser/src/runtime/significant
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/token)
-(export main profile-gql-stages measure-gql-component sample-at-percentile)
+(export main profile-gql-stages measure-gql-component sample-at-percentile gc-statistics-snapshot sample-gc-snapshot)
 
 (def (percentile rows key rank)
   (let (values (list-sort < (map (lambda (row) (cdr (assq key row))) rows)))
@@ -30,58 +30,83 @@
                (< a b)))) rows))
     (list-ref ordered (benchmark-percentile-index (length ordered) rank))))
 
+;; Gambit _kernel.scm process-statistics slots 12..19 describe the latest
+;; collection in the entire VM, not allocations attributable to this parser.
+;; These are snapshots, never differences or sums across collections.
+(def (gc-statistics-snapshot statistics)
+  (list (cons 'scope 'whole-vm-latest-collection)
+        (cons 'gcCount (f64vector-ref statistics 6))
+        (cons 'cpuMs (* 1000 (+ (f64vector-ref statistics 12)
+                               (f64vector-ref statistics 13))))
+        (cons 'wallMs (* 1000 (f64vector-ref statistics 14)))
+        (cons 'heapBytes (f64vector-ref statistics 15))
+        (cons 'allocatedBytes (f64vector-ref statistics 16))
+        (cons 'liveBytes (f64vector-ref statistics 17))
+        (cons 'movableBytes (f64vector-ref statistics 18))
+        (cons 'stillBytes (f64vector-ref statistics 19))))
+
+(def (sample-gc-snapshot before after)
+  ;; A no-GC batch must not inherit the previous batch's collection as its own.
+  (and (> (f64vector-ref after 6) (f64vector-ref before 6))
+       (gc-statistics-snapshot after)))
+
 ;; One warmup and one initial GC per component; timed samples retain naturally
 ;; occurring GC. Validation and logging are outside the measured batch.
 (def (measure-gql-component name samples batch-count thunk expected (calls-per-thunk 1) (allocation-scope 'single-caller))
   (unless (equal? (thunk) expected)
     (error "GQL warmup changed its semantic result" name))
   (##gc)
-  (let loop ((sample 0) (rows '()))
-    (if (= sample samples)
-      (let (summary
-            (list (cons 'stage name) (cons 'sampleCount samples)
-                  (cons 'parsesPerSample batch-count)
-                  (cons 'wallP50Ms (percentile rows 'wall-ms 50))
-                  (cons 'wallP95Ms (percentile rows 'wall-ms 95))
-                  (cons 'cpuP50Ms (percentile rows 'cpu-ms 50))
-                  (cons 'cpuP95Ms (percentile rows 'cpu-ms 95))
-                  (cons 'wallP50Sample (sample-at-percentile rows 'wall-ms 50))
-                  (cons 'wallP95Sample (sample-at-percentile rows 'wall-ms 95))
-                  (cons 'maxWallSample (sample-at-percentile rows 'wall-ms 100))
-                  (cons 'wallP50MsPerParse (/ (percentile rows 'wall-ms 50) batch-count))
-                  (cons 'wallP95MsPerParse (/ (percentile rows 'wall-ms 95) batch-count))
-                  (cons 'allocationScope allocation-scope)
-                  (cons 'allocatedBytesPerParse
-                        (and (eq? allocation-scope 'single-caller)
-                             (/ (percentile rows 'allocated-bytes 50) batch-count)))
-                  (cons 'samples (reverse rows))))
-        (write (list 'GQL-STAGE-SUMMARY
-                     (filter (lambda (row) (not (eq? (car row) 'samples))) summary))) (newline) (force-output)
-        summary)
-      (let* ((before (##process-statistics))
-             (wall-start (##current-time-point))
-             (result
-              (let repeat ((remaining (quotient batch-count calls-per-thunk)) (last-result #f))
-                (if (zero? remaining) last-result
-                  (repeat (- remaining 1) (thunk)))))
-             (wall-ms (* 1000 (- (##current-time-point) wall-start)))
-             (after (##process-statistics))
-             (delta (lambda (index)
-                      (- (f64vector-ref after index) (f64vector-ref before index))))
-             (row (list (cons 'sample sample)
-                        (cons 'wall-ms wall-ms)
-                        (cons 'cpu-ms (* 1000 (+ (delta 0) (delta 1))))
-                        ;; Signed observation, not a scheduler attribution. It
-                        ;; includes counter/timing noise and may be negative.
-                        (cons 'wall-minus-cpu-ms
-                              (- wall-ms (* 1000 (+ (delta 0) (delta 1)))))
-                        (cons 'gc-count (delta 6))
-                        (cons 'gc-wall-ms (* 1000 (delta 5)))
-                        (cons 'allocated-bytes (delta 7)))))
-        (unless (equal? result expected)
-          (error "GQL stage changed its semantic result" name sample))
-        (write (list 'GQL-STAGE-SAMPLE name row)) (newline) (force-output)
-        (loop (+ sample 1) (cons row rows))))))
+  (let (baseline (gc-statistics-snapshot (##process-statistics)))
+    (write (list 'GQL-GC-BASELINE name baseline)) (newline) (force-output)
+    (let loop ((sample 0) (rows '()))
+      (if (= sample samples)
+        (let (summary
+              (list (cons 'stage name) (cons 'sampleCount samples)
+                    (cons 'parsesPerSample batch-count)
+                    (cons 'wallP50Ms (percentile rows 'wall-ms 50))
+                    (cons 'wallP95Ms (percentile rows 'wall-ms 95))
+                    (cons 'cpuP50Ms (percentile rows 'cpu-ms 50))
+                    (cons 'cpuP95Ms (percentile rows 'cpu-ms 95))
+                    (cons 'wallP50Sample (sample-at-percentile rows 'wall-ms 50))
+                    (cons 'wallP95Sample (sample-at-percentile rows 'wall-ms 95))
+                    (cons 'maxWallSample (sample-at-percentile rows 'wall-ms 100))
+                    (cons 'wallP50MsPerParse (/ (percentile rows 'wall-ms 50) batch-count))
+                    (cons 'wallP95MsPerParse (/ (percentile rows 'wall-ms 95) batch-count))
+                    (cons 'allocationScope allocation-scope)
+                    (cons 'gcBaseline baseline)
+                    (cons 'allocatedBytesPerParse
+                          (and (eq? allocation-scope 'single-caller)
+                               (/ (percentile rows 'allocated-bytes 50) batch-count)))
+                    (cons 'samples (reverse rows))))
+          (write (list 'GQL-STAGE-SUMMARY
+                       (filter (lambda (row) (not (eq? (car row) 'samples))) summary))) (newline) (force-output)
+          summary)
+        (let* ((before (##process-statistics))
+               (wall-start (##current-time-point))
+               (result
+                (let repeat ((remaining (quotient batch-count calls-per-thunk)) (last-result #f))
+                  (if (zero? remaining) last-result
+                    (repeat (- remaining 1) (thunk)))))
+               (wall-ms (* 1000 (- (##current-time-point) wall-start)))
+               (after (##process-statistics))
+               (delta (lambda (index)
+                        (- (f64vector-ref after index) (f64vector-ref before index))))
+               (row (list (cons 'sample sample)
+                          (cons 'wall-ms wall-ms)
+                          (cons 'cpu-ms (* 1000 (+ (delta 0) (delta 1))))
+                          ;; Signed observation, not a scheduler attribution. It
+                          ;; includes counter/timing noise and may be negative.
+                          (cons 'wall-minus-cpu-ms
+                                (- wall-ms (* 1000 (+ (delta 0) (delta 1)))))
+                          (cons 'gc-count (delta 6))
+                          (cons 'gc-wall-ms (* 1000 (delta 5)))
+                          (cons 'gc-cpu-ms (* 1000 (+ (delta 3) (delta 4))))
+                          (cons 'latest-gc (sample-gc-snapshot before after))
+                          (cons 'allocated-bytes (delta 7)))))
+          (unless (equal? result expected)
+            (error "GQL stage changed its semantic result" name sample))
+          (write (list 'GQL-STAGE-SAMPLE name row)) (newline) (force-output)
+          (loop (+ sample 1) (cons row rows)))))))
 
 (def (main . args)
   (let ((samples (if (pair? args) (string->number (car args)) 40))

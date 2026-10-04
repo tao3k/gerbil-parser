@@ -77,13 +77,14 @@ native 40 x 100 diagnostic run on `638e544` produced these batch medians:
 | public full source | 12.136ms | 54.503ms | 11.983ms | about 228,647 |
 
 The full-source P95 sample included one GC taking 42.449ms of its 54.503ms
-wall time. This directly identifies GC as the dominant cost in that sample.
+wall time. This identifies elapsed time inside collection in that sample;
+it does not establish a Gambit defect or identify the objects being collected.
 The isolated LR control has the largest CPU/allocation cost among the three
 prepared controls, making recognition allocation the next profiling target.
 It does not establish an additive LR share of the streamed public entry.
 The maximum full-source sample was 95.279ms, with 58.364ms CPU and one
 41.271ms GC: it also includes elapsed time without CPU consumption. These
-are current local receipts, not universal latency guarantees or an explanation
+are historical local receipts, not universal latency guarantees or an explanation
 of the different historical 137ms/593ms outliers.
 
 ## Paired tail observations on `74f104c`
@@ -268,3 +269,51 @@ Compare no-GC allocation observations across baseline, candidate, reversal and
 candidate repeat using the same native compiler, input, heap and sample counts.
 Keep wall-ranked CPU/GC observations paired. Reduced allocation does not by
 itself prove a latency improvement or satisfy the unchanged 150ms wall gate.
+
+## Investigating GC with Gambit's own counters
+
+GC wall time alone cannot distinguish collector CPU work from elapsed time
+without CPU consumption, or identify which application objects survived.
+`matched-stages.ss` therefore reports `gc-cpu-ms` alongside cumulative GC wall
+and count deltas in each paired observation. After the existing initial GC it
+also emits `GQL-GC-BASELINE`, including heap, live, movable and still bytes.
+Each summary retains that baseline as `gcBaseline`.
+
+`latest-gc` is `#f` when the batch did not collect. Otherwise it reports the
+**latest collection in the whole VM**, including its CPU/wall time, heap size,
+allocation counter, and live/movable/still bytes. If several collections occur
+in one batch, this snapshot describes only the last; the GC time/count deltas
+still cover all of them. Heap and live bytes are snapshots, not differences,
+and cannot be attributed solely to GQL. Loaded modules, parser tables,
+prepared inputs and reference artifacts also belong to this VM. In particular,
+compiled permanent objects are not equivalent to dynamically allocated live
+objects, so module size alone does not measure collection work.
+
+The slot meanings were checked against the installed Gambit revision's
+[process-statistics implementation](https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/lib/_kernel.scm#L3999)
+and its [memory implementation](https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/lib/mem.c).
+These diagnostics leave the 1 GiB heap cap, natural timed collections, and
+existing admission deadlines unchanged. Compare allocation sites and live
+heap under identical input/compiler/process conditions before drawing a
+runtime conclusion. Validate exact artifacts when changing representation.
+
+Gerbil's official guide recommends
+[GCC for compiled code](https://gerbil.scheme.org/guide/getting-started.html)
+and describes [full-program optimization](https://gerbil.scheme.org/guide/intro.html)
+as a distinct executable build option. Record the actual compiler and build
+mode for each comparison: optimized separately compiled modules (`gxc -O`)
+do not by themselves establish that an executable was built with FPO. Neither
+compiler advice nor these counters establish a speedup without a matched run.
+
+A fresh-process startup control on the same optimized module products, input,
+1 GiB cap and 40 x 100 batches reproduced these full-source baseline live bytes
+in two pairs: 201,709,952 with compiled-interface admission, and 117,666,952
+with runtime-module loading alone. The 84,043,000-byte difference is startup
+footprint in this harness, not per-parse allocation. The runtime-only control
+loads the generated native runtime wrappers and calls the same compiled entry;
+it omits interface admission rather than substituting a different parser.
+This identifies a concrete measurement-path contribution. It does not identify
+the remaining live objects, measure an FPO executable, qualify latency under
+host contention, or establish a Gambit defect. Functional source tests still
+need their macro interfaces; those and runtime-only deployment are distinct
+measurement contexts.

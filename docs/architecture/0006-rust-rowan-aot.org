@@ -292,18 +292,48 @@ to keep cold imports under the original five-second silence fence.
 
 =t/benchmarks/gql-runtime/native-timing.ss= records the original 100 parses
 per sample across 40 samples after one warmup and one initial GC. It compares
-CLOCK_MONOTONIC, wall time, CPU time, cumulative GC counters, allocation and
-page faults. Output is emitted only after a completed sample. This diagnostic
+CLOCK_MONOTONIC, wall time, CPU time, cumulative GC counters, allocation,
+page faults and voluntary/involuntary OS context switches. Output is emitted only after a completed sample. This diagnostic
 never replaces the unchanged wall-clock p95 admission gate of 150ms.
 
 On the local native run of 2026-10-04, normal samples took approximately
 11--15ms. Four samples included one GC each, taking 52--54ms, with 40--42ms
 attributed to GC. Wall and monotonic time agreed. Each batch allocated about
-23MB. This demonstrates current GC-related variation, but does not establish
-the cause of the historical 390ms/593ms p95 failures. Those failures need an
-outlier captured with these counters before assigning a cause.
+23MB. A later unchanged-workload run captured wall/CPU divergence directly:
+one sample took 293.465ms on CLOCK_MONOTONIC and 293.467ms on the wall clock,
+while consuming 18.203ms CPU with zero GC and zero major faults. Another took
+614.405ms monotonic with 70.064ms CPU, including one GC. This establishes
+non-CPU delay in the current reproduced outliers and excludes realtime-clock
+adjustment for them. A simultaneous host snapshot showed several unrelated
+compiler processes consuming CPU. Host contention is consistent with this
+evidence; it does not identify a specific scheduler or OS wait cause.
+
+That first diagnostic process subsequently failed the silence fence during
+runtime teardown; its sample measurements remain evidence but the whole run
+is not a pass. The diagnostic now uses the existing native-test child exit
+owner after its final receipt. Its follow-up 40-sample run exited successfully
+and recorded OS context-switch counters, with a 94.190ms maximum. Neither run
+changes the production wall-clock p95 gate or makes the historical logs an
+exact reproduction of the same external conditions.
 
 To compile the diagnostic, use =gxc -V= with the same native package path as
 the parser. On Darwin add =-ld-options "-Wl,-undefined,dynamic_lookup"= for
 the loadable C module. Run its exported =main= with the native library directory
 first in =GERBIL_LOADPATH=, under the existing 5-second silence fence.
+
+* Observability test owners
+
+The constructor contract gate retains its original 50 object pairs, 20 samples,
+100ms wall-clock p95 ceiling and full POO validation. Its test module owns the
+three constructor/import-boundary assertions. The complete openCypher phase
+observation assertion now has its own =language-grammar-observability-test.ss=
+owner, so native-suite runs all four original cases in two child processes.
+
+This removes the full language fixture's retained grammar graph from the
+constructor process. Local receipts measured 205,328,944 live bytes before
+separation and 119,735,648 afterwards, with p95 33.389ms and 25.038ms respectively.
+Those figures establish the changed test heap and local timing; they do not
+claim a faster production constructor. The prior Linux 103.173315ms failure
+against the unchanged 100ms ceiling remains a failed receipt. A candidate that
+moved constant slots into prototypes failed locally at 124.627ms and was
+rejected without changing the production constructors.

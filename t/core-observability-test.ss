@@ -9,8 +9,7 @@
         :asp-gerbil-scheme/src/benchmark/framework
         :core/observability/debug
         :gerbil-parser/src/modules/parser/interface
-        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!)
-        "./scenarios/observability/opencypher-grammar-phases/scenario")
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 
 (def benchmark-path "t/benchmarks/poo-grammar-objects/benchmark.ss")
 
@@ -81,13 +80,7 @@
                                     make-observed-grammar-batch))
         (write receipt)
         (newline)
-        (check (benchmark-contract-receipt-pass? receipt) => #t)))
-    (test-case "LanguageGrammar atomically configures POO Flow phase observation"
-      (let (receipt (opencypher-grammar-observability-scenario))
-        (write receipt)
-        (newline)
-        (check (opencypher-grammar-observability-scenario-pass? receipt)
-               => #t)))))
+        (check (benchmark-contract-receipt-pass? receipt) => #t)))))
 
 (export core-observability-tests)
 

@@ -18,6 +18,28 @@ nested element/opaque block contents over that
 table; all markers and syntax-kind identities remain language-owned. This is
 not yet a complete contextual Parser IR or an Org parser cutover.
 
+* Descriptor product admission
+
+All complete descriptor-driven Rust parser products use
+=language-rust-rowan-module-source= in the engine. The ordinary writer,
+contextual Scanner/Parser IR writer and build C ABI delegate descriptor identity,
+policy capability admission and recognition emission to this single boundary.
+The contextual writer checks policy before preparing its parser product or
+creating any output directory. Neither an invalid contextual product nor a
+portable Scanner IR can mask an unsupported descriptor policy.
+
+A descriptor-bound Scheme CST checker is currently unsupported by standalone
+Rust execution; the boundary rejects it before publication. Native C ABI
+execution still runs that policy in Scheme. The raw =rust-rowan-module-source=
+IR API emits recognition-only source and does not qualify a complete language
+policy. Typed syntax/accessor generation is a catalog projection rather than a
+parser execution product.
+
+The regression suite first demonstrated that the old contextual writer emitted
+Rust for a policy-bearing records descriptor. It now requires the same
+policy rejection as ordinary generation and the build ABI. Portable records
+output is regenerated and compared against the checked-in Rust consumer.
+
 * Decision
 
 =grammar.ss= remains the single language-authoring authority.  Its hygienic

@@ -6,7 +6,9 @@
                  deflanguage-parser-loader parse-language-source call-with-language-parser-policy)
         (only-in :gerbil-parser/src/language/descriptor
                  language-grammar-with-parser-policy language-grammar-parser-policy
-                 language-grammar-with-observability require-portable-language-policy!)
+                 language-grammar-with-observability require-portable-language-policy!
+                 language-grammar-language language-grammar-version language-grammar-contract
+                 language-grammar-machine language-grammar-ir)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-branch-budget)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-valid? parse-artifact-roundtrip
@@ -14,7 +16,11 @@
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
                  bind-native-language native-descriptor-payload
                  native-parse-binary-payload native-parse-binary-payload/bytes)
-        (only-in :gerbil-parser/src/compiler/rust-rowan generate-language-rust-rowan-module)
+        (only-in :gerbil-parser/src/compiler/rust-rowan
+                 generate-language-rust-rowan-module language-rust-rowan-module-source
+                 rust-rowan-module-source)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
+        (only-in :gerbil-parser/src/compiler/rust-scanner generate-contextual-language-rust-rowan-module)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records
                  records-language-grammar records-contextual-product))
 
@@ -103,6 +109,53 @@
              (check (hash-get policy "branchBudget") => 17)
              (check (hash-get policy "portable") => #f))))
        (list #f records-contextual-product)))
+    (test-case "descriptor source admission retains portable recognition bytes"
+      (check-exception
+       (language-rust-rowan-module-source descriptor)
+       (lambda (e)
+         (equal? (error-message e)
+                 "language parser policy is unsupported by standalone Rust AOT")))
+      (check (language-rust-rowan-module-source records-language-grammar)
+             => (rust-rowan-module-source
+                 (language-grammar-language records-language-grammar)
+                 (language-grammar-version records-language-grammar)
+                 (language-grammar-contract records-language-grammar)
+                 (parser-machine-grammar-digest (language-grammar-machine records-language-grammar))
+                 (language-grammar-ir records-language-grammar))))
+    (test-case "contextual Rust rejects policy before admission and output publication"
+      (let (path (path-expand "contextual-language-policy-rejected.rs" (getenv "TMPDIR" "/tmp")))
+        (check (file-exists? path) => #f)
+        (dynamic-wind
+         void
+         (lambda ()
+           (for-each
+            (lambda (product)
+              (check-exception
+               (generate-contextual-language-rust-rowan-module path descriptor product)
+               (lambda (e)
+                 (equal? (error-message e)
+                         "language parser policy is unsupported by standalone Rust AOT")))
+              (check (file-exists? path) => #f))
+            (list records-contextual-product #f)))
+         (lambda () (when (file-exists? path) (delete-file path))))))
+    (test-case "policy rejection preserves an existing downstream product"
+      (let ((path (path-expand "language-policy-existing.rs" (getenv "TMPDIR" "/tmp")))
+            (sentinel "existing downstream product α"))
+        (check (file-exists? path) => #f)
+        (dynamic-wind
+         (lambda () (call-with-output-file path (lambda (port) (display sentinel port))))
+         (lambda ()
+           (for-each
+            (lambda (emit)
+              (check-exception (emit)
+                               (lambda (e)
+                                 (equal? (error-message e)
+                                         "language parser policy is unsupported by standalone Rust AOT")))
+              (check (call-with-input-file path read-line) => sentinel))
+            (list (lambda () (generate-language-rust-rowan-module path descriptor))
+                  (lambda () (generate-contextual-language-rust-rowan-module path descriptor records-contextual-product))
+                  (lambda () (generate-contextual-language-rust-rowan-module path descriptor #f)))))
+         (lambda () (delete-file path)))))
     (test-case "standalone Rust rejects an unlowered policy before writing output"
       (let (path (path-expand "language-policy-rejected.rs" (getenv "TMPDIR" "/tmp")))
         (check (file-exists? path) => #f)

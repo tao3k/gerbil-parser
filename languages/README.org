@@ -208,8 +208,10 @@ budget, =schemeCstValidation=true= and =portable=false=. The recognition grammar
 digest remains the syntax identity; it does not fingerprint callback code.
 Version the policy identity when the rule changes.
 
-The standalone Rust descriptor generator and build ABI reject this Scheme
-policy before writing output. Generating raw recognition IR is a narrower
+All standalone Rust descriptor products delegate to the engine's
+=language-rust-rowan-module-source= admission boundary: the ordinary module
+generator, the combined contextual Scanner/Parser IR generator, and the build
+ABI. They reject this Scheme policy before product preparation or writing output. Generating raw recognition IR is a narrower
 syntax-only product and cannot establish policy equivalence. A Rust caller using
 the native C ABI does execute the Scheme policy through that ABI. Do not
 advertise a standalone Rust policy capability until its shared representation,
@@ -238,7 +240,7 @@ language name in the engine nor a custom C dispatcher is required.
 |---+---+---|
 | Scheme | =deflanguage-parser-loader= | Syntax declarations, optional POO services/contracts, conformance fixtures |
 | Native C ABI / Rust native wrapper | =generate-native-language-pack= and =register-native-language!= | Export the configured descriptor, link the generated factory with the normal SDK builder, use generic handle/result ownership |
-| Standalone Rust/Rowan | =generate-language-rust-rowan-module= or the engine build ABI | Supply an admitted portable descriptor, consume generated Rust with =gerbil_parser_rowan=, compare accepted/rejected artifacts |
+| Standalone Rust/Rowan | =generate-language-rust-rowan-module=, =generate-contextual-language-rust-rowan-module=, or the engine build ABI | Supply an admitted portable descriptor, consume generated Rust with =gerbil_parser_rowan=, compare accepted/rejected artifacts |
 | Scheme source parser | =(source descriptor)= | Declare a source descriptor and language-specific recognition; current native codec and standalone Rust do not admit it |
 
 The C factory generator takes output Scheme/header paths, the generated module
@@ -300,10 +302,16 @@ The next structural work has the following dependency order:
    recognition scope. Standalone Rust rejects the configured Scheme policy;
    policy IR and Rust lowering remain separate required work.
 2. *Migrate TLA+ catalogs.* Preserve core/layout/candidate identities and
-   lexical declaration order, compare canonical rules/LR tables/layout/external
-   scanner declarations and node fields, then run their scope conformance
-   suites. Merging the three scopes into one grammar would change coverage and
-   admission; directory naming alone cannot establish this migration.
+   lexical declaration order. The current catalogs contain reserved nodes such
+   as core/layout =EmptyLine= and a candidate catalog with interleaved node/token
+   kinds. The concise DSL infers node kinds in rule traversal order and token
+   kinds in lexical order, and =node-fields= only extends already inferred nodes.
+   A direct replacement would change public kind IDs and remove reserved kinds.
+   Engine admission therefore needs a validated published catalog projection
+   before these packs migrate. Compare ordered kind/field/terminal catalogs,
+   canonical rules, LR tables, layout/external scanner declarations and digests;
+   then run all three scope suites. Merging the scopes or renaming sections
+   cannot establish this migration.
 3. *Lower stateful scanners into shared IR.* Bash here-document queues,
    quote/context state and word nesting, HL7 message-local delimiters, and TLA+
    source-sensitive scanning need explicit state transitions, checkpoint

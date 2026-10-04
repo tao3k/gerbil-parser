@@ -3,15 +3,8 @@
 
 (import :gerbil/expander
         :std/encoding/json
-        (only-in ../compiler/machine parser-machine-grammar-digest)
-        (only-in ../compiler/rust-rowan rust-rowan-module-source)
-        (only-in ../language/descriptor
-                 language-grammar?
-                 language-grammar-contract
-                 language-grammar-ir
-                 language-grammar-language
-                 language-grammar-machine
-                 language-grammar-version require-portable-language-policy!))
+        (only-in ../compiler/rust-rowan language-rust-rowan-module-source)
+        (only-in ../language/descriptor language-grammar?))
 (export native-rowan-aot-abi-version
         native-rust-rowan-source
         native-rowan-aot-error-payload)
@@ -52,12 +45,4 @@
     (car languages)))
 
 (def (native-rust-rowan-source grammar-path)
-  (let (language (grammar-module-language grammar-path))
-    (require-portable-language-policy! language)
-    (rust-rowan-module-source
-     (language-grammar-language language)
-     (language-grammar-version language)
-     (language-grammar-contract language)
-     (parser-machine-grammar-digest
-      (language-grammar-machine language))
-     (language-grammar-ir language))))
+  (language-rust-rowan-module-source (grammar-module-language grammar-path)))

@@ -10,7 +10,7 @@
         (only-in ./machine parser-machine-grammar-digest))
 (export generate-language-rust-rowan-module
         generate-rust-rowan-module
-        rust-rowan-module-source)
+        language-rust-rowan-module-source rust-rowan-module-source)
 
 (def (alist-ref rows key (default #f))
   (let (entry (assq key rows))
@@ -334,26 +334,29 @@
        (display (kind-index kinds (alist-ref ir 'root-kind)) port)
        (display ",\n    kinds: KINDS,\n    terminals: TERMINALS,\n    lexical_rules: LEXICAL_RULES,\n    actions: ACTIONS,\n    gotos: GOTOS,\n    productions: PRODUCTIONS,\n};\n" port)))))
 
+(def (write-rust-rowan-module! output-path source)
+  (create-directory* (path-directory output-path))
+  (call-with-output-file output-path (lambda (port) (display source port)))
+  output-path)
+
+;;; Raw IR describes recognition only. Complete descriptor products must use
+;;; the admission boundary below, including contextual scanner products.
 (def (generate-rust-rowan-module output-path language version contract
                                  grammar-digest ir)
-  (let (source
-        (rust-rowan-module-source
-         language version contract grammar-digest ir))
-    (create-directory* (path-directory output-path))
-    (call-with-output-file output-path
-      (lambda (port) (display source port)))
-    output-path))
+  (write-rust-rowan-module!
+   output-path (rust-rowan-module-source language version contract grammar-digest ir)))
 
-;;; A language author supplies only deflanguage/grammar.ss.  The generated
-;;; descriptor already owns identity, Parser IR, machine, and grammar digest;
-;;; repository/release tooling supplies only the Rust artifact destination.
-(def (generate-language-rust-rowan-module output-path language-grammar)
-  (require-portable-language-policy! language-grammar)
-  (generate-rust-rowan-module
-   output-path
-   (language-grammar-language language-grammar)
-   (language-grammar-version language-grammar)
-   (language-grammar-contract language-grammar)
-   (parser-machine-grammar-digest
-    (language-grammar-machine language-grammar))
-   (language-grammar-ir language-grammar)))
+;;; The sole descriptor-to-Rust source boundary. All product frontends delegate
+;;; identity, capability admission and recognition emission here. Policy failure
+;;; precedes product preparation, directory creation and output publication.
+(def (language-rust-rowan-module-source descriptor)
+  (require-portable-language-policy! descriptor)
+  (rust-rowan-module-source
+   (language-grammar-language descriptor)
+   (language-grammar-version descriptor)
+   (language-grammar-contract descriptor)
+   (parser-machine-grammar-digest (language-grammar-machine descriptor))
+   (language-grammar-ir descriptor)))
+
+(def (generate-language-rust-rowan-module output-path descriptor)
+  (write-rust-rowan-module! output-path (language-rust-rowan-module-source descriptor)))

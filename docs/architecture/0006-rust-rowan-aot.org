@@ -366,3 +366,18 @@ language artifact contracts and the original GQL runtime gate. The latter
 recorded p95 137.469ms over 40 samples against the unchanged 150ms ceiling
 (maximum 180.129ms). This is a passing local admission receipt, not proof that
 host-dependent wait outliers have disappeared.
+
+The supplementary local C ABI run emitted all success receipts, but failed
+its unchanged five-second silence fence during native runtime teardown. The
+local and CI ABI command owners now invoke the existing disposable-test-child
+exit helper only after =main= returns normally. The C probe explicitly releases
+both result objects before returning; callback failures still raise an error
+before the success exit. This qualifies completed ABI calls separately from
+Gerbil process shutdown, and does not claim that shutdown or leak inspection
+has been validated.
+
+A subsequent Scheme FFI run passed five cases, then hit the same silence fence
+while dynamically importing the real parser used as a negative grammar-module
+fixture. The test now declares that fixture in its import set, so the existing
+native admission loader records its actual imports before test execution.
+The negative exported-descriptor assertion and all six original cases remain.

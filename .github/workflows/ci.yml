@@ -199,8 +199,8 @@ jobs:
             gerbil env python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 \
             --log .data/native-abi.log --require NATIVE-ABI-OK \
             --require 'ABI-ROWAN-GENERATED-MATCH calls=3' \
-            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe")' \
-            -e '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe) (main)'
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")' \
+            -e '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'
 
       - name: Run native Gerbil tests
         timeout-minutes: 15

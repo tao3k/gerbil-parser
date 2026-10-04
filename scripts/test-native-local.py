@@ -107,8 +107,8 @@ def main():
                     "-fsyntax-only", "-Iinclude", "t/native-ffi-header-smoke.c"])
                 run("ffi-abi-build", ["gxi", "build-native-ffi-tests.ss", "compile"], build=True)
                 run("ffi-abi", ["gxi", "-e",
-                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe")', "-e",
-                    '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe) (main)'],
+                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
+                    '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'],
                     required=["NATIVE-ABI-OK", "ABI-ROWAN-GENERATED-MATCH calls=3"])
             modules = (["languages/gql/iso-39075-2024/parser", "src/runtime/parser"]
                        if suite == "gql" else ["src/ffi/rust-rowan-aot-v1"])

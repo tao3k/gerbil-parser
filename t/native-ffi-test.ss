@@ -1,7 +1,11 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 
+;; Admit the negative-case parser fixture through the normal native loader
+;; before the timed test dynamically inspects its exported descriptor kinds.
 (import :std/test
+        (only-in :gerbil-parser/t/fixtures/rowan-record-assignments/languages/records/v1/parser
+                 parse-records-v1)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         :std/encoding/json
         (only-in :gerbil-parser/src/ffi/parse-artifact-v1

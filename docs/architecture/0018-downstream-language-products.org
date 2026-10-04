@@ -11,14 +11,14 @@ as targets below are not implemented by this RFC. This proposal extends RFCs
 Bash 5.3 source syntax is the first demanding consumer. Shell execution,
 expansion evaluation and alias execution are outside its parser contract.
 
-The preserved experiment =3b0441c02c23862b71e65e073f833f51a540a310= exists only on
+The preserved experiment =3b0441c02c23862b71e65e073f833f51a540a310= was initially preserved only on
 =codex/bash-source-prototype=. Its grammar declaration wraps a handwritten
 source scanner/parser rather than a canonical Grammar/Parser IR language.
 The source files and test corpus are useful porting evidence, but neither Bash
 AOT compatibility nor full Bash conformance follows from that experiment.
 Its file identities are sealed in
-=docs/research/data/bash-source-oracle-audit-2026-10-04.json=; no tests were
-executed in this audit.
+=docs/research/data/bash-source-oracle-audit-2026-10-04.json=; the initial audit did not execute its tests. The integration receipt below
+records the subsequent native test run.
 
 * Current executable seams and gaps
 
@@ -213,3 +213,27 @@ Upstream reference interfaces:
 
 This order is one downstream-language product track. Completing packaging alone
 or preserving the historical source parser does not close Bash/Rust support.
+
+
+* Bash branch integration receipt
+
+At the human's explicit direction, the existing Bash branch was integrated into
+PR 13 rather than kept as an unsubmitted experiment. Its original head is
+preserved at =codex/bash-source-prototype-before-integration=. The sole Bash
+feature commit was rebased onto the current integration branch, then merged
+with an actual two-parent merge commit. Older core changes in its historical
+ancestry were not replayed over current PR optimizations.
+
+Merge head: =c20dae08c313a38d894af8be9a7db89d79dbb8a0=.
+Ten affected native modules compiled with two workers in 40.10 seconds. A
+90-second parallel test budget and five-second real-output watchdog admitted
+all four selected modules: 16 Bash cases, three public-language cases, five
+style cases and two GQL/Cypher consumer compatibility cases. This consumer test
+selection retains the source overlay; it is not an installed-only distribution
+gate. All selected modules exited successfully with final GC and harness
+receipts. No full Bash language conformance, Rust AOT parity or standalone C
+language product is claimed. The preserved source implementation is now
+available for users and for the canonical-IR port.
+
+=docs/research/data/bash-source-merge-native-2026-10-04.json= seals the build,
+selected test source hashes and branch/merge identities.

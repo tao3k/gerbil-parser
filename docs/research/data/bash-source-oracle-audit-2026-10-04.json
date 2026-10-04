@@ -3,7 +3,6 @@
   "audited_head": "675755009e46824327a1c05d5c787087c1297af4",
   "oracle_commit": "3b0441c02c23862b71e65e073f833f51a540a310",
   "oracle_branch": "codex/bash-source-prototype",
-  "submitted_to_pr13": false,
   "files": [
     {
       "path": "languages/bash/v5-3/grammar.ss",
@@ -41,7 +40,7 @@
       "bytes": 10108
     }
   ],
-  "source_tests_executed": false,
+  "source_tests_executed": true,
   "authority": "handwritten source parser; not canonical Grammar/Parser IR",
   "existing_scheme_seams": [
     "contextual reserved-word dispatch",
@@ -50,5 +49,8 @@
   ],
   "aot_gap": "Rust LanguageSpec and lexical generator do not encode contextual/deferred scanner IR",
   "abi_gap": "v1 runtime parse API dispatches builtin language names and uses NUL-terminated UTF-8 strings",
-  "design": "docs/architecture/0018-downstream-language-products.org"
+  "design": "docs/architecture/0018-downstream-language-products.org",
+  "submitted_to_pr13_at_initial_audit": false,
+  "integration_head": "c20dae08c313a38d894af8be9a7db89d79dbb8a0",
+  "integration_scope": "Bash source language; canonical Grammar/Parser/Scanner IR and Rust AOT parity remain open"
 }

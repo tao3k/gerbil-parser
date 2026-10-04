@@ -1,0 +1,204 @@
+{
+  "schema": "gerbil-parser.bash-source-merge-native.v1",
+  "merge_head": "c20dae08c313a38d894af8be9a7db89d79dbb8a0",
+  "original_branch_head": "3b0441c02c23862b71e65e073f833f51a540a310",
+  "rebased_branch_head": "552be6ecfad8633532c3ce7561e9b20de53d0d79",
+  "build": {
+    "head": "c20dae08c313a38d894af8be9a7db89d79dbb8a0",
+    "aggregate_seconds": 180,
+    "workers": 2,
+    "scope": "Affected native dependency DAG; not whole-package qualification",
+    "builds": [
+      {
+        "name": "source-scanner",
+        "source": "src/runtime/source-scanner.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 3.165338500000871,
+        "source_sha256": "0051a1d61bf1dae82d6de0e7166be8b612eeef419979fa01528cbe849e2fe29f",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "scan-words",
+        "source": "languages/bash/v5-3/scan-words.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 2.2542983750008716,
+        "source_sha256": "9436a97e2d9c3ff1e889e7528e63d11c2e157c2454eb118abb732863775825d9",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source",
+        "source": "src/language/source.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 5.4377339580005355,
+        "source_sha256": "d0bdd417d12bcfdd5093a83160aa0892cbd630e8346e03e2f72ba0f7fdd18718",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "scanner",
+        "source": "languages/bash/v5-3/scanner.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 3.7296110420011246,
+        "source_sha256": "261b70e696b0e180229a6681b9f984f72dfa5a95079cc19e2a9a0f9c83078c3e",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "entry",
+        "source": "src/language/entry.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 6.297876124999675,
+        "source_sha256": "0e6b31f35b90b14195a2caab87d0f97f65d729e68ba659db55c5ca660a2d0486",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "word",
+        "source": "languages/bash/v5-3/word.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 3.255141833999005,
+        "source_sha256": "45c2fd04f70e47e0da33cb0e4f41db96e226bd343d3658dd1e9cb739d149b78d",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "facade",
+        "source": "language-support.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 7.176488249999238,
+        "source_sha256": "7e4a79028e7e2d6bf5e1a7a6b7a8b6e03b1775b0f69943d3ced8af22cbec5b6d",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "core",
+        "source": "languages/bash/v5-3/parser-core.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 7.260734457999206,
+        "source_sha256": "92b09215e56b3fcb4f5b79698c7db53955276ddb63dcff019143d35286ced853",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "grammar",
+        "source": "languages/bash/v5-3/grammar.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 6.8479465420005,
+        "source_sha256": "5be62e821cf237b63b5bbe9b8d24153b8c050b3e62d8d0adc72b221844f8057a",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "parser",
+        "source": "languages/bash/v5-3/parser.ss",
+        "exit": 0,
+        "timeout": false,
+        "wall_seconds": 13.579451292000158,
+        "source_sha256": "148e20b953326ae352c655243df56a914306b72372512a35bbba2f99f2fa0a58",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "complete": true,
+    "retained_prerequisites": [],
+    "unfinished": [],
+    "wall_seconds": 40.10077333299887
+  },
+  "tests": {
+    "schema": "gerbil-parser.focused-native.v1",
+    "head": "c20dae08c313a38d894af8be9a7db89d79dbb8a0",
+    "workers": 2,
+    "aggregate_seconds": 90,
+    "inactivity_seconds": 5,
+    "executor": "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+    "executor_sha256": "b10537c3ef42b79eb4024e9df9f6e6f3b04cbd40e8c02c8aa946a12d4b89b986",
+    "fixture_sha256": {
+      "t/fixtures/tla-sany-differential/native-suite.ss": "97084f0ec256322ee2b4833db50bfd9c75261abd5460c7075def159497f0e9e7",
+      "t/fixtures/tla-sany-differential/preload.ss": "78a3a5366e546e75d1813946a98222b5dc2f5bc4be151cdd7fbf21ff9486bd73",
+      "t/fixtures/tla-sany-differential/watch.ss": "e801b92c40da2b19f1a63f1b1c277e848625a62e25f9d480f65f05e9cc088100",
+      "t/fixtures/tla-sany-differential/exit-child-process.ss": "0f5afd2fb47433e7ae4fda67548e0c7d91701581e6a8fb919452e6b3f89a387f"
+    },
+    "module_sha256": {
+      "t/bash-v5-3-test.ss": "e3faced2700098b91a18d04b02366a69dfbe316599e1677b802731794014e536",
+      "t/language-surface-test.ss": "09444f987639f67a912b7ae7e7bfecd5eb3bfe8f6f0b8817ebec071a793266e9",
+      "t/test-style-contract-test.ss": "36f52d31d0451376851056ab7fd64de3821396b983b801c096181d77dbfeaf71",
+      "t/installed-language-consumer-test.ss": "6191905e7ce323e8a6a5d6cd773ce76e07e4b9d587ba2cba3cefc858e30b1d48"
+    },
+    "scope": "Selected modules with existing native products and upstream child exit; no rebuild, full-suite or library-unload qualification",
+    "jobs": [
+      {
+        "module": "t/bash-v5-3-test.ss",
+        "started": 16,
+        "passed": 16,
+        "exit": 0,
+        "stopped": null,
+        "ok": true,
+        "command": [
+          "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+          "-:max-heap=1G,debug=q",
+          "t/fixtures/tla-sany-differential/native-suite.ss",
+          "t/bash-v5-3-test.ss"
+        ],
+        "log": "job-1.log",
+        "log_sha256": "9cc86ef89df71535fffa2d02f7893e8d945bce4e8cadf0b4cd44576cd00c8c25"
+      },
+      {
+        "module": "t/language-surface-test.ss",
+        "started": 3,
+        "passed": 3,
+        "exit": 0,
+        "stopped": null,
+        "ok": true,
+        "command": [
+          "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+          "-:max-heap=1G,debug=q",
+          "t/fixtures/tla-sany-differential/native-suite.ss",
+          "t/language-surface-test.ss"
+        ],
+        "log": "job-2.log",
+        "log_sha256": "6322201e6d591265f55f1b20a5b24b01d8aae26dc86bad4fce322caaa45beff7"
+      },
+      {
+        "module": "t/test-style-contract-test.ss",
+        "started": 5,
+        "passed": 5,
+        "exit": 0,
+        "stopped": null,
+        "ok": true,
+        "command": [
+          "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+          "-:max-heap=1G,debug=q",
+          "t/fixtures/tla-sany-differential/native-suite.ss",
+          "t/test-style-contract-test.ss"
+        ],
+        "log": "job-3.log",
+        "log_sha256": "d43a64ca0699eb2e7636830d973fe140a43a4c7921612103e44dce35039b20e7"
+      },
+      {
+        "module": "t/installed-language-consumer-test.ss",
+        "started": 2,
+        "passed": 2,
+        "exit": 0,
+        "stopped": null,
+        "ok": true,
+        "command": [
+          "/opt/homebrew/Cellar/gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb/current/bin/gxi",
+          "-:max-heap=1G,debug=q",
+          "t/fixtures/tla-sany-differential/native-suite.ss",
+          "t/installed-language-consumer-test.ss"
+        ],
+        "log": "job-4.log",
+        "log_sha256": "f7a69f6bca5926c716ca75fd50cd2b0eaa61804ac06ffab376f6e05d854a7459"
+      }
+    ],
+    "complete": true,
+    "wall_seconds": 26.32543354200061
+  },
+  "source_cases": 16,
+  "total_selected_cases": 26,
+  "full_bash_conformance": false,
+  "rust_aot_parity": false,
+  "standalone_c_product_qualification": false,
+  "installed_only_qualification": false
+}

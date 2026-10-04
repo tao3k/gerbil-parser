@@ -27,6 +27,8 @@ typedef struct { int32_t status; uint8_t *payload; size_t length; } gerbil_parse
  * Start records have end=0; finish records have start=0. Token ranges are
  * nonempty UTF-8 byte slices covering the source once in order. Rejected
  * syntax retains lossless tokens and publishes no partial node/field tree.
+ * Contextual handles publish their complete product digest in grammar_sha256;
+ * bind it to the generated contextual spec, not merely its base grammar.
  * Consumers must bind both digests, validate nesting and reserved positions,
  * and keep the result alive until all borrowed payload views are dropped.
  * Descriptor/error JSON is not a GPA1 record; check transport status first. */

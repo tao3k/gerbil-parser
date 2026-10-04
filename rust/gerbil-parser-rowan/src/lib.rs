@@ -26,5 +26,5 @@ pub use engine::{
 };
 
 #[cfg(test)]
-#[path = "../tests/fixtures/records_contextual_generated.rs"]
+#[path = "../tests/unit/records_contextual_fixture.rs"]
 mod records_contextual_fixture;

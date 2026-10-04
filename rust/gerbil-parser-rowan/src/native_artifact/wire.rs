@@ -1,6 +1,7 @@
 //! Fixed-width little-endian GPA1 records; admission precedes public iteration.
 use std::fmt;
 
+/// Canonical node, field and token record tags from the Scheme producer.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeEventKind {
     StartNode,
@@ -20,6 +21,7 @@ pub struct NativeEvent {
     pub end: usize,
 }
 
+/// A rejected wire invariant, with its event index when applicable.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeArtifactError {
     pub reason: &'static str,

@@ -8,6 +8,7 @@ pub(super) fn admit(
     source: &str,
     language: &LanguageSpec,
     fields: usize,
+    expected_digest: &str,
 ) -> Result<bool, NativeArtifactError> {
     let fail = |reason| wire::error(reason, None);
     if source.len() > 67_108_864
@@ -22,8 +23,7 @@ pub(super) fn admit(
     if count.checked_mul(24).and_then(|n| n.checked_add(80)) != Some(payload.len()) {
         return Err(fail("length"));
     }
-    let digest = language
-        .grammar_digest
+    let digest = expected_digest
         .strip_prefix("sha256:")
         .ok_or_else(|| fail("grammar-digest"))?;
     if digest.len() != 64

@@ -408,7 +408,10 @@ are not created by native parse calls or counted as parsing throughput.
 =gerbil_parser_rowan::native_artifact::NativeArtifactView::decode= consumes
 GPA1 bytes from the generic C API after the host checks transport status. It
 binds the payload to the source SHA-256 and the same generated =LanguageSpec=
-grammar digest; the field count comes from that language's native descriptor.
+grammar digest. =decode_contextual= instead binds the exact contextual product
+=parser_digest=, matching the grammar digest published by a contextual native
+handle. The field count comes from that same language's native descriptor.
+Canonical and contextual payloads cannot be substituted for each other.
 Header widths and event tags, catalog indexes, sequential node/token IDs,
 reserved positions, UTF-8 ranges, node/field nesting and complete source
 coverage are checked before a view is published. Rejected syntax retains

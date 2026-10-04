@@ -1,6 +1,6 @@
 //! Canonical Scheme GPA1 bytes consumed through the same generated language.
 use super::{NativeArtifactView, NativeEventKind};
-use crate::records_contextual_fixture as language;
+use crate::records_contextual_fixture::generated as language;
 use crate::{LanguageSpec, SyntaxNode, parse, parse_contextual};
 #[path = "../fixtures/native_artifact_generated.rs"]
 mod native;
@@ -134,4 +134,40 @@ fn syntax_status_utf8_boundaries_and_field_identity_are_checked() {
             assert!(decode(&mismatched, source).is_err());
         }
     }
+}
+
+#[test]
+fn contextual_native_identity_matches_its_product_and_rejects_canonical_binding() {
+    for &(source, payload) in native::CONTEXTUAL_CASES {
+        let source = std::str::from_utf8(source).unwrap();
+        let view = NativeArtifactView::decode_contextual(
+            payload,
+            source,
+            &language::CONTEXTUAL,
+            native::FIELD_COUNT,
+        )
+        .expect("contextual native GPA1");
+        assert_eq!(
+            decode(payload, source).unwrap_err().reason,
+            "grammar-digest"
+        );
+        let expected = parse_contextual(&language::CONTEXTUAL, source);
+        assert_eq!(view.accepted(), expected.is_ok());
+        if let Ok(expected) = expected {
+            let actual = SyntaxNode::new_root(view.to_rowan().unwrap());
+            assert_eq!(format!("{actual:#?}"), format!("{:#?}", expected.syntax()));
+        } else {
+            assert!(view.to_rowan().is_err());
+        }
+    }
+    let (source, payload) = native::CASES[1];
+    assert!(
+        NativeArtifactView::decode_contextual(
+            payload,
+            std::str::from_utf8(source).unwrap(),
+            &language::CONTEXTUAL,
+            native::FIELD_COUNT
+        )
+        .is_err()
+    );
 }

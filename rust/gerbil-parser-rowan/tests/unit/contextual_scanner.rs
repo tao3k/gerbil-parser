@@ -1,5 +1,5 @@
 //! Complete descriptor + shared scanner AOT, with no language callbacks.
-use crate::records_contextual_fixture as generated;
+use crate::records_contextual_fixture::generated;
 use gerbil_parser_rowan::{parse, parse_contextual};
 #[test]
 fn contextual_lr_matches_canonical_lossless_tree() {

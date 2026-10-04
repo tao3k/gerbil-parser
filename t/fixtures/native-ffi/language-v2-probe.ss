@@ -4,13 +4,14 @@
         (only-in :gerbil-parser/src/ffi/language-handles
                  release-native-language! native-language-handle-parse)
         (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
-(export main parse-native-batch create-native-handle)
-(extern probe-language parse-native-batch create-native-handle)
+(export main parse-native-batch parse-native-sized-batch create-native-handle)
+(extern probe-language parse-native-batch parse-native-sized-batch create-native-handle)
 (begin-foreign
- (namespace ("gerbil-parser/t/fixtures/native-ffi/language-v2-probe#" probe-language parse-native-batch create-native-handle))
+ (namespace ("gerbil-parser/t/fixtures/native-ffi/language-v2-probe#" probe-language parse-native-batch parse-native-sized-batch create-native-handle))
  (c-declare #<<END-C
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <time.h>
 #include <pthread.h>
 #include "t/fixtures/shared-scanner/records-native.h"
@@ -24,6 +25,22 @@ static int parse_native_batch(uint64_t handle) {
     }
   }
   gerbil_parser_result_v2_release(&result);return 0;
+}
+static int parse_native_sized_batch(uint64_t handle, int rows, int unicode, int calls) {
+  const char *row = unicode ? "α=1\r\n" : "a=1\n";
+  size_t width = strlen(row);
+  if (rows < 1 || rows > 16384 || calls < 1 || calls > 100) return -1;
+  size_t length = width * (size_t)rows;
+  uint8_t *source = malloc(length);
+  if (!source) return -1;
+  for (int i=0;i<rows;i++) memcpy(source + width*i,row,width);
+  gerbil_parser_result_v2 result; gerbil_parser_result_v2_init(&result);
+  int status = 0;
+  for (int i=0;i<calls;i++) {
+    if (gerbil_parser_language_parse(handle,source,length,&result) ||
+        result.length < 80 || result.payload[8]) { status = -1; break; }
+  }
+  gerbil_parser_result_v2_release(&result); free(source); return status;
 }
 static double monotonic_seconds(void) {
   struct timespec ts;clock_gettime(CLOCK_MONOTONIC,&ts);return ts.tv_sec + ts.tv_nsec * 1e-9;
@@ -76,6 +93,8 @@ END-C
  )
  (define probe-language (c-lambda (unsigned-int64) int "probe_language"))
  (define parse-native-batch (c-lambda (unsigned-int64) int "parse_native_batch"))
+ (define parse-native-sized-batch
+  (c-lambda (unsigned-int64 int bool int) int "parse_native_sized_batch"))
  (define create-native-handle (c-lambda () unsigned-int64 "records_language_create")))
 (def (main . _)
   (displayln "LANGUAGE-ABI-PACK-REGISTER") (force-output)

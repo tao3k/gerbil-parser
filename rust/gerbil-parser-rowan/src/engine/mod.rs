@@ -2,7 +2,7 @@
 
 mod contextual_parser;
 mod contextual_plan;
-mod event_tree;
+pub(crate) mod event_tree;
 mod generated_events;
 mod graph_index;
 mod graph_projection;

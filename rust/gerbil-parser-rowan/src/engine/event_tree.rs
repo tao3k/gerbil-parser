@@ -43,6 +43,14 @@ pub fn build_rowan_events_catalog(
     source: &str,
     events: &[TreeEvent],
 ) -> Result<GreenNode, Diagnostic> {
+    build_rowan_event_iter(catalog, source, events.iter().copied())
+}
+
+pub(crate) fn build_rowan_event_iter(
+    catalog: &EventCatalog,
+    source: &str,
+    events: impl IntoIterator<Item = TreeEvent>,
+) -> Result<GreenNode, Diagnostic> {
     if catalog.kinds.len() > usize::from(u16::MAX) + 1
         || catalog
             .kinds
@@ -60,7 +68,7 @@ pub fn build_rowan_events_catalog(
     let mut offset = 0usize;
 
     for event in events {
-        match *event {
+        match event {
             TreeEvent::StartNode(kind) => {
                 if root.is_some() || (frames.is_empty() && kind != catalog.root_kind) {
                     return Err(diagnostic(

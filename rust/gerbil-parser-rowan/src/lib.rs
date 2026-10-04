@@ -8,6 +8,7 @@
 extern crate self as gerbil_parser_rowan;
 
 mod engine;
+pub mod native_artifact;
 pub mod scanner;
 
 pub use engine::{
@@ -23,3 +24,7 @@ pub use engine::{
     build_rowan_events_catalog, parse, parse_contextual, parse_generated_events, parse_scanned,
     parse_structural_lines, project_syntax_graph,
 };
+
+#[cfg(test)]
+#[path = "../tests/fixtures/records_contextual_generated.rs"]
+mod records_contextual_fixture;

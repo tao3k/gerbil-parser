@@ -402,3 +402,26 @@ watchdog before the test child. Each module retains the five-second silence
 fence, a 90-second total budget, explicit child exit propagation and a nonzero
 completed-case requirement. These processes isolate retained test state; they
 are not created by native parse calls or counted as parsing throughput.
+
+* Borrowed native artifact consumption in Rust
+
+=gerbil_parser_rowan::native_artifact::NativeArtifactView::decode= consumes
+GPA1 bytes from the generic C API after the host checks transport status. It
+binds the payload to the source SHA-256 and the same generated =LanguageSpec=
+grammar digest; the field count comes from that language's native descriptor.
+Header widths and event tags, catalog indexes, sequential node/token IDs,
+reserved positions, UTF-8 ranges, node/field nesting and complete source
+coverage are checked before a view is published. Rejected syntax retains
+source tokens and cannot publish a Rowan tree.
+
+The view borrows the payload and source. Its typed iterator retains fields
+and token byte slices; =to_rowan= feeds the existing validated Rowan sink
+through an iterator without allocating an intermediate event vector. Rowan
+owns its final tree. The host must drop views before replacing/releasing the
+C result. This consumer does not initialize Gerbil, invoke foreign callbacks,
+or supply a standalone embedding runtime.
+
+The Scheme GPA1 producer generates the accepted and rejected Unicode, CRLF,
+empty-source and embedded-NUL cases used by the Rust tests. Native CI verifies
+byte-for-byte fixture regeneration. Rust tests compare complete accepted trees
+with the same generated AOT parser and reject malformed transport records.

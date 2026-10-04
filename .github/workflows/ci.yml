@@ -200,6 +200,9 @@ jobs:
         run: |
           gerbil env gxi t/fixtures/shared-scanner/generate.ss /tmp/shared-scanner.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
+          gerbil env gxi t/fixtures/shared-scanner/generate-native-artifact.ss /tmp/native-artifact.rs
+          rustfmt --edition 2024 /tmp/native-artifact.rs
+          cmp /tmp/native-artifact.rs rust/gerbil-parser-rowan/tests/fixtures/native_artifact_generated.rs
           rustfmt --edition 2024 /tmp/shared-scanner.rs /tmp/records-contextual.rs
           cmp /tmp/shared-scanner.rs rust/gerbil-parser-rowan/tests/fixtures/shared_scanner_generated.rs
           cmp /tmp/records-contextual.rs rust/gerbil-parser-rowan/tests/fixtures/records_contextual_generated.rs

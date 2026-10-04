@@ -64,6 +64,23 @@
   (conflicts reject)
   (case-insensitive #f))
 
+(deflanguage unary-stack-probe
+  (identity "unary-stack-probe" "v1" "unary-stack-probe.v1")
+  (root source-file)
+  (lex (word Word (identifier))
+       (punctuation Punctuation (literals ";"))
+       (space Space (whitespace+)))
+  (rules
+   (source-file
+    (node SourceFile
+     (seq (field head (node Head word)) ";"
+          (field tail (alias Renamed (field inner (node Original word))))))))
+  (extras space)
+  (keywords)
+  (recoveries)
+  (conflicts reject)
+  (case-insensitive #f))
+
 (def (parse-probe source events?)
   (parameterize ((current-lr-event-program-enabled? events?))
     (parse-source empty-action-probe-parser source)))
@@ -121,6 +138,32 @@
            (check (parameterize ((current-lr-event-program-enabled? #t))
                     (parse-source chained-action-probe-parser source)) => artifact)))
        '("a" " a ")))
+    (test-case "unary actions consume only the top value above retained siblings"
+      (for-each
+       (lambda (source)
+         (for-each
+          (lambda (events?)
+            (parameterize ((current-lr-event-program-enabled? events?))
+              (let* ((artifact (parse-source unary-stack-probe-parser source))
+                     (events (parse-artifact-events artifact))
+                     (session (make-incremental-session unary-stack-probe-parser source #t))
+                     (edit (make-edit 0 1 "alpha")))
+                (check (parse-artifact-success? artifact) => #t)
+                (check (parse-artifact-valid? artifact) => #t)
+                (check (parse-artifact-roundtrip artifact) => source)
+                (check (map (lambda (event) (vector-ref event 1))
+                            (filter (lambda (event) (eq? (event-kind event) 'start-field)) events))
+                       => '(head tail inner))
+                (check (map (lambda (event) (vector-ref event 2))
+                            (filter (lambda (event) (eq? (event-kind event) 'start-node)) events))
+                       => '(SourceFile Head Renamed Original))
+                (check (parameterize ((current-lr-event-program-enabled? (not events?)))
+                         (parse-source unary-stack-probe-parser source)) => artifact)
+                (let-values (((next receipt) (parse-incremental-session session edit)))
+                  (check (incremental-session-artifact next)
+                         => (parse-source unary-stack-probe-parser (apply-edit source edit)))))))
+          '(#f #t)))
+       '("a;b" "a ; β")))
     (test-case "editing through empty source matches independent production replay"
       (for-each
        (lambda (events?)

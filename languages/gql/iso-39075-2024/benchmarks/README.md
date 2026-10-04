@@ -362,3 +362,44 @@ Regression coverage exercises 1–4-byte scalars, NUL and combining marks,
 Unicode checkpoint restoration, contextual scanning, Bash, incremental edits
 and matched GQL artifacts. Reproduce the comparison with the matched-stage
 command above, rebuilding each implementation before its fresh-process run.
+
+
+## Borrowing the immutable stack cell for unary LR reductions
+
+The private `pop-reduction` helper used to allocate a one-element source-value
+list when the production width was one. Both consumers (`reduce-value` and
+`reduce-value/events`) stop at the production's RHS width, so this case can
+borrow the immutable semantic stack's first cell. The remaining semantic and
+state suffixes are unchanged. Zero-width reductions retain their empty value
+list; wider reductions still construct the required source-order list.
+
+Against `8535fb4ba5478e6786b06aec7d4a4efec796c888`, the same representative
+138-byte input, toolchain, heap and 40 x 100 configuration used above produced
+these median bytes per parse in no-GC batches:
+
+| Implementation | Global lexing | Prepared LR | Artifact publication | Full source |
+| --- | ---: | ---: | ---: | ---: |
+| Original | 50,724 | 111,140 | 44,324 | 201,708.32 |
+| Borrow unary cell | 50,724 | 100,916 | 44,324 | 191,484.32 |
+| Original restored | 50,724 | 111,140 | 44,324 | 201,708.32 |
+| Borrow unary cell repeated | 50,724 | 100,916 | 44,324 | 191,484.32 |
+
+Each row retains 40, 39, 40 and 37 no-GC observations respectively. This is
+10,224 fewer bytes per parse: about 9.2% of prepared LR allocation and 5.1%
+of full-source allocation. Lexing and publication are unchanged controls.
+The native preprocessed C products confirm removal of the pair allocation
+in the unary branch; compiler settings and the three-value return protocol
+remain unchanged. The measured byte saving is specific to this input, execution
+path and toolchain, not a portable per-pair size or a GC/latency guarantee.
+
+`GQL-REDUCTION-COUNTS` now also partitions the selected derivation into
+`emptyReductions`, `unaryReductions` and `multiOperandReductions`. Their sum
+is `reductions`. These untimed counts describe committed syntax, not every
+executed reduction in failed/speculative branches; do not multiply them by
+an assumed object size to infer runtime allocation.
+
+`t/lr-empty-action-test.ss` exercises nested unary field/alias reductions
+above retained left siblings, both semantic backends, Unicode, source order
+and incremental edits against independent full replay. Existing empty and
+multi-operand cases remain covered. Host contention still prevents a latency
+conclusion; the existing admission deadlines remain unchanged.

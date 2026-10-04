@@ -444,12 +444,15 @@
 ;;; Pop LR states and semantic values together. Accumulating the top-first
 ;;; semantic stack with cons produces the source order required by reductions.
 ;;; This also preserves the shared immutable suffix for GLR branches/checkpoints.
+;;; Unary reducers inspect only one RHS operand, so they can borrow the stack's
+;;; first cell. Its tail is outside the RHS and is never consumed by the two
+;;; private reduction backends. Wider reductions still build source-order lists.
 (def (pop-reduction states semantic-values count)
   (case count
    ((0) (values '() semantic-values states))
    ((1)
     (if (and (pair? states) (pair? semantic-values))
-      (values (list (car semantic-values)) (cdr semantic-values) (cdr states))
+      (values semantic-values (cdr semantic-values) (cdr states))
       (error "LR reduction exceeds parser stack" count)))
    (else
     (let loop ((remaining count) (states states) (semantic-rest semantic-values)

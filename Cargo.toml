@@ -2,6 +2,7 @@
 members = [
   "build-support/gerbil-parser-build-support",
   "rust/gerbil-parser-rowan",
+  "rust/gerbil-parser-native",
   "rust/gerbil-parser-rowan-external",
   "rust/gerbil-parser-rowan-arithmetic",
   "rust/gerbil-parser-rowan-scenarios",

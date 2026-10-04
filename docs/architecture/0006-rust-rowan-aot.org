@@ -428,3 +428,36 @@ The Scheme GPA1 producer generates the accepted and rejected Unicode, CRLF,
 empty-source and embedded-NUL cases used by the Rust tests. Native CI verifies
 byte-for-byte fixture regeneration. Rust tests compare complete accepted trees
 with the same generated AOT parser and reject malformed transport records.
+
+* Rust ownership over the initialized language C ABI
+
+=gerbil-parser-native= is the separate FFI boundary. The pure Rust AOT and
+borrowed-artifact crate keeps =forbid(unsafe_code)=. A downstream pack needs
+only its generated C factory declaration and
+=LanguageApi::linked(pack_language_create)=; the generic functions are shared.
+An unsafe =NativeSession::attach= admits ABI version 2 and the runtime's OS
+owner thread. Its contract requires the embedding host to keep the runtime,
+modules and library loaded until the session and all borrowers are dropped.
+It does not initialize or shut down a Gerbil VM.
+
+The session cannot be sent or shared across threads. Registered language
+handles borrow it; results borrow their language; validated GPA1 views borrow
+the result and source. Drop releases each result and handle exactly once.
+Results retain their own C allocations, so parsing through another handle
+cannot replace the bytes of a live view. Source and payload bytes are not
+copied by this Rust wrapper. The existing C ABI still copies source into the
+Scheme runtime and publishes a C allocation; this is not end-to-end zero-copy.
+
+=t/fixtures/rust-native-language= builds a Rust static consumer linked into
+an ordinary Gerbil test module by =build-rust-native-tests.ss=. Its real C
+calls compare native contextual trees against generated Rust AOT, exercise
+empty, Unicode, CRLF, embedded-NUL and rejected source, retain two results
+simultaneously, reject OS foreign-thread admission and count automatic
+releases of two handles and 111 results. A hundred repeated parses share one
+session and handle. This verifies handle/result ownership during a live VM;
+the disposable test exit still does not qualify standalone VM shutdown.
+
+The remaining standalone-host gate is a normal static Gerbil module closure
+with the Gambit SDK's =___setup= / =___cleanup= embedding lifecycle, followed
+by a real C/Rust host parse and normal cleanup. The current native probe must
+not be represented as that gate.

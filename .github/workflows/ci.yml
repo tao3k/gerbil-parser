@@ -221,6 +221,25 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")' \
             -e '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'
 
+      - name: Compile and verify Rust native ownership over the C ABI
+        run: |
+          RUSTC_WRAPPER="$PWD/scripts/rustc-progress.py" CARGO_TARGET_DIR="$PWD/target" \
+            python3 scripts/run-bounded.py --timeout 90 --idle-timeout 30 \
+            --log .data/rust-native-build.log \
+            -- cargo build --locked --manifest-path t/fixtures/rust-native-language/Cargo.toml
+          GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_native_language_fixture.a" \
+            GERBIL_BUILD_VERBOSE=1 gerbil env python3 scripts/run-bounded.py \
+            --timeout 90 --idle-timeout 30 --log .data/rust-native-link.log \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "std/build-script")' \
+            build-rust-native-tests.ss compile
+          GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+            gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log .data/rust-native-ownership.log --require RUST-NATIVE-OK \
+            --require 'RUST-NATIVE-OWNERSHIP-OK handles=2 results=111' \
+            --require RUST-NATIVE-100-CALLS \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/rust-language-probe")' \
+            -e '(import :gerbil-parser/t/fixtures/native-ffi/rust-language-probe) (main)'
+
       - name: Verify language-independent C ABI and ASP performance
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \

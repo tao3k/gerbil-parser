@@ -74,10 +74,10 @@ def main():
     logs = args.log_dir.resolve()
     logs.mkdir(parents=True, exist_ok=True)
 
-    def run(label, command, *, build=False, required=()):
+    def run(label, command, *, build=False, required=(), timeout=None):
         print("NATIVE-STAGE", label, flush=True)
         bounded = [sys.executable, str(root / "scripts/run-bounded.py"),
-                   "--timeout", "240" if build else "120",
+                   "--timeout", str(timeout or (240 if build else 120)),
                    "--idle-timeout", "30" if build else "5",
                    "--log", str(logs / (label + ".log"))]
         for marker in required:
@@ -140,6 +140,19 @@ def main():
                     '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")', "-e",
                     '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'],
                     required=["LANGUAGE-ABI-OK", "LANGUAGE-ABI-100-CALLS"])
+                environment["CARGO_TARGET_DIR"] = str(root / "target")
+                run("rust-native-build", ["cargo", "build", "--locked", "--manifest-path",
+                    "t/fixtures/rust-native-language/Cargo.toml"], build=True, timeout=90)
+                environment["GERBIL_PARSER_RUST_NATIVE_ARCHIVE"] = str(
+                    root / "target/debug/librust_native_language_fixture.a")
+                run("rust-native-link", ["gxi", "-e",
+                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "std/build-script")',
+                    "build-rust-native-tests.ss", "compile"], build=True, timeout=90)
+                run("rust-native-ownership", ["gxi", "-e",
+                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/rust-language-probe")', "-e",
+                    '(import :gerbil-parser/t/fixtures/native-ffi/rust-language-probe) (main)'],
+                    required=["RUST-NATIVE-OK", "RUST-NATIVE-OWNERSHIP-OK handles=2 results=111",
+                              "RUST-NATIVE-100-CALLS"], timeout=90)
             modules = (["languages/gql/iso-39075-2024/parser", "src/runtime/parser"]
                        if suite == "gql" else ["src/ffi/rust-rowan-aot-v1"])
             for module in modules:

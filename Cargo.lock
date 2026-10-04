@@ -224,6 +224,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "gerbil-parser-native"
+version = "0.1.0"
+dependencies = [
+ "gerbil-parser-rowan",
+]
+
+[[package]]
 name = "gerbil-parser-rowan"
 version = "0.1.0"
 dependencies = [

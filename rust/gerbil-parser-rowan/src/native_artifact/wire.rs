@@ -48,7 +48,7 @@ pub(super) fn u32_at(bytes: &[u8], offset: usize) -> u32 {
             .expect("admitted record width"),
     )
 }
-pub(super) fn event(row: &[u8]) -> NativeEvent {
+pub(super) fn event(row: &[u8; 24]) -> NativeEvent {
     NativeEvent {
         kind: match u32_at(row, 0) {
             1 => NativeEventKind::StartNode,

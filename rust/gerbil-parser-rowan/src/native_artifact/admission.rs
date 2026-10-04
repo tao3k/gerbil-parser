@@ -51,7 +51,7 @@ fn validate_events(
 ) -> Result<(), NativeArtifactError> {
     let (mut offset, mut nodes, mut tokens, mut roots) = (0, 0, 0, 0);
     let mut stack = Vec::new();
-    for (index, row) in payload[80..].chunks_exact(24).enumerate() {
+    for (index, row) in payload[80..].as_chunks::<24>().0.iter().enumerate() {
         let fail = |reason| wire::error(reason, Some(index));
         if !(1..=5).contains(&wire::u32_at(row, 0)) {
             return Err(fail("event-tag"));

@@ -75,7 +75,11 @@ impl<'a> NativeArtifactView<'a> {
 
     /// Iterate borrowed wire records without copying the payload or lexemes.
     pub fn events(&self) -> impl ExactSizeIterator<Item = NativeEvent> + '_ {
-        self.payload[80..].chunks_exact(24).map(wire::event)
+        self.payload[80..]
+            .as_chunks::<24>()
+            .0
+            .iter()
+            .map(wire::event)
     }
 
     /// Retrieve the original source slice for a token record.

@@ -12,4 +12,7 @@
            (else (string-append " -ldl -lpthread -lm "
               (path-expand "lib/gerbil-parser/src/ffi/language-v2-native~0.o1" (gerbil-path)) " "
               (path-expand "lib/gerbil-parser/t/fixtures/shared-scanner/records-native~0.o1" (gerbil-path))))))))
-  force: #t)
+  ;; Keep this disposable transport entry out of whole-library optimizer analysis.
+  optimize: #f
+  force: #t
+  verbose: 9)

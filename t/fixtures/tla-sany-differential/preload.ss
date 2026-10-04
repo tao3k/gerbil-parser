@@ -29,7 +29,7 @@
 ;; Runtime wrappers do not list compile-time imports from .ssi interfaces.
 ;; Use the expander's import parameter to report the real nested admission
 ;; work. Delegate unchanged and restore the parameter on return or exception.
-(def (import-native-interface! module)
+(def (call-with-native-interface-trace thunk)
   (let (importer (gx#current-expander-module-import))
     (parameterize
         ((gx#current-expander-module-import
@@ -38,7 +38,12 @@
             (let (context (importer path reload?))
               (displayln "INTERFACE-IMPORTED " path) (force-output)
               context))))
-      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
+      (thunk))))
+
+(def (import-native-interface! module)
+  (call-with-native-interface-trace
+   (lambda ()
+     (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
 
 (def (preload-module module)
   (unless (member module +preloaded-modules+)

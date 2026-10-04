@@ -36,3 +36,18 @@ Verification uses a real Rust static consumer in
 `t/fixtures/rust-native-language`, linked into the compiled Gerbil probe.
 Run the repository's `scripts/test-native-local.py --suite ffi` or its native
 Ubuntu CI. Compile-fail doctests verify the thread and borrow restrictions.
+
+## Native qualification build
+
+`build-rust-native-tests.ss` uses the official `std/build-script` / `std/make`
+owner to compile and link the disposable Rust/C transport probe. Its
+`optimize: #f` setting avoids whole-library optimizer analysis for this test
+entry; Gambit still produces native code. Language packs and parser runtime
+objects retain their own optimization settings. `verbose: 9` reports real
+compiler work, and the fixture preloader traces imports throughout the build.
+
+Both local and CI entrypoints use the native Cargo compiler progress proxy.
+The Rust consumer build/link gates remain 90 seconds with 30 seconds of output
+inactivity; execution remains 90 seconds with 5 seconds of output inactivity.
+Qualification requires actual native handle/result ownership and 100-call
+markers, not only a successful static Rust build.

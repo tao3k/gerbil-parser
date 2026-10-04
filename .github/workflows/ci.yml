@@ -231,8 +231,8 @@ jobs:
           GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_native_language_fixture.a" \
             GERBIL_BUILD_VERBOSE=1 gerbil env python3 scripts/run-bounded.py \
             --timeout 90 --idle-timeout 30 --log .data/rust-native-link.log \
-            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "std/build-script")' \
-            build-rust-native-tests.ss compile
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "build-rust-native-tests.ss")' \
+            -e '(call-with-native-interface-trace (lambda () (load "build-rust-native-tests.ss") (eval (quote (main "compile")))))'
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
             --log .data/rust-native-ownership.log --require RUST-NATIVE-OK \

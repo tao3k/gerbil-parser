@@ -71,6 +71,8 @@ def main():
     environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=os.pathsep.join([str(native_root / "lib"), str(root)]),
                        GAMBOPT=runtime_options + ("," if runtime_options else "") + heap_options,
                        GERBIL_PARSER_LR_TRACE="1", GERBIL_BUILD_VERBOSE="1")
+    # Match CI: report real native compiler artifacts during cold Cargo builds.
+    environment["RUSTC_WRAPPER"] = str(root / "scripts/rustc-progress.py")
     logs = args.log_dir.resolve()
     logs.mkdir(parents=True, exist_ok=True)
 
@@ -148,8 +150,8 @@ def main():
                 environment["GERBIL_PARSER_RUST_NATIVE_ARCHIVE"] = str(
                     root / "target/debug/librust_native_language_fixture.a")
                 run("rust-native-link", ["gxi", "-e",
-                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "std/build-script")',
-                    "build-rust-native-tests.ss", "compile"], build=True, timeout=90)
+                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "build-rust-native-tests.ss")',
+                    "-e", '(call-with-native-interface-trace (lambda () (load "build-rust-native-tests.ss") (eval (quote (main "compile")))))'], build=True, timeout=90)
                 run("rust-native-ownership", ["gxi", "-e",
                     '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/rust-language-probe")', "-e",
                     '(import :gerbil-parser/t/fixtures/native-ffi/rust-language-probe) (main)'],

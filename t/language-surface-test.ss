@@ -91,8 +91,60 @@
   (recoveries)
   (flow (source lexical) (lexical cst)))
 
+;;; A token/rule namespace collision is legal when references are explicit.
+;;; Repeated node alternatives infer the union of their public fields.
+(deflanguage alternative-fields-witness
+  (identity "alternative-fields" "v1" "alternative-fields.v1")
+  (root source-file)
+  (lex (word WordToken (identifier))
+       (punctuation Punctuation (literals "+"))
+       (unknown Unknown (fallback)))
+  (rules
+   (source-file (node Root (field value (reference word))))
+   (word (choice (node Name (field left (token word)))
+                 (node Name (field right (literal "+"))))))
+  (extras) (keywords) (recoveries)
+  (conflicts reject) (case-insensitive #f)
+  (node-fields (Name reserved))
+  (flow (source lexical) (lexical alternatives) (alternatives cst)))
+
+;;; Fields in recursive transparent helpers belong to their enclosing node.
+(deflanguage transparent-fields-witness
+  (identity "transparent-fields" "v1" "transparent-fields.v1")
+  (root source-file)
+  (lex (word WordToken (identifier))
+       (punctuation Punctuation (literals "(" ")")))
+  (rules
+   (source-file (node Root helper))
+   (helper (choice (field item word)
+                   (seq "(" helper ")" (field tail word)))))
+  (extras) (keywords) (recoveries)
+  (conflicts reject) (case-insensitive #f))
+
 (def concise-v1-language-surface-tests
   (test-suite "concise v1 language surface"
+    (test-case "transparent recursive references infer fields without crossing nodes"
+      (check (assq 'Root (grammar-ir-ref transparent-fields-witness-grammar 'syntax-kinds))
+             => '(Root node (item tail)))
+      (check (assq 'Root (grammar-ir-ref alternative-fields-witness-grammar 'syntax-kinds))
+             => '(Root node (value)))
+      (for-each
+       (lambda (source)
+         (let (artifact (parse-source transparent-fields-witness-parser source))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)))
+       '("alpha" "(beta)gamma" "((a)b)c")))
+    (test-case "alternative node schemas and explicit namespaces share one DSL"
+      (check (assq 'Name (grammar-ir-ref alternative-fields-witness-grammar 'syntax-kinds))
+             => '(Name node (reserved left right)))
+      (check (grammar-ir-ref alternative-fields-witness-grammar 'flow)
+             => '((source lexical) (lexical alternatives) (alternatives cst)))
+      (for-each
+       (lambda (source)
+         (let (artifact (parse-source alternative-fields-witness-parser source))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)))
+       '("alpha" "+")))
     (test-case "infers the stable grammar and parser contracts"
       (let* ((source "alpha")
              (artifact (parse-source concise-v1-witness-parser source)))

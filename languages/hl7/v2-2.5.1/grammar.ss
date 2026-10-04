@@ -17,49 +17,24 @@
 
 ;;; Every delimiter scanner derives its character from MSH-1/MSH-2, preserving
 ;;; ER7's message-local delimiter contract without mutable parser state.
-(deflanguage-grammar hl7v2
+(deflanguage hl7v2
   (identity "hl7v2" +hl7v2-language-version+ +hl7v2-syntax-contract+)
-  (syntax-kinds
-   (Message node (header segment))
-   (HeaderSegment node (field))
-   (Segment node (name field))
-   (Field node (repetition))
-   (Repetition node (component))
-   (Component node (subcomponent))
-   (Subcomponent node (value))
-   (Escape node (value))
-   (SegmentId token (text))
-   (Data token (text))
-   (SegmentTerminator token (text))
-   (FieldSeparator token (text))
-   (ComponentSeparator token (text))
-   (RepetitionSeparator token (text))
-   (EscapeCharacter token (text))
-   (SubcomponentSeparator token (text)))
-  (terminals
-   (segment-id SegmentId)
-   (data Data)
-   (segment-terminator SegmentTerminator)
-   (field-separator FieldSeparator)
-   (component-separator ComponentSeparator)
-   (repetition-separator RepetitionSeparator)
-   (escape-character EscapeCharacter)
-   (subcomponent-separator SubcomponentSeparator))
-  (lexical-rules
-   (segment-id (external hl7v2-segment-id-v1 scan-hl7v2-segment-id))
-   (data (external hl7v2-data-v1 scan-hl7v2-data))
-   (segment-terminator
+  (root message)
+  (lex
+   (segment-id SegmentId (external hl7v2-segment-id-v1 scan-hl7v2-segment-id))
+   (data Data (external hl7v2-data-v1 scan-hl7v2-data))
+   (segment-terminator SegmentTerminator
     (external hl7v2-segment-terminator-v1
               scan-hl7v2-segment-terminator))
-   (field-separator
+   (field-separator FieldSeparator
     (external hl7v2-field-separator-v1 scan-hl7v2-field-separator))
-   (component-separator
+   (component-separator ComponentSeparator
     (external hl7v2-component-separator-v1 scan-hl7v2-component-separator))
-   (repetition-separator
+   (repetition-separator RepetitionSeparator
     (external hl7v2-repetition-separator-v1 scan-hl7v2-repetition-separator))
-   (escape-character
+   (escape-character EscapeCharacter
     (external hl7v2-escape-character-v1 scan-hl7v2-escape-character))
-   (subcomponent-separator
+   (subcomponent-separator SubcomponentSeparator
     (external hl7v2-subcomponent-separator-v1
               scan-hl7v2-subcomponent-separator)))
   (rules
@@ -125,10 +100,10 @@
            (token escape-character)))))
   (extras)
   (keywords)
-  (parser-entrypoints
-   (message parse pure))
   (recoveries
    (message "GERBIL-PARSER-HL7V2-ER7" preserve-source))
+  (conflicts reject)
+  (case-insensitive #f)
   (flow
    (source lexical)
    (lexical hl7v2-er7-structure)

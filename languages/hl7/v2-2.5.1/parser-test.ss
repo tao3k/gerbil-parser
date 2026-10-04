@@ -8,8 +8,8 @@
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-ref parse-artifact-roundtrip
                  parse-artifact-success? parse-artifact-valid?)
-        ./parser
-        ./projection)
+        :gerbil-parser/languages/hl7/v2-2.5.1/parser
+        :gerbil-parser/languages/hl7/v2-2.5.1/projection)
 
 (def fixture-path "languages/hl7/v2-2.5.1/corpus/adt-a08-patient.hl7")
 

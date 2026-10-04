@@ -88,6 +88,7 @@
                  defgrammar-syntax)
         (only-in ./src/language/entry
                  +language-parser-entry-schema+
+                 deflanguage-loader LanguageLoader. LanguageLoaderContract
                  deflanguage-parser
                  language-parser-entry-ref)
         (only-in ./src/language/source
@@ -165,6 +166,7 @@
         defgrammar-syntax
         +language-parser-entry-schema+
         +source-language-schema+
+        deflanguage-loader LanguageLoader. LanguageLoaderContract
         deflanguage-parser
         declare-source-language
         source-language?

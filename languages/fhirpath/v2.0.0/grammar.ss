@@ -19,60 +19,25 @@
 
 (def +fhirpath-syntax-contract+ "fhirpath-normative-2.0.0-syntax.v1")
 
-(deflanguage-grammar fhirpath-v2
+(deflanguage fhirpath-v2
   (identity "fhirpath" "2.0.0" "fhirpath-normative-2.0.0-syntax.v1")
-  (syntax-kinds
-   (Expression node (left operator right operand invocation index))
-   (Term node (value))
-   (Literal node (value))
-   (ExternalConstant node (name))
-   (Invocation node (value))
-   (Function node (name parameter))
-   (ParamList node (parameter))
-   (Quantity node (value unit))
-   (Unit node (value))
-   (DateTimePrecision node (value))
-   (PluralDateTimePrecision node (value))
-   (TypeSpecifier node (name))
-   (QualifiedIdentifier node (name))
-   (Identifier node (value))
-   (IdentifierToken token (text))
-   (DelimitedIdentifierToken token (text))
-   (StringToken token (text))
-   (NumberToken token (text))
-   (DateToken token (text))
-   (DateTimeToken token (text))
-   (TimeToken token (text))
-   (WhitespaceTrivia token (text))
-   (CommentTrivia token (text))
-   (PunctuationToken token (text)))
-  (terminals
-   (identifier IdentifierToken)
-   (delimited-identifier DelimitedIdentifierToken)
-   (string StringToken)
-   (number NumberToken)
-   (date DateToken)
-   (datetime DateTimeToken)
-   (time TimeToken)
-   (whitespace WhitespaceTrivia)
-   (comment CommentTrivia)
-   (punctuation PunctuationToken))
-  (lexical-rules
-   (whitespace (whitespace+))
-   (comment (choice (line-comment "//") (block-comment "/*" "*/")))
-   (datetime (external fhirpath-datetime-v2 scan-fhirpath-datetime))
-   (time (external fhirpath-time-v2 scan-fhirpath-time))
-   (date (external fhirpath-date-v2 scan-fhirpath-date))
-   (delimited-identifier
+  (root expression)
+  (lex
+   (whitespace WhitespaceTrivia (whitespace+))
+   (comment CommentTrivia (choice (line-comment "//") (block-comment "/*" "*/")))
+   (datetime DateTimeToken (external fhirpath-datetime-v2 scan-fhirpath-datetime))
+   (time TimeToken (external fhirpath-time-v2 scan-fhirpath-time))
+   (date DateToken (external fhirpath-date-v2 scan-fhirpath-date))
+   (delimited-identifier DelimitedIdentifierToken
     (external fhirpath-delimited-identifier-v2
               scan-fhirpath-delimited-identifier))
-   (string (external fhirpath-string-v2 scan-fhirpath-string))
-   (number (external fhirpath-number-v2 scan-fhirpath-number))
-   (identifier (external fhirpath-identifier-v2 scan-fhirpath-identifier))
-   (punctuation
+   (string StringToken (external fhirpath-string-v2 scan-fhirpath-string))
+   (number NumberToken (external fhirpath-number-v2 scan-fhirpath-number))
+   (identifier IdentifierToken (external fhirpath-identifier-v2 scan-fhirpath-identifier))
+   (punctuation PunctuationToken
     (literals "<=" ">=" "!=" "!~" "$this" "$index" "$total"
               "." "[" "]" "+" "-" "*" "/" "&" "|" "<" ">"
-              "=" "~" "%" "(" ")" "{" "}" ",")) )
+              "=" "~" "%" "(" ")" "{" "}" ",")))
   (rules
    (expression
     (alias Expression (field operand (reference implies-expression))))
@@ -239,7 +204,6 @@
               (literal "in") (literal "is"))))))
   (extras whitespace comment)
   (keywords)
-  (parser-entrypoints (expression parse pure))
   (recoveries (expression "GERBIL-PARSER-FHIRPATH-N2" preserve-source))
   (conflicts reject)
   (case-insensitive #f)

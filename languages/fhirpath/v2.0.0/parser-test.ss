@@ -10,7 +10,7 @@
                  parse-artifact-ref parse-artifact-roundtrip
                  parse-artifact-success? parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
-        ./parser)
+        :gerbil-parser/languages/fhirpath/v2.0.0/parser)
 
 (def grammar-source-path
   "languages/fhirpath/v2.0.0/grammar-source/fhirpath.g4")

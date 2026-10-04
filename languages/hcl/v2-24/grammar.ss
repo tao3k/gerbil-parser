@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Version-pinned HCL native syntax grammar owner.
 
-(import (only-in :gerbil-parser/src/language/grammar deflanguage-grammar)
+(import (only-in :gerbil-parser/src/language/grammar deflanguage)
         (only-in :gerbil-parser/src/compiler/machine
                  install-parser-machine-direct-step! install-parser-machine-event-step!
                  install-parser-machine-direct-source!)
@@ -21,60 +21,23 @@
   "6b5068090eef06b1f127f61529db5ba0be7ed343")
 (def +hcl-syntax-contract+ "hcl-native-v2.24.0.v1")
 
-(deflanguage-grammar hcl-v2-24
+(deflanguage hcl-v2-24
   (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract+)
-  (syntax-kinds
-   (HclFile node (item))
-   (Body node (item))
-   (Attribute node (name value))
-   (Block node (type label body))
-   (TraversalExpression node (root step))
-   (CallExpression node (callee argument))
-   (BinaryExpression node (left operator right))
-   (UnaryExpression node (operator operand))
-   (ConditionalExpression node (condition consequent alternative))
-   (IndexExpression node (collection key))
-   (StringExpression node (value))
-   (HeredocExpression node (value))
-   (NumberExpression node (value))
-   (LiteralExpression node (value))
-   (TupleExpression node (element))
-   (ObjectExpression node (entry))
-   (ObjectEntry node (key value))
-   (Identifier token (text))
-   (Number token (text))
-   (String token (text))
-   (Heredoc token (text))
-   (HorizontalWhitespace token (text))
-   (Newline token (text))
-   (Comment token (text))
-   (Punctuation token (text))
-   (Unknown token (text)))
-  (terminals
-   (identifier Identifier)
-   (number Number)
-   (string String)
-   (heredoc Heredoc)
-   (horizontal-whitespace HorizontalWhitespace)
-   (newline Newline)
-   (comment Comment)
-   (block-comment-token Comment)
-   (punctuation Punctuation)
-   (unknown Unknown))
-  (lexical-rules
-   (horizontal-whitespace (horizontal-whitespace+))
-   (newline (newline+))
-   (comment (line-comment "#" "//"))
-   (block-comment-token (block-comment "/*" "*/"))
-   (heredoc (heredoc))
-   (string (quoted-string "\""))
-   (number (number))
-   (identifier (identifier))
-   (punctuation
+  (root config-file)
+  (lex
+   (horizontal-whitespace HorizontalWhitespace (horizontal-whitespace+))
+   (newline Newline (newline+))
+   (comment Comment (line-comment "#" "//"))
+   (block-comment-token Comment (block-comment "/*" "*/"))
+   (heredoc Heredoc (heredoc))
+   (string String (quoted-string "\""))
+   (number Number (number))
+   (identifier Identifier (identifier))
+   (punctuation Punctuation
     (literals "==" "!=" "<=" ">=" "&&" "||"
               "{" "}" "[" "]" "(" ")" "=" "," "." ":"
               "+" "-" "*" "/" "%" "!" "<" ">" "?"))
-   (unknown (fallback)))
+   (unknown Unknown (fallback)))
   (rules
    (config-file
     (alias HclFile
@@ -209,10 +172,13 @@
        (optional (literal ","))))))
   (extras horizontal-whitespace comment block-comment-token)
   (keywords)
-  (parser-entrypoints
-   (config-file parse pure))
   (recoveries
    (config-file "GERBIL-PARSER-HCL-V2-24" preserve-source))
+  (conflicts reject)
+  (case-insensitive #f)
+  (node-fields
+   (CallExpression callee argument)
+   (IndexExpression collection key))
   (flow
    (source lexical)
    (lexical hcl-structural-core)

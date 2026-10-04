@@ -525,9 +525,11 @@
         (keywords keyword-row ...)
         (recoveries recovery-row ...)
         (conflicts conflict-policy)
-        (case-insensitive case-insensitive-value))
+        (case-insensitive case-insensitive-value)
+        option ...)
      (identifier? #'prefix)
-     (let* ((prefix-name (syntax->datum #'prefix))
+     (let* ((options (syntax->datum #'(option ...)))
+            (prefix-name (syntax->datum #'prefix))
             (root-value (syntax->datum #'root-name))
             (lexical-rows (syntax->datum #'(lexical-row ...)))
             (rule-rows
@@ -562,37 +564,55 @@
             (node-rows '()))
        (require (memq root-value rule-names)
                 "concise language root must name a declared rule")
-       (for-each
-        (lambda (name)
-          (when (memq name rule-names)
-            (syntax-failure
-             "concise language identity is both a token and a rule")))
-        token-names)
+       (require (every (lambda (row)
+                         (and (pair? row) (memq (car row) '(node-fields flow))))
+                       options)
+                "unknown concise language option")
+       (require (= (length options) (length (unique (map car options))))
+                "duplicate concise language option")
        (def (record-node! kind fields)
          (require (symbol? kind)
                   "concise node kind must be an identifier")
          (let (current (assq kind node-rows))
            (if current
-             (unless (equal? (cdr current) fields)
-               (syntax-failure
-                "concise node kind has conflicting inferred fields"))
+             ;; Alternatives of the same public node contribute to one schema.
+             (set-cdr! current (unique (append (cdr current) fields)))
              (set! node-rows
                    (append node-rows (list (cons kind fields)))))))
-       (def (surface-fields expression)
+       ;; Transparent helper rules contribute fields to their nearest node.
+       ;; Named nodes stop propagation; visited rule names bound recursive
+       ;; helpers without hiding fields on the other alternatives.
+       (def (surface-fields expression (seen '()))
+         (def (rule-fields name)
+           (if (memq name seen) '()
+             (let (row (assq name rule-rows))
+               (if row
+                 (apply append
+                        (map (lambda (body)
+                               (surface-fields body (cons name seen)))
+                             (cdr row)))
+                 '()))))
          (cond
+          ((symbol? expression)
+           (if (and (memq expression rule-names)
+                    (not (memq expression token-names)))
+             (rule-fields expression) '()))
           ((not (pair? expression)) '())
           ((memq (car expression) '(node alias)) '())
+          ((eq? (car expression) 'reference)
+           (rule-fields (cadr expression)))
           ((eq? (car expression) 'field)
            (require (= (length expression) 3)
                     "invalid concise field expression")
            (cons (cadr expression)
-                 (surface-fields (caddr expression))))
+                 (surface-fields (caddr expression) seen)))
           ((memq (car expression) '(prec precedence))
-           (surface-fields (cadddr expression)))
+           (surface-fields (cadddr expression) seen))
           ((memq (car expression) '(optional repeat repeat1))
-           (surface-fields (cadr expression)))
+           (surface-fields (cadr expression) seen))
           ((memq (car expression) '(seq sequence choice))
-           (apply append (map surface-fields (cdr expression))))
+           (apply append (map (lambda (child) (surface-fields child seen))
+                              (cdr expression))))
           (else '())))
        (def (surface-body expressions)
          (require (pair? expressions)
@@ -605,6 +625,9 @@
           ((string? expression) (list 'literal expression))
           ((symbol? expression)
            (cond
+            ((and (memq expression token-names) (memq expression rule-names))
+             (syntax-failure
+              "ambiguous concise identifier; use token or reference"))
             ((memq expression token-names) (list 'token expression))
             ((memq expression rule-names) (list 'reference expression))
             (else
@@ -691,6 +714,18 @@
                     (cadr root-expression))))
          (require root-kind
                   "concise language root rule must construct one node")
+         ;; Optional fields retain a published ABI even when an alternative
+         ;; does not emit them. Ordinary packs infer their complete catalog.
+         (let (declared (assq 'node-fields options))
+           (when declared
+             (for-each
+              (lambda (row)
+                (require (and (pair? row) (assq (car row) node-rows)
+                              (list? (cdr row)) (every symbol? (cdr row)))
+                         "node-fields requires a declared node and field identifiers")
+                (let (node (assq (car row) node-rows))
+                  (set-cdr! node (unique (append (cdr row) (cdr node))))))
+              (cdr declared))))
          (for-each
           (lambda (kind)
             (when (assq kind node-rows)
@@ -735,7 +770,8 @@
                     ,(syntax->datum #'case-insensitive-value))
                    (lineage deflanguage
                             ,@(reverse (unique macro-lineage)))
-                   (flow (source lexical) (lexical parser) (parser cst)))))
+                   ,(or (assq 'flow options)
+                        '(flow (source lexical) (lexical parser) (parser cst))))))
            (with-syntax (((argument ...)
                           (datum->syntax #'prefix arguments)))
              #'(deflanguage-grammar argument ...))))))

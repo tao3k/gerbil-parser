@@ -153,27 +153,11 @@ and fragment constructor before calling `foldl` on empty operand actions.
 Both semantic backends now return the original value for an empty action list;
 nonempty actions keep the original fold and field/alias semantics.
 
-The [four-phase native receipt](receipts/empty-operand-actions.json) retains all
-40 x 100 observations for prepared LR and full source, the candidate source
-SHA-256 and compiler/heap settings. The workload is the 138-byte representative
-query (51 tokens, 37 significant tokens). Rows below use the median allocation
-of no-GC batches, normalized by 100 parses:
-
-| Variant | Prepared LR bytes/parse | Full source bytes/parse |
-| --- | ---: | ---: |
-| Original `a5b0a0f` | 136,771.36 | 228,873.76 |
-| Empty-action fast path | 124,483.36 | 216,585.76 |
-| Recompiled original | 136,771.36 | 228,873.76 |
-| Recompiled restored fast path | 124,483.36 | 216,585.76 |
-
-Removing and restoring the source change restores the allocation difference:
-12,288 bytes per parse, about 9.0% of the prepared LR control and 5.4% of full
-source. Generated Scheme places the null check before constructing the fold
-callback. No lower wall/CPU percentile or GC guarantee follows from this
-allocation result: CPU medians vary across the loaded host runs. The restored
-compile initially failed the unchanged 30-second idle fence; after clearing
-only its generated optimizer metadata, compilation and measurement completed.
-That earlier failed compile remains recorded, not reclassified as a pass.
+The Scheme/ASP runtime owners emit matched observations directly into job logs.
+Use `runtime/matched-stages.ss` with the existing benchmark contracts to compare
+prepared LR and full-source costs. Result snapshots are not stored in the
+language package. Generated Scheme places the null check before constructing
+the fold callback; allocation savings do not imply a wall/CPU or GC guarantee.
 
 `lr-empty-action-test.ss` checks nullable, identity and decorated operands,
 rejection equality across materialized/event backends, and edits through an

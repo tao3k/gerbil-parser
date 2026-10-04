@@ -393,3 +393,12 @@ The optional =src/runtime/actor= library provides application-owned Gerbil
 local actors without starting background services on import. Its separate
 language benchmark measures complete concurrent request batches rather than
 claiming that actor scheduling speeds up the LR algorithm.
+
+* Native test child monitoring
+
+=native-suite.ss= launches one isolated =gxi= test child per module and monitors
+its real output directly in the parent. It no longer boots a second interpreted
+watchdog before the test child. Each module retains the five-second silence
+fence, a 90-second total budget, explicit child exit propagation and a nonzero
+completed-case requirement. These processes isolate retained test state; they
+are not created by native parse calls or counted as parsing throughput.

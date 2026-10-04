@@ -139,3 +139,20 @@ Gerbil benchmark contract independently enforces elapsed-time and RSS policy.
 These receipts qualify development and compiler-side POO construction. They do
 not enter the generated parser machine, do not instrument the runtime hot path,
 and do not claim that a source-only observation executed runtime behavior.
+
+* Grammar boolean admission
+
+The exact builtin GrammarRole and Grammar descriptors specialize successful
+=.element?= and =.validate= calls with pure slot predicates and the same native
+prototype and composition obligations. This avoids constructing a classification
+and validation object for every scalar responsibility just to return a boolean.
+The descriptors are privately captured at owner initialization. Derived contracts
+continue through Core's complete admission, including custom classifiers,
+responsibilities and obligations. Explicit =.admit= always returns the complete
+Core evidence. Rejected validation uses Core's typed error and diagnostics.
+
+Declaration lists are checked on every invocation; no mutable candidate is
+cached as admitted. =t/grammar-contract-admission-test.ss= compares membership
+with complete evidence for every responsibility, missing ancestry, descriptor
+refinements, mutated lists and malformed composition. The existing 50-pair,
+20-sample ASP construction gate retains its 100 ms ceiling and 50 ms target.

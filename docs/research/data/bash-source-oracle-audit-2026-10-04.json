@@ -1,0 +1,54 @@
+{
+  "schema": "gerbil-parser.bash-source-audit.v1",
+  "audited_head": "675755009e46824327a1c05d5c787087c1297af4",
+  "oracle_commit": "3b0441c02c23862b71e65e073f833f51a540a310",
+  "oracle_branch": "codex/bash-source-prototype",
+  "submitted_to_pr13": false,
+  "files": [
+    {
+      "path": "languages/bash/v5-3/grammar.ss",
+      "sha256": "5be62e821cf237b63b5bbe9b8d24153b8c050b3e62d8d0adc72b221844f8057a",
+      "bytes": 615
+    },
+    {
+      "path": "languages/bash/v5-3/parser-core.ss",
+      "sha256": "92b09215e56b3fcb4f5b79698c7db53955276ddb63dcff019143d35286ced853",
+      "bytes": 34109
+    },
+    {
+      "path": "languages/bash/v5-3/parser.ss",
+      "sha256": "148e20b953326ae352c655243df56a914306b72372512a35bbba2f99f2fa0a58",
+      "bytes": 1017
+    },
+    {
+      "path": "languages/bash/v5-3/scan-words.ss",
+      "sha256": "9436a97e2d9c3ff1e889e7528e63d11c2e157c2454eb118abb732863775825d9",
+      "bytes": 4274
+    },
+    {
+      "path": "languages/bash/v5-3/scanner.ss",
+      "sha256": "261b70e696b0e180229a6681b9f984f72dfa5a95079cc19e2a9a0f9c83078c3e",
+      "bytes": 6245
+    },
+    {
+      "path": "languages/bash/v5-3/word.ss",
+      "sha256": "45c2fd04f70e47e0da33cb0e4f41db96e226bd343d3658dd1e9cb739d149b78d",
+      "bytes": 18045
+    },
+    {
+      "path": "t/bash-v5-3-test.ss",
+      "sha256": "e3faced2700098b91a18d04b02366a69dfbe316599e1677b802731794014e536",
+      "bytes": 10108
+    }
+  ],
+  "source_tests_executed": false,
+  "authority": "handwritten source parser; not canonical Grammar/Parser IR",
+  "existing_scheme_seams": [
+    "contextual reserved-word dispatch",
+    "balanced-word lexical matcher",
+    "FIFO deferred here-document scanner checkpoints"
+  ],
+  "aot_gap": "Rust LanguageSpec and lexical generator do not encode contextual/deferred scanner IR",
+  "abi_gap": "v1 runtime parse API dispatches builtin language names and uses NUL-terminated UTF-8 strings",
+  "design": "docs/architecture/0018-downstream-language-products.org"
+}

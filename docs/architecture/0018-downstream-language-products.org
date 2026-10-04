@@ -1,0 +1,215 @@
+#+title: RFC 0018 — Downstream language products and the Bash admission boundary
+#+date: 2026-10-04
+#+startup: overview
+
+* Status and scope
+
+Proposed product contract, grounded in PR 13 head
+=675755009e46824327a1c05d5c787087c1297af4=. The interfaces and commands described
+as targets below are not implemented by this RFC. This proposal extends RFCs
+0004, 0006, 0007 and 0008; it does not introduce another grammar authority.
+Bash 5.3 source syntax is the first demanding consumer. Shell execution,
+expansion evaluation and alias execution are outside its parser contract.
+
+The preserved experiment =3b0441c02c23862b71e65e073f833f51a540a310= exists only on
+=codex/bash-source-prototype=. Its grammar declaration wraps a handwritten
+source scanner/parser rather than a canonical Grammar/Parser IR language.
+The source files and test corpus are useful porting evidence, but neither Bash
+AOT compatibility nor full Bash conformance follows from that experiment.
+Its file identities are sealed in
+=docs/research/data/bash-source-oracle-audit-2026-10-04.json=; no tests were
+executed in this audit.
+
+* Current executable seams and gaps
+
+| Seam | Implemented at the audited head | Missing product behavior |
+|------+---------------------------------+--------------------------|
+| Authoring | Public =rust-rowan-grammar-support.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
+| Generation | =native-rust-rowan-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
+| Rust runtime | =parse(&LANGUAGE, source)=, generated LR tables, operand fields, lossless Rowan events | Contextual/deferred scanner IR parity and generated typed node access |
+| Scanner | Scheme contextual dispatch, balanced-word and deferred FIFO scanner tests | A Bash grammar with structured word interiors and matching Rust execution |
+| Distribution | Independent records Cargo fixture, no Gerbil at parse time | Release/package automation, minimal C product and Rust FFI consumer |
+| Runtime C ABI | Owned result allocation/release, UTF-8 error payloads, real C callback probe | Language-independent handles, explicit byte lengths and runtime-owner facade |
+
+The current =src/ffi/parse-artifact-v1.ss= imports GQL and openCypher directly;
+its =resolve-native-language= selects those builtins by name. That is not the
+extensibility boundary for a downstream language repository. The build-only
+=src/ffi/rust-rowan-aot-v1.ss= already accepts an external grammar path.
+The two C interfaces must remain distinguishable to downstream consumers.
+The current Rust lexical expression enum includes a heredoc expression, but
+that does not establish Bash queued marker, quote removal or =<<-= semantics.
+
+* One declaration, multiple release products
+
+A language author maintains =grammar.ss=, one package product manifest, and a
+corpus. The grammar alone owns language identity, syntax version, node/field
+catalogs, lexical behavior and conflict/recovery policy. The manifest selects
+output targets, package names, toolchain pins and corpus paths; it cannot
+silently redefine the grammar's identity or semantics.
+
+Conceptual author-owned repository (names are proposed):
+
+#+begin_example
+grammar.ss                 # public declarative grammar facade
+language-package.toml      # output selection and pinned generator/runtime
+corpus/                    # accepted, rejected, incomplete, edit histories
+#+end_example
+
+The release tool generates =Cargo.toml=, the Rust module/re-export, optional
+typed node wrappers, C header, native build declaration and product receipt.
+Authors never copy the upstream source tree, maintain generated LR tables,
+write an FFI dispatcher case, or duplicate a parser in Rust. Generated artifacts
+may be committed for release and verified by regeneration in language CI.
+A downstream Cargo build then uses the generated language crate and generic
+runtime only. Gerbil is a producer/release tool, not a required consumer tool.
+
+| Product | Consumer dependency | Runtime authority | Admission |
+|---------+---------------------+-------------------+-----------|
+| Pure Rust AOT crate | Generic Rowan runtime + selected generated language | Generated Grammar/Parser/Scanner IR | All required operations admitted by Rust backend |
+| Native C library + Rust safe facade | Selected Gerbil AOT closure + native runtime dependencies | Same compiled language IR executed in Gerbil | C lifecycle, result ownership and parity gates |
+
+Both products use the same language artifact identity. Packaging may produce
+separate backend digests. A missing Rust opcode is a build rejection naming
+the source rule, normalized operation and supported target; it cannot silently
+turn the native product into an AOT-parity claim. Native C packaging is not
+assumed to be standalone merely because Gerbil can export C functions.
+
+The generator must finish validation before publishing a product directory.
+Outputs are staged and atomically published only after all selected targets
+succeed; failed generation cannot leave half-new tables beside an old header.
+The receipt binds transitive grammar inputs, toolchain/runtime pins, artifact
+schema versions, required capabilities and each output digest. Changing a
+shared scanner role is therefore a detectable language artifact change.
+
+* Bash syntax granularity
+
+More nodes is not itself a better syntax contract. Expose stable named nodes
+and fields for tooling decisions, preserve punctuation/trivia as source-backed
+leaves, and hide LR helper productions. Do not impose evaluated shell values
+on the CST. Generated typed accessors remain optional; generic tree/event APIs
+must retain every source byte and diagnostic.
+
+| Syntax | Named nodes / useful fields | Required distinction |
+|--------+-----------------------------+----------------------|
+| Lists | Script, CommandList, AndOrList, Pipeline; commands/operators | =&&=, =||=, =|&= and asynchronous separators |
+| Commands | SimpleCommand; assignments, command, arguments, redirects | Reserved word vs ordinary argument; =a=b= position |
+| Words | Word, WordPart, QuotedPart, Escape | Adjacent parts form one word; quotes retain exact spans |
+| Expansion | ParameterExpansion, CommandSubstitution, ProcessSubstitution, ArithmeticExpansion | Nested source trees, parameter operator and subscript fields |
+| Compounds | If/Case/For/Select/While/Until, Function, Subshell, BraceGroup | Bodies/conditions/branches with stable field identities |
+| Redirection | Redirection, HereDocument; fd, operator, target/body/delimiter | FIFO marker binding, quoted delimiter, tab stripping policy |
+| Incomplete input | Missing/Error nodes plus diagnostics | Editor recovery must preserve bytes and admit no false success |
+
+A single opaque balanced-word token passes lexical recognition tests but does
+not supply a refactoring-quality tree for nested substitutions. Bash admission
+needs normalized word/interpolation modes and grammar entrypoints that expose
+interior tokens and fields. Subparse boundaries must share UTF-8 byte ownership
+with their parent; emitting overlapping parent/child token events is rejected.
+
+The old source parser is a corpus/reference candidate, not the implementation
+authority. Port its cases into the declarative language contract and independently
+check canonical artifacts. Bash syntax checking and Tree-sitter projections can
+provide separate references; disagreements must be classified rather than
+resolved automatically by copying either tree.
+
+* Contextual scanner portability
+
+Scheme owns the normalized scanner operations. Rust implements their specified
+execution, not Bash-specific callbacks. Compile grammar roles into immutable
+mode/dispatch/transition tables; source state is per parse/session.
+
+Bash requires command-position keyword/assignment admission; quote and nested
+substitution stacks; here-document marker queues; delimiter quote-removal and
+=<<-= tab policy. Checkpoint identity includes scanner artifact identity,
+source binding, byte cursor, mode/stack and pending marker state. Restoring a
+checkpoint against a different source/artifact fails closed. Incremental reuse
+requires matching scanner state, not merely equal token text or length.
+
+The generic IR extension must carry these states across both backends before
+Bash pure Rust AOT is advertised. A bounded state limit produces a typed limit
+diagnostic; it must never truncate state or silently change recognition.
+The capability inventory and golden transition traces are shared conformance
+data. Existing Scheme balanced-word/deferred tests are starting seams, not
+proof that the Rust lexer or complete Bash grammar implements them.
+
+* C ABI product boundary (proposed v2)
+
+Preserve published v1 result initialization/replacement/release behavior.
+A new length-bearing API uses =const uint8_t*= plus =size_t= for source bytes;
+NUL-containing and invalid UTF-8 inputs must be handled explicitly without
+string truncation. ABI version, header struct sizes and capability negotiation
+are independent from syntax and artifact versions.
+
+A language handle is admitted from a selected compiled language product.
+Parsing accepts that handle rather than a global language-name registry.
+The handle's descriptor binds grammar/parser/scanner digests, node and field
+catalogs, recovery policy and supported entrypoints. Admission validates the
+artifact before any parse; arbitrary grammar modules are build-time trusted
+code and are not loaded as data in a parse request.
+
+Result buffers remain C-owned, with explicit byte lengths and idempotent
+release. No GC-managed pointer escapes to Rust. A Rust guard owns the result
+and copies/borrows within its lifetime according to the declared API. Language
+handles cannot outlive their runtime/library owner. Library unload, runtime
+shutdown, cancellation, panic/exception transport and repeated release need
+separate tests; the current disposable test-child exit is not teardown evidence.
+
+The first native facade serializes calls through one initialized Gerbil runtime
+owner thread. It is not Send/Sync by assertion. Worker isolation and parallel
+runtime use require dedicated qualification; callbacks may not enter Gerbil
+from arbitrary Rust threads. Transport success is distinct from syntax
+acceptance: a rejected source can still produce a valid lossless artifact and
+structured diagnostics. Byte limits, state limits and malformed artifacts
+remain distinct transport/admission failures.
+
+* Measurable comparison with Tree-sitter
+
+Tree-sitter already generates C and Rust scaffolding with =tree-sitter init=;
+matching that workflow is the minimum authoring gate. Its external scanner
+contract has create/destroy/serialize/deserialize/scan callbacks, and Bash
+heredocs are explicitly an external-scanner use case. Those are actual
+comparison points, not claims that Tree-sitter lacks language packaging.
+
+The intended improvement is: no author-written Rust parser or scanner C for
+the admitted shared IR, explicit syntax/field/identity contracts, and one
+language declaration producing both pure Rust and native C products. Publish
+comparative results only after matching source coverage and output obligations.
+
+| Gate | Evidence required before claiming an advantage |
+|------+------------------------------------------------|
+| Author effort | Count handwritten files/lines and commands from empty external repo to working Rust consumer |
+| Granularity | Nested word/substitution/redirect field queries and edits without source-string reparsing |
+| Portability | Scheme/Rust/C artifact and field equality over accepted, rejected and incomplete corpus |
+| Incrementality | Fresh-equivalent forward/inverse edits including quoted markers, nesting and Unicode; changed work counters |
+| Performance | Matched cold build, binary size, startup, full parse/edit p50/p95, allocation and peak memory |
+| Product isolation | One selected language links no GQL/Cypher/Bash sibling artifact; two languages retain distinct identities |
+| Ergonomics | Clean Cargo consumer without Gerbil/Node; native C/Rust facade with explicit lifecycle and error behavior |
+
+Upstream reference interfaces:
+- https://tree-sitter.github.io/tree-sitter/cli/init.html
+- https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners.html
+- https://github.com/tree-sitter/tree-sitter-bash/blob/master/grammar.js
+
+* Ordered implementation and closure
+
+1. Add a backend capability preflight over Grammar/Parser/Scanner IR and make
+   the standalone external records package the minimal authoring/product gate.
+   Reuse the existing Scheme-owned generator; do not misuse the Rust
+   =gerbil-parser-build-support= test-macro crate as a second generator.
+2. Generate package wrappers, receipts and typed syntax/field catalogs from
+   that admitted artifact. Qualify atomic generation and a clean external
+   Cargo consumer before adding Bash-specific syntax complexity.
+3. Port contextual/deferred state to Rust from the normalized scanner contract;
+   compare state traces, source-exhaustive events and edit histories against
+   Scheme. No handwritten downstream scanner is required for admitted modes.
+4. Port Bash source corpus to =deflanguage= with the node/field contract above.
+   Recovery, incomplete syntax and nested word structure are required admission
+   work, not a later documentation promise.
+5. Add language-bound native C AOT packaging and length-bearing handle APIs.
+   Qualify startup/shutdown, ownership and a real Rust FFI consumer on Linux and
+   macOS. Keep pure Rust and native-runtime distribution dependencies explicit.
+6. Run an independent language repository containing only author-owned inputs,
+   generate both selected products, test parity and inspect dependency closure.
+   Only then publish comparative Tree-sitter metrics and Bash support claims.
+
+This order is one downstream-language product track. Completing packaging alone
+or preserving the historical source parser does not close Bash/Rust support.

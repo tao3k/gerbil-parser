@@ -246,3 +246,25 @@ paired CPU/GC observations. `lr-empty-action-test.ss` also asserts exact field
 and token order for three operands, trivia and a nullable middle operand, in
 addition to backend equality and incremental production replay. An allocation
 change alone does not satisfy the 150ms wall P95 contract.
+
+## Decorated operand actions and derivation counts
+
+Field and alias action chains now use explicit-parameter tail recursion in both
+semantic backends. This preserves `foldl1` action order and terminal identity
+while removing the callback that captured offset and constructor for every
+nonempty action list. The nested field/alias regression in
+`t/lr-empty-action-test.ss` checks independent node and field order, trivia,
+lossless publication, and equality between the materialized and event paths.
+
+The existing matched-stage command also emits `GQL-REDUCTION-COUNTS` before any
+measured batch. For the representative query its selected derivation contains
+288 reductions, 75 concatenating reductions, 192 identity operands and 132
+decorated operands. `profile-gql-reductions` verifies that enabling the observer
+leaves the public artifact identical; rejected inputs produce no counts report.
+Counts describe the selected derivation, not discarded GLR work or actor
+requests. The observer, tree traversal, validation and logging are untimed.
+
+Compare no-GC allocation observations across baseline, candidate, reversal and
+candidate repeat using the same native compiler, input, heap and sample counts.
+Keep wall-ranked CPU/GC observations paired. Reduced allocation does not by
+itself prove a latency improvement or satisfy the unchanged 150ms wall gate.

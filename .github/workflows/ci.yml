@@ -182,6 +182,7 @@ jobs:
       - name: Compile Scheme test support
         run: |
           gerbil env gxc t/line-structure-assertions.ss \
+            languages/gql/iso-39075-2024/benchmarks/runtime/reduction-counts.ss \
             languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss \
             languages/gql/iso-39075-2024/benchmarks/runtime/actors.ss
           gerbil env gxi build-native-test-driver.ss compile

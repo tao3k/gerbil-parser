@@ -377,14 +377,13 @@
 ;; apply-operand-actions
 ;; : (-> List List Fixnum List)
 (def (apply-operand-actions value actions default-offset fragment-constructor)
-  ;; Empty operand actions are common in generated pass productions. Return
-  ;; before allocating the fold callback that captures offset and constructor.
-  (if (null? actions) value
-    (foldl (lambda (action children)
-             (apply-operand-action
-              action children default-offset fragment-constructor))
-           value
-           actions)))
+  ;; Preserve foldl1's action order and terminal identity without a callback
+  ;; capturing the offset and constructor for each decorated operand.
+  (if (pair? actions)
+    (apply-operand-actions
+     (apply-operand-action (car actions) value default-offset fragment-constructor)
+     (cdr actions) default-offset fragment-constructor)
+    value))
 
 ;;; Keep the two-list reduction loop closed: offset and constructor travel
 ;;; as explicit parameters, so no callback captures them for each reduction.
@@ -415,13 +414,15 @@
      (else (error "unknown LR semantic action" action)))))
 
 (def (apply-operand-actions/events value actions offset ignored-constructor)
-  (if (null? actions) value
-    (foldl (lambda (action children)
-             (case (car action)
-               ((field) (event-children-field (cadr action) children offset))
-               ((alias) (event-children-alias (cadr action) children offset))
-               (else (error "unknown event semantic action" action))))
-           value actions)))
+  (if (pair? actions)
+    (apply-operand-actions/events
+     (let (action (car actions))
+       (case (car action)
+         ((field) (event-children-field (cadr action) value offset))
+         ((alias) (event-children-alias (cadr action) value offset))
+         (else (error "unknown event semantic action" action))))
+     (cdr actions) offset #f)
+    value))
 (def (reduce-operands/events operands values offset children)
   (if (and (pair? operands) (pair? values))
     (reduce-operands/events

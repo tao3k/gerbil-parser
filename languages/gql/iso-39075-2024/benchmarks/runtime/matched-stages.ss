@@ -2,7 +2,8 @@
 ;;; Informational CPU/wall samples; the existing ASP contract owns admission.
 ;;; Prepared stages use the directed parser's token kinds, not global lexing.
 ;;; Their costs are not a decomposition of the streaming full-source path.
-(import (only-in :asp-gerbil-scheme/src/benchmark/statistics benchmark-percentile-index)
+(import (only-in ./reduction-counts profile-gql-reductions)
+        (only-in :asp-gerbil-scheme/src/benchmark/statistics benchmark-percentile-index)
         :gerbil-parser/languages/gql/iso-39075-2024/parser
         :gerbil-parser/src/compiler/machine
         :gerbil-parser/src/runtime/lexer
@@ -111,6 +112,9 @@
                             source tokens (car parsed)
                             (parser-machine-trivia gql-iso-parser)) reference))
         (error "prepared GQL stages do not reproduce the directed artifact"))
+      ;; Observer work stays outside measurement and leaves public artifacts intact.
+      (write (list 'GQL-REDUCTION-COUNTS (profile-gql-reductions source)))
+      (newline) (force-output)
       (write (list (cons 'sourceBytes (parse-artifact-ref reference 'sourceByteLength))
                    (cons 'tokens (length tokens))
                    (cons 'significantTokens (length significant))))

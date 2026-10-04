@@ -49,6 +49,21 @@
   (conflicts reject)
   (case-insensitive #f))
 
+(deflanguage chained-action-probe
+  (identity "chained-action-probe" "v1" "chained-action-probe.v1")
+  (root source-file)
+  (lex (word Word (identifier))
+       (space Space (whitespace+)))
+  (rules
+   (source-file
+    (node SourceFile
+     (field outer (alias Renamed (field inner (node Original word)))))))
+  (extras space)
+  (keywords)
+  (recoveries)
+  (conflicts reject)
+  (case-insensitive #f))
+
 (def (parse-probe source events?)
   (parameterize ((current-lr-event-program-enabled? events?))
     (parse-source empty-action-probe-parser source)))
@@ -88,6 +103,24 @@
        '(("a,b,c" (first middle last) ("a" "," "b" "," "c"))
          ("a,,c" (first last) ("a" "," "," "c"))
          ("a, b, c" (first middle last) ("a" "," " " "b" "," " " "c")))))
+    (test-case "chained fields and aliases retain their nesting order"
+      (for-each
+       (lambda (source)
+         (let* ((artifact (parameterize ((current-lr-event-program-enabled? #f))
+                           (parse-source chained-action-probe-parser source)))
+                (events (parse-artifact-events artifact)))
+           (check (parse-artifact-success? artifact) => #t)
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check (map (lambda (event) (vector-ref event 1))
+                       (filter (lambda (event) (eq? (event-kind event) 'start-field)) events))
+                  => '(outer inner))
+           (check (map (lambda (event) (vector-ref event 2))
+                       (filter (lambda (event) (eq? (event-kind event) 'start-node)) events))
+                  => '(SourceFile Renamed Original))
+           (check (parameterize ((current-lr-event-program-enabled? #t))
+                    (parse-source chained-action-probe-parser source)) => artifact)))
+       '("a" " a ")))
     (test-case "editing through empty source matches independent production replay"
       (for-each
        (lambda (events?)

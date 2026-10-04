@@ -1,6 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Profiling must preserve lossless Unicode artifacts and LR token admission.
 (import :std/test
+        (only-in "./parser" +gql-representative-query+)
+        (only-in "./benchmarks/runtime/reduction-counts" profile-gql-reductions)
         (only-in "./benchmarks/runtime/matched-stages" profile-gql-stages sample-at-percentile))
 (export gql-benchmark-profile-test)
 (def gql-benchmark-profile-test
@@ -14,6 +16,14 @@
            (check (cdr (assq 'sampleCount row)) => 2)
            (check (cdr (assq 'parsesPerSample row)) => 2)
            (check (length (cdr (assq 'samples row))) => 2)) reports)))
+    (test-case "selected derivation counts expose reduction and action costs"
+      (let (counts (profile-gql-reductions +gql-representative-query+))
+        (check (cdr (assq 'scope counts)) => 'selected-derivation)
+        (check (cdr (assq 'reductions counts)) => 288)
+        (check (cdr (assq 'concatenatingReductions counts)) => 75)
+        (check (cdr (assq 'identityOperands counts)) => 192)
+        (check (cdr (assq 'decoratedOperands counts)) => 132))
+      (check-exception (profile-gql-reductions "RETURN @") true))
     (test-case "wall percentile retains its own CPU and GC observation"
       (let* ((rows (map (lambda (sample)
                           (list (cons 'sample sample) (cons 'wall-ms sample)

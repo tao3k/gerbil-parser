@@ -8,7 +8,7 @@
         (only-in :gerbil-parser/src/runtime/parser prepare-contextual-parser parse-source/contextual/prepared)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine
-                 language-grammar-schema language-grammar-language language-grammar-version
+                 +language-grammar-schema+ language-grammar-language language-grammar-version
                  language-grammar-contract language-grammar-grammar language-grammar-ir
                  language-grammar-observability make-language-grammar)
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
@@ -54,7 +54,7 @@
                                              (cons 'syntax-kinds '()) row))
                            (language-grammar-grammar descriptor)))
              (invalid (make-language-grammar
-                       (language-grammar-schema descriptor) (language-grammar-language descriptor)
+                       +language-grammar-schema+ (language-grammar-language descriptor)
                        (language-grammar-version descriptor) (language-grammar-contract descriptor)
                        grammar (language-grammar-ir descriptor) (language-grammar-machine descriptor)
                        (language-grammar-observability descriptor)))

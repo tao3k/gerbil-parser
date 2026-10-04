@@ -271,7 +271,10 @@ the public =const char *= entrypoints forward read-only inputs to those
 callbacks without changing the public v1 signature.
 
 =build-native-ffi-tests.ss= compiles a real C consumer through the standard
-module build owner. Its tests invoke both public APIs, reuse a parse result
+module build owner. On ELF the consumer explicitly links its two native
+module dependencies; importing Scheme modules alone does not make their C
+symbols globally visible to a separately loaded consumer. Its tests invoke
+both public APIs, reuse a parse result
 1,000 times, cover UTF-8/error/NULL/release behavior, and compare three Rowan
 payloads byte-for-byte with the canonical Scheme generator. CI runs this on
 Linux and macOS. This establishes compiled callback conformance; it does not

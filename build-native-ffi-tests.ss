@@ -9,4 +9,15 @@
                                (path-directory (this-source-file))))
           ,@(cond-expand
              (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
-             (else '())))))
+             ;; ELF keeps separately loaded modules' C symbols local. Declare
+             ;; the consumer's actual native link dependencies explicitly.
+             (else
+              (list "-ld-options"
+                    (string-append
+                     (path-expand
+                      "lib/gerbil-parser/src/ffi/parse-artifact-v1-native~0.o1"
+                      (gerbil-path))
+                     " "
+                     (path-expand
+                      "lib/gerbil-parser/src/ffi/rust-rowan-aot-v1-native~0.o1"
+                      (gerbil-path)))))))))

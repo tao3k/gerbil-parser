@@ -118,3 +118,54 @@ pub extern "C" fn gerbil_parser_rust_native_probe() -> i32 {
         Err(_) => -1,
     }
 }
+
+/// Independent C entry: Rust owns setup, handle/result lifetimes and cleanup.
+#[cfg(feature = "standalone")]
+#[unsafe(no_mangle)]
+pub extern "C" fn gerbil_parser_rust_native_host_probe() -> i32 {
+    let result = std::panic::catch_unwind(|| {
+        println!("RUST-HOST-SETUP");
+        // SAFETY: a fresh independent process links exactly this standalone
+        // bundle, which stays loaded until process exit. No other VM is live.
+        let mut runtime = unsafe {
+            gerbil_parser_native::NativeRuntime::start(gerbil_parser_native::RuntimeApi::linked(
+                records_language_create,
+            ))
+        }
+        .expect("runtime setup");
+        println!("RUST-HOST-READY");
+        {
+            let language = runtime.language().expect("owned language");
+            let parsed = language.parse("α=1\n").expect("owned parse");
+            assert!(
+                parsed
+                    .contextual_view(&generated::CONTEXTUAL, 3)
+                    .unwrap()
+                    .accepted()
+            );
+        }
+        check();
+        runtime.close().expect("normal SDK cleanup");
+        runtime.close().expect("Rust close is idempotent");
+        assert!(matches!(
+            runtime.language(),
+            Err(gerbil_parser_native::NativeError::RuntimeClosed)
+        ));
+        // SAFETY: the linked library is still loaded; admission guards reject
+        // both a new session and VM restart without entering the cleaned VM.
+        assert!(matches!(
+            unsafe { NativeSession::attach(api()) },
+            Err(gerbil_parser_native::NativeError::OwnerThread)
+        ));
+        assert!(matches!(
+            unsafe {
+                gerbil_parser_native::NativeRuntime::start(
+                    gerbil_parser_native::RuntimeApi::linked(records_language_create),
+                )
+            },
+            Err(gerbil_parser_native::NativeError::Runtime(-3))
+        ));
+        println!("RUST-HOST-CLEANUP-OK");
+    });
+    if result.is_ok() { 0 } else { -1 }
+}

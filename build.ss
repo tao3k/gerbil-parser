@@ -21,6 +21,7 @@
   '("build-native-test-driver.ss"
     "build-native-ffi-tests.ss"
     "build-rust-native-tests.ss"
+    "build-native-library.ss"
     "build-gparse.ss"
     "build-rust-rowan-aot.ss"
     "generate-rust-rowan.ss"

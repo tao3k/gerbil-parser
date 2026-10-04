@@ -50,6 +50,10 @@ impl RawResult {
 }
 
 unsafe extern "C" {
+    #[cfg(feature = "standalone")]
+    fn gerbil_parser_runtime_init() -> i32;
+    #[cfg(feature = "standalone")]
+    fn gerbil_parser_runtime_shutdown() -> i32;
     fn gerbil_parser_language_abi_version() -> u32;
     fn gerbil_parser_language_is_owner_thread() -> i32;
     fn gerbil_parser_language_descriptor(handle: u64, result: *mut RawResult) -> i32;
@@ -78,6 +82,27 @@ impl LanguageApi {
             release: gerbil_parser_language_release,
             result_init: gerbil_parser_result_v2_init,
             result_release: gerbil_parser_result_v2_release,
+        }
+    }
+}
+
+/// Functions from one standalone runtime bundle and its selected language pack.
+#[cfg(feature = "standalone")]
+#[derive(Clone, Copy)]
+pub struct RuntimeApi {
+    pub init: unsafe extern "C" fn() -> i32,
+    pub shutdown: unsafe extern "C" fn() -> i32,
+    pub language: LanguageApi,
+}
+#[cfg(feature = "standalone")]
+impl RuntimeApi {
+    /// Bind a compiled standalone bundle to its selected generated factory.
+    #[must_use]
+    pub const fn linked(create: unsafe extern "C" fn() -> u64) -> Self {
+        Self {
+            init: gerbil_parser_runtime_init,
+            shutdown: gerbil_parser_runtime_shutdown,
+            language: LanguageApi::linked(create),
         }
     }
 }

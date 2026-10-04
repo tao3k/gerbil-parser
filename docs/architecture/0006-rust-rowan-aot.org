@@ -457,7 +457,54 @@ releases of two handles and 111 results. A hundred repeated parses share one
 session and handle. This verifies handle/result ownership during a live VM;
 the disposable test exit still does not qualify standalone VM shutdown.
 
-The remaining standalone-host gate is a normal static Gerbil module closure
-with the Gambit SDK's =___setup= / =___cleanup= embedding lifecycle, followed
-by a real C/Rust host parse and normal cleanup. The current native probe must
-not be represented as that gate.
+* Standalone runtime and native library product
+
+=build-native-library.ss= delegates bootstrap generation, static module closure
+and executable linking to the public Gerbil compiler API. The bootstrap only
+emits Scheme/interface files; dynamic bootstrap modules are not consumed by
+this library product. Its temporary output directory is separate from the
+language/package cache. =scripts/build-native-library.py= accepts compiled
+language module identities, isolates their Scheme binding names, and links the
+normal compiler product as a shared library. It never rewrites generated C.
+
+The installed SDK supplies Gambit headers, initialization and cleanup. The
+runtime C owner uses =___setup= once and =___cleanup= on its initializing OS
+thread. See Gambit's official [[https://raw.githubusercontent.com/gambit/gambit/master/examples/pthread/pthread.c][C embedding example]]. Initialization failure and
+successful cleanup permanently close this process-wide owner; restart is not
+supported. Live language handles or allocated C results block cleanup. A
+successful resource barrier disables C callback admission before cleanup.
+Foreign-thread operations and callbacks after cleanup fail before entering
+Scheme. These functions extend ABI v2 without changing its existing signatures.
+
+The optional Rust =standalone= feature exposes =RuntimeApi= and =NativeRuntime=.
+Its borrow chain includes the runtime, so live language/result/view borrowers
+prevent =close= or runtime destruction. Rust =close= is idempotent after
+successful cleanup; independently retained C resources require explicit
+release before dropping the owner. Existing embedding hosts retain the default
+=NativeSession::attach= interface and its explicit host lifetime contract.
+
+=scripts/test-native-host.py= executes independent C and Rust processes with
+normal SDK setup and cleanup. It verifies duplicate initialization, wrong OS
+thread, live-handle and live-result barriers, parsing/tree parity, Rust automatic
+release counts and closed-runtime rejection. This gate is distinct from the
+original disposable Gerbil transport test, which exits its child explicitly.
+Builds retain 90-second total / 30-second inactivity limits; execution retains
+90-second total / 5-second inactivity limits. A build timeout remains a failed
+build even when its linked artifact separately passes functional execution.
+
+The native compiler must consume coherent package outputs. A stale optimizer
+interface can make a consumer call an internal dispatch entry absent from an
+unoptimized producer. The normal Gerbil package owner must rebuild producers
+and consumers together; the native library builder does not manufacture or
+repair those optimizer interfaces. The compiler's installed ABI configuration
+is retained when its official C compiler selection is carried through the SDK's
+=GERBIL_GSC= entrypoint. No runtime replacement is installed.
+
+A local complete qualification used coherent optimized package outputs, the
+installed SDK's ABI macros and its official Clang selection. The build finished
+in 59.54 seconds under the original 90/30 gate. Independent C and Rust processes
+then completed normal SDK cleanup, with 100-call wall measurements of 12.337 ms
+and 8.019 ms respectively. These are current measurements on a shared host,
+not a controlled speedup claim. The Rust process admitted all five source cases,
+compared native contextual trees with Rust AOT, and released two handles and
+111 results. Exact-head Ubuntu qualification remains a separate CI gate.

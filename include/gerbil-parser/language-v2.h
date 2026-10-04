@@ -36,6 +36,11 @@ typedef struct { int32_t status; uint8_t *payload; size_t length; } gerbil_parse
  * belongs to the embedding host. This predicate is safe after module init. */
 int32_t gerbil_parser_language_is_owner_thread(void);
 uint32_t gerbil_parser_language_abi_version(void);
+/* Embedding shutdown barrier: owner thread only; 0 closes VM admission,
+ * -1 rejects thread/state, -2 retains admission while handles or allocated
+ * result payloads remain. After success no Scheme callback is admitted.
+ * This does not perform VM cleanup; runtime.h owns the standalone lifecycle. */
+int32_t gerbil_parser_language_runtime_detach(void);
 void gerbil_parser_result_v2_init(gerbil_parser_result_v2 *result);
 void gerbil_parser_result_v2_release(gerbil_parser_result_v2 *result);
 int32_t gerbil_parser_language_descriptor(gerbil_parser_language_v2 language, gerbil_parser_result_v2 *result);

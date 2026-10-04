@@ -11,6 +11,8 @@ pub enum NativeError {
     Transport(i32),
     InvalidBuffer,
     SourceTooLarge,
+    Runtime(i32),
+    RuntimeClosed,
 }
 
 /// Borrowed host runtime admission, deliberately neither `Send` nor `Sync`.
@@ -75,6 +77,8 @@ impl std::fmt::Display for NativeError {
             Self::Create => f.write_str("native language registration failed"),
             Self::Transport(status) => write!(f, "native language transport failed: {status}"),
             Self::InvalidBuffer => f.write_str("native result has an invalid allocation"),
+            Self::Runtime(status) => write!(f, "native runtime lifecycle failed: {status}"),
+            Self::RuntimeClosed => f.write_str("native runtime has been closed"),
             Self::SourceTooLarge => f.write_str("native source exceeds 64 MiB"),
         }
     }

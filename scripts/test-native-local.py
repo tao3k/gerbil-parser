@@ -157,6 +157,8 @@ def main():
                     '(import :gerbil-parser/t/fixtures/native-ffi/rust-language-probe) (main)'],
                     required=["RUST-NATIVE-OK", "RUST-NATIVE-OWNERSHIP-OK handles=2 results=111",
                               "RUST-NATIVE-100-CALLS"], timeout=90)
+                subprocess.run([sys.executable, "scripts/test-native-host.py"],
+                               env=environment, check=True)
             modules = (["languages/gql/iso-39075-2024/parser", "src/runtime/parser"]
                        if suite == "gql" else ["src/ffi/rust-rowan-aot-v1"])
             for module in modules:

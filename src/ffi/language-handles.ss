@@ -4,7 +4,7 @@
                  native-parse-binary-payload native-descriptor-payload))
 (export register-native-language! release-native-language!
         native-language-handle-descriptor native-language-handle-parse
-        native-language-handle-owner! +native-source-byte-limit+)
+        native-language-handle-owner! native-language-handle-count +native-source-byte-limit+)
 (def +native-source-byte-limit+ 67108864)
 (def +owner-thread+ #f)
 (def +next-handle+ 0)
@@ -13,6 +13,9 @@
   (unless +owner-thread+ (set! +owner-thread+ (current-thread)))
   (unless (eq? +owner-thread+ (current-thread))
     (error "native language handle requires its runtime owner thread")))
+(def (native-language-handle-count)
+  (native-language-handle-owner!)
+  (hash-length +languages+))
 (def (register-native-language! descriptor (contextual-product #f))
   (native-language-handle-owner!)
   (let (language (bind-native-language descriptor contextual-product))

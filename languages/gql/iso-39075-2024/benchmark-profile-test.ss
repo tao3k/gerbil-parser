@@ -3,6 +3,7 @@
 (import :std/test
         (only-in "./parser" +gql-representative-query+)
         (only-in "./benchmarks/runtime/reduction-counts" profile-gql-reductions)
+        (only-in "./benchmarks/runtime/execution-counts" profile-gql-prepared-execution)
         (only-in "./benchmarks/runtime/matched-stages"
                  profile-gql-stages sample-at-percentile
                  gc-statistics-snapshot sample-gc-snapshot))
@@ -30,6 +31,17 @@
         (check (cdr (assq 'identityOperands counts)) => 192)
         (check (cdr (assq 'decoratedOperands counts)) => 132))
       (check-exception (profile-gql-reductions "RETURN @") true))
+    (test-case "stepped executor accounts for actions and preserves directed artifacts"
+      (let (counts (profile-gql-prepared-execution +gql-representative-query+))
+        (check (cdr (assq 'scope counts)) => 'prepared-lr-single-action-checkpoints)
+        (check (cdr (assq 'shifts counts)) => 37)
+        (check (cdr (assq 'reductions counts)) => 288)
+        (check (cdr (assq 'actions counts)) => 325)
+        (check (cdr (assq 'accepts counts)) => 1)
+        (check (+ (cdr (assq 'nonEofObservations counts))
+                  (cdr (assq 'eofObservations counts))) => 326))
+      (check (cdr (assq 'accepts (profile-gql-prepared-execution "match (n) return n"))) => 1)
+      (check-exception (profile-gql-prepared-execution "RETURN @") true))
     (test-case "wall percentile retains its own CPU and GC observation"
       (let* ((rows (map (lambda (sample)
                           (list (cons 'sample sample) (cons 'wall-ms sample)

@@ -439,3 +439,49 @@ Wall and CPU samples remain paired in the raw benchmark output. Host
 contention prevents attributing P50/P95 changes to this allocation reduction;
 collection frequency and latency are separate questions. The existing
 bounded test and benchmark deadlines remain unchanged.
+
+## Executed prepared LR actions outside the timed batches
+
+`runtime/execution-counts.ss` now emits `GQL-LR-EXECUTION` before the first
+measurement. It advances the existing prepared executor by one action per
+immutable checkpoint, verifies every action/shift delta, and requires the
+same explicit EOF acceptance and prepared result. Publishing that result
+must reproduce the directed parser's public artifact. A call that finishes
+a fallback suffix cannot be admitted as a complete checkpoint trace.
+Unused fork rows in the grammar do not invalidate an otherwise deterministic
+visited path. No production-runtime observer or counter is added.
+
+On the representative 138-byte input, the receipt reports:
+
+| Counter | Observed value |
+| --- | ---: |
+| Shift/reduce actions | 325 |
+| Shifts | 37 |
+| Reductions | 288 |
+| Accepts | 1 |
+| Non-EOF observations | 279 |
+| EOF observations | 47 |
+| Literal-free non-EOF observations | 0 |
+
+The observations include the final accept; their total is actions plus one.
+For this input, executed reductions match the 288 selected-derivation
+reductions. That equality is checked evidence for this path, not a general
+conversion from selected syntax counts to executed or speculative work. This
+is a prepared-token control, not a trace of the streaming full-source lane.
+Checkpoint allocations and validation remain outside all timed batches.
+
+This trace also explains a withdrawn experiment against
+`d5f5ea99575f0999ed9cd77a246f55e3cfc2341c`: skipping `string-upcase` on
+rows without literals did not reduce allocation for this input. Native
+baseline, candidate and restored-baseline phases, each 40 x 100 with the same
+input/toolchain/heap, all retained these no-GC median bytes per parse:
+
+| Global lexing | Prepared LR | Artifact publication | Full source |
+| ---: | ---: | ---: | ---: |
+| 50,724 | 82,484 | 44,324 | 173,052.32 |
+
+Each phase retained 40, 39, 40 and 37 no-GC observations respectively. There
+were no visited non-EOF literal-free rows for the guard to eliminate. The
+candidate was withdrawn; no timing improvement is claimed. The diagnostic-enabled 40 x 100 control retained the same medians and
+no-GC observation counts, confirming that the added trace is outside the
+measured batches.

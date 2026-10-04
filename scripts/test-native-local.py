@@ -102,14 +102,16 @@ def main():
         elif suite == "gql-profile":
             run("gql-profile-build", ["gxc", "-V",
                 "languages/gql/iso-39075-2024/benchmarks/runtime/reduction-counts.ss",
+                "languages/gql/iso-39075-2024/benchmarks/runtime/execution-counts.ss",
                 "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss"], build=True)
             run("gql-profile", ["gxi", "-e",
                 '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
                 '(import :gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
-                required=["GQL-STAGES-OK", "GQL-STAGE-SUMMARY", "GQL-REDUCTION-COUNTS"])
+                required=["GQL-STAGES-OK", "GQL-STAGE-SUMMARY", "GQL-REDUCTION-COUNTS", "GQL-LR-EXECUTION"])
         elif suite == "gql-actors":
             run("gql-actors-build", ["gxc", "-V",
                 "languages/gql/iso-39075-2024/benchmarks/runtime/reduction-counts.ss",
+                "languages/gql/iso-39075-2024/benchmarks/runtime/execution-counts.ss",
                 "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss",
                 "languages/gql/iso-39075-2024/benchmarks/runtime/actors.ss"], build=True)
             run("gql-actors", ["gxi", "-e",
@@ -169,6 +171,7 @@ def main():
             if suite == "gql":
                 run("gql-profile-build", ["gxc", "-V",
                     "languages/gql/iso-39075-2024/benchmarks/runtime/reduction-counts.ss",
+                    "languages/gql/iso-39075-2024/benchmarks/runtime/execution-counts.ss",
                     "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss"], build=True)
             files = (["languages/gql/iso-39075-2024/runtime-benchmark-test.ss",
                       "languages/gql/iso-39075-2024/benchmark-profile-test.ss",

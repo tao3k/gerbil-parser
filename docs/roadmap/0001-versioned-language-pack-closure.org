@@ -140,6 +140,17 @@ The earlier e1d0cf2 CI is green on Rust, Ubuntu and macOS, and is not evidence f
 this namespace correction. This work does not close the remaining 17 external
 scanner declarations or the Bash source-parser strategy stages.
 
+** Resource-path follow-up
+
+Head =5bc7a05= failed Ubuntu/macOS native package construction: the fixture
+macro still referenced =corpus/opengql-1.9.0/= after moving the corpus to
+=corpus/reference/=. HCL had the corresponding local-path omission as well.
+The prior import-path audit did not inspect fixture resource declarations.
+Both manifests now use the stable reference path; a Scheme reader audit checks
+all 54 declared fixture/grammar-source paths across languages and the downstream
+Records pack. This fixes the identified missing-file error, and does not turn
+the failed native jobs into passes; the follow-up head requires fresh CI.
+
 ** Historical S0 implementation and qualification (e1d0cf2)
 
 The v2 loader migration covers all ten public entries. Test services use private,

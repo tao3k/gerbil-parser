@@ -568,15 +568,25 @@ an arbitrary factory. Engine registration stays out of the public recipe facade.
  (source notes-source) (parse parse-notes))
 #+end_src
 
-=language-support/structured= exposes =StructuredLexemeProfile.= and
-=StructuredProofPolicy.= with POO contracts. A scanner declaration supplies a
-profile value and binding names; the engine creates closures internally.
-Profiles constrain proof delimiters, identifier characters, module borders,
-header words and nested comment markers. Proof policies constrain CST kinds,
-field names, terminal commands and forbidden subproof commands/kinds. Independent
-square-bracket/checklist tests exercise the same implementation with different
-source spelling and CST fields. Effective values are validated and copied before
-binding. There is no process-global active language profile.
+Module framing is declared as closed lexical data:
+
+#+begin_src scheme
+(module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_")
+#+end_src
+
+The seven values specify the opening border, header word, closing border, nested
+comment delimiters, line-comment prefix and extra name character. Borders must
+repeat a single character; values are nonempty and at most 128 characters. The
+engine prepares compact header intervals and nested-depth events once per source.
+Scheme and Rust execute the same declaration. No scanner closure is supplied by
+the pack; framing spelling participates in the grammar digest.
+
+=language-support/structured= exposes =StructuredProofPolicy.= with its POO
+contract. Policies constrain CST kinds, field names, terminal commands and
+forbidden subproof commands/kinds. Independent checklist tests exercise inherited
+overrides with different CST fields. Effective values are validated and copied
+before binding. This proof policy remains a Scheme CST service; portable proof
+policy execution is a separate implementation obligation.
 
 =language-support/projection= provides =RecordProjection.= and
 =deflanguage-projection=. Projection columns are closed =record=, =split=, =text=,

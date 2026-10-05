@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import (only-in ../runtime/lexical-source prepare-lexical-source-plan call-with-lexical-source scan-header-delimiter scan-header-data)
+(import (only-in ../runtime/lexical-source prepare-lexical-source-plan call-with-lexical-source scan-module-text scan-header-delimiter scan-header-data)
         (only-in ../grammar/lexical-algebra text-profile-data)
         (only-in ../runtime/funcs vector-intern-map make-value-interner value-interner-intern)
         (only-in :std/vector/vector vector-map/index)
@@ -240,7 +240,7 @@
 (defrules lexical-end/primitive
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string escaped-quoted-string quoted-string-profile until-delimiters header-delimiter header-data
+   quoted-string escaped-quoted-string quoted-string-profile until-delimiters header-delimiter header-data module-text
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external character-run)
   ((_ source offset (whitespace+))
@@ -271,6 +271,8 @@
    (scan-escaped-quoted-strings source offset (list delimiter ...)))
   ((_ source offset (quoted-string-profile delimiter escapes unicode-width))
    (scan-quoted-string/profile source offset delimiter escapes unicode-width))
+  ((_ source offset (module-text border word end-border open close comment extra))
+   (scan-module-text source offset '(module-text border word end-border open close comment extra)))
   ((_ source offset (header-delimiter prefix count index))
    (scan-header-delimiter source offset prefix count index))
   ((_ source offset (header-data prefix count stops))

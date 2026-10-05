@@ -8,6 +8,7 @@ mod graph_index;
 mod graph_projection;
 mod lexer;
 mod model;
+mod module_source;
 mod parser;
 mod rowan_tree;
 mod structural_block_opening;
@@ -17,6 +18,7 @@ mod structural_list;
 mod structural_table;
 mod unicode_alphabetic;
 mod unicode_numeric;
+mod unicode_whitespace;
 mod validation;
 
 pub use contextual_parser::{ContextualParserSpec, parse_contextual};
@@ -31,8 +33,8 @@ pub use model::{
     ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, BlockOpeningMode, Diagnostic,
     EventCatalog, GerbilLanguage, GotoEntry, HeadingFieldsRule, HeadingLineRule, InlineLinkRule,
     KeyLineContext, KeyLineMode, KeyLineRule, KeyValueLineRule, KindCategory, KindSpec,
-    LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, ListLineRule, Operand,
-    OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
+    LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, ListLineRule, ModuleTextProfile,
+    Operand, OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
     ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, TableLineRule,
     Terminal, TerminalSpec, TextClass, TextProfile, TreeEvent, UnclosedBlockPolicy,
 };

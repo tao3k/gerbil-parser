@@ -2,17 +2,17 @@
 (import :std/test
         (only-in :clan/poo/object .o .cc)
         :gerbil-parser/language-support/structured
-        (only-in :gerbil-parser/src/runtime/structured bind-structured-module-scanner)
         (only-in :gerbil-parser/language-support deflanguage deftext-profile)
         (only-in :gerbil-parser/src/runtime/scan make-text-profile-scanner)
+        (only-in :gerbil-parser/src/runtime/lexical-source scan-module-text call-with-lexical-source prepare-lexical-source-plan)
         (only-in :gerbil-parser/src/language/entry parse-language-source)
         (only-in :gerbil-parser/src/runtime/cst parse-artifact->cst)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-ref))
 (export structured-profile-test)
-(deflanguage-module-scanner
- (profile (.o (:: self StructuredLexemeProfile.)
-              header-border: "~~~" header-word: "UNIT" end-border: "!!!"))
- (module-text unit-text))
+(def unit-expression '(module-text "~~~" "UNIT" "!!!" "(*" "*)" "\\*" "_"))
+(def unit-plan (prepare-lexical-source-plan (list (list 'text unit-expression))))
+(def (unit-text source start)
+ (call-with-lexical-source unit-plan source (lambda () (scan-module-text source start unit-expression))))
 (deftext-profile square-proof
  (seq (literal "[") (run (numeric) 1 #f) (literal "]")
       (run (union (alphabetic) (numeric) (characters "_")) 0 #f)
@@ -59,5 +59,4 @@
    (let (diagnostic (checklist-policy (parse-artifact->cst (parse-language-source checklist-language-grammar "[1]1. OPEN"))))
     (check (cdr (assq 'failureKind diagnostic)) => 'proof-level-rejected)))
   (test-case "malformed overrides are rejected before scanner binding"
-   (check (rejects? (lambda () (bind-structured-module-scanner (.cc StructuredLexemeProfile. 'header-border "-x")))) => #t)
    (check (rejects? (lambda () (bind-structured-proof-policy (.cc StructuredProofPolicy. 'denied-kinds '("wrong"))))) => #t))))

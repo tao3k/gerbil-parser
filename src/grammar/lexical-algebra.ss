@@ -146,6 +146,13 @@
                (string? (cadr value)) (= (string-length (cadr value)) 1)
                (string? (caddr value))
                (exact-integer? (cadddr value)) (<= 0 (cadddr value) 8)))
+         ((module-text)
+          (and (= (length value) 8) (strings? (cdr value))
+               (andmap (lambda (text) (<= (string-length text) 128)) (cdr value))
+               (= (string-length (list-ref value 7)) 1)
+               (andmap (lambda (border)
+                 (andmap (cut char=? <> (string-ref border 0)) (string->list border)))
+                       (list (cadr value) (list-ref value 3)))))
          ((header-delimiter header-data)
           (and (= (length value) 4)
                (string? (cadr value)) (positive? (string-length (cadr value)))
@@ -226,7 +233,7 @@
 (defrules lexical-expression
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal text-profile
-   quoted-string escaped-quoted-string quoted-string-profile until-delimiters character-run header-delimiter header-data
+   quoted-string escaped-quoted-string quoted-string-profile until-delimiters character-run header-delimiter header-data module-text
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ (whitespace+))
@@ -255,6 +262,8 @@
    (cons 'escaped-quoted-string (list delimiter ...)))
   ((_ (quoted-string-profile delimiter escapes unicode-width))
    (list 'quoted-string-profile delimiter escapes unicode-width))
+  ((_ (module-text border word end-border open close comment extra))
+   (list 'module-text border word end-border open close comment extra))
   ((_ (header-delimiter prefix count index))
    (list 'header-delimiter prefix count index))
   ((_ (header-data prefix count stops))

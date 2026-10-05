@@ -1,5 +1,6 @@
 ;;; Immutable source preparation for closed lexical capture opcodes.
-(export prepare-lexical-source-plan call-with-lexical-source scan-header-delimiter scan-header-data)
+(import (only-in ./module-source prepare-module-source scan-prepared-module-source))
+(export scan-module-text prepare-lexical-source-plan call-with-lexical-source scan-header-delimiter scan-header-data)
 (defstruct lexical-source-context (owner source headers))
 (def current-lexical-source-context (make-parameter #f))
 (def (prepare-lexical-source-plan rules)
@@ -9,6 +10,9 @@
     (case (car expression)
      ((header-delimiter header-data)
       (let (capture (list (string-copy (cadr expression)) (caddr expression)))
+       (visit (cdr expressions) (if (member capture headers) headers (cons capture headers)))))
+     ((module-text)
+      (let (capture (cons 'module-text (map string-copy (cdr expression))))
        (visit (cdr expressions) (if (member capture headers) headers (cons capture headers)))))
      ((choice) (visit (append (cdr expression) (cdr expressions)) headers))
      ((precedence) (visit (cons (caddr expression) (cdr expressions)) headers))
@@ -21,7 +25,8 @@
     (thunk)
     (let (prepared (make-lexical-source-context plan source
             (map (lambda (capture)
-              (cons capture (validate-header-base source (car capture) (cadr capture)))) plan)))
+              (cons capture (if (eq? (car capture) 'module-text) (prepare-module-source source capture)
+                             (validate-header-base source (car capture) (cadr capture))))) plan)))
      (parameterize ((current-lexical-source-context prepared)) (thunk)))))))
 (def (header-delimiter-base source prefix count)
  (let (context (current-lexical-source-context))
@@ -69,3 +74,9 @@
                                       (and (not (char=? character (string-ref source (+ base index))))
                                            (delimiter (+ index 1))))))))
                   (loop (+ end 1)) (and (> end start) end)))))))
+
+(def (scan-module-text source start expression)
+ (let* ((context (current-lexical-source-context))
+        (row (and context (eq? source (lexical-source-context-source context))
+                  (assoc expression (lexical-source-context-headers context)))))
+  (scan-prepared-module-source (if row (cdr row) (prepare-module-source source expression)) start)))

@@ -69,8 +69,21 @@ pub enum TextProfile {
     NotNext(TextClass),
 }
 
+/// Closed, admitted framing values for a source-owned module index.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ModuleTextProfile {
+    pub header_border: &'static str,
+    pub header_word: &'static str,
+    pub end_border: &'static str,
+    pub block_open: &'static str,
+    pub block_close: &'static str,
+    pub line_comment: &'static str,
+    pub name_extra: &'static str,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LexicalExpr {
+    ModuleText(&'static ModuleTextProfile),
     TextProfile(&'static TextProfile),
     Whitespace,
     HorizontalWhitespace,

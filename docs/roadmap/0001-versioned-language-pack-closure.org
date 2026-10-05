@@ -41,10 +41,10 @@ modules; Bash word boundaries now use the shared closed region plan.
 | openCypher 2024.1 | Pinned ISO-BNF source; one loader | Qualify portable products and complete corpus coverage | Engine owns normalization/execution; pack retains source/corpus |
 | HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
-| TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has one external module-text declaration plus a Scheme proof policy; identifier/proof roles now use closed text profiles; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
+| TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has no external lexical declarations; module framing prepares source indexes and identifier/proof roles use closed text profiles; Scheme proof policy remains; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
 | Bash 5.3 | Source descriptor; one loader | Engine =shell-scanner.ss=, =shell-parser.ss= and =shell-word.ss= still execute procedural shell recognition; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
-Total: one external lexical declaration, in TLA+ module-text recognition.
+Total: zero external lexical declarations in grammar packs.
 Bash has a source parser rather than external lexical rows and is counted
 separately. These counts measure declaration sites, not semantic coverage or
 handwritten functions. Imported ANTLR/BNF sources stay authoritative; copying
@@ -57,7 +57,7 @@ legitimate language ownership. File count alone is not a convergence gate.
 | Declaration boundary | Required constraint / engine owner | Current state |
 |---+---+---|
 | =grammar= / =source= | Descriptor kind, identity and fixed parse dispatch; canonical grammar/catalog checks happen in engine compilation | Admitted; source parser still a separately advertised migration scope |
-| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Worker declaration enforced; the remaining module-text role awaits prepared context IR |
+| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Closed lexical roles enforced; header/module source contexts prepare once; Bash source recognition remains separate |
 | =fixtures= | =defsyntax-corpus= data; whole-corpus language/version/contract, unique ids and typed fixtures admitted before any parse | Admitted by the engine fixture service |
 | =tests= | Declared service identity plus execution/result protocol bound to the loader; arbitrary return values must not establish conformance | Private typed fixture-test declarations bind the exact descriptor; engine execution owns conformance. Bare procedures, duplicates and foreign descriptors reject |
 | =backends= | Closed strategy kind, exact Parser IR digest, procedure signature, duplicate/occupied-slot rejection before installation | Admitted atomically; HCL/Arithmetic strategy generalization remains |
@@ -266,8 +266,8 @@ The first closed text-profile migration replaces all five FHIRPath lexical
 callbacks and removes its scanner module. HL7 segment identifiers and CR/LF
 terminators use the same IR; its six source-dependent callbacks have been replaced
 by closed header opcodes. TLA+ identifier, proof-start and proof-reference are
-closed text profiles. Its module-text context and Bash source state remain S2
-work. This does not close all of S2.
+closed text profiles. Its module-text context now prepares source-owned indexes.
+Bash source state remains S2 work. This does not close all of S2.
 
 The engine admits character classes, bounded maximal runs, sequences,
 rollback optionals, committed next-character branches and non-consuming guards.
@@ -525,10 +525,11 @@ For each stage:
    remote head. Ubuntu native and Rust are the requested publication gate;
    inspect macOS failures without treating queued macOS as a reason to stop.
 
-Current implementation sequence: S0's declaration and native-product
-boundaries are locally qualified; implement S1 as a complete FHIRPath scanner replacement
-with shared lexical primitives. S2 is the next stateful migration; S3/S4 use the
-same descriptor/result/strategy contracts rather than alternate pack APIs.
+Current implementation sequence: S0 authoring contracts and S1 closed lexical
+roles are implemented. S2 header/module contexts prepare once; Bash source state
+still needs portable lowering. S3/S4 use the same descriptor/result/strategy
+contracts, and S5 proof policy must become portable data. These remaining stages
+must not introduce alternate pack APIs.
 
 * Retained syntax-coverage milestones
 
@@ -1205,3 +1206,31 @@ fresh source scope and retains existing runtime/checkpoint ownership. Record
 projection consumes the same canonical header scanner module; the old scan
 module forwarding exports are removed. No speedup percentage is claimed from
 algorithmic work-count reduction alone.
+
+** Source preparation — module framing
+
+All TLA+ lexical roles now use closed IR. The old module scanner profile/binder
+and its public macro are removed without aliases. =module-text= contains bounded
+framing values; the shared engine prepares header intervals and nesting events
+once per request. Long border runs do not expand into per-position records.
+Scheme and standalone Rust share lexical admission, source ownership and emitted
+values. Pinned Scheme whitespace joins alphabetic/numeric character authority.
+
+Local controls cover exact endpoints, every offset against the prior framing
+algorithm, nested comments/strings, an independent UNIT spelling, numeric extra
+name characters, long borders, ordinary parser roundtrip and malformed profiles.
+The complete TLA+ pack suite remains a required semantic gate. CI checks exact
+regeneration of the standalone framing parser and whitespace table.
+
+Header capture and module framing preparation are implemented. S2 remains open
+for Bash source state; S3 command/word IR, S4 general recursive lowering and S5
+portable proof policy still require implementation and real consumer gates.
+No complete-call speedup is claimed from the indexing change alone.
+
+Local module-framing receipt: 73 Scheme cases passed with explicit =OK= and
+zero harness return; 102 Rowan tests plus the complete Rust workspace passed.
+ASP Rust policy and Clippy passed. The GCC native generator built and its actual
+executable emitted the same module parser as the Scheme producer. Exact parser
+and whitespace-table regeneration passed. These are local results; exact PR-head
+Ubuntu/Rust CI is a separate publication gate. Source-backed Rust tests live in
+=tests/unit=, with explicit imports and =#[path]= mounts.

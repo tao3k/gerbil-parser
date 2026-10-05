@@ -223,6 +223,28 @@ fn text_profile_width(profile: &super::model::TextProfile, depth: usize) -> Opti
     }
 }
 
+fn valid_module_profile(profile: &super::model::ModuleTextProfile) -> bool {
+    let fields = [
+        profile.header_border,
+        profile.header_word,
+        profile.end_border,
+        profile.block_open,
+        profile.block_close,
+        profile.line_comment,
+        profile.name_extra,
+    ];
+    fields
+        .iter()
+        .all(|text| !text.is_empty() && text.chars().count() <= 128)
+        && profile.name_extra.chars().count() == 1
+        && [profile.header_border, profile.end_border]
+            .iter()
+            .all(|text| {
+                let first = text.chars().next();
+                text.chars().all(|ch| Some(ch) == first)
+            })
+}
+
 fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
     fn nonempty(values: &[&str]) -> bool {
         values.iter().all(|value| !value.is_empty())
@@ -240,6 +262,9 @@ fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
             if prefix.is_empty() || !(1..=32).contains(count) =>
         {
             Err("header data requires a prefix and bounded delimiter count".into())
+        }
+        LexicalExpr::ModuleText(profile) if !valid_module_profile(profile) => {
+            Err("invalid module framing profile".into())
         }
         LexicalExpr::TextProfile(profile)
             if text_profile_width(profile, 0).is_none_or(|width| width == 0) =>

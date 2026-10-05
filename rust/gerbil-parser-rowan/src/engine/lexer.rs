@@ -263,6 +263,10 @@ fn header_delimiters<'a>(source: &'a str, prefix: &str, count: usize) -> Option<
 struct PreparedLexicalSource<'source> {
     source: &'source str,
     headers: Vec<(&'static str, usize, Option<&'source str>)>,
+    modules: Vec<(
+        &'static super::model::ModuleTextProfile,
+        super::module_source::PreparedModuleSource<'source>,
+    )>,
 }
 impl<'source> PreparedLexicalSource<'source> {
     fn new(
@@ -272,6 +276,7 @@ impl<'source> PreparedLexicalSource<'source> {
         let mut prepared = Self {
             source,
             headers: Vec::new(),
+            modules: Vec::new(),
         };
         for expression in expressions {
             prepared.admit(source, expression);
@@ -280,6 +285,14 @@ impl<'source> PreparedLexicalSource<'source> {
     }
     fn admit(&mut self, source: &'source str, expression: &LexicalExpr) {
         match expression {
+            LexicalExpr::ModuleText(profile)
+                if !self.modules.iter().any(|(recipe, _)| recipe == profile) =>
+            {
+                self.modules.push((
+                    profile,
+                    super::module_source::PreparedModuleSource::new(source, profile),
+                ));
+            }
             LexicalExpr::HeaderDelimiter { prefix, count, .. }
             | LexicalExpr::HeaderData { prefix, count, .. }
                 if !self
@@ -297,6 +310,17 @@ impl<'source> PreparedLexicalSource<'source> {
             }
             _ => {}
         }
+    }
+    fn module_end(
+        &self,
+        profile: &super::model::ModuleTextProfile,
+        offset: usize,
+    ) -> Option<usize> {
+        self.modules
+            .iter()
+            .find(|(recipe, _)| *recipe == profile)?
+            .1
+            .end(offset)
     }
     fn header(&self, prefix: &str, count: usize) -> Option<&'source str> {
         self.headers
@@ -321,6 +345,7 @@ fn lexical_end_prepared(
 
     let suffix = source.get(offset..)?;
     match expression {
+        LexicalExpr::ModuleText(profile) => prepared.module_end(profile, offset),
         LexicalExpr::TextProfile(profile) => {
             text_profile_end(profile, source, offset).filter(|end| *end > offset)
         }
@@ -733,49 +758,5 @@ fn quoted_string_profile_end(
 }
 
 #[cfg(test)]
-mod prepared_source_tests {
-    use super::{LexicalExpr, PreparedLexicalSource, lexical_end_prepared};
-    const FIELD: LexicalExpr = LexicalExpr::HeaderDelimiter {
-        prefix: "記",
-        count: 2,
-        index: 0,
-    };
-    const BODY: LexicalExpr = LexicalExpr::Choice(&[
-        LexicalExpr::HeaderData {
-            prefix: "記",
-            count: 2,
-            stops: ";",
-        },
-        LexicalExpr::HeaderDelimiter {
-            prefix: "記",
-            count: 2,
-            index: 1,
-        },
-    ]);
-    #[test]
-    fn prepared_headers_deduplicate_nested_rules_and_cache_invalid_results() {
-        let good = PreparedLexicalSource::new("記|§α|", [&FIELD, &BODY]);
-        assert_eq!(good.headers.len(), 1);
-        assert_eq!(good.header("記", 2), Some("|§"));
-        assert_eq!(lexical_end_prepared(&FIELD, 3, &good), Some(4));
-        assert_eq!(lexical_end_prepared(&BODY, 6, &good), Some(8));
-        let bad = PreparedLexicalSource::new("記||α|", [&FIELD, &BODY]);
-        assert_eq!(bad.headers.len(), 1);
-        assert_eq!(bad.header("記", 2), None);
-        assert_eq!(lexical_end_prepared(&FIELD, 3, &bad), None);
-    }
-    #[test]
-    fn concurrent_prepared_sources_keep_borrowed_captures_independent() {
-        std::thread::scope(|scope| {
-            for source in ["記|§α|", "記*$α*", "記||α|"] {
-                scope.spawn(move || {
-                    let prepared = PreparedLexicalSource::new(source, [&FIELD, &BODY]);
-                    for _ in 0..100 {
-                        let end = lexical_end_prepared(&FIELD, 3, &prepared);
-                        assert_eq!(end, (!source.starts_with("記||")).then_some(4));
-                    }
-                });
-            }
-        });
-    }
-}
+#[path = "../../tests/unit/prepared_source.rs"]
+mod prepared_source_tests;

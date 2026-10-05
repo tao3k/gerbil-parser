@@ -705,10 +705,10 @@ emitter as FHIRPath and HL7. The new closed operations are:
 Bounds, character classes, recursion depth and nullable roots are admitted by
 the engine. Classes and spellings are canonical data, included in grammar
 identity and emitted to Rust. No callback name or lambda appears in these local
-lexical declarations. =deflanguage-module-scanner= binds the remaining structured
-source-context recipe; proof policy continues through its separate POO contract.
-The language-entry schema remains v2. Full module context and proof policy are
-still separate portable execution obligations.
+lexical declarations. Module context now uses closed =module-text= data and
+request-owned source indexes. Proof policy continues through its separate POO
+contract and remains a portable execution obligation. The language-entry schema
+remains v2.
 
 ** Request-owned header capture preparation
 
@@ -730,3 +730,26 @@ execution plan, not grammar identity. The standalone native producer includes
 
 This implements prepared header captures. TLA+ nesting preparation, shell
 recognition and portable proof-policy execution remain separate obligations.
+
+** Request-owned module framing
+
+The =module-text= opcode contains seven bounded strings: repeated opening border,
+header word, repeated closing border, nested comment opening/closing strings,
+line-comment prefix and the extra name character. Admission rejects malformed
+profiles before preparing source state. The compiler emits the same values to
+Rust =ModuleTextProfile=; effective values participate in the grammar digest.
+
+Scheme and Rust prepare source-owned header intervals and depth transitions.
+Repeated border runs occupy one interval, including all admissible suffix starts.
+Depth preparation skips quoted strings, nested comments and line comments. Module
+text stopping preserves raw header recognition, including headers within text;
+this is intentionally distinct from the depth walk. Binary queries replace
+rescanning the whole source prefix for each token. Invalid/unterminated inputs
+retain their original framing behavior. There is no mutable cross-request cache.
+
+Alphabetic, numeric and whitespace classes come from the pinned Scheme producer.
+Rust uses generated tables and byte boundaries; Scheme uses character boundaries.
+A generated standalone parser checks exact endpoints, lossless accepted modules,
+nesting and rejection. Independent UNIT framing and a numeric extra name character
+exercise values beyond the TLA+ spelling. Long border runs have a bounded-record
+control. Full SANY proof policy portability remains separate from framing.

@@ -411,3 +411,73 @@ fn structured_profiles_execute_in_a_standalone_lossless_parser() {
         assert!(crate::parse(&structured_lexical_generated::LANGUAGE, source).is_err());
     }
 }
+
+#[path = "../fixtures/generated/module_source.rs"]
+mod module_source_generated;
+
+#[test]
+fn scheme_generated_module_framing_preserves_unicode_offsets() {
+    let rule = module_source_generated::LANGUAGE
+        .lexical_rules
+        .iter()
+        .find(|rule| rule.terminal == "text")
+        .unwrap();
+    for &(source, start, expected) in module_source_generated::MODULE_CASES {
+        let bytes = |end| source.chars().take(end).map(char::len_utf8).sum();
+        assert_eq!(
+            lexical_end(&rule.expression, source, bytes(start)),
+            expected.map(bytes),
+            "{source:?} at {start}"
+        );
+    }
+}
+
+#[test]
+fn module_framing_executes_in_a_standalone_lossless_parser() {
+    for source in [
+        "preamble\n---- MODULE A ----\n====\nfooter",
+        "---- MODULE A ----\n---- MODULE B ----\n====\ninner\n====\nfooter",
+        "---- MODULE A ----\n(* ==== *)\n\"====\"\n====\nfooter",
+        "---- MODULE 字 ----\n====\nλ",
+    ] {
+        let parsed = crate::parse(&module_source_generated::LANGUAGE, source).unwrap();
+        assert_eq!(parsed.syntax().text().to_string(), source);
+    }
+    for source in [
+        "---- MODULE A ----",
+        "---- MODULE A ----\n---- MODULE B ----\n====",
+    ] {
+        assert!(crate::parse(&module_source_generated::LANGUAGE, source).is_err());
+    }
+}
+
+#[test]
+fn invalid_module_profiles_reject_at_language_admission() {
+    static BAD: crate::ModuleTextProfile = crate::ModuleTextProfile {
+        header_border: "-x",
+        header_word: "MODULE",
+        end_border: "====",
+        block_open: "(*",
+        block_close: "*)",
+        line_comment: "\\*",
+        name_extra: "_",
+    };
+    static RULES: [crate::LexicalRule; 7] = [
+        crate::LexicalRule {
+            expression: LexicalExpr::ModuleText(&BAD),
+            ..module_source_generated::LANGUAGE.lexical_rules[0]
+        },
+        module_source_generated::LANGUAGE.lexical_rules[1],
+        module_source_generated::LANGUAGE.lexical_rules[2],
+        module_source_generated::LANGUAGE.lexical_rules[3],
+        module_source_generated::LANGUAGE.lexical_rules[4],
+        module_source_generated::LANGUAGE.lexical_rules[5],
+        module_source_generated::LANGUAGE.lexical_rules[6],
+    ];
+    static LANGUAGE: crate::LanguageSpec = crate::LanguageSpec {
+        lexical_rules: &RULES,
+        ..module_source_generated::LANGUAGE
+    };
+    let error = crate::parse(&LANGUAGE, "preamble").unwrap_err();
+    assert!(error.diagnostic.message.contains("module framing profile"));
+}

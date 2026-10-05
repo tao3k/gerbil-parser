@@ -201,7 +201,9 @@ jobs:
             t/fixtures/rowan-record-assignments/languages/records/parser.ss \
             t/header-delimiter-test.ss \
             t/structured-lexical-cases.ss \
-            t/structured-lexical-test.ss
+            t/structured-lexical-test.ss \
+            t/module-source-cases.ss \
+            t/module-source-test.ss
 
       - name: Verify header-derived delimiter Rust AOT regeneration
         run: |
@@ -234,6 +236,18 @@ jobs:
           gerbil env gxi t/generate-text-profile.ss /tmp/fhirpath-profile.rs
           rustfmt --edition 2024 /tmp/fhirpath-profile.rs
           cmp /tmp/fhirpath-profile.rs rust/gerbil-parser-rowan/tests/fixtures/generated/fhirpath_profile.rs
+
+      - name: Verify prepared module framing Rust AOT regeneration
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log /tmp/module-source-generation.log --require MODULE-SOURCE-RUST-GENERATED \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/module-source-test")' \
+            t/generate-module-source.ss /tmp/module-source.rs
+          rustfmt --edition 2024 /tmp/module-source.rs
+          cmp /tmp/module-source.rs rust/gerbil-parser-rowan/tests/fixtures/generated/module_source.rs
+          gerbil env gxi t/generate-scheme-whitespace-class.ss /tmp/scheme-whitespace.rs
+          rustfmt --edition 2024 /tmp/scheme-whitespace.rs
+          cmp /tmp/scheme-whitespace.rs rust/gerbil-parser-rowan/src/engine/unicode_whitespace.rs
 
       - name: Verify shared scanner and contextual Rust AOT regeneration
         run: |

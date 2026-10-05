@@ -2,22 +2,39 @@
 (import :std/test
         (only-in :clan/poo/object .o .cc)
         :gerbil-parser/language-support/structured
-        (only-in :gerbil-parser/src/runtime/structured bind-structured-scanners)
-        (only-in :gerbil-parser/language-support deflanguage)
+        (only-in :gerbil-parser/src/runtime/structured bind-structured-module-scanner)
+        (only-in :gerbil-parser/language-support deflanguage deftext-profile)
+        (only-in :gerbil-parser/src/runtime/scan make-text-profile-scanner)
         (only-in :gerbil-parser/src/language/entry parse-language-source)
         (only-in :gerbil-parser/src/runtime/cst parse-artifact->cst)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-ref))
 (export structured-profile-test)
-(deflanguage-structured-scanners
- (profile (.o (:: self StructuredLexemeProfile.) open: #\[ close: #\]
+(deflanguage-module-scanner
+ (profile (.o (:: self StructuredLexemeProfile.)
               header-border: "~~~" header-word: "UNIT" end-border: "!!!"))
- (identifier square-identifier) (proof-step square-step)
- (proof-reference square-reference) (proof-start square-start) (module-text unit-text))
+ (module-text unit-text))
+(deftext-profile square-proof
+ (seq (literal "[") (run (numeric) 1 #f) (literal "]")
+      (run (union (alphabetic) (numeric) (characters "_")) 0 #f)
+      (run (characters ".") 0 #f)))
+(def square-start (make-text-profile-scanner
+ '(ends-not-in (union (alphabetic) (numeric) (characters "_"))
+   (seq (literal "[") (run (numeric) 1 #f) (literal "]")
+        (run (union (alphabetic) (numeric) (characters "_")) 0 #f)
+        (run (characters ".") 0 #f)))))
+(def square-reference (make-text-profile-scanner
+ '(ends-in (union (alphabetic) (numeric) (characters "_"))
+   (seq (literal "[") (run (numeric) 1 #f) (literal "]")
+        (run (union (alphabetic) (numeric) (characters "_")) 0 #f)
+        (run (characters ".") 0 #f)))))
+(def square-identifier (make-text-profile-scanner
+ '(run-containing (union (alphabetic) (numeric) (characters "_"))
+                 (union (alphabetic) (characters "_")) 1 #f)))
 (deflanguage checklist
  (identity "checklist" "v1" "checklist.v1")
  (root checklist)
  (lex (space Space (whitespace+))
-      (step StepName (external checklist-step-v1 square-start))
+      (step StepName (text-profile (ends-not-in (union (alphabetic) (numeric) (characters "_")) (ref square-proof))))
       (word Word (identifier)))
  (rules (checklist (node Checklist (repeat1 (field item (reference item)))))
         (item (node Item (field heading step) (field command word))))
@@ -42,5 +59,5 @@
    (let (diagnostic (checklist-policy (parse-artifact->cst (parse-language-source checklist-language-grammar "[1]1. OPEN"))))
     (check (cdr (assq 'failureKind diagnostic)) => 'proof-level-rejected)))
   (test-case "malformed overrides are rejected before scanner binding"
-   (check (rejects? (lambda () (bind-structured-scanners (.cc StructuredLexemeProfile. 'header-border "-x")))) => #t)
+   (check (rejects? (lambda () (bind-structured-module-scanner (.cc StructuredLexemeProfile. 'header-border "-x")))) => #t)
    (check (rejects? (lambda () (bind-structured-proof-policy (.cc StructuredProofPolicy. 'denied-kinds '("wrong"))))) => #t))))

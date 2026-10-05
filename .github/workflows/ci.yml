@@ -199,7 +199,8 @@ jobs:
             t/fixtures/rowan-record-assignments/languages/records/grammar.ss \
             t/fixtures/rowan-record-assignments/languages/records/fixtures.ss \
             t/fixtures/rowan-record-assignments/languages/records/parser.ss \
-            t/header-delimiter-test.ss
+            t/header-delimiter-test.ss \
+            t/structured-lexical-test.ss
 
       - name: Verify header-derived delimiter Rust AOT regeneration
         run: |
@@ -213,6 +214,16 @@ jobs:
 
       - name: Verify strict quoted profile Rust AOT regeneration
         run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log /tmp/structured-lexical-generation.log \
+            --require STRUCTURED-LEXICAL-RUST-GENERATED \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/structured-lexical-test")' \
+            t/generate-structured-lexical.ss /tmp/structured-lexical.rs
+          rustfmt --edition 2024 /tmp/structured-lexical.rs
+          cmp /tmp/structured-lexical.rs rust/gerbil-parser-rowan/tests/fixtures/generated/structured_lexical.rs
+          gerbil env gxi t/generate-scheme-alphabetic-class.ss /tmp/scheme-alphabetic.rs
+          rustfmt --edition 2024 /tmp/scheme-alphabetic.rs
+          cmp /tmp/scheme-alphabetic.rs rust/gerbil-parser-rowan/src/engine/unicode_alphabetic.rs
           gerbil env gxi t/generate-scheme-numeric-class.ss /tmp/scheme-numeric.rs
           rustfmt --edition 2024 /tmp/scheme-numeric.rs
           cmp /tmp/scheme-numeric.rs rust/gerbil-parser-rowan/src/engine/unicode_numeric.rs

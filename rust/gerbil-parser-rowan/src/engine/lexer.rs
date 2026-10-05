@@ -137,6 +137,7 @@ pub(crate) fn lex<'source>(
 fn text_class_matches(class: &super::model::TextClass, character: char) -> bool {
     use super::model::TextClass;
     match class {
+        TextClass::Alphabetic => super::unicode_alphabetic::is_scheme_alphabetic(character),
         TextClass::Numeric => super::unicode_numeric::is_scheme_numeric(character),
         TextClass::AsciiLetter => character.is_ascii_alphabetic(),
         TextClass::Characters(values) => values.contains(character),
@@ -172,6 +173,36 @@ fn text_profile_end(
                 end += character.len_utf8();
             }
             (count >= *minimum).then_some(end)
+        }
+        TextProfile::RunContaining {
+            class,
+            required,
+            minimum,
+            maximum,
+        } => {
+            let mut count = 0;
+            let mut end = start;
+            let mut seen = false;
+            for character in suffix.chars() {
+                if maximum.is_some_and(|maximum| count >= maximum)
+                    || !text_class_matches(class, character)
+                {
+                    break;
+                }
+                seen = seen || text_class_matches(required, character);
+                count += 1;
+                end += character.len_utf8();
+            }
+            (seen && count >= *minimum).then_some(end)
+        }
+        TextProfile::EndsIn {
+            class,
+            body,
+            positive,
+        } => {
+            let end = text_profile_end(body, source, start)?;
+            let last = source.get(start..end)?.chars().next_back()?;
+            (text_class_matches(class, last) == *positive).then_some(end)
         }
         TextProfile::Sequence(steps) => {
             let mut end = start;

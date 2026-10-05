@@ -32,6 +32,7 @@ pub struct TerminalSpec {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TextClass {
     Numeric,
+    Alphabetic,
     AsciiLetter,
     Characters(&'static str),
     Union(&'static [TextClass]),
@@ -46,6 +47,17 @@ pub enum TextProfile {
         class: TextClass,
         minimum: usize,
         maximum: Option<usize>,
+    },
+    RunContaining {
+        class: TextClass,
+        required: TextClass,
+        minimum: usize,
+        maximum: Option<usize>,
+    },
+    EndsIn {
+        class: TextClass,
+        body: &'static TextProfile,
+        positive: bool,
     },
     Sequence(&'static [TextProfile]),
     Optional(&'static TextProfile),

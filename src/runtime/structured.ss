@@ -2,9 +2,10 @@
 (import (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in ./scan make-text-profile-scanner)
         :gerbil-parser/src/runtime/cst
         (only-in :gerbil-parser/src/runtime/token token? token-lexeme))
-(export StructuredLexemeProfile. StructuredLexemeProfileContract bind-structured-scanners deflanguage-structured-scanners
+(export StructuredLexemeProfile. StructuredLexemeProfileContract bind-structured-module-scanner deflanguage-module-scanner
         StructuredProofPolicy. StructuredProofPolicyContract bind-structured-proof-policy)
 (def (repeat-border? value)
   (and (string? value) (positive? (string-length value))
@@ -13,8 +14,7 @@
 (def (lexeme-profile? value)
   (with-catch (lambda (_) #f) (lambda ()
     (and (object? value)
-         (andmap (lambda (slot) (char? (.ref value slot))) '(open close name-extra suffix))
-         (andmap (lambda (slot) (and (list? (.ref value slot)) (andmap char? (.ref value slot)))) '(level-symbols label-symbols))
+         (char? (.ref value 'name-extra))
          (andmap (lambda (slot) (repeat-border? (.ref value slot))) '(header-border end-border))
          (andmap (lambda (slot) (and (string? (.ref value slot)) (positive? (string-length (.ref value slot)))))
                  '(header-word block-open block-close line-comment))))))
@@ -25,45 +25,19 @@
    (poo-flow-classification-evidence 'gerbil-parser/structured-lexemes candidate ok?
     (if ok? '() '((expected structured-lexemes))) context))))
 (def StructuredLexemeProfile.
- (.o open: #\< close: #\> name-extra: #\_ suffix: #\.
-     level-symbols: '(#\+ #\*) label-symbols: '(#\* #\-)
+ (.o name-extra: #\_
      header-border: "----" header-word: "MODULE" end-border: "===="
      block-open: "(*" block-close: "*)" line-comment: "\\*"))
-(def (bind-structured-scanners profile)
+(def (bind-structured-module-scanner profile)
  (validate StructuredLexemeProfileContract profile)
- (let ((open-char (.ref profile 'open)) (close-char (.ref profile 'close))
-       (name-extra (.ref profile 'name-extra)) (suffix-char (.ref profile 'suffix))
-       (level-symbols (append (.ref profile 'level-symbols) '())) (label-symbols (append (.ref profile 'label-symbols) '()))
+ (let ((scan-structured-identifier
+        (make-text-profile-scanner
+         (list 'run-containing
+           (list 'union '(alphabetic) '(numeric) (list 'characters (string (.ref profile 'name-extra))))
+           (list 'union '(alphabetic) (list 'characters (string (.ref profile 'name-extra)))) 1 #f)))
        (header-border (string-copy (.ref profile 'header-border))) (header-word (string-copy (.ref profile 'header-word)))
        (end-border (string-copy (.ref profile 'end-border))) (block-open (string-copy (.ref profile 'block-open)))
        (block-close (string-copy (.ref profile 'block-close))) (line-comment (string-copy (.ref profile 'line-comment))))
-(def (scan-structured-proof-step source start)
-  (let (size (string-length source))
-    (and (< start size) (char=? (string-ref source start) open-char)
-     (let* ((first (+ start 1))
-            (level-end
-             (and (< first size)
-              (if (memv (string-ref source first) level-symbols)
-                (+ first 1)
-                (let loop ((at first))
-                  (if (and (< at size) (char-numeric? (string-ref source at)))
-                    (loop (+ at 1)) at))))))
-       (and level-end (> level-end first) (< level-end size)
-            (char=? (string-ref source level-end) close-char)
-            (let loop ((at (+ level-end 1)))
-              (if (and (< at size)
-                       (or (char-alphabetic? (string-ref source at))
-                           (char-numeric? (string-ref source at))
-                           (char=? (string-ref source at) name-extra)))
-                (loop (+ at 1))
-                (let* ((mark-end
-                        (if (and (= at (+ level-end 1)) (< at size)
-                                 (memv (string-ref source at) label-symbols))
-                          (+ at 1) at)))
-                  (let dots ((end mark-end))
-                    (if (and (< end size) (char=? (string-ref source end) suffix-char))
-                      (dots (+ end 1)) end))))))))))
-
 (def (source-prefix? source start text)
   (and (<= (+ start (string-length text)) (string-length source))
        (equal? text (substring source start (+ start (string-length text))))))
@@ -72,15 +46,6 @@
   (let loop ((at start))
     (if (and (< at (string-length source)) (predicate (string-ref source at)))
       (loop (+ at 1)) at)))
-
-(def (scan-structured-identifier source start)
-  (let (end (scan-characters source start
-             (lambda (ch) (or (char-alphabetic? ch) (char-numeric? ch) (char=? ch name-extra)))))
-    (and (> end start)
-         (let loop ((at start))
-           (and (< at end)
-                (or (not (char-numeric? (string-ref source at))) (loop (+ at 1)))))
-         end)))
 
 (def (module-header-end source at)
   (and (source-prefix? source at header-border)
@@ -135,21 +100,10 @@
                ((module-header-end source at) (and (> at start) at))
                (else (loop (+ at 1)))))))
 
-(def (scan-structured-proof-reference source start)
-  (alet (end (scan-structured-proof-step source start))
-    (and (> end start)
-         (let (last (string-ref source (- end 1)))
-           (or (char-alphabetic? last) (char-numeric? last) (char=? last name-extra)))
-         end)))
-
-(def (scan-structured-proof-start source start)
-  (alet (end (scan-structured-proof-step source start))
-    (and (not (scan-structured-proof-reference source start)) end)))
-
-(values scan-structured-identifier scan-structured-proof-step scan-structured-proof-reference scan-structured-proof-start scan-structured-module-text)))
-(defrules deflanguage-structured-scanners (profile identifier proof-step proof-reference proof-start module-text)
- ((_ (profile recipe) (identifier id) (proof-step step) (proof-reference reference) (proof-start start) (module-text text))
-  (defvalues (id step reference start text) (bind-structured-scanners recipe))))
+scan-structured-module-text))
+(defrules deflanguage-module-scanner (profile module-text)
+ ((_ (profile recipe) (module-text text))
+  (def text (bind-structured-module-scanner recipe))))
 
 (def StructuredProofPolicy.
  (.o code: "GERBIL-PARSER-STRUCTURED-PROOF" proof-kind: 'Proof label-kind: 'LabelExpression

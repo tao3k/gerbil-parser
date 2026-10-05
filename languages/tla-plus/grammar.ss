@@ -1,18 +1,30 @@
 ;;; -*- Gerbil -*-
 ;;; Language declarations, source identity and fixtures; execution is engine-owned.
-(import (only-in :gerbil-parser/language-support deflanguage defsyntax-corpus syntax-fixture-expected-status)
+(import (only-in :gerbil-parser/language-support deflanguage deftext-profile defsyntax-corpus syntax-fixture-expected-status)
         (only-in :gerbil-parser/language-support/grammar-source defsyntax-javacc-source)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-language language-grammar-version language-grammar-contract)
         (only-in :clan/poo/object .o)
         :gerbil-parser/language-support/structured)
-(export +tla-plus-syntax-source+ +tla-plus-examples-commit+ +tla-plus-sany-release+ +tla-plus-sany-commit+ +tla-plus-sany-grammar-blob+ +tla-plus-sany-grammar-digest+ tla-plus-sany-source tla-plus-core-fixtures tla-plus-core-accepted-fixtures tla-plus-core-rejected-fixtures tla-plus-core-language-grammar tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser tla-plus-layout-language-grammar tla-plus-layout-grammar tla-plus-layout-parser-ir tla-plus-layout-parser tla-plus-sany-candidate-language-grammar tla-plus-sany-candidate-grammar tla-plus-sany-candidate-parser-ir tla-plus-sany-candidate-parser)
-(deflanguage-structured-scanners
+(export tla-proof-name tla-proof-start tla-proof-reference tla-identifier +tla-plus-syntax-source+ +tla-plus-examples-commit+ +tla-plus-sany-release+ +tla-plus-sany-commit+ +tla-plus-sany-grammar-blob+ +tla-plus-sany-grammar-digest+ tla-plus-sany-source tla-plus-core-fixtures tla-plus-core-accepted-fixtures tla-plus-core-rejected-fixtures tla-plus-core-language-grammar tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser tla-plus-layout-language-grammar tla-plus-layout-grammar tla-plus-layout-parser-ir tla-plus-layout-parser tla-plus-sany-candidate-language-grammar tla-plus-sany-candidate-grammar tla-plus-sany-candidate-parser-ir tla-plus-sany-candidate-parser)
+(deflanguage-module-scanner
   (profile (.o (:: self StructuredLexemeProfile.)))
-  (identifier scan-sany-identifier)
-  (proof-step scan-sany-proof-step)
-  (proof-reference scan-sany-proof-reference)
-  (proof-start scan-sany-proof-start)
   (module-text scan-sany-module-text))
+;;; Local recognition is canonical lexical data, including its spelling.
+(deftext-profile tla-proof-name
+  (seq (literal "<")
+       (if-next (characters "+*") (run (characters "+*") 1 1) (run (numeric) 1 #f))
+       (literal ">")
+       (if-next (union (alphabetic) (numeric) (characters "_"))
+         (run (union (alphabetic) (numeric) (characters "_")) 1 #f)
+         (optional (run (characters "*-") 1 1)))
+       (run (characters ".") 0 #f)))
+(deftext-profile tla-proof-start
+  (ends-not-in (union (alphabetic) (numeric) (characters "_")) (ref tla-proof-name)))
+(deftext-profile tla-proof-reference
+  (ends-in (union (alphabetic) (numeric) (characters "_")) (ref tla-proof-name)))
+(deftext-profile tla-identifier
+  (run-containing (union (alphabetic) (numeric) (characters "_"))
+                  (union (alphabetic) (characters "_")) 1 #f))
 (def +tla-plus-syntax-source+ "Specifying Systems, Chapter 15: TLAPlusGrammar")
 (def +tla-plus-examples-commit+ "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")
 (def +tla-plus-sany-release+ "v1.7.4")
@@ -825,8 +837,8 @@
   (root source-file)
   (lex
    (module-text ModuleText (external tla-sany-module-text-v1 scan-sany-module-text))
-   (proof-step ProofStepName (external tla-sany-proof-start-v1 scan-sany-proof-start))
-   (proof-reference ProofReference (external tla-sany-proof-reference-v1 scan-sany-proof-reference))
+   (proof-step ProofStepName (text-profile (ref tla-proof-start)))
+   (proof-reference ProofReference (text-profile (ref tla-proof-reference)))
    (horizontal-whitespace HorizontalWhitespace (horizontal-whitespace+))
    (newline Newline (newline+))
    (comment Comment
@@ -835,7 +847,7 @@
    (module-end ModuleEnd (character-run "=" 4))
    (module-border ModuleBorder (character-run "-" 4))
    (number Number (number))
-   (identifier Identifier (external tla-sany-identifier-v1 scan-sany-identifier))
+   (identifier Identifier (text-profile (ref tla-identifier)))
    (punctuation Punctuation
     (literals "\\land" "\\lor" "\\cdot" "\\equiv" "-+->" "\\times" "..." "|" "||" "&&" "&" "$$" "$" "??" "%%" "##" "++" "--" "**" "//" "^^" "!!" "|-" "|=" "-|" "=|" "<:" ":=" "::=" "\\oplus" "\\ominus" "\\odot" "\\oslash" "\\otimes" "\\uplus" "\\sqcap" "\\sqcup" "\\wr" "\\star" "\\bigcirc" "\\bullet" "\\prec" "\\succ" "\\preceq" "\\succeq" "\\sim" "\\simeq" "\\ll" "\\gg" "\\asymp" "\\subset" "\\supset" "\\supseteq" "\\approx" "\\cong" "\\sqsubset" "\\sqsubseteq" "\\sqsupset" "\\sqsupseteq" "\\doteq" "\\propto" "\\mod" "(+)" "(-)" "(.)" "(/)" "(\\X)" "-." "^+" "^*" "^#" "\\lnot" "\\neg" "<=>" "|->" "[]" "<>" "=>" "~>" "==" "/\\" "\\/"
               "\\AA" "\\EE" "\\A" "\\E" "\\notin" "\\intersect"

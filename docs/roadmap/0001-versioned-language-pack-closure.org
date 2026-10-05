@@ -3,8 +3,9 @@
 
 * Current convergence plan — 2026-10-05
 
-Audit baseline: PR #13 =485da5f2ac51666fff7d9e1285364010dbd80791=.
-Rust, Ubuntu native and macOS native CI passed at that exact head. This is the
+Authoring baseline: PR #13 =9e3652d00c2228330b58f9791ba7f263948b421b=.
+Rust and Ubuntu native CI passed at that exact head. The lexical migration below
+is a subsequent change and requires its own verification. This is the
 single execution plan for language-layer convergence. The coverage milestones
 below remain separate syntax obligations; their old publication-status notes
 are historical, not current CI state.
@@ -34,16 +35,16 @@ modules; Bash word boundaries now use the shared closed region plan.
 
 | Family / scope | Current declarations | Open convergence boundary | Owner |
 |---+---+---+---|
-| Arithmetic v1 | Concise DSL; one loader | Generated =direct-lr.ss= strategy | Engine compiler; pack retains expressions and precedence |
-| HCL v2.24 | Concise DSL; one loader | =generate-direct.ss= embeds a closed HCL fast lexer and source/event actions | Engine strategy admission/emission; pack retains syntax |
+| Arithmetic v1 | Concise DSL; one loader | Engine-owned =src/compiler/arithmetic-drive.ss= product | Engine compiler; pack retains expressions and precedence |
+| HCL v2.24 | Concise DSL; one loader | =src/compiler/recursive-source.ss= retains a closed HCL fast lexer and source/event actions | Engine strategy admission/emission; pack retains syntax |
 | GQL ISO-39075-2024 | Pinned ANTLR4 source; one loader | Qualify portable products and generic parser/actor mechanisms | Engine owns admission/execution; graph queries/projection remain domain code |
 | openCypher 2024.1 | Pinned ISO-BNF source; one loader | Qualify portable products and complete corpus coverage | Engine owns normalization/execution; pack retains source/corpus |
-| HL7 v2.5.1 | Concise DSL; one loader | 6 source-dependent external declarations: data and 5 separators; segment id/terminator use shared text profiles | Shared lexical/context IR; pack retains ER7 delimiter roles |
+| HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; prepare header context once remains S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
-| TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has 4 external declarations plus a Scheme proof policy; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
-| Bash 5.3 | Source descriptor; one loader | =scanner.ss= command state, =parser-core.ss= recognition/artifact assembly, =word.ss= interior spans; word boundaries use declared engine regions | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+| TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has one external module-text declaration plus a Scheme proof policy; identifier/proof roles now use closed text profiles; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
+| Bash 5.3 | Source descriptor; one loader | Engine =shell-scanner.ss=, =shell-parser.ss= and =shell-word.ss= still execute procedural shell recognition; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
-Total: 10 external lexical declarations, concentrated in two families.
+Total: one external lexical declaration, in TLA+ module-text recognition.
 Bash has a source parser rather than external lexical rows and is counted
 separately. These counts measure declaration sites, not semantic coverage or
 handwritten functions. Imported ANTLR/BNF sources stay authoritative; copying
@@ -56,7 +57,7 @@ legitimate language ownership. File count alone is not a convergence gate.
 | Declaration boundary | Required constraint / engine owner | Current state |
 |---+---+---|
 | =grammar= / =source= | Descriptor kind, identity and fixed parse dispatch; canonical grammar/catalog checks happen in engine compilation | Admitted; source parser still a separately advertised migration scope |
-| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Worker declaration enforced here; 10 explicit external roles still await closed-IR replacement |
+| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Worker declaration enforced; the remaining module-text role awaits prepared context IR |
 | =fixtures= | =defsyntax-corpus= data; whole-corpus language/version/contract, unique ids and typed fixtures admitted before any parse | Admitted by the engine fixture service |
 | =tests= | Declared service identity plus execution/result protocol bound to the loader; arbitrary return values must not establish conformance | Private typed fixture-test declarations bind the exact descriptor; engine execution owns conformance. Bare procedures, duplicates and foreign descriptors reject |
 | =backends= | Closed strategy kind, exact Parser IR digest, procedure signature, duplicate/occupied-slot rejection before installation | Admitted atomically; HCL/Arithmetic strategy generalization remains |
@@ -263,8 +264,10 @@ outside the existing generated-table ownership boundary.
 
 The first closed text-profile migration replaces all five FHIRPath lexical
 callbacks and removes its scanner module. HL7 segment identifiers and CR/LF
-terminators use the same IR; its six source-dependent callbacks remain. TLA+
-and Bash source state remain S2 work. This does not close all of S1 or S2.
+terminators use the same IR; its six source-dependent callbacks have been replaced
+by closed header opcodes. TLA+ identifier, proof-start and proof-reference are
+closed text profiles. Its module-text context and Bash source state remain S2
+work. This does not close all of S2.
 
 The engine admits character classes, bounded maximal runs, sequences,
 rollback optionals, committed next-character branches and non-consuming guards.
@@ -1167,3 +1170,26 @@ HL7 scanner ownership is closed; its projection module remains outside the
 three-interface target. Next runtime migrations remain Bash word/source state,
 HCL recursive source strategies and TLA+ scanner/proof policy. Each must become
 a constrained declarative engine capability with actual reuse controls.
+
+** Structured local lexemes — closed shared execution
+
+TLA+ identifier, proof-start and proof-reference no longer publish external
+callbacks. =run-containing= checks maximal runs and a required character class
+in one traversal; =ends-in= and =ends-not-in= constrain the consumed span without
+rescanning its body. These operations are general lexical IR, with Scheme and
+Rust admission, preparation and execution. Their spelling and character classes
+participate in the grammar digest. The module scanner macro now binds only the
+remaining contextual module-text scanner; obsolete local callback exports are
+removed, without aliases.
+
+Rust alphabetic classification is generated from the pinned Scheme
+=char-alphabetic?= predicate, just as numeric classification already is. The
+portable witness imports the actual TLA+ fragments, emits a standalone parser,
+and checks Unicode endpoints at nonzero offsets. This witness establishes local
+lexical portability; it does not establish standalone full SANY execution.
+
+The remaining closure sequence is explicit: prepare HL7 header and TLA+ nesting
+context once (S2), lower shell command/word recognition into shared IR (S3),
+replace the closed HCL recursive corridor with general lowering (S4), and publish
+proof policy as portable data consumed by native C/Rust (S5). No runtime speedup
+is asserted without complete-call matched measurements.

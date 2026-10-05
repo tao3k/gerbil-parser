@@ -688,3 +688,24 @@ This closes authoring ownership. Shell source execution and structured TLA+
 policies still require equivalent standalone Rust IR consumers before they may
 advertise portable support. Recursive HCL lowering admits its exact reviewed
 corridor; universal recursive code generation is not implied by common dispatch.
+
+** Closed structured lexical fragments
+
+A language declares local spelling with =deftext-profile= and composes fragments
+using =(ref name)=. TLA+ now uses the same shared text-profile interpreter and Rust
+emitter as FHIRPath and HL7. The new closed operations are:
+
+| Form | Constraint |
+|---+---|
+| =(run-containing class required minimum maximum)= | Consume a maximal bounded run; at least one consumed character must match =required=. Classification and recognition share one traversal. |
+| =(ends-in class body)= | Accept the complete positive-width =body= only if its last character matches =class=. |
+| =(ends-not-in class body)= | Accept the complete positive-width =body= only if its last character does not match =class=. |
+| =(alphabetic)= | The pinned Scheme alphabetic class, generated as a Rust table; no host Unicode version substitution. |
+
+Bounds, character classes, recursion depth and nullable roots are admitted by
+the engine. Classes and spellings are canonical data, included in grammar
+identity and emitted to Rust. No callback name or lambda appears in these local
+lexical declarations. =deflanguage-module-scanner= binds the remaining structured
+source-context recipe; proof policy continues through its separate POO contract.
+The language-entry schema remains v2. Full module context and proof policy are
+still separate portable execution obligations.

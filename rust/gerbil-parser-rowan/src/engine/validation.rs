@@ -156,7 +156,7 @@ fn valid_text_class(class: &super::model::TextClass, depth: usize) -> bool {
     use super::model::TextClass;
     depth < 64
         && match class {
-            TextClass::Numeric | TextClass::AsciiLetter => true,
+            TextClass::Numeric | TextClass::Alphabetic | TextClass::AsciiLetter => true,
             TextClass::Characters(values) => !values.is_empty(),
             TextClass::Union(classes) => {
                 !classes.is_empty()
@@ -182,6 +182,20 @@ fn text_profile_width(profile: &super::model::TextProfile, depth: usize) -> Opti
             && u32::try_from(*minimum).is_ok()
             && maximum.is_none_or(|maximum| maximum >= *minimum && u32::try_from(maximum).is_ok()))
         .then_some(*minimum),
+        TextProfile::RunContaining {
+            class,
+            required,
+            minimum,
+            maximum,
+        } => (valid_text_class(class, 0)
+            && valid_text_class(required, 0)
+            && u32::try_from(*minimum).is_ok()
+            && maximum.is_none_or(|maximum| maximum >= *minimum && u32::try_from(maximum).is_ok()))
+        .then_some((*minimum).max(1)),
+        TextProfile::EndsIn { class, body, .. } => {
+            let width = text_profile_width(body, depth + 1)?;
+            (valid_text_class(class, 0) && width > 0).then_some(width)
+        }
         TextProfile::Sequence(steps) => {
             if steps.is_empty() {
                 return None;

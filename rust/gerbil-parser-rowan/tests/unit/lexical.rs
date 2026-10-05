@@ -241,6 +241,23 @@ fn full_fhirpath_aot_uses_shared_profiles_for_lossless_acceptance_and_rejection(
 fn malformed_text_profiles_fail_product_admission_before_execution() {
     use crate::{TextClass, TextProfile};
     const INVALID: &[TextProfile] = &[
+        TextProfile::RunContaining {
+            class: TextClass::Numeric,
+            required: TextClass::Union(&[]),
+            minimum: 1,
+            maximum: None,
+        },
+        TextProfile::RunContaining {
+            class: TextClass::Numeric,
+            required: TextClass::Numeric,
+            minimum: 2,
+            maximum: Some(1),
+        },
+        TextProfile::EndsIn {
+            class: TextClass::Numeric,
+            body: &TextProfile::Optional(&TextProfile::Literal("x")),
+            positive: true,
+        },
         TextProfile::Literal(""),
         TextProfile::Sequence(&[]),
         TextProfile::Run {
@@ -357,4 +374,40 @@ fn header_delimiter_rules_support_independent_prefixes_and_utf8_offsets() {
         index: 2,
     };
     assert_eq!(lexical_end(&invalid, "記|§", 3), None);
+}
+
+#[path = "../fixtures/generated/structured_lexical.rs"]
+mod structured_lexical_generated;
+
+#[test]
+fn scheme_generated_structured_profiles_preserve_unicode_spans() {
+    for &(terminal, source, expected) in structured_lexical_generated::PROFILE_CASES {
+        let rule = structured_lexical_generated::LANGUAGE
+            .lexical_rules
+            .iter()
+            .find(|rule| rule.terminal == terminal)
+            .unwrap();
+        let byte_end = expected.map(|end| source.chars().take(end).map(char::len_utf8).sum());
+        assert_eq!(
+            lexical_end(&rule.expression, source, 0),
+            byte_end,
+            "{terminal}: {source:?}"
+        );
+        let prefixed = format!("字{source}");
+        assert_eq!(
+            lexical_end(&rule.expression, &prefixed, 3),
+            byte_end.map(|end| end + 3)
+        );
+    }
+}
+
+#[test]
+fn structured_profiles_execute_in_a_standalone_lossless_parser() {
+    for source in ["α٣_字", "<1>1.", "<١>字", "<+>*."] {
+        let parsed = crate::parse(&structured_lexical_generated::LANGUAGE, source).unwrap();
+        assert_eq!(parsed.syntax().text().to_string(), source);
+    }
+    for source in ["123", "<+1>x.", "<>."] {
+        assert!(crate::parse(&structured_lexical_generated::LANGUAGE, source).is_err());
+    }
 }

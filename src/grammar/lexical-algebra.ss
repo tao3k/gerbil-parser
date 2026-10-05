@@ -58,7 +58,7 @@
 (def (text-class? value (depth 0))
   (and (< depth 64) (pair? value) (list? value)
        (case (car value)
-         ((numeric ascii-letter) (= (length value) 1))
+         ((numeric alphabetic ascii-letter) (= (length value) 1))
          ((characters) (and (= (length value) 2) (string? (cadr value))
                             (positive? (string-length (cadr value)))))
          ((union) (and (pair? (cdr value))
@@ -75,6 +75,14 @@
                      (or (not (cadddr value))
                          (and (exact-integer? (cadddr value)) (<= (caddr value) (cadddr value) 4294967295)))
                      (caddr value)))
+         ((run-containing)
+          (and (= (length value) 5) (text-class? (cadr value)) (text-class? (caddr value))
+               (let (width (text-profile-minimum-width (list 'run (cadr value) (cadddr value) (car (cddddr value))) depth))
+                 (and width (max 1 width)))))
+         ((ends-in ends-not-in)
+          (and (= (length value) 3) (text-class? (cadr value))
+               (let (width (text-profile-minimum-width (caddr value) (+ depth 1)))
+                 (and width (positive? width) width))))
          ((seq) (and (pair? (cdr value))
                      (let loop ((rest (cdr value)) (width 0))
                        (if (null? rest) width
@@ -94,9 +102,13 @@
 
 ;;; Named fragments expand only during declaration lowering. Runtime IR is
 ;;; closed data and has no name lookup or callback.
-(defrules text-profile-data (literal run seq optional if-next not-next)
+(defrules text-profile-data (literal run run-containing ends-in ends-not-in seq optional if-next not-next)
   ((_ (literal value)) (list 'literal value))
   ((_ (run class minimum maximum)) (list 'run 'class minimum maximum))
+  ((_ (run-containing class required minimum maximum))
+   (list 'run-containing 'class 'required minimum maximum))
+  ((_ (ends-in class body)) (list 'ends-in 'class (text-profile-data body)))
+  ((_ (ends-not-in class body)) (list 'ends-not-in 'class (text-profile-data body)))
   ((_ (seq expression ...)) (cons 'seq (list (text-profile-data expression) ...)))
   ((_ (optional expression)) (list 'optional (text-profile-data expression)))
   ((_ (if-next class yes)) (list 'if-next 'class (text-profile-data yes)))

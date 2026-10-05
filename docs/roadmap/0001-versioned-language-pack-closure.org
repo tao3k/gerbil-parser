@@ -151,6 +151,22 @@ all 54 declared fixture/grammar-source paths across languages and the downstream
 Records pack. This fixes the identified missing-file error, and does not turn
 the failed native jobs into passes; the follow-up head requires fresh CI.
 
+** Generated HCL backend identity follow-up
+
+Head =0a8f1cd= passes Rust but native CI rejects the stale HCL backend digest.
+The namespace correction changes the canonical Grammar/Parser IR name from
+=hcl-v2-24-grammar= to =hcl-grammar=. A Scheme check of the admitted old Parser
+IR and the freshly compiled declaration proves that all other rows are equal.
+The fresh digest is
+=sha256:657e59afd49381fda2d88ecd2ec0615a8c7e68b1b2f7c5b5074ac27b87a26852=.
+
+The official step/recursive generators regenerate both products and pass their
+reproducibility checks in 69.70 seconds. Generation uses a temporary copy of the
+exact declaration without backend installation, resolving the stale-product
+bootstrap cycle; public backend admission remains enabled. The generator's
+reviewed closed-path digest changes with the identity. Full installed native
+qualification remains the next CI gate; the failed native jobs stay failed.
+
 ** Historical S0 implementation and qualification (e1d0cf2)
 
 The v2 loader migration covers all ten public entries. Test services use private,

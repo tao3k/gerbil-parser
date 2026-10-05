@@ -28,7 +28,7 @@
 ;;; The closed attribute/block event corridor is derived from this Grammar IR.
 ;;; A grammar edit must regenerate and review its field/node event sequence.
 (def +simple-attribute-grammar-digest+
-  "sha256:13d6ff380886cee56d5725d02587249c6eaf0703b949e02b6017ff35b8470d99")
+  "sha256:657e59afd49381fda2d88ecd2ec0615a8c7e68b1b2f7c5b5074ac27b87a26852")
 
 ;;; An emitted expression returns the next significant-token index or #f.
 ;;; Zero is a valid position, so even an empty match is distinct from failure.

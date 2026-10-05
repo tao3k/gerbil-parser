@@ -69,4 +69,3 @@
                                       (and (not (char=? character (string-ref source (+ base index))))
                                            (delimiter (+ index 1))))))))
                   (loop (+ end 1)) (and (> end start) end)))))))
-

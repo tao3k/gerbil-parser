@@ -1001,3 +1001,59 @@ speedup claim from this ownership and reuse change.
 The migrated HCL generated module's SDK/GCC native phase completed in 9.30 s
 while independent modules compiled concurrently; this is a compiler receipt,
 not a runtime comparison.
+
+* Common POO build protocol across provider kinds — 2026-10-05
+
+The previous registry admitted only =FusedReductionStrategyContract= and called
+its emitter directly. That restriction is replaced by =BuildStrategyContract=
+and =emit-build-strategy=. Identity/digest/metadata/target checks now live in the
+common prototype; concrete providers refine admission. The Loader has no
+concrete backend import and no language/kind dispatch branch.
+
+Both HCL and Arithmetic now declare fused Scheme reductions and canonical
+Rust/Rowan output through the same =build-strategies= slot. Rust output is
+produced by the existing producer; its source and portable-policy gates remain
+unchanged. Public recipe values remain ordinary POO inheritance/override values,
+and the Loader schema remains v2.
+
+Eight controls cover two languages and two real provider kinds, exact canonical
+Rust output, renamed downstream declarations and inherited metadata, registered
+writer dispatch despite a recipe method override, provider/target/digest forgery
+rejection, additional constrained engine recipe/format registration without
+changing common dispatch, foreign-descriptor rejection and Scheme/Rust policy
+admission differences. The extension control also checks eight actual parser
+calls cause zero extra provider admission or emission invocations.
+
+The first consumer compiler attempted to load the provider's generated macro
+SCM before its native phase product existed. The next consumer used a cached
+facade export set; after moving the convenience method out of the Loader, that
+old interface referred to a removed internal export. The specific generated
+facade interface/optimizer files were saved and rebuilt, then consumed in a
+fresh compiler process. These failed phases remain failures; SDK/GCC and bounded
+native gates were retained. No package uninstall, compiler switch or timeout
+extension was used.
+
+This establishes a common constrained POO capability protocol and two real
+implementations. It does not close HCL recursive/source strategies, TLA+ policy
+portability, Bash word/source scanning or the three-file language layout.
+
+| Final GCC native gate | Result | Process time |
+|---+---+---|
+| Common build protocol | Eight controls; two languages, two real providers, constrained engine extension and eight parses without build admission/emission | 4.67 s |
+| Fused reduction compatibility | Seven controls; both languages, deterministic generated forms and both semantic backends | 4.59 s |
+| Existing Loader admission | Complete existing contract/extension suite | 7.56 s |
+
+All three final runs returned =OK=, =HARNESS-RETURN status=0= and exit 0
+under the unchanged 90/5 gates. The first extension fixture hit the five-second
+idle gate: its local =provider= value collided with the POO =provider= slot,
+causing self-reference while constructing the prototype. Renaming the fixture
+binding to =engine-provider= removed that collision. The next run reached the
+last case but rejected its symbol policy identity before strategy admission;
+the descriptor API requires a string. Correcting that fixture input produced
+the complete passing run. Both failed receipts remain failures, not passes.
+
+These are capability, semantic parity and dispatch-isolation receipts. They do
+not claim a runtime speedup or a new standalone Rust execution qualification;
+the Rust producer is unchanged and its exact source is compared for both
+languages. The new protocol control is discovered by the existing native test
+suite's =t= source traversal.

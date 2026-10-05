@@ -572,3 +572,54 @@ This capability produces Scheme fused LR reductions. It does not confer Rust
 or C portability, or generalize HCL's recursive lexical/source corridor.
 =languages/hcl/generate-direct.ss= and =direct-recursive.ss= still require a
 separate declarative lexical/source strategy design and migration.
+
+** Common POO build capability protocol
+
+=BuildStrategy.= and =BuildStrategyContract= now own descriptor/IR identity,
+exact digest, POO metadata, registered provider and truthful =kind=/=format=
+slots. =FusedReductionStrategy.= and =RustRowanStrategy.= inherit this common
+prototype and apply their own additional constraints. =LanguageLoaderContract=
+validates the common protocol, and =emit-language-build-strategy= invokes
+=emit-build-strategy=. Neither common dispatcher branches on language or strategy
+kind. The Loader imports no concrete generation backend; convenience constructors
+are provided by =language-build-support.ss=.
+
+HCL and Arithmetic both declare the two real engine providers:
+
+#+begin_src scheme
+(slots build-strategies:
+       (list (declare-language-fused-reductions my-language-grammar)
+             (declare-language-build-strategy 'rust-rowan
+               (make-rust-rowan-strategy my-language-grammar))))
+#+end_src
+
+A downstream name is independent of provider kind. POO prototypes may inherit
+metadata and supported recipe slots; =make-bound-build-strategy= binds the
+actual descriptor and validates effective inherited values. Each concrete
+constructor additionally checks its own strategy contract, so a Rust constructor
+cannot be supplied a fused reduction prototype.
+
+| Layer | Authority |
+|---+---|
+| Language Loader | Named declarations, uniqueness and exact descriptor binding |
+| Common POO contract | Source/machine IR identity, digest, metadata and registered target identity |
+| Engine provider | Specific closed recipe admission and canonical producer |
+| Output consumer | Actual compilation/execution qualification for its backend |
+
+Engine extensions register an opaque provider with a name, format identifier,
+admission predicate and emitter through =declare-build-strategy-provider= in
+=src/compiler/build-strategy.ss=. They inherit =BuildStrategy.= and add their
+recipe constraints. Adding such a provider requires no edit to the Loader
+registry or common emitter. Registration is an engine extension boundary, not a
+language-authored arbitrary writer slot. Plain POO objects posing as providers,
+forged target identities and stale digests reject. The common build entry uses
+the registered provider even when a recipe overrides its =.emit= method.
+
+Emitters must materialize/validate output before writing to the caller's port.
+The fused provider retains its closed LR action algebra; the Rust provider calls
+the existing =language-rust-rowan-module-source= producer unchanged, preserving
+Scanner IR and portable-policy rejection. Both providers are build operations;
+repeated source parsing invokes neither provider admission nor generation.
+A format identifier does not grant a new portable runtime capability. No C
+provider is implemented by this change, and Scheme-only parser policies remain
+unsupported by Rust.

@@ -77,7 +77,7 @@
     (test-case "Loader slots admit declared strategies and reject foreign or duplicated bindings"
       (let (output (call-with-output-string (lambda (port) (emit-language-build-strategy hcl-language 'fused-reductions port))))
         (check output => (emitted (make-fused-reduction-strategy hcl-language-grammar)))
-        (check (length (.ref arithmetic-language 'build-strategies)) => 1)
+        (check (length (.ref arithmetic-language 'build-strategies)) => 2)
         (check-exception (validate LanguageLoaderContract
                          (.cc hcl-language 'build-strategies (.ref arithmetic-language 'build-strategies))) true)
         (check-exception (validate LanguageLoaderContract

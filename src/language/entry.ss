@@ -10,8 +10,7 @@
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../runtime/source-scanner source-scanner-for-source?)
         (only-in ../compiler/machine parser-machine-grammar-digest parser-machine-direct-source)
-        (only-in ../compiler/fused-reduction FusedReductionStrategy. FusedReductionStrategyContract
-                 make-fused-reduction-strategy emit-fused-reduction-module)
+        (only-in ../compiler/build-strategy BuildStrategyContract emit-build-strategy)
         (only-in ../runtime/parser parse-source)
         (only-in ../runtime/lr-parser current-lr-branch-budget)
         (only-in ../runtime/cst parse-artifact->cst)
@@ -35,7 +34,7 @@
         check-language-loader-fixtures! call-with-language-parser-policy
         declare-language-source-scan-worker make-language-scan-worker
         declare-language-fixture-test run-language-test
-        declare-language-fused-reductions emit-language-build-strategy)
+        declare-language-build-strategy emit-language-build-strategy)
 
 (def +language-parser-entry-schema+ "gerbil-parser.language-entry.v2")
 
@@ -209,8 +208,10 @@
                     (eq? (.ref profile 'source) (parser-machine-direct-source machine))
                     (procedure? (.ref profile 'lexer))))))))
 
-(def (declare-language-fused-reductions descriptor (prototype FusedReductionStrategy.))
-  (cons 'fused-reductions (make-fused-reduction-strategy descriptor prototype)))
+(def (declare-language-build-strategy name strategy)
+  (unless (symbol? name) (error "build strategy name must be a symbol" name))
+  (validate BuildStrategyContract strategy)
+  (cons name strategy))
 
 ;;; Build strategies are admitted once with the Loader. No build method is
 ;;; invoked during parser dispatch, and no language-specific route is selected.
@@ -222,7 +223,7 @@
              (or (null? remaining)
                  (let (row (car remaining))
                    (and (pair? row) (symbol? (car row)) (not (memq (car row) seen))
-                        (begin (validate FusedReductionStrategyContract (cdr row)) #t)
+                        (begin (validate BuildStrategyContract (cdr row)) #t)
                         (eq? (.ref (cdr row) 'descriptor) descriptor)
                         (loop (cdr remaining) (cons (car row) seen))))))))))
 
@@ -230,7 +231,7 @@
   (validate LanguageLoaderContract loader)
   (let (row (assq name (.ref loader 'build-strategies)))
     (unless row (error "unknown declared language build strategy" name))
-    (emit-fused-reduction-module (cdr row) port)))
+    (emit-build-strategy (cdr row) port)))
 
 (def (loader-shape? candidate)
   (and (object? candidate)

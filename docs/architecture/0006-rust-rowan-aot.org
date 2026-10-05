@@ -312,7 +312,7 @@ to keep cold imports under the original five-second silence fence.
 
 * GQL native timing diagnostics
 
-=languages/gql/iso-39075-2024/benchmarks/runtime/native-timing.ss= records the original 100 parses
+=languages/gql/benchmarks/runtime/native-timing.ss= records the original 100 parses
 per sample across 40 samples after one warmup and one initial GC. It compares
 CLOCK_MONOTONIC, wall time, CPU time, cumulative GC counters, allocation,
 page faults and voluntary/involuntary OS context switches. Output is emitted only after a completed sample. This diagnostic
@@ -408,7 +408,7 @@ The negative exported-descriptor assertion and all six original cases remain.
 
 GQL now owns its unchanged 40 x 100 admission contract, phase controls,
 monotonic/native timing diagnostics and semantic profiling tests beneath
-=languages/gql/iso-39075-2024=. See =benchmarks/README.org= there for executable
+=languages/gql=. See =benchmarks/README.org= there for executable
 commands, batch versus per-parse units, local CPU/GC/allocation measurements
 and the boundaries of prepared controls versus actual streamed parsing.
 The optional =src/runtime/actor= library provides application-owned Gerbil

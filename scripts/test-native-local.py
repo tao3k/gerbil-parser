@@ -101,22 +101,22 @@ def main():
                               "--nocapture"], required=[r"test result: ok\."])
         elif suite == "gql-profile":
             run("gql-profile-build", ["gxc", "-V",
-                "languages/gql/iso-39075-2024/benchmarks/runtime/reduction-counts.ss",
-                "languages/gql/iso-39075-2024/benchmarks/runtime/execution-counts.ss",
-                "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss"], build=True)
+                "languages/gql/benchmarks/runtime/reduction-counts.ss",
+                "languages/gql/benchmarks/runtime/execution-counts.ss",
+                "languages/gql/benchmarks/runtime/matched-stages.ss"], build=True)
             run("gql-profile", ["gxi", "-e",
-                '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
-                '(import :gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
+                '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/languages/gql/benchmarks/runtime/matched-stages") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
+                '(import :gerbil-parser/languages/gql/benchmarks/runtime/matched-stages :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
                 required=["GQL-STAGES-OK", "GQL-STAGE-SUMMARY", "GQL-REDUCTION-COUNTS", "GQL-LR-EXECUTION"])
         elif suite == "gql-actors":
             run("gql-actors-build", ["gxc", "-V",
-                "languages/gql/iso-39075-2024/benchmarks/runtime/reduction-counts.ss",
-                "languages/gql/iso-39075-2024/benchmarks/runtime/execution-counts.ss",
-                "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss",
-                "languages/gql/iso-39075-2024/benchmarks/runtime/actors.ss"], build=True)
+                "languages/gql/benchmarks/runtime/reduction-counts.ss",
+                "languages/gql/benchmarks/runtime/execution-counts.ss",
+                "languages/gql/benchmarks/runtime/matched-stages.ss",
+                "languages/gql/benchmarks/runtime/actors.ss"], build=True)
             run("gql-actors", ["gxi", "-e",
-                '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/actors") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
-                '(import :gerbil-parser/languages/gql/iso-39075-2024/benchmarks/runtime/actors :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
+                '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/languages/gql/benchmarks/runtime/actors") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
+                '(import :gerbil-parser/languages/gql/benchmarks/runtime/actors :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
                 required=["GQL-ACTORS-OK", "GQL-STAGE-SUMMARY"])
         elif suite == "aot":
             run("aot-build", ["gxi", "build-rust-rowan-aot.ss", "compile"], build=True)
@@ -129,9 +129,9 @@ def main():
                     "PATH=/usr/bin:/bin", "GERBIL_PATH=" + str(native_root),
                     "GERBIL_PARSER_ROWAN_AOT_LIB=" + str(native_root / "lib") + ":" + gerbil_home + "/lib",
                     str(native_root / "bin/gerbil-parser-rowan-aot"),
-                    fixture + "/languages/records/v1/grammar.ss", generated])
+                    fixture + "/languages/records/grammar.ss", generated])
                 run("aot-format", ["rustfmt", "--edition", "2024", generated])
-                run("aot-compare", ["cmp", generated, fixture + "/src/generated/records_v1.rs"])
+                run("aot-compare", ["cmp", generated, fixture + "/src/generated/records.rs"])
         else:
             if suite == "ffi":
                 run("ffi-header", [environment.get("CC", "cc"), "-std=c11", "-Wall",
@@ -161,7 +161,7 @@ def main():
                               "RUST-NATIVE-100-CALLS"], timeout=90)
                 subprocess.run([sys.executable, "scripts/test-native-host.py"],
                                env=environment, check=True)
-            modules = (["languages/gql/iso-39075-2024/parser", "src/runtime/parser"]
+            modules = (["languages/gql/parser", "src/runtime/parser"]
                        if suite == "gql" else ["src/ffi/rust-rowan-aot-v1"])
             for module in modules:
                 # Reject interpreter-only metadata. Gerbil loads the compiled .o1.
@@ -170,12 +170,12 @@ def main():
                     raise SystemExit(f"missing compiled module {object_file}; build this checkout first")
             if suite == "gql":
                 run("gql-profile-build", ["gxc", "-V",
-                    "languages/gql/iso-39075-2024/benchmarks/runtime/reduction-counts.ss",
-                    "languages/gql/iso-39075-2024/benchmarks/runtime/execution-counts.ss",
-                    "languages/gql/iso-39075-2024/benchmarks/runtime/matched-stages.ss"], build=True)
-            files = (["languages/gql/iso-39075-2024/runtime-benchmark-test.ss",
-                      "languages/gql/iso-39075-2024/benchmark-profile-test.ss",
-                      "languages/gql/iso-39075-2024/actor-test.ss"] if suite == "gql"
+                    "languages/gql/benchmarks/runtime/reduction-counts.ss",
+                    "languages/gql/benchmarks/runtime/execution-counts.ss",
+                    "languages/gql/benchmarks/runtime/matched-stages.ss"], build=True)
+            files = (["languages/gql/runtime-benchmark-test.ss",
+                      "languages/gql/benchmark-profile-test.ss",
+                      "languages/gql/actor-test.ss"] if suite == "gql"
                      else ["t/native-ffi-test.ss", "t/build-product-contract-test.ss",
                            "t/native-language-test.ss", "t/native-language-benchmark-test.ss"])
             run(suite, ["gxi", "t/fixtures/tla-sany-differential/native-suite.ss"] + files,

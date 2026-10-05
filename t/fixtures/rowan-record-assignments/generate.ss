@@ -4,7 +4,7 @@
 
 (import (only-in :gerbil-parser/rust-rowan-support
                  generate-language-rust-rowan-module)
-        (only-in "languages/records/v1/grammar.ss"
+        (only-in "languages/records/grammar.ss"
                  records-language-grammar))
 
 (def arguments (command-line))

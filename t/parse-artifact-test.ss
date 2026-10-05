@@ -6,7 +6,7 @@
         (only-in :gerbil-parser/src/runtime/identity sha256-bytes)
         :gerbil-parser/src/runtime/cst
         :gerbil-parser/src/runtime/parser
-        :gerbil-parser/languages/arithmetic/v1/parser)
+        :gerbil-parser/languages/arithmetic/parser)
 
 (def (artifact-replace artifact key value)
   (map (lambda (row)

@@ -1,7 +1,7 @@
 use rowan_record_assignments_fixture::parse_records;
 
-const ACCEPTED: &str = include_str!("../languages/records/v1/corpus/accepted.records");
-const REJECTED: &str = include_str!("../languages/records/v1/corpus/rejected.records");
+const ACCEPTED: &str = include_str!("../languages/records/corpus/accepted.records");
+const REJECTED: &str = include_str!("../languages/records/corpus/rejected.records");
 
 #[test]
 fn custom_generated_language_is_lossless_and_structural() {

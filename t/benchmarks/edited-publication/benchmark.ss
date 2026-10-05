@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Isolate publication from actual edited roots with moved reused token leaves.
-(import (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser parse-hcl-v2-24)
+(import (only-in :gerbil-parser/languages/hcl/parser hcl-parser parse-hcl)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?)
         (only-in :gerbil-parser/src/runtime/incremental make-incremental-session
                  parse-incremental-session make-edit apply-edit incremental-session-artifact
@@ -48,10 +48,10 @@
          (index (case location ((first) 0) ((middle) (quotient units 2)) (else (- units 1))))
          (edit (make-edit (* index 6) (if (eq? operation 'delete) 6 0)
                          (if (eq? operation 'insert) "b = 2\n" "")))
-         (session (make-incremental-session hcl-v2-24-parser source #t)))
+         (session (make-incremental-session hcl-parser source #t)))
     (let-values (((next receipt) (parse-incremental-session session edit)))
       (let* ((artifact (incremental-session-artifact next))
-             (fresh (parse-hcl-v2-24 (apply-edit source edit)))
+             (fresh (parse-hcl (apply-edit source edit)))
              (moved 0) (unmoved 0)
              (shared (shared-fragments (incremental-session-recognition-root session)
                                        (incremental-session-recognition-root next))))

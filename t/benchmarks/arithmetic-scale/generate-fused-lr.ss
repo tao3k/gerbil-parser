@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Experimental fused Scheme LR generator for the arithmetic benchmark.
 ;;; This consumes the compiled Parser IR; the grammar remains the sole author.
-(import (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+(import (only-in :gerbil-parser/languages/arithmetic/grammar
                  arithmetic-parser-ir arithmetic-parser)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/src/compiler/machine
@@ -223,7 +223,7 @@
 
 (def (module-expression)
   `(begin
-     (import (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+     (import (only-in :gerbil-parser/languages/arithmetic/grammar
                       arithmetic-parser)
              (only-in :gerbil-parser/src/compiler/machine
                       parser-machine-runtime)

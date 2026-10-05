@@ -9,8 +9,8 @@
                  make-success-parse-artifact)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest parser-machine-trivia)
-        (only-in :gerbil-parser/languages/arithmetic/v1/parser
-                 parse-arithmetic-v1))
+        (only-in :gerbil-parser/languages/arithmetic/parser
+                 parse-arithmetic))
 
 (def (addition-source terms shape)
   (let* ((width (if (eq? shape 'lines) 3 2))
@@ -81,9 +81,9 @@
                    (equal? reference generated)
                    (equal?
                     (parse-source/fused source)
-                    (parse-arithmetic-v1 source))
+                    (parse-arithmetic source))
                    (equal?
-                    (parse-arithmetic-v1 source)
+                    (parse-arithmetic source)
                     (make-success-parse-artifact
                      (parser-machine-grammar-digest arithmetic-parser)
                      source tokens generated
@@ -115,7 +115,7 @@
         (if (eq? mode 'artifact)
           (values (if generated?
                     (parse-source/fused source)
-                    (parse-arithmetic-v1 source))
+                    (parse-arithmetic source))
                   '())
           (let (prepared
                 (if (eq? mode 'prepared)

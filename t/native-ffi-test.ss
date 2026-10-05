@@ -4,8 +4,8 @@
 ;; Admit the negative-case parser fixture through the normal native loader
 ;; before the timed test dynamically inspects its exported descriptor kinds.
 (import :std/test
-        (only-in :gerbil-parser/t/fixtures/rowan-record-assignments/languages/records/v1/parser
-                 parse-records-v1)
+        (only-in :gerbil-parser/t/fixtures/rowan-record-assignments/languages/records/parser
+                 parse-records)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         :std/encoding/json
         (only-in :gerbil-parser/src/ffi/parse-artifact-v1
@@ -57,7 +57,7 @@
       (check (native-rowan-aot-abi-version) => 1)
       (let (source
             (native-rust-rowan-source
-             "t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss"))
+             "t/fixtures/rowan-record-assignments/languages/records/grammar.ss"))
         (check (not (not (string-contains
                            source "language: \"record-assignments\""))) => #t)
         (check (not (not (string-contains
@@ -67,7 +67,7 @@
     (test-case "module without a language descriptor fails closed"
       (check-exception
        (native-rust-rowan-source
-        "t/fixtures/rowan-record-assignments/languages/records/v1/parser.ss")
+        "t/fixtures/rowan-record-assignments/languages/records/parser.ss")
        true))))
 
 (export native-ffi-tests)

@@ -2,10 +2,10 @@
 ;;; -*- Gerbil -*-
 ;;; Pure Scheme comparison of fresh, one-shot, and cached-LR edits.
 
-(import (only-in :gerbil-parser/languages/arithmetic/v1/parser
-                 arithmetic-parser parse-arithmetic-v1)
-        (only-in :gerbil-parser/languages/hcl/v2-24/parser
-                 hcl-v2-24-parser parse-hcl-v2-24)
+(import (only-in :gerbil-parser/languages/arithmetic/parser
+                 arithmetic-parser parse-arithmetic)
+        (only-in :gerbil-parser/languages/hcl/parser
+                 hcl-parser parse-hcl)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-valid?)
         (only-in :gerbil-parser/src/runtime/incremental
@@ -39,7 +39,7 @@
                       (cons 'lr-modes (vector-length plans)) (cons 'prepared-plans (plan-count prepared))
                       (cons 'cpu-samples-ms times) (cons 'cpu-median-ms (median times))))
          (newline) (force-output))))
-   (list (cons 'arithmetic arithmetic-parser) (cons 'hcl hcl-v2-24-parser))))
+   (list (cons 'arithmetic arithmetic-parser) (cons 'hcl hcl-parser))))
 
 (def (audit-source-index session)
   (when (and (current-lr-source-index-enabled?) (incremental-session-source-modes session))
@@ -76,9 +76,9 @@
   (let* ((source (string-join (make-list terms "001") " + "))
          (source-edit (make-edit (* (quotient terms 2) 6) 3 "0002"))
          (changed-source (apply-edit source source-edit))
-         (base (parse-arithmetic-v1 source))
+         (base (parse-arithmetic source))
          (session (make-incremental-session arithmetic-parser source))
-         (fresh (parse-arithmetic-v1 changed-source)))
+         (fresh (parse-arithmetic changed-source)))
     (let-values (((one-shot _one-shot-receipt)
                   (parse-source/incremental
                    arithmetic-parser source base source-edit))
@@ -103,7 +103,7 @@
                       (make-incremental-session arithmetic-parser source))))
            (report 'fresh-edit
                    (samples (lambda ()
-                              (parse-arithmetic-v1 changed-source))))
+                              (parse-arithmetic changed-source))))
            (report 'one-shot-edit
                    (samples
                     (lambda ()
@@ -127,7 +127,7 @@
     (let-values (((next receipt)
                   (parse-incremental-session session source-edit)))
       (unless (equal? (incremental-session-artifact next)
-                      (parse-arithmetic-v1 changed-source))
+                      (parse-arithmetic changed-source))
         (error "event reuse benchmark products differ" workload terms))
       (write
        (list (cons 'workload workload)
@@ -136,7 +136,7 @@
                    (cdr (assq 'reusedRecognitionEventCount receipt)))
              (report 'fresh-edit
                      (samples
-                      (lambda () (parse-arithmetic-v1 changed-source))))
+                      (lambda () (parse-arithmetic changed-source))))
              (report 'cached-event-edit
                      (samples
                       (lambda ()
@@ -155,7 +155,7 @@
     (let-values (((next receipt)
                   (parse-incremental-session session source-edit)))
       (unless (equal? (incremental-session-artifact next)
-                      (parse-arithmetic-v1 changed-source))
+                      (parse-arithmetic changed-source))
         (error "certified window product differs" terms))
       (write
        (list (cons 'workload 'multi-token-window)
@@ -164,7 +164,7 @@
                    (cdr (assq 'reusedRecognitionEventCount receipt)))
              (report 'fresh-edit
                      (samples
-                      (lambda () (parse-arithmetic-v1 changed-source))))
+                      (lambda () (parse-arithmetic changed-source))))
              (report 'cached-window-edit
                      (samples
                       (lambda ()
@@ -178,11 +178,11 @@
   (let* ((source (apply string-append
                         (make-list lines "x = 1 /*a*/\n")))
          (changed-source (apply-edit source source-edit))
-         (session (make-incremental-session hcl-v2-24-parser source)))
+         (session (make-incremental-session hcl-parser source)))
     (let-values (((next receipt)
                   (parse-incremental-session session source-edit)))
       (unless (and (equal? (incremental-session-artifact next)
-                           (parse-hcl-v2-24 changed-source))
+                           (parse-hcl changed-source))
                    (assq 'reusedRecognitionEventCount receipt))
         (error "certified HCL window product differs" workload lines))
       (write
@@ -192,7 +192,7 @@
                    (cdr (assq 'reusedRecognitionEventCount receipt)))
              (report 'fresh-edit
                      (samples (lambda ()
-                                (parse-hcl-v2-24 changed-source))))
+                                (parse-hcl changed-source))))
              (report 'cached-window-edit
                      (samples
                       (lambda ()
@@ -247,8 +247,8 @@
                  (string-append "group {\n"
                    (apply string-append (make-list 80 "value = 001\n")) "}\n")
                  "value = 001\n"))
-         (machine (if hcl? hcl-v2-24-parser arithmetic-parser))
-         (parse (if hcl? parse-hcl-v2-24 parse-arithmetic-v1))
+         (machine (if hcl? hcl-parser arithmetic-parser))
+         (parse (if hcl? parse-hcl parse-arithmetic))
          (source (if hcl? (apply string-append (make-list terms line))
                      (string-join (make-list terms "001") " + ")))
          (index (case location ((first) 0) ((middle) (quotient terms 2))
@@ -355,7 +355,7 @@
          (inserted (if nested? line "other = 002\n"))
          (width (string-length inserted)) (mid (* (quotient units 2) (string-length line)))
          (source (apply string-append (make-list units line)))
-         (session (make-incremental-session hcl-v2-24-parser source #t))
+         (session (make-incremental-session hcl-parser source #t))
          (certified-probes 0) (scanner-probe-bytes 0)
          (edits (list (make-edit 0 0 inserted) (make-edit (+ mid width) 0 inserted)
                       (make-edit 0 width "") (make-edit mid width "")
@@ -369,7 +369,7 @@
                 (scanned (assq 'fragmentCertificateProbeByteCount receipt)))
             (when certified (set! certified-probes (+ certified-probes (cdr certified))))
             (when scanned (set! scanner-probe-bytes (+ scanner-probe-bytes (cdr scanned)))))
-          (let* ((changed (apply-edit text (car rest))) (fresh (parse-hcl-v2-24 changed)))
+          (let* ((changed (apply-edit text (car rest))) (fresh (parse-hcl changed)))
             (unless (and (equal? fresh (incremental-session-artifact next))
                          (equal? fresh (begin (assert-event-backend next) (incremental-session-project-artifact next))))
               (error "history artifact/projector differs" units (length rest)))
@@ -417,7 +417,7 @@
 (import (only-in :gerbil-parser/src/runtime/funcs current-recognition-sequence-fusion-enabled? recognition-sequence->list)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?
                  lr-runtime-event-program? lr-recognition-fragment-runtime lr-recognition-fragment-value lr-recognition-fragment-executor)
-        (only-in :gerbil-parser/languages/hcl/v2-24/direct-step direct-event-step)
+        (only-in :gerbil-parser/languages/hcl/direct-step direct-event-step)
         (only-in :gerbil-parser/src/runtime/event-program event-program-value?)
         (only-in :gerbil-parser/src/runtime/recognition recognition-child-value))
 (def (assert-event-backend session)

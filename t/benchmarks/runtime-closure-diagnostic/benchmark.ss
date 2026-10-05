@@ -4,7 +4,7 @@
         :gerbil-parser/src/runtime/significant
         :gerbil-parser/src/compiler/machine
         :gerbil-parser/src/language/descriptor
-        :gerbil-parser/languages/gql/iso-39075-2024/parser)
+        :gerbil-parser/languages/gql/parser)
 (export main)
 (def (measure label count thunk)
   (let loop ((sample 0))
@@ -19,7 +19,7 @@
         (newline) (force-output))
       (loop (+ sample 1)))))
 (def (main . args)
-  (let* ((machine (language-grammar-machine gql-iso-language-grammar))
+  (let* ((machine (language-grammar-machine gql-language-grammar))
          (source +gql-representative-query+)
          (tokens (lex-source machine source))
          (significant (parser-significant-tokens machine tokens)))
@@ -30,7 +30,7 @@
         (unless (and (parse-artifact-valid? artifact)
                      (equal? (parse-artifact-roundtrip artifact) source))
           (error "invalid complete artifact")))
-      (measure 'gql-complete 100 (lambda () (parse-gql-iso-39075-2024 source)))
+      (measure 'gql-complete 100 (lambda () (parse-gql source)))
       (measure 'gql-lex 100 (lambda () (lex-source machine source)))
       (measure 'gql-significant 100 (lambda () (parser-significant-tokens machine tokens)))
       (measure 'gql-lr 100 (lambda () ((parser-machine-parse machine) significant #f)))

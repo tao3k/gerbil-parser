@@ -1,8 +1,8 @@
 #!/usr/bin/env gxi
 ;;; Direct event lowering must match the independent original-production replay.
 (import :std/test
-        (only-in :gerbil-parser/languages/arithmetic/v1/parser arithmetic-parser parse-arithmetic-v1)
-        (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser parse-hcl-v2-24)
+        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
+        (only-in :gerbil-parser/languages/hcl/parser hcl-parser parse-hcl)
         :gerbil-parser/src/runtime/event-program
         :gerbil-parser/src/runtime/event-reduce
         :gerbil-parser/src/runtime/recognition
@@ -17,7 +17,7 @@
                  lr-recognition-view? lr-recognition-view-base lr-recognition-fragment?
                  lr-recognition-fragment-children lr-recognition-fragment-end
                  lr-recognition-fragment-token-count lr-recognition-fragment-executor)
-        (only-in :gerbil-parser/languages/hcl/v2-24/direct-step direct-event-step)
+        (only-in :gerbil-parser/languages/hcl/direct-step direct-event-step)
         (only-in :gerbil-parser/src/runtime/incremental
                  make-incremental-session incremental-session-artifact
                  incremental-session-recognition-root incremental-session-project-artifact
@@ -239,7 +239,7 @@
     (test-case "HCL events actually execute generated steps across topology Unicode and history edits"
       (parameterize ((current-lr-event-program-enabled? #t))
         (let* ((source (string-append "# 前置\n" (string-join (make-list 100 "a = 1 # 中\n") "") "# 尾部\n"))
-               (session (make-incremental-session hcl-v2-24-parser source #t)))
+               (session (make-incremental-session hcl-parser source #t)))
           (check (event-program-value? (program-root session)) => #t)
           (check
            (let loop ((pending (list (incremental-session-recognition-root session))))
@@ -253,7 +253,7 @@
                                     (cdr pending))))))) => #t)
           (check (lr-runtime-event-program?
                   (lr-recognition-fragment-runtime (base-root (incremental-session-recognition-root session)))) => #t)
-          (check (incremental-session-artifact session) => (parse-hcl-v2-24 source))
+          (check (incremental-session-artifact session) => (parse-hcl source))
           (check (eq? (lr-recognition-fragment-executor
                        (base-root (incremental-session-recognition-root session))) direct-event-step) => #t)
           (let* ((piece (find-program-piece (incremental-session-recognition-root session) 500))
@@ -268,14 +268,14 @@
               (check (eq? code (event-program-value-code
                         (recognition-child-value (car (recognition-sequence->list
                           (lr-recognition-fragment-value piece)))))) => #t)
-              (check (incremental-session-artifact session) => (parse-hcl-v2-24 source))
+              (check (incremental-session-artifact session) => (parse-hcl source))
               (check (incremental-session-project-artifact session) => (incremental-session-artifact session))))
           (for-each
            (lambda (edit)
              (let-values (((next receipt) (parse-incremental-session session edit)))
                (set! source (apply-edit source edit)) (set! session next)
                (check (event-program-value? (program-root session)) => #t)
-               (check (incremental-session-artifact session) => (parse-hcl-v2-24 source))
+               (check (incremental-session-artifact session) => (parse-hcl source))
                (check (incremental-session-project-artifact session) => (incremental-session-artifact session))))
            (list (make-edit 0 0 "x = 2\n") (make-edit 0 6 "")
                  (make-edit 9 0 "y = 3\n") (make-edit 9 6 "")
@@ -283,9 +283,9 @@
     (test-case "selected machine preserves certified transfers and backend ownership across flag changes"
       (let* ((source (string-join (make-list 100 "a = 1\n") ""))
              (control (parameterize ((current-lr-event-program-enabled? #f))
-                        (make-incremental-session hcl-v2-24-parser source #t)))
+                        (make-incremental-session hcl-parser source #t)))
              (candidate (parameterize ((current-lr-event-program-enabled? #t))
-                          (make-incremental-session hcl-v2-24-parser source #t)))
+                          (make-incremental-session hcl-parser source #t)))
              (edit (make-edit 0 0 "b = 2\n")))
         (let-values (((control-next control-receipt)
                       (parameterize ((current-lr-event-program-enabled? #f))
@@ -311,26 +311,26 @@
             (check (event-program-value? (program-root restored)) => #t)
             (check (lr-runtime-event-program? (lr-recognition-fragment-runtime
                     (base-root (incremental-session-recognition-root restored)))) => #t)
-            (check (incremental-session-artifact restored) => (parse-hcl-v2-24 source))
+            (check (incremental-session-artifact restored) => (parse-hcl source))
             (check (incremental-session-project-artifact restored)
                    => (incremental-session-artifact restored))))))
     (test-case "publication closures retain edited source and token binding across inverse edits"
       (let* ((source (string-join (make-list 100 "a = 1\n") ""))
              (session (parameterize ((current-lr-event-program-enabled? #t))
-                        (make-incremental-session hcl-v2-24-parser source #t))))
+                        (make-incremental-session hcl-parser source #t))))
         (let-values (((next receipt) (parse-incremental-session session (make-edit 0 0 "b = 2\n"))))
           (let-values (((control candidate code) (incremental-session-publication-comparison next)))
-            (let ((expected (parse-hcl-v2-24 (string-append "b = 2\n" source))) (moved 0))
+            (let ((expected (parse-hcl (string-append "b = 2\n" source))) (moved 0))
               (event-program-walk
                (lambda (op value offset delta moved?)
                  (when (and (eq? op 'token) moved?) (set! moved (+ moved 1)))) code)
               (check (> moved 0) => #t)
               (parameterize ((current-lr-event-program-enabled? #f))
                 (let-values (((restored receipt) (parse-incremental-session next (make-edit 0 6 ""))))
-                  (check (incremental-session-artifact restored) => (parse-hcl-v2-24 source))
+                  (check (incremental-session-artifact restored) => (parse-hcl source))
                   (check (control) => expected)
                   (check (candidate) => expected)
-                  (check (incremental-session-artifact session) => (parse-hcl-v2-24 source)))))))))
+                  (check (incremental-session-artifact session) => (parse-hcl source)))))))))
     (test-case "generic deterministic LR lowers events without a generated executor"
       (parameterize ((current-lr-event-program-enabled? #t))
         (let* ((source "1+2*3")
@@ -339,10 +339,10 @@
           (check (event-program-value? (program-root session)) => #t)
           (check (lr-runtime-event-program? (lr-recognition-fragment-runtime root)) => #t)
           (check (lr-recognition-fragment-executor root) => #f)
-          (check (incremental-session-artifact session) => (parse-arithmetic-v1 source))
+          (check (incremental-session-artifact session) => (parse-arithmetic source))
           (let-values (((next receipt) (parse-incremental-session session (make-edit 0 0 "0+"))))
             (check (event-program-value? (program-root next)) => #t)
-            (check (incremental-session-artifact next) => (parse-arithmetic-v1 "0+1+2*3"))
+            (check (incremental-session-artifact next) => (parse-arithmetic "0+1+2*3"))
             (check (incremental-session-project-artifact next) => (incremental-session-artifact next))))))
     (test-case "unsupported selective GLR remains on the canonical backend"
       (parameterize ((current-lr-event-program-enabled? #t))

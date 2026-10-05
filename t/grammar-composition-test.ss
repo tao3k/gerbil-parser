@@ -30,7 +30,7 @@
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         :gerbil-parser/src/runtime/token
         :gerbil-parser/src/compiler/machine
-        :gerbil-parser/languages/arithmetic/v1/parser)
+        :gerbil-parser/languages/arithmetic/parser)
 
 ;;; Both rules recognize the same spelling. Only the LR state can select the
 ;;; correct token identity for each position; global longest-match necessarily

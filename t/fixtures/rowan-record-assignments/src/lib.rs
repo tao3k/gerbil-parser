@@ -1,7 +1,7 @@
 //! Independent consumer of the generated record assignments language module.
 
-#[path = "generated/records_v1.rs"]
-pub mod records_v1;
+#[path = "generated/records.rs"]
+pub mod records;
 
 /// Parse source with the record assignments grammar.
 ///
@@ -12,5 +12,5 @@ pub mod records_v1;
 pub fn parse_records(
     source: &str,
 ) -> Result<gerbil_parser_rowan::Parse, gerbil_parser_rowan::ParseError> {
-    gerbil_parser_rowan::parse(&records_v1::LANGUAGE, source)
+    gerbil_parser_rowan::parse(&records::LANGUAGE, source)
 }

@@ -4,13 +4,13 @@
 
 (import :std/test
         (only-in :core/observability/testing-case poo-flow-test-case)
-        (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+        (only-in :gerbil-parser/languages/arithmetic/grammar
                  arithmetic-grammar arithmetic-parser)
-        (only-in :gerbil-parser/languages/hcl/v2-24/grammar
-                 hcl-v2-24-grammar hcl-v2-24-parser
-                 hcl-v2-24-parser-ir)
-        (only-in :gerbil-parser/languages/hcl/v2-24/fixtures
-                 hcl-v2-24-official-accepted-fixtures)
+        (only-in :gerbil-parser/languages/hcl/grammar
+                 hcl-grammar hcl-parser
+                 hcl-parser-ir)
+        (only-in :gerbil-parser/languages/hcl/fixtures
+                 hcl-official-accepted-fixtures)
         (only-in :gerbil-parser/language-support/fixture
                  syntax-fixture-id syntax-fixture-source)
         (only-in :gerbil-parser/src/compiler/parser-ir
@@ -149,10 +149,10 @@
                     => #t)))
          '("1 + 2 * (3 - 4)" "foo-7/2" "-x+3"))))
     (test-case "official HCL corpus keeps LALR and direct parse products"
-      (let ((lalr (parser-ir-ref hcl-v2-24-parser-ir 'lr-spec))
+      (let ((lalr (parser-ir-ref hcl-parser-ir 'lr-spec))
             (direct
              (parser-ir-ref
-              (compile-parser hcl-v2-24-grammar 'follow-partition-lr1)
+              (compile-parser hcl-grammar 'follow-partition-lr1)
               'lr-spec)))
         (check (lr-spec-ref direct 'algorithm) => 'follow-partition-lr1-v1)
         (check (lr-spec-ref direct 'state-count)
@@ -162,11 +162,11 @@
            (let* ((source (syntax-fixture-source fixture))
                   (tokens
                    (parser-significant-tokens
-                    hcl-v2-24-parser
-                    (lex-source hcl-v2-24-parser source))))
+                    hcl-parser
+                    (lex-source hcl-parser source))))
              (check (equal? (parsed-language-root lalr tokens)
                             (parsed-language-root direct tokens))
                     => #t)))
-         hcl-v2-24-official-accepted-fixtures)))))
+         hcl-official-accepted-fixtures)))))
 
 (export follow-partition-language-test)

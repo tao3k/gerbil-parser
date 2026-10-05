@@ -1249,7 +1249,7 @@ algorithm, including reversed measurement order, also favored generated
 execution, though absolute CPU medians varied with host load.
 
 The same generator now emits a streaming state driver as
-=languages/arithmetic/v1/direct-lr.ss=. Its lexical-mode identities come from
+=languages/arithmetic/direct-lr.ss=. Its lexical-mode identities come from
 the prepared LR catalog; it requests one token under the current state mode,
 builds the same recognition values, and records shifts through the existing
 source driver's callback. =parser-machine= admits it only when its embedded
@@ -1258,7 +1258,7 @@ returns =fallback=, so the ordinary driver restarts with fresh scanner state
 and retains its diagnostic and selective-GLR behavior. The arithmetic v1
 production entry uses the generated driver for unobserved fresh parses;
 incremental and observed requests keep their existing executor. Run
-=gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/v1/direct-lr.ss=
+=gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/direct-lr.ss=
 to compare the checked-in output byte for byte with the current Scheme IR;
 native CI runs this check after building the package.
 
@@ -1268,7 +1268,7 @@ input shapes without falling back. Three 20-sample AOT batches gave 1,024-line
 complete-artifact CPU medians of 3.412--3.476 ms for the indexed driver and
 2.532--2.599 ms for the generated driver; the 3,200-term ranges were
 10.257--10.594 ms and 7.363--7.589 ms. After integrating the driver, four
-alternating AOT runs of the old and new =parse-arithmetic-v1= executables
+alternating AOT runs of the old and new =parse-arithmetic= executables
 measured 3.224--3.260 versus 2.512--2.571 ms at 1,024 lines and
 9.377--9.535 versus 6.488--6.558 ms at 3,200 terms. The package's warm
 build measured 6.35 s on this host. The corresponding AOT benchmark executable
@@ -1291,12 +1291,12 @@ The admitted HCL slice instead generates a fused reduction step from the
 Scheme Parser IR: each production has static stack pops and semantic actions,
 then looks up its exact goto in the existing indexed table. LR action lookup,
 parser-directed lexical modes, diagnostics, and selective GLR remain with the
-existing runtime. The generated =languages/hcl/v2-24/direct-step.ss= is about
+existing runtime. The generated =languages/hcl/direct-step.ss= is about
 64 KB and compiled alone in about 5 seconds. The language module installs it
 only when its embedded grammar digest matches the compiled parser machine;
 the runtime exposes a benchmark override to run the same scanner and artifact
 path with indexed reductions. Run
-=gerbil env gxi t/benchmarks/hcl-scale/generate-step.ss check languages/hcl/v2-24/direct-step.ss=
+=gerbil env gxi t/benchmarks/hcl-scale/generate-step.ss check languages/hcl/direct-step.ss=
 to verify byte-for-byte regeneration; native CI runs this check.
 
 The repository-owned =step-benchmark.ss= preflights exact full
@@ -1354,14 +1354,14 @@ prototype also kept exact artifacts but measured 11.038 ms versus 11.075 ms
 without the corridor in a same-process comparison. None removed enough
 semantic work to warrant integration.
 
-The first =languages/hcl/v2-24/generate-direct.ss= version compiled the
+The first =languages/hcl/generate-direct.ss= version compiled the
 HCL Grammar IR's sequence, choice, optional, repeat, field, alias, literal,
 token, and reference forms into Scheme recursive-descent functions. They
 constructed the existing recognition nodes and used the standard Scheme
 sequence helpers, then published through the lossless =ParseArtifact= builder.
 This follows langcc's generated recursive-descent action direction while
 retaining this repository's Scheme grammar and artifact contract. The generated
-=languages/hcl/v2-24/direct-recursive.ss= is checked byte for byte against
+=languages/hcl/direct-recursive.ss= is checked byte for byte against
 the current IR in native CI. It is installed only for the matching grammar
 digest and used for fresh unobserved HCL source requests. A non-admitted
 source returns to the existing parser-directed LR route, which owns rejection,

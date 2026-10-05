@@ -244,9 +244,9 @@ entrypoint yields exactly one unfielded root.  The author does not modify
 The language's =parser.ss= then declares exactly one public entry:
 
 #+begin_src scheme
-(deflanguage-parser-loader hcl-v2-24-language
-  (grammar hcl-v2-24-language-grammar)
-  (parse parse-hcl-v2-24))
+(deflanguage-parser-loader hcl-language
+  (grammar hcl-language-grammar)
+  (parse parse-hcl))
 #+end_src
 
 The entry is a POO =LanguageLoader.= object admitted by

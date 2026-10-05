@@ -4,8 +4,8 @@
 ;;; Recognition modes stop before ParseArtifact event materialization. They use
 ;;; the full-source lexer; the preflight compares its product with directed lexing.
 
-(import (only-in :gerbil-parser/languages/arithmetic/v1/parser
-                 arithmetic-parser parse-arithmetic-v1)
+(import (only-in :gerbil-parser/languages/arithmetic/parser
+                 arithmetic-parser parse-arithmetic)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest parser-machine-runtime
                  parser-machine-trivia)
@@ -55,7 +55,7 @@
           (let-values (((root rest) (lr-parse/prepared runtime input)))
             (unless (and (null? rest)
                          (equal?
-                          (parse-arithmetic-v1 source)
+                          (parse-arithmetic source)
                           (make-success-parse-artifact
                            (parser-machine-grammar-digest arithmetic-parser)
                            source tokens root
@@ -63,7 +63,7 @@
               (error "recognition does not match directed artifact" terms)))))
       (def (parse-one)
         (if (eq? mode 'artifact)
-          (parse-arithmetic-v1 source)
+          (parse-arithmetic source)
           (let* ((input
                   (if significant
                     significant

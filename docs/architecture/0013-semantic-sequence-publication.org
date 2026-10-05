@@ -113,7 +113,7 @@ to the walker alone.
 
 The repository already provides
 =make-success-parse-artifact/raw-event-tape= in =src/runtime/artifact.ss= and
-uses it in =languages/hcl/v2-24/direct-recursive.ss=. This publishes a flat
+uses it in =languages/hcl/direct-recursive.ss=. This publishes a flat
 operation/name/offset tape, resolves trivia and assigns canonical IDs once.
 The next falsifiable algorithm experiment is to lower original LR operand
 semantics to that existing event-program seam and retain reusable relative

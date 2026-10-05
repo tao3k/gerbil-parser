@@ -3,16 +3,16 @@
 
 (import (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+        (only-in :gerbil-parser/languages/arithmetic/grammar
                  +arithmetic-language-version+
                  +arithmetic-syntax-contract+
                  arithmetic-language-grammar
                  arithmetic-parser-ir
                  arithmetic-parser)
-        (only-in :gerbil-parser/languages/gql/iso-39075-2024/grammar
+        (only-in :gerbil-parser/languages/gql/grammar
                  +gql-syntax-contract+
-                 gql-iso-parser-ir
-                 gql-iso-parser)
+                 gql-parser-ir
+                 gql-parser)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/rust-rowan-support
@@ -54,8 +54,8 @@
              "gql"
              "edition-1-2024-04"
              +gql-syntax-contract+
-             (parser-machine-grammar-digest gql-iso-parser)
-             gql-iso-parser-ir))
+             (parser-machine-grammar-digest gql-parser)
+             gql-parser-ir))
         (check (and (string-contains source "LexicalExpr::NumberLiteral")
                     (string-contains source "LexicalExpr::Choice")
                     (string-contains source "ParserAction::Fork(&[")

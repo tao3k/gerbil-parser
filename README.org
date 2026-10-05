@@ -33,8 +33,8 @@ initialization; actor scheduling does not change the LR algorithm.
 
 GQL owns its performance contract, semantic profiling tests, component controls
 and actor request benchmarks beside its parser under
-=languages/gql/iso-39075-2024/=. See
-[[file:languages/gql/iso-39075-2024/benchmarks/README.org][GQL benchmark commands and measured cost boundaries]].
+=languages/gql/=. See
+[[file:languages/gql/benchmarks/README.org][GQL benchmark commands and measured cost boundaries]].
 =just benchmark-gql= reports CPU/wall P50/P95, GC and allocation;
 =just benchmark-gql-actors= reports separate concurrent request batch costs.
 
@@ -218,7 +218,7 @@ utility boundary rather than becoming parser-module miscellany.
 A supported language uses one colocated package surface:
 
 #+begin_src text
-languages/hcl/v2-24/
+languages/hcl/
   grammar.ss
   parser.ss
   fixtures.ss

@@ -145,7 +145,7 @@ Gerbil CST projection as one assertion.  A failure reports the child path and
 the first mismatched property.
 
 #+begin_src scheme
-(check-parser-ast (parse-arithmetic-v1 "1") "1"
+(check-parser-ast (parse-arithmetic "1") "1"
   (node SourceFile 0 1
     (field expression 0 1
       (node NumberExpression 0 1

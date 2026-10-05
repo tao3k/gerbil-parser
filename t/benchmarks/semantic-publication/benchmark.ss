@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Hold source/token binding constant and isolate complete artifact publication.
-(import (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser)
+(import (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-for-current-semantic-backend
                  parser-machine-grammar-digest parser-machine-trivia)
@@ -35,7 +35,7 @@
           (cons 'cpu-samples-ms times) (cons 'cpu-median-ms (median times)))))
 (def (measure-source family units source)
   (let ((captured #f)
-        (machine (parser-machine-for-current-semantic-backend hcl-v2-24-parser)))
+        (machine (parser-machine-for-current-semantic-backend hcl-parser)))
     (parameterize ((current-lr-recognition-observer (lambda (root) (set! captured root))))
       (let-values (((artifact tokens modes checkpoints)
                     (parse-source/checkpoints machine source 64)))

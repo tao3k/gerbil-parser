@@ -2,7 +2,7 @@
 ;;; POO declaration owns contextual-line AOT admission.
 
 (import (only-in :std/test check check-exception test-case test-suite)
-        (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+        (only-in :gerbil-parser/languages/arithmetic/grammar
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/src/modules/parser/line-structure-objects
                  line-structure? make-line-structure make-heading-line

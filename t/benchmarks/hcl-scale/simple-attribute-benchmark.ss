@@ -2,8 +2,8 @@
 ;;; Compare the generated HCL simple-attribute corridor with its generic route.
 ;;; Compile with gxc -O before invoking main from gxi.
 
-(import (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser)
-        (only-in :gerbil-parser/languages/hcl/v2-24/direct-recursive
+(import (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
+        (only-in :gerbil-parser/languages/hcl/direct-recursive
                  direct-parse-hcl)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?))
@@ -34,8 +34,8 @@
           (if (equal? shape "simple")
             (basic-source lines)
             (string-append (basic-source lines) "complex = [1, 2]\n")))
-      (let ((generic (direct-parse-hcl hcl-v2-24-parser source #f))
-            (candidate (direct-parse-hcl hcl-v2-24-parser source)))
+      (let ((generic (direct-parse-hcl hcl-parser source #f))
+            (candidate (direct-parse-hcl hcl-parser source)))
         (unless (and (parse-artifact-success? generic)
                      (equal? generic candidate))
           (error "HCL simple corridor changed complete ParseArtifact")))
@@ -45,7 +45,7 @@
               (cpu-started (cpu-time)))
           (let loop ((remaining iterations))
             (when (> remaining 0)
-              (direct-parse-hcl hcl-v2-24-parser source simple?)
+              (direct-parse-hcl hcl-parser source simple?)
               (loop (fx- remaining 1))))
           (values
            (/ (* 1000.0 (- (cpu-time) cpu-started)) iterations)

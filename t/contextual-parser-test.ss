@@ -2,8 +2,8 @@
 ;;; The generic contextual scanner supplies an existing LR ParserMachine.
 
 (import (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/languages/hcl/v2-24/grammar
-                 hcl-v2-24-parser)
+        (only-in :gerbil-parser/languages/hcl/grammar
+                 hcl-parser)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/t/benchmarks/contextual-scanner/parser-fixture
@@ -22,7 +22,7 @@
 (def contextual-parser-test
   (test-suite "contextual scanner LR integration"
     (test-case "prepared parser owns product and published artifact identities"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (literal (string-copy "1"))
              (product (contextual-product machine (parser-machine-grammar-digest machine)
                                           '(line) '((line () ())) literal))
@@ -52,8 +52,8 @@
                => "contextual parser product does not match parser machine")))
     (test-case "prepared parser rejects mismatched products and raw plan inputs"
       (check (with-catch (lambda (condition) (error-message condition))
-               (lambda () (prepare-contextual-parser hcl-v2-24-parser
-                              (contextual-product hcl-v2-24-parser "other")) #f))
+               (lambda () (prepare-contextual-parser hcl-parser
+                              (contextual-product hcl-parser "other")) #f))
              => "contextual parser product does not match parser machine")
       (check (with-catch (lambda (condition) (error-message condition))
                (lambda () (parse-source/contextual/prepared '() "") #f))
@@ -63,7 +63,7 @@
         (let (body (filter (lambda (row) (not (eq? (car row) 'digest))) datum))
           (append body (list (cons 'digest (sha256-text
                            (call-with-output-string (lambda (port) (write body port)))))))))
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (product (contextual-product machine (parser-machine-grammar-digest machine)))
              (position (string-copy "line"))
              (scanner (resign
@@ -87,7 +87,7 @@
                (lambda () (parse-source/contextual machine altered "x = 1\n"))))))
     (test-case "HCL grammar accepts tokens from the generic scanner"
       (let* ((source "x = 1\n")
-             (machine hcl-v2-24-parser)
+             (machine hcl-parser)
              (product
               (contextual-product machine
                                   (parser-machine-grammar-digest machine)))
@@ -104,7 +104,7 @@
                       (map token-event-lexeme tokens))
                => source)))
     (test-case "LR rejection remains a rejected ParseArtifact"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (artifact
               (parse-source/contextual
                machine
@@ -115,7 +115,7 @@
         (check (parse-artifact-valid? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => "x = ")))
     (test-case "rejected lookahead and unscanned suffix retain UTF8 coverage"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (product (contextual-product
                        machine (parser-machine-grammar-digest machine))))
         (for-each
@@ -131,12 +131,12 @@
         (lambda (condition) (error-message condition))
         (lambda ()
           (parse-source/contextual
-           hcl-v2-24-parser
-           (contextual-product hcl-v2-24-parser "other") "x = 1\n")
+           hcl-parser
+           (contextual-product hcl-parser "other") "x = 1\n")
           #f))
        => "contextual parser product does not match parser machine"))
     (test-case "scanner change alters the published grammar identity"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (base (parser-machine-grammar-digest machine))
              (first (contextual-product machine base))
              (second (contextual-product
@@ -144,7 +144,7 @@
         (check (equal? (cdr (assq 'digest first))
                        (cdr (assq 'digest second))) => #f)))
     (test-case "token requirements select a specific LR position"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (product
               (contextual-product
                machine (parser-machine-grammar-digest machine)
@@ -156,7 +156,7 @@
                 (parse-source/contextual machine product "x = 1\n"))
                => #t)))
     (test-case "literal requirements select grammar-owned LR positions"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (product
               (contextual-product
                machine (parser-machine-grammar-digest machine)
@@ -168,7 +168,7 @@
                 (parse-source/contextual machine product "x = 1\n"))
                => #t)))
     (test-case "EOF requirements select an empty-input parser position"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (product
               (contextual-product
                machine (parser-machine-grammar-digest machine)
@@ -178,7 +178,7 @@
         (check (parse-artifact-success?
                 (parse-source/contextual machine product "")) => #t)))
     (test-case "duplicate LR state positions fail runtime preparation"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (product (contextual-product
                        machine (parser-machine-grammar-digest machine)))
              (rows (cdr (assq 'state-positions product)))
@@ -206,7 +206,7 @@
           (lambda () (prepare-contextual-parser machine altered) #f))
          => "invalid contextual LR position table")))
     (test-case "unknown lookaheads fail declaration admission"
-      (let ((machine hcl-v2-24-parser))
+      (let ((machine hcl-parser))
         (check
          (with-catch
           (lambda (condition) (error-message condition))
@@ -218,7 +218,7 @@
             #f))
          => "invalid contextual LR position declaration")))
     (test-case "incomparable LR position declarations are rejected"
-      (let* ((machine hcl-v2-24-parser)
+      (let* ((machine hcl-parser)
              (base (parser-machine-grammar-digest machine)))
         (check
          (with-catch

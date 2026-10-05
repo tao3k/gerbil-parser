@@ -3,15 +3,15 @@
 
 (import (only-in :std/test
                  check check-exception test-case test-suite)
-        (only-in :gerbil-parser/languages/arithmetic/v1/parser
-                 arithmetic-parser parse-arithmetic-v1)
-        (only-in :gerbil-parser/languages/gql/iso-39075-2024/parser
+        (only-in :gerbil-parser/languages/arithmetic/parser
+                 arithmetic-parser parse-arithmetic)
+        (only-in :gerbil-parser/languages/gql/parser
                  +gql-representative-query+
-                 gql-iso-parser parse-gql-iso-39075-2024)
-        (only-in :gerbil-parser/languages/hl7/v2-2.5.1/parser
-                 hl7v2-parser parse-hl7v2)
-        (only-in :gerbil-parser/languages/hcl/v2-24/parser
-                 hcl-v2-24-parser parse-hcl-v2-24)
+                 gql-parser parse-gql)
+        (only-in :gerbil-parser/languages/hl7/parser
+                 hl7-parser parse-hl7)
+        (only-in :gerbil-parser/languages/hcl/parser
+                 hcl-parser parse-hcl)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-success? parse-artifact-valid?
                  parse-artifact-roundtrip)
@@ -37,8 +37,8 @@
        (list
         (cons arithmetic-parser "1 + 2 * (3 + 4)")
         (cons arithmetic-parser "1 +")
-        (cons gql-iso-parser +gql-representative-query+)
-        (cons hl7v2-parser
+        (cons gql-parser +gql-representative-query+)
+        (cons hl7-parser
               "MSH|^~\\&|LEGACY|AU|FHIR|AU|202609170900||ADT^A08|1|P|2.5.1\r"))))
     (test-case "UTF-8 edits are byte-bound and reject split characters"
       (check (apply-edit "λx" (make-edit 0 2 "a")) => "ax")
@@ -47,12 +47,12 @@
       (check-exception (apply-edit "aλ中😀z" (make-edit 4 0 "b")) true))
     (test-case "incremental prefix reuse publishes fresh-equivalent v1"
       (let* ((source "1 + 2")
-             (base (parse-arithmetic-v1 source))
+             (base (parse-arithmetic source))
              (source-edit (make-edit 4 1 "30")))
         (let-values (((artifact receipt)
                       (parse-source/incremental
                        arithmetic-parser source base source-edit)))
-          (let (fresh (parse-arithmetic-v1 "1 + 30"))
+          (let (fresh (parse-arithmetic "1 + 30"))
             (check artifact => fresh)
             (check (parse-artifact-valid? artifact) => #t)
             (check (parse-artifact-roundtrip artifact) => "1 + 30")
@@ -65,14 +65,14 @@
       (let* ((source
               (string-append
                "(" (string-join (make-list 100 "001") " + ") ")"))
-             (base (parse-arithmetic-v1 source))
+             (base (parse-arithmetic source))
              (edit-start (+ 1 (* 50 6)))
              (source-edit (make-edit edit-start 3 "002")))
         (let-values (((artifact receipt)
                       (parse-source/incremental
                        arithmetic-parser source base source-edit)))
           (let (fresh
-                (parse-arithmetic-v1
+                (parse-arithmetic
                  (apply-edit source source-edit)))
             (check artifact => fresh)
             (check (row-ref receipt 'suffixByteDelta) => 0)
@@ -96,14 +96,14 @@
           (let* ((first-source (apply-edit source first-edit))
                  (second-edit (make-edit (+ (* 120 6) 7) 3 "0003")))
             (check (incremental-session-artifact next)
-                   => (parse-arithmetic-v1 first-source))
+                   => (parse-arithmetic first-source))
             (check (> (row-ref first-receipt
                                'checkpointReusedShiftCount) 0)
                    => #t)
             (let-values (((final second-receipt)
                           (parse-incremental-session next second-edit)))
               (check (incremental-session-artifact final)
-                     => (parse-arithmetic-v1
+                     => (parse-arithmetic
                          (apply-edit first-source second-edit)))
               (check (> (row-ref second-receipt
                                  'reusedRecognitionEventCount) 0)
@@ -118,13 +118,13 @@
           (let* ((late-source (apply-edit source late-edit))
                  (trivia-edit (make-edit 5 1 "  ")))
             (check (incremental-session-artifact next)
-                   => (parse-arithmetic-v1 late-source))
+                   => (parse-arithmetic late-source))
             (check (> (row-ref receipt 'checkpointReusedShiftCount) 200)
                    => #t)
             (let-values (((final _receipt)
                           (parse-incremental-session next trivia-edit)))
               (check (incremental-session-artifact final)
-                     => (parse-arithmetic-v1
+                     => (parse-arithmetic
                          (apply-edit late-source trivia-edit))))))))
     (test-case "same-width trivia edits reuse recognition across sessions"
       (let* ((source "001 + 002 + 003")
@@ -135,7 +135,7 @@
           (let* ((first-source (apply-edit source first-edit))
                  (second-edit (make-edit 9 1 "\t")))
             (check (incremental-session-artifact next)
-                   => (parse-arithmetic-v1 first-source))
+                   => (parse-arithmetic first-source))
             (check (eq? (car (parse-artifact-events
                               (incremental-session-artifact session)))
                         (car (parse-artifact-events
@@ -150,7 +150,7 @@
             (let-values (((again second-receipt)
                           (parse-incremental-session next second-edit)))
               (check (incremental-session-artifact again)
-                     => (parse-arithmetic-v1
+                     => (parse-arithmetic
                          (apply-edit first-source second-edit)))
               (check (> (row-ref second-receipt
                                  'reusedRecognitionEventCount) 0) => #t))))))
@@ -163,7 +163,7 @@
           (let* ((first-source (apply-edit source first-edit))
                  (second-edit (make-edit (* 120 6) 3 "003")))
             (check (incremental-session-artifact next)
-                   => (parse-arithmetic-v1 first-source))
+                   => (parse-arithmetic first-source))
             (check (> (row-ref first-receipt
                                'reusedRecognitionEventCount) 0) => #t)
             (check (row-ref first-receipt
@@ -180,13 +180,13 @@
                       (apply-edit first-source second-edit))
                      (third-edit (make-edit (* 150 6) 3 "0004 + 005")))
                 (check (incremental-session-artifact again)
-                       => (parse-arithmetic-v1 second-source))
+                       => (parse-arithmetic second-source))
                 (check (> (row-ref second-receipt
                                    'reusedRecognitionEventCount) 0) => #t)
                 (let-values (((final third-receipt)
                               (parse-incremental-session again third-edit)))
                   (check (incremental-session-artifact final)
-                         => (parse-arithmetic-v1
+                         => (parse-arithmetic
                              (apply-edit second-source third-edit)))
                   (check (> (row-ref third-receipt
                                      'checkpointReusedShiftCount) 0)
@@ -200,7 +200,7 @@
            (let-values (((next receipt)
                          (parse-incremental-session session source-edit)))
              (check (incremental-session-artifact next)
-                    => (parse-arithmetic-v1
+                    => (parse-arithmetic
                         (apply-edit source source-edit)))
              (check (parse-artifact-valid?
                      (incremental-session-artifact next)) => #t)
@@ -221,7 +221,7 @@
                  (second-edit (make-edit (+ (* 120 6) 2) 9
                                          "004 + 005")))
             (check (incremental-session-artifact next)
-                   => (parse-arithmetic-v1 first-source))
+                   => (parse-arithmetic first-source))
             (check (parse-artifact-valid?
                     (incremental-session-artifact next)) => #t)
             (check (> (row-ref first-receipt
@@ -232,7 +232,7 @@
             (let-values (((again second-receipt)
                           (parse-incremental-session next second-edit)))
               (check (incremental-session-artifact again)
-                     => (parse-arithmetic-v1
+                     => (parse-arithmetic
                          (apply-edit first-source second-edit)))
               (check (> (row-ref second-receipt
                                  'reusedRecognitionEventCount) 0)
@@ -244,7 +244,7 @@
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-arithmetic-v1
+                 => (parse-arithmetic
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "contracted and Unicode token windows equal fresh artifacts"
@@ -256,7 +256,7 @@
            (let-values (((next receipt)
                          (parse-incremental-session session source-edit)))
              (check (incremental-session-artifact next)
-                    => (parse-arithmetic-v1
+                    => (parse-arithmetic
                         (apply-edit source source-edit)))
              (check (parse-artifact-valid?
                      (incremental-session-artifact next)) => #t)
@@ -268,13 +268,13 @@
                    (make-edit 0 6 "λ + 4")))))
     (test-case "trivia token count changes preserve HCL recognition"
       (let* ((source "x = 1 /*a*/\ny = 2\n")
-             (session (make-incremental-session hcl-v2-24-parser source)))
+             (session (make-incremental-session hcl-parser source)))
         (for-each
          (lambda (source-edit)
            (let-values (((next receipt)
                          (parse-incremental-session session source-edit)))
              (check (incremental-session-artifact next)
-                    => (parse-hcl-v2-24
+                    => (parse-hcl
                         (apply-edit source source-edit)))
              (check (parse-artifact-valid?
                      (incremental-session-artifact next)) => #t)
@@ -285,12 +285,12 @@
          (list (make-edit 6 5 "/*a*/ /*b*/")
                (make-edit 6 5 ""))))
       (let* ((source "x = 1 /*a*/ /*b*/\ny = 2\n")
-             (session (make-incremental-session hcl-v2-24-parser source))
+             (session (make-incremental-session hcl-parser source))
              (source-edit (make-edit 6 11 "/*c*/")))
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-hcl-v2-24 (apply-edit source source-edit)))
+                 => (parse-hcl (apply-edit source source-edit)))
           (check (parse-artifact-valid?
                   (incremental-session-artifact next)) => #t)
           (check (> (row-ref receipt
@@ -300,11 +300,11 @@
        (lambda (case)
          (let* ((source (car case))
                 (source-edit (cadr case))
-                (session (make-incremental-session hcl-v2-24-parser source)))
+                (session (make-incremental-session hcl-parser source)))
            (let-values (((next receipt)
                          (parse-incremental-session session source-edit)))
              (check (incremental-session-artifact next)
-                    => (parse-hcl-v2-24
+                    => (parse-hcl
                         (apply-edit source source-edit)))
              (check (parse-artifact-valid?
                      (incremental-session-artifact next)) => #t)
@@ -320,11 +320,11 @@
     (test-case "changed LR literal action rejects mixed window reuse"
       (let* ((source "x = 1 /*a*/ + 2\n")
              (source-edit (make-edit 4 11 "3 /*a*/ /*b*/ *"))
-             (session (make-incremental-session hcl-v2-24-parser source)))
+             (session (make-incremental-session hcl-parser source)))
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-hcl-v2-24 (apply-edit source source-edit)))
+                 => (parse-hcl (apply-edit source source-edit)))
           (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "literal action edits require LR re-execution"
       (let* ((source "001 + 002")
@@ -333,7 +333,7 @@
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-arithmetic-v1
+                 => (parse-arithmetic
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "trivia fast path rejects a lexical kind change"
@@ -343,7 +343,7 @@
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-arithmetic-v1
+                 => (parse-arithmetic
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "Unicode and contextual trivia retain fresh parse products"
@@ -361,7 +361,7 @@
              (check (> (row-ref receipt
                                 'reusedRecognitionEventCount) 0) => #t))))
        (list (list arithmetic-parser "λ + 2" (make-edit 2 1 "\t"))
-             (list gql-iso-parser "CREATE GRAPH mygraph ANY"
+             (list gql-parser "CREATE GRAPH mygraph ANY"
                    (make-edit 6 1 "\t")))))
     (test-case "session falls back on a rejected edit"
       (let* ((source (string-join (make-list 96 "001") " + "))
@@ -370,7 +370,7 @@
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-arithmetic-v1
+                 => (parse-arithmetic
                      (apply-edit source source-edit)))
           (check (parse-artifact-success?
                   (incremental-session-artifact next))
@@ -383,7 +383,7 @@
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-arithmetic-v1 "001 + 002"))
+                 => (parse-arithmetic "001 + 002"))
           (check (row-ref receipt 'checkpointReusedShiftCount) => 0))))
     (test-case "session checkpoints survive inserted tokens and byte offsets"
       (let* ((source (string-join (make-list 96 "001") " + "))
@@ -396,49 +396,49 @@
             (let-values (((final receipt)
                           (parse-incremental-session next second-edit)))
               (check (incremental-session-artifact final)
-                     => (parse-arithmetic-v1
+                     => (parse-arithmetic
                          (apply-edit first-source second-edit)))
               (check (> (row-ref receipt
                                  'reusedRecognitionEventCount) 0)
                      => #t))))))
     (test-case "GQL session preserves contextual parse after an identifier edit"
       (let* ((source "CREATE GRAPH mygraph ANY")
-             (session (make-incremental-session gql-iso-parser source))
+             (session (make-incremental-session gql-parser source))
              (source-edit (make-edit 13 7 "newgraph")))
         (let-values (((artifact receipt)
                       (parse-source/incremental
-                       gql-iso-parser source
-                       (parse-gql-iso-39075-2024 source) source-edit)))
+                       gql-parser source
+                       (parse-gql source) source-edit)))
           (check artifact
-                 => (parse-gql-iso-39075-2024
+                 => (parse-gql
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'freshFallback?) => #f))
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-gql-iso-39075-2024
+                 => (parse-gql
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'freshFallback?) => #f)
           (check (row-ref receipt 'checkpointReusedShiftCount) => 0))))
     (test-case "GQL edit after a GLR fork retains the ordinary path"
       (let* ((source "CREATE GRAPH mygraph ANY")
-             (session (make-incremental-session gql-iso-parser source))
+             (session (make-incremental-session gql-parser source))
              (source-edit (make-edit 13 7 "yrgraph")))
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-gql-iso-39075-2024
+                 => (parse-gql
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'reusedRecognitionEventCount) => #f))))
     (test-case "GQL retains deterministic LR checkpoints before a GLR fork"
       (let* ((source +gql-representative-query+)
              (source-edit
               (make-edit (- (string-length source) 7) 6 "res"))
-             (session (make-incremental-session gql-iso-parser source)))
+             (session (make-incremental-session gql-parser source)))
         (let-values (((next receipt)
                       (parse-incremental-session session source-edit)))
           (check (incremental-session-artifact next)
-                 => (parse-gql-iso-39075-2024
+                 => (parse-gql
                      (apply-edit source source-edit)))
           (check (> (row-ref receipt 'reusedRecognitionEventCount) 0) => #t)
           (check (row-ref receipt 'freshFallback?) => #f)
@@ -446,7 +446,7 @@
             (let-values (((again _receipt)
                           (parse-incremental-session next next-edit)))
               (check (incremental-session-artifact again)
-                     => (parse-gql-iso-39075-2024
+                     => (parse-gql
                          (apply-edit
                           (apply-edit source source-edit)
                           next-edit))))))))
@@ -456,12 +456,12 @@
          (let* ((source (car case))
                 (source-edit (cdr case))
                 (edited (apply-edit source source-edit))
-                (fresh (parse-gql-iso-39075-2024 edited))
-                (session (make-incremental-session gql-iso-parser source)))
+                (fresh (parse-gql edited))
+                (session (make-incremental-session gql-parser source)))
            (let-values (((artifact _receipt)
                          (parse-source/incremental
-                          gql-iso-parser source
-                          (parse-gql-iso-39075-2024 source) source-edit)))
+                          gql-parser source
+                          (parse-gql source) source-edit)))
              (check artifact => fresh))
            (let-values (((next _receipt)
                          (parse-incremental-session session source-edit)))
@@ -474,13 +474,13 @@
         (cons "match (n) return n\n" (make-edit 10 6 "RETURN")))))
     (test-case "UTF-8 byte shifts relocate rather than falsely reuse a suffix"
       (let* ((source "λ + 2")
-             (base (parse-arithmetic-v1 source))
+             (base (parse-arithmetic source))
              (source-edit (make-edit 0 2 "name")))
         (let-values (((artifact receipt)
                       (parse-source/incremental
                        arithmetic-parser source base source-edit)))
           (check artifact
-                 => (parse-arithmetic-v1
+                 => (parse-arithmetic
                      (apply-edit source source-edit)))
           (check (row-ref receipt 'suffixByteDelta) => 2)
           (check (> (row-ref receipt 'convergedSuffixTokenCount) 0) => #t)
@@ -489,12 +489,12 @@
                  => (row-ref receipt 'convergedSuffixTokenCount)))))
     (test-case "token merge scans through the changed boundary"
       (let* ((source "name + 2 + 3")
-             (base (parse-arithmetic-v1 source))
+             (base (parse-arithmetic source))
              (source-edit (make-edit 4 0 "x")))
         (let-values (((artifact receipt)
                       (parse-source/incremental
                        arithmetic-parser source base source-edit)))
-          (check artifact => (parse-arithmetic-v1 "namex + 2 + 3"))
+          (check artifact => (parse-arithmetic "namex + 2 + 3"))
           (check (> (row-ref receipt 'relexedByteCount) 4) => #t)
           (check (< (row-ref receipt 'relexedByteCount)
                     (string-length (apply-edit source source-edit)))
@@ -502,13 +502,13 @@
     (test-case "external lexical scanners retain complete suffix re-lexing"
       (let* ((source
               "MSH|^~\\&|LEGACY|AU|FHIR|AU|202609170900||ADT^A08|1|P|2.5.1\r")
-             (base (parse-hl7v2 source))
+             (base (parse-hl7 source))
              (source-edit (make-edit 11 6 "NEWAPP")))
         (let-values (((artifact receipt)
                       (parse-source/incremental
-                       hl7v2-parser source base source-edit)))
+                       hl7-parser source base source-edit)))
           (check artifact
-                 => (parse-hl7v2 (apply-edit source source-edit)))
+                 => (parse-hl7 (apply-edit source source-edit)))
           (check (row-ref receipt 'relexStopByte)
                  => (string-length (apply-edit source source-edit))))))
     (test-case "missing literal recovery stays a rejected v1 publication"

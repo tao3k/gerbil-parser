@@ -2,8 +2,8 @@
 ;;; Compare the closed flat-block event path with generated recursive events.
 ;;; Compile with gxc -O before invoking main from gxi.
 
-(import (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser)
-        (only-in :gerbil-parser/languages/hcl/v2-24/direct-recursive
+(import (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
+        (only-in :gerbil-parser/languages/hcl/direct-recursive
                  direct-parse-hcl direct-lex-hcl)
         (only-in :gerbil-parser/src/runtime/lexer lex-source)
         (only-in :gerbil-parser/src/runtime/artifact
@@ -41,12 +41,12 @@
       (error "expected blocks, samples, iterations, unlabeled|labeled|nested"
              args))
     (let* ((source (benchmark-source blocks shape))
-           (generic (direct-parse-hcl hcl-v2-24-parser source #f))
-           (specialized (direct-parse-hcl hcl-v2-24-parser source #t)))
+           (generic (direct-parse-hcl hcl-parser source #f))
+           (specialized (direct-parse-hcl hcl-parser source #t)))
       (unless (and (parse-artifact-success? generic)
                    (equal? generic specialized)
                    (equal? (direct-lex-hcl source)
-                           (lex-source hcl-v2-24-parser source)))
+                           (lex-source hcl-parser source)))
         (error "flat-block path changed tokens or complete ParseArtifact"))
       (set! generic #f)
       (set! specialized #f)
@@ -56,7 +56,7 @@
               (cpu-started (cpu-time)))
           (let loop ((remaining iterations))
             (when (> remaining 0)
-              (direct-parse-hcl hcl-v2-24-parser source specialized?)
+              (direct-parse-hcl hcl-parser source specialized?)
               (loop (fx- remaining 1))))
           (values
            (/ (* 1000.0 (- (cpu-time) cpu-started)) iterations)

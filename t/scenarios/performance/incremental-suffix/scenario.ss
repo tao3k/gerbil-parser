@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Full-size incremental LR checkpoint and mode-certified suffix workload.
 
-(import :gerbil-parser/languages/arithmetic/v1/parser
+(import :gerbil-parser/languages/arithmetic/parser
         :gerbil-parser/src/runtime/incremental)
 (export incremental-suffix-scenario
         incremental-suffix-scenario-pass?)
@@ -12,9 +12,9 @@
    "(" (string-join (make-list +operand-count+ "001") " + ") ")"))
 (def +edit-start+ (+ 1 (* 50 6)))
 (def +edit+ (make-edit +edit-start+ 3 "0+2"))
-(def +base-artifact+ (parse-arithmetic-v1 +source+))
+(def +base-artifact+ (parse-arithmetic +source+))
 (def +fresh-artifact+
-  (parse-arithmetic-v1 (apply-edit +source+ +edit+)))
+  (parse-arithmetic (apply-edit +source+ +edit+)))
 
 (def (row-ref row key)
   (let (entry (assq key row)) (and entry (cdr entry))))

@@ -5,7 +5,7 @@
         :asp-gerbil-scheme/src/benchmark/framework
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/parser
-        :gerbil-parser/languages/arithmetic/v1/parser
+        :gerbil-parser/languages/arithmetic/parser
         (only-in :gerbil-parser/t/fixtures/progress report-parser-batch!))
 
 (def benchmark-path "t/benchmarks/parser-hot-path/benchmark.ss")

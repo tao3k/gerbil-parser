@@ -2,8 +2,8 @@
 ;;; Compare committed canonical HCL events with the raw event tape.
 ;;; Compile with gxc -O before invoking main from gxi.
 
-(import (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-parser)
-        (only-in :gerbil-parser/languages/hcl/v2-24/direct-recursive
+(import (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
+        (only-in :gerbil-parser/languages/hcl/direct-recursive
                  direct-parse-hcl)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?))
@@ -36,8 +36,8 @@
       (error "expected lines, samples, iterations, basic|late-complex"
              args))
     (let* ((source (benchmark-source lines shape))
-           (raw (direct-parse-hcl hcl-v2-24-parser source #t #t #f))
-           (canonical (direct-parse-hcl hcl-v2-24-parser source #t #t #t)))
+           (raw (direct-parse-hcl hcl-parser source #t #t #f))
+           (canonical (direct-parse-hcl hcl-parser source #t #t #t)))
       (unless (and (parse-artifact-success? raw)
                    (equal? raw canonical))
         (error "canonical path changed complete ParseArtifact" shape))
@@ -49,7 +49,7 @@
               (cpu-started (cpu-time)))
           (let loop ((remaining iterations))
             (when (> remaining 0)
-              (direct-parse-hcl hcl-v2-24-parser source #t #t canonical?)
+              (direct-parse-hcl hcl-parser source #t #t canonical?)
               (loop (fx- remaining 1))))
           (values
            (/ (* 1000.0 (- (cpu-time) cpu-started)) iterations)

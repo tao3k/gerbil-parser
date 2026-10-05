@@ -17,7 +17,7 @@
   (grammar tla-plus-core-language-grammar)
   (parse parse-tla-plus-core)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () tla-plus-core-fixtures)))
+         fixtures: tla-plus-core-fixtures))
 
 (defsyntax-corpus tla-plus-layout-fixtures
   (identity "tla-plus" "v2" "tla-plus.native-layout.v2")
@@ -30,6 +30,6 @@
   (grammar tla-plus-layout-language-grammar)
   (parse parse-tla-plus-layout)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () tla-plus-layout-fixtures)))
+         fixtures: tla-plus-layout-fixtures))
 
 (def parse-tla-plus parse-tla-plus-layout)

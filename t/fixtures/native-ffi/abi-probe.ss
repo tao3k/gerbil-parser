@@ -55,7 +55,7 @@ static int probe_result_reuse(const char *expected) {
       gerbil_parser_rowan_compile("missing.ss", NULL) != -1) return 10;
   for (i = 0; i < 3; ++i) {
     if (gerbil_parser_rowan_compile(
-        "t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss",
+        "t/fixtures/rowan-record-assignments/languages/records/grammar.ss",
         &rowan) != 0 || rowan.status != 0 || rowan.payload == NULL ||
         rowan.length == 0) return 11;
     if (rowan.length != strlen(expected) ||
@@ -78,7 +78,7 @@ END-C
 (def (main . _)
   (displayln "NATIVE-ABI-MODULES-LOADED") (force-output)
   (let (expected (native-rust-rowan-source
-                 "t/fixtures/rowan-record-assignments/languages/records/v1/grammar.ss"))
+                 "t/fixtures/rowan-record-assignments/languages/records/grammar.ss"))
     (displayln "NATIVE-ABI-EXPECTED-GENERATED") (force-output)
     (let (status (probe-reuse expected))
       (unless (zero? status) (error "public ABI regression failed" status))))

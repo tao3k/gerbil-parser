@@ -2,8 +2,8 @@
 ;;; Generate HCL fused reductions from the compiled Scheme Parser IR.
 ;;; The indexed LR action rows remain the state-transition owner.
 
-(import (only-in :gerbil-parser/languages/hcl/v2-24/grammar
-                 hcl-v2-24-parser-ir hcl-v2-24-parser)
+(import (only-in :gerbil-parser/languages/hcl/grammar
+                 hcl-parser-ir hcl-parser)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/compiler/lr
@@ -11,7 +11,7 @@
                  production-rhs production-action operand-actions)
         (only-in :std/misc/ports read-all-as-string))
 
-(def spec (cdr (assq 'lr-spec hcl-v2-24-parser-ir)))
+(def spec (cdr (assq 'lr-spec hcl-parser-ir)))
 (def table (production-table (lr-spec-ref spec 'productions)))
 
 (def (nth-tail name count)
@@ -118,7 +118,7 @@
                       recognition-sequence-for-action recognition-sequence-append)
              (only-in :gerbil-parser/src/runtime/token token-start))
      (export direct-step direct-event-step direct-grammar-digest)
-     (def direct-grammar-digest ,(parser-machine-grammar-digest hcl-v2-24-parser))
+     (def direct-grammar-digest ,(parser-machine-grammar-digest hcl-parser))
      ,(step-definition)
      ,(event-step-definition (step-definition))))
 

@@ -1,21 +1,22 @@
 ;;; Explicit POO pack entries expose grammar metadata and reusable test services.
 (import :std/test
         (only-in :clan/poo/object .ref object?)
-        (only-in :gerbil-parser/languages/arithmetic/v1/parser arithmetic-v1-language)
-        (only-in :gerbil-parser/languages/hcl/v2-24/parser hcl-v2-24-language)
-        (only-in :gerbil-parser/languages/gql/iso-39075-2024/parser gql-iso-39075-2024-language)
-        (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/parser opencypher-2024-1-language)
-        (only-in :gerbil-parser/languages/bash/v5-3/parser bash-v5-3-language)
-        (only-in :gerbil-parser/languages/hl7/v2-2.5.1/parser hl7v2-language)
-        (only-in :gerbil-parser/languages/fhirpath/v2.0.0/parser fhirpath-v2-language)
+        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language)
+        (only-in :gerbil-parser/languages/hcl/parser hcl-language)
+        (only-in :gerbil-parser/languages/gql/parser gql-language)
+        (only-in :gerbil-parser/languages/cypher/parser opencypher-language)
+        (only-in :gerbil-parser/languages/bash/parser bash-language)
+        (only-in :gerbil-parser/languages/hl7/parser hl7-language)
+        (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-language)
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-core-language tla-plus-layout-language)
         (only-in :gerbil-parser/languages/tla-plus/sany-candidate tla-plus-sany-candidate-language)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/language/entry make-language-scan-worker run-language-test +language-parser-entry-schema+)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid?)
-        (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
-        (only-in :gerbil-parser/src/language/source source-language?))
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-ir language-grammar-machine)
+        (only-in :gerbil-parser/src/language/source source-language? source-language-digest)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest))
 
 ;;; Count declarations in admitted IR, not filenames or copied result snapshots.
 (def (external-site-count expression)
@@ -34,24 +35,33 @@
        (lambda (row)
          (let (loader (car row))
            (check (object? loader) => #t)
+           (for-each (lambda (key)
+                       (check (.ref (.ref loader 'metadata) key) => (.ref loader key)))
+                     '(language version contract))
+           (let (descriptor (.ref loader 'descriptor))
+             (check (.ref (.ref loader 'metadata) 'digest)
+                    => (if (source-language? descriptor) (source-language-digest descriptor)
+                         (parser-machine-grammar-digest (language-grammar-machine descriptor))))
+             (check (.ref (.ref loader 'metadata) 'digest-kind)
+                    => (if (source-language? descriptor) 'source-identity 'parser-ir)))
            (check (.ref loader 'schema) => +language-parser-entry-schema+)
            (check (not (not (memq (.ref loader 'descriptor) (.ref loader 'grammars)))) => #t)
            (check (.ref (.ref loader 'metadata) 'grammar-format) => (cdr row))))
-       (list (cons arithmetic-v1-language 'concise-dsl)
-             (cons hcl-v2-24-language 'concise-dsl)
-             (cons hl7v2-language 'concise-dsl)
-             (cons fhirpath-v2-language 'concise-dsl)
-             (cons gql-iso-39075-2024-language 'antlr4)
-             (cons opencypher-2024-1-language 'iso-bnf)
-             (cons bash-v5-3-language 'source-parser)
+       (list (cons arithmetic-language 'concise-dsl)
+             (cons hcl-language 'concise-dsl)
+             (cons hl7-language 'concise-dsl)
+             (cons fhirpath-language 'concise-dsl)
+             (cons gql-language 'antlr4)
+             (cons opencypher-language 'iso-bnf)
+             (cons bash-language 'source-parser)
              (cons tla-plus-core-language 'concise-dsl)
              (cons tla-plus-layout-language 'concise-dsl)
              (cons tla-plus-sany-candidate-language 'concise-dsl))))
     (test-case "the complete migration inventory follows all ten admitted descriptors"
       (check (map loader-external-count
-                  (list arithmetic-v1-language hcl-v2-24-language
-                        gql-iso-39075-2024-language opencypher-2024-1-language
-                        hl7v2-language fhirpath-v2-language bash-v5-3-language
+                  (list arithmetic-language hcl-language
+                        gql-language opencypher-language
+                        hl7-language fhirpath-language bash-language
                         tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language))
              => '(0 0 0 0 8 5 source-parser 0 0 4)))
     (test-case "registered fixture services preserve native corpus conformance"
@@ -60,12 +70,12 @@
          (let (artifacts (run-language-test loader 'fixtures))
            (check (pair? artifacts) => #t)
            (check (every parse-artifact-valid? artifacts) => #t)))
-       (list arithmetic-v1-language hcl-v2-24-language
-             gql-iso-39075-2024-language opencypher-2024-1-language
-             hl7v2-language fhirpath-v2-language bash-v5-3-language
+       (list arithmetic-language hcl-language
+             gql-language opencypher-language
+             hl7-language fhirpath-language bash-language
              tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language)))
     (test-case "Bash workers retain independent deferred scanner obligations"
-      (let* ((make-worker (lambda (source) (make-language-scan-worker bash-v5-3-language 'command source)))
+      (let* ((make-worker (lambda (source) (make-language-scan-worker bash-language 'command source)))
              (first "cat <<EOF\nα\nEOF\n") (second "echo β\n")
              (left (make-worker first)) (right (make-worker second)))
         (check (apply string-append (map token-lexeme (source-scanner-tokens right 'command))) => second)

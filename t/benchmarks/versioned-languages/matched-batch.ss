@@ -7,17 +7,17 @@
 (import (only-in :gerbil-parser/language-support syntax-fixture-source)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip)
-        (only-in :gerbil-parser/languages/hcl/v2-24/fixtures
-                 hcl-v2-24-official-accepted-fixtures)
-        (only-in :gerbil-parser/languages/hcl/v2-24/parser parse-hcl-v2-24)
-        (only-in :gerbil-parser/languages/gql/iso-39075-2024/fixtures
-                 gql-iso-official-fixtures)
-        (only-in :gerbil-parser/languages/gql/iso-39075-2024/parser
-                 parse-gql-iso-39075-2024)
-        (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/fixtures
-                 opencypher-2024-1-accepted-fixtures)
-        (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/parser
-                 parse-opencypher-2024-1)
+        (only-in :gerbil-parser/languages/hcl/fixtures
+                 hcl-official-accepted-fixtures)
+        (only-in :gerbil-parser/languages/hcl/parser parse-hcl)
+        (only-in :gerbil-parser/languages/gql/fixtures
+                 gql-official-fixtures)
+        (only-in :gerbil-parser/languages/gql/parser
+                 parse-gql)
+        (only-in :gerbil-parser/languages/cypher/fixtures
+                 opencypher-accepted-fixtures)
+        (only-in :gerbil-parser/languages/cypher/parser
+                 parse-opencypher)
         (only-in :gerbil-parser/languages/tla-plus/fixtures
                  tla-plus-core-accepted-fixtures)
         (only-in :gerbil-parser/languages/tla-plus/parser
@@ -25,12 +25,12 @@
 
 (def corpus
   (list
-   (cons parse-hcl-v2-24
-         (map syntax-fixture-source hcl-v2-24-official-accepted-fixtures))
-   (cons parse-gql-iso-39075-2024
-         (map syntax-fixture-source gql-iso-official-fixtures))
-   (cons parse-opencypher-2024-1
-         (map syntax-fixture-source opencypher-2024-1-accepted-fixtures))
+   (cons parse-hcl
+         (map syntax-fixture-source hcl-official-accepted-fixtures))
+   (cons parse-gql
+         (map syntax-fixture-source gql-official-fixtures))
+   (cons parse-opencypher
+         (map syntax-fixture-source opencypher-accepted-fixtures))
    (cons parse-tla-plus-core
          (map syntax-fixture-source tla-plus-core-accepted-fixtures))))
 

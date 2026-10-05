@@ -27,4 +27,4 @@
   (grammar tla-plus-sany-candidate-language-grammar)
   (parse parse-tla-plus-sany-candidate)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () tla-plus-sany-candidate-fixtures)))
+         fixtures: tla-plus-sany-candidate-fixtures))

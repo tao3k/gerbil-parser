@@ -3,9 +3,9 @@
 
 (import :std/test
         :gerbil-parser/language-support
-        (only-in :gerbil-parser/languages/gql/iso-39075-2024/grammar
-                 gql-iso-parser-ir)
-        :gerbil-parser/languages/gql/iso-39075-2024/source
+        (only-in :gerbil-parser/languages/gql/grammar
+                 gql-parser-ir)
+        :gerbil-parser/languages/gql/source
         (only-in :gerbil-parser/src/compiler/parser-ir parser-ir-ref)
         :gerbil-parser/src/compiler/lr
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec))
@@ -83,33 +83,33 @@
                        (reference expression)))
                      (precedence left 1 (token identifier)))))))
     (test-case "the complete OpenGQL 1.9.0 grammar catalog is immutable"
-      (check (parser-ir-ref gql-iso-parser-ir 'schema)
+      (check (parser-ir-ref gql-parser-ir 'schema)
              => "gerbil-parser.parser-ir.v1")
-      (check (antlr4-source-digest gql-iso-antlr4-source)
+      (check (antlr4-source-digest gql-antlr4-source)
              => +gql-antlr4-digest+)
-      (check (antlr4-source-name gql-iso-antlr4-source) => "GQL")
-      (check (length (antlr4-source-rules gql-iso-antlr4-source)) => 1018)
-      (check (length (antlr4-source-parser-rules gql-iso-antlr4-source))
+      (check (antlr4-source-name gql-antlr4-source) => "GQL")
+      (check (length (antlr4-source-rules gql-antlr4-source)) => 1018)
+      (check (length (antlr4-source-parser-rules gql-antlr4-source))
              => 574)
-      (check (length (antlr4-source-lexer-rules gql-iso-antlr4-source))
+      (check (length (antlr4-source-lexer-rules gql-antlr4-source))
              => 444)
       (for-each
        (lambda (name)
-         (check (antlr4-source-rule gql-iso-antlr4-source name)
+         (check (antlr4-source-rule gql-antlr4-source name)
                 ? antlr4-rule?))
        '("gqlProgram" "valueExpression" "labelExpression"
          "REGULAR_IDENTIFIER")))
     (test-case "all OpenGQL parser productions lower to canonical GrammarExpr v1"
-      (let (rules (antlr4-source-parser-grammar-rules gql-iso-antlr4-source))
+      (let (rules (antlr4-source-parser-grammar-rules gql-antlr4-source))
         (check (length rules) => 574)
         (check (caar rules) => 'gqlProgram)
         (check (> (length
-                   (antlr4-source-parser-literals gql-iso-antlr4-source))
+                   (antlr4-source-parser-literals gql-antlr4-source))
                   100)
                => #t)))
     (test-case "the complete OpenGQL grammar compiles through the sole LR owner"
       (let* ((rules
-              (antlr4-source-parser-grammar-rules gql-iso-antlr4-source))
+              (antlr4-source-parser-grammar-rules gql-antlr4-source))
              (spec (compile-lr-spec rules 'gqlProgram 'selective-glr)))
         (check (lr-spec-ref spec 'schema) => "gerbil-parser.lr-spec.v1")
         (check (> (lr-spec-ref spec 'state-count) 0) => #t)))))

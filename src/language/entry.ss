@@ -5,10 +5,11 @@
                  syntax-fixture? syntax-fixture-id syntax-fixture-source
                  syntax-fixture-language syntax-fixture-version syntax-fixture-contract
                  syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
-        (only-in :clan/poo/object .o .ref .slot? object?)
+        (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../runtime/source-scanner source-scanner-for-source?)
+        (only-in ../compiler/machine parser-machine-grammar-digest)
         (only-in ../runtime/parser parse-source)
         (only-in ../runtime/lr-parser current-lr-branch-budget)
         (only-in ../runtime/cst parse-artifact->cst)
@@ -26,7 +27,7 @@
         (only-in ./source
                  parse-source-language source-language?
                  source-language-contract source-language-language
-                 source-language-version))
+                 source-language-version source-language-digest))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
         check-language-loader-fixtures! call-with-language-parser-policy
@@ -101,6 +102,32 @@
       ((language) (language-grammar-language descriptor))
       ((version) (language-grammar-version descriptor))
       ((contract) (language-grammar-contract descriptor)))))
+
+(def (descriptor-digest descriptor)
+  (if (source-language? descriptor) (source-language-digest descriptor)
+    (parser-machine-grammar-digest (language-grammar-machine descriptor))))
+
+(def (descriptor-digest-kind descriptor)
+  (if (source-language? descriptor) 'source-identity 'parser-ir))
+
+;;; Metadata extends ordinary POO values; identity is derived and sealed here.
+(def (bind-loader-metadata descriptor inherited)
+  (.o (:: self inherited)
+      language: (descriptor-ref descriptor 'language)
+      version: (descriptor-ref descriptor 'version)
+      contract: (descriptor-ref descriptor 'contract)
+      digest: (descriptor-digest descriptor)
+      digest-kind: (descriptor-digest-kind descriptor)))
+
+(def (loader-metadata? metadata descriptor)
+  (and (object? metadata)
+       (andmap (lambda (key) (.slot? metadata key))
+               '(language version contract digest digest-kind))
+       (andmap (lambda (key)
+                 (equal? (.ref metadata key) (descriptor-ref descriptor key)))
+               '(language version contract))
+       (equal? (.ref metadata 'digest) (descriptor-digest descriptor))
+       (eq? (.ref metadata 'digest-kind) (descriptor-digest-kind descriptor))))
 
 ;;; Test declarations carry an engine opcode and exact descriptor identity.
 ;;; Their constructor is private; a language cannot substitute a success callback.
@@ -184,8 +211,9 @@
                 (and (list? grammars) (memq descriptor grammars)
                      (every (lambda (grammar)
                               (or (language-grammar? grammar) (source-language? grammar))) grammars)))
-              (object? (.ref candidate 'metadata))
-              (procedure? (.ref candidate 'fixtures))
+              (loader-metadata? (.ref candidate 'metadata) descriptor)
+              (let (fixtures (.ref candidate 'fixtures))
+                (and (list? fixtures) (every syntax-fixture? fixtures)))
               (declared-test-services? (.ref candidate 'tests) descriptor)
               (declared-scan-workers? (.ref candidate 'scan-workers) descriptor)))))
 
@@ -204,11 +232,11 @@
   (.o (:: self)
       schema: +language-parser-entry-schema+
       descriptor: #f
-      ;; Language-facing extension slots are inherited POO services. Providers
-      ;; remain lazy: loader admission never runs fixtures, tests or scanners.
+      ;; Language-facing extension slots are inherited POO values. Admission
+      ;; checks fixture data without parsing it or executing test/scan workers.
       (grammars (list (.ref self 'descriptor)))
       metadata: (.o)
-      fixtures: (lambda () '())
+      fixtures: '()
       (tests (list (cons 'fixtures (declare-language-fixture-test (.ref self 'descriptor)))))
       scan-workers: '()
       (language (descriptor-ref (.ref self 'descriptor) 'language))
@@ -271,9 +299,14 @@
                                  (lambda (source)
                                    (parse-language-source descriptor source))))
                        slot ...))
-               (validate LanguageLoaderContract candidate)
-               (validate extension-contract candidate) ...
-               candidate))
+               (let* ((metadata (.ref candidate 'metadata))
+                      (admitted (if (object? metadata)
+                                  (.cc candidate 'metadata
+                                       (bind-loader-metadata (.ref candidate 'descriptor) metadata))
+                                  candidate)))
+                 (validate LanguageLoaderContract admitted)
+                 (validate extension-contract admitted) ...
+                 admitted)))
            (def parse-binding (.ref binding '.parse)))))
     ((_ binding (kind descriptor-value) (parse parse-binding) section ...)
      (let ()
@@ -324,12 +357,12 @@
              slot-section contract-section))))
     (_ (raise-syntax-error #f "invalid language loader declaration" stx))))
 
-;;; Named test services accept a loader. Fixtures stay lazy until requested;
+;;; Named test services accept a loader. Fixture values are ordinary POO slots;
 ;;; the engine verifies statuses, lossless source and required public node kinds.
 (def (check-language-loader-fixtures! loader)
-  (let (fixtures ((.ref loader 'fixtures)))
+  (let (fixtures (.ref loader 'fixtures))
     (unless (and (list? fixtures) (every syntax-fixture? fixtures))
-      (error "language loader fixtures must return syntax fixtures"))
+      (error "language loader fixtures must be a list of syntax fixtures"))
     (let ((seen (make-table test: equal?))
           (language (.ref loader 'language))
           (version (.ref loader 'version))

@@ -2,8 +2,8 @@
 ;;; -*- Gerbil -*-
 ;;; Observational syntax audit over a commit-bound extracted TCK manifest.
 
-(import (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/parser
-                 parse-opencypher-2024-1)
+(import (only-in :gerbil-parser/languages/cypher/parser
+                 parse-opencypher)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-ref
                  parse-artifact-roundtrip
@@ -141,7 +141,7 @@
                (unresolved? (record-unresolved? record))
                (expected? (expected-syntax-acceptance?
                            outcome skip? unresolved?))
-               (artifact (parse-opencypher-2024-1 source))
+               (artifact (parse-opencypher source))
                (ok? (parse-artifact-success? artifact))
                (diagnostic
                 (and (not ok?)

@@ -2,8 +2,8 @@
 ;;; -*- Gerbil -*-
 ;;; Repeatable long-input ParseArtifact comparison across package revisions.
 
-(import (only-in :gerbil-parser/languages/arithmetic/v1/parser
-                 parse-arithmetic-v1)
+(import (only-in :gerbil-parser/languages/arithmetic/parser
+                 parse-arithmetic)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip))
 
@@ -50,7 +50,7 @@
           ;; be mistaken for extra parser work.
           (let* ((started (##current-time-point))
                  (cpu-started (cpu-time))
-                 (artifact (parse-arithmetic-v1 source))
+                 (artifact (parse-arithmetic source))
                  (cpu-ms (* 1000.0 (- (cpu-time) cpu-started)))
                  (ms (* 1000.0 (- (##current-time-point) started))))
             (unless (and (parse-artifact-success? artifact)

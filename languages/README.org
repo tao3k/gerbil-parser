@@ -152,8 +152,8 @@ object. They are not a second parser registry.
 | Slot | Default | Admission / interface |
 |---+---+---|
 | =grammars= | List containing the configured =descriptor= | List of grammar/source descriptors; must contain the entry descriptor. Multiple scopes may be exposed here. |
-| =metadata= | Empty POO object | POO object for grammar format, edition, references and downstream metadata. Extension contracts constrain additional fields. |
-| =fixtures= | Zero-argument provider returning an empty list | Procedure; lazy provider returns native =syntax-fixture= values when explicitly requested. |
+| =metadata= | Descriptor-derived POO identity | Engine-owned =language=, =version=, =contract=, =digest= and =digest-kind= merge with grammar format, upstream references and user fields. Identity overrides are replaced by descriptor values; extension contracts constrain extra fields. |
+| =fixtures= | Empty list | Ordinary POO value containing native =syntax-fixture= data. Override with a new corpus or extend with =append=; no callback wrapper. Loader admission checks the value shape; the engine test service checks identity and conformance. |
 | =tests= | Engine fixture conformance service | Unique named, descriptor-bound =declare-language-fixture-test= declarations. =run-language-test= executes the engine conformance protocol; bare procedures, duplicate names and foreign descriptors reject. |
 | =scan-workers= | Empty list | Unique named declarations bound to the exact source descriptor; bare procedures and foreign descriptors reject. Engine creation checks the executor/source binding. |
 
@@ -161,13 +161,13 @@ For example, the HCL entry binds its existing corpus and the engine's
 conformance service through POO rather than another language-specific wrapper:
 
 #+begin_src scheme
-(deflanguage-parser-loader (hcl-v2-24-language :: self LanguageLoader.)
-  (grammar hcl-v2-24-language-grammar)
-  (parse parse-hcl-v2-24)
+(deflanguage-parser-loader (hcl-language :: self LanguageLoader.)
+  (grammar hcl-language-grammar)
+  (parse parse-hcl)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () hcl-v2-24-official-fixtures)))
+         fixtures: hcl-official-fixtures))
 
-(run-language-test hcl-v2-24-language 'fixtures)
+(run-language-test hcl-language 'fixtures)
 #+end_src
 
 Public pack entries import =src/language/entry= and, when needed,
@@ -176,8 +176,18 @@ on optional ANTLR/BNF/JavaCC authoring importers in the aggregate
 =language-support= facade; the facade still exports the same loader API.
 Existing grammar modules can still bring that facade into compiler metadata.
 
+The unreleased =gerbil-parser.language-entry.v2= contract is corrected in place;
+this source migration does not create a new schema or release version.
+Language modules and public bindings use stable names (=languages/hcl/parser=,
+=hcl-language=, =parse-hcl=). Edition/version data belongs in Loader metadata.
+
 The =gerbil-parser.language-entry.v2= schema derives the default fixture-test
 declaration from the effective descriptor through the inherited POO slot.
+Fixture values participate in ordinary POO inheritance. Users assign a new list
+for replacement, or a computed value slot such as
+=(fixtures (append (.ref BaseLanguage. 'fixtures) extra-fixtures))= for extension.
+POO handles value-slot evaluation; callers never invoke the fixture slot.
+
 Additional names may use =declare-language-fixture-test= with that descriptor.
 A new service kind requires an engine opcode and input/result contract.
 
@@ -188,14 +198,16 @@ It then owns status, roundtrip, root and required-kind checks and returns the
 admitted artifacts. Lexical rejection retains the complete source bytes as an
 opaque token when the lexer cannot publish a token stream. This makes negative
 fixtures lossless even when a language has no fallback lexical rule.
-A provider must return syntax fixtures; a mismatch raises an error. Loader
-admission checks service shapes but never executes a provider, test or scan worker. Ordinary parsing does not
+The fixture slot must contain syntax-fixture data; a mismatch raises an error.
+Loader admission reads the value and checks its shape without running fixture
+parses, test services or scan workers. Ordinary parsing does not
 resolve these services. Fixture modules depend on =grammar.ss=, not the public
-parser that exposes their provider, avoiding dependency cycles.
+parser that exposes their corpus, avoiding dependency cycles.
 
 All shipped language entries register their corpus conformance service, including
 HL7, FHIRPath, Bash, TLA layout and the policy-bound SANY candidate. The services
-use the public =language-support= facade. A short fixture can be declared inside
+remain available through the public =language-support= facade. A short fixture
+can be declared inside
 =parser.ss= without a new source file:
 
 #+begin_src scheme
@@ -215,7 +227,7 @@ These syntax fixtures complement language-specific projection, concurrency and
 incremental tests; they do not stand in for those assertions.
 
 Bash registers its =command= source worker using
-=(declare-language-source-scan-worker bash-v5-3-source-language make-bash-scanner)=.
+=(declare-language-source-scan-worker bash-source-language make-bash-scanner)=.
 Create it with =(make-language-scan-worker loader 'command source)=. This is an
 explicit transitional source-parser declaration, not a closed Scanner IR product.
 The loader rejects raw factories, duplicate names and foreign descriptors;

@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Complete ParseArtifact batches; includes one preparation per plan batch.
-(import (only-in :gerbil-parser/languages/hcl/v2-24/grammar hcl-v2-24-parser)
+(import (only-in :gerbil-parser/languages/hcl/grammar hcl-parser)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/runtime/parser
                  parse-source/contextual prepare-contextual-parser parse-source/contextual/prepared)
@@ -14,7 +14,7 @@
                  (integer? samples) (positive? samples))
       (error "expected positive requests and samples" args))
     (displayln "PARSER-FIXTURE requests=" requests " samples=" samples) (force-output)
-    (let* ((machine hcl-v2-24-parser)
+    (let* ((machine hcl-parser)
            (product (contextual-product machine (parser-machine-grammar-digest machine)))
            (sources (list "x = 1\n" (apply string-append (make-list 32 "名字 = 1\n"))
                           "x = " "x = @你好\n")))

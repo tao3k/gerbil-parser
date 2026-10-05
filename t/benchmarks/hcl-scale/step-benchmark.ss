@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Matched AOT full-artifact HCL benchmark: indexed versus fused reductions.
 
-(import (only-in :gerbil-parser/languages/hcl/v2-24/parser
-                 hcl-v2-24-parser parse-hcl-v2-24)
+(import (only-in :gerbil-parser/languages/hcl/parser
+                 hcl-parser parse-hcl)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-runtime parser-machine-trivia
                  parser-machine-grammar-digest)
@@ -24,7 +24,7 @@
          (loop (fx+ i 1)))))))
 
 (def (parse-source source generated?)
-  (let ((machine hcl-v2-24-parser)
+  (let ((machine hcl-parser)
         (character-offset 0)
         (byte-offset 0)
         (pending-character #f)
@@ -77,7 +77,7 @@
     (let* ((source (basic-source lines))
            (baseline (parse-source source #f))
            (generated (parse-source source #t))
-           (public (parse-hcl-v2-24 source)))
+           (public (parse-hcl source)))
       (unless (and (parse-artifact-success? baseline)
                    (equal? baseline generated)
                    (equal? generated public))

@@ -13,7 +13,7 @@
         (only-in :gerbil-parser/src/runtime/significant
                  parser-significant-tokens parser-significant-joined)
         :gerbil-parser/src/runtime/token
-        :gerbil-parser/languages/arithmetic/v1/parser)
+        :gerbil-parser/languages/arithmetic/parser)
 
 (def (artifact-token-events artifact)
   (let loop ((rest (parse-artifact-events artifact)) (found '()))

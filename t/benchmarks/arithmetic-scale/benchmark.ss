@@ -2,8 +2,8 @@
 ;;; -*- Gerbil -*-
 ;;; Pure Scheme end-to-end parser scaling benchmark.
 
-(import (only-in :gerbil-parser/languages/arithmetic/v1/parser
-                 arithmetic-parser parse-arithmetic-v1)
+(import (only-in :gerbil-parser/languages/arithmetic/parser
+                 arithmetic-parser parse-arithmetic)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest parser-machine-runtime
                  parser-machine-trivia)
@@ -28,7 +28,7 @@
          (samples
           (map (lambda (_)
                  (let* ((started (##current-time-point))
-                        (artifact (parse-arithmetic-v1 source))
+                        (artifact (parse-arithmetic source))
                         (elapsed-ms
                          (* 1000.0 (- (##current-time-point) started))))
                    (unless (and (parse-artifact-success? artifact)
@@ -75,7 +75,7 @@
         (error "prepared LR left unconsumed tokens" terms))
       (unless
           (equal?
-           (parse-arithmetic-v1 source)
+           (parse-arithmetic source)
            (make-success-parse-artifact
             (parser-machine-grammar-digest arithmetic-parser)
             source tokens root (parser-machine-trivia arithmetic-parser)))
@@ -107,7 +107,7 @@
       (newline))))
 
 (def (main . args)
-  (parse-arithmetic-v1 "1+1")
+  (parse-arithmetic "1+1")
   (for-each measure
             (if (null? args)
               '(100 200 400 800 1600)

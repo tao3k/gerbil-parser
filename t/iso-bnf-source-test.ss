@@ -3,8 +3,8 @@
 
 (import :std/test
         :gerbil-parser/language-support
-        :gerbil-parser/languages/cypher/opencypher-2024-1/grammar
-        :gerbil-parser/languages/cypher/opencypher-2024-1/source)
+        :gerbil-parser/languages/cypher/grammar
+        :gerbil-parser/languages/cypher/source)
 
 ;; Test projections use one fail-closed lookup boundary instead of repeating
 ;; the source-map representation throughout behavioral assertions.
@@ -19,26 +19,26 @@
 (def iso-bnf-source-tests
   (test-suite "ISO WG3 BNF grammar source"
     (test-case "the complete openCypher production catalog is immutable"
-      (check (iso-bnf-source-language opencypher-2024-1-bnf)
+      (check (iso-bnf-source-language opencypher-bnf)
              => "opencypher")
-      (check (iso-bnf-source-version opencypher-2024-1-bnf)
+      (check (iso-bnf-source-version opencypher-bnf)
              => +opencypher-version+)
-      (check (iso-bnf-source-commit opencypher-2024-1-bnf)
+      (check (iso-bnf-source-commit opencypher-bnf)
              => +opencypher-commit+)
-      (check (iso-bnf-source-digest opencypher-2024-1-bnf)
+      (check (iso-bnf-source-digest opencypher-bnf)
              => +opencypher-bnf-digest+)
-      (check (length (iso-bnf-source-productions opencypher-2024-1-bnf))
+      (check (length (iso-bnf-source-productions opencypher-bnf))
              => 352)
-      (check (iso-bnf-source-production opencypher-2024-1-bnf "program")
+      (check (iso-bnf-source-production opencypher-bnf "program")
              ? iso-bnf-production?)
-      (check (iso-bnf-source-production opencypher-2024-1-bnf
+      (check (iso-bnf-source-production opencypher-bnf
                                         "value expression")
              ? iso-bnf-production?)
-      (check (iso-bnf-source-production opencypher-2024-1-bnf
+      (check (iso-bnf-source-production opencypher-bnf
                                         "binary digit")
              ? iso-bnf-production?)
       (let* ((program
-              (iso-bnf-source-production opencypher-2024-1-bnf "program"))
+              (iso-bnf-source-production opencypher-bnf "program"))
              (ast (iso-bnf-production-ast program)))
         (check (car ast) => 'choice)
         (check (iso-bnf-production-references program)
@@ -46,31 +46,31 @@
       ;; ISO WG3 ellipsis is one-or-more. Compatibility corrections belong in
       ;; a separately receipted rule overlay, never in the notation parser.
       (check (iso-bnf-production-ast
-              (iso-bnf-source-production opencypher-2024-1-bnf
+              (iso-bnf-source-production opencypher-bnf
                                          "linear statement"))
              => '(sequence
                   (repeat1 (reference "primitive statement"))
                   (optional (reference "primitive result statement"))))
       (check (grammar-rule-expression
-              (iso-bnf-source-grammar-rules opencypher-2024-1-bnf)
+              (iso-bnf-source-grammar-rules opencypher-bnf)
               'identifier)
              => '(alias identifier
                   (choice (reference |regular identifier|)
                           (reference |delimited identifier|)
                           (reference |non-reserved word|))))
       (check (grammar-rule-expression
-              (iso-bnf-source-grammar-rules opencypher-2024-1-bnf)
+              (iso-bnf-source-grammar-rules opencypher-bnf)
               '|delimited identifier|)
              => '(alias |delimited identifier|
                   (reference |accent quoted character sequence|)))
       (check (grammar-rule-expression
-              (iso-bnf-source-grammar-rules opencypher-2024-1-bnf)
+              (iso-bnf-source-grammar-rules opencypher-bnf)
               '|accent quoted character sequence|)
              => '(alias |accent quoted character sequence|
                   (token delimited-identifier)))
       (check
        (grammar-rule-expression
-        (iso-bnf-source-grammar-rules opencypher-2024-1-bnf)
+        (iso-bnf-source-grammar-rules opencypher-bnf)
         '|create node pattern filler|)
        => '(alias |create node pattern filler|
             (choice
@@ -81,7 +81,7 @@
              (reference |create node label and property set specification|))))
       (check
        (grammar-rule-expression
-        (iso-bnf-source-grammar-rules opencypher-2024-1-bnf)
+        (iso-bnf-source-grammar-rules opencypher-bnf)
         '|create node label and property set specification|)
        => '(alias |create node label and property set specification|
             (choice
@@ -93,7 +93,7 @@
       (for-each
        (lambda (production)
          (check (pair? (iso-bnf-production-ast production)) => #t))
-       (iso-bnf-source-productions opencypher-2024-1-bnf)))
+       (iso-bnf-source-productions opencypher-bnf)))
     (test-case "unresolved production references fail closed"
       (check-exception
        (parse-iso-bnf-source

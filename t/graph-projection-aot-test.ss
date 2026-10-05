@@ -2,7 +2,7 @@
 ;;; POO graph rules are validated and resolve against one grammar identity.
 
 (import (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+        (only-in :gerbil-parser/languages/arithmetic/grammar
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/graph-projection-support
                  make-graph-projection make-graph-node make-graph-field

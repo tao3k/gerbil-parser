@@ -1,27 +1,27 @@
 ;;; -*- Gerbil -*-
 ;;; Builtin convenience facade; downstream packs use language-artifact-codec.
 (import (prefix-in ./language-artifact-codec codec-)
-(only-in ../../languages/gql/iso-39075-2024/grammar
-                 gql-iso-language-grammar)
-        (only-in ../../languages/gql/iso-39075-2024/parser
-                 parse-gql-iso-39075-2024)
-        (only-in ../../languages/cypher/opencypher-2024-1/grammar
-                 opencypher-2024-1-language-grammar)
-        (only-in ../../languages/cypher/opencypher-2024-1/parser
-                 parse-opencypher-2024-1))
+(only-in ../../languages/gql/grammar
+                 gql-language-grammar)
+        (only-in ../../languages/gql/parser
+                 parse-gql)
+        (only-in ../../languages/cypher/grammar
+                 opencypher-language-grammar)
+        (only-in ../../languages/cypher/parser
+                 parse-opencypher))
 (export native-abi-version native-error-payload
         native-descriptor-payload native-parse-binary-payload)
 (def native-abi-version codec-native-abi-version)
 (def native-error-payload codec-native-error-payload)
 (def +gql-native-language+
   (delay
-    (codec-make-native-language-context "gql" gql-iso-language-grammar
-                                  parse-gql-iso-39075-2024)))
+    (codec-make-native-language-context "gql" gql-language-grammar
+                                  parse-gql)))
 
 (def +cypher-native-language+
   (delay
-    (codec-make-native-language-context "cypher" opencypher-2024-1-language-grammar
-                                  parse-opencypher-2024-1)))
+    (codec-make-native-language-context "cypher" opencypher-language-grammar
+                                  parse-opencypher)))
 
 (def (resolve-native-language language)
   (cond

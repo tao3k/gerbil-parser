@@ -12,7 +12,7 @@ are historical, not current CI state.
 ** Inventory and ownership
 
 Eight language families publish ten POO loader objects. All ten already expose
-=grammars=, =metadata=, lazy =fixtures= and named =tests= services through
+=grammars=, =metadata=, value =fixtures= and named =tests= services through
 =deflanguage-parser-loader=. TLA+ has three scopes; the other families have one.
 Entry unification does not establish shared scanner execution or Rust admission.
 There is no =sky= module in this checkout. Scanner work includes four scanner
@@ -52,7 +52,7 @@ legitimate language ownership. File count alone is not a convergence gate.
 The schema =gerbil-parser.language-entry.v2= replaces procedure-valued tests
 with =declare-language-fixture-test= declarations bound to the descriptor.
 All ten public loaders inherit the engine-derived default; =run-language-test=
-checks the registry before any fixture provider runs. New service kinds require
+checks the registry before fixture conformance runs. New service kinds require
 explicit input/result contracts and POO admission.
 Additional language assertions continue through native Scheme/ASP test suites.
 
@@ -73,12 +73,78 @@ assembly paths are removed. Moving an old callback into =src/= alone does not
 close a stage. S4 can proceed alongside S2/S3; it does not wait for Bash full
 syntax. SANY portable proof policy does not block ordinary lexical lowering.
 
-** S0 implementation and qualification
+** Stable language modules and metadata
+
+Language editions are data rather than module identity. The seven edition
+subdirectories and the two edition-labelled reference-corpus directories are
+flattened into stable family paths. Public language/parser bindings omit edition
+suffixes; tests, generators, native FFI callers, CI commands and documentation
+use those same paths. Upstream grammar/corpus bytes and pinned authority values
+remain unchanged. This is an in-place correction of the unreleased loader
+contract, with no v3 schema bump and no compatibility aliases.
+
+Loader metadata is an inherited POO value augmented by the engine with
+=language=, =version=, =contract=, =digest= and =digest-kind=. The effective
+identity is checked against the descriptor; language/user metadata fields such
+as grammar format and upstream references remain extensible. Grammar digests
+bind Parser IR; source-language digests bind declared source identity and must
+not be described as hashes of scanner implementation code.
+
+** Fixture value-slot correction
+
+The unreleased =gerbil-parser.language-entry.v2= contract exposes =fixtures=
+as a data slot,
+defaulting to an empty list. Every shipped entry assigns its corpus directly;
+no =lambda= wrapper is required or admitted. POO inheritance, replacement and
+computed value slots support extension using ordinary values. Loader admission
+checks the list/fixture brands; the engine fixture service owns whole-corpus
+identity, duplicate-id and parse-result validation. Test execution and scanner
+factories remain explicit descriptor-bound services.
+
+** Stable namespace correction: current qualification boundary
+
+The loader schema remains v2. The complete =t/language-loader-test.ss= suite
+passed all 15 native cases in 69.67 seconds. The three cases in
+=t/language-loader-value-test.ss= passed in 49.07 seconds, including an inherited
+computed slot reading the final metadata via =self=. Both suites produced
+explicit =OK= and propagated gxtest status 0 within the unchanged 90/5 fences.
+The independent Rust Records consumer compiled and passed both structural/
+lossless and rejected-input tests after its module/path migration.
+
+The Scheme reader accepted all 114 changed Scheme modules, and their declared
+internal import paths resolve. These reader/path checks do not establish macro
+expansion, native compilation or language conformance. The staged GQL,
+openCypher and FHIRPath authority sources retain their exact Git blob identity;
+the generated Records Rust source is also an exact rename. FHIRPath's =-text=
+attribute follows its new path, preserving its pinned CRLF bytes. HL7 external
+scanner protocol stamps retain their declared identity.
+
+The first complete-loader attempt failed at the five-second cold-import fence
+before assertions. Preparing the new namespace's native dependencies resolved
+that failure; the later complete-suite pass above is a separate receipt.
+The fresh Arithmetic generated module and an exact-C GCC backend diagnostic
+also reached the 90-second construction fence. The same generated C subsequently
+passed the SDK GCC backend in 32.07 seconds with the original optimization
+options and without the large internal-tree diagnostic dumps. Its source SHA-256
+remained =2fdea5852d54b29e1b2ea2dbc5889723bd460dca5edf1a0eddb48944cf3c91ae=.
+The new Arithmetic grammar/fixture modules compiled in 53.10 seconds.
+A Bash dependency batch produced word/word-scanning/scanner products before
+hitting the total fence during parser-core dependencies; the follow-up native
+parser-core, grammar, Bash parser and Arithmetic parser batch passed in 73.76
+seconds. Earlier failed invocations remain failed receipts.
+
+No interpreter fallback, compiler-profile switch or timeout relaxation is used
+as native evidence. Whole-pack conformance, generated Scheme checks and installed
+native consumers still require the new PR head's complete CI qualification.
+The earlier e1d0cf2 CI is green on Rust, Ubuntu and macOS, and is not evidence for
+this namespace correction. This work does not close the remaining 17 external
+scanner declarations or the Bash source-parser strategy stages.
+
+** Historical S0 implementation and qualification (e1d0cf2)
 
 The v2 loader migration covers all ten public entries. Test services use private,
 descriptor-bound declarations and engine-owned execution; arbitrary procedure
-rows and foreign/duplicate declarations reject. The inherited default keeps
-fixture providers lazy. Source-worker creation checks source identity, and
+rows and foreign/duplicate declarations reject. The inherited default declares the fixture test without executing fixture parses. Source-worker creation checks source identity, and
 checkpoints now bind the creating worker even when two workers share one string.
 
 Native Scheme verification used the project SDK and GCC 16:
@@ -129,7 +195,7 @@ must use the same declaration boundary rather than a second registry.
 
 
 - POO remains the extension boundary. =grammars= and metadata are exposed by the
-  loader; fixture/test/worker services stay lazy. Engine identity, descriptor
+  loader; fixture data uses ordinary POO values; test/worker execution remains explicit. Engine identity, descriptor
   binding and dispatch remain sealed against inherited overrides. Downstream
   users declare options/rules/services rather than maintain scanner drivers.
 - Lexical profiles must preserve committed malformed suffix rejection. For

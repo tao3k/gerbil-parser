@@ -1057,3 +1057,43 @@ not claim a runtime speedup or a new standalone Rust execution qualification;
 the Rust producer is unchanged and its exact source is compared for both
 languages. The new protocol control is discovered by the existing native test
 suite's =t= source traversal.
+
+* Direct build API refactor, without compatibility adapters — 2026-10-05
+
+The common protocol is the single public build route. Removed
+=declare-language-fused-reductions= from the facade and migrated both actual
+language Loaders to =declare-language-build-strategy= with an admitted concrete
+strategy value. The fused provider's form builder and raw writer are private
+implementation functions; their public exports and =.module= slot were removed.
+The generation CLI and semantic controls now use =emit-build-strategy=. There
+is no legacy alias, compatibility mode or alternate dispatch retained.
+
+POO inheritance of supported recipe slots and provider-specific admission remain
+part of the new protocol. Semantic controls compare validated artifacts and
+canonical generated output; they are correctness checks for the refactor, not
+an obligation to preserve the deleted API. All current guide examples use the
+new declarations. Earlier dated sections record historical implementation.
+
+| GCC native gate, concurrent batch | Result | Process time |
+|---+---+---|
+| Common protocol | Eight controls, including both real providers and build isolation during actual parses | 15.80 s |
+| Fused semantic controls | Seven controls, both languages and both semantic backends | 13.27 s |
+| HCL production CLI | Exact deterministic generated source; explicit return and exit 0 | 12.32 s |
+| Arithmetic production CLI | Same generic producer, exact deterministic source; explicit return and exit 0 | 12.65 s |
+
+The batch includes process startup/import work and is not a runtime performance
+comparison. The unchanged test gates are 90/5; compiler gates remain 90/30.
+Both suites returned =OK= and =HARNESS-RETURN status=0=, and both producers
+returned =PRODUCER-RETURN status=0=; every process exited 0.
+
+A consumer compilation first rejected the old HCL generated interface because
+it still imported the deleted declaration. The two affected languages' generated
+interfaces and optimizer caches were saved then rebuilt from migrated source;
+no source adapter was restored. The failed compilation remains a failure.
+
+This closes the build declaration/output API migration. Scanner and runtime
+ownership migration is still open: Bash has source/word execution adapters,
+HL7 has external header-derived delimiter callbacks, HCL has recursive source
+execution, TLA+ has lexical/proof policies, and GQL retains query-specific APIs.
+These need declarative constrained engine capabilities and actual consumers,
+not compatibility wrappers or language-specific code relocated without reuse.

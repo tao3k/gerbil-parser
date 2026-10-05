@@ -1,7 +1,7 @@
 ;;; Build entry for any module exporting one admitted language descriptor.
 (import :gerbil/expander
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/src/compiler/fused-reduction make-fused-reduction-strategy emit-fused-reduction-module)
+        (only-in :gerbil-parser/language-build-support make-fused-reduction-strategy emit-build-strategy)
         (only-in :gerbil-parser/src/language/descriptor language-grammar?))
 (def (module-descriptor path)
   (let* ((context (import-module (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\:))
@@ -18,7 +18,7 @@
   (unless (and (= (length args) 3) (member (car args) '("module" "check")))
     (error "expected module|check grammar-module output-path" args))
   (let* ((strategy (make-fused-reduction-strategy (module-descriptor (cadr args))))
-         (emit (lambda (port) (emit-fused-reduction-module strategy port))))
+         (emit (lambda (port) (emit-build-strategy strategy port))))
     (if (equal? (car args) "module")
       (call-with-output-file (caddr args) emit)
       (let ((expected (call-with-output-string emit)) (repeated (call-with-output-string emit))

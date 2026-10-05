@@ -5,8 +5,8 @@
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-build-support
                  FusedReductionStrategy. FusedReductionStrategyContract
-                 make-fused-reduction-strategy fused-reduction-module emit-fused-reduction-module
-                 emit-language-build-strategy declare-language-fused-reductions)
+                 make-fused-reduction-strategy emit-build-strategy
+                 emit-language-build-strategy)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-for-current-semantic-backend)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled? lr-runtime-event-program?)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime)
@@ -22,7 +22,7 @@
 (export fused-reduction-test)
 
 (def (emitted strategy)
-  (call-with-output-string (lambda (port) ((.ref strategy '.emit) port))))
+  (call-with-output-string (lambda (port) (emit-build-strategy strategy port))))
 (def (check-reductions descriptor sources step event-step)
   (let (machine (language-grammar-machine descriptor))
     (for-each
@@ -54,7 +54,7 @@
                             step-name: 'reduce-step event-name: 'reduce-events digest-name: 'reduce-digest
                             metadata: (.o consumer: 'downstream)))
              (strategy (make-fused-reduction-strategy arithmetic-language-grammar prototype))
-             (form ((.ref strategy '.module))))
+             (form (call-with-input-string (emitted strategy) read)))
         (check (.ref (.ref strategy 'metadata) 'consumer) => 'downstream)
         (check (and (member '(export reduce-step reduce-events reduce-digest) (cdr form)) #t) => #t)
         (check (equal? (emitted strategy) (emitted (make-fused-reduction-strategy arithmetic-language-grammar))) => #f)))
@@ -64,7 +64,7 @@
         (for-each
          (lambda (invalid)
            (check-exception (validate FusedReductionStrategyContract invalid) true)
-           (check-exception (emit-fused-reduction-module invalid port) true))
+           (check-exception (emit-build-strategy invalid port) true))
          (list (.cc hcl 'digest "sha256:stale")
                (.cc hcl 'descriptor arithmetic-language-grammar 'digest hcl-direct-grammar-digest)
                (.cc hcl 'event-name 'direct-step)

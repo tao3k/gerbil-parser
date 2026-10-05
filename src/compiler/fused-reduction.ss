@@ -10,7 +10,7 @@
         (only-in ./lr lr-spec-ref production-table production-id production-lhs
                  production-rhs production-action operand-actions))
 (export FusedReductionStrategy. FusedReductionStrategyContract
-        make-fused-reduction-strategy fused-reduction-module emit-fused-reduction-module)
+        make-fused-reduction-strategy)
 
 (def (strategy-table candidate)
   (production-table (lr-spec-ref (cdr (assq 'lr-spec (language-grammar-ir (.ref candidate 'descriptor)))) 'productions)))
@@ -187,8 +187,7 @@
       provider: +fused-reduction-provider+
       step-name: 'direct-step
       event-name: 'direct-event-step
-      digest-name: 'direct-grammar-digest
-      (.module (lambda () (fused-reduction-module self)))))
+      digest-name: 'direct-grammar-digest))
 
 (def (make-fused-reduction-strategy descriptor (prototype FusedReductionStrategy.))
   (let (strategy (make-bound-build-strategy descriptor prototype))

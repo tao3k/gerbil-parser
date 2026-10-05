@@ -520,13 +520,14 @@ runtime convergence work before all language directories reach three files.
 ** Generic POO fused reduction build strategies
 
 =language-build-support.ss= exposes =FusedReductionStrategy.= and its contract,
-=make-fused-reduction-strategy=, =declare-language-fused-reductions= and
+=make-fused-reduction-strategy=, =declare-language-build-strategy= and
 =emit-language-build-strategy=. HCL and Arithmetic both declare the same
 engine-owned capability on their actual public Loader:
 
 #+begin_src scheme
 (slots build-strategies:
-       (list (declare-language-fused-reductions my-language-grammar)))
+       (list (declare-language-build-strategy 'fused-reductions
+               (make-fused-reduction-strategy my-language-grammar))))
 #+end_src
 
 =LanguageLoader.= defaults =build-strategies= to an empty list. Named entries
@@ -545,7 +546,7 @@ The strategy itself is a POO prototype with these effective slots:
 | =digest= | Derived internally from the descriptor machine; explicit stale overrides reject |
 | =step-name=, =event-name=, =digest-name= | Distinct valid Scheme binding names; reserved/imported dependencies cannot be shadowed; override through POO slots |
 | =metadata= | POO object for downstream build annotations |
-| =.module=, =.emit= | Engine methods capture the effective inherited object and produce validated Scheme forms |
+| =.emit= | Common inherited method dispatches to the admitted engine provider |
 
 #+begin_src scheme
 (def MyReductions.
@@ -555,7 +556,8 @@ The strategy itself is a POO prototype with these effective slots:
       digest-name: 'reduce-digest
       metadata: (.o consumer: 'my-project)))
 ;; No user-written thunk is needed for a slot value.
-(declare-language-fused-reductions my-language-grammar MyReductions.)
+(declare-language-build-strategy 'fused-reductions
+  (make-fused-reduction-strategy my-language-grammar MyReductions.))
 #+end_src
 
 =src/compiler/fused-reduction.ss= has no builtin language imports or
@@ -588,7 +590,8 @@ HCL and Arithmetic both declare the two real engine providers:
 
 #+begin_src scheme
 (slots build-strategies:
-       (list (declare-language-fused-reductions my-language-grammar)
+       (list (declare-language-build-strategy 'fused-reductions
+               (make-fused-reduction-strategy my-language-grammar))
              (declare-language-build-strategy 'rust-rowan
                (make-rust-rowan-strategy my-language-grammar))))
 #+end_src

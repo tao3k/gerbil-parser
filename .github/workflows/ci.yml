@@ -168,8 +168,10 @@ jobs:
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/direct-lr.ss
 
-      - name: Verify generated HCL Scheme LR step is current
-        run: gerbil env gxi t/benchmarks/hcl-scale/generate-step.ss check languages/hcl/direct-step.ss
+      - name: Verify generic POO Scheme reductions are current
+        run: |
+          gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-reductions.ss
+          gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/arithmetic/grammar t/fixtures/arithmetic-reductions.ss
 
       - name: Verify generated HCL recursive parser is current
         run: gerbil env gxi languages/hcl/generate-direct.ss check languages/hcl/direct-recursive.ss

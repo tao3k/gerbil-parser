@@ -10,6 +10,8 @@
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../runtime/source-scanner source-scanner-for-source?)
         (only-in ../compiler/machine parser-machine-grammar-digest parser-machine-direct-source)
+        (only-in ../compiler/fused-reduction FusedReductionStrategy. FusedReductionStrategyContract
+                 make-fused-reduction-strategy emit-fused-reduction-module)
         (only-in ../runtime/parser parse-source)
         (only-in ../runtime/lr-parser current-lr-branch-budget)
         (only-in ../runtime/cst parse-artifact->cst)
@@ -32,7 +34,8 @@
         +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
         check-language-loader-fixtures! call-with-language-parser-policy
         declare-language-source-scan-worker make-language-scan-worker
-        declare-language-fixture-test run-language-test)
+        declare-language-fixture-test run-language-test
+        declare-language-fused-reductions emit-language-build-strategy)
 
 (def +language-parser-entry-schema+ "gerbil-parser.language-entry.v2")
 
@@ -206,11 +209,34 @@
                     (eq? (.ref profile 'source) (parser-machine-direct-source machine))
                     (procedure? (.ref profile 'lexer))))))))
 
+(def (declare-language-fused-reductions descriptor (prototype FusedReductionStrategy.))
+  (cons 'fused-reductions (make-fused-reduction-strategy descriptor prototype)))
+
+;;; Build strategies are admitted once with the Loader. No build method is
+;;; invoked during parser dispatch, and no language-specific route is selected.
+(def (declared-build-strategies? rows descriptor)
+  (with-catch (lambda (_) #f)
+    (lambda ()
+      (and (list? rows)
+           (let loop ((remaining rows) (seen '()))
+             (or (null? remaining)
+                 (let (row (car remaining))
+                   (and (pair? row) (symbol? (car row)) (not (memq (car row) seen))
+                        (begin (validate FusedReductionStrategyContract (cdr row)) #t)
+                        (eq? (.ref (cdr row) 'descriptor) descriptor)
+                        (loop (cdr remaining) (cons (car row) seen))))))))))
+
+(def (emit-language-build-strategy loader name port)
+  (validate LanguageLoaderContract loader)
+  (let (row (assq name (.ref loader 'build-strategies)))
+    (unless row (error "unknown declared language build strategy" name))
+    (emit-fused-reduction-module (cdr row) port)))
+
 (def (loader-shape? candidate)
   (and (object? candidate)
        (andmap (lambda (slot) (.slot? candidate slot))
                '(schema descriptor language version contract capabilities .parse
-                 grammars metadata fixtures tests scan-workers))
+                 grammars metadata fixtures tests scan-workers build-strategies))
        (equal? (.ref candidate 'schema) +language-parser-entry-schema+)
        (let (descriptor (.ref candidate 'descriptor))
          (and (or (language-grammar? descriptor) (source-language? descriptor))
@@ -231,7 +257,8 @@
               (let (fixtures (.ref candidate 'fixtures))
                 (and (list? fixtures) (every syntax-fixture? fixtures)))
               (declared-test-services? (.ref candidate 'tests) descriptor)
-              (declared-scan-workers? (.ref candidate 'scan-workers) descriptor)))))
+              (declared-scan-workers? (.ref candidate 'scan-workers) descriptor)
+              (declared-build-strategies? (.ref candidate 'build-strategies) descriptor)))))
 
 (define-type (LanguageLoaderContract @ PooFlowContract.)
   identity: 'gerbil-parser/language-loader
@@ -255,6 +282,7 @@
       fixtures: '()
       (tests (list (cons 'fixtures (declare-language-fixture-test (.ref self 'descriptor)))))
       scan-workers: '()
+      build-strategies: '()
       (language (descriptor-ref (.ref self 'descriptor) 'language))
       (version (descriptor-ref (.ref self 'descriptor) 'version))
       (contract (descriptor-ref (.ref self 'descriptor) 'contract))

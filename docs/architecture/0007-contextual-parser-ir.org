@@ -1255,9 +1255,10 @@ representations:
    alone cannot qualify a change.
 
 The authoritative HCL reduction emitter is
-=t/benchmarks/hcl-scale/generate-step.ss=. The generated header uses its
-basename; the producer is outside the language directory. The CI check invokes
-that emitter against =languages/hcl/direct-step.ss=. Reduction experiments
+=src/compiler/fused-reduction.ss=, exposed through the generic
+=scripts/generate-reductions.ss= producer. The generated header identifies the
+engine POO strategy. CI passes the HCL grammar module identifier and checks
+=src/compiler/hcl-reductions.ss=. Reduction experiments
 must change this emitter and regenerate the product, preserving the Parser IR
 and exact artifact boundary. The earlier directory-scoped producer search was
 incomplete. These are proposed experiments, not implemented reduction capabilities.

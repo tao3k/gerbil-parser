@@ -516,3 +516,59 @@ and exact error. SANY proof policy remains unsupported by standalone Rust AOT;
 these checks preserve that boundary rather than grant a portable capability.
 TLA+ scanner/proof policy and HCL generated product ownership remain separate
 runtime convergence work before all language directories reach three files.
+
+** Generic POO fused reduction build strategies
+
+=language-build-support.ss= exposes =FusedReductionStrategy.= and its contract,
+=make-fused-reduction-strategy=, =declare-language-fused-reductions= and
+=emit-language-build-strategy=. HCL and Arithmetic both declare the same
+engine-owned capability on their actual public Loader:
+
+#+begin_src scheme
+(slots build-strategies:
+       (list (declare-language-fused-reductions my-language-grammar)))
+#+end_src
+
+=LanguageLoader.= defaults =build-strategies= to an empty list. Named entries
+are checked for unique names, a valid strategy contract and exact identity
+with the Loader's effective descriptor. Inheriting a strategy bound to another
+descriptor rejects during admission. This remains =language-entry.v2=.
+Building through =emit-language-build-strategy= selects only a declared entry;
+it invokes the validated engine emitter rather than a caller-supplied callback.
+Parser dispatch does not emit code or validate build strategies per source.
+
+The strategy itself is a POO prototype with these effective slots:
+
+| Slot | Admission or extension rule |
+|---+---|
+| =descriptor= | An admitted language grammar; its Parser IR must be the exact machine IR |
+| =digest= | Derived internally from the descriptor machine; explicit stale overrides reject |
+| =step-name=, =event-name=, =digest-name= | Distinct valid Scheme binding names; reserved/imported dependencies cannot be shadowed; override through POO slots |
+| =metadata= | POO object for downstream build annotations |
+| =.module=, =.emit= | Engine methods capture the effective inherited object and produce validated Scheme forms |
+
+#+begin_src scheme
+(def MyReductions.
+  (.o (:: self FusedReductionStrategy.)
+      step-name: 'reduce-step
+      event-name: 'reduce-events
+      digest-name: 'reduce-digest
+      metadata: (.o consumer: 'my-project)))
+;; No user-written thunk is needed for a slot value.
+(declare-language-fused-reductions my-language-grammar MyReductions.)
+#+end_src
+
+=src/compiler/fused-reduction.ss= has no builtin language imports or
+language-name dispatch. It validates every production ID and the closed
+=pass=/=concat= plus =field=/=alias= action algebra before producing any output.
+The same structured generator emits recognition and event program reductions.
+LR transition lookup, precedence, lexical modes and rejection remain owned by
+the existing runtime. The HCL generated product now lives at
+=src/compiler/hcl-reductions.ss=; the former language product and benchmark
+producer were removed. The generic =scripts/generate-reductions.ss= CLI accepts
+any module exporting one language descriptor and verifies deterministic output.
+
+This capability produces Scheme fused LR reductions. It does not confer Rust
+or C portability, or generalize HCL's recursive lexical/source corridor.
+=languages/hcl/generate-direct.ss= and =direct-recursive.ss= still require a
+separate declarative lexical/source strategy design and migration.

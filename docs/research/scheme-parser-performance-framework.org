@@ -1291,12 +1291,12 @@ The admitted HCL slice instead generates a fused reduction step from the
 Scheme Parser IR: each production has static stack pops and semantic actions,
 then looks up its exact goto in the existing indexed table. LR action lookup,
 parser-directed lexical modes, diagnostics, and selective GLR remain with the
-existing runtime. The generated =languages/hcl/direct-step.ss= is about
-64 KB and compiled alone in about 5 seconds. The language module installs it
+existing runtime. The generated =src/compiler/hcl-reductions.ss= is about
+124 KiB; current native compiler receipts are recorded in the closure roadmap. The language module installs it
 only when its embedded grammar digest matches the compiled parser machine;
 the runtime exposes a benchmark override to run the same scanner and artifact
 path with indexed reductions. Run
-=gerbil env gxi t/benchmarks/hcl-scale/generate-step.ss check languages/hcl/direct-step.ss=
+=gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-reductions.ss=
 to verify byte-for-byte regeneration; native CI runs this check.
 
 The repository-owned =step-benchmark.ss= preflights exact full

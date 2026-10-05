@@ -937,3 +937,67 @@ fixtures; unsupported policy still fails through the actual Rust producer.
 
 This supersedes the earlier core/SANY test migration queue. It closes those
 test suites and TLC execution ownership, not every language runtime directory.
+
+* Generic POO fused reductions and Loader build slots — 2026-10-05
+
+The HCL fused reduction producer is now the reusable engine
+=FusedReductionStrategy.= prototype, exposed by =language-build-support.ss=.
+It derives actions from a descriptor's exact Parser IR and admits the complete
+production/action algebra before emission. POO inheritance supplies effective
+binding names and metadata; stale digest, invalid names and foreign descriptor
+bindings fail admission. No generator branch selects a builtin language.
+
+HCL and Arithmetic both declare =fused-reductions= in their public Loader
+=build-strategies= slot. The Loader contract checks unique declared names and
+exact descriptor identity. Empty strategies remain the default for other
+languages; the existing Loader schema version is unchanged. All build work is
+outside source parser dispatch.
+
+The HCL generated step moved to =src/compiler/hcl-reductions.ss=, and the old
+benchmark generator was deleted. CI uses =scripts/generate-reductions.ss= with
+the grammar's module identifier. A second generated native fixture is produced
+from Arithmetic's actual IR through the same engine. Existing event tests and
+incremental benchmark imports follow the new engine product path.
+
+Seven independent native controls cover deterministic interleaved generation,
+POO names/metadata inheritance, stale and malformed overrides before any output,
+Loader duplicate/foreign binding rejection, both languages' full artifact parity
+in recognition and event program backends, and malformed-source rejection.
+They compare against the indexed runtime without replacing installed routes.
+
+The initial generator compiler run rejected an unimported list utility; the
+name check now compares the three slots directly. Two initial test runs caught
+binding-group/closing-parenthesis errors and remain failures. Initial plain
+script launchers hit the unchanged five-second idle gate after imports; those
+receipts were not admitted. The producer was exercised through the existing
+native child harness with explicit main-return/exit propagation, using module
+identifiers rather than repeated source imports. No timeout was widened and no
+compiler/profile was replaced.
+
+This closes fused reduction generation and HCL step ownership. The remaining
+HCL recursive generator and its fast lexical/source corridor must become a
+separately admitted reusable strategy; moving those HCL assumptions into a
+nominally generic module would not establish reuse. TLA+ scanner/proof policy
+and Bash source/word state remain the following runtime convergence work.
+
+| Final GCC native gate | Result | Process time |
+|---+---+---|
+| Generic POO strategy | Seven controls; two grammars and both semantic backends, including protected dependency names | 5.38 s |
+| HCL compatibility | All 29 declaration rows | 5.26 s |
+| Existing Loader contract | POO inheritance, source/grammar descriptor kinds and extension admission | 4.19 s |
+| Public test syntax | 50 malformed expansion forms and seven runtime controls | 5.02 s |
+| Existing event program/incremental controls | Complete existing suite | 6.89 s |
+| Arithmetic public parser | Complete existing declarative suite | 4.91 s |
+| Common producer, HCL | Exact deterministic generated source, explicit return and exit 0 | 3.72 s |
+| Common producer, Arithmetic | Same CLI, exact deterministic generated source, explicit return and exit 0 | 5.80 s |
+
+The native suites require =OK=, =HARNESS-RETURN status=0= and exit 0 with
+90/5 limits. GCC compiler phases remain 90/30. Final suites were run in
+independent concurrent batches. Generated HCL forms were also compared directly
+with the previous artifact: all executable forms are identical except the
+language-independent unknown-production error wording. There is no new runtime
+speedup claim from this ownership and reuse change.
+
+The migrated HCL generated module's SDK/GCC native phase completed in 9.30 s
+while independent modules compiled concurrently; this is a compiler receipt,
+not a runtime comparison.

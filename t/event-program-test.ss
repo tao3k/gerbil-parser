@@ -17,7 +17,7 @@
                  lr-recognition-view? lr-recognition-view-base lr-recognition-fragment?
                  lr-recognition-fragment-children lr-recognition-fragment-end
                  lr-recognition-fragment-token-count lr-recognition-fragment-executor)
-        (only-in :gerbil-parser/languages/hcl/direct-step direct-event-step)
+        (only-in :gerbil-parser/src/compiler/hcl-reductions direct-event-step)
         (only-in :gerbil-parser/src/runtime/incremental
                  make-incremental-session incremental-session-artifact
                  incremental-session-recognition-root incremental-session-project-artifact

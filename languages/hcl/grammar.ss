@@ -2,7 +2,7 @@
 ;;; Version-pinned HCL native syntax grammar owner.
 
 (import (only-in :gerbil-parser/language-support deflanguage)
-        (only-in ./direct-step direct-step direct-event-step direct-grammar-digest)
+        (only-in :gerbil-parser/src/compiler/hcl-reductions direct-step direct-event-step direct-grammar-digest)
         (only-in ./direct-recursive
                  direct-parse-hcl direct-hcl-grammar-digest))
 (export +hcl-native-syntax-version+

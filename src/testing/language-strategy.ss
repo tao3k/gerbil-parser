@@ -13,11 +13,11 @@
                  parse-artifact-success? parse-artifact-roundtrip parse-artifact-ref)
         (only-in ../../language-support/fixture syntax-fixture-source syntax-fixture-expected-status))
 (export check-language-strategies check-language-installed check-language-fixture-strategies
-        generate-language-test-sources)
+        generate-language-test-sources parse-indexed-reference)
 
 ;;; Indexed reference execution selects no generated reduction or source route.
 ;;; It retains the same ranked scanner, trivia and canonical artifact builder.
-(def (parse-indexed-reference machine source)
+(def (parse-indexed-reference machine source (executor #f))
   (let ((character-offset 0) (byte-offset 0) (pending-character #f) (tokens-reversed '()))
     (def (next-input mode)
       (if (= character-offset (string-length source)) #f
@@ -34,7 +34,7 @@
       (set! pending-character #f))
     (let-values (((status payload)
                   (lr-checkpoint-drive (lr-initial-checkpoint (parser-machine-runtime machine) '())
-                                       next-input after-shift #f #f)))
+                                       next-input after-shift #f executor)))
       (unless (and (eq? status 'accepted) (= character-offset (string-length source))
                    (not pending-character) (null? (cadr payload)))
         (error "indexed language test reference did not complete" status))

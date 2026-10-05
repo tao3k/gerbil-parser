@@ -417,7 +417,7 @@
 (import (only-in :gerbil-parser/src/runtime/funcs current-recognition-sequence-fusion-enabled? recognition-sequence->list)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?
                  lr-runtime-event-program? lr-recognition-fragment-runtime lr-recognition-fragment-value lr-recognition-fragment-executor)
-        (only-in :gerbil-parser/languages/hcl/direct-step direct-event-step)
+        (only-in :gerbil-parser/src/compiler/hcl-reductions direct-event-step)
         (only-in :gerbil-parser/src/runtime/event-program event-program-value?)
         (only-in :gerbil-parser/src/runtime/recognition recognition-child-value))
 (def (assert-event-backend session)

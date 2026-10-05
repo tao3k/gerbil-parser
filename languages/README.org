@@ -154,8 +154,8 @@ object. They are not a second parser registry.
 | =grammars= | List containing the configured =descriptor= | List of grammar/source descriptors; must contain the entry descriptor. Multiple scopes may be exposed here. |
 | =metadata= | Empty POO object | POO object for grammar format, edition, references and downstream metadata. Extension contracts constrain additional fields. |
 | =fixtures= | Zero-argument provider returning an empty list | Procedure; lazy provider returns native =syntax-fixture= values when explicitly requested. |
-| =tests= | Empty list | Unique =(name . procedure)= rows; test services receive the loader. |
-| =scan-workers= | Empty list | Unique =(name . procedure)= rows; source-scanner factories receive source and create an independent immutable worker. |
+| =tests= | Engine fixture conformance service | Unique named, descriptor-bound =declare-language-fixture-test= declarations. =run-language-test= executes the engine conformance protocol; bare procedures, duplicate names and foreign descriptors reject. |
+| =scan-workers= | Empty list | Unique named declarations bound to the exact source descriptor; bare procedures and foreign descriptors reject. Engine creation checks the executor/source binding. |
 
 For example, the HCL entry binds its existing corpus and the engine's
 conformance service through POO rather than another language-specific wrapper:
@@ -165,11 +165,21 @@ conformance service through POO rather than another language-specific wrapper:
   (grammar hcl-v2-24-language-grammar)
   (parse parse-hcl-v2-24)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () hcl-v2-24-official-fixtures)
-         tests: (list (cons 'fixtures check-language-loader-fixtures!))))
+         fixtures: (lambda () hcl-v2-24-official-fixtures)))
 
-((cdr (assq 'fixtures (.ref hcl-v2-24-language 'tests))) hcl-v2-24-language)
+(run-language-test hcl-v2-24-language 'fixtures)
 #+end_src
+
+Public pack entries import =src/language/entry= and, when needed,
+=language-support/fixture= directly. This removes their direct dependency
+on optional ANTLR/BNF/JavaCC authoring importers in the aggregate
+=language-support= facade; the facade still exports the same loader API.
+Existing grammar modules can still bring that facade into compiler metadata.
+
+The =gerbil-parser.language-entry.v2= schema derives the default fixture-test
+declaration from the effective descriptor through the inherited POO slot.
+Additional names may use =declare-language-fixture-test= with that descriptor.
+A new service kind requires an engine opcode and input/result contract.
 
 =check-language-loader-fixtures!= first admits the whole corpus: fixture IDs
 must be unique and every fixture's language/version/contract must match the
@@ -204,7 +214,14 @@ are embedded at expansion, so runtime conformance has no filesystem dependency.
 These syntax fixtures complement language-specific projection, concurrency and
 incremental tests; they do not stand in for those assertions.
 
-Bash registers its =command= source-scanner factory. The engine's
+Bash registers its =command= source worker using
+=(declare-language-source-scan-worker bash-v5-3-source-language make-bash-scanner)=.
+Create it with =(make-language-scan-worker loader 'command source)=. This is an
+explicit transitional source-parser declaration, not a closed Scanner IR product.
+The loader rejects raw factories, duplicate names and foreign descriptors;
+creation rejects malformed or foreign-source executors. Checkpoints bind the
+creating worker even when two workers receive the exact same string object.
+The engine's
 =source-scanner-tokens= owns traversal, checkpoint progression, UTF-8 offsets and
 token construction through =source-scanner-step=. Bash retains word syntax and
 here-document transitions. Source-sensitive callbacks for HL7/FHIRPath/TLA+
@@ -416,6 +433,9 @@ specialization does not change syntax identity. New ordinary language packs do
 not need a specialization or this section.
 
 * Migration audit and remaining engine work
+
+The complete dependency plan, all-eight-family inventory and stage exit criteria
+are maintained in [[file:../docs/roadmap/0001-versioned-language-pack-closure.org][the language-pack convergence plan]].
 
 This inventory describes implementation boundaries, not equivalent syntax
 coverage across the languages.

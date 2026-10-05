@@ -3,8 +3,7 @@
 
 (import (only-in ./fixtures arithmetic-v1-basic-fixture)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
-                 check-language-loader-fixtures!)
+        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
         (only-in ./grammar
                  +arithmetic-language-version+
                  +arithmetic-syntax-contract+
@@ -25,5 +24,4 @@
   (grammar arithmetic-language-grammar)
   (parse parse-arithmetic-v1)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () (list arithmetic-v1-basic-fixture))
-         tests: (list (cons 'fixtures check-language-loader-fixtures!))))
+         fixtures: (lambda () (list arithmetic-v1-basic-fixture))))

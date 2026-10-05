@@ -3,9 +3,9 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
-                 defsyntax-corpus check-language-loader-fixtures!)
+(import (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
+        (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
         ./grammar)
 (export (import: ./grammar)
         fhirpath-v2-language
@@ -24,5 +24,4 @@
   (grammar fhirpath-v2-language-grammar)
   (parse parse-fhirpath-v2)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () fhirpath-v2-fixtures)
-         tests: (list (cons 'fixtures check-language-loader-fixtures!))))
+         fixtures: (lambda () fhirpath-v2-fixtures)))

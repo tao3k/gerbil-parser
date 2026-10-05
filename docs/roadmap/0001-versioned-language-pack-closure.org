@@ -1,6 +1,191 @@
 #+title: Versioned language-pack closure plan
 #+startup: overview
 
+* Current convergence plan — 2026-10-05
+
+Audit baseline: PR #13 =485da5f2ac51666fff7d9e1285364010dbd80791=.
+Rust, Ubuntu native and macOS native CI passed at that exact head. This is the
+single execution plan for language-layer convergence. The coverage milestones
+below remain separate syntax obligations; their old publication-status notes
+are historical, not current CI state.
+
+** Inventory and ownership
+
+Eight language families publish ten POO loader objects. All ten already expose
+=grammars=, =metadata=, lazy =fixtures= and named =tests= services through
+=deflanguage-parser-loader=. TLA+ has three scopes; the other families have one.
+Entry unification does not establish shared scanner execution or Rust admission.
+There is no =sky= module in this checkout. Scanner work includes four scanner
+modules plus Bash's =scan-words.ss= helper.
+
+| Family / scope | Current declarations | Open convergence boundary | Owner |
+|---+---+---+---|
+| Arithmetic v1 | Concise DSL; one loader | Generated =direct-lr.ss= strategy | Engine compiler; pack retains expressions and precedence |
+| HCL v2.24 | Concise DSL; one loader | =generate-direct.ss= embeds a closed HCL fast lexer and source/event actions | Engine strategy admission/emission; pack retains syntax |
+| GQL ISO-39075-2024 | Pinned ANTLR4 source; one loader | Qualify portable products and generic parser/actor mechanisms | Engine owns admission/execution; graph queries/projection remain domain code |
+| openCypher 2024.1 | Pinned ISO-BNF source; one loader | Qualify portable products and complete corpus coverage | Engine owns normalization/execution; pack retains source/corpus |
+| HL7 v2.5.1 | Concise DSL; one loader | 8 external lexical declarations: segment id, data, terminator, 5 separators | Shared lexical/context IR; pack retains ER7 delimiter roles |
+| FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | 5 external declarations: identifier, number, date, datetime, time | Shared lexical IR; pack retains profiles and projection |
+| TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has 4 external declarations plus a Scheme proof policy; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
+| Bash 5.3 | Source descriptor; one loader | =scanner.ss= / =scan-words.ss= state, =parser-core.ss= recognition/artifact assembly, =word.ss= interior spans | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+
+Total: 17 external lexical declarations, concentrated in three families.
+Bash has a source parser rather than external lexical rows and is counted
+separately. These counts measure declaration sites, not semantic coverage or
+handwritten functions. Imported ANTLR/BNF sources stay authoritative; copying
+those grammars into a second handwritten DSL is not a migration requirement.
+Domain projections, pinned sources, fixtures and generated artifacts have
+legitimate language ownership. File count alone is not a convergence gate.
+
+** Loader admission is the authoring contract
+
+| Declaration boundary | Required constraint / engine owner | Current state |
+|---+---+---|
+| =grammar= / =source= | Descriptor kind, identity and fixed parse dispatch; canonical grammar/catalog checks happen in engine compilation | Admitted; source parser still a separately advertised migration scope |
+| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Worker declaration enforced here; 17 explicit external roles still await closed-IR replacement |
+| =fixtures= | =defsyntax-corpus= data; whole-corpus language/version/contract, unique ids and typed fixtures admitted before any parse | Admitted by the engine fixture service |
+| =tests= | Declared service identity plus execution/result protocol bound to the loader; arbitrary return values must not establish conformance | Private typed fixture-test declarations bind the exact descriptor; engine execution owns conformance. Bare procedures, duplicates and foreign descriptors reject |
+| =backends= | Closed strategy kind, exact Parser IR digest, procedure signature, duplicate/occupied-slot rejection before installation | Admitted atomically; HCL/Arithmetic strategy generalization remains |
+| POO extension slots | Effective inherited object passes base and extension contracts; identity/dispatch cannot be replaced | Admitted; declarations must retain POO extension support |
+| Rust / native C targets | Real producer/consumer capability and artifact checks, independent of loader metadata labels | Separate gates; source callbacks and Scheme policies cannot claim standalone Rust |
+
+The schema =gerbil-parser.language-entry.v2= replaces procedure-valued tests
+with =declare-language-fixture-test= declarations bound to the descriptor.
+All ten public loaders inherit the engine-derived default; =run-language-test=
+checks the registry before any fixture provider runs. New service kinds require
+explicit input/result contracts and POO admission.
+Additional language assertions continue through native Scheme/ASP test suites.
+
+** Stages and dependencies
+
+| Stage | Engine deliverable / affected packs | Exit condition | Dependency |
+|---+---+---+---|
+| S0 Baseline and worker isolation | Executable inventory over the ten real loaders; loader-admitted worker declarations; checkpoints bound to their creating source worker | Inventory agrees with admitted IR; raw/foreign scanner services reject at loader admission; malformed worker products reject at creation; foreign checkpoints reject before calling language code | Current baseline |
+| S1 Closed lexical profiles | Shared character classes, bounded runs, strict numeric/date/time composition and local guards; FHIRPath, TLA+ local lexemes, HL7 segment id/terminator | FHIRPath's scanner module disappears; local external roles disappear; Scheme/Rust endpoint and malformed-suffix behavior agree | S0 |
+| S2 Source context and transitions | One prepared source context, named source captures, mode/nesting/deferred obligations; HL7 separators, TLA+ module boundaries, Bash scanner | No header/prefix revalidation per token; closed transitions in both engines; snapshots bind worker/source/artifact; scanner callbacks replaced by data | S1; reuse existing contextual Scanner IR |
+| S3 Recognition/result boundary | Source recognition results admitted/lowered by the engine; Bash structured words, nodes, failure and here-document links | Pack emits grammar/recognition values; engine alone owns token bytes, result validation and success/failure artifacts; complete Bash tests remain lossless | S0; S2 for Bash shared-IR execution |
+| S4 Generated strategies | General strategy eligibility and emission for Arithmetic/HCL; declarations describe assumptions rather than language-name branches | Reproducible generated products, fresh/optimized semantic parity, no common-case performance regression, no HCL hardcoded lexer in engine | S1; independent of stateful grammar completion |
+| S5 Portable policy and downstream products | SANY proof-policy representation; language-independent native C and Rust products through the same descriptor | Each admitted product passes its real producer and consumer gate; unsupported policy/opcodes reject with rule/context; no Scheme callbacks disguised as Rust portability | Relevant S1–S4 parts; complete policy semantics |
+
+Work proceeds by engine capability, migrating every applicable pack together.
+A stage closes only after production callers migrate and obsolete callbacks or
+assembly paths are removed. Moving an old callback into =src/= alone does not
+close a stage. S4 can proceed alongside S2/S3; it does not wait for Bash full
+syntax. SANY portable proof policy does not block ordinary lexical lowering.
+
+** S0 implementation and qualification
+
+The v2 loader migration covers all ten public entries. Test services use private,
+descriptor-bound declarations and engine-owned execution; arbitrary procedure
+rows and foreign/duplicate declarations reject. The inherited default keeps
+fixture providers lazy. Source-worker creation checks source identity, and
+checkpoints now bind the creating worker even when two workers share one string.
+
+Native Scheme verification used the project SDK and GCC 16:
+
+| Check | Cases | Total seconds | Result |
+|---+---+---+---|
+| Loader POO admission and service extension | 15 | 50.18 | Passed |
+| Source-worker checkpoint ownership and UTF-8 replay | 2 | 18.54 | Passed |
+| All ten public loaders, admitted IR inventory and fixture corpora | 4 | 56.64 | Passed |
+| Bash structured syntax and deferred obligations | 16 | 56.02 | Passed |
+
+Each test retains the 90-second total / 5-second silence gate, explicit =OK=,
+propagated child status and final zero exit. These are semantic qualification
+receipts, not throughput benchmarks.
+
+The first complete entry compilation timed out at 91.04 seconds while loading
+aggregate facade type interfaces. Imports now name the loader, fixture and
+policy-descriptor modules directly. A verbose retry still timed out at 91.26
+seconds in type expansion. Disabling detailed compiler type printing retained
+all optimization/GCC settings and real interface/artifact observations: all
+entry products were emitted, but the aggregate invocation still timed out at
+90.61 seconds during final completion. Those invocations remain failed; the
+native corpus check does not turn their process statuses into passes. Complete
+compile exits passed for the ordinary-entry target (78.95 seconds) and the
+independent SANY policy target (45.03 seconds), each with the unchanged 90 / 30
+compiler gate. The final loader core (73.29 seconds) and public facade (71.24
+seconds) also compiled successfully. Direct entry imports avoid the aggregate
+facade, but existing grammar/compiler metadata still brings it into some
+transitive type closures; that remaining dependency is not declared removed.
+
+** Design obligations for each stage
+
+=deflanguage-parser-loader= is the enforcement point, not merely an entry-name
+macro. Its descriptor/identity/dispatch slots are sealed; POO extension
+contracts validate the effective inherited object. Grammar compiler admission
+owns canonical IR, fixture services pre-admit the entire native corpus, and
+scanner services require an engine-owned declaration tied to the descriptor.
+A row containing an arbitrary procedure is not a scanner declaration.
+
+The remaining source-parser bridge is explicitly named
+=declare-language-source-scan-worker= and is admitted only for source descriptors.
+It constrains descriptor ownership, factory result type, source identity and
+checkpoint isolation. It does not qualify the callback as portable Scanner IR.
+S1/S2 remove the remaining callback implementations; they do not grandfather
+undeclared downstream callbacks. Test/fixture extensions must retain their
+loader-bound admission and conformance checks, and future IR worker services
+must use the same declaration boundary rather than a second registry.
+
+
+- POO remains the extension boundary. =grammars= and metadata are exposed by the
+  loader; fixture/test/worker services stay lazy. Engine identity, descriptor
+  binding and dispatch remain sealed against inherited overrides. Downstream
+  users declare options/rules/services rather than maintain scanner drivers.
+- Lexical profiles must preserve committed malformed suffix rejection. For
+  example, FHIRPath's incomplete =-MM= / =:mm= groups must not quietly fall back
+  to a shorter accepted token. HL7 segment ids reject a maximal four-character
+  run instead of accepting its first three characters. Preserve Unicode class
+  semantics through Scheme-generated classes and exact UTF-8 endpoint tests.
+- HL7 source captures are validated once per parse: the five MSH delimiters
+  are distinct and non-alphanumeric. The prepared plan retains no source;
+  per-source execution owns captures. No global mutable delimiter cache.
+- TLA+ module depth is source state rather than repeated scans from offset zero.
+  Comments, quoted strings, module borders and proof lexemes keep their existing
+  boundaries. Source-sensitive checks become transitions/guards, not arbitrary
+  callbacks executed by Rust.
+- Bash retains nested Word/WordPart/expansion nodes and stable fields. Generic
+  queues/checkpoints and marker-to-body links belong to the engine; an opaque
+  balanced-word token does not qualify structured Bash syntax. Traversal and
+  child accumulation must avoid repeated copying as input grows.
+- Native C ownership and standalone Rust are separate product gates. A common
+  loader is not a portable-policy receipt; source descriptors are currently
+  rejected by native artifact serialization and standalone Rust generation.
+  Runtime creation/FFI handles are reused across calls, not recreated per parse.
+
+** Qualification and progress tracking
+
+=t/language-pack-metadata-test.ss= is the executable whole-inventory boundary:
+all ten admitted entries, POO metadata/services, native fixture conformance and
+explicit external-role counts. Update its reviewed expectations when callbacks
+are removed. Native Scheme/ASP remains the semantic authority; no JSON result
+snapshots or document-side audit scripts are introduced.
+
+For each stage:
+1. Preserve old endpoint/tree/artifact behavior as a native Scheme differential
+   witness before removing the old implementation. Include malformed input,
+   Unicode, adjacency, EOF and source-dependent state cases.
+2. Regenerate Rust from the same Scheme-owned declaration. Run its real Cargo
+   consumer and compare required source spans/CST/field obligations.
+3. Preserve identity/catalog ordering; regenerate and review any digest change.
+   A syntax-coverage change requires an explicit contract decision.
+4. Use existing ASP benchmarks for cold/warm execution, FFI handle reuse and
+   work/allocation growth. Report structural work and paired semantics before
+   claiming runtime improvement; AOT build time is a separate measurement.
+5. Keep native test gates at 90 seconds total / 5 seconds silence and compiler
+   gates at 90 / 30. Real output and nonzero exits remain required. Do not split
+   a failing case merely to evade its gate or switch Scheme away from GCC.
+6. Commit the qualified owner slice to the existing PR and verify its exact
+   remote head. Ubuntu native and Rust are the requested publication gate;
+   inspect macOS failures without treating queued macOS as a reason to stop.
+
+Current implementation sequence: S0's declaration and native-product
+boundaries are locally qualified; implement S1 as a complete FHIRPath scanner replacement
+with shared lexical primitives. S2 is the next stateful migration; S3/S4 use the
+same descriptor/result/strategy contracts rather than alternate pack APIs.
+
+* Retained syntax-coverage milestones
+
 * Outcome
 
 Land GQL, openCypher, and TLA+ as immutable, source-owned language packs on the

@@ -90,6 +90,8 @@
                  +language-parser-entry-schema+
                  deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         check-language-loader-fixtures!
+        declare-language-source-scan-worker make-language-scan-worker
+        declare-language-fixture-test run-language-test
                  language-parser-entry-ref)
         (only-in ./src/language/descriptor
                  language-grammar-with-parser-policy)
@@ -170,6 +172,8 @@
         +source-language-schema+
         deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         check-language-loader-fixtures!
+        declare-language-source-scan-worker make-language-scan-worker
+        declare-language-fixture-test run-language-test
         declare-source-language
         language-grammar-with-parser-policy
         source-language?

@@ -1,11 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Public candidate entry binds recognition budget and proof policy together.
-(import (only-in :clan/poo/object .o)
+(import (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
+        (only-in :clan/poo/object .o)
         (only-in ./sany-proof sany-proof-diagnostic)
-        (only-in :gerbil-parser/language-support
-                 deflanguage-parser-loader LanguageLoader.
-                 defsyntax-corpus check-language-loader-fixtures!
-                 language-grammar-with-parser-policy)
+        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-with-parser-policy)
         (rename-in (only-in ./grammars/sany-candidate
                            tla-plus-sany-candidate-language-grammar
                            tla-plus-sany-candidate-parser)
@@ -28,5 +27,4 @@
   (grammar tla-plus-sany-candidate-language-grammar)
   (parse parse-tla-plus-sany-candidate)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () tla-plus-sany-candidate-fixtures)
-         tests: (list (cons 'fixtures check-language-loader-fixtures!))))
+         fixtures: (lambda () tla-plus-sany-candidate-fixtures)))

@@ -8,6 +8,7 @@
         (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in ../runtime/source-scanner source-scanner-for-source?)
         (only-in ../runtime/parser parse-source)
         (only-in ../runtime/lr-parser current-lr-branch-budget)
         (only-in ../runtime/cst parse-artifact->cst)
@@ -28,9 +29,11 @@
                  source-language-version))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
-        check-language-loader-fixtures! call-with-language-parser-policy)
+        check-language-loader-fixtures! call-with-language-parser-policy
+        declare-language-source-scan-worker make-language-scan-worker
+        declare-language-fixture-test run-language-test)
 
-(def +language-parser-entry-schema+ "gerbil-parser.language-entry.v1")
+(def +language-parser-entry-schema+ "gerbil-parser.language-entry.v2")
 
 (def (language-parser-entry-ref entry key)
   (and (object? entry) (.slot? entry key) (.ref entry key)))
@@ -99,14 +102,67 @@
       ((version) (language-grammar-version descriptor))
       ((contract) (language-grammar-contract descriptor)))))
 
-(def (named-services? rows)
+;;; Test declarations carry an engine opcode and exact descriptor identity.
+;;; Their constructor is private; a language cannot substitute a success callback.
+(defstruct language-fixture-test (descriptor))
+
+(def (declare-language-fixture-test descriptor)
+  (unless (or (language-grammar? descriptor) (source-language? descriptor))
+    (error "fixture test requires a language descriptor"))
+  (make-language-fixture-test descriptor))
+
+(def (declared-test-services? rows descriptor)
   (and (list? rows)
-       (every (lambda (row)
-                (and (pair? row) (symbol? (car row)) (procedure? (cdr row)))) rows)
        (let loop ((remaining rows) (seen '()))
          (or (null? remaining)
-             (and (not (memq (caar remaining) seen))
-                  (loop (cdr remaining) (cons (caar remaining) seen)))))))
+             (let (row (car remaining))
+               (and (pair? row) (symbol? (car row))
+                    (not (memq (car row) seen))
+                    (language-fixture-test? (cdr row))
+                    (eq? descriptor (language-fixture-test-descriptor (cdr row)))
+                    (loop (cdr remaining) (cons (car row) seen))))))))
+
+(def (run-language-test loader name)
+  (unless (and (object? loader) (symbol? name))
+    (error "invalid language test request" name))
+  (let* ((descriptor (.ref loader 'descriptor)) (rows (.ref loader 'tests)))
+    (unless (declared-test-services? rows descriptor)
+      (error "language tests are not declared for this descriptor"))
+    (unless (assq name rows) (error "unknown declared language test" name))
+    (check-language-loader-fixtures! loader)))
+
+;;; A source worker is an explicit, descriptor-bound transitional declaration.
+;;; Ordinary closed-IR scanners are assembled by the compiler, not this bridge.
+(defstruct language-source-scan-worker (descriptor factory))
+
+(def (declare-language-source-scan-worker descriptor factory)
+  (unless (and (source-language? descriptor) (procedure? factory))
+    (error "source scan worker requires a source language declaration"))
+  (make-language-source-scan-worker descriptor factory))
+
+(def (declared-scan-workers? rows descriptor)
+  (and (list? rows)
+       (let loop ((remaining rows) (seen '()))
+         (or (null? remaining)
+             (let (row (car remaining))
+               (and (pair? row) (symbol? (car row))
+                    (not (memq (car row) seen))
+                    (language-source-scan-worker? (cdr row))
+                    (eq? descriptor (language-source-scan-worker-descriptor (cdr row)))
+                    (loop (cdr remaining) (cons (car row) seen))))))))
+
+(def (make-language-scan-worker loader name source)
+  (unless (and (object? loader) (symbol? name) (string? source))
+    (error "invalid language scan worker request" name))
+  (let* ((descriptor (.ref loader 'descriptor)) (rows (.ref loader 'scan-workers)))
+    (unless (declared-scan-workers? rows descriptor)
+      (error "language scan workers are not declared for this descriptor"))
+    (let (row (assq name rows))
+      (unless row (error "unknown declared language scan worker" name))
+      (let (worker ((language-source-scan-worker-factory (cdr row)) source))
+        (unless (source-scanner-for-source? worker source)
+          (error "declared scan worker returned an invalid or foreign source executor" name))
+        worker))))
 
 (def (loader-shape? candidate)
   (and (object? candidate)
@@ -130,8 +186,8 @@
                               (or (language-grammar? grammar) (source-language? grammar))) grammars)))
               (object? (.ref candidate 'metadata))
               (procedure? (.ref candidate 'fixtures))
-              (named-services? (.ref candidate 'tests))
-              (named-services? (.ref candidate 'scan-workers))))))
+              (declared-test-services? (.ref candidate 'tests) descriptor)
+              (declared-scan-workers? (.ref candidate 'scan-workers) descriptor)))))
 
 (define-type (LanguageLoaderContract @ PooFlowContract.)
   identity: 'gerbil-parser/language-loader
@@ -153,7 +209,7 @@
       (grammars (list (.ref self 'descriptor)))
       metadata: (.o)
       fixtures: (lambda () '())
-      tests: '()
+      (tests (list (cons 'fixtures (declare-language-fixture-test (.ref self 'descriptor)))))
       scan-workers: '()
       (language (descriptor-ref (.ref self 'descriptor) 'language))
       (version (descriptor-ref (.ref self 'descriptor) 'version))

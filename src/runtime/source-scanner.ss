@@ -4,7 +4,7 @@
 
 (import (only-in :std/string/utf8 string-utf8-length)
         (only-in ./token make-token))
-(export source-scanner-driver? source-scanner-tokens make-source-scanner
+(export source-scanner-driver? source-scanner-for-source? source-scanner-tokens make-source-scanner
         source-scanner-initial-state
         source-scanner-step
         source-scan-state?
@@ -14,7 +14,7 @@
         source-scan-state-with-context)
 
 (defstruct source-scanner-driver (source initial-context scan) transparent: #t)
-(defstruct source-scan-state (source character-offset byte-offset context)
+(defstruct source-scan-state (owner source character-offset byte-offset context)
   transparent: #t)
 
 (def (make-source-scanner source initial-context step)
@@ -22,15 +22,19 @@
     (error "source scanner requires source and scan procedure"))
   (make-source-scanner-driver source initial-context step))
 
+(def (source-scanner-for-source? scanner source)
+  (and (source-scanner-driver? scanner)
+       (eq? source (source-scanner-driver-source scanner))))
+
 (def (source-scanner-initial-state scanner)
-  (make-source-scan-state (source-scanner-driver-source scanner) 0 0
+  (make-source-scan-state scanner (source-scanner-driver-source scanner) 0 0
                           (source-scanner-driver-initial-context scanner)))
 
 ;;; A language may update its immutable context when a parser reduction
 ;;; admits a deferred lexical obligation, without changing source position.
 (def (source-scan-state-with-context state context)
   (make-source-scan-state
-   (source-scan-state-source state)
+   (source-scan-state-owner state) (source-scan-state-source state)
    (source-scan-state-character-offset state)
    (source-scan-state-byte-offset state)
    context))
@@ -39,9 +43,8 @@
 ;;; The engine checks progress and owns byte offsets and token construction.
 (def (source-scanner-step scanner state mode)
   (unless (and (source-scan-state? state)
-               (eq? (source-scanner-driver-source scanner)
-                    (source-scan-state-source state)))
-    (error "scanner checkpoint belongs to another source"))
+               (eq? scanner (source-scan-state-owner state)))
+    (error "scanner checkpoint belongs to another worker"))
   (let* ((source (source-scanner-driver-source scanner))
          (start (source-scan-state-character-offset state))
          (length (string-length source)))
@@ -60,7 +63,7 @@
                                     (source-scan-state-byte-offset state)
                                     byte-end)))
             (values token
-                    (make-source-scan-state source end byte-end context))))
+                    (make-source-scan-state scanner source end byte-end context))))
         (begin
           (unless (= start length)
             (error "source scanner stopped before EOF" start length))

@@ -1,11 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Parser names describe syntax scope; grammar metadata owns version identity.
 
-(import (only-in ./fixtures tla-plus-core-fixtures)
+(import (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
+        (only-in ./fixtures tla-plus-core-fixtures)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.
-                 defsyntax-corpus
-                 check-language-loader-fixtures!)
+        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
         (only-in ./grammars/core
                  tla-plus-core-language-grammar tla-plus-core-parser)
         (only-in ./grammars/layout
@@ -18,8 +17,7 @@
   (grammar tla-plus-core-language-grammar)
   (parse parse-tla-plus-core)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () tla-plus-core-fixtures)
-         tests: (list (cons 'fixtures check-language-loader-fixtures!))))
+         fixtures: (lambda () tla-plus-core-fixtures)))
 
 (defsyntax-corpus tla-plus-layout-fixtures
   (identity "tla-plus" "v2" "tla-plus.native-layout.v2")
@@ -32,7 +30,6 @@
   (grammar tla-plus-layout-language-grammar)
   (parse parse-tla-plus-layout)
   (slots metadata: (.o grammar-format: 'concise-dsl)
-         fixtures: (lambda () tla-plus-layout-fixtures)
-         tests: (list (cons 'fixtures check-language-loader-fixtures!))))
+         fixtures: (lambda () tla-plus-layout-fixtures)))
 
 (def parse-tla-plus parse-tla-plus-layout)

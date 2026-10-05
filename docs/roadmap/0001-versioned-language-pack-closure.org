@@ -883,3 +883,57 @@ receipts rather than an end-to-end performance claim.
 This closes HCL test execution migration, not every language runtime directory
 or Rust/C qualification. All remaining legacy suites stay active until their
 replacement declarations qualify.
+
+* TLA+ canonical tests and engine TLC execution — 2026-10-05
+
+Core, layout, SANY candidate and SANY closure now use four
+=deflanguage-parser-tests= suites in =languages/tla-plus/parser-test.ss=.
+The 57 rows retain all previous source literals and obligations; three raw
+scope test files were removed and the aggregate pack suite exports all four.
+Model receipt, fixture selection, metadata, native binary status and actual
+Rust producer rejection execution are constrained engine-owned operations.
+
+Production TLC qualification moved from the language directory into
+=src/language/tlc.ss=. The admitted descriptor supplies syntax parsing.
+The legacy qualification module forwards the canonical parser API; independent
+controls require identical function and receipt identities. The closed tool
+fixture quotes stdout as data, including quotes and command substitution, and
+removes its temporary directory after qualification.
+
+| Final native gate | Qualified result | Process time |
+|---+---+---|
+| TLA+ canonical entry | Layout 8, core 17, candidate 22, closure 10; 57 cases | 7.96 s |
+| Public DSL controls | 50 malformed declarations rejected; seven runtime controls | 12.60 s |
+| Product engine controls | Legacy API identity, inert stdout, exact receipt hashes and cleanup | 10.98 s |
+| HCL compatibility | All 29 declaration rows | 10.79 s |
+
+The three final control runs were concurrent. All gates have explicit =OK=,
+=HARNESS-RETURN status=0= and exit 0 under unchanged 90/5 limits; native
+compiler phases use SDK/GCC and 90/30 limits. These process times include module
+loading and are qualification evidence, not runtime performance improvements.
+
+The initial migrated nonzero-tool row failed because shell exit 7 is stored as
+raw Gerbil wait status 1792. The replacement =(nonzero exit-status)= expresses
+the original obligation without changing runtime receipts. A consumer compiler
+import also failed before the new TLC native product existed; compiling that
+product and importing it in a fresh compiler process resolved the dependency.
+Neither failure was admitted, and the native compiler/profile stayed unchanged.
+
+Synthetic TLC output checks receipt admission, final versus intermediate state
+counts and syntax rejection before tool resolution. Actual model checking and
+standalone Rust support for the SANY proof policy are not established by these
+fixtures; unsupported policy still fails through the actual Rust producer.
+
+** Current remaining order after this migration
+
+1. HCL generated product ownership: engine strategy generation and execution
+   must absorb =generate-direct.ss=, =direct-step.ss= and =direct-recursive.ss=
+   through general admission rules.
+2. TLA+ scanner/proof policy, grammar metadata and corpus organization: converge
+   remaining language files onto the three public interfaces while preserving
+   scope semantics and the explicit portable-policy boundary.
+3. Bash procedural scanner, word and source recognition: replace remaining
+   callbacks with engine-owned declarative state and operations.
+
+This supersedes the earlier core/SANY test migration queue. It closes those
+test suites and TLC execution ownership, not every language runtime directory.

@@ -371,9 +371,10 @@ Bash, Arithmetic, HL7, FHIRPath, GQL and openCypher have migrated to this syntax
 as has the independent Records consumer. TLA+ layout uses the same syntax in
 its canonical =parser-test.ss= entry. Bash's two source-contract/checkpoint controls
 remain under =t/= with their engine owner and all original assertions. HCL's
-strategy/parity suite now uses closed source generators and named engine routes. TLA+ core/model qualification and
-SANY suites remain separate migration work; those raw bodies are not counted as
-completed migration.
+strategy/parity suite now uses closed source generators and named engine routes.
+TLA+ core, layout, SANY candidate and closure now share the canonical
+=parser-test.ss= entry: 57 declaration rows replace the three separate raw
+suites while retaining their syntax, corpus, proof, native and rejection obligations.
 
 ** Bound IR, structure and engine execution controls
 
@@ -485,3 +486,33 @@ fixtures and typed rejection controls remain executable. Independently retained
 port-writing references under =t/= compare all 1,024 generated sources exactly.
 The generated HCL scanner/recognizer modules themselves remain migration work;
 this closes their test execution ownership rather than the language directory.
+
+** Descriptor-bound model receipts and fixture selection
+
+The test declaration now supports =fixture-group= for accepted/rejected members
+of the effective inherited Loader corpus, =accepted-fixture= for an indexed
+source, and =fixture-catalog= for pinned counts and first-source digest. Fixture
+groups use a validated POO override and reuse the checked artifacts rather than
+parsing the group again. =syntax-kind= checks exact grammar metadata; =fields=
+and =token-counts= constrain emitted artifact structure.
+
+=model-receipt= takes literal model/source/config data, positive workers and a
+closed =(stdout text exit-code)= or =(unresolved)= tool fixture. Filename
+components, tool exit bounds and receipt keys are checked during expansion.
+The engine owns temporary files, process execution, stdout quoting and cleanup.
+=(nonzero exit-status)= tests the existing raw Gerbil wait status without
+assuming it equals a shell exit code. These fixtures qualify receipt admission
+and failure handling; they do not establish actual TLC model checking.
+
+Production TLC qualification lives in =src/language/tlc.ss= and parses through
+the admitted descriptor without importing builtin languages. The parser entry
+exports scope wrappers; =qualification.ss= remains a compatibility facade with
+identical function and receipt identities. The existing receipt and Loader
+schema versions are unchanged.
+
+=native-entry= compares Loader parsing, descriptor parsing and the actual native
+binary status. =portable-rejected= exercises the real Rust producer rejection
+and exact error. SANY proof policy remains unsupported by standalone Rust AOT;
+these checks preserve that boundary rather than grant a portable capability.
+TLA+ scanner/proof policy and HCL generated product ownership remain separate
+runtime convergence work before all language directories reach three files.

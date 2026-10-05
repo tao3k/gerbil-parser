@@ -43,10 +43,7 @@
     "languages/hcl/generate-direct.ss"
     "languages/fhirpath/parser-test.ss"
     "languages/hl7/parser-test.ss"
-    "languages/tla-plus/core-test.ss"
-    "languages/tla-plus/parser-test.ss"
-    "languages/tla-plus/sany-candidate-test.ss"
-    "languages/tla-plus/sany-closure-test.ss"))
+    "languages/tla-plus/parser-test.ss"))
 
 ;; Gambit compiles loadable modules as Mach-O bundles on Darwin.  The
 ;; Homebrew GCC toolchain needs the standard unresolved-symbol policy for an

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Language test declarations share the admitted POO loader and invariants.
 (import (only-in :std/test check test-case test-suite)
-        (only-in :clan/poo/object .ref)
+        (only-in :clan/poo/object .ref .cc)
         (only-in :clan/poo/mop validate)
         (only-in ../language/entry LanguageLoaderContract language-parser-entry-ref run-language-test
                  +language-parser-entry-schema+)
@@ -11,6 +11,9 @@
         (only-in ../runtime/identity sha256-text)
         (only-in ../../language-support/fixture syntax-fixture-source syntax-fixture-source-digest syntax-fixture-expected-status)
         (only-in ./parser-ast check-parser-ast)
+        (only-in ./language-product language-model-test-receipt
+                 check-language-native-entry check-language-portable-rejection)
+        (only-in ../compiler/normalize grammar-ir-ref)
         (only-in ./language-strategy check-language-strategies check-language-installed
                  check-language-fixture-strategies)
         (only-in ../runtime/cst parse-artifact->cst syntax-node? syntax-node-kind
@@ -24,7 +27,7 @@
         (only-in ../runtime/lexer lex-source)
         (only-in ../runtime/significant parser-significant-tokens)
         (only-in ../runtime/lr-parser lr-parse/receipt)
-        (only-in ../language/descriptor language-grammar? language-grammar-machine)
+        (only-in ../language/descriptor language-grammar? language-grammar-machine language-grammar-grammar)
         (only-in ../runtime/incremental make-edit parse-source/incremental)
         (only-in ../runtime/recovery parse-source/recover)
         (only-in ../runtime/region-scanner source-prefix-at?)
@@ -58,7 +61,32 @@
                 (check (parse-artifact-valid? artifact) => #t)
                 (check (parse-artifact-roundtrip artifact) => (syntax-fixture-source fixture))
                 (check (parse-artifact-ref artifact 'sourceDigest) => (syntax-fixture-source-digest fixture)))
-              artifacts fixtures)))
+              artifacts fixtures)
+    artifacts))
+
+(def (checked-fixture-group loader status)
+  (let (fixtures (filter (lambda (fixture) (eq? (syntax-fixture-expected-status fixture) status))
+                        (.ref loader 'fixtures)))
+    (checked-language-fixtures (checked-test-loader (.cc loader 'fixtures fixtures)) status)))
+
+(def (test-fixture-catalog loader key)
+  (let (fixtures (.ref loader 'fixtures))
+    (case key
+      ((total) (length fixtures))
+      ((accepted rejected) (length (filter (lambda (fixture) (eq? (syntax-fixture-expected-status fixture) key)) fixtures)))
+      ((first-digest) (and (pair? fixtures) (syntax-fixture-source-digest (car fixtures)))))))
+
+(def (artifact-field-names artifact kind)
+  (let loop ((pending (list (parse-artifact->cst artifact))) (names '()))
+    (if (null? pending) names
+      (let (value (car pending))
+        (cond
+         ((syntax-node? value)
+          (loop (append (syntax-node-children value) (cdr pending))
+                (if (eq? (syntax-node-kind value) kind)
+                  (append (map syntax-field-name (filter syntax-field? (syntax-node-children value))) names) names)))
+         ((syntax-field? value) (loop (append (syntax-field-children value) (cdr pending)) names))
+         (else (loop (cdr pending) names)))))))
 
 (def (nonempty-language-sources sources)
   (unless (and (list? sources) (pair? sources) (andmap string? sources))
@@ -228,7 +256,7 @@
    (check (nullable-prefix-productions ir '(prefix ...)) => '()))
   ((_ ir (initial-shifts literal ...)) (check (initial-shifts? ir '(literal ...)) => #t)))
 
-(defrules language-artifact-expectation (nodes tokens counts without-nodes diagnostics artifact-ref projection root subtree without-subtree field-counts)
+(defrules language-artifact-expectation (nodes tokens counts without-nodes diagnostics artifact-ref projection root subtree without-subtree field-counts fields token-counts)
   ((_ artifact (nodes kind ...))
    (begin (check (and (memq 'kind (artifact-node-kinds artifact)) #t) => #t) ...))
   ((_ artifact (without-nodes kind ...))
@@ -236,6 +264,12 @@
   ((_ artifact (counts (kind count) ...))
    (begin (check (length (filter (lambda (value) (eq? value 'kind))
                                 (artifact-node-kinds artifact))) => count) ...))
+  ((_ artifact (fields kind name ...))
+   (let (names (artifact-field-names artifact 'kind))
+     (check (and (memq 'name names) #t) => #t) ...))
+  ((_ artifact (token-counts (kind count) ...))
+   (let (kinds (map token-event-token-kind (filter token-event? (parse-artifact-events artifact))))
+     (check (length (filter (lambda (value) (eq? value 'kind)) kinds)) => count) ...))
   ((_ artifact (tokens kind ...))
    (let (kinds (map token-event-token-kind (filter token-event? (parse-artifact-events artifact))))
      (check (and (memq 'kind kinds) #t) => #t) ...))
@@ -253,7 +287,13 @@
    (let (value (project artifact))
      (check (cdr (assq 'key value)) => expected) ...)))
 
-(defrules language-test-clause (accepted rejected accepted-many rejected-many identity fixtures ast property bindings equal parser-ir bound-ir bound-rules lr lr-receipt parallel incremental replace recovery-rejected status installed strategy-parity fixture-parity)
+(defrules language-model-expectation (nonzero)
+  ((_ receipt (nonzero key))
+   (check (let (value (bound-grammar-ir-ref receipt 'key))
+            (and (number? value) (not (zero? value)))) => #t))
+  ((_ receipt (key expected)) (check (bound-grammar-ir-ref receipt 'key) => expected)))
+
+(defrules language-test-clause (accepted rejected accepted-many rejected-many identity fixtures ast property bindings equal parser-ir bound-ir bound-rules lr lr-receipt parallel incremental replace recovery-rejected status installed strategy-parity fixture-parity fixture-group accepted-fixture fixture-catalog syntax-kind distinct-contract model-receipt native-entry portable-rejected)
   ((_ loader (accepted label source expectation ...))
    (test-case label
      (let (artifact (checked-language-source loader source #t))
@@ -310,6 +350,33 @@
    (test-case label
      (checked-language-fixtures loader)
      (check-language-fixture-strategies loader 'expected-status '(option ...))))
+  ((_ loader (fixture-group label expected-status expectation ...))
+   (test-case label
+     (for-each (lambda (artifact) (language-artifact-expectation artifact expectation) ... (void))
+               (checked-fixture-group loader 'expected-status))))
+  ((_ loader (accepted-fixture label index expectation ...))
+   (test-case label
+     (let (artifact (checked-language-source loader (syntax-fixture-source (list-ref (.ref loader 'fixtures) index)) #t))
+       (language-artifact-expectation artifact expectation) ... (void))))
+  ((_ loader (fixture-catalog label (key expected) ...))
+   (test-case label (check (test-fixture-catalog loader 'key) => expected) ...))
+  ((_ loader (syntax-kind label kind category (name ...)))
+   (test-case label
+     (check (assq 'kind (grammar-ir-ref (language-grammar-grammar (.ref loader 'descriptor)) 'syntax-kinds))
+            => '(kind category (name ...)))))
+  ((_ loader (distinct-contract label other))
+   (test-case label (check (equal? (.ref loader 'contract) (.ref (checked-test-loader other) 'contract)) => #f)))
+  ((_ loader (model-receipt label model source config tool workers (key expected) ...))
+   (test-case label
+     (let (receipt (language-model-test-receipt loader model source config 'tool workers))
+       (language-model-expectation receipt (key expected)) ...)))
+  ((_ loader (native-entry label source accepted-status))
+   (test-case label
+     (let* ((text source) (accepted? (eq? 'accepted-status 'accepted))
+            (artifact (checked-language-source loader text accepted?)))
+       (check-language-native-entry loader text artifact accepted?))))
+  ((_ loader (portable-rejected label module-path message))
+   (test-case label (check-language-portable-rejection module-path message)))
   ((_ loader (property label (bindings (name value) ...) (equal actual expected) ...))
    (test-case label
      (let* ((name value) ...)
@@ -344,10 +411,11 @@
     (and (list? row) (pair? row)
       (case (car row)
         ((nodes tokens without-nodes) (nonempty? (cdr row) symbol?))
-        ((counts) (nonempty? (cdr row) (lambda (item)
+        ((counts token-counts) (nonempty? (cdr row) (lambda (item)
                     (and (symbol-row? item) (exact-integer? (cadr item)) (>= (cadr item) 0)))))
         ((diagnostics) (or (= (length row) 1)
                            (and (= (length row) 2) (exact-integer? (cadr row)) (>= (cadr row) 0))))
+        ((fields) (and (>= (length row) 3) (andmap symbol? (cdr row))))
         ((root) (and (= (length row) 2) (symbol? (cadr row))))
         ((subtree without-subtree) (and (= (length row) 2) (node-pattern? (cadr row))))
         ((field-counts)
@@ -450,6 +518,28 @@
               (nonempty? (list-tail row 5) (lambda (item)
                 (and (symbol-row? item) (memq (car item)
                   '(rest branchesExplored speculativeBranchesExplored maxSpeculativeDepth successfulCompletions)))))))
+        ((fixture-group) (and (>= (length row) 3) (memq (caddr row) '(accepted rejected)) (andmap expectation? (cdddr row))))
+        ((accepted-fixture) (and (>= (length row) 3) (nonnegative-integer? (caddr row)) (andmap expectation? (cdddr row))))
+        ((fixture-catalog) (nonempty? (cddr row) (lambda (item) (and (symbol-row? item) (memq (car item) '(total accepted rejected first-digest))))))
+        ((syntax-kind) (and (= (length row) 5) (symbol? (caddr row)) (memq (cadddr row) '(node token))
+                             (list? (list-ref row 4)) (andmap symbol? (list-ref row 4))))
+        ((distinct-contract) (= (length row) 3))
+        ((native-entry) (and (= (length row) 4) (memq (cadddr row) '(accepted rejected))))
+        ((portable-rejected) (and (= (length row) 4) (string? (caddr row)) (string? (cadddr row))))
+        ((model-receipt)
+         (and (>= (length row) 8) (string? (caddr row)) (positive? (string-length (caddr row)))
+              (andmap (lambda (ch) (or (char-alphabetic? ch) (char-numeric? ch) (memq ch '(#\_ #\-)))) (string->list (caddr row)))
+              (string? (cadddr row)) (string? (list-ref row 4))
+              (let (tool (list-ref row 5))
+                (and (list? tool) (pair? tool)
+                     (or (equal? tool '(unresolved))
+                         (and (= (length tool) 3) (eq? (car tool) 'stdout) (string? (cadr tool))
+                              (nonnegative-integer? (caddr tool)) (<= (caddr tool) 255)))))
+              (positive-integer? (list-ref row 6))
+              (nonempty? (list-tail row 7) (lambda (item)
+                (and (symbol-row? item) (or (and (eq? (car item) 'nonzero) (eq? (cadr item) 'exit-status)) (memq (car item)
+                  '(schema syntax-contract model source-digest config-digest syntax-accepted roundtrip tool-path workers
+                    exit-status completed tlc-version states-generated distinct-states states-left graph-depth admitted output-digest))))))))
         ((installed) (and (= (length row) 3) (memq (caddr row) '(step source))))
         ((strategy-parity) (and (>= (length row) 4) (source-specification? (caddr row))
                                 (strategy-options? (cdddr row) #f)))

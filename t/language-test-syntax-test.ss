@@ -46,11 +46,26 @@
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (sources "1") (routes entry indexed) (accepted "true"))))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (sources "1") (routes entry indexed) (coverage 0 0))))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (fixture-parity "bad" arbitrary (routes entry indexed))))
-        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (fixture-parity "bad" accepted (routes entry indexed) (diagnostics -1))))))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (fixture-parity "bad" accepted (routes entry indexed) (diagnostics -1))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (accepted "bad" "1" (fields X))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (accepted "bad" "1" (token-counts (number -1)))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (accepted-fixture "bad" -1)))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (fixture-group "bad" unknown)))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (fixture-catalog "bad" (unknown 1))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (syntax-kind "bad" X unknown ())))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (distinct-contract "bad")))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (native-entry "bad" "1" unknown)))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (portable-rejected "bad" 1 "message")))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "../Escape" "source" "config" (unresolved) 1 (admitted #f))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "Model" "source" "config" (callback #t) 1 (admitted #f))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "Model" "source" "config" (stdout "data" 256) 1 (admitted #f))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "Model" "source" "config" (stdout "data" 0) 0 (admitted #f))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "Model" "source" "config" (unresolved) 1 (unknown #f))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "Model" "source" "config" (unresolved) 1)))))))
 (def language-test-syntax-test
   (test-suite "language parser test declarations"
     (test-case "unknown, empty, malformed and duplicate declarations reject during expansion"
-      (check (invalid-test-declarations) => (make-list 35 #t)))))
+      (check (invalid-test-declarations) => (make-list 50 #t)))))
 
 (def owner-calls 0)
 (def source-calls 0)

@@ -6,7 +6,6 @@
         "../languages/hcl/parser-test"
         "../languages/gql/parser-test"
         "../languages/cypher/parser-test"
-        "../languages/tla-plus/core-test"
         "../languages/tla-plus/parser-test")
 
 ;; gxtest runs exported leaf suites. Placing existing suite values in a
@@ -16,4 +15,5 @@
         gql-parser-test
         opencypher-parser-test
         tla-plus-core-parser-test
-        tla-plus-layout-parser-test)
+        tla-plus-layout-parser-test
+        tla-plus-sany-candidate-parser-test sany-closure-test)

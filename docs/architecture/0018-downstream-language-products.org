@@ -709,3 +709,24 @@ lexical declarations. =deflanguage-module-scanner= binds the remaining structure
 source-context recipe; proof policy continues through its separate POO contract.
 The language-entry schema remains v2. Full module context and proof policy are
 still separate portable execution obligations.
+
+** Request-owned header capture preparation
+
+Closed =header-delimiter= and =header-data= rules lower to a deduplicated capture
+plan owned by the compiled parser machine. A Scheme parse prepares each distinct
+header once, including invalid results. The dynamic scope binds both that plan
+and the exact source object, restores outer scopes on failure, and gives parallel
+requests independent captures. Ordinary lexing, directed parsing, lossless
+failure materialization and incremental resume share this preparation. Empty
+plans keep the ordinary lexer path. No mutable cross-request cache is retained.
+
+Rust prepares the same distinct captures once per lexical request and borrows
+the delimiter spans. The prepared matcher owns its source borrow, so callers
+cannot pair it with another input. Nested choices use the same context. Header
+alphabetic/numeric rejection uses the frozen Scheme character classes.
+These changes retain the lexical IR and language-entry schema; they change the
+execution plan, not grammar identity. The standalone native producer includes
+=src/runtime/lexical-source= before its consumers.
+
+This implements prepared header captures. TLA+ nesting preparation, shell
+recognition and portable proof-policy execution remain separate obligations.

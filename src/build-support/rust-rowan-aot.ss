@@ -18,6 +18,7 @@
     "src/runtime/funcs"
     "src/runtime/observability"
     "src/runtime/lr-parser"
+    "src/runtime/lexical-source"
     "src/runtime/scan"
     "src/compiler/machine"
     "src/language/descriptor"

@@ -6,7 +6,7 @@
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-support deflanguage deflanguage-parser-loader LanguageLoader. LanguageLoaderContract)
         (only-in :gerbil-parser/src/grammar/lexical-algebra lexical-expression?)
-        (only-in :gerbil-parser/src/runtime/scan scan-header-delimiter scan-header-data)
+        (only-in :gerbil-parser/src/runtime/lexical-source scan-header-delimiter scan-header-data)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-valid? parse-artifact-roundtrip)
         (only-in :gerbil-parser/languages/hl7/parser hl7-language))
 (export header-delimiter-test header-record-language-grammar header-record-language)

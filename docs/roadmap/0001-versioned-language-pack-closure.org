@@ -39,7 +39,7 @@ modules; Bash word boundaries now use the shared closed region plan.
 | HCL v2.24 | Concise DSL; one loader | =src/compiler/recursive-source.ss= retains a closed HCL fast lexer and source/event actions | Engine strategy admission/emission; pack retains syntax |
 | GQL ISO-39075-2024 | Pinned ANTLR4 source; one loader | Qualify portable products and generic parser/actor mechanisms | Engine owns admission/execution; graph queries/projection remain domain code |
 | openCypher 2024.1 | Pinned ISO-BNF source; one loader | Qualify portable products and complete corpus coverage | Engine owns normalization/execution; pack retains source/corpus |
-| HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; prepare header context once remains S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
+| HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
 | TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has one external module-text declaration plus a Scheme proof policy; identifier/proof roles now use closed text profiles; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
 | Bash 5.3 | Source descriptor; one loader | Engine =shell-scanner.ss=, =shell-parser.ss= and =shell-word.ss= still execute procedural shell recognition; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
@@ -1120,12 +1120,13 @@ not compatibility wrappers or language-specific code relocated without reuse.
 Removed =languages/hl7/scanner.ss= and all six language-owned external callback
 references. HL7's concise grammar now declares shared =header-delimiter= and
 =header-data= operations. The lexical algebra validates their prefix/count/index
-or stop data; execution is owned by =src/runtime/scan.ss= and the Rust lexical
-engine. The count is bounded to 1..32 and headers require distinct non-alphabetic,
+or stop data; execution now belongs to =src/runtime/lexical-source.ss= and the
+Rust lexical engine. The count is bounded to 1..32 and headers require distinct non-alphabetic,
 non-numeric delimiter characters. The engine compares/borrows source characters
-without constructing delimiter lists or hash tables. Header validation still
-occurs per lexical-rule invocation; no prepared session cache or measured speedup
-is claimed.
+without constructing delimiter lists or hash tables. At this scanner-removal
+baseline, header validation still occurred per lexical-rule invocation. The
+request-owned preparation described below supersedes that execution path; no
+measured speedup percentage is claimed.
 
 The second actual POO Loader is a test language with prefix ="記"=, two dynamic
 separators and =";"= stops. It parses accepted/rejected sources with the same
@@ -1193,3 +1194,14 @@ context once (S2), lower shell command/word recognition into shared IR (S3),
 replace the closed HCL recursive corridor with general lowering (S4), and publish
 proof policy as portable data consumed by native C/Rust (S5). No runtime speedup
 is asserted without complete-call matched measurements.
+
+** Source preparation — header captures
+
+The machine now lowers a distinct header capture plan once. Scheme and Rust
+prepare valid and invalid header captures once per parse request. Scheme scope
+restoration and parallel requests, Rust borrowed source ownership, and nested
+lexical choices have explicit semantic controls. Incremental resume starts a
+fresh source scope and retains existing runtime/checkpoint ownership. Record
+projection consumes the same canonical header scanner module; the old scan
+module forwarding exports are removed. No speedup percentage is claimed from
+algorithmic work-count reduction alone.

@@ -4,7 +4,7 @@
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../language/descriptor language-grammar? language-grammar-machine)
         (only-in ../compiler/machine parser-machine-grammar-digest)
-        (only-in ./scan scan-header-delimiter)
+        (only-in ./lexical-source scan-header-delimiter)
         (only-in ./artifact parse-artifact-valid? parse-artifact-success? parse-artifact-roundtrip parse-artifact-ref))
 (export RecordProjection. RecordProjectionContract bind-record-projection deflanguage-projection)
 (def (selector? value count (depth 0))

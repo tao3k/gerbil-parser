@@ -69,6 +69,10 @@ pub(crate) fn lex<'source>(
     spec: &LanguageSpec,
     source: &'source str,
 ) -> Result<(Vec<Token<'source>>, Vec<usize>), Diagnostic> {
+    let prepared = PreparedLexicalSource::new(
+        source,
+        spec.lexical_rules.iter().map(|rule| &rule.expression),
+    );
     let mut offset = 0;
     let token_capacity = source.len().min(256);
     let mut tokens = Vec::with_capacity(token_capacity);
@@ -83,7 +87,7 @@ pub(crate) fn lex<'source>(
         }
         let mut selected: Option<(&LexicalRule, usize, usize)> = None;
         for (order, rule) in spec.lexical_rules.iter().enumerate() {
-            let Some(end) = lexical_end(&rule.expression, source, offset) else {
+            let Some(end) = lexical_end_prepared(&rule.expression, offset, &prepared) else {
                 continue;
             };
             if end <= offset {
@@ -243,7 +247,7 @@ fn header_delimiters<'a>(source: &'a str, prefix: &str, count: usize) -> Option<
     let suffix = source.strip_prefix(prefix)?;
     let mut end = 0;
     for (at, character) in suffix.char_indices().take(count) {
-        if character.is_alphabetic()
+        if super::unicode_alphabetic::is_scheme_alphabetic(character)
             || super::unicode_numeric::is_scheme_numeric(character)
             || suffix[..at].contains(character)
         {
@@ -255,7 +259,66 @@ fn header_delimiters<'a>(source: &'a str, prefix: &str, count: usize) -> Option<
     (delimiters.chars().count() == count).then_some(delimiters)
 }
 
+// Request-owned captures borrow their source. Invalid headers are cached too.
+struct PreparedLexicalSource<'source> {
+    source: &'source str,
+    headers: Vec<(&'static str, usize, Option<&'source str>)>,
+}
+impl<'source> PreparedLexicalSource<'source> {
+    fn new(
+        source: &'source str,
+        expressions: impl IntoIterator<Item = &'source LexicalExpr>,
+    ) -> Self {
+        let mut prepared = Self {
+            source,
+            headers: Vec::new(),
+        };
+        for expression in expressions {
+            prepared.admit(source, expression);
+        }
+        prepared
+    }
+    fn admit(&mut self, source: &'source str, expression: &LexicalExpr) {
+        match expression {
+            LexicalExpr::HeaderDelimiter { prefix, count, .. }
+            | LexicalExpr::HeaderData { prefix, count, .. }
+                if !self
+                    .headers
+                    .iter()
+                    .any(|(name, width, _)| name == prefix && width == count) =>
+            {
+                self.headers
+                    .push((prefix, *count, header_delimiters(source, prefix, *count)));
+            }
+            LexicalExpr::Choice(expressions) => {
+                for child in *expressions {
+                    self.admit(source, child);
+                }
+            }
+            _ => {}
+        }
+    }
+    fn header(&self, prefix: &str, count: usize) -> Option<&'source str> {
+        self.headers
+            .iter()
+            .find(|(name, width, _)| *name == prefix && *width == count)?
+            .2
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize) -> Option<usize> {
+    let prepared = PreparedLexicalSource::new(source, [expression]);
+    lexical_end_prepared(expression, offset, &prepared)
+}
+
+fn lexical_end_prepared(
+    expression: &LexicalExpr,
+    offset: usize,
+    prepared: &PreparedLexicalSource<'_>,
+) -> Option<usize> {
+    let source = prepared.source;
+
     let suffix = source.get(offset..)?;
     match expression {
         LexicalExpr::TextProfile(profile) => {
@@ -295,9 +358,7 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
             if index >= count {
                 return None;
             }
-            let delimiter = header_delimiters(source, prefix, *count)?
-                .chars()
-                .nth(*index)?;
+            let delimiter = prepared.header(prefix, *count)?.chars().nth(*index)?;
             suffix
                 .starts_with(delimiter)
                 .then_some(offset + delimiter.len_utf8())
@@ -307,7 +368,7 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
             count,
             stops,
         } => {
-            let delimiters = header_delimiters(source, prefix, *count)?;
+            let delimiters = prepared.header(prefix, *count)?;
             consume_while(source, offset, |character| {
                 !stops.contains(character) && !delimiters.contains(character)
             })
@@ -341,7 +402,7 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
         }
         LexicalExpr::Choice(expressions) => expressions
             .iter()
-            .filter_map(|expression| lexical_end(expression, source, offset))
+            .filter_map(|expression| lexical_end_prepared(expression, offset, prepared))
             .max(),
         LexicalExpr::Literals(values) => values
             .iter()
@@ -669,4 +730,52 @@ fn quoted_string_profile_end(
         }
     }
     None
+}
+
+#[cfg(test)]
+mod prepared_source_tests {
+    use super::{LexicalExpr, PreparedLexicalSource, lexical_end_prepared};
+    const FIELD: LexicalExpr = LexicalExpr::HeaderDelimiter {
+        prefix: "記",
+        count: 2,
+        index: 0,
+    };
+    const BODY: LexicalExpr = LexicalExpr::Choice(&[
+        LexicalExpr::HeaderData {
+            prefix: "記",
+            count: 2,
+            stops: ";",
+        },
+        LexicalExpr::HeaderDelimiter {
+            prefix: "記",
+            count: 2,
+            index: 1,
+        },
+    ]);
+    #[test]
+    fn prepared_headers_deduplicate_nested_rules_and_cache_invalid_results() {
+        let good = PreparedLexicalSource::new("記|§α|", [&FIELD, &BODY]);
+        assert_eq!(good.headers.len(), 1);
+        assert_eq!(good.header("記", 2), Some("|§"));
+        assert_eq!(lexical_end_prepared(&FIELD, 3, &good), Some(4));
+        assert_eq!(lexical_end_prepared(&BODY, 6, &good), Some(8));
+        let bad = PreparedLexicalSource::new("記||α|", [&FIELD, &BODY]);
+        assert_eq!(bad.headers.len(), 1);
+        assert_eq!(bad.header("記", 2), None);
+        assert_eq!(lexical_end_prepared(&FIELD, 3, &bad), None);
+    }
+    #[test]
+    fn concurrent_prepared_sources_keep_borrowed_captures_independent() {
+        std::thread::scope(|scope| {
+            for source in ["記|§α|", "記*$α*", "記||α|"] {
+                scope.spawn(move || {
+                    let prepared = PreparedLexicalSource::new(source, [&FIELD, &BODY]);
+                    for _ in 0..100 {
+                        let end = lexical_end_prepared(&FIELD, 3, &prepared);
+                        assert_eq!(end, (!source.starts_with("記||")).then_some(4));
+                    }
+                });
+            }
+        });
+    }
 }

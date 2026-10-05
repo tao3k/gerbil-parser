@@ -4,7 +4,7 @@
 (import (only-in :std/string/utf8 string-utf8-length)
         (only-in ./parser-ir-data parser-ir-ref)
         (only-in ../compiler/machine
-                 parser-machine-grammar-digest parser-machine-ir
+                 call-with-parser-machine-source parser-machine-grammar-digest parser-machine-ir
                  parser-machine-parse parser-machine-runtime
                  parser-machine-trivia parser-machine-direct-drive
                  parser-machine-direct-source)
@@ -492,6 +492,14 @@
 
 ;; : (-> ParserMachine String ParseArtifact)
 (def (parse-source/with-capture machine source observability capture
+                                (checkpoint #f) (prefix-tokens '())
+                                (prefix-modes '()) (start-character 0)
+                                (start-byte 0) (reuse-token #f) (reuse-fragment #f))
+ (call-with-parser-machine-source machine source
+  (lambda () (parse-source/with-prepared-capture machine source observability capture
+   checkpoint prefix-tokens prefix-modes start-character start-byte reuse-token reuse-fragment))))
+
+(def (parse-source/with-prepared-capture machine source observability capture
                                 (checkpoint #f) (prefix-tokens '())
                                 (prefix-modes '()) (start-character 0)
                                 (start-byte 0) (reuse-token #f) (reuse-fragment #f))

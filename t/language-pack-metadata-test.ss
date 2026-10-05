@@ -63,7 +63,7 @@
                         gql-language opencypher-language
                         hl7-language fhirpath-language bash-language
                         tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language))
-             => '(0 0 0 0 0 0 source-parser 0 0 4)))
+             => '(0 0 0 0 0 0 source-parser 0 0 1)))
     (test-case "registered fixture services preserve native corpus conformance"
       (for-each
        (lambda (loader)

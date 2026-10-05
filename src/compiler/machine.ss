@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import (only-in ../grammar/lexical-algebra text-profile-data)
+(import (only-in ../runtime/lexical-source prepare-lexical-source-plan call-with-lexical-source scan-header-delimiter scan-header-data)
+        (only-in ../grammar/lexical-algebra text-profile-data)
         (only-in ../runtime/funcs vector-intern-map make-value-interner value-interner-intern)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../runtime/lr-parser
@@ -14,7 +15,7 @@
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
                  scan-character-run make-text-profile-scanner
-                 scan-until-delimiters scan-header-delimiter scan-header-data
+                 scan-until-delimiters
                  make-literal-end-scanner make-ranked-literal-scanner
                  make-ranked-regular-scanner
                  scan-longest-literal
@@ -23,7 +24,8 @@
                  scan-escaped-quoted-strings scan-quoted-strings scan-quoted-string/profile scan-whitespace
                  scan-emit)
         (only-in ../runtime/token token-end token-kind))
-(export parser-machine-for-current-semantic-backend
+(export call-with-parser-machine-source
+        parser-machine-for-current-semantic-backend
         current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer
         parser-machine-lexical-plans parser-machine-lexical-modes-compatible?
         defgeneral-parser-machine
@@ -58,7 +60,7 @@
 ;;       ```
 ;;     %
 (defstruct parser-machine
-  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory)
+  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory source-plan)
   transparent: #t)
 
 ;;; A captured session owns the selected runtime together with its parser machine.
@@ -74,7 +76,10 @@
            (if (null? maybe-observability) #f (car maybe-observability))))
        (parser-machine-direct-drive machine) (parser-machine-direct-source machine)
        (parser-machine-lexical-plans machine) (parser-machine-lexical-certificates machine)
-       (parser-machine-lexer-factory machine)))))
+       (parser-machine-lexer-factory machine) (parser-machine-source-plan machine)))))
+
+(def (call-with-parser-machine-source machine source thunk)
+ (call-with-lexical-source (parser-machine-source-plan machine) source thunk))
 
 (def current-lexical-plan-sharing-enabled? (make-parameter #t))
 (def (parser-machine-prepare-lexer machine)
@@ -868,4 +873,5 @@
           (lambda (tokens . maybe-observability)
             (lr-parse/prepared runtime tokens
               (if (null? maybe-observability) #f (car maybe-observability))))
-          #f #f plans certificates factory))))))
+          #f #f plans certificates factory
+          (prepare-lexical-source-plan (cdr (assq 'lexical-rules parser-ir)))))))))

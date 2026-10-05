@@ -200,6 +200,7 @@ jobs:
             t/fixtures/rowan-record-assignments/languages/records/fixtures.ss \
             t/fixtures/rowan-record-assignments/languages/records/parser.ss \
             t/header-delimiter-test.ss \
+            t/structured-lexical-cases.ss \
             t/structured-lexical-test.ss
 
       - name: Verify header-derived delimiter Rust AOT regeneration

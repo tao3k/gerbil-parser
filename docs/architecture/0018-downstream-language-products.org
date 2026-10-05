@@ -370,8 +370,8 @@ receipt API may use a property binding to collect its returned values explicitly
 Bash, Arithmetic, HL7, FHIRPath, GQL and openCypher have migrated to this syntax,
 as has the independent Records consumer. TLA+ layout uses the same syntax in
 its canonical =parser-test.ss= entry. Bash's two source-contract/checkpoint controls
-remain under =t/= with their engine owner and all original assertions. HCL retains its generated strategy/parity suite pending named strategy routes
-and closed deterministic source generators. TLA+ core/model qualification and
+remain under =t/= with their engine owner and all original assertions. HCL's
+strategy/parity suite now uses closed source generators and named engine routes. TLA+ core/model qualification and
 SANY suites remain separate migration work; those raw bodies are not counted as
 completed migration.
 
@@ -424,3 +424,64 @@ remains v2 and parser/scanner/Bound IR schemas remain unchanged.
 The =fixtures= row may add =(status accepted)= or =(status rejected)= to
 require a uniform corpus expectation as well as checking every fixture
 against its declared artifact status. Mixed corpora omit this constraint.
+
+** Generated native strategy qualification
+
+=parser-test.ss= may declare =installed=, =strategy-parity= and =fixture-parity=
+rows. The engine owns lexical execution, route selection, indexed checkpoint
+reference execution, exact artifact comparisons and fast/fallback coverage.
+It has no language import or language-name dispatch. A lexical-only row uses
+=(routes)=; a parser parity row names at least two distinct routes, or declares
+a required acceptance outcome. Coverage reuses the single lexical result.
+
+#+begin_src scheme
+(deflanguage-parser-tests sample-parser-test "native strategy qualification"
+  (loader sample-language)
+  (installed "generated reduction step is installed" step)
+  (strategy-parity "large source retains the indexed artifact"
+    (indexed 1024 (concat "key" index " = 1\n"))
+    (routes entry source-default source-raw source-generic indexed)
+    (accepted #t))
+  (fixture-parity "official accepted corpus" accepted
+    (routes entry source-default indexed) (accepted #t)))
+#+end_src
+
+The closed source collection algebra is =sources=, =indexed=, =seeded= and
+=append=. Indexed rows produce one concatenated source; seeded rows produce
+an ordered collection using the exact LCG constants 1103515245, 12345 and
+2147483648. Text templates support string literals, =index=, =concat=,
+=choice=, =character=, =integer=, =if-even=, =repeat=, scoped =bind= and
+=when-equal=. Bounds, names, duplicate bindings, unknown templates, routes and
+options are validated during expansion. No callback or free-form generator
+body is admitted. Each seeded collection resets its state once, retaining
+depth-first draw order across the full collection.
+
+| Route | Engine execution |
+|---+---|
+| =entry= | Effective Loader parse method |
+| =indexed= | Ranked scanning, indexed LR checkpoint driver and canonical artifact builder |
+| =source-default= | Installed generated source recognizer's default route |
+| =source-ranked= | Generated recursive recognizer with fast lexing disabled |
+| =source-raw= | Generated recursive recognizer with canonical shortcut disabled |
+| =source-generic= | Generated recursive recognizer with simple-source shortcuts disabled |
+
+The last four routes require an optional =native-test-profile= POO value on
+the Loader. Admission accepts only the =recursive-source= profile, checks its
+exact machine digest, requires source identity with the installed recognizer,
+and requires a declared lexer procedure. HCL's existing generated recognizer
+implements this parameter contract. The engine does not infer these parameters
+for arbitrary source backends: an absent or incompatible profile is unsupported.
+The lexer remains an explicitly declared generated product; this slot does not
+prove closed Scanner IR ownership or Rust/C portability. The profile is an
+inherited value, so compatible downstream overrides remain possible and are
+validated against their effective descriptor. No runtime test import is added
+to the production Loader, and no per-parse contract check is introduced.
+
+HCL's 27 former raw test cases now occupy 29 declaration rows: its numeric
+boundary and generated-number obligations were separated, and its Loader
+identity has its own row. The five seeds, all generated source sequences,
+fast/fallback thresholds, all large-source shapes, exact artifacts, 15 official
+fixtures and typed rejection controls remain executable. Independently retained
+port-writing references under =t/= compare all 1,024 generated sources exactly.
+The generated HCL scanner/recognizer modules themselves remain migration work;
+this closes their test execution ownership rather than the language directory.

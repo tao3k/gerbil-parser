@@ -9,7 +9,7 @@
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../runtime/source-scanner source-scanner-for-source?)
-        (only-in ../compiler/machine parser-machine-grammar-digest)
+        (only-in ../compiler/machine parser-machine-grammar-digest parser-machine-direct-source)
         (only-in ../runtime/parser parse-source)
         (only-in ../runtime/lr-parser current-lr-branch-budget)
         (only-in ../runtime/cst parse-artifact->cst)
@@ -191,6 +191,21 @@
           (error "declared scan worker returned an invalid or foreign source executor" name))
         worker))))
 
+;;; Optional generated-recognizer test profile is a POO value, bound to the
+;;; effective Grammar IR machine. It describes existing generated routes;
+;;; it cannot replace the Loader's parse method or fixture test service.
+(def (loader-native-test-profile? candidate descriptor)
+  (or (not (.slot? candidate 'native-test-profile))
+      (let (profile (.ref candidate 'native-test-profile))
+        (and (language-grammar? descriptor) (object? profile)
+             (andmap (lambda (slot) (.slot? profile slot)) '(profile digest source lexer))
+             (eq? (.ref profile 'profile) 'recursive-source)
+             (let (machine (language-grammar-machine descriptor))
+               (and (equal? (.ref profile 'digest) (parser-machine-grammar-digest machine))
+                    (procedure? (.ref profile 'source))
+                    (eq? (.ref profile 'source) (parser-machine-direct-source machine))
+                    (procedure? (.ref profile 'lexer))))))))
+
 (def (loader-shape? candidate)
   (and (object? candidate)
        (andmap (lambda (slot) (.slot? candidate slot))
@@ -212,6 +227,7 @@
                      (every (lambda (grammar)
                               (or (language-grammar? grammar) (source-language? grammar))) grammars)))
               (loader-metadata? (.ref candidate 'metadata) descriptor)
+              (loader-native-test-profile? candidate descriptor)
               (let (fixtures (.ref candidate 'fixtures))
                 (and (list? fixtures) (every syntax-fixture? fixtures)))
               (declared-test-services? (.ref candidate 'tests) descriptor)

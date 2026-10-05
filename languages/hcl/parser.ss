@@ -3,7 +3,8 @@
 
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
-        ./grammar)
+        ./grammar
+        (only-in ./direct-recursive direct-parse-hcl direct-lex-hcl direct-hcl-grammar-digest))
 (export (import: ./grammar)
         hcl-language
         parse-hcl)
@@ -12,4 +13,7 @@
   (grammar hcl-language-grammar)
   (parse parse-hcl)
   (slots metadata: (.o grammar-format: 'concise-dsl reference-commit: +hcl-native-syntax-commit+)
-         fixtures: hcl-official-fixtures))
+         fixtures: hcl-official-fixtures
+         native-test-profile: (.o profile: 'recursive-source
+                                  digest: direct-hcl-grammar-digest
+                                  source: direct-parse-hcl lexer: direct-lex-hcl)))

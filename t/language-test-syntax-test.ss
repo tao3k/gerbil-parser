@@ -31,11 +31,26 @@
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (lr-receipt "bad" #f "x" 0 (rest '()))))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (parallel "bad" 0 '("1"))))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (incremental "bad" "1" (replace "" "2") (schema "x"))))
-        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (recovery-rejected "bad" "x")))))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (recovery-rejected "bad" "x")))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (installed "bad" arbitrary)))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (sources "1") (routes unknown entry))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (sources "1") (routes entry entry))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (sources) (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (indexed 0 "x") (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (seeded -1 1 "x") (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (seeded 1 0 "x") (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (seeded 1 1 (character "")) (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (seeded 1 1 (integer 0 0)) (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (seeded 1 1 foreign) (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (seeded 1 1 (bind ((x "1") (x "2")) x)) (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (sources "1") (routes entry indexed) (accepted "true"))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (strategy-parity "bad" (sources "1") (routes entry indexed) (coverage 0 0))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (fixture-parity "bad" arbitrary (routes entry indexed))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (fixture-parity "bad" accepted (routes entry indexed) (diagnostics -1))))))))
 (def language-test-syntax-test
   (test-suite "language parser test declarations"
     (test-case "unknown, empty, malformed and duplicate declarations reject during expansion"
-      (check (invalid-test-declarations) => (make-list 20 #t)))))
+      (check (invalid-test-declarations) => (make-list 35 #t)))))
 
 (def owner-calls 0)
 (def source-calls 0)

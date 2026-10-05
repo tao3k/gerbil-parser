@@ -820,3 +820,66 @@ The public language interfaces remain =grammar.ss=, =parser.ss= and
 =parser-test.ss= as the final target. Partial scope migration does not establish
 that TLA+ or HCL has reached that layout, nor does test migration close their
 remaining runtime/scanner/source-policy implementations.
+
+
+* HCL strategy and corpus test execution migration — 2026-10-05
+
+HCL's 27 raw cases migrated to 29 =deflanguage-parser-tests= declaration rows.
+The two added rows split the numeric boundary/generated-source checks and the
+Loader identity check; no former obligation was removed. =parser-test.ss= now
+imports only the public test facade and =parser.ss=. It has no local function,
+LR checkpoint loop, CST walker, random state, thread, scanner execution callback
+or free-form test-case body. Its source literals and five seed streams retain
+the original input ordering, string/comment terminators, number bounds and
+Unicode values. The 1,024-line attribute sources, two 256-block label variants,
+256 nested blocks and 128 compact lines keep exact indexed-reference artifacts.
+
+The engine's =language-strategy.ss= owns the ranked/indexed reference driver,
+closed source template interpreter, named generated recognizer routes, lexical
+parity and fast/fallback admission counts. The =native-test-profile= Loader slot
+is an ordinary extensible POO value. =LanguageLoaderContract= checks its profile,
+exact machine digest, source procedure identity and declared lexer procedure.
+The profile is optional; arbitrary recognizers do not acquire recursive-source
+parameter semantics merely by having a parse entry. This uses the existing
+=language-entry.v2= schema and adds no per-call runtime admission.
+
+Seven engine controls independently compare all 1,024 sources from the original
+five port-writing generators, require one lexer call per coverage input, admit
+an effective inherited profile and reject a stale digest, foreign recognizer,
+unknown profile, absent lexer or profile for another grammar. The public macro
+now rejects 35 malformed declaration forms, including unknown/duplicate routes,
+invalid bounds, unknown bindings and incomplete coverage obligations. Coverage
+uses the candidate lexical result once rather than running the scanner again.
+
+| Final native gate | Qualified result | Process time |
+|---+---+---|
+| HCL | All 29 rows, full 15-fixture corpus, exact generated/native/indexed artifact parity | 6.87 s |
+| Strategy engine controls | Seven cases; all five full source streams, profile admission and single lexical invocation | 4.26 s |
+| Public DSL controls | Seven cases; all 35 expansion rejection forms, hygiene, inherited fixtures, structural queries and Unicode edits | 4.57 s |
+| Bash compatibility | All 17 existing declarative cases | 4.68 s |
+
+The SDK/GCC production path remains unchanged. The first HCL run failed during
+macro expansion because a pattern variable collided with the reserved =status=
+keyword. A subsequent run caught =cdr= on the empty parser-route list in a
+lexical-only row. Both failed receipts remain failures; hygiene and empty-route
+handling were fixed in the engine, and final consumers passed with explicit
+=OK=, =HARNESS-RETURN status=0= and exit 0 under 90-second total/5-second idle
+limits. Native compiler phases retain 90/30 limits. These times are qualification
+receipts rather than an end-to-end performance claim.
+
+** Current remaining order
+
+1. TLA+ core/model qualification: migrate syntax/corpus rows and constrain the
+   temporary-tool/model process receipts without replacing existing assertions.
+2. TLA+ SANY candidate/closure: declare source coverage, scanner policy and proof
+   admission checks with their existing evidence boundaries.
+3. HCL generated product ownership: move =generate-direct.ss=, =direct-step.ss=
+   and =direct-recursive.ss= generation/execution responsibility into the engine.
+   The current test profile is an explicit compatibility adapter to those
+   generated products; it does not establish closed Scanner IR or portable AOT.
+4. Remaining procedural Bash/source backends: finish scanner, word and source
+   recognition convergence before claiming every language has only three files.
+
+This closes HCL test execution migration, not every language runtime directory
+or Rust/C qualification. All remaining legacy suites stay active until their
+replacement declarations qualify.

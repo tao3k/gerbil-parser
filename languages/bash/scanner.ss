@@ -3,6 +3,11 @@
 
 (import (only-in :gerbil-parser/src/runtime/source-scanner
                  make-source-scanner source-scanner-tokens)
+        (only-in :gerbil-parser/src/runtime/contextual-scanner
+                 +empty-delimiter-queue+ delimiter-queue-empty? delimiter-queue-list
+                 delimiter-queue-enqueue delimiter-queue-take decode-marker
+                 delimiter-obligation? delimiter-obligation-marker
+                 delimiter-obligation-quoted? delimiter-obligation-strip-tabs?)
         (only-in ./scan-words
                  bash-at? bash-operator-at bash-word-end))
 (export make-bash-scanner bash-scan
@@ -11,8 +16,15 @@
         bash-heredoc-quoted? bash-heredoc-strip-tabs?
         bash-lex-context? bash-lex-context-pending bash-lex-context-active)
 
-(defstruct bash-heredoc (delimiter quoted? strip-tabs?) transparent: #t)
-(defstruct bash-lex-context (pending active expecting) transparent: #t)
+;;; Public syntax adapters retain the language API; immutable obligation and
+;;; queue execution have one engine owner, shared with closed Scanner IR.
+(def bash-heredoc? delimiter-obligation?)
+(def bash-heredoc-delimiter delimiter-obligation-marker)
+(def bash-heredoc-quoted? delimiter-obligation-quoted?)
+(def bash-heredoc-strip-tabs? delimiter-obligation-strip-tabs?)
+(defstruct bash-lex-context (queue active expecting) transparent: #t)
+(def (bash-lex-context-pending context)
+  (delimiter-queue-list (bash-lex-context-queue context)))
 
 (def (line-end source start)
   (let (length (string-length source))
@@ -34,38 +46,16 @@
 
 ;;; Here-document delimiters undergo quote removal, not shell expansion.
 (def (parse-heredoc-delimiter word strip-tabs?)
-  (let ((length (string-length word)) (quoted? #f))
-    (let loop ((offset 0) (quote-mode #f) (characters '()))
-      (if (= offset length)
-        (begin
-          (when quote-mode (error "unterminated here-document delimiter quote"))
-          (make-bash-heredoc (list->string (reverse characters))
-                            quoted? strip-tabs?))
-        (let (character (string-ref word offset))
-          (cond
-           ((and (not (eq? quote-mode 'single)) (char=? character #\\))
-            (set! quoted? #t)
-            (if (< (fx+ offset 1) length)
-              (loop (fx+ offset 2) quote-mode
-                    (cons (string-ref word (fx+ offset 1)) characters))
-              (loop (fx+ offset 1) quote-mode (cons character characters))))
-           ((and (not (eq? quote-mode 'double)) (char=? character #\'))
-            (set! quoted? #t)
-            (loop (fx+ offset 1) (if quote-mode #f 'single) characters))
-           ((and (not (eq? quote-mode 'single)) (char=? character #\"))
-            (set! quoted? #t)
-            (loop (fx+ offset 1) (if quote-mode #f 'double) characters))
-           (else
-            (loop (fx+ offset 1) quote-mode (cons character characters)))))))))
+  (decode-marker 'shell-quote-removal word strip-tabs?))
 
 (def (activate-next pending)
-  (if (pair? pending)
-    (values (car pending) (cdr pending))
-    (values #f '())))
+  (if (delimiter-queue-empty? pending)
+    (values #f pending)
+    (delimiter-queue-take pending)))
 
 (def (scan-bash-token source offset context _mode)
   (let* ((length (string-length source))
-         (pending (bash-lex-context-pending context))
+         (pending (bash-lex-context-queue context))
          (active (bash-lex-context-active context))
          (expecting (bash-lex-context-expecting context)))
     (cond
@@ -85,7 +75,7 @@
                     (make-bash-lex-context rest next-active #f)))
           (values 'heredoc-content end context))))
      ((= offset length)
-      (when (or (pair? pending) expecting)
+      (when (or (not (delimiter-queue-empty? pending)) expecting)
         (error "unfinished Bash here-document"))
       (values #f offset context))
      ((or (char=? (string-ref source offset) #\space)
@@ -110,7 +100,7 @@
               (parse-heredoc-delimiter word (string=? expecting "<<-"))))
         (values 'heredoc-marker end
                 (make-bash-lex-context
-                 (append pending (list heredoc)) active #f))))
+                 (delimiter-queue-enqueue pending heredoc) active #f))))
      ((char=? (string-ref source offset) #\#)
       (values 'comment
               (line-content-end source offset (line-end source offset))
@@ -129,7 +119,7 @@
           (values 'word (bash-word-end source offset) context)))))))
 
 (def (make-bash-scanner source)
-  (make-source-scanner source (make-bash-lex-context '() #f #f)
+  (make-source-scanner source (make-bash-lex-context +empty-delimiter-queue+ #f #f)
                        scan-bash-token))
 
 (def (bash-scan source)

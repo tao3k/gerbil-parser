@@ -10,7 +10,12 @@
                  scan-quoted-strings)
         (only-in ./token make-token)
         (only-in ./identity sha256-text))
-(export +contextual-scanner-opcode-contract+
+(export +empty-delimiter-queue+
+        delimiter-queue-empty? delimiter-queue-list
+        delimiter-queue-enqueue delimiter-queue-take
+        decode-marker delimiter-obligation?
+        delimiter-obligation-marker delimiter-obligation-strip-tabs? delimiter-obligation-quoted?
+        +contextual-scanner-opcode-contract+
         prepare-contextual-scanner
         prepare-contextual-scanner-plan
         contextual-scanner-initial-state
@@ -58,10 +63,13 @@
   (append (delimiter-queue-front queue) (reverse (delimiter-queue-rear queue))))
 
 (def (delimiter-queue-enqueue queue obligation)
+  (unless (delimiter-obligation? obligation)
+    (error "invalid deferred delimiter obligation" obligation))
   (make-delimiter-queue (delimiter-queue-front queue)
                         (cons obligation (delimiter-queue-rear queue))))
 
 (def (delimiter-queue-take queue)
+  (when (delimiter-queue-empty? queue) (error "empty deferred delimiter queue"))
   (let* ((front (delimiter-queue-front queue))
          (rear (delimiter-queue-rear queue))
          (ready (if (null? front) (reverse rear) front)))
@@ -566,6 +574,9 @@
                   (cons character characters)))))))))
 
 (def (decode-marker policy word strip-tabs?)
+  (unless (and (memq policy '(raw shell-quote-removal))
+               (string? word) (boolean? strip-tabs?))
+    (error "invalid deferred delimiter declaration" policy word strip-tabs?))
   (let-values (((marker quoted?)
                 (if (eq? policy 'raw)
                   (values word #f)

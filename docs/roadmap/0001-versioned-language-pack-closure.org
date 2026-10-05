@@ -73,6 +73,85 @@ assembly paths are removed. Moving an old callback into =src/= alone does not
 close a stage. S4 can proceed alongside S2/S3; it does not wait for Bash full
 syntax. SANY portable proof policy does not block ordinary lexical lowering.
 
+** S2 source context contract and execution order
+
+The remaining work has three distinct input dependencies. They must share the
+existing contextual Scanner IR and the loader's admitted scanner service rather
+than gain independent language worker runtimes.
+
+| Pack | Remaining language-owned execution | Engine representation / migration gate |
+|---+---+---|
+| HL7 | Six external roles repeatedly derive MSH delimiters | Prepared prefix capture set, typed slot match / maximal exclusion run; remove all six callbacks after Scheme/Rust conformance |
+| TLA+ SANY | Identifier and two proof roles are local; module text rescans source prefix | Close local profiles first; then prepare a nesting boundary index once and use predecessor lookup; keep proof policy a separate capability |
+| Bash | Word/substitution recognizer, command token routing and source result assembly | Declarative balanced regions, command transitions and deferred obligations; migrate token routing before recognition/result assembly |
+| FHIRPath | No external scanner roles after S1 migration | Keep full native parser and native-produced Rust AOT controls |
+| HCL, HL7 segment/terminator, other grammar packs | Existing closed/generated lexing | Remain under common loader and product admission; generated strategies are S4, not source-worker migration |
+
+A source preparation call creates a worker bound to an immutable input revision,
+its exact Scanner IR digest and its capture layout. A new parse or edit creates
+a new worker. Captures are prepared once before scanning, never keyed by a
+module-global last-source cache or inferred from pointer identity of mutable
+strings. Existing source-worker callbacks are still an explicitly advertised
+Scheme capability; registered factories alone do not establish closed IR.
+
+HL7's declaration needs: exact =MSH= prefix, five characters beginning at
+character offset three, pairwise uniqueness and the producer's alphabetic/numeric
+rejection predicate. Consumers refer to a named capture slot: matching one
+captured character or a maximal run excluding the capture set plus CR/LF.
+Capture preparation preserves the current rejection semantics, including
+Unicode; Rust must consume an authoritative Scheme character class, not its
+broader platform predicate. Captures are characters, source spans are UTF-8
+bytes in Rust and character/byte pairs in Scheme. Missing/invalid captures
+reject before token execution. Equivalent declarations share a prepared capture
+within one worker; distinct workers never share mutable state.
+
+TLA+ needs a single source pass over module opens/closes, nested comments,
+quoted strings and line comments. Publish ordered boundary/depth records tied
+to that source revision; predecessor lookup answers the depth at a candidate
+offset. Repeated prefix rescans are removed only after arbitrary-offset,
+nested-module, comment/string and checkpoint controls agree with the original
+recognizer. Edits invalidate/rebuild the index before reusing any checkpoint.
+
+Bash now consumes the engine's existing immutable delimiter FIFO and marker
+quote-removal operation. Enqueue allocates a constant number of cells instead
+of copying all previous obligations with =append=. A linear drain reverses each
+rear batch once, giving linear total queue work; replaying branches can repeat
+a reversal, so no branching amortized bound is claimed. The public pending
+value remains an ordered list projection. The scanner's own quote-removal loop
+is removed; double-quoted backslashes before ordinary characters now retain
+the backslash, matching the existing closed engine/Rust marker policy.
+Command/substitution routing still remains in Bash. This shared state algorithm
+is partial S2 implementation, not complete Bash Rust portability.
+
+Native-owned generated AOT tables belong in the existing =generated= ownership
+boundary. The FHIRPath fixture moves there without changing its bytes. The
+existing ASP policy is unchanged; native regeneration, byte comparison and
+Rust parser consumers continue to check this product.
+
+Qualified local evidence for this state convergence slice:
+
+| Gate | Result | Bounded wall time |
+|---+---+---|
+| Source worker/queue suite | Six cases; rejected malformed obligations, branching/replay, Unicode spans and 128 Bash markers | 2.93 s |
+| Complete Bash parser suite | Accepted/rejected syntax and lossless quote-removal regression cases pass | 4.28 s |
+| Closed deferred contextual scanner suite | Queue/checkpoint restoration and shell/raw policies pass | 5.62 s |
+| All ten public loaders | Metadata, fixture conformance and independent Bash workers pass | 5.46 s |
+| Native FHIRPath AOT regeneration | Formatted bytes equal the moved product, SHA256 =8435e3e9186c2ecd28baf837706395e50c8a608c95274cc71c33511e075f8e2f= | 6.59 s before formatting |
+| Rust complete engine unit suite | 88 tests pass; moved full FHIRPath parser product is consumed | 0.55 s |
+
+The first dependent Bash compilation imported an earlier native engine cache
+and rejected its new export; the engine was rebuilt before the dependent.
+The first full Bash test used a previously inlined heredoc-record accessor and
+terminated abnormally. Rebuilding the unchanged parser caller from current
+source restored the matched native record representation and the final suite
+passed. These initial failures remain failures, not conformance evidence.
+The local ASP policy test's cold dependency build hit the 30-second idle fence
+in two attempts (86.29/50.97 seconds total). Its source-policy execution did not
+run locally. No compiler profile or timeout was changed; the exact new PR head's
+Ubuntu Rust CI still has to qualify this gate. The prior head's Ubuntu/macOS
+native jobs passed, while its Rust source policy rejected the oversized fixture
+outside the existing generated-table ownership boundary.
+
 ** Shared scanner migration — implementation and remaining gates
 
 The first closed text-profile migration replaces all five FHIRPath lexical

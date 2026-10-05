@@ -288,6 +288,26 @@ month branch. FHIRPath's date/time grammar declares these decisions directly.
 Source-dependent delimiters, nesting and deferred obligations require shared
 source context/state IR; a local text profile does not encode those mechanisms.
 
+* Source-dependent scanners and migration boundary
+
+=deflanguage-parser-loader= admits the worker declaration against its exact
+source descriptor. A worker's checkpoints belong to the creating worker, even
+when another worker scans the same string. Source callbacks retain their Scheme
+capability classification until the language's execution is represented by
+closed Scanner IR; loader registration alone does not confer Rust portability.
+
+Bash uses the engine's deferred delimiter queue and quote-removal semantics.
+Its language context retains syntax routing and exposes pending obligations as
+an ordered value; insertion does not rebuild that list. Closed contextual
+Scanner IR uses the same queue and marker operation. Engine admission rejects
+unknown marker policies, malformed values and foreign obligation types.
+
+The next source declarations require worker-local prepared captures (HL7), a
+source revision bound nesting index (TLA+) and closed region/command transitions
+(Bash). These are implementation work, not currently available authoring slots.
+The detailed contract and closure gates are in
+[[file:../docs/roadmap/0001-versioned-language-pack-closure.org][the language convergence roadmap]].
+
 * Published catalog projection
 
 New concise DSL packs infer their kinds, fields and terminals. An existing pack

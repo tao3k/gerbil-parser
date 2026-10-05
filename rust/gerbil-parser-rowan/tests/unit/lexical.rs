@@ -177,7 +177,7 @@ fn malformed_quoted_profiles_fail_product_admission() {
     }
 }
 
-#[path = "../fixtures/fhirpath_profile_generated.rs"]
+#[path = "../fixtures/generated/fhirpath_profile.rs"]
 mod fhirpath_profile_generated;
 
 #[test]

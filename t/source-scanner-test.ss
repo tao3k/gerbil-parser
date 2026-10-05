@@ -3,11 +3,63 @@
         (only-in :gerbil-parser/src/runtime/source-scanner
                  make-source-scanner source-scanner-initial-state source-scanner-step
                  source-scan-state-with-context source-scan-state-byte-offset)
-        (only-in :gerbil-parser/src/runtime/token token-start token-end))
+        (only-in :gerbil-parser/src/runtime/token token-start token-end token-kind token-lexeme)
+        (only-in :gerbil-parser/src/runtime/source-scanner source-scan-state-context)
+        (only-in :gerbil-parser/src/runtime/contextual-scanner
+                 +empty-delimiter-queue+ delimiter-queue-enqueue delimiter-queue-take
+                 delimiter-queue-list delimiter-obligation-marker decode-marker)
+        (only-in :gerbil-parser/languages/bash/scanner
+                 make-bash-scanner bash-scan bash-lex-context-pending
+                 parse-heredoc-delimiter bash-heredoc-delimiter bash-heredoc-quoted?))
 (def (rejected? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-scanner-test
   (test-suite "source scanner worker ownership"
+    (test-case "shared FIFO preserves order and branches without copying the pending prefix"
+      (let* ((a (decode-marker 'raw "A" #f)) (b (decode-marker 'raw "B" #f))
+             (first (delimiter-queue-enqueue +empty-delimiter-queue+ a))
+             (second (delimiter-queue-enqueue first b)))
+        (check (map delimiter-obligation-marker (delimiter-queue-list first)) => '("A"))
+        (let-values (((head rest) (delimiter-queue-take second)))
+          (check (delimiter-obligation-marker head) => "A")
+          (check (map delimiter-obligation-marker (delimiter-queue-list rest)) => '("B"))
+          (check (map delimiter-obligation-marker (delimiter-queue-list second)) => '("A" "B")))
+        (check (rejected? (lambda () (delimiter-queue-enqueue first 'callback))) => #t)
+        (check (rejected? (lambda () (delimiter-queue-take +empty-delimiter-queue+))) => #t)))
+    (test-case "Bash uses engine quote removal including preserved double-quote escapes"
+      (for-each
+       (lambda (row)
+         (let (marker (parse-heredoc-delimiter (car row) #f))
+           (check (bash-heredoc-delimiter marker) => (cadr row))
+           (check (bash-heredoc-quoted? marker) => (caddr row))))
+       '(("A" "A" #f) ("'A'" "A" #t) ("\"a\\q\"" "a\\q" #t)
+         ("\"a\\$\"" "a$" #t) ("'a\\q'" "a\\q" #t)
+         ("A\\\nB" "AB" #f) ("''" "" #t)))
+      (check (rejected? (lambda () (parse-heredoc-delimiter "" #f))) => #t)
+      (check (rejected? (lambda () (parse-heredoc-delimiter "'A" #f))) => #t)
+      (check (rejected? (lambda () (decode-marker 'arbitrary "A" #f))) => #t))
+    (test-case "Bash queued checkpoint replay retains its own pending obligations"
+      (let* ((worker (make-bash-scanner "<<A <<B\nα\nA\nβ\nB\n"))
+             (initial (source-scanner-initial-state worker)))
+        (let-values (((open after-open) (source-scanner-step worker initial 'command)))
+          (let-values (((marker queued) (source-scanner-step worker after-open 'command)))
+            (check (map bash-heredoc-delimiter
+                        (bash-lex-context-pending (source-scan-state-context queued))) => '("A"))
+            (let-values (((again replay) (source-scanner-step worker after-open 'command)))
+              (check (token-lexeme again) => "A")
+              (check (map bash-heredoc-delimiter
+                          (bash-lex-context-pending (source-scan-state-context replay))) => '("A")))
+            (check (bash-lex-context-pending (source-scan-state-context initial)) => '())))))
+    (test-case "large Bash deferred batches drain in declaration order"
+      (let* ((markers (map (lambda (n) (string-append "END" (number->string n))) (iota 128)))
+             (source (string-append "cat "
+                       (apply string-append (map (lambda (name) (string-append "<<" name " ")) markers))
+                       "\n" (apply string-append (map (lambda (name) (string-append "α\n" name "\n")) markers))))
+             (tokens (bash-scan source)))
+        (check (map token-lexeme (filter (lambda (token) (eq? (token-kind token) 'heredoc-marker)) tokens)) => markers)
+        (check (map token-lexeme (filter (lambda (token) (eq? (token-kind token) 'heredoc-end)) tokens))
+               => (map (lambda (name) (string-append name "\n")) markers))
+        (check (apply string-append (map token-lexeme tokens)) => source)))
     (test-case "another worker cannot use a checkpoint over the exact same string"
       (let* ((source "αx") (calls 0)
              (step (lambda (_source offset context _mode)

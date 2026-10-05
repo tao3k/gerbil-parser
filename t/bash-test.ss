@@ -126,6 +126,11 @@
                => #t)
         (check (and (memq 'Subshell (node-kinds artifact)) #t)
                => #f)))
+    (test-case "engine delimiter quote removal retains literal backslashes"
+      (for-each
+       (lambda (source) (check (accepted-roundtrip? source) => #t))
+       '("cat <<\"a\\q\"\n$x α\na\\q\n"
+         "cat <<A\\\nB\nα\nAB\n")))
     (test-case "here-documents bind to markers in lexical order"
       (let* ((source "cat <<'A' <<-B\n$x α\nA\n\tβ $x\n\tB\n")
              (artifact #f)

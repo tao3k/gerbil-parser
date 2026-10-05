@@ -7,14 +7,14 @@
 (import (only-in :gerbil-parser/language-support syntax-fixture-source)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip)
-        (only-in :gerbil-parser/languages/hcl/fixtures
+        (only-in :gerbil-parser/languages/hcl/parser
                  hcl-official-accepted-fixtures)
         (only-in :gerbil-parser/languages/hcl/parser parse-hcl)
-        (only-in :gerbil-parser/languages/gql/fixtures
+        (only-in :gerbil-parser/languages/gql/parser
                  gql-official-fixtures)
         (only-in :gerbil-parser/languages/gql/parser
                  parse-gql)
-        (only-in :gerbil-parser/languages/cypher/fixtures
+        (only-in :gerbil-parser/languages/cypher/parser
                  opencypher-accepted-fixtures)
         (only-in :gerbil-parser/languages/cypher/parser
                  parse-opencypher)

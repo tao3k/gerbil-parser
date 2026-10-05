@@ -14,6 +14,7 @@
         iso-bnf-production-line
         iso-bnf-production-references
         iso-bnf-source?
+        iso-bnf-source->datum iso-bnf-source-from-datum
         iso-bnf-source-language
         iso-bnf-source-version
         iso-bnf-source-commit
@@ -303,6 +304,37 @@
       (error "ISO BNF source digest mismatch"
              expected-digest (iso-bnf-source-digest catalog)))
     catalog))
+
+;;; Source declarations freeze the admitted catalog at expansion time. Runtime
+;;; materialization reconstructs its records without scanning the BNF again.
+(def (iso-bnf-source->datum source)
+  (list (iso-bnf-source-schema source)
+        (iso-bnf-source-language source) (iso-bnf-source-version source)
+        (iso-bnf-source-commit source) (iso-bnf-source-digest source)
+        (map (lambda (row)
+               (list (iso-bnf-production-name row)
+                     (iso-bnf-production-expression row)
+                     (iso-bnf-production-ast row) (iso-bnf-production-line row)
+                     (iso-bnf-production-references row)))
+             (iso-bnf-source-productions source))))
+
+(def (iso-bnf-source-from-datum value)
+  (unless (and (list? value) (= (length value) 6)
+               (andmap string? (take value 5))
+               (string=? (car value) +iso-bnf-source-schema+)
+               (list? (list-ref value 5)) (pair? (list-ref value 5))
+               (andmap
+                (lambda (row)
+                  (and (list? row) (= (length row) 5)
+                       (string? (car row)) (string? (cadr row))
+                       (pair? (caddr row)) (exact-integer? (cadddr row))
+                       (positive? (cadddr row))
+                       (list? (list-ref row 4)) (andmap string? (list-ref row 4))))
+                (list-ref value 5)))
+    (error "invalid materialized ISO BNF source v1" value))
+  (make-iso-bnf-source
+   (car value) (cadr value) (caddr value) (cadddr value) (list-ref value 4)
+   (map (lambda (row) (apply make-iso-bnf-production row)) (list-ref value 5))))
 
 ;; : (-> IsoBnfSource String (Maybe IsoBnfProduction))
 (def (iso-bnf-source-production source name)

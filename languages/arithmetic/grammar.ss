@@ -67,3 +67,16 @@
   (conflicts reject)
   (case-insensitive #f)
   (backends (drive direct-grammar-digest direct-drive)))
+
+;;; Corpus declarations share the grammar admission boundary.
+(import (only-in :gerbil-parser/language-support
+                 defsyntax-corpus defsyntax-fixture syntax-fixture-expected-status))
+(export arithmetic-basic-fixture)
+
+(defsyntax-fixture arithmetic-basic-fixture
+  (identity "arithmetic/v1/basic"
+            "arithmetic"
+            "v1"
+            "arithmetic-expression.v1")
+  (source "corpus/basic.expr")
+  (expect accepted SourceFile (Expression)))

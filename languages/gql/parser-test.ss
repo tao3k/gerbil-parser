@@ -17,7 +17,7 @@
                  syntax-fixture-source
                  syntax-fixture-source-digest
                  syntax-fixture-version)
-        (only-in ./fixtures gql-official-fixtures))
+        (only-in ./parser gql-official-fixtures))
 (export gql-parser-test)
 
 ;;; Structural traversal is intentionally generic over CST nodes and fields so

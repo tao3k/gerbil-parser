@@ -7,14 +7,30 @@
 ;;; module owns syntax only; FHIR model navigation and function semantics are
 ;;; deliberately outside the parser authority.
 (import (only-in :gerbil-parser/language-support deflanguage deftext-profile)
-        ./source)
-(export (import: ./source)
+        (only-in :gerbil-parser/language-support/grammar-source defsyntax-antlr4-source))
+(export +fhirpath-standard-reference+ +fhirpath-standard-version+
+        +fhirpath-source-uri+ +fhirpath-antlr4-digest+
+        fhirpath-normative-antlr4-source
         +fhirpath-syntax-contract+
         fhirpath-language-grammar
         fhirpath-grammar
         fhirpath-bound-grammar-ir
         fhirpath-parser-ir
         fhirpath-parser)
+
+(def +fhirpath-standard-reference+
+  "HL7 Cross-Paradigm Specification: FHIRPath, Release 1")
+(def +fhirpath-standard-version+ "2.0.0")
+(def +fhirpath-source-uri+ "https://hl7.org/fhirpath/N1/fhirpath.g4")
+(def +fhirpath-antlr4-digest+
+  "sha256:cf2a7cf29475e29b1a9188fcabea77782db59c9309b200059b3ef3f781eaae13")
+
+(defsyntax-antlr4-source fhirpath-normative-antlr4-source
+  (identity "fhirpath" "2.0.0"
+            "https://hl7.org/fhirpath/N1/fhirpath.g4")
+  (digest
+   "sha256:cf2a7cf29475e29b1a9188fcabea77782db59c9309b200059b3ef3f781eaae13")
+  (source "grammar-source/fhirpath.g4"))
 
 (def +fhirpath-syntax-contract+ "fhirpath-normative-2.0.0-syntax.v1")
 

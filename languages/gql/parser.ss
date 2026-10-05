@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical public parser entry for ISO/IEC 39075:2024 GQL.
 
-(import (only-in ./fixtures gql-official-fixtures)
-        (only-in :clan/poo/object .o)
+(import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
         ./grammar)
 (export (import: ./grammar)

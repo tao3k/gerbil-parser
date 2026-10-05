@@ -1,11 +1,24 @@
 #+title: Language pack boundary
 
-A language pack normally exposes its public entry in =parser.ss=. TLA+ retains
-a separate SANY candidate entry in =sany-candidate.ss= with its descriptor-bound
-proof policy. Every syntax-scope entry is defined with
-=deflanguage-parser-loader= from =:gerbil-parser/language-support=. Grammar rules, lexical
-roles and language-specific syntax remain in the pack; validation, compilation,
-artifact admission and parser assembly belong to the engine.
+Each language pack has three Scheme interfaces:
+
+| Interface | Responsibility |
+|-----------+----------------|
+| =grammar.ss= | Declarative syntax, pinned source metadata and corpus declarations |
+| =parser.ss= | The sole public POO Loader entry, parser and tooling exports |
+| =parser-test.ss= | Native conformance tests using the loader's fixture services |
+
+Raw upstream grammar and corpus files remain resources. Scanning, state,
+recognition, source offsets, backend generation and FFI execution belong to the
+engine. =deflanguage-parser-loader= admits the effective POO object, its grammar
+and extension values before publishing the entry. Inheritance, overrides and
+extension contracts use the same admission boundary. Authors supply fixture
+values directly; the engine owns evaluation and service binding.
+
+This is the convergence contract. Remaining procedural language modules and
+TLA+'s separate scope entries are migration debt, not additional authoring
+interfaces. FHIRPath and openCypher now follow the three-file structure;
+other packs still require the execution migrations described below.
 
 #+begin_src scheme
 (import (only-in :gerbil-parser/language-support
@@ -308,6 +321,14 @@ source revision bound nesting index (TLA+) and closed region/command transitions
 The detailed contract and closure gates are in
 [[file:../docs/roadmap/0001-versioned-language-pack-closure.org][the language convergence roadmap]].
 
+The Bash migration is complete only when its grammar replaces =scanner.ss=,
+=scan-words.ss=, =word.ss= and =parser-core.ss=. A loader wrapping these
+procedures is not the target downstream API. The engine must derive scanner,
+word recognition, source spans and artifacts from the grammar, and generate
+C/Rust products through the common boundary. POO extensions remain declared
+values with compiler admission. This target is documented in the roadmap;
+the current Bash implementation still uses the four procedural modules.
+
 * Published catalog projection
 
 New concise DSL packs infer their kinds, fields and terminals. An existing pack
@@ -336,14 +357,14 @@ regenerated descriptor/product identity for this draft scope.
 
 * Ownership
 
-- =grammar.ss=: declarative syntax and pinned syntax identity.
-- =parser.ss=: the public loader entry and deliberately exported tooling APIs.
-- =scanner.ss=, word/source/projection modules: only syntax-specific behavior
-  required by the language; no VM lifecycle, FFI transport or build orchestration.
-- Corpus and tests: semantics and lossless source conformance.
-- Generated backends: engine-owned IR derivations. Existing checked-in HCL and
-  arithmetic specializations still require digest checks and deterministic
-  regeneration; they are not an authoring requirement for new packs.
+- =grammar.ss=: declarative syntax, metadata and fixture values.
+- =parser.ss=: the only public loader entry, including declared POO extensions.
+- =parser-test.ss=: conformance assertions and loader fixture service use.
+- Resource files: pinned upstream grammar and corpus source text.
+- Engine: scanner algorithms, state/checkpoints, recognition, byte offsets,
+  parser assembly, generated backends and C/Rust products. Existing handwritten
+  language modules and checked-in specializations remain migration debt until
+  this execution is derived from admitted declarations.
 
 * =deflanguage-parser-loader= contract
 

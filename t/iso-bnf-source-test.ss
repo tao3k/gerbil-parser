@@ -3,8 +3,9 @@
 
 (import :std/test
         :gerbil-parser/language-support
-        :gerbil-parser/languages/cypher/grammar
-        :gerbil-parser/languages/cypher/source)
+        (only-in :gerbil-parser/language-support/iso-bnf
+                 iso-bnf-source->datum iso-bnf-source-from-datum)
+        :gerbil-parser/languages/cypher/parser)
 
 ;; Test projections use one fail-closed lookup boundary instead of repeating
 ;; the source-map representation throughout behavioral assertions.
@@ -18,6 +19,16 @@
 
 (def iso-bnf-source-tests
   (test-suite "ISO WG3 BNF grammar source"
+    (test-case "frozen source catalogs retain all production fields"
+      (let* ((data (iso-bnf-source->datum opencypher-bnf))
+             (copy (iso-bnf-source-from-datum data)))
+        (check (iso-bnf-source->datum copy) => data)
+        (check (iso-bnf-source-production copy "program")
+               => (iso-bnf-source-production opencypher-bnf "program")))
+      (check-exception (iso-bnf-source-from-datum '(invalid)) true)
+      (check-exception
+       (iso-bnf-source-from-datum
+        (list +iso-bnf-source-schema+ "test" "v1" "commit" "digest" '(bad-row))) true))
     (test-case "the complete openCypher production catalog is immutable"
       (check (iso-bnf-source-language opencypher-bnf)
              => "opencypher")

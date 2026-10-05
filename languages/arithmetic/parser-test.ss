@@ -12,7 +12,7 @@
                  syntax-fixture-source syntax-fixture-source-digest)
         (only-in :gerbil-parser/src/testing/parser-ast
                  check-parser-ast check-accepted-parse)
-        (only-in ./fixtures arithmetic-basic-fixture)
+        (only-in ./parser arithmetic-basic-fixture)
         (only-in ./parser
                  arithmetic-parser arithmetic-language
                  parse-arithmetic))

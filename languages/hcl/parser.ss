@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical public parser entry for HCL native syntax v2.24.0.
 
-(import (only-in ./fixtures hcl-official-fixtures)
-        (only-in :clan/poo/object .o)
+(import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
         ./grammar)
 (export (import: ./grammar)

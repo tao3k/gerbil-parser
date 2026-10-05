@@ -1,8 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical public parser entry for openCypher 2024.1.
 
-(import (only-in ./fixtures opencypher-fixtures)
-        (only-in :clan/poo/object .o)
+(import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
         ./grammar)
 (export (import: ./grammar)

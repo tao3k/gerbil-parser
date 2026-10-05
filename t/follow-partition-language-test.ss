@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/languages/hcl/grammar
                  hcl-grammar hcl-parser
                  hcl-parser-ir)
-        (only-in :gerbil-parser/languages/hcl/fixtures
+        (only-in :gerbil-parser/languages/hcl/parser
                  hcl-official-accepted-fixtures)
         (only-in :gerbil-parser/language-support/fixture
                  syntax-fixture-id syntax-fixture-source)

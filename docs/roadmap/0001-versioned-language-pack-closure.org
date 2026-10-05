@@ -73,6 +73,99 @@ assembly paths are removed. Moving an old callback into =src/= alone does not
 close a stage. S4 can proceed alongside S2/S3; it does not wait for Bash full
 syntax. SANY portable proof policy does not block ordinary lexical lowering.
 
+** Bash authoring closure is one complete migration unit
+
+The authoring audit at =1d2d98a479f622c95d6754c2059f69b6b4b7e830= finds
+18 lines in =languages/bash/grammar.ss= delegating execution to 1,353 lines:
+126 scanner, 103 word-boundary scanner, 390 word decomposition and 734 source
+parser/recognition lines. Registering those procedures with a loader does not
+make the syntax declarative. Rust and Ubuntu native CI passed at this exact
+head; that evidence qualifies the current implementation, not this migration.
+
+The previous shared-FIFO patch is a prerequisite. It does not satisfy the
+language authoring boundary. Bash's four procedural modules must migrate as
+one authoring obligation; individual helper moves cannot mark Bash converged.
+The public pack should retain grammar declarations, its POO loader and declared
+fixtures/tests/metadata. A downstream pack must not implement scanner traversal,
+word slicing, worker state, artifact publication or C/Rust transport.
+
+Tree-sitter's public grammar DSL supplies sequence, choice, repetition,
+precedence, aliases and fields, and generates ordinary lexical/parse execution.
+Its external-scanner interface explicitly assigns special token recognition,
+lifecycle and state serialization to C functions written by the grammar author;
+Bash here-documents are an example in its documentation. Our authoring target
+is more specific: built-in closed region/deferred-state operations should cover
+these mechanisms so packs can declare them without implementing that C worker.
+This is a target, not a claim of broader Bash coverage or measured superiority.
+
+References:
+- [[https://tree-sitter.github.io/tree-sitter/creating-parsers/2-the-grammar-dsl.html][Tree-sitter grammar DSL]]
+- [[https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners.html][Tree-sitter external scanners]]
+- [[https://github.com/tree-sitter/tree-sitter-bash/blob/master/grammar.js][Bash grammar authoring example]]
+
+*** One authoring boundary, several engine representations
+
+| Current module | Language declaration that replaces it | Engine obligation |
+|---+---+---|
+| =scan-words.ss= | Quotes, opaque escapes, ordered substitution openers/closers, balancing and operator stops | Compile one shared region plan; match nested spans with progress/termination bounds and explicit quote context |
+| =scanner.ss= | Command/body modes, comment/newline rules, deferred marker policy and transitions | Prepare a source worker from the admitted IR; own queue, source/worker identity, checkpoint serialization and token bytes |
+| =word.ss= | Word-part rules with aliases/fields for quotes, parameters, assignments and substitutions | Lower embedded recognition/projection from closed data; retain exact CST field/span identity and source partition |
+| =parser-core.ss= | Command, redirect, compound-command, list and pipeline rules plus precedence and fields | Use the grammar/recognition machine and common artifact admission; own failure frontiers and typed here-document links |
+
+These declarations belong to the existing syntax compiler and its shared
+Scanner/Parser IR boundary. Do not introduce a =(syntax bash)= selector that
+hides the old parser behind a language-name branch. Do not duplicate these
+rules in a parallel source-parser DSL, or merely rename Bash procedures under
+=src/=. Missing generic region, state or recognition operations must be added
+to the engine and admitted before a pack can use them.
+
+The language loader derives its scanner services from the compiled grammar.
+Authors must not supply a =make-*-scanner= factory, scanner callback or custom
+serializer for these closed declarations. POO slots extend grammar/metadata/
+fixtures/test declarations as values; the compiler validates the effective
+inherited value and rejects unknown operations, missing roles and incompatible
+products before installation. The current raw source-worker bridge remains a
+transitional Scheme capability until its last production pack is migrated.
+The unreleased =gerbil-parser.language-entry.v2= schema remains unchanged.
+
+*** Structural work required during lowering
+
+Word decomposition currently computes each byte offset by encoding the entire
+prefix substring again. The engine must prepare offsets in one forward pass
+and materialize ordered spans from that index, preventing repeated prefix
+allocation on words with many parts. Region matching must handle longest
+openers such as =$((= versus =$(=, process substitutions shielding operator
+stops, escaped delimiters, opaque single quotes/backticks and nested quoted
+substitutions. Node/field identity is declared data, independent of scanning
+control. Command recognition must also avoid repeatedly appending accumulated
+children or pending marker lists; immutable checkpoints and ordered publication
+remain mandatory.
+
+*** Whole-pack exit gates
+
+1. Bash grammar carries its real syntax/scanner/word declarations. No grammar
+   entry dispatches to a pack-owned procedural parser or scanner.
+2. All four procedural language modules above and their imports/build entries
+   are removed after callers use the common engine; fixture and metadata
+   declarations remain in the three language interfaces.
+3. The POO loader supplies parse, scanner, fixture and test services from the
+   admitted grammar without author-written worker/FFI functions.
+4. A minimal independent downstream pack extends or overrides declared values,
+   compiles with the same public facade and consumes its C/Rust artifact without
+   importing engine internals. An unsupported target must reject explicitly;
+   =source-parser= metadata or a registered Scheme closure cannot certify Rust.
+5. Current complete Bash acceptance/rejection, UTF-8 roundtrip, word/node/field
+   spans, deferred link ordering and checkpoint isolation remain controls.
+   Nested/ambiguous opener, malformed suffix and large-part inputs supplement
+   them; syntax coverage still does not exceed the qualified corpus.
+6. Scheme producers deterministically emit the same closed product consumed by
+   Rust AOT and the language-independent C ABI. Each actual consumer must pass
+   before portable closure is reported. No per-language Rust/C shim is required.
+
+The dependency order is region IR -> source transitions -> embedded recognition
+-> command grammar -> downstream products. These are internal implementation
+steps of one Bash migration, not independent claims of authoring closure.
+
 ** S2 source context contract and execution order
 
 The remaining work has three distinct input dependencies. They must share the
@@ -522,3 +615,48 @@ open.
 - Require clean-source rebuild, single-entry native tests, installed consumer
   smoke tests, and green PR receipts before declaring the language packs
   released.
+
+* Three-interface language pack contract
+
+Every language converges to =grammar.ss=, =parser.ss= and =parser-test.ss=.
+=parser.ss= is the only public entry. Grammar identity, upstream digests and
+corpus declarations stay with =grammar.ss=; the loader binds their values to
+POO metadata and fixture services. No separate =source.ss= or =fixtures.ss=
+authoring module is required. Test consumers import the public entry.
+Upstream grammar/corpus resources remain source files, not Scheme interfaces.
+
+Pure declaration consolidation removes seven extra modules across arithmetic,
+HCL, openCypher, FHIRPath and GQL. It changes neither language identity nor
+loader schema. FHIRPath and openCypher have three Scheme interfaces after this
+step. The other languages still contain execution or specialization modules;
+they need the shared-engine migrations above before this contract is closed.
+File consolidation alone does not qualify portable Rust/C execution.
+
+** Native verification of declaration consolidation
+
+The five updated grammar modules and four changed loader entries emitted and
+compiled through the native Gerbil SDK with GCC 16. A stale generated parser
+interface still imported the deleted fixture owner and caused an import
+conflict; refreshing only those generated interfaces resolved it. The failed
+compiler receipt remains recorded; no test mode or compiler profile changed.
+
+The engine now freezes ISO BNF source catalogs at expansion, matching the
+existing ANTLR source boundary. Runtime restores records instead of reparsing
+BNF when the public loader is loaded. The actual new native openCypher product
+contains =iso-bnf-source-from-datum=, with no BNF parse call at that binding.
+Full catalog field parity and malformed materialization controls passed.
+Source macro identity and expected digest are expansion-time literal values.
+
+| Native control | Result |
+|----------------+--------|
+| All ten POO loaders and registered corpora | 4 cases, OK; final run 6.12 s |
+| Loader extension/fixture admission | 15 cases, OK |
+| FHIRPath native conformance | 5 cases, OK |
+| openCypher native conformance | 4 cases, OK |
+| ISO BNF catalog and overlays | 6 cases, OK; final run 4.94 s |
+| ANTLR catalog and LR lowering | OK; final run 4.89 s |
+
+Controls ran with the existing 90-second total / 5-second idle test gates and
+explicit =OK= plus exit status propagation. These are verification durations,
+not a matched end-to-end performance benchmark. Source catalog consolidation
+does not qualify new Rust/C capabilities, Bash execution or all pack migrations.

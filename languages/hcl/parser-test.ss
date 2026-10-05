@@ -29,7 +29,7 @@
                  syntax-fixture-source
                  syntax-fixture-source-digest
                  syntax-fixture-version)
-        (only-in ./fixtures
+        (only-in ./parser
                  hcl-official-accepted-fixtures
                  hcl-official-fixtures
                  hcl-official-rejected-fixtures)

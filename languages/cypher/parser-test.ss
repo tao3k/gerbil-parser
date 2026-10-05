@@ -21,7 +21,7 @@
                  syntax-fixture-required-kinds
                  syntax-fixture-root-kind
                  syntax-fixture-source)
-        (only-in ./fixtures opencypher-fixtures))
+        (only-in ./parser opencypher-fixtures))
 (export opencypher-parser-test)
 
 ;; : (-> CSTValue (List Symbol))

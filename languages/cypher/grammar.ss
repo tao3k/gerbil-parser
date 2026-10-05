@@ -436,3 +436,41 @@
   (entrypoint program)
   (conflicts selective-glr)
   (case-insensitive #t))
+
+;;; Corpus declarations share the grammar admission boundary.
+(import (only-in :gerbil-parser/language-support
+                 defsyntax-corpus defsyntax-fixture syntax-fixture-expected-status))
+(export opencypher-fixtures opencypher-accepted-fixtures)
+
+(defsyntax-corpus opencypher-fixtures
+  (identity "opencypher" "2024.1" "opencypher-2024.1-syntax.v1")
+  (accepted
+   ("opencypher/2024.1/match-return" opencypher-match-return
+    "corpus/representative/match-return.cypher" program
+    (|match statement| |return statement|))
+   ("opencypher/2024.1/create-return" opencypher-create-return
+    "corpus/representative/create-return.cypher" program
+    (|create statement| |return statement|))
+   ("opencypher/2024.1/path-filter" opencypher-path-filter
+    "corpus/representative/path-filter.cypher" program
+    (|match statement| |where clause| |return statement|))
+   ("opencypher/2024.1/unwind" opencypher-unwind
+    "corpus/representative/unwind.cypher" program
+    (|unwind statement| |return statement|)))
+  (rejected
+   ("opencypher/2024.1/invalid/match-only" opencypher-match-only
+    "corpus/invalid/match-only.cypher")))
+
+(def opencypher-accepted-fixtures
+  (filter (lambda (fixture)
+            (eq? (syntax-fixture-expected-status fixture) 'accepted))
+          opencypher-fixtures))
+
+;;; Pinned source metadata belongs to the grammar declaration.
+(import (only-in :gerbil-parser/language-support/grammar-source defsyntax-iso-bnf-source))
+(export opencypher-bnf)
+
+(defsyntax-iso-bnf-source opencypher-bnf
+  (identity "opencypher" "2024.1" "30b451d3b7c94ee5a84a0fdc223947a442dd9493")
+  (digest "sha256:c0b5454f001b59b401756158bf88e27847c8ace71f1abc8df1e05f8b710b9f50")
+  (source "grammar-source/openCypher.bnf"))

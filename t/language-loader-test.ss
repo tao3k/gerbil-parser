@@ -14,7 +14,7 @@
         (only-in :gerbil-parser/language-support/fixture
                  defsyntax-fixture defsyntax-corpus syntax-fixture-source syntax-fixture-source-digest)
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
-        (only-in :gerbil-parser/languages/arithmetic/fixtures arithmetic-basic-fixture)
+        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-basic-fixture)
         (only-in :gerbil-parser/languages/bash/scanner make-bash-scanner)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)

@@ -5,7 +5,7 @@
         :gerbil-parser/language-support
         (only-in :gerbil-parser/languages/gql/grammar
                  gql-parser-ir)
-        :gerbil-parser/languages/gql/source
+        :gerbil-parser/languages/gql/parser
         (only-in :gerbil-parser/src/compiler/parser-ir parser-ir-ref)
         :gerbil-parser/src/compiler/lr
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec))

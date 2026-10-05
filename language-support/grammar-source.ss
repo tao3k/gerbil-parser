@@ -12,7 +12,9 @@
         (for-syntax (only-in ./javacc-source
                              javacc-source->datum
                              parse-javacc-source/expected))
-        (only-in ./iso-bnf parse-iso-bnf-source/expected)
+        (for-syntax (only-in ./iso-bnf
+                             parse-iso-bnf-source/expected iso-bnf-source->datum))
+        (only-in ./iso-bnf iso-bnf-source-from-datum)
         (only-in ./antlr4-source antlr4-source-from-datum)
         (only-in ./javacc-source javacc-source-from-datum)
         (only-in ./iso-bnf-language deflanguage-iso-bnf-grammar))
@@ -71,13 +73,16 @@
         (identity language version commit)
         (digest expected-digest)
         (source path))
-     (and (identifier? #'binding) (stx-string? #'path))
+     (and (identifier? #'binding) (stx-string? #'language)
+          (stx-string? #'version) (stx-string? #'commit)
+          (stx-string? #'expected-digest) (stx-string? #'path))
      (let* ((resolved (gx#core-resolve-path #'path (stx-source stx)))
-            (content (call-with-input-file resolved read-all-as-string)))
-       (with-syntax ((grammar-content content))
-         #'(def binding
-             (parse-iso-bnf-source/expected
-              language version commit expected-digest grammar-content)))))
+            (content (call-with-input-file resolved read-all-as-string))
+            (catalog (parse-iso-bnf-source/expected
+                      (stx-e #'language) (stx-e #'version) (stx-e #'commit)
+                      (stx-e #'expected-digest) content)))
+       (with-syntax ((materialized-catalog (iso-bnf-source->datum catalog)))
+         #'(def binding (iso-bnf-source-from-datum 'materialized-catalog)))))
     (_ (raise-syntax-error #f "invalid ISO BNF source declaration" stx))))
 
 ;;; ANTLR text is parsed and digest-checked by the expander; runtime code only

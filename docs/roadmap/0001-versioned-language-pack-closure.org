@@ -759,3 +759,64 @@ failed logs remain separate from passing reruns. No timeout was relaxed and no
 interpreter/toolchain fallback was used. Full migration of the remaining
 advanced suites is still an open owner obligation; a bare suite wrapper is not
 accepted as completion.
+
+* Advanced graph-query tests and TLA+ layout migration — 2026-10-05
+
+GQL and openCypher now use only the public test facade and their =parser.ss=
+entry. Their local CST walkers, metadata/IR access helpers, token-driving loops,
+source generators and raw test-case bodies have been removed. Existing pinned
+identities, Parser/Bound IR counts and ordered references, compatibility and
+precedence overlays, digest prefixes, syntax sources, corpus structure and
+rejection controls remain declarations. GQL's selected comparison operands
+must retain their order; an additional reversed-operand query must fail.
+openCypher retains 1,317 states, 321 fork cells, absent nullable-prefix helpers,
+initial shift checks and the actual 300-item LR receipt with zero speculative
+branches and one completion.
+
+TLA+ layout's eight controls migrated to =parser-test.ss=; the old
+=layout-test.ss= was removed and the native suite owner/build exclusion updated.
+Field cardinality, source ordering, CRLF/tab layout, nine concurrent requests,
+fresh/incremental artifact equality and disabled recovery rejection all remain.
+Parallel scheduling and source-bound result selection belong to the engine;
+all workers join before a captured parser exception propagates. Incremental
+text selection uses the shared prefix matcher and converts character positions
+and deletion lengths to UTF-8 bytes. A Unicode HCL control exercises both a
+multibyte prefix and a multibyte replacement.
+
+| Native gate | Qualified result | Bounded process time |
+|---+---+---|
+| GQL | Ten cases; source-bound identity, full official fixtures constrained to accepted, syntax and positive/negative precedence queries | 4.58 s |
+| openCypher | Eight cases; original Bound IR, overlay, static conflict and actual LR receipt controls | 4.81 s; final current native products |
+| TLA+ layout | Eight cases, including nine barrier-coordinated requests, incremental/fresh parity and rejection/recovery | 4.66 s; final canonical parser-test entry |
+| Engine DSL controls | Seven cases; 20 expansion-time rejection forms, single evaluation, inherited fixtures, false subtree queries, five parallel sources and Unicode edit | 6.44 s |
+| Bash compatibility | All 17 existing declarative rows | 4.62 s |
+
+The native support was emitted and compiled with the configured Gerbil SDK and
+GCC. One emission failed at the imported =string-contains= signature: its
+inferred boolean result could not serve as a substring index. The test engine
+now uses the existing source-prefix primitive with an explicit forward cursor,
+then converts positions to bytes. Failed emission remains a failed receipt;
+passing consumers use subsequently emitted and compiled products. These runs
+qualify test execution and semantic obligations, not a performance comparison
+or a new Rust/C product. No timeout, compiler, profile or schema changed.
+
+** Remaining migration order
+
+1. HCL: replace its 27 raw strategy/corpus cases with engine-owned indexed
+   reference execution, named source/lexer strategy routes and a closed seeded
+   generator algebra. Preserve the exact LCG seeds, generated source sequences,
+   fast/fallback coverage, 1,024-line artifacts and complete corpus parity.
+   Register unsupported routes explicitly; do not hide copied loops in property
+   expressions or introduce a language-name branch.
+2. TLA+ core: move common syntax/corpus rows to the canonical parser-test entry;
+   model qualification needs constrained temporary-tool fixtures and typed
+   process/receipt expectations rather than an arbitrary callback body.
+3. SANY candidate/closure: constrain source coverage, scanner policy and proof
+   admission expectations without claiming stronger syntax or portable policy
+   semantics than the existing corpus. All legacy checks stay active until the
+   corresponding declarative consumer qualifies.
+
+The public language interfaces remain =grammar.ss=, =parser.ss= and
+=parser-test.ss= as the final target. Partial scope migration does not establish
+that TLA+ or HCL has reached that layout, nor does test migration close their
+remaining runtime/scanner/source-policy implementations.

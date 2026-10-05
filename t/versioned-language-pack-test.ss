@@ -7,7 +7,7 @@
         "../languages/gql/parser-test"
         "../languages/cypher/parser-test"
         "../languages/tla-plus/core-test"
-        "../languages/tla-plus/layout-test")
+        "../languages/tla-plus/parser-test")
 
 ;; gxtest runs exported leaf suites. Placing existing suite values in a
 ;; test-suite initializer does not register any TestCase in Gerbil v0.19.

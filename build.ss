@@ -44,7 +44,7 @@
     "languages/fhirpath/parser-test.ss"
     "languages/hl7/parser-test.ss"
     "languages/tla-plus/core-test.ss"
-    "languages/tla-plus/layout-test.ss"
+    "languages/tla-plus/parser-test.ss"
     "languages/tla-plus/sany-candidate-test.ss"
     "languages/tla-plus/sany-closure-test.ss"))
 

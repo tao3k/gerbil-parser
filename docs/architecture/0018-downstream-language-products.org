@@ -367,9 +367,60 @@ not create a second Loader type, upgrade =language-entry.v2=, or grant Rust/C
 capabilities. Common tests require no author-written lambdas. A multivalue
 receipt API may use a property binding to collect its returned values explicitly.
 
-Bash, Arithmetic, HL7 and FHIRPath have migrated to this syntax, as has the
-independent Records consumer. Bash's two source-contract/checkpoint controls
-remain under =t/= with their engine owner and all original assertions. HCL,
-GQL and openCypher retain existing advanced suites pending declarative strategy,
-normalization and precedence controls; their raw test bodies are not counted as
-completed migration. TLA+ scope tests are also still separate migration work.
+Bash, Arithmetic, HL7, FHIRPath, GQL and openCypher have migrated to this syntax,
+as has the independent Records consumer. TLA+ layout uses the same syntax in
+its canonical =parser-test.ss= entry. Bash's two source-contract/checkpoint controls
+remain under =t/= with their engine owner and all original assertions. HCL retains its generated strategy/parity suite pending named strategy routes
+and closed deterministic source generators. TLA+ core/model qualification and
+SANY suites remain separate migration work; those raw bodies are not counted as
+completed migration.
+
+** Bound IR, structure and engine execution controls
+
+The same declaration accepts the following advanced obligations:
+
+| Clause | Constraint and check |
+|---+---|
+| =parser-ir= | Named rule count, root, materialization, conflict policy and case policy |
+| =bound-ir= / =bound-rules= | Binding count, exact source metadata, digest prefixes, structured binding identity and ordered references |
+| =lr= | Exact state/fork counts, absent nullable-prefix helpers and initial shift actions |
+| =lr-receipt= | Execute the declared machine/source with a positive branch budget; check remaining tokens and named branch/completion fields |
+| =parallel= | A positive worker count and nonempty sources; a barrier coordinates real parser calls; all workers join and each result equals its own checked fresh source |
+| =incremental= | Replace the first declared nonempty text; compute UTF-8 byte start/deletion length; compare incremental artifact to a checked fresh parse and assert receipt fields |
+| =recovery-rejected= | Require a valid, lossless rejected artifact and assert recovery receipt fields |
+
+Additional artifact expectations are =(root Kind)=,
+=(diagnostics nonnegative-count)=, =(subtree pattern)=,
+=(without-subtree pattern)= and =(field-counts Kind field (count ...))=.
+Subtree patterns have the form =(node Kind (lexemes text ...) (children pattern ...))=.
+The children clause selects direct nodes of the declared kinds through transparent
+fields, then requires the exact selected count and order. Lexeme requirements
+inspect that node's descendants. These are partial semantic queries; use =ast=
+for an exact complete tree with mandatory fields, bytes and token text.
+Field counts select matching nodes in preorder and count direct named fields.
+
+#+begin_src scheme
+(accepted "conjunction precedence" source
+  (subtree (node ValueExpression (lexemes "AND")
+    (children (node ValueExpression (lexemes ">"))
+              (node ValueExpression (lexemes "="))))))
+(bound-rules "source identity" parser-bound-ir
+  (program (source path "grammar-source/input.bnf")
+           (source-prefix replacementExpressionDigest "sha256:")))
+(lr "static conflict controls" parser-ir
+  (state-count 1317) (fork-count 321)
+  (empty-nullable-prefixes "$boolean factor") (initial-shifts "RETURN"))
+(parallel "independent requests" 9 sources)
+(incremental "Unicode byte edit" source
+  (replace "λ中" "μ文") (schema "gerbil-parser.incremental-receipt.v1"))
+#+end_src
+
+These examples describe checks, not extra backend capabilities. Incremental
+and recovery clauses derive their machine from an admitted Grammar IR Loader;
+a source-only Loader rejects those requests. Parallel workers propagate parser
+exceptions after joining all results. No import starts workers. Loader schema
+remains v2 and parser/scanner/Bound IR schemas remain unchanged.
+
+The =fixtures= row may add =(status accepted)= or =(status rejected)= to
+require a uniform corpus expectation as well as checking every fixture
+against its declared artifact status. Mixed corpora omit this constraint.

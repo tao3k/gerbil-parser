@@ -6,8 +6,7 @@
 ;;; Native, lossless projection of the pinned normative ANTLR grammar.  This
 ;;; module owns syntax only; FHIR model navigation and function semantics are
 ;;; deliberately outside the parser authority.
-(import (only-in :gerbil-parser/language-support deflanguage)
-        ./scanner
+(import (only-in :gerbil-parser/language-support deflanguage deftext-profile)
         ./source)
 (export (import: ./source)
         +fhirpath-syntax-contract+
@@ -19,20 +18,54 @@
 
 (def +fhirpath-syntax-contract+ "fhirpath-normative-2.0.0-syntax.v1")
 
+;;; Shared text-profile fragments expand into closed declaration data.
+(deftext-profile fhirpath-date-format
+  (seq (run (numeric) 4 4)
+       (if-next (characters "-")
+         (seq (literal "-") (run (numeric) 2 2)
+              (if-next (characters "-")
+                (seq (literal "-") (run (numeric) 2 2)))))))
+
+(deftext-profile fhirpath-time-format
+  (seq (run (numeric) 2 2)
+       (if-next (characters ":")
+         (seq (literal ":") (run (numeric) 2 2)
+              (if-next (characters ":")
+                (seq (literal ":") (run (numeric) 2 2)
+                     (optional (seq (literal ".") (run (numeric) 1 #f)))))))))
+
+(deftext-profile fhirpath-timezone-format
+  (if-next (characters "Z") (literal "Z")
+    (if-next (characters "+-")
+      (seq (run (characters "+-") 1 1) (run (numeric) 2 2)
+           (literal ":") (run (numeric) 2 2)))))
+
 (deflanguage fhirpath
   (identity "fhirpath" "2.0.0" "fhirpath-normative-2.0.0-syntax.v1")
   (root expression)
   (lex
    (whitespace WhitespaceTrivia (whitespace+))
    (comment CommentTrivia (choice (line-comment "//") (block-comment "/*" "*/")))
-   (datetime DateTimeToken (external fhirpath-datetime-v2 scan-fhirpath-datetime))
-   (time TimeToken (external fhirpath-time-v2 scan-fhirpath-time))
-   (date DateToken (external fhirpath-date-v2 scan-fhirpath-date))
+   (datetime DateTimeToken
+    (text-profile
+     (seq (literal "@") (ref fhirpath-date-format) (literal "T")
+          (if-next (numeric)
+            (seq (ref fhirpath-time-format) (ref fhirpath-timezone-format))))))
+   (time TimeToken
+    (text-profile (seq (literal "@T") (ref fhirpath-time-format))))
+   (date DateToken
+    (text-profile
+     (seq (literal "@") (ref fhirpath-date-format) (not-next (characters "T")))))
    (delimited-identifier DelimitedIdentifierToken
     (quoted-string-profile "`" "`'\\/fnrt" 4))
    (string StringToken (quoted-string-profile "'" "`'\\/fnrt" 4))
-   (number NumberToken (external fhirpath-number-v2 scan-fhirpath-number))
-   (identifier IdentifierToken (external fhirpath-identifier-v2 scan-fhirpath-identifier))
+   (number NumberToken
+    (text-profile
+     (seq (run (numeric) 1 #f) (optional (seq (literal ".") (run (numeric) 1 #f))))))
+   (identifier IdentifierToken
+    (text-profile
+     (seq (run (union (ascii-letter) (characters "_")) 1 1)
+          (run (union (ascii-letter) (characters "_") (numeric)) 0 #f))))
    (punctuation PunctuationToken
     (literals "<=" ">=" "!=" "!~" "$this" "$index" "$total"
               "." "[" "]" "+" "-" "*" "/" "&" "|" "<" ">"

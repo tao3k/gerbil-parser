@@ -21,11 +21,16 @@
   (identity "hl7v2" +hl7-language-version+ +hl7-syntax-contract+)
   (root message)
   (lex
-   (segment-id SegmentId (external hl7v2-segment-id-v1 scan-hl7-segment-id))
+   (segment-id SegmentId
+    (text-profile
+     (seq (run (union (characters "ABCDEFGHIJKLMNOPQRSTUVWXYZ") (numeric)) 3 3)
+          (not-next (union (characters "ABCDEFGHIJKLMNOPQRSTUVWXYZ") (numeric))))))
    (data Data (external hl7v2-data-v1 scan-hl7-data))
    (segment-terminator SegmentTerminator
-    (external hl7v2-segment-terminator-v1
-              scan-hl7-segment-terminator))
+    (text-profile
+     (if-next (characters "\r")
+       (seq (literal "\r") (optional (literal "\n")))
+       (literal "\n"))))
    (field-separator FieldSeparator
     (external hl7v2-field-separator-v1 scan-hl7-field-separator))
    (component-separator ComponentSeparator

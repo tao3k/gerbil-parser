@@ -176,3 +176,145 @@ fn malformed_quoted_profiles_fail_product_admission() {
         assert_eq!(error.diagnostic.reason_kind, "invalid-aot-artifact");
     }
 }
+
+#[path = "../fixtures/fhirpath_profile_generated.rs"]
+mod fhirpath_profile_generated;
+
+#[test]
+fn scheme_generated_text_profiles_preserve_character_endpoints_as_byte_spans() {
+    for &(terminal, source, expected) in fhirpath_profile_generated::PROFILE_CASES {
+        let rule = fhirpath_profile_generated::LANGUAGE
+            .lexical_rules
+            .iter()
+            .find(|rule| rule.terminal == terminal)
+            .unwrap();
+        let byte_end = expected.map(|end| source.chars().take(end).map(char::len_utf8).sum());
+        assert_eq!(
+            lexical_end(&rule.expression, source, 0),
+            byte_end,
+            "{terminal}: {source:?}"
+        );
+        let prefixed = format!("α{source}");
+        assert_eq!(
+            lexical_end(&rule.expression, &prefixed, "α".len()),
+            byte_end.map(|end| end + "α".len()),
+            "{terminal}: {prefixed:?}"
+        );
+    }
+}
+
+#[test]
+fn text_profile_offsets_reject_out_of_bounds_and_partial_utf8_characters() {
+    let profile = LexicalExpr::TextProfile(&crate::TextProfile::Run {
+        class: crate::TextClass::Numeric,
+        minimum: 1,
+        maximum: None,
+    });
+    assert_eq!(lexical_end(&profile, "α1", 1), None);
+    assert_eq!(lexical_end(&profile, "1", 2), None);
+    assert_eq!(lexical_end(&profile, "1", 1), None);
+}
+
+#[test]
+fn full_fhirpath_aot_uses_shared_profiles_for_lossless_acceptance_and_rejection() {
+    for source in [
+        "Patient.name",
+        "12.34",
+        "@2024-12-31",
+        "@2024T12:34:56Z",
+        "@T12:34:56.12",
+        "'α'",
+        "١٢.٣٤",
+    ] {
+        let parsed = crate::parse(&fhirpath_profile_generated::LANGUAGE, source).unwrap();
+        assert_eq!(parsed.syntax().to_string(), source);
+    }
+    for source in ["@2024-", "@2024T1", "@T12:", "@2024T12+0:00", "1.", "'\\q'"] {
+        assert!(
+            crate::parse(&fhirpath_profile_generated::LANGUAGE, source).is_err(),
+            "{source:?}"
+        );
+    }
+}
+
+#[test]
+fn malformed_text_profiles_fail_product_admission_before_execution() {
+    use crate::{TextClass, TextProfile};
+    const INVALID: &[TextProfile] = &[
+        TextProfile::Literal(""),
+        TextProfile::Sequence(&[]),
+        TextProfile::Run {
+            class: TextClass::Numeric,
+            minimum: 2,
+            maximum: Some(1),
+        },
+        TextProfile::Run {
+            class: TextClass::Characters(""),
+            minimum: 1,
+            maximum: None,
+        },
+        TextProfile::Run {
+            class: TextClass::Union(&[]),
+            minimum: 1,
+            maximum: None,
+        },
+        TextProfile::Sequence(&[
+            TextProfile::Run {
+                class: TextClass::Numeric,
+                minimum: u32::MAX as usize,
+                maximum: None,
+            },
+            TextProfile::Literal("x"),
+        ]),
+        TextProfile::Optional(&TextProfile::Literal("x")),
+        TextProfile::NotNext(TextClass::Numeric),
+        TextProfile::IfNext {
+            class: TextClass::Numeric,
+            body: &TextProfile::Literal("x"),
+            otherwise: None,
+        },
+    ];
+    for profile in INVALID {
+        let rules = Box::leak(Box::new([crate::LexicalRule {
+            terminal: "string",
+            expression: LexicalExpr::TextProfile(profile),
+            precedence: 0,
+            extra: false,
+        }]));
+        let language = Box::leak(Box::new(crate::LanguageSpec {
+            lexical_rules: rules,
+            ..quoted_profile_generated::LANGUAGE
+        }));
+        let error = crate::parse(language, "x").unwrap_err();
+        assert_eq!(error.diagnostic.reason_kind, "invalid-aot-artifact");
+    }
+}
+
+#[test]
+fn text_profile_depth_rejects_before_aot_execution() {
+    let mut profile: &'static crate::TextProfile =
+        Box::leak(Box::new(crate::TextProfile::Literal("x")));
+    for _ in 0..64 {
+        profile = Box::leak(Box::new(crate::TextProfile::Optional(profile)));
+    }
+    let profile = Box::leak(Box::new(crate::TextProfile::Sequence(Box::leak(Box::new(
+        [crate::TextProfile::Literal("x"), *profile],
+    )))));
+    let rules = Box::leak(Box::new([crate::LexicalRule {
+        terminal: "string",
+        expression: LexicalExpr::TextProfile(profile),
+        precedence: 0,
+        extra: false,
+    }]));
+    let language = Box::leak(Box::new(crate::LanguageSpec {
+        lexical_rules: rules,
+        ..quoted_profile_generated::LANGUAGE
+    }));
+    assert_eq!(
+        crate::parse(language, "x")
+            .unwrap_err()
+            .diagnostic
+            .reason_kind,
+        "invalid-aot-artifact"
+    );
+}

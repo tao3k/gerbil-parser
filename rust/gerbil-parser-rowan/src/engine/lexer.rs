@@ -134,9 +134,82 @@ pub(crate) fn lex<'source>(
     Ok((tokens, significant))
 }
 
+fn text_class_matches(class: &super::model::TextClass, character: char) -> bool {
+    use super::model::TextClass;
+    match class {
+        TextClass::Numeric => super::unicode_numeric::is_scheme_numeric(character),
+        TextClass::AsciiLetter => character.is_ascii_alphabetic(),
+        TextClass::Characters(values) => values.contains(character),
+        TextClass::Union(classes) => classes
+            .iter()
+            .any(|class| text_class_matches(class, character)),
+    }
+}
+
+fn text_profile_end(
+    profile: &super::model::TextProfile,
+    source: &str,
+    start: usize,
+) -> Option<usize> {
+    use super::model::TextProfile;
+    let suffix = source.get(start..)?;
+    match profile {
+        TextProfile::Literal(value) => suffix.starts_with(value).then_some(start + value.len()),
+        TextProfile::Run {
+            class,
+            minimum,
+            maximum,
+        } => {
+            let mut count = 0;
+            let mut end = start;
+            for character in suffix.chars() {
+                if maximum.is_some_and(|maximum| count >= maximum)
+                    || !text_class_matches(class, character)
+                {
+                    break;
+                }
+                count += 1;
+                end += character.len_utf8();
+            }
+            (count >= *minimum).then_some(end)
+        }
+        TextProfile::Sequence(steps) => {
+            let mut end = start;
+            for step in *steps {
+                end = text_profile_end(step, source, end)?;
+            }
+            Some(end)
+        }
+        TextProfile::Optional(step) => Some(text_profile_end(step, source, start).unwrap_or(start)),
+        TextProfile::IfNext {
+            class,
+            body,
+            otherwise,
+        } => {
+            if suffix
+                .chars()
+                .next()
+                .is_some_and(|character| text_class_matches(class, character))
+            {
+                text_profile_end(body, source, start)
+            } else {
+                otherwise.map_or(Some(start), |step| text_profile_end(step, source, start))
+            }
+        }
+        TextProfile::NotNext(class) => (!suffix
+            .chars()
+            .next()
+            .is_some_and(|character| text_class_matches(class, character)))
+        .then_some(start),
+    }
+}
+
 pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize) -> Option<usize> {
-    let suffix = &source[offset..];
+    let suffix = source.get(offset..)?;
     match expression {
+        LexicalExpr::TextProfile(profile) => {
+            text_profile_end(profile, source, offset).filter(|end| *end > offset)
+        }
         LexicalExpr::Whitespace => consume_while(source, offset, char::is_whitespace),
         LexicalExpr::HorizontalWhitespace => {
             consume_while(source, offset, |character| matches!(character, ' ' | '\t'))

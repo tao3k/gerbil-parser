@@ -49,7 +49,7 @@
     (for-each
      (lambda (row)
        (unless (lexical-expression? (cadr row))
-         (error "invalid normalized lexical expression" (car row))))
+         (error "invalid normalized lexical expression" (car row) (cadr row))))
      lexical-rules)))
 
 (def (validate-rules rules terminals)

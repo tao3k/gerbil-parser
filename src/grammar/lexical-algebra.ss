@@ -1,8 +1,44 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical LexicalExpr v1 constructors.
 
+(import (for-syntax (only-in :gerbil/expander core-expand1)))
 (export lexical-expression
-        lexical-expression?)
+        lexical-expression? text-profile? text-profile-minimum-width
+        text-profile-data deftext-profile
+        (for-syntax expand-text-lexical-rows))
+
+;;; Profile expansion is a compiler helper, separate from grammar inference.
+(begin-syntax
+  (def (expand-text-lexical-rows rows owner)
+    (stx-map
+     (lambda (row)
+       (syntax-case row ()
+         ((name kind expression)
+          (list (syntax->datum #'name) (syntax->datum #'kind)
+                (expand-text-profile-syntax #'expression owner)))
+         (_ (raise-syntax-error #f "invalid concise lexical declaration" owner))))
+     rows))
+  (def (expand-text-profile-syntax expression owner (profile? #f) (depth 0))
+    (when (>= depth 64) (raise-syntax-error #f "text profile declaration exceeds depth limit" owner))
+    (syntax-case expression ()
+      ((head argument ...)
+       (let (name (syntax->datum #'head))
+         (if (and profile? (eq? name 'ref))
+           (syntax-case #'(argument ...) ()
+             ((fragment)
+              (identifier? #'fragment)
+              (let* ((use #'(fragment)) (expanded (core-expand1 use)))
+                (when (eq? expanded use)
+                  (raise-syntax-error #f "unknown text profile fragment" owner))
+                (expand-text-profile-syntax expanded owner #t (+ depth 1))))
+             (_ (raise-syntax-error #f "text profile ref requires one declared fragment" owner)))
+           (cons name
+                 (stx-map
+                  (lambda (child)
+                    (expand-text-profile-syntax child owner (or profile? (eq? name 'text-profile)) (+ depth 1)))
+                  #'(argument ...))))))
+      (atom (syntax->datum #'atom)))))
+
 
 (def (strings? values)
   (let loop ((rest values))
@@ -17,12 +53,71 @@
         (and (lexical-expression? (car rest))
              (loop (cdr rest))))))
 
+;;; Closed text profiles have no callbacks or recursive references. Nullable
+;;; children support guards, but each admitted scanner must make progress.
+(def (text-class? value (depth 0))
+  (and (< depth 64) (pair? value) (list? value)
+       (case (car value)
+         ((numeric ascii-letter) (= (length value) 1))
+         ((characters) (and (= (length value) 2) (string? (cadr value))
+                            (positive? (string-length (cadr value)))))
+         ((union) (and (pair? (cdr value))
+                       (andmap (lambda (child) (text-class? child (+ depth 1))) (cdr value))))
+         (else #f))))
+
+(def (text-profile-minimum-width value (depth 0))
+  (and (< depth 64) (pair? value) (list? value)
+       (case (car value)
+         ((literal) (and (= (length value) 2) (string? (cadr value))
+                         (positive? (string-length (cadr value))) (string-length (cadr value))))
+         ((run) (and (= (length value) 4) (text-class? (cadr value))
+                     (exact-integer? (caddr value)) (<= 0 (caddr value) 4294967295)
+                     (or (not (cadddr value))
+                         (and (exact-integer? (cadddr value)) (<= (caddr value) (cadddr value) 4294967295)))
+                     (caddr value)))
+         ((seq) (and (pair? (cdr value))
+                     (let loop ((rest (cdr value)) (width 0))
+                       (if (null? rest) width
+                         (let (next (text-profile-minimum-width (car rest) (+ depth 1)))
+                           (and next (<= (+ width next) 4294967295)
+                                (loop (cdr rest) (+ width next))))))))
+         ((optional) (and (= (length value) 2)
+                          (text-profile-minimum-width (cadr value) (+ depth 1)) 0))
+         ((if-next) (and (memv (length value) '(3 4)) (text-class? (cadr value))
+                         (let ((yes (text-profile-minimum-width (caddr value) (+ depth 1)))
+                               (no (if (= (length value) 4)
+                                     (text-profile-minimum-width (cadddr value) (+ depth 1)) 0)))
+                           (and yes no (min yes no)))))
+         ((not-next) (and (= (length value) 2) (text-class? (cadr value)) 0))
+         (else #f))))
+
+
+;;; Named fragments expand only during declaration lowering. Runtime IR is
+;;; closed data and has no name lookup or callback.
+(defrules text-profile-data (literal run seq optional if-next not-next)
+  ((_ (literal value)) (list 'literal value))
+  ((_ (run class minimum maximum)) (list 'run 'class minimum maximum))
+  ((_ (seq expression ...)) (cons 'seq (list (text-profile-data expression) ...)))
+  ((_ (optional expression)) (list 'optional (text-profile-data expression)))
+  ((_ (if-next class yes)) (list 'if-next 'class (text-profile-data yes)))
+  ((_ (if-next class yes no))
+   (list 'if-next 'class (text-profile-data yes) (text-profile-data no)))
+  ((_ (not-next class)) (list 'not-next 'class)))
+
+(defrules deftext-profile ()
+  ((_ binding expression)
+   (defrules binding () ((_ ) expression))))
+
+(def (text-profile? value)
+  (let (width (text-profile-minimum-width value)) (and width (positive? width))))
+
 (def (lexical-expression? value)
   (and (list? value)
        (case (car value)
          ((whitespace+ horizontal-whitespace+ newline+ line
            decimal-digit+ number identifier heredoc fallback)
           (null? (cdr value)))
+         ((text-profile) (and (= (length value) 2) (text-profile? (cadr value))))
          ((number-literal)
           (and (= (length value) 6)
                (pair? (cadr value))
@@ -110,7 +205,7 @@
 ;;     %
 (defrules lexical-expression
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
-   heredoc number-literal
+   heredoc number-literal text-profile
    quoted-string escaped-quoted-string quoted-string-profile until-delimiters character-run
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
@@ -130,6 +225,8 @@
                       leading-period? trailing-period?))
    (list 'number-literal (list prefix ...) separator (list suffix ...)
          leading-period? trailing-period?))
+  ((_ (text-profile expression))
+   (list 'text-profile (text-profile-data expression)))
   ((_ (identifier))
    (lexical-primitive 'identifier))
   ((_ (quoted-string delimiter ...))

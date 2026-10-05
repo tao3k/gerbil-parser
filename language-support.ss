@@ -2,7 +2,8 @@
 ;;; Stable public facade for language implementations.
 ;;; Internal source-admission and fixture layout remains private under src/.
 
-(import (only-in ./language-support/antlr4-source
+(import (only-in ./src/grammar/lexical-algebra deftext-profile)
+        (only-in ./language-support/antlr4-source
                  +antlr4-source-schema+
                  antlr4-rule?
                  antlr4-rule-name
@@ -104,7 +105,8 @@
                  parse-artifact-roundtrip
                  parse-artifact-success?
                  parse-artifact-valid?))
-(export +antlr4-source-schema+
+(export deftext-profile
+        +antlr4-source-schema+
         +javacc-source-schema+
         +iso-bnf-source-schema+
         +iso-bnf-rule-overlay-schema+

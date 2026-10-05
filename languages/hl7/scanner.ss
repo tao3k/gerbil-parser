@@ -5,9 +5,7 @@
 
 (import (only-in :std/list/list delete-duplicates/hash))
 
-(export scan-hl7-segment-id
-        scan-hl7-data
-        scan-hl7-segment-terminator
+(export scan-hl7-data
         scan-hl7-field-separator
         scan-hl7-component-separator
         scan-hl7-repetition-separator
@@ -20,14 +18,6 @@
       (if (and (< offset length) (predicate (string-ref source offset)))
         (loop (+ offset 1))
         (and (> offset start) offset)))))
-
-(def (hl7-segment-id-character? character)
-  (or (and (char>=? character #\A) (char<=? character #\Z))
-      (char-numeric? character)))
-
-(def (scan-hl7-segment-id source start)
-  (let (end (scan-while source start hl7-segment-id-character?))
-    (and end (= (- end start) 3) end)))
 
 (def (hl7-delimiters source)
   (and (>= (string-length source) 8)
@@ -74,15 +64,3 @@
             (and (not (memv character delimiters))
                  (not (char=? character #\return))
                  (not (char=? character #\newline))))))))
-
-(def (scan-hl7-segment-terminator source start)
-  (let (length (string-length source))
-    (and (< start length)
-         (case (string-ref source start)
-           ((#\return)
-            (if (and (< (+ start 1) length)
-                     (char=? (string-ref source (+ start 1)) #\newline))
-              (+ start 2)
-              (+ start 1)))
-           ((#\newline) (+ start 1))
-           (else #f)))))

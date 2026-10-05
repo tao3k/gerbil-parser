@@ -28,8 +28,38 @@ pub struct TerminalSpec {
     pub syntax_kind: u16,
 }
 
+/// Closed character predicates shared with Scheme text-profile IR.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TextClass {
+    Numeric,
+    AsciiLetter,
+    Characters(&'static str),
+    Union(&'static [TextClass]),
+}
+
+/// Offset-only lexical control: optional rollback and guarded commitment are
+/// distinct operations. Root profiles must have positive minimum width.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TextProfile {
+    Literal(&'static str),
+    Run {
+        class: TextClass,
+        minimum: usize,
+        maximum: Option<usize>,
+    },
+    Sequence(&'static [TextProfile]),
+    Optional(&'static TextProfile),
+    IfNext {
+        class: TextClass,
+        body: &'static TextProfile,
+        otherwise: Option<&'static TextProfile>,
+    },
+    NotNext(TextClass),
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LexicalExpr {
+    TextProfile(&'static TextProfile),
     Whitespace,
     HorizontalWhitespace,
     Newline,

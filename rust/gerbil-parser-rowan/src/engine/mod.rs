@@ -33,7 +33,7 @@ pub use model::{
     LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, ListLineRule, Operand,
     OperandAction, Parse, ParseError, ParseReceipt, ParserAction, Production, Reduction,
     ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode, SyntaxToken, TableLineRule,
-    Terminal, TerminalSpec, TreeEvent, UnclosedBlockPolicy,
+    Terminal, TerminalSpec, TextClass, TextProfile, TreeEvent, UnclosedBlockPolicy,
 };
 pub use parser::{parse, parse_scanned};
 pub use structural_lines::parse_structural_lines;

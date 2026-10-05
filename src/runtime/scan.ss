@@ -1,12 +1,14 @@
 ;;; -*- Gerbil -*-
 ;;; Language-neutral scanner primitives used by generated lexers.
 
-(import (only-in :std/string/utf8 string-utf8-length)
+(import (only-in ../grammar/lexical-algebra text-profile?)
+        (only-in :std/string/utf8 string-utf8-length)
         (only-in :std/func any-of)
         (only-in :std/vector/vector vector-map/index)
         (only-in ./token make-token))
 
-(export identifier-start? horizontal-whitespace? newline?
+(export make-text-profile-scanner
+        identifier-start? horizontal-whitespace? newline?
         scan-whitespace
         scan-horizontal-whitespace
         scan-newline
@@ -31,6 +33,75 @@
         make-ranked-regular-scanner
         scan-longest-literal
         scan-emit)
+
+;;; Compile class and control dispatch once at parser-machine preparation.
+;;; Matching carries source/end offsets only; optional rollback and guarded
+;;; commitment are explicit data operations rather than language callbacks.
+(def (prepare-text-class expression)
+  (case (car expression)
+    ((numeric) char-numeric?)
+    ((ascii-letter) (lambda (ch) (or (and (char>=? ch #\A) (char<=? ch #\Z)) (and (char>=? ch #\a) (char<=? ch #\z)))))
+    ((characters) (let (characters (string->list (cadr expression)))
+                    (lambda (ch) (and (memv ch characters) #t))))
+    ((union)
+     (let compile ((classes (cdr expression)))
+       (if (null? classes)
+         (lambda (_ch) #f)
+         (let ((accept? (prepare-text-class (car classes)))
+               (rest? (compile (cdr classes))))
+           (lambda (ch) (or (accept? ch) (rest? ch)))))))))
+
+(def (prepare-text-profile expression)
+  (case (car expression)
+    ((literal)
+     (let* ((text (cadr expression)) (width (string-length text)))
+       (lambda (source start limit)
+         (let (end (+ start width))
+           (and (<= end limit)
+                (let loop ((index 0))
+                  (or (= index width)
+                      (and (char=? (string-ref text index) (string-ref source (+ start index)))
+                           (loop (+ index 1))))) end)))))
+    ((run)
+     (let ((accept? (prepare-text-class (cadr expression)))
+           (minimum (caddr expression)) (maximum (cadddr expression)))
+       (lambda (source start limit)
+         (let loop ((end start) (count 0))
+           (if (and (< end limit) (or (not maximum) (< count maximum))
+                    (accept? (string-ref source end)))
+             (loop (+ end 1) (+ count 1))
+             (and (>= count minimum) end))))))
+    ((seq)
+     (let (steps (map prepare-text-profile (cdr expression)))
+       (lambda (source start limit)
+         (let loop ((rest steps) (end start))
+           (if (null? rest) end
+             (let (next ((car rest) source end limit))
+               (and next (loop (cdr rest) next))))))))
+    ((optional)
+     (let (step (prepare-text-profile (cadr expression)))
+       (lambda (source start limit) (or (step source start limit) start))))
+    ((if-next)
+     (let ((accept? (prepare-text-class (cadr expression)))
+           (step (prepare-text-profile (caddr expression)))
+           (otherwise (if (= (length expression) 4)
+                        (prepare-text-profile (cadddr expression))
+                        (lambda (_source start _limit) start))))
+       (lambda (source start limit)
+         (if (and (< start limit) (accept? (string-ref source start)))
+           (step source start limit) (otherwise source start limit)))))
+    ((not-next)
+     (let (accept? (prepare-text-class (cadr expression)))
+       (lambda (source start limit)
+         (and (or (= start limit) (not (accept? (string-ref source start)))) start))))))
+
+(def (make-text-profile-scanner expression)
+  (unless (text-profile? expression) (error "invalid or nullable text profile" expression))
+  (let (scan (prepare-text-profile expression))
+    (lambda (source start)
+      (let (limit (string-length source))
+        (and (exact-integer? start) (<= 0 start limit)
+             (let (end (scan source start limit)) (and end (> end start) end)))))))
 
 ;; Scanner functions return the exclusive source-character end offset or #f.
 ;; : (-> String Nat (-> Char Boolean) (Maybe Nat))

@@ -206,6 +206,9 @@ jobs:
           gerbil env gxi t/generate-quoted-string-profile.ss /tmp/quoted-profile.rs
           rustfmt --edition 2024 /tmp/quoted-profile.rs
           cmp /tmp/quoted-profile.rs rust/gerbil-parser-rowan/tests/fixtures/quoted_profile_generated.rs
+          gerbil env gxi t/generate-text-profile.ss /tmp/fhirpath-profile.rs
+          rustfmt --edition 2024 /tmp/fhirpath-profile.rs
+          cmp /tmp/fhirpath-profile.rs rust/gerbil-parser-rowan/tests/fixtures/fhirpath_profile_generated.rs
 
       - name: Verify shared scanner and contextual Rust AOT regeneration
         run: |

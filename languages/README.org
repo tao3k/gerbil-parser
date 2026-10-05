@@ -241,6 +241,53 @@ still require a shared Scanner IR representation before standalone Rust can
 execute them; moving a callback into an engine directory does not establish that
 representation.
 
+* Shared closed text profiles
+
+Local lexemes use =(text-profile expression)= inside =deflanguage='s =lex=
+section. The engine prepares the Scheme matcher once when constructing its
+lexer and emits the same closed data into Rust AOT. Language packs supply
+syntax; neither target requires a language callback.
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support deflanguage deftext-profile))
+(deftext-profile fractional-part
+  (optional (seq (literal ".") (run (numeric) 1 #f))))
+;; Within a lex row:
+;; (number Number (text-profile
+;;   (seq (run (numeric) 1 #f) (ref fractional-part))))
+#+end_src
+
+=deftext-profile= declares a reusable syntax fragment. =(ref fragment)= expands
+hygienically during declaration compilation; fragment names do not survive in
+Grammar/Parser IR and cannot become runtime lookups. Cyclic or excessively deep
+expansion rejects before publication. Direct profile data remains available in
+the canonical IR; fragments are not runtime scanner procedures.
+
+| Operation | Semantics |
+|---+---|
+| =(literal text)= | Consume nonempty exact text |
+| =(run class minimum maximum)= | Consume a maximal class run within bounds; =#f= means input-bounded maximum |
+| =(seq expression ...)= | Require every step in order |
+| =(optional expression)= | Restore the entry offset when the whole child fails |
+| =(if-next class yes [no])= | Choose by the next character; a chosen branch must succeed |
+| =(not-next class)= | Reject a matching next character without consuming input |
+
+Classes are =(numeric)=, =(ascii-letter)=, =(characters text)= and
+=(union class ...)=. Numeric matches Scheme's Unicode decimal-digit semantics,
+including Arabic and full-width digits; general Unicode number categories are
+not interchangeable. Widths count characters in both engines. Scheme returns
+character positions; Rust returns UTF-8 byte spans. Counts and summed minimum
+widths fit an unsigned 32-bit value. Profiles and classes have depth below 64.
+Empty character sets, malformed bounds, unknown operations and nullable roots
+reject at compilation/product admission. Interior zero-width guards are valid;
+there is no repetition operator over a nullable profile.
+
+Choose rollback explicitly: =1.= retains the integer token, while a date/month
+prefix such as =@2024-= must reject after the hyphen selects its required
+month branch. FHIRPath's date/time grammar declares these decisions directly.
+Source-dependent delimiters, nesting and deferred obligations require shared
+source context/state IR; a local text profile does not encode those mechanisms.
+
 * Published catalog projection
 
 New concise DSL packs infer their kinds, fields and terminals. An existing pack
@@ -457,39 +504,35 @@ coverage across the languages.
 | Arithmetic v1 | Concise DSL, canonical loader, declarative generated drive | Replace the retained specialization only when a generic engine strategy proves equivalent |
 | HCL v2.24 | Concise DSL, canonical loader, declarative step/source/event backends | Retained source/event generator still contains HCL-specific lowering assumptions |
 | HL7 v2.5.1 | Concise DSL, canonical loader | Message-local ER7 delimiter scanners remain Scheme callbacks; portable scanner lowering is unqualified |
-| FHIRPath v2.0.0 | Concise DSL, canonical loader, shared strict quote profiles | Domain projection stays in the pack; identifier/number/temporal scanner callbacks still require portable lowering |
+| FHIRPath v2.0.0 | Concise DSL, canonical loader, shared strict quote profiles | Domain projection stays in the pack; identifier/number/temporal declarations now use shared text profiles; full producer/consumer qualification is recorded in the convergence plan |
 | openCypher 2024.1 | Pinned ISO-BNF admission, canonical loader | Keep source identity and engine source normalization; no duplicate native grammar is needed |
 | GQL ISO-39075-2024 | Pinned ANTLR4 admission, canonical loader | Graph domain semantics remain in the pack; general parser/actor/transport mechanisms belong to the engine |
 | TLA+ core/layout/SANY candidate | Concise DSL with validated catalogs, explicit POO loaders | Core/layout preserve IR and digests; candidate corrects the missing TerminalProof item field and regenerates its identity. Stateful scanner lowering remains separate. |
 | Bash 5.3 | Source descriptor, canonical loader | Stateful scanner and handwritten recognition are not shared Scanner/Parser IR or standalone Rust AOT |
 
-The next structural work has the following dependency order:
+The next structural work follows the convergence plan's engine stages:
 
-1. *Represent policies for portable execution.* SANY's public descriptor now
-   binds branch budget 4096 and the TLA+-owned proof checker. Public Scheme,
-   loader and native descriptor entries share the engine's budgeting and
-   lossless rejection mechanism. The raw internal grammar remains a narrower
-   recognition scope. Standalone Rust rejects the configured Scheme policy;
-   policy IR and Rust lowering remain separate required work.
-2. *Qualify TLA+ catalog projection.* All three scopes now lower through the
-   concise DSL with validated published catalogs. Preserve ordered kind/field/
-   terminal catalogs, canonical rules, LR tables, scanner declarations and
-   grammar digests. A future ABI change must be explicit rather than changing
-   row order during authoring migration.
-3. *Lower stateful scanners into shared IR.* Bash here-document queues,
-   quote/context state and word nesting, HL7 message-local delimiters, and TLA+
-   source-sensitive scanning need explicit state transitions, checkpoint
-   ownership and byte-offset behavior. Generic state/storage/checkpoint
-   mechanisms belong to the engine; delimiter/word/proof rules stay in packs.
-   Scheme and Rust must consume the same admitted representation before pure
-   Rust capability is advertised.
-4. *Converge recognition/artifact assembly.* Bash still constructs fallback
-   tokens and success/failure artifacts in =parser-core.ss=. Descriptor-bound
-   post-parse rejection now belongs to the engine; Bash's source-parser assembly
-   remains to migrate to the shared engine result boundary and preserve language-specific diagnostics and deferred
-   here-document span links. Move them with lossless accepted/rejected and
-   UTF-8 span witnesses, not by copying language functions into another folder.
-5. *Generalize retained generators.* HCL and Arithmetic checked-in backends
-   are version-pinned exceptions. General strategy selection, emission and
-   digest admission belong to the engine; syntax-specific assumptions must be
-   represented and validated before their generated modules can be replaced.
+1. *Finish closed local profiles.* TLA+ identifiers/proof lexemes require the
+   Scheme Unicode alphabetic class and endpoint-sensitive guards. Preserve
+   published catalogs and Parser IR identities while lowering these operations.
+2. *Prepare source context once.* Reuse the contextual scanner plan and
+   source-owned checkpoints for HL7's five header captures, TLA+ module depth,
+   and Bash quote/nesting/here-document transitions. HL7 must stop extracting
+   and validating its header for every token; TLA+ must stop rescanning the
+   whole source prefix to compute module depth. Declarative language roles
+   name captures and transitions; the engine validates and executes them in
+   Scheme and Rust. Source/worker/artifact identity binds every checkpoint.
+3. *Converge recognition/artifact assembly.* Bash still constructs fallback
+   tokens and success/failure artifacts in =parser-core.ss=. The engine owns
+   byte extents, result admission, diagnostics and artifact assembly; packs
+   retain grammar and structured-word rules. Preserve deferred here-document
+   span links and accepted/rejected lossless witnesses during migration.
+4. *Generalize retained generators.* HCL and Arithmetic describe eligibility
+   and syntax assumptions as data; engine selection, emission and digest
+   admission replace language-specific strategy mechanisms after parity and
+   complete-call performance checks.
+5. *Represent portable policies.* SANY's Scheme proof policy and branch budget
+   remain admitted in its public descriptor. Standalone Rust continues to
+   reject that Scheme policy until an equivalent policy IR and consumer exist.
+   Rust AOT and language-independent C products require their own actual
+   producer/consumer gates; metadata alone cannot establish portability.

@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
 
-(import (only-in ../runtime/funcs vector-intern-map make-value-interner value-interner-intern)
+(import (only-in ../grammar/lexical-algebra text-profile-data)
+        (only-in ../runtime/funcs vector-intern-map make-value-interner value-interner-intern)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals
@@ -12,7 +13,7 @@
         (only-in ../runtime/scan
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
-                 scan-character-run
+                 scan-character-run make-text-profile-scanner
                  scan-until-delimiters
                  make-literal-end-scanner make-ranked-literal-scanner
                  make-ranked-regular-scanner
@@ -231,7 +232,7 @@
 ;;       ;; => (scan-identifier source offset)
 ;;       ```
 ;;     %
-(defrules lexical-end
+(defrules lexical-end/primitive
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
    quoted-string escaped-quoted-string quoted-string-profile until-delimiters
@@ -287,6 +288,12 @@
   ((_ source offset (fallback))
    (+ offset 1)))
 
+(defrules lexical-end (text-profile)
+  ((_ source offset (text-profile expression))
+   ((make-text-profile-scanner (text-profile-data expression)) source offset))
+  ((_ source offset expression)
+   (lexical-end/primitive source offset expression)))
+
 ;; : (-> (OrFalse Fixnum) (OrFalse Fixnum) (OrFalse Fixnum))
 (def (prefer-longest-end current candidate)
   (cond
@@ -336,7 +343,15 @@
 ;;; Materializes one scanner per declared lexical rule. Static literal
 ;;; catalogs compile to a trie here, while the parser machine is initialized,
 ;;; instead of linearly probing every literal for every source token.
-(defrules lexical-scanner (literals precedence)
+(defrules lexical-scanner (literals precedence text-profile choice)
+  ((_ (text-profile expression))
+   (make-text-profile-scanner (text-profile-data expression)))
+  ((_ (choice expression ...))
+   (let (scanners (list (lexical-scanner expression) ...))
+     (lambda (source offset)
+       (foldl (lambda (scanner end)
+                (prefer-longest-end end (scanner source offset)))
+              #f scanners))))
   ((_ (literals value ...))
    (make-literal-end-scanner '(value ...)))
   ((_ (precedence _rank expression))

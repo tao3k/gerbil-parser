@@ -152,12 +152,74 @@ fn validate_parser_action(
     }
 }
 
+fn valid_text_class(class: &super::model::TextClass, depth: usize) -> bool {
+    use super::model::TextClass;
+    depth < 64
+        && match class {
+            TextClass::Numeric | TextClass::AsciiLetter => true,
+            TextClass::Characters(values) => !values.is_empty(),
+            TextClass::Union(classes) => {
+                !classes.is_empty()
+                    && classes
+                        .iter()
+                        .all(|class| valid_text_class(class, depth + 1))
+            }
+        }
+}
+
+fn text_profile_width(profile: &super::model::TextProfile, depth: usize) -> Option<usize> {
+    use super::model::TextProfile;
+    if depth >= 64 {
+        return None;
+    }
+    match profile {
+        TextProfile::Literal(value) => (!value.is_empty()).then(|| value.chars().count()),
+        TextProfile::Run {
+            class,
+            minimum,
+            maximum,
+        } => (valid_text_class(class, 0)
+            && u32::try_from(*minimum).is_ok()
+            && maximum.is_none_or(|maximum| maximum >= *minimum && u32::try_from(maximum).is_ok()))
+        .then_some(*minimum),
+        TextProfile::Sequence(steps) => {
+            if steps.is_empty() {
+                return None;
+            }
+            steps.iter().try_fold(0usize, |width, step| {
+                width
+                    .checked_add(text_profile_width(step, depth + 1)?)
+                    .filter(|width| u32::try_from(*width).is_ok())
+            })
+        }
+        TextProfile::Optional(step) => text_profile_width(step, depth + 1).map(|_| 0),
+        TextProfile::IfNext {
+            class,
+            body,
+            otherwise,
+        } => {
+            if !valid_text_class(class, 0) {
+                return None;
+            }
+            let yes = text_profile_width(body, depth + 1)?;
+            let no = otherwise.map_or(Some(0), |step| text_profile_width(step, depth + 1))?;
+            Some(yes.min(no))
+        }
+        TextProfile::NotNext(class) => valid_text_class(class, 0).then_some(0),
+    }
+}
+
 fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
     fn nonempty(values: &[&str]) -> bool {
         values.iter().all(|value| !value.is_empty())
     }
 
     match expression {
+        LexicalExpr::TextProfile(profile)
+            if text_profile_width(profile, 0).is_none_or(|width| width == 0) =>
+        {
+            Err("text profile must be valid, bounded in depth, and non-nullable".into())
+        }
         LexicalExpr::NumberLiteral {
             prefixes,
             separator,

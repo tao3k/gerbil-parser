@@ -14,7 +14,7 @@
                  scan-block-comment scan-decimal-digits scan-heredoc
                  scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
                  scan-character-run make-text-profile-scanner
-                 scan-until-delimiters
+                 scan-until-delimiters scan-header-delimiter scan-header-data
                  make-literal-end-scanner make-ranked-literal-scanner
                  make-ranked-regular-scanner
                  scan-longest-literal
@@ -235,7 +235,7 @@
 (defrules lexical-end/primitive
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal
-   quoted-string escaped-quoted-string quoted-string-profile until-delimiters
+   quoted-string escaped-quoted-string quoted-string-profile until-delimiters header-delimiter header-data
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external character-run)
   ((_ source offset (whitespace+))
@@ -266,6 +266,10 @@
    (scan-escaped-quoted-strings source offset (list delimiter ...)))
   ((_ source offset (quoted-string-profile delimiter escapes unicode-width))
    (scan-quoted-string/profile source offset delimiter escapes unicode-width))
+  ((_ source offset (header-delimiter prefix count index))
+   (scan-header-delimiter source offset prefix count index))
+  ((_ source offset (header-data prefix count stops))
+   (scan-header-data source offset prefix count stops))
   ((_ source offset (until-delimiters characters))
    (scan-until-delimiters source offset characters))
   ((_ source offset (heredoc))

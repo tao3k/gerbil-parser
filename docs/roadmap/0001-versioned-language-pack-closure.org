@@ -1097,3 +1097,59 @@ HL7 has external header-derived delimiter callbacks, HCL has recursive source
 execution, TLA+ has lexical/proof policies, and GQL retains query-specific APIs.
 These need declarative constrained engine capabilities and actual consumers,
 not compatibility wrappers or language-specific code relocated without reuse.
+
+* HL7 scanner removal through shared closed header rules — 2026-10-05
+
+Removed =languages/hl7/scanner.ss= and all six language-owned external callback
+references. HL7's concise grammar now declares shared =header-delimiter= and
+=header-data= operations. The lexical algebra validates their prefix/count/index
+or stop data; execution is owned by =src/runtime/scan.ss= and the Rust lexical
+engine. The count is bounded to 1..32 and headers require distinct non-alphabetic,
+non-numeric delimiter characters. The engine compares/borrows source characters
+without constructing delimiter lists or hash tables. Header validation still
+occurs per lexical-rule invocation; no prepared session cache or measured speedup
+is claimed.
+
+The second actual POO Loader is a test language with prefix ="記"=, two dynamic
+separators and =";"= stops. It parses accepted/rejected sources with the same
+engine operations. This is an independent language declaration used as a reuse
+control, not a second production language pack. POO metadata extension preserves
+its descriptor-bound identity. No old HL7 entry alias or external fallback is
+retained, and Loader/IR schema identifiers are unchanged.
+
+The common Rust build strategy emits both complete specs from canonical Scheme
+IR. Rust/Rowan executes the real HL7 ADT A08 corpus, a custom-delimiter message,
+and the independent record sources; malformed header recipes reject at spec
+admission. The two generated source files are executable compiler witnesses,
+not benchmark/result snapshots. CI compiles the Scheme declaration, regenerates
+both Rust files with required per-product markers, formats them and compares
+exactly. The existing Rust workspace gate runs the new native controls.
+
+| Local bounded gate | Result | Process time |
+|---+---+---|
+| Shared Scheme header rules | Three controls: endpoints, closed admission, two actual POO Loaders and lossless rejection | 3.97 s |
+| HL7 public declarative suite | Five controls including real fixture/projection and alternate delimiters | 6.38 s |
+| Existing text profiles | Four controls including HL7 identifiers/terminators and malformed profiles | 6.40 s |
+| Rust header controls | Four filtered tests including three new controls; actual two-language AOT parsing, malformed delimiter/data admission and UTF-8 boundaries | 1.58 s |
+| Direct generation CLI | Both actual product markers, exit 0, exact formatted source comparison for both products | 6.48 s |
+
+Scheme suites require =OK=, =HARNESS-RETURN status=0= and exit 0, with unchanged
+90/5 gates. SDK/GCC compiler and Rust compilation use 90/30. Independent Scheme
+suites and native compiler products were run concurrently. These process times
+include startup/import/build work and are not runtime A/B measurements.
+
+The first metadata extension control replaced bound metadata with an unbound
+object and correctly failed the Loader contract. It now extends the existing
+metadata value, preserving language/version/contract/digest identity. The first
+generation invocation returned 0 but lacked an exported =main= and produced
+neither file; that receipt was rejected after checking product existence.
+The corrected exported entry requires both product markers, and a separate
+actual CLI invocation verifies exact files. The initial Cargo invocation also
+failed before execution because Rust tools were absent from PATH; the existing
+project native environment resolved the installed paired Cargo/rustc tools.
+No failure was turned into a pass by relaxing a gate or restoring an adapter.
+
+HL7 scanner ownership is closed; its projection module remains outside the
+three-interface target. Next runtime migrations remain Bash word/source state,
+HCL recursive source strategies and TLA+ scanner/proof policy. Each must become
+a constrained declarative engine capability with actual reuse controls.

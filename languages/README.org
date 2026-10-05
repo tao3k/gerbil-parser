@@ -544,7 +544,7 @@ coverage across the languages.
 |---+---+---|
 | Arithmetic v1 | Concise DSL, canonical loader, declarative generated drive | Replace the retained specialization only when a generic engine strategy proves equivalent |
 | HCL v2.24 | Concise DSL, canonical loader, declarative step/source/event backends | Retained source/event generator still contains HCL-specific lowering assumptions |
-| HL7 v2.5.1 | Concise DSL, canonical loader | Message-local ER7 delimiter scanners remain Scheme callbacks; portable scanner lowering is unqualified |
+| HL7 v2.5.1 | Concise DSL, canonical loader, shared closed header-delimiter/data rules | Scanner callbacks removed; Scheme and Rust AOT qualified on real messages and an independent header-record declaration. Domain projection still needs ownership convergence. |
 | FHIRPath v2.0.0 | Concise DSL, canonical loader, shared strict quote profiles | Domain projection stays in the pack; identifier/number/temporal declarations now use shared text profiles; full producer/consumer qualification is recorded in the convergence plan |
 | openCypher 2024.1 | Pinned ISO-BNF admission, canonical loader | Keep source identity and engine source normalization; no duplicate native grammar is needed |
 | GQL ISO-39075-2024 | Pinned ANTLR4 admission, canonical loader | Graph domain semantics remain in the pack; general parser/actor/transport mechanisms belong to the engine |

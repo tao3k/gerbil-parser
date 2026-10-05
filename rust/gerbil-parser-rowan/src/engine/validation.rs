@@ -215,6 +215,18 @@ fn validate_lexical_expression(expression: &LexicalExpr) -> Result<(), String> {
     }
 
     match expression {
+        LexicalExpr::HeaderDelimiter {
+            prefix,
+            count,
+            index,
+        } if prefix.is_empty() || !(1..=32).contains(count) || index >= count => {
+            Err("header delimiter requires a prefix, bounded count and valid index".into())
+        }
+        LexicalExpr::HeaderData { prefix, count, .. }
+            if prefix.is_empty() || !(1..=32).contains(count) =>
+        {
+            Err("header data requires a prefix and bounded delimiter count".into())
+        }
         LexicalExpr::TextProfile(profile)
             if text_profile_width(profile, 0).is_none_or(|width| width == 0) =>
         {

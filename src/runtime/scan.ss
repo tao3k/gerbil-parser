@@ -14,7 +14,7 @@
         scan-newline
         scan-line
         scan-character-run
-        scan-until-delimiters
+        scan-until-delimiters scan-header-delimiter scan-header-data
         scan-decimal-digits
         scan-number-literal
         scan-number-literal/profile
@@ -102,6 +102,43 @@
       (let (limit (string-length source))
         (and (exact-integer? start) (<= 0 start limit)
              (let (end (scan source start limit)) (and end (> end start) end)))))))
+
+;;; Header-derived delimiter rules are closed data, independent of language.
+;;; Compare directly in the source: no delimiter list, substring or hash table.
+;;; A bounded header contains distinct non-alphabetic, non-numeric characters.
+(def (header-delimiter-base source prefix count)
+  (let (base (string-length prefix))
+    (and (<= (+ base count) (string-length source)) (literal-at? source 0 prefix)
+         (let loop ((index 0))
+           (if (= index count) base
+             (let (character (string-ref source (+ base index)))
+               (and (not (char-alphabetic? character)) (not (char-numeric? character))
+                    (let unique ((previous 0))
+                      (or (= previous index)
+                          (and (not (char=? character (string-ref source (+ base previous))))
+                               (unique (+ previous 1)))))
+                    (loop (+ index 1)))))))))
+(def (scan-header-delimiter source start prefix count index)
+  (and (exact-integer? start) (<= 0 start) (< start (string-length source))
+       (let (base (header-delimiter-base source prefix count))
+         (and base (char=? (string-ref source start) (string-ref source (+ base index)))
+              (+ start 1)))))
+(def (scan-header-data source start prefix count stops)
+  (and (exact-integer? start) (<= 0 start) (< start (string-length source))
+       (let (base (header-delimiter-base source prefix count))
+         (and base
+              (let loop ((end start))
+                (if (and (< end (string-length source))
+                         (let (character (string-ref source end))
+                           (and (let stop ((index 0))
+                                  (or (= index (string-length stops))
+                                      (and (not (char=? character (string-ref stops index)))
+                                           (stop (+ index 1)))))
+                                (let delimiter ((index 0))
+                                  (or (= index count)
+                                      (and (not (char=? character (string-ref source (+ base index))))
+                                           (delimiter (+ index 1))))))))
+                  (loop (+ end 1)) (and (> end start) end)))))))
 
 ;; Scanner functions return the exclusive source-character end offset or #f.
 ;; : (-> String Nat (-> Char Boolean) (Maybe Nat))

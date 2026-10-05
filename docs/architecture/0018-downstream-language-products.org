@@ -626,3 +626,43 @@ repeated source parsing invokes neither provider admission nor generation.
 A format identifier does not grant a new portable runtime capability. No C
 provider is implemented by this change, and Scheme-only parser policies remain
 unsupported by Rust.
+
+** Header-derived delimiter rules shared by Scheme and Rust
+
+The closed LexicalExpr constructors =(header-delimiter prefix count index)= and
+=(header-data prefix count stops)= replace language-owned scanner callbacks.
+For example HL7 declares =(header-delimiter "MSH" 5 0)= for its field separator
+and =(header-data "MSH" 5 "\r\n")= for data. An independent header-record
+language declares prefix ="記"=, count =2= and stops =";"=, through the same
+=deflanguage= and POO =deflanguage-parser-loader= boundary.
+
+Admission requires a nonempty string prefix, an exact delimiter count from 1
+through 32, and a valid zero-based delimiter index or string of stop characters.
+The source must start with the prefix followed by exactly the declared number
+of distinct, non-alphabetic, non-numeric delimiter characters. The count defines
+the header span; subsequent source may immediately follow it. Data consumes a
+nonempty run excluding those delimiters and explicit stops; spaces are preserved.
+Rules return no match on malformed or incomplete headers. There are no callback,
+state, language-name or version-name slots in this lexical recipe.
+
+Scheme execution compares source characters directly. Rust borrows the UTF-8
+header slice and returns byte endpoints; neither implementation allocates a
+separator list or hash table. Header validation is repeated for each lexical
+rule invocation; this change does not add a per-source prepared-header cache or
+claim a measured runtime speedup. The bounded count keeps that work explicit.
+Unicode endpoint and selected alphabetic/numeric rejection cases are tested;
+these receipts are not exhaustive Unicode-table equivalence evidence.
+
+The language keeps ordinary metadata/fixture extension slots on its POO Loader.
+The inherited binding enforces descriptor identity. Extending an already bound
+metadata object preserves its required identity slots, whereas replacing it
+with an unbound metadata object rejects. The Loader schema remains v2.
+
+The Rust producer emits corresponding =LexicalExpr::HeaderDelimiter= and
+=LexicalExpr::HeaderData= values from canonical Scheme IR. Two complete generated
+language specs compile and execute with Rust/Rowan: the real HL7 fixture and
+custom message delimiters, and the independent Unicode header-record language.
+CI regenerates both formatted Rust source products and compares them exactly.
+=languages/hl7/scanner.ss= is deleted; no import alias or fallback scanner remains.
+HL7's domain projection is still separate work before its directory reaches
+three authoring interfaces.

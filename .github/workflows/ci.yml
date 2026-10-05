@@ -198,7 +198,18 @@ jobs:
           gerbil env gxc \
             t/fixtures/rowan-record-assignments/languages/records/grammar.ss \
             t/fixtures/rowan-record-assignments/languages/records/fixtures.ss \
-            t/fixtures/rowan-record-assignments/languages/records/parser.ss
+            t/fixtures/rowan-record-assignments/languages/records/parser.ss \
+            t/header-delimiter-test.ss
+
+      - name: Verify header-derived delimiter Rust AOT regeneration
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log .data/header-delimiter-generation.log \
+            --require HEADER-DELIMITER-HL7-GENERATED --require HEADER-DELIMITER-RECORD-GENERATED \
+            -- gxi t/generate-header-delimiters.ss /tmp/hl7-header.rs /tmp/header-record.rs
+          rustfmt --edition 2024 /tmp/hl7-header.rs /tmp/header-record.rs
+          cmp /tmp/hl7-header.rs rust/gerbil-parser-rowan/tests/fixtures/generated/hl7_header.rs
+          cmp /tmp/header-record.rs rust/gerbil-parser-rowan/tests/fixtures/generated/header_record.rs
 
       - name: Verify strict quoted profile Rust AOT regeneration
         run: |

@@ -69,3 +69,7 @@ mod event_fold_aot_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/graph_index.rs"]
 mod graph_index_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/header_delimiters.rs"]
+mod header_delimiter_tests;

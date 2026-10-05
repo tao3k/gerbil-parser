@@ -318,3 +318,43 @@ fn text_profile_depth_rejects_before_aot_execution() {
         "invalid-aot-artifact"
     );
 }
+
+#[test]
+fn header_delimiter_rules_support_independent_prefixes_and_utf8_offsets() {
+    let field = LexicalExpr::HeaderDelimiter {
+        prefix: "MSH",
+        count: 5,
+        index: 0,
+    };
+    let data = LexicalExpr::HeaderData {
+        prefix: "MSH",
+        count: 5,
+        stops: "\r\n",
+    };
+    assert_eq!(lexical_end(&field, "MSH|^~\\&|", 3), Some(4));
+    assert_eq!(lexical_end(&data, "MSH|^~\\&α x|", 8), Some(12));
+    assert_eq!(lexical_end(&data, "MSH|^~\\&\r", 8), None);
+    for invalid in ["MSH|^~||", "MSH1^~\\&", "MSHα^~\\&", "MSH|^", "REC|^~\\&"] {
+        assert_eq!(lexical_end(&field, invalid, 3), None, "{invalid}");
+    }
+    let separator = LexicalExpr::HeaderDelimiter {
+        prefix: "記",
+        count: 2,
+        index: 1,
+    };
+    let record = LexicalExpr::HeaderData {
+        prefix: "記",
+        count: 2,
+        stops: ";",
+    };
+    assert_eq!(lexical_end(&separator, "記|§α§", 4), Some(6));
+    assert_eq!(lexical_end(&record, "記|§α§", 6), Some(8));
+    assert_eq!(lexical_end(&record, "記|§α§", 5), None);
+    assert_eq!(lexical_end(&record, "記|§α§", usize::MAX), None);
+    let invalid = LexicalExpr::HeaderDelimiter {
+        prefix: "記",
+        count: 2,
+        index: 2,
+    };
+    assert_eq!(lexical_end(&invalid, "記|§", 3), None);
+}

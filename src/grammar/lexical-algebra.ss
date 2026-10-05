@@ -134,6 +134,14 @@
                (string? (cadr value)) (= (string-length (cadr value)) 1)
                (string? (caddr value))
                (exact-integer? (cadddr value)) (<= 0 (cadddr value) 8)))
+         ((header-delimiter header-data)
+          (and (= (length value) 4)
+               (string? (cadr value)) (positive? (string-length (cadr value)))
+               (exact-integer? (caddr value)) (<= 1 (caddr value) 32)
+               (if (eq? (car value) 'header-delimiter)
+                 (and (exact-integer? (cadddr value)) (<= 0 (cadddr value))
+                      (< (cadddr value) (caddr value)))
+                 (string? (cadddr value)))))
          ((until-delimiters)
           (and (= (length value) 2)
                (string? (cadr value))
@@ -206,7 +214,7 @@
 (defrules lexical-expression
   (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
    heredoc number-literal text-profile
-   quoted-string escaped-quoted-string quoted-string-profile until-delimiters character-run
+   quoted-string escaped-quoted-string quoted-string-profile until-delimiters character-run header-delimiter header-data
    line-comment block-comment nested-block-comment
    choice literals fallback precedence external)
   ((_ (whitespace+))
@@ -235,6 +243,10 @@
    (cons 'escaped-quoted-string (list delimiter ...)))
   ((_ (quoted-string-profile delimiter escapes unicode-width))
    (list 'quoted-string-profile delimiter escapes unicode-width))
+  ((_ (header-delimiter prefix count index))
+   (list 'header-delimiter prefix count index))
+  ((_ (header-data prefix count stops))
+   (list 'header-data prefix count stops))
   ((_ (until-delimiters characters))
    (list 'until-delimiters characters))
   ((_ (character-run character minimum))

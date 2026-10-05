@@ -75,6 +75,16 @@ pub enum LexicalExpr {
     },
     Identifier,
     UntilDelimiters(&'static str),
+    HeaderDelimiter {
+        prefix: &'static str,
+        count: usize,
+        index: usize,
+    },
+    HeaderData {
+        prefix: &'static str,
+        count: usize,
+        stops: &'static str,
+    },
     CharacterRun {
         character: &'static str,
         minimum: usize,

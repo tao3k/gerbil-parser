@@ -204,6 +204,26 @@ fn text_profile_end(
     }
 }
 
+// Borrow the bounded delimiter span directly from the source, without allocation.
+fn header_delimiters<'a>(source: &'a str, prefix: &str, count: usize) -> Option<&'a str> {
+    if prefix.is_empty() || !(1..=32).contains(&count) {
+        return None;
+    }
+    let suffix = source.strip_prefix(prefix)?;
+    let mut end = 0;
+    for (at, character) in suffix.char_indices().take(count) {
+        if character.is_alphabetic()
+            || super::unicode_numeric::is_scheme_numeric(character)
+            || suffix[..at].contains(character)
+        {
+            return None;
+        }
+        end = at + character.len_utf8();
+    }
+    let delimiters = &suffix[..end];
+    (delimiters.chars().count() == count).then_some(delimiters)
+}
+
 pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize) -> Option<usize> {
     let suffix = source.get(offset..)?;
     match expression {
@@ -236,6 +256,31 @@ pub(crate) fn lexical_end(expression: &LexicalExpr, source: &str, offset: usize)
             *trailing_period,
         ),
         LexicalExpr::Identifier => identifier_end(source, offset),
+        LexicalExpr::HeaderDelimiter {
+            prefix,
+            count,
+            index,
+        } => {
+            if index >= count {
+                return None;
+            }
+            let delimiter = header_delimiters(source, prefix, *count)?
+                .chars()
+                .nth(*index)?;
+            suffix
+                .starts_with(delimiter)
+                .then_some(offset + delimiter.len_utf8())
+        }
+        LexicalExpr::HeaderData {
+            prefix,
+            count,
+            stops,
+        } => {
+            let delimiters = header_delimiters(source, prefix, *count)?;
+            consume_while(source, offset, |character| {
+                !stops.contains(character) && !delimiters.contains(character)
+            })
+        }
         LexicalExpr::UntilDelimiters(delimiters) => consume_while(source, offset, |character| {
             !character.is_whitespace() && !delimiters.contains(character)
         }),

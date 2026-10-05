@@ -1,47 +1,25 @@
 ;;; -*- Gerbil -*-
 ;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
-;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
-
-(import :std/test
+(import :gerbil-parser/language-test-support
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/src/runtime/artifact
-                 parse-artifact-ref parse-artifact-roundtrip
-                 parse-artifact-success? parse-artifact-valid?)
-        :gerbil-parser/languages/hl7/parser
-        :gerbil-parser/languages/hl7/projection)
-
-(def fixture-path "languages/hl7/corpus/adt-a08-patient.hl7")
-
-(def hl7-parser-test
-  (test-suite "HL7v2 ER7 2.5.1 parser"
-    (test-case "ADT A08 is accepted, lossless and projected with receipt identity"
-      (let* ((source (call-with-input-file fixture-path read-all-as-string))
-             (artifact (parse-hl7 source))
-             (projection (hl7-adt-a08-patient-projection artifact)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-valid? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)
-        (check (cdr (assq 'sourceDigest projection))
-               => (parse-artifact-ref artifact 'sourceDigest))
-        (check (cdr (assq 'sourceMessageType projection)) => "ADT^A08")
-        (check (cdr (assq 'identifierValue projection)) => "8003608166690503")
-        (check (cdr (assq 'familyName projection)) => "Nguyen")
-        (check (cdr (assq 'givenNames projection)) => '("Ava"))))
-    (test-case "a missing delimiter header rejects with a valid lossless artifact"
-      (for-each
-       (lambda (source)
-         (let (artifact (parse-hl7 source))
-           (check (parse-artifact-success? artifact) => #f)
-           (check (parse-artifact-valid? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)))
-       '("PID|1\r" "PID|α\r")))
-    (test-case "message-local delimiter declaration is parsed losslessly"
-      (let* ((source
-              "MSH*$%!?*LEGACY*AU*FHIR*AU*202609170900**ADT$A08*1*P*2.5.1\r")
-             (artifact (parse-hl7 source)))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-valid? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)))))
-
-(export hl7-parser-test)
+        (only-in :gerbil-parser/language-support parse-artifact-ref)
+        ./parser ./projection)
+(deflanguage-parser-tests hl7-parser-test "HL7v2 ER7 2.5.1 parser"
+  (loader hl7-language)
+  (accepted "ADT A08 is lossless and projected"
+    (call-with-input-file "languages/hl7/corpus/adt-a08-patient.hl7" read-all-as-string)
+    (projection hl7-adt-a08-patient-projection
+      (sourceMessageType "ADT^A08") (identifierValue "8003608166690503")
+      (familyName "Nguyen") (givenNames '("Ava"))))
+  (property "projection source identity matches its artifact"
+    (bindings (artifact (parse-hl7 (call-with-input-file
+                                     "languages/hl7/corpus/adt-a08-patient.hl7" read-all-as-string)))
+              (projection (hl7-adt-a08-patient-projection artifact)))
+    (equal (cdr (assq 'sourceDigest projection))
+           (parse-artifact-ref artifact 'sourceDigest)))
+  (rejected-many "missing delimiter headers retain valid lossless artifacts"
+    '("PID|1\r" "PID|α\r"))
+  (accepted "message-local delimiters"
+    "MSH*$%!?*LEGACY*AU*FHIR*AU*202609170900**ADT$A08*1*P*2.5.1\r")
+  (fixtures "loader fixture conformance"))

@@ -324,3 +324,52 @@ Remaining product work includes generic generated Cargo/native package manifests
 atomic publication across products, standalone runtime lifecycle and Rust FFI
 ownership, typed accessors, contextual GLR branch state, and the canonical Bash
 syntax/field port. There is no comparative Tree-sitter performance claim.
+
+* Parser-test declarations
+
+Import =:gerbil-parser/language-test-support= in =parser-test.ss=. Define one
+exported suite with =deflanguage-parser-tests= and the language's POO loader:
+
+#+begin_src scheme
+(deflanguage-parser-tests example-parser-test "Example language"
+  (loader example-language)
+  (fixtures "inherited fixture values")
+  (accepted "assignment" "x = 1" (nodes Assignment) (tokens identifier number))
+  (accepted-many "literal forms" '("1" "2"))
+  (rejected "incomplete assignment" "x =" (diagnostics))
+  (identity "identity" (language "example") (contract "example.v1"))
+  (property "projection value"
+    (bindings (actual (example-project (parse-example "x = 1"))))
+    (equal (cdr (assq 'name actual)) "x")))
+#+end_src
+
+| Clause | Engine-owned obligation |
+|---+---|
+| =accepted= / =rejected= | Parse once through the Loader =.parse= slot; valid artifact, status, exact source and source digest |
+| =accepted-many= / =rejected-many= | A nonempty list of source strings; the same invariant checks for each |
+| =fixtures= | Invoke the Loader's named =fixtures= test service, retain inherited corpus values, verify count, validity, source and digest |
+| =identity= | Equality for declared =schema=, =language=, =version= and =contract= fields |
+| =ast= | Exact engine AST grammar with mandatory fields, token text and byte spans |
+| =property= | Explicit sequential bindings and at least one equality assertion for extension-specific results |
+
+Artifact expectations are =(nodes Kind ...)=, =(without-nodes Kind ...)=,
+=(tokens kind ...)=, =(counts (Kind nonnegative-count) ...)=, =(diagnostics)=,
+=(artifact-ref key expected)= and
+=(projection project (field expected) ...)=. Node/token names and projection
+keys are literal symbols; counts are nonnegative integer declarations. Ordinary
+source expressions remain values, so generated corpora do not need user-owned
+iteration/assertion code. Property bindings support application projection and
+receipt APIs; the compiler accepts no arbitrary test-case statement body.
+
+The macro validates the effective Loader through =LanguageLoaderContract=;
+POO inheritance/fixture override uses the existing Loader slots. The macro does
+not create a second Loader type, upgrade =language-entry.v2=, or grant Rust/C
+capabilities. Common tests require no author-written lambdas. A multivalue
+receipt API may use a property binding to collect its returned values explicitly.
+
+Bash, Arithmetic, HL7 and FHIRPath have migrated to this syntax, as has the
+independent Records consumer. Bash's two source-contract/checkpoint controls
+remain under =t/= with their engine owner and all original assertions. HCL,
+GQL and openCypher retain existing advanced suites pending declarative strategy,
+normalization and precedence controls; their raw test bodies are not counted as
+completed migration. TLA+ scope tests are also still separate migration work.

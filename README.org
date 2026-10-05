@@ -41,6 +41,33 @@ and actor request benchmarks beside its parser under
 =just benchmark-gql= reports CPU/wall P50/P95, GC and allocation;
 =just benchmark-gql-actors= reports separate concurrent request batch costs.
 
+* Declarative language tests
+
+=:gerbil-parser/language-test-support= publishes =deflanguage-parser-tests=.
+The test declaration names a POO loader and syntax obligations. The engine owns
+parser invocation, artifact validity, acceptance, lossless source and digest
+checks; the =fixtures= clause runs the loader's named fixture service and checks
+its results. Test imports do not start actors or change the loader schema.
+
+#+begin_src scheme
+(import :gerbil-parser/language-test-support ./parser)
+(deflanguage-parser-tests example-parser-test "Example syntax"
+  (loader example-language)
+  (identity "identity" (language "example") (version "v1"))
+  (fixtures "declared corpus")
+  (accepted "nested expression" "(1)" (nodes Expression))
+  (rejected "missing delimiter" "(1" (diagnostics)))
+#+end_src
+
+Accepted/rejected collections, token and node kinds/counts, exact ASTs and
+projection values are closed test clauses. Unknown clauses, duplicate labels,
+empty assertions and malformed expectations reject during expansion. A
+=property= extension has explicit local =bindings= and =equal= assertions;
+it supports implementation-specific receipts/projections, not arbitrary
+=test-case= bodies. Loader, source and parser are evaluated once per obligation.
+See [[file:docs/architecture/0018-downstream-language-products.org][the downstream extension guide]]
+for the full syntax and migration boundary.
+
 * Shared contextual scanner and language C products
 
 =:gerbil-parser/rust-rowan-support= exports

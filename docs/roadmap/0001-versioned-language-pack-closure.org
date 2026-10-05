@@ -711,3 +711,51 @@ modules are =scanner.ss=, =word.ss= and =parser-core.ss=. Command transitions,
 embedded word projection and recognition/result assembly are the next shared
 engine obligations. This step does not close Bash's three-interface target or
 qualify a complete Bash Rust AOT/C ABI product.
+
+* Constrained parser-test syntax — 2026-10-05
+
+=deflanguage-parser-tests= is now the public test declaration through the
+=language-test-support.ss= facade. It admits the POO Loader with the existing
+=LanguageLoaderContract=, evaluates the Loader once, and uses its effective
+=.parse= and named fixture-test service. Syntax rows own source/expected values;
+the engine owns evaluation and artifact validity/status/roundtrip/digest checks.
+Node/token membership, node counts, absent nodes, diagnostics, exact AST fields
+and byte spans, and projection values are typed clauses. Property extensions
+have explicit bindings and equality assertions; arbitrary test-case statement
+bodies, unknown sections and empty properties are rejected during expansion.
+Duplicate labels also reject before publishing a suite.
+
+| Owner | Current migration |
+|---+---|
+| Bash | 17 syntax/receipt/fixture rows; repeated parser calls and local event traversal removed |
+| Arithmetic | Five rows; direct-driver property, loader identity, fixtures, 1024-line input and exact AST |
+| HL7 | Five rows; ADT projection/identity, alternate delimiters, lossless rejection and fixtures |
+| FHIRPath | Six rows; official source identity, AU fixtures, normative forms and strict profile admission |
+| Independent Records pack | Two rows; public identity and accepted/rejected corpus through installed facades |
+| HCL | Existing 27 strategy/corpus cases remain; design shared seeded lexer/route parity test declarations next |
+| GQL / openCypher | Existing precedence, normalization and bound-source controls remain; generic AST/IR expectation extensions still required |
+| TLA+ scopes | Existing separate scope suites remain to migrate |
+
+Bash's two source-digest admission and UTF-8 checkpoint tests moved intact to
+=t/language-source-contract-test.ss= because they exercise engine contracts.
+The regression corpus, ordered marker/body checks, word/node kinds and rejection
+inputs were preserved. Tests now additionally check valid lossless artifacts and
+source digests for every ordinary syntax row, including rejected source rows.
+No parsing implementation, schema, dependency or backend selection changed.
+
+Native GCC-compiled test support qualified all five migrated consumers. Bash,
+Arithmetic, HL7 and FHIRPath bounded runs completed in 5.19, 5.08, 4.55 and 4.11
+seconds respectively. Engine controls cover ten expansion-time negative forms,
+single Loader/source/parser evaluation despite multiple expectations, macro
+hygiene, and effective inherited fixture override. Records and the retained
+source-contract controls also pass. These are qualification timings from
+concurrent runs, not performance comparisons.
+
+The first native support import failed because its newly emitted macro module
+had not yet been compiled. The first consumer batch exposed an empty generated
+=let= for syntax rows without extra structure expectations and one unmatched
+Arithmetic source delimiter. Both source defects were corrected; the exact
+failed logs remain separate from passing reruns. No timeout was relaxed and no
+interpreter/toolchain fallback was used. Full migration of the remaining
+advanced suites is still an open owner obligation; a bare suite wrapper is not
+accepted as completion.

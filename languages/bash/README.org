@@ -63,4 +63,7 @@ The deleted =scan-words.ss= has no replacement procedural language module.
 =scanner.ss=, =word.ss= and =parser-core.ss= still own command transitions,
 word projection and recognition respectively. Full Bash Rust/C products remain
 unqualified until those declarations migrate and their callbacks are removed.
-Fixtures now live in =grammar.ss=; the 17-case suite lives in =parser-test.ss=.
+Fixtures live in =grammar.ss=. The 17-case =parser-test.ss= now uses
+=deflanguage-parser-tests=: source obligations and node/token declarations
+replace local artifact traversal and assertion loops. Two engine contract and
+UTF-8 checkpoint controls live under =t/= with all original assertions.

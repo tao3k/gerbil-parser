@@ -167,6 +167,14 @@ bootstrap cycle; public backend admission remains enabled. The generator's
 reviewed closed-path digest changes with the identity. Full installed native
 qualification remains the next CI gate; the failed native jobs stay failed.
 
+** Records dependency ordering follow-up
+
+Head =6a107af= passes both HCL generator checks on Ubuntu and macOS, then fails
+while compiling downstream Records test support: =parser.ss= now imports the
+fixture value, but CI still compiles the parser before =fixtures.ss=. Both CI
+commands now follow grammar → fixtures → parser. No producer or runtime check
+is skipped; fresh CI at the follow-up head remains required.
+
 ** Historical S0 implementation and qualification (e1d0cf2)
 
 The v2 loader migration covers all ten public entries. Test services use private,

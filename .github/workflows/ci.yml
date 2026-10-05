@@ -195,8 +195,8 @@ jobs:
           fi
           gerbil env gxc \
             t/fixtures/rowan-record-assignments/languages/records/grammar.ss \
-            t/fixtures/rowan-record-assignments/languages/records/parser.ss \
-            t/fixtures/rowan-record-assignments/languages/records/fixtures.ss
+            t/fixtures/rowan-record-assignments/languages/records/fixtures.ss \
+            t/fixtures/rowan-record-assignments/languages/records/parser.ss
 
       - name: Verify strict quoted profile Rust AOT regeneration
         run: |
@@ -344,8 +344,8 @@ jobs:
           mkdir -p "$clean_home"
           gerbil env gxc \
             "$fixture/languages/records/grammar.ss" \
-            "$fixture/languages/records/parser.ss" \
             "$fixture/languages/records/fixtures.ss" \
+            "$fixture/languages/records/parser.ss" \
             "$fixture/languages/records/parser-test.ss"
           env -i \
             HOME="$clean_home" \

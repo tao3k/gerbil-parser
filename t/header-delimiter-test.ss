@@ -1,6 +1,8 @@
 ;;; Closed header-derived scanning is shared by independent POO language Loaders.
 (import :std/test
         (only-in :clan/poo/object .o .cc .ref)
+        :gerbil-parser/language-support/projection
+        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-ref)
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-support deflanguage deflanguage-parser-loader LanguageLoader. LanguageLoaderContract)
         (only-in :gerbil-parser/src/grammar/lexical-algebra lexical-expression?)
@@ -22,8 +24,19 @@
   (parse parse-header-record)
   (slots metadata: (.o dialect: 'header-record)))
 
+(deflanguage-projection header-record-projection
+ (grammar header-record-language-grammar)
+ (strategy (.o (:: self RecordProjection.) prefix: "記" delimiter-count: 2
+              constants: '((schema . "header-record.output.v1"))
+              columns: '((value split (record "記" 1) 1 1)))))
+
 (def header-delimiter-test
   (test-suite "closed header-derived delimiter rules"
+    (test-case "independent record projection preserves its own source identity"
+      (let* ((artifact (parse-header-record "記|§α|"))
+             (projected (header-record-projection artifact)))
+        (check (cdr (assq 'value projected)) => "α")
+        (check (cdr (assq 'sourceDigest projected)) => (parse-artifact-ref artifact 'sourceDigest))))
     (test-case "engine rules derive separators and data without language callbacks"
       (check (scan-header-delimiter "MSH|^~\\&|" 3 "MSH" 5 0) => 4)
       (check (scan-header-data "MSH|^~\\&α x|" 8 "MSH" 5 "\r\n") => 11)

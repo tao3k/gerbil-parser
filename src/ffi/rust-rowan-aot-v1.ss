@@ -4,7 +4,7 @@
 (import :gerbil/expander
         :std/encoding/json
         (only-in ../compiler/rust-rowan language-rust-rowan-module-source)
-        (only-in ../language/descriptor language-grammar?))
+        (only-in ../language/module-input language-module-descriptor))
 (export native-rowan-aot-abi-version
         native-rust-rowan-source
         native-rowan-aot-error-payload)
@@ -23,26 +23,6 @@
           (call-with-output-string
            (lambda (port) (display-exception exception port)))))))
 
-(def (eval-runtime-export exported)
-  (let (binding (core-resolve-module-export exported))
-    (eval (binding-id binding))))
-
-;;; The precompiled Gerbil expander remains the only grammar syntax owner.
-;;; Exactly one exported descriptor prevents accidental multi-language output.
-(def (grammar-module-language grammar-path)
-  (import-module ':gerbil-parser/rust-rowan-grammar-support #t #t)
-  (let* ((context (import-module grammar-path #t #t))
-         (languages
-          (filter-map
-           (lambda (exported)
-             (and (= (module-export-phi exported) 0)
-                  (let (value (eval-runtime-export exported))
-                    (and (language-grammar? value) value))))
-           (module-context-export context))))
-    (unless (= (length languages) 1)
-      (error "grammar module must export exactly one language descriptor"
-             grammar-path (length languages)))
-    (car languages)))
-
 (def (native-rust-rowan-source grammar-path)
-  (language-rust-rowan-module-source (grammar-module-language grammar-path)))
+  (import-module ':gerbil-parser/rust-rowan-grammar-support #t #t)
+  (language-rust-rowan-module-source (language-module-descriptor grammar-path)))

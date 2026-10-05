@@ -3,7 +3,9 @@
 ;;; parser are one immutable declaration and must publish a valid artifact.
 
 (import (only-in ../runtime/artifact
-                 parse-artifact-ref parse-artifact-valid? sha256-text))
+                 parse-artifact-ref parse-artifact-valid? sha256-text)
+        (only-in ./source-strategy bind-source-strategy source-engine-scanner source-engine-factory
+                 source-engine-parse source-engine-receipt))
 (export +source-language-schema+
         declare-source-language
         source-language?
@@ -11,23 +13,48 @@
         source-language-version
         source-language-contract
         source-language-digest
-        parse-source-language)
+        source-language-scanner-factory parse-source-language parse-source-language/receipt
+        deflanguage-source deflanguage-source-receipt)
 
 (def +source-language-schema+ "gerbil-parser.source-language.v1")
 
 (defstruct source-language
-  (schema language version contract digest scanner parse)
+  (schema language version contract digest scanner parse factory receipt)
   transparent: #t)
 
-(def (declare-source-language language version contract scanner parse)
-  (unless (and (string? language) (string? version)
-               (string? contract) (procedure? scanner)
-               (procedure? parse))
-    (error "invalid source language declaration"))
-  (make-source-language
-   +source-language-schema+ language version contract
-   (sha256-text (string-append language "/" version "/" contract))
-   scanner parse))
+(def (declare-source-language language version contract strategy)
+  (unless (and (string? language) (positive? (string-length language))
+               (string? version) (string? contract))
+    (error "invalid source language identity"))
+  (let-values (((recipe engine) (bind-source-strategy strategy)))
+    (make-source-language
+     +source-language-schema+ language version contract
+     (sha256-text (call-with-output-string
+                    (lambda (port) (write (list language version contract recipe) port))))
+     (source-engine-scanner engine) (source-engine-parse engine)
+     (source-engine-factory engine) (source-engine-receipt engine))))
+(def (source-language-scanner-factory descriptor) (source-language-factory descriptor))
+(def (validate-source-publication! descriptor source artifact)
+  (unless (and (parse-artifact-valid? artifact)
+               (equal? (parse-artifact-ref artifact 'grammarDigest) (source-language-digest descriptor))
+               (equal? (parse-artifact-ref artifact 'sourceDigest) (sha256-text source)))
+    (error "source parser published an invalid artifact"))
+  artifact)
+(def (parse-source-language/receipt descriptor source)
+  (unless (and (string? source) (source-language? descriptor) (procedure? (source-language-receipt descriptor)))
+    (error "source engine does not declare receipts for this input"))
+  (let-values (((artifact receipt)
+                ((source-language-receipt descriptor) source (source-language-scanner descriptor)
+                 (source-language-digest descriptor))))
+    (validate-source-publication! descriptor source artifact)
+    (values artifact receipt)))
+
+(defrules deflanguage-source (identity strategy)
+  ((_ binding (identity language version contract) (strategy recipe))
+   (def binding (declare-source-language language version contract recipe))))
+(defrules deflanguage-source-receipt ()
+  ((_ binding descriptor)
+   (def (binding source) (parse-source-language/receipt descriptor source))))
 
 (def (parse-source-language descriptor source)
   (unless (string? source)
@@ -36,10 +63,4 @@
          (artifact
           ((source-language-parse descriptor)
            source (source-language-scanner descriptor) digest)))
-    (unless (and (parse-artifact-valid? artifact)
-                 (equal? (parse-artifact-ref artifact 'grammarDigest)
-                         digest)
-                 (equal? (parse-artifact-ref artifact 'sourceDigest)
-                         (sha256-text source)))
-      (error "source parser published an invalid artifact"))
-    artifact))
+    (validate-source-publication! descriptor source artifact)))

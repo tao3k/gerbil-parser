@@ -2,7 +2,7 @@
 ;;; Canonical left-recursive arithmetic grammar for LR precedence admission.
 
 (import (only-in :gerbil-parser/language-support deflanguage)
-        (only-in ./direct-lr direct-drive direct-grammar-digest))
+        (only-in :gerbil-parser/src/compiler/arithmetic-drive direct-drive direct-grammar-digest))
 (export +arithmetic-language-version+
         +arithmetic-syntax-contract+
         arithmetic-language-grammar

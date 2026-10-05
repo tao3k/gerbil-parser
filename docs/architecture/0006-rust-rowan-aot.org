@@ -312,7 +312,7 @@ to keep cold imports under the original five-second silence fence.
 
 * GQL native timing diagnostics
 
-=languages/gql/benchmarks/runtime/native-timing.ss= records the original 100 parses
+=t/benchmarks/gql/runtime/native-timing.ss= records the original 100 parses
 per sample across 40 samples after one warmup and one initial GC. It compares
 CLOCK_MONOTONIC, wall time, CPU time, cumulative GC counters, allocation,
 page faults and voluntary/involuntary OS context switches. Output is emitted only after a completed sample. This diagnostic

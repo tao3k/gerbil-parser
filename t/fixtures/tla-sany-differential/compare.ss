@@ -4,7 +4,7 @@
 (import (only-in :std/misc/ports read-all-as-string read-all-as-u8vector)
         (only-in :std/misc/process run-process)
         (only-in :std/text/markup/xml read-xml)
-        :gerbil-parser/languages/tla-plus/sany-candidate
+        :gerbil-parser/languages/tla-plus/parser
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-valid?
                  parse-artifact-roundtrip)

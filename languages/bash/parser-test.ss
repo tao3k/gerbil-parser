@@ -30,10 +30,10 @@
     (equal (parse-artifact-success? artifact) #t)
     (equal (parse-artifact-roundtrip artifact) source)
     (equal (length links) 2)
-    (equal (< (bash-here-document-link-marker-start (car links))
-              (bash-here-document-link-marker-start (cadr links))) #t)
-    (equal (< (bash-here-document-link-body-start (car links))
-              (bash-here-document-link-body-start (cadr links))) #t))
+    (equal (< (shell-here-document-link-marker-start (car links))
+              (shell-here-document-link-marker-start (cadr links))) #t)
+    (equal (< (shell-here-document-link-body-start (car links))
+              (shell-here-document-link-body-start (cadr links))) #t))
   (accepted "compound command lists"
     (string-append "if true; then { echo yes; }; else (echo no); fi\n"
                    "while test x; do echo x; done\n")

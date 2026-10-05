@@ -1,0 +1,60 @@
+;;; Closed source recipes share the source engine protocol; no language imports.
+(import (only-in :clan/poo/object .o .ref .slot?)
+        (only-in ../language/source-strategy SourceStrategy. declare-source-strategy-provider make-source-engine)
+        (only-in ./region-scanner region-plan? region-plan-specification prepare-region-plan)
+        (only-in ./shell-scanner make-shell-scanner shell-scan)
+        (only-in ./shell-parser make-shell-parser)
+        (only-in ./source-scanner make-source-scanner source-scanner-tokens)
+        (only-in ./recognition make-recognition-node make-recognition-child)
+        (only-in ./token token-start token-end)
+        (only-in ./artifact make-success-parse-artifact make-failure-parse-artifact))
+(export ShellSourceStrategy. LineSourceStrategy.)
+(def (shell-source-admit? candidate)
+  (and (.slot? candidate 'regions) (region-plan? (.ref candidate 'regions))))
+(def (shell-source-bind candidate)
+  ;; Snapshot the inherited closed region value; each scanner keeps its own state.
+  (let (regions (prepare-region-plan (region-plan-specification (.ref candidate 'regions))))
+    (let-values (((parse receipt) (make-shell-parser regions)))
+      (make-source-engine (lambda (source) (shell-scan regions source))
+                          (lambda (source) (make-shell-scanner regions source)) parse receipt))))
+(def +shell-source-provider+
+  (declare-source-strategy-provider 'shell shell-source-admit?
+   (lambda (candidate) (region-plan-specification (.ref candidate 'regions))) shell-source-bind))
+(def ShellSourceStrategy. (.o (:: self SourceStrategy.) provider: +shell-source-provider+ regions: #f))
+(def (line-source-admit? candidate)
+  (and (andmap (lambda (slot) (.slot? candidate slot)) '(root-kind token-kind required-prefix))
+       (symbol? (.ref candidate 'root-kind)) (symbol? (.ref candidate 'token-kind))
+       (string? (.ref candidate 'required-prefix))))
+(def (line-source-bind candidate)
+  (let ((root-kind (.ref candidate 'root-kind)) (token-kind (.ref candidate 'token-kind))
+        (prefix (string-copy (.ref candidate 'required-prefix))))
+    (def (factory source)
+      (make-source-scanner source #f
+       (lambda (text start context _mode)
+         (let (limit (string-length text))
+           (if (= start limit) (values #f start context)
+             (let loop ((end start))
+               (if (or (= end limit) (char=? (string-ref text end) #\newline))
+                 (values token-kind (if (= end limit) end (+ end 1)) context)
+                 (loop (+ end 1)))))))))
+    (def (scan source) (source-scanner-tokens (factory source) 'lines))
+    (def (parse source scanner digest)
+      (let (tokens (scanner source))
+        (if (and (<= (string-length prefix) (string-length source))
+                 (equal? prefix (substring source 0 (string-length prefix))))
+          (make-success-parse-artifact digest source tokens
+           (make-recognition-node root-kind 0
+            (if (null? tokens) 0 (token-end (last tokens)))
+            (map (lambda (token) (make-recognition-child 'line token)) tokens)) (lambda (_) #f))
+          (make-failure-parse-artifact digest source tokens
+           '((schema . "gerbil-parser.diagnostic.v1") (code . "SOURCE-PREFIX")
+             (reasonKind . parse-rejected) (failureKind . source-rejected)
+             (message . "source does not match its declared prefix") (byteOffset . 0))))))
+    (make-source-engine scan factory parse #f)))
+(def +line-source-provider+
+  (declare-source-strategy-provider 'lines line-source-admit?
+   (lambda (candidate) (list (.ref candidate 'root-kind) (.ref candidate 'token-kind) (.ref candidate 'required-prefix)))
+   line-source-bind))
+(def LineSourceStrategy.
+  (.o (:: self SourceStrategy.) provider: +line-source-provider+
+      root-kind: 'SourceFile token-kind: 'Line required-prefix: ""))

@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/languages/hl7/parser hl7-language)
         (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-language)
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-core-language tla-plus-layout-language)
-        (only-in :gerbil-parser/languages/tla-plus/sany-candidate tla-plus-sany-candidate-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-sany-candidate-language)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/language/entry make-language-scan-worker run-language-test +language-parser-entry-schema+)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
@@ -63,7 +63,7 @@
                         gql-language opencypher-language
                         hl7-language fhirpath-language bash-language
                         tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language))
-             => '(0 0 0 0 6 0 source-parser 0 0 4)))
+             => '(0 0 0 0 0 0 source-parser 0 0 4)))
     (test-case "registered fixture services preserve native corpus conformance"
       (for-each
        (lambda (loader)

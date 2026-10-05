@@ -15,10 +15,12 @@
                  defsyntax-fixture defsyntax-corpus syntax-fixture-source syntax-fixture-source-digest)
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-basic-fixture)
-        (only-in :gerbil-parser/languages/bash/scanner make-bash-scanner)
+        (only-in :gerbil-parser/src/runtime/shell-scanner make-shell-scanner)
+        (only-in :gerbil-parser/languages/bash/grammar bash-word-regions)
+        (only-in "fixtures/source-strategies.ss" test-source-strategy)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
-        (only-in :gerbil-parser/src/language/source declare-source-language)
+        (only-in :gerbil-parser/language-source-support declare-source-language LineSourceStrategy.)
         (only-in :gerbil-parser/languages/bash/parser bash-source-language)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip))
@@ -181,7 +183,7 @@
         (source bash-source-language) (parse parse-worker-source)
         (slots scan-workers: (list (cons 'bash-command
                                   (declare-language-source-scan-worker
-                                   bash-source-language make-bash-scanner)))))
+                                   bash-source-language)))))
       (let* ((source "echo α\n")
              (worker (make-language-scan-worker worker-loader 'bash-command source)))
         (check (apply string-append (map token-lexeme (source-scanner-tokens worker 'command))) => source)))
@@ -196,16 +198,18 @@
         (check (rejects? (lambda () (run-language-test fake 'conformance))) => #t)))
     (test-case "declared source workers reject foreign products and undeclared names"
       (check (rejects? (lambda ()
-                        (declare-language-source-scan-worker arithmetic-language-grammar make-bash-scanner))) => #t)
+                        (declare-language-source-scan-worker arithmetic-language-grammar))) => #t)
       (for-each
        (lambda (factory)
+         (def bad-source (declare-source-language "bad-worker" "v1" "bad-worker.test"
+                          (test-source-strategy factory (lambda (_) '()) (lambda _ #f))))
          (deflanguage-parser-loader (bad-worker-loader :: self LanguageLoader.)
-           (source bash-source-language) (parse parse-bad-worker)
+           (source bad-source) (parse parse-bad-worker)
            (slots scan-workers: (list (cons 'command
-                                     (declare-language-source-scan-worker bash-source-language factory)))))
+                                     (declare-language-source-scan-worker bad-source)))))
          (check (rejects? (lambda () (make-language-scan-worker bad-worker-loader 'command "echo α\n"))) => #t)
          (check (rejects? (lambda () (make-language-scan-worker bad-worker-loader 'missing "echo α\n"))) => #t))
-       (list (lambda (_) #f) (lambda (_) (make-bash-scanner "different source")))))
+       (list (lambda (_) #f) (lambda (_) (make-shell-scanner bash-word-regions "different source")))))
     (test-case "metadata admission rejects invalid descriptors and service registries"
       (for-each
        (lambda (row)
@@ -225,9 +229,9 @@
              (cons 'tests (list (cons 'same (declare-language-fixture-test arithmetic-language-grammar))
                                      (cons 'same (declare-language-fixture-test arithmetic-language-grammar))))
              (cons 'scan-workers (list (cons 'bad #f)))
-             (cons 'scan-workers (list (cons 'undeclared make-bash-scanner)))
+             (cons 'scan-workers (list (cons 'undeclared make-shell-scanner)))
              (cons 'scan-workers (list (cons 'foreign (declare-language-source-scan-worker
-                                                      bash-source-language make-bash-scanner))))))
+                                                      bash-source-language))))))
       (check (rejects? (lambda ()
                         (check-language-loader-fixtures!
                          (.cc arithmetic-loader 'fixtures '(invalid))))) => #t))
@@ -275,7 +279,7 @@
     (test-case "grammar and source declarations enforce their descriptor kind"
       (let (source-descriptor
             (declare-source-language "source-test" "v1" "source-test.v1"
-                                     (lambda _ #f) (lambda _ #f)))
+                                     LineSourceStrategy.))
         (check
          (rejects? (lambda ()
                      (deflanguage-parser-loader wrong-grammar

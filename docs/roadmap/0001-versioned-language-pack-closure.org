@@ -9,6 +9,20 @@ single execution plan for language-layer convergence. The coverage milestones
 below remain separate syntax obligations; their old publication-status notes
 are historical, not current CI state.
 
+** Current authoring receipt
+
+The three-interface ownership migration is implemented across all eight packs.
+The executable Scheme topology gate constrains the directory and mandatory
+Loader/test declarations. Engine source strategies, structured scanner/proof
+profiles, record projection and graph syntax expose reusable value contracts.
+The old procedural pack paths and compatibility qualification facade are removed.
+Generated arithmetic/HCL products and the HCL generator belong to =src/compiler/=;
+HCL's recursive provider keeps an explicit reviewed corridor.
+
+The stage criteria below remain stronger algorithm/portable-IR goals. Source
+strategy ownership alone does not satisfy S2/S3 portable shell execution or S4
+universal recursive lowering. No new end-to-end performance gain is claimed.
+
 ** Inventory and ownership
 
 Eight language families publish ten POO loader objects. All ten already expose

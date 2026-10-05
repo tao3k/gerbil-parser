@@ -6,7 +6,7 @@
                  declare-language-build-strategy make-fused-reduction-strategy make-rust-rowan-strategy)
         (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
         ./grammar
-        (only-in ./direct-recursive direct-parse-hcl direct-lex-hcl direct-hcl-grammar-digest))
+        (only-in :gerbil-parser/src/compiler/hcl-source direct-parse-hcl direct-lex-hcl direct-hcl-grammar-digest))
 (export (import: ./grammar)
         hcl-language
         parse-hcl)

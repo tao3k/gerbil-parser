@@ -1249,7 +1249,7 @@ algorithm, including reversed measurement order, also favored generated
 execution, though absolute CPU medians varied with host load.
 
 The same generator now emits a streaming state driver as
-=languages/arithmetic/direct-lr.ss=. Its lexical-mode identities come from
+=src/compiler/arithmetic-drive.ss=. Its lexical-mode identities come from
 the prepared LR catalog; it requests one token under the current state mode,
 builds the same recognition values, and records shifts through the existing
 source driver's callback. =parser-machine= admits it only when its embedded
@@ -1258,7 +1258,7 @@ returns =fallback=, so the ordinary driver restarts with fresh scanner state
 and retains its diagnostic and selective-GLR behavior. The arithmetic v1
 production entry uses the generated driver for unobserved fresh parses;
 incremental and observed requests keep their existing executor. Run
-=gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/direct-lr.ss=
+=gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss=
 to compare the checked-in output byte for byte with the current Scheme IR;
 native CI runs this check after building the package.
 
@@ -1354,14 +1354,14 @@ prototype also kept exact artifacts but measured 11.038 ms versus 11.075 ms
 without the corridor in a same-process comparison. None removed enough
 semantic work to warrant integration.
 
-The first =languages/hcl/generate-direct.ss= version compiled the
+The first =src/compiler/recursive-source.ss= version compiled the
 HCL Grammar IR's sequence, choice, optional, repeat, field, alias, literal,
 token, and reference forms into Scheme recursive-descent functions. They
 constructed the existing recognition nodes and used the standard Scheme
 sequence helpers, then published through the lossless =ParseArtifact= builder.
 This follows langcc's generated recursive-descent action direction while
 retaining this repository's Scheme grammar and artifact contract. The generated
-=languages/hcl/direct-recursive.ss= is checked byte for byte against
+=src/compiler/hcl-source.ss= is checked byte for byte against
 the current IR in native CI. It is installed only for the matching grammar
 digest and used for fresh unobserved HCL source requests. A non-admitted
 source returns to the existing parser-directed LR route, which owns rejection,

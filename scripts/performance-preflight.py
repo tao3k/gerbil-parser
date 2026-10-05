@@ -16,7 +16,7 @@ SUITES = {
     "recovery": "t/recovery-frontier-benchmark-test.ss",
     "glr": "t/selective-glr-benchmark-test.ss",
     "hot-path": "t/benchmark-test.ss",
-    "gql": "languages/gql/runtime-benchmark-test.ss",
+    "gql": "t/gql/runtime-benchmark-test.ss",
     "opencypher": "t/opencypher-large-query-benchmark-test.ss",
     "languages": "t/versioned-language-benchmark-test.ss",
 }

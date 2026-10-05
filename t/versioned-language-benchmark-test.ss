@@ -4,13 +4,9 @@
 (import :std/test
         :asp-gerbil-scheme/src/benchmark/framework
         :gerbil-parser/languages/hcl/parser
-        :gerbil-parser/languages/hcl/parser
         :gerbil-parser/language-support
         :gerbil-parser/languages/gql/parser
-        :gerbil-parser/languages/gql/parser
         :gerbil-parser/languages/cypher/parser
-        :gerbil-parser/languages/cypher/parser
-        :gerbil-parser/languages/tla-plus/fixtures
         :gerbil-parser/languages/tla-plus/parser
         :gerbil-parser/src/runtime/artifact)
 

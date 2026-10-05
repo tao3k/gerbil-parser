@@ -5,8 +5,8 @@
 
 The published =tla-plus.native-layout.v2= grammar remains the syntax
 contract used by POO Flow.  Its namespace is unversioned and its identity
-lives in =languages/tla-plus/grammars/layout.ss=.  Further SANY syntax work
-uses =languages/tla-plus/grammars/sany-candidate.ss= with a separate
+lives in =languages/tla-plus/grammar.ss=.  Further SANY syntax work
+uses =languages/tla-plus/grammar.ss= with a separate
 =p4-draft= metadata version and =tla-plus.native-sany-candidate.p4=
 contract.  The candidate has its own parser entry and test suite.  Neither
 entry silently changes the other grammar's identity or accepted syntax.

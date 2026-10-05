@@ -484,8 +484,9 @@ identity has its own row. The five seeds, all generated source sequences,
 fast/fallback thresholds, all large-source shapes, exact artifacts, 15 official
 fixtures and typed rejection controls remain executable. Independently retained
 port-writing references under =t/= compare all 1,024 generated sources exactly.
-The generated HCL scanner/recognizer modules themselves remain migration work;
-this closes their test execution ownership rather than the language directory.
+Generated HCL scanner/recognizer ownership is now in =src/compiler/=. The
+recursive source provider uses the common build protocol with an explicit closed
+lexical/grammar admission corridor.
 
 ** Descriptor-bound model receipts and fixture selection
 
@@ -506,16 +507,16 @@ and failure handling; they do not establish actual TLC model checking.
 
 Production TLC qualification lives in =src/language/tlc.ss= and parses through
 the admitted descriptor without importing builtin languages. The parser entry
-exports scope wrappers; =qualification.ss= remains a compatibility facade with
-identical function and receipt identities. The existing receipt and Loader
+exports all scope wrappers from its canonical =parser.ss=; the old
+=qualification.ss= facade is removed. The existing receipt and Loader
 schema versions are unchanged.
 
 =native-entry= compares Loader parsing, descriptor parsing and the actual native
 binary status. =portable-rejected= exercises the real Rust producer rejection
 and exact error. SANY proof policy remains unsupported by standalone Rust AOT;
 these checks preserve that boundary rather than grant a portable capability.
-TLA+ scanner/proof policy and HCL generated product ownership remain separate
-runtime convergence work before all language directories reach three files.
+All language directories now have three Scheme interfaces. TLA+ scanner/proof
+execution belongs to admitted structured POO engine recipes.
 
 ** Generic POO fused reduction build strategies
 
@@ -572,8 +573,8 @@ any module exporting one language descriptor and verifies deterministic output.
 
 This capability produces Scheme fused LR reductions. It does not confer Rust
 or C portability, or generalize HCL's recursive lexical/source corridor.
-=languages/hcl/generate-direct.ss= and =direct-recursive.ss= still require a
-separate declarative lexical/source strategy design and migration.
+=src/compiler/recursive-source.ss= and =src/compiler/hcl-source.ss= belong to
+the engine; =RecursiveSourceStrategy.= admits the reviewed HCL corridor.
 
 ** Common POO build capability protocol
 
@@ -664,5 +665,26 @@ language specs compile and execute with Rust/Rowan: the real HL7 fixture and
 custom message delimiters, and the independent Unicode header-record language.
 CI regenerates both formatted Rust source products and compares them exactly.
 =languages/hl7/scanner.ss= is deleted; no import alias or fallback scanner remains.
-HL7's domain projection is still separate work before its directory reaches
-three authoring interfaces.
+HL7's projection is a closed =RecordProjection.= recipe in =grammar.ss=.
+The engine validates ownership, evaluates selectors and publishes identity.
+
+** Complete authoring convergence
+
+All eight packs now contain exactly =grammar.ss=, =parser.ss= and
+=parser-test.ss=. The Scheme topology gate enforces the file and declaration
+boundary. Bash source execution uses the common =SourceStrategy.= protocol;
+line sources demonstrate an independent provider. TLA+ source metadata, fixtures
+and three grammar scopes share =grammar.ss= and canonical parser entry. Closed
+structured scanner and proof policy recipes are verified with an independent
+checklist language. HL7 and a Unicode record share =RecordProjection.=. Shared
+=GraphSyntax*= objects produce source accepted by both GQL and openCypher.
+
+Build input is resolved by =src/language/module-input.ss=. Multi-scope modules
+require an explicit =#export-name= selector; the generator CLIs and build C ABI
+use that same constrained resolution. Loader v2 and existing ABI versions remain
+unchanged. The old module paths are removed, without import aliases.
+
+This closes authoring ownership. Shell source execution and structured TLA+
+policies still require equivalent standalone Rust IR consumers before they may
+advertise portable support. Recursive HCL lowering admits its exact reviewed
+corridor; universal recursive code generation is not implied by common dispatch.

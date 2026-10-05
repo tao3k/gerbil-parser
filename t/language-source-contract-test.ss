@@ -1,6 +1,7 @@
 ;;; Engine ownership: source-contract admission and UTF-8 scanner checkpoints.
 (import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language)
+        (only-in "fixtures/source-strategies.ss" test-source-strategy)
         (only-in :gerbil-parser/languages/bash/parser parse-bash)
         (only-in :gerbil-parser/src/runtime/source-scanner
                  make-source-scanner source-scanner-initial-state
@@ -14,9 +15,8 @@
       (let (other
             (declare-source-language
              "bash" "5.3" "different-contract"
-             (lambda (_source) '())
-             (lambda (source _scanner _digest)
-               (parse-bash source))))
+             (test-source-strategy (lambda (_) #f) (lambda (_) '())
+              (lambda (source _scanner _digest) (parse-bash source)))))
         (check
          (with-catch
           (lambda (_condition) #t)

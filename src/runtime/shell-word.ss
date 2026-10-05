@@ -5,12 +5,11 @@
                  make-recognition-child make-recognition-node)
         (only-in :gerbil-parser/src/runtime/token
                  make-token token-end token-lexeme token-start)
-        (only-in ./grammar bash-word-regions)
         (only-in :gerbil-parser/src/runtime/region-scanner
                  source-prefix-at? region-plan-quote-end region-plan-pair-end))
-(export bash-word-components bash-assignment-components
-        bash-here-content-components)
+(export make-shell-word-parser)
 
+(def (make-shell-word-parser regions)
 (def (byte-offset raw text character)
   (+ (token-start raw)
      (u8vector-length (string->utf8 (substring text 0 character)))))
@@ -74,10 +73,10 @@
        ((char=? character #\\)
         (loop (min end (fx+ offset 2)) depth))
        ((or (char=? character #\') (char=? character #\"))
-        (loop (region-plan-quote-end bash-word-regions text offset character) depth))
+        (loop (region-plan-quote-end regions text offset character) depth))
        ((or (source-prefix-at? text offset "${")
             (source-prefix-at? text offset "$("))
-        (loop (region-plan-pair-end bash-word-regions text offset) depth))
+        (loop (region-plan-pair-end regions text offset) depth))
        ((char=? character #\[)
         (loop (fx+ offset 1) (fx+ depth 1)))
        ((char=? character #\])
@@ -246,34 +245,34 @@
           (((part produced next)
             (cond
              ((and (not context) (source-prefix-at? text offset "$'"))
-              (let (after (region-plan-quote-end bash-word-regions text (fx+ offset 1) #\'))
+              (let (after (region-plan-quote-end regions text (fx+ offset 1) #\'))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'AnsiCString 2)))
                   (values part produced after))))
              ((and (not context)
                    (char=? (string-ref text offset) #\'))
-              (let (after (region-plan-quote-end bash-word-regions text offset #\'))
+              (let (after (region-plan-quote-end regions text offset #\'))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'SingleQuoted 1)))
                   (values part produced after))))
              ((and (not context)
                    (char=? (string-ref text offset) #\"))
-              (let (after (region-plan-quote-end bash-word-regions text offset #\"))
+              (let (after (region-plan-quote-end regions text offset #\"))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'DoubleQuoted 1)))
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
                    (source-prefix-at? text offset "${"))
-              (let (after (region-plan-pair-end bash-word-regions text offset))
+              (let (after (region-plan-pair-end regions text offset))
                 (let-values (((part produced)
                               (parse-parameter raw text offset after)))
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
                    (source-prefix-at? text offset "$(("))
-              (let (after (region-plan-pair-end bash-word-regions text offset))
+              (let (after (region-plan-pair-end regions text offset))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -284,7 +283,7 @@
                        (and (not context)
                             (or (source-prefix-at? text offset "<(")
                                 (source-prefix-at? text offset ">(")))))
-              (let (after (region-plan-pair-end bash-word-regions text offset))
+              (let (after (region-plan-pair-end regions text offset))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -295,7 +294,7 @@
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
                    (char=? (string-ref text offset) #\`))
-              (let (after (region-plan-quote-end bash-word-regions text offset #\`))
+              (let (after (region-plan-quote-end regions text offset #\`))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -327,7 +326,7 @@
                   (values part produced after)))))))
         (loop next (cons part parts) (append (reverse produced) tokens))))))
 
-(def (bash-word-components raw)
+(def (shell-word-components raw)
   (let* ((text (token-lexeme raw))
          (length (string-length text)))
     (let-values (((parts tokens) (parse-parts raw text 0 length #f)))
@@ -339,7 +338,7 @@
 
 ;;; Unquoted here-document bodies expand parameters, commands, and arithmetic.
 ;;; Quote characters remain literal in this context.
-(def (bash-here-content-components raw)
+(def (shell-here-content-components raw)
   (let* ((text (token-lexeme raw))
          (length (string-length text)))
     (let-values (((parts tokens)
@@ -366,7 +365,7 @@
 
 ;;; An assignment is recognized only at a command position by the caller.
 ;;; It returns #f for ordinary words, or a node and ordered source tokens.
-(def (bash-assignment-components raw)
+(def (shell-assignment-components raw)
   (let* ((text (token-lexeme raw))
          (length (string-length text))
          (name-end (assignment-name-end text)))
@@ -389,3 +388,5 @@
                          (map (lambda (part) (child 'value part)) parts)))
            (append (list name operator) tokens))))
       (values #f #f))))
+
+  (values shell-word-components shell-assignment-components shell-here-content-components))

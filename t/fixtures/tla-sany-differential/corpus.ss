@@ -4,7 +4,7 @@
 (import (only-in :std/string/misc string-trim)
         (only-in :std/misc/process run-process)
         (only-in :std/misc/ports read-all-as-string)
-        :gerbil-parser/languages/tla-plus/sany-candidate
+        :gerbil-parser/languages/tla-plus/parser
         :gerbil-parser/src/runtime/artifact)
 
 (def +examples-pin+ "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")

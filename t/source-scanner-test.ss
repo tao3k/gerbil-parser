@@ -8,9 +8,10 @@
         (only-in :gerbil-parser/src/runtime/contextual-scanner
                  +empty-delimiter-queue+ delimiter-queue-enqueue delimiter-queue-take
                  delimiter-queue-list delimiter-obligation-marker decode-marker)
-        (only-in :gerbil-parser/languages/bash/scanner
-                 make-bash-scanner bash-scan bash-lex-context-pending
-                 parse-heredoc-delimiter bash-heredoc-delimiter bash-heredoc-quoted?))
+        (only-in :gerbil-parser/src/runtime/shell-scanner
+                 make-shell-scanner shell-scan shell-lex-context-pending
+                 parse-heredoc-delimiter shell-heredoc-delimiter shell-heredoc-quoted?))
+(import (only-in :gerbil-parser/languages/bash/grammar bash-word-regions))
 (def (rejected? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-scanner-test
@@ -30,8 +31,8 @@
       (for-each
        (lambda (row)
          (let (marker (parse-heredoc-delimiter (car row) #f))
-           (check (bash-heredoc-delimiter marker) => (cadr row))
-           (check (bash-heredoc-quoted? marker) => (caddr row))))
+           (check (shell-heredoc-delimiter marker) => (cadr row))
+           (check (shell-heredoc-quoted? marker) => (caddr row))))
        '(("A" "A" #f) ("'A'" "A" #t) ("\"a\\q\"" "a\\q" #t)
          ("\"a\\$\"" "a$" #t) ("'a\\q'" "a\\q" #t)
          ("A\\\nB" "AB" #f) ("''" "" #t)))
@@ -39,23 +40,23 @@
       (check (rejected? (lambda () (parse-heredoc-delimiter "'A" #f))) => #t)
       (check (rejected? (lambda () (decode-marker 'arbitrary "A" #f))) => #t))
     (test-case "Bash queued checkpoint replay retains its own pending obligations"
-      (let* ((worker (make-bash-scanner "<<A <<B\nα\nA\nβ\nB\n"))
+      (let* ((worker (make-shell-scanner bash-word-regions "<<A <<B\nα\nA\nβ\nB\n"))
              (initial (source-scanner-initial-state worker)))
         (let-values (((open after-open) (source-scanner-step worker initial 'command)))
           (let-values (((marker queued) (source-scanner-step worker after-open 'command)))
-            (check (map bash-heredoc-delimiter
-                        (bash-lex-context-pending (source-scan-state-context queued))) => '("A"))
+            (check (map shell-heredoc-delimiter
+                        (shell-lex-context-pending (source-scan-state-context queued))) => '("A"))
             (let-values (((again replay) (source-scanner-step worker after-open 'command)))
               (check (token-lexeme again) => "A")
-              (check (map bash-heredoc-delimiter
-                          (bash-lex-context-pending (source-scan-state-context replay))) => '("A")))
-            (check (bash-lex-context-pending (source-scan-state-context initial)) => '())))))
+              (check (map shell-heredoc-delimiter
+                          (shell-lex-context-pending (source-scan-state-context replay))) => '("A")))
+            (check (shell-lex-context-pending (source-scan-state-context initial)) => '())))))
     (test-case "large Bash deferred batches drain in declaration order"
       (let* ((markers (map (lambda (n) (string-append "END" (number->string n))) (iota 128)))
              (source (string-append "cat "
                        (apply string-append (map (lambda (name) (string-append "<<" name " ")) markers))
                        "\n" (apply string-append (map (lambda (name) (string-append "α\n" name "\n")) markers))))
-             (tokens (bash-scan source)))
+             (tokens (shell-scan bash-word-regions source)))
         (check (map token-lexeme (filter (lambda (token) (eq? (token-kind token) 'heredoc-marker)) tokens)) => markers)
         (check (map token-lexeme (filter (lambda (token) (eq? (token-kind token) 'heredoc-end)) tokens))
                => (map (lambda (name) (string-append name "\n")) markers))

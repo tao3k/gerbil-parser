@@ -10,18 +10,20 @@
                  recognition-child-field recognition-node-start)
         (only-in :gerbil-parser/src/runtime/token
                  make-token token-end token-kind token-lexeme token-start)
-        (only-in ./scanner
-                 bash-heredoc-quoted? parse-heredoc-delimiter)
-        (only-in ./word
-                 bash-assignment-components bash-here-content-components
-                 bash-word-components))
-(export bash-here-document-link?
-        bash-here-document-link-marker-start
-        bash-here-document-link-body-start
-        parse-bash-core
-        parse-bash-core/receipt)
+        (only-in ./shell-scanner
+                 shell-heredoc-quoted? parse-heredoc-delimiter)
+        (only-in ./shell-word make-shell-word-parser))
+(export shell-here-document-link?
+        shell-here-document-link-marker-start
+        shell-here-document-link-body-start
+        make-shell-parser)
 
-(defstruct bash-here-document-link (marker-start body-start) transparent: #t)
+(defstruct shell-here-document-link (marker-start body-start) transparent: #t)
+
+(def (make-shell-parser regions)
+  (let-values (((shell-word-components shell-assignment-components shell-here-content-components)
+                (make-shell-word-parser regions)))
+
 
 (def (trivia? token)
   (memq (token-kind token)
@@ -86,7 +88,7 @@
 
 ;;; Returns the artifact plus source-span links from redirection markers to
 ;;; their deferred here-document bodies. The links do not change CST order.
-(def (parse-bash-core/receipt source scan grammar-digest)
+(def (parse-shell-core/receipt source scan grammar-digest)
   (unless (string? source) (error "Bash source must be a string" source))
   (with-catch
    (lambda (condition)
@@ -132,7 +134,7 @@
            (unless (and raw (eq? (token-kind raw) 'word))
              (error "expected Bash word" raw))
            (set! remaining (cdr remaining))
-           (let-values (((word pieces) (bash-word-components raw)))
+           (let-values (((word pieces) (shell-word-components raw)))
              (for-each emit! pieces)
              word)))
        (def (parse-redirection! descriptor)
@@ -157,7 +159,7 @@
                                        (list
                                         (cons
                                          (token-start target)
-                                         (bash-heredoc-quoted?
+                                         (shell-heredoc-quoted?
                                           (parse-heredoc-delimiter
                                            (token-lexeme target)
                                            (same-operator?
@@ -239,7 +241,7 @@
                  (let-values (((assignment pieces)
                                (if named?
                                  (values #f #f)
-                                 (bash-assignment-components token))))
+                                 (shell-assignment-components token))))
                    (if assignment
                      (begin
                        (set! remaining (cdr remaining))
@@ -671,7 +673,7 @@
                                (set! remaining (cdr remaining))
                                (let-values
                                    (((node pieces)
-                                     (bash-here-content-components line)))
+                                     (shell-here-content-components line)))
                                  (for-each emit! pieces)
                                  node))))
                        (set! children
@@ -683,7 +685,7 @@
                      (unless (eq? (token-kind line) 'heredoc-end)
                        (body-loop))))
                  (set! links
-                       (cons (make-bash-here-document-link
+                       (cons (make-shell-here-document-link
                               (car (car pending-markers)) start)
                              links))
                  (set! pending-markers (cdr pending-markers))
@@ -728,7 +730,9 @@
                   (reverse emitted-reversed) root trivia?)))
            (values artifact (reverse links))))))))
 
-(def (parse-bash-core source scan grammar-digest)
+(def (parse-shell-core source scan grammar-digest)
   (let-values (((artifact _links)
-                (parse-bash-core/receipt source scan grammar-digest)))
+                (parse-shell-core/receipt source scan grammar-digest)))
     artifact))
+
+    (values parse-shell-core parse-shell-core/receipt)))

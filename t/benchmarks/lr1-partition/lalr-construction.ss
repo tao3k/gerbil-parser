@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/src/compiler/lr
                  lower-rules production-table lr-spec-ref)
         (only-in :gerbil-parser/src/compiler/parser-ir parser-ir-ref)
-        (only-in :gerbil-parser/languages/tla-plus/grammars/layout
+        (only-in :gerbil-parser/languages/tla-plus/grammar
                  tla-plus-layout-parser-ir))
 
 (def (median values)

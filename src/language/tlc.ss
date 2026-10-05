@@ -235,3 +235,10 @@
    (cons 'admitted (tla-plus-model-receipt-admitted receipt))
    (cons 'output-digest
          (tla-plus-model-receipt-output-digest receipt))))
+
+;;; Public language entries declare the descriptor; process handling stays here.
+(defrules deflanguage-model-entry (grammar)
+ ((_ binding (grammar descriptor))
+  (def (binding spec config tlc: (tlc "tlc") workers: (workers 1))
+   (qualify-language-tlc-model descriptor spec config tlc: tlc workers: workers))))
+(export deflanguage-model-entry)

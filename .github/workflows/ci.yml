@@ -166,7 +166,7 @@ jobs:
             -Iinclude t/native-ffi-header-smoke.c
 
       - name: Verify generated arithmetic Scheme LR is current
-        run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/direct-lr.ss
+        run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
 
       - name: Verify generic POO Scheme reductions are current
         run: |
@@ -174,7 +174,7 @@ jobs:
           gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/arithmetic/grammar t/fixtures/arithmetic-reductions.ss
 
       - name: Verify generated HCL recursive parser is current
-        run: gerbil env gxi languages/hcl/generate-direct.ss check languages/hcl/direct-recursive.ss
+        run: gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
 
       - name: Build optional native commands
         run: |
@@ -184,16 +184,16 @@ jobs:
       - name: Compile Scheme test support
         run: |
           gerbil env gxc t/line-structure-assertions.ss \
-            languages/gql/benchmarks/runtime/reduction-counts.ss \
-            languages/gql/benchmarks/runtime/execution-counts.ss \
-            languages/gql/benchmarks/runtime/matched-stages.ss \
-            languages/gql/benchmarks/runtime/actors.ss
+            t/benchmarks/gql/runtime/reduction-counts.ss \
+            t/benchmarks/gql/runtime/execution-counts.ss \
+            t/benchmarks/gql/runtime/matched-stages.ss \
+            t/benchmarks/gql/runtime/actors.ss
           gerbil env gxi build-native-test-driver.ss compile
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
-              languages/gql/benchmarks/runtime/native-timing.ss
+              t/benchmarks/gql/runtime/native-timing.ss
           else
-            gerbil env gxc languages/gql/benchmarks/runtime/native-timing.ss
+            gerbil env gxc t/benchmarks/gql/runtime/native-timing.ss
           fi
           gerbil env gxc \
             t/fixtures/rowan-record-assignments/languages/records/grammar.ss \
@@ -305,7 +305,7 @@ jobs:
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
               gerbil env gxi \
-              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' \
+              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/parser")' \
               t/fixtures/tla-sany-differential/compare.ss "$jar"
 
       - name: Verify complete pinned TLA+ Examples corpus
@@ -320,7 +320,7 @@ jobs:
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
               gerbil env gxi \
-              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' \
+              -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/parser")' \
               t/fixtures/tla-sany-differential/corpus.ss "$corpus"
 
       - name: Verify Rust/Rowan AOT generation is current

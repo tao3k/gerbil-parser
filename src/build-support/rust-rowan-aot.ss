@@ -26,6 +26,7 @@
     "src/language/grammar"
     "rust-rowan-grammar-support"
     "src/compiler/rust-rowan"
+    "src/language/module-input"
     "src/ffi/rust-rowan-aot-v1"))
 
 (asp-gerbil-scheme-package-spec!

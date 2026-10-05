@@ -5,14 +5,13 @@
         (only-in :gerbil-parser/src/language/entry
                  deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
                  +language-parser-entry-schema+ run-language-test)
-        (only-in :gerbil-parser/src/language/source declare-source-language)
+        (only-in :gerbil-parser/language-source-support declare-source-language LineSourceStrategy.)
         (only-in :gerbil-parser/language-support/fixture defsyntax-fixture))
 (export language-loader-value-test)
 
 (def descriptor
   (declare-source-language "loader-value" "0.12.2" "loader-value.test"
-                           (lambda (_) (error "scanner must not run"))
-                           (lambda _ (error "parser must not run"))))
+                           LineSourceStrategy.))
 (def Pack.
   (.o (:: self LanguageLoader.)
       metadata: (.o version: "spoofed" digest: "spoofed" upstream-commit: "pinned")
@@ -49,7 +48,7 @@
     (test-case "new descriptor revisions change metadata under the same public loader contract"
       (def next-descriptor
         (declare-source-language "loader-value" "0.12.3" "loader-value.test"
-                                 (lambda (_) #f) (lambda _ #f)))
+                                 LineSourceStrategy.))
       (deflanguage-parser-loader (next-loader :: self Pack.)
         (source next-descriptor) (parse parse-next-loader))
       (check (.ref (.ref next-loader 'metadata) 'version) => "0.12.3")

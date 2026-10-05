@@ -15,10 +15,10 @@ and extension values before publishing the entry. Inheritance, overrides and
 extension contracts use the same admission boundary. Authors supply fixture
 values directly; the engine owns evaluation and service binding.
 
-This is the convergence contract. Remaining procedural language modules and
-TLA+'s separate scope entries are migration debt, not additional authoring
-interfaces. FHIRPath and openCypher now follow the three-file structure;
-other packs still require the execution migrations described below.
+All eight builtin language directories now follow this contract. TLA+ declares
+its core, layout and candidate scopes in the same grammar and parser interfaces.
+Generated products, scanners, projection execution and benchmark infrastructure
+belong to the engine or test owners. No compatibility modules remain.
 
 #+begin_src scheme
 (import (only-in :gerbil-parser/language-support
@@ -147,9 +147,9 @@ redefine an admitted lexical profile. Scheme executes the compiled profile with
 character endpoints; generated Rust executes the same data with UTF-8 byte
 endpoints. Grammar identity includes the declaration.
 
-FHIRPath now uses this shared form for strings and backtick identifiers, removing
-two external callbacks. Its identifier, number, date, datetime and time callbacks
-still require separate lowering before standalone Rust AOT can be admitted.
+FHIRPath uses shared quote and closed text profiles for strings, identifiers,
+numbers and temporal lexemes. Each portable product still requires its own
+producer and consumer qualification.
 =t/quoted-string-profile-test.ss= owns Scheme semantics and the portable grammar
 witness. =t/generate-quoted-string-profile.ss OUTPUT.rs= emits that witness for
 Rust; CI regenerates it and Cargo tests its accepted/rejected source behavior.
@@ -248,11 +248,11 @@ creation rejects malformed or foreign-source executors. Checkpoints bind the
 creating worker even when two workers receive the exact same string object.
 The engine's
 =source-scanner-tokens= owns traversal, checkpoint progression, UTF-8 offsets and
-token construction through =source-scanner-step=. Bash retains word syntax and
-here-document transitions. Source-sensitive callbacks for HL7/FHIRPath/TLA+
-still require a shared Scanner IR representation before standalone Rust can
-execute them; moving a callback into an engine directory does not establish that
-representation.
+token construction through =source-scanner-step=. The shell engine owns word
+recognition and deferred here-document transitions. HL7 uses portable closed
+header rules; FHIRPath uses portable local text profiles. Structured TLA+ module
+text and proof scanners are bound from POO recipes in the Scheme engine.
+Those recipes do not yet have a standalone Rust consumer.
 
 * Shared closed text profiles
 
@@ -321,13 +321,10 @@ source revision bound nesting index (TLA+) and closed region/command transitions
 The detailed contract and closure gates are in
 [[file:../docs/roadmap/0001-versioned-language-pack-closure.org][the language convergence roadmap]].
 
-The Bash migration is complete only when its grammar replaces =scanner.ss=,
-=scan-words.ss=, =word.ss= and =parser-core.ss=. A loader wrapping these
-procedures is not the target downstream API. The engine must derive scanner,
-word recognition, source spans and artifacts from the grammar, and generate
-C/Rust products through the common boundary. POO extensions remain declared
-values with compiler admission. This target is documented in the roadmap;
-the current Bash implementation still uses the four procedural modules.
+Bash authoring now declares =ShellSourceStrategy.= and a closed region value.
+The engine owns scanners, word recognition, span links and artifacts. Full
+standalone Rust execution still requires command/state IR and an equivalent
+consumer; source strategy registration does not grant that capability.
 
 * Published catalog projection
 
@@ -540,40 +537,73 @@ are maintained in [[file:../docs/roadmap/0001-versioned-language-pack-closure.or
 This inventory describes implementation boundaries, not equivalent syntax
 coverage across the languages.
 
-| Pack | Current authoring / entry | Remaining work |
+| Pack | Authoring and engine ownership | Capability boundary |
 |---+---+---|
-| Arithmetic v1 | Concise DSL, canonical loader, declarative generated drive | Replace the retained specialization only when a generic engine strategy proves equivalent |
-| HCL v2.24 | Concise DSL, canonical loader, declarative step/source/event backends | Retained source/event generator still contains HCL-specific lowering assumptions |
-| HL7 v2.5.1 | Concise DSL, canonical loader, shared closed header-delimiter/data rules | Scanner callbacks removed; Scheme and Rust AOT qualified on real messages and an independent header-record declaration. Domain projection still needs ownership convergence. |
-| FHIRPath v2.0.0 | Concise DSL, canonical loader, shared strict quote profiles | Domain projection stays in the pack; identifier/number/temporal declarations now use shared text profiles; full producer/consumer qualification is recorded in the convergence plan |
-| openCypher 2024.1 | Pinned ISO-BNF admission, canonical loader | Keep source identity and engine source normalization; no duplicate native grammar is needed |
-| GQL ISO-39075-2024 | Pinned ANTLR4 admission, canonical loader | Graph domain semantics remain in the pack; general parser/actor/transport mechanisms belong to the engine |
-| TLA+ core/layout/SANY candidate | Concise DSL with validated catalogs, explicit POO loaders | Core/layout preserve IR and digests; candidate corrects the missing TerminalProof item field and regenerates its identity. Stateful scanner lowering remains separate. |
-| Bash 5.3 | Source descriptor, canonical loader | Stateful scanner and handwritten recognition are not shared Scanner/Parser IR or standalone Rust AOT |
+| Arithmetic | Three interfaces; generated drive in =src/compiler/arithmetic-drive.ss= | Reviewed specialization; shared reduction and Rust build providers |
+| HCL | Three interfaces; source generator and generated products in =src/compiler/= | Recursive source provider admits the reviewed lexical/grammar corridor |
+| HL7 | Three interfaces; closed header rules and generic record projection | Independent record recipe validates projection reuse; Rust header consumer remains qualified separately |
+| FHIRPath | Three interfaces; shared quote/text profile execution | Portable products retain their independent admission gates |
+| openCypher | Three interfaces; pinned ISO-BNF grammar admission | Shared graph syntax emits the constrained MATCH/WHERE/RETURN subset |
+| GQL | Three interfaces; pinned ANTLR4 admission | Graph syntax in the engine; actor/profile/benchmark tests under =t/= |
+| TLA+ | Three interfaces contain all three scopes; structured lexeme/proof recipes | Scheme execution; proof policy still rejects standalone Rust AOT |
+| Bash | Three interfaces; =ShellSourceStrategy.= captures closed region data | Scheme source engine; full shell grammar is not standalone Rust Scanner/Parser IR |
 
-The next structural work follows the convergence plan's engine stages:
+* Value recipes and reusable engine contracts
 
-1. *Finish closed local profiles.* TLA+ identifiers/proof lexemes require the
-   Scheme Unicode alphabetic class and endpoint-sensitive guards. Preserve
-   published catalogs and Parser IR identities while lowering these operations.
-2. *Prepare source context once.* Reuse the contextual scanner plan and
-   source-owned checkpoints for HL7's five header captures, TLA+ module depth,
-   and Bash quote/nesting/here-document transitions. HL7 must stop extracting
-   and validating its header for every token; TLA+ must stop rescanning the
-   whole source prefix to compute module depth. Declarative language roles
-   name captures and transitions; the engine validates and executes them in
-   Scheme and Rust. Source/worker/artifact identity binds every checkpoint.
-3. *Converge recognition/artifact assembly.* Bash still constructs fallback
-   tokens and success/failure artifacts in =parser-core.ss=. The engine owns
-   byte extents, result admission, diagnostics and artifact assembly; packs
-   retain grammar and structured-word rules. Preserve deferred here-document
-   span links and accepted/rejected lossless witnesses during migration.
-4. *Generalize retained generators.* HCL and Arithmetic describe eligibility
-   and syntax assumptions as data; engine selection, emission and digest
-   admission replace language-specific strategy mechanisms after parity and
-   complete-call performance checks.
-5. *Represent portable policies.* SANY's Scheme proof policy and branch budget
-   remain admitted in its public descriptor. Standalone Rust continues to
-   reject that Scheme policy until an equivalent policy IR and consumer exist.
-   Rust AOT and language-independent C products require their own actual
-   producer/consumer gates; metadata alone cannot establish portability.
+=SourceStrategy.= binds an opaque engine provider, inherited =metadata= and a
+closed recipe. =ShellSourceStrategy.= accepts =regions=; =LineSourceStrategy.=
+accepts =root-kind=, =token-kind= and =required-prefix=. Admission and recipe
+snapshotting happen once. Source identity includes the closed recipe. A scan
+worker derives its factory from that binding; a language cannot replace it with
+an arbitrary factory. Engine registration stays out of the public recipe facade.
+
+#+begin_src scheme
+(import (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
+        :gerbil-parser/language-source-support)
+(deflanguage-source notes-source
+ (identity "notes" "v1" "notes.v1")
+ (strategy (.o (:: self LineSourceStrategy.) root-kind: 'Notes required-prefix: "#")))
+(deflanguage-parser-loader (notes-language :: self LanguageLoader.)
+ (source notes-source) (parse parse-notes))
+#+end_src
+
+=language-support/structured= exposes =StructuredLexemeProfile.= and
+=StructuredProofPolicy.= with POO contracts. A scanner declaration supplies a
+profile value and binding names; the engine creates closures internally.
+Profiles constrain proof delimiters, identifier characters, module borders,
+header words and nested comment markers. Proof policies constrain CST kinds,
+field names, terminal commands and forbidden subproof commands/kinds. Independent
+square-bracket/checklist tests exercise the same implementation with different
+source spelling and CST fields. Effective values are validated and copied before
+binding. There is no process-global active language profile.
+
+=language-support/projection= provides =RecordProjection.= and
+=deflanguage-projection=. Projection columns are closed =record=, =split=, =text=,
+=concat= and =list= selectors. Prefix, delimiter count, expectations and constant
+fields are ordinary values. The engine checks accepted artifact ownership and
+publishes source/grammar digests. HL7 and an independent Unicode header record
+use this protocol; columns cannot substitute arbitrary projection callbacks.
+
+=graph-syntax-support= exposes shared =GraphSyntax*= POO prototypes for a
+constrained graph pattern. GQL and openCypher both parse the generated source.
+This contract does not describe all graph language syntax or domain semantics.
+
+=RecursiveSourceStrategy.= uses the common =BuildStrategy.= protocol. Its closed
+HCL corridor remains explicit; moving its generator does not claim universal
+recursive lowering. The generic generation entry is:
+
+#+begin_src sh
+gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
+#+end_src
+
+A module exporting several descriptors must select an export for build input:
+=languages/tla-plus/parser.ss#tla-plus-sany-candidate-language-grammar=.
+The same selector is used by the build C ABI and generator CLIs. Ambiguous,
+missing or non-descriptor exports reject before code emission.
+
+=t/language-topology-test.ss= checks all builtin packs for exactly three Scheme
+interfaces and mandatory Loader/test declarations. The Loader schema remains
+=gerbil-parser.language-entry.v2=. There are no versioned namespace aliases or
+compatibility adapters. Shared Scheme recipes, portable Scanner/Parser IR and
+actual C/Rust products retain separate qualification boundaries.

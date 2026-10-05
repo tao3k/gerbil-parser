@@ -145,7 +145,7 @@
     (diagnostics 0) (counts (ProofStep 5) (AssumeProve 2) (SelectorArguments 1)))
   (native-entry "public loader descriptor and native entry: accepted" "---- MODULE Entry ----\nTHEOREM TRUE\nOBVIOUS\n====\n" accepted)
   (native-entry "public loader descriptor and native entry: rejected" "---- MODULE Entry ----\nTHEOREM TRUE\n<1>1. TRUE OBVIOUS\n====\n" rejected)
-  (portable-rejected "build ABI rejects public candidate policy rather than emitting recognition only" "languages/tla-plus/sany-candidate.ss"
+  (portable-rejected "build ABI rejects public candidate policy rather than emitting recognition only" "languages/tla-plus/parser.ss#tla-plus-sany-candidate-language-grammar"
     "language parser policy is unsupported by standalone Rust AOT")
   (rejected-many "missing QED inconsistent levels and proof of HAVE reject"
     (list "---- MODULE Bad ----\nTHEOREM TRUE\n<1>1. TRUE OBVIOUS\n====\n" "---- MODULE Bad ----\nTHEOREM TRUE\n<1>1. TRUE\n<2>1. TRUE OBVIOUS\n<3>2. TRUE OBVIOUS\n<2>. QED OBVIOUS\n<1>. QED OBVIOUS\n====\n" "---- MODULE Bad ----\nTHEOREM TRUE\n<1>1. HAVE TRUE\n<2>. QED OBVIOUS\n<1>. QED OBVIOUS\n====\n")))

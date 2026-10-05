@@ -4,7 +4,7 @@
 (import :gerbil-parser/language-test-support
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/language-support parse-artifact-ref)
-        ./parser ./projection)
+        ./parser)
 (deflanguage-parser-tests hl7-parser-test "HL7v2 ER7 2.5.1 parser"
   (loader hl7-language)
   (accepted "ADT A08 is lossless and projected"

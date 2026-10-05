@@ -1,0 +1,45 @@
+;;; Common admitted POO source engines. Providers own binding and closed recipes.
+(import (only-in :clan/poo/object .o .ref .slot? object?)
+        (only-in :clan/poo/mop define-type validate)
+        (only-in :core/types PooFlowContract. poo-flow-classification-evidence))
+(export SourceStrategy. SourceStrategyContract bind-source-strategy
+        declare-source-strategy-provider make-source-engine
+        source-engine? source-engine-scanner source-engine-factory
+        source-engine-parse source-engine-receipt)
+(defstruct source-strategy-provider (name admit recipe bind))
+(defstruct source-engine (scanner factory parse receipt))
+(def (declare-source-strategy-provider name admit recipe bind)
+  (unless (and (symbol? name) (procedure? admit) (procedure? recipe) (procedure? bind))
+    (error "invalid engine source strategy registration" name))
+  (make-source-strategy-provider name admit recipe bind))
+(def (source-strategy? candidate)
+  (with-catch (lambda (_) #f)
+    (lambda ()
+      (and (object? candidate)
+           (andmap (lambda (slot) (.slot? candidate slot)) '(provider kind metadata))
+           (source-strategy-provider? (.ref candidate 'provider))
+           (eq? (.ref candidate 'kind) (source-strategy-provider-name (.ref candidate 'provider)))
+           (object? (.ref candidate 'metadata))
+           ((source-strategy-provider-admit (.ref candidate 'provider)) candidate)))))
+(define-type (SourceStrategyContract @ PooFlowContract.)
+  identity: 'gerbil-parser/source-strategy
+  .classify: (lambda (candidate context)
+               (let (accepted? (source-strategy? candidate))
+                 (poo-flow-classification-evidence
+                  'gerbil-parser/source-strategy candidate accepted?
+                  (if accepted? '() '((expected gerbil-parser/source-strategy))) context))))
+(def SourceStrategy.
+  (.o (:: self) provider: #f metadata: (.o)
+      (kind (source-strategy-provider-name (.ref self 'provider)))))
+(def (bind-source-strategy strategy)
+  (validate SourceStrategyContract strategy)
+  (let* ((provider (.ref strategy 'provider))
+         (recipe ((source-strategy-provider-recipe provider) strategy))
+         (engine ((source-strategy-provider-bind provider) strategy)))
+    (unless (and (source-engine? engine)
+                 (procedure? (source-engine-scanner engine))
+                 (procedure? (source-engine-factory engine))
+                 (procedure? (source-engine-parse engine))
+                 (or (not (source-engine-receipt engine)) (procedure? (source-engine-receipt engine))))
+      (error "source provider returned an invalid engine" (.ref strategy 'kind)))
+    (values (list (.ref strategy 'kind) recipe) engine)))

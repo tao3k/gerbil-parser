@@ -14,7 +14,7 @@
         (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 
 (def benchmark-path
-  (path-expand "benchmarks/runtime/benchmark.ss"
+  (path-expand "../benchmarks/gql/runtime/benchmark.ss"
                (path-directory (this-source-file))))
 (def +parse-count+ 100)
 

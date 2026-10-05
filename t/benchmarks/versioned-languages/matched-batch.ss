@@ -18,7 +18,7 @@
                  opencypher-accepted-fixtures)
         (only-in :gerbil-parser/languages/cypher/parser
                  parse-opencypher)
-        (only-in :gerbil-parser/languages/tla-plus/fixtures
+        (only-in :gerbil-parser/languages/tla-plus/grammar
                  tla-plus-core-accepted-fixtures)
         (only-in :gerbil-parser/languages/tla-plus/parser
                  parse-tla-plus-core))

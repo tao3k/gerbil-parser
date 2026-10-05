@@ -8,24 +8,22 @@
                  delimiter-queue-enqueue delimiter-queue-take decode-marker
                  delimiter-obligation? delimiter-obligation-marker
                  delimiter-obligation-quoted? delimiter-obligation-strip-tabs?)
-        (only-in ./grammar bash-word-regions)
         (only-in :gerbil-parser/src/runtime/region-scanner
                  source-prefix-at? region-plan-operator region-plan-end))
-(export make-bash-scanner bash-scan
+(export make-shell-scanner shell-scan
         parse-heredoc-delimiter
-        bash-heredoc? bash-heredoc-delimiter
-        bash-heredoc-quoted? bash-heredoc-strip-tabs?
-        bash-lex-context? bash-lex-context-pending bash-lex-context-active)
+        shell-heredoc? shell-heredoc-delimiter
+        shell-heredoc-quoted? shell-heredoc-strip-tabs?
+        shell-lex-context? shell-lex-context-pending shell-lex-context-active)
 
-;;; Public syntax adapters retain the language API; immutable obligation and
-;;; queue execution have one engine owner, shared with closed Scanner IR.
-(def bash-heredoc? delimiter-obligation?)
-(def bash-heredoc-delimiter delimiter-obligation-marker)
-(def bash-heredoc-quoted? delimiter-obligation-quoted?)
-(def bash-heredoc-strip-tabs? delimiter-obligation-strip-tabs?)
-(defstruct bash-lex-context (queue active expecting) transparent: #t)
-(def (bash-lex-context-pending context)
-  (delimiter-queue-list (bash-lex-context-queue context)))
+;;; Shell syntax views use the engine obligation/queue representation.
+(def shell-heredoc? delimiter-obligation?)
+(def shell-heredoc-delimiter delimiter-obligation-marker)
+(def shell-heredoc-quoted? delimiter-obligation-quoted?)
+(def shell-heredoc-strip-tabs? delimiter-obligation-strip-tabs?)
+(defstruct shell-lex-context (queue active expecting) transparent: #t)
+(def (shell-lex-context-pending context)
+  (delimiter-queue-list (shell-lex-context-queue context)))
 
 (def (line-end source start)
   (let (length (string-length source))
@@ -54,26 +52,27 @@
     (values #f pending)
     (delimiter-queue-take pending)))
 
-(def (scan-bash-token source offset context _mode)
+(def (make-shell-token-scanner regions)
+  (lambda (source offset context _mode)
   (let* ((length (string-length source))
-         (pending (bash-lex-context-queue context))
-         (active (bash-lex-context-active context))
-         (expecting (bash-lex-context-expecting context)))
+         (pending (shell-lex-context-queue context))
+         (active (shell-lex-context-active context))
+         (expecting (shell-lex-context-expecting context)))
     (cond
      (active
       (when (= offset length)
         (error "unterminated Bash here-document"
-               (bash-heredoc-delimiter active)))
+               (shell-heredoc-delimiter active)))
       (let* ((end (line-end source offset))
              (content-end (line-content-end source offset end))
-             (start (if (bash-heredoc-strip-tabs? active)
+             (start (if (shell-heredoc-strip-tabs? active)
                       (strip-leading-tabs source offset content-end)
                       offset)))
         (if (string=? (substring source start content-end)
-                      (bash-heredoc-delimiter active))
+                      (shell-heredoc-delimiter active))
           (let-values (((next-active rest) (activate-next pending)))
             (values 'heredoc-end end
-                    (make-bash-lex-context rest next-active #f)))
+                    (make-shell-lex-context rest next-active #f)))
           (values 'heredoc-content end context))))
      ((= offset length)
       (when (or (not (delimiter-queue-empty? pending)) expecting)
@@ -91,16 +90,16 @@
       (when expecting (error "missing Bash here-document delimiter"))
       (let-values (((next-active rest) (activate-next pending)))
         (values 'newline (fx+ offset 1)
-                (make-bash-lex-context rest next-active #f))))
+                (make-shell-lex-context rest next-active #f))))
      ((source-prefix-at? source offset "\\\n")
       (values 'line-continuation (fx+ offset 2) context))
      (expecting
-      (let* ((end (region-plan-end bash-word-regions source offset))
+      (let* ((end (region-plan-end regions source offset))
              (word (substring source offset end))
              (heredoc
               (parse-heredoc-delimiter word (string=? expecting "<<-"))))
         (values 'heredoc-marker end
-                (make-bash-lex-context
+                (make-shell-lex-context
                  (delimiter-queue-enqueue pending heredoc) active #f))))
      ((char=? (string-ref source offset) #\#)
       (values 'comment
@@ -108,20 +107,22 @@
               context))
      ((or (source-prefix-at? source offset "<(")
           (source-prefix-at? source offset ">("))
-      (values 'word (region-plan-end bash-word-regions source offset) context))
+      (values 'word (region-plan-end regions source offset) context))
      (else
-      (let (operator (region-plan-operator bash-word-regions source offset))
+      (let (operator (region-plan-operator regions source offset))
         (if operator
           (values 'operator (+ offset (string-length operator))
                   (if (or (string=? operator "<<")
                           (string=? operator "<<-"))
-                    (make-bash-lex-context pending active operator)
+                    (make-shell-lex-context pending active operator)
                     context))
-          (values 'word (region-plan-end bash-word-regions source offset) context)))))))
+          (values 'word (region-plan-end regions source offset) context)))))))
 
-(def (make-bash-scanner source)
-  (make-source-scanner source (make-bash-lex-context +empty-delimiter-queue+ #f #f)
-                       scan-bash-token))
+)
 
-(def (bash-scan source)
-  (source-scanner-tokens (make-bash-scanner source) 'command))
+(def (make-shell-scanner regions source)
+  (make-source-scanner source (make-shell-lex-context +empty-delimiter-queue+ #f #f)
+                       (make-shell-token-scanner regions)))
+
+(def (shell-scan regions source)
+  (source-scanner-tokens (make-shell-scanner regions source) 'command))

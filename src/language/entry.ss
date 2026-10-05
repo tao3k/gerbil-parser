@@ -28,7 +28,7 @@
         (only-in ./source
                  parse-source-language source-language?
                  source-language-contract source-language-language
-                 source-language-version source-language-digest))
+                 source-language-version source-language-digest source-language-scanner-factory))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
         check-language-loader-fixtures! call-with-language-parser-policy
@@ -160,14 +160,15 @@
     (unless (assq name rows) (error "unknown declared language test" name))
     (check-language-loader-fixtures! loader)))
 
-;;; A source worker is an explicit, descriptor-bound transitional declaration.
-;;; Ordinary closed-IR scanners are assembled by the compiler, not this bridge.
+;;; Source workers are derived from the admitted engine binding; no user factory.
 (defstruct language-source-scan-worker (descriptor factory))
 
-(def (declare-language-source-scan-worker descriptor factory)
-  (unless (and (source-language? descriptor) (procedure? factory))
+(def (declare-language-source-scan-worker descriptor)
+  (unless (source-language? descriptor)
     (error "source scan worker requires a source language declaration"))
-  (make-language-source-scan-worker descriptor factory))
+  (let (factory (source-language-scanner-factory descriptor))
+    (unless (procedure? factory) (error "source engine has no scanner factory"))
+    (make-language-source-scan-worker descriptor factory)))
 
 (def (declared-scan-workers? rows descriptor)
   (and (list? rows)

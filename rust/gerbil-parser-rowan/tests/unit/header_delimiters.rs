@@ -5,6 +5,23 @@ mod hl7;
 mod record;
 use gerbil_parser_rowan::{LanguageSpec, LexicalExpr, LexicalRule, parse};
 
+static INVALID_DATA_RULES: [LexicalRule; 3] = [
+    record::LANGUAGE.lexical_rules[0],
+    record::LANGUAGE.lexical_rules[1],
+    LexicalRule {
+        expression: LexicalExpr::HeaderData {
+            prefix: "記",
+            count: 0,
+            stops: ";",
+        },
+        ..record::LANGUAGE.lexical_rules[2]
+    },
+];
+static INVALID_DATA: LanguageSpec = LanguageSpec {
+    lexical_rules: &INVALID_DATA_RULES,
+    ..record::LANGUAGE
+};
+
 #[test]
 fn header_aot_two_scheme_languages_parse_and_reject() {
     for source in ["記|§α|", "記*$α*", "記|§a b|"] {
@@ -54,22 +71,6 @@ fn header_aot_admission_rejects_invalid_closed_recipes() {
     };
     let failure = parse(&INVALID, "記|§α|").expect_err("invalid recipe must reject at admission");
     assert!(failure.diagnostic.message.contains("header delimiter"));
-    static INVALID_DATA_RULES: [LexicalRule; 3] = [
-        record::LANGUAGE.lexical_rules[0],
-        record::LANGUAGE.lexical_rules[1],
-        LexicalRule {
-            expression: LexicalExpr::HeaderData {
-                prefix: "記",
-                count: 0,
-                stops: ";",
-            },
-            ..record::LANGUAGE.lexical_rules[2]
-        },
-    ];
-    static INVALID_DATA: LanguageSpec = LanguageSpec {
-        lexical_rules: &INVALID_DATA_RULES,
-        ..record::LANGUAGE
-    };
     let failure = parse(&INVALID_DATA, "記|§α|").expect_err("invalid header data must reject");
     assert!(failure.diagnostic.message.contains("header data"));
 }

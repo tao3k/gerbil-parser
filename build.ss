@@ -18,7 +18,8 @@
 ;; library catalog. Keep the boundary declarative so PackageSpec still performs
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
-  '("scripts/generate-reductions.ss"
+  '("scripts/generate-source-parser.ss"
+    "scripts/generate-reductions.ss"
     "build-native-test-driver.ss"
     "build-native-ffi-tests.ss"
     "build-rust-native-tests.ss"
@@ -36,12 +37,7 @@
     "languages/arithmetic/parser-test.ss"
     "languages/cypher/parser-test.ss"
     "languages/gql/parser-test.ss"
-    "languages/gql/runtime-benchmark-test.ss"
-    "languages/gql/benchmark-profile-test.ss"
-    "languages/gql/actor-test.ss"
-    "languages/gql/query-syntax-test.ss"
     "languages/hcl/parser-test.ss"
-    "languages/hcl/generate-direct.ss"
     "languages/fhirpath/parser-test.ss"
     "languages/hl7/parser-test.ss"
     "languages/tla-plus/parser-test.ss"))

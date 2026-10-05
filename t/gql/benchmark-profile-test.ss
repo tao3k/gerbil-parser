@@ -1,10 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Profiling must preserve lossless Unicode artifacts and LR token admission.
 (import :std/test
-        (only-in "./parser" +gql-representative-query+)
-        (only-in "./benchmarks/runtime/reduction-counts" profile-gql-reductions)
-        (only-in "./benchmarks/runtime/execution-counts" profile-gql-prepared-execution)
-        (only-in "./benchmarks/runtime/matched-stages"
+        (only-in :gerbil-parser/languages/gql/parser +gql-representative-query+)
+        (only-in "../benchmarks/gql/runtime/reduction-counts" profile-gql-reductions)
+        (only-in "../benchmarks/gql/runtime/execution-counts" profile-gql-prepared-execution)
+        (only-in "../benchmarks/gql/runtime/matched-stages"
                  profile-gql-stages sample-at-percentile
                  gc-statistics-snapshot sample-gc-snapshot))
 (export gql-benchmark-profile-test)

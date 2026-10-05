@@ -3,13 +3,15 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import (only-in :gerbil-parser/language-support deflanguage))
+(import (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/language-support deflanguage)
+        (only-in :gerbil-parser/language-support/projection RecordProjection. deflanguage-projection))
 (export +hl7-language-version+
         +hl7-syntax-contract+
         hl7-language-grammar
         hl7-grammar
         hl7-parser-ir
-        hl7-parser)
+        hl7-parser hl7-adt-a08-patient-projection)
 
 (def +hl7-language-version+ "2.5.1")
 (def +hl7-syntax-contract+ "hl7v2-er7.v1")
@@ -110,3 +112,15 @@
    (source lexical)
    (lexical hl7-er7-structure)
    (hl7-er7-structure cst)))
+
+(deflanguage-projection hl7-adt-a08-patient-projection
+  (grammar hl7-language-grammar)
+  (strategy (.o (:: self RecordProjection.) prefix: "MSH" delimiter-count: 5
+    expectations: '(((list (split (record "MSH" 8) 1 0) (split (record "MSH" 8) 1 1)) ("ADT" "A08"))
+                    ((record "MSH" 11) "2.5.1"))
+    constants: '((schema . "gerbil-parser.hl7v2-adt-a08-patient.v1")
+                 (sourceInterface . hl7) (sourceMessageType . "ADT^A08") (sourceVersion . "2.5.1"))
+    columns: '((identifierSystem concat (text "urn:oid:") (split (split (record "PID" 3) 1 3) 4 1))
+               (identifierValue split (record "PID" 3) 1 0)
+               (familyName split (record "PID" 5) 1 0)
+               (givenNames list (split (record "PID" 5) 1 1))))))

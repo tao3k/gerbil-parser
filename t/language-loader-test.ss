@@ -19,7 +19,7 @@
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/language/source declare-source-language)
-        (only-in :gerbil-parser/languages/bash/grammar bash-source-language)
+        (only-in :gerbil-parser/languages/bash/parser bash-source-language)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip))
 

@@ -31,6 +31,7 @@
     "src/ffi/parse-artifact-v1-native.ss"
     "src/ffi/rust-rowan-aot-v1-native.ss"
     "src/ffi/rust-rowan-aot-main.ss"
+    "languages/bash/parser-test.ss"
     "languages/arithmetic/parser-test.ss"
     "languages/cypher/parser-test.ss"
     "languages/gql/parser-test.ss"

@@ -5,8 +5,9 @@
                  make-recognition-child make-recognition-node)
         (only-in :gerbil-parser/src/runtime/token
                  make-token token-end token-lexeme token-start)
-        (only-in ./scan-words bash-at? bash-quote-end
-                 bash-substitution-end))
+        (only-in ./grammar bash-word-regions)
+        (only-in :gerbil-parser/src/runtime/region-scanner
+                 source-prefix-at? region-plan-quote-end region-plan-pair-end))
 (export bash-word-components bash-assignment-components
         bash-here-content-components)
 
@@ -40,7 +41,7 @@
                "#" "%" "/" "@" "^" "," "~")))
     (and (pair? operators)
          (if (and (<= (+ start (string-length (car operators))) end)
-                  (bash-at? text start (car operators)))
+                  (source-prefix-at? text start (car operators)))
            (car operators)
            (loop (cdr operators))))))
 
@@ -73,10 +74,10 @@
        ((char=? character #\\)
         (loop (min end (fx+ offset 2)) depth))
        ((or (char=? character #\') (char=? character #\"))
-        (loop (bash-quote-end text offset character) depth))
-       ((or (bash-at? text offset "${")
-            (bash-at? text offset "$("))
-        (loop (bash-substitution-end text offset) depth))
+        (loop (region-plan-quote-end bash-word-regions text offset character) depth))
+       ((or (source-prefix-at? text offset "${")
+            (source-prefix-at? text offset "$("))
+        (loop (region-plan-pair-end bash-word-regions text offset) depth))
        ((char=? character #\[)
         (loop (fx+ offset 1) (fx+ depth 1)))
        ((char=? character #\])
@@ -228,8 +229,8 @@
              (and (not (memq context '(SingleQuoted AnsiCString)))
                   (char=? character #\`))
              (and (not context)
-                  (or (bash-at? text offset "<(")
-                      (bash-at? text offset ">(")))))))
+                  (or (source-prefix-at? text offset "<(")
+                      (source-prefix-at? text offset ">(")))))))
 
 (def (literal-end text start end context)
   (let loop ((offset (fx+ start 1)))
@@ -244,46 +245,46 @@
       (let-values
           (((part produced next)
             (cond
-             ((and (not context) (bash-at? text offset "$'"))
-              (let (after (bash-quote-end text (fx+ offset 1) #\'))
+             ((and (not context) (source-prefix-at? text offset "$'"))
+              (let (after (region-plan-quote-end bash-word-regions text (fx+ offset 1) #\'))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'AnsiCString 2)))
                   (values part produced after))))
              ((and (not context)
                    (char=? (string-ref text offset) #\'))
-              (let (after (bash-quote-end text offset #\'))
+              (let (after (region-plan-quote-end bash-word-regions text offset #\'))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'SingleQuoted 1)))
                   (values part produced after))))
              ((and (not context)
                    (char=? (string-ref text offset) #\"))
-              (let (after (bash-quote-end text offset #\"))
+              (let (after (region-plan-quote-end bash-word-regions text offset #\"))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'DoubleQuoted 1)))
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
-                   (bash-at? text offset "${"))
-              (let (after (bash-substitution-end text offset))
+                   (source-prefix-at? text offset "${"))
+              (let (after (region-plan-pair-end bash-word-regions text offset))
                 (let-values (((part produced)
                               (parse-parameter raw text offset after)))
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
-                   (bash-at? text offset "$(("))
-              (let (after (bash-substitution-end text offset))
+                   (source-prefix-at? text offset "$(("))
+              (let (after (region-plan-pair-end bash-word-regions text offset))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
                        raw text offset after 'ArithmeticExpansion 3 2)))
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
-                   (or (bash-at? text offset "$(")
+                   (or (source-prefix-at? text offset "$(")
                        (and (not context)
-                            (or (bash-at? text offset "<(")
-                                (bash-at? text offset ">(")))))
-              (let (after (bash-substitution-end text offset))
+                            (or (source-prefix-at? text offset "<(")
+                                (source-prefix-at? text offset ">(")))))
+              (let (after (region-plan-pair-end bash-word-regions text offset))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -294,7 +295,7 @@
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
                    (char=? (string-ref text offset) #\`))
-              (let (after (bash-quote-end text offset #\`))
+              (let (after (region-plan-quote-end bash-word-regions text offset #\`))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -370,10 +371,10 @@
          (length (string-length text))
          (name-end (assignment-name-end text)))
     (if (and name-end
-             (or (bash-at? text name-end "=")
-                 (bash-at? text name-end "+=")))
+             (or (source-prefix-at? text name-end "=")
+                 (source-prefix-at? text name-end "+=")))
       (let* ((operator-end
-              (if (bash-at? text name-end "+=")
+              (if (source-prefix-at? text name-end "+=")
                 (fx+ name-end 2) (fx+ name-end 1)))
              (name (slice-token raw text 'assignment-name 0 name-end))
              (operator

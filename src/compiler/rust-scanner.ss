@@ -39,6 +39,23 @@
     (['literal text] (display "Literal(" port) (rust-text port text) (display ")" port))
     (['literals values] (display "Literals(" port) (rust-strings port values) (display ")" port))
     (['quoted-string values] (display "QuotedString(" port) (rust-strings port values) (display ")" port))
+    (['region-word [stops quotes pairs initial-stop]]
+     (display "RegionWord { stops: " port) (rust-strings port stops)
+     (display ", quotes: &[" port)
+     (for-each
+      (lambda (row)
+        (display "gerbil_parser_rowan::scanner::RegionQuote { delimiter: " port)
+        (rust-char port (car row))
+        (display (if (cadr row) ", escaped: true, pairs: " ", escaped: false, pairs: ") port)
+        (rust-strings port (caddr row)) (display " }," port)) quotes)
+     (display "], pairs: &[" port)
+     (for-each
+      (lambda (row)
+        (display "gerbil_parser_rowan::scanner::RegionPair { prefix: " port)
+        (rust-text port (car row)) (display ", opening: " port) (rust-char port (cadr row))
+        (display ", closing: " port) (rust-char port (caddr row))
+        (display ", depth: " port) (display (cadddr row) port) (display " }," port)) pairs)
+     (display (if initial-stop "], consume_initial_stop: true }" "], consume_initial_stop: false }") port))
     (['balanced-word stops quotes pairs]
      (display "BalancedWord { stops: " port) (rust-strings port stops)
      (display ", quotes: " port) (rust-strings port quotes)

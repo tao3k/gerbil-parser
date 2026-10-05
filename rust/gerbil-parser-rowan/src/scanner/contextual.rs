@@ -19,6 +19,19 @@ pub struct BalancedPair {
     pub closing: char,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RegionQuote {
+    pub delimiter: char,
+    pub escaped: bool,
+    pub pairs: &'static [&'static str],
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RegionPair {
+    pub prefix: &'static str,
+    pub opening: char,
+    pub closing: char,
+    pub depth: usize,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScannerMatcher {
     Literal(&'static str),
     Literals(&'static [&'static str]),
@@ -29,6 +42,12 @@ pub enum ScannerMatcher {
     MarkerLine,
     BodyLine,
     QuotedString(&'static [&'static str]),
+    RegionWord {
+        stops: &'static [&'static str],
+        quotes: &'static [RegionQuote],
+        pairs: &'static [RegionPair],
+        consume_initial_stop: bool,
+    },
     BalancedWord {
         stops: &'static [&'static str],
         quotes: &'static [&'static str],

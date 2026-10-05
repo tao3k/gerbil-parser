@@ -9,8 +9,11 @@ The language-neutral compiler and runtime live under =src/=.  Their public
 language-import API is the top-level =language-support.ss= facade beside
 =build.ss=, so package imports do not expose the physical =src/= directory.
 Its implementations live under the top-level =language-support/=.  Bundled and downstream language packs live under
-=languages/<language>/<version>/=; grammar, parser entry, fixtures, tests, and
-native corpus stay together.  POO and =poo-flow=
+=languages/<language>/=. The authoring target is three Scheme interfaces:
+=grammar.ss= for declarations/metadata/fixtures, =parser.ss= for the public POO
+loader and parse entry, and =parser-test.ss= for regression tests. Version and
+source digests belong to loader metadata, not directory or module names.
+Remaining procedural language modules are tracked in the closure roadmap.  POO and =poo-flow=
 are used only while compiling grammar object graphs; generated parser hot paths
 do not perform dynamic POO dispatch.
 

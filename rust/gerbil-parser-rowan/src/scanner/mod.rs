@@ -3,8 +3,9 @@ mod contextual;
 
 pub(crate) use contextual::error;
 pub use contextual::{
-    BalancedPair, ContextualScanner, MarkerPolicy, SCANNER_OPCODE_CONTRACT, ScannerAction,
-    ScannerCell, ScannerCheckpoint, ScannerMatcher, ScannerRule, ScannerSpec,
+    BalancedPair, ContextualScanner, MarkerPolicy, RegionPair, RegionQuote,
+    SCANNER_OPCODE_CONTRACT, ScannerAction, ScannerCell, ScannerCheckpoint, ScannerMatcher,
+    ScannerRule, ScannerSpec,
 };
 
 #[cfg(test)]

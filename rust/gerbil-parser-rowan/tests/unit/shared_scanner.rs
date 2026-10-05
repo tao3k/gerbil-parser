@@ -133,3 +133,73 @@ fn shared_plan_keeps_parallel_inputs_and_obligations_independent() {
         }
     });
 }
+
+#[test]
+fn declared_regions_handle_deep_nesting_and_reject_partial_suffixes() {
+    let source = format!("echo {}α{}\n", "$(".repeat(5000), ")".repeat(5000));
+    let tokens = ContextualScanner::new(&generated::SCANNER, &source)
+        .expect("region spec")
+        .scan("command")
+        .expect("complete nested word");
+    assert_eq!(tokens[2].start, 5);
+    assert_eq!(tokens[2].end, source.len() - 1);
+    for source in ["echo $((1)", "echo <(cat", "echo `opaque", "echo \"${x}"] {
+        assert!(
+            ContextualScanner::new(&generated::SCANNER, source)
+                .expect("region spec")
+                .scan("command")
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn region_declarations_control_initial_stops_and_scalar_depth_admission() {
+    use gerbil_parser_rowan::scanner::{
+        RegionPair, ScannerAction, ScannerMatcher, ScannerRule, ScannerSpec,
+    };
+    static INITIAL: ScannerSpec = ScannerSpec {
+        rules: &[ScannerRule {
+            name: "initial",
+            mode: "command",
+            form: "word",
+            rank: 0,
+            matcher: ScannerMatcher::RegionWord {
+                stops: &[";"],
+                quotes: &[],
+                pairs: &[],
+                consume_initial_stop: true,
+            },
+            action: ScannerAction::Keep,
+        }],
+        ..generated::SCANNER
+    };
+    static BAD_DEPTH: ScannerSpec = ScannerSpec {
+        rules: &[ScannerRule {
+            name: "invalid-depth",
+            mode: "command",
+            form: "word",
+            rank: 0,
+            matcher: ScannerMatcher::RegionWord {
+                stops: &[";"],
+                quotes: &[],
+                pairs: &[RegionPair {
+                    prefix: "α(",
+                    opening: '(',
+                    closing: ')',
+                    depth: 3,
+                }],
+                consume_initial_stop: false,
+            },
+            action: ScannerAction::Keep,
+        }],
+        ..generated::SCANNER
+    };
+    let tokens = ContextualScanner::new(&INITIAL, ";α")
+        .expect("consume initial stop")
+        .scan("command")
+        .expect("one word");
+    assert_eq!(tokens.len(), 1);
+    assert_eq!((tokens[0].start, tokens[0].end), (0, 3));
+    assert!(ContextualScanner::new(&BAD_DEPTH, "α(x)))").is_err());
+}

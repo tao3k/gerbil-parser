@@ -8,6 +8,7 @@
                  scan-balanced-word scan-horizontal-whitespace scan-identifier
                  scan-line scan-longest-literal scan-newline
                  scan-quoted-strings)
+        (only-in ./region-scanner prepare-region-plan region-plan-end)
         (only-in ./token make-token)
         (only-in ./identity sha256-text))
 (export +empty-delimiter-queue+
@@ -106,7 +107,8 @@
                                     scanner)))
                   (list 'literal-trie scanner values))
                 matcher))
-             (['literal-trie . _]
+             (['region-word spec] (list 'prepared-region (prepare-region-plan spec)))
+             ((or ['literal-trie . _] ['prepared-region . _])
               (error "private contextual scanner matcher in input IR"))
              (else matcher)))
        (make-runtime-scan-rule name mode form prepared rank action)))
@@ -481,6 +483,7 @@
           (scan-line source start)))
     (['quoted-string delimiters]
      (scan-quoted-strings source start delimiters))
+    (['prepared-region plan] (region-plan-end plan source start))
     (['balanced-word stops quotes pairs]
      (scan-balanced-word source start stops quotes pairs))
     (else (error "unknown contextual scanner opcode" expression))))

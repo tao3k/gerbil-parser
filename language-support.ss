@@ -3,6 +3,7 @@
 ;;; Internal source-admission and fixture layout remains private under src/.
 
 (import (only-in ./src/grammar/lexical-algebra deftext-profile)
+        (only-in ./src/runtime/region-scanner defregion-plan)
         (only-in ./language-support/antlr4-source
                  +antlr4-source-schema+
                  antlr4-rule?
@@ -105,7 +106,7 @@
                  parse-artifact-roundtrip
                  parse-artifact-success?
                  parse-artifact-valid?))
-(export deftext-profile
+(export defregion-plan deftext-profile
         +antlr4-source-schema+
         +javacc-source-schema+
         +iso-bnf-source-schema+

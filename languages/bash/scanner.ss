@@ -8,8 +8,9 @@
                  delimiter-queue-enqueue delimiter-queue-take decode-marker
                  delimiter-obligation? delimiter-obligation-marker
                  delimiter-obligation-quoted? delimiter-obligation-strip-tabs?)
-        (only-in ./scan-words
-                 bash-at? bash-operator-at bash-word-end))
+        (only-in ./grammar bash-word-regions)
+        (only-in :gerbil-parser/src/runtime/region-scanner
+                 source-prefix-at? region-plan-operator region-plan-end))
 (export make-bash-scanner bash-scan
         parse-heredoc-delimiter
         bash-heredoc? bash-heredoc-delimiter
@@ -91,10 +92,10 @@
       (let-values (((next-active rest) (activate-next pending)))
         (values 'newline (fx+ offset 1)
                 (make-bash-lex-context rest next-active #f))))
-     ((bash-at? source offset "\\\n")
+     ((source-prefix-at? source offset "\\\n")
       (values 'line-continuation (fx+ offset 2) context))
      (expecting
-      (let* ((end (bash-word-end source offset))
+      (let* ((end (region-plan-end bash-word-regions source offset))
              (word (substring source offset end))
              (heredoc
               (parse-heredoc-delimiter word (string=? expecting "<<-"))))
@@ -105,18 +106,18 @@
       (values 'comment
               (line-content-end source offset (line-end source offset))
               context))
-     ((or (bash-at? source offset "<(")
-          (bash-at? source offset ">("))
-      (values 'word (bash-word-end source offset) context))
+     ((or (source-prefix-at? source offset "<(")
+          (source-prefix-at? source offset ">("))
+      (values 'word (region-plan-end bash-word-regions source offset) context))
      (else
-      (let (operator (bash-operator-at source offset))
+      (let (operator (region-plan-operator bash-word-regions source offset))
         (if operator
           (values 'operator (+ offset (string-length operator))
                   (if (or (string=? operator "<<")
                           (string=? operator "<<-"))
                     (make-bash-lex-context pending active operator)
                     context))
-          (values 'word (bash-word-end source offset) context)))))))
+          (values 'word (region-plan-end bash-word-regions source offset) context)))))))
 
 (def (make-bash-scanner source)
   (make-source-scanner source (make-bash-lex-context +empty-delimiter-queue+ #f #f)

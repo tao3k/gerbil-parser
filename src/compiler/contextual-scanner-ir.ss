@@ -9,7 +9,8 @@
         (only-in ./contextual-dispatch contextual-dispatch-ref)
         (only-in ../runtime/contextual-scanner
                  +contextual-scanner-opcode-contract+)
-        (only-in ../runtime/identity sha256-text))
+        (only-in ../runtime/identity sha256-text)
+        (only-in ../runtime/region-scanner valid-region-specification?))
 (export compile-contextual-scanner contextual-scanner-ir-ref)
 
 (def +contextual-scanner-ir-schema+ "gerbil-parser.contextual-scanner-ir.v1")
@@ -42,6 +43,7 @@
     (['marker-line] #t)
     (['body-line] #t)
     (['quoted-string delimiters] (nonempty-strings? delimiters))
+    (['region-word spec] (valid-region-specification? spec))
     (['balanced-word stops quotes pairs]
      (and (nonempty-strings? stops)
           (nonempty-strings? quotes)
@@ -69,7 +71,7 @@
       (['expect-marker _]
        (memq opcode '(literal literals)))
       (['enqueue-if-expecting _]
-       (memq opcode '(balanced-word identifier quoted-string)))
+       (memq opcode '(balanced-word region-word identifier quoted-string)))
       (['activate-next _] (eq? opcode 'newline-one))
       (['finish-marker _ _] (eq? opcode 'marker-line))
       (else #f))))

@@ -215,5 +215,5 @@
          "echo >\n"
          "cat <<EOF\nbody\n")))))
 
-(def bash-test bash-tests)
-(export bash-test)
+(def bash-parser-test bash-tests)
+(export bash-parser-test)

@@ -225,7 +225,7 @@ receipts. No full Bash language conformance, Rust AOT parity or standalone C
 language product is claimed. The preserved source implementation is now
 available for users and for the canonical-IR port.
 
-Verification is owned by =t/bash-test.ss= and the shared native Scheme
+Verification is owned by =languages/bash/parser-test.ss= and the shared native Scheme
 harness. Language/FFI performance admission uses the ASP =benchmark.ss=
 contracts. The Bash corpus and implementation live in =languages/bash=;
 there is no document-side parser audit, snapshot format or analysis pipeline.
@@ -236,7 +236,7 @@ GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   GAMBOPT=max-heap=1G,debug=q \
   python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 --log /private/tmp/parser-bash-source.log \
   --require 'NATIVE-SUITE-OK modules=1' --require '^OK$' \
-  -- gxi t/fixtures/tla-sany-differential/native-suite.ss t/bash-test.ss
+  -- gxi t/fixtures/tla-sany-differential/native-suite.ss languages/bash/parser-test.ss
 #+end_src
 
 * Shared scanner / contextual AOT / language C ABI implementation

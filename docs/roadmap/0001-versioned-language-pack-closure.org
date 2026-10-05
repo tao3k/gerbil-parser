@@ -16,7 +16,7 @@ Eight language families publish ten POO loader objects. All ten already expose
 =deflanguage-parser-loader=. TLA+ has three scopes; the other families have one.
 Entry unification does not establish shared scanner execution or Rust admission.
 There is no =sky= module in this checkout. Scanner work includes three scanner
-modules plus Bash's =scan-words.ss= helper.
+modules; Bash word boundaries now use the shared closed region plan.
 
 | Family / scope | Current declarations | Open convergence boundary | Owner |
 |---+---+---+---|
@@ -27,7 +27,7 @@ modules plus Bash's =scan-words.ss= helper.
 | HL7 v2.5.1 | Concise DSL; one loader | 6 source-dependent external declarations: data and 5 separators; segment id/terminator use shared text profiles | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
 | TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has 4 external declarations plus a Scheme proof policy; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
-| Bash 5.3 | Source descriptor; one loader | =scanner.ss= / =scan-words.ss= state, =parser-core.ss= recognition/artifact assembly, =word.ss= interior spans | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+| Bash 5.3 | Source descriptor; one loader | =scanner.ss= command state, =parser-core.ss= recognition/artifact assembly, =word.ss= interior spans; word boundaries use declared engine regions | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
 Total: 10 external lexical declarations, concentrated in two families.
 Bash has a source parser rather than external lexical rows and is counted
@@ -660,3 +660,54 @@ Controls ran with the existing 90-second total / 5-second idle test gates and
 explicit =OK= plus exit status propagation. These are verification durations,
 not a matched end-to-end performance benchmark. Source catalog consolidation
 does not qualify new Rust/C capabilities, Bash execution or all pack migrations.
+
+* Shared closed regions and Bash caller migration — 2026-10-05
+
+The first step of the whole Bash migration now has production callers. The
+public =defregion-plan= accepts stop values, quote escape/scope values and paired
+region values. =languages/bash/grammar.ss= declares the actual Bash plan;
+=scanner.ss= and =word.ss= consume the engine matcher. The 103-line procedural
+=scan-words.ss= and all its imports are removed. This is generic region
+execution, not a language-name dispatch or a copied Bash scanner under =src/=.
+
+The engine prepares and owns a copied plan and operator trie once. It traverses
+with one forward cursor and explicit frames rather than recursively invoking
+region scanners. Longest declared openers select arithmetic expansion before
+command substitution; process substitutions shield overlapping operator stops;
+quotes constrain visible nested regions. Initial-stop consumption is explicit
+so transitional marker scanning retains its existing behavior. The closed
+=region-word= operation is additive within Scanner IR v1; loader schema stays
+=gerbil-parser.language-entry.v2=.
+
+The existing Scheme producer emits the Rust region tables and nine source
+traces. Its final native output is byte-identical, after rustfmt, to the checked-in
+Rust fixture. The Rust executor admits the same scalar-depth constraints and
+uses explicit frames with UTF-8 byte offsets. No Scheme callback executes in
+that consumer.
+
+| Gate | Evidence | Bounded process time |
+|---+---+---|
+| Native Bash =parser-test.ss= | All 17 cases, source roundtrip, fields, malformed syntax and here-documents | 6.15 s |
+| Native region suite | Six cases; 5000 nested regions, nonzero start, opaque quotes, malformed suffixes, copied-plan isolation and admission | 5.02 s |
+| All ten POO loaders | Metadata, registered fixture conformance and independent Bash worker obligations | 6.35 s |
+| Existing contextual deferred suite | Nine cases; immutable checkpoints and FIFO controls | 2.98 s |
+| POO loader extension suite | Fifteen cases; inherited values and constraints | 5.11 s |
+| Native Scheme Rust producer | Nine traces; final generated Rust matches repository bytes | 8.67 s |
+| Rust/Rowan unit suite | 90 passed; actual generated region traces, 5000 levels, UTF-8, malformed scope and admission | 1.07 s |
+| Rust clippy | All targets, warnings denied | 1.15 s |
+| ASP Rust source policy | Actual workspace dev gate passes without policy changes | 1.05 s |
+
+Native products were compiled with the configured Gerbil SDK and GCC. The first
+control batch failed because the new module's generated aggregate lacked a
+native object; compiling that actual aggregate fixed the import. Export-graph
+changes also required a fresh compiler process to avoid an old cached grammar
+interface. Those failures remain failures, with no interpreter fallback or
+compiler/profile change. The timings above are concurrent qualification runs,
+not comparative performance evidence.
+
+Fixtures are now declarative values in Bash =grammar.ss= and the unchanged
+regression corpus moved to =parser-test.ss=. The three remaining procedural
+modules are =scanner.ss=, =word.ss= and =parser-core.ss=. Command transitions,
+embedded word projection and recognition/result assembly are the next shared
+engine obligations. This step does not close Bash's three-interface target or
+qualify a complete Bash Rust AOT/C ABI product.

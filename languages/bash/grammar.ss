@@ -1,18 +1,21 @@
 ;;; -*- Gerbil -*-
-;;; Bash 5.3 source syntax identity and stateful scanner ownership.
-
-(import (only-in :gerbil-parser/language-support
-                 declare-source-language)
-        (only-in ./parser-core parse-bash-core)
-        (only-in ./scanner bash-scan))
-(export +bash-version+
-        +bash-syntax-contract+
-        bash-source-language)
-
+;;; Bash syntax identity and declared nested word regions.
+(import (only-in :gerbil-parser/language-support defregion-plan defsyntax-corpus))
+(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-fixtures)
 (def +bash-version+ "5.3")
 (def +bash-syntax-contract+ "bash-5.3-structured-source.v1")
 
-(def bash-source-language
-  (declare-source-language
-   "bash" +bash-version+ +bash-syntax-contract+
-   bash-scan parse-bash-core))
+(defregion-plan bash-word-regions
+  (stops ";;&" "&>>" "<<-" "<<<" "&&" "||" "|&" ";;" ";&"
+         "<<" ">>" "<>" "<&" ">&" ">|" "&>" ";" "&" "|" "(" ")" "<" ">")
+  (quotes (#\' #f ()) (#\" #t ("${" "$(" "$((")) (#\` #t ()))
+  (pairs ("${" #\{ #\} 1) ("$(" #\( #\) 1) ("$((" #\( #\) 2)
+         ("<(" #\( #\) 1) (">(" #\( #\) 1))
+  (consume-initial-stop #t))
+
+(defsyntax-corpus bash-fixtures
+  (identity "bash" "5.3" "bash-5.3-structured-source.v1")
+  (accepted
+   ("bash/heredoc" bash-heredoc (text "cat <<EOF\nα\nEOF\n") BashFile (HereDocument)))
+  (rejected
+   ("bash/incomplete-if" bash-incomplete-if (text "if true; then\n"))))

@@ -1,32 +1,28 @@
 ;;; -*- Gerbil -*-
 ;;; Public versioned Bash parser entry and here-document span receipt.
 
-(import (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
-        (only-in :clan/poo/object .o)
+(import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.
                  declare-language-source-scan-worker)
         (only-in :gerbil-parser/src/language/source
-                 source-language-digest)
-        (only-in ./grammar bash-source-language)
+                 source-language-digest declare-source-language)
+        ./grammar
         (only-in ./parser-core
                  bash-here-document-link?
                  bash-here-document-link-marker-start
                  bash-here-document-link-body-start
-                 parse-bash-core/receipt)
+                 parse-bash-core parse-bash-core/receipt)
         (only-in ./scanner bash-scan make-bash-scanner))
-(export bash-language
+(export (import: ./grammar) bash-source-language bash-language
         parse-bash
         parse-bash/receipt
         bash-here-document-link?
         bash-here-document-link-marker-start
         bash-here-document-link-body-start)
 
-(defsyntax-corpus bash-fixtures
-  (identity "bash" "5.3" "bash-5.3-structured-source.v1")
-  (accepted
-   ("bash/heredoc" bash-heredoc (text "cat <<EOF\nα\nEOF\n") BashFile (HereDocument)))
-  (rejected
-   ("bash/incomplete-if" bash-incomplete-if (text "if true; then\n"))))
+(def bash-source-language
+  (declare-source-language "bash" +bash-version+ +bash-syntax-contract+
+                          bash-scan parse-bash-core))
 
 (deflanguage-parser-loader (bash-language :: self LanguageLoader.)
   (source bash-source-language)

@@ -6,7 +6,7 @@ use gerbil_parser_rowan::scanner::{
 };
 pub static SCANNER: ScannerSpec = ScannerSpec {
     opcode_contract: "gerbil-parser.contextual-scanner-opcodes.v1",
-    digest: "sha256:e7610dab1af5a0d24694bc88f33641e35a13a00d634e5ce064b561a65f434e81",
+    digest: "sha256:5231420d7457b009e10dddccfce2028dfc27682d158bbcdd7ef0cc5c8a0f85dc",
     base_grammar_digest: None,
     initial_mode: "command",
     modes: &["command", "body"],
@@ -32,21 +32,61 @@ pub static SCANNER: ScannerSpec = ScannerSpec {
             name: "word",
             mode: "command",
             form: "word",
-            matcher: ScannerMatcher::BalancedWord {
-                stops: &["<<", "<<-"],
-                quotes: &["'", "\""],
+            matcher: ScannerMatcher::RegionWord {
+                stops: &[
+                    ";;&", "&>>", "<<-", "<<<", "&&", "||", "|&", ";;", ";&", "<<", ">>", "<>",
+                    "<&", ">&", ">|", "&>", ";", "&", "|", "(", ")", "<", ">",
+                ],
+                quotes: &[
+                    gerbil_parser_rowan::scanner::RegionQuote {
+                        delimiter: '\u{27}',
+                        escaped: false,
+                        pairs: &[],
+                    },
+                    gerbil_parser_rowan::scanner::RegionQuote {
+                        delimiter: '\u{22}',
+                        escaped: true,
+                        pairs: &["${", "$(", "$(("],
+                    },
+                    gerbil_parser_rowan::scanner::RegionQuote {
+                        delimiter: '\u{60}',
+                        escaped: true,
+                        pairs: &[],
+                    },
+                ],
                 pairs: &[
-                    BalancedPair {
+                    gerbil_parser_rowan::scanner::RegionPair {
                         prefix: "${",
                         opening: '\u{7b}',
                         closing: '\u{7d}',
+                        depth: 1,
                     },
-                    BalancedPair {
+                    gerbil_parser_rowan::scanner::RegionPair {
                         prefix: "$(",
                         opening: '\u{28}',
                         closing: '\u{29}',
+                        depth: 1,
+                    },
+                    gerbil_parser_rowan::scanner::RegionPair {
+                        prefix: "$((",
+                        opening: '\u{28}',
+                        closing: '\u{29}',
+                        depth: 2,
+                    },
+                    gerbil_parser_rowan::scanner::RegionPair {
+                        prefix: "<(",
+                        opening: '\u{28}',
+                        closing: '\u{29}',
+                        depth: 1,
+                    },
+                    gerbil_parser_rowan::scanner::RegionPair {
+                        prefix: ">(",
+                        opening: '\u{28}',
+                        closing: '\u{29}',
+                        depth: 1,
                     },
                 ],
+                consume_initial_stop: false,
             },
             rank: 0,
             action: ScannerAction::EnqueueIfExpecting(MarkerPolicy::ShellQuoteRemoval),
@@ -472,6 +512,101 @@ pub static TRACES: &[(&str, &[gerbil_parser_rowan::ScannedToken])] = &[
                 terminal: "newline",
                 start: 8,
                 end: 9,
+            },
+        ],
+    ),
+    (
+        "echo $((1+(2*3))) <(printf 'α') >(cat)\n",
+        &[
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 0,
+                end: 4,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "space",
+                start: 4,
+                end: 5,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 5,
+                end: 17,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "space",
+                start: 17,
+                end: 18,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 18,
+                end: 32,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "space",
+                start: 32,
+                end: 33,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 33,
+                end: 39,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "newline",
+                start: 39,
+                end: 40,
+            },
+        ],
+    ),
+    (
+        "echo `opaque ${x}`\n",
+        &[
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 0,
+                end: 4,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "space",
+                start: 4,
+                end: 5,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 5,
+                end: 18,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "newline",
+                start: 18,
+                end: 19,
+            },
+        ],
+    ),
+    (
+        "echo α$(printf 'β')$((2))\n",
+        &[
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 0,
+                end: 4,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "space",
+                start: 4,
+                end: 5,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "word",
+                start: 5,
+                end: 27,
+            },
+            gerbil_parser_rowan::ScannedToken {
+                terminal: "newline",
+                start: 27,
+                end: 28,
             },
         ],
     ),

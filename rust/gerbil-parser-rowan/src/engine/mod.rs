@@ -10,6 +10,12 @@ mod lexer;
 mod model;
 mod module_source;
 mod parser;
+mod part_profile;
+mod word_parts;
+pub use part_profile::{
+    BindingSpec, PartGuard, PartOpcode, PartProfileSpec, PartRule, PreparedPartProfile,
+    SubscriptSpec,
+};
 mod result_projection;
 mod rowan_tree;
 mod structural_block_opening;
@@ -92,3 +98,7 @@ mod binding_names_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/result_projection.rs"]
 mod result_projection_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/word_parts.rs"]
+mod word_parts_tests;

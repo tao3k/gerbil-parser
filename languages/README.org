@@ -670,6 +670,19 @@ grammar data, shared with Scheme. Downstream authors do not implement tree
 building or token accumulation in Rust.
 
 This generic construction capability is available independently of syntax
-recognition. Complete standalone Rust Source/Command/Word recognition is still
+recognition. Complete standalone Rust Source/Command recognition remains
 an engine implementation boundary; emitting result tables alone does not
 publish a standalone language parser.
+
+
+* Portable Word/Binding engine
+
+PartProfile and BindingProfile POO slots now lower through
+=part-profile-rust-source= to a shared Rust =PreparedPartProfile=. An inherited
+profile can replace rules, binding prefixes/operators and subscript delimiters;
+the same engine executes those admitted values. Languages supply no Rust Word
+scanner or callback. Recognition accepts a full source and bounded UTF-8 range,
+and composes captured nodes through the declared ResultProfile instructions.
+Production Bash and an inherited Unicode configuration have independent
+Scheme/Rust event, field and lossless-text controls. Complete Command/Source AOT
+and full ParseArtifact parity still require the next shared engine boundary.

@@ -259,6 +259,21 @@ impl PreparedResultProfile {
     }
 }
 impl PreparedResultProjection {
+    pub(super) fn has_signature(&self, expected: &[(&str, CaptureKind, bool)]) -> bool {
+        let p = &self.spec.projections[self.index];
+        p.captures.len() == expected.len()
+            && p.captures.iter().zip(p.instructions).zip(expected).all(
+                |((capture, instruction), (name, kind, required))| {
+                    let actual_required = match instruction.opcode {
+                        ProjectionOpcode::Token { required, .. }
+                        | ProjectionOpcode::One { required } => required,
+                        ProjectionOpcode::Many => false,
+                    };
+                    capture.name == *name && capture.kind == *kind && actual_required == *required
+                },
+            )
+    }
+
     /// Execute bound instructions without another identifier lookup.
     /// # Errors
     /// Rejects invalid captures, source boundaries or node ownership.

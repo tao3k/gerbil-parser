@@ -1641,3 +1641,37 @@ zero in 6.68 seconds and matches formatted checked Rust bytes. All four existing
 shared-scanner products remain byte-exact (5.44/5.19/4.40/0.37 seconds). The
 pinned Scheme whitespace class regenerates byte-exact in 1.34 seconds. Runtime
 fences remain 90 seconds total and five seconds of actual output silence.
+
+
+** Shared Word and Binding recognition in Rust
+
+The region boundary at =619bf1905b9dfc9a4541d30e1daffe9190587254= passes
+Rust, Ubuntu and macOS CI. This next boundary adds a generic Scheme-owned
+PartProfile producer and independently executing Rust composition engine.
+Public language Scheme interfaces remain exactly =grammar.ss=, =parser.ss=
+and =parser-test.ss=; the producer and recognition algorithms are engine-owned.
+
+Bindings and projection signatures are admitted once; context indexes and
+projection handles are prepared once. Explicit task stacks construct nested
+results, sharing the complete immutable source. Production Bash and inherited
+POO Unicode/priority controls compare full events and field order rather than
+replaying pre-recognized captures. All 110 controls match, including malformed
+regions, optional captures, escaped Unicode and non-assignment outcomes. A
+512-level control checks complete lossless output without recursive parser calls.
+
+The first independent replay exposed an incorrect subscript task order; the
+corrected ordering is qualified by nested index/operand event and field parity.
+An attempted duplicate rule override was rejected by the existing POO contract;
+the extension now replaces the inherited context entry explicitly, preserving
+the closed declaration constraint. Neither failure was addressed by a timeout
+or compiler change. Full Command interpretation and complete Source artifact
+admission/parity remain the next obligations.
+
+Local qualification: the producer compiles with GCC. The combined Scheme
+PartProfile/ResultProfile/Bash gate passes 55 cases in 22.32 seconds with final
+=OK=, =HARNESS-RETURN status=0= and exit zero. Rust/Rowan passes 117 tests in
+0.03 seconds; strict Clippy passes, and the ASP workspace source gate passes in
+0.90 seconds. A separate 110-control regeneration is byte-exact after rustfmt
+and exits zero in 23.74 seconds. The existing 90-second total/five-second silence
+runtime fences are unchanged. These are semantic/structural receipts, not an
+end-to-end parse-speed claim.

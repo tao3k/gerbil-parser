@@ -238,7 +238,8 @@ and terminal admission path. =generate-native-language-pack= accepts the
 source descriptor export through the existing generic handle registration;
 no builtin language dispatcher or handwritten C transport is needed. Source
 parsing currently executes the Scheme engine behind the C ABI. Standalone
-Rust Word/Command recognition remains an open producer obligation.
+Rust Word recognition is qualified below; standalone Command/Source parsing
+remains an open producer obligation.
 
 ** Executable part recognition slots
 
@@ -327,7 +328,7 @@ Scheme producer lowers the production Bash simple/parameter/assignment name
 recipes through the same TextProfile emitter and generates their boundary
 controls. CI regenerates this artifact and the Rust executor checks every
 control. This qualifies binding-name AOT; complete Word/Command Source AOT,
-complete Part/Binding composition and Command execution remain open obligations.
+Command execution remains an open obligation; Part/Binding composition is qualified below.
 Result projection and scoped-region execution are qualified below.
 
 ** CommandProfile roles and projections
@@ -361,8 +362,8 @@ children append in constant time and materialize once per published node.
 Deferred here-document marker receipts use a two-stack FIFO, preserving lexical
 order and independent quote policies without copying the existing marker list.
 This layer declares token roles and node projections. Control-flow grammar
-execution remains in the engine; complete standalone Rust Command/Word
-execution still requires lowering those grammar operations to shared IR.
+execution remains in the engine; complete standalone Rust Command execution still requires lowering those
+grammar operations to shared IR. Word execution is qualified below.
 
 ** Closed control programs
 
@@ -409,8 +410,8 @@ Their dedicated parser functions are removed. POO overrides can define an
 independent Unicode loop syntax without editing the executor. A declarative
 refactor gives failures new explanatory text; diagnostic codes, reason kinds,
 source identity, rejected status and source retention stay qualified.
-This is real Scheme execution of the closed IR. Full Rust control/Word
-interpretation remains separate work; Word result-projection IR executes in
+This is real Scheme execution of the closed IR. Full Rust control interpretation remains separate work; Word execution is
+qualified below; Word result-projection IR executes in
 the Scheme engine as described below.
 
 ** Shared result-projection IR
@@ -455,8 +456,8 @@ terminals through the same macro, without modifying the engine.
 
 Projection recipes and returned copies are owned independently and participate
 in Source identity. Source v1, Loader v2 and C ABI v2 remain unchanged. This
-closes Scheme Word result projection; full standalone Rust Source control/Word
-execution still needs a shared interpreter and qualification.
+closes Scheme Word result projection; full standalone Rust Source control execution still needs a shared interpreter
+and qualification. Shared Word recognition is qualified below.
 
 ** Engine-owned fixture metadata
 
@@ -514,8 +515,8 @@ The production Bash result profile and thirteen actual Scheme Word/assignment/
 heredoc captures form a reproducible cross-backend witness. Rust independently
 executes the same construction instructions; tests compare every event, field
 order and final source text. This closes portable result construction. Shared
-Rust Part/Binding recognition, Command program interpretation, Source admission
-and end-to-end standalone parser receipts remain subsequent engine obligations.
+Rust Part/Binding recognition is qualified below. Command program interpretation,
+Source admission and end-to-end standalone parser receipts remain subsequent engine obligations.
 No Loader, Source, native metadata or C ABI schema changes are introduced.
 
 
@@ -541,6 +542,44 @@ because it publishes a word boundary without decomposing the interior.
 Scheme controls cover the production Bash declaration and a distinct Unicode
 configuration with restricted nested scopes. Rust recognizes the actual strings
 and compares exclusive boundaries and rejection outcomes. This qualifies region
-recognition; full Word/assignment/parameter composition and Command execution
-still require the Part/Binding and Command interpreters. All loader/Source/C ABI
+recognition. Word/assignment/parameter composition is qualified below; Command
+program execution remains the subsequent engine boundary. All loader/Source/C ABI
 schema versions remain unchanged.
+
+
+** Shared Word and Binding composition in Rust
+
+=part-profile-rust-source= admits the inherited POO PartProfile against the
+ResultProfile and region declaration, then lowers binding TextProfiles,
+prefix/operator vocabulary, scoped subscript regions and ordered recognition
+rules to =PartProfileSpec=. The language still declares grammar values; no Rust
+recognizer, callbacks or extra language interfaces are required.
+
+=PreparedPartProfile= admits all static tables once. It binds result signatures,
+name recognizers and quote contexts, then prepares per-context ASCII first-
+character dispatch with a Unicode map. Declaration order determines matching,
+including shorter-prefix overrides. It does not choose the longest part rule.
+Binding prefix/operator selection retains the declared longest literal match,
+and a prefix requires a following body character. Nullable names, duplicate
+rules, missing contexts, wrong projection signatures and conflicting derived
+subscript scopes reject before source execution.
+
+=word=, =assignment= and =here_content= borrow a full immutable source and an
+absolute UTF-8 capture range. Assignment returns no node for ordinary words.
+All nested captures borrow that same source/catalog owner. Explicit recognition
+and construction tasks compose parts, quotes, parameters, indexes, opaque
+substitutions and assignment values without recursive Rust parser calls or
+copies of accumulated token lists. Optional captures remain absent instead of
+becoming empty required tokens. ResultProfile instructions move the completed
+subtrees into the declared fields; ordered TreeEvents are published once.
+Region matches that cross the requested capture boundary reject.
+
+The Scheme generator executes the production Bash profile and an inherited
+POO profile with Unicode parameter prefixes, operators, index delimiters,
+quote/escape openers and a shorter-prefix rule override. Rust independently
+recognizes 110 bounded sources with nonzero byte origins. Complete events,
+preorder fields, rejection/no-assignment outcomes and lossless Rowan text are
+compared. A 512-level parameter control uses the same explicit task stack.
+This qualifies shared Word/Binding execution. Command interpretation and full
+Source ParseArtifact admission/parity remain open, and no end-to-end parser
+speed improvement is inferred from these controls. No schema version changes.

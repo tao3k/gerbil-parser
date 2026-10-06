@@ -22,7 +22,7 @@
           (display "    (0x" port) (display (number->string (car range) 16) port)
           (display ", 0x" port) (display (number->string (cdr range) 16) port)
           (display "),\n" port)) ranges)
-        (display "];\n\npub(super) fn is_scheme_whitespace(character: char) -> bool {\n" port)
+        (display "];\n\npub(crate) fn is_scheme_whitespace(character: char) -> bool {\n" port)
         (display "    let code = character as u32;\n" port)
         (display "    let index = RANGES.partition_point(|&(start, _)| start <= code);\n" port)
         (display "    index > 0 && code <= RANGES[index - 1].1\n}\n" port)))

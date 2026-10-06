@@ -26,28 +26,7 @@ fn matcher(value: ScannerMatcher) -> bool {
             quotes,
             pairs,
             ..
-        } => {
-            strings(stops)
-                && stops
-                    .iter()
-                    .enumerate()
-                    .all(|(i, s)| !stops[..i].contains(s))
-                && pairs.iter().enumerate().all(|(i, p)| {
-                    p.depth > 0
-                        && p.depth <= p.prefix.chars().count()
-                        && p.prefix.ends_with(p.opening)
-                        && !pairs[..i].iter().any(|prior| prior.prefix == p.prefix)
-                })
-                && quotes.iter().enumerate().all(|(i, q)| {
-                    !quotes[..i]
-                        .iter()
-                        .any(|prior| prior.delimiter == q.delimiter)
-                        && q.pairs.iter().enumerate().all(|(j, prefix)| {
-                            !q.pairs[..j].contains(prefix)
-                                && pairs.iter().any(|p| p.prefix == *prefix)
-                        })
-                })
-        }
+        } => super::super::region::valid_spec(stops, quotes, pairs),
         ScannerMatcher::BalancedWord {
             stops,
             quotes,

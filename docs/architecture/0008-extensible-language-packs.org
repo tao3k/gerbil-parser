@@ -327,8 +327,8 @@ Scheme producer lowers the production Bash simple/parameter/assignment name
 recipes through the same TextProfile emitter and generates their boundary
 controls. CI regenerates this artifact and the Rust executor checks every
 control. This qualifies binding-name AOT; complete Word/Command Source AOT,
-parameter/result projection lowering and scoped-region Rust execution remain
-separate open obligations.
+complete Part/Binding composition and Command execution remain open obligations.
+Result projection and scoped-region execution are qualified below.
 
 ** CommandProfile roles and projections
 
@@ -517,3 +517,30 @@ order and final source text. This closes portable result construction. Shared
 Rust Part/Binding recognition, Command program interpretation, Source admission
 and end-to-end standalone parser receipts remain subsequent engine obligations.
 No Loader, Source, native metadata or C ABI schema changes are introduced.
+
+
+** Shared Rust region recognition
+
+The Scheme =region-plan-rust-source= producer emits an immutable =RegionSpec=
+from the admitted region declaration. Scanner RegionWord and downstream
+quote/pair decomposition share one explicit-stack execution algorithm and one
+admission predicate; languages supply no Rust recognizer or callback.
+=PreparedRegionPlan= admits static delimiters and pair scopes once, then borrows
+independent full sources through =source=. Every offset is an absolute UTF-8
+byte offset. Escape advancement follows Unicode scalar boundaries, and word
+stops use the pinned Scheme whitespace class.
+
+=PreparedRegionSource= lazily memoizes every nested quote/pair boundary closed
+by a requested match. Pair keys include the opener prefix and source offset;
+quote keys are separate. Scope restrictions apply to nested pairs, quote scopes
+remain declared on the quote, and longest-prefix selection resolves overlaps.
+Source preparation leaves unrequested quotes inert. Caches live with the source
+and are never shared across sources. Scanner-only matching disables cache writes
+because it publishes a word boundary without decomposing the interior.
+
+Scheme controls cover the production Bash declaration and a distinct Unicode
+configuration with restricted nested scopes. Rust recognizes the actual strings
+and compares exclusive boundaries and rejection outcomes. This qualifies region
+recognition; full Word/assignment/parameter composition and Command execution
+still require the Part/Binding and Command interpreters. All loader/Source/C ABI
+schema versions remain unchanged.

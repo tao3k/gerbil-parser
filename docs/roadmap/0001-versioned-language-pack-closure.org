@@ -1610,3 +1610,34 @@ their output ports, publish completion and use the existing finite child exit
 binding. Local regeneration confirms unchanged Rust, Scheme and C products:
 generic scanner 10.83 seconds, Bash scanner 5.83, contextual parser 4.65 and
 native pack 0.33; every process exits zero under 90/5-second fences.
+
+
+** Shared region recognition in Rust
+
+At =60101b7fceaf7906e121ffbb701a162027b613f4=, Rust, Ubuntu and macOS CI
+all pass. The next structural boundary extracts the existing RegionWord stack
+machine into a shared engine, rather than adding a separate language recognizer.
+The same declaration validator and region-field emitter serve scanner AOT and
+standalone region AOT. Pinned Scheme whitespace remains authoritative.
+
+The engine adds once-admitted reusable plans, source-local endpoint caches and
+restricted pair scopes. Scanner-only execution leaves cache writes disabled.
+Forty source/profile controls are produced by Scheme from production Bash and
+an independent Unicode configuration; Rust independently recognizes boundaries,
+including rejected requests. A 512-level nested control checks linear outer
+visitation and zero character visits for subsequent cached inner requests.
+No end-to-end parse speed improvement is inferred from these structural checks.
+
+The remaining full Source AOT obligations are Part/Binding composition followed
+by Command execution and complete ParseArtifact parity. Region execution and
+ResultProfile construction are shared engine capabilities; their completion
+does not by itself publish an independent Rust Bash Source parser.
+
+Local qualification: GCC producer compilation succeeds; Scheme region admission
+and matching passes ten cases in 6.70 seconds with final =OK=,
+=HARNESS-RETURN status=0= and exit zero. Rust/Rowan passes 114 cases; strict
+Clippy and the ASP Rust workspace policy gate pass. Region regeneration exits
+zero in 6.68 seconds and matches formatted checked Rust bytes. All four existing
+shared-scanner products remain byte-exact (5.44/5.19/4.40/0.37 seconds). The
+pinned Scheme whitespace class regenerates byte-exact in 1.34 seconds. Runtime
+fences remain 90 seconds total and five seconds of actual output silence.

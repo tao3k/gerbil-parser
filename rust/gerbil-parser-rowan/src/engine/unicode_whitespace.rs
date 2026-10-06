@@ -13,7 +13,7 @@ const RANGES: &[(u32, u32)] = &[
     (0x3000, 0x3000),
 ];
 
-pub(super) fn is_scheme_whitespace(character: char) -> bool {
+pub(crate) fn is_scheme_whitespace(character: char) -> bool {
     let code = character as u32;
     let index = RANGES.partition_point(|&(start, _)| start <= code);
     index > 0 && code <= RANGES[index - 1].1

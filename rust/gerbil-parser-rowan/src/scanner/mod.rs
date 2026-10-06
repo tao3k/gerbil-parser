@@ -1,5 +1,7 @@
 //! Shared contextual scanner API; execution belongs to the contextual leaf.
 mod contextual;
+mod region;
+pub use region::{PreparedRegionPlan, PreparedRegionSource, RegionScope, RegionSpec};
 
 pub(crate) use contextual::error;
 pub use contextual::{

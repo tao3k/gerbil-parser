@@ -20,6 +20,7 @@ mod structural_table;
 mod unicode_alphabetic;
 mod unicode_numeric;
 mod unicode_whitespace;
+pub(crate) use unicode_whitespace::is_scheme_whitespace;
 mod validation;
 
 pub use contextual_parser::{ContextualParserSpec, parse_contextual};

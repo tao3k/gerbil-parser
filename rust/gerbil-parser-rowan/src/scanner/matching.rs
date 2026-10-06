@@ -282,33 +282,6 @@ pub(super) fn shell_delimiter(word: &str, at: usize) -> Result<(String, bool), D
     Ok((result, quoted))
 }
 
-#[derive(Clone, Copy)]
-enum RegionFrame<'a> {
-    Quote(&'a RegionQuote),
-    Pair(&'a RegionPair, usize),
-}
-fn region_pair<'a>(
-    source: &str,
-    at: usize,
-    pairs: &'a [RegionPair],
-    allowed: Option<&[&str]>,
-) -> Option<&'a RegionPair> {
-    pairs
-        .iter()
-        .filter(|p| {
-            allowed.is_none_or(|names| names.contains(&p.prefix))
-                && source[at..].starts_with(p.prefix)
-        })
-        .max_by_key(|p| p.prefix.len())
-}
-fn skip_escape(source: &str, at: usize) -> usize {
-    let after = next(source, at);
-    if after < source.len() {
-        next(source, after)
-    } else {
-        after
-    }
-}
 fn region_word(
     source: &str,
     at: usize,
@@ -317,86 +290,7 @@ fn region_word(
     pairs: &[RegionPair],
     consume_initial_stop: bool,
 ) -> Result<Option<usize>, Diagnostic> {
-    let mut stack = Vec::new();
-    let mut cursor = at;
-    while cursor < source.len() {
-        let ch = source[cursor..]
-            .chars()
-            .next()
-            .ok_or_else(|| error(cursor, "missing region character"))?;
-        let frame = stack.last().copied();
-        let allowed = match frame {
-            Some(RegionFrame::Quote(q)) => Some(q.pairs),
-            _ => None,
-        };
-        let nested = region_pair(source, cursor, pairs, allowed);
-        match frame {
-            Some(RegionFrame::Quote(q)) => {
-                if ch == '\\' && q.escaped {
-                    cursor = skip_escape(source, cursor);
-                    continue;
-                }
-                if ch == q.delimiter {
-                    stack.pop();
-                } else if let Some(p) = nested {
-                    stack.push(RegionFrame::Pair(p, p.depth));
-                    cursor += p.prefix.len();
-                    continue;
-                }
-            }
-            Some(RegionFrame::Pair(p, depth)) => {
-                if ch == '\\' {
-                    cursor = skip_escape(source, cursor);
-                    continue;
-                }
-                if let Some(q) = quotes.iter().find(|q| q.delimiter == ch) {
-                    stack.push(RegionFrame::Quote(q));
-                } else if let Some(n) = nested {
-                    stack.push(RegionFrame::Pair(n, n.depth));
-                    cursor += n.prefix.len();
-                    continue;
-                } else if ch == p.opening {
-                    let depth = depth
-                        .checked_add(1)
-                        .ok_or_else(|| error(cursor, "region depth overflow"))?;
-                    if let Some(frame) = stack.last_mut() {
-                        *frame = RegionFrame::Pair(p, depth);
-                    }
-                } else if ch == p.closing {
-                    if depth == 1 {
-                        stack.pop();
-                    } else if let Some(frame) = stack.last_mut() {
-                        *frame = RegionFrame::Pair(p, depth - 1);
-                    }
-                }
-            }
-            None => {
-                if let Some(p) = nested {
-                    stack.push(RegionFrame::Pair(p, p.depth));
-                    cursor += p.prefix.len();
-                    continue;
-                }
-                if (cursor > at || !consume_initial_stop)
-                    && (ch.is_whitespace() || stops.iter().any(|s| source[cursor..].starts_with(s)))
-                {
-                    return Ok((cursor > at).then_some(cursor));
-                }
-                if ch == '\\' {
-                    cursor = skip_escape(source, cursor);
-                    continue;
-                }
-                if let Some(q) = quotes.iter().find(|q| q.delimiter == ch) {
-                    stack.push(RegionFrame::Quote(q));
-                }
-            }
-        }
-        cursor = next(source, cursor);
-    }
-    if stack.is_empty() {
-        Ok((cursor > at).then_some(cursor))
-    } else {
-        Err(error(at, "unterminated declared region"))
-    }
+    super::super::region::scan_word(source, at, stops, quotes, pairs, consume_initial_stop)
 }
 
 fn profile_line(

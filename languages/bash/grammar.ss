@@ -1,9 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Bash syntax identity and declared nested word regions.
 (import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-source-support deflanguage-source ShellSourceStrategy. defscanner-profile ScannerProfile. defresult-profile ResultProfile. defpart-profile PartProfile. defbinding-profile BindingProfile.)
+        (only-in :gerbil-parser/language-source-support deflanguage-source ShellSourceStrategy. defscanner-profile ScannerProfile. defresult-profile ResultProfile. defpart-profile PartProfile. defbinding-profile BindingProfile. defcommand-profile CommandProfile.)
         (only-in :gerbil-parser/language-support defregion-plan defsyntax-corpus))
-(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-parts bash-simple-binding bash-parameter-binding bash-assignment-binding bash-fixtures bash-source-language)
+(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-commands bash-parts bash-simple-binding bash-parameter-binding bash-assignment-binding bash-fixtures bash-source-language)
 (def +bash-version+ "5.3")
 (def +bash-syntax-contract+ "bash-5.3-structured-source.v1")
 
@@ -103,6 +103,21 @@
          subscript-open subscript-close quote-open quote-close
          substitution-open substitution-body substitution-close assignment-name assignment-operator))
 
+(defcommand-profile (bash-commands :: self CommandProfile.)
+ (roles
+  (trivia (horizontal-whitespace) (comment) (line-continuation))
+  (separator (newline) (operator ";" "&"))
+  (redirect (operator "<" ">" ">>" "<>" "<<" "<<-" "<<<" "<&" ">&" ">|" "&>" "&>>"))
+  (here-redirect (operator "<<" "<<-")) (strip-redirect (operator "<<-"))
+  (reserved (word "if" "then" "elif" "else" "fi" "while" "until" "do" "done" "for" "select" "case" "in" "esac" "function" "{" "}"))
+  (conditional-operator (word "==" "=" "!=" "=~" "-eq" "-ne" "-lt" "-le" "-gt" "-ge" "-z" "-n" "!"))
+  (pipeline (operator "|" "|&")) (and-or (operator "&&" "||"))
+  (case-end (operator ";;" ";&" ";;&")))
+ (texts (descriptor (if-next (numeric) (run (numeric) 1 #f)
+                 (seq (literal "{") (run (union (alphabetic) (characters "_")) 1 1)
+                      (run (union (alphabetic) (numeric) (characters "_")) 0 #f) (literal "}")))))
+)
+
 (defsyntax-corpus bash-fixtures
   (identity "bash" "5.3" "bash-5.3-structured-source.v1")
   (accepted
@@ -112,4 +127,4 @@
 
 (deflanguage-source bash-source-language
   (identity "bash" +bash-version+ +bash-syntax-contract+)
-  (strategy (.o (:: self ShellSourceStrategy.) regions: bash-word-regions scanner: bash-command-scanner results: bash-results parts: bash-parts)))
+  (strategy (.o (:: self ShellSourceStrategy.) regions: bash-word-regions scanner: bash-command-scanner results: bash-results parts: bash-parts commands: bash-commands)))

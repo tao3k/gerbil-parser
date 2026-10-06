@@ -2,7 +2,9 @@
 ;;; Lossless Bash command/word/here-document syntax entry.
 ;;; Unsupported command forms reject explicitly until their grammar is owned.
 
-(import (only-in :gerbil-parser/src/runtime/artifact
+(import (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind)
+        (only-in ./funcs recognition-sequence-append recognition-sequence->list recognition-sequence-arity)
+        (only-in :gerbil-parser/src/runtime/artifact
                  +diagnostic-schema+ make-failure-parse-artifact
                  make-success-parse-artifact)
         (only-in :gerbil-parser/src/runtime/recognition
@@ -20,60 +22,29 @@
 
 (defstruct shell-here-document-link (marker-start body-start) transparent: #t)
 
-(def (make-shell-parser regions results parts-plan)
+(def (make-shell-parser regions results parts-plan commands)
   (let-values (((shell-word-components shell-assignment-components shell-here-content-components)
                 (make-shell-word-parser regions results parts-plan)))
 
 
-(def (trivia? token)
-  (memq (token-kind token)
-        '(horizontal-whitespace comment line-continuation)))
-
+(def trivia? (command-plan-role-matcher commands 'trivia))
+(def separator? (command-plan-role-matcher commands 'separator))
+(def redirect? (command-plan-role-matcher commands 'redirect))
+(def here-redirect? (command-plan-role-matcher commands 'here-redirect))
+(def strip-redirect? (command-plan-role-matcher commands 'strip-redirect))
+(def reserved? (command-plan-role-matcher commands 'reserved))
+(def case-end? (command-plan-role-matcher commands 'case-end))
+(def conditional-operator? (command-plan-role-matcher commands 'conditional-operator))
+(def pipeline? (command-plan-role-matcher commands 'pipeline))
+(def and-or? (command-plan-role-matcher commands 'and-or))
 (def (same-operator? token value)
-  (and token (eq? (token-kind token) 'operator)
-       (string=? (token-lexeme token) value)))
-
-(def (separator? token)
-  (or (eq? (token-kind token) 'newline)
-      (and (eq? (token-kind token) 'operator)
-           (member (token-lexeme token) '(";" "&")))))
-
-(def (redirect? token)
-  (and token (eq? (token-kind token) 'operator)
-       (member (token-lexeme token)
-               '("<" ">" ">>" "<>" "<<" "<<-" "<<<"
-                 "<&" ">&" ">|" "&>" "&>>"))))
-
-(def (here-redirect? token)
-  (or (same-operator? token "<<") (same-operator? token "<<-")))
-
-(def (digits? text)
-  (and (> (string-length text) 0)
-       (let loop ((offset 0))
-         (or (= offset (string-length text))
-             (and (char-numeric? (string-ref text offset))
-                  (loop (fx+ offset 1)))))))
-
-(def (brace-descriptor? text)
-  (let (length (string-length text))
-    (and (> length 2)
-         (char=? (string-ref text 0) #\{)
-         (char=? (string-ref text (fx- length 1)) #\})
-         (let (first (string-ref text 1))
-           (or (char-alphabetic? first) (char=? first #\_)))
-         (let loop ((offset 2))
-           (or (= offset (fx- length 1))
-               (and (let (character (string-ref text offset))
-                      (or (char-alphabetic? character)
-                          (char-numeric? character)
-                          (char=? character #\_)))
-                    (loop (fx+ offset 1))))))))
+  (and token (eq? (token-kind token) 'operator) (string=? (token-lexeme token) value)))
 
 (def (child field value)
   (make-recognition-child field value))
 
 (def (syntax-node kind start end children)
-  (result-plan-node results kind start end children))
+  (result-plan-node results (command-plan-kind commands kind) start end (recognition-sequence->list children)))
 
 (def (failure-diagnostic condition)
   (list (cons 'schema +diagnostic-schema+)
@@ -100,8 +71,13 @@
    (lambda ()
      (let ((remaining (scan source))
            (emitted-reversed '())
-           (pending-markers '())
+           (pending-markers '()) (pending-back '())
            (links '()))
+       (def (marker-head)
+         (when (null? pending-markers)
+           (set! pending-markers (reverse pending-back)) (set! pending-back '()))
+         (and (pair? pending-markers) (car pending-markers)))
+       (def (enqueue-marker! marker) (set! pending-back (cons marker pending-back)))
        (def (emit! token)
          (set! emitted-reversed (cons (result-plan-token results token) emitted-reversed)))
        (def (take-raw!)
@@ -154,16 +130,11 @@
              (let* ((target-value
                      (if (eq? (token-kind target) 'heredoc-marker)
                        (begin
-                         (set! pending-markers
-                               (append pending-markers
-                                       (list
-                                        (cons
-                                         (token-start target)
-                                         (delimiter-obligation-quoted?
-                                          (decode-marker 'shell-quote-removal
-                                           (token-lexeme target)
-                                           (same-operator?
-                                            operator "<<-")))))))
+                         (enqueue-marker!
+                           (cons (token-start target)
+                                 (delimiter-obligation-quoted?
+                                  (decode-marker 'shell-quote-removal (token-lexeme target)
+                                                 (strip-redirect? operator)))))
                          (take-raw!))
                        (take-word!)))
                     (children
@@ -176,9 +147,7 @@
        (def (descriptor-before-redirection?)
          (and (pair? remaining)
               (eq? (token-kind (car remaining)) 'word)
-              (or (digits? (token-lexeme (car remaining)))
-                  (brace-descriptor?
-                   (token-lexeme (car remaining))))
+              (command-plan-text? commands 'descriptor (token-lexeme (car remaining)))
               (pair? (cdr remaining))
               (redirect? (cadr remaining))
               (= (token-end (car remaining))
@@ -199,12 +168,12 @@
                  (let (close (take-raw!))
                    (syntax-node
                     'ArrayAssignment start (last-byte)
-                    (append children (list (child 'close close))))))
+                    (recognition-sequence-append children (list (child 'close close))))))
                 ((eq? (token-kind next) 'newline)
-                 (loop (append children
+                 (loop (recognition-sequence-append children
                                (list (child 'separator (take-raw!))))))
                 ((eq? (token-kind next) 'word)
-                 (loop (append children
+                 (loop (recognition-sequence-append children
                                (list (child 'element (take-word!))))))
                 (else (error "invalid Bash array assignment element"
                              next)))))))
@@ -214,12 +183,7 @@
                 (named? #f)
                 (children '()))
            (unless first (error "expected Bash command"))
-           (when (and (eq? (token-kind first) 'word)
-                      (member (token-lexeme first)
-                              '("if" "then" "elif" "else" "fi"
-                                "while" "until" "do" "done" "for" "select"
-                                "case" "in" "esac" "function"
-                                "{" "}")))
+           (when (reserved? first)
              (error "Bash compound command is not admitted yet"
                     (token-lexeme first)))
            (let loop ()
@@ -279,7 +243,7 @@
                 (children (list (child 'keyword (take-keyword! "if")))))
            (let loop ((condition-start (last-byte)))
              (set! children
-                   (append children
+                   (recognition-sequence-append children
                            (list (child 'condition
                                         (parse-compound-list!
                                          condition-start '("then")))
@@ -290,23 +254,23 @@
              (cond
               ((word-is? (peek) "elif")
                (set! children
-                     (append children
+                     (recognition-sequence-append children
                              (list (child 'keyword (take-keyword! "elif")))))
                (loop (last-byte)))
               ((word-is? (peek) "else")
                (set! children
-                     (append children
+                     (recognition-sequence-append children
                              (list (child 'keyword (take-keyword! "else"))
                                    (child 'else-body
                                           (parse-compound-list!
                                            (last-byte) '("fi"))))))
                (set! children
-                     (append children
+                     (recognition-sequence-append children
                              (list (child 'keyword (take-keyword! "fi")))))
                (syntax-node 'IfCommand start (last-byte) children))
               (else
                (set! children
-                     (append children
+                     (recognition-sequence-append children
                              (list (child 'keyword (take-keyword! "fi")))))
                (syntax-node 'IfCommand start (last-byte) children))))))
        (def (parse-loop!)
@@ -335,23 +299,23 @@
                 (children (list (child 'keyword keyword))))
            (if arithmetic?
              (set! children
-                   (append children
+                   (recognition-sequence-append children
                            (list (child 'header
                                         (parse-arithmetic-command!)))))
              (begin
                (set! children
-                     (append children
+                     (recognition-sequence-append children
                              (list (child 'variable (take-word!)))))
                (when (word-is? (peek) "in")
                  (set! children
-                       (append children
+                       (recognition-sequence-append children
                                (list (child 'keyword
                                             (take-keyword! "in")))))
                  (let words ()
                    (let (next (peek))
                      (when (and next (eq? (token-kind next) 'word))
                        (set! children
-                             (append children
+                             (recognition-sequence-append children
                                      (list (child 'item (take-word!)))))
                        (words)))))))
            (let (separator (peek))
@@ -359,7 +323,7 @@
                (error "iteration header requires a separator" separator))
              (take-raw!)
              (set! children
-                   (append children (list (child 'separator separator)))))
+                   (recognition-sequence-append children (list (child 'separator separator)))))
            (let* ((do-token (take-keyword! "do"))
                   (body (parse-compound-list! (last-byte) '("done")))
                   (done-token (take-keyword! "done")))
@@ -369,7 +333,7 @@
                ((string=? word "select") 'SelectCommand)
                (else 'ForCommand))
               start (last-byte)
-                          (append children
+                          (recognition-sequence-append children
                                   (list (child 'keyword do-token)
                                         (child 'body body)
                                         (child 'keyword done-token)))))))
@@ -388,11 +352,11 @@
                 ((separator? next)
                  (take-raw!)
                  (set! children
-                       (append children (list (child 'separator next))))
+                       (recognition-sequence-append children (list (child 'separator next))))
                  (clauses))
                 ((word-is? next "esac")
                  (set! children
-                       (append children
+                       (recognition-sequence-append children
                                (list (child 'keyword (take-keyword! "esac")))))
                  (syntax-node 'CaseCommand start (last-byte) children))
                 (else
@@ -407,34 +371,32 @@
                                     (eq? (token-kind pattern) 'word))
                          (error "expected case pattern" pattern))
                        (set! patterns
-                             (append patterns
+                             (recognition-sequence-append patterns
                                      (list (child 'pattern (take-word!)))))
                        (when (same-operator? (peek) "|")
                          (set! patterns
-                               (append patterns
+                               (recognition-sequence-append patterns
                                        (list (child 'alternate
                                                     (take-raw!)))))
                          (pattern-loop))))
                    (unless (same-operator? (peek) ")")
                      (error "missing case pattern close"))
                    (set! patterns
-                         (append patterns
+                         (recognition-sequence-append patterns
                                  (list (child 'close (take-raw!)))))
                    (let* ((body
                            (parse-compound-list!
                             (last-byte) '(";;" ";&" ";;&" "esac") #t))
                           (ending (peek)))
                      (set! patterns
-                           (append patterns (list (child 'body body))))
-                     (when (and ending
-                                (member (token-lexeme ending)
-                                        '(";;" ";&" ";;&")))
+                           (recognition-sequence-append patterns (list (child 'body body))))
+                     (when (case-end? ending)
                        (set! patterns
-                             (append patterns
+                             (recognition-sequence-append patterns
                                      (list (child 'terminator
                                                   (take-raw!))))))
                      (set! children
-                           (append children
+                           (recognition-sequence-append children
                                    (list (child
                                           'clause
                                           (syntax-node 'CaseClause
@@ -462,16 +424,16 @@
              (set! children
                    (list (child 'keyword (take-keyword! "function")))))
            (set! children
-                 (append children (list (child 'name (take-word!)))))
+                 (recognition-sequence-append children (list (child 'name (take-word!)))))
            (when (same-operator? (peek) "(")
              (set! children
-                   (append children (list (child 'open (take-raw!)))))
+                   (recognition-sequence-append children (list (child 'open (take-raw!)))))
              (unless (same-operator? (peek) ")")
                (error "missing function parameter close"))
              (set! children
-                   (append children (list (child 'close (take-raw!))))))
+                   (recognition-sequence-append children (list (child 'close (take-raw!))))))
            (set! children
-                 (append children
+                 (recognition-sequence-append children
                          (list (child 'body (parse-command!)))))
            (syntax-node 'FunctionDefinition start (last-byte) children)))
        (def (parse-conditional!)
@@ -485,18 +447,15 @@
                  (let (close (take-keyword! "]]"))
                    (syntax-node
                     'ConditionalCommand start (last-byte)
-                    (append children (list (child 'close close))))))
-                ((and (eq? (token-kind next) 'word)
-                      (member (token-lexeme next)
-                              '("==" "=" "!=" "=~" "-eq" "-ne"
-                                "-lt" "-le" "-gt" "-ge" "-z" "-n" "!")))
-                 (loop (append children
+                    (recognition-sequence-append children (list (child 'close close))))))
+                ((conditional-operator? next)
+                 (loop (recognition-sequence-append children
                                (list (child 'operator (take-raw!))))))
                 ((eq? (token-kind next) 'word)
-                 (loop (append children
+                 (loop (recognition-sequence-append children
                                (list (child 'operand (take-word!))))))
                 ((eq? (token-kind next) 'operator)
-                 (loop (append children
+                 (loop (recognition-sequence-append children
                                (list (child 'operator (take-raw!))))))
                 (else (error "invalid conditional token" next)))))))
        (def (arithmetic-command-start?)
@@ -519,10 +478,10 @@
                (cond
                 ((same-operator? next "(")
                  (loop (fx+ depth 1)
-                       (append children (list (child 'open (take-raw!))))))
+                       (recognition-sequence-append children (list (child 'open (take-raw!))))))
                 ((same-operator? next ")")
                  (let* ((close (take-raw!))
-                        (updated (append children
+                        (updated (recognition-sequence-append children
                                          (list (child 'close close)))))
                    (if (= depth 1)
                      (syntax-node 'ArithmeticCommand start (last-byte)
@@ -530,11 +489,11 @@
                      (loop (fx- depth 1) updated))))
                 ((eq? (token-kind next) 'word)
                  (loop depth
-                       (append children
+                       (recognition-sequence-append children
                                (list (child 'expression (take-word!))))))
                 ((eq? (token-kind next) 'operator)
                  (loop depth
-                       (append children
+                       (recognition-sequence-append children
                                (list (child 'operator (take-raw!))))))
                 (else (error "invalid arithmetic command token" next)))))))
        (def (parse-compound-redirections! command)
@@ -543,15 +502,15 @@
              (cond
               ((descriptor-before-redirection?)
                (let (descriptor (take-raw!))
-                 (loop (append children
+                 (loop (recognition-sequence-append children
                                (list (child 'redirect
                                             (parse-redirection!
                                              descriptor)))))))
               ((redirect? next)
-               (loop (append children
+               (loop (recognition-sequence-append children
                              (list (child 'redirect
                                           (parse-redirection! #f))))))
-              ((null? (cdr children)) command)
+              ((= (recognition-sequence-arity children) 1) command)
               (else
                (syntax-node 'RedirectedCommand
                             (recognition-node-start command)
@@ -616,17 +575,16 @@
                    (append prefixes (list (child 'command first)))))
              (let loop ()
              (let (operator (peek))
-               (if (or (same-operator? operator "|")
-                       (same-operator? operator "|&"))
+               (if (pipeline? operator)
                  (begin
                    (take-raw!)
                    (set! children
-                         (append children
+                         (recognition-sequence-append children
                                  (list (child 'operator operator)
                                        (child 'command
                                               (parse-command!)))))
                    (loop))
-                 (if (and (null? prefixes) (null? (cdr children))) first
+                 (if (and (null? prefixes) (= (recognition-sequence-arity children) 1)) first
                    (syntax-node 'Pipeline
                                 (if (null? prefixes)
                                   (recognition-node-start first)
@@ -637,16 +595,15 @@
                 (children (list (child 'command first))))
            (let loop ()
              (let (operator (peek))
-               (if (or (same-operator? operator "&&")
-                       (same-operator? operator "||"))
+               (if (and-or? operator)
                  (begin
                    (take-raw!)
                    (set! children
-                         (append children
+                         (recognition-sequence-append children
                                  (list (child 'operator operator)
                                        (child 'command (parse-pipeline!)))))
                    (loop))
-                 (if (null? (cdr children)) first
+                 (if (= (recognition-sequence-arity children) 1) first
                    (syntax-node 'AndOrList
                                 (recognition-node-start first)
                                 (last-byte) children)))))))
@@ -657,7 +614,7 @@
                       (memq (token-kind next)
                             '(heredoc-content heredoc-end)))
                (let ((start (token-start next)) (children '()))
-                 (unless (pair? pending-markers)
+                 (unless (marker-head)
                    (error "here-document body has no redirection"))
                  (let body-loop ()
                    (let (line (peek))
@@ -667,7 +624,7 @@
                        (error "unterminated Bash here-document body"))
                      (let (value
                            (if (or (eq? (token-kind line) 'heredoc-end)
-                                   (cdr (car pending-markers)))
+                                   (cdr (marker-head)))
                              (take-raw!)
                              (begin
                                (set! remaining (cdr remaining))
@@ -686,7 +643,7 @@
                        (body-loop))))
                  (set! links
                        (cons (make-shell-here-document-link
-                              (car (car pending-markers)) start)
+                              (car (marker-head)) start)
                              links))
                  (set! pending-markers (cdr pending-markers))
                  (loop (cons
@@ -721,7 +678,7 @@
                (loop (cons (child 'command (parse-and-or!)) children)))))))
        (let* ((children (parse-list! '()))
               (source-end (u8vector-length (string->utf8 source))))
-         (when (pair? pending-markers)
+         (when (marker-head)
            (error "missing Bash here-document body"))
          (let* ((root (syntax-node 'BashFile 0 source-end children))
                 (artifact

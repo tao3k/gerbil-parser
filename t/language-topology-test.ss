@@ -24,7 +24,7 @@
           (memq (car form)
            (case interface
             ((grammar) '(deflanguage deflanguage-source deflanguage-projection
-                         deftext-profile defregion-plan defscanner-profile defresult-profile defpart-profile defbinding-profile
+                         deftext-profile defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile
                          deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar
                          defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source
                          defsyntax-fixture defsyntax-corpus))

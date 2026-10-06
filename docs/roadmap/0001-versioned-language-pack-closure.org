@@ -1350,3 +1350,40 @@ at 0.889 ms wall/CPU, excluding initialization. These observations qualify
 execution and conformance; they establish no overall speedup or zero regression.
 Command grammar, result-projection lowering and complete standalone Rust
 Source recognition remain open.
+
+** Command roles, projections and linear result construction
+
+=CommandProfile.= now owns token-role indexes, full descriptor TextProfiles
+and node projection values. =defcommand-profile= constrains the grammar
+interface; Source strategy admission requires the complete effective POO value,
+checks scanner/result catalogs and includes the owned recipe in Source identity.
+Identity projections are derived inside the engine instead of repeating the
+result catalog in the language pack. No schema, loader or ABI version changes.
+
+The executor binds role matchers once, removes hand-coded descriptor walks
+and literal membership tables for declared roles, and reuses persistent engine
+recognition sequences for all growing compound child collections. Marker
+receipts use an amortized constant-time two-stack FIFO. Complete control-flow
+syntax and standalone Rust Command/Word execution remain open engine scopes;
+this is not a claim of full Source AOT closure.
+
+The GCC qualification passes 61 cases in 14.86 seconds with explicit =OK=,
+=HARNESS-RETURN status=0= and exit zero. All 65 complete ParseArtifacts match
+an exact =edc53bfe9b9b500cff54953d154da12b45128013= parser control with the
+same scanner, Word plan and digest. The control includes compound forms,
+2,001-command pipelines, 2,000-element arrays and mixed here-document quote
+policies. Temporary control sources are removed after qualification.
+
+Five alternating complete-parser samples record a 2,001-command pipeline
+median of 99.674 ms before / 24.449 ms after. Plain 10,000-call medians are
+177.565 / 168.232 ms and nested three-call medians are 6.208 / 6.213 ms.
+The first run retained a plain-input negative sample of 173.030 / 204.214 ms;
+role matchers now bind once rather than resolving role symbols per token.
+These bounded measurements support the long-collection algorithm change,
+not an overall or zero-regression performance claim. A failed first suite
+referenced a nonexistent artifact-root accessor; the final test reads the
+formal event API. No timeout or compiler choice was changed.
+
+The three scale regressions are also in the public =deflanguage-parser-tests=
+macro suite; the final Bash/Command/topology gate passes in 7.58 seconds with
+normal exit and harness status zero.

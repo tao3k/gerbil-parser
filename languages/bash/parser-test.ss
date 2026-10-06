@@ -11,6 +11,15 @@
     (nodes ParameterExpansion CommandSubstitution) (tokens parameter-operator))
   (accepted "pipelines and logical operators"
     "time -p ! echo α | sed s/x/y/ && echo ok\n" (nodes Pipeline AndOrList))
+  (accepted "long pipelines use linear child publication"
+    (string-append (apply string-append (make-list 2000 "echo α | ")) "echo ω\n")
+    (nodes Pipeline) (counts (SimpleCommand 2001)))
+  (accepted "large arrays use shared ordered child sequences"
+    (string-append "values=(" (apply string-append (make-list 2000 "α ")) ")\n")
+    (nodes ArrayAssignment) (counts (Word 2000)))
+  (accepted "deferred FIFO preserves mixed here-document quote policies"
+    "cat <<A <<'B' <<-C\n$x α\nA\n$y β\nB\n\t$z 中\n\tC\n"
+    (counts (HereDocument 3) (HereDocumentLine 2)))
   (accepted "assignment position and arithmetic expansion"
     "count=$((1 + (2 * 3))) echo \"$count\" a=b\n"
     (nodes Assignment ArithmeticExpansion) (counts (Assignment 1)))

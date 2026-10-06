@@ -329,3 +329,37 @@ controls. CI regenerates this artifact and the Rust executor checks every
 control. This qualifies binding-name AOT; complete Word/Command Source AOT,
 parameter/result projection lowering and scoped-region Rust execution remain
 separate open obligations.
+
+** CommandProfile roles and projections
+
+=defcommand-profile= constructs an inherited =CommandProfile.= POO value.
+The =roles= slot declares every closed command role exactly once: trivia,
+separator, redirect, here-redirect, strip-redirect, reserved,
+conditional-operator, pipeline, and-or and case-end. Each role contains token
+clauses =(terminal literal ...)=; a clause without literals accepts that
+terminal kind. Role matchers bind once when the engine prepares the source
+strategy; execution uses owned token-kind/literal indexes.
+
+The =texts= slot declares =(descriptor TextProfile)= using the existing
+nonnullable TextProfile DSL. Full-string admission keeps =123x= and
+={name}tail= from becoming file descriptors. There is no user procedure slot.
+The =projections= slot maps closed engine node roles to declared ResultProfile
+kinds. The base value derives identity projections for all command shapes;
+ordinary grammar packs omit this clause. POO inheritance can replace the
+value with a complete mapping, and loader admission checks required fields
+before installing the parser. Unknown roles, duplicates, callback values,
+undeclared scanner terminals and missing projection fields reject.
+
+A shell strategy now requires =commands:= together with =scanner:=, =parts:=,
+=regions:= and =results:=. No fallback builds a former command profile.
+The owned command recipe participates in Source identity under the existing
+Source v1 schema; loader and C ABI versions stay unchanged. Effective inherited
+slot values are compiled internally and require no thunks from the author.
+
+Command result construction reuses engine recognition sequences: compound
+children append in constant time and materialize once per published node.
+Deferred here-document marker receipts use a two-stack FIFO, preserving lexical
+order and independent quote policies without copying the existing marker list.
+This layer declares token roles and node projections. Control-flow grammar
+execution remains in the engine; complete standalone Rust Command/Word
+execution still requires lowering those grammar operations to shared IR.

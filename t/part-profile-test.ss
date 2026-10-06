@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/src/runtime/token make-token token-kind token-lexeme token-start token-end)
         (only-in :gerbil-parser/src/language/source declare-source-language source-language-digest)
         (only-in :gerbil-parser/src/runtime/source-engines ShellSourceStrategy.)
-        (only-in :gerbil-parser/languages/bash/grammar bash-parts bash-simple-binding bash-parameter-binding bash-assignment-binding bash-results bash-word-regions bash-command-scanner bash-source-language))
+        (only-in :gerbil-parser/languages/bash/grammar bash-commands bash-parts bash-simple-binding bash-parameter-binding bash-assignment-binding bash-results bash-word-regions bash-command-scanner bash-source-language))
 (export part-profile-test)
 (def (rejects? thunk) (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (defpart-profile (template-parts :: self PartProfile.)
@@ -130,5 +130,5 @@
   (test-case "recognition values participate in source identity without changing source schema"
    (let (changed (declare-source-language "bash" "5.3" "bash-5.3-structured-source.v1"
                   (.o (:: self ShellSourceStrategy.) regions: bash-word-regions scanner: bash-command-scanner
-                      results: bash-results parts: literal-parts)))
+                      results: bash-results parts: literal-parts commands: bash-commands)))
      (check (equal? (source-language-digest changed) (source-language-digest bash-source-language)) => #f)))))

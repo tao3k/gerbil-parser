@@ -2,8 +2,8 @@
 ;;; Bash syntax identity and declared nested word regions.
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-source-support deflanguage-source ShellSourceStrategy. defscanner-profile ScannerProfile. defresult-profile ResultProfile. defpart-profile PartProfile. defbinding-profile BindingProfile. defcommand-profile CommandProfile.)
-        (only-in :gerbil-parser/language-support defregion-plan defsyntax-corpus))
-(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-commands bash-parts bash-simple-binding bash-parameter-binding bash-assignment-binding bash-fixtures bash-source-language)
+        (only-in :gerbil-parser/language-support defregion-plan ))
+(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-commands bash-parts bash-simple-binding bash-parameter-binding bash-assignment-binding  bash-source-language)
 (def +bash-version+ "5.3")
 (def +bash-syntax-contract+ "bash-5.3-structured-source.v1")
 
@@ -37,7 +37,6 @@
                (enqueue-marker-in shell-quote-removal command))
   (end body heredoc-end (marker-line-at "\n") 10 (finish-marker command body))
   (body body heredoc-content (body-line-at "\n") 0 keep)))
-
 
 (defbinding-profile (bash-simple-binding :: self BindingProfile.)
  (name (if-next (union (numeric) (characters "?@*#$!-_0"))
@@ -202,13 +201,6 @@
    (optional (word "time") (take keyword (word "time")) (optional (word "-p") (take option (word "-p"))))
    (optional (word "!") (take negate (word "!")))))
 )
-
-(defsyntax-corpus bash-fixtures
-  (identity "bash" "5.3" "bash-5.3-structured-source.v1")
-  (accepted
-   ("bash/heredoc" bash-heredoc (text "cat <<EOF\nα\nEOF\n") BashFile (HereDocument)))
-  (rejected
-   ("bash/incomplete-if" bash-incomplete-if (text "if true; then\n"))))
 
 (deflanguage-source bash-source-language
   (identity "bash" +bash-version+ +bash-syntax-contract+)

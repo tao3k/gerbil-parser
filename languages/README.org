@@ -5,8 +5,8 @@ Each language pack has three Scheme interfaces:
 | Interface | Responsibility |
 |-----------+----------------|
 | =grammar.ss= | Declarative syntax, pinned source metadata and corpus declarations |
-| =parser.ss= | The sole public POO Loader entry, parser and tooling exports |
-| =parser-test.ss= | Native conformance tests using the loader's fixture services |
+| =parser.ss= | Production POO Loader entry and parser exports |
+| =parser-test.ss= | Corpus declarations, development Loader and native conformance tests |
 
 Raw upstream grammar and corpus files remain resources. Scanning, state,
 recognition, source offsets, backend generation and FFI execution belong to the
@@ -176,17 +176,17 @@ For example, the HCL development entry binds its existing corpus and the common
 conformance service through POO rather than another language-specific wrapper:
 
 #+begin_src scheme
-(deflanguage-development-loader (hcl-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader (hcl-test-language :: self LanguageDevelopmentLoader.)
   (grammar hcl-language-grammar)
-  (parse parse-hcl)
+  (parse parse-hcl-test)
   (slots metadata: (.o grammar-format: 'concise-dsl)
          fixtures: hcl-official-fixtures))
 
-(run-language-test hcl-language 'fixtures)
+(run-language-test hcl-test-language 'fixtures)
 #+end_src
 
-Public pack entries import =language-support/entry= or the optional
-=language-support/development= library and, when needed,
+Production pack entries import =language-support/entry=. The optional
+=parser-test.ss= interface imports =language-support/development= and
 =language-support/fixture= directly. This removes their direct dependency
 on optional ANTLR/BNF/JavaCC authoring importers in the aggregate
 =language-support= facade; the facade exports the production entry API; optional development operations
@@ -218,14 +218,13 @@ fixtures lossless even when a language has no fallback lexical rule.
 The fixture slot must contain syntax-fixture data; a mismatch raises an error.
 Loader admission reads the value and checks its shape without running fixture
 parses, test services or scan workers. Ordinary parsing does not
-resolve these services. Fixture modules depend on =grammar.ss=, not the public
-parser that exposes their corpus, avoiding dependency cycles.
+resolve these services. Corpus declarations belong to =parser-test.ss=, which
+imports the production parser; production modules never import their tests.
 
-All shipped language entries register their corpus conformance service, including
-HL7, FHIRPath, Bash, TLA layout and the policy-bound SANY candidate. The services
-remain available through the public =language-support= facade. A short fixture
-can be declared inside
-=parser.ss= without a new source file:
+All shipped development entries register their corpus conformance service,
+including HL7, FHIRPath, Bash, TLA layout and the policy-bound SANY candidate.
+The services are available through =language-support/development=. A short
+fixture is declared inside =parser-test.ss= without a fourth interface:
 
 #+begin_src scheme
 (defsyntax-corpus example-fixtures
@@ -244,7 +243,7 @@ These syntax fixtures complement language-specific projection, concurrency and
 incremental tests; they do not stand in for those assertions.
 
 Bash registers its =command= source worker using
-=(declare-language-source-scan-worker bash-source-language make-bash-scanner)=.
+=(declare-language-source-scan-worker bash-source-language)=.
 Create it with =(make-language-scan-worker loader 'command source)=. This is an
 explicit transitional source-parser declaration, not a closed Scanner IR product.
 The loader rejects raw factories, duplicate names and foreign descriptors;
@@ -358,9 +357,9 @@ regenerated descriptor/product identity for this draft scope.
 
 * Ownership
 
-- =grammar.ss=: declarative syntax, metadata and fixture values.
+- =grammar.ss=: declarative syntax, language profiles and pinned metadata.
 - =parser.ss=: the only public loader entry, including declared POO extensions.
-- =parser-test.ss=: conformance assertions and loader fixture service use.
+- =parser-test.ss=: corpus values, development Loader and conformance assertions.
 - Resource files: pinned upstream grammar and corpus source text.
 - Engine: scanner algorithms, state/checkpoints, recognition, byte offsets,
   parser assembly, generated backends and C/Rust products. Existing handwritten
@@ -631,22 +630,22 @@ proposal; the authoring contract above describes the implemented interfaces.
 
 * Fixture metadata through the Loader
 
-For GQL, declare corpus rows in =parser-test.ss= and assign their list to the
+For every language, declare corpus rows in =parser-test.ss= and assign their list to the
 development Loader's =fixtures= value slot. The common development library
 derives =fixture-catalog= internally;
 this slot is sealed by =deflanguage-development-loader=. Authors write neither a
 filter nor a factory/thunk for status groups or indexes.
 
 #+begin_src scheme
-(deflanguage-development-loader (example-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader (example-test-language :: self LanguageDevelopmentLoader.)
   (grammar example-language-grammar)
-  (parse parse-example)
+  (parse parse-example-test)
   (slots fixtures: example-fixtures))
 
-(language-loader-fixture-count example-language)           ; total
-(language-loader-fixture-count example-language 'accepted)
-(language-loader-fixtures example-language 'rejected)
-(language-loader-fixture example-language "example/valid") ; fixture or #f
+(language-loader-fixture-count example-test-language)           ; total
+(language-loader-fixture-count example-test-language 'accepted)
+(language-loader-fixtures example-test-language 'rejected)
+(language-loader-fixture example-test-language "example/valid") ; fixture or #f
 #+end_src
 
 These functions are exported from =language-support/development=. Only =accepted=,
@@ -695,10 +694,10 @@ and full ParseArtifact parity still require the next shared engine boundary.
 
 * Production and development responsibilities
 
-GQL's =parser.ss= imports =language-support/entry= and exports a corpus-free
-production Loader. Its =parser-test.ss= owns the official corpus and declares
-a =LanguageDevelopmentLoader.= with =deflanguage-development-loader=. Existing
-corpus-bearing language entries use the explicitly named development API.
+Every shipped =parser.ss= imports =language-support/entry= and exports a
+corpus-free production Loader. Each =parser-test.ss= owns its corpus and declares
+a =LanguageDevelopmentLoader.= with =deflanguage-development-loader=. This
+contract covers all eight packages and ten production entries.
 The engine's =src/language/entry= exports descriptor dispatch and generic policy
 execution; it does not supply fixture or Loader development services.
 
@@ -707,3 +706,5 @@ grammar. GQL declares exact token bindings, scanner expressions, terminal kinds
 and trivia there. The common adapter does not classify tokens by GQL name patterns.
 See [[file:../docs/research/scheme-engine-library-boundary.org][the ownership contract and paper-to-code rationale]] for the full boundary,
 verification route and remaining semantic limits.
+
+See [[file:../docs/research/scheme-engine-library-boundary.org::*Complete language alignment][Complete language alignment]] for the per-entry corpus inventory and verification obligations.

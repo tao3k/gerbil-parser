@@ -5,27 +5,73 @@
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-support/entry LanguageLoaderContract)
         (only-in :gerbil-parser/language-support/development
-                 LanguageDevelopmentLoaderContract language-loader-fixture-count)
-        (only-in :gerbil-parser/languages/gql/parser gql-language parse-gql +gql-representative-query+)
+                 LanguageDevelopmentLoaderContract language-loader-fixtures language-loader-fixture-count)
+        (only-in :gerbil-parser/language-support/fixture syntax-fixture-source)
+        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language)
+        (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+        (only-in :gerbil-parser/languages/bash/parser bash-language)
+        (only-in :gerbil-parser/languages/bash/parser-test bash-test-language)
+        (only-in :gerbil-parser/languages/cypher/parser opencypher-language)
+        (only-in :gerbil-parser/languages/cypher/parser-test opencypher-test-language)
+        (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-language)
+        (only-in :gerbil-parser/languages/fhirpath/parser-test fhirpath-test-language)
+        (only-in :gerbil-parser/languages/gql/parser gql-language)
         (only-in :gerbil-parser/languages/gql/parser-test gql-test-language)
-        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-events parse-artifact-roundtrip))
+        (only-in :gerbil-parser/languages/hcl/parser hcl-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        (only-in :gerbil-parser/languages/hl7/parser hl7-language)
+        (only-in :gerbil-parser/languages/hl7/parser-test hl7-test-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser
+                 tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser-test
+                 tla-plus-core-test-language tla-plus-layout-test-language tla-plus-sany-candidate-test-language)
+        (only-in :gerbil-parser/src/runtime/artifact
+                 parse-artifact-success? parse-artifact-events parse-artifact-roundtrip))
 (export language-entry-boundary-test)
+(def language-entry-pairs
+  (list (list arithmetic-language arithmetic-test-language 1)
+        (list bash-language bash-test-language 2)
+        (list opencypher-language opencypher-test-language 5)
+        (list fhirpath-language fhirpath-test-language 4)
+        (list gql-language gql-test-language 14)
+        (list hcl-language hcl-test-language 15)
+        (list hl7-language hl7-test-language 2)
+        (list tla-plus-core-language tla-plus-core-test-language 6)
+        (list tla-plus-layout-language tla-plus-layout-test-language 2)
+        (list tla-plus-sany-candidate-language tla-plus-sany-candidate-test-language 2)))
 (def language-entry-boundary-test
   (test-suite "production and development entry separation"
-    (test-case "production entry needs no corpus or development services"
-      (validate LanguageLoaderContract gql-language)
-      (for-each (lambda (name) (check (.slot? gql-language name) => #f))
-                '(fixtures fixture-catalog tests scan-workers build-strategies)))
-    (test-case "development entry preserves the exact production descriptor"
-      (validate LanguageDevelopmentLoaderContract gql-test-language)
-      (validate LanguageLoaderContract gql-test-language)
-      (check (eq? (.ref gql-test-language 'descriptor) (.ref gql-language 'descriptor)) => #t)
-      (check (language-loader-fixture-count gql-test-language) => 14))
-    (test-case "development and production dispatch reproduce complete public events"
-      (let ((production (parse-gql +gql-representative-query+))
-            (development ((.ref gql-test-language '.parse) +gql-representative-query+)))
-        (check (parse-artifact-events development) => (parse-artifact-events production))
-        (check (parse-artifact-roundtrip production) => +gql-representative-query+)))
+    (test-case "all ten production entries need no corpus or development services"
+      (check (length language-entry-pairs) => 10)
+      (for-each
+       (lambda (row)
+         (validate LanguageLoaderContract (car row))
+         (for-each (lambda (name) (check (.slot? (car row) name) => #f))
+                   '(fixtures fixture-catalog tests scan-workers build-strategies native-test-profile)))
+       language-entry-pairs))
+    (test-case "all development entries preserve the exact production descriptor and corpus"
+      (for-each
+       (lambda (row)
+         (let ((production (car row)) (development (cadr row)))
+           (validate LanguageDevelopmentLoaderContract development)
+           (validate LanguageLoaderContract development)
+           (check (eq? (.ref development 'descriptor) (.ref production 'descriptor)) => #t)
+           (check (language-loader-fixture-count development) => (caddr row))))
+       language-entry-pairs))
+    (test-case "all accepted and rejected corpora reproduce complete production events"
+      (for-each
+       (lambda (row)
+         (for-each
+          (lambda (fixture)
+            (let* ((source (syntax-fixture-source fixture))
+                   (production ((.ref (car row) '.parse) source))
+                   (development ((.ref (cadr row) '.parse) source)))
+              (check (parse-artifact-success? development) => (parse-artifact-success? production))
+              (check (parse-artifact-events development) => (parse-artifact-events production))
+              (check (parse-artifact-roundtrip development) => (parse-artifact-roundtrip production))
+              (check (parse-artifact-roundtrip production) => source)))
+          (language-loader-fixtures (cadr row))))
+       language-entry-pairs))
     (test-case "engine dispatch does not import common adapters or fixture services"
       (let (forms (call-with-input-file "src/language/entry.ss"
                     (lambda (port) (read port))))

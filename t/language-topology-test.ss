@@ -15,9 +15,19 @@
        (if (eof-object? form) (reverse result) (loop (cons form result))))))))
 (def (declaration? path head)
  (find (lambda (form) (and (pair? form) (eq? (car form) head))) (forms path)))
+(def (development-import? form)
+ (cond ((pair? form) (or (development-import? (car form)) (development-import? (cdr form))))
+       ((symbol? form)
+        (and (memq form (quote (:gerbil-parser/language-support/development
+                               :gerbil-parser/language-support/fixture
+                               :gerbil-parser/language-test-support
+                               :gerbil-parser/language-build-support))) #t))
+       (else #f)))
 (def (authoring-form? form interface)
  (and (list? form) (pair? form)
-      (or (memq (car form) '(import export))
+      (or (eq? (car form) 'export)
+          (and (eq? (car form) 'import)
+               (or (eq? interface 'tests) (not (development-import? form))))
           (and (eq? (car form) 'def) (not (eq? interface 'tests))
                (= (length form) 3) (symbol? (cadr form))
                (not (and (pair? (caddr form)) (eq? (caaddr form) 'lambda))))
@@ -26,16 +36,18 @@
             ((grammar) '(deflanguage deflanguage-source deflanguage-projection
                          deftext-profile defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile
                          deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar
-                         defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source
-                         defsyntax-fixture defsyntax-corpus))
-            ((parser) '(deflanguage-development-loader deflanguage-parser-loader deflanguage-source-receipt deflanguage-model-entry defsyntax-corpus))
-            ((tests) '(defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests)))))))
+                         defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source))
+            ((parser) '(deflanguage-parser-loader deflanguage-source-receipt deflanguage-model-entry))
+            ((tests) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests)))))))
 (def language-topology-test
  (test-suite "three-interface language authoring contract"
   (test-case "reject procedure definitions and unrestricted parser tests"
    (check (and (authoring-form? '(def (scan source) source) 'grammar) #t) => #f)
    (check (and (authoring-form? '(def scan (lambda (source) source)) 'grammar) #t) => #f)
-   (check (and (authoring-form? '(def test (test-suite "manual")) 'tests) #t) => #f))
+   (check (and (authoring-form? '(def test (test-suite "manual")) 'tests) #t) => #f)
+   (check (authoring-form? (quote (defsyntax-corpus corpus)) (quote grammar)) => #f)
+   (check (authoring-form? (quote (deflanguage-development-loader entry)) (quote parser)) => #f)
+   (check (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser)) => #f))
   (test-case "every pack contains exactly grammar, parser and declarative parser tests"
    (for-each
     (lambda (language)
@@ -48,8 +60,7 @@
         '(("grammar.ss" . grammar) ("parser.ss" . parser) ("parser-test.ss" . tests)))
        (check (andmap (lambda (name) (and (member (path-expand name root) files) #t))
                       '("grammar.ss" "parser.ss" "parser-test.ss")) => #t)
-       (check (and (or (declaration? (path-expand "parser.ss" root) 'deflanguage-parser-loader)
-                  (declaration? (path-expand "parser.ss" root) 'deflanguage-development-loader)) #t) => #t)
+       (check (and (declaration? (path-expand "parser.ss" root) 'deflanguage-parser-loader) #t) => #t)
        (check (and (declaration? (path-expand "parser-test.ss" root) 'deflanguage-parser-tests) #t) => #t)))
     (filter (lambda (name) (eq? (file-info-type (file-info (path-expand name "languages"))) 'directory))
             (directory-files "languages"))))))

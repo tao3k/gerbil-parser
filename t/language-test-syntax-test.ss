@@ -1,10 +1,12 @@
 ;;; Engine admission controls for the public language-test DSL.
-(import :std/test
+(import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-basic-fixture)
+        :std/test
         (for-syntax (only-in :gerbil/expander core-expand))
         :gerbil-parser/language-test-support
         (only-in :clan/poo/object .cc .ref)
-        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language arithmetic-basic-fixture)
-        (only-in :gerbil-parser/languages/hcl/parser hcl-language))
+)
 (export language-test-syntax-test)
 (defsyntax (invalid-test-declarations stx)
   (def (rejects form)
@@ -71,10 +73,10 @@
 (def source-calls 0)
 (def parse-calls 0)
 (def counting-loader
-  (.cc arithmetic-language '.parse
+  (.cc arithmetic-test-language '.parse
        (lambda (source)
          (set! parse-calls (+ parse-calls 1))
-         ((.ref arithmetic-language '.parse) source))))
+         ((.ref arithmetic-test-language '.parse) source))))
 (deflanguage-parser-tests language-test-evaluation-test "language-test single evaluation"
   (loader (begin (set! owner-calls (+ owner-calls 1)) counting-loader))
   (accepted "source and parser execute once"
@@ -86,11 +88,11 @@
     (equal owner 'caller-binding) (equal artifact 'caller-artifact)))
 
 (deflanguage-parser-tests language-test-fixture-override-test "inherited fixture override"
-  (loader (.cc arithmetic-language 'fixtures (list arithmetic-basic-fixture)))
+  (loader (.cc arithmetic-test-language 'fixtures (list arithmetic-basic-fixture)))
   (fixtures "fixture service receives the effective loader"))
 
 (deflanguage-parser-tests language-test-structure-test "generic structural test semantics"
-  (loader arithmetic-language)
+  (loader arithmetic-test-language)
   (accepted "queries observe real node text and field cardinality" "1"
     (root SourceFile) (subtree (node NumberExpression (lexemes "1")))
     (without-subtree (node NumberExpression (lexemes "2")))
@@ -99,6 +101,6 @@
   (parallel "parallel results retain their own sources" 5 '("1" "2" "1+2")))
 
 (deflanguage-parser-tests language-test-byte-edit-test "incremental test byte offsets"
-  (loader hcl-language)
+  (loader hcl-test-language)
   (incremental "Unicode before and inside the replaced text" "名称 = \"λ中😀\"\n"
     (replace "λ中" "μ文") (schema "gerbil-parser.incremental-receipt.v1")))

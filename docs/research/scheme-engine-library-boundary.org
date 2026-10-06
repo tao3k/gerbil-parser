@@ -1,11 +1,12 @@
-#+title: Engine, Common Library, and GQL Interface Boundaries
+#+title: Engine, Common Library, and Language Interface Boundaries
 
 * Decision and scope
 
 The parser engine accepts language-independent declarations and executes generated
 machines. Language-specific token mappings, source-format adaptation, corpus
 contracts, and development services belong to language authors or common libraries.
-This refactor makes the audited GQL production entry independent of its corpus.
+All eight shipped language packages now expose ten production entries independent
+of their corpora.
 It does not establish complete ISO GQL conformance or a general ANTLR lexer compiler.
 
 * Ownership and dependency direction
@@ -19,14 +20,14 @@ It does not establish complete ISO GQL conformance or a general ANTLR lexer comp
 | language-support/development.ss | Optional descriptor-bound corpus, scanner and build services | A separate recognition algorithm |
 | language-support/antlr4-source.ss | Source catalog and explicit terminal lowering | Inferring a token category from a GQL naming convention |
 | languages/gql/grammar.ss | Pinned source identity, explicit lexical profile, generated products | Runtime parsing implementation |
-| languages/gql/parser.ss | Production descriptor and parse-gql | Embedded examples or development service registries |
-| languages/gql/parser-test.ss | Corpus, development entry and independent semantic expectations | Reimplementing the grammar compiler |
+| languages/*/parser.ss | Production descriptor and parse-gql | Embedded examples or development service registries |
+| languages/*/parser-test.ss | Corpus, development entry and independent semantic expectations | Reimplementing the grammar compiler |
 
 The common library depends on the engine. Engine dispatch does not depend on the
-common fixture or development libraries. Other existing language entries migrate
-their service declarations directly to the explicit development library. Their
-corpus-bearing entries remain development entries; this is not a claim that all
-language packs have completed the production/corpus split demonstrated by GQL.
+common fixture or development libraries. All shipped language packages follow this production/corpus split.
+Bash keeps its declared source-parser receipt, HCL keeps its generated native
+backend, and TLA+ keeps its layout and structured-proof policy descriptors.
+Alignment does not replace these distinct language semantics.
 
 * Explicit imported-source semantics
 
@@ -161,3 +162,63 @@ New exact-head CI results must be checked separately after publication.
 The final publication gate includes the renamed executable and retains all of
 its 85 checks, for 435 total cases/checks across eighteen bounded processes.
 Final child exit records, rather than assertion markers alone, determine success.
+
+* Complete language alignment
+
+The package inventory is arithmetic, Bash, openCypher, FHIRPath, GQL, HCL,
+HL7 and TLA+. TLA+ publishes core, layout and SANY-candidate entries; this
+accounts for ten descriptors. Every package still has exactly three Scheme
+interfaces. Corpus declarations now live exclusively in parser-test.ss.
+
+| Entry | Corpus count | Optional development capability |
+|-------+--------------+---------------------------------|
+| arithmetic | 1 | Fused reduction and Rust/Rowan generation |
+| Bash | 2 | Descriptor-bound command scanner |
+| openCypher | 5 | Corpus conformance |
+| FHIRPath | 4 | Corpus conformance |
+| GQL | 14 | Corpus conformance |
+| HCL | 15 | Generated backend parity and build strategies |
+| HL7 | 2 | Corpus conformance |
+| TLA+ core | 6 | Corpus conformance |
+| TLA+ layout | 2 | Corpus conformance |
+| TLA+ SANY candidate | 2 | Policy-bound corpus conformance |
+
+The HCL representative fixture remains an independently exported test fixture;
+it is not an additional member of the fifteen-item official corpus.
+Production C/Rust generators continue to consume grammar descriptors. Tests and
+benchmarks obtain fixture data from the development entry and time production
+parse functions. They do not restore fixture aliases in production modules.
+
+#+begin_src scheme
+;; Question 1: Why is this design better?
+;; A grammar declaration has one owner and one generated descriptor.
+;; The optional test object composes native POO services over that same value.
+;; Scheme syntax retains lexical binding and source provenance while macros
+;; derive dispatch and contracts; authors supply data rather than new executors.
+;; Question 2: Why does this design have a scientific basis?
+;; The separation produces falsifiable obligations for every shipped entry:
+;; descriptor identity, absent production services, unchanged grammar data,
+;; independent corpus acceptance, complete event equality and exact roundtrip.
+(eq? (.ref hcl-test-language 'descriptor) (.ref hcl-language 'descriptor))
+(run-language-test hcl-test-language 'fixtures)
+#+end_src
+
+The topology guard rejects corpus declarations in grammar.ss and parser.ss,
+and rejects development Loader declarations in parser.ss. The boundary suite
+compares production and development dispatch over all 53 accepted and rejected
+corpus members. Existing language-specific AST, layout, Unicode, concurrency,
+recovery and generated-backend controls remain independent expectations.
+
+CI compiles language conformance modules before entering the existing bounded
+execution gate. Compilation and test execution have distinct completion fences;
+precompilation does not increase the ten-second test limit or admit a timed-out
+process merely because it printed a success marker.
+
+Local qualification retains failed cold/source and incomplete native attempts.
+An interrupted native build can leave an interface and wrapper without its
+runtime phase object; a timestamp-only rerun is insufficient evidence. Valid
+suite modules are compiled before the runtime gate, and their child exit status
+remains mandatory even when every assertion printed a success marker.
+The language boundary controls passed all 53 corpus dispatch comparisons in the
+source-overlay environment. Rust all-target/all-feature Clippy passed for the
+affected package. These receipts do not replace exact-head CI native execution.

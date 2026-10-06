@@ -1,5 +1,14 @@
 ;;; Explicit POO pack entries expose grammar metadata and reusable test services.
-(import :std/test
+(import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        (only-in :gerbil-parser/languages/cypher/parser-test opencypher-test-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser-test tla-plus-core-test-language)
+        (only-in :gerbil-parser/languages/bash/parser-test bash-test-language)
+        (only-in :gerbil-parser/languages/hl7/parser-test hl7-test-language)
+        (only-in :gerbil-parser/languages/fhirpath/parser-test fhirpath-test-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser-test tla-plus-layout-test-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser-test tla-plus-sany-candidate-test-language)
+        :std/test
         (only-in :clan/poo/object .ref object?)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language)
         (only-in :gerbil-parser/languages/hcl/parser hcl-language)
@@ -71,12 +80,12 @@
          (let (artifacts (run-language-test loader 'fixtures))
            (check (pair? artifacts) => #t)
            (check (every parse-artifact-valid? artifacts) => #t)))
-       (list arithmetic-language hcl-language
-             gql-test-language opencypher-language
-             hl7-language fhirpath-language bash-language
-             tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language)))
+       (list arithmetic-test-language hcl-test-language
+             gql-test-language opencypher-test-language
+             hl7-test-language fhirpath-test-language bash-test-language
+             tla-plus-core-test-language tla-plus-layout-test-language tla-plus-sany-candidate-test-language)))
     (test-case "Bash workers retain independent deferred scanner obligations"
-      (let* ((make-worker (lambda (source) (make-language-scan-worker bash-language 'command source)))
+      (let* ((make-worker (lambda (source) (make-language-scan-worker bash-test-language 'command source)))
              (first "cat <<EOF\nα\nEOF\n") (second "echo β\n")
              (left (make-worker first)) (right (make-worker second)))
         (check (apply string-append (map token-lexeme (source-scanner-tokens right 'command))) => second)

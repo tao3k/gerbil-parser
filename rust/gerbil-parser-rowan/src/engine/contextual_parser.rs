@@ -43,8 +43,8 @@ pub fn parse_contextual(
         byte_offset: offset,
         message: message.into(),
     };
-    let plan = prepare_once(product).map_err(&failure)?;
-    let scanner = ContextualScanner::new(product.scanner, source).map_err(&failure)?;
+    let plan = prepare_once(product).map_err(failure)?;
+    let scanner = ContextualScanner::new(product.scanner, source).map_err(failure)?;
     let mut state = scanner.initial_state();
     let mut tokens = Vec::new();
     let mut configuration = ParserConfiguration {
@@ -66,7 +66,7 @@ pub fn parse_contextual(
                 .get(lr_state as usize)
                 .ok_or_else(|| failure(reject(state.byte_offset(), "undeclared LR state")))?;
             lookahead =
-                pull_token(&scanner, &mut state, position, &plan, &mut tokens).map_err(&failure)?;
+                pull_token(&scanner, &mut state, position, &plan, &mut tokens).map_err(failure)?;
             eof = lookahead.is_none();
         }
 
@@ -88,7 +88,7 @@ pub fn parse_contextual(
             }
             ParserAction::Reduce(production) => {
                 apply_reduce(spec, &tokens, token, &mut configuration, production)
-                    .map_err(&failure)?;
+                    .map_err(failure)?;
             }
             ParserAction::Accept => {
                 if !eof || lookahead.is_some() || configuration.values.len() != 1 {
@@ -98,7 +98,7 @@ pub fn parse_contextual(
                     )));
                 }
                 return finish_parse(spec, source, &tokens, configuration, bound_receipt.clone())
-                    .map_err(&failure);
+                    .map_err(failure);
             }
 
             ParserAction::Fork(_) => {

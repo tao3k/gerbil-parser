@@ -1,5 +1,7 @@
 ;;; Two real output targets share one engine admission and Loader dispatch.
-(import :std/test
+(import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        :std/test
         (only-in :clan/poo/object .o .cc .ref .slot?)
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-build-support
@@ -11,8 +13,8 @@
         (only-in :gerbil-parser/src/compiler/build-strategy declare-build-strategy-provider)
         (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-with-parser-policy)
-        (only-in :gerbil-parser/languages/hcl/parser hcl-language hcl-language-grammar)
-        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language arithmetic-language-grammar))
+        (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
+        (only-in :gerbil-parser/languages/arithmetic/parser  arithmetic-language-grammar))
 (export build-strategy-test)
 (def (loader-output loader name)
   (call-with-output-string (lambda (port) (emit-language-build-strategy loader name port))))
@@ -34,17 +36,17 @@
            (check (.ref scheme 'format) => 'scheme)
            (check (.ref rust 'kind) => 'rust-rowan)
            (check (.ref rust 'format) => 'rust)))
-       (list hcl-language arithmetic-language)))
+       (list hcl-test-language arithmetic-test-language)))
     (test-case "the same Loader dispatcher preserves canonical Rust output in both languages"
       (for-each
        (lambda (loader)
          (check (loader-output loader 'rust-rowan)
                 => (language-rust-rowan-module-source (.ref loader 'descriptor))))
-       (list hcl-language arithmetic-language)))
+       (list hcl-test-language arithmetic-test-language)))
     (test-case "generic declaration supports downstream names and inherited POO metadata"
       (let* ((prototype (.o (:: self RustRowanStrategy.) metadata: (.o consumer: 'downstream)))
              (strategy (make-rust-rowan-strategy arithmetic-language-grammar prototype))
-             (loader (.cc arithmetic-language 'build-strategies
+             (loader (.cc arithmetic-test-language 'build-strategies
                           (list (declare-language-build-strategy 'my-rust-output strategy)))))
         (validate LanguageDevelopmentLoaderContract loader)
         (check (.ref (.ref strategy 'metadata) 'consumer) => 'downstream)
@@ -52,7 +54,7 @@
     (test-case "a recipe method override cannot replace the registered engine writer"
       (let* ((strategy (.cc (make-rust-rowan-strategy arithmetic-language-grammar)
                            '.emit (lambda (_) (error "unchecked writer must not execute"))))
-             (loader (.cc arithmetic-language 'build-strategies
+             (loader (.cc arithmetic-test-language 'build-strategies
                           (list (declare-language-build-strategy 'rust-output strategy)))))
         (check (loader-output loader 'rust-output)
                => (language-rust-rowan-module-source arithmetic-language-grammar))))
@@ -84,7 +86,7 @@
                    (write form port)))))
              (prototype (.o (:: self BuildStrategy.) provider: engine-provider receipt: 'qualified))
              (strategy (make-bound-build-strategy arithmetic-language-grammar prototype))
-             (loader (.cc arithmetic-language 'build-strategies
+             (loader (.cc arithmetic-test-language 'build-strategies
                           (list (declare-language-build-strategy 'custom-receipt strategy)))))
         (check (.ref strategy 'format) => 'test-format)
         (check (loader-output loader 'custom-receipt) => "(engine-receipt qualified)")
@@ -97,7 +99,7 @@
     (test-case "the common registry rejects foreign descriptors across provider kinds"
       (check-exception
        (validate LanguageDevelopmentLoaderContract
-        (.cc hcl-language 'build-strategies
+        (.cc hcl-test-language 'build-strategies
              (list (declare-language-build-strategy 'rust-output
                      (make-rust-rowan-strategy arithmetic-language-grammar))))) true))
     (test-case "Rust policy admission remains distinct from Scheme reduction admission"

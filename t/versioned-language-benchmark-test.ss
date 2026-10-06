@@ -1,7 +1,10 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 
-(import (only-in :gerbil-parser/language-support/development
+(import (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        (only-in :gerbil-parser/languages/cypher/parser-test opencypher-test-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser-test tla-plus-core-test-language)
+        (only-in :gerbil-parser/language-support/development
                  language-loader-fixtures language-loader-fixture-count)
         (only-in :gerbil-parser/languages/gql/parser-test gql-test-language)
         :std/test
@@ -16,10 +19,10 @@
 (def benchmark-path "t/benchmarks/versioned-languages/benchmark.ss")
 
 (def benchmark-corpus
-  (list (cons parse-hcl (language-loader-fixtures hcl-language 'accepted))
+  (list (cons parse-hcl (language-loader-fixtures hcl-test-language 'accepted))
         (cons parse-gql (language-loader-fixtures gql-test-language 'accepted))
-        (cons parse-opencypher (language-loader-fixtures opencypher-language 'accepted))
-        (cons parse-tla-plus-core (language-loader-fixtures tla-plus-core-language 'accepted))))
+        (cons parse-opencypher (language-loader-fixtures opencypher-test-language 'accepted))
+        (cons parse-tla-plus-core (language-loader-fixtures tla-plus-core-test-language 'accepted))))
 (def (parse-language-batch)
   (for-each (lambda (group)
     (for-each (lambda (fixture)

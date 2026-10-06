@@ -1,12 +1,13 @@
 ;;; Seed streams are executable controls copied from the prior HCL suite.
 ;;; Independent port-writing references retain the entire original sequence.
-(import :std/test
+(import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        :std/test
         (only-in :gerbil-parser/src/testing/language-strategy generate-language-test-sources check-language-strategies)
         (only-in :clan/poo/object .cc .o .ref)
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
-        (only-in :gerbil-parser/languages/hcl/parser hcl-language)
-        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language))
+)
 (export language-strategy-test)
 
 (def (reference-sources seed count build)
@@ -90,9 +91,9 @@
                              (display (vector-ref ends (draw (vector-length ends))) port)
                              (rows (- remaining 1)))))))))))
     (test-case "lexical-only coverage executes each candidate once"
-      (let* ((profile (.ref hcl-language 'native-test-profile))
+      (let* ((profile (.ref hcl-test-language 'native-test-profile))
              (lex (.ref profile 'lexer)) (calls 0)
-             (owner (.cc hcl-language 'native-test-profile
+             (owner (.cc hcl-test-language 'native-test-profile
                          (.cc profile 'lexer (lambda (source)
                                                (set! calls (+ calls 1)) (lex source))))))
         (validate LanguageDevelopmentLoaderContract owner)
@@ -100,13 +101,13 @@
                                   '((routes) (lexical optional) (coverage 0 0)))
         (check calls => 3)))
     (test-case "profiles reject stale digest, foreign source and missing lexer"
-      (let* ((profile (.ref hcl-language 'native-test-profile))
+      (let* ((profile (.ref hcl-test-language 'native-test-profile))
              (rejected? (lambda (owner)
                           (with-catch (lambda (_) #t)
                             (lambda () (validate LanguageDevelopmentLoaderContract owner) #f)))))
-        (check (rejected? (.cc hcl-language 'native-test-profile (.cc profile 'digest "sha256:stale"))) => #t)
-        (check (rejected? (.cc hcl-language 'native-test-profile (.cc profile 'source (lambda args #t)))) => #t)
-        (check (rejected? (.cc hcl-language 'native-test-profile (.cc profile 'lexer #f))) => #t)
-        (check (rejected? (.cc hcl-language 'native-test-profile (.cc profile 'profile 'unknown))) => #t)
-        (check (rejected? (.cc arithmetic-language 'native-test-profile profile)) => #t)
-        (check (rejected? (.cc hcl-language 'native-test-profile (.cc profile 'digest (.ref profile 'digest)))) => #f)))))
+        (check (rejected? (.cc hcl-test-language 'native-test-profile (.cc profile 'digest "sha256:stale"))) => #t)
+        (check (rejected? (.cc hcl-test-language 'native-test-profile (.cc profile 'source (lambda args #t)))) => #t)
+        (check (rejected? (.cc hcl-test-language 'native-test-profile (.cc profile 'lexer #f))) => #t)
+        (check (rejected? (.cc hcl-test-language 'native-test-profile (.cc profile 'profile 'unknown))) => #t)
+        (check (rejected? (.cc arithmetic-test-language 'native-test-profile profile)) => #t)
+        (check (rejected? (.cc hcl-test-language 'native-test-profile (.cc profile 'digest (.ref profile 'digest)))) => #f)))))

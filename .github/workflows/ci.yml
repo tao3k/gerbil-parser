@@ -181,6 +181,23 @@ jobs:
           gerbil env gxi build-gparse.ss compile
           gerbil env gxi build-rust-rowan-aot.ss compile
 
+      - name: Compile language conformance modules
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
+            --log .data/language-conformance-build.log \
+            -- gxc -V -cc-options -v \
+              languages/arithmetic/parser-test.ss languages/bash/parser-test.ss \
+              languages/cypher/parser-test.ss languages/fhirpath/parser-test.ss \
+              languages/gql/parser-test.ss languages/hcl/parser-test.ss \
+              languages/hl7/parser-test.ss languages/tla-plus/parser-test.ss \
+              t/antlr4-source-test.ss t/language-entry-boundary-test.ss \
+              t/language-diagnostics-test.ss t/language-surface-test.ss \
+              t/grammar-composition-test.ss t/language-artifact-test.ss \
+              t/language-topology-test.ss t/language-loader-test.ss \
+              t/language-loader-value-test.ss t/language-pack-metadata-test.ss \
+              t/source-strategy-test.ss t/build-strategy-test.ss \
+              t/gql/benchmark-profile-test.ss
+
       - name: Verify Scheme DSL and native POO declaration closure
         run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research
 

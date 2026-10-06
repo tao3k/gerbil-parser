@@ -2,8 +2,31 @@
 (import :gerbil-parser/language-test-support
         (only-in :gerbil-parser/src/compiler/machine parser-machine-direct-drive)
         ./parser)
+(import (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/language-support/fixture defsyntax-fixture)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
+        (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-rowan-strategy))
+(export arithmetic-basic-fixture arithmetic-test-language)
+
+(defsyntax-fixture arithmetic-basic-fixture
+  (identity "arithmetic/v1/basic"
+            "arithmetic"
+            "v1"
+            "arithmetic-expression.v1")
+  (source "corpus/basic.expr")
+  (expect accepted SourceFile (Expression)))
+(deflanguage-development-loader (arithmetic-test-language :: self LanguageDevelopmentLoader.)
+  (grammar arithmetic-language-grammar)
+  (parse parse-arithmetic-test)
+  (slots metadata: (.o grammar-format: 'concise-dsl)
+         build-strategies: (list (declare-language-build-strategy 'fused-reductions
+                                   (make-fused-reduction-strategy arithmetic-language-grammar))
+                                 (declare-language-build-strategy 'rust-rowan
+                                   (make-rust-rowan-strategy arithmetic-language-grammar)))
+         fixtures: (list arithmetic-basic-fixture)))
+
 (deflanguage-parser-tests arithmetic-parser-test "arithmetic v1 language pack"
-  (loader arithmetic-language)
+  (loader arithmetic-test-language)
   (property "compiled machine installs its direct LR driver"
     (bindings)
     (equal (procedure? (parser-machine-direct-drive arithmetic-parser)) #t))

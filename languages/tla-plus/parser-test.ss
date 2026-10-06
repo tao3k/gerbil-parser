@@ -1,8 +1,76 @@
 ;;; -*- Gerbil -*-
 ;;; Declarative layout fields, concurrency and engine receipts.
 (import :gerbil-parser/language-test-support ./parser)
+(import (only-in :gerbil-parser/src/language/descriptor language-grammar-language language-grammar-version language-grammar-contract)
+        (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.))
+(export tla-plus-core-fixtures tla-plus-layout-fixtures tla-plus-sany-candidate-fixtures tla-plus-core-test-language tla-plus-layout-test-language tla-plus-sany-candidate-test-language)
+
+(defsyntax-corpus tla-plus-core-fixtures
+  (identity (language-grammar-language tla-plus-core-language-grammar)
+            (language-grammar-version tla-plus-core-language-grammar)
+            (language-grammar-contract tla-plus-core-language-grammar))
+  (accepted
+   ("tla-plus/examples/hour-clock" tla-plus-hour-clock
+    "corpus/tlaplus-examples/HourClock.tla" SourceFile
+    (Module ExtendsDeclaration VariableDeclaration OperatorDefinition
+            TheoremDeclaration))
+   ("tla-plus/core/counter" tla-plus-counter
+    "corpus/core/Counter.tla" SourceFile
+    (Module ExtendsDeclaration ConstantDeclaration VariableDeclaration
+            OperatorDefinition TheoremDeclaration))
+   ("tla-plus/core/nested-comment" tla-plus-nested-comment
+    "corpus/core/NestedComment.tla" SourceFile
+    (Module VariableDeclaration OperatorDefinition))
+   ("tla-plus/core/structured-expressions" tla-plus-structured-expressions
+    "corpus/core/StructuredExpressions.tla" SourceFile
+    (Module OperatorDefinition Expression IfExpression ChooseExpression
+            QuantifiedExpression TupleExpression SetExpression
+            FunctionConstructor OperatorApplication LetExpression
+            CaseExpression RecordExpression SetFilterExpression))
+   ("tla-plus/core/module-forms" tla-plus-module-forms
+    "corpus/core/ModuleForms.tla" SourceFile
+    (Module RecursiveDeclaration InstanceDeclaration AssumptionDeclaration
+            TheoremDeclaration OperatorDefinition)))
+  (rejected
+   ("tla-plus/core/malformed-if" tla-plus-malformed-if
+    "corpus/core/MalformedIf.tla")))
+
+(defsyntax-corpus tla-plus-layout-fixtures
+  (identity "tla-plus" "v2" "tla-plus.native-layout.v2")
+  (accepted
+   ("tla-plus/layout/aligned" tla-layout-aligned (text "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n") SourceFile (JunctionExpression)))
+  (rejected
+   ("tla-plus/layout/incomplete" tla-layout-incomplete (text "---- MODULE J ----\nInit ==\n  /\\\n====\n"))))
+
+(defsyntax-corpus tla-plus-sany-candidate-fixtures
+  (identity "tla-plus" "p4-draft" "tla-plus.native-sany-candidate.p4")
+  (accepted
+   ("tla-plus/candidate/proof" tla-candidate-proof (text "---- MODULE P ----\nTHEOREM TRUE\nBY TRUE\n====\n") SourceFile (TerminalProof)))
+  (rejected
+   ("tla-plus/candidate/missing-qed" tla-candidate-missing-qed (text "---- MODULE P ----\nTHEOREM TRUE\n<1>1. TRUE OBVIOUS\n====\n"))))
+
+(deflanguage-development-loader (tla-plus-core-test-language :: self LanguageDevelopmentLoader.)
+  (grammar tla-plus-core-language-grammar)
+  (parse parse-tla-plus-core-test)
+  (slots metadata: (.o grammar-format: 'concise-dsl)
+         fixtures: tla-plus-core-fixtures))
+
+(deflanguage-development-loader (tla-plus-layout-test-language :: self LanguageDevelopmentLoader.)
+  (grammar tla-plus-layout-language-grammar)
+  (parse parse-tla-plus-layout-test)
+  (slots metadata: (.o grammar-format: 'concise-dsl)
+         fixtures: tla-plus-layout-fixtures))
+
+(deflanguage-development-loader (tla-plus-sany-candidate-test-language :: self LanguageDevelopmentLoader.)
+  (grammar tla-plus-sany-candidate-language-grammar)
+  (parse parse-tla-plus-sany-candidate-test)
+  (slots metadata: (.o grammar-format: 'concise-dsl)
+         fixtures: tla-plus-sany-candidate-fixtures))
+
 (deflanguage-parser-tests tla-plus-layout-parser-test "TLA+ column layout grammar"
-  (loader tla-plus-layout-language)
+  (loader tla-plus-layout-test-language)
   (accepted "aligned markers form one list" "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n"
     (field-counts JunctionExpression body (2)))
   (accepted "nested quantifier closes at outer reference" "---- MODULE J ----\nInit ==\n  /\\ \\E x \\in S :\n       /\\ x = 1\n       /\\ x = 2\n  /\\ TRUE\n====\n"
@@ -19,7 +87,7 @@
   (recovery-rejected "recovery retains layout rejection" "---- MODULE J ----\nInit ==\n  /\\\n====\n" (outcome 'disabled)))
 
 (deflanguage-parser-tests tla-plus-core-parser-test "TLA+ core grammar"
-  (loader tla-plus-core-language)
+  (loader tla-plus-core-test-language)
   (accepted "modular multiline action contracts keep native source bytes"
     "---- MODULE Modular ----\nVARIABLES active,\n queued\nWork == INSTANCE WorkLifecycle\nInit ==\n  /\\ Work!Init\n  /\\ active = TRUE\nNext == Work!Step \\/\n        (active' = FALSE /\\\n         UNCHANGED <<queued,\n                    active>>)\n====\n"
     (nodes InstanceExpression QualifiedNameExpression JunctionExpression))
@@ -69,7 +137,7 @@
   (fixture-group "recognized but malformed expressions fail closed" rejected (diagnostics 1)))
 
 (deflanguage-parser-tests tla-plus-sany-candidate-parser-test "TLA+ SANY candidate grammar"
-  (loader tla-plus-sany-candidate-language)
+  (loader tla-plus-sany-candidate-test-language)
   (distinct-contract "candidate identity is distinct from the published layout contract" tla-plus-layout-language)
   (identity "candidate version remains pinned" (version "p4-draft"))
   (syntax-kind "TerminalProof metadata admits emitted fields" TerminalProof node (fact definition item))
@@ -124,7 +192,7 @@
   (recovery-rejected "recovery keeps layout rejection unchanged" "---- MODULE J ----\nInit ==\n  /\\\n====\n" (outcome 'disabled)))
 
 (deflanguage-parser-tests sany-closure-test "SANY corpus syntax families"
-  (loader tla-plus-sany-candidate-language)
+  (loader tla-plus-sany-candidate-test-language)
   (accepted "document text and nested and concatenated modules retain nodes"
     "notes\n---- MODULE 2Outer ----\n---- MODULE Inner ----\nP == TRUE\n====\nQ == \"==== ---- MODULE Fake ----\"\n====\ntrailing notes\n---- MODULE Peer ----\nR == FALSE\n====\nend notes\n"
     (diagnostics 0) (counts (Module 3)))

@@ -61,6 +61,13 @@ run_suite loaders '(only-in :gerbil-parser/t/language-loader-test language-loade
         (only-in :gerbil-parser/t/language-loader-value-test language-loader-value-test)' '(list language-loader-test language-loader-value-test)'
 run_suite gql '(only-in :gerbil-parser/t/antlr4-source-test antlr4-source-test)
         (only-in :gerbil-parser/languages/gql/parser-test gql-parser-test)' '(list antlr4-source-test gql-parser-test)'
+run_suite arithmetic '(only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-parser-test)' '(list arithmetic-parser-test)'
+run_suite bash '(only-in :gerbil-parser/languages/bash/parser-test bash-parser-test)' '(list bash-parser-test)'
+run_suite cypher '(only-in :gerbil-parser/languages/cypher/parser-test opencypher-parser-test)' '(list opencypher-parser-test)'
+run_suite fhirpath '(only-in :gerbil-parser/languages/fhirpath/parser-test fhirpath-parser-test)' '(list fhirpath-parser-test)'
+run_suite hcl '(only-in :gerbil-parser/languages/hcl/parser-test hcl-parser-test)' '(list hcl-parser-test)'
+run_suite hl7 '(only-in :gerbil-parser/languages/hl7/parser-test hl7-parser-test)' '(list hl7-parser-test)'
+run_suite tla-plus '(only-in :gerbil-parser/languages/tla-plus/parser-test tla-plus-core-parser-test tla-plus-layout-parser-test tla-plus-sany-candidate-parser-test)' '(list tla-plus-core-parser-test tla-plus-layout-parser-test tla-plus-sany-candidate-parser-test)'
 run_suite gql-profile '(only-in :gerbil-parser/t/gql/benchmark-profile-test gql-benchmark-profile-test)' '(list gql-benchmark-profile-test)'
 run_suite pack-metadata '(only-in :gerbil-parser/t/language-pack-metadata-test language-pack-metadata-test)' '(list language-pack-metadata-test)'
 run_suite source-services '(only-in :gerbil-parser/t/source-strategy-test source-strategy-test)' '(list source-strategy-test)'

@@ -1,5 +1,8 @@
 ;;; Generic POO generation and both semantic backends use two independent packs.
-(import :std/test
+(import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-official-fixtures)
+        :std/test
         (only-in :std/misc/ports read-all-as-string)
         (only-in :clan/poo/object .o .cc .ref)
         (only-in :clan/poo/mop validate)
@@ -14,8 +17,8 @@
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-roundtrip)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source syntax-fixture-expected-status)
-        (only-in :gerbil-parser/languages/hcl/parser hcl-language hcl-language-grammar hcl-official-fixtures)
-        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language arithmetic-language-grammar)
+        (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
+        (only-in :gerbil-parser/languages/arithmetic/parser  arithmetic-language-grammar)
         (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
         (prefix-in :gerbil-parser/src/compiler/hcl-reductions hcl-)
         (prefix-in "fixtures/arithmetic-reductions.ss" arithmetic-))
@@ -75,15 +78,15 @@
                (.cc hcl 'metadata #f)))
         (check (get-output-string port) => "")))
     (test-case "Loader slots admit declared strategies and reject foreign or duplicated bindings"
-      (let (output (call-with-output-string (lambda (port) (emit-language-build-strategy hcl-language 'fused-reductions port))))
+      (let (output (call-with-output-string (lambda (port) (emit-language-build-strategy hcl-test-language 'fused-reductions port))))
         (check output => (emitted (make-fused-reduction-strategy hcl-language-grammar)))
-        (check (length (.ref arithmetic-language 'build-strategies)) => 2)
+        (check (length (.ref arithmetic-test-language 'build-strategies)) => 2)
         (check-exception (validate LanguageDevelopmentLoaderContract
-                         (.cc hcl-language 'build-strategies (.ref arithmetic-language 'build-strategies))) true)
+                         (.cc hcl-test-language 'build-strategies (.ref arithmetic-test-language 'build-strategies))) true)
         (check-exception (validate LanguageDevelopmentLoaderContract
-                         (.cc hcl-language 'build-strategies
-                              (append (.ref hcl-language 'build-strategies) (.ref hcl-language 'build-strategies)))) true)
-        (check-exception (emit-language-build-strategy hcl-language 'missing (open-output-string)) true)))
+                         (.cc hcl-test-language 'build-strategies
+                              (append (.ref hcl-test-language 'build-strategies) (.ref hcl-test-language 'build-strategies)))) true)
+        (check-exception (emit-language-build-strategy hcl-test-language 'missing (open-output-string)) true)))
     (test-case "HCL field and alias reductions preserve both native semantic backends"
       (check-reductions hcl-language-grammar
         (map syntax-fixture-source (filter (lambda (fixture) (eq? (syntax-fixture-expected-status fixture) 'accepted)) hcl-official-fixtures))

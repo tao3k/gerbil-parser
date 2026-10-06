@@ -3,8 +3,29 @@
 (import :gerbil-parser/language-test-support
         (only-in :gerbil-parser/language-support parse-artifact-success? parse-artifact-roundtrip)
         ./parser)
+(import (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader. declare-language-source-scan-worker))
+(export bash-fixtures bash-test-language)
+
+(defsyntax-corpus bash-fixtures
+  (identity "bash" "5.3" "bash-5.3-structured-source.v1")
+  (accepted
+   ("bash/heredoc" bash-heredoc (text "cat <<EOF\nα\nEOF\n") BashFile (HereDocument)))
+  (rejected
+   ("bash/incomplete-if" bash-incomplete-if (text "if true; then\n"))))
+
+(deflanguage-development-loader (bash-test-language :: self LanguageDevelopmentLoader.)
+  (source bash-source-language)
+  (parse parse-bash-test)
+  (slots metadata: (.o grammar-format: 'source-parser)
+         fixtures: bash-fixtures
+         scan-workers: (list (cons 'command
+                                  (declare-language-source-scan-worker
+                                   bash-source-language)))))
+
 (deflanguage-parser-tests bash-parser-test "Bash source and structured syntax"
-  (loader bash-language)
+  (loader bash-test-language)
   (identity "public language identity" (language "bash") (version "5.3"))
   (accepted "nested parameter syntax"
     "printf %s pre\"${x:-$(printf '%s' '}')}\"post\n"

@@ -1,9 +1,8 @@
 ;;; -*- Gerbil -*-
-;;; Language declarations, source identity and fixtures; execution is engine-owned.
-(import (only-in :gerbil-parser/language-support deflanguage deftext-profile defsyntax-corpus)
-        (only-in :gerbil-parser/language-support/grammar-source defsyntax-javacc-source)
-        (only-in :gerbil-parser/src/language/descriptor language-grammar-language language-grammar-version language-grammar-contract))
-(export tla-proof-name tla-proof-start tla-proof-reference tla-identifier +tla-plus-syntax-source+ +tla-plus-examples-commit+ +tla-plus-sany-release+ +tla-plus-sany-commit+ +tla-plus-sany-grammar-blob+ +tla-plus-sany-grammar-digest+ tla-plus-sany-source tla-plus-core-fixtures tla-plus-core-language-grammar tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser tla-plus-layout-language-grammar tla-plus-layout-grammar tla-plus-layout-parser-ir tla-plus-layout-parser tla-plus-sany-candidate-language-grammar tla-plus-sany-candidate-grammar tla-plus-sany-candidate-parser-ir tla-plus-sany-candidate-parser)
+;;; Language declarations and source identity; execution is engine-owned.
+(import (only-in :gerbil-parser/language-support deflanguage deftext-profile)
+        (only-in :gerbil-parser/language-support/grammar-source defsyntax-javacc-source))
+(export tla-proof-name tla-proof-start tla-proof-reference tla-identifier +tla-plus-syntax-source+ +tla-plus-examples-commit+ +tla-plus-sany-release+ +tla-plus-sany-commit+ +tla-plus-sany-grammar-blob+ +tla-plus-sany-grammar-digest+ tla-plus-sany-source  tla-plus-core-language-grammar tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser tla-plus-layout-language-grammar tla-plus-layout-grammar tla-plus-layout-parser-ir tla-plus-layout-parser tla-plus-sany-candidate-language-grammar tla-plus-sany-candidate-grammar tla-plus-sany-candidate-parser-ir tla-plus-sany-candidate-parser)
 ;;; Local recognition is canonical lexical data, including its spelling.
 (deftext-profile tla-proof-name
   (seq (literal "<")
@@ -1601,33 +1600,3 @@
     (comment Comment) (module-border ModuleBorder) (module-end ModuleEnd)
     (punctuation Punctuation))
    (reserved-token-kinds SeparatorLine)))
-
-(defsyntax-corpus tla-plus-core-fixtures
-  (identity (language-grammar-language tla-plus-core-language-grammar)
-            (language-grammar-version tla-plus-core-language-grammar)
-            (language-grammar-contract tla-plus-core-language-grammar))
-  (accepted
-   ("tla-plus/examples/hour-clock" tla-plus-hour-clock
-    "corpus/tlaplus-examples/HourClock.tla" SourceFile
-    (Module ExtendsDeclaration VariableDeclaration OperatorDefinition
-            TheoremDeclaration))
-   ("tla-plus/core/counter" tla-plus-counter
-    "corpus/core/Counter.tla" SourceFile
-    (Module ExtendsDeclaration ConstantDeclaration VariableDeclaration
-            OperatorDefinition TheoremDeclaration))
-   ("tla-plus/core/nested-comment" tla-plus-nested-comment
-    "corpus/core/NestedComment.tla" SourceFile
-    (Module VariableDeclaration OperatorDefinition))
-   ("tla-plus/core/structured-expressions" tla-plus-structured-expressions
-    "corpus/core/StructuredExpressions.tla" SourceFile
-    (Module OperatorDefinition Expression IfExpression ChooseExpression
-            QuantifiedExpression TupleExpression SetExpression
-            FunctionConstructor OperatorApplication LetExpression
-            CaseExpression RecordExpression SetFilterExpression))
-   ("tla-plus/core/module-forms" tla-plus-module-forms
-    "corpus/core/ModuleForms.tla" SourceFile
-    (Module RecursiveDeclaration InstanceDeclaration AssumptionDeclaration
-            TheoremDeclaration OperatorDefinition)))
-  (rejected
-   ("tla-plus/core/malformed-if" tla-plus-malformed-if
-    "corpus/core/MalformedIf.tla")))

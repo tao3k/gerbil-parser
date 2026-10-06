@@ -1,0 +1,33 @@
+#+title: Versioned Language Measurements
+
+* Complete language inventory
+
+=all-languages.ss= reports every shipped production entry independently, including
+all three TLA+ scopes. Corpus admission occurs through the optional development
+entry before timing. The timed batch calls the production parser and checks
+accepted status and exact roundtrip for each admitted accepted source.
+
+#+begin_src sh
+gerbil env gxi t/benchmarks/versioned-languages/all-languages.ss 20
+#+end_src
+
+Each sample reports real elapsed milliseconds. The final entry receipt reports
+its descriptor digest, fixture count, source character count and nearest-rank
+P50/P95. GC, imports, grammar compilation and corpus admission are outside the
+sample timer. A percentile represents one complete corpus batch, not a single
+request. Compare identical source inventories and descriptors when interpreting
+changes; heterogeneous language corpora are not equal-work latency comparisons.
+
+This provides an aligned end-to-end baseline. It does not decompose scanner,
+LR, event publication and GC costs or qualify concurrent actor throughput.
+The existing GQL runtime stage benchmark remains the component investigation
+route; other engines need corresponding component receipts before attributing
+a batch cost to a particular stage.
+
+* Historical matched workload
+
+=matched-batch.ss= and =benchmark.ss= retain the existing four-language workload
+and its measured admission policy. Their corpora now come from parser-test.ss;
+production parse functions remain the timed consumers. Adding six entries to
+that historic timing gate would invalidate its existing workload and targets.
+All-language measurements have a separate schema and no invented latency target.

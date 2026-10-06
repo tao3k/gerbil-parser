@@ -437,31 +437,6 @@
   (conflicts selective-glr)
   (case-insensitive #t))
 
-;;; Corpus declarations share the grammar admission boundary.
-(import (only-in :gerbil-parser/language-support
-                 defsyntax-corpus defsyntax-fixture))
-(export opencypher-fixtures)
-
-(defsyntax-corpus opencypher-fixtures
-  (identity "opencypher" "2024.1" "opencypher-2024.1-syntax.v1")
-  (accepted
-   ("opencypher/2024.1/match-return" opencypher-match-return
-    "corpus/representative/match-return.cypher" program
-    (|match statement| |return statement|))
-   ("opencypher/2024.1/create-return" opencypher-create-return
-    "corpus/representative/create-return.cypher" program
-    (|create statement| |return statement|))
-   ("opencypher/2024.1/path-filter" opencypher-path-filter
-    "corpus/representative/path-filter.cypher" program
-    (|match statement| |where clause| |return statement|))
-   ("opencypher/2024.1/unwind" opencypher-unwind
-    "corpus/representative/unwind.cypher" program
-    (|unwind statement| |return statement|)))
-  (rejected
-   ("opencypher/2024.1/invalid/match-only" opencypher-match-only
-    "corpus/invalid/match-only.cypher")))
-
-;;; Pinned source metadata belongs to the grammar declaration.
 (import (only-in :gerbil-parser/language-support/grammar-source defsyntax-iso-bnf-source))
 (export opencypher-bnf)
 

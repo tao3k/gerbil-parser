@@ -49,9 +49,9 @@ pub use model::{
 };
 pub use parser::{parse, parse_scanned};
 pub use result_projection::{
-    CaptureKind, CaptureSpec, PreparedResultProfile, PreparedResultProjection, ProjectedChild,
-    ProjectedNode, ProjectedValue, ProjectionInstruction, ProjectionOpcode, ResultCapture,
-    ResultNodeSpec, ResultProfileSpec, ResultProjection,
+    CaptureKind, CaptureSpec, PreparedResultNode, PreparedResultProfile, PreparedResultProjection,
+    ProjectedChild, ProjectedNode, ProjectedValue, ProjectionInstruction, ProjectionOpcode,
+    ResultCapture, ResultChildCapture, ResultNodeSpec, ResultProfileSpec, ResultProjection,
 };
 pub use structural_lines::parse_structural_lines;
 
@@ -102,3 +102,7 @@ mod result_projection_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/word_parts.rs"]
 mod word_parts_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/ordered_results.rs"]
+mod ordered_results_tests;

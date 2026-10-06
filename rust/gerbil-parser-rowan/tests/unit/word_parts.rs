@@ -4,7 +4,8 @@
 mod generated;
 use crate::{
     EventCatalog, PartGuard, PartOpcode, PartProfileSpec, PartRule, PreparedPartProfile,
-    ProjectedNode, ProjectedValue, ResultProfileSpec, TreeEvent, build_rowan_events_catalog,
+    PreparedResultProfile, ProjectedNode, ProjectedValue, ResultChildCapture, ResultProfileSpec,
+    TreeEvent, build_rowan_events_catalog,
 };
 fn fields(
     root: &ProjectedNode<'_>,
@@ -217,4 +218,58 @@ fn bounded_source_and_deep_composition_preserve_full_source_ownership() {
     )
     .unwrap();
     assert_eq!(tree.to_string(), text);
+}
+
+#[test]
+fn recognized_word_nodes_move_into_ordered_command_fields_with_one_catalog() {
+    let results = PreparedResultProfile::new(&generated::bash::RESULT_PROFILE).unwrap();
+    let words = crate::PreparedPartProfile::new(
+        &generated::bash::PART_PROFILE,
+        &generated::bash::RESULT_PROFILE,
+        &generated::bash::regions::REGION,
+    )
+    .unwrap();
+    let source = "α${x:-中}";
+    let first = words.word(source, 0..2).unwrap();
+    let second = words.word(source, 2..source.len()).unwrap();
+    let command = results
+        .bind_node("SimpleCommand")
+        .unwrap()
+        .build(
+            source,
+            0..source.len(),
+            vec![
+                ResultChildCapture {
+                    field: "name",
+                    value: ProjectedValue::Node(first),
+                },
+                ResultChildCapture {
+                    field: "argument",
+                    value: ProjectedValue::Node(second),
+                },
+            ],
+        )
+        .unwrap();
+    let root = results
+        .bind_node("BashFile")
+        .unwrap()
+        .build(
+            source,
+            0..source.len(),
+            vec![ResultChildCapture {
+                field: "command",
+                value: ProjectedValue::Node(command),
+            }],
+        )
+        .unwrap();
+    let tree = build_rowan_events_catalog(
+        &EventCatalog {
+            root_kind: root.kind(),
+            kinds: generated::bash::RESULT_PROFILE.kinds,
+        },
+        source,
+        &root.events(),
+    )
+    .unwrap();
+    assert_eq!(tree.to_string(), source);
 }

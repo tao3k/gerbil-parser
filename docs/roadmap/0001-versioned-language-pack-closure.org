@@ -1675,3 +1675,27 @@ PartProfile/ResultProfile/Bash gate passes 55 cases in 22.32 seconds with final
 and exits zero in 23.74 seconds. The existing 90-second total/five-second silence
 runtime fences are unchanged. These are semantic/structural receipts, not an
 end-to-end parse-speed claim.
+
+
+** Ordered result construction before Command execution
+
+The Word/Binding boundary at =e7139c35af91e02f6c50d30d937282fcb8fda92c=
+passes Rust, Ubuntu and macOS CI. Command integration needs ordered catalog
+construction as well as the existing fixed projection instructions: repeating
+fields can interleave with operator tokens and other node fields.
+
+The generic ResultProfile now binds node constructors once and validates
+ordered captures against the same catalog, source ownership and UTF-8 bounds.
+Repeated fields retain supplied order; subtrees move without cloning accumulated
+events. Four Scheme catalog controls compare complete events and lossless text.
+A Rust integration combines independently recognized Word nodes with Command
+and Source nodes under one catalog. Negative controls reject foreign fields,
+node/token category confusion, wrong source/catalog ownership and out-of-range
+captures. This closes the construction prerequisite, not the Command interpreter.
+Command programs and complete Source ParseArtifact parity remain open.
+
+Local qualification: Rust/Rowan passes 120 tests; strict Clippy and the ASP
+workspace policy gate pass. Scheme catalog-control generation exits zero in
+9.56 seconds. Independent regeneration exits zero in 9.35 seconds and is
+byte-exact after rustfmt. Runtime fences remain 90 seconds total/five seconds
+of real inactivity; no Schema, Loader, Source or C ABI version is changed.

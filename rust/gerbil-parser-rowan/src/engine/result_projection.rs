@@ -48,11 +48,23 @@ pub struct ResultProfileSpec {
 pub struct PreparedResultProfile {
     spec: &'static ResultProfileSpec,
     projections: HashMap<&'static str, usize>,
+    nodes: HashMap<&'static str, u16>,
 }
 /// A projection bound once when a source engine is prepared.
 pub struct PreparedResultProjection {
     spec: &'static ResultProfileSpec,
     index: usize,
+}
+/// A catalog-bound constructor for nodes whose fields follow source order.
+pub struct PreparedResultNode {
+    spec: &'static ResultProfileSpec,
+    kind: u16,
+    fields: &'static [&'static str],
+}
+/// Ordered typed child; repetitions preserve caller-supplied lexical order.
+pub struct ResultChildCapture<'source> {
+    pub field: &'static str,
+    pub value: ProjectedValue<'source>,
 }
 /// A typed recognition capture. `Absent` is admitted only for optional slots.
 pub enum ResultCapture<'source> {
@@ -160,7 +172,36 @@ impl PreparedResultProfile {
                 }
             }
         }
-        Ok(Self { spec, projections })
+        Ok(Self {
+            spec,
+            projections,
+            nodes: spec
+                .nodes
+                .iter()
+                .map(|n| (spec.kinds[usize::from(n.kind)].name, n.kind))
+                .collect(),
+        })
+    }
+    /// Bind a catalog node for ordered command/Source construction.
+    /// # Errors
+    /// Rejects unknown node identifiers, including names declared only as tokens.
+    pub fn bind_node(&self, name: &str) -> Result<PreparedResultNode, Diagnostic> {
+        let kind = *self
+            .nodes
+            .get(name)
+            .ok_or_else(|| error(0, "unknown result node"))?;
+        let fields = self
+            .spec
+            .nodes
+            .iter()
+            .find(|n| n.kind == kind)
+            .ok_or_else(|| error(0, "missing result node fields"))?
+            .fields;
+        Ok(PreparedResultNode {
+            spec: self.spec,
+            kind,
+            fields,
+        })
     }
     /// Resolve an instruction entry once during engine preparation.
     /// # Errors
@@ -294,6 +335,55 @@ fn valid_span(source: &str, span: &Range<usize>) -> bool {
 }
 fn inside(child: &Range<usize>, parent: &Range<usize>) -> bool {
     parent.start <= child.start && child.start <= child.end && child.end <= parent.end
+}
+impl PreparedResultNode {
+    /// Move ordered captures into the admitted node without sorting or cloning.
+    /// # Errors
+    /// Rejects foreign fields, catalogs, sources, token kinds and invalid UTF-8 ranges.
+    pub fn build<'source>(
+        &self,
+        source: &'source str,
+        span: Range<usize>,
+        captures: Vec<ResultChildCapture<'source>>,
+    ) -> Result<ProjectedNode<'source>, Diagnostic> {
+        if !valid_span(source, &span) {
+            return Err(error(span.start, "invalid ordered result frame"));
+        }
+        let mut children = Vec::with_capacity(captures.len());
+        for capture in captures {
+            if !self.fields.contains(&capture.field) {
+                return Err(error(span.start, "undeclared ordered result field"));
+            }
+            match &capture.value {
+                ProjectedValue::Node(node) => {
+                    PreparedResultProfile::check_node(self.spec, source, &span, node)?;
+                }
+                ProjectedValue::Token { kind, span: child } => {
+                    if !self
+                        .spec
+                        .kinds
+                        .get(usize::from(*kind))
+                        .is_some_and(|k| k.category == KindCategory::Token)
+                        || !valid_span(source, child)
+                        || !inside(child, &span)
+                    {
+                        return Err(error(span.start, "invalid ordered result token"));
+                    }
+                }
+            }
+            children.push(ProjectedChild {
+                field: capture.field,
+                value: capture.value,
+            });
+        }
+        Ok(ProjectedNode {
+            owner: self.spec,
+            source,
+            kind: self.kind,
+            span,
+            children,
+        })
+    }
 }
 impl ProjectedNode<'_> {
     #[must_use]

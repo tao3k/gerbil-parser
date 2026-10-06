@@ -260,6 +260,15 @@ jobs:
           rustfmt --edition 2024 /tmp/result-projections.rs
           cmp /tmp/result-projections.rs rust/gerbil-parser-rowan/tests/fixtures/generated/result_projections.rs
 
+      - name: Verify ordered result catalog Rust AOT regeneration
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log /tmp/ordered-results-generation.log --require ORDERED-RESULTS-RUST-GENERATED \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-ordered-results.ss")' \
+            t/generate-ordered-results.ss /tmp/ordered-results.rs
+          rustfmt --edition 2024 /tmp/ordered-results.rs
+          cmp /tmp/ordered-results.rs rust/gerbil-parser-rowan/tests/fixtures/generated/ordered_results.rs
+
       - name: Verify shared Word and Binding Rust AOT regeneration
         run: |
           gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \

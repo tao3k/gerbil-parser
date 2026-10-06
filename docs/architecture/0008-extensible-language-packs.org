@@ -583,3 +583,24 @@ compared. A 512-level parameter control uses the same explicit task stack.
 This qualifies shared Word/Binding execution. Command interpretation and full
 Source ParseArtifact admission/parity remain open, and no end-to-end parser
 speed improvement is inferred from these controls. No schema version changes.
+
+
+** Ordered catalog construction for Command integration
+
+=PreparedResultProfile.bind_node= binds a declared node and its allowed fields
+once. =PreparedResultNode.build= moves ordered =ResultChildCapture= values into
+that node. Unlike fixed projection instructions, this constructor preserves
+interleaved and repeated fields in their supplied lexical order, matching the
+Scheme =result-plan-node= contract. It validates UTF-8 parent/child ranges,
+declared token categories and exact source/catalog ownership for nested nodes.
+The shared result catalog remains the authority; no language-specific Rust node
+builder or separate constructor schema is introduced.
+
+Scheme-executed catalog controls cover interleaved SimpleCommand children,
+repeated Pipeline commands, Unicode fields and an empty root. The Rust tests
+compare complete events and lossless Rowan output. A separate integration
+recognizes Words in Rust and moves them into Command and Source nodes through
+one shared catalog. These controls qualify construction and composition only;
+they do not establish Command syntax recognition or full Source AOT. The next
+executor must preserve these ordered captures while interpreting command
+control programs, then qualify complete ParseArtifact parity.

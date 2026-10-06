@@ -1,10 +1,11 @@
 #!/usr/bin/env gxi
 ;;; Native conformance products have a separate owner from production discovery.
+;;; The pinned SDKs use GCC; function/inlining diagnostics report real work.
 (import (only-in :std/build-script defbuild-script))
 (defbuild-script
-  (map (lambda (module)
-         `(gxc: ,module "-cc-options"
-                ,(cond-expand (darwin "-v") (else "-v -Q"))))
+  (append
+    (map (lambda (module)
+           `(gxc: ,module "-cc-options" "-v -Q -fopt-info-inline-all"))
        '("languages/arithmetic/parser-test" "languages/bash/parser-test"
          "languages/cypher/parser-test" "languages/fhirpath/parser-test"
          "languages/gql/parser-test" "languages/hcl/parser-test"
@@ -18,4 +19,17 @@
          "t/antlr4-source-test" "t/language-pack-metadata-test"
          "t/source-strategy-test" "t/build-strategy-test"
          "t/gql/benchmark-profile-test"
-         "t/benchmarks/versioned-languages/all-languages")))
+         "t/benchmarks/versioned-languages/all-languages"
+         "t/benchmarks/gql/runtime/reduction-counts"
+         "t/benchmarks/gql/runtime/execution-counts"
+         "t/benchmarks/gql/runtime/matched-stages"
+         "t/fixtures/language-pack-research/package-expression-grammar"
+         "t/fixtures/language-pack-research/package-expression-parser"
+         "t/fixtures/language-pack-research/package-expression-parser-test"
+         "t/fixtures/language-pack-research/list-roles"
+         "t/fixtures/language-pack-research/list-origins"
+         "t/fixtures/language-pack-research/list-stage"
+         "t/fixtures/language-pack-research/list-language"
+         "t/fixtures/language-pack-research/list-parser"
+         "t/fixtures/language-pack-research/list-parser-test"))
+          '((exe: "t/conformance-main" bin: "gerbil-parser-conformance" "-cc-options" "-v -Q -fopt-info-inline-all"))))

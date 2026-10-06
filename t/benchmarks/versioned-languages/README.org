@@ -24,7 +24,8 @@ The existing GQL runtime stage benchmark remains the component investigation
 route; other engines need corresponding component receipts before attributing
 a batch cost to a particular stage.
 
-The shared declaration/conformance gate compiles this module natively and runs
+The shared declaration/conformance gate compiles this module into its native
+Gerbil executable and runs
 a one-sample smoke check for all ten entries. This checks executable coverage
 and semantic admission; one sample is not percentile qualification.
 

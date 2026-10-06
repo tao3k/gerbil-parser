@@ -117,13 +117,20 @@ these responsibilities; it does not establish equivalence of the imported lexer.
 
 * Reproducible verification
 
-Run =bash scripts/check-dsl-research.sh= in the project-qualified Gerbil environment.
+Build =gxi build-language-conformance.ss compile=, then run
+=bash scripts/check-dsl-research.sh= in the project-qualified Gerbil environment.
+The build installs =gerbil-parser-conformance= as a native Gerbil executable.
+Suite processes call compiled runtime bindings without re-admitting the full
+interpreter macro-interface graph. The source-expansion research programs retain
+their explicit interpreter ownership.
 The same gate now includes production/development boundary controls, the complete
 three-interface topology test, Loader extension tests, explicit ANTLR profile
 counterexamples, GQL conformance, and the prior DSL/POO/source-origin controls.
 Each child has the unchanged ten-second completion fence and must exit zero.
-Native module compilation retains the existing 240-second total and five-second
-output-idle watchdog. A timed-out attempt is not a successful receipt.
+Native conformance compilation retains the existing 240-second total and five-second
+output-idle watchdog. The terminal wrapper preserves actual compiler output and
+child exit status; GCC function/inlining diagnostics do not alter optimization
+levels. A timed-out attempt is not a successful receipt.
 
 GQL performance controls remain under =t/benchmarks/gql/runtime=. This change does
 not claim a speedup, corpus-wide latency percentile, or complete native runtime
@@ -222,3 +229,22 @@ remains mandatory even when every assertion printed a success marker.
 The language boundary controls passed all 53 corpus dispatch comparisons in the
 source-overlay environment. Rust all-target/all-feature Clippy passed for the
 affected package. These receipts do not replace exact-head CI native execution.
+
+* Complete all-language native receipt
+
+On 2026-10-07 the native conformance executable linked successfully in 52.80
+seconds under the unchanged 240-second completion and five-second output-idle
+fences. The local gate then completed all 26 child processes with exit zero,
+each under its unchanged ten-second fence. This includes all eight packages,
+all three TLA+ scopes, production/development comparison of all 53 corpus entries,
+independent language expectations, DSL/POO/source-origin controls, and all ten
+benchmark entry receipts.
+
+The native executable removes repeated interpreter admission of the combined
+macro-interface graph; it does not change parser algorithms or weaken assertions.
+Four explicit source-expansion research programs keep their interpreter execution.
+Earlier source and mixed-artifact timeouts remain failed attempts. This receipt
+uses existing compiled dependencies and is not a fresh-toolchain build claim.
+The benchmark check uses one sample for semantic execution coverage; it does not
+qualify latency percentiles. Remote platform CI must be assessed at the published
+commit separately from this successful local receipt.

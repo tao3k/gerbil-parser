@@ -186,8 +186,7 @@ jobs:
           GERBIL_BUILD_VERBOSE=9 GERBIL_PARSER_LR_TRACE=1 gerbil env \
             python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
-              -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)' \
-                -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (main "compile")))))'
+              -- bash scripts/build-language-conformance-native.sh
 
       - name: Verify Scheme DSL and native POO declaration closure
         run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research

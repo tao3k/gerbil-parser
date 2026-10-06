@@ -58,7 +58,7 @@
     (string-append "printf %s " (apply string-append (make-list 2000 "α$x")) "\n")
     (counts (SimpleParameter 2000)))
   (accepted "nested parameter operands retain all structured results"
-    (string-append "echo " (apply string-append (make-list 128 "${x:-"))
-                   "中😀" (make-string 128 #\}) "\n")
-    (counts (ParameterExpansion 128)))
+    (string-append "echo " (apply string-append (make-list 2000 "${x:-"))
+                   "中😀" (make-string 2000 #\}) "\n")
+    (counts (ParameterExpansion 2000)))
   (fixtures "declared loader fixtures"))

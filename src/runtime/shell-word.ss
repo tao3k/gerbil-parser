@@ -186,7 +186,7 @@
                      (if operator-token (list operator-token) '())
                      operand-tokens (list close)))))
         (values (node raw 'ParameterExpansion start end children)
-                (recognition-sequence->list tokens)))))))
+                tokens))))))
 
 (def (parse-quoted raw text start end kind opening-length)
   (let* ((body-start (+ start opening-length))

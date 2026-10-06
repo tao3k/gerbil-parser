@@ -13,7 +13,7 @@ extern "C" {
 typedef uint64_t gerbil_parser_language_v2;
 typedef struct { int32_t status; uint8_t *payload; size_t length; } gerbil_parser_result_v2;
 /* Initialize once, release after use. Each call replaces the C-owned payload.
- * Result payload contains GPA1 bytes (parse) or descriptor/error UTF-8 JSON.
+ * Result payload contains GPA1 bytes (parse) or descriptor/error UTF-8 inert Scheme v1.
  * Transport success is separate from accepted/rejected syntax in GPA1.
  * Source is length-bearing: embedded NUL is retained; invalid UTF-8 fails.
  * Maximum source length is 64 MiB. NULL source is allowed only for length zero. */
@@ -31,7 +31,7 @@ typedef struct { int32_t status; uint8_t *payload; size_t length; } gerbil_parse
  * bind it to the generated contextual spec, not merely its base grammar.
  * Consumers must bind both digests, validate nesting and reserved positions,
  * and keep the result alive until all borrowed payload views are dropped.
- * Descriptor/error JSON is not a GPA1 record; check transport status first. */
+ * Descriptor/error Scheme datum is not a GPA1 record; check transport status first. */
 /* Non-owner OS threads fail before entering the VM; initialization still
  * belongs to the embedding host. This predicate is safe after module init. */
 int32_t gerbil_parser_language_is_owner_thread(void);

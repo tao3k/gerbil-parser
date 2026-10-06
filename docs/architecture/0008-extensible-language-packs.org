@@ -239,3 +239,45 @@ source descriptor export through the existing generic handle registration;
 no builtin language dispatcher or handwritten C transport is needed. Source
 parsing currently executes the Scheme engine behind the C ABI. Standalone
 Rust Word/Command recognition remains an open producer obligation.
+
+** Executable part recognition slots
+
+=PartProfile.= owns =contexts=, =rules= and =literal= value slots.
+=defpart-profile= creates the same ordinary POO object as the other profiles;
+a child replaces =rules= or =literal=, and =.o= can extend inherited rule data.
+No procedure, matcher callback or user thunk is admitted.
+
+#+begin_src scheme
+(defpart-profile (template-parts :: self PartProfile.)
+  (contexts word HereDocument)
+  (rules ((word HereDocument) (prefix "@" next)
+          (name SimpleParameter "?")))
+  (literal LiteralPart))
+#+end_src
+
+Each row names its applicable contexts, a prefix and a following-character
+condition (=any=, =next= or a string of allowed characters), and an operation.
+Rows retain declaration order within a context; this is explicit recognition
+precedence, including intentional shorter-prefix overrides. Operations are
+=quote=, =quoted-body=, =pair=, =parameter=, =name= and =escape=. Quote/pair
+operations declare opening/closing widths; =name= declares single-character
+names and otherwise uses the engine's alphabetic/numeric/underscore classes.
+The =parameter= operation currently invokes the engine's shell parameter
+projection. It does not declare that projection's internal grammar.
+
+Binding checks required contexts, operation fields and terminals, quote
+contexts and delimiters, and pair prefixes/closing widths against the admitted
+ResultProfile and RegionPlan. It owns declaration copies and compiles ordered
+first-character buckets per context, with direct indexes for ASCII and a
+separate index for other characters. The same matcher drives both literal
+boundaries and part selection. A name prefix followed by an invalid name still
+ends the preceding literal; the following literal retains that prefix. This
+preserves lossless grouping for inputs such as =a$%b$x=.
+
+=ShellSourceStrategy.= now requires =parts= alongside =regions=, =scanner= and
+=results=. Bash declares =bash-parts= in its grammar interface and executes the
+compiled plan through the shared Word, assignment and here-document paths.
+The rule recipe participates in Source identity; schema versions do not
+change. The independent template configuration above executes the same part
+operations in tests. Bash's internal parameter/assignment grammar, Command
+recognition and standalone Rust Source recognition remain open obligations.

@@ -20,9 +20,9 @@
 
 (defstruct shell-here-document-link (marker-start body-start) transparent: #t)
 
-(def (make-shell-parser regions results)
+(def (make-shell-parser regions results parts-plan)
   (let-values (((shell-word-components shell-assignment-components shell-here-content-components)
-                (make-shell-word-parser regions results)))
+                (make-shell-word-parser regions results parts-plan)))
 
 
 (def (trivia? token)

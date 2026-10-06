@@ -124,6 +124,17 @@ participate in descriptor identity; schemas remain unchanged. S3 recognition
 rules and S5 standalone Rust source recognition remain open; a Scheme engine
 behind the C ABI does not close Rust portability.
 
+Part selection and literal boundaries now execute one =PartProfile.= plan.
+Bash declares context/prefix/guard/operation rows; the engine compiles ordered
+context/first-character dispatch. Quote, substitution, name and escape
+selection no longer repeat conditions in two procedural paths. Assignment
+values and here-document contents use the same plan. An independent =@name=
+template configuration exercises the shared executor and POO rule override.
+Admission checks result fields/terminals and region agreement before binding;
+rule recipes enter source identity without a schema bump. This closes the
+part-dispatch migration, not the internal parameter/assignment grammar,
+Command recognition or standalone Rust Source AOT.
+
 Tree-sitter's public grammar DSL supplies sequence, choice, repetition,
 precedence, aliases and fields, and generates ordinary lexical/parse execution.
 Its external-scanner interface explicitly assigns special token recognition,
@@ -1276,3 +1287,25 @@ The latest PR Scheme metadata transport is retained. Regenerated canonical
 GPA1 bytes match the Rust fixture exactly; three Rust Bash scanner cases and
 six native artifact consumer cases pass. No runtime timeout or compiler
 optimization level is relaxed.
+
+** Part recognition dispatch qualification
+
+The GCC native gate passes 57 cases, including a second template configuration,
+non-ASCII recognition prefixes, rule overrides, owned copies and admission
+failures. The gate ends with =OK=, =HARNESS-RETURN status=0= and exit zero
+in 32.73 seconds including imports. A temporary control against
+=78084bcfa444abc81c7580607aac748488fbc975= matches 57 complete ParseArtifacts,
+including lossless unknown-dollar grouping, compound commands, 2,000 Unicode
+parts and 512 nested parameters. These former implementations remain outside
+the production checkout after qualification.
+
+The final public C probe records 100 Bash parse calls at 6.344 ms wall/CPU and
+100 independent line calls at 0.800 ms wall / 0.799 ms CPU, excluding descriptor
+initialization. Alternating complete-parser controls retain negative samples:
+flat median 9.296 ms before / 18.604 ms after for three calls, while individual
+current samples range from 9.173 to 191.401 ms; plain medians for 10,000 calls
+are 498.641 / 425.484 ms and nested medians for three calls are 5.849 / 5.868 ms.
+These unstable wall measurements establish neither an overall speedup nor a
+zero-regression claim. ASCII dispatch uses a compiled direct index, Unicode
+prefixes use a separate index, and the Word executor binds its context outside
+the part loop. No timeout, compiler choice or schema version is relaxed.

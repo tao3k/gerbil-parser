@@ -1,9 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Bash syntax identity and declared nested word regions.
 (import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-source-support deflanguage-source ShellSourceStrategy. defscanner-profile ScannerProfile. defresult-profile ResultProfile.)
+        (only-in :gerbil-parser/language-source-support deflanguage-source ShellSourceStrategy. defscanner-profile ScannerProfile. defresult-profile ResultProfile. defpart-profile PartProfile.)
         (only-in :gerbil-parser/language-support defregion-plan defsyntax-corpus))
-(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-fixtures bash-source-language)
+(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-parts bash-fixtures bash-source-language)
 (def +bash-version+ "5.3")
 (def +bash-syntax-contract+ "bash-5.3-structured-source.v1")
 
@@ -38,6 +38,23 @@
   (end body heredoc-end (marker-line-at "\n") 10 (finish-marker command body))
   (body body heredoc-content (body-line-at "\n") 0 keep)))
 
+
+(defpart-profile (bash-parts :: self PartProfile.)
+ (contexts word SingleQuoted DoubleQuoted AnsiCString HereDocument)
+ (rules
+  ((word) (prefix "$'" any) (quote AnsiCString 2 1 #\'))
+  ((word) (prefix "'" any) (quote SingleQuoted 1 1 #\'))
+  ((word) (prefix "\"" any) (quote DoubleQuoted 1 1 #\"))
+  ((word DoubleQuoted HereDocument) (prefix "${" any) (parameter))
+  ((word DoubleQuoted HereDocument) (prefix "$((" any) (pair ArithmeticExpansion 3 2))
+  ((word DoubleQuoted HereDocument) (prefix "$(" any) (pair CommandSubstitution 2 1))
+  ((word) (prefix "<(" any) (pair ProcessSubstitution 2 1))
+  ((word) (prefix ">(" any) (pair ProcessSubstitution 2 1))
+  ((word DoubleQuoted HereDocument) (prefix "`" any) (quoted-body CommandSubstitution 1 1 #\`))
+  ((word DoubleQuoted HereDocument) (prefix "$" next) (name SimpleParameter "?@*#$!-_0"))
+  ((word DoubleQuoted AnsiCString) (prefix "\\" any) (escape EscapeSequence))
+  ((HereDocument) (prefix "\\" "$`\\\n") (escape EscapeSequence)))
+ (literal LiteralPart))
 
 (defresult-profile (bash-results :: self ResultProfile.)
  (scanner bash-command-scanner)
@@ -76,4 +93,4 @@
 
 (deflanguage-source bash-source-language
   (identity "bash" +bash-version+ +bash-syntax-contract+)
-  (strategy (.o (:: self ShellSourceStrategy.) regions: bash-word-regions scanner: bash-command-scanner results: bash-results)))
+  (strategy (.o (:: self ShellSourceStrategy.) regions: bash-word-regions scanner: bash-command-scanner results: bash-results parts: bash-parts)))

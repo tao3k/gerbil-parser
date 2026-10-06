@@ -1,9 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Bash syntax identity and declared nested word regions.
 (import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-source-support deflanguage-source ShellSourceStrategy. defscanner-profile ScannerProfile. defresult-profile ResultProfile. defpart-profile PartProfile.)
+        (only-in :gerbil-parser/language-source-support deflanguage-source ShellSourceStrategy. defscanner-profile ScannerProfile. defresult-profile ResultProfile. defpart-profile PartProfile. defbinding-profile BindingProfile.)
         (only-in :gerbil-parser/language-support defregion-plan defsyntax-corpus))
-(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-parts bash-fixtures bash-source-language)
+(export +bash-version+ +bash-syntax-contract+ bash-word-regions bash-command-scanner bash-results bash-parts bash-simple-binding bash-parameter-binding bash-assignment-binding bash-fixtures bash-source-language)
 (def +bash-version+ "5.3")
 (def +bash-syntax-contract+ "bash-5.3-structured-source.v1")
 
@@ -39,8 +39,27 @@
   (body body heredoc-content (body-line-at "\n") 0 keep)))
 
 
+(defbinding-profile (bash-simple-binding :: self BindingProfile.)
+ (name (if-next (union (numeric) (characters "?@*#$!-_0"))
+        (run (union (numeric) (characters "?@*#$!-_0")) 1 1)
+        (run (union (alphabetic) (numeric) (characters "_")) 1 #f)))
+ (prefixes) (operators) (subscript #f))
+(defbinding-profile (bash-parameter-binding :: self BindingProfile.)
+ (name (if-next (characters "@*?#$!-") (run (characters "@*?#$!-") 1 1)
+        (if-next (numeric) (run (numeric) 1 #f)
+         (run (union (alphabetic) (numeric) (characters "_")) 1 #f))))
+ (prefixes "#" "!")
+ (operators ":-" ":=" ":+" ":?" "##" "%%" "//" "^^" ",," "~~"
+            ":" "-" "=" "+" "?" "#" "%" "/" "@" "^" "," "~")
+ (subscript "[" #\]))
+(defbinding-profile (bash-assignment-binding :: self BindingProfile.)
+ (name (seq (run (union (alphabetic) (characters "_")) 1 1)
+            (run (union (alphabetic) (numeric) (characters "_")) 0 #f)))
+ (prefixes) (operators "=" "+=") (subscript #f))
+
 (defpart-profile (bash-parts :: self PartProfile.)
  (contexts word SingleQuoted DoubleQuoted AnsiCString HereDocument)
+ (bindings (simple bash-simple-binding) (parameter bash-parameter-binding) (assignment bash-assignment-binding))
  (rules
   ((word) (prefix "$'" any) (quote AnsiCString 2 1 #\'))
   ((word) (prefix "'" any) (quote SingleQuoted 1 1 #\'))
@@ -51,7 +70,7 @@
   ((word) (prefix "<(" any) (pair ProcessSubstitution 2 1))
   ((word) (prefix ">(" any) (pair ProcessSubstitution 2 1))
   ((word DoubleQuoted HereDocument) (prefix "`" any) (quoted-body CommandSubstitution 1 1 #\`))
-  ((word DoubleQuoted HereDocument) (prefix "$" next) (name SimpleParameter "?@*#$!-_0"))
+  ((word DoubleQuoted HereDocument) (prefix "$" next) (name SimpleParameter simple))
   ((word DoubleQuoted AnsiCString) (prefix "\\" any) (escape EscapeSequence))
   ((HereDocument) (prefix "\\" "$`\\\n") (escape EscapeSequence)))
  (literal LiteralPart))

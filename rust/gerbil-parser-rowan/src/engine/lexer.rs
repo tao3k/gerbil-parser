@@ -4,6 +4,29 @@ use std::collections::HashMap;
 
 use super::model::{Diagnostic, LanguageSpec, LexicalExpr, LexicalRule, ScannedToken, Token};
 
+/// An admitted nonnullable profile shared by lexical and embedded recognition.
+/// Preparation validates the static IR once; calls return absolute byte ends.
+#[derive(Debug)]
+pub struct PreparedTextProfile {
+    profile: &'static super::model::TextProfile,
+}
+impl PreparedTextProfile {
+    #[must_use]
+    pub fn new(profile: &'static super::model::TextProfile) -> Option<Self> {
+        (super::validation::text_profile_width(profile, 0)? > 0).then_some(Self { profile })
+    }
+    /// Match within `[start, limit)`. Invalid UTF-8 boundaries and no match
+    /// both return `None`, matching the bounded Scheme scanner contract.
+    #[must_use]
+    pub fn match_prefix(&self, source: &str, start: usize, limit: usize) -> Option<usize> {
+        if start > limit || !source.is_char_boundary(start) {
+            return None;
+        }
+        let bounded = source.get(..limit)?;
+        text_profile_end(self.profile, bounded, start).filter(|end| *end > start)
+    }
+}
+
 pub(crate) fn lex_scanned<'source>(
     spec: &LanguageSpec,
     source: &'source str,

@@ -260,6 +260,12 @@ jobs:
             t/fixtures/shared-scanner/generate-bash.ss /tmp/bash-scanner.rs
           rustfmt --edition 2024 /tmp/bash-scanner.rs
           cmp /tmp/bash-scanner.rs rust/gerbil-parser-rowan/tests/fixtures/generated/bash_scanner.rs
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log /tmp/binding-names-generation.log --require BINDING-NAMES-RUST-GENERATED \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-binding-names.ss")' \
+            t/generate-binding-names.ss /tmp/binding-names.rs
+          rustfmt --edition 2024 /tmp/binding-names.rs
+          cmp /tmp/binding-names.rs rust/gerbil-parser-rowan/tests/fixtures/generated/binding_names.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-native-artifact.ss /tmp/native-artifact.rs
           rustfmt --edition 2024 /tmp/native-artifact.rs

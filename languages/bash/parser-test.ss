@@ -17,6 +17,13 @@
   (accepted "array subscripts and parameter operators"
     "printf %s \"${array[@]:1:2}\" \"${#array[0]}\" \"${name^^}\"\n"
     (counts (ArraySubscript 2)) (tokens parameter-prefix parameter-operator))
+  (accepted-many "command substitutions retain literal brackets inside array indexes"
+    '("echo ${a[$(echo [)]:-x}\n" "echo ${a[$(echo ] )]:-x}\n")
+    (nodes ArraySubscript CommandSubstitution))
+  (accepted "nested array indexes share scoped region captures"
+    (string-append "echo " (apply string-append (make-list 512 "${x[")) "0"
+                   (apply string-append (make-list 512 "]}")) "\n")
+    (counts (ArraySubscript 512) (ParameterExpansion 512)))
   (accepted "array assignment has elements rather than a subshell"
     "values=(one two [key]=three)\n" (nodes ArrayAssignment) (without-nodes Subshell))
   (accepted-many "delimiter quote removal retains literal backslashes"

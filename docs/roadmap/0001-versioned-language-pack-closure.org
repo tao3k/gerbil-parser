@@ -135,6 +135,17 @@ rule recipes enter source identity without a schema bump. This closes the
 part-dispatch migration, not the internal parameter/assignment grammar,
 Command recognition or standalone Rust Source AOT.
 
+Binding recognition now shares the existing TextProfile and literal-trie
+algorithms. Bash declares simple names, parameter names/prefixes/operators,
+assignment names/operators and array delimiters as POO =BindingProfile.= values.
+The engine owns bounded matching, role admission, projection and source-local
+scoped captures; hand-coded parameter/assignment name and operator matching
+and the separate subscript traversal are removed. Independent assignment
+syntax overrides operators through values. Rust =PreparedTextProfile= uses
+the same existing matcher to execute production name IR with exact bounded
+Unicode endpoint controls. This closes binding-name recognition and its AOT
+control; Command/result projection and full standalone Source AOT stay open.
+
 Tree-sitter's public grammar DSL supplies sequence, choice, repetition,
 precedence, aliases and fields, and generates ordinary lexical/parse execution.
 Its external-scanner interface explicitly assigns special token recognition,
@@ -1309,3 +1320,33 @@ These unstable wall measurements establish neither an overall speedup nor a
 zero-regression claim. ASCII dispatch uses a compiled direct index, Unicode
 prefixes use a separate index, and the Word executor binds its context outside
 the part loop. No timeout, compiler choice or schema version is relaxed.
+
+** Binding profiles and bounded Rust name qualification
+
+The GCC native gate passes 75 cases in 34.90 seconds including imports and
+retains explicit =OK=, =HARNESS-RETURN status=0= and exit zero. A temporary
+Scheme control against =1f0d87f38079d1115148d4d3421cc95416813c94= matches
+62 complete ParseArtifacts, adding parameter-name/operator controls, nested
+array indexes and literal brackets inside command substitutions. Production
+macro cases exercise 512 nested indexes; the region suite checks both query
+orders for overlapping openers under distinct scopes. Temporary former
+implementations are removed from the checkout after qualification.
+
+Production Bash name IR generates 135 bounded Unicode endpoint controls.
+Two Rust tests check every generated endpoint, nullable-profile rejection and
+invalid byte boundaries through =PreparedTextProfile=. Independent regeneration
+matches the checked-in Rust artifact byte for byte after formatting. Rust
+formatting and crate/all-target/all-feature clippy pass with warnings denied.
+CI regenerates the same artifact using the finite native child exit binding.
+A first generation printed its completion marker but remained alive during
+shutdown and failed the five-second inactivity gate; completion is now accepted
+only with process exit zero. No timeout was extended.
+
+The current complete-parser controls retain negative samples: 10,000 plain
+calls have medians 605.387 ms before / 427.741 ms after; three flat calls have
+35.738 / 25.175 ms; three nested calls have 6.033 / 6.367 ms. An isolated public
+C gate records 100 Bash calls at 7.340 ms wall / 7.153 ms CPU and 100 line calls
+at 0.889 ms wall/CPU, excluding initialization. These observations qualify
+execution and conformance; they establish no overall speedup or zero regression.
+Command grammar, result-projection lowering and complete standalone Rust
+Source recognition remain open.

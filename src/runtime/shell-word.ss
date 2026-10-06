@@ -5,27 +5,32 @@
                  make-recognition-child prepare-recognition-source
                  recognition-source-token recognition-source-offset)
         (only-in ../language/part-profile part-plan-context part-context-match part-context-literal-end part-plan-literal
-                 part-step-operation part-step-kind part-step-opening part-step-closing part-step-delimiter part-plan-name-end)
+                 part-step-operation part-step-kind part-step-opening part-step-closing part-step-delimiter part-plan-name-end part-plan-binding part-step-binding
+                 binding-plan-name-end binding-plan-prefix-end binding-plan-operator-end binding-plan-subscript-at? binding-plan-subscript-width binding-plan-region-plan binding-plan-region-scopes)
         (only-in ../language/result-profile result-plan-node result-plan-token)
         (only-in :gerbil-parser/src/runtime/funcs
                  recognition-sequence-append recognition-sequence-concatenate recognition-sequence->list)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/runtime/region-scanner
-                 source-prefix-at? prepare-region-source region-source-quote-end region-source-pair-end))
+                 source-prefix-at? prepare-region-source prepare-scoped-region-source region-source-quote-end region-source-pair-end))
 (export make-shell-word-parser)
 
-(defstruct shell-word-source (spans text regions))
+(defstruct shell-word-source (spans text regions subscripts))
 
 (def (make-shell-word-parser regions results parts-plan)
 (def literal-kind (part-plan-literal parts-plan))
 (def word-context (part-plan-context parts-plan 'word))
 (def here-context (part-plan-context parts-plan 'HereDocument))
+(def assignment-plan (part-plan-binding parts-plan 'assignment))
+(def parameter-plan (part-plan-binding parts-plan 'parameter))
+(def subscript-regions (and parameter-plan (binding-plan-region-plan parameter-plan regions)))
+(def subscript-scopes (and parameter-plan (binding-plan-region-scopes parameter-plan regions)))
 (def (prepare-word token)
   ;; Scanner-created token lexemes are read-only throughout this engine call.
   ;; Result publication owns its admitted copy; region preparation is needed
   ;; only when an actual quote or substitution is encountered.
   (let* ((spans (prepare-recognition-source token)) (text (token-lexeme token)))
-    (values (make-shell-word-source spans text #f) text)))
+    (values (make-shell-word-source spans text #f #f) text)))
 
 (def (word-regions source)
   (or (shell-word-source-regions source)
@@ -50,84 +55,34 @@
     (values (node raw kind start end (list (child 'text token)))
             (list token))))
 
-(def (parameter-operator text start end)
-  (let loop ((operators
-             '(":-" ":=" ":+" ":?" "##" "%%" "//"
-               "^^" ",," "~~" ":" "-" "=" "+" "?"
-               "#" "%" "/" "@" "^" "," "~")))
-    (and (pair? operators)
-         (if (and (<= (+ start (string-length (car operators))) end)
-                  (source-prefix-at? text start (car operators)))
-           (car operators)
-           (loop (cdr operators))))))
+(def (word-subscript-regions source)
+  (or (shell-word-source-subscripts source)
+      (let (context (prepare-scoped-region-source subscript-regions (shell-word-source-text source) subscript-scopes))
+        (shell-word-source-subscripts-set! source context) context)))
 
-(def (parameter-name-end text start end)
-  (if (>= start end) start
-    (let (first (string-ref text start))
-      (cond
-       ((memv first '(#\@ #\* #\? #\# #\$ #\! #\-))
-        (fx+ start 1))
-       ((char-numeric? first)
-        (let loop ((offset (fx+ start 1)))
-          (if (and (< offset end)
-                   (char-numeric? (string-ref text offset)))
-            (loop (fx+ offset 1)) offset)))
-       (else
-        (let loop ((offset start))
-          (if (and (< offset end)
-                   (let (character (string-ref text offset))
-                     (or (char-alphabetic? character)
-                         (char-numeric? character)
-                         (char=? character #\_))))
-            (loop (fx+ offset 1)) offset)))))))
-
-(def (subscript-end raw text start end)
-  (let loop ((offset (fx+ start 1)) (depth 1))
-    (when (>= offset end)
-      (error "unterminated Bash array subscript" start))
-    (let (character (string-ref text offset))
-      (cond
-       ((char=? character #\\)
-        (loop (min end (fx+ offset 2)) depth))
-       ((or (char=? character #\') (char=? character #\"))
-        (loop (region-source-quote-end (word-regions raw) offset character) depth))
-       ((or (source-prefix-at? text offset "${")
-            (source-prefix-at? text offset "$("))
-        (loop (region-source-pair-end (word-regions raw) offset) depth))
-       ((char=? character #\[)
-        (loop (fx+ offset 1) (fx+ depth 1)))
-       ((char=? character #\])
-        (if (= depth 1) (fx+ offset 1)
-          (loop (fx+ offset 1) (fx- depth 1))))
-       (else (loop (fx+ offset 1) depth))))))
-
-(def (parse-parameter raw text start end)
+(def (parse-parameter raw text start end binding)
   (let* ((body-start (fx+ start 2))
          (body-end (fx- end 1))
-         (prefix?
-          (and (< (fx+ body-start 1) body-end)
-               (memv (string-ref text body-start) '(#\# #\!))))
-         (name-start (if prefix? (fx+ body-start 1) body-start))
-         (parameter-end (parameter-name-end text name-start body-end))
+         (prefix-end (binding-plan-prefix-end binding text body-start body-end))
+         (prefix? (and prefix-end #t))
+         (name-start (or prefix-end body-start))
+         (parameter-end (binding-plan-name-end binding text name-start body-end))
          (subscript-start
           (and (< parameter-end body-end)
-               (char=? (string-ref text parameter-end) #\[)
-               parameter-end))
+               (binding-plan-subscript-at? binding text parameter-end body-end) parameter-end))
          (after-subscript
           (if subscript-start
-            (subscript-end raw text subscript-start body-end)
+            (region-source-pair-end (word-subscript-regions raw) subscript-start)
             parameter-end))
-         (operator (and (< after-subscript body-end)
-                        (parameter-operator text after-subscript body-end)))
-         (operator-end (if operator
-                         (+ after-subscript (string-length operator))
-                         after-subscript))
+         (operator-end (or (binding-plan-operator-end binding text after-subscript body-end) after-subscript))
+         (operator (> operator-end after-subscript))
          (open (slice-token raw 'parameter-open start body-start)))
+    (when (> after-subscript body-end) (error "binding subscript crosses parameter boundary" subscript-start))
     (let-values (((operand-children operand-tokens)
                   (parse-parts raw text operator-end body-end #f)))
       (let-values (((subscript-node subscript-tokens)
                     (if subscript-start
-                      (let* ((inner-start (fx+ subscript-start 1))
+                      (let* ((inner-start (+ subscript-start (binding-plan-subscript-width binding)))
                              (inner-end (fx- after-subscript 1))
                              (open-bracket
                               (slice-token raw 'subscript-open
@@ -246,7 +201,7 @@
                   (let (after (region-source-pair-end (word-regions raw) offset))
                     (let-values (((part produced)
                                   (if (eq? operation 'parameter)
-                                    (parse-parameter raw text offset after)
+                                    (parse-parameter raw text offset after (part-step-binding step))
                                     (parse-opaque-substitution raw text offset after (part-step-kind step)
                                      (part-step-opening step) (part-step-closing step)))))
                       (values part produced after))))
@@ -284,34 +239,17 @@
                (map (lambda (part) (child 'part part)) parts))
          (recognition-sequence->list tokens))))))
 
-(def (assignment-name-end text)
-  (let (length (string-length text))
-    (if (or (zero? length)
-            (not (let (first (string-ref text 0))
-                   (or (char-alphabetic? first) (char=? first #\_)))))
-      #f
-      (let loop ((offset 1))
-        (if (and (< offset length)
-                 (let (character (string-ref text offset))
-                   (or (char-alphabetic? character)
-                       (char-numeric? character)
-                       (char=? character #\_))))
-          (loop (fx+ offset 1)) offset)))))
-
 ;;; An assignment is recognized only at a command position by the caller.
 ;;; It returns #f for ordinary words, or a node and ordered source tokens.
 (def (shell-assignment-components token)
   (let* ((text (token-lexeme token))
          (length (string-length text))
-         (name-end (assignment-name-end text)))
-    (if (and name-end
-             (or (source-prefix-at? text name-end "=")
-                 (source-prefix-at? text name-end "+=")))
+         (name-end (and assignment-plan (binding-plan-name-end assignment-plan text 0 length)))
+         (operator-end (and name-end (> name-end 0)
+                            (binding-plan-operator-end assignment-plan text name-end length))))
+    (if operator-end
       (let-values (((raw text) (prepare-word token)))
-        (let* ((operator-end
-                (if (source-prefix-at? text name-end "+=")
-                  (fx+ name-end 2) (fx+ name-end 1)))
-               (name (slice-token raw 'assignment-name 0 name-end))
+        (let* ((name (slice-token raw 'assignment-name 0 name-end))
                (operator (slice-token raw 'assignment-operator name-end operator-end)))
           (let-values (((parts tokens)
                         (parse-parts raw text operator-end length #f)))

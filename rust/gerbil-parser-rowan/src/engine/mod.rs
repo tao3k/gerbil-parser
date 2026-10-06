@@ -29,6 +29,7 @@ pub use graph_projection::{
     GraphFieldMode, GraphFieldRule, GraphFieldValue, GraphNodeRule, GraphProjectionSpec,
     GraphRecord, project_syntax_graph,
 };
+pub use lexer::PreparedTextProfile;
 pub use model::{
     ActionEntry, BlockContents, BlockHeaderRule, BlockLineRule, BlockOpeningMode, Diagnostic,
     EventCatalog, GerbilLanguage, GotoEntry, HeadingFieldsRule, HeadingLineRule, InlineLinkRule,
@@ -76,3 +77,7 @@ mod graph_index_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/header_delimiters.rs"]
 mod header_delimiter_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/binding_names.rs"]
+mod binding_names_tests;

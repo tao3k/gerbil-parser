@@ -250,8 +250,9 @@ No procedure, matcher callback or user thunk is admitted.
 #+begin_src scheme
 (defpart-profile (template-parts :: self PartProfile.)
   (contexts word HereDocument)
+  (bindings (identifier (.o (:: self BindingProfile.))))
   (rules ((word HereDocument) (prefix "@" next)
-          (name SimpleParameter "?")))
+          (name SimpleParameter identifier)))
   (literal LiteralPart))
 #+end_src
 
@@ -260,10 +261,11 @@ condition (=any=, =next= or a string of allowed characters), and an operation.
 Rows retain declaration order within a context; this is explicit recognition
 precedence, including intentional shorter-prefix overrides. Operations are
 =quote=, =quoted-body=, =pair=, =parameter=, =name= and =escape=. Quote/pair
-operations declare opening/closing widths; =name= declares single-character
-names and otherwise uses the engine's alphabetic/numeric/underscore classes.
-The =parameter= operation currently invokes the engine's shell parameter
-projection. It does not declare that projection's internal grammar.
+operations declare opening/closing widths; =name= refers to a named
+=BindingProfile.= value. Its =name= slot uses the existing closed TextProfile
+DSL, including numeric runs, character classes, bounded sequences and guarded
+branches. =parameter= uses the required =parameter= binding. The engine owns
+the constrained parameter/result projection.
 
 Binding checks required contexts, operation fields and terminals, quote
 contexts and delimiters, and pair prefixes/closing widths against the admitted
@@ -279,5 +281,51 @@ preserves lossless grouping for inputs such as =a$%b$x=.
 compiled plan through the shared Word, assignment and here-document paths.
 The rule recipe participates in Source identity; schema versions do not
 change. The independent template configuration above executes the same part
-operations in tests. Bash's internal parameter/assignment grammar, Command
-recognition and standalone Rust Source recognition remain open obligations.
+operations in tests. Parameter/assignment name, prefix, operator and subscript
+recognition now comes from binding values. Command recognition and complete
+standalone Rust Source recognition remain open obligations.
+
+** Binding values and scoped embedded regions
+
+=BindingProfile.= has four value slots: =name= (nonnullable TextProfile IR),
+=prefixes=, =operators= and =subscript=. =defbinding-profile= constrains the
+corresponding declarations. POO inheritance can override any value; no
+procedure or thunk is accepted. =PartProfile.bindings= associates names with
+these objects. A =name= operation chooses its declared binding. The required
+=parameter= binding supplies parameter prefixes/operators and optional array
+index delimiters; the optional =assignment= binding supplies identifier and
+operator recognition at command positions. Assignment bindings require
+operators and exclude prefixes/subscripts, matching their execution role.
+
+#+begin_src scheme
+(defbinding-profile (assignment-binding :: self BindingProfile.)
+  (name (seq (run (union (alphabetic) (characters "_")) 1 1)
+             (run (union (alphabetic) (numeric) (characters "_")) 0 #f)))
+  (prefixes) (operators "=" ":=") (subscript #f))
+#+end_src
+
+The engine compiles names with the existing TextProfile implementation and
+prefix/operator sets with the existing literal trie. Both now accept an
+explicit local end bound. The trie retains the longest accepted prefix inside
+that bound, even when a longer candidate exists beyond it. A parameter prefix
+requires a following body character. Every binding recipe is owned and enters
+Source identity with the other admitted operations.
+
+Array indexes use an engine-derived region context. Added index delimiters
+apply in index frames; ordinary substitution frames retain their declared
+nesting policy. Thus =$(echo [)= inside an index does not create an unmatched
+array frame. The ordinary command scanner is unchanged. Closed pair captures
+are indexed by the actual declared opener row and source offset, avoiding
+collisions between overlapping prefixes; repeated nested captures use their
+stored endpoint. Quote and pair caches remain independent.
+
+=PreparedTextProfile= exposes the existing Rust matcher as a reusable bounded
+recognizer. Preparation admits a nonnullable static profile once. Matching
+returns an absolute byte end or =None= for no match/invalid UTF-8 boundaries;
+it borrows a bounded source slice and allocates no intermediate string. The
+Scheme producer lowers the production Bash simple/parameter/assignment name
+recipes through the same TextProfile emitter and generates their boundary
+controls. CI regenerates this artifact and the Rust executor checks every
+control. This qualifies binding-name AOT; complete Word/Command Source AOT,
+parameter/result projection lowering and scoped-region Rust execution remain
+separate open obligations.

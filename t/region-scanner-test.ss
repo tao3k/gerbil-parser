@@ -3,7 +3,7 @@
         (only-in :gerbil-parser/src/runtime/region-scanner
                  prepare-region-plan valid-region-specification? region-plan-end
                  region-plan-specification region-plan-pair-end region-plan-quote-end
-                 region-plan-operator prepare-region-source region-source-pair-end region-source-quote-end)
+                 region-plan-operator prepare-region-source prepare-scoped-region-source region-source-pair-end region-source-quote-end)
         (only-in :gerbil-parser/languages/bash/grammar bash-word-regions))
 (export region-scanner-test)
 (def (rejects? thunk)
@@ -78,6 +78,14 @@
         (check (region-plan-operator plan ";;&" 0) => ";;&")
         (check (region-plan-end plan "${a} " 0) => 4)
         (check (region-plan-end plan "β " 0) => 1)))
+    (test-case "scoped overlapping pair openers retain independent cached endpoints"
+      (let (plan (prepare-region-plan '((";") () (("#{" #\{ #\} 1) ("@" #\@ #\! 1) ("@(" #\( #\) 1)) #f)))
+        (for-each (lambda (first)
+                    (let (source (prepare-scoped-region-source plan "#{@(x)!}" '(("#{" "@"))))
+                      (check (region-source-pair-end source first) => (if (= first 0) 8 6))
+                      (check (region-source-pair-end source 0) => 8)
+                      (check (region-source-pair-end source 2) => 6))) '(0 2))
+        (check (rejects? (lambda () (prepare-scoped-region-source plan "x" '(("unknown" "@"))))) => #t)))
     (test-case "malformed rows and foreign quote prefixes reject at admission"
       (for-each
        (lambda (spec)

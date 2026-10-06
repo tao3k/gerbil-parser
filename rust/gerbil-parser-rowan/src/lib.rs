@@ -19,10 +19,11 @@ pub use engine::{
     InlineLinkRule, KeyLineContext, KeyLineMode, KeyLineRule, KeyValueLineRule, KindCategory,
     KindSpec, LanguageSpec, LexicalExpr, LexicalRule, LineStructureSpec, ListLineRule,
     ModuleTextProfile, Operand, OperandAction, Parse, ParseError, ParseReceipt, ParserAction,
-    Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol, SyntaxKind, SyntaxNode,
-    SyntaxToken, TableLineRule, Terminal, TerminalSpec, TextClass, TextProfile, TreeEvent,
-    UnclosedBlockPolicy, build_rowan_events, build_rowan_events_catalog, parse, parse_contextual,
-    parse_generated_events, parse_scanned, parse_structural_lines, project_syntax_graph,
+    PreparedTextProfile, Production, Reduction, ScannedToken, SelectiveGlrReceipt, Symbol,
+    SyntaxKind, SyntaxNode, SyntaxToken, TableLineRule, Terminal, TerminalSpec, TextClass,
+    TextProfile, TreeEvent, UnclosedBlockPolicy, build_rowan_events, build_rowan_events_catalog,
+    parse, parse_contextual, parse_generated_events, parse_scanned, parse_structural_lines,
+    project_syntax_graph,
 };
 
 #[cfg(test)]

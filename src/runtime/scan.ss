@@ -7,7 +7,8 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in ./token make-token))
 
-(export make-text-profile-scanner
+(export make-bounded-text-profile-scanner make-bounded-literal-end-scanner
+        make-text-profile-scanner
         identifier-start? horizontal-whitespace? newline?
         scan-whitespace
         scan-horizontal-whitespace
@@ -114,13 +115,15 @@
        (lambda (source start limit)
          (and (or (= start limit) (not (accept? (string-ref source start)))) start))))))
 
-(def (make-text-profile-scanner expression)
+(def (make-bounded-text-profile-scanner expression)
   (unless (text-profile? expression) (error "invalid or nullable text profile" expression))
   (let (scan (prepare-text-profile expression))
-    (lambda (source start)
-      (let (limit (string-length source))
-        (and (exact-integer? start) (<= 0 start limit)
-             (let (end (scan source start limit)) (and end (> end start) end)))))))
+    (lambda (source start limit)
+      (and (exact-integer? start) (exact-integer? limit) (<= 0 start limit (string-length source))
+           (let (end (scan source start limit)) (and end (> end start) end))))))
+(def (make-text-profile-scanner expression)
+  (let (scan (make-bounded-text-profile-scanner expression))
+    (lambda (source start) (scan source start (string-length source)))))
 
 ;; Scanner functions return the exclusive source-character end offset or #f.
 ;; : (-> String Nat (-> Char Boolean) (Maybe Nat))
@@ -769,7 +772,7 @@
 ;;; scanner follows at most the matching source prefix, independent of catalog
 ;;; size, and retains the longest terminal seen along that path.
 ;; : (-> (List String) (-> String Nat (Maybe Nat)))
-(def (make-literal-end-scanner literals)
+(def (make-bounded-literal-end-scanner literals)
   (def (make-node) (vector #f (make-table test: eqv?)))
   (def (insert! root literal)
     (unless (and (string? literal) (positive? (string-length literal)))
@@ -786,8 +789,9 @@
           (loop child (+ index 1))))))
   (let (root (make-node))
     (for-each (cut insert! root <>) literals)
-    (lambda (source start)
-      (let (source-length (string-length source))
+    (lambda (source start source-length)
+      (and (exact-integer? start) (exact-integer? source-length)
+           (<= 0 start source-length (string-length source))
         (let loop ((node root) (offset start) (selected #f))
           (if (= offset source-length)
             selected
@@ -799,6 +803,10 @@
                   (loop child next
                         (if (vector-ref child 0) next selected)))
                 selected))))))))
+
+(def (make-literal-end-scanner literals)
+  (let (scan (make-bounded-literal-end-scanner literals))
+    (lambda (source start) (scan source start (string-length source)))))
 
 ;;; Merge literal-only lexical rules into one trie shared by every LR mode.
 ;;; Entries carry (literal name precedence declaration-index); the optional

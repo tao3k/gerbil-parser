@@ -4,7 +4,7 @@
 (import (only-in ./scan make-literal-end-scanner))
 (export defregion-plan valid-region-specification? source-prefix-at? region-plan? prepare-region-plan region-plan-end
         region-plan-quote-end region-plan-pair-end region-plan-operator
-        region-plan-specification prepare-region-source region-source?
+        region-plan-specification prepare-region-source prepare-scoped-region-source region-source?
         region-source-pair-end region-source-quote-end)
 
 (defstruct region-plan (data stops quotes pairs operators))
@@ -79,12 +79,20 @@
 
 ;;; Frames are immutable quote rows or pair rows with a current depth. There
 ;;; is no recursive call on source nesting and no source-prefix substring.
-(def (region-match plan source start frames word? (ends #f))
+(def (cached-pair-end ends start row)
+  (and ends (let (entries (hash-get (vector-ref ends 1) row)) (and entries (hash-get entries start)))))
+(def (cache-pair-end! ends start row end)
+  (let (entries (or (hash-get (vector-ref ends 1) row)
+                   (let (table (make-hash-table-eqv)) (hash-put! (vector-ref ends 1) row table) table)))
+    (hash-put! entries start end)))
+(def (pair-frame row depth start scopes)
+  (vector 'pair row depth start (let (entry (assoc (car row) scopes)) (and entry (cdr entry)))))
+(def (region-match plan source start frames word? (ends #f) (scopes '()))
   (def (close! frame end)
     (when ends
-      (let (quote? (eq? (vector-ref frame 0) 'quote))
-        (hash-put! (vector-ref ends (if quote? 0 1))
-                   (vector-ref frame (if quote? 2 3)) end))))
+      (if (eq? (vector-ref frame 0) 'quote)
+        (hash-put! (vector-ref ends 0) (vector-ref frame 2) end)
+        (cache-pair-end! ends (vector-ref frame 3) (vector-ref frame 1) end))))
   (let (limit (string-length source))
     (let loop ((at start) (stack frames))
       (cond
@@ -93,7 +101,7 @@
        ((pair? stack)
         (let* ((frame (car stack)) (row (vector-ref frame 1))
                (ch (string-ref source at)) (quote? (eq? (vector-ref frame 0) 'quote))
-               (nested (pair-at plan source at (if quote? (caddr row) #f))))
+               (nested (pair-at plan source at (if quote? (caddr row) (vector-ref frame 4)))))
           (cond
            ((and (char=? ch #\\) (or (not quote?) (cadr row)))
             (loop (min limit (+ at 2)) stack))
@@ -103,18 +111,20 @@
               (loop (+ at 1) (cdr stack))))
            ((and (not quote?) (assv ch (region-plan-quotes plan))) =>
             (lambda (quote-row) (loop (+ at 1) (cons (vector 'quote quote-row at) stack))))
+           ((and nested (cached-pair-end ends at nested)) =>
+            (lambda (after) (loop after stack)))
            (nested
             (loop (+ at (string-length (car nested)))
-                  (cons (vector 'pair nested (cadddr nested) at) stack)))
+                  (cons (pair-frame nested (cadddr nested) at scopes) stack)))
            ((and (not quote?) (char=? ch (cadr row)))
-            (loop (+ at 1) (cons (vector 'pair row (+ (vector-ref frame 2) 1) (vector-ref frame 3)) (cdr stack))))
+            (loop (+ at 1) (cons (vector 'pair row (+ (vector-ref frame 2) 1) (vector-ref frame 3) (vector-ref frame 4)) (cdr stack))))
            ((and (not quote?) (char=? ch (caddr row)))
             (if (= (vector-ref frame 2) 1)
               (begin
                 (close! frame (+ at 1))
                 (if (and (null? (cdr stack)) (not word?)) (+ at 1)
                   (loop (+ at 1) (cdr stack))))
-              (loop (+ at 1) (cons (vector 'pair row (- (vector-ref frame 2) 1) (vector-ref frame 3)) (cdr stack)))))
+              (loop (+ at 1) (cons (vector 'pair row (- (vector-ref frame 2) 1) (vector-ref frame 3) (vector-ref frame 4)) (cdr stack)))))
            (else (loop (+ at 1) stack)))))
        ((not word?) at)
        (else
@@ -123,7 +133,7 @@
           (cond
            ;; Declared region openers shield overlapping operator stops.
            (nested (loop (+ at (string-length (car nested)))
-                         (list (vector 'pair nested (cadddr nested) at))))
+                         (list (pair-frame nested (cadddr nested) at scopes))))
            ((and (or (> at start) (not (cadddr (region-plan-data plan))))
                  (or (char-whitespace? ch) ((region-plan-operators plan) source at)))
             (and (> at start) at))
@@ -146,18 +156,25 @@
   (let (row (pair-at plan source start))
     (unless row (error "missing declared region opener" start))
     (region-match plan source (+ start (string-length (car row)))
-                  (list (vector 'pair row (cadddr row) start)) #f)))
+                  (list (pair-frame row (cadddr row) start '())) #f)))
 
 ;;; A source-local boundary cache records every nested frame closed by a match.
 ;;; Decomposing an outer region subsequently visits its children by lookup,
 ;;; rather than walking each suffix again. Literal quote characters outside a
 ;;; requested region are never eagerly interpreted (e.g. here-document text).
-(defstruct region-source (plan text ends))
+(defstruct region-source (plan text ends scopes))
 (def (prepare-region-source plan text)
+  (prepare-scoped-region-source plan text '()))
+(def (prepare-scoped-region-source plan text scopes)
   (unless (and (region-plan? plan) (string? text))
     (error "invalid region source" plan text))
+  (unless (and (list? scopes)
+               (andmap (lambda (entry)
+                         (and (list? entry) (pair? entry) (assoc (car entry) (region-plan-pairs plan))
+                              (andmap (lambda (prefix) (assoc prefix (region-plan-pairs plan))) (cdr entry)))) scopes)
+               (unique? scopes car)) (error "invalid region pair scopes"))
   (make-region-source plan (string-copy text)
-                      (vector (make-hash-table-eqv) (make-hash-table-eqv))))
+                      (vector (make-hash-table-eqv) (make-hash-table-eq)) (copy-data scopes)))
 
 (def (region-source-quote-end source start delimiter)
   (let* ((plan (region-source-plan source)) (text (region-source-text source))
@@ -167,13 +184,13 @@
       (error "invalid declared quote entry" start delimiter))
     (or (hash-get (vector-ref (region-source-ends source) 0) start)
         (region-match plan text (+ start 1) (list (vector 'quote row start)) #f
-                      (region-source-ends source)))))
+                      (region-source-ends source) (region-source-scopes source)))))
 
 (def (region-source-pair-end source start)
   (let* ((plan (region-source-plan source)) (text (region-source-text source))
          (row (and (exact-integer? start) (pair-at plan text start))))
     (unless row (error "missing declared region opener" start))
-    (or (hash-get (vector-ref (region-source-ends source) 1) start)
+    (or (cached-pair-end (region-source-ends source) start row)
         (region-match plan text (+ start (string-length (car row)))
-                      (list (vector 'pair row (cadddr row) start)) #f
-                      (region-source-ends source)))))
+                      (list (pair-frame row (cadddr row) start (region-source-scopes source))) #f
+                      (region-source-ends source) (region-source-scopes source)))))

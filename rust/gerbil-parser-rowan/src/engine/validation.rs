@@ -167,7 +167,10 @@ fn valid_text_class(class: &super::model::TextClass, depth: usize) -> bool {
         }
 }
 
-fn text_profile_width(profile: &super::model::TextProfile, depth: usize) -> Option<usize> {
+pub(super) fn text_profile_width(
+    profile: &super::model::TextProfile,
+    depth: usize,
+) -> Option<usize> {
     use super::model::TextProfile;
     if depth >= 64 {
         return None;

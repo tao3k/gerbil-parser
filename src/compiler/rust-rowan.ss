@@ -1,14 +1,16 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical Parser IR v1 to immutable Rust/Rowan table generation.
 
-(import (only-in ../language/descriptor
+(import (only-in ../grammar/lexical-algebra text-profile?)
+        (only-in ../language/descriptor
                  language-grammar-contract
                  language-grammar-ir
                  language-grammar-language
                  language-grammar-machine
                  language-grammar-version require-portable-language-policy!)
         (only-in ./machine parser-machine-grammar-digest))
-(export generate-language-rust-rowan-module
+(export rust-text-profile-expression-source
+        generate-language-rust-rowan-module
         generate-rust-rowan-module
         language-rust-rowan-module-source rust-rowan-module-source)
 
@@ -202,6 +204,10 @@
              (for-each (lambda (child) (emit-text-class port child) (display "," port)) (cdr expression))
              (display "])" port))))
 
+(def (rust-text-profile-expression-source expression)
+  (unless (text-profile? expression) (error "invalid or nullable Rust text profile" expression))
+  (let (port (open-output-string))
+    (emit-text-profile port expression) (get-output-string port)))
 (def (emit-text-profile port expression)
   (case (car expression)
     ((literal) (display "gerbil_parser_rowan::TextProfile::Literal(" port)

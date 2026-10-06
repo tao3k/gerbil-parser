@@ -11,3 +11,7 @@ instrumentation or runtime-binding replacement wrappers.
 
 The paper/framework synthesis remains in
 [[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].
+
+Language authoring research, annotated papers and proposed experiments are in
+[[file:scheme-language-pack-design.org][Scheme language pack design]]. The document distinguishes the current
+authoring interfaces from unimplemented research proposals.

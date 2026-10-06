@@ -1,0 +1,269 @@
+#+title: Scheme language pack design: research and experiments
+#+date: 2026-10-06
+
+* Status and scope
+
+This is an independent research proposal, not an accepted API specification or
+an implementation receipt. The source baseline examined is PR #13 revision
+=d4a99efa558625fd4053cb6dcc1a0ba36c484e77=. Later revisions must recheck the
+inventory before treating a question here as a current implementation gap.
+
+The research target is the complete authoring experience of a language pack:
+syntax, source provenance, public products, loading, fixtures and qualification.
+Shorter grammar expressions are one part of that experience. Our design basis
+is Scheme's syntax objects, lexical scope, macros, modules and compilation.
+Tree-sitter supplies a comparison sample. It does not determine the surface
+language, parser algorithm or extension model.
+
+This document changes no parser runtime, GC policy, actor service, AOT compiler
+or FFI contract. Performance work remains in
+[[file:scheme-parser-performance-framework.org][the parser performance research]].
+The current author contract is [[file:../../languages/README.org][the language pack boundary]].
+
+* Current evidence and corrected baseline
+
+| Owner | Examined behavior | Research question |
+|-------+-------------------+-------------------|
+| =languages/README.org= | Three interfaces: grammar, loader and tests | How much knowledge does a complete author task require? |
+| =src/language/grammar.ss= | =deflanguage= lowers concise forms; =defgrammar-syntax= permits templates | Which binding and origin information must survive elaboration? |
+| =src/compiler/language-artifact.ss= | Canonical grammar expansion and published catalog projection | Which inferred products can share one semantic analysis? |
+| =languages/arithmetic/parser.ss= | POO loader, fixture values and declared build strategies | Which target choices require an explicit author decision? |
+| =languages/arithmetic/parser-test.ss= | Declarative tests plus a native property | How can tests retain precise semantic assertions with less ceremony? |
+| =languages/hcl/grammar.ss= | Public =deflanguage= with fielded grammar rules | Can reusable grammar abstractions reduce maintenance without hiding meaning? |
+| =languages/fhirpath/grammar.ss= | =deflanguage=, text profiles and admitted source metadata | How can imported specifications and native rules share useful diagnostics? |
+
+The latest baseline already infers kinds, fields and terminals. Alternatives
+with the same node kind contribute a union of fields. Transparent helper rules
+propagate fields to their nearest named node; recursion is bounded by visited
+rule names. Explicit =catalog= projection retains published identities and
+ordering. Explicit =token= or =reference= disambiguates overlapping namespaces.
+
+An earlier assessment of versioned language directories described a same-node
+field-list rejection. That assessment is superseded: =record-node!= now merges
+fields. Richer field cardinality/type analysis is a separate research question;
+the existing field union must not be reported as missing.
+
+=expand-surface-syntax= currently expands extension forms and converts their
+syntax into datum expressions. Several later products are constructed with
+=datum->syntax=. This is a concrete audit seam, not proof of accidental capture.
+The current error helper raises against the complete =deflanguage= form. Study
+whether diagnostics can retain the offending subform and macro expansion origin.
+
+* Papers and primary references
+
+These annotations distinguish a source's contribution from our proposed use.
+They do not transfer a paper's performance results to this parser.
+
+** Syntactic abstraction in Scheme
+
+R. Kent Dybvig, Robert Hieb and Carl Bruggeman, /Lisp and Symbolic Computation/
+5(4), 1993, pp. 295–326. The
+[[https://legacy.cs.indiana.edu/ftp/techreports/TR355.pdf][Indiana University technical report (1992)]]
+is an earlier version; its abstract motivates both avoiding identifier capture
+and correlating transformed code with its source. The report abstract, rather
+than a full inspection of this PDF, supports this annotation.
+
+Design use: grammar fragments should preserve the distinction between names
+supplied by callers and names introduced by an abstraction. Source correlation
+is part of authoring quality, not a cosmetic addition after code generation.
+Experiment: compose a fragment across modules while shadowing its helper names;
+check both binding resolution and error locations. The paper does not establish
+that our current expander passes this experiment.
+
+** Compiled, Extensible, Multi-language DSLs (Functional Pearl)
+
+Michael Ballantyne, Mitch Gamburg and Jason Hemann, ICFP 2024,
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][author paper]],
+[[https://doi.org/10.1145/3674627][DOI: 10.1145/3674627]]. Sections 1–3 describe an extensible
+surface elaborated into a compiler-oriented core, with explicit boundaries
+between a hosted DSL and its host. The case study is miniKanren in Racket.
+
+Design use: user grammar macros elaborate into the existing canonical Grammar
+IR, where compiler validation and optimization remain shared. Any host escape
+must expose a boundary with defined invariants and backend capabilities.
+Experiment: two surface formulations generate equivalent core IR and artifacts;
+a host callback cannot silently acquire a Rust backend capability. Racket's
+syntax-spec implementation and miniKanren speedups are not Gerbil receipts.
+
+** Fortifying Macros
+
+Ryan Culpepper and Matthias Felleisen, ICFP 2010,
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][author paper]]. Its syntax classes and validation approach address
+macro inputs, constraints and useful error reports. Section 3 is especially
+relevant to checking malformed forms and reporting the responsible syntax.
+
+Design use: specify grammar constructor shapes and semantic constraints once,
+then associate validation failures with precise source syntax. Use Gerbil's
+existing facilities; adoption of Racket's syntax-parse is not a prerequisite.
+Experiment: unresolved names, duplicates, malformed precedence and invalid
+fragment arguments identify their offending subforms, including imported macros.
+
+** Parsing Expression Grammars: A Recognition-Based Syntactic Foundation
+
+Bryan Ford, POPL 2004,
+[[https://pdos.csail.mit.edu/papers/parsing:popl04.pdf][author paper]]. PEG uses prioritized choice; that semantic distinction
+matters when borrowing an apparently similar combinator notation.
+
+Design use: document our =choice=, precedence, ambiguity and recovery semantics
+before creating convenience forms. A compact expression must not introduce PEG
+ordered choice into a CFG/LR grammar. Experiment: alternatives with overlapping
+prefixes retain the baseline recognition and artifact behavior. This reference
+does not justify replacing the current parser engine or claiming linear runtime
+for arbitrary grammars.
+
+** Official Gerbil facilities and comparison references
+
+[[https://gerbil.scheme.org/tutorials/languages.html][Custom Languages in Gerbil]] demonstrates contextual expansion and language
+modules over the existing S-expression reader.
+[[https://gerbil.scheme.org/reference/gerbil/prelude/runtime-bindings.html][Gerbil runtime/expander bindings]] documents syntax-object operations,
+identifier comparisons and source utilities. These are the starting toolbox;
+research should establish our binding policy before adding machinery.
+
+[[https://spoofax.dev/references/sdf3/][Official SDF3 documentation]] is a practical comparison for declarations that
+feed multiple language products. It is documentation, not a paper result.
+[[https://tree-sitter.github.io/tree-sitter/creating-parsers/2-the-grammar-dsl.html][Tree-sitter's grammar DSL]] is JavaScript, while
+[[https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html][its query language]] uses S-expressions. Its
+[[https://tree-sitter.github.io/tree-sitter/using-parsers/6-static-node-types.html][static node types]] provide a comparison for field presence, multiplicity and
+possible child types. These are useful product questions, without adopting its
+external scanner interface or treating its grammar syntax as Scheme's model.
+
+* Design hypotheses: expand Scheme's advantages
+
+** Preserve binding information until names have meaning
+
+Distinguish grammar rule names, lexical token names, public node/field labels,
+macro bindings, generated helpers and Scheme expressions. Public labels may
+intentionally be symbolic data; references and introduced helpers need a stated
+resolution policy. Not every identifier should be treated as a Scheme variable.
+
+Proposed elaboration order:
+
+1. Read syntax objects and establish declaration namespaces.
+2. Expand authorized grammar fragments with Gerbil's macro facilities.
+3. Resolve DSL references and retain origin information for each core form.
+4. Validate and lower into the existing canonical IR.
+5. Generate products through existing compiler and capability boundaries.
+
+An origin map can be compile-time metadata; its representation, persistence and
+cost remain open. It must not silently change runtime IR schemas or published
+digests. Decide explicitly which origin details belong in source provenance and
+which are excluded from semantic identity.
+
+** Build a grammar vocabulary through ordinary modules
+
+The existing =defgrammar-syntax= is a starting point. Candidate abstractions
+include separated lists, delimiters and repeated operator tiers. Each abstraction
+must explain its expansion, fields, empty cases, precedence and conflict behavior.
+
+Prefer small composable forms that lower to existing constructors. Test module
+imports, renaming, nested composition and caller-supplied references before
+promoting a shared vocabulary. Do not add a parallel parser interpreter for
+convenience forms. Syntax shortening alone does not prove better authoring.
+
+** Infer products once, preserve deliberate public contracts
+
+The field union already provides a catalog. A proposed next analysis asks:
+
+- Is a field present on every productive alternative or only some?
+- Can a field occur more than once on a node?
+- Which node/token categories can it contain?
+- How do transparent rules, recursion and recovery affect those answers?
+
+A candidate analysis uses a fixed point over recursive grammar references.
+Presence, multiplicity and possible types need conservative domains and defined
+join rules. Unknown results remain unknown; union alone cannot establish required
+presence. Repetition and nullable productions require explicit treatment.
+
+The first prototype should produce an internal explanation alongside inferred
+facts. Publishing a new typed AST or metadata schema is a later contract decision.
+Retain =catalog= projections for stable kind/field/terminal identities and order;
+keep =node-fields= for deliberate public reservations. Never infer away a public
+compatibility requirement merely because a fixture does not exercise it.
+
+** Reduce author knowledge across the complete package
+
+| Information | Proposed authority | Reason |
+|-------------+--------------------+--------|
+| Recognition, precedence, conflicts, node boundaries | Author grammar | These are language semantics |
+| Derived kinds, fields, terminals and analysis facts | Compiler | Avoid independently maintained copies |
+| Source revision, digests and corpus identity | Explicit provenance declarations | Reproducibility cannot be inferred from syntax alone |
+| Parser entry, exports and tooling extensions | POO loader | Preserve effective-object admission and extension contracts |
+| Backend selection and qualification | Explicit build strategy/capability boundary | Target support requires executable evidence |
+| Acceptance, AST, offsets and rejection expectations | Test owner | The implementation cannot supply its own semantic oracle |
+| Workloads, samples and thresholds | Existing benchmark owner | Keep performance admission reproducible |
+| Actor queue limits, cancellation and application policy | Runtime service configuration | Independent of grammar meaning |
+
+Three files can be coherent if each has one clear role. A single large macro can
+still require excessive knowledge. Count independent concepts and repeated facts,
+then evaluate real maintenance tasks. Common defaults should be documented and
+stable; semantic choices and target restrictions should remain visible.
+
+** Keep the closed core useful for optimization
+
+Macros can expose domain patterns early enough for shared compiler analysis.
+However, template expansion alone does not prove faster parsing. If two surfaces
+produce the same core, runtime improvement needs a separate measured compiler or
+execution change. Investigate compile-time cost and authoring quality first.
+Reuse Scheme/Gerbil compiler facilities for host code; this proposal introduces
+no substitute optimizer, GC tuning or parallel runtime implementation.
+
+* Concrete study example
+
+This example uses the current documented surface, not a proposed new API:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support deflanguage))
+
+(deflanguage example
+  (identity "example" "v1" "example.syntax.v1")
+  (root document)
+  (lex (word Identifier (identifier)))
+  (rules (document (node SourceFile (field name word)))))
+#+end_src
+
+Study a change that adds a second document alternative, then extract a shared
+fragment into another module. Record which declarations the author must edit,
+what the compiler infers, whether public ordering changes, and where a deliberate
+unresolved reference is reported. Keep the loader and native test declarations
+in the study: a grammar-only comparison would miss the requested package scope.
+
+* Experiments and admission criteria
+
+No experiment below is claimed to have run as part of this documentation change.
+Use repository native tests and benchmark contracts when prototypes exist.
+
+| Study | Inputs | Required evidence |
+|-------+--------+-------------------|
+| Complete authoring inventory | Arithmetic, HCL, FHIRPath and one downstream pack | Task steps, concept count, duplicated declarations, intentional choices |
+| Binding and source audit | Imported/renamed fragments, shadowed helpers, nested expansions | Expected name resolution and offending source locations; negative cases |
+| Surface/core equivalence | Existing rules and macro abstractions | Normalized canonical IR plus accepted/rejected inputs, CST/AST and offsets |
+| Catalog stability | Existing published pack and declaration reorder | Stable required identities/order; deliberate migrations stated separately |
+| Schema inference | Alternatives, optional/repeated/nullable forms, recursive helpers | Sound conservative presence/multiplicity/type facts and counterexamples |
+| Backend preservation | Qualified Scheme and generated Rust/C products | Matching semantics and capability rejection; no inferred native qualification |
+| Expansion scaling | Increasing rules, fragment depth and recursive analysis | Compile latency/allocation and termination; runtime results reported separately |
+| Author comprehension | Matched add-rule, extract-fragment and diagnose-error tasks | Completion/correctness evidence; LOC reduction alone is insufficient |
+
+For equivalence, normalize only explicitly nonsemantic metadata; retain public
+IDs, precedence, source offsets, conflict behavior and recovery meaning. Define
+that normalization before collecting results. Tests must include ambiguity and
+rejection cases, not just successful examples.
+
+Native performance claims require matched inputs, artifact semantics, warmup and
+phase attribution through existing benchmarks. An authoring study or a paper's
+results cannot close a parser P50/P95 performance gate.
+
+* Research sequence and unresolved decisions
+
+1. Complete the authoring inventory and choose representative maintenance tasks.
+2. Specify namespaces, macro scopes, source origins and identity normalization.
+3. Add a narrowly scoped research prototype for origin-aware elaboration, with
+   cross-module and negative binding examples.
+4. Prototype conservative field analysis and explain its results on real packs.
+5. Compare reusable macro vocabularies against the current author interface.
+6. Propose a reviewed API/contract change only after semantic and author evidence.
+
+Open decisions include whether rule references are pack-local symbolic identities
+or module-qualified bindings; how imported fragments declare dependencies;
+which information survives elaboration; how recovery widens inferred schemas;
+and whether inferred products justify any new public API. This document records
+hypotheses and experiments so those decisions can be made from evidence.

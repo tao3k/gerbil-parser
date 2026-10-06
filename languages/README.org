@@ -617,3 +617,9 @@ interfaces and mandatory Loader/test declarations. The Loader schema remains
 =gerbil-parser.language-entry.v2=. There are no versioned namespace aliases or
 compatibility adapters. Shared Scheme recipes, portable Scanner/Parser IR and
 actual C/Rust products retain separate qualification boundaries.
+
+* Authoring design research
+
+[[file:../docs/research/scheme-language-pack-design.org][Scheme language pack design]] records paper-based research into macro
+composition, binding, diagnostics and derived language products. It is a research
+proposal; the authoring contract above describes the implemented interfaces.

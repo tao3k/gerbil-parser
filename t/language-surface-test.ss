@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Boundary: executable witness for the concise v1 language authoring surface.
-;;; Invariant: inferred declarations lower through deflanguage-grammar and
+;;; Invariant: inferred and explicit declarations share canonical admission and
 ;;; publish the same Grammar IR, Parser IR, and ParseArtifact contracts.
 
 (import (only-in :std/test check test-case test-suite)

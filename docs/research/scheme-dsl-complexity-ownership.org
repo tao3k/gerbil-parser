@@ -1,0 +1,448 @@
+#+title: Scheme DSL complexity ownership and author change tasks
+#+date: 2026-10-06
+
+Scope: assess total author and engine complexity under the fixed three-interface
+DSL boundary. The [[file:scheme-deflanguage-design-synthesis.org][overview]] owns that boundary. Apply these change tasks to the
+[[file:scheme-dsl-author-interface.org][complete author package]], with [[file:scheme-dsl-semantic-contracts.org][semantic contracts]] and [[file:scheme-dsl-engine-admission.org][engine admission]] as
+separate, connected responsibilities.
+
+* Architectural reflection: concentrating complexity in the engine
+
+This is a package-wide design criterion, not a request to hide every decision
+behind =deflanguage=. The objective is to reduce the knowledge and coordinated
+edits needed to author and evolve a language, while keeping engine behavior
+inspectable and language semantics explicit. Fewer declarations alone do not
+establish that objective. A hidden dependency can shorten grammar.ss while
+increasing the effort needed to diagnose or change the package.
+
+** Implemented internal owners: one author surface, explicit engine stages
+
+The local refactor follows the architecture already developed across the paper
+readings. It keeps grammar.ss, parser.ss and parser-test.ss as the author boundary
+and moves mechanisms to focused engine owners. These are responsibility boundaries,
+not promises to retain the contents of the three author files. The
+[[file:scheme-dsl-author-interface.org::*Three files are responsibility boundaries, not frozen implementations][whole-package migration]] changes GQL grammar, entry and tests together. Declaration handoff now uses a
+compile-time record and direct compiler invocation; this is more than file extraction.
+The runtime assembly takes its sections from the same admitted canonical grammar.
+This does not establish a parse-speed improvement or add language syntax.
+
+| Owner | Responsibility after refactoring | Preserved boundary |
+|-------+----------------------------------+--------------------|
+| [[file:../../src/language/grammar.ss][language/grammar.ss]] | Public hygienic grammar entry | Existing deflanguage, deflanguage-grammar and defgrammar-syntax forms |
+| [[file:../../src/language/assembly.ss][language/assembly.ss]] | Emit admitted products into runtime bindings for native and imported declarations | Definition-context machine and artifact loader bindings |
+| [[file:../../language-support/antlr4-language.ss][antlr4-language.ss]] | Elaborate one checked source catalog into the shared declaration record | Original source identity, origin map and author syntax |
+| [[file:../../src/compiler/concise-language.ss][compiler/concise-language.ss]] | Collect syntax, expand vocabulary, validate rules, derive catalogs and submit a compile-time declaration record | Declaration-local source associations; validation before field inference |
+| [[file:../../src/compiler/language-artifact.ss][compiler/language-artifact.ss]] | Read the explicit surface or accept the concise record; admit, bind, compile, publish and emit from one canonical grammar | Existing Grammar IR, Bound IR and Parser IR authority |
+| [[file:../../src/compiler/lexical-expression.ss][compiler/lexical-expression.ss]] | Expand the closed lexical algebra and ranked dispatch | Existing matching, rank and byte-boundary semantics |
+| [[file:../../src/compiler/lexical-lexer.ss][compiler/lexical-lexer.ss]] | Generate traversal and prepare lexical certificates | Existing scanner and lexical-plan owners |
+| [[file:../../src/compiler/machine.ss][compiler/machine.ss]] | Own the nominal machine type, prepared entry and backend installation | Same twelve fields, type identity and public exports |
+
+The public macro supplies real syntax bindings to the compiler helper. The
+helper does not guess the public macro's identifiers from symbols, import the
+public language module recursively, or retain syntax in runtime parser objects.
+The lexical expander is passed explicitly from its existing phase export.
+Private lexical helpers remain definition-context bindings in generated syntax.
+
+The native concise, explicit and imported-source entries now converge on expand-language-declaration-syntax. The explicit
+surface reads its clauses once; the concise surface constructs the same internal
+language-declaration record directly. Optional concise clauses normalize by an
+internal call carrying the original author syntax, rather than another macro
+expansion. The record retains syntax sections and context until admission. It is
+neither a new author protocol nor a serialized IR/backend contract. A named
+compiled-language-declaration result ties the admitted grammar to its three
+artifact locators; publication and runtime emission do not exchange a positional
+seven-value tuple. The compiler reads section and policy fields from its input
+record instead of forwarding fifteen positional arguments. Existing POO
+normalization and nullable/FIRST/LR owners retain their responsibilities.
+
+The orchestrator now connects explicit engine phases:
+
+| Phase | Input and responsibility | Side-effect boundary |
+|-------+--------------------------+----------------------|
+| derive-language-declaration-bindings | Derive hygienic generated names once | No compilation or publication |
+| admit-language-declaration | Build canonical grammar with origin, lineage and source map | No artifact publication |
+| compile-admitted-language-declaration | Bind and compile that exact grammar through existing owners | Existing immutable publication and caches |
+| emit-compiled-language-declaration | Emit assembly and descriptor syntax from compiled products and named bindings | No binding/compiler invocation |
+
+Normalized POO grammar can enter compile-admitted-language-declaration directly,
+carrying the supplied effective context in an admitted-language-declaration.
+The extended existing provenance study checks input-object retention, reloaded
+Grammar/Bound/Parser equality, composition digest and supplied component ownership.
+It does not reconstruct a deflanguage declaration. Its output-dirs keyword belongs
+to engine artifact isolation, not to author configuration. The normalizer now captures effective occurrence sources during row acceptance,
+including override/remove. The composed fixture directly enters shared emission
+and qualifies both ordinary and override/remove policies through checked Loader
+entries. See [[file:scheme-dsl-engine-admission.org::*Effective origins follow composition before binding][the selection contract]]. The production author composition clause,
+full native runtime closure and measured author effort remain open.
+
+#+begin_src scheme
+;; Engine-only compile-time handoffs; runtime receives immutable artifacts.
+(defstruct language-declaration
+  (syntax prefix identities sections conflict-policy case-insensitive? lineage source-map))
+(defstruct admitted-language-declaration (grammar origin lineage source-map))
+(defstruct compiled-language-declaration
+  (grammar grammar-locator bound-locator parser-locator))
+(defstruct language-declaration-bindings (grammar bound parser machine language))
+
+;; Implemented public entry; compilation mechanisms belong to the engine.
+(defsyntax (deflanguage stx)
+  (expand-concise-language-syntax
+   stx expand-text-lexical-rows compile-parser bind-grammar-ir
+   #'assemble-language-parser #'make-language-grammar #'install-parser-machine-backends!
+   #'deflanguage #'begin #'def #'list))
+
+;; Question 1: Why is this DSL design better?
+;; Authors can reuse native defrules vocabulary while the engine owns derived
+;; catalogs, checks and products. The same authored syntax reaches the existing
+;; compiler through a thin entry, so changing an engine mechanism does not add
+;; author configuration. Direct record handoff removes whole-declaration macro
+;; replay; runtime emission shares the admitted grammar instead of author rows.
+;; Named stages keep canonical input and context together during publication;
+;; normalized POO data reuses that stage without another declaration expander.
+;; Named records keep stage context and all products tied to the same grammar.
+;; The nominal machine contract remains in one owner.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Context-preserving expansion, declaration dependency checking and compilation
+;; to one core are explicit constraints from the connected paper readings.
+;; Test their application through renamed/generated macros, source blame,
+;; complete Grammar IR / Parser IR equality and recognition/tree/span controls.
+;; A mismatch falsifies preservation; fewer lines alone do not prove superiority.
+;; Limit: native dependency closure and measured author-task gains remain gates.
+#+end_src
+
+This applies the joint argument from
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]] and
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]] together with the
+[[file:scheme-dsl-research-basis.org::*Syntactic abstraction in Scheme: how should authors define vocabulary?][Scheme syntax-object reading]]. The transfer is an architectural inference:
+we retain Gerbil's own defsyntax/defrules and the existing POO/compiler contracts;
+we do not claim to reproduce Racket's metalanguage or its optimization results.
+The [[file:scheme-dsl-engine-admission.org][admission document]] owns semantic integration; this section owns code boundaries.
+
+*** Qualification of the implemented boundaries
+
+The first ownership extraction passed 75 source cases. Qualification of the
+subsequent direct-admission refactor uses freshly compiled declaration owners
+with source runtime consumers; that is not a fully native parser qualification.
+The final record and canonical-emission owners compile through sequential
+std/make, exit 0 (16.42 s). The three lexical/machine owners retain their separate
+native compilation receipt (14.56 s); build times do not establish a speedup.
+Standard PackageSpec discovery includes all three new compiler modules.
+
+The final contract set passes 86 cases with freshly compiled declaration owners
+and source runtime consumers: 13 declaration diagnostics (including defaulted
+context/source-free input), 5 language-surface cases, 31 POO composition cases,
+11 complete call/array package cases, 16 source/GQL cases and 10 immutable
+publication/cache cases. Every runner checks assertions and exits 0 within the
+unchanged ten-second bound. The complete Grammar IR and Parser IR remain
+byte-identical to the pre-extraction 6661-byte control, with its snapshot process
+also exiting 0. These are preservation observations, not a proof of universal
+DSL superiority or improved developer task times. The subsequent named-phase
+refactor reruns those same 86 cases and the 6661-byte product comparison with
+freshly compiled declaration owners; every process exits 0. The direct POO
+publication/provenance control separately passes 38 checks, including seven
+checks on the new canonical stage, and exits 0 under the same ten-second fence.
+The loaded Parser IR's existing materialization=aot-expansion metadata is checked
+explicitly; after removing that checked publication-only row, every remaining
+field equals a fresh compile-parser result.
+
+The initial POO stage witness failed (exit 70) because it compared a materialized
+Parser IR directly with the compiler result while omitting the existing
+publication tag from its expectation. The corrected witness asserts that tag
+independently and preserves full equality for the remaining fields; the failed
+attempt is not admitted as successful evidence.
+
+Keep failures visible. Whole-spec native preparation exceeded the genuine-output
+watchdog twice before compilation output; sequential dependency builds passed
+without relaxing it. Cold source tests and earlier parallel attempts exceeded the existing process
+bound. A final source lexical aggregate emitted all 19 passing case markers but
+exited 124, so it is not a passing process receipt; a separate cold lexical runner
+also exceeded the bound during imports. Loading the compiled lexical owners with
+a source machine likewise completed the 19 assertions but exited 124; it does
+not repair that process gate. A native-machine consumer reported an
+undefined lr-parse/prepared binding and duplicate installed step backend. GQL
+native builds still exceed the genuine-output watchdog. One intermediate GQL
+consumer run exceeded its process fence (exit 137); the same-bound retry and the
+final named-record run pass. The failed attempt is not a passing receipt. Module compilation,
+assertion completion and a qualified native dependency/consumer closure are three
+different observations. This refactor does not close GQL/Rust/AOT or justify a
+parse-latency improvement.
+
+** Absorb mechanism; preserve intentional language choices
+
+| Responsibility in the call/array package | Appropriate owner | Reason and boundary |
+|-----------------------------------------+-------------------+---------------------|
+| Whether containers may be empty or allow trailing commas | Author grammar or selected vocabulary policy | Defines the accepted language; the engine cannot infer the intended answer |
+| Public Call/Array nodes and argument/element fields | Author syntax contract | Defines observations consumed by application code |
+| Repeated field and terminal catalogs | Existing engine inference | Derived facts should have one computation owner |
+| List idiom expansion | Reusable Scheme vocabulary | Shares author intent without requiring every idiom to become an engine primitive |
+| Multi-rule composition and reference resolution | Existing checked POO and compiler owners | Enforce common invariants after effective contributions are selected |
+| Nullable/FIRST facts, LR construction, source offsets | Existing engine analyses/runtime | Language authors should not implement parallel versions |
+| Conflict handling | Explicit policy; engine enforcement | Default rejection must not silently choose unspecified language semantics |
+| Artifact storage, cache mechanics, scanners and FFI generation | Existing engine/product owners | Mechanisms shared across packs; target capabilities remain explicit |
+| Runtime service scheduling and cancellation | Optional application service around the parser | Service policy must not become required knowledge for a library parse call |
+| Native tests and benchmark infrastructure | Shared test owners with package expectations | Infrastructure is shared; semantic assertions remain independent author evidence |
+
+The existing [[file:../../languages/README.org][language pack contract]] already assigns many mechanisms to the engine.
+The research contribution should make that boundary easier to use and verify,
+not add another layer that merely forwards the same sections. The canonical
+[[file:scheme-dsl-engine-admission.org][admission design]] is a concrete example: preserve the composed value at
+one compiler boundary instead of making authors reconstruct its metadata.
+
+** Concentration must not create a monolithic engine interface
+
+A single semantic owner does not require a single implementation module.
+Elaboration, composition, binding, analysis, artifact publication and execution
+can retain focused internal responsibilities connected by explicit IR contracts.
+Authors should not need to know their internal call order to declare a language.
+Engine maintainers must be able to inspect each boundary independently.
+
+Keep three kinds of information accessible: the authored policy, the effective
+expanded/composed grammar, and the derived engine facts used to compile it.
+An explanation should connect them through real origins and explicit absent-source
+cases. Inspectable output is a design obligation, not a new implemented debug API.
+Avoid requiring authors to select LR allocation strategies, cache internals or
+backend representations to obtain a normal checked parse entry.
+
+Extensibility also needs a boundary. Expression vocabulary elaborates into the
+supported core; POO contributions enter checked composition; tooling uses checked
+Loader extensions. An arbitrary host callback does not acquire portable parser
+IR or native backend capability by being placed in an extension slot. Advanced
+extensions should state their capabilities and obligations without changing the
+common authoring path into a collection of escape hatches.
+
+** Evaluate the total change and diagnosis effort
+
+Use the same package and explicit control for representative developer tasks:
+allow empty containers, change the separator, add another list-bearing construct,
+rename a public field, override a contribution and diagnose a rejected declaration.
+Record the intentional choices, coordinated edits, engine details the author must
+understand, and effort needed to identify a failure. Separately record engine
+maintenance cost, regression scope and phase-specific benchmark changes.
+
+*** Concrete change tasks on the same package
+
+This is a source-based task analysis, not a timed usability experiment. Apply each
+change independently to the [[file:scheme-dsl-author-interface.org][complete call/array package]]; state the intended
+scope before counting edits. Shared vocabulary does not imply that every use
+must change together.
+
+| Author task | Intentional declaration changes | Engine obligation / unresolved boundary |
+|-------------+---------------------------------+------------------------------------------|
+| Use semicolons for array elements only | Array vocabulary argument becomes literal semicolon; punctuation lex includes semicolon; call keeps comma | Validate recognition through the declared lexical policy; do not silently rewrite all separator uses |
+| Permit a trailing comma in arrays only | Array selects an explicit trailing-separator pattern; call stays unchanged | Compile that pattern through existing analysis; verify ambiguity, fields and rejects |
+| Add a brace-delimited collection | Add braces to lex, one root alternative and a node/field declaration using shared list vocabulary | Infer catalogs and compile; syntax-contract evolution remains explicit |
+| Rename argument to parameter | Change the call field argument plus the independent expected tree contract | Derive the field catalog; retain intentional changes to consumer-visible AST identity |
+| Replace the argument-list entry with a single item | Explicit POO override of arguments; decide whether its old helper remains | Current normalizer replaces one keyed row, not the whole component |
+
+The separator task is a useful test of concentration. A literal in a grammar
+expression and the lexical recognizer are related declarations with different
+roles. Automatically adding every referenced literal to a scanner could affect
+priority, fallback, keywords or an imported scanner. The current explicit lexical
+contract remains the baseline. A future engine inference proposal must state its
+lexical semantics and validate them before claiming to eliminate an author edit.
+
+For the trailing-separator task, one inspectable candidate is:
+
+#+begin_src scheme
+;; Candidate vocabulary, using existing constructors; not a selected public API.
+(defgrammar-syntax (required-items/with-trailing label item separator)
+  (seq (required-items label item separator)
+       (optional separator)))
+
+;; Replace only the array's existing required-items expression.
+;; The outer optional still permits an empty array; separator-only stays excluded
+;; for this study's nonnullable Name item. Calls retain their original policy.
+(optional
+ (required-items/with-trailing element (reference name) (literal ",")))
+
+;; Question 1: Why is this DSL design better?
+;; A distinct vocabulary states a semantic policy change at the array use site.
+;; It reuses the common list intention without adding an opaque Boolean option.
+;; Existing engine inference and analysis handle catalogs and parser construction.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Compare independent accepted/rejected expectations and complete public events.
+;; Required examples include [], [a], [a,b], [a,] and [a,b,].
+;; Required rejects include [,], [,a], [a,,] and [a,,b]; f(a,) stays rejected.
+;; Nullable items/separators and overlapping recognizers need separate analysis;
+;; this expansion must not be generalized from the concrete Name/comma control.
+;; Falsifier: a changed call policy, separator-only acceptance, conflict, duplicate
+;; field occurrence or a new public wrapper caused by this vocabulary expansion.
+;; Limit: these are proposed expectations; this candidate has not been executed.
+#+end_src
+
+The POO replacement task exposes an additional ownership choice. The existing
+[[file:../../t/fixtures/language-pack-research/composition-history.ss][composition-history control]] checks that overriding =arguments= retains
+=call-arguments/tail=. It also checks that removing a still-referenced helper
+rejects, and that overriding the entry then removing the unused helper admits.
+The existing driver was rerun on 2026-10-06 under =gtimeout -k 2 10=:
+the historical 19-check driver completed and the process exited 0. This qualifies the tested
+composition/binding/compiler controls, not a whole-component replacement API or
+the proposed trailing-separator package.
+
+The engine therefore supplies checked row operations; the author still needs to
+know whether helper names are supported composition targets.
+
+*** Component interface: distinguish host exports, grammar targets and public trees
+
+The complete package has three naming contracts. They interact but are not
+interchangeable. Gerbil's official
+[[https://gerbil.scheme.org/reference/gerbil/prelude/macros.html][Prelude Macros reference]] specifies =only-in=, =rename-in= and phase-shifting
+imports for host identifiers. These forms do not automatically rename symbols
+inside a canonical grammar value or change its advertised extension targets.
+The actual [[file:../../src/compiler/bound-ir.ss][Bound IR]] uses structured package/grammar/namespace/name identities;
+field identity additionally includes its syntax-kind scope.
+
+| Contract | Running example | Change or hiding boundary |
+|----------+-----------------+---------------------------|
+| Scheme module binding | make-nonempty-list-role or required-items | Module export/import governs host access and macro phase |
+| Grammar composition target | arguments and call-arguments/tail | Canonical row keys govern references and keyed operations |
+| Public tree contract | Call.argument and Array.element | Nodes/fields govern application-visible parse observations |
+
+Not exporting a helper's host constructor does not make its emitted grammar row
+inaccessible to composition. Likewise, syntax hygiene for a temporary host binding
+does not prevent collision between equal grammar-domain keys. The existing
+[[file:../../t/fixtures/language-pack-research/list-collisions.ss][collision control]] distinguishes a shared public entry from a shared generated
+helper key. Both controls were rerun on 2026-10-06 under =gtimeout -k 2 10=;
+2 checks passed and the process exited 0. This qualifies the existing collision
+checks, not the candidate host-alias illustration or a new visibility contract.
+Current composition checks both; no private-rule visibility mechanism
+has been implemented by this research.
+
+#+begin_src scheme
+;; Caller context in the existing list-role study.
+;; A renamed factory binding still receives explicit grammar-domain symbols.
+(import (rename-in "list-roles"
+                   (make-nonempty-list-role make-item-list)))
+
+(def call-contribution
+  (make-item-list 'call-arguments 'arguments
+    '(reference name) '(literal ",") 'argument))
+(def array-contribution
+  (make-item-list 'array-elements 'elements
+    '(reference name) '(literal ",") 'element))
+
+;; The factory derives call-arguments/tail and array-elements/tail.
+;; The host alias make-item-list does not rename either entry or helper.
+;; The public field argument remains distinct from the rule entry arguments.
+;; This illustration has not been executed as a new combined package.
+
+;; Question 1: Why is this DSL design better?
+;; Ordinary Scheme modules govern vocabulary access; checked composition governs rows.
+;; A component contract advertises supported targets without making every helper stable API.
+;; Authors can distinguish host renaming, grammar replacement and AST evolution.
+;; The engine retains reference checks and inspectable generated rows.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Test host aliases, entry/helper collisions and exact public tree observations separately.
+;; Compare a helper implementation change with a public field or entry-target change.
+;; Falsifiers: host aliases unexpectedly rename grammar data, helper changes alter promised
+;; observations, or a supported override requires undisclosed implementation knowledge.
+;; Limit: documenting supported targets does not enforce visibility in canonical IR.
+#+end_src
+
+The working contract should advertise three things for each contribution:
+its author parameters and language policy; its intended public tree observations;
+and its supported composition targets/dependencies. Implementation helpers may
+remain inspectable for diagnostics without a promise that their names are stable
+extension API. This is an API stability recommendation, not a claim of enforced
+access control, helper deletion or a selected new metadata schema.
+
+For the list package, prefer expression vocabulary for ordinary policy changes
+when no multi-rule extension is needed. Use checked POO contributions when named
+multi-rule ownership or explicit override is the actual requirement. Replacing an
+advertised entry should preserve or intentionally change its public field contract;
+it does not imply removal of all rows originally emitted by its provider.
+
+If the public DSL later promises whole-component replacement, specify contribution
+membership, shared rows, dependency checks, source selection and receipt behavior.
+This is a larger contract than current keyed override. Neither cascading deletion
+nor automatic helper garbage collection follows from module privacy. Generated
+rule identities also need reproducible artifact and diagnostic behavior; arbitrary
+fresh host symbols are not automatically a portable persistent identity scheme.
+
+Within the fixed three-interface DSL boundary, the engine design has two
+candidates: retain existing
+checked row operations with explicitly documented stable targets, or add a checked
+component-level interface if complete package tasks demonstrate a need. The first
+reuses current mechanisms; the second needs membership and evolution semantics.
+No choice is settled solely by shorter syntax. Qualify both against the same
+consumer tree contract and DSL editing tasks before selecting composition syntax.
+Authors express supported composition intent in grammar.ss; the engine implements
+keyed operations, helper ownership and canonical admission.
+
+These tasks narrow the next discussion: lexical intent should remain inspectable;
+list policy can be shared through named Scheme vocabulary; component extension
+visibility requires an explicit contract. The engine absorbs derivation and
+validation, while vocabulary captures recurring intent. No per-language engine
+branch is required by the changes proposed here.
+
+A shorter declaration accompanied by more hidden defaults, weaker diagnosis,
+per-language engine branches or duplicated analysis does not meet this criterion.
+No numerical complexity score or developer-task improvement is established here.
+The current artifact timeout is also a reminder that successful assertions do
+not explain loading/process costs; those costs require their own bounded evidence.
+
+#+begin_src scheme
+;; The same declared intention can serve both containers.
+(required-items argument (reference name) (literal ","))
+(required-items element  (reference name) (literal ","))
+
+;; Question 1: Why is this DSL design better?
+;; Authors name list policy and public fields; shared vocabulary handles repetition.
+;; The engine derives catalogs, resolves references and compiles the admitted grammar.
+;; A policy change should not require knowledge of caches, LR tables or FFI layouts.
+;; Complexity reduction is conditional on easier changes and accurate diagnosis.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Evaluate explicit author tasks against the complete control, preserving semantics.
+;; Observe coordinated edits, required knowledge and diagnosis, not only source length.
+;; Inspect expanded grammar, origins and compiler facts to test hidden dependencies.
+;; Falsifiers: silent policy changes, extra per-pack engine code, opaque expansion,
+;; duplicated analysis, broader regressions or increased effort for ordinary changes.
+;; Limit: centralized mechanisms still impose engine maintenance and qualification cost.
+;; This is an evaluation plan, not proof that concentrating complexity always helps.
+#+end_src
+
+The primary design reading here is Ousterhout's
+[[https://web.stanford.edu/~ouster/cgi-bin/cs190-winter18/lecture.php?topic=complexity][The Nature of Complexity]]: it identifies change amplification, cognitive load and
+unknown dependencies as developer-facing symptoms. His
+[[https://web.stanford.edu/~ouster/CS349W/lectures/abstraction.html][Designing Abstractions]] discusses interfaces that isolate implementation decisions.
+These are author lecture notes, not an empirical proof of our DSL design.
+Our inference is to assess engine concentration through package change and
+diagnosis tasks, while the staged DSL papers inform the elaboration/core boundary.
+
+The working recommendation is therefore to centralize derivable mechanisms and
+shared invariants, keep language intent and product capabilities explicit, and
+make the resulting decisions explainable. Review the author and engine costs
+together before introducing a new primitive, extension point or configuration.
+
+* Account for explanation work and retained data
+
+Apply the [[file:scheme-dsl-engine-admission.org::*Evidence lifecycle across cache hits and misses][evidence lifecycle]] to the same call/array and GQL author tasks.
+Let N be the lowered nonterminals, T the terminals, P the productions and L the
+maximum rhs length. Recording one first cause per nullable fact and FIRST
+membership gives at most |N| + |N| * |T| fact nodes. This is our design bound,
+not a measured memory result. A naive record also copying every dependency prefix
+can use O(|N| * L + |N| * |T| * (L + 1)) edges; fact-count bounds alone do not
+bound those copied prefixes, syntax retention or rendered text.
+
+Production associations require current grammar identity and occurrence data.
+Live syntax can retain source containers and other context; counting associations
+is not a heap measurement. Shared dependency graphs avoid duplicating each proof
+subtree in storage, but rendering without shared references can still expand the
+output. Shortest-witness selection is not included in first-cause capture.
+
+| Complete task/control | Measure separately | Required semantic observation |
+|-----------------------+--------------------+-------------------------------|
+| Cold compile, explanation not requested | Expansion, admission, lowering/facts, LR construction, publication and allocation | Existing production/fact/product parity |
+| Cold compile with a fact diagnostic | Cause capture and rendering, witness nodes/edges, peak retained data | Finite checked cause and accurate author text |
+| Current-source declaration with parser cache hit | Cache lookup/load versus requested lowering/analysis replay | Same grammar/facts; current coordinates |
+| Edited source with unchanged grammar semantics | Contextual identity and retained syntax lifecycle | Parser facts may match; diagnostic locations follow current source |
+| Long nullable prefix and shared recursive dependencies | Prefix evidence size, capture work and bounded rendering | No self-dependent cause or fabricated completion |
+| Normal parser invocation | Single-request P50/P95 and concurrent throughput under existing harness | Same recognition, events, fields and spans |
+
+Compile-time explanation work is not parse latency. Track actual phase durations,
+allocation and request counts before making an optimization claim. A warm parser
+cache cannot stand in for an uncached declaration benchmark, and a failing
+process-completion gate cannot be counted as a benchmark pass. Reuse the existing
+language corpus and benchmark owners; do not add a new author benchmark protocol.
+No numerical overhead, memory improvement or end-to-end speedup is established
+by this cost model.

@@ -1,0 +1,918 @@
+#+title: Scheme DSL engine admission and artifact publication
+#+date: 2026-10-06
+
+Scope: elaboration, canonical admission, contextual identities, publication and
+cache reuse. These are engine responsibilities beneath the [[file:scheme-dsl-author-interface.org][three author interfaces]].
+Read the [[file:scheme-deflanguage-design-synthesis.org][design overview]] for decisions and [[file:scheme-dsl-semantic-contracts.org][semantic contracts]] for effective
+field/source obligations. Exact source studies remain supporting evidence.
+
+* Canonical admission contract for the same complete package
+
+The next design boundary is the transition from Scheme elaboration and checked
+POO composition into artifact compilation. Source inspection confirms that
+[[file:../../src/compiler/parser-ir.ss][compile-parser]] already accepts canonical Grammar IR v1 and copies its
+=compositionDigest= into Parser IR. The research
+[[file:../../t/fixtures/language-pack-research/list-stage.ss][list-stage adapter]] instead reifies selected sections into a new
+=deflanguage-grammar= declaration. In
+[[file:../../src/compiler/language-artifact.ss][expand-language-grammar-syntax]], that declaration builds a fresh Grammar IR
+without the composition digest. This locates the missing connection in the
+adapter/declaration boundary, rather than in LR compilation.
+
+** One admitted grammar, several deliberately different outputs
+
+For the list package, the proposed compiler contract is to accept the composed
+canonical grammar together with declaration context, then derive Bound IR and
+Parser IR from that same admitted grammar. Existing
+=compile-language-declaration-artifacts= already takes grammar plus compiler
+closures. An internal extraction/reuse of that path is a design option; a new
+public declaration clause has not been selected or implemented.
+
+#+begin_src scheme
+;; Design witness using existing functions; not the final author-facing API.
+;; The caller supplies the package grammar and effective source map.
+;; This function illustrates the common input boundary, not artifact publication.
+(def (study-canonical-package grammar origin lineage source-map)
+  (let-values (((canonical receipt) (compile-grammar/receipt grammar)))
+    (values canonical
+            receipt
+            (bind-grammar-ir canonical origin lineage source-map)
+            (compile-parser canonical))))
+
+;; Question 1: Why is this DSL design better?
+;; Scheme vocabulary and POO contributions converge on one admitted grammar value.
+;; The compiler keeps responsibility for binding, LR construction and artifacts.
+;; A macro need not replay the package declaration or reconstruct compiler metadata.
+;; Its author-facing freedom is constrained by the same canonical grammar contract.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Compare the original canonical input with each derived or reloaded output.
+;; Distinguish preserved metadata, resolved bindings and observable parse semantics.
+;; The staged DSL architecture motivates extensibility before compilation;
+;; the actual preservation claim must pass this engine's native controls.
+;; Falsifiers: a lost digest, stale effective source, changed events or an artifact
+;; cache that returns output compiled from a different admitted/contextual input.
+;; Limit: this witness is not an executed complete package or a selected public API.
+#+end_src
+
+Passing an already canonical value to =compile-grammar/receipt= returns that value
+and =#f= for the receipt. It does not recover prior composition history. Therefore
+an earlier receipt must travel explicitly if the package promises to expose it;
+re-normalizing canonical data cannot synthesize verified history.
+
+** Identity, context and publication are separate promises
+
+| Data | Existing meaning | Proposed preservation obligation |
+|------+------------------+----------------------------------|
+| Canonical grammar | Effective normalized rows and grammar policy | Bind and compile the exact admitted value; do not reconstruct selected sections |
+| compositionDigest | Digest of composition step descriptions | Preserve through Parser IR and reload; not proof of full contribution contents |
+| Receipt grammarIrDigest | Digest of normalized body before compositionDigest insertion | Verify against that body convention; do not equate it with the complete enriched IR digest |
+| Bound IR sources | Source records selected by namespace/name | Use effective row ownership after mutation; supplied records are not automatically authenticated |
+| Expansion lineage | Explicit declaration-context input | Preserve its stated meaning without claiming a complete macro expansion chain |
+| Declaration cache key | Generator contract, declaration identity and grammar | Include every contextual input that affects cached bound/parser outputs |
+| Artifact locator/digest | Identity of serialized published content | Verify load/schema/content under existing artifact machinery |
+| Runtime observations | Recognition, events, fields, spans and roundtrip | Compare the same package with the explicit semantic control |
+
+The current declaration cache keys =declaration-identity= and =grammar=;
+=declaration-identity= contains origin, lineage and source map. A canonical
+admission path should preserve that dependency when reusing the cache owner.
+Receipt persistence is a separate decision: retaining a digest in Parser IR does
+not mean the full receipt is stored in the published language descriptor.
+A receipt excluded from executable compilation may need its own artifact identity;
+that choice should not be hidden inside the grammar digest.
+
+** Verified engine reuse: declaration context and parser caching
+
+The existing [[file:../../t/fixtures/language-pack-research/provenance-study.ss][provenance-study control]] now exercises
+=compile-language-declaration-artifacts/output-dirs= for the same POO-composed
+call/array grammar. This is an engine integration study: compiler closures and
+source records are infrastructure inputs, not additional author declarations.
+No production API or cache algorithm was changed.
+
+A new temporary output root makes the first invocation a declaration/parser
+cache miss. Counter checks distinguish actual Bound IR and Parser IR compiler
+calls from locator reuse. Changing only the declaration origin from
+=cache-owner-A= to =cache-owner-B= leaves the canonical grammar, lineage and
+supplied descriptive source map unchanged.
+
+| Invocation | Declaration result | Cumulative bound/parser compiler calls | Artifact observations |
+|------------+--------------------+----------------------------------------+-----------------------|
+| First origin A | miss | 1 / 1 | Reloaded Grammar IR equals admitted canonical input; Parser IR retains compositionDigest |
+| Repeat origin A | hit | 1 / 1 | All three locators equal the first invocation |
+| Change origin to B | miss | 2 / 1 | Bound locator changes; grammar/parser locators remain equal; reloaded binding originModule becomes B |
+
+The componentOwner source facet remains =call-arguments= after that origin change.
+This distinguishes declaration context from the effective component source;
+one is not a substitute for the other. It does not test changed reader locations,
+source-map rows, lineage, grammar rules, target products or artifact corruption.
+
+The bounded invocation on 2026-10-06 was:
+
+#+begin_src sh
+PARSER_RESEARCH_ARTIFACT_ROOT="$(mktemp -d /private/tmp/parser-package-cache.XXXXXX)" \
+  GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/provenance-study.ss
+#+end_src
+
+The expanded driver emitted =PROVENANCE-STUDY-OK: 31 checks passed= and exited 0.
+This consists of the previous 17 identity/artifact controls plus 14 cache and
+reload controls, not 31 new independent package observations. A fresh output root
+is required to reproduce the cache-miss expectations; it is not a cold-start
+runtime benchmark. The earlier actual-language driver timeout remains separate.
+
+#+begin_src scheme
+;; Existing engine boundary, with canonical input and contextual binding input.
+;; This is a compiler-side witness, not code required in grammar.ss or parser.ss.
+(compile-language-declaration-artifacts/output-dirs
+  (list origin lineage source-map)
+  canonical-grammar
+  (lambda () (bind-grammar-ir canonical-grammar origin lineage source-map))
+  (lambda () (compile-parser canonical-grammar))
+  output-roots)
+
+;; Question 1: Why is this DSL design better?
+;; Three user interfaces can delegate publication and invalidation to one engine owner.
+;; A contextual change refreshes the bound product without requiring a user cache switch.
+;; Preserving canonical input avoids manual reconstruction of composition metadata.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; A fresh-root miss, repeated hit and origin-only change form matched controls.
+;; Compiler-call counters and reloaded identities test distinct cache responsibilities.
+;; Falsifiers: stale binding origin, lost composition digest, changed canonical payload
+;; or an incorrect parser reuse after an input affecting parser compilation changes.
+;; Limit: only origin-context changes were tested; no speedup or full DSL composition
+;; admission is established by compiler-call counts.
+#+end_src
+
+The implementation recommendation can now be more precise: reuse the existing
+publication/cache owner when admitting composed canonical grammar. The unresolved
+work is the DSL-to-compiler connection and descriptor/machine publication,
+including effective source collection. Creating another cache manager or asking
+language authors to supply those compiler closures is not justified by this study.
+The low-level success does not make the section-reifying adapter metadata-complete.
+
+** DSL admission plan within the fixed three user interfaces
+
+The verified expression package and the verified canonical publication control
+establish two parts of one architecture. The remaining connection must be owned
+by the engine. Keep =deflanguage= as the package declaration, the checked Loader
+as the parser entry and the existing declarative test interface as the expectation
+surface. Low-level compiler closures, source-map records and helper factories
+must not become required user declarations.
+
+Source inspection of [[file:../../src/compiler/concise-language.ss][the concise compiler owner]] locates two boundaries:
+=expand-surface-syntax= recursively elaborates vocabulary while retaining author
+occurrence associations; later code validates rules, derives catalogs and submits
+a compile-time =language-declaration= record directly. The explicit grammar surface
+reads its clauses into the same record. In [[file:../../src/compiler/language-artifact.ss][the declaration compiler]],
+=expand-language-declaration-syntax= collects source rows, constructs one canonical
+grammar, binds/compiles/publishes it and emits runtime assembly from that same value.
+A named compilation-result record retains the grammar and all three artifact
+locators; source associations are consumed before runtime emission.
+This inspection identifies where original syntax can be retained. It does not
+establish that every current location is absent or wrong; exact reader-location
+qualification remains a separate requirement.
+
+| Engine stage | Proposed responsibility | Reuse and qualification boundary |
+|--------------+-------------------------+----------------------------------|
+| Read and elaborate author DSL | Retain author syntax and bad-parameter context while expanding vocabulary | Existing Gerbil macros and scoped-context studies; no full expansion-chain promise |
+| Collect declaration contributions | Associate authored/generated rules with origins and supported targets | Existing checked roles; combined DSL contribution surface pending |
+| Select effective contributions | Apply explicit operations; resolve ownership under override/remove | POO normalizer now captures effective occurrence/source association; production author clause pending |
+| Establish effective catalogs | Derive or validate catalogs against selected rules and explicit public tree contract | Existing inference/projection; ordering for combined components needs design |
+| Admit canonical grammar/context | Supply one canonical grammar plus effective origin/lineage/source information | Existing binding, parser compiler and verified publication/cache owner |
+| Publish runtime descriptor and machine | Reuse current machine/descriptor assembly with admitted artifacts | Existing mechanism; composed-input bridge not yet qualified |
+| Explain and test | Show authored intent, effective rows and analysis facts; execute test expectations | Existing selected DSL checks; integrated origin/product explanations pending |
+
+The engine should collect origins before lossy representation conversion, and
+associate them with effective declaration identities after composition. A generated
+helper can point to its author invocation and template definition without inventing
+a reader token for the helper itself. A source-free input must keep an explicit
+absent location. Host syntax context and persistent source records serve different
+purposes; arbitrary syntax objects need not become serialized grammar payloads.
+
+Catalog derivation is also an ownership decision. An override can change the
+fields emitted by a rule, while an explicit public tree contract may intentionally
+retain optional fields. Neither unconditional union of all historical contributions
+nor unconditional pruning to currently emitted fields is sufficient. The design
+must distinguish inferred effective fields from explicitly retained public fields,
+using the existing =node-fields= mechanism where applicable. The declaration
+compiler then validates their relationship once at its admission boundary.
+
+See [[file:scheme-dsl-semantic-contracts.org][the semantic contract module]] for matched inferred/retained field controls.
+
+*** Reuse catalog projection after effective contribution selection
+
+Source inspection and the expanded [[file:scheme-dsl-semantic-contracts.org][semantic controls]] identify an existing
+admission mechanism: =project-language-catalog= validates a published catalog
+over supplied inferred kinds and terminals. It is a validator/projector, not a
+field inference pass. The DSL engine must supply the appropriate effective inputs.
+
+The proposed dependency order is:
+
+1. Elaborate author vocabulary while retaining origins.
+2. Select effective rule contributions and effective ownership through checked composition.
+3. Derive effective kinds/fields/terminals using existing concise inference.
+4. Apply explicit optional-field obligations such as =node-fields=.
+5. Validate any published projection with the existing catalog owner.
+6. Bind and compile the admitted canonical grammar, then publish through existing caches.
+
+This is a design order for the combined DSL path. Current raw POO catalogs remain
+explicit canonical data; this plan does not claim that composition automatically
+re-runs concise inference today. Exact provenance selection and integration of the
+currently local inference code still need implementation and qualification.
+
+#+begin_src scheme
+;; Existing engine API; inputs must already represent effective declarations.
+(project-language-catalog
+  effective-kinds-with-explicit-field-obligations
+  effective-terminals
+  published-catalog)
+
+;; Question 1: Why is this DSL design better?
+;; Authors keep language intent in grammar.ss; engine owns derivation and admission.
+;; Existing projection checks remove the need for another catalog validator or manual
+;; metadata synchronization in each language package.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Matched supplied catalogs test retained fields and stale/dropped-field negatives.
+;; Separate tests enforce terminal mappings and duplicate-field rejection.
+;; Falsifier: old contribution catalogs enter publication after a semantic override,
+;; or explicit public field obligations disappear during projection.
+;; Limit: supplied-catalog controls do not implement effective-rule inference or
+;; qualify the source-aware DSL-to-descriptor connection.
+#+end_src
+
+*** Source-grounded implementation route: one admitted package
+
+The architecture must connect declaration, compilation and executable publication
+in one route. This source audit identifies extraction boundaries. The concise
+elaborator and lexical owners have now been separated as recorded in the
+[[file:scheme-dsl-complexity-ownership.org::*Implemented internal owners: one author surface, explicit engine stages][implemented owner map]]. Direct canonical publication does not implement the proposed combined
+composition clause or close its effective-origin integration obligations.
+
+| Current owner | Observed responsibility | Required integration change |
+|---------------+-------------------------+-----------------------------|
+| [[file:../../src/compiler/concise-language.ss][expand-concise-language-syntax]] | Expands vocabulary, infers fields, adds node-fields, projects catalogs and submits a compile-time record directly | Retain original syntax before conversion; reuse inference over selected contributions and explicit public obligations |
+| [[file:../../src/compiler/normalize.ss][compile-grammar/receipt]] | Normalizes checked POO operations and produces canonical grammar plus a receipt | Implemented compile-grammar/context captures effective sources in the accepting fold; full receipt remains unchanged |
+| [[file:../../src/compiler/language-artifact.ss][expand-language-declaration-syntax]] | Shared direct record admission constructs grammar, captures context, publishes artifacts and emits from that grammar | Preserve effective composition and origin information when extending this admitted input; direct handoff alone does not implement combined selection |
+| [[file:../../src/compiler/bound-ir.ss][bind-grammar-ir]] and [[file:../../src/compiler/parser-ir.ss][compile-parser]] | Bind and compile canonical input | Invoke on the same admitted value with effective context; preserve their existing analyses |
+| =compile-language-declaration-artifacts= | Owns declaration identity, cache reuse and immutable artifact publication | Reuse with origin/lineage/source-map dependencies; do not install another cache |
+| =assemble-language-parser= and [[file:../../src/compiler/machine.ss][defgeneral-parser-machine]] | Load artifacts and generate the runtime machine | Emit lexical/extras inputs from the same admitted grammar used to compile Parser IR |
+| [[file:../../src/language/descriptor.ss][make-language-grammar]] and [[file:../../src/language/entry.ss][checked entry]] | Connect grammar, Parser IR, machine and protected Loader operations | Preserve existing descriptor and entry contracts; qualify the complete composed route |
+
+The declaration compiler now separates canonical construction/context capture,
+compilation/publication and hygienic emission into named phases. Its orchestrator
+passes an admitted-language-declaration to compile-admitted-language-declaration,
+then a compiled-language-declaration and named bindings to emission. The canonical
+POO publication control supplies the normalized grammar and its source context
+directly to that same compilation phase, retaining composition metadata and all
+three reloaded products. The normalizer now selects effective occurrence sources
+under merge/append/override/remove. The existing composed fixture reaches shared
+canonical emission and checked runtime entry, preserving the complete grammar
+and composition identity. A production combined author clause and full native
+runtime linkage remain open gates.
+
+Emission still needs structured sections. Deriving these *from* the admitted
+canonical grammar is different from rebuilding canonical grammar *from* selected
+sections: the former keeps the authoritative value intact. The engine must validate
+and adapt the canonical expression representation for the existing macro consumers;
+it must not pass the pre-composition declaration as an independent runtime input.
+
+**** The machine is a second consumer of the admission result
+
+=assemble-language-parser= supplies both the reloaded Parser IR and declaration
+sections to =defgeneral-parser-machine=. In that macro, =lr-prepare= reads =lr-spec=
+from Parser IR, while =generated-lexer= consumes the supplied lexical rows and
+extras. The trivia predicate also consumes those extras; the lexical source plan
+reads lexical rules from Parser IR. Rule rows and entry rows appear in the macro
+pattern, but this implementation does not evaluate their expression bodies.
+
+Consequently, a metadata-preserving compiler bridge could still create an
+inconsistent runtime if it emitted stale lexical rows or extras alongside the new
+Parser IR. This is a design hazard identified by the consumer audit, not evidence
+that an existing package currently exhibits that failure. The machine's
+=grammar-digest= argument is taken from the encoded Parser IR artifact locator;
+it must not be replaced with =compositionDigest= or the receipt's body digest.
+
+The expander also receives syntax bindings for assembly, descriptor construction,
+=begin= and =def=. Reuse those bindings when extracting emission. Generated public
+names use the declaration's syntax context; implementation helpers must retain
+their actual bindings. Replacing this with guessed symbol names would discard a
+concrete Scheme advantage while apparently simplifying the emitted S-expressions.
+
+#+begin_src scheme
+;; Existing grammar.ss vocabulary; there is no fourth author interface.
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Existing engine calls illustrate the admission-to-publication boundary.
+;; canonical and effective-sources are engine results, not author bookkeeping.
+(compile-language-declaration-artifacts
+  (list origin lineage effective-sources)
+  canonical
+  (lambda () (bind-grammar-ir canonical origin lineage effective-sources))
+  (lambda () (compile-parser canonical)))
+
+;; Question 1: Why is this DSL design better?
+;; Compared with section replay and manually synchronized component metadata,
+;; Scheme vocabulary reuses syntax-aware elaboration and one compiler admission.
+;; The engine owns effective catalogs, origins, artifact identity and machine inputs.
+;; Authors express reusable grammar intent and retain the same checked entry/tests.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Staged DSL papers motivate extension-to-core-to-compiler separation; this source
+;; audit identifies each actual producer and consumer in the Gerbil implementation.
+;; Qualify the complete package using independent semantics, reload and contextual
+;; controls, including a lexical/extras change that reaches the running machine.
+;; Falsifiers: stale lexer/trivia, lost composition identity, wrong effective owner,
+;; changed tree contract or required author knowledge of internal compiler closures.
+;; Limit: the illustrated publication call is not a completed composed DSL path,
+;; and neither papers nor source inspection establish a performance improvement.
+#+end_src
+
+**** Finalize effective facts before sealing canonical identity
+
+The current =compile-grammar/receipt= normalizes every keyed section, forms the
+body, computes =grammarIrDigest= over that body, and only then inserts
+=compositionDigest=. Passing an already canonical list returns no new receipt.
+The concise front end currently derives catalogs before its separate canonical
+constructor. Combining those two paths creates a dependency that the design must
+make explicit: effective rule selection must precede derived field catalogs, but
+receipt/body sealing must follow the final catalogs.
+
+Do not normalize into a sealed canonical value, patch its catalogs afterwards and
+carry the earlier receipt as if it described the patched body. Parser compilation
+may succeed while the receipt describes a different admitted input. This is an
+integration hazard, not an observed failure of the existing raw POO path.
+
+The required internal extraction is a selection/finalization boundary in the
+existing normalizer: reuse its ordered keyed operations to select rows; derive
+concise catalog facts using the extracted existing inference owner; then finalize
+and hash the complete body under the existing receipt convention. Raw POO catalog
+rows remain explicit checked data and must keep their existing operation behavior.
+This is a proposed internal refactor, not a new public normalizer callback or a
+second implementation of row selection. Whether derived catalogs need additional
+receipt explanation is a design decision; step descriptions must not masquerade
+as a verified history of inferred facts.
+
+The same selection must also determine effective source ownership. A source-map
+pass that independently reimplements override/remove would create another state
+machine to maintain. Record effective ownership where the existing row operation
+selects, replaces or removes a row, then project descriptive persistent sources.
+Specify the identical-row merge ownership convention explicitly before exposing
+it; equal row contents alone do not select one of several author locations.
+
+#+begin_src scheme
+;; Existing normalizer result, followed by the existing publication owner.
+;; The proposed DSL integration must finalize derived catalogs before producing
+;; this result. It must not mutate canonical after receiving receipt.
+(let-values (((canonical receipt) (compile-grammar/receipt checked-grammar)))
+  (compile-language-declaration-artifacts
+   (list origin lineage effective-sources)
+   canonical
+   (lambda () (bind-grammar-ir canonical origin lineage effective-sources))
+   (lambda () (compile-parser canonical))))
+
+;; Question 1: Why is this DSL design better?
+;; One ordered selection determines grammar facts and owners; one finalized input
+;; determines receipt, artifacts and machine, avoiding synchronized parallel passes.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Check the receipt against the actual final body's digest convention and reload
+;; the published canonical input; pair those checks with independent parse events.
+;; Falsifier: post-seal catalog mutation or ownership derived from different steps.
+;; Limit: this block shows existing calls, not the proposed extraction implementation.
+#+end_src
+
+**** One acceptance sequence, with explicit design decisions
+
+Start with the existing complete declaration in =grammar.ss= and its entry/test
+surfaces. The contribution/owner/compose candidate is withdrawn; this engine
+route does not require its adoption. Specify any required internal normalization
+and publication extraction against a concrete package change, preserving the
+existing author vocabulary and interfaces.
+
+Exercise one complete package through that route: replace a contribution, preserve
+an explicitly optional public field, select the effective source, change lexical
+or trivia policy, reload artifacts and parse through the checked Loader. Its
+assertions must connect the canonical input, contextual Bound IR, Parser IR,
+emitted machine and independent tree/events expectations. Existing local controls
+remain supporting evidence; their check counts cannot substitute for this route.
+A bounded native invocation must finish with exit 0. Performance is a later,
+separate measurement of expansion/compilation, loading and actual parse execution.
+
+This implementation route follows the extension/core/compiler boundary in
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]] and the declaration-dependency treatment
+in section 7.2 of [[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]]. The pinned implementation reading in
+[[file:scheme-dsl-research-basis.org][the research basis]] supplies a concrete comparison of thin entries and compiler
+owners. These are one architecture argument; Racket-specific binding machinery
+and miniKanren optimization passes are not proposed parser dependencies.
+
+** Effective origins follow composition before binding
+
+The normalizer now captures effective occurrence context in the same fold that
+accepts keyed rows. compile-grammar/context returns a named normalized-grammar
+result containing canonical IR, the unchanged composition receipt and effective
+selections. Existing compile-grammar/receipt callers omit source capture. There
+is no second operation validator or receipt-replay normalizer.
+
+| Accepted operation | Effective source policy | History policy |
+|--------------------+-------------------------+----------------|
+| merge of a new key | Select that occurrence | Start effective history |
+| merge of an equal row | Keep the first selected occurrence and its source | Append the accepted duplicate to history |
+| append | Select the new occurrence | Start effective history |
+| override | Select the replacement occurrence without changing row position | Retain prior effective history and append replacement |
+| remove | Remove row and its effective source | The complete receipt still retains the removal |
+| remove followed by append | Select the newly appended occurrence | Start new effective history; the receipt retains the earlier lifecycle |
+
+These are the existing parser contract's internal operation labels, not a
+recommended new author operation DSL. Native .o/inherited-slot author controls
+now use the same canonical emission and checked entry route; see
+[[file:scheme-poo-language-components.org::*Native POO substrate and parser operation labels][native substrate qualification]]. Their prototype semantics are supplied upstream;
+parser admission still validates the resulting grammar and source associations.
+
+A metadata callback receives the actual role object, flattened step index,
+section and row, after that row operation is accepted. Repeated role names cannot
+collapse distinct occurrences. Removed and rejected rows do not acquire an
+effective source. This policy is a local engine decision, not an algorithm
+prescribed by the papers. The existing row operation owner still rejects missing
+override/remove targets, conflicting merges and duplicate appends.
+
+normalized-grammar-source-map projects the selected rows into existing Bound IR
+namespaces. Fields inherit the selected explicit syntax-kind catalog source with
+the existing qualified key order (kind field); this does not infer a new field
+catalog from effective rules. The engine supplies selected owner, operation,
+step and effective history. Reader coordinates and generated status come from
+supplied metadata. Missing coordinates fall back to origin; generated status is
+not invented. Fixture labels are declared fixture locations, not reader spans.
+
+#+begin_src scheme
+;; Implemented engine handoff; this is not an additional author DSL.
+(def normalized (compile-grammar/context composed-grammar source-at-occurrence))
+(def canonical (normalized-grammar-ir normalized))
+(def sources (normalized-grammar-source-map normalized origin))
+(def admitted
+  (make-admitted-language-declaration canonical origin lineage sources))
+(expand-admitted-language-declaration-syntax
+ declaration admitted compile-parser bind-grammar-ir
+ #'assemble-language-parser #'make-language-grammar #'begin #'def)
+
+;; Question 1: Why is this design better?
+;; Selection, source ownership and canonical rows share one acceptance fold.
+;; Native macro elaboration and POO construction can feed one canonical compiler;
+;; neither authors nor source adapters replay a whole declaration to publish it.
+;; The engine derives binding sources and machine input from accepted products.
+;; Question 2: Why does this design have a scientific basis?
+;; The extensible-surface/core compiler architecture motivates the shared route;
+;; declaration dependency checking motivates selection before binding. Matched
+;; IR/receipt equality, stale-source controls and full-event comparisons make
+;; the implementation claims falsifiable. They do not prove optimal syntax,
+;; improved author task times or faster parsing.
+#+end_src
+
+The existing list-stage fixture now enters that route directly. Its grammar
+module is list-language.ss, checked entry is list-parser.ss and independent
+conformance is list-parser-test.ss. list-runtime.ss is verification infrastructure,
+not a fourth required author interface. Two independently identified policies
+qualify the ordinary list and an override/remove variant through checked Loader
+entries. The full canonical Grammar IR and compositionDigest survive publication
+and machine emission; no section-reification bridge reconstructs canonical input.
+
+The joint catalog override controls retain explicit optional fields and qualify
+their selected origins. The append-only fixture source map remains a negative
+control: it demonstrably selects stale metadata after override. Whole native
+runtime linkage, a production public composition clause and arbitrary extension
+source capture remain separate gates. Gerbil syntax utilities provide actual
+syntax/source access; they do not recover reader locations from canonical data.
+
+** Connect analysis evidence to author syntax before publication
+
+Read this with [[file:scheme-dsl-semantic-contracts.org::*Derived facts after expansion: nullable, FIRST and completion][the derived-fact contract]]. A nullable result or FIRST
+membership describes a lowered grammar. A useful author diagnostic additionally
+needs the failed author promise, its dependency evidence and a truthful source.
+A generic nullable item is not itself an error. No new promise or rejection is
+introduced merely to exercise diagnostics.
+
+*** Existing seams and the information they retain
+
+| Source seam | Current observation | Consequence for the integrated route |
+|-------------+---------------------+--------------------------------------|
+| =expand-surface-syntax= in [[file:../../src/compiler/concise-language.ss][concise-language.ss]] | Recursively expands a nonprimitive with =core-expand1=, then emits datum; =macro-lineage= records names | Retain invocation syntax and primitive occurrence paths before datum conversion; the unique lineage list is not an expansion trace |
+| Concise compiler record | Submits normalized rules and derived catalogs without macro replay | Keep original declaration syntax across defaults; extend effective source associations without fabricating parameter origins |
+| [[file:../../src/compiler/language-artifact.ss][compile-language-declaration]] | Collects declaration-name locations and supplied source ownership | Row origin is useful fallback; it is not a subexpression or dependency explanation |
+| [[file:../../src/compiler/bound-ir.ss][bind-grammar-ir]] | Selects a source record per namespace/name and incorporates source/lineage in identity | Reuse this persistent declaration owner; keep richer transient syntax outside portable IR unless its contract is deliberately extended |
+| [[file:../../src/compiler/lr.ss][lower-rules]] | Generates production ids and synthetic nonterminals from expression structure | Associate emitted productions with the effective rule and expression occurrence at this owner; do not reverse-engineer a synthetic name into an author location |
+
+These are source-inspection conclusions, not implemented diagnostic propagation.
+The existing source-location fallback may contain an origin description rather
+than reader coordinates. A renderer must distinguish that description from a
+verified coordinate and preserve explicit unknown locations.
+
+*** Native Gerbil mechanisms and the minimum engine seam
+
+Source inspection used the installed Homebrew distribution
+=gerbil-scheme@0.19/0.19.2591dcd.patchf5cedd8168cb=, bundled source directory
+=2591dcd=. This identifies the inspected installation, not a claim that all
+upstream revisions or package patches behave identically.
+
+In =src/gerbil/expander/core.ss=, =core-expand1= resolves the head binding and
+applies its expander. =core-apply-expander= wraps a procedure's result using the
+input source when available. In =stx.ss=, =stx-wrap-source= returns an already
+wrapped AST unchanged; otherwise it supplies an outer AST when a source exists.
+This agrees with the [[https://gerbil.scheme.org/reference/gerbil/expander/utilities.html][official source utility contract]]. It does not recursively
+annotate all generated children or produce a complete author/definition chain.
+=core-apply-user-macro= separately applies expansion marks for lexical context.
+Hygiene and source attribution are distinct mechanisms.
+
+Therefore the parser should reuse those syntax objects and record invocation
+associations at its existing expansion boundary. It should not patch Gerbil's
+expander, overwrite template coordinates with call coordinates, or equate matching
+datum with matching occurrence. Direct primitives, substituted argument syntax
+and generated wrappers can have different available origins. Preserve those
+origins and describe the precision actually known.
+
+For lowering, =make-production= currently publishes five elements: id, lhs, rhs,
+action and precedence. =production-table= indexes those productions by id;
+=compile-lr-spec/selected= lowers once and feeds the same products through analysis
+and construction. The minimum design seam is a transient association keyed by
+production id for that exact invocation, populated at the existing =emit= sites
+from threaded expression occurrence information. It is not a globally stable
+production identity. Rule edits can renumber productions and synthetic names.
+Do not extend every runtime production or portable artifact merely to carry live
+syntax. Persistence, if required by an actual tooling consumer, needs a separately
+specified source projection and contextual cache dependency.
+
+The [[file:scheme-dsl-semantic-contracts.org::*Finite explanations belong to the existing fact owner][finite-explanation design]] specifies when analysis causes can be recorded
+without a second solver. A checked transient association connects those production
+causes to retained syntax; Bound IR remains the declaration-level persistent
+source owner. Both associations must be derived from the same effective grammar.
+These seams are researched implementation choices, not current capabilities.
+
+On 2026-10-06 the existing =source-free-diagnostics.ss= control was rerun
+under =gtimeout -k 2 10=. All six assertions and
+=SOURCE-FREE-DIAGNOSTICS-OK: 6 checks passed= completed with exit 0. It preserves
+absent author/path/location data while retaining typed parameter blame and known
+template detail. This qualifies the missing-source boundary, not production
+associations or analysis explanation generation.
+
+*** Implemented first slice: concise author blame
+
+On 2026-10-06, [[file:../../src/language/grammar.ss][deflanguage]] gained declaration-local source associations while
+expanding existing vocabulary. Fresh compound datum identity distinguishes equal
+expressions at different occurrences; rule and operand associations retain reader
+syntax for atomic parameters. Existing expression validation consumes those
+associations and keeps the whole declaration as supporting context. Unknown
+reference/token parameters and unknown constructor heads retain their existing
+error messages and rejection policy.
+
+Inside macro expansions the retained outer author invocation is conservative
+blame. The implementation does not infer arbitrary transformer parameter origins
+from equal datums or template coordinates. Source-free input retains absent
+coordinates. Associations are local expansion data; they are not serialized into
+Grammar/Bound/Parser IR, caches or runtime productions. Existing datum lowering,
+field inference and artifact owners remain the output path.
+
+The [[file:../../t/language-diagnostics-test.ss][diagnostic suite]] uses existing admission failures and checks messages,
+blame data, declaration context and source text at actual reader coordinates.
+The [[file:../../t/fixtures/language-diagnostics-vocabulary.ss][vocabulary fixture]] includes a deliberately invalid library template to
+check that a generated unknown constructor points to its author call. Non-syntax
+exceptions and unexpected acceptance are test failures, not accepted diagnostics.
+
+| Bounded local qualification | Receipt |
+|----------------------------+---------|
+| Focused author diagnostics | Five test cases, SUITE-OK, LANGUAGE-DIAGNOSTICS-OK, exit 0 |
+| Existing language-surface suite | Five cases, SUITE-OK, LANGUAGE-SURFACE-OK, exit 0 |
+| Complete expression call/array package | Eleven cases, SUITE-OK, PACKAGE-EXPRESSION-DSL-OK, exit 0 |
+| Changed grammar module native compilation | gxc -O -s to isolated output; phase-zero/one .o1, .ssi and optimizer metadata produced; exit 0 |
+
+Every invocation used =gtimeout -k 2 10= with the project load path. Native
+compilation writes only to a temporary output directory. A subsequent diagnostic
+run put that fresh output first on GERBIL_LOADPATH and passed the same five
+cases, SUITE-OK and LANGUAGE-DIAGNOSTICS-OK with exit 0. The suites qualify their selected semantic observations, not all-input
+product equivalence or a benchmark improvement. No compilation overhead has been
+measured. Tests do not qualify source-aware POO selection, lowered-production
+associations, recursive witnesses or portable tooling projections.
+
+This implements the first task from [[file:scheme-deflanguage-design-synthesis.org::*First complete task: diagnose an existing invalid declaration][the decision review]]. The earlier seam audit
+is historical for concise source collection: expression associations now exist,
+while declaration publication and LR explanation seams remain open. The broader
+route below keeps those distinctions explicit.
+
+*** Implemented follow-up: validate rules before deriving fields
+
+The next complete diagnosis task exposed a remaining dependency seam: a root node
+references a helper declared later, and that helper contains =(field argument)=.
+The original inference walked raw helper expressions before their validation and
+reported the whole declaration. The added regression observed that wrong blame;
+its first invocation emitted a failed check and exited 124. A later SUITE-OK in
+that failing transcript is not a pass; neither deadline nor acceptance expectation
+was relaxed.
+
+The implementation now normalizes and validates all rule bodies with their retained
+syntax before deriving node fields. Existing field inference consumes that same
+normalized rule set. Node registration remains postorder, references retain their
+visited-name guard, named nodes stop field propagation and alternatives retain the
+existing ordered field union. This is a phase adjustment inside the existing owner,
+not a new field algorithm, reference resolver or author configuration. Invalid
+helpers are diagnosed by existing shape checks before inference can dereference
+their operands. Diagnostic priority now puts rule validation ahead of dependent
+field inference; no general multi-error ranking contract is claimed.
+
+The focused suite adds the forward malformed field and malformed unary/reference
+helpers. All seven cases pass with SUITE-OK, LANGUAGE-DIAGNOSTICS-OK and exit 0,
+both from source and with fresh native grammar output first on GERBIL_LOADPATH.
+The existing surface suite passes five cases; the complete expression package
+passes eleven. All runs use =gtimeout -k 2 10=. The changed grammar module compiles
+with =gxc -O -s= to isolated phase-zero/one products and exits 0.
+
+An additional native before/after control uses the previous first-slice output
+and the new output separately. Its malformed-helper blame head is =deflanguage=
+before and =field= after, confirming the distinct macro implementations. It also
+serializes the complete call/array Grammar IR and Parser IR: both snapshots contain
+6661 bytes and =cmp= exits 0. Snapshot capture exits 0 on both sides. This is exact
+product parity for that package, not every possible grammar or runtime backend.
+The initial temporary snapshot runner selected its own script as the output due
+to an incorrect command-line index; it was repaired before admitting these receipts.
+That harness failure is not a parser or IR failure.
+
+See [[file:scheme-dsl-semantic-contracts.org::*Field derivation uses the validated grammar][the field-derivation contract]] for the Scheme rationale and semantic limits.
+No compilation performance or memory improvement has been measured. General
+source-aware POO selection, LR production origins and recursive witnesses remain
+outside this implemented slice.
+
+*** Declaration obligations retain author syntax
+
+The same admission path now uses retained syntax for two cross-expression checks:
+the root body must construct one node, and a syntax kind cannot be both node and
+token. Existing acceptance policy, messages and checking order are preserved.
+The root check selects its single authored body or the whole authored rule row
+for multiple bodies. The kind collision selects the first encountered node-kind
+parameter; vocabulary-generated nodes retain the conservative invocation fallback.
+Declaration-local rule/kind associations do not enter any serialized product.
+
+The regression first failed both blame checks with exit 1, despite SUITE-OK.
+An earlier harness mistakenly wrapped the non-node root in a valid node and was
+correctly admitted; that invocation exited 70 and is not implementation evidence.
+After correcting the author task and changing the existing owner, all nine
+=language-diagnostics-test= cases pass from source and fresh native output, exit 0.
+The controls include direct/macro roots, an authored multiple-body row,
+direct/generated kind collisions and source-free input. Existing five surface
+and eleven complete package cases also pass; =gxc -O -s= exits 0.
+
+Matched native snapshots identify the old root blame as the complete declaration
+and the new blame as =identifier=. Both package product snapshots are 6661 bytes;
+=cmp= exits 0. This qualifies the call/array Grammar IR and Parser IR only.
+The [[file:scheme-dsl-semantic-contracts.org::*Declaration obligations explain the authored term][semantic rationale]] connects this result to Fortifying Macros section 4.2.
+Arbitrary transformer parameter origins, two-sided collision locations and POO/LR
+provenance remain open; no performance improvement is claimed.
+
+*** Integrated constructor admission and native qualification
+
+The current implementation closes one expression-admission boundary across
+=deflanguage= and =deflanguage-grammar=. The canonical algebra's shared header
+predicate owns arity/scalar constraints; its recursive membership predicate and
+source-aware compiler traversal consume the same constraint definition. The latter
+retains syntax through rule lowering and rejects malformed headers before list
+access. Concise projection preserves its existing shape messages and delegates
+remaining literal/layout/precedence scalar constraints to the canonical owner.
+Low-level malformed constructors now produce =invalid GrammarExpr declaration=
+with the offending expression and declaration context, rather than downstream
+list-access or parser-production errors. Accepted package schemas remain unchanged.
+
+| Integrated native qualification | Cases / result |
+|---------------------------------+----------------|
+| Author diagnostics and canonical admission matrix | 12 cases, LANGUAGE-DIAGNOSTICS-OK, exit 0 |
+| Existing grammar composition, precedence and LR suite | 31 cases, GRAMMAR-COMPOSITION-OK, exit 0 |
+| Existing concise/explicit language surface | 5 cases, LANGUAGE-SURFACE-OK, exit 0 |
+| Complete call/array package, including exact tree/spans | 11 cases, PACKAGE-EXPRESSION-DSL-OK, exit 0 |
+| Algebra, language-artifact and grammar native compilation | Three gxc -O -s invocations in dependency order, exit 0 |
+| Selected package product comparison | 6661-byte Grammar/Parser IR snapshot equals previous qualified snapshot; cmp exit 0 |
+
+Each compilation/test invocation used =gtimeout -k 2 10=. Fresh native outputs
+were first on GERBIL_LOADPATH. The first native matrix failed with exit 70:
+its generated macro replaced the newly added =list?= condition with true and
+malformed dotted input reached =length=. The repaired boundary uses existing
+Gerbil syntax-list traversal; the generated macro retains =gx#stx-list?= and
+all 59 native cases pass. This observes one failing guard, not a general optimizer
+defect. The earlier source matrix alone was insufficient qualification.
+
+The [[file:scheme-dsl-semantic-contracts.org::*One constructor contract across declaration entries][constructor contract]] includes the full constraint table, Scheme rationale,
+negative controls and analysis boundaries. This is a coherent compiler-entry task;
+it does not add grammar vocabulary, a second nullable/FIRST solver or runtime
+origin storage. Full declaration-section contracts, arbitrary transformer
+parameter origins and performance qualification remain open.
+
+*** Evidence lifecycle across cache hits and misses
+
+The preferred research direction is request-scoped explanation from an immutable
+snapshot of the current admitted grammar and current retained syntax associations.
+Ordinary compilation need not retain a full explanation graph for every fact.
+This is a recommendation for discussion and implementation qualification, not a
+new public mode or an implemented capability.
+
+The current [[file:../../src/compiler/language-artifact.ss][artifact owner]] has two distinct caches. Parser artifacts use generator
+contract plus grammar; declaration artifacts additionally use declaration identity
+(origin, lineage and source map). A declaration hit returns three locators without
+calling binding or compilation. A parser hit loads Parser IR without invoking its
+compile callback. The current [[file:../../src/compiler/lr-compiler.ss][LR spec]] contains productions, nullable and FIRST,
+but no first-admission evidence or expression-to-syntax association.
+
+| Situation | Proposed evidence work | Identity and lifetime obligation |
+|-----------+------------------------+----------------------------------|
+| Successful ordinary declaration | Preserve normal admission/publication; no full fact-witness graph required | Release live syntax after its compile-time consumers finish |
+| Local shape/binding failure | Use retained offending syntax and the existing typed macro diagnostic | No analysis replay for a grammar that was not admitted |
+| Explicit fact-dependent diagnostic during admission | Enable cause capture in the existing analysis owner over current admitted input | Keep immutable grammar, source associations and lowering policy together until rendering completes |
+| Current declaration with cached parser, explanation requested | Use current snapshot; invoke existing lowering/analysis with capture if cached facts have no evidence | Compare production ordering and facts if relating the explanation to cached Parser IR; do not reuse old live syntax |
+| Artifact-only tool with no current syntax snapshot | Provide available persistent declaration sources at their actual precision | Full macro/parameter explanation unavailable unless a separately qualified persisted projection exists |
+
+A fact-dependent admission promise must be checked for the current declaration,
+not only inside a compile callback skipped on a cache hit. Validated cached facts
+can answer the predicate; absent witness data may require capture to explain a
+failure. Changes to acceptance or compiled-product guarantees require the existing
+generator-contract/cache invalidation policy. A source-only edit cannot justify
+reusing old author coordinates simply because parser semantics are unchanged.
+
+When explanation requires replay, replay the existing deterministic lowering and
+fact analyses on the already elaborated, checked grammar. Do not re-expand author
+macros: arbitrary transformers can have effects, and a second invocation need not
+produce the same declaration. Do not rebuild LR states merely to explain nullable
+or FIRST. Match root, conflict-dependent lowering policy and ordered rules. If a
+cached product and replay disagree, report the inconsistency rather than silently
+attribute one product's facts to another grammar.
+
+This clarifies the earlier single-pass requirement: populate associations at the
+existing lowering owner, not by another lowering algorithm or a parallel source
+reconstruction. A requested replay can execute that same owner again; it has a
+real additional cost. It is not promised to require zero passes on cache hits.
+During a cold compilation, capture can use the existing run when requested before
+analysis; a request after completion may need replay. Persistence of witnesses
+would change the cost and cache contract and is not selected by this recommendation.
+
+#+begin_src scheme
+;; Existing analysis calls on an already admitted rules/root snapshot.
+;; This is an engine observation, not an API authors configure in grammar.ss.
+(let ((productions (lower-rules rules root allow-dynamic?)))
+  (let-values (((nullable nullable-index) (compute-nullable productions)))
+    (let-values (((first first-index) (compute-first productions nullable-index)))
+      (list productions nullable first))))
+;; Proposed capture belongs inside these existing owners, as specified in the
+;; finite-explanation contract. The calls above do not currently return witnesses.
+
+;; Question 1: Why is this DSL design better?
+;; The author obtains explanations without managing compiler/cache phases, while
+;; normal products stay under their existing owners and identities.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Compare cold/cache-hit paths on the same ordered grammar and current source.
+;; Check facts, finite causes and reader text separately from cache receipts.
+;; Falsifiers: a hit needs unavailable callback state, replay re-executes a macro,
+;; old coordinates are used for edited source, or stale facts receive fresh blame.
+;; Limit: demand-scoped capture can repeat analysis; its cost must be measured.
+#+end_src
+
+The [[file:scheme-dsl-complexity-ownership.org::*Account for explanation work and retained data][cost evaluation]] includes cache-hit requests, long prefixes and shared
+proof dependencies. This recommendation reuses fact owners and artifact caches;
+no second cache, mandatory author declaration or runtime actor is introduced.
+
+*** One route, with bounded attribution
+
+1. During expansion, retain the author rule syntax and each macro invocation.
+   Keep primitive occurrence paths through sequence/choice/wrapper traversal.
+   Hygiene identifies Scheme helpers; grammar labels remain domain labels.
+2. During effective rule selection, select the associated origins with the rule.
+   A replaced or removed rule cannot supply the active diagnostic's source.
+3. During lowering, associate each production with its originating occurrence.
+   Multiple generated productions can point to one occurrence; the association
+   must not change LR production semantics or become a second lowering pass.
+4. Consume existing nullable/FIRST results. When an explicit promise needs an
+   explanation, inspect the existing productions for a finite dependency witness.
+   Nullable witnesses justify an empty derivation; FIRST witnesses justify a
+   sentential prefix and never imply completion. Evidence capture at first fact admission is a
+   proposed consumer within those existing owners, not a second solver or current API.
+5. Report the violated promise using a known offending parameter when available,
+   otherwise the macro invocation, otherwise the effective rule, otherwise an
+   explicit unknown location. Show supporting dependency locations separately.
+   Retain the generating definition for developer detail, not as author blame.
+6. Finish admission before publication and caching. If explanatory data persists,
+   include its actual dependency/identity policy; do not attach unkeyed mutable
+   context to an already published artifact.
+
+Arbitrary =defsyntax= transformers need not preserve a one-to-one parameter map.
+A generated primitive therefore cannot automatically be blamed on a parameter
+merely because its datum equals that parameter. Identical repeated terms are
+separate occurrences. Invocation-level attribution is the honest fallback when
+no finer syntax association survives. No author-maintained source table or new
+configuration in grammar.ss is required by this design direction.
+
+#+begin_src scheme
+;; Existing author vocabulary; the engine retains the invocation before expansion.
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Existing primitive input to the same analysis owner:
+(item (reference peer))
+(peer (optional (token identifier)))
+;; Nullable(item) depends on peer's optional branch. If a consumer explicitly
+;; requires a nonnullable item, explain that dependency at the author invocation.
+;; Without that consumer promise, these rules are valid and need no rejection.
+
+;; Question 1: Why is this DSL design better?
+;; Authors keep grammar intent and semantic expectations in the three interfaces.
+;; The engine explains inferred facts in author vocabulary without asking authors
+;; to know generated LR names or maintain syntax-origin bookkeeping.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Compare the same direct and macro-authored grammar under the same promise.
+;; Check equal facts, the actual reader text at reported coordinates, and a finite
+;; production witness for the explanation. Distinguish scope from source identity.
+;; Falsifiers: stale overridden origin, blame on a template as if it were a call,
+;; fabricated parameter precision, or a FIRST prefix presented as completion.
+;; Limit: current scoped checks qualify local macro blame, not this entire route.
+#+end_src
+
+*** Paper connection and qualification order
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]], sections 4.1–4.2 and 7.2, distinguishes matching progress,
+local descriptions and declaration dependencies. Its parser example gathers
+clauses before dependent checks. Apply that separation alongside syntax-object
+and scope readings: preserve context early, resolve dependencies in the engine,
+and describe errors at the author's abstraction. The paper's alternative-pattern
+failure ranking does not define an ordering for all global grammar diagnostics.
+We do not propose importing its Racket matcher into Gerbil.
+
+The abstract-interpretation contract adds a different obligation: the explanation
+must substantiate the particular analysis observation. Hosted-DSL compilation
+adds the phase and admission boundary; POO normalization adds effective-source
+selection. Together they constrain one implementation route rather than separate
+paper-specific APIs.
+
+On 2026-10-06 the existing =scoped-author-diagnostics.ss= control was rerun
+under =gtimeout -k 2 10=. It emitted =SCOPED-AUTHOR-DIAGNOSTICS-OK: 28 checks
+passed= and exited 0. The checks cover typed errors, messages, offending parameter
+text, reader coordinates, renamed import context and a direct call after failed
+scoped expansion. They do not run the proposed analysis-witness integration.
+
+Integrate expansion and lowering associations in their current owners next.
+Compare direct/macro declarations,
+indirect nullable dependencies, duplicate identical occurrences, changed effective
+rules, renamed imports and missing reader source. Verify both explanation facts
+and actual source text, then the complete package and compiler-product gates.
+Existing focused receipts do not discharge those remaining integration gates.
+
+** Package closure criteria at this boundary
+
+Use the same call/array package for the complete preservation check:
+
+1. Admit its composed canonical grammar without section reconstruction.
+2. Verify the same composition digest at compiler input, Parser IR and reloaded artifact.
+3. Verify effective sources after append/override/remove; distinguish receipt history
+   from the selected row's source and preserve explicit absent-source cases.
+4. Exercise cache hits and contextual changes, showing which artifact identities
+   must change and which semantic observations must remain equal.
+5. Compare accepted/rejected inputs, full events, spans and roundtrip with the
+   inline control through the checked Loader and bounded artifact-loading driver.
+
+The current list-stage implementation qualifies the composed canonical route
+through publication, machine emission and checked Loader. provenance-language.ss
+now requires the complete canonical input and compositionDigest to survive.
+The selection policy and qualified ordinary/override-remove controls are described
+[[file:scheme-dsl-engine-admission.org::*Effective origins follow composition before binding][above]]. A production author composition clause and full native target closure
+remain distinct from this local compiler/entry qualification.
+
+Historical rerun on 2026-10-06 used
+=GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" gtimeout -k 2 10 gxi t/fixtures/language-pack-research/provenance-language.ss=.
+All 14 assertion markers and =PROVENANCE-LANGUAGE-OK= were emitted, including
+=composition-remains-unpropagated=, but the process exited with =124=.
+This invocation failed its bounded process-completion gate. It does not replace
+the earlier exit-0 receipt with a new pass, and no cause of the timeout has been
+established by this rerun. Keep assertion completion and process completion distinct.
+
+The 2026-10-07 qualification builds seven compiler/declaration owners natively
+through std/make (32.64 s, exit 0), then rebuilds the corrected normalizer alone
+(5.02 s, exit 0). Three composed fixture phase modules also compile natively
+(16.43 s, exit 0). Each build keeps the 240-second total and five-second genuine
+output watchdog. Runtime consumers still load the current machine/runtime from
+source; these receipts are not full native machine linkage or installed consumer
+qualification.
+
+| Controlled boundary | Passing checks or cases | Process boundary |
+|---------------------+-------------------------+------------------|
+| Operation/history/source selection | 63 checks | Serial native-owner consumer, exit 0 |
+| Ordinary and override/remove checked entries | 79 checks | Complete events, policy distinction and roundtrip, exit 0 |
+| Actual published Bound/Grammar/Parser provenance | 15 checks | Complete canonical input and compositionDigest retained, exit 0 |
+| Composed package declarative conformance | 11 cases | Native phase adapter, source runtime, exit 0 |
+| Existing concise package declarative conformance | 11 cases | Same shared emission owner, exit 0 |
+| Existing surface, diagnostics, composition, publication and source/GQL regression | 76 cases | Five bounded processes, each exit 0 |
+| Concise package complete Grammar/Parser product control | 6661 bytes, byte-identical | Snapshot and comparison exit 0 |
+
+The 255 assertions/cases above are separate controls, not one full native
+end-to-end suite or a parse benchmark. The first selection witness failed with
+exit 70 because the implementation used field/owner rather than the existing
+owner/field Bound IR source key. The fix changes the implementation to the
+existing contract; original assertions remain. Later five-process concurrent
+qualification attempts exited 124/137, including one that printed 63 successful
+assertions before exit 124. They remain failed attempts. Running the same final
+native-owner consumers serially under the unchanged ten-second bound exits 0.
+No root cause is established for the concurrent failures; these observations do
+not establish GC behavior or concurrent parser throughput.
+
+The architecture reading is tied to this boundary: section 1 and Figure 1 of
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]] describe extensible surface elaboration
+to a compiler-oriented core. Our design inference is to converge Gerbil vocabulary
+and POO contributions on existing canonical IR. The paper uses Racket and a
+miniKanren compiler; its optimizations, implementation and performance results
+are not qualifications of our parser engine.

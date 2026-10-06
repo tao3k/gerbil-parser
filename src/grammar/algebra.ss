@@ -1,22 +1,25 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical GrammarExpr v1 constructors and structural analysis.
 
+(import (only-in :gerbil/runtime/syntax __AST-list?))
+
 (export grammar-expression
         grammar-expression?
+        grammar-expression-header?
         grammar-expression-kind
         grammar-expression-nullable?
         grammar-expression-fields
         grammar-expression-references
         grammar-expression-terminals)
 
-;; grammar-expression?
+;; Shared constructor arity and scalar metadata checks. Children are checked by
+;; grammar-expression? or by the source-aware compiler traversal, not here.
 ;; : (-> Datum Boolean)
-(def (grammar-expression? value)
-  (and (list? value)
+(def (grammar-expression-header? value)
+  (and (__AST-list? value)
        (pair? value)
        (case (car value)
-         ((empty)
-          (null? (cdr value)))
+         ((empty) (null? (cdr value)))
          ((layout-end)
           (every (lambda (boundary)
                    (and (string? boundary) (positive? (string-length boundary))))
@@ -26,24 +29,27 @@
                (string? (cadr value))
                (positive? (string-length (cadr value)))))
          ((token reference)
-          (and (= (length value) 2)
-               (symbol? (cadr value))))
-         ((sequence choice)
-          (and (pair? (cdr value))
-               (grammar-expressions? (cdr value))))
-         ((optional repeat repeat1)
-          (and (= (length value) 2)
-               (grammar-expression? (cadr value))))
+          (and (= (length value) 2) (symbol? (cadr value))))
+         ((sequence choice) (pair? (cdr value)))
+         ((optional repeat repeat1) (= (length value) 2))
          ((field alias)
-          (and (= (length value) 3)
-               (symbol? (cadr value))
-               (grammar-expression? (caddr value))))
+          (and (= (length value) 3) (symbol? (cadr value))))
          ((precedence)
           (and (= (length value) 4)
                (memq (cadr value) '(none left right dynamic))
-               (integer? (caddr value))
-               (grammar-expression? (cadddr value))))
+               (integer? (caddr value))))
          (else #f))))
+
+;; grammar-expression?
+;; : (-> Datum Boolean)
+(def (grammar-expression? value)
+  (and (grammar-expression-header? value)
+       (case (car value)
+         ((sequence choice) (grammar-expressions? (cdr value)))
+         ((optional repeat repeat1) (grammar-expression? (cadr value)))
+         ((field alias) (grammar-expression? (caddr value)))
+         ((precedence) (grammar-expression? (cadddr value)))
+         (else #t))))
 
 ;; grammar-expressions?
 ;; : (-> List Boolean)

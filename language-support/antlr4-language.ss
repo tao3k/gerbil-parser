@@ -2,13 +2,20 @@
 ;;; Expansion-time ANTLR4 language-pack compiler.
 
 (import (for-syntax :std/misc/ports
+                    (only-in :gerbil-parser/src/compiler/language-artifact
+                             make-language-declaration expand-language-declaration-syntax)
+                    (only-in :gerbil-parser/src/compiler/parser-ir compile-parser)
+                    (only-in :gerbil-parser/src/compiler/bound-ir bind-grammar-ir)
                     (only-in ./antlr4-source
+                             antlr4-source->datum
                              antlr4-source-declaration-sources
                              antlr4-source-parser-grammar-rules
                              antlr4-source-parser-literals
                              antlr4-source-parser-syntax-kinds
                              parse-antlr4-source/expected))
-        :gerbil-parser/src/language/grammar)
+        (only-in ./antlr4-source antlr4-source-from-datum)
+        (only-in :gerbil-parser/src/language/assembly assemble-language-parser)
+        (only-in :gerbil-parser/src/language/descriptor make-language-grammar))
 (export deflanguage-antlr4-grammar)
 
 ;;; A language pack declares identity and pinned native grammar once; expansion
@@ -26,9 +33,10 @@
 ;;         (reference "upstream-v1" "commit")
 ;;         (digest "sha256:...") (source "grammar.g4")
 ;;         (entrypoint program) (conflicts reject) (case-insensitive #f))
-;;       ;; => grammar, Parser IR, machine, and descriptor bindings
+;;       ;; => source catalog, grammar, Parser IR, machine, and descriptor bindings
 ;;       ```
-;;       Result: runtime receives immutable v1 data and never provider source.
+;;       Result: prefix-antlr4-source and parser products share one accepted source.
+;;       Runtime reconstructs the typed catalog from data; it never reparses source.
 ;;     %
 (defsyntax (deflanguage-antlr4-grammar stx)
   (syntax-case stx
@@ -70,41 +78,51 @@
             (literal-values (antlr4-source-parser-literals catalog))
             (source-map
              (antlr4-source-declaration-sources catalog (stx-e #'path))))
-       (with-syntax ((((syntax-row ...)) (list syntax-rows))
-                     (((rule-row ...)) (list rule-rows))
-                     (((literal-value ...)) (list literal-values))
-                     (source-map-value source-map))
-         #'(deflanguage-grammar prefix
-             (identity language version contract)
-             (syntax-kinds syntax-row ...)
-             (terminals
-              (identifier LexicalIdentifier)
-              (number NumericLiteralToken)
-              (string StringLiteralToken)
-              (whitespace WhitespaceTrivia)
-              (comment CommentTrivia)
-              (punctuation PunctuationToken)
-              (unknown UnknownToken))
-             (lexical-rules
-              (whitespace (whitespace+))
-              (comment (choice (line-comment "//")
-                               (block-comment "/*" "*/")))
-              (string (quoted-string "\"" "'" "`"))
-              (number
-               (number-literal ("0x" "0o" "0b") "_"
-                               ("M" "m" "F" "f" "D" "d") #t #t))
-              (identifier (identifier))
-              (punctuation (literals literal-value ...))
-              (unknown (fallback)))
-             (rules rule-row ...)
-             (extras whitespace comment)
-             (keywords)
-             (parser-entrypoints (entry-name parse pure))
-             (recoveries
-              (entry-name "GERBIL-PARSER-ANTLR4-SOURCE" preserve-source))
-             (conflicts conflict-policy)
-             (case-insensitive case-insensitive-value)
-             (source-ownership source-map-value)
-             (lineage deflanguage-antlr4-grammar source-version source-commit)
-             (flow (source lexical) (lexical cst))))))
+       ;; Submit the accepted source as a structured declaration. The shared
+       ;; compiler owns canonical admission, binding, publication and emission.
+       (let* ((sections
+               `((syntax-kinds ,@syntax-rows)
+                 (terminals
+                  (identifier LexicalIdentifier) (number NumericLiteralToken)
+                  (string StringLiteralToken) (whitespace WhitespaceTrivia)
+                  (comment CommentTrivia) (punctuation PunctuationToken)
+                  (unknown UnknownToken))
+                 (lexical-rules
+                  (whitespace (whitespace+))
+                  (comment (choice (line-comment "//") (block-comment "/*" "*/")))
+                  (string (quoted-string "\"" "'" "`"))
+                  (number (number-literal ("0x" "0o" "0b") "_"
+                                         ("M" "m" "F" "f" "D" "d") #t #t))
+                  (identifier (identifier))
+                  (punctuation (literals ,@literal-values))
+                  (unknown (fallback)))
+                 (rules ,@rule-rows)
+                 (extras whitespace comment) (keywords)
+                 (parser-entrypoints (,(stx-e #'entry-name) parse pure))
+                 (recoveries
+                  (,(stx-e #'entry-name) "GERBIL-PARSER-ANTLR4-SOURCE" preserve-source))
+                 (flow (source lexical) (lexical cst))))
+              (declaration
+               (make-language-declaration
+                stx #'prefix (syntax->list #'(language version contract))
+                (map (lambda (row)
+                       (cons (car row) (datum->syntax #'prefix (cdr row)))) sections)
+                (syntax->datum #'conflict-policy)
+                (syntax->datum #'case-insensitive-value)
+                `(deflanguage-antlr4-grammar ,(stx-e #'source-version)
+                                            ,(stx-e #'source-commit))
+                source-map)))
+         (with-syntax ((catalog-binding
+                        (datum->syntax #'prefix
+                         (string->symbol
+                          (string-append (symbol->string (stx-e #'prefix))
+                                         "-antlr4-source"))))
+                       (catalog-data (antlr4-source->datum catalog))
+                       (compiled-declaration
+                        (expand-language-declaration-syntax
+                         declaration compile-parser bind-grammar-ir
+                         #'assemble-language-parser #'make-language-grammar #'begin #'def)))
+           #'(begin
+               (def catalog-binding (antlr4-source-from-datum 'catalog-data))
+               compiled-declaration)))))
     (_ (raise-syntax-error #f "invalid ANTLR4 language declaration" stx))))

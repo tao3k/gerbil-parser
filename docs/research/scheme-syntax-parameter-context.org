@@ -1,0 +1,202 @@
+#+title: Gerbil syntax parameters for scoped declaration context
+#+date: 2026-10-06
+
+* Research question and implementation boundary
+
+Can an outer declaration delegate parameter validation while preserving both
+its author syntax and the inner declaration that performs the check? This
+extends the [[file:scheme-nested-declaration-context.org][nested declaration-context study]].
+
+The local witness uses Gerbil's existing =:std/stxparam=. Its committed baseline
+is =783381f33fa1b309ac4cc4b0012696f24c852d93=. It changes research vocabulary
+and shared fixture validators, not public parser compilation or runtime APIs.
+
+* Official mechanism and paper interpretation
+
+The [[https://gerbil.scheme.org/reference/std/stxparam.html][official syntax-parameter reference]] describes passing syntactic information
+from parent to child macros and scoped reparameterization. The installed library
+implements =syntax-parameterize= using =let-syntax= over the parameter's internal
+key. We inspected that source before selecting the local protocol.
+
+[[https://www.barzilay.org/misc/stxparam.pdf][Barzilay, Culpepper and Flatt, Keeping it Clean with Syntax Parameters]],
+sections 4 and 4.1, explains deliberately adjustable syntactic bindings and their
+composition with hygienic macros. Section 6 discusses subtleties when macros
+introduce additional parameterization. The design inference here is to use an
+explicit syntax parameter for declaration context, while testing the actual
+Gerbil scope and declaration behavior. The paper's Racket implementation is not
+a proof of our Gerbil fixture or a general source-history facility.
+
+* Actual Scheme design and the two required questions
+
+[[file:../../t/fixtures/language-pack-research/author-context.ss][author-context.ss]] defines the local auxiliary syntax parameter. The wrapper
+in [[file:../../t/fixtures/language-pack-research/scoped-author-vocabulary.ss][scoped-author-vocabulary.ss]] preserves the author form using =with-syntax=.
+This excerpt omits its outer binding check and malformed-shape branch:
+
+#+begin_src scheme
+(import :std/stxparam)
+(defsyntax-parameter @@author-declaration #f)
+
+;; Inside the matched scoped-arguments transformer:
+(with-syntax ((author-form stx))
+  #'(def binding
+      (syntax-parameterize
+        ((@@author-declaration (quote-syntax author-form)))
+        (deflocated-list component-value owner entry item separator (field label))
+        component-value)))
+
+;; At the validating component's transformer phase:
+(def author-declaration (syntax-parameter-value #'@@author-declaration))
+(require-declaration-identifier #'owner stx
+  "deflocated-list" "owner" author-declaration)
+
+;; Question 1: Why is this DSL design better?
+;; Compared with parameter forwarding alone, delegated checks retain the outer
+;; author declaration, imported alias, exact bad parameter and inner check context.
+;; The official syntax parameter carries context within its scope; ordinary Scheme
+;; functions still implement contracts, and existing POO construction supplies the role.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Context propagation, scope isolation and valid component construction are separate contracts.
+;; Evidence: 9 scope checks, 28 delegated diagnostic checks and 12 valid-role checks,
+;; each with exit 0. Existing direct-reader diagnostics also passed 48 regression checks.
+;; Falsifier: wrong outer context, lost parameter location, leakage into a direct call,
+;; changed POO sections or capture of a same-named author variable.
+;; Limit: no general expansion chain, concurrent expansion, artifact integration or speed claim.
+#+end_src
+
+The component's existing shared validator accepts an optional author form.
+On failure with that form it records =term, author, inner-declaration= as syntax
+error irritants. Without it the existing =term, inner-declaration= shape remains.
+The constraint and its message are unchanged. This is explicit metadata at the
+contract boundary; it does not catch and relabel unrelated compiler exceptions.
+
+* A retained declaration-versus-expression failure
+
+The initial wrapper placed =deflocated-list= directly inside =syntax-parameterize=.
+Invalid inputs reached the expected diagnostics, but a valid declaration failed
+with =Bad syntax; empty body=, exit 70. The scoped =let-syntax= body contained a
+local definition without a result expression. Thus diagnostic success was not
+sufficient evidence that a declaration wrapper was usable.
+
+The corrected wrapper defines the public binding outside the parameterized
+expression. Inside it, a hygienic local =component-value= binding constructs and
+returns the component value. A host variable with the same spelling remains
+unchanged in the valid control. The wrapper explicitly checks the outer binding,
+because the generated inner binding is now an implementation identifier.
+
+This boundary must be specified in DSL design: a declaration introduces an author
+binding, while an expression returns a value. The standard library mechanism
+supports contextual expansion; it does not erase that distinction automatically.
+
+* Native receipts and controls
+
+All drivers use the same ten-second bound. The kill-after option bounds cleanup,
+not permitted execution time:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/syntax-parameter-scope.ss
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/scoped-author-diagnostics.ss
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/scoped-valid-components.ss
+#+end_src
+
+| Driver | Evidence | Result |
+|--------+----------+--------|
+| [[file:../../t/fixtures/language-pack-research/syntax-parameter-scope.ss][syntax-parameter-scope.ss]] | Default, nested replacement/restoration, retention and parameter alias | 9 checks, exit 0 |
+| [[file:../../t/fixtures/language-pack-research/scoped-author-diagnostics.ss][scoped-author-diagnostics.ss]] | Owner/entry/label blame, imported alias, source text, outer and inner context, direct call after failures | 28 checks, exit 0 |
+| [[file:../../t/fixtures/language-pack-research/scoped-valid-components.ss][scoped-valid-components.ss]] | Checked role, same owner, all nine sections, same-named host variable unaffected | 12 checks, exit 0 |
+| [[file:../../t/fixtures/language-pack-research/reader-diagnostics.ss][reader-diagnostics.ss]] | Original direct-call messages, blame and coordinates after optional context integration | 48 checks, exit 0 |
+
+The first complete diagnostic invocation produced no output and exited 124.
+A later bounded invocation with actual expansion-start and caught-error logs
+passed; the initial timeout remains a failed receipt. Its cause was not isolated.
+The definition-only wrapper's exit-70 failure is separately retained above.
+Neither is presented as evidence that the parser or GC caused the failure.
+
+The corrected valid test executes real component construction and compares
+receiver-owned sections through =grammar-role-ref=. It does not compare parser
+artifacts or parse events. Earlier actual-language artifact-loading timeouts
+remain open and are not closed by these macro/role controls.
+
+* Working recommendation and unresolved contracts
+
+Use explicit scoped syntax parameters when a vocabulary needs contextual
+information in delegated macros. Continue forwarding original parameter syntax,
+and retain inner checking context alongside the author declaration. Keep the
+public definition boundary outside a value-producing parameterized body.
+
+Before adopting this as a general declaration protocol, settle:
+
+- Whether nested wrappers should select the nearest author form, the outermost
+  form, or an explicit chain. One preserved form is not a complete expansion history.
+- How malformed syntax-parameter values are rejected by the context contract.
+- Which forms may introduce public definitions versus only expression values.
+- How definition-phase behavior, Bound IR origins and persisted composition history
+  relate; this fixture carries diagnostic context without serializing a full chain.
+- How rendered diagnostics present the retained forms, and whether developers
+  repair declarations more accurately with this information.
+
+These are protocol and usability questions. The controls establish a concrete
+Gerbil mechanism and its bounded behavior, without selecting the public API.
+
+* Follow-up: nearest context versus first supplied context
+
+The expanded [[file:../../t/fixtures/language-pack-research/syntax-parameter-scope.ss][syntax-parameter-scope.ss]] now reports
+=SYNTAX-PARAMETER-SCOPE-OK: 9 checks passed=, exit 0, under the same command.
+The original three checks remain included; six additional checks cover nesting,
+retention and renaming. This is a macro scope study, not a new parser benchmark.
+
+The ordinary nested parameterization selects the inner supplied form while it
+is in scope, then restores the outer form. An experimental wrapper can instead
+retain an already supplied form and use its candidate only when none is present:
+
+#+begin_src scheme
+(defsyntax (retain-author-context stx)
+  (syntax-case stx ()
+    ((_ candidate body ...)
+     (with-syntax ((selected
+                    (or (syntax-parameter-value #'@@author-declaration)
+                        #'candidate)))
+       #'(syntax-parameterize
+           ((@@author-declaration (quote-syntax selected)))
+           body ...)))))
+
+;; Question 1: Why is this DSL design better?
+;; Relative to silently replacing context at every layer, this explicit policy
+;; lets vocabulary retain an author entry form across cooperating wrappers.
+;; It reuses the existing syntax parameter and forwards syntax instead of
+;; manufacturing caller bindings or storing a process-wide mutable context.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Nearest-context and retain-existing policies predict different observable values.
+;; Nine scope checks verify those predictions, restoration and renamed parameter binding.
+;; Falsifier: the retained root is replaced, the outer context fails to restore,
+;; or a renamed parameter ceases to adjust the original binding.
+;; Limit: first supplied context is not necessarily the outermost source declaration;
+;; these controls do not establish diagnostic rendering or a complete expansion chain.
+#+end_src
+
+| Policy | What the check observes | Suitable design question |
+|--------+-------------------------+--------------------------|
+| Replace in each scope | outer, inner, outer | Which participating layer currently owns this contract? |
+| Retain an existing value | root survives a candidate inner form | Which supplied entry should cooperating wrappers keep? |
+| Supply only when absent | candidate becomes current form | Where does an entry-context region begin? |
+| Explicit chain | Not implemented by a single-value parameter | Which intermediate transformations led here? |
+
+The renamed-parameter control imports =@@author-declaration= as
+=@@renamed-author=. Parameterizing that alias changes the value observed through
+the original identifier. This tests parameter binding identity directly; earlier
+controls renamed the outer vocabulary macro rather than the auxiliary parameter.
+
+Retaining an existing value is cooperative. A wrapper that deliberately
+reparameterizes can still replace it; a preexisting value may also designate
+something other than a source-level outermost declaration. Consequently, the
+working proposal is to distinguish an entry form from a current validating form
+if both views are needed. That two-facet protocol remains a proposal, not an
+implemented public schema or an automatically collected history.
+
+Before choosing a default, compare actual developer tasks: locating the call to
+repair versus understanding the component contract that rejected it. Preserve
+both views when qualified, rather than assuming a single selected form explains
+all diagnostic needs. POO contribution ownership and persisted Bound IR origins
+remain separate from this lexical expansion context.

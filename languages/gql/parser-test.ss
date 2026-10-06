@@ -1,6 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; Declarative standards, bound-source identity, lossless syntax and precedence.
-(import :gerbil-parser/language-test-support ./parser)
+(import :gerbil-parser/language-test-support
+        (only-in :gerbil-parser/src/language/descriptor
+                 language-grammar-grammar language-grammar-ir language-grammar-machine)
+        (only-in :gerbil-parser/src/language/entry language-parser-entry-ref)
+        (only-in :gerbil-parser/language-support/fixture syntax-fixture-id syntax-fixture-source)
+        ./parser)
 (deflanguage-parser-tests gql-parser-test "ISO/IEC 39075:2024 OpenGQL 1.9.0 syntax"
   (loader gql-language)
   (property "immutable standard and corpus identity" (bindings)
@@ -11,6 +16,17 @@
     (equal +gql-syntax-contract+ "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
     (equal +gql-antlr4-digest+ "sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf"))
   (fixture-catalog "official GQL fixture count" (total 14))
+  (property "published products and checked entry share one declaration" (bindings)
+    (equal (eq? (language-grammar-grammar gql-language-grammar) gql-grammar) #t)
+    (equal (eq? (language-grammar-ir gql-language-grammar) gql-parser-ir) #t)
+    (equal (eq? (language-grammar-machine gql-language-grammar) gql-parser) #t)
+    (equal (language-parser-entry-ref gql-language 'language) "gql")
+    (equal (language-parser-entry-ref gql-language 'contract)
+           "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
+    (equal (map syntax-fixture-id (language-parser-entry-ref gql-language 'fixtures))
+           (map syntax-fixture-id gql-official-fixtures))
+    (equal (map syntax-fixture-source (language-parser-entry-ref gql-language 'fixtures))
+           (map syntax-fixture-source gql-official-fixtures)))
   (parser-ir "generated Parser IR identity" gql-parser-ir
     (rule-count 574) (materialization 'aot-expansion)
     (conflict-policy 'selective-glr) (case-insensitive? #t))

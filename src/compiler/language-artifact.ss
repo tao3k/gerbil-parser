@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Build-time declaration expansion and immutable language IR storage.
 
-(import (only-in :gerbil/core/expander
+(import (only-in ../grammar/algebra grammar-expression-header?)
+        (only-in :gerbil/core/expander
                  with-syntax syntax-case syntax datum->syntax syntax->datum syntax->list
                  identifier? stx-source stx-map stx-list? stx-pair? stx-car stx-cdr raise-syntax-error)
         (only-in :std/list/list delete-duplicates/hash take drop)
@@ -15,7 +16,15 @@
         (only-in :std/encoding/base64 base64-encode)
         (only-in :std/string/utf8 utf8->string)
         (only-in :std/encoding/zlib compress uncompress))
-(export expand-language-grammar-syntax project-language-catalog materialize-compiled-language-artifact
+(export expand-language-grammar-syntax expand-language-declaration-syntax
+        expand-admitted-language-declaration-syntax
+        make-language-declaration make-admitted-language-declaration
+        compile-admitted-language-declaration
+        compiled-language-declaration-grammar
+        compiled-language-declaration-grammar-locator
+        compiled-language-declaration-bound-locator
+        compiled-language-declaration-parser-locator
+        project-language-catalog materialize-compiled-language-artifact
         materialize-compiled-language-artifact/output-dirs
         compile-language-parser-artifact
         compile-language-parser-artifact/output-dirs
@@ -379,119 +388,16 @@
                  "catalog must retain the exact inferred terminal mapping")
         (values kinds terminals)))))
 
-;;; Expand the low-level declaration as one compiler operation. The public
-;;; macro supplies its hygienic assembly/descriptor bindings; parser and
-;;; binding compilation stay the engine's fixed authorities.
-(def (expand-language-grammar-syntax stx compile-parser bind-grammar-ir
-                                     assembly-binding descriptor-binding begin-binding define-binding)
-  (def (grammar-expression-datum expression)
-    (unless (and (pair? expression) (symbol? (car expression)))
-      (raise-syntax-error #f "invalid GrammarExpr declaration" stx))
-    (case (car expression)
-      ((empty literal layout-start layout-next layout-end token reference)
-       expression)
-      ((seq sequence)
-       (cons 'sequence (map grammar-expression-datum (cdr expression))))
-      ((choice)
-       (cons 'choice (map grammar-expression-datum (cdr expression))))
-      ((optional repeat repeat1)
-       (list (car expression)
-             (grammar-expression-datum (cadr expression))))
-      ((field alias)
-       (list (car expression) (cadr expression)
-             (grammar-expression-datum (caddr expression))))
-      ((prec precedence)
-       (list 'precedence (cadr expression) (caddr expression)
-             (grammar-expression-datum (cadddr expression))))
-      (else
-       (raise-syntax-error #f "unknown GrammarExpr constructor" stx))))
-  (def (compile-language-declaration
-        grammar-name syntax-rows terminal-rows lexical-rows rule-rows
-        extra-names keyword-rows entry-rows recovery-rows flow-rows
-        conflict-policy case-insensitive? origin lineage explicit-source-map)
-     (def (source-location value)
-       (let (source (stx-source value))
-         (list
-          (cons 'path origin)
-          (cons 'location
-                (if source
-                  (call-with-output-string
-                   (lambda (port) (display source port)))
-                  origin))
-          (cons 'generated? #f))))
-     (def (section-sources namespace rows)
-       (cons
-        namespace
-        (stx-map
-         (lambda (row)
-           (syntax-case row ()
-             ((name . _)
-              (cons (syntax->datum #'name) (source-location #'name)))
-             (_ (raise-syntax-error #f "invalid bound declaration row" row))))
-         rows)))
-     (def (field-sources rows)
-       (cons
-        'field
-        (apply append
-               (stx-map
-                (lambda (row)
-                  (syntax-case row ()
-                    ((kind _ (field ...))
-                     (map
-                      (lambda (field)
-                        (cons
-                         (list (syntax->datum #'kind)
-                               (syntax->datum field))
-                         (source-location field)))
-                      (stx-map (lambda (value) value) #'(field ...))))
-                    (_ (raise-syntax-error #f
-                           "invalid bound syntax-kind row" row))))
-                rows))))
-     (let* ((source-map
-             (append
-              explicit-source-map
-              (list
-               (section-sources 'syntax-kind syntax-rows)
-               (section-sources 'terminal terminal-rows)
-               (section-sources 'lexical-rule lexical-rows)
-               (section-sources 'rule rule-rows)
-               (field-sources syntax-rows))))
-            (grammar
-             (list
-              (cons 'schema "gerbil-parser.grammar-ir.v1")
-              (cons 'grammar (syntax->datum grammar-name))
-              (cons 'syntax-kinds (syntax->datum syntax-rows))
-              (cons 'terminals (syntax->datum terminal-rows))
-              (cons 'lexical-rules (syntax->datum lexical-rows))
-              (cons 'rules
-                    (map (lambda (row)
-                           (list (car row)
-                                 (grammar-expression-datum (cadr row))))
-                         (syntax->datum rule-rows)))
-              (cons 'extras
-                    (map list (syntax->datum extra-names)))
-              (cons 'keywords (syntax->datum keyword-rows))
-              (cons 'parser-entrypoints (syntax->datum entry-rows))
-              (cons 'recoveries (syntax->datum recovery-rows))
-              (cons 'conflict-policy conflict-policy)
-              (cons 'case-insensitive? case-insensitive?)
-              (cons 'flow (syntax->datum flow-rows))))
-            (declaration-identity
-             (list origin lineage source-map)))
-       (let-values (((grammar-locator bound-locator parser-locator _status)
-                     (compile-language-declaration-artifacts
-                      declaration-identity grammar
-                      (lambda ()
-                        (bind-grammar-ir grammar origin lineage source-map))
-                      (lambda ()
-                        (compile-parser grammar)))))
-         (values grammar-locator
-                 (encode-compiled-language-artifact grammar-locator)
-                 bound-locator
-                 (encode-compiled-language-artifact bound-locator)
-                 parser-locator
-                 (encode-compiled-language-artifact parser-locator)))))
+;;; This record exists only during expansion. Sections hold syntax lists until
+;;; canonical admission; runtime descriptors receive immutable artifacts only.
+(defstruct language-declaration
+  (syntax prefix identities sections conflict-policy case-insensitive? lineage source-map))
 
+;;; One result ties runtime emission to the grammar and all published products.
+(defstruct compiled-language-declaration
+  (grammar grammar-locator bound-locator parser-locator))
+
+(def (read-language-declaration-syntax stx)
   ;; Admit exactly the six existing low-level clause shapes, then normalize
   ;; defaults once. This avoids recursive macro replay and duplicate assembly.
   (def (reject) (raise-syntax-error #f "invalid language grammar declaration" stx))
@@ -523,33 +429,224 @@
   (unless (= (length identities) 3) (reject))
   (def lineage
     (if (assq 'lineage rows) (syntax->datum (section 'lineage)) '(deflanguage-grammar)))
+  (make-language-declaration
+   stx prefix identities
+   (map (lambda (name) (cons name (section name)))
+        '(syntax-kinds terminals lexical-rules rules extras keywords
+          parser-entrypoints recoveries flow))
+   (syntax->datum (scalar 'conflicts 'reject))
+   (syntax->datum (scalar 'case-insensitive #f))
+   lineage (syntax->datum (scalar 'source-ownership '()))))
+
+(def (expand-language-grammar-syntax stx compile-parser bind-grammar-ir
+                                     assembly-binding descriptor-binding begin-binding define-binding)
+  (expand-language-declaration-syntax
+   (read-language-declaration-syntax stx) compile-parser bind-grammar-ir
+   assembly-binding descriptor-binding begin-binding define-binding))
+
+;;; Admission retains contextual facts together with the exact canonical grammar.
+(defstruct admitted-language-declaration (grammar origin lineage source-map))
+(defstruct language-declaration-bindings (grammar bound parser machine language))
+
+(def (derive-language-declaration-bindings declaration)
+  (def prefix (language-declaration-prefix declaration))
+  (def (binding suffix)
+    (datum->syntax prefix (string->symbol (string-append (symbol->string (syntax->datum prefix)) suffix))))
+  (make-language-declaration-bindings
+   (binding "-grammar") (binding "-bound-grammar-ir") (binding "-parser-ir")
+   (binding "-parser") (binding "-language-grammar")))
+
+;;; Construction and syntax admission do not publish artifacts.
+(def (admit-language-declaration declaration grammar-name)
+  (def stx (language-declaration-syntax declaration))
+  (def lineage (language-declaration-lineage declaration))
+  (def (section name) (cdr (assq name (language-declaration-sections declaration))))
   (def origin
     (let (source (stx-source stx))
       (if source (call-with-output-string (lambda (port) (display source port))) "<unknown>")))
-  (def (binding suffix)
-    (datum->syntax prefix (string->symbol (string-append (symbol->string (syntax->datum prefix)) suffix))))
-  (def grammar-binding (binding "-grammar"))
-  (def bound-binding (binding "-bound-grammar-ir"))
-  (def ir-binding (binding "-parser-ir"))
-  (def machine-binding (binding "-parser"))
-  (def language-binding (binding "-language-grammar"))
-  (let-values (((grammar-encoded grammar-payload bound-encoded bound-payload ir-encoded ir-payload)
-                (compile-language-declaration
-                 grammar-binding (section 'syntax-kinds) (section 'terminals)
-                 (section 'lexical-rules) (section 'rules) (section 'extras) (section 'keywords)
-                 (section 'parser-entrypoints) (section 'recoveries) (section 'flow)
-                 (syntax->datum (scalar 'conflicts 'reject))
-                 (syntax->datum (scalar 'case-insensitive #f)) origin lineage
-                 (syntax->datum (scalar 'source-ownership '())))))
-    (datum->syntax prefix
-     (list begin-binding
-       (list assembly-binding grammar-binding bound-binding ir-binding machine-binding
-             grammar-encoded grammar-payload bound-encoded bound-payload ir-encoded ir-payload
-             (cons 'syntax-kinds (syntax->list (section 'syntax-kinds)))
-             (cons 'lexical-rules (syntax->list (section 'lexical-rules)))
-             (cons 'rules (syntax->list (section 'rules)))
-             (cons 'extras (syntax->list (section 'extras)))
-             (cons 'parser-entrypoints (syntax->list (section 'parser-entrypoints))))
-       (list define-binding language-binding
-             (append (list descriptor-binding "gerbil-parser.language-grammar.v1")
-                     identities (list grammar-binding ir-binding machine-binding #f)))))))
+  (def (grammar-expression-datum expression)
+    (let* ((datum (syntax->datum expression))
+           (head (and (pair? datum)
+                      (case (car datum)
+                        ((seq) 'sequence)
+                        ((prec) 'precedence)
+                        (else (car datum)))))
+           (canonical (and head (cons head (cdr datum)))))
+      (unless (grammar-expression-header? canonical)
+        (raise-syntax-error #f "invalid GrammarExpr declaration" expression stx))
+      (let (children (cdr (syntax->list expression)))
+        (case head
+          ((empty literal layout-start layout-next layout-end token reference)
+           canonical)
+          ((sequence choice)
+           (cons head (map grammar-expression-datum children)))
+          ((optional repeat repeat1)
+           (list head (grammar-expression-datum (car children))))
+          ((field alias)
+           (list head (cadr canonical)
+                 (grammar-expression-datum (cadr children))))
+          ((precedence)
+           (list head (cadr canonical) (caddr canonical)
+                 (grammar-expression-datum (caddr children))))))))
+  (def syntax-rows (section 'syntax-kinds))
+  (def terminal-rows (section 'terminals))
+  (def lexical-rows (section 'lexical-rules))
+  (def rule-rows (section 'rules))
+  (def extra-names (section 'extras))
+  (def keyword-rows (section 'keywords))
+  (def entry-rows (section 'parser-entrypoints))
+  (def recovery-rows (section 'recoveries))
+  (def flow-rows (section 'flow))
+  (def conflict-policy (language-declaration-conflict-policy declaration))
+  (def case-insensitive? (language-declaration-case-insensitive? declaration))
+  (def explicit-source-map (language-declaration-source-map declaration))
+  (def (source-location value)
+    (let (source (stx-source value))
+      (list
+       (cons 'path origin)
+       (cons 'location
+             (if source
+               (call-with-output-string
+                (lambda (port) (display source port)))
+               origin))
+       (cons 'generated? #f))))
+  (def (section-sources namespace rows)
+    (cons
+     namespace
+     (stx-map
+      (lambda (row)
+        (syntax-case row ()
+          ((name . _)
+           (cons (syntax->datum #'name) (source-location #'name)))
+          (_ (raise-syntax-error #f "invalid bound declaration row" row))))
+      rows)))
+  (def (field-sources rows)
+    (cons
+     'field
+     (apply append
+            (stx-map
+             (lambda (row)
+               (syntax-case row ()
+                 ((kind _ (field ...))
+                  (map
+                   (lambda (field)
+                     (cons
+                      (list (syntax->datum #'kind)
+                            (syntax->datum field))
+                      (source-location field)))
+                   (stx-map (lambda (value) value) #'(field ...))))
+                 (_ (raise-syntax-error #f
+                        "invalid bound syntax-kind row" row))))
+             rows))))
+  (let* ((source-map
+          (append
+           explicit-source-map
+           (list
+            (section-sources 'syntax-kind syntax-rows)
+            (section-sources 'terminal terminal-rows)
+            (section-sources 'lexical-rule lexical-rows)
+            (section-sources 'rule rule-rows)
+            (field-sources syntax-rows))))
+         (grammar
+          (list
+           (cons 'schema "gerbil-parser.grammar-ir.v1")
+           (cons 'grammar (syntax->datum grammar-name))
+           (cons 'syntax-kinds (syntax->datum syntax-rows))
+           (cons 'terminals (syntax->datum terminal-rows))
+           (cons 'lexical-rules (syntax->datum lexical-rows))
+           (cons 'rules
+                 (stx-map
+                  (lambda (row)
+                    (syntax-case row ()
+                      ((name expression)
+                       (list (syntax->datum #'name)
+                             (grammar-expression-datum #'expression)))
+                      (_ (raise-syntax-error #f "invalid grammar rule declaration" row stx))))
+                  rule-rows))
+           (cons 'extras
+                 (map list (syntax->datum extra-names)))
+           (cons 'keywords (syntax->datum keyword-rows))
+           (cons 'parser-entrypoints (syntax->datum entry-rows))
+           (cons 'recoveries (syntax->datum recovery-rows))
+           (cons 'conflict-policy conflict-policy)
+           (cons 'case-insensitive? case-insensitive?)
+           (cons 'flow (syntax->datum flow-rows)))))
+    (make-admitted-language-declaration grammar origin lineage source-map)))
+
+;;; Publication consumes one admitted value; cache and compiler authority stay here.
+(def (compile-admitted-language-declaration admitted compile-parser bind-grammar-ir
+                                           output-dirs: (output-dirs (current-artifact-output-dirs)))
+  (def grammar (admitted-language-declaration-grammar admitted))
+  (def origin (admitted-language-declaration-origin admitted))
+  (def lineage (admitted-language-declaration-lineage admitted))
+  (def source-map (admitted-language-declaration-source-map admitted))
+  (let-values (((grammar-locator bound-locator parser-locator _status)
+                (compile-language-declaration-artifacts/output-dirs
+                 (list origin lineage source-map) grammar
+                 (lambda () (bind-grammar-ir grammar origin lineage source-map))
+                 (lambda () (compile-parser grammar)) output-dirs)))
+    (make-compiled-language-declaration
+     grammar grammar-locator bound-locator parser-locator)))
+
+;;; Emission reads admitted products and hygienic bindings, with no compiler calls.
+(def (emit-compiled-language-declaration declaration compiled bindings
+                                         assembly-binding descriptor-binding begin-binding define-binding)
+  (def prefix (language-declaration-prefix declaration))
+  (def identities (language-declaration-identities declaration))
+  (def grammar-binding (language-declaration-bindings-grammar bindings))
+  (def bound-binding (language-declaration-bindings-bound bindings))
+  (def ir-binding (language-declaration-bindings-parser bindings))
+  (def machine-binding (language-declaration-bindings-machine bindings))
+  (def language-binding (language-declaration-bindings-language bindings))
+  (def admitted-grammar (compiled-language-declaration-grammar compiled))
+  (def grammar-encoded (compiled-language-declaration-grammar-locator compiled))
+  (def bound-encoded (compiled-language-declaration-bound-locator compiled))
+  (def ir-encoded (compiled-language-declaration-parser-locator compiled))
+  (def grammar-payload (encode-compiled-language-artifact grammar-encoded))
+  (def bound-payload (encode-compiled-language-artifact bound-encoded))
+  (def ir-payload (encode-compiled-language-artifact ir-encoded))
+  ;; Runtime assembly receives sections from the same canonical grammar that
+  ;; was bound, compiled and published, rather than replaying author sections.
+  (def (emission-section name)
+    (let (rows (cdr (assq name admitted-grammar)))
+      (cons name (syntax->list
+                  (datum->syntax prefix
+                   (if (eq? name 'extras) (map car rows) rows))))))
+  (datum->syntax prefix
+   (list begin-binding
+     (list assembly-binding grammar-binding bound-binding ir-binding machine-binding
+           grammar-encoded grammar-payload bound-encoded bound-payload ir-encoded ir-payload
+           (emission-section 'syntax-kinds)
+           (emission-section 'lexical-rules)
+           (emission-section 'rules)
+           (emission-section 'extras)
+           (emission-section 'parser-entrypoints))
+     (list define-binding language-binding
+           (append (list descriptor-binding "gerbil-parser.language-grammar.v1")
+                   identities (list grammar-binding ir-binding machine-binding #f))))))
+
+;;; Native and imported author surfaces share canonical admission and publication.
+(def (expand-language-declaration-syntax declaration compile-parser bind-grammar-ir
+                                         assembly-binding descriptor-binding begin-binding define-binding)
+  (def bindings (derive-language-declaration-bindings declaration))
+  (def admitted
+    (admit-language-declaration declaration (language-declaration-bindings-grammar bindings)))
+  (expand-admitted-language-declaration/bindings
+   declaration admitted bindings compile-parser bind-grammar-ir
+   assembly-binding descriptor-binding begin-binding define-binding))
+
+;;; POO normalization already produced canonical IR and effective context. This
+;;; internal entry never reconstructs sections or invokes declaration admission.
+(def (expand-admitted-language-declaration-syntax declaration admitted compile-parser bind-grammar-ir
+                                                  assembly-binding descriptor-binding begin-binding define-binding)
+  (expand-admitted-language-declaration/bindings
+   declaration admitted (derive-language-declaration-bindings declaration)
+   compile-parser bind-grammar-ir
+   assembly-binding descriptor-binding begin-binding define-binding))
+
+(def (expand-admitted-language-declaration/bindings declaration admitted bindings
+                                                   compile-parser bind-grammar-ir
+                                                   assembly-binding descriptor-binding begin-binding define-binding)
+  (def compiled (compile-admitted-language-declaration admitted compile-parser bind-grammar-ir))
+  (emit-compiled-language-declaration
+   declaration compiled bindings assembly-binding descriptor-binding begin-binding define-binding))

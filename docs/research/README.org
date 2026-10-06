@@ -12,9 +12,20 @@ instrumentation or runtime-binding replacement wrappers.
 The paper/framework synthesis remains in
 [[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].
 
-The main authoring design synthesis is
-[[file:scheme-deflanguage-design-synthesis.org][scientific Scheme grammar vocabulary under deflanguage]]. It develops each
-paper's contribution into concrete syntax and engine design questions.
+Start authoring research with the
+[[file:scheme-deflanguage-design-synthesis.org][Scheme parser DSL design overview]]. It owns the three user interfaces,
+shared objective, evidence scope, decisions and closure sequence. Detailed design
+is modularized by responsibility:
+
+- [[file:scheme-dsl-author-interface.org][Complete author DSL interfaces and package examples]]
+- [[file:scheme-dsl-engine-admission.org][Engine admission, provenance and artifact publication]]
+- [[file:scheme-dsl-semantic-contracts.org][Semantic contracts and composition evolution]]
+- [[file:scheme-dsl-complexity-ownership.org][Complexity ownership and author change tasks]]
+- [[file:scheme-dsl-research-basis.org][Primary research basis and design method]]
+
+These modules share the overview's single architecture decision and package-level
+research sequence. The focused documents below
+provide supporting experiments rather than competing author interfaces.
 
 Language authoring research, annotated papers and proposed experiments are in
 [[file:scheme-language-pack-design.org][Scheme language pack design]]. The document distinguishes the current
@@ -25,3 +36,30 @@ policies, conservative count equations and concrete HCL/arithmetic examples.
 
 The executable [[file:scheme-macro-binding-experiments.org][Gerbil macro binding experiments]] compare preserved definition
 references, caller parameters and contextual reconstruction across modules.
+
+The local [[file:scheme-poo-language-components.org][Scheme syntax and POO component study]] connects existing grammar roles
+and explicit composition with expression/list vocabulary and compiler phases.
+
+The local [[file:scheme-rule-context-design.org][rule-context declaration study]] checks how a rule can supply its own
+identity once, with imported macro renaming and actual parser-event controls.
+
+The local [[file:scheme-list-role-composition.org][multi-rule list and POO composition study]] checks transparent per-item
+fields, deterministic helper identities and an explicit expansion-phase provider.
+
+The local [[file:scheme-component-provenance.org][component provenance and admission study]] reuses existing Bound IR
+inputs and checks which identities change when origins or composition metadata change.
+
+The local [[file:scheme-composition-history.org][override and removal history study]] distinguishes effective declaration
+origins from retained contributions, with parser/binding admission controls.
+
+The local [[file:scheme-source-origin-contract.org][reader source-origin study]] distinguishes macro definition and component
+invocation, with exact token-coordinate controls and retained timeout receipts.
+
+The local [[file:scheme-declaration-diagnostics.org][declaration diagnostics study]] checks typed parameter errors, real-reader
+coordinates and explicit unknown origins for source-free syntax.
+
+The local [[file:scheme-nested-declaration-context.org][nested declaration-context study]] checks source-preserving wrappers and
+renamed imports, while distinguishing parameter location from outer author context.
+
+The local [[file:scheme-syntax-parameter-context.org][official syntax-parameter context study]] checks delegated author context,
+scope isolation and declaration-versus-expression boundaries with real POO roles.

@@ -91,6 +91,8 @@
       (check (length (antlr4-source-rules gql-antlr4-source)) => 1018)
       (check (length (antlr4-source-parser-rules gql-antlr4-source))
              => 574)
+      (check (antlr4-source-parser-grammar-rules gql-antlr4-source)
+             => (cdr (assq 'rules gql-grammar)))
       (check (length (antlr4-source-lexer-rules gql-antlr4-source))
              => 444)
       (for-each

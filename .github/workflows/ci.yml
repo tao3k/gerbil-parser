@@ -181,6 +181,9 @@ jobs:
           gerbil env gxi build-gparse.ss compile
           gerbil env gxi build-rust-rowan-aot.ss compile
 
+      - name: Verify Scheme DSL and native POO declaration closure
+        run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research
+
       - name: Compile Scheme test support
         run: |
           gerbil env gxc t/native-datum-support.ss \

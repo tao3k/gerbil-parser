@@ -50,8 +50,8 @@ pub struct PreparedResultProfile {
     projections: HashMap<&'static str, usize>,
 }
 /// A projection bound once when a source engine is prepared.
-pub struct PreparedResultProjection<'profile> {
-    profile: &'profile PreparedResultProfile,
+pub struct PreparedResultProjection {
+    spec: &'static ResultProfileSpec,
     index: usize,
 }
 /// A typed recognition capture. `Absent` is admitted only for optional slots.
@@ -165,13 +165,13 @@ impl PreparedResultProfile {
     /// Resolve an instruction entry once during engine preparation.
     /// # Errors
     /// Rejects an undeclared projection identifier.
-    pub fn bind(&self, id: &str) -> Result<PreparedResultProjection<'_>, Diagnostic> {
+    pub fn bind(&self, id: &str) -> Result<PreparedResultProjection, Diagnostic> {
         let index = *self
             .projections
             .get(id)
             .ok_or_else(|| error(0, "unknown result projection"))?;
         Ok(PreparedResultProjection {
-            profile: self,
+            spec: self.spec,
             index,
         })
     }
@@ -188,13 +188,13 @@ impl PreparedResultProfile {
         self.bind(id)?.project(source, span, captures)
     }
     fn project_at<'source>(
-        &self,
+        spec: &'static ResultProfileSpec,
         index: usize,
         source: &'source str,
         span: Range<usize>,
         captures: Vec<ResultCapture<'source>>,
     ) -> Result<ProjectedNode<'source>, Diagnostic> {
-        let projection = &self.spec.projections[index];
+        let projection = &spec.projections[index];
         if captures.len() != projection.captures.len() || !valid_span(source, &span) {
             return Err(error(span.start, "invalid result projection frame"));
         }
@@ -215,12 +215,12 @@ impl PreparedResultProfile {
                     ProjectedValue::Token { kind, span: child }
                 }
                 (ProjectionOpcode::One { .. }, ResultCapture::Node(node)) => {
-                    self.check_node(source, &span, &node)?;
+                    Self::check_node(spec, source, &span, &node)?;
                     ProjectedValue::Node(node)
                 }
                 (ProjectionOpcode::Many, ResultCapture::Parts(parts)) => {
                     for node in parts {
-                        self.check_node(source, &span, &node)?;
+                        Self::check_node(spec, source, &span, &node)?;
                         children.push(ProjectedChild {
                             field: instruction.field,
                             value: ProjectedValue::Node(node),
@@ -236,7 +236,7 @@ impl PreparedResultProfile {
             });
         }
         Ok(ProjectedNode {
-            owner: self.spec,
+            owner: spec,
             source,
             kind: projection.kind,
             span,
@@ -244,12 +244,12 @@ impl PreparedResultProfile {
         })
     }
     fn check_node(
-        &self,
+        spec: &'static ResultProfileSpec,
         source: &str,
         span: &Range<usize>,
         node: &ProjectedNode<'_>,
     ) -> Result<(), Diagnostic> {
-        if !std::ptr::eq(self.spec, node.owner)
+        if !std::ptr::eq(spec, node.owner)
             || !std::ptr::eq(source, node.source)
             || !inside(&node.span, span)
         {
@@ -258,7 +258,7 @@ impl PreparedResultProfile {
         Ok(())
     }
 }
-impl PreparedResultProjection<'_> {
+impl PreparedResultProjection {
     /// Execute bound instructions without another identifier lookup.
     /// # Errors
     /// Rejects invalid captures, source boundaries or node ownership.
@@ -268,7 +268,7 @@ impl PreparedResultProjection<'_> {
         span: Range<usize>,
         captures: Vec<ResultCapture<'source>>,
     ) -> Result<ProjectedNode<'source>, Diagnostic> {
-        self.profile.project_at(self.index, source, span, captures)
+        PreparedResultProfile::project_at(self.spec, self.index, source, span, captures)
     }
 }
 fn valid_span(source: &str, span: &Range<usize>) -> bool {

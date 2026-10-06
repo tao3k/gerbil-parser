@@ -62,6 +62,15 @@ fn result_captures_reject_wrong_types_arity_ranges_and_foreign_owners() {
             .project("Word", "α", 1..2, vec![ResultCapture::Parts(vec![])])
             .is_err()
     );
+    let independent = {
+        let temporary = PreparedResultProfile::new(&generated::RESULT_PROFILE).unwrap();
+        temporary.bind("LiteralPart").unwrap()
+    };
+    assert!(
+        independent
+            .project("α", 0..2, vec![ResultCapture::Span(0..2)])
+            .is_ok()
+    );
     let leaf = profile.bind("LiteralPart").unwrap();
     assert!(profile.bind("missing").is_err());
     let node = leaf

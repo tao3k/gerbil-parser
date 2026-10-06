@@ -496,7 +496,9 @@ Rust implementation. Result field and terminal renaming remains declaration data
 =PreparedResultProfile= admits the entire table once, including entries not
 selected by a particular parse. =bind= resolves a projection during source
 engine preparation; its =PreparedResultProjection= executes fixed instructions
-without another identifier lookup. Captures move into private =ProjectedNode=
+without another identifier lookup. The bound handle owns its static table
+identity and outlives the preparer, so a Source engine needs no self-referential
+borrow. Captures move into private =ProjectedNode=
 values. Child composition checks the exact result catalog, source borrow and
 parent byte range. Span captures require UTF-8 boundaries, correct arity and
 required/optional cardinality. Node and token spellings inhabit separate

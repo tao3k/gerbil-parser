@@ -183,7 +183,8 @@ jobs:
 
       - name: Compile Scheme test support
         run: |
-          gerbil env gxc t/line-structure-assertions.ss \
+          gerbil env gxc t/native-datum-support.ss \
+            t/line-structure-assertions.ss \
             t/benchmarks/gql/runtime/reduction-counts.ss \
             t/benchmarks/gql/runtime/execution-counts.ss \
             t/benchmarks/gql/runtime/matched-stages.ss \

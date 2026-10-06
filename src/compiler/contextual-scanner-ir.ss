@@ -36,6 +36,15 @@
     (['literal value]
      (and (string? value) (> (string-length value) 0)))
     (['literals values] (nonempty-strings? values))
+    (['unless-prefix prefixes exceptions child]
+     (and (nonempty-strings? prefixes) (list? exceptions)
+          (or (null? exceptions) (nonempty-strings? exceptions)) (pair? child) (not (eq? (car child) 'unless-prefix)) (matcher? child)))
+    (['line-prefix prefix separator]
+     (and (string? prefix) (positive? (string-length prefix))
+          (string? separator) (= (string-length separator) 1)
+          (not (memv (string-ref separator 0) (string->list prefix)))))
+    ((or ['marker-line-at separator] ['body-line-at separator])
+     (and (string? separator) (= (string-length separator) 1)))
     (['horizontal-whitespace+] #t)
     (['newline] #t)
     (['newline-one] #t)
@@ -65,21 +74,23 @@
     (else #f)))
 
 (def (action-matcher-compatible? action matcher)
-  (let (opcode (car matcher))
+  (let (opcode (car (if (eq? (car matcher) 'unless-prefix) (cadddr matcher) matcher)))
     (match action
-      ('keep (not (eq? opcode 'marker-line)))
-      (['expect-marker _]
+      ('keep (not (memq opcode '(marker-line marker-line-at))))
+      ((or ['expect-marker _] ['expect-marker-in _ _])
        (memq opcode '(literal literals)))
-      (['enqueue-if-expecting _]
+      ((or ['enqueue-if-expecting _] ['enqueue-marker-in _ _])
        (memq opcode '(balanced-word region-word identifier quoted-string)))
-      (['activate-next _] (eq? opcode 'newline-one))
-      (['finish-marker _ _] (eq? opcode 'marker-line))
+      (['activate-next _] (memq opcode '(newline-one literal)))
+      (['finish-marker _ _] (memq opcode '(marker-line marker-line-at)))
       (else #f))))
 
 (def (action? expression modes)
   (match expression
     ('keep #t)
     (['expect-marker strip-tabs?] (boolean? strip-tabs?))
+    (['expect-marker-in strip-tabs? mode] (and (boolean? strip-tabs?) (memq mode modes)))
+    (['enqueue-marker-in policy mode] (and (memq policy '(raw shell-quote-removal)) (memq mode modes)))
     (['enqueue-if-expecting policy]
      (memq policy '(raw shell-quote-removal)))
     (['activate-next body-mode] (memq body-mode modes))

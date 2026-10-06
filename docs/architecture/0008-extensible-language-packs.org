@@ -76,6 +76,59 @@ do not change a grammar's identity, parsing semantics, or receipt schema.
    handles need a separately verified ownership, lifetime, and thread-safety
    contract before they are shared across such calls.
 
+* Declarative source scanner profiles
+
+=language-source-support= exports =ScannerProfile.=, =ScannerProfileContract=
+and =defscanner-profile=. A profile is a POO object with ordinary =modes=,
+=initial-mode=, =tokens= and =rules= values. A rule is
+=(name mode form matcher rank action)=. The compiler validates effective
+inherited values, resolves token dispatch and emits closed contextual Scanner IR.
+Callbacks and private prepared-runtime objects are not profile data.
+
+#+begin_src scheme
+(defscanner-profile (letters :: self ScannerProfile.)
+  (modes main) (initial-mode main) (tokens letter)
+  (rules (letter main letter (literal "α") 0 keep)))
+
+;; Inherit modes, token roles and initial state; replace the rule value.
+(defscanner-profile (digits :: self letters)
+  (rules (digit main letter (literal "1") 0 keep)))
+#+end_src
+
+Ordinary POO value overrides and extensions pass the same contract when bound.
+There is no public thunk slot or language-owned scanning loop. The macro handles
+region-plan extraction internally with =(region-word plan initial-stop?)=.
+The compiler handles serialization, worker ownership and backend emission.
+
+The production Bash grammar declares command/marker/body modes, quote removal,
+FIFO markers, tab stripping, comments and LF boundaries. =ShellSourceStrategy.=
+requires its =scanner= profile in addition to its =regions= value. Both enter
+source identity. The engine prepares mode/dispatch/region indexes once per
+bound strategy; input workers hold source-local immutable checkpoints. The
+SourceScanner adapter forwards existing tokens and byte ranges without another
+UTF-8 encoding pass or duplicate token construction.
+
+| Closed operation | Meaning |
+|---+---|
+| =(unless-prefix blocked exceptions child)= | Evaluate one admitted child unless a blocked prefix matches; an explicit exception admits it. Nested guards reject. This prevents region errors inside comments and shields process substitutions from operator prefixes. |
+| =(line-prefix prefix separator)= | Match prefix-led content up to one declared separator, excluding it. Prefix must not contain that separator. |
+| =(marker-line-at separator)= / =(body-line-at separator)= | Match active obligation lines with an explicit separator; existing CRLF-normalizing line operations retain their own meaning. |
+| =(expect-marker-in strip-tabs? mode)= | Enter a declared delimiter mode; reject a second outstanding expectation. |
+| =(enqueue-marker-in policy mode)= | Require an expectation, decode its marker with a closed policy, queue it and enter a declared base mode. |
+| =(activate-next mode)= / =(finish-marker base body)= | Activate/drain the immutable FIFO and select declared modes. |
+
+Longest match precedes rank; equal-width conflicts use rank and unresolved
+ambiguity rejects. Mode names, dispatch coverage, matcher progress and action
+compatibility are checked before execution. Scanner/loader schemas are unchanged.
+The Scheme generator emits the actual Bash scanner profile plus token/span and
+rejection controls; Rust consumes this data without Scheme at scan time. Native
+CI regenerates and compares the artifact.
+
+This closes Bash scanner state execution. Structured word and command recognition
+still use engine procedures. A scanner artifact alone is not a complete Bash Rust
+parser or a source-descriptor C ABI product; those require recognition/result
+lowering and native catalog admission. These remain S3 in the convergence plan.
+
 * Acceptance gates
 
 - Build the generic Rowan runtime with no first-party language crate linked.

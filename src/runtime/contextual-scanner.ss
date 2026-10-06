@@ -108,6 +108,14 @@
                   (list 'literal-trie scanner values))
                 matcher))
              (['region-word spec] (list 'prepared-region (prepare-region-plan spec)))
+             (['unless-prefix prefixes exceptions child]
+              (match child
+                (['region-word spec]
+                 (list 'unless-prefix prefixes exceptions (list 'prepared-region (prepare-region-plan spec))))
+                ((or ['literal-trie . _] ['prepared-region . _])
+                 (error "private contextual scanner matcher in input IR"))
+                (['unless-prefix . _] (error "nested contextual scanner guard in input IR"))
+                (else matcher)))
              ((or ['literal-trie . _] ['prepared-region . _])
               (error "private contextual scanner matcher in input IR"))
              (else matcher)))
@@ -465,8 +473,32 @@
                  (delimiter-obligation-marker active))
                 end)))))
 
+(def (profile-line-end source start separator)
+ (let loop ((at start))
+  (cond ((= at (string-length source)) at)
+        ((char=? (string-ref source at) separator) (+ at 1))
+        (else (loop (+ at 1))))))
+(def (profile-marker-end source start separator state)
+ (let (active (contextual-scan-state-active state))
+  (and active
+   (let* ((end (profile-line-end source start separator))
+          (content-end (if (and (> end start) (char=? (string-ref source (- end 1)) separator)) (- end 1) end))
+          (content-start (if (delimiter-obligation-strip-tabs? active)
+             (let loop ((at start)) (if (and (< at content-end) (char=? (string-ref source at) #\tab)) (loop (+ at 1)) at)) start)))
+    (and (equal? (substring source content-start content-end) (delimiter-obligation-marker active)) end)))))
 (def (matcher-end source start expression state)
   (match expression
+    (['unless-prefix prefixes exceptions child]
+     (and (or (any (lambda (prefix) (literal-end source start prefix)) exceptions)
+              (not (any (lambda (prefix) (literal-end source start prefix)) prefixes)))
+          (matcher-end source start child state)))
+    (['line-prefix prefix separator]
+     (and (literal-end source start prefix)
+      (let* ((ch (string-ref separator 0)) (end (profile-line-end source start ch)))
+       (if (and (> end start) (char=? (string-ref source (- end 1)) ch)) (- end 1) end))))
+    (['marker-line-at separator] (profile-marker-end source start (string-ref separator 0) state))
+    (['body-line-at separator]
+     (and (contextual-scan-state-active state) (profile-line-end source start (string-ref separator 0))))
     (['literal value] (literal-end source start value))
     (['literal-trie scanner _values] (scanner source start))
     (['literals values]
@@ -602,6 +634,13 @@
         (expecting (contextual-scan-state-expecting state)))
     (match action
       ('keep state)
+      (['expect-marker-in strip-tabs? target-mode]
+       (when expecting (error "deferred delimiter already expected"))
+       (updated-state state target-mode pending active (if strip-tabs? 'strip-tabs 'plain)))
+      (['enqueue-marker-in policy target-mode]
+       (unless expecting (error "no deferred delimiter expected"))
+       (updated-state state target-mode
+        (delimiter-queue-enqueue pending (decode-marker policy lexeme (eq? expecting 'strip-tabs))) active #f))
       (['expect-marker strip-tabs?]
        (when expecting
          (error "deferred delimiter already expected"))

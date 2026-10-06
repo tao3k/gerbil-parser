@@ -39,6 +39,17 @@
     (['literal text] (display "Literal(" port) (rust-text port text) (display ")" port))
     (['literals values] (display "Literals(" port) (rust-strings port values) (display ")" port))
     (['quoted-string values] (display "QuotedString(" port) (rust-strings port values) (display ")" port))
+    (['unless-prefix prefixes exceptions child]
+     (display "UnlessPrefix { prefixes: " port) (rust-strings port prefixes)
+     (display ", exceptions: " port) (rust-strings port exceptions)
+     (display ", child: &" port) (emit-matcher port child) (display " }" port))
+    (['line-prefix prefix separator]
+     (display "LinePrefix { prefix: " port) (rust-text port prefix)
+     (display ", separator: " port) (rust-char port (string-ref separator 0)) (display " }" port))
+    (['marker-line-at separator]
+     (display "MarkerLineAt(" port) (rust-char port (string-ref separator 0)) (display ")" port))
+    (['body-line-at separator]
+     (display "BodyLineAt(" port) (rust-char port (string-ref separator 0)) (display ")" port))
     (['region-word [stops quotes pairs initial-stop]]
      (display "RegionWord { stops: " port) (rust-strings port stops)
      (display ", quotes: &[" port)
@@ -81,6 +92,14 @@
     ('keep (display "Keep" port))
     (['expect-marker strip?]
      (display (if strip? "ExpectMarker(true)" "ExpectMarker(false)") port))
+    (['expect-marker-in strip? mode]
+     (display (if strip? "ExpectMarkerIn { strip_tabs: true, mode: " "ExpectMarkerIn { strip_tabs: false, mode: ") port)
+     (rust-name port mode) (display " }" port))
+    (['enqueue-marker-in policy mode]
+     (display "EnqueueMarkerIn { policy: MarkerPolicy::" port)
+     (display (case policy ((raw) "Raw") ((shell-quote-removal) "ShellQuoteRemoval")
+                (else (error "unsupported Rust delimiter policy" policy))) port)
+     (display ", mode: " port) (rust-name port mode) (display " }" port))
     (['enqueue-if-expecting policy]
      (display "EnqueueIfExpecting(MarkerPolicy::" port)
      (display (case policy ((raw) "Raw") ((shell-quote-removal) "ShellQuoteRemoval")

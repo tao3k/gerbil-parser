@@ -15,8 +15,7 @@
                  defsyntax-fixture defsyntax-corpus syntax-fixture-source syntax-fixture-source-digest)
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-basic-fixture)
-        (only-in :gerbil-parser/src/runtime/shell-scanner make-shell-scanner)
-        (only-in :gerbil-parser/languages/bash/grammar bash-word-regions)
+        (only-in :gerbil-parser/src/language/source source-language-scanner-factory)
         (only-in "fixtures/source-strategies.ss" test-source-strategy)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
@@ -209,7 +208,7 @@
                                      (declare-language-source-scan-worker bad-source)))))
          (check (rejects? (lambda () (make-language-scan-worker bad-worker-loader 'command "echo α\n"))) => #t)
          (check (rejects? (lambda () (make-language-scan-worker bad-worker-loader 'missing "echo α\n"))) => #t))
-       (list (lambda (_) #f) (lambda (_) (make-shell-scanner bash-word-regions "different source")))))
+       (list (lambda (_) #f) (lambda (_) ((source-language-scanner-factory bash-source-language) "different source")))))
     (test-case "metadata admission rejects invalid descriptors and service registries"
       (for-each
        (lambda (row)
@@ -229,7 +228,7 @@
              (cons 'tests (list (cons 'same (declare-language-fixture-test arithmetic-language-grammar))
                                      (cons 'same (declare-language-fixture-test arithmetic-language-grammar))))
              (cons 'scan-workers (list (cons 'bad #f)))
-             (cons 'scan-workers (list (cons 'undeclared make-shell-scanner)))
+             (cons 'scan-workers (list (cons 'undeclared (source-language-scanner-factory bash-source-language))))
              (cons 'scan-workers (list (cons 'foreign (declare-language-source-scan-worker
                                                       bash-source-language))))))
       (check (rejects? (lambda ()

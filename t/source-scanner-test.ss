@@ -1,17 +1,18 @@
 ;;; Engine checkpoints are owned by the creating worker, including shared text.
 (import :std/test
         (only-in :gerbil-parser/src/runtime/source-scanner
-                 make-source-scanner source-scanner-initial-state source-scanner-step
+                 make-source-scanner source-scanner-tokens source-scanner-initial-state source-scanner-step
                  source-scan-state-with-context source-scan-state-byte-offset)
         (only-in :gerbil-parser/src/runtime/token token-start token-end token-kind token-lexeme)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scan-state-context)
         (only-in :gerbil-parser/src/runtime/contextual-scanner
                  +empty-delimiter-queue+ delimiter-queue-enqueue delimiter-queue-take
-                 delimiter-queue-list delimiter-obligation-marker decode-marker)
-        (only-in :gerbil-parser/src/runtime/shell-scanner
-                 make-shell-scanner shell-scan shell-lex-context-pending
-                 parse-heredoc-delimiter shell-heredoc-delimiter shell-heredoc-quoted?))
-(import (only-in :gerbil-parser/languages/bash/grammar bash-word-regions))
+                 delimiter-queue-list delimiter-obligation-marker delimiter-obligation-quoted?
+                 contextual-scan-state-canonical decode-marker)
+        (only-in :gerbil-parser/src/language/source source-language-scanner-factory))
+(import (only-in :gerbil-parser/languages/bash/grammar bash-source-language))
+(def (pending-markers state)
+ (map car (cdr (assq 'pending (contextual-scan-state-canonical state)))))
 (def (rejected? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-scanner-test
@@ -30,33 +31,31 @@
     (test-case "Bash uses engine quote removal including preserved double-quote escapes"
       (for-each
        (lambda (row)
-         (let (marker (parse-heredoc-delimiter (car row) #f))
-           (check (shell-heredoc-delimiter marker) => (cadr row))
-           (check (shell-heredoc-quoted? marker) => (caddr row))))
+         (let (marker (decode-marker 'shell-quote-removal (car row) #f))
+           (check (delimiter-obligation-marker marker) => (cadr row))
+           (check (delimiter-obligation-quoted? marker) => (caddr row))))
        '(("A" "A" #f) ("'A'" "A" #t) ("\"a\\q\"" "a\\q" #t)
          ("\"a\\$\"" "a$" #t) ("'a\\q'" "a\\q" #t)
          ("A\\\nB" "AB" #f) ("''" "" #t)))
-      (check (rejected? (lambda () (parse-heredoc-delimiter "" #f))) => #t)
-      (check (rejected? (lambda () (parse-heredoc-delimiter "'A" #f))) => #t)
+      (check (rejected? (lambda () (decode-marker 'shell-quote-removal "" #f))) => #t)
+      (check (rejected? (lambda () (decode-marker 'shell-quote-removal "'A" #f))) => #t)
       (check (rejected? (lambda () (decode-marker 'arbitrary "A" #f))) => #t))
     (test-case "Bash queued checkpoint replay retains its own pending obligations"
-      (let* ((worker (make-shell-scanner bash-word-regions "<<A <<B\nα\nA\nβ\nB\n"))
+      (let* ((worker ((source-language-scanner-factory bash-source-language) "<<A <<B\nα\nA\nβ\nB\n"))
              (initial (source-scanner-initial-state worker)))
         (let-values (((open after-open) (source-scanner-step worker initial 'command)))
           (let-values (((marker queued) (source-scanner-step worker after-open 'command)))
-            (check (map shell-heredoc-delimiter
-                        (shell-lex-context-pending (source-scan-state-context queued))) => '("A"))
+            (check (pending-markers (source-scan-state-context queued)) => '("A"))
             (let-values (((again replay) (source-scanner-step worker after-open 'command)))
               (check (token-lexeme again) => "A")
-              (check (map shell-heredoc-delimiter
-                          (shell-lex-context-pending (source-scan-state-context replay))) => '("A")))
-            (check (shell-lex-context-pending (source-scan-state-context initial)) => '())))))
+              (check (pending-markers (source-scan-state-context replay)) => '("A")))
+            (check (pending-markers (source-scan-state-context initial)) => '())))))
     (test-case "large Bash deferred batches drain in declaration order"
       (let* ((markers (map (lambda (n) (string-append "END" (number->string n))) (iota 128)))
              (source (string-append "cat "
                        (apply string-append (map (lambda (name) (string-append "<<" name " ")) markers))
                        "\n" (apply string-append (map (lambda (name) (string-append "α\n" name "\n")) markers))))
-             (tokens (shell-scan bash-word-regions source)))
+             (tokens (source-scanner-tokens ((source-language-scanner-factory bash-source-language) source) 'command)))
         (check (map token-lexeme (filter (lambda (token) (eq? (token-kind token) 'heredoc-marker)) tokens)) => markers)
         (check (map token-lexeme (filter (lambda (token) (eq? (token-kind token) 'heredoc-end)) tokens))
                => (map (lambda (name) (string-append name "\n")) markers))

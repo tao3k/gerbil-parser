@@ -1,10 +1,10 @@
 #+title: Versioned language-pack closure plan
 #+startup: overview
 
-* Current convergence plan — 2026-10-05
+* Current convergence plan — 2026-10-06
 
-Authoring baseline: PR #13 =9e3652d00c2228330b58f9791ba7f263948b421b=.
-Rust and Ubuntu native CI passed at that exact head. The lexical migration below
+Authoring baseline: PR #13 =2e394bd03894ff1436fecc5bcc85e189ac142ff9=.
+Rust and Ubuntu native CI passed at that exact head. The Bash scanner migration below
 is a subsequent change and requires its own verification. This is the
 single execution plan for language-layer convergence. The coverage milestones
 below remain separate syntax obligations; their old publication-status notes
@@ -30,8 +30,9 @@ Eight language families publish ten POO loader objects. All ten already expose
 =grammars=, =metadata=, value =fixtures= and named =tests= services through
 =deflanguage-parser-loader=. TLA+ has three scopes; the other families have one.
 Entry unification does not establish shared scanner execution or Rust admission.
-There is no =sky= module in this checkout. Scanner work includes three scanner
-modules; Bash word boundaries now use the shared closed region plan.
+There is no =sky= module in this checkout. Bash scanner modes and deferred
+markers now compile from a POO profile to shared contextual Scanner IR. The
+former shell scanner module and its alias surface are deleted.
 
 | Family / scope | Current declarations | Open convergence boundary | Owner |
 |---+---+---+---|
@@ -42,7 +43,7 @@ modules; Bash word boundaries now use the shared closed region plan.
 | HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
 | TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has no external lexical declarations; module framing prepares source indexes and identifier/proof roles use closed text profiles; Scheme proof policy remains; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
-| Bash 5.3 | Source descriptor; one loader | Engine =shell-scanner.ss=, =shell-parser.ss= and =shell-word.ss= still execute procedural shell recognition; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; =shell-parser.ss= and =shell-word.ss= still execute procedural recognition; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
 Total: zero external lexical declarations in grammar packs.
 Bash has a source parser rather than external lexical rows and is counted
@@ -57,7 +58,7 @@ legitimate language ownership. File count alone is not a convergence gate.
 | Declaration boundary | Required constraint / engine owner | Current state |
 |---+---+---|
 | =grammar= / =source= | Descriptor kind, identity and fixed parse dispatch; canonical grammar/catalog checks happen in engine compilation | Admitted; source parser still a separately advertised migration scope |
-| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Closed lexical roles enforced; header/module source contexts prepare once; Bash source recognition remains separate |
+| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Closed lexical roles enforced; header/module source contexts prepare once; Bash scanner is declared IR, while source recognition remains separate |
 | =fixtures= | =defsyntax-corpus= data; whole-corpus language/version/contract, unique ids and typed fixtures admitted before any parse | Admitted by the engine fixture service |
 | =tests= | Declared service identity plus execution/result protocol bound to the loader; arbitrary return values must not establish conformance | Private typed fixture-test declarations bind the exact descriptor; engine execution owns conformance. Bare procedures, duplicates and foreign descriptors reject |
 | =backends= | Closed strategy kind, exact Parser IR digest, procedure signature, duplicate/occupied-slot rejection before installation | Admitted atomically; HCL/Arithmetic strategy generalization remains |

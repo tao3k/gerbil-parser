@@ -37,6 +37,26 @@ pub(super) fn matcher_end(
             .filter(|s| tail.starts_with(**s))
             .map(|s| at + s.len())
             .max(),
+        ScannerMatcher::UnlessPrefix {
+            prefixes,
+            exceptions,
+            child,
+        } => {
+            if exceptions.iter().any(|p| tail.starts_with(p))
+                || !prefixes.iter().any(|p| tail.starts_with(p))
+            {
+                matcher_end(source, at, *child, active)?
+            } else {
+                None
+            }
+        }
+        ScannerMatcher::LinePrefix { prefix, separator } => tail
+            .starts_with(prefix)
+            .then(|| tail.find(separator).map_or(source.len(), |i| at + i)),
+        ScannerMatcher::MarkerLineAt(separator) => {
+            profile_line(source, at, separator, active, true)
+        }
+        ScannerMatcher::BodyLineAt(separator) => profile_line(source, at, separator, active, false),
         ScannerMatcher::HorizontalWhitespace => run(source, at, |c| c == ' ' || c == '\t'),
         ScannerMatcher::Newline => run(source, at, |c| c == '\r' || c == '\n'),
         ScannerMatcher::NewlineOne => newline(source, at),
@@ -377,4 +397,30 @@ fn region_word(
     } else {
         Err(error(at, "unterminated declared region"))
     }
+}
+
+fn profile_line(
+    source: &str,
+    at: usize,
+    separator: char,
+    active: Option<&Obligation>,
+    marker: bool,
+) -> Option<usize> {
+    let active = active?;
+    let content_end = source[at..]
+        .find(separator)
+        .map_or(source.len(), |i| at + i);
+    let end = content_end
+        + if content_end < source.len() {
+            separator.len_utf8()
+        } else {
+            0
+        };
+    let content = &source[at..content_end];
+    let content = if active.strip_tabs {
+        content.trim_start_matches('\t')
+    } else {
+        content
+    };
+    (!marker || content == active.marker).then_some(end)
 }

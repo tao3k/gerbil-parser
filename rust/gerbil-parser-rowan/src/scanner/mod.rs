@@ -15,3 +15,7 @@ mod shared_scanner_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/contextual_scanner.rs"]
 mod contextual_scanner_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/bash_scanner.rs"]
+mod bash_scanner_tests;

@@ -10,8 +10,7 @@
                  recognition-child-field recognition-node-start)
         (only-in :gerbil-parser/src/runtime/token
                  make-token token-end token-kind token-lexeme token-start)
-        (only-in ./shell-scanner
-                 shell-heredoc-quoted? parse-heredoc-delimiter)
+        (only-in ./contextual-scanner delimiter-obligation-quoted? decode-marker)
         (only-in ./shell-word make-shell-word-parser))
 (export shell-here-document-link?
         shell-here-document-link-marker-start
@@ -159,8 +158,8 @@
                                        (list
                                         (cons
                                          (token-start target)
-                                         (shell-heredoc-quoted?
-                                          (parse-heredoc-delimiter
+                                         (delimiter-obligation-quoted?
+                                          (decode-marker 'shell-quote-removal
                                            (token-lexeme target)
                                            (same-operator?
                                             operator "<<-")))))))

@@ -303,7 +303,8 @@
              scanner (contextual-scanner-initial-state scanner) 'command)
             #f))
          => "ambiguous contextual scanner match")))
-    (test-case "input IR cannot admit the private prepared trie matcher"
+    (test-case "input IR cannot admit the private prepared matchers under guards"
+      (for-each (lambda (matcher)
       (let-values (((_scanner ir) (bash-scanner "if")))
         (let* ((body
                 (map (lambda (row)
@@ -311,7 +312,7 @@
                          (cons 'rules
                                (map (lambda (rule)
                                       (list (car rule) (cadr rule) (caddr rule)
-                                            '(literal-trie 42)
+                                            matcher
                                             (list-ref rule 4) (list-ref rule 5)))
                                     (cdr row))) row))
                      (filter (lambda (row) (not (eq? (car row) 'digest))) ir)))
@@ -323,6 +324,9 @@
            (with-catch (lambda (condition) (error-message condition))
              (lambda () (prepare-contextual-scanner altered "if") #f))
            => "private contextual scanner matcher in input IR"))))
+       '((literal-trie 42) (prepared-region 42)
+         (unless-prefix ("#") () (literal-trie 42))
+         (unless-prefix ("#") () (prepared-region 42)))))
     (test-case "a self-consistent digest cannot admit a foreign opcode contract"
       (let-values (((_scanner ir) (bash-scanner "if")))
         (let* ((body

@@ -3,9 +3,11 @@
 ;;; across token boundaries. A state is a reusable checkpoint for one source.
 
 (import (only-in :std/string/utf8 string-utf8-length)
-        (only-in ./token make-token))
+        (only-in ./token make-token)
+        (only-in ./contextual-scanner prepare-contextual-scanner contextual-scanner-initial-state
+                 contextual-scanner-step contextual-scan-state-character-offset contextual-scan-state-byte-offset))
 (export source-scanner-driver? source-scanner-for-source? source-scanner-tokens make-source-scanner
-        source-scanner-initial-state
+        make-contextual-source-scanner source-scanner-initial-state
         source-scanner-step
         source-scan-state?
         source-scan-state-character-offset
@@ -14,6 +16,12 @@
         source-scan-state-with-context)
 
 (defstruct source-scanner-driver (source initial-context scan) transparent: #t)
+(defstruct (contextual-source-driver source-scanner-driver) (executor position))
+(def (make-contextual-source-scanner plan source position)
+  (let* ((executor (prepare-contextual-scanner plan source))
+         (initial (contextual-scanner-initial-state executor)))
+    (make-contextual-source-driver source initial #f executor position)))
+
 (defstruct source-scan-state (owner source character-offset byte-offset context)
   transparent: #t)
 
@@ -39,12 +47,31 @@
    (source-scan-state-byte-offset state)
    context))
 
-;;; The language callback returns (values kind exclusive-character-end context).
-;;; The engine checks progress and owns byte offsets and token construction.
+(def (step-contextual-source scanner state)
+  (let (context (source-scan-state-context state))
+    (unless (and (= (contextual-scan-state-character-offset context)
+                    (source-scan-state-character-offset state))
+                 (= (contextual-scan-state-byte-offset context)
+                    (source-scan-state-byte-offset state)))
+      (error "contextual source checkpoint offsets disagree"))
+    (let-values (((token next)
+                  (contextual-scanner-step
+                   (contextual-source-driver-executor scanner) context
+                   (contextual-source-driver-position scanner))))
+      (values token
+              (make-source-scan-state scanner (source-scanner-driver-source scanner)
+               (contextual-scan-state-character-offset next)
+               (contextual-scan-state-byte-offset next) next)))))
+
+;;; Engine callbacks return (values kind exclusive-character-end context).
+;;; Contextual workers forward the token and offsets owned by the shared IR executor.
+;;; Ordinary workers check progress and construct source-backed byte spans.
 (def (source-scanner-step scanner state mode)
   (unless (and (source-scan-state? state)
                (eq? scanner (source-scan-state-owner state)))
     (error "scanner checkpoint belongs to another worker"))
+  (if (contextual-source-driver? scanner)
+    (step-contextual-source scanner state)
   (let* ((source (source-scanner-driver-source scanner))
          (start (source-scan-state-character-offset state))
          (length (string-length source)))
@@ -67,10 +94,10 @@
         (begin
           (unless (= start length)
             (error "source scanner stopped before EOF" start length))
-          (values #f (source-scan-state-with-context state context)))))))
+          (values #f (source-scan-state-with-context state context))))))))
 
-;;; A scan worker drains its own immutable checkpoints. Language callbacks only
-;;; decide the next token and context; traversal and token ownership stay here.
+;;; A scan worker drains its own immutable checkpoints; traversal and token
+;;; ownership stay here for both engine callbacks and closed contextual profiles.
 (def (source-scanner-tokens scanner mode)
   (unless (source-scanner-driver? scanner) (error "invalid source scanner worker"))
   (let loop ((state (source-scanner-initial-state scanner)) (tokens '()))

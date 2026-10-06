@@ -35,6 +35,17 @@ pub struct RegionPair {
 pub enum ScannerMatcher {
     Literal(&'static str),
     Literals(&'static [&'static str]),
+    UnlessPrefix {
+        prefixes: &'static [&'static str],
+        exceptions: &'static [&'static str],
+        child: &'static Self,
+    },
+    LinePrefix {
+        prefix: &'static str,
+        separator: char,
+    },
+    MarkerLineAt(char),
+    BodyLineAt(char),
     HorizontalWhitespace,
     Newline,
     NewlineOne,
@@ -63,6 +74,14 @@ pub enum MarkerPolicy {
 pub enum ScannerAction {
     Keep,
     ExpectMarker(bool),
+    ExpectMarkerIn {
+        strip_tabs: bool,
+        mode: &'static str,
+    },
+    EnqueueMarkerIn {
+        policy: MarkerPolicy,
+        mode: &'static str,
+    },
     EnqueueIfExpecting(MarkerPolicy),
     ActivateNext(&'static str),
     FinishMarker {
@@ -260,53 +279,12 @@ impl<'source> ContextualScanner<'source> {
         };
         let mut next = state.clone();
         next.offset = end;
-        match rule.action {
-            ScannerAction::Keep => {}
-            ScannerAction::ExpectMarker(strip) => {
-                if next.expecting.is_some() {
-                    return Err(error(state.offset, "deferred delimiter already expected"));
-                }
-                next.expecting = Some(strip);
-            }
-            ScannerAction::EnqueueIfExpecting(policy) => {
-                if let Some(strip_tabs) = next.expecting {
-                    let word = &self.source[state.offset..end];
-                    let (marker, quoted) = match policy {
-                        MarkerPolicy::Raw => (word.to_owned(), false),
-                        MarkerPolicy::ShellQuoteRemoval => shell_delimiter(word, state.offset)?,
-                    };
-                    if marker.is_empty() && !quoted {
-                        return Err(error(state.offset, "empty deferred delimiter"));
-                    }
-                    next.pending.push_back(Obligation {
-                        marker,
-                        strip_tabs,
-                        quoted,
-                    });
-                    next.expecting = None;
-                }
-            }
-            ScannerAction::ActivateNext(body) => {
-                if next.expecting.is_some() {
-                    return Err(error(state.offset, "missing delimiter before newline"));
-                }
-                if let Some(active) = next.pending.pop_front() {
-                    next.active = Some(active);
-                    next.mode = body;
-                }
-            }
-            ScannerAction::FinishMarker { base, body } => {
-                if next.active.is_none() {
-                    return Err(error(
-                        state.offset,
-                        "marker closed without active obligation",
-                    ));
-                }
-                next.active = next.pending.pop_front();
-                next.mode = if next.active.is_some() { body } else { base };
-                next.expecting = None;
-            }
-        }
+        apply_action(
+            &mut next,
+            rule.action,
+            &self.source[state.offset..end],
+            state.offset,
+        )?;
         Ok((Some(token), next))
     }
     /// Execute a declaration with one fixed parser position. Dynamic LR positions use step.
@@ -383,7 +361,11 @@ fn prepare_spec(spec: &'static ScannerSpec) -> Result<ScannerPlan, Diagnostic> {
             return Err(error(0, "scanner rule has no dispatch"));
         }
         match rule.action {
-            ScannerAction::ActivateNext(mode) if !spec.modes.contains(&mode) => {
+            ScannerAction::ActivateNext(mode)
+            | ScannerAction::ExpectMarkerIn { mode, .. }
+            | ScannerAction::EnqueueMarkerIn { mode, .. }
+                if !spec.modes.contains(&mode) =>
+            {
                 return Err(error(0, "undeclared action mode"));
             }
             ScannerAction::FinishMarker { base, body }
@@ -399,4 +381,80 @@ fn prepare_spec(spec: &'static ScannerSpec) -> Result<ScannerPlan, Diagnostic> {
         rules.entry(rule.mode).or_default().push(rule);
     }
     Ok(ScannerPlan { rules, dispatch })
+}
+
+fn enqueue_marker(
+    next: &mut ScannerCheckpoint<'_, '_>,
+    policy: MarkerPolicy,
+    word: &str,
+    at: usize,
+) -> Result<(), Diagnostic> {
+    if let Some(strip_tabs) = next.expecting {
+        let (marker, quoted) = match policy {
+            MarkerPolicy::Raw => (word.to_owned(), false),
+            MarkerPolicy::ShellQuoteRemoval => shell_delimiter(word, at)?,
+        };
+        if marker.is_empty() && !quoted {
+            return Err(error(at, "empty deferred delimiter"));
+        }
+        next.pending.push_back(Obligation {
+            marker,
+            strip_tabs,
+            quoted,
+        });
+        next.expecting = None;
+    }
+    Ok(())
+}
+
+fn apply_action(
+    next: &mut ScannerCheckpoint<'_, '_>,
+    action: ScannerAction,
+    word: &str,
+    at: usize,
+) -> Result<(), Diagnostic> {
+    match action {
+        ScannerAction::Keep => {}
+        ScannerAction::ExpectMarkerIn { strip_tabs, mode } => {
+            if next.expecting.is_some() {
+                return Err(error(at, "deferred delimiter already expected"));
+            }
+            next.expecting = Some(strip_tabs);
+            next.mode = mode;
+        }
+        ScannerAction::ExpectMarker(strip) => {
+            if next.expecting.is_some() {
+                return Err(error(at, "deferred delimiter already expected"));
+            }
+            next.expecting = Some(strip);
+        }
+        ScannerAction::EnqueueMarkerIn { policy, mode } => {
+            if next.expecting.is_none() {
+                return Err(error(at, "deferred delimiter not expected"));
+            }
+            enqueue_marker(next, policy, word, at)?;
+            next.mode = mode;
+        }
+        ScannerAction::EnqueueIfExpecting(policy) => {
+            enqueue_marker(next, policy, word, at)?;
+        }
+        ScannerAction::ActivateNext(body) => {
+            if next.expecting.is_some() {
+                return Err(error(at, "missing delimiter before newline"));
+            }
+            if let Some(active) = next.pending.pop_front() {
+                next.active = Some(active);
+                next.mode = body;
+            }
+        }
+        ScannerAction::FinishMarker { base, body } => {
+            if next.active.is_none() {
+                return Err(error(at, "marker closed without active obligation"));
+            }
+            next.active = next.pending.pop_front();
+            next.mode = if next.active.is_some() { body } else { base };
+            next.expecting = None;
+        }
+    }
+    Ok(())
 }

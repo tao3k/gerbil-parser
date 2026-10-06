@@ -8,6 +8,19 @@ fn matcher(value: ScannerMatcher) -> bool {
     match value {
         ScannerMatcher::Literal(s) => !s.is_empty(),
         ScannerMatcher::Literals(ss) | ScannerMatcher::QuotedString(ss) => strings(ss),
+        ScannerMatcher::UnlessPrefix {
+            prefixes,
+            exceptions,
+            child,
+        } => {
+            strings(prefixes)
+                && (exceptions.is_empty() || strings(exceptions))
+                && !matches!(child, ScannerMatcher::UnlessPrefix { .. })
+                && matcher(*child)
+        }
+        ScannerMatcher::LinePrefix { prefix, separator } => {
+            !prefix.is_empty() && !prefix.contains(separator)
+        }
         ScannerMatcher::RegionWord {
             stops,
             quotes,
@@ -55,21 +68,34 @@ fn matcher(value: ScannerMatcher) -> bool {
     }
 }
 fn action(rule: &ScannerRule) -> bool {
+    let matcher = match rule.matcher {
+        ScannerMatcher::UnlessPrefix { child, .. } => *child,
+        other => other,
+    };
     match rule.action {
-        ScannerAction::Keep => rule.matcher != ScannerMatcher::MarkerLine,
-        ScannerAction::ExpectMarker(_) => matches!(
-            rule.matcher,
+        ScannerAction::Keep => !matches!(
+            matcher,
+            ScannerMatcher::MarkerLine | ScannerMatcher::MarkerLineAt(_)
+        ),
+        ScannerAction::ExpectMarker(_) | ScannerAction::ExpectMarkerIn { .. } => matches!(
+            matcher,
             ScannerMatcher::Literal(_) | ScannerMatcher::Literals(_)
         ),
-        ScannerAction::EnqueueIfExpecting(_) => matches!(
-            rule.matcher,
+        ScannerAction::EnqueueIfExpecting(_) | ScannerAction::EnqueueMarkerIn { .. } => matches!(
+            matcher,
             ScannerMatcher::BalancedWord { .. }
                 | ScannerMatcher::RegionWord { .. }
                 | ScannerMatcher::Identifier
                 | ScannerMatcher::QuotedString(_)
         ),
-        ScannerAction::ActivateNext(_) => rule.matcher == ScannerMatcher::NewlineOne,
-        ScannerAction::FinishMarker { .. } => rule.matcher == ScannerMatcher::MarkerLine,
+        ScannerAction::ActivateNext(_) => matches!(
+            matcher,
+            ScannerMatcher::NewlineOne | ScannerMatcher::Literal(_)
+        ),
+        ScannerAction::FinishMarker { .. } => matches!(
+            matcher,
+            ScannerMatcher::MarkerLine | ScannerMatcher::MarkerLineAt(_)
+        ),
     }
 }
 pub(super) fn rules(spec: &ScannerSpec) -> Result<(), Diagnostic> {

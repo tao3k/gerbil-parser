@@ -203,7 +203,8 @@ jobs:
             t/structured-lexical-cases.ss \
             t/structured-lexical-test.ss \
             t/module-source-cases.ss \
-            t/module-source-test.ss
+            t/module-source-test.ss \
+            t/fixtures/shared-scanner/bash.ss
 
       - name: Verify header-derived delimiter Rust AOT regeneration
         run: |
@@ -252,6 +253,12 @@ jobs:
       - name: Verify shared scanner and contextual Rust AOT regeneration
         run: |
           gerbil env gxi t/fixtures/shared-scanner/generate.ss /tmp/shared-scanner.rs
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log /tmp/bash-scanner-generation.log --require BASH-SCANNER-RUST-GENERATED \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/shared-scanner/bash")' \
+            t/fixtures/shared-scanner/generate-bash.ss /tmp/bash-scanner.rs
+          rustfmt --edition 2024 /tmp/bash-scanner.rs
+          cmp /tmp/bash-scanner.rs rust/gerbil-parser-rowan/tests/fixtures/generated/bash_scanner.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-native-artifact.ss /tmp/native-artifact.rs
           rustfmt --edition 2024 /tmp/native-artifact.rs

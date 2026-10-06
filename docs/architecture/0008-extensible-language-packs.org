@@ -217,7 +217,7 @@ The three pack interfaces remain =grammar.ss=, =parser.ss= and
 =tokens= declares generated terminal kinds. =scanner= admits the existing
 =ScannerProfile.= and derives its terminals; the author does not repeat that
 list. These are ordinary POO value slots. A declaration can inherit a profile,
-replace only =nodes=, =tokens= or =scanner=, or assign an extended list through
+replace =nodes=, =tokens=, =scanner= or =projections=, or assign an extended list through
 =.o=. There are no user thunks and no callback result builders in this facade.
 The same =ResultProfileContract= checks inherited and replaced values.
 
@@ -410,4 +410,50 @@ independent Unicode loop syntax without editing the executor. A declarative
 refactor gives failures new explanatory text; diagnostic codes, reason kinds,
 source identity, rejected status and source retention stay qualified.
 This is real Scheme execution of the closed IR. Full Rust control/Word
-interpretation and Word result-projection lowering remain separate work.
+interpretation remains separate work; Word result-projection IR executes in
+the Scheme engine as described below.
+
+** Shared result-projection IR
+
+=ResultProfile.= has a =projections= POO value slot. A program declares its
+identity, result kind, ordered typed captures and closed construction operations:
+
+#+begin_src scheme
+(defresult-profile (template-results :: self ResultProfile.)
+  (projections
+    (atom Atom ((text span)) (token content glyph text required))
+    (word Word ((parts parts)) (many fragment parts))))
+#+end_src
+
+Projection-only profiles derive node kinds, fields and token kinds. Existing
+explicit =nodes= constrain legal fields; =tokens= supplies additional terminals,
+and =scanner= derives scanner terminals. Different programs can construct the
+same derived kind; its fields are the ordered union of their declarations.
+Authors do not repeat a projection's catalog. Unknown operations, duplicate
+programs or captures, invalid cardinalities and captures used with the wrong
+type reject before execution. Each capture is consumed exactly once in order.
+=token= consumes a character-span capture, =one= consumes a nested node and its
+persistent token sequence, and =many= consumes an ordered list of parts with
+its sequence. =token= and =one= declare =required= or =optional=; =many= admits
+an empty part list. There are no author procedures or thunks.
+
+The engine resolves fields, terminals and capture indexes once at binding.
+Single required-token and single part-list programs specialize internally;
+other programs use the same closed executor. These are engine-generated
+execution paths for admitted IR, not compatibility modes. Runtime capture arity,
+character bounds, UTF-8 byte offsets and child containment remain checked.
+Token sequences share immutable branches and materialize at public publication;
+a nested projection never copies an expanding token suffix.
+
+Word, here-document line, assignment, literal/name/escape, quoted part,
+substitution, parameter and array-subscript construction all execute this IR.
+The word recognizer supplies typed spans and nested captures; it no longer owns
+result-field names or terminal-kind names. =admit-part-plan= checks capture types and required/optional cardinalities
+against the projection signatures required by its operations. An independent =@name=
+language replaces Word, body, literal and identifier result kinds, fields and
+terminals through the same macro, without modifying the engine.
+
+Projection recipes and returned copies are owned independently and participate
+in Source identity. Source v1, Loader v2 and C ABI v2 remain unchanged. This
+closes Scheme Word result projection; full standalone Rust Source control/Word
+execution still needs a shared interpreter and qualification.

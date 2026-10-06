@@ -78,13 +78,6 @@
 (defresult-profile (bash-results :: self ResultProfile.)
  (scanner bash-command-scanner)
  (nodes
-  (Word part) (HereDocumentLine part) (Assignment name operator value)
-  (LiteralPart text) (EscapeSequence text) (SimpleParameter text)
-  (SingleQuoted open part close) (DoubleQuoted open part close) (AnsiCString open part close)
-  (ParameterExpansion open prefix name subscript operator operand close)
-  (ArraySubscript open index close)
-  (ArithmeticExpansion open body close) (CommandSubstitution open body close)
-  (ProcessSubstitution open body close)
   (Redirection descriptor operator target) (ArrayAssignment assignment open close separator element)
   (SimpleCommand assignment name argument redirect) (CommandList command separator here-document)
   (IfCommand keyword condition body else-body) (WhileCommand keyword condition body)
@@ -97,11 +90,38 @@
   (BraceGroup open body close) (Subshell open body close)
   (Pipeline keyword option negate command operator) (AndOrList command operator)
   (HereDocument delimiter content) (BashFile command separator here-document))
- (tokens unparsed-source
-         LiteralPart EscapeSequence SimpleParameter
-         parameter-open parameter-prefix parameter-name parameter-operator parameter-close
-         subscript-open subscript-close quote-open quote-close
-         substitution-open substitution-body substitution-close assignment-name assignment-operator))
+ (tokens unparsed-source)
+ (projections
+  (LiteralPart LiteralPart ((text span)) (token text LiteralPart text required))
+  (EscapeSequence EscapeSequence ((text span)) (token text EscapeSequence text required))
+  (SimpleParameter SimpleParameter ((text span)) (token text SimpleParameter text required))
+  (Word Word ((parts parts)) (many part parts))
+  (HereDocumentLine HereDocumentLine ((parts parts)) (many part parts))
+  (SingleQuoted SingleQuoted ((open span) (parts parts) (close span))
+   (token open quote-open open required) (many part parts) (token close quote-close close required))
+  (DoubleQuoted DoubleQuoted ((open span) (parts parts) (close span))
+   (token open quote-open open required) (many part parts) (token close quote-close close required))
+  (AnsiCString AnsiCString ((open span) (parts parts) (close span))
+   (token open quote-open open required) (many part parts) (token close quote-close close required))
+  (ArithmeticExpansion ArithmeticExpansion ((open span) (body span) (close span))
+   (token open substitution-open open required) (token body substitution-body body optional)
+   (token close substitution-close close required))
+  (CommandSubstitution CommandSubstitution ((open span) (body span) (close span))
+   (token open substitution-open open required) (token body substitution-body body optional)
+   (token close substitution-close close required))
+  (ProcessSubstitution ProcessSubstitution ((open span) (body span) (close span))
+   (token open substitution-open open required) (token body substitution-body body optional)
+   (token close substitution-close close required))
+  (ArraySubscript ArraySubscript ((open span) (parts parts) (close span))
+   (token open subscript-open open required) (many index parts) (token close subscript-close close required))
+  (ParameterExpansion ParameterExpansion
+   ((open span) (prefix span) (name span) (subscript node) (operator span) (parts parts) (close span))
+   (token open parameter-open open required) (token prefix parameter-prefix prefix optional)
+   (token name parameter-name name optional) (one subscript subscript optional)
+   (token operator parameter-operator operator optional) (many operand parts)
+   (token close parameter-close close required))
+  (Assignment Assignment ((name span) (operator span) (parts parts))
+   (token name assignment-name name required) (token operator assignment-operator operator required) (many value parts))))
 
 (defcommand-profile (bash-commands :: self CommandProfile.)
  (roles

@@ -2,17 +2,16 @@
 ;;; Lossless word decomposition with explicit quote and expansion boundaries.
 
 (import (only-in :gerbil-parser/src/runtime/recognition
-                 make-recognition-child prepare-recognition-source
-                 recognition-source-token recognition-source-offset)
-        (only-in ../language/part-profile part-plan-context part-context-match part-context-literal-end part-plan-literal
+                 prepare-recognition-source)
+        (only-in ../language/part-profile part-plan-recipe part-plan-context part-context-match part-context-literal-end part-plan-literal
                  part-step-operation part-step-kind part-step-opening part-step-closing part-step-delimiter part-plan-name-end part-plan-binding part-step-binding
                  binding-plan-name-end binding-plan-prefix-end binding-plan-operator-end binding-plan-subscript-at? binding-plan-subscript-width binding-plan-region-plan binding-plan-region-scopes)
-        (only-in ../language/result-profile result-plan-node result-plan-token)
+        (only-in ../language/result-profile result-plan-projection result-projection-build)
         (only-in :gerbil-parser/src/runtime/funcs
-                 recognition-sequence-append recognition-sequence-concatenate recognition-sequence->list)
+                 recognition-sequence-append recognition-sequence->list)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/runtime/region-scanner
-                 source-prefix-at? prepare-region-source prepare-scoped-region-source region-source-quote-end region-source-pair-end))
+                 prepare-region-source prepare-scoped-region-source region-source-quote-end region-source-pair-end))
 (export make-shell-word-parser)
 
 (defstruct shell-word-source (spans text regions subscripts))
@@ -38,136 +37,77 @@
         (shell-word-source-regions-set! source context)
         context)))
 
-(def (slice-token raw kind start end)
-  (result-plan-token results
-    (recognition-source-token (shell-word-source-spans raw) kind start end)))
-
-(def (child field value)
-  (make-recognition-child field value))
-
-(def (node raw kind start end children)
-  (let (spans (shell-word-source-spans raw))
-    (result-plan-node results kind (recognition-source-offset spans start)
-                      (recognition-source-offset spans end) children)))
-
+;;; Bind projection signatures once. The grammar owns node/field/token names;
+;;; this executor owns only typed recognition captures and character boundaries.
+(def projections (make-hash-table-eq))
+(def (bind! id signature)
+  (hash-put! projections id (result-plan-projection results id signature)))
+(bind! 'Word '((parts parts)))
+(bind! 'HereDocumentLine '((parts parts)))
+(when assignment-plan (bind! 'Assignment '((name span required) (operator span required) (parts parts))))
+(bind! literal-kind '((text span required)))
+(for-each (lambda (row)
+  (let* ((form (caddr row)) (operation (car form))
+         (kind (if (eq? operation 'parameter) 'ParameterExpansion (cadr form))))
+    (case operation
+      ((name escape) (bind! kind '((text span required))))
+      ((quote) (bind! kind '((open span required) (parts parts) (close span required))))
+      ((pair quoted-body) (bind! kind '((open span required) (body span optional) (close span required))))
+      ((parameter)
+       (bind! kind '((open span required) (prefix span optional) (name span optional) (subscript node optional) (operator span optional) (parts parts) (close span required)))
+       (when subscript-regions (bind! 'ArraySubscript '((open span required) (parts parts) (close span required))))))))
+  (cadr (part-plan-recipe parts-plan)))
+(def (project raw id start end captures)
+  (result-projection-build (hash-get projections id) (shell-word-source-spans raw) start end captures))
 (def (leaf raw kind start end)
-  (let (token (slice-token raw kind start end))
-    (values (node raw kind start end (list (child 'text token)))
-            (list token))))
+  (project raw kind start end (vector (cons start end))))
 
 (def (word-subscript-regions source)
   (or (shell-word-source-subscripts source)
       (let (context (prepare-scoped-region-source subscript-regions (shell-word-source-text source) subscript-scopes))
         (shell-word-source-subscripts-set! source context) context)))
 
-(def (parse-parameter raw text start end binding)
-  (let* ((body-start (fx+ start 2))
-         (body-end (fx- end 1))
+(def (parse-parameter raw text start end step)
+  (let* ((binding (part-step-binding step))
+         (body-start (+ start (part-step-opening step)))
+         (body-end (- end (part-step-closing step)))
          (prefix-end (binding-plan-prefix-end binding text body-start body-end))
-         (prefix? (and prefix-end #t))
          (name-start (or prefix-end body-start))
          (parameter-end (binding-plan-name-end binding text name-start body-end))
-         (subscript-start
-          (and (< parameter-end body-end)
-               (binding-plan-subscript-at? binding text parameter-end body-end) parameter-end))
-         (after-subscript
-          (if subscript-start
-            (region-source-pair-end (word-subscript-regions raw) subscript-start)
-            parameter-end))
-         (operator-end (or (binding-plan-operator-end binding text after-subscript body-end) after-subscript))
-         (operator (> operator-end after-subscript))
-         (open (slice-token raw 'parameter-open start body-start)))
+         (subscript-start (and (< parameter-end body-end)
+                              (binding-plan-subscript-at? binding text parameter-end body-end) parameter-end))
+         (after-subscript (if subscript-start
+                           (region-source-pair-end (word-subscript-regions raw) subscript-start) parameter-end))
+         (operator-end (or (binding-plan-operator-end binding text after-subscript body-end) after-subscript)))
     (when (> after-subscript body-end) (error "binding subscript crosses parameter boundary" subscript-start))
-    (let-values (((operand-children operand-tokens)
-                  (parse-parts raw text operator-end body-end #f)))
-      (let-values (((subscript-node subscript-tokens)
-                    (if subscript-start
-                      (let* ((inner-start (+ subscript-start (binding-plan-subscript-width binding)))
-                             (inner-end (fx- after-subscript 1))
-                             (open-bracket
-                              (slice-token raw 'subscript-open
-                                           subscript-start inner-start))
-                             (close-bracket
-                              (slice-token raw 'subscript-close
-                                           inner-end after-subscript)))
-                        (let-values (((parts tokens)
-                                      (parse-parts raw text inner-start
-                                                   inner-end #f)))
-                          (values
-                           (node raw 'ArraySubscript
-                                 subscript-start after-subscript
-                                 (append
-                                  (list (child 'open open-bracket))
-                                  (map (lambda (part) (child 'index part))
-                                       parts)
-                                  (list (child 'close close-bracket))))
-                           (recognition-sequence-concatenate
-                            (list (list open-bracket) tokens (list close-bracket))))))
-                      (values #f '()))))
-        (let* ((prefix-token
-                (and prefix?
-                     (slice-token raw 'parameter-prefix
-                                  body-start name-start)))
-               (name-token
-                (and (> parameter-end name-start)
-                   (slice-token raw 'parameter-name
-                                name-start parameter-end)))
-             (operator-token
-              (and operator
-                   (slice-token raw 'parameter-operator
-                                after-subscript operator-end)))
-             (close (slice-token raw 'parameter-close body-end end))
-             (children
-              (append
-               (list (child 'open open))
-               (if prefix-token (list (child 'prefix prefix-token)) '())
-               (if name-token (list (child 'name name-token)) '())
-               (if subscript-node
-                 (list (child 'subscript subscript-node)) '())
-               (if operator-token (list (child 'operator operator-token)) '())
-               (map (lambda (part) (child 'operand part)) operand-children)
-               (list (child 'close close))))
-             (tokens
-              (recognition-sequence-concatenate
-               (list (list open)
-                     (if prefix-token (list prefix-token) '())
-                     (if name-token (list name-token) '())
-                     subscript-tokens
-                     (if operator-token (list operator-token) '())
-                     operand-tokens (list close)))))
-        (values (node raw 'ParameterExpansion start end children)
-                tokens))))))
+    (let-values (((operand-children operand-tokens) (parse-parts raw text operator-end body-end #f)))
+      (let (subscript
+             (and subscript-start
+               (let ((inner-start (+ subscript-start (binding-plan-subscript-width binding)))
+                     (inner-end (- after-subscript 1)))
+                 (let-values (((parts tokens) (parse-parts raw text inner-start inner-end #f)))
+                   (let-values (((value produced)
+                     (project raw 'ArraySubscript subscript-start after-subscript
+                       (vector (cons subscript-start inner-start) (cons parts tokens) (cons inner-end after-subscript)))))
+                     (cons value produced))))))
+        (project raw (part-step-kind step) start end
+          (vector (cons start body-start)
+                  (and prefix-end (cons body-start name-start))
+                  (and (> parameter-end name-start) (cons name-start parameter-end))
+                  subscript
+                  (and (> operator-end after-subscript) (cons after-subscript operator-end))
+                  (cons operand-children operand-tokens) (cons body-end end)))))))
 
-(def (parse-quoted raw text start end kind opening-length)
-  (let* ((body-start (+ start opening-length))
-         (body-end (fx- end 1))
-         (open (slice-token raw 'quote-open start body-start)))
-    (let-values (((parts interior)
-                  (parse-parts raw text body-start body-end kind)))
-      (let (close (slice-token raw 'quote-close body-end end))
-        (values
-         (node raw kind start end
-               (append (list (child 'open open))
-                       (map (lambda (part) (child 'part part)) parts)
-                       (list (child 'close close))))
-         (recognition-sequence-concatenate (list (list open) interior (list close))))))))
+(def (parse-quoted raw text start end kind opening-length closing-length)
+  (let ((body-start (+ start opening-length)) (body-end (- end closing-length)))
+    (let-values (((parts interior) (parse-parts raw text body-start body-end kind)))
+      (project raw kind start end
+        (vector (cons start body-start) (cons parts interior) (cons body-end end))))))
 
-(def (parse-opaque-substitution raw text start end kind opening-length
-                                closing-length)
-  (let* ((body-start (+ start opening-length))
-         (body-end (- end closing-length))
-         (open (slice-token raw 'substitution-open start body-start)))
-    (let* ((body (and (> body-end body-start)
-                      (slice-token raw 'substitution-body
-                                   body-start body-end)))
-           (close (slice-token raw 'substitution-close body-end end))
-           (tokens (append (list open) (if body (list body) '())
-                           (list close)))
-           (children
-            (append (list (child 'open open))
-                    (if body (list (child 'body body)) '())
-                    (list (child 'close close)))))
-      (values (node raw kind start end children) tokens))))
+(def (parse-opaque-substitution raw text start end kind opening-length closing-length)
+  (let ((body-start (+ start opening-length)) (body-end (- end closing-length)))
+    (project raw kind start end
+      (vector (cons start body-start) (and (> body-end body-start) (cons body-start body-end)) (cons body-end end)))))
 
 ;;; Token publication shares immutable sequence branches across nested results.
 ;;; Only the public word/assignment/body boundary materializes the ordered list;
@@ -193,7 +133,7 @@
                                (+ offset (- (part-step-opening step) 1)) (part-step-delimiter step)))
                     (let-values (((part produced)
                                   (if (eq? operation 'quote)
-                                    (parse-quoted raw text offset after (part-step-kind step) (part-step-opening step))
+                                    (parse-quoted raw text offset after (part-step-kind step) (part-step-opening step) (part-step-closing step))
                                     (parse-opaque-substitution raw text offset after (part-step-kind step)
                                      (part-step-opening step) (part-step-closing step)))))
                       (values part produced after))))
@@ -201,7 +141,7 @@
                   (let (after (region-source-pair-end (word-regions raw) offset))
                     (let-values (((part produced)
                                   (if (eq? operation 'parameter)
-                                    (parse-parameter raw text offset after (part-step-binding step))
+                                    (parse-parameter raw text offset after step)
                                     (parse-opaque-substitution raw text offset after (part-step-kind step)
                                      (part-step-opening step) (part-step-closing step)))))
                       (values part produced after))))
@@ -218,26 +158,14 @@
                       (values part produced after))))))))
           (loop next (cons part parts) (recognition-sequence-append tokens produced)))))))
 
-(def (shell-word-components token)
+(def (components token context id)
   (let-values (((raw text) (prepare-word token)))
     (let (length (string-length text))
-      (let-values (((parts tokens) (parse-parts raw text 0 length #f)))
-        (values
-         (node raw 'Word 0 length
-               (map (lambda (part) (child 'part part)) parts))
-         (recognition-sequence->list tokens))))))
-
-;;; Unquoted here-document bodies expand parameters, commands, and arithmetic.
-;;; Quote characters remain literal in this context.
-(def (shell-here-content-components token)
-  (let-values (((raw text) (prepare-word token)))
-    (let (length (string-length text))
-      (let-values (((parts tokens)
-                    (parse-parts raw text 0 length 'HereDocument)))
-        (values
-         (node raw 'HereDocumentLine 0 length
-               (map (lambda (part) (child 'part part)) parts))
-         (recognition-sequence->list tokens))))))
+      (let-values (((parts tokens) (parse-parts raw text 0 length context)))
+        (let-values (((value produced) (project raw id 0 length (vector (cons parts tokens)))))
+          (values value (recognition-sequence->list produced)))))))
+(def (shell-word-components token) (components token #f 'Word))
+(def (shell-here-content-components token) (components token 'HereDocument 'HereDocumentLine))
 
 ;;; An assignment is recognized only at a command position by the caller.
 ;;; It returns #f for ordinary words, or a node and ordered source tokens.
@@ -249,16 +177,11 @@
                             (binding-plan-operator-end assignment-plan text name-end length))))
     (if operator-end
       (let-values (((raw text) (prepare-word token)))
-        (let* ((name (slice-token raw 'assignment-name 0 name-end))
-               (operator (slice-token raw 'assignment-operator name-end operator-end)))
-          (let-values (((parts tokens)
-                        (parse-parts raw text operator-end length #f)))
-            (values
-             (node raw 'Assignment 0 length
-                   (append (list (child 'name name) (child 'operator operator))
-                           (map (lambda (part) (child 'value part)) parts)))
-             (recognition-sequence->list
-              (recognition-sequence-append (list name operator) tokens))))))
+        (let-values (((parts tokens) (parse-parts raw text operator-end length #f)))
+          (let-values (((value produced)
+                        (project raw 'Assignment 0 length
+                          (vector (cons 0 name-end) (cons name-end operator-end) (cons parts tokens)))))
+            (values value (recognition-sequence->list produced)))))
       (values #f #f))))
 
   (values shell-word-components shell-assignment-components shell-here-content-components))

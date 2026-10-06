@@ -2,10 +2,10 @@
 (import :std/test
         (only-in :clan/poo/object .o .ref)
         :gerbil-parser/src/language/part-profile
-        (only-in :gerbil-parser/src/language/result-profile compile-result-profile)
+        (only-in :gerbil-parser/src/language/result-profile compile-result-profile ResultProfile. defresult-profile result-plan-recipe)
         (only-in :gerbil-parser/src/runtime/shell-word make-shell-word-parser)
         (only-in :gerbil-parser/src/runtime/scan make-bounded-text-profile-scanner make-bounded-literal-end-scanner)
-        (only-in :gerbil-parser/src/runtime/recognition recognition-node-kind)
+        (only-in :gerbil-parser/src/runtime/recognition recognition-node-kind recognition-node-children recognition-child-field)
         (only-in :gerbil-parser/src/runtime/token make-token token-kind token-lexeme token-start token-end)
         (only-in :gerbil-parser/src/language/source declare-source-language source-language-digest)
         (only-in :gerbil-parser/src/runtime/source-engines ShellSourceStrategy.)
@@ -18,6 +18,12 @@
  (rules ((word HereDocument) (prefix "@" next) (name SimpleParameter template)))
  (literal LiteralPart))
 (defpart-profile (literal-parts :: self template-parts) (rules))
+(defresult-profile (template-results :: self ResultProfile.)
+ (projections
+  (Word TemplateWord ((parts parts)) (many fragment parts))
+  (HereDocumentLine TemplateBody ((parts parts)) (many fragment parts))
+  (LiteralPart TemplateLiteral ((text span)) (token content text text required))
+  (SimpleParameter TemplateName ((text span)) (token identifier name text required))))
 (def (components profile text)
   (let-values (((word assignment here)
                 (make-shell-word-parser bash-word-regions (compile-result-profile bash-results)
@@ -30,6 +36,30 @@
     (assignment (make-token 'word text 0 (u8vector-length (string->utf8 text))))))
 (def part-profile-test
  (test-suite "closed part recognition plans"
+  (test-case "independent template projection replaces every public word field and terminal through POO"
+   (let* ((results (compile-result-profile template-results))
+          (parts (admit-part-plan (compile-part-profile template-parts) results bash-word-regions)))
+     (let-values (((word assignment here) (make-shell-word-parser bash-word-regions results parts)))
+       (let-values (((node tokens) (word (make-token 'raw "α@name😀" 7 18))))
+         (check (recognition-node-kind node) => 'TemplateWord)
+         (check (map recognition-child-field (recognition-node-children node)) => '(fragment fragment fragment))
+         (check (map token-kind tokens) => '(text name text))
+         (check (map token-start tokens) => '(7 9 14))
+         (check (map token-end tokens) => '(9 14 18)))
+       (let-values (((node tokens) (here (make-token 'raw "中@name" 0 8))))
+         (check (recognition-node-kind node) => 'TemplateBody)
+         (check (map token-kind tokens) => '(text name))))))
+  (test-case "missing word projection rejects and projection-only change alters Source identity"
+   (let* ((projection-declarations (caddr (result-plan-recipe (compile-result-profile bash-results))))
+          (replacement (map (lambda (row) (if (eq? (car row) 'Word)
+                                         (cons 'Word (cons 'HereDocumentLine (cddr row))) row)) projection-declarations))
+          (result-override (.o (:: self bash-results) projections: replacement)))
+     (check (rejects? (lambda () (admit-part-plan (compile-part-profile bash-parts)
+                      (compile-result-profile (.o (:: self bash-results) projections: '())) bash-word-regions))) => #t)
+     (let (changed (declare-source-language "bash" "5.3" "bash-5.3-structured-source.v1"
+                     (.o (:: self ShellSourceStrategy.) regions: bash-word-regions scanner: bash-command-scanner
+                          results: result-override parts: bash-parts commands: bash-commands)))
+       (check (equal? (source-language-digest changed) (source-language-digest bash-source-language)) => #f))))
   (test-case "independent template uses the same execution operations and exact UTF-8 spans"
    (let-values (((node tokens) (components template-parts "α@name😀")))
      (check (recognition-node-kind node) => 'Word)

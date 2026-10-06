@@ -1,10 +1,11 @@
 ;;; Result declarations constrain construction and are ordinary inheritable POO slots.
 (import :std/test
-        (only-in :clan/poo/object .o)
+        (only-in :clan/poo/object .o .ref)
         :gerbil-parser/src/language/result-profile
         (only-in :gerbil-parser/src/language/scanner-profile ScannerProfile. defscanner-profile)
         :gerbil-parser/src/runtime/recognition
-        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/token make-token token-kind token-lexeme token-start token-end)
+        (only-in :gerbil-parser/src/runtime/funcs recognition-sequence->list)
         (only-in :gerbil-parser/src/language/source declare-source-language source-language-digest source-language-result-catalog)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.))
 (export result-profile-test)
@@ -18,8 +19,95 @@
   (rules (value main raw (literal "x") 0 keep)))
 (defresult-profile (scanner-results :: self base-results) (scanner independent-scanner))
 (defresult-profile (token-results :: self base-results) (tokens other))
+(defresult-profile (projected-results :: self ResultProfile.)
+  (nodes (Atom content) (Pair first second)) (tokens glyph)
+  (projections
+    (leaf Atom ((text span)) (token content glyph text required))
+    (pair Pair ((left node) (right parts)) (one first left optional) (many second right))))
+(defresult-profile (renamed-results :: self projected-results)
+  (nodes (Atom value) (Pair first second)))
+(defresult-profile (renamed-projection-results :: self renamed-results)
+  (projections
+    (leaf Atom ((text span)) (token value glyph text required))
+    (pair Pair ((left node) (right parts)) (one first left optional) (many second right))))
+(defresult-profile (inferred-results :: self ResultProfile.)
+  (projections
+    (leaf Atom ((text span)) (token content glyph text required))
+    (pair Pair ((left node) (right parts)) (one first left optional) (many second right))))
 (def result-profile-test
   (test-suite "declarative result construction"
+    (test-case "projection-only profile derives constructors, fields and terminals without repetition"
+      (check (result-plan-catalog (compile-result-profile inferred-results))
+             => '((syntax-kinds (Atom result (content)) (Pair result (first second))) (terminals (glyph token)))))
+    (test-case "POO extension shares a derived node with a new field and terminal"
+      (let* ((projection-declarations (append (.ref inferred-results 'projections)
+                            '((annotation Atom ((text span)) (token label annotation text required)))))
+             (profile (.o (:: self inferred-results) projections: projection-declarations))
+             (plan (compile-result-profile profile))
+             (source (prepare-recognition-source (make-token 'raw "中" 0 3))))
+        (check (result-plan-catalog plan)
+               => '((syntax-kinds (Atom result (content label)) (Pair result (first second)))
+                    (terminals (glyph token) (annotation token))))
+        (let-values (((node tokens) (result-projection-build
+                      (result-plan-projection plan 'annotation '((text span required))) source 0 1 (vector (cons 0 1)))))
+          (check (map recognition-child-field (recognition-node-children node)) => '(label))
+          (check (map token-kind (recognition-sequence->list tokens)) => '(annotation)))))
+    (test-case "generic projection executes inherited Unicode captures and ordered shared tokens"
+      (let* ((plan (compile-result-profile renamed-projection-results))
+             (source (prepare-recognition-source (make-token 'raw "α😀" 11 17)))
+             (leaf (result-plan-projection plan 'leaf '((text span required))))
+             (pair (result-plan-projection plan 'pair '((left node optional) (right parts)))))
+        (let-values (((a at) (result-projection-build leaf source 0 1 (vector (cons 0 1))))
+                     ((b bt) (result-projection-build leaf source 1 2 (vector (cons 1 2)))))
+          (let-values (((node tokens) (result-projection-build pair source 0 2
+                                        (vector (cons a at) (cons (list b) bt)))))
+            (check (recognition-node-kind node) => 'Pair)
+            (check (map recognition-child-field (recognition-node-children node)) => '(first second))
+            (check (map recognition-child-field (recognition-node-children a)) => '(value))
+            (let (published (recognition-sequence->list tokens))
+              (check (map token-kind published) => '(glyph glyph))
+              (check (map token-lexeme published) => '("α" "😀"))
+              (check (map token-start published) => '(11 13))
+              (check (map token-end published) => '(13 17))))
+          (let-values (((node tokens) (result-projection-build pair source 0 2
+                                        (vector #f (cons (list a b) (append at bt))))))
+            (check (map recognition-child-field (recognition-node-children node)) => '(second second))))))
+    (test-case "projection rejects invalid declarations, frames and incompatible engine signatures"
+      (for-each (lambda (declaration)
+        (check (rejects? (lambda () (compile-result-profile
+                (.o (:: self projected-results) projections: declaration)))) => #t))
+        '(((leaf Atom ((text span)) (token missing glyph text required)))
+          ((leaf Atom ((text span)) (callback content text)))
+          ((leaf Atom ((text span)) (token content glyph text optional extra)))
+          ((leaf Atom ((text span)) (token content glyph other required)))
+          ((leaf Atom ((text span)) (many content text)))
+          ((leaf Atom ((text span) (text span)) (token content glyph text required) (token content glyph text required)))
+          ((leaf Atom ((text span))))
+          ((leaf Atom ()) (leaf Atom ()))
+          ((leaf Atom ((text span)) (token)))))
+      (let* ((plan (compile-result-profile projected-results))
+             (source (prepare-recognition-source (make-token 'raw "α" 0 2)))
+             (leaf (result-plan-projection plan 'leaf '((text span required)))))
+        (for-each (lambda (thunk) (check (rejects? thunk) => #t))
+          (list (lambda () (result-plan-projection plan 'leaf '((text span optional))))
+                (lambda () (result-plan-projection plan 'leaf '((text node))))
+                (lambda () (result-plan-projection plan 'missing '((text span))))
+                (lambda () (result-projection-build leaf source 0 1 (vector)))
+                (lambda () (result-projection-build leaf source 0 1 (vector #f)))
+                (lambda () (result-projection-build leaf source 0 1 (vector (cons -1 1))))
+                (lambda () (result-projection-build leaf source 0 1 (vector (cons 0 2))))
+                (lambda () (result-projection-build leaf source 0 1 (vector "not a span")))))))
+    (test-case "projection recipes own input data and copies cannot mutate execution"
+      (let* ((projection-declarations (list (list 'leaf 'Atom (list (list 'text 'span)) (list 'token 'content 'glyph 'text 'required))))
+             (profile (.o (:: self projected-results) projections: projection-declarations))
+             (plan (compile-result-profile profile)) (recipe (result-plan-recipe plan))
+             (source (prepare-recognition-source (make-token 'raw "x" 0 1))))
+        (set-car! (cdddar projection-declarations) '(token missing unknown text required))
+        (set-car! (cdddar (caddr recipe)) '(token missing unknown text required))
+        (let-values (((node tokens) (result-projection-build
+                      (result-plan-projection plan 'leaf '((text span required))) source 0 1 (vector (cons 0 1)))))
+          (check (map recognition-child-field (recognition-node-children node)) => '(content))
+          (check (map token-kind (recognition-sequence->list tokens)) => '(glyph)))))
     (test-case "inheritance compiles execution operations and the same catalog"
       (let* ((plan (compile-result-profile extended-results)) (token (make-token 'text "α" 0 2))
              (node (result-plan-node plan 'Extra 0 2 (list (make-recognition-child 'text token)))))

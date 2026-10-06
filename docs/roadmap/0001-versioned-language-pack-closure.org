@@ -44,7 +44,7 @@ former shell scanner module and its alias surface are deleted.
 | HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
 | TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has no external lexical declarations; module framing prepares source indexes and identifier/proof roles use closed text profiles; Scheme proof policy remains; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
-| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= interprets closed control programs; Word projection lowering and standalone Rust Command/Word execution remain open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= interprets closed control programs; Word projection IR executes through =ResultProfile.=; standalone Rust Command/Word execution remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
 Total: zero external lexical declarations in grammar packs.
 Bash has a source parser rather than external lexical rows and is counted
@@ -1436,3 +1436,63 @@ visiting/done DFS memo table. A 32-layer DAG with each callee referenced twice
 now admits without rewalking completed forms; true cycles still reject. The
 last GCC native gate passes 57 cases in 13.83 seconds with final =OK=,
 =HARNESS-RETURN status=0= and normal exit.
+
+** Scheme Word projection closure
+
+=ResultProfile.= now owns closed =token=, =one= and =many= projection programs
+with typed ordered captures. Projection-only declarations derive the node,
+field and terminal catalog; Bash removes duplicated Word result catalog rows.
+POO inheritance/replacement uses ordinary values and the same admission checks.
+Word recognition retains span and boundary recognition, while field mapping,
+optional emission and persistent token publication run in the shared engine.
+All word, assignment, quote, substitution, parameter and subscript result
+builders have migrated; their dedicated field/token assembly is removed.
+Source v1, Loader v2 and C ABI v2 do not change. Complete standalone Rust Source
+control/Word execution remains open; an IR recipe alone is not Rust execution.
+
+The exact reference is =753d70bd671e7dd94283882a8510195f69b433e3= with only
+factory/module names changed for side-by-side Scheme execution. Eighty controls
+compare complete accepted and rejected artifacts, including diagnostic message
+text: no field is normalized away. Controls include Unicode, scoped array
+subscripts, 512-deep parameters, long word parts and command structures.
+Temporary reference sources remain outside the production checkout after
+qualification. The final focused suite passes 56 cases in 11.25 seconds with
+=OK=, =HARNESS-RETURN status=0= and normal exit.
+
+The first general-VM sample is negative for ordinary commands and pipelines:
+five alternating complete-call medians are 171.719 / 188.388 ms for 10,000
+plain calls, 28.761 / 31.412 ms for one 2,001-command pipeline, and
+12.883 / 8.551 ms for three 512-deep parameter calls (previous / migrated).
+It remains recorded. Binding-time specialization of static single-token and
+single-part-list programs removes dispatch and repeated catalog validation.
+The repeated five-sample medians are 168.878 / 146.832 ms, 26.245 / 23.619 ms
+and 6.256 / 5.848 ms respectively. These local wall-clock controls do not prove
+an overall speedup or zero regression.
+
+GCC emits all changed Scheme engine modules. Runtime qualification retains
+90-second total and five-second inactivity bounds; no widened timeout or
+compiler switch is used. Independent projection-only and =@name= dialects
+exercise POO replacement, inferred catalogs, Unicode offsets with nonzero
+origins, rejected signatures, bounds and recipe-copy isolation.
+
+The combined native gate passes 82 cases in 9.98 seconds, including Source and
+Loader contracts, language topology, command programs, Bash and native C ABI.
+It ends with explicit =OK=, =HARNESS-RETURN status=0= and exit zero.
+
+The final cardinality audit includes =required=/=optional= in the bound engine
+signature. A profile cannot make an optional recognition capture mandatory
+without failing admission. Catalog publication copies its node and terminal
+rows directly, avoiding two unnecessary copies of the entire projection IR.
+
+The subsequent combined qualification passes 85 cases and the same 80 exact
+artifact controls in 20.67 seconds. Its ordinary-call median is negative at
+123.355 / 185.287 ms; pipeline is 25.523 / 24.068 ms and nested parameters
+6.339 / 5.818 ms. Alternating individual plain samples range from 115 to
+311 ms across the two executors. This contradicts any claim of a stable plain
+command improvement; the result remains recorded and runtime performance
+qualification stays open.
+
+After the catalog-publication change, final native qualification passes 84
+cases plus the same 80 complete artifact comparisons in 14.09 seconds. This
+last run excludes optional timing measurements and requires final =OK=,
+=HARNESS-RETURN status=0= and exit zero.

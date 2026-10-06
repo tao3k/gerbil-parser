@@ -129,6 +129,36 @@ still use engine procedures. A scanner artifact alone is not a complete Bash Rus
 parser or a source-descriptor C ABI product; those require recognition/result
 lowering and native catalog admission. These remain S3 in the convergence plan.
 
+** Source-backed recognition publication
+
+The engine's =recognition.ss= prepares an owned source span from one scanner
+token. It validates the declared byte length and Unicode scalars once. ASCII
+uses origin plus character offset without allocating an index; other sources
+share one character-to-byte index across every recursive result. Node and token
+publication use checked constant-time endpoint lookup. Returned source views
+are copies, so callers cannot invalidate admitted offsets.
+
+=region-scanner.ss= prepares a source-local boundary context only when matching
+is requested. Closing an outer region records every nested quote/pair endpoint.
+Later decomposition reuses those endpoints. Quote and pair identities have
+separate indexes even when their openers share an offset. Source text and
+indexes belong to the request, while the admitted declaration plan is reusable.
+This is deliberately demand-driven: literal quote characters in a here-document
+must not be interpreted before an expansion requests a declared region.
+
+Bash word, assignment and expanding here-document results use these shared
+primitives. Their recursive token publication shares the existing persistent
+recognition sequence and materializes one ordered list at the public result
+boundary. It does not repeatedly encode source prefixes, rescan nested regions
+or copy nested token suffixes. Ordinary words do not allocate region contexts.
+These mechanisms are engine capabilities; language authors retain the same
+three interfaces and do not supply endpoint or token-list workers.
+
+Word/command syntax is still procedural. This runtime migration does not close
+declarative Recognition/Result IR, derived catalogs or source-descriptor native
+C ABI admission. Those require the result declarations and their real producer
+and consumer qualification, independently of the scanner artifact.
+
 * Acceptance gates
 
 - Build the generic Rowan runtime with no first-party language crate linked.

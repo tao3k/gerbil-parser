@@ -54,4 +54,11 @@
   (rejected "unterminated compound has diagnostics" "case x in a) echo a\n" (diagnostics))
   (rejected-many "empty required lists and missing targets"
     '("if true; then fi\n" "while true; do done\n" "{ ; }\n" "echo >\n" "cat <<EOF\nbody\n"))
+  (accepted "many Unicode word parts retain lossless token order"
+    (string-append "printf %s " (apply string-append (make-list 2000 "α$x")) "\n")
+    (counts (SimpleParameter 2000)))
+  (accepted "nested parameter operands retain all structured results"
+    (string-append "echo " (apply string-append (make-list 128 "${x:-"))
+                   "中😀" (make-string 128 #\}) "\n")
+    (counts (ParameterExpansion 128)))
   (fixtures "declared loader fixtures"))

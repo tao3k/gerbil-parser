@@ -2,35 +2,43 @@
 ;;; Lossless word decomposition with explicit quote and expansion boundaries.
 
 (import (only-in :gerbil-parser/src/runtime/recognition
-                 make-recognition-child make-recognition-node)
-        (only-in :gerbil-parser/src/runtime/token
-                 make-token token-end token-lexeme token-start)
+                 make-recognition-child prepare-recognition-source
+                 recognition-source-token recognition-source-node)
+        (only-in :gerbil-parser/src/runtime/funcs
+                 recognition-sequence-append recognition-sequence-concatenate recognition-sequence->list)
+        (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/runtime/region-scanner
-                 source-prefix-at? region-plan-quote-end region-plan-pair-end))
+                 source-prefix-at? prepare-region-source region-source-quote-end region-source-pair-end))
 (export make-shell-word-parser)
 
-(def (make-shell-word-parser regions)
-(def (byte-offset raw text character)
-  (+ (token-start raw)
-     (u8vector-length (string->utf8 (substring text 0 character)))))
+(defstruct shell-word-source (spans text regions))
 
-(def (slice-token raw text kind start end)
-  (make-token kind (substring text start end)
-              (byte-offset raw text start)
-              (byte-offset raw text end)))
+(def (make-shell-word-parser regions)
+(def (prepare-word token)
+  ;; Scanner-created token lexemes are read-only throughout this engine call.
+  ;; Result publication owns its admitted copy; region preparation is needed
+  ;; only when an actual quote or substitution is encountered.
+  (let* ((spans (prepare-recognition-source token)) (text (token-lexeme token)))
+    (values (make-shell-word-source spans text #f) text)))
+
+(def (word-regions source)
+  (or (shell-word-source-regions source)
+      (let (context (prepare-region-source regions (shell-word-source-text source)))
+        (shell-word-source-regions-set! source context)
+        context)))
+
+(def (slice-token raw kind start end)
+  (recognition-source-token (shell-word-source-spans raw) kind start end))
 
 (def (child field value)
   (make-recognition-child field value))
 
-(def (node raw text kind start end children)
-  (make-recognition-node kind
-                         (byte-offset raw text start)
-                         (byte-offset raw text end)
-                         children))
+(def (node raw kind start end children)
+  (recognition-source-node (shell-word-source-spans raw) kind start end children))
 
-(def (leaf raw text kind start end)
-  (let (token (slice-token raw text kind start end))
-    (values (node raw text kind start end (list (child 'text token)))
+(def (leaf raw kind start end)
+  (let (token (slice-token raw kind start end))
+    (values (node raw kind start end (list (child 'text token)))
             (list token))))
 
 (def (parameter-operator text start end)
@@ -64,7 +72,7 @@
                          (char=? character #\_))))
             (loop (fx+ offset 1)) offset)))))))
 
-(def (subscript-end text start end)
+(def (subscript-end raw text start end)
   (let loop ((offset (fx+ start 1)) (depth 1))
     (when (>= offset end)
       (error "unterminated Bash array subscript" start))
@@ -73,10 +81,10 @@
        ((char=? character #\\)
         (loop (min end (fx+ offset 2)) depth))
        ((or (char=? character #\') (char=? character #\"))
-        (loop (region-plan-quote-end regions text offset character) depth))
+        (loop (region-source-quote-end (word-regions raw) offset character) depth))
        ((or (source-prefix-at? text offset "${")
             (source-prefix-at? text offset "$("))
-        (loop (region-plan-pair-end regions text offset) depth))
+        (loop (region-source-pair-end (word-regions raw) offset) depth))
        ((char=? character #\[)
         (loop (fx+ offset 1) (fx+ depth 1)))
        ((char=? character #\])
@@ -112,14 +120,14 @@
                parameter-end))
          (after-subscript
           (if subscript-start
-            (subscript-end text subscript-start body-end)
+            (subscript-end raw text subscript-start body-end)
             parameter-end))
          (operator (and (< after-subscript body-end)
                         (parameter-operator text after-subscript body-end)))
          (operator-end (if operator
                          (+ after-subscript (string-length operator))
                          after-subscript))
-         (open (slice-token raw text 'parameter-open start body-start)))
+         (open (slice-token raw 'parameter-open start body-start)))
     (let-values (((operand-children operand-tokens)
                   (parse-parts raw text operator-end body-end #f)))
       (let-values (((subscript-node subscript-tokens)
@@ -127,38 +135,38 @@
                       (let* ((inner-start (fx+ subscript-start 1))
                              (inner-end (fx- after-subscript 1))
                              (open-bracket
-                              (slice-token raw text 'subscript-open
+                              (slice-token raw 'subscript-open
                                            subscript-start inner-start))
                              (close-bracket
-                              (slice-token raw text 'subscript-close
+                              (slice-token raw 'subscript-close
                                            inner-end after-subscript)))
                         (let-values (((parts tokens)
                                       (parse-parts raw text inner-start
                                                    inner-end #f)))
                           (values
-                           (node raw text 'ArraySubscript
+                           (node raw 'ArraySubscript
                                  subscript-start after-subscript
                                  (append
                                   (list (child 'open open-bracket))
                                   (map (lambda (part) (child 'index part))
                                        parts)
                                   (list (child 'close close-bracket))))
-                           (append (list open-bracket) tokens
-                                   (list close-bracket)))))
+                           (recognition-sequence-concatenate
+                            (list (list open-bracket) tokens (list close-bracket))))))
                       (values #f '()))))
         (let* ((prefix-token
                 (and prefix?
-                     (slice-token raw text 'parameter-prefix
+                     (slice-token raw 'parameter-prefix
                                   body-start name-start)))
                (name-token
                 (and (> parameter-end name-start)
-                   (slice-token raw text 'parameter-name
+                   (slice-token raw 'parameter-name
                                 name-start parameter-end)))
              (operator-token
               (and operator
-                   (slice-token raw text 'parameter-operator
+                   (slice-token raw 'parameter-operator
                                 after-subscript operator-end)))
-             (close (slice-token raw text 'parameter-close body-end end))
+             (close (slice-token raw 'parameter-close body-end end))
              (children
               (append
                (list (child 'open open))
@@ -170,45 +178,46 @@
                (map (lambda (part) (child 'operand part)) operand-children)
                (list (child 'close close))))
              (tokens
-              (append (list open)
-                      (if prefix-token (list prefix-token) '())
-                      (if name-token (list name-token) '())
-                      subscript-tokens
-                      (if operator-token (list operator-token) '())
-                      operand-tokens (list close))))
-        (values (node raw text 'ParameterExpansion start end children)
-                tokens))))))
+              (recognition-sequence-concatenate
+               (list (list open)
+                     (if prefix-token (list prefix-token) '())
+                     (if name-token (list name-token) '())
+                     subscript-tokens
+                     (if operator-token (list operator-token) '())
+                     operand-tokens (list close)))))
+        (values (node raw 'ParameterExpansion start end children)
+                (recognition-sequence->list tokens)))))))
 
 (def (parse-quoted raw text start end kind opening-length)
   (let* ((body-start (+ start opening-length))
          (body-end (fx- end 1))
-         (open (slice-token raw text 'quote-open start body-start)))
+         (open (slice-token raw 'quote-open start body-start)))
     (let-values (((parts interior)
                   (parse-parts raw text body-start body-end kind)))
-      (let (close (slice-token raw text 'quote-close body-end end))
+      (let (close (slice-token raw 'quote-close body-end end))
         (values
-         (node raw text kind start end
+         (node raw kind start end
                (append (list (child 'open open))
                        (map (lambda (part) (child 'part part)) parts)
                        (list (child 'close close))))
-         (append (list open) interior (list close)))))))
+         (recognition-sequence-concatenate (list (list open) interior (list close))))))))
 
 (def (parse-opaque-substitution raw text start end kind opening-length
                                 closing-length)
   (let* ((body-start (+ start opening-length))
          (body-end (- end closing-length))
-         (open (slice-token raw text 'substitution-open start body-start)))
+         (open (slice-token raw 'substitution-open start body-start)))
     (let* ((body (and (> body-end body-start)
-                      (slice-token raw text 'substitution-body
+                      (slice-token raw 'substitution-body
                                    body-start body-end)))
-           (close (slice-token raw text 'substitution-close body-end end))
+           (close (slice-token raw 'substitution-close body-end end))
            (tokens (append (list open) (if body (list body) '())
                            (list close)))
            (children
             (append (list (child 'open open))
                     (if body (list (child 'body body)) '())
                     (list (child 'close close)))))
-      (values (node raw text kind start end children) tokens))))
+      (values (node raw kind start end children) tokens))))
 
 (def (special-start? text offset end context)
   (and (< offset end)
@@ -236,43 +245,47 @@
     (if (or (= offset end) (special-start? text offset end context))
       offset (loop (fx+ offset 1)))))
 
-;;; Returns syntax parts and their nonoverlapping source tokens in order.
+;;; Token publication shares immutable sequence branches across nested results.
+;;; Only the public word/assignment/body boundary materializes the ordered list;
+;;; nesting never copies a growing token suffix. No relocated child views enter
+;;; this token-only sequence, so materialization retains the original tokens.
+;;; Returns syntax parts and their nonoverlapping source token sequence.
 (def (parse-parts raw text start end context)
   (let loop ((offset start) (parts '()) (tokens '()))
     (if (= offset end)
-      (values (reverse parts) (reverse tokens))
+      (values (reverse parts) tokens)
       (let-values
           (((part produced next)
             (cond
              ((and (not context) (source-prefix-at? text offset "$'"))
-              (let (after (region-plan-quote-end regions text (fx+ offset 1) #\'))
+              (let (after (region-source-quote-end (word-regions raw) (fx+ offset 1) #\'))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'AnsiCString 2)))
                   (values part produced after))))
              ((and (not context)
                    (char=? (string-ref text offset) #\'))
-              (let (after (region-plan-quote-end regions text offset #\'))
+              (let (after (region-source-quote-end (word-regions raw) offset #\'))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'SingleQuoted 1)))
                   (values part produced after))))
              ((and (not context)
                    (char=? (string-ref text offset) #\"))
-              (let (after (region-plan-quote-end regions text offset #\"))
+              (let (after (region-source-quote-end (word-regions raw) offset #\"))
                 (let-values (((part produced)
                               (parse-quoted raw text offset after
                                             'DoubleQuoted 1)))
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
                    (source-prefix-at? text offset "${"))
-              (let (after (region-plan-pair-end regions text offset))
+              (let (after (region-source-pair-end (word-regions raw) offset))
                 (let-values (((part produced)
                               (parse-parameter raw text offset after)))
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
                    (source-prefix-at? text offset "$(("))
-              (let (after (region-plan-pair-end regions text offset))
+              (let (after (region-source-pair-end (word-regions raw) offset))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -283,7 +296,7 @@
                        (and (not context)
                             (or (source-prefix-at? text offset "<(")
                                 (source-prefix-at? text offset ">(")))))
-              (let (after (region-plan-pair-end regions text offset))
+              (let (after (region-source-pair-end (word-regions raw) offset))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -294,7 +307,7 @@
                   (values part produced after))))
              ((and (not (memq context '(SingleQuoted AnsiCString)))
                    (char=? (string-ref text offset) #\`))
-              (let (after (region-plan-quote-end regions text offset #\`))
+              (let (after (region-source-quote-end (word-regions raw) offset #\`))
                 (let-values
                     (((part produced)
                       (parse-opaque-substitution
@@ -307,7 +320,7 @@
                       (fx+ offset 1)))
               (let (after (dollar-name-end text (fx+ offset 1) end))
                 (let-values (((part produced)
-                              (leaf raw text 'SimpleParameter offset after)))
+                              (leaf raw 'SimpleParameter offset after)))
                   (values part produced after))))
              ((and (not (eq? context 'SingleQuoted))
                    (char=? (string-ref text offset) #\\)
@@ -317,37 +330,35 @@
                                   '(#\$ #\` #\\ #\newline)))))
               (let (after (min end (fx+ offset 2)))
                 (let-values (((part produced)
-                              (leaf raw text 'EscapeSequence offset after)))
+                              (leaf raw 'EscapeSequence offset after)))
                   (values part produced after))))
              (else
               (let (after (literal-end text offset end context))
                 (let-values (((part produced)
-                              (leaf raw text 'LiteralPart offset after)))
+                              (leaf raw 'LiteralPart offset after)))
                   (values part produced after)))))))
-        (loop next (cons part parts) (append (reverse produced) tokens))))))
+        (loop next (cons part parts) (recognition-sequence-append tokens produced))))))
 
-(def (shell-word-components raw)
-  (let* ((text (token-lexeme raw))
-         (length (string-length text)))
-    (let-values (((parts tokens) (parse-parts raw text 0 length #f)))
-      (values
-       (make-recognition-node
-        'Word (token-start raw) (token-end raw)
-       (map (lambda (part) (child 'part part)) parts))
-       tokens))))
+(def (shell-word-components token)
+  (let-values (((raw text) (prepare-word token)))
+    (let (length (string-length text))
+      (let-values (((parts tokens) (parse-parts raw text 0 length #f)))
+        (values
+         (node raw 'Word 0 length
+               (map (lambda (part) (child 'part part)) parts))
+         (recognition-sequence->list tokens))))))
 
 ;;; Unquoted here-document bodies expand parameters, commands, and arithmetic.
 ;;; Quote characters remain literal in this context.
-(def (shell-here-content-components raw)
-  (let* ((text (token-lexeme raw))
-         (length (string-length text)))
-    (let-values (((parts tokens)
-                  (parse-parts raw text 0 length 'HereDocument)))
-      (values
-       (make-recognition-node
-        'HereDocumentLine (token-start raw) (token-end raw)
-        (map (lambda (part) (child 'part part)) parts))
-       tokens))))
+(def (shell-here-content-components token)
+  (let-values (((raw text) (prepare-word token)))
+    (let (length (string-length text))
+      (let-values (((parts tokens)
+                    (parse-parts raw text 0 length 'HereDocument)))
+        (values
+         (node raw 'HereDocumentLine 0 length
+               (map (lambda (part) (child 'part part)) parts))
+         (recognition-sequence->list tokens))))))
 
 (def (assignment-name-end text)
   (let (length (string-length text))
@@ -365,28 +376,27 @@
 
 ;;; An assignment is recognized only at a command position by the caller.
 ;;; It returns #f for ordinary words, or a node and ordered source tokens.
-(def (shell-assignment-components raw)
-  (let* ((text (token-lexeme raw))
+(def (shell-assignment-components token)
+  (let* ((text (token-lexeme token))
          (length (string-length text))
          (name-end (assignment-name-end text)))
     (if (and name-end
              (or (source-prefix-at? text name-end "=")
                  (source-prefix-at? text name-end "+=")))
-      (let* ((operator-end
-              (if (source-prefix-at? text name-end "+=")
-                (fx+ name-end 2) (fx+ name-end 1)))
-             (name (slice-token raw text 'assignment-name 0 name-end))
-             (operator
-              (slice-token raw text 'assignment-operator
-                           name-end operator-end)))
-        (let-values (((parts tokens)
-                      (parse-parts raw text operator-end length #f)))
-          (values
-           (node raw text 'Assignment 0 length
-                 (append (list (child 'name name)
-                               (child 'operator operator))
-                         (map (lambda (part) (child 'value part)) parts)))
-           (append (list name operator) tokens))))
+      (let-values (((raw text) (prepare-word token)))
+        (let* ((operator-end
+                (if (source-prefix-at? text name-end "+=")
+                  (fx+ name-end 2) (fx+ name-end 1)))
+               (name (slice-token raw 'assignment-name 0 name-end))
+               (operator (slice-token raw 'assignment-operator name-end operator-end)))
+          (let-values (((parts tokens)
+                        (parse-parts raw text operator-end length #f)))
+            (values
+             (node raw 'Assignment 0 length
+                   (append (list (child 'name name) (child 'operator operator))
+                           (map (lambda (part) (child 'value part)) parts)))
+             (recognition-sequence->list
+              (recognition-sequence-append (list name operator) tokens))))))
       (values #f #f))))
 
   (values shell-word-components shell-assignment-components shell-here-content-components))

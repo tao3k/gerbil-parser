@@ -3,9 +3,10 @@
 
 * Current convergence plan — 2026-10-06
 
-Authoring baseline: PR #13 =2e394bd03894ff1436fecc5bcc85e189ac142ff9=.
-Rust and Ubuntu native CI passed at that exact head. The Bash scanner migration below
-is a subsequent change and requires its own verification. This is the
+Authoring baseline: PR #13 =1b05ee4e0620e42ab062a366c64ee2b0a546780c=.
+Rust and Ubuntu native CI passed at that exact head, including shared Bash
+scanner generation. The source-backed recognition migration is a subsequent
+change and requires its own verification. This is the
 single execution plan for language-layer convergence. The coverage milestones
 below remain separate syntax obligations; their old publication-status notes
 are historical, not current CI state.
@@ -43,7 +44,7 @@ former shell scanner module and its alias surface are deleted.
 | HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
 | TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has no external lexical declarations; module framing prepares source indexes and identifier/proof roles use closed text profiles; Scheme proof policy remains; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
-| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; =shell-parser.ss= and =shell-word.ss= still execute procedural recognition; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= and =shell-word.ss= still execute procedural syntax; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
 Total: zero external lexical declarations in grammar packs.
 Bash has a source parser rather than external lexical rows and is counted
@@ -104,6 +105,16 @@ one authoring obligation; individual helper moves cannot mark Bash converged.
 The public pack should retain grammar declarations, its POO loader and declared
 fixtures/tests/metadata. A downstream pack must not implement scanner traversal,
 word slicing, worker state, artifact publication or C/Rust transport.
+
+Source-backed result publication now uses the common UTF-8 span context,
+source-local nested boundary cache and persistent token sequence. ASCII skips
+the index vector; ordinary words skip the region context. The shared boundary
+suite also executes an independent declaration with overlapping quote/pair
+entries, and Bash declares large Unicode/parameter controls through its test
+macro. This removes three repeated-work paths inside Word execution; it does
+not replace the remaining Word/Command syntax with declarative Result IR.
+S3/S5 remain open until that IR derives the native catalog and both backends
+execute it through the admitted descriptor.
 
 Tree-sitter's public grammar DSL supplies sequence, choice, repetition,
 precedence, aliases and fields, and generates ordinary lexical/parse execution.

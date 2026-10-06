@@ -3,7 +3,7 @@
         (only-in :gerbil-parser/src/runtime/region-scanner
                  prepare-region-plan valid-region-specification? region-plan-end
                  region-plan-specification region-plan-pair-end region-plan-quote-end
-                 region-plan-operator)
+                 region-plan-operator prepare-region-source region-source-pair-end region-source-quote-end)
         (only-in :gerbil-parser/languages/bash/grammar bash-word-regions))
 (export region-scanner-test)
 (def (rejects? thunk)
@@ -32,6 +32,38 @@
              (source (string-append "xx" word " rest")))
         (check (region-plan-end bash-word-regions source 2) => (+ 2 (string-length word)))
         (check (region-plan-pair-end bash-word-regions source 2) => (+ 2 (string-length word)))))
+    (test-case "source-local boundaries retain all nested frame endpoints"
+      (let* ((depth 5000)
+             (text (string-append (apply string-append (make-list depth "${"))
+                                  "α" (make-string depth #\})))
+             (source (prepare-region-source bash-word-regions text)))
+        (check (region-source-pair-end source 0) => (string-length text))
+        (check (let loop ((at 0))
+                 (or (= at depth)
+                     (and (= (region-source-pair-end source (* 2 at))
+                             (- (string-length text) at))
+                          (loop (+ at 1))))) => #t)))
+    (test-case "independent declared regions own text and preserve quote boundaries"
+      (let* ((plan (prepare-region-plan '((";") ((#\" #t ("@{"))) (("@{" #\{ #\} 1)) #f)))
+             (text (string-copy "@{\"@{α}\"}"))
+             (source (prepare-region-source plan text)))
+        (string-set! text 0 #\x)
+        (check (region-source-pair-end source 0) => 9)
+        (check (region-source-quote-end source 2 #\") => 8)
+        (check (region-source-pair-end source 3) => 7)
+        (check (rejects? (lambda () (region-source-quote-end source 2 #\'))) => #t))
+      (let (source (prepare-region-source bash-word-regions "'literal ${x}"))
+        ;; Here-document literals do not require matching the leading quote.
+        (check (region-source-pair-end source 9) => 13)
+        (check (rejects? (lambda () (region-source-quote-end source 0 #\'))) => #t)))
+    (test-case "overlapping quote and pair entries keep separate match identities"
+      (let* ((plan (prepare-region-plan '((";") ((#\" #t ())) (("\"(" #\( #\) 1)) #f)))
+             (first (prepare-region-source plan "\"(α)\""))
+             (second (prepare-region-source plan "\"(α)\"")))
+        (check (region-source-quote-end first 0 #\") => 5)
+        (check (region-source-pair-end first 0) => 4)
+        (check (region-source-pair-end second 0) => 4)
+        (check (region-source-quote-end second 0 #\") => 5)))
     (test-case "unterminated scopes fail rather than publish a partial word"
       (for-each
        (lambda (source)

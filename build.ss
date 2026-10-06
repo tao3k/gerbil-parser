@@ -22,6 +22,7 @@
     "scripts/generate-reductions.ss"
     "build-native-test-driver.ss"
     "build-language-conformance.ss"
+    "build-language-conformance-link.ss"
     "build-native-ffi-tests.ss"
     "build-rust-native-tests.ss"
     "build-native-library.ss"

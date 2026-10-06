@@ -3,8 +3,7 @@
 ;;; The pinned SDKs use GCC; function/inlining diagnostics report real work.
 (import (only-in :std/build-script defbuild-script))
 (defbuild-script
-  (append
-    (map (lambda (module)
+  (map (lambda (module)
            `(gxc: ,module "-cc-options" "-v -Q -fopt-info-inline-all"))
        '("languages/arithmetic/parser-test" "languages/bash/parser-test"
          "languages/cypher/parser-test" "languages/fhirpath/parser-test"
@@ -31,5 +30,5 @@
          "t/fixtures/language-pack-research/list-stage"
          "t/fixtures/language-pack-research/list-language"
          "t/fixtures/language-pack-research/list-parser"
-         "t/fixtures/language-pack-research/list-parser-test"))
-          '((exe: "t/conformance-main" bin: "gerbil-parser-conformance" "-cc-options" "-v -Q -fopt-info-inline-all"))))
+         "t/fixtures/language-pack-research/list-parser-test"
+         "t/conformance-main")))

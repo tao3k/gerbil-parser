@@ -6,6 +6,62 @@ call/array package. The [[file:scheme-deflanguage-design-synthesis.org][design o
 Compiler responsibilities are specified in [[file:scheme-dsl-engine-admission.org][engine admission]]; observable contracts
 and field evolution are specified in [[file:scheme-dsl-semantic-contracts.org][semantic contracts]].
 
+* Public API audit after all-language file alignment
+
+The three-file topology is implemented, but it is not evidence that the entire
+public DSL is minimal. On 2026-10-07 the eight grammar.ss modules contain neither
+=setq= nor =set!=. Their =(seq ...)= forms express grammatical sequence, not
+Scheme assignment. Sequence is a necessary semantic distinction; requiring every
+author to spell every lowered sequence, reference and token wrapper is a separate
+interface decision that must be justified with complete examples.
+
+The current public boundary has concrete remaining leaks:
+
+| Current surface | Responsibility | Design direction |
+|-----------------+----------------+------------------|
+| Grammar exports of grammar IR, parser IR and generated parser bindings | Compiler products | Keep diagnostic inspection explicit; ordinary parsing must not require these bindings |
+| Whole grammar re-export from parser.ss | Consumer API | Publish the checked language entry, parse operation and deliberate metadata; keep compiler products out of that ordinary entry |
+| Arithmetic/HCL imports of generated direct drivers and digest bindings | Backend admission | Derive or bind validated backend products behind the compiler/library boundary |
+| GQL lexical token, syntax-kind and terminal catalogs | Source adapter and lexical semantics | Derive redundant catalogs while retaining explicit language-specific token policy |
+| Repeated literal/reference/token/sequence wrappers | Grammar vocabulary | Use existing hygienic grammar syntax to express recurring constructs and preserve their source origins |
+
+These are design obligations, not changes already shipped. Removing an export
+without tracing generators, semantic tests and artifact inspection would merely
+hide a dependency. Moving language-specific semantics into the generic engine
+would also violate the engine/library boundary. The source adapter owns source
+format translation; the engine owns canonical admission and compilation.
+
+The existing =defgrammar-syntax= example below is an executable starting point:
+
+#+begin_src scheme
+;; Existing author vocabulary: express a required separated list once.
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Rule use states language intent. The macro owns the repeated lowered shape.
+(required-items argument (reference name) (literal ","))
+
+;; Question 1: Why is this interface better?
+;; It removes duplicated implementation of the separated-list policy while
+;; keeping the author-visible field, item and separator choices explicit.
+;; Hygienic expansion preserves binding and origin; parentheses alone do not.
+;; Question 2: Why is this scientifically defensible?
+;; The inline and macro forms must agree on accepted/rejected strings, exact
+;; AST fields and spans, source roundtrip, diagnostics and published identity
+;; rules. Those independent observations can falsify the proposed abstraction.
+#+end_src
+
+This example qualifies one reusable construct, not a universal syntax redesign.
+The next design comparison must cover complete arithmetic and GQL packages,
+including their exports, backend admission and source adaptation. It must show
+what ordinary callers import and what grammar authors write, alongside macro
+expansion, native POO selection and canonical IR. A shorter surface is admitted
+only when these observables remain equivalent and the number of concepts authors
+must understand actually decreases. The cited macro and language-implementation
+research in [[file:scheme-dsl-research-basis.org][the research basis]] supplies mechanisms and proof obligations;
+it does not by itself establish that every current API choice is elegant.
+
 * Complete authoring comparison across the three package interfaces
 
 A coherent package keeps =grammar.ss=, =parser.ss= and =parser-test.ss= as

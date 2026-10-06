@@ -5,7 +5,8 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 command=(gxi
   -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)'
-  -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (main "compile")))))')
+  -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (main "compile")))))'
+  -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main)))))')
 if [[ $(uname -s) == Darwin ]]; then
   exec script -q /dev/null "${command[@]}"
 else

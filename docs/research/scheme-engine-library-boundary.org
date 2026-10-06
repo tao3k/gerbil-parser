@@ -248,3 +248,34 @@ uses existing compiled dependencies and is not a fresh-toolchain build claim.
 The benchmark check uses one sample for semantic execution coverage; it does not
 qualify latency percentiles. Remote platform CI must be assessed at the published
 commit separately from this successful local receipt.
+
+* Native test-build partition and retained failures
+
+The first published native executable passed the local execution gate, but both
+remote platforms subsequently failed its combined build's five-second idle fence.
+On Linux the quiet stage was Gambit's sequential Scheme-to-C translation of the
+GQL static module. A separate translation attempt then exposed a second quiet
+stage: C compilation of a roughly twelve-megabyte combined link metadata unit.
+Neither failed attempt is admitted as a successful qualification.
+
+The test build now uses the public Gerbil =compile-exe= API to generate the native
+bootstrap and its admitted module identities. Project Scheme-to-C and object
+compilation run as independent native jobs; immutable SDK objects are reused.
+Gambit's documented incremental links form an ordered base chain with sixteen
+modules per generated C unit. Intermediate bases use =___LIBRARY=; the final link
+owns C main. This preserves bootstrap order and native module identities without
+modifying the SDK compiler or parser algorithms. The partition is test-build
+infrastructure and adds no author-facing grammar declaration.
+
+The rationale follows the official [[https://gambitscheme.org/4.9.8/manual/#Link-files][Gambit link-file documentation]] and its
+separate compilation examples. A two-module native probe checked execution order
+and the intermediate library flag before applying the build partition. Actual
+compiler process failures propagate through worker joins; output reports only
+real import, translation, compilation and link boundaries.
+
+The first local incremental build completed in 20.04 seconds, followed by all 26
+child processes exiting zero, with the existing 240/5-second build and ten-second
+child fences unchanged. This reused project objects and is not a cold-build or
+latency improvement claim. Remote qualification remains a separate gate.
+The author-interface audit is in [[file:scheme-dsl-author-interface.org][the existing author-interface study]]: complete
+file alignment does not establish that generated products belong in the public API.

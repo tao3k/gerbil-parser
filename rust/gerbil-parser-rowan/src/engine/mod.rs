@@ -1,6 +1,13 @@
 //! Generated-table execution owners for the Rowan runtime.
 
+mod command_program;
+mod command_source;
+pub use command_source::{CommandParse, CommandSourceSpec, PreparedCommandSource};
 mod contextual_parser;
+pub use command_program::{
+    CommandChoice, CommandForm, CommandInstruction, CommandProgramSpec, CommandRole,
+    CommandTokenClass, CommandTrigger, PreparedCommandProgram,
+};
 mod contextual_plan;
 pub(crate) mod event_tree;
 mod generated_events;
@@ -106,3 +113,7 @@ mod word_parts_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/ordered_results.rs"]
 mod ordered_results_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/command_source.rs"]
+mod command_source_tests;

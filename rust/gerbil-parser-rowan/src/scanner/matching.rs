@@ -247,7 +247,7 @@ fn balanced_word(
     }
     Ok(Some(cursor))
 }
-pub(super) fn shell_delimiter(word: &str, at: usize) -> Result<(String, bool), Diagnostic> {
+pub(crate) fn shell_delimiter(word: &str, at: usize) -> Result<(String, bool), Diagnostic> {
     let mut chars = word.chars().peekable();
     let mut quote = None;
     let mut quoted = false;

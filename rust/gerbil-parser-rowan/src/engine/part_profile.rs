@@ -119,6 +119,7 @@ fn context_index(spec: &PartProfileSpec, name: &str) -> Result<usize, Diagnostic
 /// Once-admitted recognition tables and bound result instructions.
 pub struct PreparedPartProfile {
     pub(super) spec: &'static PartProfileSpec,
+    pub(super) result_owner: &'static ResultProfileSpec,
     pub(super) projections: Vec<PreparedResultProjection>,
     pub(super) rule_projections: Vec<usize>,
     pub(super) literal: usize,
@@ -303,6 +304,7 @@ impl PreparedPartProfile {
         {
             return Err(error(0, "part profile lacks required unique contexts"));
         }
+        let result_owner = results;
         let results = PreparedResultProfile::new(results)?;
         let mut projections = Vec::new();
         let word = bind(&results, &mut projections, "Word", PARTS)?;
@@ -367,6 +369,7 @@ impl PreparedPartProfile {
         }
         Ok(Self {
             spec,
+            result_owner,
             projections,
             rule_projections,
             literal,

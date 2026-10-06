@@ -604,3 +604,59 @@ one shared catalog. These controls qualify construction and composition only;
 they do not establish Command syntax recognition or full Source AOT. The next
 executor must preserve these ordered captures while interpreting command
 control programs, then qualify complete ParseArtifact parity.
+
+
+** Shared Command control and Source recognition in Rust
+
+=CommandProfile.= lowers through the engine-owned producer to closed trigger,
+form and instruction tables. =PreparedCommandProgram= binds ordered result
+constructors, descriptor text and literal/fallback selectors once. Its explicit
+frame/task stack interprets =as/raw/take/word/command/list/call/node= and
+=optional/many/until/branch/choose/balance=. Lookahead skips declared trivia;
+adjacent selectors also require contiguous byte spans. Literal entries win
+priority ties; fallback selectors retain Scheme's reverse declaration ordering.
+Roles and all Source projection fields are admitted before execution. Duplicate
+selectors, call cycles, foreign fields and nullable loop/call bodies reject.
+Consumption widths follow a topological form order: a shared call DAG is not
+recursively expanded during admission. A 32-level, two-edge-per-level DAG
+control exercises this boundary.
+
+An engine-owned cursor consumes scanner tokens, recognizes Word/Binding values,
+constructs command/list/pipeline/and-or and redirection results, and associates
+heredoc bodies with their markers in FIFO order. Quoted marker bodies retain raw
+tokens; unquoted bodies use the shared PartProfile. =CommandParse.events= inserts
+scanner trivia at the same recognition boundaries as Scheme, validates source
+order and publishes complete Rowan events. Languages supply data; the internal
+cursor/VM bridge is private and requires no downstream callbacks.
+
+The public =rust-rowan-support= facade exports
+=generate-command-source-rust-module=. Its input is one admitted POO
+=ShellSourceStrategy.= value, including inherited slots; its output is one
+immutable =CommandSourceSpec= combining scanner, regions, parts, commands and
+results. The Rust host prepares the product once and reuses it:
+
+#+begin_src scheme
+(import :gerbil-parser/rust-rowan-support)
+(generate-command-source-rust-module my-source-strategy "src/generated.rs")
+#+end_src
+
+#+begin_src rust
+let engine = PreparedCommandSource::new(&generated::SOURCE)?;
+let parsed = engine.parse(source)?;
+let events = parsed.events()?;
+#+end_src
+
+The actual Scheme Source engine generates 54 accepted/rejected controls.
+Production controls cover all 14 Bash forms and nested constructs; a second POO
+value overrides Unicode command keywords, pipeline membership, root projection
+and the nullable prefix declaration. Rust compares complete events, preorder
+fields and marker/body links, then verifies lossless Rowan text. Negative gates
+cover malformed tapes, source/catalog ownership, selectors and cyclic/nullable
+programs. Regeneration is byte-exact after rustfmt under the existing 90/5 fence.
+These controls qualify standalone Source recognition and publication, including
+its syntax outcomes; they do not establish full versioned ParseArtifact/hash/
+diagnostic parity or switch the public C ABI from the Scheme Source engine.
+The cursor currently rejects command/list nesting above 256; replacing that
+remaining Source recursion with an explicit task stack is a separate execution
+obligation. Region and Word stacks retain their existing deeper-nesting controls.
+No schema bump or end-to-end speed improvement is claimed.

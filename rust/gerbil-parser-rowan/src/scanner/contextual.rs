@@ -6,7 +6,8 @@ mod matching;
 #[path = "obligations.rs"]
 mod obligations;
 use crate::{Diagnostic, ScannedToken};
-use matching::{matcher_end, shell_delimiter};
+use matching::matcher_end;
+pub(crate) use matching::shell_delimiter;
 use obligations::Obligations;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};

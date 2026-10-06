@@ -766,7 +766,9 @@ public C descriptor/parse/release functions, including Unicode source, invalid
 UTF-8 rejection, result reuse and released-handle rejection. Syntax rejection
 is carried by the existing GPA1 status and admitted fallback terminal.
 
-This product executes the Scheme source engine. The standalone Rust scanner
-product remains separately qualified; it does not imply a Rust Word/Command
-recognizer. Construction field sets constrain publication but do not yet
-express field cardinality or syntax recognition transitions.
+Standalone Rust Word/Binding and Command/Source recognition now execute shared
+closed profiles and match Scheme controls, as described in
+[[file:0008-extensible-language-packs.org][the shared engine contract]]. This native C product still executes the Scheme
+Source engine. Full Rust ParseArtifact identity, diagnostics and native binding
+remain separate from recognition/event parity. Construction field sets constrain
+publication but do not yet express field cardinality.

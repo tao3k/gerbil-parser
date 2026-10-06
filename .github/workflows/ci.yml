@@ -269,6 +269,15 @@ jobs:
           rustfmt --edition 2024 /tmp/ordered-results.rs
           cmp /tmp/ordered-results.rs rust/gerbil-parser-rowan/tests/fixtures/generated/ordered_results.rs
 
+      - name: Verify shared Command Source Rust AOT regeneration
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log /tmp/command-source-generation.log --require COMMAND-SOURCE-RUST-GENERATED \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-command-source.ss")' \
+            t/generate-command-source.ss /tmp/command-source.rs
+          rustfmt --edition 2024 /tmp/command-source.rs
+          cmp /tmp/command-source.rs rust/gerbil-parser-rowan/tests/fixtures/generated/command_source.rs
+
       - name: Verify shared Word and Binding Rust AOT regeneration
         run: |
           gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \

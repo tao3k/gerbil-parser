@@ -44,7 +44,7 @@ former shell scanner module and its alias surface are deleted.
 | HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
 | TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has no external lexical declarations; module framing prepares source indexes and identifier/proof roles use closed text profiles; Scheme proof policy remains; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
-| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= interprets closed control programs; Word projection IR executes through =ResultProfile.=; standalone Rust Command/Word execution remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= interprets closed control programs; Word projection IR executes through =ResultProfile.=; standalone Rust Word/Command/Source recognition is implemented; full ParseArtifact identity/diagnostics, native binding and Source stack convergence remain open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
 Total: zero external lexical declarations in grammar packs.
 Bash has a source parser rather than external lexical rows and is counted
@@ -1699,3 +1699,42 @@ workspace policy gate pass. Scheme catalog-control generation exits zero in
 9.56 seconds. Independent regeneration exits zero in 9.35 seconds and is
 byte-exact after rustfmt. Runtime fences remain 90 seconds total/five seconds
 of real inactivity; no Schema, Loader, Source or C ABI version is changed.
+
+
+** Shared Command and Source execution boundary
+
+The ordered constructor baseline =e1252ed102a1d67f5d2d1fb3ab359f6b7f97aed6=
+passes Rust and Ubuntu CI. This change adds the shared closed Command interpreter
+and the engine-owned Source cursor; =languages/= retains only declaration
+interfaces. One admitted POO source strategy emits a single Rust Source product,
+and a prepared Rust engine reuses scanner/Word/Command/result admission.
+
+Literal/fallback selector preparation follows Scheme precedence. Command
+control uses explicit frames/tasks and checks loop progress. Source construction
+covers all 14 production forms, arrays, descriptor/redirection spans, pipelines,
+and-or lists, deferred bodies and complete trivia publication. Shared call-DAG
+admission computes widths once in topological order, with a 32-level double-call
+control that does not expand exponentially. Unicode keywords, root projection,
+pipeline role and empty-prefix POO overrides use the identical engine.
+
+The independent Scheme generator publishes 54 full-Source controls, including
+rejection outcomes. Rust compares full Rowan events, field sequence, FIFO
+marker/body links and source roundtrips. The public generated product API and
+the token-tape API both run these controls. Invalid tape, wrong catalog and
+cyclic/nullable/ambiguous declarations are rejected explicitly.
+
+This closes standalone Command/Source recognition for the qualified corridor.
+Full versioned ParseArtifact identity/hash/diagnostic parity and binding that
+Rust Source product through the language-independent native ABI remain open.
+The remaining recursive Source command/list bridge has a 256-level rejection
+gate; an explicit Source task stack is still needed for unbounded nesting.
+The loader v2, Source v1, native metadata v1 and language handle ABI v2 remain
+unchanged. Qualification is semantic/structural evidence, not a parse-speed claim.
+
+Local qualification: GCC compiles the producer and public facade; the SDK's
+=gambuild-C= selects =/opt/homebrew/bin/gcc-16=. The native Scheme Command/Bash
+gate passes 38 cases in 10.52 seconds with final =OK=,
+=HARNESS-RETURN status=0= and exit zero. Rust/Rowan passes 126 tests, strict
+Clippy passes, and the ASP workspace source gate passes. Independent Source
+regeneration is compared byte-for-byte after rustfmt. Existing compiler/runtime
+fences are retained; no results are admitted by relaxing a timeout.

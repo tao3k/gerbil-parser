@@ -385,7 +385,17 @@ impl PreparedResultNode {
         })
     }
 }
-impl ProjectedNode<'_> {
+impl<'source> ProjectedNode<'source> {
+    #[must_use]
+    pub(super) fn into_captures(self) -> Vec<ResultChildCapture<'source>> {
+        self.children
+            .into_iter()
+            .map(|child| ResultChildCapture {
+                field: child.field,
+                value: child.value,
+            })
+            .collect()
+    }
     #[must_use]
     pub fn kind(&self) -> u16 {
         self.kind

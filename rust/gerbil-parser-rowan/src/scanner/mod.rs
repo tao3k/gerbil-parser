@@ -3,12 +3,12 @@ mod contextual;
 mod region;
 pub use region::{PreparedRegionPlan, PreparedRegionSource, RegionScope, RegionSpec};
 
-pub(crate) use contextual::error;
 pub use contextual::{
     BalancedPair, ContextualScanner, MarkerPolicy, RegionPair, RegionQuote,
     SCANNER_OPCODE_CONTRACT, ScannerAction, ScannerCell, ScannerCheckpoint, ScannerMatcher,
     ScannerRule, ScannerSpec,
 };
+pub(crate) use contextual::{error, shell_delimiter};
 
 #[cfg(test)]
 #[path = "../../tests/unit/shared_scanner.rs"]

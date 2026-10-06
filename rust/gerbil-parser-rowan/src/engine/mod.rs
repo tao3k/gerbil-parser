@@ -10,6 +10,7 @@ mod lexer;
 mod model;
 mod module_source;
 mod parser;
+mod result_projection;
 mod rowan_tree;
 mod structural_block_opening;
 mod structural_key_line;
@@ -40,6 +41,11 @@ pub use model::{
     Terminal, TerminalSpec, TextClass, TextProfile, TreeEvent, UnclosedBlockPolicy,
 };
 pub use parser::{parse, parse_scanned};
+pub use result_projection::{
+    CaptureKind, CaptureSpec, PreparedResultProfile, PreparedResultProjection, ProjectedChild,
+    ProjectedNode, ProjectedValue, ProjectionInstruction, ProjectionOpcode, ResultCapture,
+    ResultNodeSpec, ResultProfileSpec, ResultProjection,
+};
 pub use structural_lines::parse_structural_lines;
 
 #[cfg(test)]
@@ -81,3 +87,7 @@ mod header_delimiter_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/binding_names.rs"]
 mod binding_names_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/result_projection.rs"]
+mod result_projection_tests;

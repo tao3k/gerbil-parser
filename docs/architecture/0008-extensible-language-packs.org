@@ -482,3 +482,36 @@ five exported group aliases. Their declarations remain corpus data in
 =grammar.ss= and one =fixtures:= value in the Loader. All affected test and
 benchmark consumers migrate directly; no compatibility names remain. Loader v2,
 Source v1, native metadata v1 and C ABI v2 do not change.
+
+
+** Shared Rust result projection execution
+
+=result-profile-rust-source= lowers any admitted POO =ResultProfile.= or bound
+result plan through the existing Rust/Rowan compiler. It emits an immutable
+=ResultProfileSpec=: category-separated kinds, declared node fields, typed
+span/node/parts captures and ordered token/one/many instructions. Kind indexes
+are bounded before emission. Language directories gain no extra interface or
+Rust implementation. Result field and terminal renaming remains declaration data.
+
+=PreparedResultProfile= admits the entire table once, including entries not
+selected by a particular parse. =bind= resolves a projection during source
+engine preparation; its =PreparedResultProjection= executes fixed instructions
+without another identifier lookup. Captures move into private =ProjectedNode=
+values. Child composition checks the exact result catalog, source borrow and
+parent byte range. Span captures require UTF-8 boundaries, correct arity and
+required/optional cardinality. Node and token spellings inhabit separate
+categories, as in Scheme.
+
+Projected children retain their declared fields. Nested captures own their
+subtrees without cloning accumulated token/event suffixes. An iterative walk
+materializes events once for the existing Rowan sink, which separately verifies
+ordered, exhaustive token coverage. Projection construction does not decide
+syntax recognition or recovery.
+
+The production Bash result profile and thirteen actual Scheme Word/assignment/
+heredoc captures form a reproducible cross-backend witness. Rust independently
+executes the same construction instructions; tests compare every event, field
+order and final source text. This closes portable result construction. Shared
+Rust Part/Binding recognition, Command program interpretation, Source admission
+and end-to-end standalone parser receipts remain subsequent engine obligations.
+No Loader, Source, native metadata or C ABI schema changes are introduced.

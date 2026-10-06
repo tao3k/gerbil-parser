@@ -658,3 +658,18 @@ unchanged. Mutating input strings after admission does not replace the bound
 snapshot; use a new POO value override to rebind. Pack-specific accepted and
 rejected aliases have been removed; test and benchmark consumers use this same
 engine interface. Benchmark corpora prepare outside the timed parse region.
+
+
+* Portable result construction
+
+Declare constructors with =defresult-profile= and POO inheritance. The engine's
+=result-profile-rust-source= lowers the admitted profile to immutable Rust
+projection tables; =PreparedResultProfile= validates them and executes typed
+captures through bound projection entries. Fields and terminal names remain
+grammar data, shared with Scheme. Downstream authors do not implement tree
+building or token accumulation in Rust.
+
+This generic construction capability is available independently of syntax
+recognition. Complete standalone Rust Source/Command/Word recognition is still
+an engine implementation boundary; emitting result tables alone does not
+publish a standalone language parser.

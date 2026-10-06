@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical Parser IR v1 to immutable Rust/Rowan table generation.
 
-(import (only-in ../grammar/lexical-algebra text-profile?)
+(import (only-in ../language/result-profile result-plan? result-plan-recipe compile-result-profile)
+        (only-in ../grammar/lexical-algebra text-profile?)
         (only-in ../language/descriptor
                  language-grammar-contract
                  language-grammar-ir
@@ -9,7 +10,7 @@
                  language-grammar-machine
                  language-grammar-version require-portable-language-policy!)
         (only-in ./machine parser-machine-grammar-digest))
-(export rust-text-profile-expression-source
+(export result-profile-rust-source rust-text-profile-expression-source
         generate-language-rust-rowan-module
         generate-rust-rowan-module
         language-rust-rowan-module-source rust-rowan-module-source)
@@ -435,3 +436,53 @@
 
 (def (generate-language-rust-rowan-module output-path descriptor)
   (write-rust-rowan-module! output-path (language-rust-rowan-module-source descriptor)))
+
+;;; Source results use the same admitted constructors as the Scheme executor.
+;;; This producer emits data only; languages supply no Rust tree-building code.
+(def (result-profile-rust-source profile)
+  (let* ((plan (if (result-plan? profile) profile (compile-result-profile profile)))
+         (recipe (result-plan-recipe plan)) (nodes (car recipe)) (tokens (cadr recipe)))
+    (when (> (+ (length nodes) (length tokens)) 65536)
+      (error "result catalog exceeds the Rust kind index capacity"))
+    (def (node-index kind) (kind-index nodes kind))
+    (def (token-index kind) (+ (length nodes) (kind-index (map list tokens) kind)))
+    (call-with-output-string (lambda (port)
+      (display "// @generated from the admitted Scheme ResultProfile IR.\n" port)
+      (display "use gerbil_parser_rowan::{CaptureKind, CaptureSpec, KindSpec, KindCategory, ProjectionOpcode, ProjectionInstruction, ResultProjection, ResultNodeSpec, ResultProfileSpec};\n" port)
+      (display "pub static RESULT_PROFILE: ResultProfileSpec = ResultProfileSpec { kinds: &[\n" port)
+      (for-each (lambda (row)
+        (display "KindSpec {name: " port) (write (symbol->string (car row)) port)
+        (display ", category: KindCategory::Node},\n" port)) nodes)
+      (for-each (lambda (kind)
+        (display "KindSpec {name: " port) (write (symbol->string kind) port)
+        (display ", category: KindCategory::Token},\n" port)) tokens)
+      (display "], nodes: &[\n" port)
+      (for-each (lambda (row)
+        (display "ResultNodeSpec {kind: " port) (display (node-index (car row)) port)
+        (display ", fields: &[" port)
+        (for-each (lambda (field) (write (symbol->string field) port) (display "," port)) (cadr row))
+        (display "]},\n" port)) nodes)
+      (display "], projections: &[\n" port)
+      (for-each (lambda (row)
+        (display "ResultProjection {id: " port) (write (symbol->string (car row)) port)
+        (display ", kind: " port) (display (node-index (cadr row)) port)
+        (display ", captures: &[" port)
+        (for-each (lambda (capture)
+          (display "CaptureSpec {name: " port) (write (symbol->string (car capture)) port)
+          (display ", kind: CaptureKind::" port)
+          (display (case (cadr capture) ((span) "Span") ((node) "Node") ((parts) "Parts")) port)
+          (display "}," port)) (caddr row))
+        (display "], instructions: &[" port)
+        (for-each (lambda (operation)
+          (display "ProjectionInstruction {field: " port) (write (symbol->string (cadr operation)) port)
+          (display ", opcode: ProjectionOpcode::" port)
+          (case (car operation)
+            ((token) (display "Token {kind: " port) (display (token-index (caddr operation)) port)
+                     (display ", required: " port) (display (if (eq? (list-ref operation 4) 'required) "true" "false") port)
+                     (display "}" port))
+            ((one) (display "One {required: " port) (display (if (eq? (list-ref operation 3) 'required) "true" "false") port)
+                   (display "}" port))
+            ((many) (display "Many" port)))
+          (display "}," port)) (cdddr row))
+        (display "]},\n" port)) (caddr recipe))
+      (display "]};\n" port)))))

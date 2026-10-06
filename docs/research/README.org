@@ -18,3 +18,6 @@ authoring interfaces from unimplemented research proposals.
 
 The deeper [[file:scheme-language-pack-semantics.org][binding, field semantics and author task study]] develops namespace
 policies, conservative count equations and concrete HCL/arithmetic examples.
+
+The executable [[file:scheme-macro-binding-experiments.org][Gerbil macro binding experiments]] compare preserved definition
+references, caller parameters and contextual reconstruction across modules.

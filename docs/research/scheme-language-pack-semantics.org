@@ -391,3 +391,10 @@ later empirical question; a file-count reduction does not establish a benefit.
 
 This study advances gates 1–3 through source inspection and a candidate model.
 It does not close gate 4, a new schema/API, or a performance claim.
+
+* Executable host binding evidence
+
+[[file:scheme-macro-binding-experiments.org][Gerbil macro binding experiments]] now supply six native Gerbil host-expansion
+controls for imported/renamed macros, caller parameters and local shadowing.
+They confirm the contextual reconstruction mechanism without claiming that the
+actual =deflanguage= backend path has been qualified or shown defective.

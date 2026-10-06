@@ -1,0 +1,126 @@
+#+title: Gerbil macro binding experiments for language pack design
+#+date: 2026-10-06
+
+* Question and evidence boundary
+
+The [[file:scheme-language-pack-semantics.org][semantic study]] separates grammar identities, public labels, macro bindings
+and host expressions. This experiment asks a narrower executable question:
+what happens to a macro's private host reference when its syntax is preserved
+versus converted to datum and reconstructed in a caller's context?
+
+Baseline examined: =a99b3646e7ee68c1010ca47985c762d658fef611=.
+The experiment executes ordinary Gerbil macros across two source modules. It
+does not import =deflanguage=, construct Grammar IR, or execute a parser.
+Its results establish host expansion behavior, not a parser defect or backend
+qualification. All executable research fixtures are Scheme.
+
+* Official and paper basis
+
+The official [[https://gerbil.scheme.org/tutorials/languages.html][Gerbil custom languages tutorial]] uses contextual expanders, syntax
+construction and renamed exports. It demonstrates intentional contextual
+construction; =datum->syntax= is a tool whose context must match the intended
+binding policy, not an operation to prohibit everywhere.
+
+Matthew Flatt's [[https://www-old.cs.utah.edu/plt/scope-sets/general-macros.html][Binding as Sets of Scopes, section 3]] discusses syntax objects,
+identifier comparisons, procedural macros and module phases. Our experiment
+uses Gerbil's own expansion and evaluation. It does not assume that Racket's
+scope representation or edge cases are Gerbil's implementation.
+
+* Reproducible Scheme controls
+
+Files:
+
+- [[file:../../t/fixtures/language-pack-research/fragments.ss][fragments.ss]] defines a private =private-value= and exports three macros.
+- [[file:../../t/fixtures/language-pack-research/consumer.ss][consumer.ss]] imports one macro under a new name, declares its own same-spelling
+  value, and runs assertions including local shadowing.
+- [[file:../../t/fixtures/language-pack-research/binding.ss][binding.ss]] is the executable entry.
+
+The preserving control returns the definition-context identifier through an
+ordinary =defrules= template. The parameter control returns syntax provided by
+the caller. The reconstructing control deliberately performs:
+
+#+begin_src scheme
+(datum->syntax #'anchor (syntax->datum #'private-value))
+#+end_src
+
+Here =anchor= is the caller's identifier. The source reference and caller
+reference have the same spelling, so equality of their datum names cannot
+establish equality of their binding.
+
+From the repository root:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" gerbil env gxi t/fixtures/language-pack-research/binding.ss
+#+end_src
+
+The local research run used a ten-second external =gtimeout= bound around this
+command. It completed with exit status 0 and six =BINDING-CASE-OK= lines followed
+by =BINDING-RESEARCH-OK: 6 checks passed=. Each case prints only after its actual
+assertion succeeds. The experiment adds no dependency and requires no native
+parser build. It is independent of compiled parser cache contents.
+
+* Observed results
+
+| Case | Observed value | Interpretation |
+|------+----------------+----------------|
+| Imported and renamed preserving macro | =definition-site= | Import renaming retains the macro's private reference |
+| Reconstructed reference at module use site | =use-site= | Caller context changes resolution of the same spelling |
+| Explicit caller parameter | =use-site= | Supplied syntax refers to the caller's value |
+| Preserving macro inside local shadow | =definition-site= | Definition context survives local same-spelling bindings |
+| Reconstructing macro inside local shadow | =local-shadow= | Reconstruction can select the caller's local binding |
+| Parameter macro inside local shadow | =local-shadow= | Preserving a caller argument retains its local binding |
+
+The last two rows intentionally have the same value but different origins.
+One accepts an argument whose meaning belongs to the caller; the other discards
+a definition-context reference and adopts a caller context. A useful language
+implementation must know which transformation it intended.
+
+* Applying the result to our DSL audit
+
+=src/language/grammar.ss= expands grammar fragments before converting expression
+atoms to datum. It constructs backend rows from datum using the language prefix
+as the syntax anchor. These are different information classes:
+
+| Value crossing elaboration | Binding obligation | Candidate treatment |
+|----------------------------+--------------------+---------------------|
+| Node/field label | Intentional published symbolic identity | Extract datum; validate identity and catalog ordering |
+| Rule/token reference | Declared DSL namespace identity | Resolve before losing relevant origin; retain canonical core names |
+| Macro constructor reference | Host compile-time binding | Expand while its original syntax context is available |
+| Backend digest/procedure expression | Host expression with lexical references | Preserve original expression syntax through assembly |
+| Generated public parser binding | Deliberate API name derived from the pack prefix | Construct in the documented export context |
+| Generated private helper | Implementation binding | Preserve private definition scope or use host-generated fresh identity |
+
+This experiment supports prioritizing the host-expression row. It does not
+show that a private backend expression currently fails through =deflanguage=:
+that requires an actual DSL expansion witness with the engine loaded. Ordinary
+backend declarations using consumer-module bindings may work even when a
+macro-generated private reference would be problematic.
+
+A candidate elaborator should extract only the data portions of a backend row,
+while carrying its digest and procedure subforms as syntax objects. Assemble
+those host subforms with syntax templates rather than reconstructing their names
+from a shared prefix anchor. Keep the current core IR and backend admission
+semantics. This is a proposed implementation direction, not an applied fix.
+
+Identity/version/contract clauses also contain host expressions. Their expansion
+path needs the same classification. Do not assume that preserving a whole outer
+form automatically preserves each embedded expression after intermediate datum
+conversion.
+
+* What an engine-level witness must establish next
+
+1. Import the actual current =deflanguage= source with qualified compiler
+   dependencies, so the tested expander revision is known.
+2. Define a macro in another module that supplies a private backend digest and
+   procedure. Keep a same-spelling consumer binding as an explicit control.
+3. Compare preserved caller parameters, private macro references and direct
+   consumer declarations. Assert the selected procedure identity, not a string
+   representation of its name.
+4. Verify admission accepts only a matching grammar digest. A binding experiment
+   must not bypass or weaken backend capability checks.
+5. Include unresolved references and source locations as negative cases, then
+   check generated public names and canonical IR identities remain stable.
+
+These fixtures establish a small host baseline useful for that next witness.
+No conclusion about runtime speed, concurrency, field type soundness or FFI
+follows from the six successful assertions.

@@ -243,53 +243,104 @@ per-field flags; defer them unless an actual consumer needs that precision.
 
 ** Reproducible checks of the proposed equations
 
-This Python block checks the mathematical candidate only. It does not import the
+This Gerbil Scheme block checks the mathematical candidate only. It does not import the
 parser, qualify a backend, or serve as the semantic oracle for native tests.
 Tuple layout is =(arity, item, tail, other)=; nonempty field wrapping resets the
-outer immediate counts. Seven assertions passed when this document was written.
+outer immediate counts. Seven checks passed under Gerbil when this block was revised (exit status 0).
+Save the block to a =.ss= file and run =gerbil env gxi <file.ss>=.
 
-#+begin_src python
-zero = (0, 0, 0, 0)
-epsilon = {zero}
-word = {(1, 0, 0, 0)}
+#+begin_src scheme
+(def count-zero '(0 0 0 0))
+(def count-epsilon (list count-zero))
+(def count-word '((1 0 0 0)))
 
-def sequence(left, right):
-    return {tuple(min(2, a + b) for a, b in zip(x, y))
-            for x in left for y in right}
+(def (count-set values)
+  (let loop ((rest values) (result '()))
+    (cond
+     ((null? rest) result)
+     ((member (car rest) result) (loop (cdr rest) result))
+     (else (loop (cdr rest) (cons (car rest) result))))))
 
-def field(index, body):
-    out = set()
-    for row in body:
-        value = list(zero)
-        if row[0]:
-            value[0] = value[index] = 1
-        out.add(tuple(value))
-    return out
+(def (count-subset? left right)
+  (let loop ((rest left))
+    (or (null? rest)
+        (and (member (car rest) right) (loop (cdr rest))))))
 
-def fixpoint(step):
-    current = set()
-    while True:
-        updated = step(current)
-        assert current <= updated
-        if updated == current:
-            return current
-        current = updated
+(def (count-set=? left right)
+  (and (count-subset? left right) (count-subset? right left)))
 
-items = field(1, word)
-repeated_fields = fixpoint(lambda x: epsilon | sequence(items, x))
-assert {r[1] for r in repeated_fields} == {0, 1, 2}
-repeated_words = fixpoint(lambda x: epsilon | sequence(word, x))
-assert {r[1] for r in field(1, repeated_words)} == {0, 1}
-assert field(1, epsilon) == epsilon
-assert fixpoint(lambda x: sequence(x, word)) == set()
-assert fixpoint(lambda x: epsilon | sequence(epsilon, x)) == epsilon
-helper = fixpoint(lambda x: items | sequence(
-    word, sequence(x, sequence(word, field(2, word)))))
-assert {r[1:] for r in helper} == {(1, 0, 0), (1, 1, 0), (1, 2, 0)}
-branches = epsilon | sequence(field(2, word), field(3, word))
-conditional = sequence(field(1, word), branches)
-assert {r[1:] for r in conditional} == {(1, 0, 0), (1, 1, 1)}
-print("COUNT-MODEL: 7 checks passed")
+(def (count-join left right)
+  (count-set (append left right)))
+
+(def (count-sequence left right)
+  (count-set
+   (apply append
+    (map (lambda (x)
+           (map (lambda (y) (map (lambda (a b) (min 2 (+ a b))) x y))
+                right))
+         left))))
+
+(def (count-field index body)
+  (count-set
+   (map (lambda (row)
+          (if (zero? (car row)) count-zero
+            (list 1
+                  (if (= index 1) 1 0)
+                  (if (= index 2) 1 0)
+                  (if (= index 3) 1 0))))
+        body)))
+
+(def (count-fixpoint step)
+  (let loop ((current '()) (iterations 0))
+    ;; Four capped components give 81 tuples and at most 81 strict additions.
+    (when (> iterations 81) (error "count model did not converge"))
+    (let (updated (step current))
+      (unless (count-subset? current updated)
+        (error "count model is not ascending"))
+      (if (count-set=? updated current) current
+        (loop updated (+ iterations 1))))))
+
+(def (count-check label actual expected)
+  (unless (count-set=? actual expected)
+    (error "count model mismatch" label actual expected))
+  (display "COUNT-CASE-OK: ") (display label) (newline))
+
+(def count-items (count-field 1 count-word))
+(def count-repeated-fields
+  (count-fixpoint
+   (lambda (x) (count-join count-epsilon (count-sequence count-items x)))))
+(count-check 'repeated-fields (map cadr count-repeated-fields) '(0 1 2))
+
+(def count-repeated-words
+  (count-fixpoint
+   (lambda (x) (count-join count-epsilon (count-sequence count-word x)))))
+(count-check 'wrapped-repeat
+  (map cadr (count-field 1 count-repeated-words)) '(0 1))
+(count-check 'empty-field (count-field 1 count-epsilon) count-epsilon)
+(count-check 'nonproductive-recursion
+  (count-fixpoint (lambda (x) (count-sequence x count-word))) '())
+(count-check 'nullable-repeat
+  (count-fixpoint
+   (lambda (x) (count-join count-epsilon (count-sequence count-epsilon x))))
+  count-epsilon)
+
+(def count-helper
+  (count-fixpoint
+   (lambda (x)
+     (count-join count-items
+       (count-sequence count-word
+         (count-sequence x
+           (count-sequence count-word (count-field 2 count-word))))))))
+(count-check 'transparent-helper
+  (map cdr count-helper) '((1 0 0) (1 1 0) (1 2 0)))
+
+(def count-branches
+  (count-join count-epsilon
+    (count-sequence (count-field 2 count-word) (count-field 3 count-word))))
+(def count-conditional (count-sequence count-items count-branches))
+(count-check 'conditional-correlation
+  (map cdr count-conditional) '((1 0 0) (1 1 1)))
+(display "COUNT-MODEL: 7 checks passed") (newline)
 #+end_src
 
 The recursive helper uses =word= for punctuation because both emit one unfielded

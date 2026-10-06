@@ -1,6 +1,7 @@
 ;;; Native language admission uses independent descriptors, never builtin names.
-(import :std/test
-        :std/encoding/json
+(import (only-in :gerbil-parser/t/native-datum-support native-datum-read)
+        :std/test
+
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records records-language-grammar records-contextual-product)
         (only-in :gerbil-parser/src/ffi/language-handles register-native-language! release-native-language!
@@ -66,7 +67,7 @@
       (let ((a (register-native-language! records-language-grammar records-contextual-product))
             (b (register-native-language! records-language-grammar)))
         (check (not (= a b)) => #t)
-        (let (descriptor (string->json (native-language-handle-descriptor a) (JSONReadOptions object-as-hash: #t)))
+        (let (descriptor (native-datum-read (native-language-handle-descriptor a)))
           (check (hash-get descriptor "language") => "record-assignments"))
         (check (u8vector-u32-ref (native-language-handle-parse a (string->utf8 "α=1\n")) 8 little) => 0)
         (release-native-language! a) (release-native-language! a)

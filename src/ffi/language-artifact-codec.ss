@@ -5,7 +5,7 @@
         (only-in ../runtime/token token-kind token-start token-end)
         (only-in :std/vector/u8vector little u8vector-u32-set! u8vector-u64-set!)
         (only-in :std/list/list delete-duplicates/hash)
-        :std/encoding/json
+        (only-in ./native-datum native-datum-write)
         (only-in :std/encoding/hex hex-decode)
         (only-in ../grammar/algebra grammar-expression-fields)
         (only-in ../language/descriptor language-grammar-grammar language-grammar-language language-grammar-machine
@@ -31,7 +31,7 @@
   "gerbil-parser.native-error.v1")
 
 (def (native-error-payload exception)
-  (json->string
+  (native-datum-write
    (hash (schema +gerbil-parser-native-error-schema+)
          (message
           (call-with-output-string
@@ -44,12 +44,12 @@
 (def (grammar-section grammar name)
   (cdr (assq name (language-grammar-grammar grammar))))
 
-(def (syntax-kind->json row)
+(def (syntax-kind->datum row)
   (vector (symbol->string (car row))
           (symbol->string (cadr row))
           (list->vector (map symbol->string (caddr row)))))
 
-(def (terminal->json row)
+(def (terminal->datum row)
   (vector (symbol->string (car row))
           (symbol->string (cadr row))))
 
@@ -254,12 +254,12 @@
                   (map symbol->string
                        (native-language-field-symbols language))))
          (syntaxKinds
-          (list->vector (map syntax-kind->json
+          (list->vector (map syntax-kind->datum
                              (grammar-section
                               (native-language-grammar language)
                               'syntax-kinds))))
          (terminals
-          (list->vector (map terminal->json
+          (list->vector (map terminal->datum
                              (grammar-section
                               (native-language-grammar language)
                               'terminals))))))
@@ -269,7 +269,7 @@
                    (hash (identity (language-parser-policy-identity policy))
                          (branchBudget (language-parser-policy-branch-budget policy))
                          (schemeCstValidation #t) (portable #f)))))
-    (json->string payload)))
+    (native-datum-write payload)))
 
 ;;; A language pack supplies its descriptor once; no builtin language imports.
 (def (bind-native-language descriptor (contextual-product #f))

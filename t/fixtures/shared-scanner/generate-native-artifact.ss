@@ -1,7 +1,8 @@
 #!/usr/bin/env gxi
 ;;; Canonical Scheme producer supplies Rust ABI conformance bytes, not reports.
-(import "records"
-        :std/encoding/json
+(import (only-in :gerbil-parser/t/native-datum-support native-datum-read)
+        "records"
+
         (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
                  bind-native-language native-parse-binary-payload native-descriptor-payload))
@@ -12,7 +13,7 @@
 (def (main output)
   (let* ((language (bind-native-language records-language-grammar))
          (contextual (bind-native-language records-language-grammar records-contextual-product))
-         (descriptor (string->json (native-descriptor-payload language) (JSONReadOptions object-as-hash: #t)))
+         (descriptor (native-datum-read (native-descriptor-payload language)))
          (sources (list "" "α=1\n" "a = 1\r\nb=\"β\"\n" "name=value" "a="
                         (string-append "a=1" (string (integer->char 0)) "!"))))
     (call-with-output-file output

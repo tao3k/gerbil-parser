@@ -1,5 +1,6 @@
 ;;; Descriptor-bound policy parity across loader, contextual C ABI and AOT admission.
-(import :std/test :std/encoding/json
+(import (only-in :gerbil-parser/t/native-datum-support native-datum-read)
+        :std/test
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (only-in :clan/poo/object .ref)
         (only-in :gerbil-parser/src/language/entry
@@ -102,8 +103,8 @@
            (check calls => (+ before 1))
            (check (u8vector-u32-ref payload 8 little) => 1)
            (check payload => (native-parse-binary-payload language source))
-           (let* ((metadata (string->json (native-descriptor-payload language)
-                                         (JSONReadOptions object-as-hash: #t)))
+           (let* ((metadata (native-datum-read (native-descriptor-payload language)
+                                         ))
                   (policy (hash-get metadata "parserPolicy")))
              (check (hash-get policy "identity") => "records.test-policy.v1")
              (check (hash-get policy "branchBudget") => 17)

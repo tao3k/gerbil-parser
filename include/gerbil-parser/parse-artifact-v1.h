@@ -20,6 +20,7 @@ typedef struct {
 void gerbil_parser_result_v1_init(gerbil_parser_result_v1 *result);
 void gerbil_parser_result_v1_release(gerbil_parser_result_v1 *result);
 uint32_t gerbil_parser_native_abi_version(void);
+/* Descriptor and diagnostic payloads are inert (object ...) Scheme v1. */
 int32_t gerbil_parser_native_descriptor(
     const char *language,
     gerbil_parser_result_v1 *result);

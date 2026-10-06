@@ -3,11 +3,12 @@
 
 ;; Admit the negative-case parser fixture through the normal native loader
 ;; before the timed test dynamically inspects its exported descriptor kinds.
-(import :std/test
+(import (only-in :gerbil-parser/t/native-datum-support native-datum-read)
+        :std/test
         (only-in :gerbil-parser/t/fixtures/rowan-record-assignments/languages/records/parser
                  parse-records)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
-        :std/encoding/json
+
         (only-in :gerbil-parser/src/ffi/parse-artifact-v1
                  native-abi-version
                  native-descriptor-payload
@@ -20,8 +21,8 @@
   (test-suite "parser-owned native ParseArtifact v1 ABI"
     (test-case "descriptor publishes the parser-owned grammar surface"
       (check (native-abi-version) => 1)
-      (let (descriptor (string->json (native-descriptor-payload "gql")
-                                    (JSONReadOptions object-as-hash: #t)))
+      (let (descriptor (native-datum-read (native-descriptor-payload "gql")
+                                    ))
         (check (hash-get descriptor "schema")
                => "gerbil-parser.native-descriptor.v1")
         (check (hash-get descriptor "language") => "gql")
@@ -41,8 +42,8 @@
                => (+ 80 (* 24 (u8vector-u32-ref artifact 12 little))))))
     (test-case "openCypher uses its own descriptor and parser"
       (let* ((descriptor
-              (string->json (native-descriptor-payload "cypher")
-                            (JSONReadOptions object-as-hash: #t)))
+              (native-datum-read (native-descriptor-payload "cypher")
+                            ))
              (artifact
               (native-parse-binary-payload
                "cypher" "MATCH (n:Person) RETURN n\n")))

@@ -4,10 +4,10 @@
         (only-in :gerbil-parser/src/ffi/language-handles
                  release-native-language! native-language-handle-parse)
         (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
-(export main parse-native-batch parse-native-sized-batch create-native-handle)
-(extern probe-language parse-native-batch parse-native-sized-batch create-native-handle)
+(export probe-source-language main parse-native-batch parse-native-sized-batch create-native-handle)
+(extern probe-source-language probe-language parse-native-batch parse-native-sized-batch create-native-handle)
 (begin-foreign
- (namespace ("gerbil-parser/t/fixtures/native-ffi/language-v2-probe#" probe-language parse-native-batch parse-native-sized-batch create-native-handle))
+ (namespace ("gerbil-parser/t/fixtures/native-ffi/language-v2-probe#" probe-source-language probe-language parse-native-batch parse-native-sized-batch create-native-handle))
  (c-declare #<<END-C
 #include <stdio.h>
 #include <string.h>
@@ -16,6 +16,30 @@
 #include <pthread.h>
 #include "t/fixtures/shared-scanner/records-native.h"
 #include <gerbil-parser/language-v2.h>
+static double monotonic_seconds(void);
+static int probe_source_language(uint64_t handle) {
+  gerbil_parser_result_v2 r; gerbil_parser_result_v2_init(&r);
+  const uint8_t source[] = "echo \"α${x:-中}\"\n";
+  const uint8_t invalid[] = {0xff};
+  int status = 0;
+  if (gerbil_parser_language_descriptor(handle,&r) || !r.payload || !r.length) { status=1; goto done; }
+  double started=monotonic_seconds(); clock_t cpu_started=clock();
+  for (int i=0; i<100; ++i) {
+    if (gerbil_parser_language_parse(handle,source,sizeof(source)-1,&r) ||
+        r.length<80 || memcmp(r.payload,"GPA1",4) || r.payload[8]) { status=2; goto done; }
+    if ((i+1)%25==0) { printf("SOURCE-ABI-PARSE-OK calls=%d\n",i+1); fflush(stdout); }
+  }
+  printf("SOURCE-ABI-100-CALLS wall-ms=%.3f cpu-ms=%.3f\n",1000*(monotonic_seconds()-started),1000.0*(clock()-cpu_started)/CLOCKS_PER_SEC); fflush(stdout);
+  if (gerbil_parser_language_parse(handle,invalid,sizeof invalid,&r)!=-1 || r.status!=-1) { status=3; goto done; }
+  if (gerbil_parser_language_parse(handle,NULL,0,&r) || r.length<80 || r.payload[8]) { status=4; goto done; }
+  if (gerbil_parser_language_release(handle)) { status=5; goto done; }
+  if (gerbil_parser_language_parse(handle,source,sizeof(source)-1,&r)!=-1 || r.status!=-1) { status=6; goto done; }
+ done:
+  gerbil_parser_language_release(handle);
+  gerbil_parser_result_v2_release(&r); gerbil_parser_result_v2_release(&r);
+  if (r.payload || r.length || r.status) return 7;
+  return status;
+}
 static int parse_native_batch(uint64_t handle) {
   const uint8_t source[] = "α=1\n";
   gerbil_parser_result_v2 result; gerbil_parser_result_v2_init(&result);
@@ -91,6 +115,7 @@ static int probe_language(uint64_t handle) {
 }
 END-C
  )
+ (define probe-source-language (c-lambda (unsigned-int64) int "probe_source_language"))
  (define probe-language (c-lambda (unsigned-int64) int "probe_language"))
  (define parse-native-batch (c-lambda (unsigned-int64) int "parse_native_batch"))
  (define parse-native-sized-batch

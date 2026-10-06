@@ -3,7 +3,8 @@
 
 (import (only-in :gerbil-parser/src/runtime/recognition
                  make-recognition-child prepare-recognition-source
-                 recognition-source-token recognition-source-node)
+                 recognition-source-token recognition-source-offset)
+        (only-in ../language/result-profile result-plan-node result-plan-token)
         (only-in :gerbil-parser/src/runtime/funcs
                  recognition-sequence-append recognition-sequence-concatenate recognition-sequence->list)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
@@ -13,7 +14,7 @@
 
 (defstruct shell-word-source (spans text regions))
 
-(def (make-shell-word-parser regions)
+(def (make-shell-word-parser regions results)
 (def (prepare-word token)
   ;; Scanner-created token lexemes are read-only throughout this engine call.
   ;; Result publication owns its admitted copy; region preparation is needed
@@ -28,13 +29,16 @@
         context)))
 
 (def (slice-token raw kind start end)
-  (recognition-source-token (shell-word-source-spans raw) kind start end))
+  (result-plan-token results
+    (recognition-source-token (shell-word-source-spans raw) kind start end)))
 
 (def (child field value)
   (make-recognition-child field value))
 
 (def (node raw kind start end children)
-  (recognition-source-node (shell-word-source-spans raw) kind start end children))
+  (let (spans (shell-word-source-spans raw))
+    (result-plan-node results kind (recognition-source-offset spans start)
+                      (recognition-source-offset spans end) children)))
 
 (def (leaf raw kind start end)
   (let (token (slice-token raw kind start end))

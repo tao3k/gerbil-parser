@@ -1,13 +1,14 @@
 ;;; Common admitted POO source engines. Providers own binding and closed recipes.
 (import (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
+        (only-in ./result-profile result-plan?)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence))
 (export SourceStrategy. SourceStrategyContract bind-source-strategy
         declare-source-strategy-provider make-source-engine
         source-engine? source-engine-scanner source-engine-factory
-        source-engine-parse source-engine-receipt)
+        source-engine-parse source-engine-receipt source-engine-results)
 (defstruct source-strategy-provider (name admit recipe bind))
-(defstruct source-engine (scanner factory parse receipt))
+(defstruct source-engine (scanner factory parse receipt results))
 (def (declare-source-strategy-provider name admit recipe bind)
   (unless (and (symbol? name) (procedure? admit) (procedure? recipe) (procedure? bind))
     (error "invalid engine source strategy registration" name))
@@ -40,6 +41,7 @@
                  (procedure? (source-engine-scanner engine))
                  (procedure? (source-engine-factory engine))
                  (procedure? (source-engine-parse engine))
+                 (result-plan? (source-engine-results engine))
                  (or (not (source-engine-receipt engine)) (procedure? (source-engine-receipt engine))))
       (error "source provider returned an invalid engine" (.ref strategy 'kind)))
     (values (list (.ref strategy 'kind) recipe) engine)))

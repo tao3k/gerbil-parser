@@ -1,7 +1,11 @@
 ;;; Native language admission uses independent descriptors, never builtin names.
-(import (only-in :gerbil-parser/t/native-datum-support native-datum-read)
-        :std/test
-
+(import :std/test
+        (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/src/language/source declare-source-language source-language-result-catalog)
+        (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
+        (only-in :gerbil-parser/languages/bash/grammar bash-source-language)
+        (only-in :gerbil-parser/t/fixtures/native-ffi/language-v2-probe probe-source-language)
+        (only-in :gerbil-parser/t/native-datum-support native-datum-read)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records records-language-grammar records-contextual-product)
         (only-in :gerbil-parser/src/ffi/language-handles register-native-language! release-native-language!
@@ -79,6 +83,19 @@
         (check-exception (native-language-handle-parse handle #u8(255)) true)
         (check (u8vector-u32-ref (native-language-handle-parse handle #u8(97 61 49 0 33)) 8 little) => 1)
         (release-native-language! handle)))
+    (test-case "source descriptors bind to the same length-delimited public C ABI"
+      (for-each (lambda (descriptor)
+                  (check (probe-source-language (register-native-language! descriptor)) => 0))
+                (list bash-source-language
+                      (declare-source-language "independent-lines" "1" "lines.v1"
+                        (.o (:: self LineSourceStrategy.) root-kind: 'IndependentFile token-kind: 'IndependentLine)))))
+    (test-case "source result catalog drives binary symbol indexes and rejected publications"
+      (let* ((native (bind-native-language bash-source-language))
+             (source "echo \"α${x:-中}\"\n"))
+        (check (native-parse-binary-payload native source)
+               => (native-parse-binary-payload/bytes native (string->utf8 source)))
+        (check (u8vector-u32-ref (native-parse-binary-payload native "if true; then\n") 8 little) => 1)
+        (check-exception (bind-native-language bash-source-language records-contextual-product) true)))
     (test-case "C symbol injection fails before producing any output"
       (check-exception
        (generate-native-language-pack "/private/tmp/should-not-exist.ss" "/private/tmp/should-not-exist.h"

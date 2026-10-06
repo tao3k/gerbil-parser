@@ -753,3 +753,20 @@ A generated standalone parser checks exact endpoints, lossless accepted modules,
 nesting and rejection. Independent UNIT framing and a numeric extra name character
 exercise values beyond the TLA+ spelling. Long border runs have a bounded-record
 control. Full SANY proof policy portability remains separate from framing.
+
+** Source descriptors use the same native result product
+
+An admitted source descriptor now binds through =bind-native-language= and
+=register-native-language!=. Its =ResultProfile.= supplies the native syntax,
+field and terminal domains; grammar descriptors continue to derive these from
+the grammar algebra. Source descriptors reject a contextual parser product
+before binding. The GPA1 buffer, native descriptor v1 and language handle ABI
+v2 are unchanged. Bash and an independent POO line language use the actual
+public C descriptor/parse/release functions, including Unicode source, invalid
+UTF-8 rejection, result reuse and released-handle rejection. Syntax rejection
+is carried by the existing GPA1 status and admitted fallback terminal.
+
+This product executes the Scheme source engine. The standalone Rust scanner
+product remains separately qualified; it does not imply a Rust Word/Command
+recognizer. Construction field sets constrain publication but do not yet
+express field cardinality or syntax recognition transitions.

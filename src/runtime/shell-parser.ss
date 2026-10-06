@@ -6,11 +6,12 @@
                  +diagnostic-schema+ make-failure-parse-artifact
                  make-success-parse-artifact)
         (only-in :gerbil-parser/src/runtime/recognition
-                 make-recognition-child make-recognition-node
+                 make-recognition-child
                  recognition-child-field recognition-node-start)
         (only-in :gerbil-parser/src/runtime/token
                  make-token token-end token-kind token-lexeme token-start)
         (only-in ./contextual-scanner delimiter-obligation-quoted? decode-marker)
+        (only-in ../language/result-profile result-plan-node result-plan-token)
         (only-in ./shell-word make-shell-word-parser))
 (export shell-here-document-link?
         shell-here-document-link-marker-start
@@ -19,9 +20,9 @@
 
 (defstruct shell-here-document-link (marker-start body-start) transparent: #t)
 
-(def (make-shell-parser regions)
+(def (make-shell-parser regions results)
   (let-values (((shell-word-components shell-assignment-components shell-here-content-components)
-                (make-shell-word-parser regions)))
+                (make-shell-word-parser regions results)))
 
 
 (def (trivia? token)
@@ -72,7 +73,7 @@
   (make-recognition-child field value))
 
 (def (syntax-node kind start end children)
-  (make-recognition-node kind start end children))
+  (result-plan-node results kind start end children))
 
 (def (failure-diagnostic condition)
   (list (cons 'schema +diagnostic-schema+)
@@ -82,8 +83,8 @@
 
 (def (fallback-token source)
   (if (zero? (string-length source)) '()
-    (list (make-token 'unparsed-source source 0
-                      (u8vector-length (string->utf8 source))))))
+    (list (result-plan-token results (make-token 'unparsed-source source 0
+                      (u8vector-length (string->utf8 source)))))))
 
 ;;; Returns the artifact plus source-span links from redirection markers to
 ;;; their deferred here-document bodies. The links do not change CST order.
@@ -102,7 +103,7 @@
            (pending-markers '())
            (links '()))
        (def (emit! token)
-         (set! emitted-reversed (cons token emitted-reversed)))
+         (set! emitted-reversed (cons (result-plan-token results token) emitted-reversed)))
        (def (take-raw!)
          (unless (pair? remaining) (error "unexpected Bash EOF"))
          (let (token (car remaining))

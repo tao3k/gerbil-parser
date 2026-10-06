@@ -8,9 +8,10 @@
         (only-in ./native-datum native-datum-write)
         (only-in :std/encoding/hex hex-decode)
         (only-in ../grammar/algebra grammar-expression-fields)
-        (only-in ../language/descriptor language-grammar-grammar language-grammar-language language-grammar-machine
+        (only-in ../language/descriptor language-grammar? language-grammar-grammar language-grammar-language language-grammar-machine
                  language-grammar-parser-policy language-parser-policy-identity
                  language-parser-policy-branch-budget)
+        (only-in ../language/source source-language? source-language-language source-language-result-catalog)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
         (only-in ../language/entry parse-language-source call-with-language-parser-policy)
         (only-in ../runtime/parser prepare-contextual-parser parse-source/contextual/prepared
@@ -38,11 +39,16 @@
            (lambda (port) (display-exception exception port)))))))
 
 (defstruct native-language
-  (id grammar parser syntax-kind-index terminal-index field-symbols field-index plan)
+  (id descriptor parser syntax-kind-index terminal-index field-symbols field-index plan)
   transparent: #t)
 
-(def (grammar-section grammar name)
-  (cdr (assq name (language-grammar-grammar grammar))))
+(def (descriptor-section descriptor name)
+  (if (and (source-language? descriptor) (eq? name 'rules)) '()
+    (let (row (assq name (if (source-language? descriptor)
+                          (source-language-result-catalog descriptor)
+                          (language-grammar-grammar descriptor))))
+      (unless row (error "native descriptor lacks a required result section" name))
+      (cdr row))))
 
 (def (syntax-kind->datum row)
   (vector (symbol->string (car row))
@@ -76,21 +82,21 @@
 ;; A shared field has one stable id. The grammar expression algebra is the
 ;; authority for fields emitted by the parser; declared syntax fields are
 ;; retained first for the descriptor's complete public surface.
-(def (grammar-field-symbols grammar)
+(def (descriptor-field-symbols grammar)
   (delete-duplicates/hash
    (append
-    (apply append (map caddr (grammar-section grammar 'syntax-kinds)))
+    (apply append (map caddr (descriptor-section grammar 'syntax-kinds)))
     (apply append
            (map (lambda (row) (grammar-expression-fields (cadr row)))
-                (grammar-section grammar 'rules))))
+                (descriptor-section grammar 'rules))))
    from-end?: #t))
 
 (def (make-native-language-context id grammar parser)
-  (let (field-symbols (grammar-field-symbols grammar))
+  (let (field-symbols (descriptor-field-symbols grammar))
     (make-native-language
      id grammar parser
-     (indexed-symbols (map car (grammar-section grammar 'syntax-kinds)))
-     (indexed-symbols (map car (grammar-section grammar 'terminals)))
+     (indexed-symbols (map car (descriptor-section grammar 'syntax-kinds)))
+     (indexed-symbols (map car (descriptor-section grammar 'terminals)))
      field-symbols
      (indexed-symbols field-symbols) #f)))
 
@@ -218,7 +224,7 @@
       (error "native source is not canonical UTF-8"))
     (let (plan (native-language-plan language))
       (if (or (not plan)
-              (language-grammar-parser-policy (native-language-grammar language)))
+              (language-grammar-parser-policy (native-language-descriptor language)))
         (native-parse-binary-payload language source)
         (let ((source-byte-length (u8vector-length bytes)) (source-digest (sha256 bytes)))
           (parse-source/contextual/prepared/deferred
@@ -255,15 +261,16 @@
                        (native-language-field-symbols language))))
          (syntaxKinds
           (list->vector (map syntax-kind->datum
-                             (grammar-section
-                              (native-language-grammar language)
+                             (descriptor-section
+                              (native-language-descriptor language)
                               'syntax-kinds))))
          (terminals
           (list->vector (map terminal->datum
-                             (grammar-section
-                              (native-language-grammar language)
+                             (descriptor-section
+                              (native-language-descriptor language)
                               'terminals))))))
-    (let (policy (language-grammar-parser-policy (native-language-grammar language)))
+    (let* ((descriptor (native-language-descriptor language))
+           (policy (and (language-grammar? descriptor) (language-grammar-parser-policy descriptor))))
       (when policy
         (hash-put! payload 'parserPolicy
                    (hash (identity (language-parser-policy-identity policy))
@@ -273,11 +280,16 @@
 
 ;;; A language pack supplies its descriptor once; no builtin language imports.
 (def (bind-native-language descriptor (contextual-product #f))
+  (unless (or (language-grammar? descriptor) (source-language? descriptor))
+    (error "native language requires an admitted descriptor"))
+  (when (and contextual-product (source-language? descriptor))
+    (error "source language does not admit a contextual parser product"))
   (let* ((plan (and contextual-product
                     (prepare-contextual-parser (language-grammar-machine descriptor) contextual-product)))
          (language
           (make-native-language-context
-           (language-grammar-language descriptor) descriptor
+           (if (source-language? descriptor) (source-language-language descriptor)
+               (language-grammar-language descriptor)) descriptor
            (lambda (source)
              (if plan
                (call-with-language-parser-policy

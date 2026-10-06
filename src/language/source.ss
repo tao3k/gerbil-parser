@@ -5,21 +5,22 @@
 (import (only-in ../runtime/artifact
                  parse-artifact-ref parse-artifact-valid? sha256-text)
         (only-in ./source-strategy bind-source-strategy source-engine-scanner source-engine-factory
-                 source-engine-parse source-engine-receipt))
+                 source-engine-parse source-engine-receipt source-engine-results)
+        (only-in ./result-profile result-plan-catalog))
 (export +source-language-schema+
         declare-source-language
         source-language?
         source-language-language
         source-language-version
         source-language-contract
-        source-language-digest
+        source-language-digest source-language-result-catalog
         source-language-scanner-factory parse-source-language parse-source-language/receipt
         deflanguage-source deflanguage-source-receipt)
 
 (def +source-language-schema+ "gerbil-parser.source-language.v1")
 
 (defstruct source-language
-  (schema language version contract digest scanner parse factory receipt)
+  (schema language version contract digest scanner parse factory receipt results)
   transparent: #t)
 
 (def (declare-source-language language version contract strategy)
@@ -32,7 +33,9 @@
      (sha256-text (call-with-output-string
                     (lambda (port) (write (list language version contract recipe) port))))
      (source-engine-scanner engine) (source-engine-parse engine)
-     (source-engine-factory engine) (source-engine-receipt engine))))
+     (source-engine-factory engine) (source-engine-receipt engine) (source-engine-results engine))))
+(def (source-language-result-catalog descriptor)
+  (result-plan-catalog (source-language-results descriptor)))
 (def (source-language-scanner-factory descriptor) (source-language-factory descriptor))
 (def (validate-source-publication! descriptor source artifact)
   (unless (and (parse-artifact-valid? artifact)

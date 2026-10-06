@@ -154,10 +154,10 @@ or copy nested token suffixes. Ordinary words do not allocate region contexts.
 These mechanisms are engine capabilities; language authors retain the same
 three interfaces and do not supply endpoint or token-list workers.
 
-Word/command syntax is still procedural. This runtime migration does not close
-declarative Recognition/Result IR, derived catalogs or source-descriptor native
-C ABI admission. Those require the result declarations and their real producer
-and consumer qualification, independently of the scanner artifact.
+Word/command recognition is still procedural. Result construction and its
+derived catalog now use the shared POO operations described below; source
+descriptors also use the generic native C ABI. Standalone Rust recognition
+requires a separate producer and consumer qualification.
 
 * Acceptance gates
 
@@ -200,3 +200,42 @@ test.  Production providers must apply the same artifact-binding gate to
 their actual parser artifact.  The optional language-support feature crate,
 two-language selection gate, and production-provider conformance remain
 acceptance work.
+
+** Source result construction through POO slots
+
+The three pack interfaces remain =grammar.ss=, =parser.ss= and
+=parser-test.ss=. Source packs declare their result operations in the grammar:
+
+#+begin_src scheme
+(defresult-profile (pack-results :: self ResultProfile.)
+  (scanner pack-scanner)
+  (nodes (File item) (Item text))
+  (tokens item-text unparsed-source))
+#+end_src
+
+=nodes= declares each node constructor and its legal child field names.
+=tokens= declares generated terminal kinds. =scanner= admits the existing
+=ScannerProfile.= and derives its terminals; the author does not repeat that
+list. These are ordinary POO value slots. A declaration can inherit a profile,
+replace only =nodes=, =tokens= or =scanner=, or assign an extended list through
+=.o=. There are no user thunks and no callback result builders in this facade.
+The same =ResultProfileContract= checks inherited and replaced values.
+
+The bound engine owns immutable copies and indexed operations. Its node builder
+rejects undeclared kinds/fields, invalid child values and children outside the
+parent byte span. Its token builder rejects undeclared terminals and invalid
+byte bounds. Published catalog copies cannot mutate the execution plan.
+=source-language-result-catalog= derives syntax kinds, fields and terminals
+from those operations; the native encoder has no Bash-specific symbol table.
+The operations participate in source identity, without changing the source or
+Loader schema versions. This is a construction contract, not recognition rule
+order, field multiplicity or a parser algorithm declaration.
+
+=ShellSourceStrategy.= requires a =results= slot; Bash supplies =bash-results=.
+=LineSourceStrategy.= derives its default result profile from =root-kind= and
+=token-kind= and permits a POO override of =results=. Both use the same node
+and terminal admission path. =generate-native-language-pack= accepts the
+source descriptor export through the existing generic handle registration;
+no builtin language dispatcher or handwritten C transport is needed. Source
+parsing currently executes the Scheme engine behind the C ABI. Standalone
+Rust Word/Command recognition remains an open producer obligation.

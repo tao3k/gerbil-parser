@@ -61,4 +61,6 @@
     (string-append "echo " (apply string-append (make-list 2000 "${x:-"))
                    "中😀" (make-string 2000 #\}) "\n")
     (counts (ParameterExpansion 2000)))
+  (native-entry "source descriptor uses derived result catalog" "echo \"α${x:-中}\"\n" accepted)
+  (native-entry "source rejection uses admitted fallback terminal" "if true; then\n" rejected)
   (fixtures "declared loader fixtures"))

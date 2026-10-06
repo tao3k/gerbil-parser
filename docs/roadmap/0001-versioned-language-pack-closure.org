@@ -112,9 +112,17 @@ the index vector; ordinary words skip the region context. The shared boundary
 suite also executes an independent declaration with overlapping quote/pair
 entries, and Bash declares large Unicode/parameter controls through its test
 macro. This removes three repeated-work paths inside Word execution; it does
-not replace the remaining Word/Command syntax with declarative Result IR.
-S3/S5 remain open until that IR derives the native catalog and both backends
-execute it through the admitted descriptor.
+not replace the remaining Word/Command recognition decisions.
+
+Result construction now uses a shared admitted POO =ResultProfile.=. Bash
+Word/Command builders and the independent line source engine execute the same
+indexed kind/field/terminal operations. Scanner terminals are derived from the
+scanner slot; generated terminals and node fields are declared once. The native
+catalog is derived from these operations, and source descriptors bind directly
+to the language-independent length-delimited C ABI. Construction operations
+participate in descriptor identity; schemas remain unchanged. S3 recognition
+rules and S5 standalone Rust source recognition remain open; a Scheme engine
+behind the C ABI does not close Rust portability.
 
 Tree-sitter's public grammar DSL supplies sequence, choice, repetition,
 precedence, aliases and fields, and generates ordinary lexical/parse execution.
@@ -1246,3 +1254,25 @@ executable emitted the same module parser as the Scheme producer. Exact parser
 and whitespace-table regeneration passed. These are local results; exact PR-head
 Ubuntu/Rust CI is a separate publication gate. Source-backed Rust tests live in
 =tests/unit=, with explicit imports and =#[path]= mounts.
+
+** Result operation and source native admission qualification
+
+The GCC native production gate executes 63 cases over result profiles, public
+C handles, Bash syntax, source contracts, topology, source spans, native metadata
+and parser policies, with
+explicit =OK=, =HARNESS-RETURN status=0= and exit zero. A temporary Scheme
+control against =46f0c891131b8fd9f732559f0105f9f847077f36= compares all
+56 complete ParseArtifacts across scanner controls, compound forms, large
+Unicode parts and nested parameters. The former parser modules are removed
+from the production checkout after qualification.
+
+The construction contract adds runtime checks. Paired timings include negative
+samples and scheduling/GC variance; they do not establish an overall speedup.
+Child type and span admission now use one dispatch with retained bounds rather
+than repeated generic span dispatch. The real public C probe records 100
+length-delimited calls for both Bash and the independently declared line
+language, and checks UTF-8 rejection, result reuse, release and stale handles.
+The latest PR Scheme metadata transport is retained. Regenerated canonical
+GPA1 bytes match the Rust fixture exactly; three Rust Bash scanner cases and
+six native artifact consumer cases pass. No runtime timeout or compiler
+optimization level is relaxed.

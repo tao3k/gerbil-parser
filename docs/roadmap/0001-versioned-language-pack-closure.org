@@ -1597,3 +1597,16 @@ through the host Nix =cc= wrapper; using the existing platform SDK and platform
 linker path resolves the environment failure without a Scheme compiler change.
 Final deterministic regeneration matches the checked Rust bytes in 10.43
 seconds, with normal process exit and the unchanged runtime fences.
+
+
+At =02f9ef4cc344946af77a7802080413abba0f7785=, exact-head Rust and Ubuntu CI
+both pass. macOS passes the new result projection regeneration gate, then
+fails in the existing Bash scanner fixture writer after printing
+=BASH-SCANNER-RUST-GENERATED accepted=46 rejected=4=: the child remains alive
+until the unchanged five-second silence fence terminates it. This establishes
+a completed generation / process-exit stall, not a recognition or build failure.
+The four remaining CLI writers in the shared-scanner fixture family now close
+their output ports, publish completion and use the existing finite child exit
+binding. Local regeneration confirms unchanged Rust, Scheme and C products:
+generic scanner 10.83 seconds, Bash scanner 5.83, contextual parser 4.65 and
+native pack 0.33; every process exits zero under 90/5-second fences.

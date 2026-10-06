@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Rust controls come from execution of the admitted production Scheme profile.
-(import "bash"
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        "bash"
  (only-in :gerbil-parser/src/compiler/rust-scanner rust-scanner-module-source)
  (only-in :gerbil-parser/src/runtime/contextual-scanner prepare-contextual-scanner contextual-scanner-initial-state contextual-scanner-step)
  (only-in :gerbil-parser/src/runtime/token token-kind token-start token-end))
@@ -31,4 +32,4 @@
    (for-each (lambda (source) (write source port) (display "," port)) (reverse rejected))
    (display "];\n" port)))
   (displayln "BASH-SCANNER-RUST-GENERATED accepted=" (length accepted) " rejected=" (length rejected))
-  (force-output)))
+  (force-output) (test-child-process-exit! 0)))

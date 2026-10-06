@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Compile Scanner IR and Scheme-executed token traces for Rust conformance.
-(import "declaration"
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        "declaration"
         (only-in :gerbil-parser/src/compiler/rust-scanner rust-scanner-module-source)
         (only-in :gerbil-parser/src/runtime/contextual-scanner
                  prepare-contextual-scanner contextual-scanner-initial-state contextual-scanner-step)
@@ -29,4 +30,5 @@
                        (display ", end: " port) (display (caddr row) port) (display " }," port)) (cdr trace))
            (display "]),\n" port)) traces)
         (display "];\n" port)))
-    (displayln "SHARED-SCANNER-GENERATED cases=" (length traces))))
+    (displayln "SHARED-SCANNER-GENERATED cases=" (length traces))
+    (force-output) (test-child-process-exit! 0)))

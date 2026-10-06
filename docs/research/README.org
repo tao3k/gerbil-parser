@@ -12,6 +12,10 @@ instrumentation or runtime-binding replacement wrappers.
 The paper/framework synthesis remains in
 [[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].
 
+The main authoring design synthesis is
+[[file:scheme-deflanguage-design-synthesis.org][scientific Scheme grammar vocabulary under deflanguage]]. It develops each
+paper's contribution into concrete syntax and engine design questions.
+
 Language authoring research, annotated papers and proposed experiments are in
 [[file:scheme-language-pack-design.org][Scheme language pack design]]. The document distinguishes the current
 authoring interfaces from unimplemented research proposals.

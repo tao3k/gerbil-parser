@@ -45,7 +45,7 @@ the existing field union must not be reported as missing.
 
 =expand-surface-syntax= currently expands extension forms and converts their
 syntax into datum expressions. Several later products are constructed with
-=datum->syntax=. This is a concrete audit seam, not proof of accidental capture.
+=datum->syntax=. This is a useful seam for specifying the roles of grammar data and host syntax.
 The current error helper raises against the complete =deflanguage= form. Study
 whether diagnostics can retain the offending subform and macro expansion origin.
 
@@ -58,10 +58,11 @@ They do not transfer a paper's performance results to this parser.
 
 R. Kent Dybvig, Robert Hieb and Carl Bruggeman, /Lisp and Symbolic Computation/
 5(4), 1993, pp. 295–326. The
-[[https://legacy.cs.indiana.edu/ftp/techreports/TR355.pdf][Indiana University technical report (1992)]]
+[[https://scholarworks.iu.edu/dspace/bitstreams/3f729d08-c698-4430-9d04-6a782c5b9300/download][Indiana University technical report (1992)]]
 is an earlier version; its abstract motivates both avoiding identifier capture
-and correlating transformed code with its source. The report abstract, rather
-than a full inspection of this PDF, supports this annotation.
+and correlating transformed code with its source. The follow-up synthesis studies
+section 3 and the source annotation treatment
+in section 4 using the university-hosted text.
 
 Design use: grammar fragments should preserve the distinction between names
 supplied by callers and names introduced by an abstraction. Source correlation
@@ -235,7 +236,7 @@ Use repository native tests and benchmark contracts when prototypes exist.
 | Study | Inputs | Required evidence |
 |-------+--------+-------------------|
 | Complete authoring inventory | Arithmetic, HCL, FHIRPath and one downstream pack | Task steps, concept count, duplicated declarations, intentional choices |
-| Binding and source audit | Imported/renamed fragments, shadowed helpers, nested expansions | Expected name resolution and offending source locations; negative cases |
+| Fragment composition and source explanation | Imported/renamed fragments, shadowed helpers, nested expansions | Expected name resolution and offending source locations; negative cases |
 | Surface/core equivalence | Existing rules and macro abstractions | Normalized canonical IR plus accepted/rejected inputs, CST/AST and offsets |
 | Catalog stability | Existing published pack and declaration reorder | Stable required identities/order; deliberate migrations stated separately |
 | Schema inference | Alternatives, optional/repeated/nullable forms, recursive helpers | Sound conservative presence/multiplicity/type facts and counterexamples |

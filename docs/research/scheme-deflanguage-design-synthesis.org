@@ -1,0 +1,235 @@
+#+title: Designing a scientific Scheme grammar vocabulary under deflanguage
+#+date: 2026-10-06
+
+* Research objective
+
+Develop the syntax vocabulary underneath =deflanguage= so that language authors
+can express intent, compose recurring grammar patterns and give the parser
+compiler useful structural information. This is a design study of the existing
+Scheme interface. Its questions concern expressiveness, semantics, authoring
+quality and compiler analysis. A defect hypothesis is not the research premise.
+
+Source baseline: =29dcb79dafcde202fc9818def3ac536cc20f47c4=.
+The current =deflanguage=, =defgrammar-syntax=, canonical IR and three language
+pack interfaces are the starting architecture. Proposed vocabulary examples
+below use current constructors; no new public API or engine pass is implemented
+by this document. Scheme remains the authoring and executable research language.
+
+* Study each paper through an explicit design question
+
+** Syntactic abstraction in Scheme: how should authors define vocabulary?
+
+Dybvig, Hieb and Bruggeman, 1993; study text:
+[[https://scholarworks.iu.edu/dspace/bitstreams/3f729d08-c698-4430-9d04-6a782c5b9300/download][Indiana University TR355, revised July 1992]]. Section 3 explains syntax
+objects, pattern matching, template construction and procedural transformations;
+section 4 includes source annotation handling. This reading extends the earlier
+abstract-only annotation in our initial research document.
+
+Design conclusion: support a progression from a small template to a richer
+compile-time transformation. Simple grammar idioms can use =defgrammar-syntax=;
+parameter validation or operator-table elaboration can use Gerbil's procedural
+macro facilities. Callers should see the meaning of arguments, node labels and
+fields in either form. Keep expansion explanations traceable to author syntax.
+
+Study task: express the same binary production as explicit constructors, a
+parameterized template and an operator-table elaboration. Compare semantic
+clarity, expansion size and effort to change an operator tier. More powerful
+macros should improve the author task, not require a new Scheme compiler.
+
+** Compiled, Extensible, Multi-language DSLs: how does vocabulary help the engine?
+
+Ballantyne, Gamburg and Hemann, ICFP 2024,
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][author paper]], sections 3–5. Its core, binding specification, host boundaries
+and elaboration separate author extensions from backend compilation. Its
+optimization examples show extensions benefiting from shared compiler passes.
+
+Design conclusion: recurring patterns should elaborate into the same Grammar IR
+that explicit productions use. Analysis and generated products can then apply to
+both. Keep semantic structure available until the pass that needs it; lowering
+an operator table too early can make diagnostics harder even if recognition is
+unchanged. A temporary compile-time origin/intent annotation may help, but any
+persistent IR addition needs a consumer and a contract decision.
+
+Study task: measure whether an infix abstraction changes only author effort or
+also reveals reusable compiler facts. miniKanren's particular optimizations and
+speedups do not predict parser performance. Plan any engine change around our
+recognition, CST, offsets, conflict and recovery semantics.
+
+** Fortifying Macros: how should a declaration explain itself?
+
+Culpepper and Felleisen, ICFP 2010,
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][author paper]], sections 3–4 and parser-generator case study 7.2. Syntax
+classes describe structured inputs and expose attributes. The parser case uses
+two stages to resolve dependencies between declarations and productions.
+
+Design conclusion: write down the language of declarations as a specification.
+First collect sections, names and policies; then elaborate rules against that
+context. Associate each constructor with argument roles, cardinality, output
+shape and constraints. The same specification can guide documentation, checking
+and expansion explanations. Use Gerbil facilities to implement the useful ideas;
+Racket's syntax-parse API is not a required dependency.
+
+Study task: document =prec=, =field=, =choice= and a list abstraction with the same
+rubric. Evaluate how easily an author understands valid combinations and locates
+an incorrect argument. Diagnostic quality is part of a mature author interface.
+
+** Parsing Expression Grammars: which algebra are authors actually using?
+
+Ford, POPL 2004,
+[[https://pdos.csail.mit.edu/papers/parsing:popl04.pdf][author paper]], sections 3.5–3.7. Abstract simulation supports conservative
+structural reasoning; well-formedness and transformation identities depend on
+PEG recognition semantics, including prioritized choice.
+
+Design conclusion: make the semantics of our CFG/LR constructors explicit before
+building higher abstractions. Borrow the practice of stating an algebra and its
+conditions. Our arithmetic grammar deliberately uses left recursion, so PEG's
+left-recursion restriction cannot be copied as our grammar rule. An equivalence
+useful for recognition also needs a separate check for nodes, fields, precedence
+and offsets when used as a compiler rewrite.
+
+Study task: give =seq=, =choice=, =optional= and =repeat= semantic contracts, then
+specify exactly which transformations preserve recognition and which additionally
+preserve the observable tree. Keep grammar choice and lexical priority distinct.
+
+** Binding as Sets of Scopes: how can independently written fragments compose?
+
+Flatt, POPL 2016,
+[[https://www-old.cs.utah.edu/plt/scope-sets/][author extended paper]], especially section 3 on procedural macros, aliases,
+modules and phases. The model makes scope and name roles explicit.
+
+Design conclusion: a grammar vocabulary can live in ordinary Scheme modules.
+Its interface should identify caller-supplied grammar references, public labels
+and implementation helpers. Begin with fragments whose dependencies are explicit
+parameters. Larger fragments with private rules and exported entries require a
+separate design justification. Avoid conflating symbolic Grammar IR identities
+with Scheme variable bindings.
+
+Study task: compose two independently authored fragments, rename imports and
+change local spellings. Assess whether authors can explain the resulting grammar
+without knowing the fragments' implementation. Existing host binding experiments
+provide controls for that study, rather than a defect investigation.
+
+** Abstract interpretation: what can declarations teach the compiler?
+
+Cousot and Cousot, POPL 1977,
+[[https://www.di.ens.fr/~cousot/COUSOTpapers/POPL77.shtml][author publication and section summary]]. The summary identifies monotone
+abstract equations, fixpoints and consistency across abstractions. It supports
+the analysis framework; a full reproduction of the paper's proofs is not claimed.
+
+Design conclusion: derive selected useful properties from the admitted grammar.
+Candidate facts include productivity, nullability, field presence/multiplicity
+and possible child categories. Existing LR analyses remain their current owners;
+new author-facing facts should reuse them where their observations agree.
+Choose precision according to a real consumer. A correlated relational domain
+can explain optional branches but may cost much more than independent facts.
+
+Study task: connect each fact to a concrete benefit: clearer author feedback,
+more useful generated schema or a qualified specialization. Record transfer
+rules, termination, conservatism and analysis cost before publishing a guarantee.
+
+* Proposed vocabulary structure
+
+| Layer | Author intent | Current foundation | Design work |
+|-------+---------------+--------------------+-------------|
+| Grammar primitives | Sequence, alternatives, repetition and references | =seq/choice/optional/repeat/token/reference= | Uniform semantic contracts |
+| Tree construction | Public nodes, fields and spans | =node/alias/field= | Explain output shape, including fragments |
+| Parsing policy | Associativity, precedence, conflicts, layout and recovery | =prec= and existing declaration sections | Keep policy visible in higher forms |
+| Grammar idioms | Infix tier, separated list, delimiter and optional clause | =defgrammar-syntax= | Small parameterized vocabulary with inspectable expansion |
+| Package products | Catalog, loader, tooling, tests and target builds | Existing compiler and POO interfaces | Derive repeated facts; retain intentional choices |
+
+These are explanatory layers, not five new public DSLs. Authors should be able
+to use an idiom and inspect its expansion into familiar primitives. Advanced
+users retain direct access to those primitives.
+
+** Candidate infix abstraction
+
+This template uses the existing public macro mechanism. Its name and parameter
+list are study vocabulary, not a newly published standard library function:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support defgrammar-syntax))
+
+(defgrammar-syntax (infix-node associativity level kind lhs operators rhs)
+  (prec associativity level
+    (node kind
+      (seq (field left lhs)
+           (field operator operators)
+           (field right rhs)))))
+
+;; Production alternatives in an arithmetic study:
+(infix-node left 10 Expression expression (choice "+" "-") expression)
+(infix-node left 20 Expression expression (choice "*" "/") expression)
+#+end_src
+
+This abstracts repeated tree structure while keeping associativity, level,
+operator set and recursive operands visible. It does not decide that every
+language's binary expression should have the same fields or tree shape.
+A later operator-table form could generate these alternatives, provided its
+expansion retains their individual policy and source origins.
+
+** Candidate list abstraction
+
+#+begin_src scheme
+(defgrammar-syntax (nonempty-field-list label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; A study body for a call's existing argument fields:
+(optional (nonempty-field-list argument expression ","))
+#+end_src
+
+This makes empty/nonempty intent explicit and retains repeated field instances.
+Trailing separators require a deliberate additional policy. Applying one outer
+=field= to the whole list would produce a different structure; the library should
+explain both choices rather than hide their distinction behind one convenience
+name. A delimiter abstraction can compose around this body without automatically
+introducing another public node.
+
+* Give each constructor a scientific contract
+
+Use one rubric for primitives and derived vocabulary:
+
+1. Argument roles: expression, declared reference, public label, host expression
+   or parsing policy; state the allowed multiplicity of each argument.
+2. Recognition meaning: language of accepted tokens and interactions with choice,
+   precedence, layout and recovery.
+3. Tree meaning: emitted nodes, field instances, fragments and spans.
+4. Expansion: the existing primitives/core forms produced, with an explanation
+   connecting parameters to the result.
+5. Static facts: derivable properties, conservative unknown cases and consumer.
+6. Cost: authoring burden, expansion growth, compiler analysis and runtime work
+   measured separately.
+
+For example, =optional= may make a field absent, but the exact tree depends on
+where the field wrapper sits. An operator tier's precedence number is a semantic
+choice, while its derived catalog entries should be compiler-owned.
+
+* Engine improvements enabled by this design
+
+| Design information | Potential engine use | Qualification required |
+|--------------------+----------------------+------------------------|
+| Explicit constructor contracts | Consistent elaboration and explanatory diagnostics | Same grammar admission and source meaning |
+| Shared elaborated core | Apply existing compilation to user vocabulary | Core/product equivalence on matched cases |
+| Productivity/nullability | Useful declaration feedback and analysis scheduling | Match current CFG/LR semantics and reuse existing facts |
+| Field/shape summaries | Richer tooling and generated schema | Correspondence with actual CST/field events |
+| Operator/list intent | Candidate specialization and expansion explanation | Preserve conflicts, associativity, trees and spans |
+| Qualified target capabilities | Share declared semantics across generated products | Existing native backend and artifact qualification |
+
+Structured declarations can make optimization possible; they do not establish
+that an optimization is necessary or beneficial. Keep host/compiler improvements
+and parser-domain analysis in their existing owners. Macro vocabulary itself can
+be valuable through comprehension and maintenance even when runtime is unchanged.
+
+* Concrete next research deliverables
+
+1. A constructor reference using the six-part rubric for the current primitives.
+2. An arithmetic/HCL/FHIRPath comparison using infix, list and optional-clause
+   idioms, with explicit expansions and preserved semantic choices.
+3. A declaration-to-analysis map identifying facts already computed by the engine
+   and facts that genuinely need new analysis.
+4. A Scheme prototype of the most useful vocabulary, admitted through the current
+   compiler and tested against the explicit original rules.
+5. Author-task and compile/runtime measurements that answer separate questions.
+
+The previous count-model checks and host macro controls remain supporting studies.
+The main research sequence now follows these authoring and engine deliverables.

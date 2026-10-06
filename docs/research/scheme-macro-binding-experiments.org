@@ -11,8 +11,8 @@ versus converted to datum and reconstructed in a caller's context?
 Baseline examined: =a99b3646e7ee68c1010ca47985c762d658fef611=.
 The experiment executes ordinary Gerbil macros across two source modules. It
 does not import =deflanguage=, construct Grammar IR, or execute a parser.
-Its results establish host expansion behavior, not a parser defect or backend
-qualification. All executable research fixtures are Scheme.
+Its results establish host expansion behavior for vocabulary composition.
+All executable research fixtures are Scheme.
 
 * Official and paper basis
 
@@ -75,7 +75,7 @@ One accepts an argument whose meaning belongs to the caller; the other discards
 a definition-context reference and adopts a caller context. A useful language
 implementation must know which transformation it intended.
 
-* Applying the result to our DSL audit
+* Applying the result to composable DSL vocabulary
 
 =src/language/grammar.ss= expands grammar fragments before converting expression
 atoms to datum. It constructs backend rows from datum using the language prefix
@@ -90,37 +90,22 @@ as the syntax anchor. These are different information classes:
 | Generated public parser binding | Deliberate API name derived from the pack prefix | Construct in the documented export context |
 | Generated private helper | Implementation binding | Preserve private definition scope or use host-generated fresh identity |
 
-This experiment supports prioritizing the host-expression row. It does not
-show that a private backend expression currently fails through =deflanguage=:
-that requires an actual DSL expansion witness with the engine loaded. Ordinary
-backend declarations using consumer-module bindings may work even when a
-macro-generated private reference would be problematic.
+The experiment explains why a grammar vocabulary should document the intended
+context of each parameter and introduced name. Public labels, caller grammar
+references and implementation helpers have distinct roles. This classification
+supports predictable composition using the existing Gerbil macro facilities.
 
-A candidate elaborator should extract only the data portions of a backend row,
-while carrying its digest and procedure subforms as syntax objects. Assemble
-those host subforms with syntax templates rather than reconstructing their names
-from a shared prefix anchor. Keep the current core IR and backend admission
-semantics. This is a proposed implementation direction, not an applied fix.
+* Follow-up vocabulary studies
 
-Identity/version/contract clauses also contain host expressions. Their expansion
-path needs the same classification. Do not assume that preserving a whole outer
-form automatically preserves each embedded expression after intermediate datum
-conversion.
+1. Compare an explicit binary production with a parameterized infix template.
+2. Compose separated-list and delimiter templates while preserving the intended
+   node and field shape.
+3. Import vocabulary from ordinary Scheme modules and rename it at the use site.
+4. Explain expanded productions in terms of their original arguments and source.
+5. Admit the expanded grammar through the current engine and compare its products
+   with the explicit rules before evaluating compiler or runtime cost.
 
-* What an engine-level witness must establish next
-
-1. Import the actual current =deflanguage= source with qualified compiler
-   dependencies, so the tested expander revision is known.
-2. Define a macro in another module that supplies a private backend digest and
-   procedure. Keep a same-spelling consumer binding as an explicit control.
-3. Compare preserved caller parameters, private macro references and direct
-   consumer declarations. Assert the selected procedure identity, not a string
-   representation of its name.
-4. Verify admission accepts only a matching grammar digest. A binding experiment
-   must not bypass or weaken backend capability checks.
-5. Include unresolved references and source locations as negative cases, then
-   check generated public names and canonical IR identities remain stable.
-
-These fixtures establish a small host baseline useful for that next witness.
-No conclusion about runtime speed, concurrency, field type soundness or FFI
-follows from the six successful assertions.
+The primary design synthesis is
+[[file:scheme-deflanguage-design-synthesis.org][scientific grammar vocabulary under deflanguage]]. These six host controls are
+supporting evidence for that design study. Runtime, schema and target-product
+qualification remain distinct experiments.

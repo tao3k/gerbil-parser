@@ -20,7 +20,7 @@ information to syntax and explains binding comparisons, expansion contexts and
 module phases. It provides a way to reason about composition beyond comparing
 identifier spellings.
 
-Our use is a binding audit model. Gerbil need not adopt Racket's expander
+Our use is a model for independently composable grammar vocabulary. Gerbil need not adopt Racket's expander
 implementation or scope representation. We must preserve the host's established
 binding behavior where host references occur, and independently specify the
 meaning of symbolic grammar names. The paper's comparisons are not a guarantee
@@ -81,14 +81,13 @@ Research preference: evaluate A with ordinary macro/module composition first;
 consider B only when real author tasks demonstrate an unmet need. Preserve the
 canonical IR and current public identities throughout the comparison.
 
-** Specific audit seams
+** Syntax roles in composed declarations
 
-=src/language/grammar.ss= expands extensions using =core-expand1=, then turns
-atoms into datums. It reconstructs generated declarations and backend rows
-using the language prefix's syntax context. The backend row contains both a
-digest expression and a generated procedure expression. Inspecting that path
-suggests a concrete test with macro-supplied private backend identifiers; it
-does not establish a capture failure without an executable witness.
+=src/language/grammar.ss= expands extensions using =core-expand1= and then
+constructs canonical datum expressions. A grammar vocabulary specification should
+classify which arguments are DSL data and which carry host syntax context. This
+makes fragment parameters, introduced labels and generated products explainable
+to an author using the existing implementation.
 
 The lower-level compiler in =src/compiler/language-artifact.ss= already derives
 source maps from syntax rows and accepts an explicit source map. The concise
@@ -353,7 +352,7 @@ only the stated count examples and do not prove the full abstraction sound.
 The current three interfaces are the starting point. Inspection shows an
 important ownership exception: FHIRPath declares =defsyntax-corpus= in
 =parser.ss=, while arithmetic/HCL fixture declarations are in =grammar.ss=.
-That is evidence of current organization, not proof of a semantic defect.
+This is an organizational choice to describe accurately in author guidance.
 The overview should describe allowed placement accurately before further
 consolidation is considered.
 
@@ -396,5 +395,5 @@ It does not close gate 4, a new schema/API, or a performance claim.
 
 [[file:scheme-macro-binding-experiments.org][Gerbil macro binding experiments]] now supply six native Gerbil host-expansion
 controls for imported/renamed macros, caller parameters and local shadowing.
-They confirm the contextual reconstruction mechanism without claiming that the
-actual =deflanguage= backend path has been qualified or shown defective.
+They explain the contextual choices available to authors of a composable
+grammar vocabulary; they are host-expansion controls.

@@ -3,6 +3,7 @@
 (import (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
         (only-in :gerbil-parser/languages/fhirpath/grammar fhirpath-language-grammar)
         (only-in "text-profile-cases.ss" fhirpath-profile-cases))
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main output)
   (call-with-output-file output
     (lambda (port)
@@ -21,4 +22,4 @@
           (cdr group)))
        fhirpath-profile-cases)
       (display "];\n" port)))
-  (displayln "TEXT-PROFILE-RUST-GENERATED"))
+  (displayln "TEXT-PROFILE-RUST-GENERATED") (force-output) (test-child-process-exit! 0))

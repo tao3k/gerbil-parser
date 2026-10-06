@@ -9,8 +9,8 @@
     (equal +gql-opengql-reference-version+ "1.9.0")
     (equal +gql-opengql-reference-commit+ "16ea71bd320ad07fd2c46a3066afbaef7d226922")
     (equal +gql-syntax-contract+ "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
-    (equal +gql-antlr4-digest+ "sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf")
-    (equal (length gql-official-fixtures) 14))
+    (equal +gql-antlr4-digest+ "sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf"))
+  (fixture-catalog "official GQL fixture count" (total 14))
   (parser-ir "generated Parser IR identity" gql-parser-ir
     (rule-count 574) (materialization 'aot-expansion)
     (conflict-policy 'selective-glr) (case-insensitive? #t))

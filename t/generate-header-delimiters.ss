@@ -11,8 +11,9 @@
                           (make-rust-rowan-strategy (.ref loader 'descriptor))))))
     (call-with-output-file output
       (lambda (port) (emit-language-build-strategy bound 'rust-rowan port)))))
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main hl7-output record-output)
   (emit hl7-language hl7-output)
   (displayln "HEADER-DELIMITER-HL7-GENERATED") (force-output)
   (emit header-record-language record-output)
-  (displayln "HEADER-DELIMITER-RECORD-GENERATED") (force-output))
+  (displayln "HEADER-DELIMITER-RECORD-GENERATED") (force-output) (test-child-process-exit! 0))

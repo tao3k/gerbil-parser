@@ -3,7 +3,7 @@
 (import (only-in :std/test check test-case test-suite)
         (only-in :clan/poo/object .ref .cc)
         (only-in :clan/poo/mop validate)
-        (only-in ../language/entry LanguageLoaderContract language-parser-entry-ref run-language-test
+        (only-in ../language/entry LanguageLoaderContract language-parser-entry-ref run-language-test language-loader-fixtures language-loader-fixture-count
                  +language-parser-entry-schema+)
         (only-in ../runtime/artifact parse-artifact-valid? parse-artifact-success?
                  parse-artifact-ref parse-artifact-roundtrip parse-artifact-events
@@ -51,7 +51,7 @@
     artifact))
 
 (def (checked-language-fixtures loader (expected-status #f))
-  (let ((artifacts (run-language-test loader 'fixtures)) (fixtures (.ref loader 'fixtures)))
+  (let ((artifacts (run-language-test loader 'fixtures)) (fixtures (language-loader-fixtures loader)))
     (check (pair? artifacts) => #t)
     (check (length artifacts) => (length fixtures))
     (when expected-status
@@ -65,16 +65,15 @@
     artifacts))
 
 (def (checked-fixture-group loader status)
-  (let (fixtures (filter (lambda (fixture) (eq? (syntax-fixture-expected-status fixture) status))
-                        (.ref loader 'fixtures)))
+  (let (fixtures (language-loader-fixtures loader status))
     (checked-language-fixtures (checked-test-loader (.cc loader 'fixtures fixtures)) status)))
 
 (def (test-fixture-catalog loader key)
-  (let (fixtures (.ref loader 'fixtures))
-    (case key
-      ((total) (length fixtures))
-      ((accepted rejected) (length (filter (lambda (fixture) (eq? (syntax-fixture-expected-status fixture) key)) fixtures)))
-      ((first-digest) (and (pair? fixtures) (syntax-fixture-source-digest (car fixtures)))))))
+  (case key
+    ((total) (language-loader-fixture-count loader))
+    ((accepted rejected) (language-loader-fixture-count loader key))
+    ((first-digest) (let (fixtures (language-loader-fixtures loader))
+                      (and (pair? fixtures) (syntax-fixture-source-digest (car fixtures)))))))
 
 (def (artifact-field-names artifact kind)
   (let loop ((pending (list (parse-artifact->cst artifact))) (names '()))

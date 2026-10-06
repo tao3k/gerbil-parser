@@ -457,3 +457,28 @@ Projection recipes and returned copies are owned independently and participate
 in Source identity. Source v1, Loader v2 and C ABI v2 remain unchanged. This
 closes Scheme Word result projection; full standalone Rust Source control/Word
 execution still needs a shared interpreter and qualification.
+
+** Engine-owned fixture metadata
+
+The Loader's ordinary =fixtures= slot remains the authoring value. Its derived
+=fixture-catalog= slot is sealed at the public macro leaf, including against a
+prototype override. =LanguageLoaderContract= now admits the cached catalog and
+its descriptor/origin ownership. Foreign identities, duplicate IDs, bad source
+digests, unsupported expectations and non-fixture values reject during loading.
+The engine neither runs a parser nor invokes a fixture callback at admission.
+
+The bound snapshot owns copied strings/lists, status partitions, counts and an
+ID index. =language-loader-fixtures= selects all/accepted/rejected and publishes
+copies; =language-loader-fixture-count= reads a stored count;
+=language-loader-fixture= returns an indexed copy or =#f=. Queries do not filter
+or rehash the full corpus. POO replacement/extension recomputes the effective
+catalog, while repeated access to one object uses POO's cached slot. The named
+fixture test service parses the owned snapshot and retains complete roundtrip,
+expected status, root and required-node obligations. Test strategy selection and
+fixture-catalog assertions use this same shared capability.
+
+HCL, openCypher and TLA+ remove every hand-written fixture partition and their
+five exported group aliases. Their declarations remain corpus data in
+=grammar.ss= and one =fixtures:= value in the Loader. All affected test and
+benchmark consumers migrate directly; no compatibility names remain. Loader v2,
+Source v1, native metadata v1 and C ABI v2 do not change.

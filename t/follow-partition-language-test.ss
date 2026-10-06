@@ -2,7 +2,8 @@
 ;;; -*- Gerbil -*-
 ;;; Grammar IR qualification of the optional Scheme LR construction.
 
-(import :std/test
+(import (only-in :gerbil-parser/language-support language-loader-fixtures)
+        :std/test
         (only-in :core/observability/testing-case poo-flow-test-case)
         (only-in :gerbil-parser/languages/arithmetic/grammar
                  arithmetic-grammar arithmetic-parser)
@@ -10,7 +11,7 @@
                  hcl-grammar hcl-parser
                  hcl-parser-ir)
         (only-in :gerbil-parser/languages/hcl/parser
-                 hcl-official-accepted-fixtures)
+                 hcl-language)
         (only-in :gerbil-parser/language-support/fixture
                  syntax-fixture-id syntax-fixture-source)
         (only-in :gerbil-parser/src/compiler/parser-ir
@@ -167,6 +168,6 @@
              (check (equal? (parsed-language-root lalr tokens)
                             (parsed-language-root direct tokens))
                     => #t)))
-         hcl-official-accepted-fixtures)))))
+         (language-loader-fixtures hcl-language 'accepted))))))
 
 (export follow-partition-language-test)

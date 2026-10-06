@@ -2,12 +2,13 @@
 ;;; One POO admission and entry boundary for every versioned language pack.
 
 (import (only-in ../../language-support/fixture
-                 syntax-fixture? syntax-fixture-id syntax-fixture-source
+                 syntax-fixture? syntax-fixture-copy syntax-fixture-source-digest syntax-fixture-id syntax-fixture-source
                  syntax-fixture-language syntax-fixture-version syntax-fixture-contract
                  syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/source-scanner source-scanner-for-source?)
         (only-in ../compiler/machine parser-machine-grammar-digest parser-machine-direct-source)
         (only-in ../compiler/build-strategy BuildStrategyContract emit-build-strategy)
@@ -31,6 +32,7 @@
                  source-language-version source-language-digest source-language-scanner-factory))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
         +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
+        language-loader-fixtures language-loader-fixture-count language-loader-fixture
         check-language-loader-fixtures! call-with-language-parser-policy
         declare-language-source-scan-worker make-language-scan-worker
         declare-language-fixture-test run-language-test
@@ -130,6 +132,57 @@
                '(language version contract))
        (equal? (.ref metadata 'digest) (descriptor-digest descriptor))
        (eq? (.ref metadata 'digest-kind) (descriptor-digest-kind descriptor))))
+
+;;; Fixture indexes are an engine-derived cached POO slot. Authors provide only
+;;; the fixture value list. A new .cc/.o object recomputes its effective index.
+(defstruct fixture-catalog (descriptor origin all accepted rejected by-id counts))
+(def (prepare-loader-fixtures descriptor fixtures)
+  (unless (list? fixtures) (error "language loader fixtures must be a list"))
+  (let ((seen (make-hash-table)) (all '()) (accepted '()) (rejected '()))
+    (for-each (lambda (fixture)
+      (unless (syntax-fixture? fixture) (error "language loader requires syntax fixtures"))
+      (let ((id (syntax-fixture-id fixture)) (source (syntax-fixture-source fixture))
+            (status (syntax-fixture-expected-status fixture)) (kinds (syntax-fixture-required-kinds fixture)))
+        (unless (and (string? id) (positive? (string-length id)) (not (hash-get seen id))
+                     (string? source) (equal? (sha256-text source) (syntax-fixture-source-digest fixture))
+                     (equal? (syntax-fixture-language fixture) (descriptor-ref descriptor 'language))
+                     (equal? (syntax-fixture-version fixture) (descriptor-ref descriptor 'version))
+                     (equal? (syntax-fixture-contract fixture) (descriptor-ref descriptor 'contract))
+                     (list? kinds) (every symbol? kinds)
+                     (case status
+                       ((accepted) (symbol? (syntax-fixture-root-kind fixture)))
+                       ((rejected) (and (not (syntax-fixture-root-kind fixture)) (null? kinds)))
+                       (else #f)))
+          (error "invalid, foreign or duplicate language fixture" id))
+        (let (owned (syntax-fixture-copy fixture))
+          (hash-put! seen (syntax-fixture-id owned) owned)
+          (set! all (cons owned all))
+          (if (eq? status 'accepted) (set! accepted (cons owned accepted)) (set! rejected (cons owned rejected)))))) fixtures)
+    (make-fixture-catalog descriptor fixtures (reverse all) (reverse accepted) (reverse rejected) seen (vector (length all) (length accepted) (length rejected)))))
+(def (loader-fixture-catalog loader)
+  (unless (object? loader) (error "fixture query requires a language loader"))
+  (let (catalog (.ref loader 'fixture-catalog))
+    (unless (and (fixture-catalog? catalog)
+                 (eq? (fixture-catalog-descriptor catalog) (.ref loader 'descriptor))
+                 (eq? (fixture-catalog-origin catalog) (.ref loader 'fixtures)))
+      (error "fixture catalog does not belong to the effective loader"))
+    catalog))
+(def (catalog-fixtures catalog status)
+  (case status
+    ((#f) (fixture-catalog-all catalog))
+    ((accepted) (fixture-catalog-accepted catalog))
+    ((rejected) (fixture-catalog-rejected catalog))
+    (else (error "unknown fixture status" status))))
+(def (language-loader-fixtures loader (status #f))
+  (map syntax-fixture-copy (catalog-fixtures (loader-fixture-catalog loader) status)))
+(def (language-loader-fixture-count loader (status #f))
+  (let (catalog (loader-fixture-catalog loader))
+    (vector-ref (fixture-catalog-counts catalog)
+      (case status ((#f) 0) ((accepted) 1) ((rejected) 2) (else (error "unknown fixture status" status))))))
+(def (language-loader-fixture loader id)
+  (unless (string? id) (error "fixture lookup requires a string id" id))
+  (let (fixture (hash-get (fixture-catalog-by-id (loader-fixture-catalog loader)) id))
+    (and fixture (syntax-fixture-copy fixture))))
 
 ;;; Test declarations carry an engine opcode and exact descriptor identity.
 ;;; Their constructor is private; a language cannot substitute a success callback.
@@ -238,7 +291,7 @@
   (and (object? candidate)
        (andmap (lambda (slot) (.slot? candidate slot))
                '(schema descriptor language version contract capabilities .parse
-                 grammars metadata fixtures tests scan-workers build-strategies))
+                 grammars metadata fixtures fixture-catalog tests scan-workers build-strategies))
        (equal? (.ref candidate 'schema) +language-parser-entry-schema+)
        (let (descriptor (.ref candidate 'descriptor))
          (and (or (language-grammar? descriptor) (source-language? descriptor))
@@ -256,8 +309,7 @@
                               (or (language-grammar? grammar) (source-language? grammar))) grammars)))
               (loader-metadata? (.ref candidate 'metadata) descriptor)
               (loader-native-test-profile? candidate descriptor)
-              (let (fixtures (.ref candidate 'fixtures))
-                (and (list? fixtures) (every syntax-fixture? fixtures)))
+              (with-catch (lambda (_) #f) (lambda () (loader-fixture-catalog candidate) #t))
               (declared-test-services? (.ref candidate 'tests) descriptor)
               (declared-scan-workers? (.ref candidate 'scan-workers) descriptor)
               (declared-build-strategies? (.ref candidate 'build-strategies) descriptor)))))
@@ -282,6 +334,7 @@
       (grammars (list (.ref self 'descriptor)))
       metadata: (.o)
       fixtures: '()
+      (fixture-catalog (prepare-loader-fixtures (.ref self 'descriptor) (.ref self 'fixtures)))
       (tests (list (cons 'fixtures (declare-language-fixture-test (.ref self 'descriptor)))))
       scan-workers: '()
       build-strategies: '()
@@ -308,7 +361,7 @@
      (let ()
        (def (check-slot! name location)
          (when (memq name '(schema descriptor language version contract
-                           capabilities .parse))
+                           capabilities .parse fixture-catalog))
            (raise-syntax-error #f
             "language loader extension overrides an engine slot" location)))
        (let loop ((rows (stx-map (lambda (row) row) #'(slot ...))))
@@ -344,6 +397,7 @@
                        (.parse (let (descriptor (.ref loader-self 'descriptor))
                                  (lambda (source)
                                    (parse-language-source descriptor source))))
+                       (fixture-catalog (prepare-loader-fixtures (.ref loader-self 'descriptor) (.ref loader-self 'fixtures)))
                        slot ...))
                (let* ((metadata (.ref candidate 'metadata))
                       (admitted (if (object? metadata)
@@ -406,22 +460,7 @@
 ;;; Named test services accept a loader. Fixture values are ordinary POO slots;
 ;;; the engine verifies statuses, lossless source and required public node kinds.
 (def (check-language-loader-fixtures! loader)
-  (let (fixtures (.ref loader 'fixtures))
-    (unless (and (list? fixtures) (every syntax-fixture? fixtures))
-      (error "language loader fixtures must be a list of syntax fixtures"))
-    (let ((seen (make-table test: equal?))
-          (language (.ref loader 'language))
-          (version (.ref loader 'version))
-          (contract (.ref loader 'contract)))
-      (for-each
-       (lambda (fixture)
-         (let (id (syntax-fixture-id fixture))
-           (unless (and (string? id) (not (table-ref seen id #f))
-                        (equal? (syntax-fixture-language fixture) language)
-                        (equal? (syntax-fixture-version fixture) version)
-                        (equal? (syntax-fixture-contract fixture) contract))
-             (error "language fixture identity does not match loader or is duplicated" id))
-           (table-set! seen id #t))) fixtures))
+  (let (fixtures (fixture-catalog-all (loader-fixture-catalog loader)))
     (map
      (lambda (fixture)
        (let* ((source (syntax-fixture-source fixture))

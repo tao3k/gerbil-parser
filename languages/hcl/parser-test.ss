@@ -115,10 +115,8 @@
   (property "the upstream syntax identity is immutable" (bindings)
     (equal +hcl-native-syntax-version+ "v2.24.0")
     (equal +hcl-native-syntax-commit+ "6b5068090eef06b1f127f61529db5ba0be7ed343")
-    (equal +hcl-syntax-contract+ "hcl-native-v2.24.0.v1")
-    (equal (length hcl-official-fixtures) 15)
-    (equal (length hcl-official-accepted-fixtures) 12)
-    (equal (length hcl-official-rejected-fixtures) 3))
+    (equal +hcl-syntax-contract+ "hcl-native-v2.24.0.v1"))
+  (fixture-catalog "official HCL fixture counts" (total 15) (accepted 12) (rejected 3))
   (identity "Loader retains the pinned grammar identity"
     (schema "gerbil-parser.language-entry.v2") (language "hcl")
     (version +hcl-native-syntax-version+) (contract +hcl-syntax-contract+))

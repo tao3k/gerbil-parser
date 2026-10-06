@@ -34,7 +34,7 @@ belong to the engine or test owners. No compatibility modules remain.
 The loader is a POO object, admitted when the module loads. =parse-example= binds
 the engine method once. Parsing neither rebuilds the loader nor repeats POO
 contract admission. Engine slots bind schema, descriptor, language, version,
-syntax contract, capabilities and dispatch; extension declarations cannot
+syntax contract, capabilities, fixture index and dispatch; extension declarations cannot
 replace them. Parent prototypes cannot replace the bound engine slots either.
 
 * Extension slots and contracts
@@ -623,3 +623,38 @@ actual C/Rust products retain separate qualification boundaries.
 [[file:../docs/research/scheme-language-pack-design.org][Scheme language pack design]] records paper-based research into macro
 composition, binding, diagnostics and derived language products. It is a research
 proposal; the authoring contract above describes the implemented interfaces.
+
+* Fixture metadata through the Loader
+
+Declare corpus rows in =grammar.ss= and assign their list directly to the
+Loader's =fixtures= value slot. The engine derives =fixture-catalog= internally;
+this slot is sealed by =deflanguage-parser-loader=. Authors write neither a
+filter nor a factory/thunk for status groups or indexes.
+
+#+begin_src scheme
+(deflanguage-parser-loader (example-language :: self LanguageLoader.)
+  (grammar example-language-grammar)
+  (parse parse-example)
+  (slots fixtures: example-fixtures))
+
+(language-loader-fixture-count example-language)           ; total
+(language-loader-fixture-count example-language 'accepted)
+(language-loader-fixtures example-language 'rejected)
+(language-loader-fixture example-language "example/valid") ; fixture or #f
+#+end_src
+
+These functions are exported from =language-support=. Only =accepted=,
+=rejected= or omitted status is admitted. Loading validates descriptor identity,
+unique nonempty IDs, source digests and expectation shapes, then owns copies of
+the corpus and derives its partitions and ID index once. Counting is constant
+time; ID lookup uses the index. Published fixture values are copies and cannot
+change the admitted snapshot. Selection preserves declaration order, including
+interleaved statuses. Parsing/conformance remains an explicit test service;
+metadata admission does not parse every fixture.
+
+POO replacement/extension of =fixtures= through =.cc= or =.o= derives a new
+index for that effective object. Existing metadata versions and Loader v2 stay
+unchanged. Mutating input strings after admission does not replace the bound
+snapshot; use a new POO value override to rebind. Pack-specific accepted and
+rejected aliases have been removed; test and benchmark consumers use this same
+engine interface. Benchmark corpora prepare outside the timed parse region.

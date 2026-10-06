@@ -4,35 +4,29 @@
 ;;; Run in separate processes with each revision's own GERBIL_PATH. Dynamic
 ;;; import and GC are outside the timed region; each sample parses all sources.
 
-(import (only-in :gerbil-parser/language-support syntax-fixture-source)
+(import (only-in :gerbil-parser/language-support
+                 language-loader-fixtures syntax-fixture-source)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip)
         (only-in :gerbil-parser/languages/hcl/parser
-                 hcl-official-accepted-fixtures)
-        (only-in :gerbil-parser/languages/hcl/parser parse-hcl)
+                 hcl-language parse-hcl)
         (only-in :gerbil-parser/languages/gql/parser
-                 gql-official-fixtures)
-        (only-in :gerbil-parser/languages/gql/parser
-                 parse-gql)
+                 gql-language parse-gql)
         (only-in :gerbil-parser/languages/cypher/parser
-                 opencypher-accepted-fixtures)
-        (only-in :gerbil-parser/languages/cypher/parser
-                 parse-opencypher)
-        (only-in :gerbil-parser/languages/tla-plus/grammar
-                 tla-plus-core-accepted-fixtures)
+                 opencypher-language parse-opencypher)
         (only-in :gerbil-parser/languages/tla-plus/parser
-                 parse-tla-plus-core))
+                 tla-plus-core-language parse-tla-plus-core))
 
 (def corpus
   (list
    (cons parse-hcl
-         (map syntax-fixture-source hcl-official-accepted-fixtures))
+         (map syntax-fixture-source (language-loader-fixtures hcl-language 'accepted)))
    (cons parse-gql
-         (map syntax-fixture-source gql-official-fixtures))
+         (map syntax-fixture-source (language-loader-fixtures gql-language 'accepted)))
    (cons parse-opencypher
-         (map syntax-fixture-source opencypher-accepted-fixtures))
+         (map syntax-fixture-source (language-loader-fixtures opencypher-language 'accepted)))
    (cons parse-tla-plus-core
-         (map syntax-fixture-source tla-plus-core-accepted-fixtures))))
+         (map syntax-fixture-source (language-loader-fixtures tla-plus-core-language 'accepted)))))
 
 (def (run-batch)
   (for-each

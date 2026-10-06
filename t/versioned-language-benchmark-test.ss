@@ -12,22 +12,17 @@
 
 (def benchmark-path "t/benchmarks/versioned-languages/benchmark.ss")
 
+(def benchmark-corpus
+  (list (cons parse-hcl (language-loader-fixtures hcl-language 'accepted))
+        (cons parse-gql (language-loader-fixtures gql-language 'accepted))
+        (cons parse-opencypher (language-loader-fixtures opencypher-language 'accepted))
+        (cons parse-tla-plus-core (language-loader-fixtures tla-plus-core-language 'accepted))))
 (def (parse-language-batch)
-  (def (parse-corpus parse fixtures)
-    (for-each
-     (lambda (fixture)
-       (let* ((source (syntax-fixture-source fixture))
-              (artifact (parse source)))
-         (unless (and (parse-artifact-success? artifact)
-                      (equal? (parse-artifact-roundtrip artifact) source))
-           (error "official corpus benchmark parse failed"
-                  (syntax-fixture-id fixture)))))
-     fixtures))
-  (parse-corpus parse-hcl hcl-official-accepted-fixtures)
-  (parse-corpus parse-gql gql-official-fixtures)
-  (parse-corpus parse-opencypher
-                opencypher-accepted-fixtures)
-  (parse-corpus parse-tla-plus-core tla-plus-core-accepted-fixtures))
+  (for-each (lambda (group)
+    (for-each (lambda (fixture)
+      (let* ((source (syntax-fixture-source fixture)) (artifact ((car group) source)))
+        (unless (and (parse-artifact-success? artifact) (equal? (parse-artifact-roundtrip artifact) source))
+          (error "official corpus benchmark parse failed" (syntax-fixture-id fixture))))) (cdr group))) benchmark-corpus))
 
 (def versioned-language-benchmark-tests
   (test-suite "versioned language benchmark"

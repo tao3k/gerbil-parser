@@ -2,6 +2,7 @@
 (import (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
         (only-in :gerbil-parser/t/structured-lexical-test structured-lexical-language-grammar)
         (only-in "structured-lexical-cases.ss" structured-lexical-cases))
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main output)
  (call-with-output-file output (lambda (port)
   (display (language-rust-rowan-module-source structured-lexical-language-grammar) port)
@@ -12,4 +13,4 @@
    (if (cadr row) (begin (display "Some(" port) (display (cadr row) port) (display ")" port)) (display "None" port))
    (display "),\n" port)) (cdr group))) structured-lexical-cases)
   (display "];\n" port)))
- (displayln "STRUCTURED-LEXICAL-RUST-GENERATED"))
+ (displayln "STRUCTURED-LEXICAL-RUST-GENERATED") (force-output) (test-child-process-exit! 0))

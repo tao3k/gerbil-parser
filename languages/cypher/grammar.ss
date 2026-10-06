@@ -439,8 +439,8 @@
 
 ;;; Corpus declarations share the grammar admission boundary.
 (import (only-in :gerbil-parser/language-support
-                 defsyntax-corpus defsyntax-fixture syntax-fixture-expected-status))
-(export opencypher-fixtures opencypher-accepted-fixtures)
+                 defsyntax-corpus defsyntax-fixture))
+(export opencypher-fixtures)
 
 (defsyntax-corpus opencypher-fixtures
   (identity "opencypher" "2024.1" "opencypher-2024.1-syntax.v1")
@@ -460,11 +460,6 @@
   (rejected
    ("opencypher/2024.1/invalid/match-only" opencypher-match-only
     "corpus/invalid/match-only.cypher")))
-
-(def opencypher-accepted-fixtures
-  (filter (lambda (fixture)
-            (eq? (syntax-fixture-expected-status fixture) 'accepted))
-          opencypher-fixtures))
 
 ;;; Pinned source metadata belongs to the grammar declaration.
 (import (only-in :gerbil-parser/language-support/grammar-source defsyntax-iso-bnf-source))

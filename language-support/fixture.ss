@@ -5,6 +5,7 @@
         :gerbil-parser/src/runtime/identity)
 (export defsyntax-fixture
         defsyntax-corpus
+        syntax-fixture-copy
         syntax-fixture?
         syntax-fixture-id
         syntax-fixture-language
@@ -28,6 +29,14 @@
   (id language version contract source-digest source
       expected-status root-kind required-kinds)
   transparent: #t)
+
+(def (syntax-fixture-copy fixture)
+  (unless (syntax-fixture? fixture) (error "expected syntax fixture" fixture))
+  (make-syntax-fixture (string-copy (syntax-fixture-id fixture))
+    (string-copy (syntax-fixture-language fixture)) (string-copy (syntax-fixture-version fixture))
+    (string-copy (syntax-fixture-contract fixture)) (string-copy (syntax-fixture-source-digest fixture))
+    (string-copy (syntax-fixture-source fixture)) (syntax-fixture-expected-status fixture)
+    (syntax-fixture-root-kind fixture) (map values (syntax-fixture-required-kinds fixture))))
 
 ;;; Expansion resolves the source relative to its declaration. Runtime parsing
 ;;; therefore has no filesystem dependency, and content identity excludes paths.

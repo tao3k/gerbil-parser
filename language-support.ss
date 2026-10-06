@@ -91,6 +91,7 @@
         (only-in ./src/language/entry
                  +language-parser-entry-schema+
                  deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        language-loader-fixtures language-loader-fixture-count language-loader-fixture
         check-language-loader-fixtures!
         declare-language-source-scan-worker make-language-scan-worker
         declare-language-fixture-test run-language-test
@@ -174,6 +175,7 @@
         +language-parser-entry-schema+
         +source-language-schema+
         deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        language-loader-fixtures language-loader-fixture-count language-loader-fixture
         check-language-loader-fixtures!
         declare-language-source-scan-worker make-language-scan-worker
         declare-language-fixture-test run-language-test

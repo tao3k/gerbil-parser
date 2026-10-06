@@ -1,5 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Freeze the producer's Scheme numeric character class for Rust execution.
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main output)
   (displayln "SCHEME-NUMERIC-CLASS-SCAN") (force-output)
   (let (ranges
@@ -25,4 +26,4 @@
             (display (if (null? (cdr rest)) "\n" " |\n") port)
             (loop (cdr rest))))
         (display "    )\n}\n" port)))
-    (displayln "SCHEME-NUMERIC-CLASS-GENERATED ranges=" (length ranges))))
+    (displayln "SCHEME-NUMERIC-CLASS-GENERATED ranges=" (length ranges))) (force-output) (test-child-process-exit! 0))

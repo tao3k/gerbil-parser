@@ -1496,3 +1496,71 @@ After the catalog-publication change, final native qualification passes 84
 cases plus the same 80 complete artifact comparisons in 14.09 seconds. This
 last run excludes optional timing measurements and requires final =OK=,
 =HARNESS-RETURN status=0= and exit zero.
+
+** Loader fixture metadata convergence
+
+On top of the research revision =b455d402281aa1e0d9616a3acc210ba6c6b52cca=,
+fixture status derivation and identity indexing move fully into the Loader.
+The engine validates and copies an effective corpus once, then caches ordered
+partitions, counts and an ID table in its sealed POO slot. Foreign identity,
+duplicate ID and digest failures now reject at admission, before parsing.
+Replacing/extending the fixture value list derives a fresh catalog; no user
+callback or partition procedure is needed. The language-specific accepted and
+rejected aliases in HCL, openCypher and TLA+ are removed with all consumers.
+Test strategies and benchmark corpus preparation use the shared Loader APIs.
+Benchmark metadata preparation remains outside timed parse calls. This changes
+metadata algorithms and authoring constraints; it makes no parser speed claim.
+
+The macOS failure from the previous commit is a finite generator exit stall:
+=STRUCTURED-LEXICAL-RUST-GENERATED= was printed, followed by the unchanged
+five-second idle deadline and termination. Seven remaining standalone Scheme
+writers now flush and invoke the existing normal child-process exit binding
+only after all output ports close. No timeout or compiler selection changes;
+generation/formatting must retain byte-exact checked Rust products.
+
+The first Loader/value native gate passes 22 cases in 20.50 seconds. It includes
+POO replacement/extension, sealed prototype behavior, cached slot identity,
+ordered Unicode fixture lookup, copied input/publication isolation, foreign and
+duplicate identities, corrupt source digests and actual accepted/rejected
+semantic conformance. Three Unicode class writers exit normally in 2.26,
+2.54 and 2.42 seconds with byte-exact formatted Rust outputs. Structured lexical
+regeneration exits zero in 10.28 seconds and matches its checked product.
+Local quoted regeneration initially fails because its native test module was
+not compiled; that dependency is compiled with GCC before retrying. TLA+ entry
+compilation initially sees an old generated =parser.ssi= with removed exports;
+only that generated interface is discarded before rebuilding from current
+source. These failures remain recorded in the qualification transcript; neither
+is counted as a pass.
+
+
+Final native qualification passes 144 Loader/topology/metadata/pack cases in
+46.70 seconds, 29 complete HCL cases in 9.33 seconds, and 73 openCypher,
+TLA+ and FOLLOW-partition cases in 22.45 seconds. Each process reports final
+=OK=, =HARNESS-RETURN status=0= and exit zero under the unchanged 90-second
+runtime / five-second silence fences. The initial combined language gate
+stops during cold admission at 36.59 seconds without reaching its harness;
+GCC compilation of the test entries and separate qualification of their
+natural language groups resolves that local gate without changing deadlines.
+Both migrated benchmark entries compile successfully with GCC.
+
+The remaining quoted, text and header writers exit normally in 14.34,
+20.68 and 20.46 seconds. All seven migrated finite writers retain byte-exact
+formatted Rust products, including both header outputs. This directly
+qualifies local output and process termination; fresh CI remains a separate
+platform gate.
+
+Before submission this slice fast-forwards to the concurrent research head
+=29dcb79dafcde202fc9818def3ac536cc20f47c4=. That revision adds Scheme macro
+binding experiments and Org semantics research, without modifying the engine
+or language interfaces qualified above.
+
+Native language and FFI qualification also passes 15 cases in 23.63 seconds.
+These verify independent descriptors, exact binary publications and accepted/
+rejected calls through the public length-delimited C ABI. Small 100-call
+controls remain local receipts, not end-to-end performance claims.
+HCL and GQL corpus count assertions now use the existing declarative
+=fixture-catalog= test clause; no direct indexing call is required in their
+public test interface.
+
+After the declarative count migration, the final HCL/GQL native gate reports
+41 cases, final =OK=, =HARNESS-RETURN status=0= and exit zero in 6.93 seconds.

@@ -1,5 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Freeze the producer's Scheme alphabetic character class for Rust execution.
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main output)
   (displayln "SCHEME-ALPHABETIC-CLASS-SCAN") (force-output)
   (let (ranges
@@ -25,4 +26,4 @@
         (display "    let code = character as u32;\n" port)
         (display "    let index = RANGES.partition_point(|&(start, _)| start <= code);\n" port)
         (display "    index > 0 && code <= RANGES[index - 1].1\n}\n" port)))
-    (displayln "SCHEME-ALPHABETIC-CLASS-GENERATED ranges=" (length ranges))))
+    (displayln "SCHEME-ALPHABETIC-CLASS-GENERATED ranges=" (length ranges))) (force-output) (test-child-process-exit! 0))

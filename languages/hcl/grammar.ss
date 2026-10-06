@@ -187,8 +187,8 @@
 
 ;;; Corpus declarations share the grammar admission boundary.
 (import (only-in :gerbil-parser/language-support
-                 defsyntax-corpus defsyntax-fixture syntax-fixture-expected-status))
-(export hcl-representative-fixture hcl-official-fixtures hcl-official-accepted-fixtures hcl-official-rejected-fixtures)
+                 defsyntax-corpus defsyntax-fixture))
+(export hcl-representative-fixture hcl-official-fixtures)
 
 (defsyntax-fixture hcl-representative-fixture
   (identity "hcl/v2.24.0/representative"
@@ -243,13 +243,3 @@
    ("hcl/specsuite/structure/blocks/single-unclosed"
     hcl-spec-block-single-unclosed
     "corpus/reference/invalid/block_single_unclosed.hcl")))
-
-(def hcl-official-accepted-fixtures
-  (filter (lambda (fixture)
-            (eq? (syntax-fixture-expected-status fixture) 'accepted))
-          hcl-official-fixtures))
-
-(def hcl-official-rejected-fixtures
-  (filter (lambda (fixture)
-            (eq? (syntax-fixture-expected-status fixture) 'rejected))
-          hcl-official-fixtures))

@@ -183,20 +183,10 @@ jobs:
 
       - name: Compile language conformance modules
         run: |
-          gerbil env python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
-            --log .data/language-conformance-build.log \
-            -- gxc -V -cc-options -v \
-              languages/arithmetic/parser-test.ss languages/bash/parser-test.ss \
-              languages/cypher/parser-test.ss languages/fhirpath/parser-test.ss \
-              languages/gql/parser-test.ss languages/hcl/parser-test.ss \
-              languages/hl7/parser-test.ss languages/tla-plus/parser-test.ss \
-              t/antlr4-source-test.ss t/language-entry-boundary-test.ss \
-              t/language-diagnostics-test.ss t/language-surface-test.ss \
-              t/grammar-composition-test.ss t/language-artifact-test.ss \
-              t/language-topology-test.ss t/language-loader-test.ss \
-              t/language-loader-value-test.ss t/language-pack-metadata-test.ss \
-              t/source-strategy-test.ss t/build-strategy-test.ss \
-              t/gql/benchmark-profile-test.ss
+          GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 gerbil env \
+            python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
+              --log .data/language-conformance-build.log \
+              -- gxi build-language-conformance.ss compile
 
       - name: Verify Scheme DSL and native POO declaration closure
         run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research

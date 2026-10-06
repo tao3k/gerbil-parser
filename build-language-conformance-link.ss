@@ -14,7 +14,8 @@
          (time->seconds (file-info-last-modification-time (file-info target))))))
 
 (def (run-static-jobs sources task)
-  ;; Larger modules begin first. Output reports real compiler boundaries only.
+  ;; Start large jobs early and reserve one worker for short independent jobs.
+  ;; Compiler frontends can be quiet; completed small jobs provide real progress.
   (let ((pending (list-sort
                   (lambda (a b) (> (file-info-size (file-info a))
                                    (file-info-size (file-info b)))) sources))
@@ -22,19 +23,21 @@
         (cores (string->number (getenv "GERBIL_BUILD_CORES" "1"))))
     (unless (and (integer? cores) (exact? cores) (> cores 0))
       (error "GERBIL_BUILD_CORES must be a positive integer" cores))
-    (def (next)
+    (def (next short-jobs?)
       (mutex-lock! mutex)
-      (let (source (and (pair? pending) (car pending)))
-        (when source (set! pending (cdr pending)))
+      (let (source (and (pair? pending) (if short-jobs? (last pending) (car pending))))
+        (when source
+          (set! pending (if short-jobs? (reverse (cdr (reverse pending))) (cdr pending))))
         (mutex-unlock! mutex)
         source))
-    (def (worker)
+    (def (worker short-jobs?)
       (let loop ()
-        (let (source (next))
+        (let (source (next short-jobs?))
           (when source (task source) (loop)))))
     ;; A failed compiler process raises through its worker's thread-join!.
     (for-each thread-join!
-      (map (lambda (_) (thread-start! (make-thread worker)))
+      (map (lambda (index)
+             (thread-start! (make-thread (lambda () (worker (= index 0))))))
            (iota (min cores (max 1 (length sources))))))))
 
 (def (bootstrap-identities stub)

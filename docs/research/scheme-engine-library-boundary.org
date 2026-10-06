@@ -279,3 +279,17 @@ child fences unchanged. This reused project objects and is not a cold-build or
 latency improvement claim. Remote qualification remains a separate gate.
 The author-interface audit is in [[file:scheme-dsl-author-interface.org][the existing author-interface study]]: complete
 file alignment does not establish that generated products belong in the public API.
+
+The subsequent Linux run at =712c65f= completed project Scheme-to-C translation,
+but failed when all four workers began the largest C frontend jobs together.
+The last real output preceded the five-second idle fence; the compiler remained
+in those large units. The native work queue now starts large jobs early while
+reserving one worker for short independent units. Its output still consists of
+actual compiler diagnostics and completed jobs, without synthetic heartbeats or
+a changed timeout. This scheduler change requires a fresh platform receipt.
+
+The local scheduler check quarantined only this disposable environment's project
+static objects, retained existing Scheme-to-C outputs and SDK objects, and
+rebuilt all project static objects. It completed in 64.06 seconds with exit zero
+under the unchanged 240-second completion and five-second output-idle fences.
+This is a cold project-object check, not a fresh dependency/source-toolchain build.

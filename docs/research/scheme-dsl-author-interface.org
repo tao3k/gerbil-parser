@@ -31,6 +31,17 @@ hide a dependency. Moving language-specific semantics into the generic engine
 would also violate the engine/library boundary. The source adapter owns source
 format translation; the engine owns canonical admission and compilation.
 
+The compiler already implements these shorthand rules in
+[[file:../../src/compiler/concise-language.ss::175][surface-body and surface-expression]]:
+strings lower to literals; unambiguous declared names lower to token/reference
+forms; multiple rule/node body expressions lower to a sequence. Explicit token
+or reference forms remain required for a token/rule name collision. Therefore
+removing those redundant wrappers needs no new DSL constructor or parser runtime.
+The complete call/array package below now uses these existing facilities; its
+inline control, accepted/rejected expectations, field counts and exact AST/span
+test remain independently authored. Language-specific lexical and conflict
+policies remain explicit.
+
 The existing =defgrammar-syntax= example below is an executable starting point:
 
 #+begin_src scheme
@@ -40,7 +51,7 @@ The existing =defgrammar-syntax= example below is an executable starting point:
        (repeat (seq separator (field label item)))))
 
 ;; Rule use states language intent. The macro owns the repeated lowered shape.
-(required-items argument (reference name) (literal ","))
+(required-items argument name ",")
 
 ;; Question 1: Why is this interface better?
 ;; It removes duplicated implementation of the separated-list policy while
@@ -51,6 +62,13 @@ The existing =defgrammar-syntax= example below is an executable starting point:
 ;; AST fields and spans, source roundtrip, diagnostics and published identity
 ;; rules. Those independent observations can falsify the proposed abstraction.
 #+end_src
+
+The updated whole package completed its native eleven-case suite and the
+independent inline-control program's 85 checks with actual exit zero, each under
+the unchanged ten-second fence. The native test build completed in 32.44 seconds
+under its existing 240/5-second fences. These receipts cover the list package;
+they do not qualify rewriting every language declaration or removing public IR
+exports. Such migration must preserve each language's independent expectations.
 
 This example qualifies one reusable construct, not a universal syntax redesign.
 The next design comparison must cover complete arithmetic and GQL packages,
@@ -137,20 +155,18 @@ persisted artifact identity equals the control's identity.
   (rules
    (source-file
     (node SourceFile
-      (field form (choice (reference call) (reference array)))))
+      (field form (choice call array))))
    (call
     (node Call
-      (seq (field callee (token identifier)) (literal "(")
-           (optional
-            (required-items argument (reference name) (literal ",")))
-           (literal ")"))))
+      (field callee identifier) "("
+      (optional (required-items argument name ","))
+      ")"))
    (array
     (node Array
-      (seq (literal "[")
-           (optional
-            (required-items element (reference name) (literal ",")))
-           (literal "]"))))
-   (name (node Name (field value (token identifier)))))
+      "["
+      (optional (required-items element name ","))
+      "]"))
+   (name (node Name (field value identifier))))
   (extras whitespace) (keywords) (recoveries)
   (conflicts reject) (case-insensitive #f))
 #+end_src

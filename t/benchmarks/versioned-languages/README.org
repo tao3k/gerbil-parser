@@ -8,8 +8,21 @@ entry before timing. The timed batch calls the production parser and checks
 accepted status and exact roundtrip for each admitted accepted source.
 
 #+begin_src sh
-gerbil env gxi t/benchmarks/versioned-languages/all-languages.ss 20
+# Compile the native conformance executable after the normal package build.
+gerbil env bash scripts/build-language-conformance-native.sh
+for entry in arithmetic bash opencypher fhirpath gql hcl hl7 tla-plus-core tla-plus-layout tla-plus-sany-candidate; do
+  gerbil env bash -c '"$GERBIL_PATH/bin/gerbil-parser-conformance" all-language-benchmark 20 "$1"' _ "$entry"
+done
 #+end_src
+
+The optional entry argument selects one corpus workload. Independent entry
+processes can each retain the ten-second completion fence while collecting twenty
+samples; the CI smoke still collects one sample for all entries in one process.
+The initial combined twenty-sample local attempt timed out after 182 samples and
+nine complete receipts; it remains a failed attempt and is not admitted as a
+complete result. Per-entry process startup and forced GC stay outside the sample
+timer. These receipts describe warm batch parsing and roundtrip, not total
+process latency or attribution to individual engine stages.
 
 Each sample reports real elapsed milliseconds. The final entry receipt reports
 its descriptor digest, fixture count, source character count and nearest-rank
@@ -36,3 +49,9 @@ and its measured admission policy. Their corpora now come from parser-test.ss;
 production parse functions remain the timed consumers. Adding six entries to
 that historic timing gate would invalidate its existing workload and targets.
 All-language measurements have a separate schema and no invented latency target.
+
+On 2026-10-07 each of the ten native entry processes completed twenty samples
+and its matching descriptor receipt with exit zero under =gtimeout -k 2 10=.
+The receipt audit found 200 raw samples and ten complete entry records. The
+all-entry one-sample smoke also exited zero. These are local workload execution
+receipts; exact-head remote conformance and performance claims remain separate.

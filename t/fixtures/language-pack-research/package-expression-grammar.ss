@@ -17,19 +17,17 @@
   (rules
    (source-file
     (node SourceFile
-      (field form (choice (reference call) (reference array)))))
+      (field form (choice call array))))
    (call
     (node Call
-      (seq (field callee (token identifier)) (literal "(")
-           (optional
-            (required-items argument (reference name) (literal ",")))
-           (literal ")"))))
+      (field callee identifier) "("
+      (optional (required-items argument name ","))
+      ")"))
    (array
     (node Array
-      (seq (literal "[")
-           (optional
-            (required-items element (reference name) (literal ",")))
-           (literal "]"))))
-   (name (node Name (field value (token identifier)))))
+      "["
+      (optional (required-items element name ","))
+      "]"))
+   (name (node Name (field value identifier))))
   (extras whitespace) (keywords) (recoveries)
   (conflicts reject) (case-insensitive #f))

@@ -50,10 +50,11 @@
         (cons "build-services" (list build-strategy-test))
         (cons "concise-package" (list package-expression-parser-test))
         (cons "composed-package" (list list-parser-test))))
-(def (main name)
+(def (main name . args)
   (if (equal? name "all-language-benchmark")
-    (benchmark-main "1")
+    (apply benchmark-main (if (null? args) ["1"] args))
     (let (row (assoc name suites))
+      (unless (null? args) (error "unexpected native suite arguments" args))
       (unless row (error "unknown native conformance suite" name))
       (for-each
        (lambda (suite)

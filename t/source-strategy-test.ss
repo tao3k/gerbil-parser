@@ -4,7 +4,7 @@
         :gerbil-parser/language-source-support
         (only-in :gerbil-parser/src/language/source parse-source-language source-language-digest)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-success? parse-artifact-roundtrip)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader. declare-language-source-scan-worker make-language-scan-worker)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader. declare-language-source-scan-worker make-language-scan-worker)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/runtime/token token-lexeme))
 (export source-strategy-test)
@@ -12,7 +12,7 @@
 (deflanguage-source notes-source
  (identity "notes" "v1" "notes.v1")
  (strategy (.o (:: self LineSourceStrategy.) root-kind: 'Notes required-prefix: prefix)))
-(deflanguage-parser-loader (notes-language :: self LanguageLoader.)
+(deflanguage-development-loader (notes-language :: self LanguageDevelopmentLoader.)
  (source notes-source) (parse parse-notes)
  (slots scan-workers: (list (cons 'lines (declare-language-source-scan-worker notes-source)))))
 (def (rejects? thunk) (with-catch (lambda (_) #t) (lambda () (thunk) #f)))

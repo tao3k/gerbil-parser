@@ -34,7 +34,7 @@ belong to the engine or test owners. No compatibility modules remain.
 The loader is a POO object, admitted when the module loads. =parse-example= binds
 the engine method once. Parsing neither rebuilds the loader nor repeats POO
 contract admission. Engine slots bind schema, descriptor, language, version,
-syntax contract, capabilities, fixture index and dispatch; extension declarations cannot
+syntax contract, capabilities and dispatch; extension declarations cannot
 replace them. Parent prototypes cannot replace the bound engine slots either.
 
 * Extension slots and contracts
@@ -157,7 +157,9 @@ Rust; CI regenerates it and Cargo tests its accepted/rejected source behavior.
 
 * POO pack metadata and services
 
-Every shipped public entry uses the explicit =(name :: self LanguageLoader.)=
+Public entries use native POO prototypes: =LanguageLoader.= for production parsing
+and =LanguageDevelopmentLoader.= for optional corpus, scanner and build services.
+Both use the explicit =(name :: self prototype)=
 form. =slots= are ordinary POO slots: a downstream prototype can inherit or
 replace the language-facing services, and =contracts= validate the effective
 object. They are not a second parser registry.
@@ -166,15 +168,15 @@ object. They are not a second parser registry.
 |---+---+---|
 | =grammars= | List containing the configured =descriptor= | List of grammar/source descriptors; must contain the entry descriptor. Multiple scopes may be exposed here. |
 | =metadata= | Descriptor-derived POO identity | Engine-owned =language=, =version=, =contract=, =digest= and =digest-kind= merge with grammar format, upstream references and user fields. Identity overrides are replaced by descriptor values; extension contracts constrain extra fields. |
-| =fixtures= | Empty list | Ordinary POO value containing native =syntax-fixture= data. Override with a new corpus or extend with =append=; no callback wrapper. Loader admission checks the value shape; the engine test service checks identity and conformance. |
-| =tests= | Engine fixture conformance service | Unique named, descriptor-bound =declare-language-fixture-test= declarations. =run-language-test= executes the engine conformance protocol; bare procedures, duplicate names and foreign descriptors reject. |
-| =scan-workers= | Empty list | Unique named declarations bound to the exact source descriptor; bare procedures and foreign descriptors reject. Engine creation checks the executor/source binding. |
+| =fixtures= (development only) | Empty list | Ordinary POO value containing native =syntax-fixture= data. Override with a new corpus or extend with =append=; no callback wrapper. Loader admission checks the value shape; the common development test service checks identity and conformance. |
+| =tests= (development only) | Common fixture conformance service | Unique named, descriptor-bound =declare-language-fixture-test= declarations. =run-language-test= executes the common conformance protocol; bare procedures, duplicate names and foreign descriptors reject. |
+| =scan-workers= (development only) | Empty list | Unique named declarations bound to the exact source descriptor; bare procedures and foreign descriptors reject. Engine creation checks the executor/source binding. |
 
-For example, the HCL entry binds its existing corpus and the engine's
+For example, the HCL development entry binds its existing corpus and the common
 conformance service through POO rather than another language-specific wrapper:
 
 #+begin_src scheme
-(deflanguage-parser-loader (hcl-language :: self LanguageLoader.)
+(deflanguage-development-loader (hcl-language :: self LanguageDevelopmentLoader.)
   (grammar hcl-language-grammar)
   (parse parse-hcl)
   (slots metadata: (.o grammar-format: 'concise-dsl)
@@ -183,10 +185,12 @@ conformance service through POO rather than another language-specific wrapper:
 (run-language-test hcl-language 'fixtures)
 #+end_src
 
-Public pack entries import =src/language/entry= and, when needed,
+Public pack entries import =language-support/entry= or the optional
+=language-support/development= library and, when needed,
 =language-support/fixture= directly. This removes their direct dependency
 on optional ANTLR/BNF/JavaCC authoring importers in the aggregate
-=language-support= facade; the facade still exports the same loader API.
+=language-support= facade; the facade exports the production entry API; optional development operations
+are imported from =language-support/development=.
 Existing grammar modules can still bring that facade into compiler metadata.
 
 The unreleased =gerbil-parser.language-entry.v2= contract is corrected in place;
@@ -194,7 +198,7 @@ this source migration does not create a new schema or release version.
 Language modules and public bindings use stable names (=languages/hcl/parser=,
 =hcl-language=, =parse-hcl=). Edition/version data belongs in Loader metadata.
 
-The =gerbil-parser.language-entry.v2= schema derives the default fixture-test
+The development prototype using =gerbil-parser.language-entry.v2= derives the default fixture-test
 declaration from the effective descriptor through the inherited POO slot.
 Fixture values participate in ordinary POO inheritance. Users assign a new list
 for replacement, or a computed value slot such as
@@ -365,11 +369,12 @@ regenerated descriptor/product identity for this draft scope.
 
 * =deflanguage-parser-loader= contract
 
-This is the single public macro name. The former =deflanguage-parser= and
+This is the production parsing macro. Optional development services use
+=deflanguage-development-loader= and =LanguageDevelopmentLoader.=. The former =deflanguage-parser= and
 =deflanguage-loader= names have been removed from this development branch;
 existing packs and the external record-pack fixture use the canonical name.
 =LanguageLoader.= is its POO prototype and =LanguageLoaderContract= is the
-engine admission contract.
+common parsing-entry admission contract.
 
 The declaration defines two bindings: the admitted loader object and the
 procedure named in =(parse ...)=. It does not read files, resolve package names,
@@ -626,13 +631,14 @@ proposal; the authoring contract above describes the implemented interfaces.
 
 * Fixture metadata through the Loader
 
-Declare corpus rows in =grammar.ss= and assign their list directly to the
-Loader's =fixtures= value slot. The engine derives =fixture-catalog= internally;
-this slot is sealed by =deflanguage-parser-loader=. Authors write neither a
+For GQL, declare corpus rows in =parser-test.ss= and assign their list to the
+development Loader's =fixtures= value slot. The common development library
+derives =fixture-catalog= internally;
+this slot is sealed by =deflanguage-development-loader=. Authors write neither a
 filter nor a factory/thunk for status groups or indexes.
 
 #+begin_src scheme
-(deflanguage-parser-loader (example-language :: self LanguageLoader.)
+(deflanguage-development-loader (example-language :: self LanguageDevelopmentLoader.)
   (grammar example-language-grammar)
   (parse parse-example)
   (slots fixtures: example-fixtures))
@@ -643,7 +649,7 @@ filter nor a factory/thunk for status groups or indexes.
 (language-loader-fixture example-language "example/valid") ; fixture or #f
 #+end_src
 
-These functions are exported from =language-support=. Only =accepted=,
+These functions are exported from =language-support/development=. Only =accepted=,
 =rejected= or omitted status is admitted. Loading validates descriptor identity,
 unique nonempty IDs, source digests and expectation shapes, then owns copies of
 the corpus and derives its partitions and ID index once. Counting is constant
@@ -686,3 +692,18 @@ and composes captured nodes through the declared ResultProfile instructions.
 Production Bash and an inherited Unicode configuration have independent
 Scheme/Rust event, field and lossless-text controls. Complete Command/Source AOT
 and full ParseArtifact parity still require the next shared engine boundary.
+
+* Production and development responsibilities
+
+GQL's =parser.ss= imports =language-support/entry= and exports a corpus-free
+production Loader. Its =parser-test.ss= owns the official corpus and declares
+a =LanguageDevelopmentLoader.= with =deflanguage-development-loader=. Existing
+corpus-bearing language entries use the explicitly named development API.
+The engine's =src/language/entry= exports descriptor dispatch and generic policy
+execution; it does not supply fixture or Loader development services.
+
+ANTLR source adaptation requires an explicit =lexical-profile= in the language
+grammar. GQL declares exact token bindings, scanner expressions, terminal kinds
+and trivia there. The common adapter does not classify tokens by GQL name patterns.
+See [[file:../docs/research/scheme-engine-library-boundary.org][the ownership contract and paper-to-code rationale]] for the full boundary,
+verification route and remaining semantic limits.

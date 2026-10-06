@@ -3,8 +3,8 @@
         :std/test
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (only-in :clan/poo/object .ref)
-        (only-in :gerbil-parser/src/language/entry
-                 deflanguage-parser-loader parse-language-source call-with-language-parser-policy)
+        (only-in :gerbil-parser/language-support/development
+                 deflanguage-development-loader parse-language-source call-with-language-parser-policy)
         (only-in :gerbil-parser/src/language/descriptor
                  language-grammar-with-parser-policy language-grammar-parser-policy
                  language-grammar-with-observability require-portable-language-policy!
@@ -38,7 +38,7 @@
      (set! calls (+ calls 1))
      (set! seen-budget (current-lr-branch-budget))
      diagnostic)))
-(deflanguage-parser-loader policy-loader (grammar descriptor) (parse parse-records-policy))
+(deflanguage-development-loader policy-loader (grammar descriptor) (parse parse-records-policy))
 
 (def language-policy-test
   (test-suite "descriptor-bound language policy"

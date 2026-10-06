@@ -254,7 +254,7 @@ composition clause or close its effective-origin integration obligations.
 | [[file:../../src/compiler/bound-ir.ss][bind-grammar-ir]] and [[file:../../src/compiler/parser-ir.ss][compile-parser]] | Bind and compile canonical input | Invoke on the same admitted value with effective context; preserve their existing analyses |
 | =compile-language-declaration-artifacts= | Owns declaration identity, cache reuse and immutable artifact publication | Reuse with origin/lineage/source-map dependencies; do not install another cache |
 | =assemble-language-parser= and [[file:../../src/compiler/machine.ss][defgeneral-parser-machine]] | Load artifacts and generate the runtime machine | Emit lexical/extras inputs from the same admitted grammar used to compile Parser IR |
-| [[file:../../src/language/descriptor.ss][make-language-grammar]] and [[file:../../src/language/entry.ss][checked entry]] | Connect grammar, Parser IR, machine and protected Loader operations | Preserve existing descriptor and entry contracts; qualify the complete composed route |
+| [[file:../../src/language/descriptor.ss][make-language-grammar]] and [[file:../../language-support/entry.ss][common checked entry]] | Connect grammar, Parser IR, machine and protected Loader operations | Preserve existing descriptor and entry contracts; qualify the complete composed route |
 
 The declaration compiler now separates canonical construction/context capture,
 compilation/publication and hygienic emission into named phases. Its orchestrator

@@ -5,7 +5,7 @@
 
 (import (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
         ./grammar)
 (export (import: ./grammar)
         hl7-language
@@ -18,7 +18,7 @@
   (rejected
    ("hl7v2/missing-header" hl7-missing-header (text "PID|1\r"))))
 
-(deflanguage-parser-loader (hl7-language :: self LanguageLoader.)
+(deflanguage-development-loader (hl7-language :: self LanguageDevelopmentLoader.)
   (grammar hl7-language-grammar)
   (parse parse-hl7)
   (slots metadata: (.o grammar-format: 'concise-dsl)

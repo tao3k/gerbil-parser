@@ -3,7 +3,8 @@
 (import (only-in :std/test check test-case test-suite)
         (only-in :clan/poo/object .ref .cc)
         (only-in :clan/poo/mop validate)
-        (only-in ../language/entry LanguageLoaderContract language-parser-entry-ref run-language-test language-loader-fixtures language-loader-fixture-count
+        (only-in ../../language-support/entry LanguageLoaderContract)
+        (only-in ../../language-support/development language-parser-entry-ref run-language-test language-loader-fixtures language-loader-fixture-count
                  +language-parser-entry-schema+)
         (only-in ../runtime/artifact parse-artifact-valid? parse-artifact-success?
                  parse-artifact-ref parse-artifact-roundtrip parse-artifact-events

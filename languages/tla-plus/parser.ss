@@ -3,7 +3,7 @@
 
 (import (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-with-parser-policy)
         :gerbil-parser/language-support/structured
         (rename-in ./grammar (tla-plus-sany-candidate-language-grammar recognition-language-grammar))
@@ -15,7 +15,7 @@
         qualify-tla-plus-model qualify-tla-plus-core-model
         tla-plus-core-language tla-plus-layout-language
         parse-tla-plus-core parse-tla-plus-layout parse-tla-plus)
-(deflanguage-parser-loader (tla-plus-core-language :: self LanguageLoader.)
+(deflanguage-development-loader (tla-plus-core-language :: self LanguageDevelopmentLoader.)
   (grammar tla-plus-core-language-grammar)
   (parse parse-tla-plus-core)
   (slots metadata: (.o grammar-format: 'concise-dsl)
@@ -28,7 +28,7 @@
   (rejected
    ("tla-plus/layout/incomplete" tla-layout-incomplete (text "---- MODULE J ----\nInit ==\n  /\\\n====\n"))))
 
-(deflanguage-parser-loader (tla-plus-layout-language :: self LanguageLoader.)
+(deflanguage-development-loader (tla-plus-layout-language :: self LanguageDevelopmentLoader.)
   (grammar tla-plus-layout-language-grammar)
   (parse parse-tla-plus-layout)
   (slots metadata: (.o grammar-format: 'concise-dsl)
@@ -50,7 +50,7 @@
   (rejected
    ("tla-plus/candidate/missing-qed" tla-candidate-missing-qed (text "---- MODULE P ----\nTHEOREM TRUE\n<1>1. TRUE OBVIOUS\n====\n"))))
 
-(deflanguage-parser-loader (tla-plus-sany-candidate-language :: self LanguageLoader.)
+(deflanguage-development-loader (tla-plus-sany-candidate-language :: self LanguageDevelopmentLoader.)
   (grammar tla-plus-sany-candidate-language-grammar)
   (parse parse-tla-plus-sany-candidate)
   (slots metadata: (.o grammar-format: 'concise-dsl)

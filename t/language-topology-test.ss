@@ -28,8 +28,8 @@
                          deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar
                          defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source
                          defsyntax-fixture defsyntax-corpus))
-            ((parser) '(deflanguage-parser-loader deflanguage-source-receipt deflanguage-model-entry defsyntax-corpus))
-            ((tests) '(deflanguage-parser-tests)))))))
+            ((parser) '(deflanguage-development-loader deflanguage-parser-loader deflanguage-source-receipt deflanguage-model-entry defsyntax-corpus))
+            ((tests) '(defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests)))))))
 (def language-topology-test
  (test-suite "three-interface language authoring contract"
   (test-case "reject procedure definitions and unrestricted parser tests"
@@ -48,7 +48,8 @@
         '(("grammar.ss" . grammar) ("parser.ss" . parser) ("parser-test.ss" . tests)))
        (check (andmap (lambda (name) (and (member (path-expand name root) files) #t))
                       '("grammar.ss" "parser.ss" "parser-test.ss")) => #t)
-       (check (and (declaration? (path-expand "parser.ss" root) 'deflanguage-parser-loader) #t) => #t)
+       (check (and (or (declaration? (path-expand "parser.ss" root) 'deflanguage-parser-loader)
+                  (declaration? (path-expand "parser.ss" root) 'deflanguage-development-loader)) #t) => #t)
        (check (and (declaration? (path-expand "parser-test.ss" root) 'deflanguage-parser-tests) #t) => #t)))
     (filter (lambda (name) (eq? (file-info-type (file-info (path-expand name "languages"))) 'directory))
             (directory-files "languages"))))))

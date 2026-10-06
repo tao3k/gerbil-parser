@@ -4,7 +4,7 @@
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-build-support
                  declare-language-build-strategy make-fused-reduction-strategy make-rust-rowan-strategy)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
         (only-in ./grammar
                  +arithmetic-language-version+
                  +arithmetic-syntax-contract+
@@ -23,7 +23,7 @@
         arithmetic-language
         parse-arithmetic)
 
-(deflanguage-parser-loader (arithmetic-language :: self LanguageLoader.)
+(deflanguage-development-loader (arithmetic-language :: self LanguageDevelopmentLoader.)
   (grammar arithmetic-language-grammar)
   (parse parse-arithmetic)
   (slots metadata: (.o grammar-format: 'concise-dsl)

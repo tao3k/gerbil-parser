@@ -4,8 +4,10 @@
 ;;; Run in separate processes with each revision's own GERBIL_PATH. Dynamic
 ;;; import and GC are outside the timed region; each sample parses all sources.
 
-(import (only-in :gerbil-parser/language-support
-                 language-loader-fixtures syntax-fixture-source)
+(import (only-in :gerbil-parser/language-support/development
+                 language-loader-fixtures language-loader-fixture-count)
+        (only-in :gerbil-parser/language-support/fixture syntax-fixture-source)
+        (only-in :gerbil-parser/languages/gql/parser-test gql-test-language)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-roundtrip)
         (only-in :gerbil-parser/languages/hcl/parser
@@ -22,7 +24,7 @@
    (cons parse-hcl
          (map syntax-fixture-source (language-loader-fixtures hcl-language 'accepted)))
    (cons parse-gql
-         (map syntax-fixture-source (language-loader-fixtures gql-language 'accepted)))
+         (map syntax-fixture-source (language-loader-fixtures gql-test-language 'accepted)))
    (cons parse-opencypher
          (map syntax-fixture-source (language-loader-fixtures opencypher-language 'accepted)))
    (cons parse-tla-plus-core

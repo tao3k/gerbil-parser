@@ -1,0 +1,163 @@
+#+title: Engine, Common Library, and GQL Interface Boundaries
+
+* Decision and scope
+
+The parser engine accepts language-independent declarations and executes generated
+machines. Language-specific token mappings, source-format adaptation, corpus
+contracts, and development services belong to language authors or common libraries.
+This refactor makes the audited GQL production entry independent of its corpus.
+It does not establish complete ISO GQL conformance or a general ANTLR lexer compiler.
+
+* Ownership and dependency direction
+
+| Owner | Responsibility | Excluded responsibility |
+|-------+----------------+-------------------------|
+| src/compiler, src/grammar | Canonical IR validation, binding, compilation, generated machine | GQL token names and standard examples |
+| src/runtime | Recognition, lossless events, generic diagnostics and budgets | ANTLR source-file parsing and corpus execution |
+| src/language/entry.ss | Descriptor dispatch and generic policy execution | Loader service registries and fixture admission |
+| language-support/entry.ss | Public POO entry declaration over an admitted descriptor | Corpus, test and build requirements |
+| language-support/development.ss | Optional descriptor-bound corpus, scanner and build services | A separate recognition algorithm |
+| language-support/antlr4-source.ss | Source catalog and explicit terminal lowering | Inferring a token category from a GQL naming convention |
+| languages/gql/grammar.ss | Pinned source identity, explicit lexical profile, generated products | Runtime parsing implementation |
+| languages/gql/parser.ss | Production descriptor and parse-gql | Embedded examples or development service registries |
+| languages/gql/parser-test.ss | Corpus, development entry and independent semantic expectations | Reimplementing the grammar compiler |
+
+The common library depends on the engine. Engine dispatch does not depend on the
+common fixture or development libraries. Other existing language entries migrate
+their service declarations directly to the explicit development library. Their
+corpus-bearing entries remain development entries; this is not a claim that all
+language packs have completed the production/corpus split demonstrated by GQL.
+
+* Explicit imported-source semantics
+
+The ANTLR adapter formerly classified nonliteral lexer symbols by names containing
+IDENTIFIER, CHARACTER_SEQUENCE, or UNSIGNED_DECIMAL. It also supplied fixed quote,
+comment, and numeric scanner forms. Those assumptions described a GQL lexical
+profile, rather than a language-independent ANTLR format contract.
+
+GQL now declares exact lexical bindings and scanner expressions in grammar.ss.
+The format macro receives that profile and lowers it to the same canonical
+language-declaration route as other grammar surfaces. Literal derivation receives
+the same profile; it cannot silently use an implicit second mapping.
+
+#+begin_src scheme
+;; A profile is language data consumed by the existing format adapter.
+;; The full GQL profile also supplies its syntax kinds, terminals and extras.
+(lexical-profile
+  (token-bindings ("REGULAR_IDENTIFIER" token identifier))
+  (syntax-kinds (LexicalIdentifier token (text)))
+  (terminals (identifier LexicalIdentifier))
+  (lexical-rules (identifier (identifier)))
+  (extras))
+
+;; Question 1: Why is this design better?
+;; The token's language meaning has an explicit language-package owner.
+;; Changing its spelling cannot silently change the imported grammar semantics.
+;; Scheme lists preserve the expression structure and feed the shared compiler.
+;; Native POO remains the entry and service composition substrate.
+;; Question 2: Why does this design have a scientific basis?
+;; Extensible surfaces lower into one compilation core with checked boundaries.
+;; Missing bindings fail closed; an independently supplied binding determines
+;; the nonliteral terminal, and duplicate keys fail before grammar lowering.
+;; These are executable falsifiers, not a proof of full ANTLR/GQL equivalence.
+#+end_src
+
+The current profile deliberately preserves the previous scanner categories.
+Several upstream numeric and quoted token classes still share engine token kinds.
+Their full language equivalence is not proved by moving the mappings. Distinct
+class acceptance and upstream lexer equivalence require further semantic controls.
+Likewise, this refactor does not prove that the adapter's existing general
+alternative-precedence projection reproduces all ANTLR adaptive decisions.
+
+* Production and development entry contracts
+
+#+begin_src scheme
+;; parser.ss: production use requires no test corpus or build registry.
+(deflanguage-parser-loader (gql-language :: self LanguageLoader.)
+  (grammar gql-language-grammar)
+  (parse parse-gql))
+
+;; parser-test.ss: optional development facilities over the exact descriptor.
+(deflanguage-development-loader
+  (gql-test-language :: self LanguageDevelopmentLoader.)
+  (grammar gql-language-grammar)
+  (parse parse-gql-test)
+  (slots fixtures: gql-official-fixtures))
+
+;; Question 1: Why is this design better?
+;; Parsing can load without fixture admission, hashing or fixture copies.
+;; Development checks retain identity, source integrity and conformance guards.
+;; Both entries execute the same admitted descriptor and engine dispatcher.
+;; Question 2: Why does this design have a scientific basis?
+;; The boundary test requires identical complete event streams for both entries.
+;; It also checks that production has no fixture/test/build service slots.
+;; Corpus expectations remain independently authored and can reject regressions.
+;; The module split itself is our engineering decision, not a paper theorem.
+#+end_src
+
+The optional development contract retains owned fixture copies, effective POO slot
+validation, descriptor-bound scanner/build capabilities and sealed dispatch.
+The production contract checks only parsing identity, metadata and descriptor
+products. Shared private loader-identity utilities avoid duplicate identity rules.
+No compatibility forwarding module remains in src/language/entry.ss.
+
+* Paper-to-code relationship
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]], section 1 and Figure 1, supports
+an extensible elaboration surface feeding a compilation core with explicit
+boundaries. Our adaptation is source-format and Scheme declaration front ends
+feeding canonical admission, with runtime consumers using generated products.
+The paper does not prescribe our directory names or prove our implementation.
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]], section 7.2, demonstrates phased declaration processing
+for dependent grammar/token clauses. Our profile and source catalog are collected
+before terminal lowering and canonical validation. The paper motivates separating
+these responsibilities; it does not establish equivalence of the imported lexer.
+
+* Reproducible verification
+
+Run =bash scripts/check-dsl-research.sh= in the project-qualified Gerbil environment.
+The same gate now includes production/development boundary controls, the complete
+three-interface topology test, Loader extension tests, explicit ANTLR profile
+counterexamples, GQL conformance, and the prior DSL/POO/source-origin controls.
+Each child has the unchanged ten-second completion fence and must exit zero.
+Native module compilation retains the existing 240-second total and five-second
+output-idle watchdog. A timed-out attempt is not a successful receipt.
+
+GQL performance controls remain under =t/benchmarks/gql/runtime=. This change does
+not claim a speedup, corpus-wide latency percentile, or complete native runtime
+closure. Moving corpus admission outside production parsing is a dependency
+improvement; its timing impact needs matched measurements before any claim.
+
+* Qualification receipts and CI repair
+
+On 2026-10-07 the extended local gate passed 350 cases/checks in seventeen
+processes, each exiting zero. Its cross-language metadata suite initially reached
+the ten-second fence while creating compiler artifacts; the subsequent bounded
+run completed using the real generated cache. The failed cold attempt is retained
+and is not a successful cold-start latency receipt.
+
+The final ANTLR source/profile native compilation completed in 9.26 seconds,
+and the final source-literals ordering macro in 4.15 seconds, both with exit zero
+under the unchanged watchdog. Earlier attempts using a Nix cc selected from PATH
+hit the output-idle fence; selecting the system C compiler and clearing inherited
+SDK/Nix flags produced the admitted native receipts. This does not establish a
+compiler performance comparison or qualify the complete native runtime graph.
+
+Independent old/new GQL product dumps completed with normal exits. A Scheme
+comparison requires exact Grammar IR and Parser IR equality, plus matching 1176
+Bound IR identities, namespaces, references, reference digests, and pinned source
+coordinates. Complete Bound IR differs in author-origin coordinates and consequent
+identity digests; those locations must remain truthful rather than be normalized
+away to manufacture byte equality.
+
+The prior PR CI failures had concrete harness causes: macOS lacked GNU timeout,
+and Linux discovered package-expression-test.ss as a gxtest suite although it was
+an executable research program. CI now installs coreutils on macOS; the program
+is renamed package-expression-runtime.ss and its 85 controls execute explicitly
+through the same bounded gate. The native no-cases guard is retained unchanged.
+New exact-head CI results must be checked separately after publication.
+
+The final publication gate includes the renamed executable and retains all of
+its 85 checks, for 435 total cases/checks across eighteen bounded processes.
+Final child exit records, rather than assertion markers alone, determine success.

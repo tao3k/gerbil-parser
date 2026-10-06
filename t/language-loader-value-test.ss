@@ -2,8 +2,8 @@
 (import :std/test
         (only-in :clan/poo/object .o .ref .cc)
         (only-in :clan/poo/mop element?)
-        (only-in :gerbil-parser/src/language/entry
-                 deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        (only-in :gerbil-parser/language-support/development
+                 deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
                  +language-parser-entry-schema+ run-language-test
                  language-loader-fixtures language-loader-fixture-count language-loader-fixture)
         (only-in :gerbil-parser/language-source-support declare-source-language LineSourceStrategy.)
@@ -15,11 +15,11 @@
   (declare-source-language "loader-value" "0.12.2" "loader-value.test"
                            LineSourceStrategy.))
 (def Pack.
-  (.o (:: self LanguageLoader.)
+  (.o (:: self LanguageDevelopmentLoader.)
       metadata: (.o version: "spoofed" digest: "spoofed" upstream-commit: "pinned")
       fixtures: '()
       (edition-summary (.ref (.ref self 'metadata) 'version))))
-(deflanguage-parser-loader (loader :: self Pack.)
+(deflanguage-development-loader (loader :: self Pack.)
   (source descriptor) (parse parse-loader))
 (defsyntax-fixture foreign
   (identity "foreign" "another-language" "0.12.2" "loader-value.test")
@@ -40,10 +40,10 @@
   (identity "fixture-index/extended" "fixture-index" "0.12.2" "fixture-index.test")
   (text "ok:中") (expect accepted RecordFile ()))
 (def FixturePack.
-  (.o (:: self LanguageLoader.) fixtures: (list fixture-a fixture-b)
+  (.o (:: self LanguageDevelopmentLoader.) fixtures: (list fixture-a fixture-b)
       fixture-catalog: 'forged-parent
       (accepted-count (language-loader-fixture-count self 'accepted))))
-(deflanguage-parser-loader (fixture-loader :: self FixturePack.)
+(deflanguage-development-loader (fixture-loader :: self FixturePack.)
   (source fixture-descriptor) (parse parse-fixture-index))
 (def language-loader-value-test
   (test-suite "language loader value slots"
@@ -63,8 +63,8 @@
     (test-case "POO replacement and extension recompute the effective fixture index"
       (let* ((replacement (.cc fixture-loader 'fixtures (list fixture-c)))
              (extension (.cc fixture-loader 'fixtures (append (.ref fixture-loader 'fixtures) (list fixture-c)))))
-        (check (element? LanguageLoaderContract replacement) => #t)
-        (check (element? LanguageLoaderContract extension) => #t)
+        (check (element? LanguageDevelopmentLoaderContract replacement) => #t)
+        (check (element? LanguageDevelopmentLoaderContract extension) => #t)
         (check (.ref replacement 'accepted-count) => 1)
         (check (.ref extension 'accepted-count) => 2)
         (check (language-loader-fixture-count replacement 'rejected) => 0)
@@ -86,7 +86,7 @@
     (test-case "foreign identities, duplicate ids, invalid digests and forged derived slots reject at admission"
       (let (corrupted (syntax-fixture-copy fixture-a))
         (string-set! (syntax-fixture-source corrupted) 0 #\x)
-        (for-each (lambda (candidate) (check (element? LanguageLoaderContract candidate) => #f))
+        (for-each (lambda (candidate) (check (element? LanguageDevelopmentLoaderContract candidate) => #f))
           (list (.cc fixture-loader 'fixtures (list fixture-a (syntax-fixture-copy fixture-a)))
                 (.cc fixture-loader 'fixtures (list foreign))
                 (.cc fixture-loader 'fixtures (list corrupted))
@@ -105,20 +105,20 @@
       (check (equal? (.ref (.ref loader 'metadata) 'digest) "spoofed") => #f)
       (check (.ref (.ref loader 'metadata) 'upstream-commit) => "pinned")
       (check (.ref loader 'edition-summary) => "0.12.2")
-      (check (element? LanguageLoaderContract loader) => #t)
-      (check (element? LanguageLoaderContract
+      (check (element? LanguageDevelopmentLoaderContract loader) => #t)
+      (check (element? LanguageDevelopmentLoaderContract
                        (.cc loader 'metadata (.cc (.ref loader 'metadata) 'version "spoofed"))) => #f))
     (test-case "fixture values inherit and replace without callback execution"
       (check (.ref loader 'fixtures) => '())
       (check (run-language-test loader 'fixtures) => '())
-      (check (element? LanguageLoaderContract (.cc loader 'fixtures (lambda () '()))) => #f)
-      (check (element? LanguageLoaderContract (.cc loader 'fixtures '(invalid))) => #f)
+      (check (element? LanguageDevelopmentLoaderContract (.cc loader 'fixtures (lambda () '()))) => #f)
+      (check (element? LanguageDevelopmentLoaderContract (.cc loader 'fixtures '(invalid))) => #f)
       (check (rejects? (lambda () (run-language-test (.cc loader 'fixtures (list foreign)) 'fixtures))) => #t))
     (test-case "new descriptor revisions change metadata under the same public loader contract"
       (def next-descriptor
         (declare-source-language "loader-value" "0.12.3" "loader-value.test"
                                  LineSourceStrategy.))
-      (deflanguage-parser-loader (next-loader :: self Pack.)
+      (deflanguage-development-loader (next-loader :: self Pack.)
         (source next-descriptor) (parse parse-next-loader))
       (check (.ref (.ref next-loader 'metadata) 'version) => "0.12.3")
       (check (equal? (.ref (.ref next-loader 'metadata) 'digest)

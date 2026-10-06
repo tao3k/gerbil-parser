@@ -5,7 +5,7 @@
 
 (import (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
         ./grammar)
 (export (import: ./grammar)
         fhirpath-language
@@ -20,7 +20,7 @@
   (rejected
    ("fhirpath/incomplete" fhirpath-incomplete (text "Patient.name.where("))))
 
-(deflanguage-parser-loader (fhirpath-language :: self LanguageLoader.)
+(deflanguage-development-loader (fhirpath-language :: self LanguageDevelopmentLoader.)
   (grammar fhirpath-language-grammar)
   (parse parse-fhirpath)
   (slots metadata: (.o grammar-format: 'concise-dsl source-digest: +fhirpath-antlr4-digest+)

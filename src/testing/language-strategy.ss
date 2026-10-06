@@ -3,7 +3,7 @@
 ;;; This engine module has no language imports, callbacks or name dispatch.
 (import (only-in :std/test check)
         (only-in :clan/poo/object .ref .slot?)
-        (only-in ../language/entry language-loader-fixtures)
+        (only-in ../../language-support/development language-loader-fixtures)
         (only-in ../language/descriptor language-grammar-machine)
         (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia
                  parser-machine-grammar-digest parser-machine-direct-source)

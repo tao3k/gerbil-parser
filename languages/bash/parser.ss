@@ -2,7 +2,7 @@
 ;;; Public versioned Bash parser entry and here-document span receipt.
 
 (import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.
                  declare-language-source-scan-worker)
         (only-in :gerbil-parser/language-source-support deflanguage-source-receipt)
         (only-in :gerbil-parser/src/runtime/shell-parser
@@ -11,7 +11,7 @@
 (export (import: ./grammar) bash-language parse-bash parse-bash/receipt
         shell-here-document-link? shell-here-document-link-marker-start shell-here-document-link-body-start)
 
-(deflanguage-parser-loader (bash-language :: self LanguageLoader.)
+(deflanguage-development-loader (bash-language :: self LanguageDevelopmentLoader.)
   (source bash-source-language)
   (parse parse-bash)
   (slots metadata: (.o grammar-format: 'source-parser)

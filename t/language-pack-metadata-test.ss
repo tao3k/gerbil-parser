@@ -4,6 +4,7 @@
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language)
         (only-in :gerbil-parser/languages/hcl/parser hcl-language)
         (only-in :gerbil-parser/languages/gql/parser gql-language)
+        (only-in :gerbil-parser/languages/gql/parser-test gql-test-language)
         (only-in :gerbil-parser/languages/cypher/parser opencypher-language)
         (only-in :gerbil-parser/languages/bash/parser bash-language)
         (only-in :gerbil-parser/languages/hl7/parser hl7-language)
@@ -11,7 +12,7 @@
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-core-language tla-plus-layout-language)
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-sany-candidate-language)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
-        (only-in :gerbil-parser/src/language/entry make-language-scan-worker run-language-test +language-parser-entry-schema+)
+        (only-in :gerbil-parser/language-support/development make-language-scan-worker run-language-test +language-parser-entry-schema+)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid?)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir language-grammar-machine)
@@ -71,7 +72,7 @@
            (check (pair? artifacts) => #t)
            (check (every parse-artifact-valid? artifacts) => #t)))
        (list arithmetic-language hcl-language
-             gql-language opencypher-language
+             gql-test-language opencypher-language
              hl7-language fhirpath-language bash-language
              tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language)))
     (test-case "Bash workers retain independent deferred scanner obligations"

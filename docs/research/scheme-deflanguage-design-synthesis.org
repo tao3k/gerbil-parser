@@ -188,7 +188,7 @@ hygiene, scoped context, diagnosis, parsing algebra, analyses or POO extensibili
 | Wrapper/alias preservation | [[file:scheme-nested-declaration-context.org][Nested vocabulary]] | 24 forwarding and 28 author-contract checks, exit 0 |
 | Scoped delegated context | [[file:scheme-syntax-parameter-context.org][Syntax parameters]] | 9 scope, 28 diagnostic, 12 real-role checks, exit 0 |
 | Resolved consumption facts | [[file:scheme-list-role-composition.org][List semantic contract follow-ups]] | 35 item/FIRST and 29 repetition checks, exit 0 |
-| Expression-vocabulary package through checked Loader | [[file:../../t/fixtures/language-pack-research/package-expression-test.ss][Integrated local control]] | 85 checks, exit 0; selected events/fields/rejections and identity |
+| Expression-vocabulary package through checked Loader | [[file:../../t/fixtures/language-pack-research/package-expression-runtime.ss][Integrated local control]] | 85 checks, exit 0; selected events/fields/rejections and identity |
 | Same package through declarative test DSL | [[file:../../t/fixtures/language-pack-research/package-expression-parser-test.ss][Conformance declarations]] | 11 cases, suite OK and exit 0; overlaps manual control |
 | Inferred versus retained public fields | [[file:scheme-dsl-semantic-contracts.org][Matched list package DSL variants]] | 5 cases each, exit 0; initial combined invocation timeout retained |
 | Entire package/product lifecycle | Local composed canonical, published machine and checked entry controls | Production public composition syntax, general author capture and full native target gates remain open |

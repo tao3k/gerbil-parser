@@ -55,10 +55,19 @@ run_suite diagnostics '(only-in :gerbil-parser/t/language-diagnostics-test langu
 run_suite surface '(only-in :gerbil-parser/t/language-surface-test language-surface-test)' '(list language-surface-test)'
 run_suite composition '(only-in :gerbil-parser/t/grammar-composition-test grammar-composition-test)' '(list grammar-composition-test)'
 run_suite publication '(only-in :gerbil-parser/t/language-artifact-test language-artifact-tests)' '(list language-artifact-tests)'
+run_suite entry-boundaries '(only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test)' '(list language-entry-boundary-test)'
+run_suite topology '(only-in :gerbil-parser/t/language-topology-test language-topology-test)' '(list language-topology-test)'
+run_suite loaders '(only-in :gerbil-parser/t/language-loader-test language-loader-test)
+        (only-in :gerbil-parser/t/language-loader-value-test language-loader-value-test)' '(list language-loader-test language-loader-value-test)'
 run_suite gql '(only-in :gerbil-parser/t/antlr4-source-test antlr4-source-test)
         (only-in :gerbil-parser/languages/gql/parser-test gql-parser-test)' '(list antlr4-source-test gql-parser-test)'
+run_suite gql-profile '(only-in :gerbil-parser/t/gql/benchmark-profile-test gql-benchmark-profile-test)' '(list gql-benchmark-profile-test)'
+run_suite pack-metadata '(only-in :gerbil-parser/t/language-pack-metadata-test language-pack-metadata-test)' '(list language-pack-metadata-test)'
+run_suite source-services '(only-in :gerbil-parser/t/source-strategy-test source-strategy-test)' '(list source-strategy-test)'
+run_suite build-services '(only-in :gerbil-parser/t/build-strategy-test build-strategy-test)' '(list build-strategy-test)'
 run_suite concise-package '(only-in :gerbil-parser/t/fixtures/language-pack-research/package-expression-parser-test package-expression-parser-test)' '(list package-expression-parser-test)'
 run_suite composed-package '(only-in :gerbil-parser/t/fixtures/language-pack-research/list-parser-test list-parser-test)' '(list list-parser-test)'
+run_program concise-runtime t/fixtures/language-pack-research/package-expression-runtime.ss
 run_program history t/fixtures/language-pack-research/composition-history.ss
 run_program native-poo-runtime t/fixtures/language-pack-research/list-runtime.ss
 run_program provenance t/fixtures/language-pack-research/provenance-language.ss

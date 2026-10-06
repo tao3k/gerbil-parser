@@ -14,6 +14,7 @@
         +gql-antlr4-digest+
         +gql-syntax-contract+
         +gql-representative-query+
+        gql-antlr4-token-bindings
         gql-antlr4-source
         gql-language-grammar
         gql-grammar
@@ -38,7 +39,56 @@
   (source "grammar-source/GQL.g4")
   (entrypoint gqlProgram)
   (conflicts selective-glr)
-  (case-insensitive #t))
+  (case-insensitive #t)
+  (lexical-profile
+    (token-bindings
+      ("PARAMETER_NAME" token identifier)
+      ("SINGLE_QUOTED_CHARACTER_SEQUENCE" token string)
+      ("DOUBLE_QUOTED_CHARACTER_SEQUENCE" token string)
+      ("ACCENT_QUOTED_CHARACTER_SEQUENCE" token string)
+      ("UNBROKEN_SINGLE_QUOTED_CHARACTER_SEQUENCE" token string)
+      ("UNBROKEN_DOUBLE_QUOTED_CHARACTER_SEQUENCE" token string)
+      ("UNBROKEN_ACCENT_QUOTED_CHARACTER_SEQUENCE" token string)
+      ("BYTE_STRING_LITERAL" token string)
+      ("UNSIGNED_DECIMAL_IN_SCIENTIFIC_NOTATION_WITH_EXACT_NUMBER_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_IN_SCIENTIFIC_NOTATION_WITHOUT_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_IN_SCIENTIFIC_NOTATION_WITH_APPROXIMATE_NUMBER_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_IN_COMMON_NOTATION_WITH_EXACT_NUMBER_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_IN_COMMON_NOTATION_WITHOUT_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_IN_COMMON_NOTATION_WITH_APPROXIMATE_NUMBER_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_INTEGER_WITH_EXACT_NUMBER_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_INTEGER_WITH_APPROXIMATE_NUMBER_SUFFIX" token number)
+      ("UNSIGNED_DECIMAL_INTEGER" token number)
+      ("UNSIGNED_DECIMAL_IN_SCIENTIFIC_NOTATION" token number)
+      ("UNSIGNED_DECIMAL_IN_COMMON_NOTATION" token number)
+      ("UNSIGNED_HEXADECIMAL_INTEGER" token number)
+      ("UNSIGNED_OCTAL_INTEGER" token number)
+      ("UNSIGNED_BINARY_INTEGER" token number)
+      ("SEPARATED_IDENTIFIER" token identifier)
+      ("REGULAR_IDENTIFIER" token identifier)
+      ("EXTENDED_IDENTIFIER" token identifier)
+      ("DELIMITED_IDENTIFIER" token identifier)
+      ("IDENTIFIER_START" token identifier)
+      ("IDENTIFIER_EXTEND" token identifier))
+    (syntax-kinds
+      (LexicalIdentifier token (text)) (NumericLiteralToken token (text))
+      (StringLiteralToken token (text)) (WhitespaceTrivia token (text))
+      (CommentTrivia token (text)) (PunctuationToken token (text))
+      (UnknownToken token (text)))
+    (terminals
+      (identifier LexicalIdentifier) (number NumericLiteralToken)
+      (string StringLiteralToken) (whitespace WhitespaceTrivia)
+      (comment CommentTrivia) (punctuation PunctuationToken) (unknown UnknownToken))
+    (lexical-rules
+      (whitespace (whitespace+))
+      (comment (choice (line-comment "//") (block-comment "/*" "*/")))
+      (string (quoted-string "\"" "'" "`"))
+      (number (number-literal ("0x" "0o" "0b") "_"
+                             ("M" "m" "F" "f" "D" "d") #t #t))
+      (identifier (identifier))
+      (punctuation (source-literals))
+      (unknown (fallback)))
+    (extras whitespace comment)))
 
 ;;; Runtime metadata derives from the same admitted declaration and source catalog.
 (def +gql-standard-edition+ (language-grammar-version gql-language-grammar))

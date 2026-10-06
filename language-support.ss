@@ -1,8 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; Stable public facade for language implementations.
-;;; Internal source-admission and fixture layout remains private under src/.
+;;; Source adapters are common library modules; development services are opt-in.
 
-(import (only-in ./src/grammar/lexical-algebra deftext-profile)
+(import (only-in ./language-support/entry
+                 deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+                 +language-parser-entry-schema+ language-parser-entry-ref)
+        (only-in ./src/grammar/lexical-algebra deftext-profile)
         (only-in ./src/runtime/region-scanner defregion-plan)
         (only-in ./language-support/antlr4-source
                  +antlr4-source-schema+
@@ -88,14 +91,6 @@
                  deflanguage
                  deflanguage-grammar
                  defgrammar-syntax)
-        (only-in ./src/language/entry
-                 +language-parser-entry-schema+
-                 deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
-        language-loader-fixtures language-loader-fixture-count language-loader-fixture
-        check-language-loader-fixtures!
-        declare-language-source-scan-worker make-language-scan-worker
-        declare-language-fixture-test run-language-test
-                 language-parser-entry-ref)
         (only-in ./src/language/descriptor
                  language-grammar-with-parser-policy)
         (only-in ./src/language/source
@@ -107,7 +102,8 @@
                  parse-artifact-roundtrip
                  parse-artifact-success?
                  parse-artifact-valid?))
-(export defregion-plan deftext-profile
+(export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        defregion-plan deftext-profile
         +antlr4-source-schema+
         +javacc-source-schema+
         +iso-bnf-source-schema+
@@ -174,11 +170,6 @@
         defgrammar-syntax
         +language-parser-entry-schema+
         +source-language-schema+
-        deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
-        language-loader-fixtures language-loader-fixture-count language-loader-fixture
-        check-language-loader-fixtures!
-        declare-language-source-scan-worker make-language-scan-worker
-        declare-language-fixture-test run-language-test
         declare-source-language
         language-grammar-with-parser-policy
         source-language?

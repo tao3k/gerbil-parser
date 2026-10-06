@@ -401,23 +401,6 @@
   (string-contains-from?
    text fragment 0 (string-length text) (string-length fragment)))
 
-;; : (-> String Boolean)
-(def (identifier-token-name? name)
-  (or (string-contains? name "IDENTIFIER")
-      (string=? name "PARAMETER_NAME")))
-
-;; : (-> String Boolean)
-(def (string-token-name? name)
-  (or (string-contains? name "CHARACTER_SEQUENCE")
-      (string-contains? name "STRING_LITERAL")))
-
-;; : (-> String Boolean)
-(def (number-token-name? name)
-  (or (string-contains? name "UNSIGNED_DECIMAL")
-      (string-contains? name "UNSIGNED_HEXADECIMAL")
-      (string-contains? name "UNSIGNED_OCTAL")
-      (string-contains? name "UNSIGNED_BINARY")))
-
 ;; : (-> (HashTable String Antlr4Rule) String (List String) (Maybe String))
 (def (constant-lexer-expression rule-index name seen)
   (and (not (string-member? name seen))
@@ -435,14 +418,12 @@
                         (error "non-constant lexer rule" reference))))))))))
 
 ;; : (-> (HashTable String Antlr4Rule) String GrammarExpr)
-(def (parser-terminal-expression rule-index name)
+(def (parser-terminal-expression rule-index name token-bindings)
   (def (lower name seen)
     (cond
      ((string=? name "EOF") (antlr4-empty))
      ((constant-lexer-expression rule-index name '()) => values)
-     ((identifier-token-name? name) '(token identifier))
-     ((string-token-name? name) '(token string))
-     ((number-token-name? name) '(token number))
+     ((assoc name token-bindings) => cdr)
      ((string-member? name seen)
       (error "cyclic ANTLR4 lexer rule" name))
      (else
@@ -451,7 +432,7 @@
           (error "ANTLR4 lexer rule expected" name))
         (with-catch
          (lambda (_)
-           (error "OpenGQL lexer token requires an admitted scanner primitive"
+           (error "ANTLR4 lexer token requires an explicit lexical binding"
                   name))
          (lambda ()
            (parse-rule-grammar-expression
@@ -462,8 +443,8 @@
 
 ;; ANTLR alternatives are ordered decisions, including outside direct left
 ;; recursion. Project every alternative rank into the native LR precedence
-;; model so the adapter preserves upstream decision semantics instead of
-;; manufacturing an unordered selective-GLR fork.
+;; model used by this adapter. This projection avoids an unordered fork for
+;; the admitted controls; it is not a general proof of ANTLR decision equivalence.
 ;; : (-> (List GrammarExpr) Integer (List GrammarExpr) (List GrammarExpr))
 (def (apply-antlr-precedence-from rest rank found)
   (if (null? rest)
@@ -537,15 +518,24 @@
     (cons 'choice (map inline-alternative (cdr expression)))
     (inline-alternative expression)))
 
-;; : (-> Antlr4Source (List GrammarRule))
-(def (antlr4-source-parser-grammar-rules source)
+;; : (-> Antlr4Source (Optional (List TerminalBinding)) (List GrammarRule))
+;; Nonliteral terminals require the importing language's explicit profile.
+(def (antlr4-source-parser-grammar-rules source (token-bindings '()))
+  (unless (and (list? token-bindings)
+               (andmap (lambda (row) (and (pair? row) (string? (car row))
+                                          (pair? (cdr row)))) token-bindings)
+               (let loop ((rows token-bindings) (seen '()))
+                 (or (null? rows)
+                     (and (not (member (caar rows) seen))
+                          (loop (cdr rows) (cons (caar rows) seen))))))
+    (error "invalid or duplicate ANTLR4 lexical bindings" token-bindings))
   (let ((rule-index (antlr4-source-rule-index source))
         (terminal-cache (make-table test: equal?)))
     (def (resolve reference)
       (if (uppercase-rule-name? reference)
         (or (table-ref terminal-cache reference #f)
             (let (expression
-                  (parser-terminal-expression rule-index reference))
+                  (parser-terminal-expression rule-index reference token-bindings))
               (table-set! terminal-cache reference expression)
               expression))
         (list 'reference (string->symbol reference))))
@@ -588,12 +578,12 @@
      (grammar-literals (cadddr expression)))
     (else '())))
 
-;; : (-> Antlr4Source (List String))
-(def (antlr4-source-parser-literals source)
+;; : (-> Antlr4Source (Optional (List TerminalBinding)) (List String))
+(def (antlr4-source-parser-literals source (token-bindings '()))
   (unique-strings
    (apply append
           (map (lambda (row) (grammar-literals (cadr row)))
-               (antlr4-source-parser-grammar-rules source)))))
+               (antlr4-source-parser-grammar-rules source token-bindings)))))
 
 ;;; ANTLR rule names remain native grammar names in Bound Grammar IR.  The
 ;;; catalog currently owns rule identity but not token offsets, so location is

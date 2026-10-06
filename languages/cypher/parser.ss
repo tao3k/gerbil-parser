@@ -2,13 +2,13 @@
 ;;; Canonical public parser entry for openCypher 2024.1.
 
 (import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/src/language/entry deflanguage-parser-loader LanguageLoader.)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
         ./grammar)
 (export (import: ./grammar)
         opencypher-language
         parse-opencypher)
 
-(deflanguage-parser-loader (opencypher-language :: self LanguageLoader.)
+(deflanguage-development-loader (opencypher-language :: self LanguageDevelopmentLoader.)
   (grammar opencypher-language-grammar)
   (parse parse-opencypher)
   (slots metadata: (.o grammar-format: 'iso-bnf reference-commit: +opencypher-commit+

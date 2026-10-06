@@ -97,7 +97,7 @@ jobs:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
         run: |
           brew list --formula ghostscript >/dev/null 2>&1 && brew unlink ghostscript || true
-          brew install gcc jq openssl pkg-config sqlite zlib
+          brew install coreutils gcc jq openssl pkg-config sqlite zlib
           gcc_prefix="$(brew --prefix gcc)"
           gcc_bin="$(
             find "$gcc_prefix/bin" -maxdepth 1 -type f -name 'gcc-[0-9]*' \

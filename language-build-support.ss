@@ -4,7 +4,7 @@
         (only-in ./src/compiler/rowan-strategy RustRowanStrategy. RustRowanStrategyContract make-rust-rowan-strategy)
         (only-in ./src/compiler/fused-reduction FusedReductionStrategy. FusedReductionStrategyContract
                  make-fused-reduction-strategy)
-        (only-in ./src/language/entry declare-language-build-strategy emit-language-build-strategy))
+        (only-in ./language-support/development declare-language-build-strategy emit-language-build-strategy))
 (export RecursiveSourceStrategy. make-recursive-source-strategy
         BuildStrategy. BuildStrategyContract make-bound-build-strategy emit-build-strategy
         RustRowanStrategy. RustRowanStrategyContract make-rust-rowan-strategy

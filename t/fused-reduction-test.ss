@@ -16,7 +16,7 @@
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source syntax-fixture-expected-status)
         (only-in :gerbil-parser/languages/hcl/parser hcl-language hcl-language-grammar hcl-official-fixtures)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language arithmetic-language-grammar)
-        (only-in :gerbil-parser/src/language/entry LanguageLoaderContract)
+        (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
         (prefix-in :gerbil-parser/src/compiler/hcl-reductions hcl-)
         (prefix-in "fixtures/arithmetic-reductions.ss" arithmetic-))
 (export fused-reduction-test)
@@ -78,9 +78,9 @@
       (let (output (call-with-output-string (lambda (port) (emit-language-build-strategy hcl-language 'fused-reductions port))))
         (check output => (emitted (make-fused-reduction-strategy hcl-language-grammar)))
         (check (length (.ref arithmetic-language 'build-strategies)) => 2)
-        (check-exception (validate LanguageLoaderContract
+        (check-exception (validate LanguageDevelopmentLoaderContract
                          (.cc hcl-language 'build-strategies (.ref arithmetic-language 'build-strategies))) true)
-        (check-exception (validate LanguageLoaderContract
+        (check-exception (validate LanguageDevelopmentLoaderContract
                          (.cc hcl-language 'build-strategies
                               (append (.ref hcl-language 'build-strategies) (.ref hcl-language 'build-strategies)))) true)
         (check-exception (emit-language-build-strategy hcl-language 'missing (open-output-string)) true)))

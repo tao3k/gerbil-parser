@@ -4,8 +4,8 @@
         (only-in :clan/poo/object .o .ref .cc object?)
         (only-in :clan/poo/mop define-type element? validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
-        (only-in :gerbil-parser/src/language/entry
-                 deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        (only-in :gerbil-parser/language-support/development
+                 deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
                  language-parser-entry-ref check-language-loader-fixtures!
                  declare-language-source-scan-worker make-language-scan-worker
                  declare-language-fixture-test run-language-test)
@@ -25,7 +25,7 @@
                  parse-artifact-success? parse-artifact-roundtrip))
 
 (def Dialect.
-  (.o (:: @ LanguageLoader.)
+  (.o (:: @ LanguageDevelopmentLoader.)
       dialect: 'arithmetic
       ;; Identity and engine dispatch from parents must not take control.
       language: "incorrect-parent"
@@ -42,7 +42,7 @@
                   'loader-test/dialect candidate ok?
                   (if ok? '() '((invalid dialect))) context))))
 
-(deflanguage-parser-loader (arithmetic-loader :: self Dialect.)
+(deflanguage-development-loader (arithmetic-loader :: self Dialect.)
   (descriptor arithmetic-language-grammar)
   (parse parse-loaded-arithmetic)
   (slots dialect-name: "Arithmetic"
@@ -60,12 +60,12 @@
    #'engine-slot-rejection-message
    (string-append
     (message
-     #'(deflanguage-parser-loader (invalid-loader @ LanguageLoader.)
+     #'(deflanguage-development-loader (invalid-loader @ LanguageDevelopmentLoader.)
          (descriptor #f) (parse invalid-parse)
          (slots (.parse (lambda (_) #f))) (contracts)))
     " | "
     (message
-     #'(deflanguage-parser-loader (invalid-keyword-loader @ LanguageLoader.)
+     #'(deflanguage-development-loader (invalid-keyword-loader @ LanguageDevelopmentLoader.)
          (descriptor #f) (parse invalid-keyword-parse)
          (slots schema: "invalid") (contracts))))))
 
@@ -76,15 +76,15 @@
   (datum->syntax
    #'invalid-declaration-messages
    (cons 'quote (list (list
-    (message #'(deflanguage-parser-loader bad (grammar #f) (parse parse-bad)
+    (message #'(deflanguage-development-loader bad (grammar #f) (parse parse-bad)
                  (slots) (slots)))
-    (message #'(deflanguage-parser-loader bad (grammar #f) (parse parse-bad)
+    (message #'(deflanguage-development-loader bad (grammar #f) (parse parse-bad)
                  (contracts) (slots)))
-    (message #'(deflanguage-parser-loader bad (grammar #f) (parse parse-bad)
+    (message #'(deflanguage-development-loader bad (grammar #f) (parse parse-bad)
                  (options)))
-    (message #'(deflanguage-parser-loader (bad marker self LanguageLoader.)
+    (message #'(deflanguage-development-loader (bad marker self LanguageDevelopmentLoader.)
                  (descriptor #f) (parse parse-bad) (slots) (contracts)))
-    (message #'(deflanguage-parser-loader bad (grammar #f) (parse "bad"))))))))
+    (message #'(deflanguage-development-loader bad (grammar #f) (parse "bad"))))))))
 
 (defsyntax (inline-fixture-rejections stx)
   (def (rejects form)
@@ -123,7 +123,7 @@
   (test-suite "POO language loader admission"
     (test-case "inherits extensions and binds engine identity and dispatch"
       (check (object? arithmetic-loader) => #t)
-      (check (element? LanguageLoaderContract arithmetic-loader) => #t)
+      (check (element? LanguageDevelopmentLoaderContract arithmetic-loader) => #t)
       (check (.ref arithmetic-loader 'dialect) => 'arithmetic)
       (check (.ref arithmetic-loader 'dialect-name) => "Arithmetic")
       (check (.ref arithmetic-loader 'summary) => "Arithmetic dialect")
@@ -133,22 +133,22 @@
         (check (parse-artifact-success? artifact) => #t)
         (check (parse-artifact-roundtrip artifact) => source)))
     (test-case "typed declarations compose with POO extension forms and optional sections"
-      (deflanguage-parser-loader (typed-loader :: self Dialect.)
+      (deflanguage-development-loader (typed-loader :: self Dialect.)
         (grammar arithmetic-language-grammar) (parse parse-typed)
         (slots label: "typed" (summary (.ref self 'label))))
-      (deflanguage-parser-loader (contract-loader @ Dialect.)
+      (deflanguage-development-loader (contract-loader @ Dialect.)
         (grammar arithmetic-language-grammar) (parse parse-contract)
         (contracts DialectContract))
-      (deflanguage-parser-loader (self-loader :: self Dialect.)
+      (deflanguage-development-loader (self-loader :: self Dialect.)
         (grammar arithmetic-language-grammar) (parse parse-self))
-      (deflanguage-parser-loader (self-contract-loader :: self Dialect.)
+      (deflanguage-development-loader (self-contract-loader :: self Dialect.)
         (grammar arithmetic-language-grammar) (parse parse-self-contract)
         (contracts DialectContract))
       (check (.ref typed-loader 'summary) => "typed")
       (for-each (lambda (parse) (check (parse-artifact-success? (parse "a+1")) => #t))
                 (list parse-typed parse-contract parse-self parse-self-contract)))
     (test-case "source declarations use the same extension normalization and lossless dispatch"
-      (deflanguage-parser-loader (source-loader :: self LanguageLoader.)
+      (deflanguage-development-loader (source-loader :: self LanguageDevelopmentLoader.)
         (source bash-source-language) (parse parse-source-loaded)
         (slots label: "Bash" (summary (.ref self 'label))))
       (let* ((source "echo α\n") (artifact (parse-source-loaded source)))
@@ -162,7 +162,7 @@
             metadata: (.o edition: "v1" version: "wrong" digest: "wrong")
             fixtures: (list arithmetic-basic-fixture)
             scan-workers: '()))
-      (deflanguage-parser-loader (pack-loader :: self Pack.)
+      (deflanguage-development-loader (pack-loader :: self Pack.)
         (grammar arithmetic-language-grammar) (parse parse-pack))
       (check (.ref pack-loader 'fixtures) => (list arithmetic-basic-fixture))
       (check (rejects? (lambda () (run-language-test pack-loader 'missing))) => #t)
@@ -178,7 +178,7 @@
       (let (extended (.cc pack-loader 'fixtures
                          (append (.ref pack-loader 'fixtures) (list inline-incomplete))))
         (check (map parse-artifact-success? (run-language-test extended 'fixtures)) => '(#t #f)))
-      (deflanguage-parser-loader (worker-loader :: self LanguageLoader.)
+      (deflanguage-development-loader (worker-loader :: self LanguageDevelopmentLoader.)
         (source bash-source-language) (parse parse-worker-source)
         (slots scan-workers: (list (cons 'bash-command
                                   (declare-language-source-scan-worker
@@ -188,7 +188,7 @@
         (check (apply string-append (map token-lexeme (source-scanner-tokens worker 'command))) => source)))
     (test-case "typed fixture services extend POO slots while engine checks outcomes"
       (check (rejects? (lambda () (declare-language-fixture-test #f))) => #t)
-      (deflanguage-parser-loader (extended-tests :: self LanguageLoader.)
+      (deflanguage-development-loader (extended-tests :: self LanguageDevelopmentLoader.)
         (grammar arithmetic-language-grammar) (parse parse-extended-tests)
         (slots fixtures: (list arithmetic-basic-fixture)
                tests: (list (cons 'conformance (declare-language-fixture-test arithmetic-language-grammar)))))
@@ -202,7 +202,7 @@
        (lambda (factory)
          (def bad-source (declare-source-language "bad-worker" "v1" "bad-worker.test"
                           (test-source-strategy factory (lambda (_) '()) (lambda _ #f))))
-         (deflanguage-parser-loader (bad-worker-loader :: self LanguageLoader.)
+         (deflanguage-development-loader (bad-worker-loader :: self LanguageDevelopmentLoader.)
            (source bad-source) (parse parse-bad-worker)
            (slots scan-workers: (list (cons 'command
                                      (declare-language-source-scan-worker bad-source)))))
@@ -212,7 +212,7 @@
     (test-case "metadata admission rejects invalid descriptors and service registries"
       (for-each
        (lambda (row)
-         (check (element? LanguageLoaderContract (.cc arithmetic-loader (car row) (cdr row))) => #f))
+         (check (element? LanguageDevelopmentLoaderContract (.cc arithmetic-loader (car row) (cdr row))) => #f))
        (list (cons 'grammars '()) (cons 'grammars (list #f))
              (cons 'metadata '())
              (cons 'metadata (.cc (.ref arithmetic-loader 'metadata) 'version "wrong"))
@@ -261,10 +261,10 @@
          '("1" "a + b" "a * (b + 2)"))
         (check dialect-admissions => before)))
     (test-case "rejects a missing descriptor and inconsistent identity"
-      (check (element? LanguageLoaderContract LanguageLoader.) => #f)
-      (check (rejects? (lambda () (validate LanguageLoaderContract LanguageLoader.))) => #t)
-      (check (element? LanguageLoaderContract (.cc arithmetic-loader 'language "bash")) => #f)
-      (check (element? LanguageLoaderContract (.cc arithmetic-loader 'descriptor #f)) => #f))
+      (check (element? LanguageDevelopmentLoaderContract LanguageDevelopmentLoader.) => #f)
+      (check (rejects? (lambda () (validate LanguageDevelopmentLoaderContract LanguageDevelopmentLoader.))) => #t)
+      (check (element? LanguageDevelopmentLoaderContract (.cc arithmetic-loader 'language "bash")) => #f)
+      (check (element? LanguageDevelopmentLoaderContract (.cc arithmetic-loader 'descriptor #f)) => #f))
     (test-case "rejects engine slot overrides during macro expansion"
       (check (engine-slot-rejection-message)
              => "language loader extension overrides an engine slot | language loader extension overrides an engine slot"))
@@ -281,19 +281,19 @@
                                      LineSourceStrategy.))
         (check
          (rejects? (lambda ()
-                     (deflanguage-parser-loader wrong-grammar
+                     (deflanguage-development-loader wrong-grammar
                        (grammar source-descriptor) (parse parse-wrong-grammar))
                      wrong-grammar)) => #t)
         (check
          (rejects? (lambda ()
-                     (deflanguage-parser-loader wrong-source
+                     (deflanguage-development-loader wrong-source
                        (source arithmetic-language-grammar) (parse parse-wrong-source))
                      wrong-source)) => #t)))
     (test-case "extension contracts validate the effective slot object"
       (check
        (rejects?
         (lambda ()
-          (deflanguage-parser-loader (invalid-dialect @ Dialect.)
+          (deflanguage-development-loader (invalid-dialect @ Dialect.)
             (descriptor arithmetic-language-grammar)
             (parse parse-invalid-dialect)
             (slots (dialect 'other))

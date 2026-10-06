@@ -6,7 +6,7 @@
                  BuildStrategy. BuildStrategyContract RustRowanStrategy. FusedReductionStrategy.
                  make-bound-build-strategy make-fused-reduction-strategy make-rust-rowan-strategy
                  declare-language-build-strategy emit-build-strategy emit-language-build-strategy)
-        (only-in :gerbil-parser/src/language/entry LanguageLoaderContract)
+        (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid?)
         (only-in :gerbil-parser/src/compiler/build-strategy declare-build-strategy-provider)
         (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
@@ -46,7 +46,7 @@
              (strategy (make-rust-rowan-strategy arithmetic-language-grammar prototype))
              (loader (.cc arithmetic-language 'build-strategies
                           (list (declare-language-build-strategy 'my-rust-output strategy)))))
-        (validate LanguageLoaderContract loader)
+        (validate LanguageDevelopmentLoaderContract loader)
         (check (.ref (.ref strategy 'metadata) 'consumer) => 'downstream)
         (check (loader-output loader 'my-rust-output) => (strategy-output strategy))))
     (test-case "a recipe method override cannot replace the registered engine writer"
@@ -96,7 +96,7 @@
                           (.cc prototype 'receipt 'unknown)) true)))
     (test-case "the common registry rejects foreign descriptors across provider kinds"
       (check-exception
-       (validate LanguageLoaderContract
+       (validate LanguageDevelopmentLoaderContract
         (.cc hcl-language 'build-strategies
              (list (declare-language-build-strategy 'rust-output
                      (make-rust-rowan-strategy arithmetic-language-grammar))))) true))

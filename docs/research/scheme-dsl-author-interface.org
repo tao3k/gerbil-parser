@@ -108,8 +108,8 @@ POO receipts remain separate evidence; they do not qualify this path by implicat
 The local executable package is
 [[file:../../t/fixtures/language-pack-research/package-expression-grammar.ss][package-expression-grammar.ss]],
 [[file:../../t/fixtures/language-pack-research/package-expression-parser.ss][package-expression-parser.ss]] and
-[[file:../../t/fixtures/language-pack-research/package-expression-test.ss][package-expression-test.ss]]. On 2026-10-06 its driver ran with
-=GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" gtimeout -k 2 10 gxi t/fixtures/language-pack-research/package-expression-test.ss=:
+[[file:../../t/fixtures/language-pack-research/package-expression-runtime.ss][package-expression-runtime.ss]]. On 2026-10-06 its driver ran with
+=GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" gtimeout -k 2 10 gxi t/fixtures/language-pack-research/package-expression-runtime.ss=:
 85 checks passed, the final =PACKAGE-EXPRESSION-OK= marker was emitted and the
 process exited 0. It checks five Loader identity/dispatch expectations, eight
 accepted inputs with complete event parity and repeated field counts, and eight
@@ -200,7 +200,7 @@ interface is required. The runner is test infrastructure, not authoring syntax.
 #+begin_src scheme
 ;;; -*- Gerbil -*-
 ;;; Complete research package entry using the existing checked Loader.
-(import (only-in :gerbil-parser/src/language/entry
+(import (only-in :gerbil-parser/language-support/entry
                  deflanguage-parser-loader LanguageLoader.)
         ./grammar)
 (export list-study-language parse-list-study)
@@ -369,7 +369,7 @@ not establish measured author effort or standalone Rust/AOT qualification.
 | grammar.ss | Pins edition, upstream version/commit/digest, source path, root and parsing policy; exports admitted products and source metadata | Distinguish intentional language policy from repeated derivable metadata |
 | Expansion | deflanguage-antlr4-grammar reads/checks the pinned source, derives catalogs/rules/origins and submits a language-declaration record directly | Keep the accepted source identity attached to every generated product |
 | Canonical compilation | Existing binding, Parser IR and LR owners compile the lowered data | Reuse these owners; expansion templates must not implement another parser |
-| parser.ss | Binds gql-language-grammar through the checked Loader, declares the corpus service, supplies metadata, exports parse-gql | Preserve entry identity, immutable products and admission guarantees |
+| parser.ss | Binds gql-language-grammar through the production Loader, supplies metadata, exports parse-gql; parser-test.ss owns the corpus | Preserve entry identity, immutable products and admission guarantees |
 | parser-test.ss | Checks independent identity literals, Parser/Bound IR structure, accepted/rejected syntax, precedence and corpus fixtures | Preserve independent expectations rather than derive the oracle from implementation |
 | Source catalog tests | t/antlr4-source-test.ss consumes the exported typed source catalog | Preserve that consumer contract while reviewing repeated source processing |
 
@@ -398,14 +398,14 @@ not a generated final compiler stage. It must independently test semantics,
 fields, effective origins, immutable products and public entry behavior. Likewise,
 parser.ss consumes the machine but need not implement parsing algorithms.
 
-The GQL migration now applies this split to an actual language package:
+The GQL migration applies this split to an actual language package:
 
 | File or engine owner | Implemented change | Contract retained |
 |----------------------+--------------------+-------------------|
 | languages/gql/grammar.ss | Contains the pinned source declaration and metadata derived from accepted products; corpus leaves this module | Standard edition, source pins, root, policy and exported grammar products |
 | language-support/antlr4-language.ss | Builds language-declaration directly from the accepted source catalog; no deflanguage-grammar replay | Canonical admission, original author syntax, source ownership and lineage |
 | src/language/assembly.ss | Shares hygienic emission between native and imported declarations | Existing immutable artifact loading and machine constructor owner |
-| languages/gql/parser.ss | Owns corpus declaration and its checked Loader fixture service | Public parse-gql, exported fixtures and descriptor identity |
+| languages/gql/parser.ss | Owns the corpus-free production entry; corpus and development services move to parser-test.ss | Public parse-gql and descriptor identity |
 | languages/gql/parser-test.ss | Adds shared-product and entry-service identity checks alongside independent semantic expectations | 574 rules, 1176 bindings, 14 official fixtures, source locations, precedence and rejection checks |
 
 #+begin_src scheme
@@ -421,8 +421,7 @@ The GQL migration now applies this split to an actual language package:
   (equal (eq? (language-grammar-machine gql-language-grammar) gql-parser) #t)
   (equal (language-parser-entry-ref gql-language 'contract)
          "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
-  (equal (eq? (language-parser-entry-ref gql-language 'fixtures)
-              gql-official-fixtures) #t))
+  (equal (language-loader-fixture-count gql-test-language) 14))
 
 ;; Question 1: Why is this design better?
 ;; Scheme syntax remains contextual until canonical admission. Native macros
@@ -612,3 +611,10 @@ The semantic controls answer whether the current source behaves correctly; the
 compiler gate answers whether that source can produce a consistent reusable
 package. Neither establishes a quantitative author-effort or performance result.
 No LR or runtime parser algorithm was changed by the refactor.
+
+* Engine and common-library responsibility boundary
+
+The follow-up [[file:scheme-engine-library-boundary.org][engine/library boundary contract]] moves the GQL lexical
+profile into grammar.ss, separates production entry from optional development
+services, and records semantic limits and executable falsifiers. The earlier
+corpus-in-parser implementation above is superseded by that contract.

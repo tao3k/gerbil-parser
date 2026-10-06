@@ -2,7 +2,9 @@
 ;;; -*- Gerbil -*-
 ;;; Grammar IR qualification of the optional Scheme LR construction.
 
-(import (only-in :gerbil-parser/language-support language-loader-fixtures)
+(import (only-in :gerbil-parser/language-support/development
+                 language-loader-fixtures language-loader-fixture-count)
+        (only-in :gerbil-parser/language-support/entry language-parser-entry-ref)
         :std/test
         (only-in :core/observability/testing-case poo-flow-test-case)
         (only-in :gerbil-parser/languages/arithmetic/grammar

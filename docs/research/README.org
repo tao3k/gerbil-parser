@@ -15,3 +15,6 @@ The paper/framework synthesis remains in
 Language authoring research, annotated papers and proposed experiments are in
 [[file:scheme-language-pack-design.org][Scheme language pack design]]. The document distinguishes the current
 authoring interfaces from unimplemented research proposals.
+
+The deeper [[file:scheme-language-pack-semantics.org][binding, field semantics and author task study]] develops namespace
+policies, conservative count equations and concrete HCL/arithmetic examples.

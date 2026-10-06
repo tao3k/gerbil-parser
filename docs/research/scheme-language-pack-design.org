@@ -267,3 +267,10 @@ or module-qualified bindings; how imported fragments declare dependencies;
 which information survives elaboration; how recovery widens inferred schemas;
 and whether inferred products justify any new public API. This document records
 hypotheses and experiments so those decisions can be made from evidence.
+
+* Follow-up semantic study
+
+[[file:scheme-language-pack-semantics.org][Binding, field semantics and author tasks]] examines existing Bound IR and source
+maps, compares binding policies, and develops count analysis against actual field
+reduction behavior. It records fragment and empty-result counterexamples before
+proposing any generated schema.

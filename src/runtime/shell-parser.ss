@@ -2,7 +2,7 @@
 ;;; Lossless Bash command/word/here-document syntax entry.
 ;;; Unsupported command forms reject explicitly until their grammar is owned.
 
-(import (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind)
+(import (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger?)
         (only-in ./funcs recognition-sequence-append recognition-sequence->list recognition-sequence-arity)
         (only-in :gerbil-parser/src/runtime/artifact
                  +diagnostic-schema+ make-failure-parse-artifact
@@ -27,6 +27,10 @@
                 (make-shell-word-parser regions results parts-plan)))
 
 
+(def forms-index (make-hash-table-eq))
+(for-each (lambda (row) (hash-put! forms-index (car row) row)) (command-plan-forms commands))
+(def (form id) (or (hash-get forms-index id) (error "undeclared command form" id)))
+(def header-first (cons 'or (map cadr (list-tail (form 'pipeline-prefix) 4))))
 (def trivia? (command-plan-role-matcher commands 'trivia))
 (def separator? (command-plan-role-matcher commands 'separator))
 (def redirect? (command-plan-role-matcher commands 'redirect))
@@ -37,9 +41,6 @@
 (def conditional-operator? (command-plan-role-matcher commands 'conditional-operator))
 (def pipeline? (command-plan-role-matcher commands 'pipeline))
 (def and-or? (command-plan-role-matcher commands 'and-or))
-(def (same-operator? token value)
-  (and token (eq? (token-kind token) 'operator) (string=? (token-lexeme token) value)))
-
 (def (child field value)
   (make-recognition-child field value))
 
@@ -94,14 +95,6 @@
        (def (peek)
          (skip-trivia!)
          (and (pair? remaining) (car remaining)))
-       (def (word-is? token text)
-         (and token (eq? (token-kind token) 'word)
-              (string=? (token-lexeme token) text)))
-       (def (take-keyword! text)
-         (let (token (peek))
-           (unless (word-is? token text)
-             (error "expected Bash reserved word" text token))
-           (take-raw!)))
        (def (last-byte)
          (if (pair? emitted-reversed)
            (token-end (car emitted-reversed)) 0))
@@ -154,29 +147,8 @@
                  (token-start (cadr remaining)))))
        (def (array-assignment-open? raw)
          (and (pair? remaining)
-              (same-operator? (car remaining) "(")
+              (command-plan-trigger? commands (cadr (form 'array-tail)) remaining)
               (= (token-end raw) (token-start (car remaining)))))
-       (def (parse-array-assignment! assignment)
-         (let* ((open (take-raw!))
-                (start (recognition-node-start assignment)))
-           (let loop ((children (list (child 'assignment assignment)
-                                       (child 'open open))))
-             (let (next (peek))
-               (cond
-                ((not next) (error "unterminated Bash array assignment"))
-                ((same-operator? next ")")
-                 (let (close (take-raw!))
-                   (syntax-node
-                    'ArrayAssignment start (last-byte)
-                    (recognition-sequence-append children (list (child 'close close))))))
-                ((eq? (token-kind next) 'newline)
-                 (loop (recognition-sequence-append children
-                               (list (child 'separator (take-raw!))))))
-                ((eq? (token-kind next) 'word)
-                 (loop (recognition-sequence-append children
-                               (list (child 'element (take-word!))))))
-                (else (error "invalid Bash array assignment element"
-                             next)))))))
        (def (parse-simple-command!)
          (let* ((first (peek))
                 (start (and first (token-start first)))
@@ -213,8 +185,8 @@
                        (set! children
                              (cons (child 'assignment
                                           (if (array-assignment-open? token)
-                                            (parse-array-assignment!
-                                             assignment)
+                                            (parse-form! 'array-tail (recognition-node-start assignment)
+                                                         (list (child 'assignment assignment)))
                                             assignment))
                                    children)))
                      (let (word (take-word!))
@@ -238,264 +210,65 @@
            (unless (or allow-empty? (has-command? children))
              (error "Bash command list is empty"))
            (syntax-node 'CommandList start (last-byte) children)))
-       (def (parse-if!)
-         (let* ((start (token-start (peek)))
-                (children (list (child 'keyword (take-keyword! "if")))))
-           (let loop ((condition-start (last-byte)))
-             (set! children
-                   (recognition-sequence-append children
-                           (list (child 'condition
-                                        (parse-compound-list!
-                                         condition-start '("then")))
-                                 (child 'keyword (take-keyword! "then"))
-                                 (child 'body
-                                        (parse-compound-list!
-                                         (last-byte) '("elif" "else" "fi"))))))
-             (cond
-              ((word-is? (peek) "elif")
-               (set! children
-                     (recognition-sequence-append children
-                             (list (child 'keyword (take-keyword! "elif")))))
-               (loop (last-byte)))
-              ((word-is? (peek) "else")
-               (set! children
-                     (recognition-sequence-append children
-                             (list (child 'keyword (take-keyword! "else"))
-                                   (child 'else-body
-                                          (parse-compound-list!
-                                           (last-byte) '("fi"))))))
-               (set! children
-                     (recognition-sequence-append children
-                             (list (child 'keyword (take-keyword! "fi")))))
-               (syntax-node 'IfCommand start (last-byte) children))
-              (else
-               (set! children
-                     (recognition-sequence-append children
-                             (list (child 'keyword (take-keyword! "fi")))))
-               (syntax-node 'IfCommand start (last-byte) children))))))
-       (def (parse-loop!)
-         (let* ((keyword (peek))
-                (name (token-lexeme keyword))
-                (start (token-start keyword)))
-           (take-raw!)
-           (let* ((condition
-                   (parse-compound-list! (last-byte) '("do")))
-                  (do-token (take-keyword! "do"))
-                  (body (parse-compound-list! (last-byte) '("done")))
-                  (done-token (take-keyword! "done")))
-             (syntax-node
-              (if (string=? name "while") 'WhileCommand 'UntilCommand)
-              start (last-byte)
-              (list (child 'keyword keyword)
-                    (child 'condition condition)
-                    (child 'keyword do-token)
-                    (child 'body body)
-                    (child 'keyword done-token))))))
-       (def (parse-iteration! word)
-         (let* ((keyword (take-keyword! word))
-                (start (token-start keyword))
-                (arithmetic? (and (string=? word "for")
-                                  (arithmetic-command-start?)))
-                (children (list (child 'keyword keyword))))
-           (if arithmetic?
-             (set! children
-                   (recognition-sequence-append children
-                           (list (child 'header
-                                        (parse-arithmetic-command!)))))
-             (begin
-               (set! children
-                     (recognition-sequence-append children
-                             (list (child 'variable (take-word!)))))
-               (when (word-is? (peek) "in")
-                 (set! children
-                       (recognition-sequence-append children
-                               (list (child 'keyword
-                                            (take-keyword! "in")))))
-                 (let words ()
-                   (let (next (peek))
-                     (when (and next (eq? (token-kind next) 'word))
-                       (set! children
-                             (recognition-sequence-append children
-                                     (list (child 'item (take-word!)))))
-                       (words)))))))
-           (let (separator (peek))
-             (unless (and separator (separator? separator))
-               (error "iteration header requires a separator" separator))
-             (take-raw!)
-             (set! children
-                   (recognition-sequence-append children (list (child 'separator separator)))))
-           (let* ((do-token (take-keyword! "do"))
-                  (body (parse-compound-list! (last-byte) '("done")))
-                  (done-token (take-keyword! "done")))
-             (syntax-node
-              (cond
-               (arithmetic? 'ArithmeticForCommand)
-               ((string=? word "select") 'SelectCommand)
-               (else 'ForCommand))
-              start (last-byte)
-                          (recognition-sequence-append children
-                                  (list (child 'keyword do-token)
-                                        (child 'body body)
-                                        (child 'keyword done-token)))))))
-       (def (parse-case!)
-         (let* ((keyword (take-keyword! "case"))
-                (start (token-start keyword))
-                (subject (take-word!))
-                (in-token (take-keyword! "in"))
-                (children (list (child 'keyword keyword)
-                                (child 'subject subject)
-                                (child 'keyword in-token))))
-           (let clauses ()
-             (let (next (peek))
-               (cond
-                ((not next) (error "missing esac"))
-                ((separator? next)
-                 (take-raw!)
-                 (set! children
-                       (recognition-sequence-append children (list (child 'separator next))))
-                 (clauses))
-                ((word-is? next "esac")
-                 (set! children
-                       (recognition-sequence-append children
-                               (list (child 'keyword (take-keyword! "esac")))))
-                 (syntax-node 'CaseCommand start (last-byte) children))
-                (else
-                 (let* ((clause-start (token-start next))
-                        (patterns '()))
-                   (when (same-operator? (peek) "(")
-                     (set! patterns
-                           (list (child 'open (take-raw!)))))
-                   (let pattern-loop ()
-                     (let (pattern (peek))
-                       (unless (and pattern
-                                    (eq? (token-kind pattern) 'word))
-                         (error "expected case pattern" pattern))
-                       (set! patterns
-                             (recognition-sequence-append patterns
-                                     (list (child 'pattern (take-word!)))))
-                       (when (same-operator? (peek) "|")
-                         (set! patterns
-                               (recognition-sequence-append patterns
-                                       (list (child 'alternate
-                                                    (take-raw!)))))
-                         (pattern-loop))))
-                   (unless (same-operator? (peek) ")")
-                     (error "missing case pattern close"))
-                   (set! patterns
-                         (recognition-sequence-append patterns
-                                 (list (child 'close (take-raw!)))))
-                   (let* ((body
-                           (parse-compound-list!
-                            (last-byte) '(";;" ";&" ";;&" "esac") #t))
-                          (ending (peek)))
-                     (set! patterns
-                           (recognition-sequence-append patterns (list (child 'body body))))
-                     (when (case-end? ending)
-                       (set! patterns
-                             (recognition-sequence-append patterns
-                                     (list (child 'terminator
-                                                  (take-raw!))))))
-                     (set! children
-                           (recognition-sequence-append children
-                                   (list (child
-                                          'clause
-                                          (syntax-node 'CaseClause
-                                                       clause-start
-                                                       (last-byte)
-                                                       patterns)))))
-                     (clauses)))))))))
-       (def (skip-trivia-list tokens)
-         (if (and (pair? tokens) (trivia? (car tokens)))
-           (skip-trivia-list (cdr tokens)) tokens))
-       (def (function-header?)
-         (let* ((first (skip-trivia-list remaining))
-                (second (and (pair? first)
-                             (skip-trivia-list (cdr first))))
-                (third (and (pair? second)
-                            (skip-trivia-list (cdr second)))))
-           (and (pair? first) (eq? (token-kind (car first)) 'word)
-                (pair? second) (same-operator? (car second) "(")
-                (pair? third) (same-operator? (car third) ")"))))
-       (def (parse-function! explicit-keyword?)
-         (let* ((first (peek))
-                (start (token-start first))
-                (children '()))
-           (when explicit-keyword?
-             (set! children
-                   (list (child 'keyword (take-keyword! "function")))))
-           (set! children
-                 (recognition-sequence-append children (list (child 'name (take-word!)))))
-           (when (same-operator? (peek) "(")
-             (set! children
-                   (recognition-sequence-append children (list (child 'open (take-raw!)))))
-             (unless (same-operator? (peek) ")")
-               (error "missing function parameter close"))
-             (set! children
-                   (recognition-sequence-append children (list (child 'close (take-raw!))))))
-           (set! children
-                 (recognition-sequence-append children
-                         (list (child 'body (parse-command!)))))
-           (syntax-node 'FunctionDefinition start (last-byte) children)))
-       (def (parse-conditional!)
-         (let* ((open (take-keyword! "[["))
-                (start (token-start open)))
-           (let loop ((children (list (child 'open open))))
-             (let (next (peek))
-               (cond
-                ((not next) (error "missing ]]"))
-                ((word-is? next "]]")
-                 (let (close (take-keyword! "]]"))
-                   (syntax-node
-                    'ConditionalCommand start (last-byte)
-                    (recognition-sequence-append children (list (child 'close close))))))
-                ((conditional-operator? next)
-                 (loop (recognition-sequence-append children
-                               (list (child 'operator (take-raw!))))))
-                ((eq? (token-kind next) 'word)
-                 (loop (recognition-sequence-append children
-                               (list (child 'operand (take-word!))))))
-                ((eq? (token-kind next) 'operator)
-                 (loop (recognition-sequence-append children
-                               (list (child 'operator (take-raw!))))))
-                (else (error "invalid conditional token" next)))))))
-       (def (arithmetic-command-start?)
-         (let* ((first (skip-trivia-list remaining))
-                (second (and (pair? first) (cdr first))))
-           (and (pair? first) (same-operator? (car first) "(")
-                (pair? second) (same-operator? (car second) "(")
-                (= (token-end (car first))
-                   (token-start (car second))))))
-       (def (parse-arithmetic-command!)
+       (def (matches? trigger)
          (peek)
-         (let* ((open-first (take-raw!))
-                (start (token-start open-first))
-                (open-second (take-raw!)))
-           (let loop ((depth 2)
-                      (children (list (child 'open open-first)
-                                      (child 'open open-second))))
-             (let (next (peek))
-               (unless next (error "missing arithmetic command close"))
-               (cond
-                ((same-operator? next "(")
-                 (loop (fx+ depth 1)
-                       (recognition-sequence-append children (list (child 'open (take-raw!))))))
-                ((same-operator? next ")")
-                 (let* ((close (take-raw!))
-                        (updated (recognition-sequence-append children
-                                         (list (child 'close close)))))
-                   (if (= depth 1)
-                     (syntax-node 'ArithmeticCommand start (last-byte)
-                                  updated)
-                     (loop (fx- depth 1) updated))))
-                ((eq? (token-kind next) 'word)
-                 (loop depth
-                       (recognition-sequence-append children
-                               (list (child 'expression (take-word!))))))
-                ((eq? (token-kind next) 'operator)
-                 (loop depth
-                       (recognition-sequence-append children
-                               (list (child 'operator (take-raw!))))))
-                (else (error "invalid arithmetic command token" next)))))))
+         (command-plan-trigger? commands trigger remaining))
+       (def (execute-program! program kind (initial '()))
+         (let ((children initial) (projection kind))
+           (def (publish! field value)
+             (set! children (recognition-sequence-append children (list (child field value)))))
+           (def (execute! body)
+             (for-each (lambda (step)
+               (case (car step)
+                 ((as) (set! projection (cadr step)))
+                 ((raw) (peek) (publish! (cadr step) (take-raw!)))
+                 ((take)
+                  (unless (matches? (caddr step)) (error "expected declared command token" (caddr step) (peek)))
+                  (publish! (cadr step) (take-raw!)))
+                 ((word) (publish! (cadr step) (take-word!)))
+                 ((command) (publish! (cadr step) (parse-command!)))
+                 ((call) (publish! (cadr step) (parse-form! (caddr step))))
+                 ((node) (publish! (cadr step) (parse-program-node! (caddr step) (cdddr step))))
+                 ((list)
+                  (publish! (cadr step) (parse-compound-list! (last-byte) (caddr step) (cadddr step))))
+                 ((optional) (when (matches? (cadr step)) (execute! (cddr step))))
+                 ((branch) (execute! (if (matches? (cadr step)) (caddr step) (cadddr step))))
+                 ((choose)
+                  (let choices ((rows (cdr step)))
+                    (cond ((null? rows) (error "no declared command branch accepts token" (peek)))
+                          ((matches? (caar rows)) (execute! (cdar rows)))
+                          (else (choices (cdr rows))))))
+                 ((many until)
+                  (let loop ()
+                    (let (matched? (matches? (cadr step)))
+                      (when (if (eq? (car step) 'many) matched? (not matched?))
+                        (unless (pair? remaining) (error "unterminated declared command repetition" (cadr step)))
+                        (let (before remaining)
+                          (execute! (cddr step))
+                          (when (eq? before remaining) (error "command program did not advance input")))
+                        (loop)))))
+                 ((balance)
+                  (let loop ((depth (list-ref step 3)))
+                    (unless (peek) (error "unterminated declared balanced command body"))
+                    (cond
+                     ((matches? (cadr step)) (publish! (list-ref step 4) (take-raw!)) (loop (+ depth 1)))
+                     ((matches? (caddr step))
+                      (publish! (list-ref step 5) (take-raw!)) (unless (= depth 1) (loop (- depth 1))))
+                     (else
+                      (let (before remaining)
+                        (execute! (list-tail step 6))
+                        (when (eq? before remaining) (error "balanced command program did not advance input")))
+                      (loop depth))))))) body))
+           (execute! program)
+           (values projection children)))
+       (def (parse-program-node! kind program (start #f) (initial '()))
+         (let (beginning (or start (and (peek) (token-start (peek)))))
+           (unless beginning (error "expected declared compound command" kind))
+           (let-values (((projection children) (execute-program! program kind initial)))
+             (syntax-node projection beginning (last-byte) children))))
+       (def (parse-form! id (start #f) (initial '()))
+         (let (row (form id))
+           (parse-program-node! (cadddr row) (list-tail row 4) start initial)))
        (def (parse-compound-redirections! command)
          (let loop ((children (list (child 'command command))))
            (let (next (peek))
@@ -515,61 +288,17 @@
                (syntax-node 'RedirectedCommand
                             (recognition-node-start command)
                             (last-byte) children))))))
-       (def (parse-group! opening closing kind)
-         (let* ((open (peek))
-                (start (token-start open)))
-           (take-raw!)
-           (let* ((body (parse-compound-list! (last-byte) (list closing)))
-                  (close (peek)))
-             (unless (if (string=? closing ")")
-                       (same-operator? close closing)
-                       (word-is? close closing))
-               (error "missing Bash group terminator" closing))
-             (take-raw!)
-             (syntax-node kind start (last-byte)
-                          (list (child 'open open)
-                                (child 'body body)
-                                (child 'close close))))))
        (def (parse-command!)
-         (let (first (peek))
-           (let-values
-               (((command compound?)
-                 (cond
-                  ((word-is? first "if") (values (parse-if!) #t))
-                  ((or (word-is? first "while")
-                       (word-is? first "until"))
-                   (values (parse-loop!) #t))
-                  ((or (word-is? first "for")
-                       (word-is? first "select"))
-                   (values (parse-iteration! (token-lexeme first)) #t))
-                  ((word-is? first "case") (values (parse-case!) #t))
-                  ((word-is? first "function")
-                   (values (parse-function! #t) #t))
-                  ((function-header?)
-                   (values (parse-function! #f) #t))
-                  ((word-is? first "[[")
-                   (values (parse-conditional!) #t))
-                  ((arithmetic-command-start?)
-                   (values (parse-arithmetic-command!) #t))
-                  ((word-is? first "{")
-                   (values (parse-group! "{" "}" 'BraceGroup) #t))
-                  ((same-operator? first "(")
-                   (values (parse-group! "(" ")" 'Subshell) #t))
-                  (else (values (parse-simple-command!) #f)))))
-             (if compound?
-               (parse-compound-redirections! command) command))))
+         (peek)
+         (let (id (command-plan-match-form commands remaining))
+           (if id (parse-compound-redirections! (parse-form! id)) (parse-simple-command!))))
        (def (parse-pipeline!)
          (let ((prefixes '())
                (start-token (peek)))
-           (when (word-is? (peek) "time")
-             (set! prefixes (list (child 'keyword (take-raw!))))
-             (when (word-is? (peek) "-p")
-               (set! prefixes
-                     (append prefixes
-                             (list (child 'option (take-raw!)))))))
-           (when (word-is? (peek) "!")
-             (set! prefixes
-                   (append prefixes (list (child 'negate (take-raw!))))))
+           (when (matches? header-first)
+             (let-values (((_projection children)
+                           (execute-program! (list-tail (form 'pipeline-prefix) 4) 'Pipeline)))
+               (set! prefixes (recognition-sequence->list children))))
            (let* ((first (parse-command!))
                   (children
                    (append prefixes (list (child 'command first)))))
@@ -652,17 +381,11 @@
                                             (reverse children)))
                         nodes)))
                (reverse nodes)))))
-       (def (terminator? token names)
-         (and token
-              (or (and (eq? (token-kind token) 'word)
-                       (member (token-lexeme token) names))
-                  (and (eq? (token-kind token) 'operator)
-                       (member (token-lexeme token) names)))))
        (def (parse-list! terminators)
          (let loop ((children '()))
            (let (next (peek))
              (cond
-              ((or (not next) (terminator? next terminators))
+              ((or (not next) (command-plan-trigger? commands terminators remaining))
                (reverse children))
               ((separator? next)
                (when (and (eq? (token-kind next) 'operator)
@@ -676,7 +399,7 @@
                    (loop with-separator))))
               (else
                (loop (cons (child 'command (parse-and-or!)) children)))))))
-       (let* ((children (parse-list! '()))
+       (let* ((children (parse-list! '(none)))
               (source-end (u8vector-length (string->utf8 source))))
          (when (marker-head)
            (error "missing Bash here-document body"))

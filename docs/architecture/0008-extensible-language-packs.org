@@ -363,3 +363,51 @@ order and independent quote policies without copying the existing marker list.
 This layer declares token roles and node projections. Control-flow grammar
 execution remains in the engine; complete standalone Rust Command/Word
 execution still requires lowering those grammar operations to shared IR.
+
+** Closed control programs
+
+=CommandProfile.= adds a =forms= value slot. =defcommand-profile= now requires
+=(forms ...)= after =texts=, before the optional =projections= clause. There
+is no legacy macro form and no callback slot. Effective inherited forms are
+copied, admitted and included in the Source recipe using the existing schema.
+
+Each form is =(id selector priority node-role operation ...)=. Literal
+=word=/=operator= selectors compile to token-kind/literal indexes; bounded
+=lookahead= and =adjacent= selectors handle implicit function headers and
+balanced starts. Higher priorities decide literal versus lookahead selection.
+Duplicate literals/lookaheads reject. =manual= entries provide the constrained
+array and pipeline-header hooks. =array-tail= declares its opener in the
+manual selector; =pipeline-prefix= may contain zero or more guarded consuming
+operations. Its FIRST set skips the interpreter on ordinary commands.
+
+| Operation | Engine meaning |
+|---+---|
+| =(take field trigger)= / =(raw field)= | Consume a matching/raw source token |
+| =(word field)= / =(command field)= | Invoke the admitted Word/Command capability |
+| =(list field terminator allow-empty?)= | Parse an ordered compound list with typed termination |
+| =(call field form-id)= | Invoke a nonnullable declared form |
+| =(node field role operation ...)= | Build a nested admitted node |
+| =(as role)= | Select a compatible projection for this branch |
+| =(optional trigger ...)= / =(branch trigger yes no)= | Guard or select a program body |
+| =(many trigger ...)= / =(until trigger ...)= | Run a consuming repeated body |
+| =(choose (trigger ...) ...)= | Select an ordered declared alternative |
+| =(balance open close depth open-field close-field ...)= | Match balanced nested tokens with a consuming body |
+
+Triggers are closed token predicates, role references, ordered =or= values,
+and lookahead/adjacency values bounded to 32 tokens. All fields resolve against engine
+node shapes before execution. Unknown opcodes, fields, form references,
+cyclic direct calls, zero-consumption repetitions and invalid projections
+reject during loader admission. Call-graph DFS memoizes visiting/done states,
+so shared callee bodies are visited once rather than expanding every path.
+Runtime repetition additionally checks cursor
+progress, and missing terminators reject at EOF.
+
+If/elif/else, while/until, for/select including arithmetic headers, case
+clauses, explicit/implicit functions, conditionals, arithmetic commands,
+groups, array tails and pipeline prefixes all use this program executor.
+Their dedicated parser functions are removed. POO overrides can define an
+independent Unicode loop syntax without editing the executor. A declarative
+refactor gives failures new explanatory text; diagnostic codes, reason kinds,
+source identity, rejected status and source retention stay qualified.
+This is real Scheme execution of the closed IR. Full Rust control/Word
+interpretation and Word result-projection lowering remain separate work.

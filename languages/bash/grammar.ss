@@ -116,6 +116,71 @@
  (texts (descriptor (if-next (numeric) (run (numeric) 1 #f)
                  (seq (literal "{") (run (union (alphabetic) (characters "_")) 1 1)
                       (run (union (alphabetic) (numeric) (characters "_")) 0 #f) (literal "}")))))
+ (forms
+  (conditional-branch (word "if") 10 IfCommand
+   (take keyword (word "if"))
+   (list condition (word "then") #f) (take keyword (word "then"))
+   (list body (word "elif" "else" "fi") #f)
+   (many (word "elif") (take keyword (word "elif"))
+     (list condition (word "then") #f) (take keyword (word "then"))
+     (list body (word "elif" "else" "fi") #f))
+   (optional (word "else") (take keyword (word "else")) (list else-body (word "fi") #f))
+   (take keyword (word "fi")))
+  (while-loop (word "while") 10 WhileCommand
+   (take keyword (word "while")) (list condition (word "do") #f) (take keyword (word "do"))
+   (list body (word "done") #f) (take keyword (word "done")))
+  (until-loop (word "until") 10 UntilCommand
+   (take keyword (word "until")) (list condition (word "do") #f) (take keyword (word "do"))
+   (list body (word "done") #f) (take keyword (word "done")))
+  (for-loop (word "for") 10 ForCommand
+   (take keyword (word "for"))
+   (branch (adjacent (operator "(") (operator "("))
+     ((as ArithmeticForCommand) (call header arithmetic))
+     ((word variable) (optional (word "in") (take keyword (word "in")) (many (word) (word item)))))
+   (take separator (role separator)) (take keyword (word "do"))
+   (list body (word "done") #f) (take keyword (word "done")))
+  (select-loop (word "select") 10 SelectCommand
+   (take keyword (word "select")) (word variable)
+   (optional (word "in") (take keyword (word "in")) (many (word) (word item)))
+   (take separator (role separator)) (take keyword (word "do"))
+   (list body (word "done") #f) (take keyword (word "done")))
+  (case-selection (word "case") 10 CaseCommand
+   (take keyword (word "case")) (word subject) (take keyword (word "in"))
+   (until (word "esac")
+    (choose ((role separator) (raw separator))
+     ((or (word) (operator "("))
+      (node clause CaseClause
+       (optional (operator "(") (take open (operator "(")))
+       (word pattern) (many (operator "|") (take alternate (operator "|")) (word pattern))
+       (take close (operator ")"))
+       (list body (or (role case-end) (word "esac")) #t)
+       (optional (role case-end) (raw terminator))))))
+   (take keyword (word "esac")))
+  (named-function (word "function") 10 FunctionDefinition
+   (take keyword (word "function")) (word name)
+   (optional (operator "(") (take open (operator "(")) (take close (operator ")"))) (command body))
+  (function-header (lookahead (word) (operator "(") (operator ")")) 5 FunctionDefinition
+   (word name) (take open (operator "(")) (take close (operator ")")) (command body))
+  (conditional (word "[[") 0 ConditionalCommand
+   (take open (word "[["))
+   (until (word "]]") (choose ((role conditional-operator) (raw operator))
+                            ((word) (word operand)) ((operator) (raw operator))))
+   (take close (word "]]")))
+  (arithmetic (adjacent (operator "(") (operator "(")) 4 ArithmeticCommand
+   (take open (operator "(")) (take open (operator "("))
+   (balance (operator "(") (operator ")") 2 open close
+     (choose ((word) (word expression)) ((operator) (raw operator)))))
+  (brace-group (word "{") 0 BraceGroup
+   (take open (word "{")) (list body (word "}") #f) (take close (word "}")))
+  (subshell (operator "(") 0 Subshell
+   (take open (operator "(")) (list body (operator ")") #f) (take close (operator ")")))
+  (array-tail (manual (operator "(")) 0 ArrayAssignment
+   (take open (operator "("))
+   (until (operator ")") (choose ((newline) (raw separator)) ((word) (word element))))
+   (take close (operator ")")))
+  (pipeline-prefix (manual) 0 Pipeline
+   (optional (word "time") (take keyword (word "time")) (optional (word "-p") (take option (word "-p"))))
+   (optional (word "!") (take negate (word "!")))))
 )
 
 (defsyntax-corpus bash-fixtures

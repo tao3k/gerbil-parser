@@ -1,5 +1,6 @@
 #!/usr/bin/env gxi
-(import (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
         (only-in :gerbil-parser/t/module-source-test module-framing-language-grammar)
         (only-in "module-source-cases.ss" module-source-cases))
 (def (main output)
@@ -11,4 +12,4 @@
    (if (caddr row) (begin (display "Some(" port) (display (caddr row) port) (display ")" port)) (display "None" port))
    (display "),\n" port)) module-source-cases)
   (display "];\n" port)))
- (displayln "MODULE-SOURCE-RUST-GENERATED"))
+ (displayln "MODULE-SOURCE-RUST-GENERATED") (force-output) (test-child-process-exit! 0))

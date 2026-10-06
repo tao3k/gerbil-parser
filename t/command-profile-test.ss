@@ -46,6 +46,41 @@
            (.o (:: self bash-commands) texts: '((descriptor (run (numeric) 0 #f))))
            (.o (:: self bash-commands) roles: (map (lambda (row) (if (eq? (car row) 'pipeline) '(pipeline (foreign "|")) row)) (.ref bash-commands 'roles)))
            (.o (:: self bash-commands) roles: (lambda () '())))))
+  (test-case "inherited control programs parse an independent Unicode syntax"
+   (let* ((declarations (map (lambda (row)
+     (if (eq? (car row) 'while-loop)
+       (append '(while-loop (word "重复") 10 WhileCommand (take keyword (word "重复"))) (list-tail row 5)) row)) (.ref bash-commands 'forms)))
+     (profile (.o (:: self bash-commands) forms: declarations)) (prepared (plan profile)))
+    (let-values (((parse receipt) (make-shell-parser bash-word-regions (compile-result-profile bash-results) (compile-part-profile bash-parts) prepared)))
+     (let (artifact (parse "重复 echo α; do echo 中; done\n" scan (source-language-digest bash-source-language)))
+      (check (parse-artifact-success? artifact) => #t)
+      (check (length (filter (lambda (event) (and (eq? (vector-ref event 0) 'start-node) (eq? (vector-ref event 2) 'WhileCommand))) (parse-artifact-events artifact))) => 1)))))
+  (test-case "empty inherited header disables prefixes without changing the executor"
+   (let (prepared (plan (.o (:: self bash-commands) forms: (map (lambda (row)
+      (if (eq? (car row) 'pipeline-prefix) '(pipeline-prefix (manual) 0 Pipeline) row)) (.ref bash-commands 'forms)))))
+    (let-values (((parse receipt) (make-shell-parser bash-word-regions (compile-result-profile bash-results) (compile-part-profile bash-parts) prepared)))
+      (let (artifact (parse "time echo α\n" scan (source-language-digest bash-source-language)))
+        (check (parse-artifact-success? artifact) => #t)
+        (check (length (filter (lambda (event) (and (eq? (vector-ref event 0) 'start-node) (eq? (vector-ref event 2) 'Pipeline))) (parse-artifact-events artifact))) => 0)))))
+  (test-case "shared call DAG admission visits each form once"
+   (let* ((name (lambda (index) (string->symbol (string-append "dag-" (number->string index)))))
+          (rows (map (lambda (index)
+             (if (= index 31)
+               (list (name index) '(manual) 0 'Pipeline '(take keyword (word "end")))
+               (list (name index) '(manual) 0 'Pipeline (list 'call 'command (name (+ index 1)))
+                     (list 'call 'command (name (+ index 1)))))) (iota 32)))
+          (prepared (plan (.o (:: self bash-commands) forms: (append (.ref bash-commands 'forms) rows)))))
+     (check (command-plan-match-form prepared (list (make-token 'word "if" 0 2))) => 'conditional-branch)))
+  (test-case "invalid fields, cycles and non-consuming repetitions reject before execution"
+   (for-each (lambda (form-declarations) (check (rejects? (lambda () (plan (.o (:: self bash-commands) forms: form-declarations)))) => #t))
+    (list '()
+      (append (.ref bash-commands 'forms) '((cycle (word "cycle") 10 WhileCommand (call body cycle))))
+      (append (.ref bash-commands 'forms) '((spin (word "spin") 10 WhileCommand (take keyword (word "spin")) (many (word) (as WhileCommand)))))
+      (append (.ref bash-commands 'forms) '((foreign (word "foreign") 10 WhileCommand (raw missing))))
+      (append (.ref bash-commands 'forms) '((unknown (word "unknown") 10 WhileCommand (callback body anything))))
+      (append (.ref bash-commands 'forms) '((missing (word "missing") 10 WhileCommand (call body absent))))
+      (append (.ref bash-commands 'forms) '((empty-call (word "empty-call") 10 Pipeline (call command pipeline-prefix))))
+      (append (.ref bash-commands 'forms) '((duplicate (lookahead (word) (operator "(") (operator ")")) 5 FunctionDefinition (word name)))))))
   (test-case "command values participate in Source identity without a schema bump"
    (let (changed (declare-source-language "bash" "5.3" "bash-5.3-structured-source.v1"
     (.o (:: self ShellSourceStrategy.) regions: bash-word-regions scanner: bash-command-scanner results: bash-results parts: bash-parts

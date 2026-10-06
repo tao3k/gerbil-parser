@@ -44,7 +44,7 @@ former shell scanner module and its alias surface are deleted.
 | HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
 | FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
 | TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has no external lexical declarations; module framing prepares source indexes and identifier/proof roles use closed text profiles; Scheme proof policy remains; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
-| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= and =shell-word.ss= still execute procedural syntax; portable command/word IR remains open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= interprets closed control programs; Word projection lowering and standalone Rust Command/Word execution remain open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
 
 Total: zero external lexical declarations in grammar packs.
 Bash has a source parser rather than external lexical rows and is counted
@@ -1387,3 +1387,52 @@ formal event API. No timeout or compiler choice was changed.
 The three scale regressions are also in the public =deflanguage-parser-tests=
 macro suite; the final Bash/Command/topology gate passes in 7.58 seconds with
 normal exit and harness status zero.
+
+** Control-program migration
+
+The =forms= slot of =CommandProfile.= now owns all compound control grammar.
+The old if, loop, iteration, case, function, conditional, arithmetic, group
+and array functions are removed in favor of one closed program executor.
+Literal dispatch, bounded lookahead, field checks, reference/cycle checks and
+consuming-loop admission are engine capabilities. Pipeline header FIRST sets
+avoid running nullable programs for ordinary commands. Source identity includes
+the owned forms without changing Source v1, Loader v2 or C ABI v2.
+Independent Unicode loop declarations and empty inherited prefix programs
+exercise POO override semantics. No former execution path or macro compatibility
+mode is kept. Complete Rust control/Word execution remains open.
+
+The module-source generator previously printed its completion marker but
+failed the five-second inactivity gate while exiting on macOS. It now flushes
+and uses the existing finite-child normal exit binding. Local bounded native
+regeneration exits zero in 8.22 seconds and matches the Rust artifact byte for
+byte after formatting; neither timeout nor compiler selection changes.
+
+The first qualification passes 54 cases and 80 old-head controls in 15.02
+seconds. Accepted artifacts match in full; rejected artifacts match with only
+the explanatory =message= field excluded, retaining all other diagnostics and
+artifact fields. The reference is the exact =ff9e1e85c454f87f38090701608215169d3e3e14=
+executor with the same scanner, Word plan and supplied digest. Its source stays
+outside the production checkout after qualification. A later FIRST-set control
+passes in 27.54 seconds; final native qualification also covers the three added
+scale cases, empty-header inheritance and a 32-token lookahead admission bound.
+
+Five alternating complete-call samples after FIRST-set admission retain medians
+of 691.763 / 649.101 ms for 10,000 plain calls, 157.004 / 137.931 ms for one
+2,001-command pipeline and 10.273 / 7.245 ms for three real 512-deep parameter
+calls. The initial plain sample is negative at 193.496 / 204.322 ms. These
+wall-clock measurements remain sensitive to allocation/GC pressure; they do
+not establish an overall speedup or zero regression. The structural change
+removes dedicated grammar execution and skips nullable header interpretation
+using an admitted FIRST set.
+
+A first suite fails its five-second inactivity gate at a test-local POO
+=forms: forms= self-reference; the local variable is renamed and the failed
+receipt retained. The successful suites require explicit =OK=,
+=HARNESS-RETURN status=0= and process exit zero. The final scale/native suite
+passes 56 cases in 12.64 seconds.
+
+Final admission review removes exponential call-path expansion with a
+visiting/done DFS memo table. A 32-layer DAG with each callee referenced twice
+now admits without rewalking completed forms; true cycles still reject. The
+last GCC native gate passes 57 cases in 13.83 seconds with final =OK=,
+=HARNESS-RETURN status=0= and normal exit.

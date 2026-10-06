@@ -54,6 +54,18 @@
     (string-append "if true; then { echo yes; }; else (echo no); fi\n"
                    "while test x; do echo x; done\n")
     (nodes IfCommand BraceGroup Subshell WhileCommand CommandList))
+  (accepted "long conditional chains use the same consuming program"
+    (string-append "if true; then echo α; "
+                   (apply string-append (make-list 256 "elif true; then echo 中; "))
+                   "else echo ω; fi\n")
+    (counts (IfCommand 1)))
+  (accepted "case clauses share declared node programs"
+    (string-append "case x in " (apply string-append (make-list 2000 "a) echo α;; ")) "esac\n")
+    (counts (CaseClause 2000)))
+  (accepted "nested groups use declared command calls"
+    (string-append (apply string-append (make-list 256 "{ ")) "echo α; "
+                   (apply string-append (make-list 256 "}; ")) "\n")
+    (counts (BraceGroup 256)))
   (accepted "for, case and function bodies"
     (string-append "for item in a b; do echo \"$item\"; done\n"
                    "case $item in a|b) echo ok;; *) echo no;;& esac\n" "f() { echo done; }\n")

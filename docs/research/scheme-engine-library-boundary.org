@@ -20,7 +20,7 @@ It does not establish complete ISO GQL conformance or a general ANTLR lexer comp
 | language-support/development.ss | Optional descriptor-bound corpus, scanner and build services | A separate recognition algorithm |
 | language-support/antlr4-source.ss | Source catalog and explicit terminal lowering | Inferring a token category from a GQL naming convention |
 | languages/gql/grammar.ss | Pinned source identity, explicit lexical profile, generated products | Runtime parsing implementation |
-| languages/*/parser.ss | Production descriptor and parse-gql | Embedded examples or development service registries |
+| languages/*/parser.ss | Production descriptor and language parse function | Embedded examples or development service registries |
 | languages/*/parser-test.ss | Corpus, development entry and independent semantic expectations | Reimplementing the grammar compiler |
 
 The common library depends on the engine. Engine dispatch does not depend on the

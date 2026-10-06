@@ -78,4 +78,10 @@ run_program concise-runtime t/fixtures/language-pack-research/package-expression
 run_program history t/fixtures/language-pack-research/composition-history.ss
 run_program native-poo-runtime t/fixtures/language-pack-research/list-runtime.ss
 run_program provenance t/fixtures/language-pack-research/provenance-language.ss
+benchmark_program="$runner_dir/all-language-benchmark.ss"
+cat > "$benchmark_program" <<'SS'
+(import (only-in :gerbil-parser/t/benchmarks/versioned-languages/all-languages main))
+(main "1")
+SS
+run_program all-language-benchmark "$benchmark_program"
 printf 'DSL-RESEARCH-CLOSURE-OK: all child processes exited 0\n'

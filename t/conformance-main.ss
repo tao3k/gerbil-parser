@@ -3,6 +3,7 @@
 (import (only-in :std/test/base TestConfig current-test-config VERBOSITY-CASE
                  test-suite! test-result-ok?)
         (prefix-in (only-in :gerbil-parser/t/benchmarks/versioned-languages/all-languages main) benchmark-)
+        (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/parser-test records-parser-tests)
         (only-in :gerbil-parser/t/language-diagnostics-test language-diagnostics-test)
         (only-in :gerbil-parser/t/language-surface-test language-surface-test)
         (only-in :gerbil-parser/t/grammar-composition-test grammar-composition-test)
@@ -31,6 +32,7 @@
 (export main)
 (def suites
   (list
+        (cons "downstream-records" (list records-parser-tests))
         (cons "diagnostics" (list language-diagnostics-test))
         (cons "surface" (list language-surface-test))
         (cons "composition" (list grammar-composition-test))

@@ -51,6 +51,14 @@
                   (if accepted? '() '((expected gerbil-parser/language-loader)))
                   context))))
 
+;;; Development services belong to the development declaration, including inherited slots.
+(def (require-production-entry! candidate)
+  (for-each (lambda (slot)
+              (when (.slot? candidate slot)
+                (error "production parser entry contains a development service" slot)))
+            '(fixtures fixture-catalog tests scan-workers build-strategies native-test-profile))
+  candidate)
+
 ;;; Slot inheritance is resolved once during loading; parsing uses the bound
 ;;; engine method without per-call POO contract admission or compiler work.
 (def LanguageLoader.
@@ -91,6 +99,9 @@
           (identifier? #'parse-binding))
      (let ()
        (def (check-slot! name location)
+         (when (memq name '(fixtures fixture-catalog tests scan-workers build-strategies native-test-profile))
+           (raise-syntax-error #f
+            "development service requires deflanguage-development-loader" location))
          (when (memq name '(schema descriptor language version contract
                            capabilities .parse))
            (raise-syntax-error #f
@@ -135,6 +146,7 @@
                (let* ((metadata (.ref candidate 'metadata))
                       (admitted (.cc candidate 'metadata
                                     (bind-loader-metadata (.ref candidate 'descriptor) metadata))))
+                 (require-production-entry! admitted)
                  (validate LanguageLoaderContract admitted)
                  (validate extension-contract admitted) ...
                  admitted)))

@@ -112,6 +112,7 @@
                     (loop (cdr remaining) (cons (car row) seen))))))))
 
 (def (run-language-test loader name)
+  (validate LanguageDevelopmentLoaderContract loader)
   (unless (and (object? loader) (symbol? name))
     (error "invalid language test request" name))
   (let* ((descriptor (.ref loader 'descriptor)) (rows (.ref loader 'tests)))

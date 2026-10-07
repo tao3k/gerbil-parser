@@ -98,9 +98,26 @@ alternative-precedence projection reproduces all ANTLR adaptive decisions.
 
 The optional development contract retains owned fixture copies, effective POO slot
 validation, descriptor-bound scanner/build capabilities and sealed dispatch.
-The production contract checks only parsing identity, metadata and descriptor
-products. Shared private loader-identity utilities avoid duplicate identity rules.
+The production declaration checks parsing identity, metadata and descriptor
+products, and rejects development service slots in both keyword and method
+forms. Binding also checks effective inherited slots: a POO parent cannot
+introduce fixtures, tests, scanner workers or build strategies into production.
+The development test dispatcher admits its development contract before reading
+service slots. Invalid calls therefore fail at the contract boundary. Shared
+private loader-identity utilities avoid duplicate identity rules.
 No compatibility forwarding module remains in src/language/entry.ss.
+
+The independent records consumer follows the same split. Its production parser
+imports only its grammar; its test file binds an optional development entry over
+the exact production descriptor and owns the corpus dependency. The shared
+native conformance executable now includes this downstream sample under the
+same ten-second child fence. The previous exact-head CI run passed the shipped
+language gates on Linux and macOS, then exposed the records sample's missing test
+service. That failure is retained as the regression motivating this extension.
+The corrected local gate passes all twenty-seven bounded children and reproduces
+all twenty native artifact controls byte for byte. The separate CI-shaped records
+owner passes with explicit zero harness status, final GC and =OK=. These receipts
+do not qualify a new remote head or establish a latency improvement.
 
 * Paper-to-code relationship
 

@@ -9,3 +9,9 @@ generation CI drives its public
 consumer acceptance step is then a standalone Cargo build: it needs only
 =gerbil-parser-runtime= and the generated module, never Gerbil, a private engine
 module, or a handwritten syntax sink.
+
+The production =parser.ss= imports only the grammar. =parser-test.ss= imports
+the optional corpus and declares =records-test-language= through
+=deflanguage-development-loader= over the exact production descriptor. Upstream
+native conformance includes this independent sample; production declarations
+reject development services even when those services come from a POO parent.

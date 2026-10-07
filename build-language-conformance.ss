@@ -31,6 +31,10 @@
          "t/fixtures/language-pack-research/list-language"
          "t/fixtures/language-pack-research/list-parser"
          "t/fixtures/language-pack-research/list-parser-test"
+         "t/fixtures/runtime-record-assignments/languages/records/grammar"
+         "t/fixtures/runtime-record-assignments/languages/records/fixtures"
+         "t/fixtures/runtime-record-assignments/languages/records/parser"
+         "t/fixtures/runtime-record-assignments/languages/records/parser-test"
          "t/conformance-main"))
   ;; Test entry modules link the optimized production parser; they do not need
   ;; whole-module Scheme optimizer analysis of the large assertion closures.

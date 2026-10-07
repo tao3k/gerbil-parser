@@ -4,12 +4,13 @@
         (only-in :gerbil-parser/language-support/entry language-metadata-ref)
         (only-in :gerbil-parser/src/ffi/parse-artifact-v1 native-descriptor-payload native-parse-binary-payload)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
+        (for-syntax (only-in :gerbil/expander core-expand))
         :std/test
         (only-in :clan/poo/object .ref .slot?)
         (only-in :clan/poo/mop validate)
-        (only-in :gerbil-parser/language-support/entry LanguageLoaderContract)
+        (only-in :gerbil-parser/language-support/entry LanguageLoaderContract deflanguage-parser-loader)
         (only-in :gerbil-parser/language-support/development
-                 LanguageDevelopmentLoaderContract language-loader-fixtures language-loader-fixture-count)
+                 LanguageDevelopmentLoaderContract language-loader-fixtures language-loader-fixture-count run-language-test)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language)
         (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
@@ -43,8 +44,35 @@
         (list tla-plus-core-language tla-plus-core-test-language 6)
         (list tla-plus-layout-language tla-plus-layout-test-language 2)
         (list tla-plus-sany-candidate-language tla-plus-sany-candidate-test-language 2)))
+(defsyntax (development-slot-rejections stx)
+  (def (message form)
+    (with-catch (lambda (condition) (error-message condition))
+      (lambda () (core-expand form) (error "invalid production declaration admitted"))))
+  (datum->syntax #'development-slot-rejections
+    (list 'quote
+      (list
+        (message #'(deflanguage-parser-loader invalid-keyword
+                     (grammar #f) (parse invalid-parse) (slots fixtures: '())))
+        (message #'(deflanguage-parser-loader invalid-method
+                     (grammar #f) (parse invalid-parse) (slots (tests '()))))))))
 (def language-entry-boundary-test
   (test-suite "production and development entry separation"
+    (test-case "production declarations reject development services before binding"
+      (check (development-slot-rejections)
+             => '("development service requires deflanguage-development-loader"
+                  "development service requires deflanguage-development-loader")))
+    (test-case "production declarations reject inherited development services"
+      (check (with-catch (lambda (condition) (error-message condition))
+               (lambda ()
+                 (let ()
+                   (deflanguage-parser-loader (invalid-inherited :: self arithmetic-test-language)
+                     (grammar (.ref arithmetic-language 'descriptor)) (parse invalid-parse))
+                   invalid-inherited)))
+             => "production parser entry contains a development service")
+      (check (with-catch (lambda (_) 'rejected)
+               (lambda () (run-language-test arithmetic-language 'fixtures) 'admitted))
+             => 'rejected))
+
     (test-case "native facade uses parser-owned descriptors for accepted and rejected UTF-8 source"
       (for-each (lambda (row)
         (let* ((language (car row)) (source (cadr row)) (expected (caddr row))

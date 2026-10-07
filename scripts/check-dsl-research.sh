@@ -62,6 +62,7 @@ run_suite source-services
 run_suite build-services
 run_suite concise-package
 run_suite composed-package
+run_suite downstream-records
 run_program concise-runtime t/fixtures/language-pack-research/package-expression-runtime.ss
 run_program history t/fixtures/language-pack-research/composition-history.ss
 run_program native-poo-runtime t/fixtures/language-pack-research/list-runtime.ss

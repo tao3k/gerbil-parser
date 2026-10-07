@@ -10,7 +10,7 @@
          "languages/gql/parser-test" "languages/hcl/parser-test"
          "languages/hl7/parser-test" "languages/tla-plus/parser-test"
          "t/fixtures/language-diagnostics-vocabulary"
-         "t/fixtures/source-strategies"
+         "t/fixtures/source-strategies" "t/fixtures/bash-products"
          "t/language-diagnostics-test" "t/language-surface-test"
          "t/grammar-composition-test" "t/language-artifact-test"
          "t/language-entry-boundary-test" "t/language-topology-test"

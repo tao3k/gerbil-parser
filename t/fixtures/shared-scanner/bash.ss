@@ -1,5 +1,5 @@
 ;;; Production Bash scanner profile and portable conformance source controls.
-(import (only-in :gerbil-parser/languages/bash/grammar bash-command-scanner)
+(import (only-in :gerbil-parser/t/fixtures/bash-products bash-command-scanner)
         (only-in :gerbil-parser/src/language/scanner-profile compile-scanner-profile))
 (export bash-scanner-ir bash-scanner-sources)
 (def bash-scanner-ir (compile-scanner-profile bash-command-scanner))

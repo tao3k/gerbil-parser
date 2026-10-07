@@ -6,13 +6,12 @@
 ;;; Native, lossless projection of the pinned normative ANTLR grammar.  This
 ;;; module owns syntax only; FHIR model navigation and function semantics are
 ;;; deliberately outside the parser authority.
-(import (only-in :gerbil-parser/language-support deflanguage deftext-profile)
+(import (only-in :gerbil-parser/language-support/grammar deflanguage deftext-profile)
         (only-in :gerbil-parser/language-support/grammar-source defsyntax-antlr4-source))
 (export +fhirpath-standard-reference+ +fhirpath-standard-version+
         +fhirpath-source-uri+ +fhirpath-antlr4-digest+
         fhirpath-normative-antlr4-source
-        +fhirpath-syntax-contract+
-        fhirpath-language-grammar
+        fhirpath-syntax
         fhirpath-grammar
         fhirpath-bound-grammar-ir
         fhirpath-parser-ir
@@ -32,7 +31,6 @@
    "sha256:cf2a7cf29475e29b1a9188fcabea77782db59c9309b200059b3ef3f781eaae13")
   (source "grammar-source/fhirpath.g4"))
 
-(def +fhirpath-syntax-contract+ "fhirpath-normative-2.0.0-syntax.v1")
 
 ;;; Shared text-profile fragments expand into closed declaration data.
 (deftext-profile fhirpath-date-format
@@ -57,7 +55,6 @@
            (literal ":") (run (numeric) 2 2)))))
 
 (deflanguage fhirpath
-  (identity "fhirpath" "2.0.0" "fhirpath-normative-2.0.0-syntax.v1")
   (root expression)
   (lex
    (whitespace WhitespaceTrivia (whitespace+))

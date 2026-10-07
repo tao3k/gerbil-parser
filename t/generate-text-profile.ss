@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Full language and endpoint witnesses are produced by the Scheme owner.
 (import (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
-        (only-in :gerbil-parser/languages/fhirpath/grammar fhirpath-language-grammar)
+        (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-language-grammar)
         (only-in "text-profile-cases.ss" fhirpath-profile-cases))
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main output)

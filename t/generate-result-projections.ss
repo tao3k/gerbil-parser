@@ -2,7 +2,7 @@
 ;;; Scheme owns tables and recognized captures; Rust independently executes the
 ;;; construction IR. These controls do not claim Rust Word recognition.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
-        (only-in :gerbil-parser/languages/bash/grammar bash-results bash-parts bash-word-regions)
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-results bash-parts bash-word-regions)
         (only-in :gerbil-parser/src/compiler/rust-rowan result-profile-rust-source)
         (only-in :gerbil-parser/src/language/result-profile compile-result-profile result-plan-recipe)
         (only-in :gerbil-parser/src/language/part-profile compile-part-profile)

@@ -10,7 +10,7 @@
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/language/source source-language-scanner-factory source-language-digest declare-source-language)
         (only-in :gerbil-parser/src/runtime/source-engines ShellSourceStrategy.)
-        (only-in :gerbil-parser/languages/bash/grammar bash-commands bash-results bash-parts bash-command-scanner bash-word-regions bash-source-language))
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-commands bash-results bash-parts bash-command-scanner bash-word-regions bash-source-language))
 (export command-profile-test)
 (def (rejects? thunk) (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def (scan source) (source-scanner-tokens ((source-language-scanner-factory bash-source-language) source) 'command))

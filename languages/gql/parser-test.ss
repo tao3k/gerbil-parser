@@ -73,7 +73,7 @@
   (rejected))
 
 
-(deflanguage-development-loader (gql-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader gql-test-language
   (grammar gql-language-grammar)
   (parse parse-gql-test)
   (slots fixtures: gql-official-fixtures))

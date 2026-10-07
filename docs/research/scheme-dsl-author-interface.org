@@ -80,6 +80,16 @@ must understand actually decreases. The cited macro and language-implementation
 research in [[file:scheme-dsl-research-basis.org][the research basis]] supplies mechanisms and proof obligations;
 it does not by itself establish that every current API choice is elegant.
 
+* Parser metadata ownership
+
+Release identity is authored in parser.ss and bound to syntax products by the
+engine. Metadata accepts ordinary association-list values or native POO objects;
+only extension users need object construction/inheritance syntax. All eight
+production packages use the value form. The complete
+[[file:scheme-bash-source-frontend.org][source frontend study]] owns the Scheme witness, domain contract and
+value/object equivalence controls. Upstream grammar provenance remains an input
+identity in grammar.ss, not a second parser release declaration.
+
 * Bash source frontend
 
 The complete [[file:scheme-bash-source-frontend.org][Bash author grammar and source frontend study]] owns the implemented

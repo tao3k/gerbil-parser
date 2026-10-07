@@ -1,5 +1,5 @@
 ;;; Shared IR fixture: Bash FIFO delimiters and contextual positions.
-(import (only-in :gerbil-parser/languages/bash/grammar bash-word-regions)
+(import (only-in :gerbil-parser/t/fixtures/bash-products bash-word-regions)
         (only-in :gerbil-parser/src/runtime/region-scanner region-plan-specification)
         (only-in :gerbil-parser/src/modules/parser/contextual-objects
                  make-contextual-method make-contextual-role make-contextual-scan-rule)

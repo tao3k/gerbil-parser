@@ -31,14 +31,17 @@
           (and (eq? (car form) 'def) (not (eq? interface 'tests))
                (= (length form) 3) (symbol? (cadr form))
                (not (and (pair? (caddr form)) (eq? (caaddr form) 'lambda))))
-          (memq (car form)
-           (case interface
-            ((grammar) '(deflanguage defgrammar-syntax deflanguage-projection
-                         deftext-profile
-                         deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar
-                         defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source))
-            ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry))
-            ((tests) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests)))))))
+          (and
+           (or (not (eq? interface 'grammar))
+               (not (memq (car form) '(deflanguage deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar)))
+               (not (assq 'identity (filter pair? (cddr form)))))
+           (memq (car form)
+            (case interface
+             ((grammar) '(deflanguage defgrammar-syntax deflanguage-projection deftext-profile
+                          deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar
+                          defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source))
+             ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry))
+             ((tests) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests))))))))
 (def language-topology-test
  (test-suite "three-interface language authoring contract"
   (test-case "reject procedure definitions and unrestricted parser tests"
@@ -48,6 +51,9 @@
    (check (authoring-form? (quote (defsyntax-corpus corpus)) (quote grammar)) => #f)
    (check (authoring-form? (quote (deflanguage-development-loader entry)) (quote parser)) => #f)
    (check (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser)) => #f))
+  (test-case "release identity belongs to the parser interface"
+   (check (and (authoring-form? '(deflanguage example (identity "x" "1" "x.v1") (root source)) 'grammar) #t) => #f)
+   (check (and (authoring-form? '(deflanguage example (root source) (lex) (rules)) 'grammar) #t) => #t))
   (test-case "author grammar excludes backend profile assembly"
    (for-each (lambda (head)
      (check (and (authoring-form? (list head 'backend) 'grammar) #t) => #f))

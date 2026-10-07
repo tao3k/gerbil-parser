@@ -3,8 +3,7 @@
 
 (import (only-in :gerbil-parser/language-support/iso-bnf-language
                  deflanguage-iso-bnf-grammar))
-(export +opencypher-version+
-        +opencypher-commit+
+(export +opencypher-commit+
         +opencypher-bnf-digest+
         +opencypher-linear-result-overlay+
         +opencypher-numeric-parameter-overlay+
@@ -18,15 +17,13 @@
         +opencypher-parameter-path-deduplication+
         +opencypher-literal-keyword-preference+
         +opencypher-non-reserved-word-preference+
-        +opencypher-syntax-contract+
         +opencypher-representative-query+
-        opencypher-language-grammar
+        opencypher-syntax
         opencypher-grammar
         opencypher-bound-grammar-ir
         opencypher-parser-ir
         opencypher-parser)
 
-(def +opencypher-version+ "2024.1")
 (def +opencypher-commit+
   "30b451d3b7c94ee5a84a0fdc223947a442dd9493")
 (def +opencypher-bnf-digest+
@@ -109,11 +106,9 @@
     (kind . disambiguation)
     (sourceVersion . "2024.1")
     (upstreamCommit . "30b451d3b7c94ee5a84a0fdc223947a442dd9493")))
-(def +opencypher-syntax-contract+ "opencypher-2024.1-syntax.v1")
 (def +opencypher-representative-query+ "MATCH (n) RETURN n\n")
 
 (deflanguage-iso-bnf-grammar opencypher
-  (identity "opencypher" "2024.1" "opencypher-2024.1-syntax.v1")
   (reference "2024.1" "30b451d3b7c94ee5a84a0fdc223947a442dd9493")
   (digest "sha256:c0b5454f001b59b401756158bf88e27847c8ace71f1abc8df1e05f8b710b9f50")
   (source "grammar-source/openCypher.bnf")

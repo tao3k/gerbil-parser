@@ -19,10 +19,10 @@
   (rejected
    ("fhirpath/incomplete" fhirpath-incomplete (text "Patient.name.where("))))
 
-(deflanguage-development-loader (fhirpath-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader fhirpath-test-language
   (grammar fhirpath-language-grammar)
   (parse parse-fhirpath-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl source-digest: +fhirpath-antlr4-digest+)
+  (slots metadata: `((grammar-format . concise-dsl) (source-digest . ,+fhirpath-antlr4-digest+))
          fixtures: fhirpath-fixtures))
 
 (deflanguage-parser-tests fhirpath-parser-test "FHIRPath 2.0.0 normative syntax"

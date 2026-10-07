@@ -2,7 +2,7 @@
 ;;; Independent Rust recognition controls executed by the actual Scheme Word engine.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :clan/poo/object .o .ref)
-        (only-in :gerbil-parser/languages/bash/grammar bash-results bash-parts bash-word-regions bash-parameter-binding)
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-results bash-parts bash-word-regions bash-parameter-binding)
         (only-in :gerbil-parser/src/compiler/rust-scanner part-profile-rust-source)
         (only-in :gerbil-parser/src/compiler/rust-rowan result-profile-rust-source)
         (only-in :gerbil-parser/src/language/result-profile compile-result-profile result-plan-recipe)

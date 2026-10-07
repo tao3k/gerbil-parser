@@ -4,21 +4,16 @@
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
 (import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage)
+        (only-in :gerbil-parser/language-support/grammar deflanguage)
         (only-in :gerbil-parser/language-support/projection RecordProjection. deflanguage-projection))
-(export +hl7-language-version+
-        +hl7-syntax-contract+
-        hl7-language-grammar
+(export hl7-syntax
         hl7-grammar
         hl7-parser-ir
         hl7-parser hl7-adt-a08-patient-projection)
 
-(def +hl7-language-version+ "2.5.1")
-(def +hl7-syntax-contract+ "hl7v2-er7.v1")
 
 ;;; Closed engine rules derive message-local delimiters from MSH-1/MSH-2.
 (deflanguage hl7
-  (identity "hl7v2" +hl7-language-version+ +hl7-syntax-contract+)
   (root message)
   (lex
    (segment-id SegmentId
@@ -114,7 +109,7 @@
    (hl7-er7-structure cst)))
 
 (deflanguage-projection hl7-adt-a08-patient-projection
-  (grammar hl7-language-grammar)
+  (grammar hl7-syntax)
   (strategy (.o (:: self RecordProjection.) prefix: "MSH" delimiter-count: 5
     expectations: '(((list (split (record "MSH" 8) 1 0) (split (record "MSH" 8) 1 1)) ("ADT" "A08"))
                     ((record "MSH" 11) "2.5.1"))

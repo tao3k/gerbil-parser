@@ -42,6 +42,11 @@
       (identity reference digest source rule-overrides rule-precedences
                 entrypoint conflicts
                 case-insensitive)
+    ((_ prefix (reference source-version source-commit) section ...)
+     (identifier? #'prefix)
+     (with-syntax ((language-name (datum->syntax #'prefix (symbol->string (syntax->datum #'prefix)))))
+       #'(deflanguage-iso-bnf-grammar prefix (identity language-name #f #f)
+           (reference source-version source-commit) section ...)))
     ((_ prefix
         (identity language version contract)
         (reference source-version source-commit)
@@ -91,8 +96,8 @@
         (case-insensitive case-insensitive-value))
      (and (identifier? #'prefix)
           (stx-string? #'language)
-          (stx-string? #'version)
-          (stx-string? #'contract)
+          (or (stx-string? #'version) (eq? (stx-e #'version) #f))
+          (or (stx-string? #'contract) (eq? (stx-e #'contract) #f))
           (stx-string? #'source-version)
           (stx-string? #'source-commit)
           (stx-string? #'expected-digest)

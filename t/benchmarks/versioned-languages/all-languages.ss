@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Per-entry warm complete ParseArtifact costs over every admitted corpus.
-(import (only-in :clan/poo/object .ref)
+(import (only-in :gerbil-parser/language-support/entry language-metadata-ref) (only-in :clan/poo/object .ref)
         (only-in :gerbil-parser/language-support/development language-loader-fixtures)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-roundtrip)
@@ -68,7 +68,7 @@
                    (loop (- remaining 1) (cons elapsed times)))))
              (let (sorted (list-sort < times))
                (write (list (cons 'schema "gerbil-parser.all-language-batch.v1")
-                            (cons 'entry (car row)) (cons 'metadata (.ref (.ref entry 'metadata) 'digest))
+                            (cons 'entry (car row)) (cons 'metadata (language-metadata-ref (.ref entry 'metadata) 'digest))
                             (cons 'phase 'warm-parse-and-roundtrip)
                             (cons 'fixture-count (length sources))
                             (cons 'source-characters (apply + (map string-length sources)))

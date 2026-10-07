@@ -17,10 +17,10 @@
   (rejected
    ("hl7v2/missing-header" hl7-missing-header (text "PID|1\r"))))
 
-(deflanguage-development-loader (hl7-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader hl7-test-language
   (grammar hl7-language-grammar)
   (parse parse-hl7-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl)
+  (slots metadata: '((grammar-format . concise-dsl))
          fixtures: hl7-fixtures))
 
 (deflanguage-parser-tests hl7-parser-test "HL7v2 ER7 2.5.1 parser"

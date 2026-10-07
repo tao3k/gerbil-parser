@@ -1,7 +1,8 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 ;;; Whole expression-vocabulary package control, through its checked public entry.
-(import "package-expression-parser"
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        "package-expression-parser"
         (only-in "list-language" list-control-parser)
         (only-in :clan/poo/object .ref)
         (only-in "../../../src/runtime/parser" parse-source)
@@ -50,4 +51,4 @@
  '("f(,)" "f(a,)" "f(a b)" "f(a" "[,]" "[a,]" "[a b]" "[a"))
 (display "PACKAGE-EXPRESSION-OK: ") (display checked)
 (display " checks passed") (newline) (force-output)
-(exit 0)
+(test-child-process-exit! 0)

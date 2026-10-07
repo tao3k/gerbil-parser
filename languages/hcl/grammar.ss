@@ -1,25 +1,20 @@
 ;;; -*- Gerbil -*-
 ;;; Version-pinned HCL native syntax grammar owner.
 
-(import (only-in :gerbil-parser/language-support deflanguage)
+(import (only-in :gerbil-parser/language-support/grammar deflanguage)
         (only-in :gerbil-parser/src/compiler/hcl-reductions direct-step direct-event-step direct-grammar-digest)
         (only-in :gerbil-parser/src/compiler/hcl-source
                  direct-parse-hcl direct-hcl-grammar-digest))
-(export +hcl-native-syntax-version+
-        +hcl-native-syntax-commit+
-        +hcl-syntax-contract+
-        hcl-language-grammar
+(export +hcl-native-syntax-commit+
+        hcl-syntax
         hcl-grammar
         hcl-parser-ir
         hcl-parser)
 
-(def +hcl-native-syntax-version+ "v2.24.0")
 (def +hcl-native-syntax-commit+
   "6b5068090eef06b1f127f61529db5ba0be7ed343")
-(def +hcl-syntax-contract+ "hcl-native-v2.24.0.v1")
 
 (deflanguage hcl
-  (identity "hcl" +hcl-native-syntax-version+ +hcl-syntax-contract+)
   (root config-file)
   (lex
    (horizontal-whitespace HorizontalWhitespace (horizontal-whitespace+))

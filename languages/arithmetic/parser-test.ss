@@ -15,10 +15,10 @@
             "arithmetic-expression.v1")
   (source "corpus/basic.expr")
   (expect accepted SourceFile (Expression)))
-(deflanguage-development-loader (arithmetic-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader arithmetic-test-language
   (grammar arithmetic-language-grammar)
   (parse parse-arithmetic-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl)
+  (slots metadata: '((grammar-format . concise-dsl))
          build-strategies: (list (declare-language-build-strategy 'fused-reductions
                                    (make-fused-reduction-strategy arithmetic-language-grammar))
                                  (declare-language-build-strategy 'rust-rowan

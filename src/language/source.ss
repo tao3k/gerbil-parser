@@ -8,7 +8,7 @@
                  source-engine-parse source-engine-receipt source-engine-results)
         (only-in ./result-profile result-plan-catalog))
 (export +source-language-schema+
-        declare-source-language
+        declare-source-language declare-source-syntax source-language-with-identity source-syntax-strategy
         source-language?
         source-language-language
         source-language-version
@@ -67,3 +67,23 @@
           ((source-language-parse descriptor)
            source (source-language-scanner descriptor) digest)))
     (validate-source-publication! descriptor source artifact)))
+
+;;; An internal unbound syntax product; parser metadata supplies release identity.
+(defstruct (source-syntax source-language) (recipe strategy) transparent: #t)
+(def (declare-source-syntax strategy)
+  (let-values (((recipe engine) (bind-source-strategy strategy)))
+    (make-source-syntax +source-language-schema+ #f #f #f #f
+      (source-engine-scanner engine) (source-engine-parse engine)
+      (source-engine-factory engine) (source-engine-receipt engine)
+      (source-engine-results engine) recipe strategy)))
+(def (source-language-with-identity definition language version contract)
+  (unless (source-syntax? definition) (error "source identity requires unbound syntax"))
+  (let ((language-value (string-copy language)) (version-value (string-copy version))
+        (contract-value (string-copy contract)))
+    (make-source-language +source-language-schema+ language-value version-value contract-value
+      (sha256-text (call-with-output-string
+        (lambda (port) (write (list language-value version-value contract-value
+                                   (source-syntax-recipe definition)) port))))
+      (source-language-scanner definition) (source-language-parse definition)
+      (source-language-factory definition) (source-language-receipt definition)
+      (source-language-results definition))))

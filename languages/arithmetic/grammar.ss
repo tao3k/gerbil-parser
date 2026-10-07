@@ -1,21 +1,15 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical left-recursive arithmetic grammar for LR precedence admission.
 
-(import (only-in :gerbil-parser/language-support deflanguage)
+(import (only-in :gerbil-parser/language-support/grammar deflanguage)
         (only-in :gerbil-parser/src/compiler/arithmetic-drive direct-drive direct-grammar-digest))
-(export +arithmetic-language-version+
-        +arithmetic-syntax-contract+
-        arithmetic-language-grammar
+(export arithmetic-syntax
         arithmetic-grammar
         arithmetic-parser-ir
         arithmetic-parser)
 
-(def +arithmetic-language-version+ "v1")
-(def +arithmetic-syntax-contract+ "arithmetic-expression.v1")
 
 (deflanguage arithmetic
-  (identity "arithmetic" +arithmetic-language-version+
-            +arithmetic-syntax-contract+)
   (root source-file)
   (lex
    (whitespace Whitespace (whitespace+))

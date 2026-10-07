@@ -9,7 +9,7 @@
                  language-parser-entry-ref check-language-loader-fixtures!
                  declare-language-source-scan-worker make-language-scan-worker
                  declare-language-fixture-test run-language-test)
-        (only-in :gerbil-parser/languages/arithmetic/grammar
+        (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/language-support/fixture
                  defsyntax-fixture defsyntax-corpus syntax-fixture-source syntax-fixture-source-digest)

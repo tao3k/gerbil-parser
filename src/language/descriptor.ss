@@ -3,7 +3,7 @@
 
 (export +language-grammar-schema+
         language-grammar?
-        make-language-grammar
+        make-language-grammar language-grammar-with-identity
         language-grammar-language
         language-grammar-version
         language-grammar-contract
@@ -65,3 +65,13 @@
 ;;; Observability changes preserve the recognition and validation policy.
 (def (language-grammar-with-observability grammar observability)
   (copy-language-grammar grammar observability (language-grammar-parser-policy grammar)))
+
+;;; Bind release identity after syntax compilation; preserve machine and policy.
+(def (language-grammar-with-identity definition language version contract)
+  (let ((policy (language-grammar-parser-policy definition))
+        (fields (list (language-grammar-schema definition)
+                      (string-copy language) (string-copy version) (string-copy contract)
+                      (language-grammar-grammar definition) (language-grammar-ir definition)
+                      (language-grammar-machine definition) (language-grammar-observability definition))))
+    (if policy (apply make-policy-language-grammar (append fields (list policy)))
+        (apply make-language-grammar fields))))

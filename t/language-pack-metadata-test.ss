@@ -1,5 +1,5 @@
 ;;; Explicit POO pack entries expose grammar metadata and reusable test services.
-(import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+(import (only-in :gerbil-parser/language-support/entry language-metadata-ref) (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
         (only-in :gerbil-parser/languages/cypher/parser-test opencypher-test-language)
         (only-in :gerbil-parser/languages/tla-plus/parser-test tla-plus-core-test-language)
@@ -40,23 +40,23 @@
 
 (def language-pack-metadata-test
   (test-suite "public POO language pack metadata"
-    (test-case "shipped entries expose their descriptor and POO metadata"
+    (test-case "shipped entries expose their descriptor and value metadata"
       (for-each
        (lambda (row)
          (let (loader (car row))
            (check (object? loader) => #t)
            (for-each (lambda (key)
-                       (check (.ref (.ref loader 'metadata) key) => (.ref loader key)))
+                       (check (language-metadata-ref (.ref loader 'metadata) key) => (.ref loader key)))
                      '(language version contract))
            (let (descriptor (.ref loader 'descriptor))
-             (check (.ref (.ref loader 'metadata) 'digest)
+             (check (language-metadata-ref (.ref loader 'metadata) 'digest)
                     => (if (source-language? descriptor) (source-language-digest descriptor)
                          (parser-machine-grammar-digest (language-grammar-machine descriptor))))
-             (check (.ref (.ref loader 'metadata) 'digest-kind)
+             (check (language-metadata-ref (.ref loader 'metadata) 'digest-kind)
                     => (if (source-language? descriptor) 'source-identity 'parser-ir)))
            (check (.ref loader 'schema) => +language-parser-entry-schema+)
            (check (not (not (memq (.ref loader 'descriptor) (.ref loader 'grammars)))) => #t)
-           (check (.ref (.ref loader 'metadata) 'grammar-format) => (cdr row))))
+           (check (language-metadata-ref (.ref loader 'metadata) 'grammar-format) => (cdr row))))
        (list (cons arithmetic-language 'concise-dsl)
              (cons hcl-language 'concise-dsl)
              (cons hl7-language 'concise-dsl)

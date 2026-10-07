@@ -10,7 +10,7 @@
                  delimiter-queue-list delimiter-obligation-marker delimiter-obligation-quoted?
                  contextual-scan-state-canonical decode-marker)
         (only-in :gerbil-parser/src/language/source source-language-scanner-factory))
-(import (only-in :gerbil-parser/languages/bash/grammar bash-source-language))
+(import (only-in :gerbil-parser/languages/bash/parser bash-source-language))
 (def (pending-markers state)
  (map car (cdr (assq 'pending (contextual-scan-state-canonical state)))))
 (def (rejected? thunk)

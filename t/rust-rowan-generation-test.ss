@@ -3,13 +3,13 @@
 
 (import (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/languages/arithmetic/grammar
+        (only-in :gerbil-parser/languages/arithmetic/parser
                  +arithmetic-language-version+
                  +arithmetic-syntax-contract+
                  arithmetic-language-grammar
                  arithmetic-parser-ir
                  arithmetic-parser)
-        (only-in :gerbil-parser/languages/gql/grammar
+        (only-in :gerbil-parser/languages/gql/parser
                  +gql-syntax-contract+
                  gql-parser-ir
                  gql-parser)

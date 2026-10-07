@@ -61,10 +61,10 @@
    ("hcl/specsuite/structure/blocks/single-unclosed"
     hcl-spec-block-single-unclosed
     "corpus/reference/invalid/block_single_unclosed.hcl")))
-(deflanguage-development-loader (hcl-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader hcl-test-language
   (grammar hcl-language-grammar)
   (parse parse-hcl-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl reference-commit: +hcl-native-syntax-commit+)
+  (slots metadata: `((grammar-format . concise-dsl) (reference-commit . ,+hcl-native-syntax-commit+))
          build-strategies: (list (declare-language-build-strategy 'fused-reductions
                                    (make-fused-reduction-strategy hcl-language-grammar))
                                  (declare-language-build-strategy 'rust-rowan

@@ -3,16 +3,16 @@
 
 * Decision and implemented boundary
 
-The author contract belongs to =deflanguage=: identity, one =syntax= block and
-one =rules= block. There is no additional required SourceGrammar model.
+The author syntax contract belongs to =deflanguage=: one =syntax= block and
+one =rules= block. Release identity belongs to parser.ss metadata. There is no additional required SourceGrammar model.
 [[file:../../languages/bash/grammar.ss][Bash grammar.ss]] declares the common =shell= vocabulary and semantic command
 rules. The old profile declaration and its author entry have been removed;
 no independently runnable legacy grammar or compatibility alias is retained.
 
 | Author interface | Responsibility |
 |------------------+----------------|
-| grammar.ss | Identity, lexical policies, semantic syntax and named AST rules |
-| parser.ss | Checked Loader entry and parser services |
+| grammar.ss | Lexical policies, semantic syntax and named AST rules |
+| parser.ss | Release metadata, checked Loader entry and parser services |
 | parser-test.ss | Independent inputs, tree/field/span expectations and benchmarks |
 
 [[file:../../src/language/grammar.ss][deflanguage]] elaborates source vocabulary through native macros.
@@ -22,6 +22,46 @@ command rule structure before emitting the common compiler call.
 source strategy. Profiles and execution recipes are compiler products.
 =language-source-support= exposes checked source inspection and the parser
 receipt declaration, not profile constructors.
+
+* Metadata value and native POO alternatives
+
+All eight production packages now declare release language/version/contract in
+parser.ss. Compiler products are named =*-syntax= and have no release version or
+contract until the parser entry binds them. Upstream source pins in grammar.ss
+identify grammar inputs; they are distinct from parser release metadata.
+
+Ordinary values are the default. Native POO is optional when authors need
+inheritance or effective slot overrides. Both satisfy the metadata domain
+contract; POO objects are not required wrappers around ordinary data.
+
+#+begin_src scheme
+;; Normal author value; no POO construction or prototype declaration required.
+(deflanguage-parser-loader bash-language
+  (source bash-source-language bash-syntax)
+  (parse parse-bash)
+  (metadata '((language . "bash") (version . "5.3")
+              (contract . "bash-5.3-structured-source.v1")
+              (grammar-format . source-parser))))
+
+;; With inheritance, metadata may instead be a native POO object:
+;; (metadata (.o (:: self MetadataBase.) version: "v2"))
+;; Its effective slots must supply valid language/version/contract values.
+
+;; Question 1: Why is this design better?
+;; Ordinary users declare values directly. Extension users keep native POO;
+;; release identity has one authoring location, separate from recognition rules.
+;; Question 2: Why is this scientifically defensible?
+;; Equivalent value and inherited-object inputs must produce identical identity,
+;; parse events and receipts. Missing fields, duplicate keys and invalid values
+;; must fail admission. Independent corpus tests must preserve parser behavior.
+#+end_src
+
+The engine binds effective metadata once, snapshots identity strings, retains
+native POO extension behavior or ordinary association-list representation, and
+adds digest/digest-kind. =language-metadata-ref= reads either representation.
+Source digests include release identity and the normalized source recipe; LR
+Parser IR digests remain syntax-content identities. Changing a parser edition
+does not manufacture a different LR table.
 
 * Complexity transferred to the common library
 
@@ -77,7 +117,7 @@ by this Bash frontend.
 * Elaboration and admission
 
 #+begin_example
-grammar.ss: deflanguage identity / syntax / rules
+grammar.ss: deflanguage syntax / rules
   -> native source-vocabulary expansion
   -> checked named command expressions
   -> common compiler: lexical policies, continuations, capture programs
@@ -86,7 +126,7 @@ grammar.ss: deflanguage identity / syntax / rules
   -> parser-test.ss: independent semantic observations
 #+end_example
 
-Source plans remain distinct from CFG/LR GrammarIR. Source identity incorporates
+Source plans remain distinct from CFG/LR GrammarIR. Bound source identity incorporates
 the normalized recipe; a refactor may change its digest while preserving
 observable behavior. Versioning and downstream artifact renewal remain explicit
 release responsibilities.
@@ -111,7 +151,7 @@ ten-second child bound. That failure is retained. POO slot initializers used
 names identical to outer lexical values, causing recursive reads; distinct
 lexical names corrected the binding. No timeout was increased.
 
-After correction, native translation completed with actual exit zero, and the
+For the preceding Bash frontend commit, after correction, native translation completed with actual exit zero, and the
 native executable linked in 15.25 seconds with actual exit zero. The Bash child
 completed with actual exit zero and =DSL-SUITE-OK: bash=, covering author contract
 rejection and the existing independent Bash semantic suite: nested expansions,
@@ -124,6 +164,43 @@ composition/provenance controls and the one-sample benchmark smoke. This smoke
 is not a performance comparison. Incremental local native
 qualification does not establish a clean build, exact-head GitHub CI, a downstream
 installed consumer or a performance improvement.
+
+** Metadata migration qualification
+
+The subsequent metadata migration preserves the two admitted representations:
+ordinary association-list values and native POO objects. Focused controls compare
+identity, source digest, parse events and roundtrip output, exercise native slot
+overrides, reject malformed metadata and verify copied release identity strings.
+
+Two incremental native crashes occurred in old test consumers: the entry boundary
+module and the common language-strategy module. Debugger frames identified those
+consumers; recompiling and relinking them removed the crashes. An intermediate
+loadable-module build and a link attempt exceeded the unchanged five-second
+output-idle fence and remain failed receipts. The final native link completed in
+218.41 seconds with actual exit zero under the 240-second build fence.
+After narrowing the expression research fixture import, the final incremental
+link completed in 32.18 seconds with actual exit zero.
+
+Bash product inspection now derives internal plans from the compiled syntax in a
+test-only fixture. The narrow grammar frontend avoids importing unrelated grammar
+adapters. Binding-name generation passed 135 traces. Command/Source generation
+initially exceeded ten seconds while loading an unused Bash test-suite import;
+removing that import produced 54 controls in 9.01 seconds with actual exit zero.
+These generator checks do not establish downstream Rust execution or a speedup.
+The expression research child first timed out during import, then completed all
+85 assertions but exceeded its deadline during process exit. It now uses the
+existing disposable test-child exit helper after every assertion and output
+flush; the focused child exited zero within the unchanged ten-second fence.
+
+The final complete closure passed all 26 children with actual exit zero under
+unchanged ten-second fences: all eight language suites, ten production/development
+entries, value/POO contracts, topology, services, composition/provenance controls
+and the ten-entry one-sample benchmark smoke. This is incremental local evidence;
+the smoke is not a performance comparison.
+
+The preceding GitHub head, =2a55f99=, passed Rust/Rowan CI, but both native CI jobs
+exceeded the 240-second conformance compilation fence. Local incremental checks
+do not establish that clean CI gate. No timeout was widened.
 
 * Paper connection and transfer limit
 

@@ -4,7 +4,7 @@
 
 (import (only-in ./language-support/entry
                  deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
-                 +language-parser-entry-schema+ language-parser-entry-ref)
+                 +language-parser-entry-schema+ language-parser-entry-ref language-metadata-ref)
         (only-in ./src/grammar/lexical-algebra deftext-profile)
         (only-in ./src/runtime/region-scanner defregion-plan)
         (only-in ./language-support/antlr4-source
@@ -173,7 +173,7 @@
         declare-source-language
         language-grammar-with-parser-policy
         source-language?
-        language-parser-entry-ref
+        language-parser-entry-ref language-metadata-ref
         defsyntax-fixture
         defsyntax-corpus
         syntax-fixture?

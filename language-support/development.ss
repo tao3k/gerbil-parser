@@ -33,7 +33,7 @@
                  source-language-contract source-language-language
                  source-language-version source-language-digest source-language-scanner-factory))
 (export deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
-        +language-parser-entry-schema+ language-parser-entry-ref parse-language-source
+        +language-parser-entry-schema+ language-parser-entry-ref language-metadata-ref parse-language-source
         language-loader-fixtures language-loader-fixture-count language-loader-fixture
         check-language-loader-fixtures! call-with-language-parser-policy
         declare-language-source-scan-worker make-language-scan-worker
@@ -291,9 +291,12 @@
                  (loop (cdr rows)))))))
        #'(begin
            (def binding
-             (let (candidate
-                   (.o (:: loader-self prototype)
-                       descriptor: descriptor-value
+             (let* ((author-extensions (.o (:: loader-self prototype) slot ...))
+                    (parser-descriptor-value
+                     (bind-parser-identity descriptor-value (.ref author-extensions 'metadata)))
+                    (candidate
+                     (.o (:: loader-self author-extensions)
+                       descriptor: parser-descriptor-value
                        ;; Bind these methods at the leaf; a prototype cannot
                        ;; replace identity or dispatch through inherited slots.
                        schema: +language-parser-entry-schema+
@@ -305,12 +308,10 @@
                                  (lambda (source)
                                    (parse-language-source descriptor source))))
                        (fixture-catalog (prepare-loader-fixtures (.ref loader-self 'descriptor) (.ref loader-self 'fixtures)))
-                       slot ...))
+                       )))
                (let* ((metadata (.ref candidate 'metadata))
-                      (admitted (if (object? metadata)
-                                  (.cc candidate 'metadata
-                                       (bind-loader-metadata (.ref candidate 'descriptor) metadata))
-                                  candidate)))
+                      (admitted (.cc candidate 'metadata
+                                    (bind-loader-metadata (.ref candidate 'descriptor) metadata))))
                  (validate LanguageDevelopmentLoaderContract admitted)
                  (validate extension-contract admitted) ...
                  admitted)))

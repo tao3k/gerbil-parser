@@ -3,14 +3,19 @@
 ;;;
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 
-(import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader LanguageLoader.)
+(import (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-entry-ref language-metadata-ref)
         ./grammar)
-(export (import: ./grammar)
+(export +fhirpath-syntax-contract+ fhirpath-language-grammar (import: ./grammar)
         fhirpath-language
         parse-fhirpath)
 
-(deflanguage-parser-loader (fhirpath-language :: self LanguageLoader.)
-  (grammar fhirpath-language-grammar)
+(deflanguage-parser-loader fhirpath-language
+  (grammar fhirpath-language-grammar fhirpath-syntax)
   (parse parse-fhirpath)
-  (slots metadata: (.o grammar-format: 'concise-dsl source-digest: +fhirpath-antlr4-digest+)))
+  (metadata `((language . "fhirpath")
+              (version . "2.0.0")
+              (contract . "fhirpath-normative-2.0.0-syntax.v1")
+              (grammar-format . concise-dsl)
+              (source-digest . ,+fhirpath-antlr4-digest+))))
+
+(def +fhirpath-syntax-contract+ (language-metadata-ref (language-parser-entry-ref fhirpath-language 'metadata) 'contract))

@@ -4,19 +4,15 @@
 (import (only-in :gerbil-parser/language-support/antlr4-language
                  deflanguage-antlr4-grammar)
         (only-in :gerbil-parser/language-support/antlr4-source
-                 antlr4-source-version antlr4-source-commit antlr4-source-digest)
-        (only-in :gerbil-parser/src/language/descriptor
-                 language-grammar-version language-grammar-contract))
+                 antlr4-source-version antlr4-source-commit antlr4-source-digest))
 (export +gql-standard-reference+
-        +gql-standard-edition+
         +gql-opengql-reference-version+
         +gql-opengql-reference-commit+
         +gql-antlr4-digest+
-        +gql-syntax-contract+
         +gql-representative-query+
         gql-antlr4-token-bindings
         gql-antlr4-source
-        gql-language-grammar
+        gql-syntax
         gql-grammar
         gql-bound-grammar-ir
         gql-parser-ir
@@ -30,8 +26,6 @@
    "RETURN person.name AS source, friend.name AS target\n"))
 
 (deflanguage-antlr4-grammar gql
-  (identity "gql" "edition-1-2024-04"
-            "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
   (reference "1.9.0"
              "16ea71bd320ad07fd2c46a3066afbaef7d226922")
   (digest
@@ -91,9 +85,7 @@
     (extras whitespace comment)))
 
 ;;; Runtime metadata derives from the same admitted declaration and source catalog.
-(def +gql-standard-edition+ (language-grammar-version gql-language-grammar))
 (def +gql-opengql-reference-version+ (antlr4-source-version gql-antlr4-source))
 (def +gql-opengql-reference-commit+ (antlr4-source-commit gql-antlr4-source))
 (def +gql-antlr4-digest+ (antlr4-source-digest gql-antlr4-source))
-(def +gql-syntax-contract+ (language-grammar-contract gql-language-grammar))
 

@@ -4,7 +4,7 @@
                  prepare-region-plan valid-region-specification? region-plan-end
                  region-plan-specification region-plan-pair-end region-plan-quote-end
                  region-plan-operator prepare-region-source prepare-scoped-region-source region-source-pair-end region-source-quote-end)
-        (only-in :gerbil-parser/languages/bash/grammar bash-word-regions))
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-word-regions))
 (export region-scanner-test)
 (def (rejects? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))

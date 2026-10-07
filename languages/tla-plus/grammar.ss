@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Language declarations and source identity; execution is engine-owned.
-(import (only-in :gerbil-parser/language-support deflanguage deftext-profile)
+(import (only-in :gerbil-parser/language-support/grammar deflanguage deftext-profile)
         (only-in :gerbil-parser/language-support/grammar-source defsyntax-javacc-source))
-(export tla-proof-name tla-proof-start tla-proof-reference tla-identifier +tla-plus-syntax-source+ +tla-plus-examples-commit+ +tla-plus-sany-release+ +tla-plus-sany-commit+ +tla-plus-sany-grammar-blob+ +tla-plus-sany-grammar-digest+ tla-plus-sany-source  tla-plus-core-language-grammar tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser tla-plus-layout-language-grammar tla-plus-layout-grammar tla-plus-layout-parser-ir tla-plus-layout-parser tla-plus-sany-candidate-language-grammar tla-plus-sany-candidate-grammar tla-plus-sany-candidate-parser-ir tla-plus-sany-candidate-parser)
+(export tla-proof-name tla-proof-start tla-proof-reference tla-identifier +tla-plus-syntax-source+ +tla-plus-examples-commit+ +tla-plus-sany-release+ +tla-plus-sany-commit+ +tla-plus-sany-grammar-blob+ +tla-plus-sany-grammar-digest+ tla-plus-sany-source  tla-plus-core-syntax tla-plus-core-grammar tla-plus-core-parser-ir tla-plus-core-parser tla-plus-layout-syntax tla-plus-layout-grammar tla-plus-layout-parser-ir tla-plus-layout-parser tla-plus-sany-candidate-syntax tla-plus-sany-candidate-grammar tla-plus-sany-candidate-parser-ir tla-plus-sany-candidate-parser)
 ;;; Local recognition is canonical lexical data, including its spelling.
 (deftext-profile tla-proof-name
   (seq (literal "<")
@@ -35,8 +35,6 @@
   (source "grammar-source/tla+.jj"))
 
 (deflanguage tla-plus-core
-  (identity "tla-plus" "v1" "tla-plus.native-core.v1")
-
   (root source-file)
   (lex
    (horizontal-whitespace HorizontalWhitespace (horizontal-whitespace+))
@@ -421,8 +419,6 @@
     (separator-line SeparatorLine) (punctuation Punctuation))))
 
 (deflanguage tla-plus-layout
-  (identity "tla-plus" "v2" "tla-plus.native-layout.v2")
-
   (root source-file)
   (lex
    (horizontal-whitespace HorizontalWhitespace (horizontal-whitespace+))
@@ -826,8 +822,6 @@
     (separator-line SeparatorLine) (punctuation Punctuation))))
 
 (deflanguage tla-plus-sany-candidate
-  (identity "tla-plus" "p4-draft" "tla-plus.native-sany-candidate.p4")
-
   (root source-file)
   (lex
    (module-text ModuleText (module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_"))

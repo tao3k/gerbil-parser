@@ -1,17 +1,14 @@
 ;;; -*- Gerbil -*-
 ;;; Bash author grammar. The source library derives and admits execution plans.
-(import (only-in :gerbil-parser/language-support deflanguage defgrammar-syntax)
+(import (only-in :gerbil-parser/language-support/grammar deflanguage defgrammar-syntax)
         (only-in :gerbil-parser/language-support/shell shell))
-(export +bash-version+ +bash-syntax-contract+ bash-source-language)
-(def +bash-version+ "5.3")
-(def +bash-syntax-contract+ "bash-5.3-structured-source.v1")
+(export bash-syntax)
 
 (defgrammar-syntax (compound-loop kind opener)
   (node kind (field keyword opener) (field condition command-list)
     (field keyword "do") (field body command-list) (field keyword "done")))
 
-(deflanguage bash-source-language
- (identity "bash" +bash-version+ +bash-syntax-contract+)
+(deflanguage bash-syntax
  (syntax
   (shell
    (operators ";;&" "&>>" "<<-" "<<<" "&&" "||" "|&" ";;" ";&"

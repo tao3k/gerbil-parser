@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Real production BindingProfile names lower through the shared TextProfile IR.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
-        (only-in :gerbil-parser/languages/bash/grammar bash-parts)
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-parts)
         (only-in :gerbil-parser/src/language/part-profile compile-part-profile part-plan-recipe part-plan-binding binding-plan-name-end)
         (only-in :gerbil-parser/src/compiler/rust-rowan rust-text-profile-expression-source))
 (def controls '("" "α_123" "123x" "@rest" "_rest" "α-β" "λ中😀" "1α" "!α" "?α" "aβγ"))

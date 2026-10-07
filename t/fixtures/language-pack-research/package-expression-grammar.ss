@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;; grammar.ss: candidate author module exercised by the local package control.
-(import (only-in :gerbil-parser/language-support
+(import (only-in :gerbil-parser/language-support/grammar
                  deflanguage defgrammar-syntax))
 (export list-study-language-grammar)
 

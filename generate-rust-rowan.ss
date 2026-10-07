@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Repository generation entrypoint for committed Rust/Rowan AOT products.
 
-(import (only-in :gerbil-parser/languages/arithmetic/grammar
+(import (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/src/compiler/rust-rowan
                  generate-language-rust-rowan-module))

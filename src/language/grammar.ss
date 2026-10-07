@@ -10,7 +10,7 @@
         (only-in ../compiler/machine install-parser-machine-backends!)
         (only-in ./descriptor make-language-grammar)
         (only-in ./assembly assemble-language-parser)
-        (only-in ./source declare-source-language))
+        (only-in ./source declare-source-language declare-source-syntax))
 (export deflanguage
         deflanguage-grammar
         defgrammar-syntax)
@@ -77,7 +77,13 @@
 ;;       Result: every generated binding retains the stable v1 schemas.
 ;;     %
 (defsyntax (deflanguage stx)
-  (syntax-case stx (identity syntax rules)
+  (syntax-case stx (identity syntax rules root)
+    ((_ binding (syntax (vocabulary clause ...)) (rules rule ...))
+     (identifier? #'binding)
+     #'(def binding (declare-source-syntax (vocabulary clause ... (rules rule ...)))))
+    ((_ prefix (root root-name) section ...)
+     (identifier? #'prefix)
+     #'(deflanguage prefix (identity #f #f #f) (root root-name) section ...))
     ((_ binding (identity language version contract)
         (syntax (vocabulary clause ...)) (rules rule ...))
      (identifier? #'binding)

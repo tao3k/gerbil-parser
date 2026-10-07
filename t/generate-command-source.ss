@@ -1,9 +1,8 @@
 #!/usr/bin/env gxi
 ;;; Recognition controls come from the actual Scheme Source engine, including fields and deferred links.
-(import (only-in :gerbil-parser/languages/bash/parser-test bash-fixtures)
-        (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :clan/poo/object .o .ref)
-        (only-in :gerbil-parser/languages/bash/grammar bash-results bash-parts bash-word-regions bash-commands bash-command-scanner)
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-results bash-parts bash-word-regions bash-commands bash-command-scanner)
         (only-in :gerbil-parser/src/compiler/rust-scanner command-source-rust-module-source)
         (only-in :gerbil-parser/src/runtime/source-engines ShellSourceStrategy.)
         (only-in :gerbil-parser/src/compiler/rust-rowan result-profile-rust-source)

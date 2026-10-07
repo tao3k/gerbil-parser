@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Scheme-owned lexical field order for catalog constructors used by Commands.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
-        (only-in :gerbil-parser/languages/bash/grammar bash-results)
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-results)
         (only-in :gerbil-parser/src/compiler/rust-rowan result-profile-rust-source)
         (only-in :gerbil-parser/src/language/result-profile compile-result-profile result-plan-node result-plan-recipe)
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-child recognition-node-kind recognition-node-start recognition-node-end recognition-node-children recognition-child-field recognition-child-value)

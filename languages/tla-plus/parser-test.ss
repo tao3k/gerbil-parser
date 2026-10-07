@@ -51,22 +51,22 @@
   (rejected
    ("tla-plus/candidate/missing-qed" tla-candidate-missing-qed (text "---- MODULE P ----\nTHEOREM TRUE\n<1>1. TRUE OBVIOUS\n====\n"))))
 
-(deflanguage-development-loader (tla-plus-core-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader tla-plus-core-test-language
   (grammar tla-plus-core-language-grammar)
   (parse parse-tla-plus-core-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl)
+  (slots metadata: '((grammar-format . concise-dsl))
          fixtures: tla-plus-core-fixtures))
 
-(deflanguage-development-loader (tla-plus-layout-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader tla-plus-layout-test-language
   (grammar tla-plus-layout-language-grammar)
   (parse parse-tla-plus-layout-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl)
+  (slots metadata: '((grammar-format . concise-dsl))
          fixtures: tla-plus-layout-fixtures))
 
-(deflanguage-development-loader (tla-plus-sany-candidate-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader tla-plus-sany-candidate-test-language
   (grammar tla-plus-sany-candidate-language-grammar)
   (parse parse-tla-plus-sany-candidate-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl)
+  (slots metadata: '((grammar-format . concise-dsl))
          fixtures: tla-plus-sany-candidate-fixtures))
 
 (deflanguage-parser-tests tla-plus-layout-parser-test "TLA+ column layout grammar"

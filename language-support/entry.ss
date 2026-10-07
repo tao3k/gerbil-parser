@@ -17,7 +17,7 @@
                  source-language-contract source-language-language
                  source-language-version source-language-digest source-language-scanner-factory))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
-        +language-parser-entry-schema+ language-parser-entry-ref parse-language-source)
+        +language-parser-entry-schema+ language-parser-entry-ref language-metadata-ref parse-language-source)
 
 (def (loader-shape? candidate)
   (and (object? candidate)
@@ -70,7 +70,17 @@
 ;;; a user prototype. Engine identity/dispatch slots are sealed by this macro.
 ;;; Additional contracts validate the effective object after inheritance.
 (defsyntax (deflanguage-parser-loader stx)
-  (syntax-case stx (@ descriptor parse slots contracts grammar source)
+  (syntax-case stx (@ descriptor parse slots contracts grammar source metadata)
+    ((_ binding (kind descriptor-binding definition) (parse parse-binding) (metadata value))
+     (and (identifier? #'descriptor-binding) (memq (syntax->datum #'kind) '(grammar source)))
+     (let (binding-name
+           (if (identifier? #'binding) #'binding
+             (syntax-case #'binding () ((name . _) #'name))))
+       (with-syntax ((loader-name binding-name))
+         #'(begin
+             (deflanguage-parser-loader binding (kind definition) (parse parse-binding)
+               (slots metadata: value))
+             (def descriptor-binding (language-parser-entry-ref loader-name 'descriptor))))))
     ((_ (binding marker loader-self prototype)
         (descriptor descriptor-value)
         (parse parse-binding)
@@ -105,9 +115,12 @@
                  (loop (cdr rows)))))))
        #'(begin
            (def binding
-             (let (candidate
-                   (.o (:: loader-self prototype)
-                       descriptor: descriptor-value
+             (let* ((author-extensions (.o (:: loader-self prototype) slot ...))
+                    (parser-descriptor-value
+                     (bind-parser-identity descriptor-value (.ref author-extensions 'metadata)))
+                    (candidate
+                     (.o (:: loader-self author-extensions)
+                       descriptor: parser-descriptor-value
                        ;; Bind these methods at the leaf; a prototype cannot
                        ;; replace identity or dispatch through inherited slots.
                        schema: +language-parser-entry-schema+
@@ -118,12 +131,10 @@
                        (.parse (let (descriptor (.ref loader-self 'descriptor))
                                  (lambda (source)
                                    (parse-language-source descriptor source))))
-                       slot ...))
+                       )))
                (let* ((metadata (.ref candidate 'metadata))
-                      (admitted (if (object? metadata)
-                                  (.cc candidate 'metadata
-                                       (bind-loader-metadata (.ref candidate 'descriptor) metadata))
-                                  candidate)))
+                      (admitted (.cc candidate 'metadata
+                                    (bind-loader-metadata (.ref candidate 'descriptor) metadata))))
                  (validate LanguageLoaderContract admitted)
                  (validate extension-contract admitted) ...
                  admitted)))

@@ -15,10 +15,10 @@
   (rejected
    ("bash/incomplete-if" bash-incomplete-if (text "if true; then\n"))))
 
-(deflanguage-development-loader (bash-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader bash-test-language
   (source bash-source-language)
   (parse parse-bash-test)
-  (slots metadata: (.o grammar-format: 'source-parser)
+  (slots metadata: '((grammar-format . source-parser))
          fixtures: bash-fixtures
          scan-workers: (list (cons 'command
                                   (declare-language-source-scan-worker

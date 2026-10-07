@@ -25,11 +25,10 @@
    ("opencypher/2024.1/invalid/match-only" opencypher-match-only
     "corpus/invalid/match-only.cypher")))
 
-(deflanguage-development-loader (opencypher-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader opencypher-test-language
   (grammar opencypher-language-grammar)
   (parse parse-opencypher-test)
-  (slots metadata: (.o grammar-format: 'iso-bnf reference-commit: +opencypher-commit+
-                             source-digest: +opencypher-bnf-digest+)
+  (slots metadata: `((grammar-format . iso-bnf) (reference-commit . ,+opencypher-commit+) (source-digest . ,+opencypher-bnf-digest+))
          fixtures: opencypher-fixtures))
 
 (deflanguage-parser-tests opencypher-parser-test "openCypher 2024.1 generated parser"

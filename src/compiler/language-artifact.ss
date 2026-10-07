@@ -454,7 +454,7 @@
     (datum->syntax prefix (string->symbol (string-append (symbol->string (syntax->datum prefix)) suffix))))
   (make-language-declaration-bindings
    (binding "-grammar") (binding "-bound-grammar-ir") (binding "-parser-ir")
-   (binding "-parser") (binding "-language-grammar")))
+   (binding "-parser") (binding (if (every (lambda (value) (syntax->datum value)) (language-declaration-identities declaration)) "-language-grammar" "-syntax"))))
 
 ;;; Construction and syntax admission do not publish artifacts.
 (def (admit-language-declaration declaration grammar-name)

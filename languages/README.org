@@ -22,13 +22,15 @@ belong to the engine or test owners. No compatibility modules remain.
 
 #+begin_src scheme
 (import (only-in :gerbil-parser/language-support
-                 deflanguage-parser-loader LanguageLoader.)
+                 deflanguage-parser-loader)
         ./grammar)
 (export example-language parse-example)
 
-(deflanguage-parser-loader (example-language :: self LanguageLoader.)
-  (grammar example-language-grammar)
-  (parse parse-example))
+(deflanguage-parser-loader example-language
+  (grammar example-language-grammar example-syntax)
+  (parse parse-example)
+  (metadata '((language . "example") (version . "v1")
+              (contract . "example.syntax.v1"))))
 #+end_src
 
 The loader is a POO object, admitted when the module loads. =parse-example= binds
@@ -79,7 +81,7 @@ own artifact/capability checks.
 
 * Grammar DSL
 
-Native grammar packs use =deflanguage=: =identity=, =root=, =lex= and =rules=
+Native grammar packs use =deflanguage=: =root=, =lex= and =rules=
 define the syntax. =extras=, =keywords= and =recoveries= default to empty;
 =conflicts= defaults to =reject= and =case-insensitive= to =#f=. Optional sections
 can be declared in any order; unknown or duplicate sections reject.
@@ -96,11 +98,10 @@ validates both through the same canonical Grammar IR compiler.
 A minimal =grammar.ss= is:
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/language-support deflanguage))
-(export example-language-grammar)
+(import (only-in :gerbil-parser/language-support/grammar deflanguage))
+(export example-syntax)
 
 (deflanguage example
-  (identity "example" "v1" "example.syntax.v1")
   (root document)
   (lex (word Identifier (identifier)))
   (rules (document (node SourceFile (field name word)))))
@@ -108,13 +109,13 @@ A minimal =grammar.ss= is:
 
 The =parser.ss= example above imports =./grammar= and exports
 =example-language= and =parse-example=. The compiler generates
-=example-language-grammar=; the pack does not write its own terminal catalog,
+=example-syntax=; parser metadata binds =example-language-grammar=. The pack does not write its own terminal catalog,
 Parser IR assembler, backend installer or Rust/C bridge. Product generation
 still uses the engine's build entrypoints and each target's capability admission.
 
 Imported ANTLR/ISO-BNF grammars keep their source-admission DSL; they produce the
-same generated descriptor and use the same loader. Bash's handwritten source
-parser and TLA+'s multiple grammar scopes remain explicit implementation
+same generated descriptor and use the same loader. Bash's compiled source
+plans and TLA+'s multiple grammar scopes remain explicit implementation
 boundaries. Their shared-IR migration is not implied by entry unification.
 
 ** Strict quoted text in shared lexical IR
@@ -167,7 +168,7 @@ object. They are not a second parser registry.
 | Slot | Default | Admission / interface |
 |---+---+---|
 | =grammars= | List containing the configured =descriptor= | List of grammar/source descriptors; must contain the entry descriptor. Multiple scopes may be exposed here. |
-| =metadata= | Descriptor-derived POO identity | Engine-owned =language=, =version=, =contract=, =digest= and =digest-kind= merge with grammar format, upstream references and user fields. Identity overrides are replaced by descriptor values; extension contracts constrain extra fields. |
+| =metadata= | Normal value or native POO object | parser.ss declares language/version/contract; the engine binds syntax and derives digest/digest-kind. Native inheritance is optional; extension contracts constrain extra fields. |
 | =fixtures= (development only) | Empty list | Ordinary POO value containing native =syntax-fixture= data. Override with a new corpus or extend with =append=; no callback wrapper. Loader admission checks the value shape; the common development test service checks identity and conformance. |
 | =tests= (development only) | Common fixture conformance service | Unique named, descriptor-bound =declare-language-fixture-test= declarations. =run-language-test= executes the common conformance protocol; bare procedures, duplicate names and foreign descriptors reject. |
 | =scan-workers= (development only) | Empty list | Unique named declarations bound to the exact source descriptor; bare procedures and foreign descriptors reject. Engine creation checks the executor/source binding. |
@@ -176,10 +177,10 @@ For example, the HCL development entry binds its existing corpus and the common
 conformance service through POO rather than another language-specific wrapper:
 
 #+begin_src scheme
-(deflanguage-development-loader (hcl-test-language :: self LanguageDevelopmentLoader.)
+(deflanguage-development-loader hcl-test-language
   (grammar hcl-language-grammar)
   (parse parse-hcl-test)
-  (slots metadata: (.o grammar-format: 'concise-dsl)
+  (slots metadata: '((grammar-format . concise-dsl))
          fixtures: hcl-official-fixtures))
 
 (run-language-test hcl-test-language 'fixtures)
@@ -191,7 +192,8 @@ Production pack entries import =language-support/entry=. The optional
 on optional ANTLR/BNF/JavaCC authoring importers in the aggregate
 =language-support= facade; the facade exports the production entry API; optional development operations
 are imported from =language-support/development=.
-Existing grammar modules can still bring that facade into compiler metadata.
+Native grammar modules import the narrow =language-support/grammar= frontend;
+ANTLR and ISO-BNF modules import their respective source adapters.
 
 The unreleased =gerbil-parser.language-entry.v2= contract is corrected in place;
 this source migration does not create a new schema or release version.
@@ -554,8 +556,8 @@ coverage across the languages.
 
 * Source author contract and reusable engine contracts
 
-Source-backed authors use =deflanguage= with identity, one =syntax= block and
-one =rules= block. Bash uses =shell= from
+Source-backed authors use =deflanguage= with one =syntax= block and one =rules=
+block. Release language/version/contract are declared once in parser.ss metadata. Bash uses =shell= from
 =:gerbil-parser/language-support/shell= and native =defgrammar-syntax= vocabulary.
 The common library derives scanner, capture and command plans, then binds the
 checked source descriptor.

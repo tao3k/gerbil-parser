@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Scheme executes production and generic declarations; Rust recognizes sources independently.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
-        (only-in :gerbil-parser/languages/bash/grammar bash-word-regions)
+        (only-in :gerbil-parser/t/fixtures/bash-products bash-word-regions)
         (only-in :gerbil-parser/src/compiler/rust-scanner region-plan-rust-source)
         (only-in :gerbil-parser/src/runtime/region-scanner prepare-region-plan region-plan-specification
                  region-plan-end prepare-scoped-region-source region-source-pair-end region-source-quote-end))

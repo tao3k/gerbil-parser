@@ -1,6 +1,11 @@
 ;;; Public author-entry and rule admission contracts.
 (import :std/test
-        (only-in :gerbil-parser/language-support deflanguage)
+        (only-in :clan/poo/object .o .ref object?)
+        (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-entry-ref language-metadata-ref)
+        (only-in :gerbil-parser/src/language/source declare-source-syntax source-language-digest)
+        (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
+        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-events parse-artifact-roundtrip)
+        (only-in :gerbil-parser/language-support/grammar deflanguage)
         (only-in :gerbil-parser/language-support/shell shell)
         (only-in :gerbil-parser/language-support/command-grammar lower-command-grammar)
         (for-syntax (only-in :gerbil/expander core-expand)))
@@ -15,8 +20,44 @@
      (lambda () (core-expand #'declaration) (error "invalid author declaration admitted"))))
     (datum->syntax #'source-syntax-error (list 'quote message))))))
 (def (rejects? thunk) (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
+(def metadata-syntax
+  (declare-source-syntax (.o (:: self LineSourceStrategy.) root-kind: 'Notes required-prefix: "#")))
+(def input-version (string-copy "v1"))
+(def input-metadata (list (cons 'language "notes") (cons 'version input-version)
+                         (cons 'contract "notes.metadata.v1") (cons 'edition 'local)))
+(deflanguage-parser-loader value-entry
+  (source value-descriptor metadata-syntax) (parse parse-value-entry)
+  (metadata input-metadata))
+(def MetadataBase. (.o language: "notes" version: "wrong" contract: "notes.metadata.v1" edition: 'base))
+(deflanguage-parser-loader object-entry
+  (source object-descriptor metadata-syntax) (parse parse-object-entry)
+  (metadata (.o (:: self MetadataBase.) version: "v1" edition: 'local)))
 (def source-grammar-test
  (test-suite "deflanguage source syntax and rule contract"
+  (test-case "normal metadata values and native POO overrides bind equivalent source identity"
+   (let ((value (language-parser-entry-ref value-entry 'metadata))
+         (object (language-parser-entry-ref object-entry 'metadata)))
+    (check (list? value) => #t) (check (object? object) => #t)
+    (for-each (lambda (key)
+      (check (language-metadata-ref value key) => (language-metadata-ref object key)))
+      '(language version contract digest digest-kind edition))
+    (check (source-language-digest value-descriptor) => (source-language-digest object-descriptor))
+    (check (parse-artifact-events (parse-value-entry "# alpha\n"))
+           => (parse-artifact-events (parse-object-entry "# alpha\n")))
+    (check (parse-artifact-roundtrip (parse-value-entry "# alpha\n")) => "# alpha\n")
+    (string-set! input-version 0 #\x)
+    (check (language-parser-entry-ref value-entry 'version) => "v1")))
+  (test-case "metadata rejects missing identity, duplicate keys and invalid value shapes"
+   (for-each (lambda (value)
+     (check (rejects? (lambda ()
+       (let () (deflanguage-parser-loader invalid-entry
+                 (source invalid-descriptor metadata-syntax) (parse invalid-parse) (metadata value))
+         invalid-entry))) => #t))
+     '(((language . "notes") (version . "v1"))
+       ((language . "notes") (version . "v1") (version . "v2") (contract . "notes.v1"))
+       ((language . "notes") (version . "") (contract . "notes.v1"))
+       ((language . "notes") (version . "v1") (contract . #f))
+       ((1 . "notes")) #f "metadata")))
   (test-case "public entry rejects duplicate blocks and execution-recipe syntax"
    (check (string? (source-syntax-error
     (deflanguage bad (identity "bad" "1" "bad.v1") (syntax (shell)) (syntax (shell)) (rules)))) => #t)

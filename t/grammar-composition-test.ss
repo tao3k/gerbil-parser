@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 
 (import :std/test
@@ -35,41 +36,47 @@
 ;;; Both rules recognize the same spelling. Only the LR state can select the
 ;;; correct token identity for each position; global longest-match necessarily
 ;;; selects the declaration-first identity twice.
-(deflanguage directed-lexical-mode
-  (identity "directed-lexical-mode" "v1" "directed-lexical-mode.v1")
-  (root source-file)
-  (lex
+(begin
+ (deflanguage directed-lexical-mode
+  (syntax
+   (lexical
+    (root source-file)
+    (lex
    (first FirstToken (literals "x" "y"))
    (second SecondToken (literals "x" "y")))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file
     (node SourceFile
       (repeat
-       (seq (field first first) (field second second))))))
-  (extras)
-  (keywords)
-  (recoveries)
-  (conflicts reject)
-  (case-insensitive #f))
+       (seq (field first first) (field second second)))))))
+ (bind-fixture-grammar-release directed-lexical-mode "directed-lexical-mode" "v1" "directed-lexical-mode.v1") )
 
 ;;; The mode-local regular DFA must admit whole rules by LR state. Both
 ;;; identifiers have equal source behavior but distinct token identities.
-(deflanguage directed-regular-mode
-  (identity "directed-regular-mode" "v1" "directed-regular-mode.v1")
-  (root source-file)
-  (lex
+(begin
+ (deflanguage directed-regular-mode
+  (syntax
+   (lexical
+    (root source-file)
+    (lex
    (first FirstToken (identifier))
    (second SecondToken (identifier))
    (space Space (whitespace+)))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file
     (node SourceFile
-      (seq (field first first) (field second second)))))
-  (extras space)
-  (keywords)
-  (recoveries)
-  (conflicts reject)
-  (case-insensitive #f))
+      (seq (field first first) (field second second))))))
+ (bind-fixture-grammar-release directed-regular-mode "directed-regular-mode" "v1" "directed-regular-mode.v1") )
 
 (defgrammar-role base-lexical-role
   (syntax-kinds

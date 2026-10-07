@@ -1,3 +1,4 @@
+(import  (only-in :gerbil-parser/src/compiler/arithmetic-drive direct-drive direct-grammar-digest))
 ;;; -*- Gerbil -*-
 ;;; Canonical public parser entry for the arithmetic v1 reference language.
 
@@ -11,7 +12,8 @@
   (metadata '((language . "arithmetic")
               (version . "v1")
               (contract . "arithmetic-expression.v1")
-              (grammar-format . concise-dsl))))
+              (grammar-format . concise-dsl)))
+  (backends arithmetic-parser (drive direct-grammar-digest direct-drive)))
 
 (def +arithmetic-language-version+ (language-metadata-ref (language-parser-entry-ref arithmetic-language 'metadata) 'version))
 

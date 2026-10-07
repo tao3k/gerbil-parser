@@ -147,7 +147,7 @@
      (list (cons 'base-grammar-digest grammar-digest)
            (cons 'parser-ir-digest (sha256-text (canonical parser-ir)))))))
 
-;;; Datum projection used only by deflanguage-grammar expansion. The language
+;;; Datum projection used only by canonical compiler expansion. The language
 ;;; file declares rows; POO objects exist solely while compiling the product.
 (def (compile-contextual-parser/declaration
       parser-ir grammar-digest role-rows modes positions forms scan-rows

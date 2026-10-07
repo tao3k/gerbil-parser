@@ -39,6 +39,34 @@ contract admission. Engine slots bind schema, descriptor, language, version,
 syntax contract, capabilities and dispatch; extension declarations cannot
 replace them. Parent prototypes cannot replace the bound engine slots either.
 
+* Grammar declaration contract
+
+=deflanguage= accepts exactly =(syntax (vocabulary ...))= and =(rules ...)=.
+Builtin lexical grammars use =lexical=; pinned source grammars use their imported
+=antlr4= or =iso-bnf= vocabulary; Bash uses =shell=. All share the same author
+boundary and canonical engine admission. The flat form and old source-adapter
+macro exports are removed, so a retired declaration cannot publish a parser.
+
+#+begin_src scheme
+;; grammar.ss
+(deflanguage example
+  (syntax (lexical (root name)
+                  (lex (identifier Identifier (identifier)))))
+  (rules (name (node Name (field value identifier)))))
+#+end_src
+
+Token kinds and node fields are derived from these declarations. Grammar rules
+use =node=, =seq= and =prec= where explicit construction is needed; engine
+=alias/sequence/precedence= encodings are not author constructors. Strings and
+unambiguous declared names need no literal/token/reference wrapper. Hygienic
+=defgrammar-syntax= abstractions preserve author binding and source diagnostics.
+
+Release metadata belongs to the parser Loader. A generated execution backend is
+bound through the parser declaration's =backends= section, where engine admission
+checks its kind, grammar digest and procedure before publication. Grammar authors
+cannot provide =flow= or =backends= clauses. Corpus and benchmarks remain under
+the test and development interfaces.
+
 * Extension slots and contracts
 
 Use ordinary POO inheritance for language options and tooling services. Supply

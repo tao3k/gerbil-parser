@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Expansion-time ANTLR4 language-pack compiler.
 
-(import (for-syntax :std/misc/ports
+(import (only-in ../src/grammar/lexical-algebra expand-text-lexical-rows)
+        (for-syntax :std/misc/ports
                     (only-in :gerbil-parser/src/compiler/language-artifact
                              make-language-declaration expand-language-declaration-syntax)
                     (only-in :gerbil-parser/src/compiler/parser-ir compile-parser)
@@ -16,11 +17,11 @@
         (only-in ./antlr4-source antlr4-source-from-datum)
         (only-in :gerbil-parser/src/language/assembly assemble-language-parser)
         (only-in :gerbil-parser/src/language/descriptor make-language-grammar))
-(export deflanguage-antlr4-grammar)
+(export antlr4)
 
 ;;; A language pack declares identity and pinned native grammar once; expansion
 ;;; materializes its catalog, Grammar IR, LALR table, and generated machine.
-;; deflanguage-antlr4-grammar
+;; compile-antlr4-language
 ;;   : (-> Syntax Syntax)
 ;;   | doc m%
 ;;       Lowers a pinned ANTLR4 grammar into the stable language v1 contract.
@@ -28,7 +29,7 @@
 ;;       # Examples
 ;;
 ;;       ```scheme
-;;       (deflanguage-antlr4-grammar language
+;;       (compile-antlr4-language language
 ;;         (identity "lang" "v1" "contract.v1")
 ;;         (reference "upstream-v1" "commit")
 ;;         (digest "sha256:...") (source "grammar.g4")
@@ -45,14 +46,14 @@
 ;;       Result: prefix-antlr4-source and parser products share one accepted source.
 ;;       Runtime reconstructs the typed catalog from data; it never reparses source.
 ;;     %
-(defsyntax (deflanguage-antlr4-grammar stx)
+(defsyntax (compile-antlr4-language stx)
   (syntax-case stx
       (identity reference digest source entrypoint conflicts case-insensitive lexical-profile
                 token-bindings syntax-kinds terminals lexical-rules extras)
     ((_ prefix (reference source-version source-commit) section ...)
      (identifier? #'prefix)
      (with-syntax ((language-name (datum->syntax #'prefix (symbol->string (syntax->datum #'prefix)))))
-       #'(deflanguage-antlr4-grammar prefix (identity language-name #f #f)
+       #'(compile-antlr4-language prefix (identity language-name #f #f)
            (reference source-version source-commit) section ...)))
     ((_ prefix
         (identity language version contract)
@@ -115,7 +116,7 @@
                        (cons (car row) (datum->syntax #'prefix (cdr row)))) sections)
                 (syntax->datum #'conflict-policy)
                 (syntax->datum #'case-insensitive-value)
-                `(deflanguage-antlr4-grammar ,(stx-e #'source-version)
+                `(compile-antlr4-language ,(stx-e #'source-version)
                                             ,(stx-e #'source-commit))
                 source-map)))
          (with-syntax ((catalog-binding
@@ -137,3 +138,32 @@
                (def catalog-binding (antlr4-source-from-datum 'catalog-data))
                compiled-declaration)))))
     (_ (raise-syntax-error #f "invalid ANTLR4 language declaration" stx))))
+
+;;; Token kinds, fields and terminal rows are derived from one lexical declaration.
+(defsyntax (antlr4 stx)
+  (syntax-case stx (syntax rules reference digest source entrypoint conflicts case-insensitive token-bindings lex extras)
+    ((_ prefix
+        (syntax (reference version commit) (digest hash) (source path)
+                (entrypoint root) (conflicts policy) (case-insensitive insensitive)
+                (token-bindings binding ...) (lex lexical-row ...) (extras extra ...))
+        (rules))
+     (identifier? #'prefix)
+     (let* ((rows (expand-text-lexical-rows #'(lexical-row ...) stx))
+            (datum (syntax->datum rows)))
+       (unless (and (list? datum)
+                    (andmap (lambda (row) (and (list? row) (= (length row) 3)
+                                               (symbol? (car row)) (symbol? (cadr row)))) datum))
+         (raise-syntax-error #f "antlr4 lexical declarations require token, kind and recognition" stx))
+       (with-syntax (((kind ...) (datum->syntax #'prefix
+                                  (map (lambda (row) (list (cadr row) 'token '(text))) datum)))
+                     ((terminal ...) (datum->syntax #'prefix
+                                      (map (lambda (row) (list (car row) (cadr row))) datum)))
+                     ((lexical ...) (datum->syntax #'prefix
+                                     (map (lambda (row) (list (car row) (caddr row))) datum))))
+         #'(compile-antlr4-language prefix
+             (reference version commit) (digest hash) (source path)
+             (entrypoint root) (conflicts policy) (case-insensitive insensitive)
+             (lexical-profile (token-bindings binding ...) (syntax-kinds kind ...)
+                             (terminals terminal ...) (lexical-rules lexical ...) (extras extra ...))))))
+    (_ (raise-syntax-error #f
+         "antlr4 vocabulary requires checked source syntax, one lexical declaration and an empty local rules block" stx))))

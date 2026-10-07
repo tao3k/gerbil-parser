@@ -5,17 +5,17 @@
 
 (import (only-in :gerbil/core/expander
                  syntax-case syntax with-syntax datum->syntax syntax->datum
-                 stx-map stx-list? identifier? raise-syntax-error)
+                 stx-map stx-list? syntax->list identifier? raise-syntax-error)
         (only-in :gerbil/expander core-expand1)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in ../grammar/algebra grammar-expression-header?)
         (only-in ./language-artifact project-language-catalog
                  make-language-declaration expand-language-declaration-syntax))
-(export expand-concise-language-syntax)
+(export expand-lexical-language-syntax lower-source-rule-overlays)
 
 (def (expand-concise-language-syntax stx expand-lexical-rows compile-parser bind-grammar-ir
-                                      assembly-binding descriptor-binding backend-installer
-                                      author-entry begin-entry define-entry list-entry (author-syntax stx))
+                                      assembly-binding descriptor-binding
+                                      author-entry begin-entry define-entry (author-syntax stx))
   (def (syntax-failure message (offending stx))
     (raise-syntax-error #f message offending author-syntax))
   (def (require condition message)
@@ -31,8 +31,8 @@
   (def node-kind-sources (make-table test: eq?))
   (def macro-lineage '())
   (def grammar-constructors
-    '(node alias seq sequence choice optional repeat repeat1 field
-      prec precedence empty literal layout-start layout-next layout-end
+    '(node seq choice optional repeat repeat1 field
+      prec empty literal layout-start layout-next layout-end
       token reference))
   (def (expand-surface-syntax expression (author-call #f))
     (syntax-case expression ()
@@ -116,7 +116,7 @@
        (require (memq root-value rule-names)
                 "concise language root must name a declared rule")
        (require (every (lambda (row)
-                         (and (pair? row) (memq (car row) '(node-fields catalog flow backends))))
+                         (and (pair? row) (memq (car row) '(node-fields catalog))))
                        options)
                 "unknown concise language option")
        (require (= (length options) (length (unique (map car options))))
@@ -359,39 +359,13 @@
                          (keywords ,@(syntax->datum #'(keyword-row ...)))
                          (parser-entrypoints (,root-value parse pure))
                          (recoveries ,@(syntax->datum #'(recovery-row ...)))
-                         ,(or (assq 'flow options)
-                              '(flow (source lexical) (lexical parser) (parser cst)))))
+                         (flow (source lexical) (lexical parser) (parser cst))))
                   (syntax->datum #'conflict-policy)
                   (syntax->datum #'case-insensitive-value)
                   `(deflanguage ,@(reverse (unique macro-lineage))) '())))
-           (let (backends (cdr (or (assq 'backends options) '(backends))))
-             (require (every (lambda (row)
-                               (and (list? row) (= (length row) 3)
-                                    (memq (car row) '(drive source step event-step))))
-                             backends)
-                      "backends requires (kind digest generated-procedure) rows")
-             (require (= (length backends) (length (unique (map car backends))))
-                      "duplicate parser backend kind")
-             (with-syntax ((declaration-syntax
-                            (expand-language-declaration-syntax
-                             declaration compile-parser bind-grammar-ir
-                             assembly-binding descriptor-binding begin-entry define-entry))
-                           (@backend-installer backend-installer)
-                           (@begin-entry begin-entry)
-                           (@list-entry list-entry)
-                           (machine-binding
-                            (datum->syntax #'prefix
-                             (string->symbol (string-append
-                                              (symbol->string prefix-name) "-parser"))))
-                           ((backend ...)
-                            (datum->syntax #'prefix
-                             (map (lambda (row)
-                                    `(list ',(car row) ,(cadr row) ,(caddr row)))
-                                  backends))))
-               #'(@begin-entry
-                   declaration-syntax
-                   (@backend-installer
-                    machine-binding (@list-entry backend ...)))))))))
+           (expand-language-declaration-syntax
+            declaration compile-parser bind-grammar-ir
+            assembly-binding descriptor-binding begin-entry define-entry)))))
     ((_ prefix identity-row root-row lex-row rules-row clause ...)
      (and (identifier? #'prefix)
           (eq? (car (syntax->datum #'identity-row)) 'identity)
@@ -404,7 +378,7 @@
                             (and (pair? datum) (car datum)))) rows)))
        (require (every (lambda (name)
                          (memq name '(extras keywords recoveries conflicts
-                                      case-insensitive node-fields catalog flow backends))) names)
+                                      case-insensitive node-fields catalog))) names)
                 "unknown concise language option")
        (require (= (length names) (length (unique names)))
                 "duplicate concise language option")
@@ -420,12 +394,90 @@
                        (case-row (section 'case-insensitive '(case-insensitive #f)))
                        ((option ...)
                         (filter (lambda (row)
-                                  (memq (car (syntax->datum row)) '(node-fields catalog flow backends)))
+                                  (memq (car (syntax->datum row)) '(node-fields catalog)))
                                 rows)))
            (expand-concise-language-syntax
             #'(@author-entry prefix identity-row root-row lex-row rules-row
                 extras-row keywords-row recoveries-row conflicts-row case-row option ...)
             expand-lexical-rows compile-parser bind-grammar-ir
-            assembly-binding descriptor-binding backend-installer author-entry
-            begin-entry define-entry list-entry author-syntax)))))
+            assembly-binding descriptor-binding author-entry
+            begin-entry define-entry author-syntax)))))
     (_ (raise-syntax-error #f "invalid concise language declaration" stx))))
+
+;;; The public lexical vocabulary owns syntax policy; rule elaboration and
+;;; publication remain in the common compiler. No release identity or VM flow
+;;; is accepted from the author declaration.
+(def (expand-lexical-language-syntax stx expand-lexical-rows compile-parser bind-grammar-ir
+                                     assembly-binding descriptor-binding
+                                     author-entry begin-entry define-entry)
+  (syntax-case stx ()
+    ((_ prefix (syntax-tag (vocabulary (root-tag root-name) (lex-tag lexical-row ...) clause ...))
+        (rules-tag rule-row ...))
+     (equal? (map syntax->datum (list #'syntax-tag #'vocabulary #'root-tag #'lex-tag #'rules-tag))
+             '(syntax lexical root lex rules))
+     (let* ((rows (stx-map values #'(clause ...)))
+            (names (map (lambda (row)
+                          (let (datum (syntax->datum row))
+                            (and (pair? datum) (car datum)))) rows)))
+       (unless (and (every (lambda (name)
+                            (memq name '(extras keywords recoveries conflicts case-insensitive
+                                         node-fields catalog))) names)
+                    (= (length names) (length (delete-duplicates/hash names))))
+         (raise-syntax-error #f
+           "lexical syntax requires distinct syntax policies; identity, flow and backends belong to other owners" stx))
+       (expand-concise-language-syntax
+        #'(deflanguage prefix (identity #f #f #f) (root root-name)
+            (lex lexical-row ...) (rules rule-row ...) clause ...)
+        expand-lexical-rows compile-parser bind-grammar-ir
+        assembly-binding descriptor-binding author-entry
+        begin-entry define-entry stx)))
+    (_ (raise-syntax-error #f "lexical syntax requires a root and lexical declarations" stx))))
+
+;;; User AST constructors become engine-only aliases after source admission.
+;;; The original source witness and replacement are lowered symmetrically.
+(def (lower-source-rule-overlays rows owner namespace version commit)
+  (def (lower expression)
+    (syntax-case expression (node seq prec alias sequence precedence)
+      ((node kind body ...)
+       (and (identifier? #'kind) (pair? (syntax->list #'(body ...))))
+       (let (children (stx-map lower #'(body ...)))
+         (with-syntax ((value (if (null? (cdr children)) (car children)
+                              (datum->syntax namespace (cons 'sequence children)))))
+           #'(alias kind value))))
+      ((seq body ...)
+       (with-syntax (((child ...) (stx-map lower #'(body ...)))) #'(sequence child ...)))
+      ((prec association level body)
+       (with-syntax ((child (lower #'body))) #'(precedence association level child)))
+      ((alias argument ...)
+       (raise-syntax-error #f "alias is an engine constructor; author rules use node" expression owner))
+      ((sequence argument ...)
+       (raise-syntax-error #f "sequence is an engine constructor; author rules use seq" expression owner))
+      ((precedence argument ...)
+       (raise-syntax-error #f "precedence is an engine constructor; author rules use prec" expression owner))
+      ((head argument ...)
+       (with-syntax (((child ...) (stx-map lower #'(argument ...)))) #'(head child ...)))
+      (_ expression)))
+  (def (source-receipt provenance)
+    (let* ((origin (syntax->datum provenance))
+           (qualified? (and (list? origin) (= (length origin) 2)
+                            (memq (car origin) '(normalization disambiguation))
+                            (symbol? (cadr origin))))
+           (label (if qualified? (cadr origin) origin)))
+      (unless (symbol? label)
+        (raise-syntax-error #f "source provenance requires an identifier or a typed normalization/disambiguation identifier" provenance owner))
+      (datum->syntax namespace
+        (append (list '(schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+                      (cons 'namespace (syntax->datum namespace)) (cons 'name label))
+                (if qualified? (list (cons 'kind (car origin))) '())
+                (list (cons 'sourceVersion (syntax->datum version))
+                      (cons 'upstreamCommit (syntax->datum commit)))))))
+  (stx-map
+   (lambda (row)
+     (syntax-case row ()
+       ((name provenance original replacement)
+        (identifier? #'name)
+        (with-syntax ((before (lower #'original)) (after (lower #'replacement))
+                      (receipt (source-receipt #'provenance)))
+          #'(name receipt before after)))
+       (_ (raise-syntax-error #f "source rule overlay requires name, provenance and two construction witnesses" row owner))))
+   rows))

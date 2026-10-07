@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Strict quoted text is shared lexical data, independent of language callbacks.
 (import :std/test
         (only-in :gerbil-parser/language-support deflanguage)
@@ -7,13 +8,16 @@
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-valid? parse-artifact-roundtrip))
 (export quoted-string-profile-test quoted-profile-language-grammar)
 
-(deflanguage quoted-profile
-  (identity "quoted-profile" "v1" "quoted-profile.v1")
-  (root document)
-  (lex (string String (quoted-string-profile "'" "`'\\/fnrt" 4))
+(begin
+ (deflanguage quoted-profile
+  (syntax
+   (lexical
+    (root document)
+    (lex (string String (quoted-string-profile "'" "`'\\/fnrt" 4))
        (name Name (quoted-string-profile "`" "`'\\/fnrt" 4))
-       (unknown Unknown (fallback)))
+       (unknown Unknown (fallback)))))
   (rules (document (node SourceFile (field item (choice string name))))))
+ (bind-fixture-grammar-release quoted-profile "quoted-profile" "v1" "quoted-profile.v1") )
 
 (def quoted-string-profile-test
   (test-suite "shared quoted string profiles"

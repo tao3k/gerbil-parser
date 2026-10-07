@@ -6,7 +6,7 @@
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
-        (only-in ../src/compiler/machine parser-machine-grammar-digest)
+        (only-in ../src/compiler/machine parser-machine-grammar-digest install-parser-machine-backends!)
         (only-in ../src/language/descriptor
                  language-grammar? language-grammar-contract language-grammar-language
                  language-grammar-machine language-grammar-observability
@@ -78,7 +78,16 @@
 ;;; a user prototype. Engine identity/dispatch slots are sealed by this macro.
 ;;; Additional contracts validate the effective object after inheritance.
 (defsyntax (deflanguage-parser-loader stx)
-  (syntax-case stx (@ descriptor parse slots contracts grammar source metadata)
+  (syntax-case stx (@ descriptor parse slots contracts grammar source metadata backends)
+    ((_ binding (grammar descriptor-binding definition) (parse parse-binding)
+        (metadata value) (backends machine (kind digest procedure) ...))
+     (and (identifier? #'descriptor-binding) (identifier? #'machine))
+     #'(begin
+         (install-parser-machine-backends! machine
+           (list (list 'kind digest procedure) ...))
+         (deflanguage-parser-loader binding
+           (grammar descriptor-binding definition) (parse parse-binding)
+           (metadata value))))
     ((_ binding (kind descriptor-binding definition) (parse parse-binding) (metadata value))
      (and (identifier? #'descriptor-binding) (memq (syntax->datum #'kind) '(grammar source)))
      (let (binding-name

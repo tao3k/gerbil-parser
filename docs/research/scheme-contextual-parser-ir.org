@@ -189,3 +189,23 @@ Bash controls update their product digest. Rust qualification was repeated after
 that fixture update. The all-language benchmark child is a one-sample smoke
 control, not a supported p50/p95 or end-to-end performance claim. Exact-head
 remote CI remains a separate gate from these local receipts.
+
+* Author-contract qualification boundary
+
+The preceding receipts qualify engine products at the earlier revision. They do
+not prove a closed author DSL: its flat =deflanguage= fallback still accepted
+retired declarations. The coordinated migration now removes that fallback and
+the old source-adapter exports, migrates every language to =syntax= and =rules=,
+and moves backend admission to =parser.ss=. See the concrete Scheme contract and
+its two design questions in [[file:scheme-dsl-author-interface.org][the author interface]].
+
+Requalification requires actual macro rejection of formerly valid declarations,
+all-language structure and recognition controls, fresh native and Rust artifacts,
+and CI at the new head. Semantic expectations remain independently authored.
+Compiler-generated catalog indices and digest changes are not parser speedups.
+
+The 2026-10-08 author migration passes all 28 native closure children and
+preserves all 20 language controls after resolving catalog indices to event
+names. These are author admission and recognition receipts. They do not qualify
+cold compilation, deployed Rust consumers or the new GitHub head; those gates
+retain separate outcomes in the author-interface migration evidence.

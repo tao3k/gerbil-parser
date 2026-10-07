@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 (import :std/test
         :gerbil-parser/src/language/grammar
         (only-in :gerbil-parser/src/compiler/machine
@@ -10,22 +11,36 @@
                  incremental-session-artifact incremental-session-project-artifact apply-edit make-edit edit-start-byte)
         (only-in :gerbil-parser/languages/hcl/parser hcl-parser parse-hcl)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser))
-(deflanguage lexical-fallback-priority
-  (identity "lexical-fallback-priority" "v1" "lexical-fallback-priority.v1")
-  (root source-file)
-  (lex (first FirstToken (literals "x"))
+(begin
+ (deflanguage lexical-fallback-priority
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (first FirstToken (literals "x"))
        (second SecondToken (precedence 9 (fallback)))
        (space Space (whitespace+)))
-  (rules (source-file (node SourceFile (seq (field first first) (field second second)))))
-  (extras space) (keywords) (recoveries) (conflicts reject) (case-insensitive #f))
-(deflanguage lexical-fallback-order
-  (identity "lexical-fallback-order" "v1" "lexical-fallback-order.v1")
-  (root source-file)
-  (lex (second SecondToken (fallback))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
+  (rules (source-file (node SourceFile (seq (field first first) (field second second))))))
+ (bind-fixture-grammar-release lexical-fallback-priority "lexical-fallback-priority" "v1" "lexical-fallback-priority.v1") )
+(begin
+ (deflanguage lexical-fallback-order
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (second SecondToken (fallback))
        (first FirstToken (literals "x"))
        (space Space (whitespace+)))
-  (rules (source-file (node SourceFile (seq (field first first) (field second second)))))
-  (extras space) (keywords) (recoveries) (conflicts reject) (case-insensitive #f))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
+  (rules (source-file (node SourceFile (seq (field first first) (field second second))))))
+ (bind-fixture-grammar-release lexical-fallback-order "lexical-fallback-order" "v1" "lexical-fallback-order.v1") )
 
 (def (unique-count plans)
   (length (foldl (lambda (plan found) (if (memq plan found) found (cons plan found))) '() (vector->list plans))))

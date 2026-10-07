@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Source framing is closed lexical data with bounded immutable indexes.
 (import :std/test
         (only-in :gerbil-parser/language-support deflanguage)
@@ -12,19 +13,22 @@
 (export module-source-test module-framing-language-grammar)
 (def module-expression '(module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_"))
 (def module-plan (prepare-lexical-source-plan (list (list 'text module-expression))))
-(deflanguage module-framing
- (identity "module-framing" "v1" "module-framing.v1")
- (root document)
- (lex (text ModuleText (module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_"))
+(begin
+ (deflanguage module-framing
+  (syntax
+   (lexical
+    (root document)
+    (lex (text ModuleText (module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_"))
       (border Border (character-run "-" 4)) (end End (character-run "=" 4))
       (name Name (identifier)) (string String (quoted-string "\""))
       (space Space (whitespace+))
       (comment Comment (choice (line-comment "\\*") (nested-block-comment "(*" "*)"))))
- (rules
+    (extras space comment)))
+  (rules
   (document (node Document (seq (optional text) (repeat1 (seq (reference unit) (optional text))))))
   (unit (node Unit (seq border (literal "MODULE") (field name name) border
-                       (repeat (choice name string (reference unit))) end))))
- (extras space comment))
+                       (repeat (choice name string (reference unit))) end)))))
+ (bind-fixture-grammar-release module-framing "module-framing" "v1" "module-framing.v1") )
 (def module-source-test
  (test-suite "prepared module framing IR"
   (test-case "the real TLA+ descriptor publishes closed framing data"

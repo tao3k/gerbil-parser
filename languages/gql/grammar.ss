@@ -1,8 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Grammar declaration and admitted compiler products for ISO/IEC 39075:2024 GQL generated from the pinned OpenGQL 1.9.0 grammar.
 
-(import (only-in :gerbil-parser/language-support/antlr4-language
-                 deflanguage-antlr4-grammar)
+(import (only-in :gerbil-parser/language-support/grammar deflanguage)
+        (only-in :gerbil-parser/language-support/antlr4-language
+                 antlr4)
         (only-in :gerbil-parser/language-support/antlr4-source
                  antlr4-source-version antlr4-source-commit antlr4-source-digest))
 (export +gql-standard-reference+
@@ -25,7 +26,8 @@
    "OPTIONAL MATCH (person)-[:KNOWS]->(friend:Person) "
    "RETURN person.name AS source, friend.name AS target\n"))
 
-(deflanguage-antlr4-grammar gql
+(deflanguage gql
+ (syntax (antlr4
   (reference "1.9.0"
              "16ea71bd320ad07fd2c46a3066afbaef7d226922")
   (digest
@@ -34,8 +36,7 @@
   (entrypoint gqlProgram)
   (conflicts selective-glr)
   (case-insensitive #t)
-  (lexical-profile
-    (token-bindings
+  (token-bindings
       ("PARAMETER_NAME" token identifier)
       ("SINGLE_QUOTED_CHARACTER_SEQUENCE" token string)
       ("DOUBLE_QUOTED_CHARACTER_SEQUENCE" token string)
@@ -64,25 +65,17 @@
       ("DELIMITED_IDENTIFIER" token identifier)
       ("IDENTIFIER_START" token identifier)
       ("IDENTIFIER_EXTEND" token identifier))
-    (syntax-kinds
-      (LexicalIdentifier token (text)) (NumericLiteralToken token (text))
-      (StringLiteralToken token (text)) (WhitespaceTrivia token (text))
-      (CommentTrivia token (text)) (PunctuationToken token (text))
-      (UnknownToken token (text)))
-    (terminals
-      (identifier LexicalIdentifier) (number NumericLiteralToken)
-      (string StringLiteralToken) (whitespace WhitespaceTrivia)
-      (comment CommentTrivia) (punctuation PunctuationToken) (unknown UnknownToken))
-    (lexical-rules
-      (whitespace (whitespace+))
-      (comment (choice (line-comment "//") (block-comment "/*" "*/")))
-      (string (quoted-string "\"" "'" "`"))
-      (number (number-literal ("0x" "0o" "0b") "_"
+  (lex
+ (whitespace WhitespaceTrivia (whitespace+))
+ (comment CommentTrivia (choice (line-comment "//") (block-comment "/*" "*/")))
+ (string StringLiteralToken (quoted-string "\"" "'" "`"))
+ (number NumericLiteralToken (number-literal ("0x" "0o" "0b") "_"
                              ("M" "m" "F" "f" "D" "d") #t #t))
-      (identifier (identifier))
-      (punctuation (source-literals))
-      (unknown (fallback)))
-    (extras whitespace comment)))
+ (identifier LexicalIdentifier (identifier))
+ (punctuation PunctuationToken (source-literals))
+ (unknown UnknownToken (fallback)))
+  (extras whitespace comment)))
+ (rules))
 
 ;;; Runtime metadata derives from the same admitted declaration and source catalog.
 (def +gql-opengql-reference-version+ (antlr4-source-version gql-antlr4-source))

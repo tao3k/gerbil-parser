@@ -1,3 +1,5 @@
+(import  (only-in :gerbil-parser/src/compiler/hcl-reductions direct-step direct-event-step direct-grammar-digest)
+ (only-in :gerbil-parser/src/compiler/hcl-source direct-parse-hcl direct-hcl-grammar-digest))
 ;;; -*- Gerbil -*-
 ;;; Canonical public parser entry for HCL native syntax v2.24.0.
 
@@ -14,7 +16,11 @@
               (version . "v2.24.0")
               (contract . "hcl-native-v2.24.0.v1")
               (grammar-format . concise-dsl)
-              (reference-commit . ,+hcl-native-syntax-commit+))))
+              (reference-commit . ,+hcl-native-syntax-commit+)))
+  (backends hcl-parser
+    (step direct-grammar-digest direct-step)
+    (source direct-hcl-grammar-digest direct-parse-hcl)
+    (event-step direct-grammar-digest direct-event-step)))
 
 (def +hcl-native-syntax-version+ (language-metadata-ref (language-parser-entry-ref hcl-language 'metadata) 'version))
 

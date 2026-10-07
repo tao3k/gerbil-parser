@@ -12,7 +12,7 @@
 
 (export direct-parse-hcl direct-lex-hcl direct-hcl-grammar-digest)
 
-(def direct-hcl-grammar-digest "sha256:657e59afd49381fda2d88ecd2ec0615a8c7e68b1b2f7c5b5074ac27b87a26852")
+(def direct-hcl-grammar-digest "sha256:7fa44a0c1fccad8bfc8c10096afd4b11fd7d945dacb88ebc79f494afee851648")
 
 (def (ascii-alpha? ch) (let (code (char->integer ch)) (or (<= 65 code 90) (<= 97 code 122) (= code 95))))
 

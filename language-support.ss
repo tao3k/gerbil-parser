@@ -59,10 +59,10 @@
         (only-in ./language-support/grammar-source
                  defsyntax-iso-bnf-source
                  defsyntax-antlr4-source
-                 defsyntax-javacc-source
-                 deflanguage-iso-bnf-grammar)
+                 defsyntax-javacc-source)
+        (only-in ./language-support/iso-bnf-language iso-bnf)
         (only-in ./language-support/antlr4-language
-                 deflanguage-antlr4-grammar)
+                 antlr4)
         (only-in ./language-support/iso-bnf
                  +iso-bnf-source-schema+
                  +iso-bnf-rule-overlay-schema+
@@ -89,7 +89,6 @@
                  parse-iso-bnf-source/expected)
         (only-in ./src/language/grammar
                  deflanguage
-                 deflanguage-grammar
                  defgrammar-syntax)
         (only-in ./src/language/descriptor
                  language-grammar-with-parser-policy)
@@ -163,10 +162,9 @@
         defsyntax-iso-bnf-source
         defsyntax-antlr4-source
         defsyntax-javacc-source
-        deflanguage-antlr4-grammar
-        deflanguage-iso-bnf-grammar
+        antlr4
+        iso-bnf
         deflanguage
-        deflanguage-grammar
         defgrammar-syntax
         +language-parser-entry-schema+
         +source-language-schema+

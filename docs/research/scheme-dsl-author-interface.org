@@ -1,12 +1,91 @@
 #+title: Scheme DSL author interfaces and complete package examples
-#+date: 2026-10-06
+#+date: 2026-10-08
 
 Scope: complete grammar.ss, parser.ss and parser-test.ss declarations for the same
 call/array package. The [[file:scheme-deflanguage-design-synthesis.org][design overview]] owns the fixed interface boundary and decisions.
 Compiler responsibilities are specified in [[file:scheme-dsl-engine-admission.org][engine admission]]; observable contracts
 and field evolution are specified in [[file:scheme-dsl-semantic-contracts.org][semantic contracts]].
 
-* Public API audit after all-language file alignment
+* Closed author contract and migration gate
+
+The author grammar has exactly two blocks: =syntax= selects a vocabulary and
+its recognition policy; =rules= supplies local productions. Release metadata and
+validated execution backends belong to =parser.ss=. The former flat declaration,
+its release =identity= clause, the old source-adapter macro exports and authored
+canonical =alias/sequence/precedence= constructors are removed from this API.
+Engine IR still has its own closed encoding; it is not an alternative author DSL.
+
+#+begin_src scheme
+;; grammar.ss: names and fields are collected through hygienic expansion.
+(defgrammar-syntax (named kind item)
+  (node kind (field value item)))
+(deflanguage example
+  (syntax (lexical
+    (root name)
+    (lex (identifier Identifier (identifier)))))
+  (rules (name (named Name identifier))))
+
+;; parser.ss: release identity is owned by the public parser entry.
+(deflanguage-parser-loader example-language
+  (grammar example-language-grammar example-syntax)
+  (parse parse-example)
+  (metadata '((language . "example") (version . "1")
+              (contract . "example.v1"))))
+
+;; Question 1: Why is this design better?
+;; The author declares token recognition, node construction and release identity
+;; once under their respective owners. Defsyntax/rules express reusable grammar
+;; abstractions; the compiler derives consistent catalogs and admitted products.
+;; POO extends values where inheritance is needed; ordinary values need no wrapper.
+;; Question 2: Why is this scientifically defensible?
+;; Old declarations must fail before publication. The new declarations must keep
+;; independently specified acceptance, fields, spans, diagnostics and roundtrip.
+;; A shared wire format or a successful import alone cannot establish alignment.
+#+end_src
+
+The strict macro boundary, all production grammar declarations, native source
+vocabularies and test declarations are migrated together. Qualification of the
+previous contextual IR commit establishes engine-product admission only; it does
+not qualify this new author-contract migration. Current migration receipts are
+recorded only after their actual tests finish. No timing improvement is inferred.
+
+** Migration evidence, 2026-10-08
+
+The complete DSL closure passed all 28 child processes under the existing
+10-second completion fence. The four runtime research controls now expose native
+Scheme procedures in the same conformance executable; their assertions remain
+unchanged. Their earlier interpreted-import timeout is retained as a failed run.
+The source rejection controls cover flat declarations with and without identity,
+retired constructors, duplicate blocks and author-supplied execution recipes.
+
+The existing Scheme producer regenerated all 20 native language controls. A
+separate Rust comparison resolved every event symbol through its catalog before
+comparing node/field/terminal names, event identifiers, spans, root kinds, source
+bytes and statuses. All controls retain those semantics. GQL catalog ordering
+and product digests can change; bytewise equality alone would obscure the
+distinction between a catalog index change and an event behavior change.
+
+Native compilation is a separate gate. An isolated Cypher C diagnostic took
+24.71 seconds, including 22.29 seconds in parsing/preprocessing and 2.41 seconds
+in optimization/code generation. Its preceding five-second silence-gate failures
+remain failures. A successful independent link and semantic closure do not turn
+that diagnostic into cold-build qualification or parser latency evidence.
+
+The existing full conformance build entry subsequently passed in 101.58 seconds
+with its unchanged 240-second completion and five-second silence gates. This was
+an incremental run reusing admitted production objects. All 28 closure children
+passed again after that build. The refreshed Rust fixtures pass 151 workspace
+tests (two ignored), strict Clippy and formatting checks. No cold-build speedup
+is claimed.
+
+Ten additional native gxtest source owners pass 40 cases with propagated zero
+exits and final OK. They cover header delimiters, catalog admission, layout,
+first-character dispatch, lexical plans, empty LR actions, module source, quoted
+profiles and structured lexical/text profiles. The catalog rejection probe
+expands the invalid grammar directly; a fixture-release wrapper must not mask
+the intended rejection with an unrelated expansion-context error.
+
+* Historical public API audit before the closed author migration
 
 The three-file topology is implemented, but it is not evidence that the entire
 public DSL is minimal. On 2026-10-07 the eight grammar.ss modules contain neither
@@ -22,7 +101,7 @@ The current public boundary has concrete remaining leaks:
 | Grammar exports of grammar IR, parser IR and generated parser bindings | Compiler products | Keep diagnostic inspection explicit; ordinary parsing must not require these bindings |
 | Whole grammar re-export from parser.ss | Consumer API | Publish the checked language entry, parse operation and deliberate metadata; keep compiler products out of that ordinary entry |
 | Arithmetic/HCL imports of generated direct drivers and digest bindings | Backend admission | Derive or bind validated backend products behind the compiler/library boundary |
-| GQL lexical token, syntax-kind and terminal catalogs | Source adapter and lexical semantics | Derive redundant catalogs while retaining explicit language-specific token policy |
+| GQL lexical recognition and token bindings | Source adapter and lexical semantics | Catalogs are derived from one lexical declaration; token policy stays explicit |
 | Repeated literal/reference/token/sequence wrappers | Grammar vocabulary | Use existing hygienic grammar syntax to express recurring constructs and preserve their source origins |
 
 These are design obligations, not changes already shipped. Removing an export
@@ -114,36 +193,7 @@ The import shown here isolates its grammar dependency from that fixture's
 additional POO study. This is a declaration comparison, not a newly qualified
 standalone package.
 
-#+begin_src scheme
-(import (only-in :gerbil-parser/language-support deflanguage))
-(export list-control-language-grammar)
-
-(deflanguage list-control
-  (identity "list-control" "v1" "list-control.local.v1")
-  (root source-file)
-  (lex (identifier Identifier (identifier))
-       (punctuation Punctuation (literals "(" ")" "[" "]" ","))
-       (whitespace Whitespace (whitespace+)))
-  (rules
-   (source-file (node SourceFile (field form (choice (reference call) (reference array)))))
-   (call
-    (node Call
-      (seq (field callee (token identifier)) (literal "(")
-           (optional
-            (seq (field argument (reference name))
-                 (repeat (seq (literal ",") (field argument (reference name))))))
-           (literal ")"))))
-   (array
-    (node Array
-      (seq (literal "[")
-           (optional
-            (seq (field element (reference name))
-                 (repeat (seq (literal ",") (field element (reference name))))))
-           (literal "]"))))
-   (name (node Name (field value (token identifier)))))
-  (extras whitespace) (keywords) (recoveries)
-  (conflicts reject) (case-insensitive #f))
-#+end_src
+#+include: "../../t/fixtures/language-pack-research/list-language.ss" src scheme
 
 ** Complete candidate grammar module using existing Scheme vocabulary
 
@@ -154,40 +204,7 @@ excluded. Explicit policy sections are retained to make the comparison inspectab
 The new package identity names this candidate; it is not a claim that its
 persisted artifact identity equals the control's identity.
 
-#+begin_src scheme
-;; grammar.ss: candidate author module; local Scheme package control below.
-(import (only-in :gerbil-parser/language-support
-                 deflanguage defgrammar-syntax))
-(export list-study-language-grammar)
-
-(defgrammar-syntax (required-items label item separator)
-  (seq (field label item)
-       (repeat (seq separator (field label item)))))
-
-(deflanguage list-study
-  (identity "list-study" "v1" "list-study.local.v1")
-  (root source-file)
-  (lex (identifier Identifier (identifier))
-       (punctuation Punctuation (literals "(" ")" "[" "]" ","))
-       (whitespace Whitespace (whitespace+)))
-  (rules
-   (source-file
-    (node SourceFile
-      (field form (choice call array))))
-   (call
-    (node Call
-      (field callee identifier) "("
-      (optional (required-items argument name ","))
-      ")"))
-   (array
-    (node Array
-      "["
-      (optional (required-items element name ","))
-      "]"))
-   (name (node Name (field value identifier))))
-  (extras whitespace) (keywords) (recoveries)
-  (conflicts reject) (case-insensitive #f))
-#+end_src
+#+include: "../../t/fixtures/language-pack-research/package-expression-grammar.ss" src scheme
 
 At each use, expansion produces =seq(field(item), repeat(seq(separator,
 field(item))))=, the same expression as the control. It does not create helper
@@ -457,7 +474,7 @@ not establish measured author effort or standalone Rust/AOT qualification.
 | Boundary | GQL implementation route | Review obligation |
 |----------+----------------------------+-------------------|
 | grammar.ss | Pins edition, upstream version/commit/digest, source path, root and parsing policy; exports admitted products and source metadata | Distinguish intentional language policy from repeated derivable metadata |
-| Expansion | deflanguage-antlr4-grammar reads/checks the pinned source, derives catalogs/rules/origins and submits a language-declaration record directly | Keep the accepted source identity attached to every generated product |
+| Expansion | antlr4 vocabulary reads/checks the pinned source, derives catalogs/rules/origins and submits a language-declaration record directly | Keep the accepted source identity attached to every generated product |
 | Canonical compilation | Existing binding, Parser IR and LR owners compile the lowered data | Reuse these owners; expansion templates must not implement another parser |
 | parser.ss | Binds gql-language-grammar through the production Loader, supplies metadata, exports parse-gql; parser-test.ss owns the corpus | Preserve entry identity, immutable products and admission guarantees |
 | parser-test.ss | Checks independent identity literals, Parser/Bound IR structure, accepted/rejected syntax, precedence and corpus fixtures | Preserve independent expectations rather than derive the oracle from implementation |
@@ -493,7 +510,7 @@ The GQL migration applies this split to an actual language package:
 | File or engine owner | Implemented change | Contract retained |
 |----------------------+--------------------+-------------------|
 | languages/gql/grammar.ss | Contains the pinned source declaration and metadata derived from accepted products; corpus leaves this module | Standard edition, source pins, root, policy and exported grammar products |
-| language-support/antlr4-language.ss | Builds language-declaration directly from the accepted source catalog; no deflanguage-grammar replay | Canonical admission, original author syntax, source ownership and lineage |
+| language-support/antlr4-language.ss | Builds language-declaration directly from the accepted source catalog; no canonical author replay | Canonical admission, original author syntax, source ownership and lineage |
 | src/language/assembly.ss | Shares hygienic emission between native and imported declarations | Existing immutable artifact loading and machine constructor owner |
 | languages/gql/parser.ss | Owns the corpus-free production entry; corpus and development services move to parser-test.ss | Public parse-gql and descriptor identity |
 | languages/gql/parser-test.ss | Adds shared-product and entry-service identity checks alongside independent semantic expectations | 574 rules, 1176 bindings, 14 official fixtures, source locations, precedence and rejection checks |
@@ -555,7 +572,7 @@ The [[file:scheme-dsl-research-basis.org][research basis]] explains the paper me
 ** A concrete duplication with a concrete owner
 
 At baseline =783381f33fa1b309ac4cc4b0012696f24c852d93=, the grammar module repeats upstream version, commit and digest in exported
-metadata constants, the =deflanguage-antlr4-grammar= declaration and the separate
+metadata constants, the =antlr4 vocabulary= declaration and the separate
 =defsyntax-antlr4-source= declaration. Both macros resolve/read the source and call
 =parse-antlr4-source/expected=. Source inspection therefore identifies two source
 processing sites when both declarations expand. It does not establish two parses
@@ -575,17 +592,8 @@ different stages; an apparent deduplication must specify how it crosses that
 boundary before claiming the complete module remains valid.
 
 #+begin_src scheme
-;; Existing GQL language declaration, not a new author protocol.
-(deflanguage-antlr4-grammar gql
-  (identity "gql" "edition-1-2024-04"
-            "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
-  (reference "1.9.0" "16ea71bd320ad07fd2c46a3066afbaef7d226922")
-  (digest "sha256:e1b4a24c6b88dedddc0a1fff97df0fc30bf118cea51539e26d71c717cb737bbf")
-  (source "grammar-source/GQL.g4")
-  (entrypoint gqlProgram)
-  (conflicts selective-glr)
-  (case-insensitive #t))
-
+;; GQL uses (deflanguage gql (syntax (antlr4 ...)) (rules)).
+;; The complete checked declaration is languages/gql/grammar.ss.
 ;; Question 1: Why is this DSL design better?
 ;; A declaration expresses source identity and language policy; Scheme expansion
 ;; can derive consistent definitions and compiled products from that accepted input.
@@ -604,7 +612,7 @@ boundary before claiming the complete module remains valid.
 ** Local implementation through the existing declaration
 
 The refactor is now implemented locally in
-[[file:../../language-support/antlr4-language.ss][deflanguage-antlr4-grammar]] and [[file:../../languages/gql/grammar.ss][the GQL declaration]]. The macro serializes its already
+[[file:../../language-support/antlr4-language.ss][antlr4 vocabulary]] and [[file:../../languages/gql/grammar.ss][the GQL declaration]]. The macro serializes its already
 validated catalog and emits =prefix-antlr4-source= alongside the existing grammar,
 Parser IR, machine and descriptor. The runtime constructor binding is imported
 by the macro module, preserving hygiene; the public generated name uses the prefix

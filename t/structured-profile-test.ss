@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Independent language recipes exercise the same closed structured engine.
 (import :std/test
         (only-in :clan/poo/object .o .cc)
@@ -30,15 +31,18 @@
 (def square-identifier (make-text-profile-scanner
  '(run-containing (union (alphabetic) (numeric) (characters "_"))
                  (union (alphabetic) (characters "_")) 1 #f)))
-(deflanguage checklist
- (identity "checklist" "v1" "checklist.v1")
- (root checklist)
- (lex (space Space (whitespace+))
+(begin
+ (deflanguage checklist
+  (syntax
+   (lexical
+    (root checklist)
+    (lex (space Space (whitespace+))
       (step StepName (text-profile (ends-not-in (union (alphabetic) (numeric) (characters "_")) (ref square-proof))))
       (word Word (identifier)))
- (rules (checklist (node Checklist (repeat1 (field item (reference item)))))
-        (item (node Item (field heading step) (field command word))))
- (extras space))
+    (extras space)))
+  (rules (checklist (node Checklist (repeat1 (field item (reference item)))))
+        (item (node Item (field heading step) (field command word)))))
+ (bind-fixture-grammar-release checklist "checklist" "v1" "checklist.v1") )
 (def checklist-policy
  (bind-structured-proof-policy
   (.o (:: self StructuredProofPolicy.) proof-kind: 'Checklist step-field: 'item

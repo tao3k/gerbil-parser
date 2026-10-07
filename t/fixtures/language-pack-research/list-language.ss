@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 (import "list-stage" (only-in "../../../src/language/grammar" deflanguage))
 (export list-study-language-grammar list-study-parser list-study-grammar list-study-bound-grammar-ir list-study-parser-ir list-composed-ir list-composition-receipt
@@ -12,12 +13,19 @@
 (defnative-single-list-study native-single native-single-composed-ir native-single-composition-receipt)
 
 ;;; Inline control has identical public structure, with no list helper rules.
-(deflanguage list-control
-  (identity "list-control" "v1" "list-control.local.v1")
-  (root source-file)
-  (lex (identifier Identifier (identifier))
+(begin
+ (deflanguage list-control
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier))
        (punctuation Punctuation (literals "(" ")" "[" "]" ","))
        (whitespace Whitespace (whitespace+)))
+    (extras whitespace)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file (node SourceFile (field form (choice (reference call) (reference array)))))
    (call
@@ -34,6 +42,5 @@
             (seq (field element (reference name))
                  (repeat (seq (literal ",") (field element (reference name))))))
            (literal "]"))))
-   (name (node Name (field value (token identifier)))))
-  (extras whitespace) (keywords) (recoveries)
-  (conflicts reject) (case-insensitive #f))
+   (name (node Name (field value (token identifier))))))
+ (bind-fixture-grammar-release list-control "list-control" "v1" "list-control.local.v1") )

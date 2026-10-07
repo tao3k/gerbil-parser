@@ -1,3 +1,5 @@
+(import (only-in :gerbil-parser/src/compiler/language-expander compile-language)
+        (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Boundary: executable witness for the concise v1 language authoring surface.
 ;;; Invariant: inferred and explicit declarations share canonical admission and
@@ -16,7 +18,6 @@
                  parser-machine-direct-source)
         (only-in :gerbil-parser/src/language/grammar
                  deflanguage
-                 deflanguage-grammar
                  defgrammar-syntax)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-roundtrip parse-artifact-success?)
@@ -54,25 +55,27 @@
 (defgrammar-syntax (named-node token-name)
   (node SourceFile (field name token-name)))
 
-(deflanguage concise-v1-witness
-  (identity "concise-v1-witness" "v1" "concise-v1-witness.v1")
-  (root source-file)
-  (lex
+(begin
+ (deflanguage concise-v1-witness
+  (syntax
+   (lexical
+    (root source-file)
+    (lex
    (whitespace Whitespace (whitespace+))
    (identifier Identifier (identifier))
    (unknown Unknown (fallback)))
+    (extras whitespace)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file
-    (named-node identifier)))
-  (extras whitespace)
-  (keywords)
-  (recoveries)
-  (conflicts reject)
-  (case-insensitive #f))
+    (named-node identifier))))
+ (bind-fixture-grammar-release concise-v1-witness "concise-v1-witness" "v1" "concise-v1-witness.v1") )
 
-;;; Compatibility witness: the stable verbose v1 form remains executable while
-;;; the concise surface is only an authoring projection over the same owner.
-(deflanguage-grammar explicit-v1-witness
+;;; Independent engine-IR control. This compiler entry is not a public author DSL.
+(compile-language explicit-v1-witness
   (identity "explicit-v1-witness" "v1" "explicit-v1-witness.v1")
   (syntax-kinds
    (SourceFile node (name))
@@ -95,33 +98,44 @@
 
 ;;; A token/rule namespace collision is legal when references are explicit.
 ;;; Repeated node alternatives infer the union of their public fields.
-(deflanguage alternative-fields-witness
-  (identity "alternative-fields" "v1" "alternative-fields.v1")
-  (root source-file)
-  (lex (word WordToken (identifier))
+(begin
+ (deflanguage alternative-fields-witness
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word WordToken (identifier))
        (punctuation Punctuation (literals "+"))
        (unknown Unknown (fallback)))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)
+    (node-fields (Name reserved))))
   (rules
    (source-file (node Root (field value (reference word))))
    (word (choice (node Name (field left (token word)))
-                 (node Name (field right (literal "+"))))))
-  (extras) (keywords) (recoveries)
-  (conflicts reject) (case-insensitive #f)
-  (node-fields (Name reserved))
-  (flow (source lexical) (lexical alternatives) (alternatives cst)))
+                 (node Name (field right (literal "+")))))))
+ (bind-fixture-grammar-release alternative-fields-witness "alternative-fields" "v1" "alternative-fields.v1") )
 
 ;;; Fields in recursive transparent helpers belong to their enclosing node.
-(deflanguage transparent-fields-witness
-  (identity "transparent-fields" "v1" "transparent-fields.v1")
-  (root source-file)
-  (lex (word WordToken (identifier))
+(begin
+ (deflanguage transparent-fields-witness
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word WordToken (identifier))
        (punctuation Punctuation (literals "(" ")")))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file (node Root helper))
    (helper (choice (field item word)
-                   (seq "(" helper ")" (field tail word)))))
-  (extras) (keywords) (recoveries)
-  (conflicts reject) (case-insensitive #f))
+                   (seq "(" helper ")" (field tail word))))))
+ (bind-fixture-grammar-release transparent-fields-witness "transparent-fields" "v1" "transparent-fields.v1") )
 
 (def concise-v1-language-surface-tests
   (test-suite "concise v1 language surface"
@@ -140,7 +154,7 @@
       (check (assq 'Name (grammar-ir-ref alternative-fields-witness-grammar 'syntax-kinds))
              => '(Name node (reserved left right)))
       (check (grammar-ir-ref alternative-fields-witness-grammar 'flow)
-             => '((source lexical) (lexical alternatives) (alternatives cst)))
+             => '((source lexical) (lexical parser) (parser cst)))
       (for-each
        (lambda (source)
          (let (artifact (parse-source alternative-fields-witness-parser source))
@@ -225,14 +239,16 @@
 
 ;;; Generated source specializations may decline a shape and use ordinary LR.
 (def backend-source-fallback (lambda (_machine _source) #f))
-(deflanguage backend-admission-witness
-  (identity "backend-witness" "v1" "backend-witness.v1")
-  (root name)
-  (lex (identifier Identifier (identifier)))
-  (rules (name (node Name (field value identifier))))
-  (backends
-   (source (parser-machine-grammar-digest backend-admission-witness-parser)
-           backend-source-fallback)))
+(begin
+ (deflanguage backend-admission-witness
+  (syntax
+   (lexical
+    (root name)
+    (lex (identifier Identifier (identifier)))))
+  (rules (name (node Name (field value identifier)))))
+ (bind-fixture-grammar-release backend-admission-witness "backend-witness" "v1" "backend-witness.v1")
+ (install-parser-machine-backends! backend-admission-witness-parser
+ (list (list 'source (parser-machine-grammar-digest backend-admission-witness-parser) backend-source-fallback))))
 
 (def (backend-rejects? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))

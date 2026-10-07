@@ -33,12 +33,17 @@
                (not (and (pair? (caddr form)) (eq? (caaddr form) 'lambda))))
           (and
            (or (not (eq? interface 'grammar))
-               (not (memq (car form) '(deflanguage deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar)))
-               (not (assq 'identity (filter pair? (cddr form)))))
+               (not (eq? (car form) 'deflanguage))
+               (and (= (length form) 4)
+                    (symbol? (cadr form))
+                    (list? (caddr form)) (= (length (caddr form)) 2)
+                    (eq? (caaddr form) 'syntax)
+                    (pair? (cadr (caddr form)))
+                    (list? (cadddr form)) (pair? (cadddr form))
+                    (eq? (car (cadddr form)) 'rules)))
            (memq (car form)
             (case interface
              ((grammar) '(deflanguage defgrammar-syntax deflanguage-projection deftext-profile
-                          deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar
                           defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source))
              ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry
                          defsyntax-javacc-source))
@@ -54,7 +59,12 @@
    (check (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser)) => #f))
   (test-case "release identity belongs to the parser interface"
    (check (and (authoring-form? '(deflanguage example (identity "x" "1" "x.v1") (root source)) 'grammar) #t) => #f)
-   (check (and (authoring-form? '(deflanguage example (root source) (lex) (rules)) 'grammar) #t) => #t))
+   (check (and (authoring-form? '(deflanguage example
+  (syntax
+   (lexical
+    (root source)
+    (lex)))
+  (rules)) 'grammar) #t) => #t))
   (test-case "author grammar excludes backend profile assembly"
    (for-each (lambda (head)
      (check (and (authoring-form? (list head 'backend) 'grammar) #t) => #f))

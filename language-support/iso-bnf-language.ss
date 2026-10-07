@@ -2,6 +2,7 @@
 ;;; Expansion-time ISO BNF compiler for runtime-only language packs.
 
 (import (for-syntax :std/misc/ports
+                    (only-in ../src/compiler/concise-language lower-source-rule-overlays)
                     (only-in ./iso-bnf
                              iso-bnf-source-declaration-sources
                              iso-bnf-source-declaration-sources/overrides
@@ -12,13 +13,13 @@
                              iso-bnf-source-literals
                              iso-bnf-source-syntax-kinds
                              parse-iso-bnf-source/expected))
-        :gerbil-parser/src/language/grammar)
-(export deflanguage-iso-bnf-grammar)
+        :gerbil-parser/src/compiler/language-expander)
+(export iso-bnf)
 
 ;;; ISO WG3 BNF uses prose for lexical character classes.  The source adapter
 ;;; lowers those named classes to the shared scanner token contract while all
 ;;; parser productions remain represented in the immutable Grammar IR.
-;; deflanguage-iso-bnf-grammar
+;; compile-iso-bnf-language
 ;;   : (-> Syntax Syntax)
 ;;   | doc m%
 ;;       Lowers a pinned ISO WG3 BNF catalog through the stable language v1
@@ -27,7 +28,7 @@
 ;;       # Examples
 ;;
 ;;       ```scheme
-;;       (deflanguage-iso-bnf-grammar language
+;;       (compile-iso-bnf-language language
 ;;         (identity "lang" "v1" "contract.v1")
 ;;         (reference "source-v1" "commit")
 ;;         (digest "sha256:...") (source "grammar.bnf")
@@ -37,7 +38,7 @@
 ;;       Result: Runtime receives only immutable v1 data; native BNF names and
 ;;       source coordinates remain available in the Bound Grammar IR sidecar.
 ;;     %
-(defsyntax (deflanguage-iso-bnf-grammar stx)
+(defsyntax (compile-iso-bnf-language stx)
   (syntax-case stx
       (identity reference digest source rule-overrides rule-precedences
                 entrypoint conflicts
@@ -45,45 +46,8 @@
     ((_ prefix (reference source-version source-commit) section ...)
      (identifier? #'prefix)
      (with-syntax ((language-name (datum->syntax #'prefix (symbol->string (syntax->datum #'prefix)))))
-       #'(deflanguage-iso-bnf-grammar prefix (identity language-name #f #f)
+       #'(compile-iso-bnf-language prefix (identity language-name #f #f)
            (reference source-version source-commit) section ...)))
-    ((_ prefix
-        (identity language version contract)
-        (reference source-version source-commit)
-        (digest expected-digest)
-        (source path)
-        (entrypoint entry-name)
-        (conflicts conflict-policy)
-        (case-insensitive case-insensitive-value))
-     #'(deflanguage-iso-bnf-grammar prefix
-         (identity language version contract)
-         (reference source-version source-commit)
-         (digest expected-digest)
-         (source path)
-         (rule-overrides)
-         (rule-precedences)
-         (entrypoint entry-name)
-         (conflicts conflict-policy)
-         (case-insensitive case-insensitive-value)))
-    ((_ prefix
-        (identity language version contract)
-        (reference source-version source-commit)
-        (digest expected-digest)
-        (source path)
-        (rule-overrides override-row ...)
-        (entrypoint entry-name)
-        (conflicts conflict-policy)
-        (case-insensitive case-insensitive-value))
-     #'(deflanguage-iso-bnf-grammar prefix
-         (identity language version contract)
-         (reference source-version source-commit)
-         (digest expected-digest)
-         (source path)
-         (rule-overrides override-row ...)
-         (rule-precedences)
-         (entrypoint entry-name)
-         (conflicts conflict-policy)
-         (case-insensitive case-insensitive-value)))
     ((_ prefix
         (identity language version contract)
         (reference source-version source-commit)
@@ -147,7 +111,7 @@
                      (((literal-value ...)) (list literal-values))
                      (((overlay-id ...)) (list overlay-lineage))
                      (source-map-value source-map))
-         #'(deflanguage-grammar prefix
+         #'(compile-language prefix
              (identity language version contract)
              (syntax-kinds syntax-row ...)
              (terminals
@@ -180,8 +144,24 @@
              (conflicts conflict-policy)
              (case-insensitive case-insensitive-value)
              (source-ownership source-map-value)
-             (lineage deflanguage-iso-bnf-grammar source-version source-commit
+             (lineage compile-iso-bnf-language source-version source-commit
                       overlay-id ...)
              (flow (source lexical) (lexical cst))))))
     (_ (raise-syntax-error #f "invalid ISO BNF language declaration" stx))))
 
+
+;;; Source-backed rules retain their checked upstream witness and provenance.
+(defsyntax (iso-bnf stx)
+  (syntax-case stx (syntax rules reference digest source rule-precedences entrypoint conflicts case-insensitive)
+    ((_ prefix
+        (syntax (reference version commit) (digest hash) (source path)
+                (rule-precedences precedence ...)
+                (entrypoint root) (conflicts policy) (case-insensitive insensitive))
+        (rules overlay ...))
+     (identifier? #'prefix)
+     (with-syntax (((lowered ...) (lower-source-rule-overlays #'(overlay ...) stx #'prefix #'version #'commit)))
+       #'(compile-iso-bnf-language prefix
+           (reference version commit) (digest hash) (source path)
+           (rule-overrides lowered ...) (rule-precedences precedence ...)
+           (entrypoint root) (conflicts policy) (case-insensitive insensitive))))
+    (_ (raise-syntax-error #f "iso-bnf vocabulary requires checked source syntax and rule overlays" stx))))

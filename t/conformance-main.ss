@@ -3,6 +3,10 @@
 (import (only-in :std/test/base TestConfig current-test-config VERBOSITY-CASE
                  test-suite! test-result-ok?)
         (prefix-in (only-in :gerbil-parser/t/benchmarks/versioned-languages/all-languages main) benchmark-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/package-expression-runtime main) concise-runtime-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/composition-history main) history-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/list-runtime main) native-poo-runtime-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/provenance-language main) provenance-)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/parser-test records-parser-tests)
         (only-in :gerbil-parser/t/test-style-contract-test test-style-contract-test)
         (only-in :gerbil-parser/t/language-diagnostics-test language-diagnostics-test)
@@ -58,6 +62,13 @@
         (cons "concise-package" (list package-expression-parser-test))
         (cons "composed-package" (list list-parser-test))))
 (def (main name . args)
+  (let (program (assoc name (list (cons "concise-runtime" concise-runtime-main)
+                                (cons "history" history-main)
+                                (cons "native-poo-runtime" native-poo-runtime-main)
+                                (cons "provenance" provenance-main))))
+    (when program
+      (unless (null? args) (error "unexpected research control arguments" args))
+      ((cdr program))))
   (if (equal? name "native-language-alignment")
     (begin
       (unless (= (length args) 1) (error "expected native alignment output path" args))

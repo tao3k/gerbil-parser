@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Canonical Scheme producer supplies Rust ABI conformance bytes, not reports.
 (import (only-in :gerbil-parser/language-support deflanguage)
         (only-in :gerbil-parser/t/native-datum-support native-datum-read)
@@ -8,12 +9,15 @@
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
                  bind-native-language native-parse-binary-payload native-descriptor-payload))
 ;;; Native field scopes include repeated and zero-width associations.
-(deflanguage field-scopes
-  (identity "field-scopes" "v1" "field-scopes.v1")
-  (root document)
-  (lex (item-token Identifier (literals "x")) (unknown Unknown (fallback)))
+(begin
+ (deflanguage field-scopes
+  (syntax
+   (lexical
+    (root document)
+    (lex (item-token Identifier (literals "x")) (unknown Unknown (fallback)))))
   (rules (document (node Document (repeat (field item item-token))
                           (field marker (node Marker (empty))) (field absent (empty))))))
+ (bind-fixture-grammar-release field-scopes "field-scopes" "v1" "field-scopes.v1") )
 (def (emit-bytes port bytes)
   (display "&[" port)
   (for-each (lambda (byte) (display byte port) (display "," port)) (u8vector->list bytes))

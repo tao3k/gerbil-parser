@@ -1,31 +1,36 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Published ABI order is validated over the concise DSL's inferred syntax.
 (import :std/test
         (for-syntax (only-in :gerbil/expander core-expand))
-        (only-in :gerbil-parser/src/language/grammar deflanguage deflanguage-grammar)
+        (only-in :gerbil-parser/src/language/grammar deflanguage)
+        (only-in :gerbil-parser/src/compiler/language-expander compile-language)
         (only-in :gerbil-parser/src/compiler/normalize grammar-ir-ref)
         (only-in :gerbil-parser/src/compiler/parser-ir parser-ir-ref)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-events parse-artifact-success? parse-artifact-roundtrip))
 
-(deflanguage projected
-  (identity "catalog-witness" "v1" "catalog-witness.v1")
-  (root source-file)
-  (lex (word WordToken (identifier))
+(begin
+ (deflanguage projected
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word WordToken (identifier))
        (whitespace Whitespace (whitespace+))
        (unknown Unknown (fallback)))
-  (rules (source-file (node Root (field item name)))
-         (name (node Name (field value word))))
-  (extras whitespace)
-  (catalog
+    (extras whitespace)
+    (catalog
    (syntax-kinds (Root node (reserved item)) (WordToken token (text))
                  (EmptyLine node ()) (Name node (value))
                  (Unknown token (text)) (Whitespace token (text)) (UnusedToken token (text)))
    (terminals (unknown Unknown) (word WordToken) (whitespace Whitespace))
-   (reserved-token-kinds UnusedToken)))
+   (reserved-token-kinds UnusedToken))))
+  (rules (source-file (node Root (field item name)))
+         (name (node Name (field value word)))))
+ (bind-fixture-grammar-release projected "catalog-witness" "v1" "catalog-witness.v1") )
 
-(deflanguage-grammar published
+(compile-language published
   (identity "catalog-witness" "v1" "catalog-witness.v1")
   (syntax-kinds (Root node (reserved item)) (WordToken token (text))
                 (EmptyLine node ()) (Name node (value))
@@ -45,10 +50,12 @@
         (lambda ()
           (core-expand
            #'(deflanguage invalid-catalog
-               (identity "invalid-catalog" "v1" "invalid-catalog.v1")
-               (root source-file) (lex (word WordToken (identifier)))
-               (rules (source-file (node Root (field value word))))
-               catalog-option))
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word WordToken (identifier)))
+    catalog-option))
+  (rules (source-file (node Root (field value word))))))
           "UNEXPECTED-ADMISSION"))))
   (datum->syntax
    #'catalog-rejection-messages

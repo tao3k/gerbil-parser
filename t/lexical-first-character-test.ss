@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Differential witness for admission filters on nonregular lexical rules.
 (import :std/test
         :gerbil-parser/src/language/grammar
@@ -9,20 +10,27 @@
                  source-scan-state-character-offset source-scan-state-byte-offset)
         (only-in :gerbil-parser/src/runtime/token token-kind token-lexeme token-start token-end))
 
-(deflanguage first-character-witness
-  (identity "first-character-witness" "v1" "first-character-witness.v1")
-  (root source-file)
-  (lex
+(begin
+ (deflanguage first-character-witness
+  (syntax
+   (lexical
+    (root source-file)
+    (lex
    (numeric Numeric (number-literal ("0x" "0b" "hex") "_" ("M") #t #t))
    (quoted Quoted (quoted-string "\"" "'"))
    (escaped Escaped (escaped-quoted-string "@"))
    (here Here (heredoc))
    (name Name (identifier))
    (other Other (fallback)))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file (node SourceFile
-     (repeat (choice numeric quoted escaped here name other)))))
-  (extras) (keywords) (recoveries) (conflicts reject) (case-insensitive #f))
+     (repeat (choice numeric quoted escaped here name other))))))
+ (bind-fixture-grammar-release first-character-witness "first-character-witness" "v1" "first-character-witness.v1") )
 
 (def (reference-match source offset)
   (lexical-dispatch/ranked source offset

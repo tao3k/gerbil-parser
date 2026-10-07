@@ -5,7 +5,12 @@
         (only-in :std/source this-source-file)
         (only-in :gerbil/compiler compile-module))
 (def conformance-modules
-  '("languages/arithmetic/parser-test"
+  '("t/fixtures/fixture-release"
+    "t/fixtures/language-pack-research/package-expression-runtime"
+    "t/fixtures/language-pack-research/composition-history"
+    "t/fixtures/language-pack-research/list-runtime"
+    "t/fixtures/language-pack-research/provenance-language"
+    "languages/arithmetic/parser-test"
     "languages/bash/parser-test"
     "languages/cypher/parser-test"
     "languages/fhirpath/parser-test"
@@ -72,7 +77,7 @@
 (def (compile-static-conformance!)
   ;; Source-expansion research children need these loadable helper products.
   (make (native-spec (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
-    srcdir: (path-directory (this-source-file)) optimize: #f)
+    srcdir: (path-directory (this-source-file)) optimize: #t)
   ;; The closed executable owns their only required C/object compilation here.
   (compile-static-tests!))
 (def (prepare-gxtest!)
@@ -87,4 +92,4 @@
      libdir: (path-expand "lib" (getenv "GERBIL_PATH"))
      srcdir: (path-directory (this-source-file)))))
 ;; Developer multicall build retains the standard native shared-module owner.
-(defbuild-script (native-spec conformance-modules) optimize: #f)
+(defbuild-script (native-spec conformance-modules) optimize: #t)

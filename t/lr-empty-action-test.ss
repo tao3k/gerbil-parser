@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Empty reductions and identity operands must agree across semantic backends.
 (import :std/test
@@ -14,72 +15,84 @@
                  make-edit apply-edit))
 (export lr-empty-action-test)
 
-(deflanguage empty-action-probe
-  (identity "empty-action-probe" "v1" "empty-action-probe.v1")
-  (root source-file)
-  (lex (word Word (identifier))
+(begin
+ (deflanguage empty-action-probe
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word Word (identifier))
        (punctuation Punctuation (literals ","))
        (space Space (whitespace+)))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts selective-glr)
+    (case-insensitive #f)))
   (rules
    (source-file
     (node SourceFile
      (seq (optional (field left word))
-          (optional (seq "," (field right (node Item word))))))))
-  (extras space)
-  (keywords)
-  (recoveries)
-  (conflicts selective-glr)
-  (case-insensitive #f))
+          (optional (seq "," (field right (node Item word)))))))))
+ (bind-fixture-grammar-release empty-action-probe "empty-action-probe" "v1" "empty-action-probe.v1") )
 
-(deflanguage ordered-action-probe
-  (identity "ordered-action-probe" "v1" "ordered-action-probe.v1")
-  (root source-file)
-  (lex (word Word (identifier))
+(begin
+ (deflanguage ordered-action-probe
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word Word (identifier))
        (punctuation Punctuation (literals ","))
        (space Space (whitespace+)))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file
     (node SourceFile
      (seq (field first (node First word)) ","
           (optional (field middle (node Middle word))) ","
-          (field last (node Last word))))))
-  (extras space)
-  (keywords)
-  (recoveries)
-  (conflicts reject)
-  (case-insensitive #f))
+          (field last (node Last word)))))))
+ (bind-fixture-grammar-release ordered-action-probe "ordered-action-probe" "v1" "ordered-action-probe.v1") )
 
-(deflanguage chained-action-probe
-  (identity "chained-action-probe" "v1" "chained-action-probe.v1")
-  (root source-file)
-  (lex (word Word (identifier))
+(begin
+ (deflanguage chained-action-probe
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word Word (identifier))
        (space Space (whitespace+)))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file
     (node SourceFile
-     (field outer (alias Renamed (field inner (node Original word)))))))
-  (extras space)
-  (keywords)
-  (recoveries)
-  (conflicts reject)
-  (case-insensitive #f))
+     (field outer (node Renamed (field inner (node Original word))))))))
+ (bind-fixture-grammar-release chained-action-probe "chained-action-probe" "v1" "chained-action-probe.v1") )
 
-(deflanguage unary-stack-probe
-  (identity "unary-stack-probe" "v1" "unary-stack-probe.v1")
-  (root source-file)
-  (lex (word Word (identifier))
+(begin
+ (deflanguage unary-stack-probe
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word Word (identifier))
        (punctuation Punctuation (literals ";"))
        (space Space (whitespace+)))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (source-file
     (node SourceFile
      (seq (field head (node Head word)) ";"
-          (field tail (alias Renamed (field inner (node Original word))))))))
-  (extras space)
-  (keywords)
-  (recoveries)
-  (conflicts reject)
-  (case-insensitive #f))
+          (field tail (node Renamed (field inner (node Original word)))))))))
+ (bind-fixture-grammar-release unary-stack-probe "unary-stack-probe" "v1" "unary-stack-probe.v1") )
 
 (def (parse-probe source events?)
   (parameterize ((current-lr-event-program-enabled? events?))

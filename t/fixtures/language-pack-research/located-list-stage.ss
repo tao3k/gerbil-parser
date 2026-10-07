@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Research adapter: phase-1 POO composition -> existing verbose declaration.
-(import (only-in "../../../src/language/grammar" deflanguage-grammar)
+(import (only-in "../../../src/compiler/language-expander" compile-language)
         (for-syntax "located-list-roles"
                     (only-in "../../../src/compiler/normalize"
                              compile-grammar/receipt grammar-ir-ref)))
@@ -24,7 +24,7 @@
          #'(begin
              (def composed-binding composed-value)
              (def receipt-binding receipt-value)
-             (deflanguage-grammar prefix
+             (compile-language prefix
                (identity "list-study" "v1" "list-study.local.v1")
                (syntax-kinds kind-row ...)
                (terminals terminal-row ...)

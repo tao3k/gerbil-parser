@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
@@ -14,24 +15,27 @@
                  layout-after-end))
 (export layout-boundary-test)
 
-(deflanguage closing-boundary-probe
-  (identity "closing-boundary-probe" "v1" "closing-boundary-probe.v1")
-  (root source-file)
-  (lex (word Word (identifier))
+(begin
+ (deflanguage closing-boundary-probe
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word Word (identifier))
        (punctuation Punctuation (literals "(" "|>"))
        (space Space (whitespace+)))
+    (extras space)
+    (keywords)
+    (recoveries)
+    (conflicts selective-glr)
+    (case-insensitive #f)))
   (rules
    (source-file (node SourceFile (seq "(" (field items (reference items)) "END")))
    (items
     (node Items
       (seq (layout-start "|>") (field item word)
            (repeat (seq (layout-next "|>") (field item word)))
-           (layout-end "END")))))
-  (extras space)
-  (keywords)
-  (recoveries)
-  (conflicts selective-glr)
-  (case-insensitive #f))
+           (layout-end "END"))))))
+ (bind-fixture-grammar-release closing-boundary-probe "closing-boundary-probe" "v1" "closing-boundary-probe.v1") )
 
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"

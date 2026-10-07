@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Closed header-derived scanning is shared by independent POO language Loaders.
 (import :std/test
         (only-in :clan/poo/object .o .cc .ref)
@@ -11,14 +12,17 @@
         (only-in :gerbil-parser/languages/hl7/parser hl7-language))
 (export header-delimiter-test header-record-language-grammar header-record-language)
 
-(deflanguage header-record
-  (identity "header-record" "v1" "header-record.v1")
-  (root document)
-  (lex (field Separator (header-delimiter "記" 2 0))
+(begin
+ (deflanguage header-record
+  (syntax
+   (lexical
+    (root document)
+    (lex (field Separator (header-delimiter "記" 2 0))
        (component ComponentSeparator (header-delimiter "記" 2 1))
-       (data Data (header-data "記" 2 ";")))
+       (data Data (header-data "記" 2 ";")))))
   (rules (document (node SourceFile
                     (literal "記") field component (field value data) field))))
+ (bind-fixture-grammar-release header-record "header-record" "v1" "header-record.v1") )
 (deflanguage-parser-loader (header-record-language :: self LanguageLoader.)
   (grammar header-record-language-grammar)
   (parse parse-header-record)

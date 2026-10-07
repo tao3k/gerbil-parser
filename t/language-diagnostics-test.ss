@@ -1,7 +1,9 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Existing concise admission errors retain author occurrence and context.
 (import :std/test
-        (only-in ../src/language/grammar deflanguage deflanguage-grammar)
+        (only-in ../src/language/grammar deflanguage)
+        (only-in ../src/compiler/language-expander compile-language)
         (only-in ../src/grammar/algebra grammar-expression? grammar-expression-header?)
         (only-in ./fixtures/language-diagnostics-vocabulary required-items broken-wrapper)
         (rename-in (only-in ./fixtures/language-diagnostics-vocabulary required-items)
@@ -32,13 +34,19 @@
 
 (defrules invalid-language ()
   ((_ expression)
-   (deflanguage diagnostic-study
-     (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-     (root source-file)
-     (lex (identifier Identifier (identifier)))
-     (rules (source-file (node SourceFile expression)))
-     (extras) (keywords) (recoveries)
-     (conflicts reject) (case-insensitive #f))))
+   (begin
+ (deflanguage diagnostic-study
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
+  (rules (source-file (node SourceFile expression))))
+ (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") )))
 
 ;; Pass the reader-authored expression through the declaration template without
 ;; rebuilding its datum, so its original occurrence remains available.
@@ -72,39 +80,57 @@
 
 (def forward-field
   (declaration-error
-    (deflanguage diagnostic-study
-      (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-      (root source-file)
-      (lex (identifier Identifier (identifier)))
-      (rules (source-file (node SourceFile (reference helper)))
-             (helper (field argument)))
-      (extras) (keywords) (recoveries)
-      (conflicts reject) (case-insensitive #f))))
+    (begin
+ (deflanguage diagnostic-study
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
+  (rules (source-file (node SourceFile (reference helper)))
+             (helper (field argument))))
+ (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") )))
 
 (defrules invalid-helper-error ()
   ((_ helper-expression)
    (declaration-error
-     (deflanguage diagnostic-study
-       (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-       (root source-file)
-       (lex (identifier Identifier (identifier)))
-       (rules (source-file (node SourceFile (reference helper)))
-              (helper helper-expression))
-       (extras) (keywords) (recoveries)
-       (conflicts reject) (case-insensitive #f)))))
+     (begin
+ (deflanguage diagnostic-study
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
+  (rules (source-file (node SourceFile (reference helper)))
+              (helper helper-expression)))
+ (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") ))))
 (def forward-unary (invalid-helper-error (optional)))
 (def forward-reference (invalid-helper-error (reference)))
 
 (defrules invalid-root-error ()
   ((_ expression)
    (declaration-error
-     (deflanguage diagnostic-study
-       (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-       (root source-file)
-       (lex (identifier Identifier (identifier)))
-       (rules (source-file expression))
-       (extras) (keywords) (recoveries)
-       (conflicts reject) (case-insensitive #f)))))
+     (begin
+ (deflanguage diagnostic-study
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
+  (rules (source-file expression)))
+ (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") ))))
 (def root-without-node (invalid-root-error identifier))
 (def macro-root-without-node
   (invalid-root-error (required-items argument identifier ",")))
@@ -112,13 +138,19 @@
   (invalid-expression-error (node Identifier identifier)))
 (def multi-body-root
   (declaration-error
-    (deflanguage diagnostic-study
-      (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-      (root source-file)
-      (lex (identifier Identifier (identifier)))
-      (rules (source-file identifier identifier))
-      (extras) (keywords) (recoveries)
-      (conflicts reject) (case-insensitive #f))))
+    (begin
+ (deflanguage diagnostic-study
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))
+    (extras)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
+  (rules (source-file identifier identifier)))
+ (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") )))
 (def source-free-collision
   (invalid-expression-error source-free (node Identifier identifier)))
 (defrules token-node ()
@@ -130,7 +162,7 @@
 (defrules invalid-core-error ()
   ((_ expression)
    (declaration-error
-     (deflanguage-grammar diagnostic-study
+     (compile-language diagnostic-study
        (identity "diagnostic-study" "v1" "diagnostic-study.v1")
        (syntax-kinds (SourceFile node ()) (Identifier token (text)))
        (terminals (identifier Identifier))
@@ -145,42 +177,48 @@
         (invalid-expression-error (layout-start ""))
         (invalid-expression-error (layout-next ""))
         (invalid-expression-error (prec sideways 10 identifier))
-        (invalid-expression-error (precedence left "high" identifier))))
+        (invalid-expression-error (prec left "high" identifier))))
 (def scalar-blames
   '("" (literal "") (layout-start "") (layout-next "")
-    (prec sideways 10 identifier) (precedence left "high" identifier)))
+    (prec sideways 10 identifier) (prec left "high" identifier)))
 (def core-errors
   (list (invalid-core-error (optional))
         (invalid-core-error (field argument))
-        (invalid-core-error (seq))
+        (invalid-core-error (sequence))
         (invalid-core-error (token identifier extra))
         (invalid-core-error (literal ""))
         (invalid-core-error (layout-end ""))
-        (invalid-core-error (prec sideways 10 (token identifier)))
-        (invalid-core-error (prec left "high" (token identifier)))
+        (invalid-core-error (precedence sideways 10 (token identifier)))
+        (invalid-core-error (precedence left "high" (token identifier)))
         (invalid-core-error (optional . identifier))))
 (def core-blames
-  '((optional) (field argument) (seq) (token identifier extra)
-    (literal "") (layout-end "") (prec sideways 10 (token identifier))
-    (prec left "high" (token identifier)) (optional . identifier)))
+  '((optional) (field argument) (sequence) (token identifier extra)
+    (literal "") (layout-end "") (precedence sideways 10 (token identifier))
+    (precedence left "high" (token identifier)) (optional . identifier)))
 (def dotted-surface
   (invalid-expression-error (optional . identifier)))
 
 ;; Default normalization must preserve the declaration the author actually wrote.
 (def defaulted-root
   (declaration-error
-    (deflanguage diagnostic-study
-      (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-      (root source-file)
-      (lex (identifier Identifier (identifier)))
-      (rules (source-file identifier)))))
+    (begin
+ (deflanguage diagnostic-study
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))))
+  (rules (source-file identifier)))
+ (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") )))
 (def source-free-defaulted-root
   (declaration-error source-free
-    (deflanguage diagnostic-study
-      (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-      (root source-file)
-      (lex (identifier Identifier (identifier)))
-      (rules (source-file identifier)))))
+    (begin
+ (deflanguage diagnostic-study
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))))
+  (rules (source-file identifier)))
+ (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") )))
 
 (def (source-line location)
   (call-with-input-file (car location)
@@ -281,10 +319,11 @@
                    'identifier "identifier")
       (check (car (cadddr defaulted-root))
              => '(deflanguage diagnostic-study
-                   (identity "diagnostic-study" "v1" "diagnostic-study.v1")
-                   (root source-file)
-                   (lex (identifier Identifier (identifier)))
-                   (rules (source-file identifier))))
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (identifier Identifier (identifier)))))
+  (rules (source-file identifier))))
       (check (car source-free-defaulted-root)
              => "concise language root rule must construct one node")
       (check (caddr source-free-defaulted-root) => #f)

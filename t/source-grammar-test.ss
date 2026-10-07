@@ -49,13 +49,13 @@
  (test-suite "deflanguage source syntax and rule contract"
 (test-case "source errors identify the direct expression or author macro invocation"
   (check (source-syntax-blame
-    (shell (operators "(") (regions) (bindings) (words)
-      (commands (roles) (descriptor (literal "x")))
+    (deflanguage invalid-shell (syntax (shell (operators "(") (regions) (bindings) (words)
+      (commands (roles) (descriptor (literal "x")))))
       (rules (bad (node WhileCommand (repeat (optional (field keyword "while"))))))))
     => '(repeat (optional (field keyword "while"))))
   (check (source-syntax-blame
-    (shell (operators "(") (regions) (bindings) (words)
-      (commands (roles) (descriptor (literal "x")))
+    (deflanguage invalid-shell (syntax (shell (operators "(") (regions) (bindings) (words)
+      (commands (roles) (descriptor (literal "x")))))
       (rules (bad (node WhileCommand (nullable-body "while"))))))
     => '(nullable-body "while")))
   (test-case "selectors depend on syntax rather than rule and field names"
@@ -92,9 +92,33 @@
        ((1 . "notes")) #f "metadata")))
   (test-case "public entry rejects duplicate blocks and execution-recipe syntax"
    (check (string? (source-syntax-error
-    (deflanguage bad (identity "bad" "1" "bad.v1") (syntax (shell)) (syntax (shell)) (rules)))) => #t)
+    (deflanguage bad (syntax (shell)) (syntax (shell)) (rules)))) => #t)
    (check (string? (source-syntax-error
-    (deflanguage bad (identity "bad" "1" "bad.v1") (syntax (shell (strategy arbitrary))) (rules)))) => #t))
+    (deflanguage bad (syntax (shell (strategy arbitrary))) (rules)))) => #t))
+  (test-case "retired author declarations fail before parser publication"
+   (check (source-syntax-error
+     (deflanguage retired (root source-file)
+       (lex (identifier Identifier (identifier)))
+       (rules (source-file (alias SourceFile (token identifier))))))
+     => "deflanguage requires exactly one syntax vocabulary and one rules block; flat declarations and release identity are not author syntax")
+   (check (string? (source-syntax-error
+     (deflanguage retired (identity "retired" "1" "retired.v1")
+       (root source-file) (lex (identifier Identifier (identifier)))
+       (rules (source-file (node SourceFile identifier)))))) => #t)
+   (check (string? (source-syntax-error
+     (deflanguage retired
+       (syntax (lexical (root name) (lex (identifier Identifier (identifier)))))
+       (rules (name (alias Name identifier)))))) => #t)
+   (check (string? (source-syntax-error
+     (deflanguage retired
+       (syntax (lexical (root name) (lex (identifier Identifier (identifier)))
+                        (flow (source lexical))))
+       (rules (name (node Name identifier)))))) => #t)
+   (check (string? (source-syntax-error
+     (deflanguage retired
+       (syntax (lexical (root name) (lex (identifier Identifier (identifier)))
+                        (backends (source digest procedure))))
+       (rules (name (node Name identifier)))))) => #t))
   (test-case "command admission rejects duplicates, dangling references and non-consuming repetition"
    (for-each (lambda (rules)
     (check (rejects? (lambda () (lower-command-grammar rules))) => #t))

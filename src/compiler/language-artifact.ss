@@ -430,7 +430,7 @@
   (def identities (syntax->list (section 'identity)))
   (unless (= (length identities) 3) (reject))
   (def lineage
-    (if (assq 'lineage rows) (syntax->datum (section 'lineage)) '(deflanguage-grammar)))
+    (if (assq 'lineage rows) (syntax->datum (section 'lineage)) '(canonical-language-compiler)))
   (make-language-declaration
    stx prefix identities
    (map (lambda (name) (cons name (section name)))

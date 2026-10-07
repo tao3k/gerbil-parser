@@ -16,12 +16,10 @@
                              parse-iso-bnf-source/expected iso-bnf-source->datum))
         (only-in ./iso-bnf iso-bnf-source-from-datum)
         (only-in ./antlr4-source antlr4-source-from-datum)
-        (only-in ./javacc-source javacc-source-from-datum)
-        (only-in ./iso-bnf-language deflanguage-iso-bnf-grammar))
+        (only-in ./javacc-source javacc-source-from-datum))
 (export defsyntax-iso-bnf-source
         defsyntax-antlr4-source
-        defsyntax-javacc-source
-        deflanguage-iso-bnf-grammar)
+        defsyntax-javacc-source)
 
 ;;; JavaCC source is admitted and reduced to an immutable production inventory
 ;;; during expansion.  Generated Java and Java action blocks never enter the

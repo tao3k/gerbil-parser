@@ -30,13 +30,6 @@ run_child() {
   printf '%s\t%s\n' "$name" "$status" >> "$log_dir/exits.tsv"
   if [ "$status" -ne 0 ]; then return "$status"; fi
 }
-run_program() {
-  local name=$1 program=$2
-  shift 2
-  run_child "$name" "${GXI:-gxi}" \
-    -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)' \
-    "$program" "$@"
-}
 run_suite() {
   run_child "$1" "$GERBIL_PATH/bin/gerbil-parser-conformance" "$1"
 }
@@ -64,9 +57,9 @@ run_suite build-services
 run_suite concise-package
 run_suite composed-package
 run_suite downstream-records
-run_program concise-runtime t/fixtures/language-pack-research/package-expression-runtime.ss
-run_program history t/fixtures/language-pack-research/composition-history.ss
-run_program native-poo-runtime t/fixtures/language-pack-research/list-runtime.ss
-run_program provenance t/fixtures/language-pack-research/provenance-language.ss
+run_suite concise-runtime
+run_suite history
+run_suite native-poo-runtime
+run_suite provenance
 run_suite all-language-benchmark
 printf 'DSL-RESEARCH-CLOSURE-OK: all child processes exited 0\n'

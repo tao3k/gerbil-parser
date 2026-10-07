@@ -1,3 +1,4 @@
+(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Record assignments DSL used to qualify the public language-pack API.
 
@@ -12,11 +13,12 @@
 (def +records-language-version+ "v1")
 (def +records-syntax-contract+ "record-assignments.v1")
 
-(deflanguage records
-  (identity "record-assignments" +records-language-version+
-            +records-syntax-contract+)
-  (root document)
-  (lex
+(begin
+ (deflanguage records
+  (syntax
+   (lexical
+    (root document)
+    (lex
    (whitespace Whitespace (horizontal-whitespace+))
    (newline Newline (newline+))
    (number Number (decimal-digit+))
@@ -24,6 +26,11 @@
    (string String (quoted-string "\""))
    (punctuation Punctuation (literals "="))
    (unknown Unknown (fallback)))
+    (extras whitespace)
+    (keywords)
+    (recoveries)
+    (conflicts reject)
+    (case-insensitive #f)))
   (rules
    (document
     (node Document (repeat assignment)))
@@ -33,9 +40,5 @@
        (field name identifier)
        (literal "=")
        (field value (choice number string identifier))
-       (optional newline)))))
-  (extras whitespace)
-  (keywords)
-  (recoveries)
-  (conflicts reject)
-  (case-insensitive #f))
+       (optional newline))))))
+ (bind-fixture-grammar-release records "record-assignments" +records-language-version+ +records-syntax-contract+) )

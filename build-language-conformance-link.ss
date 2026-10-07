@@ -22,7 +22,21 @@
                                   (file-info-size (file-info right)))) sources)))
     (unless (and (integer? cores) (exact? cores) (> cores 0))
       (error "GERBIL_BUILD_CORES must be a positive integer" cores))
-    (let* ((split (if (> cores 1) (quotient (length ordered) 2) (length ordered)))
+    (let* ((split
+            (if (= cores 1)
+              (length ordered)
+              ;; Give the single worker its proportional share of input bytes.
+              ;; Counting files leaves it idle while large modules still compile.
+              (let loop ((rest (reverse ordered))
+                         (budget (/ (foldl + 0 (map (lambda (source)
+                                                    (file-info-size (file-info source)))
+                                                  ordered)) cores))
+                         (count 0))
+                (if (or (null? rest)
+                        (and (> count 0) (> (file-info-size (file-info (car rest))) budget)))
+                  (- (length ordered) count)
+                  (loop (cdr rest)
+                        (- budget (file-info-size (file-info (car rest)))) (+ count 1))))))
            (large (make-wg (max 1 (- cores 1))))
            (small (and (> cores 1) (make-wg 1))))
       (for-each (lambda (source) (wg-add! large (lambda () (task source))))

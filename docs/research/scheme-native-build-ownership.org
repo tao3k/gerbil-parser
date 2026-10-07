@@ -128,7 +128,8 @@ to =std/sync/wg= (=make-wg=, =wg-add!=, =wg-wait!=). The project no longer owns 
 mutex or hand-written thread pool. Native =list-sort= orders large inputs first;
 =std/wg= alone owns queueing and workers. Two workgroups share the existing
 core budget: large objects use at most =cores - 1= workers and small objects use
-one. This retains real progress from independent compiler products; it does not
+one. The single-worker group receives approximately =1 / cores= of source bytes,
+selected from the smallest inputs. Whole files remain indivisible. This retains real progress from independent compiler products; it does not
 report a timer heartbeat. Native =dynamic-wind= drains the small group when the
 large group raises. Module translation
 and object compilation still retain the compiler-generated source inputs.
@@ -171,3 +172,28 @@ the committed binary fixture byte for byte. Focused workgroup controls passed in
 and the independent small group drains before the caller handles that exception.
 These controls verify build lifecycle and retained semantics; elapsed build times
 are qualification receipts, not parser performance measurements.
+
+At =a16054e= Linux still rejected library objects after 26.94 seconds: the
+count-based half split gave its single worker only 480,230 of 10,020,826 source
+bytes (about five percent), leaving GQL, Cypher and TLA+ proof objects unfinished
+when the short group drained. The split now uses input bytes rather than file
+count. A cold rebuild of all 112 project/dependency objects completed in 88.01
+seconds under the unchanged 240/5-second fence. This is a scheduling control,
+not a guarantee that input size predicts wall-clock compiler cost.
+
+Isolated GQL object controls with full GCC diagnostics failed the idle fence in
+both the existing single-host mode (6.40 seconds) and Gambit's multiple-host mode
+(6.80 seconds). Neither result justifies changing production compiler modes.
+
+The corrected partition also completed the full sequential conformance build in
+54.80 seconds using existing helper/production products. Its single-core and
+worker-failure controls passed in 0.81 seconds, and the regenerated twenty ABI
+controls matched the committed fixture byte for byte (2.09 seconds). Runtime
+assertions and compilation modes remain unchanged.
+
+Compiler diagnostics follow [[https://gcc.gnu.org/onlinedocs/gcc/Developer-Options.html][GCC's documented developer options]]:
+=-Q= reports function compilation and completed pass statistics;
+=-fopt-info-all= admits native optimization notes as well as successful and
+missed transformations. The generated host procedure choice follows the
+installed Gambit header and [[https://github.com/gambit/gambit/blob/master/INSTALL.txt][Gambit's build documentation]]. Scheduling does not
+establish a performance equivalence between host modes.

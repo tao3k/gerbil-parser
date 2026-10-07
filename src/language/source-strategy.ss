@@ -1,14 +1,16 @@
 ;;; Common admitted POO source engines. Providers own binding and closed recipes.
-(import (only-in :clan/poo/object .o .ref .slot? object?)
+(import (only-in ../compiler/contextual-program contextual-program? contextual-program-ir contextual-program-results)
+        (only-in ../runtime/contextual-ir contextual-ir-ref)
+        (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in ./result-profile result-plan? result-plan-catalog)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence))
 (export SourceStrategy. SourceStrategyContract bind-source-strategy
         declare-source-strategy-provider make-source-engine
-        source-engine? source-engine-scanner source-engine-factory
+        source-engine? source-engine-program source-engine-scanner source-engine-factory
         source-engine-parse source-engine-receipt source-engine-results source-engine-root-kind)
 (defstruct source-strategy-provider (name admit compile))
-(defstruct source-engine (scanner factory parse receipt results root-kind))
+(defstruct source-engine (scanner factory parse receipt results root-kind program))
 (def (declare-source-strategy-provider name admit compile)
   (unless (and (symbol? name) (procedure? admit) (procedure? compile))
     (error "invalid engine source strategy registration" name))
@@ -40,7 +42,13 @@
                  (procedure? (source-engine-scanner engine))
                  (procedure? (source-engine-factory engine))
                  (procedure? (source-engine-parse engine))
+                 (contextual-program? (source-engine-program engine))
+                 (equal? recipe (contextual-program-ir (source-engine-program engine)))
+                 (eq? (source-engine-root-kind engine)
+                      (contextual-ir-ref recipe 'root-kind))
                  (result-plan? (source-engine-results engine))
+                 (eq? (source-engine-results engine)
+                      (contextual-program-results (source-engine-program engine)))
                  (symbol? (source-engine-root-kind engine))
                  (assq (source-engine-root-kind engine)
                        (cdr (assq 'syntax-kinds (result-plan-catalog (source-engine-results engine)))))

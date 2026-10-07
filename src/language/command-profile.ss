@@ -4,7 +4,7 @@
         (only-in ../runtime/scan make-text-profile-scanner)
         (only-in ../runtime/token token-kind token-lexeme token-start token-end)
         (only-in ./result-profile result-plan-catalog))
-(export command-node-schemas CommandProfile. defcommand-profile compile-command-profile admit-command-plan
+(export command-node-schemas CommandProfile. defcommand-profile compile-command-profile admit-command-plan command-plan?
         command-plan-recipe command-plan-role-matcher command-plan-token? command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger? command-plan-entry)
 (def +command-shapes+ '(
   (Redirection descriptor operator target)

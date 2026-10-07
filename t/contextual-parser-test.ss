@@ -5,13 +5,14 @@
         (only-in :gerbil-parser/languages/hcl/grammar
                  hcl-parser)
         (only-in :gerbil-parser/src/compiler/machine
-                 parser-machine-grammar-digest)
+                 parser-machine-grammar-digest parser-machine-contextual-ir parser-machine-ir)
         (only-in :gerbil-parser/t/benchmarks/contextual-scanner/parser-fixture
                  contextual-product)
         (only-in :gerbil-parser/src/runtime/parser
                  parse-source/contextual prepare-contextual-parser
                  parse-source/contextual/prepared)
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
+        (only-in :gerbil-parser/src/runtime/contextual-ir contextual-parser-ir-valid? contextual-ir-ref)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-events
                  parse-artifact-status parse-artifact-ref
@@ -21,6 +22,13 @@
 
 (def contextual-parser-test
   (test-suite "contextual scanner LR integration"
+    (test-case "ordinary LR machine owns the common admitted instruction product"
+      (let (ir (parser-machine-contextual-ir hcl-parser))
+        (check (contextual-parser-ir-valid? ir) => #t)
+        (check (contextual-ir-ref (contextual-ir-ref ir 'recognition) 'program)
+               => (parser-machine-ir hcl-parser))
+        (set-cdr! (assq 'root-kind ir) 'Foreign)
+        (check (contextual-parser-ir-valid? (parser-machine-contextual-ir hcl-parser)) => #t)))
     (test-case "prepared parser owns product and published artifact identities"
       (let* ((machine hcl-parser)
              (literal (string-copy "1"))
@@ -36,7 +44,7 @@
                                  (string-copy (parse-artifact-ref artifact 'grammarDigest)))
                        artifact)) sources)))
         (string-set! literal 0 #\2)
-        (set-cdr! (car (cdr (assq 'state-positions product))) 'foreign)
+        (set-cdr! (car (cdr (assq 'state-positions (cdr (assq 'context product))))) 'foreign)
         (string-set! (cdr (assq 'digest product)) 0 #\x)
         (let (artifact (parse-source/contextual/prepared plan (car sources)))
           (string-set! (parse-artifact-ref artifact 'grammarDigest) 0 #\x))
@@ -74,9 +82,11 @@
                        (map (lambda (row)
                               (case (car row)
                                 ((scanner) (cons 'scanner scanner))
-                                ((state-positions)
-                                 (cons 'state-positions
-                                       (map (lambda (entry) (cons (car entry) position)) (cdr row))))
+                                ((context)
+                                 (cons 'context
+                                   (list (cons 'state-positions
+                                     (map (lambda (entry) (cons (car entry) position))
+                                          (cdr (assq 'state-positions (cdr row))))))))
                                 (else row))) product))))
         (for-each
          (lambda (admit)
@@ -149,7 +159,7 @@
               (contextual-product
                machine (parser-machine-grammar-digest machine)
                '(line name) '((line () ()) (name ((token identifier)) ()))))
-             (positions (cdr (assq 'state-positions product))))
+             (positions (cdr (assq 'state-positions (cdr (assq 'context product))))))
         (check (cdr (assq 0 positions)) => 'name)
         (check (any (lambda (row) (eq? (cdr row) 'line)) positions) => #t)
         (check (parse-artifact-success?
@@ -162,7 +172,7 @@
                machine (parser-machine-grammar-digest machine)
                '(line assignment)
                '((line () ()) (assignment ((literal "=")) ()))))
-             (positions (cdr (assq 'state-positions product))))
+             (positions (cdr (assq 'state-positions (cdr (assq 'context product))))))
         (check (any (lambda (row) (eq? (cdr row) 'assignment)) positions) => #t)
         (check (parse-artifact-success?
                 (parse-source/contextual machine product "x = 1\n"))
@@ -173,7 +183,7 @@
               (contextual-product
                machine (parser-machine-grammar-digest machine)
                '(line finish) '((line () ()) (finish ((eof)) ()))))
-             (positions (cdr (assq 'state-positions product))))
+             (positions (cdr (assq 'state-positions (cdr (assq 'context product))))))
         (check (any (lambda (row) (eq? (cdr row) 'finish)) positions) => #t)
         (check (parse-artifact-success?
                 (parse-source/contextual machine product "")) => #t)))
@@ -181,12 +191,12 @@
       (let* ((machine hcl-parser)
              (product (contextual-product
                        machine (parser-machine-grammar-digest machine)))
-             (rows (cdr (assq 'state-positions product)))
+             (rows (cdr (assq 'state-positions (cdr (assq 'context product)))))
              (body
               (map (lambda (row)
-                     (if (eq? (car row) 'state-positions)
-                       (cons 'state-positions
-                             (cons (car rows) (cons (car rows) (cddr rows))))
+                     (if (eq? (car row) 'context)
+                       (cons 'context (list (cons 'state-positions
+                             (cons (car rows) (cons (car rows) (cddr rows))))))
                        row))
                    (filter (lambda (row) (not (eq? (car row) 'digest))) product)))
              (altered

@@ -84,6 +84,20 @@ class BoundedEvidenceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 124)
         self.assertIn("reason=output idle timeout", result.stdout)
 
+    def test_timeout_stops_child_in_separate_session(self):
+        # Model script(1): the wrapper waits for a child with a new process group.
+        with tempfile.TemporaryDirectory(prefix="parser-bounded-session-") as directory:
+            marker = Path(directory) / "escaped-child-finished"
+            child = ("import time; from pathlib import Path; time.sleep(1.5); "
+                     f"Path({str(marker)!r}).touch()")
+            program = ("import subprocess, sys; "
+                       f"subprocess.run([sys.executable, '-c', {child!r}], "
+                       "start_new_session=True)")
+            result, _ = self.run_child(program, options=["--timeout", "0.3"])
+            self.assertEqual(result.returncode, 124, result.stdout + result.stderr)
+            time.sleep(1.5)
+            self.assertFalse(marker.exists(), "timed-out child survived its wrapper")
+
     def test_continuous_output_cannot_bypass_total_gate(self):
         result, _ = self.run_child(
             "import time\nwhile True:\n print('work'); time.sleep(0.01)",

@@ -1,13 +1,13 @@
 ;;; -*- Gerbil -*-
 ;;; Internal assembly of already admitted immutable compiler products.
 
-(import (only-in ../compiler/machine defgeneral-parser-machine)
+(import (only-in ../compiler/machine defgeneral-parser-machine parser-machine-ir)
         (only-in ../runtime/language-artifact load-compiled-language-artifact/embedded))
 (export assemble-language-parser)
 
 ;; Internal runtime emission shared by native and imported declarations.
-;; Expansion materializes immutable grammar and parser IR once; runtime code
-;; only receives the generated machine and never invokes the compiler.
+;; Expansion publishes grammar and backend instructions once. Native binding
+;; loads the admitted common product and publishes the machine-owned instruction view.
 ;; assemble-language-parser
 ;;   : (-> Syntax Syntax)
 ;;   | doc m%
@@ -26,7 +26,7 @@
   ((_ grammar-binding bound-binding ir-binding parser-binding
       grammar-encoded grammar-payload
       bound-encoded bound-payload
-      ir-encoded ir-payload
+      program-encoded program-payload
       (syntax-kinds (kind-name kind-category (field-name ...)) ...)
       (lexical-rules (lexical-name lexical-expression-value) ...)
       (rules (rule-name rule-expression) ...)
@@ -40,14 +40,13 @@
      (def bound-binding
        (load-compiled-language-artifact/embedded
         "gerbil-parser.bound-grammar-ir.v1" 'bound-encoded bound-payload))
-     (def ir-binding
+     (defgeneral-parser-machine parser-binding
        (load-compiled-language-artifact/embedded
-        "gerbil-parser.parser-ir.v1" 'ir-encoded ir-payload))
-     (defgeneral-parser-machine parser-binding ir-binding
-       (grammar-digest (cadr 'ir-encoded))
+        "gerbil-parser.contextual-parser-ir.v2" 'program-encoded program-payload)
        (lexical-rules (lexical-name lexical-expression-value) ...)
        (rules (rule-name rule-expression) ...)
        (extras extra-name ...)
        (parser-entrypoints
-       (entry-name entry-action entry-effect) ...)))))
+       (entry-name entry-action entry-effect) ...))
+     (def ir-binding (parser-machine-ir parser-binding)))))
 

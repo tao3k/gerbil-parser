@@ -18,6 +18,7 @@ shared objective, evidence scope, decisions and closure sequence. Detailed desig
 is modularized by responsibility:
 
 - [[file:scheme-dsl-author-interface.org][Complete author DSL interfaces and package examples]]
+- [[file:scheme-contextual-parser-ir.org][Coordinated contextual IR migration and qualification obligations]]
 - [[file:scheme-bash-source-frontend.org][Bash source frontend gap and complete-package compiler obligations]]
 - [[file:scheme-dsl-engine-admission.org][Engine admission, provenance and artifact publication]]
 - [[file:scheme-dsl-semantic-contracts.org][Semantic contracts and composition evolution]]

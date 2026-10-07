@@ -1,6 +1,7 @@
 //! Navigation indexes point into original GPA1 records and source; no CST copy.
 use crate::{NativeArtifactError, NativeCatalog, NativeEvent, NativeEventKind as Kind};
 use crate::{admission, wire};
+use std::borrow::Cow;
 
 /// UTF-8 byte span in the source admitted with this result.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -9,7 +10,7 @@ pub struct SourceRange {
     pub end: usize,
 }
 #[derive(Clone, Copy, Debug)]
-struct Index {
+pub(crate) struct Index {
     end: usize,
     parent: Option<usize>,
 }
@@ -20,7 +21,7 @@ pub struct NativeArtifactView<'a> {
     source: &'a str,
     catalog: &'a NativeCatalog,
     accepted: bool,
-    index: Vec<Index>,
+    index: Cow<'a, [Index]>,
 }
 impl<'a> NativeArtifactView<'a> {
     /// Validate identities, vocabulary, event nesting and full UTF-8 coverage.
@@ -31,48 +32,28 @@ impl<'a> NativeArtifactView<'a> {
         source: &'a str,
         catalog: &'a NativeCatalog,
     ) -> Result<Self, NativeArtifactError> {
-        let accepted = admission::admit(payload, source, catalog)?;
-        let count = (payload.len() - 80) / 24;
-        let mut index = vec![
-            Index {
-                end: 0,
-                parent: None
-            };
-            count
-        ];
-        let mut stack = Vec::new();
-        let mut nodes = Vec::new();
-        for (at, row) in payload[80..].as_chunks::<24>().0.iter().enumerate() {
-            let event = wire::event(row);
-            index[at].parent = nodes.last().copied();
-            match event.kind {
-                Kind::StartNode | Kind::StartField => {
-                    stack.push(at);
-                    if event.kind == Kind::StartNode {
-                        nodes.push(at);
-                    }
-                }
-                Kind::FinishNode | Kind::FinishField => {
-                    let start = stack
-                        .pop()
-                        .ok_or_else(|| wire::error("index-nesting", Some(at)))?;
-                    index[start].end = at;
-                    if event.kind == Kind::FinishNode {
-                        nodes.pop();
-                    }
-                }
-                Kind::Token => {
-                    index[at].end = at;
-                }
-            }
-        }
+        let navigation = Navigation::decode(payload, source, catalog)?;
         Ok(Self {
             payload,
             source,
             catalog,
-            accepted,
-            index,
+            accepted: navigation.accepted,
+            index: Cow::Owned(navigation.index),
         })
+    }
+    pub(crate) fn from_navigation(
+        payload: &'a [u8],
+        source: &'a str,
+        catalog: &'a NativeCatalog,
+        navigation: &'a Navigation,
+    ) -> Self {
+        Self {
+            payload,
+            source,
+            catalog,
+            accepted: navigation.accepted,
+            index: Cow::Borrowed(&navigation.index),
+        }
     }
     /// Whether Scheme accepted this source without repair.
     #[must_use]
@@ -327,3 +308,58 @@ impl<'v, 'a> Iterator for NativeFields<'v, 'a> {
         None
     }
 }
+
+/// Admission and navigation contain no references into their payload owner.
+#[derive(Debug)]
+pub(crate) struct Navigation {
+    accepted: bool,
+    index: Vec<Index>,
+}
+impl Navigation {
+    pub(crate) fn decode(
+        payload: &[u8],
+        source: &str,
+        catalog: &NativeCatalog,
+    ) -> Result<Self, NativeArtifactError> {
+        let accepted = admission::admit(payload, source, catalog)?;
+        let count = (payload.len() - 80) / 24;
+        let mut index = vec![
+            Index {
+                end: 0,
+                parent: None
+            };
+            count
+        ];
+        let mut stack = Vec::new();
+        let mut nodes = Vec::new();
+        for (at, row) in payload[80..].as_chunks::<24>().0.iter().enumerate() {
+            let event = wire::event(row);
+            index[at].parent = nodes.last().copied();
+            match event.kind {
+                Kind::StartNode | Kind::StartField => {
+                    stack.push(at);
+                    if event.kind == Kind::StartNode {
+                        nodes.push(at);
+                    }
+                }
+                Kind::FinishNode | Kind::FinishField => {
+                    let start = stack
+                        .pop()
+                        .ok_or_else(|| wire::error("index-nesting", Some(at)))?;
+                    index[start].end = at;
+                    if event.kind == Kind::FinishNode {
+                        nodes.pop();
+                    }
+                }
+                Kind::Token => {
+                    index[at].end = at;
+                }
+            }
+        }
+        Ok(Self { accepted, index })
+    }
+}
+
+#[cfg(test)]
+#[path = "../tests/unit/storage.rs"]
+mod storage_tests;

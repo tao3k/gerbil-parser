@@ -51,31 +51,36 @@ def main():
         print(text if args.full_output else text[:1800], flush=True)
 
     def stop_group():
-        # The wrapper may have exited while a compiler/interpreter child lives.
+        # PTY wrappers can put their child in another session. Capture the
+        # owned process tree before terminating the wrapper and reparenting it.
+        members = {process.pid}
+        groups = {process.pid}
+        try:
+            rows = [tuple(map(int, row.split())) for row in
+                    subprocess.check_output(
+                        ["ps", "-axo", "pid=,ppid=,pgid="], text=True, timeout=2).splitlines()
+                    if len(row.split()) == 3]
+            while True:
+                descendants = {pid for pid, parent, _ in rows if parent in members}
+                if descendants <= members:
+                    break
+                members.update(descendants)
+            groups.update(group for pid, _, group in rows
+                          if pid in members and group in members)
+        except (OSError, subprocess.SubprocessError, ValueError):
+            print("CLEANUP process-tree enumeration unavailable; "
+                  "only the direct process group is known", flush=True)
         for sig in (signal.SIGTERM, signal.SIGKILL):
-            try:
-                os.killpg(process.pid, sig)
-            except ProcessLookupError:
-                break
-            except PermissionError:
-                # Some macOS sandboxes permit signaling owned child PIDs but
-                # deny group signals. Enumerate only our newly created group.
+            for group in groups:
                 try:
-                    rows = subprocess.check_output(
-                        ["ps", "-axo", "pid=,pgid="], text=True,
-                    ).splitlines()
-                    members = [int(row.split()[0]) for row in rows
-                               if len(row.split()) == 2
-                               and int(row.split()[1]) == process.pid]
-                except (OSError, subprocess.CalledProcessError):
-                    members = [process.pid]
-                    print("CLEANUP process-group enumeration unavailable; "
-                          "only direct child can be signaled", flush=True)
-                for pid in sorted(members, reverse=True):
-                    try:
-                        os.kill(pid, sig)
-                    except ProcessLookupError:
-                        pass
+                    os.killpg(group, sig)
+                except (ProcessLookupError, PermissionError):
+                    pass
+            for pid in members:
+                try:
+                    os.kill(pid, sig)
+                except ProcessLookupError:
+                    pass
             if sig == signal.SIGTERM:
                 time.sleep(0.25)
 

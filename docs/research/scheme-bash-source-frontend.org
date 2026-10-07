@@ -318,8 +318,11 @@ returns the identity recipe and executable engine together. Shell scanner,
 result, part and command plans are compiled/admitted in that operation; the
 recipe is projected from the plans used by the runtime. Line providers and
 negative test providers use the same protocol. This removes the former separate
-recipe-generation and engine-binding compilations, without claiming a complete
-unified Contextual Parser IR or a measured latency gain.
+recipe-generation and engine-binding compilations. The coordinated
+[[file:scheme-contextual-parser-ir.org][Contextual Parser IR migration]] now supplies a closed v2 envelope for LR,
+command and line products. General command-selector overlap witnesses, cross-edit
+source certificates and recovery remain separate implementation obligations. No
+measured latency gain is claimed.
 
 The native convenience facade obtains release-bound descriptors from
 =parser.ss=. Raw syntax from =grammar.ss= cannot substitute for a descriptor

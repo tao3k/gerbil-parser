@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Nominal parser machine, prepared execution and checked backend binding.
 
-(import (only-in ../runtime/lexical-source
+(import (only-in ../runtime/contextual-ir contextual-ir-ref contextual-ir-copy)
+        (only-in ../runtime/lexical-source
                  prepare-lexical-source-plan call-with-lexical-source)
         (only-in ../runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-runtime-for-current-semantic-backend
@@ -24,6 +25,7 @@
         lexical-dispatch/ranked
         parser-machine?
         parser-machine-ir
+        parser-machine-contextual-ir
         parser-machine-grammar-digest
         parser-machine-lex
         parser-machine-trivia
@@ -49,8 +51,13 @@
 ;;       ```
 ;;     %
 (defstruct parser-machine
-  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory source-plan)
+  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory source-plan owned-program)
   transparent: #t)
+
+;;; The machine caches the exact instruction object in its canonical owner.
+;;; Both fields reference the same object; parser hot paths retain a native accessor.
+(def (parser-machine-contextual-ir machine)
+  (contextual-ir-copy (parser-machine-owned-program machine)))
 
 ;;; A captured session owns the selected runtime together with its parser machine.
 ;;; This preserves the exact runtime identity required by certified fragment reuse.
@@ -65,7 +72,8 @@
            (if (null? maybe-observability) #f (car maybe-observability))))
        (parser-machine-direct-drive machine) (parser-machine-direct-source machine)
        (parser-machine-lexical-plans machine) (parser-machine-lexical-certificates machine)
-       (parser-machine-lexer-factory machine) (parser-machine-source-plan machine)))))
+       (parser-machine-lexer-factory machine) (parser-machine-source-plan machine)
+       (parser-machine-owned-program machine)))))
 
 (def (call-with-parser-machine-source machine source thunk)
  (call-with-lexical-source (parser-machine-source-plan machine) source thunk))
@@ -165,34 +173,36 @@
 ;;       # Examples
 ;;
 ;;       ```scheme
-;;       (defgeneral-parser-machine parser parser-ir ...)
+;;       (defgeneral-parser-machine parser contextual-program ...)
 ;;       ;; => immutable parser-machine binding
 ;;       ```
 ;;     %
 (defrules defgeneral-parser-machine
-  (grammar-digest lexical-rules rules extras parser-entrypoints)
-  ((_ binding parser-ir
-      (grammar-digest parser-artifact-digest)
+  (lexical-rules rules extras parser-entrypoints)
+  ((_ binding program-expression
       (lexical-rules lexical-row ...)
       (rules (rule-name rule-expression) ...)
       (extras extra-name ...)
       (parser-entrypoints
        (root-rule root-action root-effect) entry-row ...))
    (def binding
-     (let* ((runtime (lr-prepare (cdr (assq 'lr-spec parser-ir))))
+     (let* ((program program-expression)
+            (grammar-digest (contextual-ir-ref program 'base-grammar-digest))
+            (owned-ir (contextual-ir-ref (contextual-ir-ref program 'recognition) 'program))
+            (runtime (lr-prepare (cdr (assq 'lr-spec owned-ir))))
             (factory (lambda ()
                        (generated-lexer
                         (lexical-rules lexical-row ...)
                         (extras extra-name ...)
-                        (cdr (assq 'case-insensitive? parser-ir))
+                        (cdr (assq 'case-insensitive? owned-ir))
                         (lr-runtime-lexical-mode-catalog runtime)))))
        (let-values (((lexer plans certificates) (factory)))
          (make-parser-machine
-          parser-ir parser-artifact-digest lexer
+          owned-ir grammar-digest lexer
           (lambda (input-token) (memq (token-kind input-token) '(extra-name ...)))
           runtime
           (lambda (tokens . maybe-observability)
             (lr-parse/prepared runtime tokens
               (if (null? maybe-observability) #f (car maybe-observability))))
           #f #f plans certificates factory
-          (prepare-lexical-source-plan (cdr (assq 'lexical-rules parser-ir)))))))))
+          (prepare-lexical-source-plan (cdr (assq 'lexical-rules owned-ir))) program))))))

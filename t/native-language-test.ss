@@ -1,7 +1,7 @@
 ;;; Native language admission uses independent descriptors, never builtin names.
 (import :std/test
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/src/language/source declare-source-language source-language-result-catalog)
+        (only-in :gerbil-parser/src/language/source declare-source-language source-language-result-catalog source-language-digest)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
         (only-in :gerbil-parser/languages/bash/parser bash-source-language)
         (only-in :gerbil-parser/t/fixtures/native-ffi/language-v2-probe probe-source-language)
@@ -17,6 +17,7 @@
                  language-grammar-contract language-grammar-grammar language-grammar-ir
                  language-grammar-observability make-language-grammar)
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
+                 make-native-language-context native-descriptor-payload
                  bind-native-language native-parse-binary-payload native-parse-binary-payload/bytes)
         (only-in :gerbil-parser/t/fixtures/progress report-test-progress!)
         (only-in :gerbil-parser/src/language/entry parse-language-source)
@@ -24,6 +25,28 @@
         (only-in :gerbil-parser/src/compiler/native-language generate-native-language-pack))
 (def native-language-tests
   (test-suite "independent language native admission"
+    (test-case "descriptor queries never execute a parser and retain bound identity"
+      (for-each
+       (lambda (descriptor)
+         (let* ((calls 0)
+                (language (make-native-language-context
+                           "metadata-only" descriptor
+                           (lambda (_) (set! calls (+ calls 1))
+                             (error "metadata must not execute recognition"))))
+                (metadata (native-datum-read (native-descriptor-payload language))))
+           (check calls => 0)
+           (check (string? (hash-get metadata "grammarDigest")) => #t)))
+       (list records-language-grammar bash-source-language))
+      (let* ((language (bind-native-language records-language-grammar records-contextual-product))
+             (metadata (native-datum-read (native-descriptor-payload language))))
+        (check (hash-get metadata "grammarDigest") => (cdr (assq 'digest records-contextual-product)))
+        (for-each
+         (lambda (source)
+           (let* ((plan (prepare-contextual-parser (language-grammar-machine records-language-grammar)
+                                                   records-contextual-product))
+                  (artifact (parse-source/contextual/prepared plan source)))
+             (check (hash-get metadata "grammarDigest") => (parse-artifact-ref artifact 'grammarDigest))))
+         '("a=1\n" "!"))))
     (test-case "contextual and canonical Scheme trees preserve exact events"
       (let (plan (prepare-contextual-parser (language-grammar-machine records-language-grammar) records-contextual-product))
         (for-each

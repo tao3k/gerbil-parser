@@ -582,7 +582,7 @@ pub static CONTEXTUAL: gerbil_parser_runtime::ContextualParserSpec =
     gerbil_parser_runtime::ContextualParserSpec {
         language: &LANGUAGE,
         scanner: &contextual_scanner::SCANNER,
-        parser_digest: "sha256:8e3d1b44b10824573c266e6b1b5d4b4d10f71597a6084ba250e568eebabaeff6",
+        parser_digest: "sha256:f6c100c0b9a67933dce8203000d9759545bf049588e28493ece5666660bf5159",
         state_positions: &[
             "name", "value", "name", "name", "value", "name", "name", "name", "name", "name",
             "name", "name", "name",

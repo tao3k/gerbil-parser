@@ -11,10 +11,11 @@
         (only-in ../language/descriptor language-grammar-ir language-grammar? language-grammar-grammar language-grammar-language language-grammar-machine
                  language-grammar-parser-policy language-parser-policy-identity
                  language-parser-policy-branch-budget)
-        (only-in ../language/source source-language-root-kind source-language? source-language-language source-language-result-catalog)
+        (only-in ../language/source source-language-digest source-language-root-kind source-language? source-language-language source-language-result-catalog)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
         (only-in ../language/entry parse-language-source call-with-language-parser-policy)
-        (only-in ../runtime/parser prepare-contextual-parser parse-source/contextual/prepared
+        (only-in ../compiler/machine parser-machine-grammar-digest)
+        (only-in ../runtime/parser contextual-parser-grammar-digest prepare-contextual-parser parse-source/contextual/prepared
                  parse-source/contextual/prepared/deferred))
 (export make-native-language-context
         bind-native-language
@@ -265,8 +266,11 @@
                        (source-language-root-kind (native-language-descriptor language))
                        (cdr (assq 'root-kind (language-grammar-ir (native-language-descriptor language)))))))
          (grammarDigest
-          (parse-artifact-ref ((native-language-parser language) "")
-                              'grammarDigest))
+          (let ((descriptor (native-language-descriptor language))
+                (plan (native-language-plan language)))
+            (cond (plan (contextual-parser-grammar-digest plan))
+                  ((source-language? descriptor) (source-language-digest descriptor))
+                  (else (parser-machine-grammar-digest (language-grammar-machine descriptor))))))
          (fields (list->vector
                   (map symbol->string
                        (native-language-field-symbols language))))

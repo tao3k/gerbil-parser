@@ -17,6 +17,7 @@
                  contextual-scanner-step
                  contextual-scan-state-character-offset
                  contextual-scan-state-byte-offset)
+        (only-in ./contextual-ir contextual-ir-ref contextual-parser-ir-valid?)
         (only-in ./identity sha256-text)
         (only-in ./lr-parser
                  lr-runtime-layout?
@@ -37,7 +38,7 @@
         (only-in ./token make-token token-end token-lexeme))
 (export current-source-stream-observer parse-source
         parse-source/contextual
-        prepare-contextual-parser
+        prepare-contextual-parser contextual-parser-grammar-digest
         parse-source/contextual/prepared
         parse-source/contextual/prepared/deferred
         parse-source/checkpoints
@@ -45,28 +46,28 @@
         parse-tokenized
         parse-tokenized/checkpoint)
 
-(def (contextual-ir-ref ir key)
-  (let (row (assq key ir)) (and row (cdr row))))
-
 (def (contextual-canonical value)
   (call-with-output-string (lambda (port) (write value port))))
 
 (def (valid-contextual-product? machine product)
-  (and (list? product)
-       (equal? (contextual-ir-ref product 'schema)
-               "gerbil-parser.contextual-parser-ir.v1")
+  (and (contextual-parser-ir-valid? product)
+       (eq? (contextual-ir-ref (contextual-ir-ref product 'recognition) 'dialect) 'lr)
+       (equal? (contextual-ir-ref (contextual-ir-ref product 'recognition) 'program)
+               (parser-machine-ir machine))
+       (equal? (contextual-ir-ref product 'root-kind)
+               (parser-ir-ref (parser-machine-ir machine) 'root-kind))
+       (let (construction (contextual-ir-ref product 'construction))
+         (and (equal? (contextual-ir-ref construction 'syntax-kinds)
+                      (parser-ir-ref (parser-machine-ir machine) 'syntax-kinds))
+              (equal? (contextual-ir-ref construction 'terminals)
+                      (parser-ir-ref (parser-machine-ir machine) 'terminals))
+              (equal? (contextual-ir-ref construction 'projections)
+                      (parser-ir-ref (parser-machine-ir machine) 'rules))))
        (equal? (contextual-ir-ref product 'base-grammar-digest)
                (parser-machine-grammar-digest machine))
        (equal? (contextual-ir-ref product 'parser-ir-digest)
                (sha256-text
-                (contextual-canonical (parser-machine-ir machine))))
-       (string? (contextual-ir-ref product 'digest))
-       (equal?
-        (sha256-text
-         (contextual-canonical
-          (filter (lambda (row) (not (eq? (car row) 'digest)))
-                  product)))
-        (contextual-ir-ref product 'digest))))
+                (contextual-canonical (parser-machine-ir machine))))))
 
 ;;; The position table is compiler output: one entry for every LR state. The
 ;;; scanner receives a finite position id, never the checkpoint or a callback.
@@ -101,12 +102,16 @@
 ;;; become private indexes, an owned scanner plan and a copied digest.
 (defstruct contextual-parser-plan (machine scanner positions digest))
 
+;;; Publication identity belongs to the admitted contextual product, not its base.
+(def (contextual-parser-grammar-digest plan)
+  (string-copy (contextual-parser-plan-digest plan)))
+
 (def (prepare-contextual-parser machine product)
   (unless (valid-contextual-product? machine product)
     (error "contextual parser product does not match parser machine"))
   (let* ((scanner-ir (contextual-ir-ref product 'scanner))
          (positions (validate-contextual-position-table
-                     machine scanner-ir (contextual-ir-ref product 'state-positions)))
+                     machine scanner-ir (contextual-ir-ref (contextual-ir-ref product 'context) 'state-positions)))
          (scanner (prepare-contextual-scanner-plan scanner-ir)))
     (make-contextual-parser-plan machine scanner positions
                                  (string-copy (contextual-ir-ref product 'digest)))))
@@ -119,7 +124,7 @@
     (error "contextual parser product does not match parser machine"))
   (let* ((scanner-ir (contextual-ir-ref product 'scanner))
          (positions (validate-contextual-position-table
-                     machine scanner-ir (contextual-ir-ref product 'state-positions)))
+                     machine scanner-ir (contextual-ir-ref (contextual-ir-ref product 'context) 'state-positions)))
          (scanner (prepare-contextual-scanner scanner-ir source)))
     (parse-contextual machine (contextual-ir-ref product 'digest) positions scanner source)))
 

@@ -1,6 +1,9 @@
 //! Handle/result ownership with borrowed, validated GPA1 views.
 use crate::{NativeError, NativeSession, RawResult};
-use gerbil_parser_artifact::{NativeArtifactError, NativeArtifactView, NativeCatalog};
+use gerbil_parser_artifact::{
+    NativeArtifactBytes, NativeArtifactError, NativeArtifactStorage, NativeArtifactView,
+    NativeCatalog,
+};
 use std::cell::OnceCell;
 
 /// A unique registered language, released once when its last borrow ends.
@@ -36,8 +39,7 @@ pub struct NativePayload<'language, 'runtime> {
 /// }
 /// ```
 pub struct NativeParsed<'language, 'runtime, 'source> {
-    payload: NativePayload<'language, 'runtime>,
-    source: &'source str,
+    storage: NativeArtifactStorage<'language, 'source, NativePayload<'language, 'runtime>>,
 }
 
 impl<'runtime> NativeLanguage<'runtime> {
@@ -100,7 +102,9 @@ impl<'runtime> NativeLanguage<'runtime> {
             )
         };
         payload.admit(status)?;
-        Ok(NativeParsed { payload, source })
+        Ok(NativeParsed {
+            storage: NativeArtifactStorage::new(payload, source),
+        })
     }
 
     fn result(&self) -> NativePayload<'_, 'runtime> {
@@ -154,21 +158,23 @@ impl NativeParsed<'_, '_, '_> {
     /// # Errors
     /// Rejects an invalid C allocation.
     pub fn bytes(&self) -> Result<&[u8], NativeError> {
-        self.payload.bytes()
+        self.storage.owner().bytes()
     }
 
     /// Borrow AST/CST access using the descriptor from this exact native handle.
     /// # Errors
     /// Rejects incompatible product/source identities, catalogs or records.
     pub fn view(&self) -> Result<NativeArtifactView<'_>, NativeArtifactError> {
-        let catalog = self.payload.language.catalog()?;
-        NativeArtifactView::decode(
-            self.payload.raw.bytes().map_err(|_| NativeArtifactError {
-                reason: "native-buffer",
-                event: None,
-            })?,
-            self.source,
-            catalog,
-        )
+        let catalog = self.storage.owner().language.catalog()?;
+        self.storage.view(catalog)
+    }
+}
+
+impl NativeArtifactBytes for NativePayload<'_, '_> {
+    fn bytes(&self) -> Result<&[u8], NativeArtifactError> {
+        NativePayload::bytes(self).map_err(|_| NativeArtifactError {
+            reason: "native-buffer",
+            event: None,
+        })
     }
 }

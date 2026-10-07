@@ -1,0 +1,191 @@
+#+title: Contextual parser IR migration
+#+startup: overview
+
+This design follows [[file:scheme-bash-source-frontend.org][the source frontend migration]] and
+[[file:scheme-engine-library-boundary.org][the engine/library boundary]]. It is one coordinated
+migration, with implementation and qualification listed separately below.
+
+* Objective and authority
+
+The language author continues to own =grammar.ss=, =parser.ss= and
+=parser-test.ss=. Macro expansion and optional POO composition elaborate ordinary
+values or inherited declarations into admitted compiler products. The engine owns
+cross-reference checks, context selection, executable lowering and publication.
+
+A common result wire format does not establish common recognition semantics.
+The migration must bind recognition, scanner context, result construction and
+release identity through the same admitted product. LR and command execution may
+remain different lowerings; neither gets a separate source of language truth.
+
+* Required compiler boundary
+
+An admitted product contains closed recognition data, context transitions,
+construction operations, public vocabulary and an entrypoint. Backend-specific
+instructions belong to explicit instruction dialects. No procedure-valued slot
+may masquerade as portable recognition IR. Execution closures and navigation
+indexes are derived runtime state, not canonical definitions.
+
+The following Scheme block is a contract sketch, not an implemented public DSL:
+
+#+begin_src scheme
+;; These are engine sections produced by deflanguage expansion, not new author files.
+((schema . "gerbil-parser.contextual-parser-ir.v2")
+ (recognition . ((dialect . command) (program . ...)))
+ (scanner . ...)
+ (context . ((positions . ...) (entries . ...) (transitions . ...)))
+ (construction . ...)
+ (root-kind . ...)
+ (digest . ...))
+#+end_src
+
+The =command= and =lr= dialects must each have executable semantics and checked
+references. Putting existing plans into an outer record without these obligations
+would not complete this migration.
+
+** Why is this design better?
+
+It removes repeated interpretation of author declarations. A declaration is
+admitted once; the native executor, identity publisher and Rust generator consume
+that exact product. Extensions modify declaration values before admission, rather
+than injecting behavior into the recognition loop. A derived representation has
+no authority to reinterpret the declaration.
+
+** Why is this design scientifically defensible?
+
+The claims have executable controls: equivalent canonical/contextual artifacts,
+rejection of inconsistent identities and unknown references, selector-overlap
+witnesses, publication from the admitted construction vocabulary, and unchanged
+accepted/rejected controls. A syntax improvement or a passing benchmark alone
+cannot discharge those semantic obligations.
+
+#+begin_src scheme
+;; Acceptance controls must observe behavior, not merely an IR label.
+(check (compile-count declaration) => 1)
+(check (native-events admitted source) => (reference-events admitted source))
+(check-exception (admit-with-unknown-entry declaration) true)
+(check-exception (admit-with-incomparable-selectors declaration) true)
+(check (descriptor-digest admitted) => (artifact-digest admitted source))
+#+end_src
+
+These are acceptance descriptions; actual test names and implemented operations
+must be recorded with the implementation receipts.
+
+* Paper-to-implementation mapping
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]], section 1 and Figure 1,
+separates extensible surface elaboration from a compiler core and checked host
+boundaries. Our transfer is a single admitted recognition/context/construction
+product; Scheme execution and Rust emission consume its owned lowerings.
+The paper's Racket metalanguage is not assumed to exist in Gerbil.
+
+The benefit comes from hygienic expansion, =defsyntax=/=defrules= staging and POO
+composition followed by checked admission, rather than the shape of S-expressions
+alone. Extension authors retain Scheme abstraction; the engine verifies references
+before executing or emitting a backend. This is an engineering application of the
+paper, not a claim that its results prove this parser or its performance.
+
+#+begin_src scheme
+;; Executed in t/source-strategy-test.ss: the provider returns an admitted product.
+;; No original parts/commands/scanner declaration slots exist on `bound`.
+(check (command-source-rust-module-source bound) => reference)
+(check compilations => 1)
+;; Consequently a generator cannot silently reinterpret a second declaration.
+#+end_src
+
+* Recognition and selector obligations
+
+The existing LR position compiler selects maximal requirement/exclusion clauses
+and rejects incomparable matches with different positions. The existing scanner
+dispatch resolves finite mode/position/form cells with origin receipts. Those
+implementations should be reused and extended, rather than replaced with a
+second selector engine.
+
+Command lookahead and adjacency selectors require explicit token constraints and
+source-adjacency constraints. Duplicate-selector rejection is insufficient:
+nonidentical predicates may overlap. The compiler must retain a concrete overlap
+witness and either prove specificity, apply an explicitly declared choice, or
+reject unresolved alternatives. Input declaration order is not a general proof.
+
+* Context, incremental reuse and recovery
+
+Existing LR incremental and recovery implementations remain reference inputs.
+The source path has scanner checkpoints and same-source restoration, but these
+do not establish cross-edit subtree reuse. A reuse certificate must bind the
+program digest, source boundary mapping, entry/exit context and pending scanner
+obligations. A changed delimiter queue or lexical mode invalidates reuse unless
+its equivalence is established.
+
+Recovery must retain repaired-source status, bounded search and repair evidence.
+A partial tree is not permission to advertise repaired input as originally valid.
+These requirements are independent of C ABI transport success.
+
+* Compilation staging
+
+Ordinary LR admission runs during declaration expansion. The existing immutable
+artifact publisher stores the common product and embeds its compressed payload
+in the generated module. Runtime assembly extracts the backend Parser IR from
+that product; the descriptor and machine share that exact owned backend datum.
+A compilation cache hit returns the product locator without loading or hashing
+the backend instructions again.
+
+This placement matters: an initial implementation constructed, copied and hashed
+the common LR envelope during module initialization. The native conformance
+executable exceeded its unchanged ten-second completion fence before reaching
+the first test. That failure is retained as a staging regression, not attributed
+to GC or parsing throughput. The compile-time migration requires fresh native
+qualification; no latency improvement is inferred from the code change alone.
+
+* Native consumption
+
+Descriptor metadata is read from the actual bound product. For contextual LR,
+its digest differs from the base grammar digest; choosing the latter would break
+identity admission. Descriptor lookup must not execute recognition.
+
+Rust owns an immutable foreign payload while borrowing its source and handle
+catalog. First view access admits GPA1 and creates navigation indexes. Later views
+borrow those indexes. The cache contains no references into its own payload owner,
+so moving the owner does not create a self-reference. The artifact crate performs
+no recognition and remains free of unsafe code.
+
+* Implementation status
+
+| Boundary | Implemented behavior | Remaining gate |
+|----------+----------------------+----------------|
+| Bound descriptor identity | Direct source/machine/contextual digest access; metadata spy and all 20 native language ABI controls pass | Exact-head CI qualification |
+| Rust navigation | Immutable payload storage admits and indexes once; fresh 20-language fixture controls check shared indexes and exact source slices | Exact-head CI qualification |
+| Source compilation | Compiler-owned command/line products supply identity, Scheme plans and Rust emission; single-compilation, absent-slot and native parity controls pass | General command semantic obligations below |
+| Common contextual IR | Ordinary/contextual LR and command/line products use the v2 closed envelope; ordinary LR admission is published during expansion; native startup and 28 closure children pass | Exact-head CI and broader selector/reuse/recovery obligations |
+| Selectors | LR clause specificity and finite scanner dispatch admission | General command selector overlap witnesses |
+| Incremental and recovery | LR facilities and source checkpoints exist | Cross-edit source certificates and contextual partial-tree recovery |
+
+The complete migration is qualified only when these obligations are implemented
+and the coordinated controls pass. Public type names and document diagrams are
+not completion evidence.
+
+* Local qualification receipts
+
+The focused native suite passes 33 cases across contextual parsing (15), source
+strategy admission (8), and native identity/event publication (10), including
+final child exit and GC controls. The Rust workspace passes 151 tests with two
+ignored performance cases; formatting and Clippy pass. The existing contextual
+and native-artifact Rust fixtures match fresh Scheme generator output.
+
+Native conformance attempts retained output-idle and total-timeout failures.
+Inspection found four orphaned conformance processes in this checkout after
+PTY wrappers moved children into separate process groups. The existing bounded
+runner now captures its owned descendant groups before terminating the wrapper;
+a separate-session child control joins the existing ten runner/proxy tests.
+This operational repair changes neither parser semantics nor completion fences.
+The native entrypoint now directly executes the Gerbil compiler, preserving its
+real output while retaining the bounded owner process group. A fresh conformance
+executable linked in 77.93 seconds using existing objects; this is incremental
+build evidence, not a cold-build improvement. All 28 existing DSL closure children
+exited zero under their unchanged ten-second fences. Fresh native ABI publication
+completed in 3.23 seconds and emitted all 20 accepted/rejected controls.
+
+The production fixture comparison preserves names, sources, statuses, every event
+byte, source digests and descriptor fields except grammarDigest. Only the two
+Bash controls update their product digest. Rust qualification was repeated after
+that fixture update. The all-language benchmark child is a one-sample smoke
+control, not a supported p50/p95 or end-to-end performance claim. Exact-head
+remote CI remains a separate gate from these local receipts.

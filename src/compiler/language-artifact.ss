@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Build-time declaration expansion and immutable language IR storage.
 
-(import (only-in ../grammar/algebra grammar-expression-header?)
+(import (only-in ./lr-contextual-program compile-lr-contextual-program)
+        (only-in ../grammar/algebra grammar-expression-header?)
         (only-in :gerbil/core/expander
                  with-syntax syntax-case syntax datum->syntax syntax->datum syntax->list
                  identifier? stx-source stx-map stx-list? stx-pair? stx-car stx-cdr raise-syntax-error)
@@ -24,6 +25,7 @@
         compiled-language-declaration-grammar-locator
         compiled-language-declaration-bound-locator
         compiled-language-declaration-parser-locator
+        compiled-language-declaration-program-locator
         project-language-catalog materialize-compiled-language-artifact
         materialize-compiled-language-artifact/output-dirs
         compile-language-parser-artifact
@@ -395,7 +397,7 @@
 
 ;;; One result ties runtime emission to the grammar and all published products.
 (defstruct compiled-language-declaration
-  (grammar grammar-locator bound-locator parser-locator))
+  (grammar grammar-locator bound-locator parser-locator program-locator))
 
 (def (read-language-declaration-syntax stx)
   ;; Admit exactly the six existing low-level clause shapes, then normalize
@@ -573,6 +575,29 @@
            (cons 'flow (syntax->datum flow-rows)))))
     (make-admitted-language-declaration grammar origin lineage source-map)))
 
+;;; The common LR product is admitted during expansion, using the existing
+;;; immutable artifact publisher. A cache hit returns its locator without
+;;; loading, copying, validating or hashing the backend instruction datum.
+(def (compile-lr-program-artifact parser-locator output-dirs)
+  (let* ((schema "gerbil-parser.lr-program-cache.v1")
+         (key (sha256-text (serialize (list schema parser-locator))))
+         (relative-path (string-append "gerbil-parser/compiled-language-program-cache/"
+                                       (sha256-identity-filename key) ".scm"))
+         (receipt (read-cache-receipt relative-path output-dirs schema key '(program)
+                                      "invalid compiled LR program cache receipt")))
+    (if receipt
+      (cache-receipt-field receipt 'program)
+      (let* ((parser-ir (load-compiled-language-artifact/roots
+                         "gerbil-parser.parser-ir.v1" parser-locator output-dirs))
+             (program (compile-lr-contextual-program parser-ir (cadr parser-locator)))
+             (locator (materialize-compiled-language-artifact/output-dirs program output-dirs))
+             (serialized (serialize `((schema . ,schema) (key . ,key) (program . ,locator)))))
+        (for-each (lambda (root)
+                    (let (path (path-expand relative-path root))
+                      (create-directory* (path-directory path))
+                      (publish-text-content! path serialized))) output-dirs)
+        locator))))
+
 ;;; Publication consumes one admitted value; cache and compiler authority stay here.
 (def (compile-admitted-language-declaration admitted compile-parser bind-grammar-ir
                                            output-dirs: (output-dirs (current-artifact-output-dirs)))
@@ -586,7 +611,8 @@
                  (lambda () (bind-grammar-ir grammar origin lineage source-map))
                  (lambda () (compile-parser grammar)) output-dirs)))
     (make-compiled-language-declaration
-     grammar grammar-locator bound-locator parser-locator)))
+     grammar grammar-locator bound-locator parser-locator
+     (compile-lr-program-artifact parser-locator output-dirs))))
 
 ;;; Emission reads admitted products and hygienic bindings, with no compiler calls.
 (def (emit-compiled-language-declaration declaration compiled bindings
@@ -601,10 +627,10 @@
   (def admitted-grammar (compiled-language-declaration-grammar compiled))
   (def grammar-encoded (compiled-language-declaration-grammar-locator compiled))
   (def bound-encoded (compiled-language-declaration-bound-locator compiled))
-  (def ir-encoded (compiled-language-declaration-parser-locator compiled))
   (def grammar-payload (encode-compiled-language-artifact grammar-encoded))
   (def bound-payload (encode-compiled-language-artifact bound-encoded))
-  (def ir-payload (encode-compiled-language-artifact ir-encoded))
+  (def program-encoded (compiled-language-declaration-program-locator compiled))
+  (def program-payload (encode-compiled-language-artifact program-encoded))
   ;; Runtime assembly receives sections from the same canonical grammar that
   ;; was bound, compiled and published, rather than replaying author sections.
   (def (emission-section name)
@@ -615,7 +641,7 @@
   (datum->syntax prefix
    (list begin-binding
      (list assembly-binding grammar-binding bound-binding ir-binding machine-binding
-           grammar-encoded grammar-payload bound-encoded bound-payload ir-encoded ir-payload
+           grammar-encoded grammar-payload bound-encoded bound-payload program-encoded program-payload
            (emission-section 'syntax-kinds)
            (emission-section 'lexical-rules)
            (emission-section 'rules)

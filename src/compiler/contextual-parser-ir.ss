@@ -8,6 +8,7 @@
         (only-in ../modules/parser/contextual-objects
                  make-contextual-method make-contextual-role
                  make-contextual-scan-rule)
+        (only-in ../runtime/contextual-ir make-contextual-parser-ir)
         (only-in ../runtime/identity sha256-text))
 (export compile-contextual-parser
         compile-contextual-parser/declaration)
@@ -136,14 +137,15 @@
                                       grammar-digest))
          (state-positions
           (compile-position-table parser-ir positions position-clauses))
-         (body
-          (list (cons 'schema "gerbil-parser.contextual-parser-ir.v1")
-                (cons 'base-grammar-digest grammar-digest)
-                (cons 'parser-ir-digest (sha256-text (canonical parser-ir)))
-                (cons 'scanner scanner)
-                (cons 'state-positions state-positions)))
-         (digest (sha256-text (canonical body))))
-    (append body (list (cons 'digest digest)))))
+         (construction (list (cons 'syntax-kinds (parser-ir-ref parser-ir 'syntax-kinds))
+                             (cons 'terminals (parser-ir-ref parser-ir 'terminals))
+                             (cons 'projections (parser-ir-ref parser-ir 'rules)))))
+    (make-contextual-parser-ir
+     (list (cons 'dialect 'lr) (cons 'program parser-ir)) scanner
+     (list (cons 'state-positions state-positions)) construction
+     (parser-ir-ref parser-ir 'root-kind)
+     (list (cons 'base-grammar-digest grammar-digest)
+           (cons 'parser-ir-digest (sha256-text (canonical parser-ir)))))))
 
 ;;; Datum projection used only by deflanguage-grammar expansion. The language
 ;;; file declares rows; POO objects exist solely while compiling the product.

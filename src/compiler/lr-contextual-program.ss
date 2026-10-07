@@ -1,0 +1,20 @@
+;;; Ordinary LR admission shares the closed recognition/context/construction owner.
+(import (only-in ../runtime/contextual-ir make-contextual-parser-ir)
+        (only-in ../runtime/parser-ir-data parser-ir-ref)
+        (only-in ../runtime/identity sha256-text))
+(export compile-lr-contextual-program)
+(def (compile-lr-contextual-program parser-ir grammar-digest)
+  (make-contextual-parser-ir
+   (list (cons 'dialect 'lr) (cons 'program parser-ir))
+   (list (cons 'dialect 'lexical)
+         (cons 'rules (parser-ir-ref parser-ir 'lexical-rules))
+         (cons 'extras (parser-ir-ref parser-ir 'extras))
+         (cons 'case-insensitive? (parser-ir-ref parser-ir 'case-insensitive?)))
+   (list (cons 'entries (parser-ir-ref parser-ir 'parser-entrypoints)))
+   (list (cons 'syntax-kinds (parser-ir-ref parser-ir 'syntax-kinds))
+         (cons 'terminals (parser-ir-ref parser-ir 'terminals))
+         (cons 'projections (parser-ir-ref parser-ir 'rules)))
+   (parser-ir-ref parser-ir 'root-kind)
+   (list (cons 'base-grammar-digest grammar-digest)
+         (cons 'parser-ir-digest
+               (sha256-text (call-with-output-string (lambda (port) (write parser-ir port))))))))

@@ -3,7 +3,9 @@
 mod admission;
 mod catalog;
 mod datum;
+mod storage;
 mod view;
+pub use storage::{NativeArtifactBytes, NativeArtifactStorage};
 mod wire;
 pub use catalog::{KindCategory, NativeCatalog, NativeKind, NativeTerminal};
 pub use view::{

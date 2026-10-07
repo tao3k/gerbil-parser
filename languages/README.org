@@ -550,27 +550,21 @@ coverage across the languages.
 | openCypher | Three interfaces; pinned ISO-BNF grammar admission | Shared graph syntax emits the constrained MATCH/WHERE/RETURN subset |
 | GQL | Three interfaces; pinned ANTLR4 admission | Graph syntax in the engine; actor/profile/benchmark tests under =t/= |
 | TLA+ | Three interfaces contain all three scopes; structured lexeme/proof recipes | Scheme execution; proof policy still rejects standalone Rust AOT |
-| Bash | Three interfaces; =ShellSourceStrategy.= captures closed region data | Scheme source engine; full shell grammar is not standalone Rust Scanner/Parser IR |
+| Bash | Three interfaces; =deflanguage= syntax/rules compile through the common shell vocabulary | Scheme source engine; full shell grammar is not standalone Rust Scanner/Parser IR |
 
-* Value recipes and reusable engine contracts
+* Source author contract and reusable engine contracts
 
-=SourceStrategy.= binds an opaque engine provider, inherited =metadata= and a
-closed recipe. =ShellSourceStrategy.= accepts =regions=; =LineSourceStrategy.=
-accepts =root-kind=, =token-kind= and =required-prefix=. Admission and recipe
-snapshotting happen once. Source identity includes the closed recipe. A scan
-worker derives its factory from that binding; a language cannot replace it with
-an arbitrary factory. Engine registration stays out of the public recipe facade.
+Source-backed authors use =deflanguage= with identity, one =syntax= block and
+one =rules= block. Bash uses =shell= from
+=:gerbil-parser/language-support/shell= and native =defgrammar-syntax= vocabulary.
+The common library derives scanner, capture and command plans, then binds the
+checked source descriptor.
 
-#+begin_src scheme
-(import (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support deflanguage-parser-loader LanguageLoader.)
-        :gerbil-parser/language-source-support)
-(deflanguage-source notes-source
- (identity "notes" "v1" "notes.v1")
- (strategy (.o (:: self LineSourceStrategy.) root-kind: 'Notes required-prefix: "#")))
-(deflanguage-parser-loader (notes-language :: self LanguageLoader.)
- (source notes-source) (parse parse-notes))
-#+end_src
+=SourceStrategy.=, its profiles and =declare-source-language= are implementation
+interfaces, not an alternative author entry. The old =deflanguage-source= entry
+has been removed. =language-source-support= supplies source inspection and
+=deflanguage-parser-receipt= for parser.ss. See the complete
+[[file:../docs/research/scheme-bash-source-frontend.org][Bash frontend implementation and admission study]].
 
 Module framing is declared as closed lexical data:
 

@@ -6,7 +6,8 @@
                  deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
                  +language-parser-entry-schema+ run-language-test
                  language-loader-fixtures language-loader-fixture-count language-loader-fixture)
-        (only-in :gerbil-parser/language-source-support declare-source-language LineSourceStrategy.)
+        (only-in :gerbil-parser/src/language/source declare-source-language)
+        (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
         (only-in :gerbil-parser/language-support/fixture defsyntax-fixture syntax-fixture-copy syntax-fixture-id syntax-fixture-source
                  syntax-fixture-source-digest syntax-fixture-expected-status))
 (export language-loader-value-test)

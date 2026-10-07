@@ -1,0 +1,137 @@
+#+title: Bash author grammar and source frontend
+#+date: 2026-10-07
+
+* Decision and implemented boundary
+
+The author contract belongs to =deflanguage=: identity, one =syntax= block and
+one =rules= block. There is no additional required SourceGrammar model.
+[[file:../../languages/bash/grammar.ss][Bash grammar.ss]] declares the common =shell= vocabulary and semantic command
+rules. The old profile declaration and its author entry have been removed;
+no independently runnable legacy grammar or compatibility alias is retained.
+
+| Author interface | Responsibility |
+|------------------+----------------|
+| grammar.ss | Identity, lexical policies, semantic syntax and named AST rules |
+| parser.ss | Checked Loader entry and parser services |
+| parser-test.ss | Independent inputs, tree/field/span expectations and benchmarks |
+
+[[file:../../src/language/grammar.ss][deflanguage]] elaborates source vocabulary through native macros.
+[[file:../../src/compiler/source-language.ss][Source syntax elaboration]] expands =defgrammar-syntax= vocabulary and checks
+command rule structure before emitting the common compiler call.
+[[file:../../language-support/shell-grammar.ss][The common source library]] assembles internal POO profiles and the admitted
+source strategy. Profiles and execution recipes are compiler products.
+=language-source-support= exposes checked source inspection and the parser
+receipt declaration, not profile constructors.
+
+* Complexity transferred to the common library
+
+| Former author obligation | Author states now | Common library owns |
+|--------------------------+-------------------+---------------------|
+| Scanner modes and queue transitions | Shell lexical semantics through the shell vocabulary | Scanner states and FIFO here-document actions |
+| Numeric quote/pair widths | Delimiters, quote policies and contexts | Derived widths and matching actions |
+| Capture frames and projection instructions | AST kinds and labelled fields | Capture programs, indexes and admission |
+| Repeated command schemas | Command AST constructors | Publication from one internal schema authority |
+| take/list/until/balance/call programs | seq/choice/optional/repeat/reference/balanced | Consuming plans and call-site continuations |
+| Strategy assembly | Identity and syntax vocabulary | Native POO strategy construction and binding |
+
+The author grammar no longer contains scanner transitions, command VM
+instructions, capture programs or duplicate result schemas. Changing a labelled
+rule changes the compiler input; the library derives the execution plan.
+Shell semantics remain specific to the common shell library. Execution modules
+still reside under =src/runtime=; complete physical relocation is not claimed.
+
+* Scheme witness and the two questions
+
+This mechanism is implemented with native Scheme vocabulary expansion:
+
+#+begin_src scheme
+(defgrammar-syntax (compound-loop kind opener)
+  (node kind
+    (field keyword opener)
+    (field condition command-list)
+    (field keyword "do")
+    (field body command-list)
+    (field keyword "done")))
+
+;; These rows belong inside deflanguage's rules block:
+(while-loop (compound-loop WhileCommand "while"))
+(until-loop (compound-loop UntilCommand "until"))
+
+;; Question 1: Why is this design better?
+;; Authors state grammar structure and AST meaning once. Native macro vocabulary
+;; reuses that structure. Compilation derives termination and capture programs;
+;; authors do not maintain backend opcodes or scanner state machines.
+;; Question 2: Why is this scientifically defensible?
+;; Reduced author obligations are a testable hypothesis, not proof from brevity.
+;; Independent cases must preserve acceptance, fields, spans, catalogs and
+;; receipts. Diagnostic quality and grammar-change effort remain measurable
+;; obligations; a shorter file establishes neither safety nor speed.
+#+end_src
+
+S-expressions preserve structured syntax for subsequent analysis. Native
+=defsyntax=/=defrules= add contextual transformation and reusable vocabulary;
+POO supplies admitted implementation objects. General effective-rule selection
+with precise origin tracking is a separate research obligation, not established
+by this Bash frontend.
+
+* Elaboration and admission
+
+#+begin_example
+grammar.ss: deflanguage identity / syntax / rules
+  -> native source-vocabulary expansion
+  -> checked named command expressions
+  -> common compiler: lexical policies, continuations, capture programs
+  -> admitted scanner / part / result / command plans and source descriptor
+  -> parser.ss: checked Loader and services
+  -> parser-test.ss: independent semantic observations
+#+end_example
+
+Source plans remain distinct from CFG/LR GrammarIR. Source identity incorporates
+the normalized recipe; a refactor may change its digest while preserving
+observable behavior. Versioning and downstream artifact renewal remain explicit
+release responsibilities.
+
+The frontend rejects duplicate sections/rules, unknown rule constructors,
+unresolved references, FIRST cycles, non-consuming repetition and command-list
+calls without a continuation. Lexical/profile values undergo existing admission
+when the declaration is bound. Current macro diagnostics blame the rules block;
+precise per-expansion provenance remains open.
+
+Dispatch inference is scoped to the closed shell adapter: array-tail and
+pipeline-prefix are executor ports, function headers use lookahead, and
+keyword/adjacent headers receive derived ranks. This is not a general ambiguity
+solver. FIRST/nullability and continuation analysis support the admitted
+constructors; complete Bash grammar analysis and arbitrary macro-generated
+recursion are not claimed.
+
+* Native validation and retained failures
+
+The first new executable stalled during source binding and exceeded the unchanged
+ten-second child bound. That failure is retained. POO slot initializers used
+names identical to outer lexical values, causing recursive reads; distinct
+lexical names corrected the binding. No timeout was increased.
+
+After correction, native translation completed with actual exit zero, and the
+native executable linked in 15.25 seconds with actual exit zero. The Bash child
+completed with actual exit zero and =DSL-SUITE-OK: bash=, covering author contract
+rejection and the existing independent Bash semantic suite: nested expansions,
+Unicode spans, FIFO here-documents, compound commands, empty-body rejection,
+long chains, arrays, catalogs and receipts.
+
+The complete closure subsequently passed all 26 bounded children with actual
+exit zero, including all eight language suites, topology, Loader/source services,
+composition/provenance controls and the one-sample benchmark smoke. This smoke
+is not a performance comparison. Incremental local native
+qualification does not establish a clean build, exact-head GitHub CI, a downstream
+installed consumer or a performance improvement.
+
+* Paper connection and transfer limit
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]], section 1 and Figure 1, motivates
+an extensible macro surface elaborated into a checked compiler-oriented core.
+Our inference is that the removed Bash recipe exposed too much of that core.
+The implementation transfers the boundary principle, not Racket's syntax-spec
+API. The paper does not prove this compiler or a runtime speedup.
+
+The [[file:scheme-dsl-research-basis.org][research basis]] owns the broader paper study. This module owns the complete
+Bash migration, implementation limits and independent admission evidence.

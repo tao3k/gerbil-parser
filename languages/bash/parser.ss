@@ -3,7 +3,7 @@
 
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader LanguageLoader.)
-        (only-in :gerbil-parser/language-source-support deflanguage-source-receipt)
+        (only-in :gerbil-parser/language-source-support deflanguage-parser-receipt)
         (only-in :gerbil-parser/src/runtime/shell-parser
                  shell-here-document-link? shell-here-document-link-marker-start shell-here-document-link-body-start)
         ./grammar)
@@ -15,4 +15,4 @@
   (parse parse-bash)
   (slots metadata: (.o grammar-format: 'source-parser)))
 
-(deflanguage-source-receipt parse-bash/receipt bash-source-language)
+(deflanguage-parser-receipt parse-bash/receipt bash-source-language)

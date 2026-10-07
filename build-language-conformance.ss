@@ -16,7 +16,7 @@
          "t/language-entry-boundary-test" "t/language-topology-test"
          "t/language-loader-test" "t/language-loader-value-test"
          "t/antlr4-source-test" "t/language-pack-metadata-test"
-         "t/source-strategy-test" "t/build-strategy-test"
+         "t/source-strategy-test" "t/source-grammar-test" "t/build-strategy-test"
          "t/gql/benchmark-profile-test"
          "t/benchmarks/versioned-languages/all-languages"
          "t/benchmarks/gql/runtime/reduction-counts"

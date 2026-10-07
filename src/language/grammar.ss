@@ -9,7 +9,8 @@
                     (only-in ../compiler/concise-language expand-concise-language-syntax))
         (only-in ../compiler/machine install-parser-machine-backends!)
         (only-in ./descriptor make-language-grammar)
-        (only-in ./assembly assemble-language-parser))
+        (only-in ./assembly assemble-language-parser)
+        (only-in ./source declare-source-language))
 (export deflanguage
         deflanguage-grammar
         defgrammar-syntax)
@@ -49,7 +50,7 @@
 (defsyntax (deflanguage-grammar stx)
   (expand-language-grammar-syntax
    stx compile-parser bind-grammar-ir
-   #'assemble-language-parser #'make-language-grammar #'begin #'def))
+        #'assemble-language-parser #'make-language-grammar #'begin #'def))
 
 ;;; Concise v1 authoring projection.  It infers terminal rows, syntax-kind
 ;;; rows, rule/token references, the single parser entry, and the connected
@@ -76,7 +77,14 @@
 ;;       Result: every generated binding retains the stable v1 schemas.
 ;;     %
 (defsyntax (deflanguage stx)
-  (expand-concise-language-syntax
-   stx expand-text-lexical-rows compile-parser bind-grammar-ir
+  (syntax-case stx (identity syntax rules)
+    ((_ binding (identity language version contract)
+        (syntax (vocabulary clause ...)) (rules rule ...))
+     (identifier? #'binding)
+     #'(def binding
+         (declare-source-language language version contract
+           (vocabulary clause ... (rules rule ...)))))
+    (_ (expand-concise-language-syntax
+        stx expand-text-lexical-rows compile-parser bind-grammar-ir
    #'assemble-language-parser #'make-language-grammar #'install-parser-machine-backends!
-   #'deflanguage #'begin #'def #'list))
+        #'deflanguage #'begin #'def #'list))))

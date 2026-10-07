@@ -4,7 +4,7 @@
         (only-in ../runtime/scan make-text-profile-scanner)
         (only-in ../runtime/token token-kind token-lexeme token-start token-end)
         (only-in ./result-profile result-plan-catalog))
-(export CommandProfile. defcommand-profile compile-command-profile admit-command-plan
+(export command-node-schemas CommandProfile. defcommand-profile compile-command-profile admit-command-plan
         command-plan-recipe command-plan-role-matcher command-plan-token? command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger?)
 (def +command-shapes+ '(
   (Redirection descriptor operator target)
@@ -30,6 +30,8 @@
   (HereDocument delimiter content)
   (BashFile command separator here-document)
 ))
+(def (command-node-schemas)
+  (map (lambda (row) (list (car row) (map values (cdr row)))) +command-shapes+))
 (def CommandProfile. (.o roles: '() texts: '() forms: '()
                         projections: (map (lambda (shape) (list (car shape) (car shape))) +command-shapes+)))
 (def +command-roles+ '(trivia separator redirect here-redirect strip-redirect reserved conditional-operator pipeline and-or case-end))

@@ -34,6 +34,11 @@ contract. The modules are connected responsibilities, not independent features.
 | [[file:scheme-dsl-complexity-ownership.org][Complexity ownership]] | Does the boundary reduce author change and diagnosis effort? | Package tasks and engine maintenance obligations |
 | [[file:scheme-dsl-research-basis.org][Research basis]] | What do the papers support, and where does transfer stop? | Primary readings, design method and bounded hypotheses |
 
+The [[file:scheme-bash-source-frontend.org][complete Bash source frontend study]] owns the implemented syntax/rules
+migration and removal of legacy author recipes. It records common compiler
+ownership, native semantic evidence and remaining analysis/publication limits;
+three-file ownership alone is not treated as DSL qualification.
+
 Focused experiment documents remain evidence references. New conclusions should
 update their owning module and this overview's decision/evidence summary when
 needed. Do not append detailed experiments to this overview. Module boundaries

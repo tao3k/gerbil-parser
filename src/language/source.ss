@@ -15,7 +15,7 @@
         source-language-contract
         source-language-digest source-language-result-catalog
         source-language-scanner-factory parse-source-language parse-source-language/receipt
-        deflanguage-source deflanguage-source-receipt)
+        deflanguage-parser-receipt)
 
 (def +source-language-schema+ "gerbil-parser.source-language.v1")
 
@@ -25,15 +25,18 @@
 
 (def (declare-source-language language version contract strategy)
   (unless (and (string? language) (positive? (string-length language))
-               (string? version) (string? contract))
+               (string? version) (positive? (string-length version))
+               (string? contract) (positive? (string-length contract)))
     (error "invalid source language identity"))
-  (let-values (((recipe engine) (bind-source-strategy strategy)))
+  (let ((language (string-copy language)) (version (string-copy version))
+        (contract (string-copy contract)))
+   (let-values (((recipe engine) (bind-source-strategy strategy)))
     (make-source-language
      +source-language-schema+ language version contract
      (sha256-text (call-with-output-string
                     (lambda (port) (write (list language version contract recipe) port))))
      (source-engine-scanner engine) (source-engine-parse engine)
-     (source-engine-factory engine) (source-engine-receipt engine) (source-engine-results engine))))
+     (source-engine-factory engine) (source-engine-receipt engine) (source-engine-results engine)))))
 (def (source-language-result-catalog descriptor)
   (result-plan-catalog (source-language-results descriptor)))
 (def (source-language-scanner-factory descriptor) (source-language-factory descriptor))
@@ -52,10 +55,7 @@
     (validate-source-publication! descriptor source artifact)
     (values artifact receipt)))
 
-(defrules deflanguage-source (identity strategy)
-  ((_ binding (identity language version contract) (strategy recipe))
-   (def binding (declare-source-language language version contract recipe))))
-(defrules deflanguage-source-receipt ()
+(defrules deflanguage-parser-receipt ()
   ((_ binding descriptor)
    (def (binding source) (parse-source-language/receipt descriptor source))))
 

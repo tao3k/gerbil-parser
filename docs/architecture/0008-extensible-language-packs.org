@@ -231,7 +231,8 @@ The operations participate in source identity, without changing the source or
 Loader schema versions. This is a construction contract, not recognition rule
 order, field multiplicity or a parser algorithm declaration.
 
-=ShellSourceStrategy.= requires a =results= slot; Bash supplies =bash-results=.
+=ShellSourceStrategy.= requires a =results= slot; the common shell compiler
+produces it from Bash's =deflanguage= syntax/rules declaration.
 =LineSourceStrategy.= derives its default result profile from =root-kind= and
 =token-kind= and permits a POO override of =results=. Both use the same node
 and terminal admission path. =generate-native-language-pack= accepts the
@@ -240,6 +241,13 @@ no builtin language dispatcher or handwritten C transport is needed. Source
 parsing currently executes the Scheme engine behind the C ABI. Standalone
 Rust Word recognition is qualified below; standalone Command/Source parsing
 remains an open producer obligation.
+
+** Internal source compilation products
+
+The profile constructors below describe internal source compiler and executor
+contracts. They are not language author declarations and are no longer exported
+by =language-source-support=. Authors use =deflanguage= syntax/rules through the
+common library; see [[file:../research/scheme-bash-source-frontend.org][the complete Bash frontend migration]].
 
 ** Executable part recognition slots
 
@@ -278,7 +286,7 @@ ends the preceding literal; the following literal retains that prefix. This
 preserves lossless grouping for inputs such as =a$%b$x=.
 
 =ShellSourceStrategy.= now requires =parts= alongside =regions=, =scanner= and
-=results=. Bash declares =bash-parts= in its grammar interface and executes the
+=results=. The common shell compiler derives Bash's part profile and executes the
 compiled plan through the shared Word, assignment and here-document paths.
 The rule recipe participates in Source identity; schema versions do not
 change. The independent template configuration above executes the same part

@@ -1,10 +1,8 @@
-;;; Constrained public source recipes; provider registration stays in the engine.
-(import (only-in ./src/language/command-profile CommandProfile. defcommand-profile)
-        (only-in ./src/language/part-profile PartProfile. PartProfileContract defpart-profile BindingProfile. defbinding-profile)
-        (only-in ./src/language/result-profile ResultProfile. ResultProfileContract defresult-profile)
-        (only-in ./src/language/source-strategy SourceStrategy. SourceStrategyContract)
-        (only-in ./src/language/scanner-profile ScannerProfile. ScannerProfileContract defscanner-profile)
-        (only-in ./src/runtime/source-engines ShellSourceStrategy. LineSourceStrategy.)
-        (only-in ./src/language/source deflanguage-source deflanguage-source-receipt declare-source-language))
-(export CommandProfile. defcommand-profile BindingProfile. defbinding-profile PartProfile. PartProfileContract defpart-profile ResultProfile. ResultProfileContract defresult-profile ScannerProfile. ScannerProfileContract defscanner-profile SourceStrategy. SourceStrategyContract ShellSourceStrategy. LineSourceStrategy.
-        deflanguage-source deflanguage-source-receipt declare-source-language)
+;;; Public source parser services; author declarations use deflanguage.
+(import (only-in ./src/language/source
+                 deflanguage-parser-receipt
+                 source-language? source-language-language source-language-version
+                 source-language-contract source-language-digest source-language-result-catalog))
+(export deflanguage-parser-receipt
+        source-language? source-language-language source-language-version
+        source-language-contract source-language-digest source-language-result-catalog)

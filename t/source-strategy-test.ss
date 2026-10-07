@@ -1,17 +1,17 @@
 ;;; A second source family shares admission, identity, workers and publication.
 (import :std/test
         (only-in :clan/poo/object .o .cc)
-        :gerbil-parser/language-source-support
-        (only-in :gerbil-parser/src/language/source parse-source-language source-language-digest)
+        (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
+        (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language source-language-digest)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-success? parse-artifact-roundtrip)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader. declare-language-source-scan-worker make-language-scan-worker)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
         (only-in :gerbil-parser/src/runtime/token token-lexeme))
 (export source-strategy-test)
 (def prefix (string-copy "#"))
-(deflanguage-source notes-source
- (identity "notes" "v1" "notes.v1")
- (strategy (.o (:: self LineSourceStrategy.) root-kind: 'Notes required-prefix: prefix)))
+(def notes-source
+ (declare-source-language "notes" "v1" "notes.v1"
+  (.o (:: self LineSourceStrategy.) root-kind: 'Notes required-prefix: prefix)))
 (deflanguage-development-loader (notes-language :: self LanguageDevelopmentLoader.)
  (source notes-source) (parse parse-notes)
  (slots scan-workers: (list (cons 'lines (declare-language-source-scan-worker notes-source)))))

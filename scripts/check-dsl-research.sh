@@ -41,6 +41,7 @@ run_suite() {
   run_child "$1" "$GERBIL_PATH/bin/gerbil-parser-conformance" "$1"
 }
 # Serial execution preserves each unchanged ten-second completion fence.
+run_suite test-style
 run_suite diagnostics
 run_suite surface
 run_suite composition

@@ -4,7 +4,7 @@
 (import (only-in :std/build-script defbuild-script))
 (defbuild-script
   (map (lambda (module)
-           `(gxc: ,module "-cc-options" "-v -Q -fopt-info-inline-all"))
+           `(gxc: ,module "-cc-options" "-v -Q -fopt-info-inline-optimized"))
        '("languages/arithmetic/parser-test" "languages/bash/parser-test"
          "languages/cypher/parser-test" "languages/fhirpath/parser-test"
          "languages/gql/parser-test" "languages/hcl/parser-test"
@@ -35,6 +35,8 @@
          "t/fixtures/runtime-record-assignments/languages/records/fixtures"
          "t/fixtures/runtime-record-assignments/languages/records/parser"
          "t/fixtures/runtime-record-assignments/languages/records/parser-test"
+         "t/test-style-contract-test"
+         "t/generate-native-language-alignment"
          "t/conformance-main"))
   ;; Test entry modules link the optimized production parser; they do not need
   ;; whole-module Scheme optimizer analysis of the large assertion closures.

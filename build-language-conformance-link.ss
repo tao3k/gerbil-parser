@@ -100,15 +100,8 @@
                                          (path-expand basename (path-expand "static" root))) roots))))
                      (or path (error "native bootstrap source is missing" name)))) ordered))
            (user-sources (filter (lambda (path) (not (string-prefix? static path))) sources)))
-      (run-static-jobs user-sources
-        (lambda (source)
-          (let (target (replace-extension source ".c"))
-            (when (newer? source target)
-              (displayln "STATIC-TRANSLATE " source) (force-output)
-              (run-process/batch [gsc "-verbose" "-c" "-o" target source])
-              (displayln "STATIC-TRANSLATED " source) (force-output)))))
       (let* ((includes (unique (map path-directory sources)))
-             (cc-options (string-append "-v -Q -fopt-info-inline-all "
+             (cc-options (string-append "-v -Q -fopt-info-inline-optimized "
                             (string-join
                               (map (lambda (path) (string-append "-I" path)) includes) " ")))
              (ld-options (call-with-input-file (path-expand "libgerbil.ldd" library) read)))
@@ -116,6 +109,12 @@
           (lambda (source)
             (let ((target (replace-extension source ".o"))
                   (c-file (replace-extension source ".c")))
+              ;; One worker owns translation and its object; no global phase barrier.
+              (when (newer? source c-file)
+                (displayln "STATIC-TRANSLATE " source) (force-output)
+                (run-process/batch [gsc "-verbose" "-c" "-o" c-file source])
+                (displayln "STATIC-TRANSLATED " source) (force-output))
+
               (when (newer? c-file target)
                 (displayln "STATIC-OBJECT " c-file) (force-output)
                 (run-process/batch [gsc "-verbose" "-cc-options" cc-options

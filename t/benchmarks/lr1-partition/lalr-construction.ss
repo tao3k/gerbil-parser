@@ -7,8 +7,9 @@
         (only-in :gerbil-parser/src/compiler/lr
                  lower-rules production-table lr-spec-ref)
         (only-in :gerbil-parser/src/compiler/parser-ir parser-ir-ref)
-        (only-in :gerbil-parser/languages/tla-plus/grammar
-                 tla-plus-layout-parser-ir))
+        (only-in :gerbil-parser/languages/tla-plus/parser
+                 tla-plus-layout-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-ir))
 
 (def (median values)
   (let* ((sorted (list-sort < values))
@@ -26,7 +27,7 @@
       (error "expected one optional positive sample count" args))
     (write '(workload tla-layout construction lalr phase warmup))
     (newline) (force-output)
-    (let* ((rules (parser-ir-ref tla-plus-layout-parser-ir 'rules))
+    (let* ((rules (parser-ir-ref (language-grammar-ir tla-plus-layout-language-grammar) 'rules))
            (productions (vector-length
                          (production-table (lower-rules rules 'source-file)))))
       ;; Omit the construction argument to exercise the production default.

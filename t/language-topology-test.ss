@@ -40,7 +40,8 @@
              ((grammar) '(deflanguage defgrammar-syntax deflanguage-projection deftext-profile
                           deflanguage-antlr4-grammar deflanguage-iso-bnf-grammar
                           defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source))
-             ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry))
+             ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry
+                         defsyntax-javacc-source))
              ((tests) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests))))))))
 (def language-topology-test
  (test-suite "three-interface language authoring contract"
@@ -59,12 +60,19 @@
      (check (and (authoring-form? (list head 'backend) 'grammar) #t) => #f))
      '(deflanguage-source defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile))
    (check (and (authoring-form? '(defgrammar-syntax (loop kind) (node kind)) 'grammar) #t) => #t))
-  (test-case "every pack contains exactly grammar, parser and declarative parser tests"
+  (test-case "every pack exposes three interfaces with declarative private syntax modules"
    (for-each
     (lambda (language)
       (let* ((root (path-expand language "languages"))
-             (files (scheme-files root)))
-       (check (length files) => 3)
+             (files (scheme-files root))
+             (interfaces (map (lambda (name) (path-expand name root))
+                          '("grammar.ss" "parser.ss" "parser-test.ss")))
+             (private (filter (lambda (file) (not (member file interfaces))) files)))
+       (check (andmap (lambda (file) (string-prefix? (path-expand "syntax/" root) file)) private) => #t)
+       (for-each (lambda (file)
+         (check (andmap (lambda (form)
+           (and (memq (car form) '(import export deflanguage defgrammar-syntax deftext-profile))
+                (authoring-form? form 'grammar) #t)) (forms file)) => #t)) private)
        (for-each (lambda (row)
          (check (andmap (lambda (form) (and (authoring-form? form (cdr row)) #t))
                         (forms (path-expand (car row) root))) => #t))

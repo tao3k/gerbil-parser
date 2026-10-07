@@ -2,7 +2,9 @@
 (import :std/test
         (only-in :gerbil-parser/language-support deflanguage)
         (only-in :gerbil-parser/languages/tla-plus/grammar
-                 tla-proof-start tla-proof-reference tla-identifier tla-plus-sany-candidate-parser-ir)
+                 tla-proof-start tla-proof-reference tla-identifier)
+        (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-sany-candidate-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
         (only-in :gerbil-parser/src/runtime/scan make-text-profile-scanner)
         (only-in :gerbil-parser/src/grammar/lexical-algebra text-profile?)
         (only-in "structured-lexical-cases.ss" structured-lexical-cases))
@@ -12,14 +14,14 @@
  (root entry)
  (lex (space Space (whitespace+))
       (identifier Identifier (text-profile (ref tla-identifier)))
-      (proof-step ProofStep (text-profile (ref tla-proof-start)))
+      (proof-step-name ProofStep (text-profile (ref tla-proof-start)))
       (proof-reference ProofReference (text-profile (ref tla-proof-reference))))
- (rules (entry (node Entry (choice identifier proof-step proof-reference))))
+ (rules (entry (node Entry (choice identifier proof-step-name proof-reference))))
  (extras space))
 (def structured-lexical-test
  (test-suite "portable structured lexical IR"
   (test-case "real TLA+ rules use closed IR and character endpoints at arbitrary offsets"
-   (let (rules (cdr (assq 'lexical-rules tla-plus-sany-candidate-parser-ir)))
+   (let (rules (cdr (assq 'lexical-rules (language-grammar-ir tla-plus-sany-candidate-language-grammar))))
     (for-each (lambda (group)
      (let* ((expression (cadr (assq (car group) rules)))
             (scan (make-text-profile-scanner (cadr expression))))

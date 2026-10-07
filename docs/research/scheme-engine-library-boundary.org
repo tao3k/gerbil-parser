@@ -367,3 +367,58 @@ recognition dependency. The unchanged fences and rejected controls are retained;
 one accepted and one rejected source per entry establish publication alignment,
 not exhaustive grammar coverage. Native CI reproduces the fixture bytes and
 qualifies each pushed revision independently.
+
+* TLA+ declarative interface migration
+
+The previous TLA+ interface retained generated IR aliases, manual syntax catalogs,
+low-level reference wrappers and release constants in a 1,599-line grammar file.
+The public =grammar.ss= now exports syntax descriptors and lexical profiles only.
+Four private =syntax/= modules hold core, layout, proof and lexical declarations;
+=parser.ss= owns pinned SANY source identity and release metadata. Consumers obtain
+IR and machines through descriptor accessors. The topology contract permits only
+declarative syntax modules behind the three public interfaces.
+
+#+begin_src scheme
+;; Representative declaration: recognition and publication share one source.
+(module
+ (node Module module-border "MODULE" (field name identifier) module-border
+   (repeat (field item module-item)) module-end))
+
+;; Question 1: Why is this design better?
+;; Bare rule identifiers and literals preserve readable Scheme structure.
+;; The engine derives node kinds, fields and terminals from recognition clauses;
+;; authors no longer maintain a parallel publication catalog or generated IR API.
+
+;; Question 2: Why does this design have a scientific basis?
+;; Compare canonical recognition before and after elaboration, then independently
+;; test accepted/rejected sources, field publication and source identity.
+;; A shorter surface is justified by these invariants, not by its line count.
+#+end_src
+
+The migration compared seven canonical sections for each of the three TLA+
+products: rules, lexical rules, extras, keywords, recoveries, conflict policy and
+case sensitivity. All 21 comparisons passed. The proof token is explicitly
+renamed =proof-step-name= to distinguish it from the =proof-step= rule. The old
+manual catalog advertised =fact= and =definition= fields on =TerminalProof= that
+recognition did not emit; the inferred contract correctly publishes =item=.
+This is an intentional publication correction, not unchanged artifact identity.
+The existing corpus and native lexical/source/snapshot tests qualify this change;
+they do not establish complete SANY compatibility or a performance gain.
+
+** CI ownership and build pipeline
+
+At =0a4175f=, Linux exhausted the unchanged 240-second conformance-build limit;
+macOS rejected fixture-writing output calls inside a =*-test.ss= file. The binary
+fixture generator now lives in its own fixture-publication module. The compiled
+conformance gate includes the test-style contract before other language controls.
+Each static-build worker translates a module and immediately compiles its object,
+removing the global translation barrier. GCC reports optimized inlining instead
+of every rejected inlining candidate; optimization settings are unchanged.
+Qualification retains the 240/5-second build fences and ten-second child fences.
+A local cold-static build still reuses Scheme outputs and immutable SDK objects;
+only exact-head remote CI qualifies the complete platform build.
+
+The local cold-static receipt removed 451 generated C/object files from the
+disposable package environment. With four workers, static translation, compilation
+and linking completed in 90.65 seconds with exit zero under the 240/5-second
+fences. This reused Scheme compilation outputs and SDK objects.

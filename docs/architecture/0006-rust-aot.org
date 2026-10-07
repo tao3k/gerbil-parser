@@ -128,7 +128,7 @@ alone does not establish semantic conformance.
 |------+--------------------------------------------------|
 | Runtime | 130 core tests, including canonical/contextual native token controls |
 | Artifact admission | Three inert-reader tests and twenty controls from all ten production entries |
-| Language interfaces | 27 bounded DSL/conformance child processes, including the independent records consumer |
+| Language interfaces | 28 bounded DSL/conformance child processes, including the independent records consumer |
 | Native transport | Full FFI owner suite, final four-module suite and explicit OK |
 | Host ownership | Fresh C, Rust-owned VM and borrowed-session processes, 100 calls, two handle releases, 113 result releases and normal cleanup |
 | AOT consumers | Locked records fixture (two tests) and ASCII fixture (one test) |

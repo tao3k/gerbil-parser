@@ -39,7 +39,7 @@ static TERMINALS: &[TerminalSpec] = &[
         syntax_kind: 2,
     },
     TerminalSpec {
-        name: "proof-step",
+        name: "proof-step-name",
         syntax_kind: 3,
     },
     TerminalSpec {
@@ -74,7 +74,7 @@ static LEXICAL_RULES: &[LexicalRule] = &[
         extra: false,
     },
     LexicalRule {
-        terminal: "proof-step",
+        terminal: "proof-step-name",
         expression: LexicalExpr::TextProfile(&gerbil_parser_runtime::TextProfile::EndsIn {
             class: gerbil_parser_runtime::TextClass::Union(&[
                 gerbil_parser_runtime::TextClass::Alphabetic,
@@ -197,7 +197,7 @@ static ACTION_0: &[ActionEntry] = &[
         action: ParserAction::Shift(2),
     },
     ActionEntry {
-        terminal: Terminal::Token("proof-step"),
+        terminal: Terminal::Token("proof-step-name"),
         action: ParserAction::Shift(3),
     },
     ActionEntry {
@@ -266,7 +266,7 @@ static PRODUCTIONS: &[Production] = &[
     Production {
         lhs: "$entry.0",
         rhs: &[Operand {
-            symbol: Symbol::Terminal(Terminal::Token("proof-step")),
+            symbol: Symbol::Terminal(Terminal::Token("proof-step-name")),
             actions: &[],
         }],
         reduction: Reduction::Pass,
@@ -296,7 +296,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structured-lexical",
     version: "v1",
     contract: "structured-lexical.v1",
-    grammar_digest: "sha256:5c564c2ece6c96a11fb0dcca464f7910a20cf9bcbd8f79a471755990398c67cc",
+    grammar_digest: "sha256:9a75716b88708baf309d7a5bb2821f6579cf31bfb9472aab04abccb9005d8835",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,
@@ -317,16 +317,16 @@ pub const PROFILE_CASES: &[(&str, &str, Option<usize>)] = &[
     ("identifier", "４2", None),
     ("identifier", "４a", Some(2)),
     ("identifier", "", None),
-    ("proof-step", "<1>1. QED", Some(5)),
-    ("proof-step", "<+>*.", Some(5)),
-    ("proof-step", "<*>-.", Some(5)),
-    ("proof-step", "<1>", Some(3)),
-    ("proof-step", "<1>name", None),
-    ("proof-step", "<1>α٣.", Some(6)),
-    ("proof-step", "<١>字...", Some(7)),
-    ("proof-step", "<+1>x.", None),
-    ("proof-step", "<1", None),
-    ("proof-step", "<>.", None),
+    ("proof-step-name", "<1>1. QED", Some(5)),
+    ("proof-step-name", "<+>*.", Some(5)),
+    ("proof-step-name", "<*>-.", Some(5)),
+    ("proof-step-name", "<1>", Some(3)),
+    ("proof-step-name", "<1>name", None),
+    ("proof-step-name", "<1>α٣.", Some(6)),
+    ("proof-step-name", "<١>字...", Some(7)),
+    ("proof-step-name", "<+1>x.", None),
+    ("proof-step-name", "<1", None),
+    ("proof-step-name", "<>.", None),
     ("proof-reference", "<1>name", Some(7)),
     ("proof-reference", "<1>α٣", Some(5)),
     ("proof-reference", "<١>字", Some(4)),

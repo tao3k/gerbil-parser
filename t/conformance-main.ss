@@ -4,11 +4,13 @@
                  test-suite! test-result-ok?)
         (prefix-in (only-in :gerbil-parser/t/benchmarks/versioned-languages/all-languages main) benchmark-)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/parser-test records-parser-tests)
+        (only-in :gerbil-parser/t/test-style-contract-test test-style-contract-test)
         (only-in :gerbil-parser/t/language-diagnostics-test language-diagnostics-test)
         (only-in :gerbil-parser/t/language-surface-test language-surface-test)
         (only-in :gerbil-parser/t/grammar-composition-test grammar-composition-test)
         (only-in :gerbil-parser/t/language-artifact-test language-artifact-tests)
-        (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test write-native-language-alignment!)
+        (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test)
+        (only-in :gerbil-parser/t/generate-native-language-alignment write-native-language-alignment!)
         (only-in :gerbil-parser/t/language-topology-test language-topology-test)
         (only-in :gerbil-parser/t/language-loader-test language-loader-test)
         (only-in :gerbil-parser/t/language-loader-value-test language-loader-value-test)
@@ -33,6 +35,7 @@
 (def suites
   (list
         (cons "downstream-records" (list records-parser-tests))
+        (cons "test-style" (list test-style-contract-test))
         (cons "diagnostics" (list language-diagnostics-test))
         (cons "surface" (list language-surface-test))
         (cons "composition" (list grammar-composition-test))

@@ -1,8 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Production dispatch and development conformance have distinct dependencies.
-(import (prefix-in (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-native-language native-descriptor-payload native-parse-binary-payload) codec-)
-        (only-in :gerbil-parser/language-support/entry language-metadata-ref)
-        (only-in :gerbil-parser/src/ffi/parse-artifact-v1 native-descriptor-payload native-parse-binary-payload)
+(import (only-in :gerbil-parser/src/ffi/parse-artifact-v1 native-descriptor-payload native-parse-binary-payload)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (for-syntax (only-in :gerbil/expander core-expand))
         :std/test
@@ -32,7 +30,7 @@
                  tla-plus-core-test-language tla-plus-layout-test-language tla-plus-sany-candidate-test-language)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success? parse-artifact-events parse-artifact-roundtrip))
-(export language-entry-boundary-test write-native-language-alignment!)
+(export language-entry-boundary-test language-entry-pairs)
 (def language-entry-pairs
   (list (list arithmetic-language arithmetic-test-language 2)
         (list bash-language bash-test-language 2)
@@ -127,36 +125,3 @@
                         (member (cadr item) '(../../language-support/fixture
                                               ../../language-support/development))) => #f))
           (cdr forms))))))
-
-;;; Each native backend is checked from its configured public parser descriptor.
-(def (write-native-language-alignment! output)
-  (def (emit-bytes port bytes)
-    (let (length (u8vector-length bytes))
-      (for-each (lambda (shift) (write-u8 (bitwise-and 255 (arithmetic-shift length (- shift))) port))
-                '(0 8 16 24)))
-    (write-u8vector bytes port))
-  (call-with-output-file output
-    (lambda (port)
-      (for-each
-        (lambda (row)
-          (let* ((entry (car row)) (development (cadr row))
-                 (metadata (.ref entry 'metadata))
-                 (name (language-metadata-ref metadata 'contract))
-                 (native (codec-bind-native-language (.ref entry 'descriptor))))
-            (for-each
-              (lambda (status)
-                (let (fixtures (language-loader-fixtures development status))
-                  (when (null? fixtures) (error "missing native alignment control" name status))
-                  (let* ((source (syntax-fixture-source (car fixtures)))
-                         (artifact ((.ref entry '.parse) source)))
-                    (unless (eq? (parse-artifact-success? artifact) (eq? status 'accepted))
-                      (error "native alignment fixture status mismatch" name status))
-                    (emit-bytes port (string->utf8 name))
-                    (emit-bytes port (string->utf8 (codec-native-descriptor-payload native)))
-                    (emit-bytes port (string->utf8 source))
-                    (emit-bytes port (codec-native-parse-binary-payload native source))
-                    (write-u8 (if (eq? status 'accepted) 1 0) port)
-                    (displayln "NATIVE-ALIGNMENT-CASE " name " " status) (force-output))))
-              '(accepted rejected))))
-        language-entry-pairs)))
-  (displayln "NATIVE-LANGUAGE-ALIGNMENT-GENERATED") (force-output))

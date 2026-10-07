@@ -9,7 +9,8 @@
         (only-in :gerbil-parser/src/runtime/funcs recognition-sequence->list current-recognition-sequence-fusion-enabled?)
         (only-in :gerbil-parser/src/runtime/recognition
                  recognition-child-value recognition-node? recognition-node-kind recognition-node-children recognition-fragment? recognition-fragment-children)
-        (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-layout-parser)
+        (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-layout-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/lr-parser
@@ -385,7 +386,7 @@
     (test-case "layout execution retains only its authoritative artifact"
       (let (session
             (make-incremental-session
-             tla-plus-layout-parser
+             (language-grammar-machine tla-plus-layout-language-grammar)
              "---- MODULE J ----\nInit ==\n  /\\ TRUE\n  /\\ FALSE\n====\n" #t))
         (check (parse-artifact-success? (incremental-session-artifact session)) => #t)
         (check (incremental-session-recognition-root session) => #f)

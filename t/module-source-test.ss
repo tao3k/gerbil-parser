@@ -6,7 +6,8 @@
                  scan-module-text prepare-lexical-source-plan call-with-lexical-source)
         (only-in :gerbil-parser/src/language/entry parse-language-source)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-roundtrip)
-        (only-in :gerbil-parser/languages/tla-plus/grammar tla-plus-sany-candidate-parser-ir)
+        (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-sany-candidate-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
         (only-in "module-source-cases.ss" module-source-cases))
 (export module-source-test module-framing-language-grammar)
 (def module-expression '(module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_"))
@@ -27,7 +28,7 @@
 (def module-source-test
  (test-suite "prepared module framing IR"
   (test-case "the real TLA+ descriptor publishes closed framing data"
-   (check (cadr (assq 'module-text (cdr (assq 'lexical-rules tla-plus-sany-candidate-parser-ir))))
+   (check (cadr (assq 'module-text (cdr (assq 'lexical-rules (language-grammar-ir tla-plus-sany-candidate-language-grammar)))))
           => module-expression))
   (test-case "framing keeps character boundaries, nested depth and module text stops"
    (for-each (lambda (row)

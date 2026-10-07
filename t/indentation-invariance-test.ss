@@ -7,6 +7,7 @@
         :gerbil-parser/languages/gql/parser
         :gerbil-parser/languages/hcl/parser
         :gerbil-parser/languages/tla-plus/parser
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?)
@@ -67,7 +68,7 @@
        "resource \"x\" \"y\" {\nvalue = 1\n}\n"
        "resource   \"x\"   \"y\" {\n      value   =   1\n}\n")
       (check-indentation-invariance
-       tla-plus-core-parser parse-tla-plus-core
+       (language-grammar-machine tla-plus-core-language-grammar) parse-tla-plus-core
        "---- MODULE Indent ----\nVARIABLE x\nInit == x = 1\n====\n"
        "---- MODULE Indent ----\n    VARIABLE   x\n        Init   ==   x   =   1\n====\n"))))
 

@@ -179,11 +179,11 @@ interfaces. Corpus declarations now live exclusively in parser-test.ss.
 
 | Entry | Corpus count | Optional development capability |
 |-------+--------------+---------------------------------|
-| arithmetic | 1 | Fused reduction and independent Rust AOT generation |
+| arithmetic | 2 | Fused reduction and independent Rust AOT generation |
 | Bash | 2 | Descriptor-bound command scanner |
 | openCypher | 5 | Corpus conformance |
 | FHIRPath | 4 | Corpus conformance |
-| GQL | 14 | Corpus conformance |
+| GQL | 15 | Corpus conformance |
 | HCL | 15 | Generated backend parity and build strategies |
 | HL7 | 2 | Corpus conformance |
 | TLA+ core | 6 | Corpus conformance |
@@ -293,3 +293,60 @@ static objects, retained existing Scheme-to-C outputs and SDK objects, and
 rebuilt all project static objects. It completed in 64.06 seconds with exit zero
 under the unchanged 240-second completion and five-second output-idle fences.
 This is a cold project-object check, not a fresh dependency/source-toolchain build.
+
+* Language-wide native publication and root obligations
+
+The production descriptor is the native publication authority for all ten
+entries in the eight language packages. =parser-test.ss= supplies accepted and
+rejected corpus values; the shared conformance owner generates GPA1 and descriptor
+binary fixtures from these values. The artifact crate admits those fixtures without
+language-specific Rust parser tables. Native CI regenerates the same bytes.
+
+The alignment run exposed three independent contract gaps: HL7 rejection emitted
+an engine-owned opaque token outside its published terminal directory; the shell
+provider hardcoded a root that differed from its compiled command projection;
+and the TLA+ proof product selected its root from catalog ordering instead of its
+aliased entry rule. Publication now includes the engine rejection class, source
+binding validates its derived root, and Parser IR compilation uses the entry
+alias when present. Both generator cache contracts advance together, preventing\nunchanged grammar bytes from admitting outdated compiler semantics. No\nlanguage-specific ABI dispatcher is added.
+
+** Why does this DSL reduce authoring complexity?
+
+#+begin_src scheme
+(deflanguage example
+  (root document)
+  (lex (name Identifier (identifier)))
+  (rules
+   (document (node Document (repeat (field name name)))))
+  (syntax-kinds
+   (Auxiliary node ())
+   (Document node (name))
+   (Identifier token (text))))
+#+end_src
+
+The root rule constructs =Document= even though =Auxiliary= appears first in the
+published catalog. The language declares recognition and field associations
+once. Macro expansion lowers the S-expression to admitted Grammar/Parser IR;
+compiled plans supply runtime behavior and publication metadata. POO inheritance
+can change an admitted declaration before binding, while ordinary values need
+no object wrapper. These responsibilities belong to the engine and common DSL
+implementation, rather than a language author's duplicate encoder or Rust grammar.
+
+** Which executable invariants support the design?
+
+For every accepted fixture, the borrowed root kind equals the same handle's
+published root, and its text equals the original source. For rejection, there
+is no accepted root, but ordered token spans cover the source exactly. Declared
+node fields, product/source identity and UTF-8 boundaries are admitted before
+navigation. The twenty cross-language controls independently check these rules;
+the source-provider negative test rejects an undeclared root at binding time.
+These are falsifiable semantic and ownership contracts. They establish neither
+complete language-standard conformance nor a performance advantage.
+
+The integrated local receipt covers all twenty native controls, all twenty-six
+bounded Scheme DSL/development child processes and 130 Rust runtime tests.
+The native admission test reads binary fixture data and has no language-specific
+recognition dependency. The unchanged fences and rejected controls are retained;
+one accepted and one rejected source per entry establish publication alignment,
+not exhaustive grammar coverage. Native CI reproduces the fixture bytes and
+qualifies each pushed revision independently.

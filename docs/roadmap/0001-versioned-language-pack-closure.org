@@ -753,7 +753,7 @@ that consumer.
 | Existing contextual deferred suite | Nine cases; immutable checkpoints and FIFO controls | 2.98 s |
 | POO loader extension suite | Fifteen cases; inherited values and constraints | 5.11 s |
 | Native Scheme Rust producer | Nine traces; final generated Rust matches repository bytes | 8.67 s |
-| Rust/Rowan unit suite | 90 passed; actual generated region traces, 5000 levels, UTF-8, malformed scope and admission | 1.07 s |
+| Rust unit suite | 90 passed; actual generated region traces, 5000 levels, UTF-8, malformed scope and admission | 1.07 s |
 | Rust clippy | All targets, warnings denied | 1.15 s |
 | ASP Rust source policy | Actual workspace dev gate passes without policy changes | 1.05 s |
 
@@ -1071,7 +1071,7 @@ common prototype; concrete providers refine admission. The Loader has no
 concrete backend import and no language/kind dispatch branch.
 
 Both HCL and Arithmetic now declare fused Scheme reductions and canonical
-Rust/Rowan output through the same =build-strategies= slot. Rust output is
+Rust output through the same =build-strategies= slot. Rust output is
 produced by the existing producer; its source and portable-policy gates remain
 unchanged. Public recipe values remain ordinary POO inheritance/override values,
 and the Loader schema remains v2.
@@ -1179,7 +1179,7 @@ its descriptor-bound identity. No old HL7 entry alias or external fallback is
 retained, and Loader/IR schema identifiers are unchanged.
 
 The common Rust build strategy emits both complete specs from canonical Scheme
-IR. Rust/Rowan executes the real HL7 ADT A08 corpus, a custom-delimiter message,
+IR. Rust executes the real HL7 ADT A08 corpus, a custom-delimiter message,
 and the independent record sources; malformed header recipes reject at spec
 admission. The two generated source files are executable compiler witnesses,
 not benchmark/result snapshots. CI compiles the Scheme declaration, regenerates
@@ -1270,7 +1270,7 @@ portable proof policy still require implementation and real consumer gates.
 No complete-call speedup is claimed from the indexing change alone.
 
 Local module-framing receipt: 73 Scheme cases passed with explicit =OK= and
-zero harness return; 102 Rowan tests plus the complete Rust workspace passed.
+zero harness return; 102 Rust syntax tests plus the complete Rust workspace passed.
 ASP Rust policy and Clippy passed. The GCC native generator built and its actual
 executable emitted the same module parser as the Scheme producer. Exact parser
 and whitespace-table regeneration passed. These are local results; exact PR-head
@@ -1581,17 +1581,17 @@ Thirteen controls come from the actual Scheme Word engine, including empty
 words, Unicode, all quote forms, nested parameters and subscripts, command/
 arithmetic/process substitutions, assignment and heredoc content. Rust replay
 executes the construction table and compares complete events, field order and
-Rowan roundtrip. This witness deliberately does not establish Rust recognition
+Rust syntax roundtrip. This witness deliberately does not establish Rust recognition
 of Word or Command syntax. The CI regeneration gate uses unchanged 90-second
 total / five-second silence fences and byte-exact formatted Rust comparison.
 
 Local GCC compilation of the producer succeeds. Scheme ResultProfile and Bash
 qualification passes 41 cases in 9.56 seconds with final =OK=,
 =HARNESS-RETURN status=0= and exit zero. Thirteen-control regeneration exits zero
-in 6.39 seconds. Rust/Rowan passes all 110 tests and strict Clippy.
+in 6.39 seconds. Rust passes all 110 tests and strict Clippy.
 
 A second category-separated vocabulary executes through the same interpreter
-and Rowan sink, exercising node/token names with identical spelling. ASP Rust
+and Rust syntax sink, exercising node/token names with identical spelling. ASP Rust
 source policy passes. Its first local link attempt fails to resolve =libiconv=
 through the host Nix =cc= wrapper; using the existing platform SDK and platform
 linker path resolves the environment failure without a Scheme compiler change.
@@ -1635,7 +1635,7 @@ does not by itself publish an independent Rust Bash Source parser.
 
 Local qualification: GCC producer compilation succeeds; Scheme region admission
 and matching passes ten cases in 6.70 seconds with final =OK=,
-=HARNESS-RETURN status=0= and exit zero. Rust/Rowan passes 114 cases; strict
+=HARNESS-RETURN status=0= and exit zero. Rust passes 114 cases; strict
 Clippy and the ASP Rust workspace policy gate pass. Region regeneration exits
 zero in 6.68 seconds and matches formatted checked Rust bytes. All four existing
 shared-scanner products remain byte-exact (5.44/5.19/4.40/0.37 seconds). The
@@ -1669,7 +1669,7 @@ admission/parity remain the next obligations.
 
 Local qualification: the producer compiles with GCC. The combined Scheme
 PartProfile/ResultProfile/Bash gate passes 55 cases in 22.32 seconds with final
-=OK=, =HARNESS-RETURN status=0= and exit zero. Rust/Rowan passes 117 tests in
+=OK=, =HARNESS-RETURN status=0= and exit zero. Rust passes 117 tests in
 0.03 seconds; strict Clippy passes, and the ASP workspace source gate passes in
 0.90 seconds. A separate 110-control regeneration is byte-exact after rustfmt
 and exits zero in 23.74 seconds. The existing 90-second total/five-second silence
@@ -1694,7 +1694,7 @@ node/token category confusion, wrong source/catalog ownership and out-of-range
 captures. This closes the construction prerequisite, not the Command interpreter.
 Command programs and complete Source ParseArtifact parity remain open.
 
-Local qualification: Rust/Rowan passes 120 tests; strict Clippy and the ASP
+Local qualification: Rust passes 120 tests; strict Clippy and the ASP
 workspace policy gate pass. Scheme catalog-control generation exits zero in
 9.56 seconds. Independent regeneration exits zero in 9.35 seconds and is
 byte-exact after rustfmt. Runtime fences remain 90 seconds total/five seconds
@@ -1718,7 +1718,7 @@ control that does not expand exponentially. Unicode keywords, root projection,
 pipeline role and empty-prefix POO overrides use the identical engine.
 
 The independent Scheme generator publishes 54 full-Source controls, including
-rejection outcomes. Rust compares full Rowan events, field sequence, FIFO
+rejection outcomes. Rust compares full Rust syntax events, field sequence, FIFO
 marker/body links and source roundtrips. The public generated product API and
 the token-tape API both run these controls. Invalid tape, wrong catalog and
 cyclic/nullable/ambiguous declarations are rejected explicitly.
@@ -1734,7 +1734,7 @@ unchanged. Qualification is semantic/structural evidence, not a parse-speed clai
 Local qualification: GCC compiles the producer and public facade; the SDK's
 =gambuild-C= selects =/opt/homebrew/bin/gcc-16=. The native Scheme Command/Bash
 gate passes 38 cases in 10.52 seconds with final =OK=,
-=HARNESS-RETURN status=0= and exit zero. Rust/Rowan passes 126 tests, strict
+=HARNESS-RETURN status=0= and exit zero. Rust passes 126 tests, strict
 Clippy passes, and the ASP workspace source gate passes. Independent Source
 regeneration is compared byte-for-byte after rustfmt. Existing compiler/runtime
 fences are retained; no results are admitted by relaxing a timeout.

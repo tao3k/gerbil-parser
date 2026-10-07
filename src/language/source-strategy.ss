@@ -1,7 +1,7 @@
 ;;; Common admitted POO source engines. Providers own binding and closed recipes.
 (import (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in ./result-profile result-plan?)
+        (only-in ./result-profile result-plan? result-plan-catalog)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence))
 (export SourceStrategy. SourceStrategyContract bind-source-strategy
         declare-source-strategy-provider make-source-engine
@@ -42,6 +42,8 @@
                  (procedure? (source-engine-parse engine))
                  (result-plan? (source-engine-results engine))
                  (symbol? (source-engine-root-kind engine))
+                 (assq (source-engine-root-kind engine)
+                       (cdr (assq 'syntax-kinds (result-plan-catalog (source-engine-results engine)))))
                  (or (not (source-engine-receipt engine)) (procedure? (source-engine-receipt engine))))
       (error "source provider returned an invalid engine" (.ref strategy 'kind)))
     (values (list (.ref strategy 'kind) recipe) engine))))

@@ -1,4 +1,4 @@
-#+title: RFC 0008 — Extensible language packs and selective Rowan builds
+#+title: RFC 0008 — Extensible language packs and selective Rust builds
 #+startup: overview
 
 * Decision
@@ -8,14 +8,14 @@ names, or per-language dispatch branch.  A language pack owns its syntax
 authority, metadata identity, corpus, expected failures, and any semantic
 lowering.  A native pack compiles language-neutral lexical and Grammar IR into
 Parser IR and an immutable parser artifact.  An external pack may keep its own
-parser and publish source-backed lossless syntax events through the Rowan sink.
+parser and publish source-backed lossless syntax events through the source-index sink.
 The two authorities have distinct receipts.  For a native pack, version and
-contract live in grammar metadata; neither a namespace nor a Rust module path
+contract live in configured parser metadata; neither a namespace nor a Rust module path
 is the version authority.
 
-The Rowan runtime crate accepts an explicit =LanguageSpec= and source bytes on
-the native path.  Its event sink also accepts a minimal kind catalog and
-source-backed events without requiring LR tables.  It depends on Rowan and
+The Rust runtime crate accepts an explicit =LanguageSpec= and source bytes on
+the independent AOT path.  Its event sink also accepts a minimal kind catalog and
+source-backed events without requiring LR tables.  It depends on the artifact index library and
 generic runtime support only.  Generated language tables, external adapters,
 and optional semantic adapters live in separate crates.  A downstream author
 can create a native language crate from the public Scheme grammar facade or
@@ -23,7 +23,7 @@ adapt a maintained external parser.  Adding either never requires an edit to
 the engine or an upstream enum.  The existing independent records fixture
 exercises the native boundary outside the root Cargo workspace.
 
-The opt-in =gerbil-parser-rowan-external= crate owns the second receipt type.
+The opt-in =gerbil-parser-runtime-external= crate owns the second receipt type.
 =ExternalLanguageSpec= supplies only provider identity and an =EventCatalog=;
 =parse_external_events= checks the generic event sink and returns
 =ExternalParseReceipt= with =authority = external-parser=.  The adapter does
@@ -72,7 +72,7 @@ do not change a grammar's identity, parsing semantics, or receipt schema.
    user configuration belongs in the host and is populated from linked
    language crates.  It cannot force every installed language into a minimal
    executable.
-6. The Scheme actor/request layer may schedule independent calls.  Rowan FFI
+6. The Scheme actor/request layer may schedule independent calls.  Native FFI
    handles need a separately verified ownership, lifetime, and thread-safety
    contract before they are shared across such calls.
 
@@ -161,7 +161,7 @@ requires a separate producer and consumer qualification.
 
 * Acceptance gates
 
-- Build the generic Rowan runtime with no first-party language crate linked.
+- Build the generic Rust runtime with no first-party language crate linked.
 - Build and test exactly one first-party language selection and the independent
   record assignments fixture without a Gerbil installation at parse time.
 - Build one independent external adapter against the minimal event catalog.
@@ -181,15 +181,14 @@ requires a separate producer and consumer qualification.
   provider has its own independent conformance corpus.  Measure binary size
   and cold build cost for minimal and selected-language builds separately.
 
-The language feature packaging is owned by the Rowan support work.  This RFC
+The language feature packaging is owned by the Rust build support.  This RFC
 fixes the common interface it must preserve; it does not add language cases to
 the generic engine.
 
 * Current evidence
 
-The generic Rowan crate resolves only =rowan= and =sha2= as direct runtime
-dependencies.  The standalone records fixture resolves only the generic
-Rowan crate as its direct runtime dependency and passes its two Cargo tests.
+The generic runtime depends on the artifact index library and SHA-256 hashing.  The standalone records fixture resolves only the generic
+Rust runtime crate as its direct runtime dependency and passes its two Cargo tests.
 The external adapter's two focused tests cover source-exact output, external
 receipt identity, invalid UTF-8 token range, and malformed provider digest.
 The event sink separately tests root, kind, and source-coverage rejection.
@@ -515,7 +514,7 @@ categories, as in Scheme.
 
 Projected children retain their declared fields. Nested captures own their
 subtrees without cloning accumulated token/event suffixes. An iterative walk
-materializes events once for the existing Rowan sink, which separately verifies
+materializes events once for the existing source-index sink, which separately verifies
 ordered, exhaustive token coverage. Projection construction does not decide
 syntax recognition or recovery.
 
@@ -586,7 +585,7 @@ The Scheme generator executes the production Bash profile and an inherited
 POO profile with Unicode parameter prefixes, operators, index delimiters,
 quote/escape openers and a shorter-prefix rule override. Rust independently
 recognizes 110 bounded sources with nonzero byte origins. Complete events,
-preorder fields, rejection/no-assignment outcomes and lossless Rowan text are
+preorder fields, rejection/no-assignment outcomes and lossless source text are
 compared. A 512-level parameter control uses the same explicit task stack.
 This qualifies shared Word/Binding execution. Command interpretation and full
 Source ParseArtifact admission/parity remain open, and no end-to-end parser
@@ -606,7 +605,7 @@ builder or separate constructor schema is introduced.
 
 Scheme-executed catalog controls cover interleaved SimpleCommand children,
 repeated Pipeline commands, Unicode fields and an empty root. The Rust tests
-compare complete events and lossless Rowan output. A separate integration
+compare complete events and lossless source-index output. A separate integration
 recognizes Words in Rust and moves them into Command and Source nodes through
 one shared catalog. These controls qualify construction and composition only;
 they do not establish Command syntax recognition or full Source AOT. The next
@@ -634,7 +633,7 @@ constructs command/list/pipeline/and-or and redirection results, and associates
 heredoc bodies with their markers in FIFO order. Quoted marker bodies retain raw
 tokens; unquoted bodies use the shared PartProfile. =CommandParse.events= inserts
 scanner trivia at the same recognition boundaries as Scheme, validates source
-order and publishes complete Rowan events. Languages supply data; the internal
+order and publishes complete syntax events. Languages supply data; the internal
 cursor/VM bridge is private and requires no downstream callbacks.
 
 The public =rust-runtime-support= facade exports
@@ -658,7 +657,7 @@ The actual Scheme Source engine generates 54 accepted/rejected controls.
 Production controls cover all 14 Bash forms and nested constructs; a second POO
 value overrides Unicode command keywords, pipeline membership, root projection
 and the nullable prefix declaration. Rust compares complete events, preorder
-fields and marker/body links, then verifies lossless Rowan text. Negative gates
+fields and marker/body links, then verifies lossless source text. Negative gates
 cover malformed tapes, source/catalog ownership, selectors and cyclic/nullable
 programs. Regeneration is byte-exact after rustfmt under the existing 90/5 fence.
 These controls qualify standalone Source recognition and publication, including

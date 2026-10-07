@@ -12,3 +12,7 @@ pub use view::{
 };
 pub use wire::{NativeArtifactError, NativeEvent, NativeEventKind};
 pub mod syntax;
+
+#[cfg(test)]
+#[path = "../tests/unit/language_alignment.rs"]
+mod language_alignment_tests;

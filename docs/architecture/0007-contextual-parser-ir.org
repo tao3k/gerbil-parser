@@ -1271,7 +1271,7 @@ included in this branch; that checkpoint did not include a remote push.
 On 2026-10-03 the accumulated branch was pushed to PR #13 at =07ae542=.
 Fetching and rebasing against both that PR head and =origin/main= at
 =c6ecb40= reported that the branch was already up to date. The exact-head
-Rust/Rowan CI passed, while both native jobs hit the five-second silence
+Rust CI passed, while both native jobs hit the five-second silence
 watchdog in =t/benchmark-test.ss=.
 
 The test batch now reports only completed 1,000-parse batches. Its output cost

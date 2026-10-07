@@ -55,6 +55,13 @@
           (symbol->string (cadr row))
           (list->vector (map symbol->string (caddr row)))))
 
+;; Atomic/contextual rejection may publish opaque unscanned source. This engine
+;; token is part of the native result vocabulary, not a grammar recognition rule.
+(def (native-terminal-rows descriptor)
+  (let (rows (descriptor-section descriptor 'terminals))
+    (if (assq 'unknown rows) rows
+      (append rows '((unknown token))))))
+
 (def (terminal->datum row)
   (vector (symbol->string (car row))
           (symbol->string (cadr row))))
@@ -96,7 +103,7 @@
     (make-native-language
      id grammar parser
      (indexed-symbols (map car (descriptor-section grammar 'syntax-kinds)))
-     (indexed-symbols (map car (descriptor-section grammar 'terminals)))
+     (indexed-symbols (map car (native-terminal-rows grammar)))
      field-symbols
      (indexed-symbols field-symbols) #f)))
 
@@ -270,9 +277,7 @@
                               'syntax-kinds))))
          (terminals
           (list->vector (map terminal->datum
-                             (descriptor-section
-                              (native-language-descriptor language)
-                              'terminals))))))
+                             (native-terminal-rows (native-language-descriptor language)))))))
     (let* ((descriptor (native-language-descriptor language))
            (policy (and (language-grammar? descriptor) (language-grammar-parser-policy descriptor))))
       (when policy

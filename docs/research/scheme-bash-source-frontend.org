@@ -196,7 +196,7 @@ entries, value/POO contracts, topology, services, composition/provenance control
 and the ten-entry one-sample benchmark smoke. This is incremental local evidence;
 the smoke is not a performance comparison.
 
-The preceding GitHub head, =2a55f99=, passed Rust/Rowan CI, but both native CI jobs
+The preceding GitHub head, =2a55f99=, passed Rust CI, but both native CI jobs
 exceeded the 240-second conformance compilation fence. Local incremental checks
 do not establish that clean CI gate. No timeout was widened.
 
@@ -327,8 +327,7 @@ whose metadata supplies language identity. The existing entry-boundary suite
 now checks native publication for accepted and rejected GQL/Cypher input,
 including UTF-8 and the binary event count/length contract.
 
-Rust consumers require usable AST access to Scheme results. They do not require
-Rowan APIs for this project. The intended primary path is:
+Rust consumers access Scheme AST results through the following primary path:
 
 #+begin_example
 Rust caller -> C ABI -> Scheme parser engine -> canonical result
@@ -345,21 +344,14 @@ fields through the canonical result catalog, with no second grammar contract.
 The implemented native Rust wrapper now obtains a catalog from its own language
 handle and borrows GPA1 through =NativeParsed::view()=. Node, token and named
 field navigation require no generated =LanguageSpec= or =ContextualParserSpec=.
-The native crate depends only on =gerbil-parser-artifact=; Rowan and the native
-conversion API have been removed. The independent Rust AOT backend uses flat
+The native crate depends only on =gerbil-parser-artifact= and exposes borrowed
+navigation directly over the admitted payload. The independent Rust AOT backend uses flat
 source-range indexes in =gerbil-parser-runtime= and is not a dependency of the
 primary Scheme FFI client. See [[../architecture/0006-rust-aot.org][the implementation and qualification contract]].
 
-[[https://docs.rs/rowan/0.16.1/rowan/][Rowan 0.16.1]] describes a lossless tree library. It does not replace parser
-semantics or establish that its tree materialization is needed by this API.
-The current =to_rowan= conversion omits field records from its tree; fields remain
-in the native event stream. Rust AST access must preserve those associations
-rather than require conversion through a representation that omits them.
-
 Benchmark obligations distinguish Scheme execution, ABI transport, artifact
 admission/indexing, AST field traversal and optional extra tree materialization.
-No claim that Scheme FFI is faster or slower than Rowan follows from architecture
-alone. Equivalent outputs and downstream traversal must be compared before a
+Architecture alone establishes no relative performance result. Equivalent outputs and downstream traversal must be compared before a
 performance conclusion is admitted.
 
 Qualification: the final native link exited 0 in 36.06 seconds. All 26 DSL
@@ -385,7 +377,7 @@ The current refactor implements the separation proposed above: an independent
 =gerbil-parser-artifact= vocabulary and borrowed AST API, handle-bound catalog
 admission, engine-derived =rootKind= publication, and field-owner validation.
 The FFI client has no dependency on generated =LanguageSpec= values or on the
-independent Rust AOT executor. Rowan and GreenNode construction are removed.
+independent Rust AOT executor. Native consumers retain borrowed event navigation without materializing another tree.
 
 #+begin_src scheme
 ;; Parser products publish their actual root and result catalog together.

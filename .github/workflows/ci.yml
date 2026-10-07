@@ -194,6 +194,13 @@ jobs:
       - name: Verify Scheme DSL and native POO declaration closure
         run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research
 
+      - name: Verify every language native artifact contract
+        run: |
+          gerbil env bash -c 'python3 scripts/run-bounded.py --timeout 10 --idle-timeout 5 \
+            --log .data/native-language-alignment.log --require NATIVE-LANGUAGE-ALIGNMENT-GENERATED \
+            -- "$GERBIL_PATH/bin/gerbil-parser-conformance" native-language-alignment /tmp/native-languages.bin'
+          cmp /tmp/native-languages.bin rust/gerbil-parser-artifact/tests/fixtures/languages.bin
+
       - name: Compile Scheme test support
         run: |
           gerbil env gxc t/native-datum-support.ss \
@@ -359,7 +366,7 @@ jobs:
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
             --log .data/rust-native-ownership.log --require RUST-NATIVE-OK \
-            --require 'RUST-NATIVE-OWNERSHIP-OK handles=2 results=111' \
+            --require 'RUST-NATIVE-OWNERSHIP-OK handles=2 results=113' \
             --require RUST-NATIVE-100-CALLS \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/rust-language-probe")' \
             -e '(import :gerbil-parser/t/fixtures/native-ffi/rust-language-probe) (main)'

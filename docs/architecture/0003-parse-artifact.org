@@ -13,7 +13,7 @@ delivery schedule.
 stream owns source coverage, structural nesting, field scopes, and stable event
 identities.  The generated parser may create private recognition values while a
 request is active, but those values are never published.  Gerbil CST values and
-downstream Rowan or custom trees are replay projections, not parser authority.
+borrowed Rust views and custom trees consume those events.
 
 #+begin_src mermaid
 flowchart LR
@@ -132,7 +132,7 @@ authority.
 - Hashing the complete Parser IR on every parse request.
 - Revalidating a trusted builder result with a second full hot-path replay.
 - Adding dormant recovery or incremental event variants.
-- POO dispatch, Rowan ownership, or language-specific behavior in artifact code.
+- POO dispatch or language-specific recognition in artifact code.
 
 * Executable admission
 

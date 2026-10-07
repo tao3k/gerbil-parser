@@ -35,14 +35,14 @@
 (def +parser-artifact-cache-schema+
   "gerbil-parser.parser-artifact-cache.v1")
 (def +parser-artifact-generator-contract+
-  "gerbil-parser.lalr1-generator.v2")
+  "gerbil-parser.lalr1-generator.v3")
 (def +language-declaration-cache-schema+
   "gerbil-parser.language-declaration-cache.v1")
 (def +language-declaration-generator-contract+
-  "gerbil-parser.language-declaration-generator.v2")
+  "gerbil-parser.language-declaration-generator.v3")
 
-;; v2 publishes layout-guard actions. Older declaration/parser receipts must
-;; regenerate even when their authored grammar bytes have not changed.
+;; v3 derives aliased entry roots independently of syntax catalog order.
+;; Both cache layers must regenerate when compiler semantics change.
 
 ;; : (-> Datum String)
 (def (serialize value)

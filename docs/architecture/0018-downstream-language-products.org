@@ -18,9 +18,9 @@ expansion evaluation and alias execution are outside its parser contract.
 
 | Seam | Implemented at the audited head | Missing product behavior |
 |------+---------------------------------+--------------------------|
-| Authoring | Public =rust-rowan-grammar-support.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
-| Generation | =native-rust-rowan-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
-| Rust runtime | =parse(&LANGUAGE, source)=, generated LR tables, operand fields, lossless Rowan events | Contextual/deferred scanner IR parity and generated typed node access |
+| Authoring | Public =rust-runtime-grammar-support.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
+| Generation | =native-rust-runtime-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
+| Rust runtime | =parse(&LANGUAGE, source)=, generated LR tables, operand fields, lossless Rust syntax events | Contextual/deferred scanner IR parity and generated typed node access |
 | Scanner | Scheme contextual dispatch, balanced-word and deferred FIFO scanner tests | A Bash grammar with structured word interiors and matching Rust execution |
 | Distribution | Independent records Cargo fixture, no Gerbil at parse time | Release/package automation, minimal C product and Rust FFI consumer |
 | Runtime C ABI | Owned result allocation/release, UTF-8 error payloads, real C callback probe | Language-independent handles, explicit byte lengths and runtime-owner facade |
@@ -28,7 +28,7 @@ expansion evaluation and alias execution are outside its parser contract.
 The current =src/ffi/parse-artifact-v1.ss= imports GQL and openCypher directly;
 its =resolve-native-language= selects those builtins by name. That is not the
 extensibility boundary for a downstream language repository. The build-only
-=src/ffi/rust-rowan-aot-v1.ss= already accepts an external grammar path.
+=src/ffi/rust-runtime-aot-v1.ss= already accepts an external grammar path.
 The two C interfaces must remain distinguishable to downstream consumers.
 The current Rust lexical expression enum includes a heredoc expression, but
 that does not establish Bash queued marker, quote removal or =<<-= semantics.
@@ -59,7 +59,7 @@ runtime only. Gerbil is a producer/release tool, not a required consumer tool.
 
 | Product | Consumer dependency | Runtime authority | Admission |
 |---------+---------------------+-------------------+-----------|
-| Pure Rust AOT crate | Generic Rowan runtime + selected generated language | Generated Grammar/Parser/Scanner IR | All required operations admitted by Rust backend |
+| Pure Rust AOT crate | Generic Rust runtime + selected generated language | Generated Grammar/Parser/Scanner IR | All required operations admitted by Rust backend |
 | Native C library + Rust safe facade | Selected Gerbil AOT closure + native runtime dependencies | Same compiled language IR executed in Gerbil | C lifecycle, result ownership and parity gates |
 
 Both products use the same language artifact identity. Packaging may produce
@@ -273,7 +273,7 @@ unique-tail release avoid recursive stack growth. Contextual GLR forks fail
 explicitly, matching the current Scheme contextual admission boundary.
 
 The independent Records fixture compares canonical Scheme/contextual events,
-canonical Rust/contextual Rowan trees, and a generated language C entry. Scanner
+canonical/contextual source-indexed trees, and a generated language C entry. Scanner
 traces come from Scheme execution of the same IR. Committed generated Rust
 fixtures belong to the Cargo package, and native CI regenerates/compares all
 three products. No downstream Rust scanner or core builtin dispatch change is
@@ -583,7 +583,7 @@ the engine; =RecursiveSourceStrategy.= admits the reviewed HCL corridor.
 
 =BuildStrategy.= and =BuildStrategyContract= now own descriptor/IR identity,
 exact digest, POO metadata, registered provider and truthful =kind=/=format=
-slots. =FusedReductionStrategy.= and =RustRowanStrategy.= inherit this common
+slots. =FusedReductionStrategy.= and =RustRuntimeStrategy.= inherit this common
 prototype and apply their own additional constraints. =LanguageLoaderContract=
 validates the common protocol, and =emit-language-build-strategy= invokes
 =emit-build-strategy=. Neither common dispatcher branches on language or strategy
@@ -664,7 +664,7 @@ with an unbound metadata object rejects. The Loader schema remains v2.
 
 The Rust producer emits corresponding =LexicalExpr::HeaderDelimiter= and
 =LexicalExpr::HeaderData= values from canonical Scheme IR. Two complete generated
-language specs compile and execute with Rust/Rowan: the real HL7 fixture and
+language specs compile and execute with Rust: the real HL7 fixture and
 custom message delimiters, and the independent Unicode header-record language.
 CI regenerates both formatted Rust source products and compares them exactly.
 =languages/hl7/scanner.ss= is deleted; no import alias or fallback scanner remains.

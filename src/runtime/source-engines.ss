@@ -1,5 +1,5 @@
 ;;; Closed source recipes share the source engine protocol; no language imports.
-(import (only-in ../language/command-profile compile-command-profile admit-command-plan command-plan-recipe)
+(import (only-in ../language/command-profile compile-command-profile admit-command-plan command-plan-recipe command-plan-kind)
         (only-in :clan/poo/object .o .ref .slot?)
         (only-in ../language/source-strategy SourceStrategy. declare-source-strategy-provider make-source-engine)
         (only-in ./region-scanner region-plan? region-plan-specification prepare-region-plan)
@@ -33,7 +33,7 @@
         (list (region-plan-specification regions) scanner-ir
               (result-plan-recipe results) (part-plan-recipe parts)
               (command-plan-recipe commands))
-        (make-source-engine scan factory parse receipt results 'SourceFile)))))
+        (make-source-engine scan factory parse receipt results (command-plan-kind commands 'BashFile))))))
 (def +shell-source-provider+
   (declare-source-strategy-provider 'shell shell-source-admit? compile-shell-source))
 (def ShellSourceStrategy.

@@ -35,11 +35,11 @@ the existence of actor threads alone is not a multicore performance receipt.
   recovery disabled because its layout-frame state is not serialized into
   checkpoints.  An actor must not make that incomplete checkpoint portable by
   passing it between requests.
-- AOT/Rowan FFI is a separate ownership and thread-affinity contract.  Before
+- Native FFI is a separate ownership and thread-affinity contract.  Before
   concurrent FFI calls are admitted, generated and native artifacts need an
   explicit Send/Sync or single-owner rule, lifetime rule for source buffers,
   and differential parse receipts.  The Scheme actor decision grants no
-  implicit permission to share Rowan handles across threads.
+  implicit permission to share native handles across threads.
 
 * Acceptance
 

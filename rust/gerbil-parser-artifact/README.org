@@ -4,7 +4,7 @@
 
 =gerbil-parser-artifact= admits the Scheme-owned GPA1 result and the inert
 native descriptor from the same language handle. It contains no language
-recognizer and depends on neither the Rust AOT executor nor Rowan.
+recognizer and depends on no execution backend or third-party tree representation.
 =gerbil-parser-native= obtains and caches this catalog through its handle;
 callers use =parsed.view()= without passing a generated parser specification.
 
@@ -54,7 +54,7 @@ The =syntax= module stores an owned source allocation plus a validated flat
 preorder index for the independent Rust AOT backend. It is not used to convert
 native Scheme artifacts. AOT execution remains in =gerbil-parser-runtime=;
 its generated tables and semantic controls remain independent of native FFI.
-Both access paths avoid per-token string storage and GreenNode construction.
+Both access paths avoid per-token string storage and additional tree materialization.
 
 * Evidence boundary
 

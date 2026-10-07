@@ -1,7 +1,7 @@
 ;;; A second source family shares admission, identity, workers and publication.
 (import :std/test
         (only-in :clan/poo/object .o .cc)
-        (only-in :gerbil-parser/src/language/source-strategy SourceStrategy. bind-source-strategy declare-source-strategy-provider)
+        (only-in :gerbil-parser/src/language/source-strategy SourceStrategy. bind-source-strategy declare-source-strategy-provider make-source-engine source-engine-scanner source-engine-factory source-engine-parse source-engine-receipt source-engine-results)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
         (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language source-language-digest)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-success? parse-artifact-roundtrip)
@@ -32,6 +32,15 @@
        (check compilations => 1)
        (check compiled-recipe => (list (quote counted) (cadr recipe)))
        (check (eq? compiled-engine engine) => #t))))))
+  (test-case "source roots must belong to the compiled result catalog"
+   (let-values (((recipe engine) (bind-source-strategy LineSourceStrategy.)))
+    (let* ((bad (make-source-engine (source-engine-scanner engine)
+                 (source-engine-factory engine) (source-engine-parse engine)
+                 (source-engine-receipt engine) (source-engine-results engine) 'UndeclaredRoot))
+           (bad-root-provider (declare-source-strategy-provider 'bad-root (lambda (_) #t)
+                       (lambda (_) (values (cadr recipe) bad))))
+           (strategy (.o (:: self SourceStrategy.) provider: bad-root-provider)))
+     (check (rejects? (lambda () (bind-source-strategy strategy))) => #t))))
   (test-case "line recipe publishes lossless UTF-8 artifacts and owned workers"
    (let* ((source "#α\nsecond\n") (artifact (parse-notes source))
           (worker (make-language-scan-worker notes-language 'lines source)))

@@ -48,7 +48,7 @@ flowchart TD
   F --> O[Generated parser machine]
   O --> T[ParseArtifact v1]
   T --> E[CST event projection]
-  E --> R[Rowan or Gerbil or custom sink]
+  E --> R[Borrowed Rust view or Gerbil or custom sink]
   T --> Q
   Q --> P
 #+end_src
@@ -193,7 +193,7 @@ contracts.
 * ParseArtifact and CST events
 
 The parser owns a backend-neutral immutable parse artifact so structural truth
-does not depend on Rowan.  RFC 0003 owns the admitted event algebra, identity,
+is defined by Scheme events.  RFC 0003 owns the admitted event algebra, identity,
 failure boundary, validator, and replay projection.  Only implemented variants
 belong to v1:
 
@@ -229,7 +229,7 @@ matcher.
 - POO dispatch in generated parser or matcher hot paths.
 - Pratt parsing as a second grammar authority.
 - Query predicates that execute arbitrary effects during matching.
-- Rowan ownership inside =gerbil-parser=.
+- A second structural authority in downstream syntax views.
 
 * Executable feature contracts
 

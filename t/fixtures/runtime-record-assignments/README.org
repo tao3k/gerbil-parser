@@ -5,7 +5,7 @@ This fixture owns the same =grammar.ss=, =parser.ss=, =fixtures.ss=,
 It deliberately has no =gerbil.pkg= or Gerbil installation contract. Upstream
 generation CI drives its public
 =:gerbil-parser/rust-runtime-grammar-support= declaration through the standalone
-=gerbil-parser-rowan-aot= product and verifies the committed Rust module. The
+=gerbil-parser-runtime-aot= product and verifies the committed Rust module. The
 consumer acceptance step is then a standalone Cargo build: it needs only
-=gerbil-parser-rowan= and the generated module, never Gerbil, a private engine
+=gerbil-parser-runtime= and the generated module, never Gerbil, a private engine
 module, or a handwritten syntax sink.

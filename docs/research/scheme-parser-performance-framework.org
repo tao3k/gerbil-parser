@@ -114,7 +114,7 @@ so this corpus does not establish an end-to-end gain from the number DFA. These
 numbers measure a complete batch, not process import or compilation; they also
 do not establish per-language scalability. Keep the DFA for its lexical
 semantics and focused speed evidence, but measure phase costs before adding
-more rule forms. The language-pack and generated Rust/Rowan conformance gates
+more rule forms. The language-pack and generated Rust conformance gates
 remain required. Add subtree certificates and edit-local LR actions where edits
 justify them. The follow-partition route remains an
 explicit construction choice until a real conflict-bearing language corpus
@@ -174,7 +174,7 @@ The focused Grammar IR test constructs complete v1 IR from the LR(1)-only and
 precedence fixtures, calls =compile-parser= with the direct and canonical
 choices, and compares their LR parse products. Under the pinned v0.19 build,
 it also compares both routes on the generated arithmetic language using its
-actual lexer and three source expressions. It does not exercise Rowan.
+actual lexer and three source expressions. It does not exercise Rust syntax.
 
 ** Bounded canonical trial at medium grammar size
 
@@ -679,7 +679,7 @@ and complete-spec comparison outside CPU timing. In-call GC is included.
 
 The TLA+ complete-call reduction is about 13 percent on this host; the small
 mixed/local differences do not establish a general gain. These are Scheme
-generator construction measurements, not parser or Rust/Rowan throughput.
+generator construction measurements, not parser or Rust throughput.
 An intermediate dual-namespace alternating trial had 30/30 faster candidate
 pairs, but its original copies incurred more GC than the fresh production
 baseline, so that timing ratio is not used as the production speedup.
@@ -1056,7 +1056,7 @@ test suites.
 | Route | Scheme generator change | Likely benefit | Main risk |
 |-
 | Tree-sitter-style contextual DFA + LR/GLR + subtree reuse | Extend Grammar IR lowering, lexer automaton generation, parse-state token masks, and reusable tree metadata. | One coherent batch and incremental architecture; keeps deterministic ordinary cases. | Largest migration; context-sensitive or external scanners and recovery must preserve language-specific behavior. |
-| Lezer-style compact LR/GLR + fragments | Encode compact tables and balanced tree fragments in Scheme products. | Lower runtime footprint and explicit ambiguity policy. | Fragment semantics and tree representation diverge from current lossless ParseArtifact/Rowan boundary. |
+| Lezer-style compact LR/GLR + fragments | Encode compact tables and balanced tree fragments in Scheme products. | Lower runtime footprint and explicit ambiguity policy. | Fragment semantics and tree representation diverge from current lossless ParseArtifact/Rust syntax boundary. |
 | Bison IELR table generation | Replace or augment LALR state construction. | Better grammar recognition with potentially modest tables. | Does not directly address lexical dispatch, full-source reparsing, or output construction. |
 | re2c-style lexer only | Compile closed lexical algebra into DFA or direct code. | An isolated lexical experiment for batch throughput and contextual lexing. | Not a complete parsing framework; must retain maximal-munch, precedence, declaration tie order, UTF-8 offsets, and fallback behavior. |
 | langcc-style optimized LR automaton | Generate a lookahead-partitioned LR NFA/DFA from Scheme Grammar IR and compare its states, conflicts, build time, and generated parser throughput with the current LALR path. | Directly targets fresh parsing and grammar expressiveness without replacing Scheme authorship. | The paper's speed results do not isolate each innovation; XLR has no langcc implementation to reuse. |
@@ -1773,7 +1773,7 @@ so no standalone AOT throughput is claimed.
    after nested structures, including edits that change downstream lexical
    context. Measure re-lexed bytes, LR actions, reused node counts, memory,
    and elapsed time; timing alone cannot prove edit locality.
-5. Apply the same generated contract to the Rust/Rowan product only after the
+5. Apply the same generated contract to the Rust product only after the
    Scheme algorithm and semantic receipts pass. Rust is a downstream consumer
    and conformance check, not the source of parser decisions.
 
@@ -1823,6 +1823,6 @@ declarative Observability entry and accept this dynamic-import cost rather
 than adding a second parser/Core facade. In one
 process, 1,000 LR parses of a prepared token stream
 took 30.5 ms total. These are one-host short-input observations, not a
-throughput improvement claim. Run the Rowan differential gates before
+throughput improvement claim. Run the Rust syntax differential gates before
 promoting this optional route.
 Do not use =gxpkg uninstall= in this workspace.

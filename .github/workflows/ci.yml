@@ -385,6 +385,13 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")' \
             -e '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'
 
+      - name: Compile loadable native test modules
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
+            --log .data/shared-native-tests-build.log \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)' \
+            -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (compile-shared-tests!))))) (exit 0)'
+
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: |

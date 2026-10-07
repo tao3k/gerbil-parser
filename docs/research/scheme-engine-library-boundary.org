@@ -134,7 +134,7 @@ these responsibilities; it does not establish equivalence of the imported lexer.
 
 * Reproducible verification
 
-Build =gxi build-language-conformance.ss compile=, then run
+Build =bash scripts/build-language-conformance-native.sh=, then run
 =bash scripts/check-dsl-research.sh= in the project-qualified Gerbil environment.
 The build installs =gerbil-parser-conformance= as a native Gerbil executable.
 Suite processes call compiled runtime bindings without re-admitting the full
@@ -422,3 +422,34 @@ The local cold-static receipt removed 451 generated C/object files from the
 disposable package environment. With four workers, static translation, compilation
 and linking completed in 90.65 seconds with exit zero under the 240/5-second
 fences. This reused Scheme compilation outputs and SDK objects.
+
+** Separate static and shared test artifact owners
+
+At =87972d8=, Linux still exhausted 240 seconds: shared test-module compilation
+finished at about 80 seconds, then the runner compiled the project closure for
+static linkage. macOS stopped at the five-second silence fence before that link
+phase. These failed runs invalidate complete platform closure claims.
+
+A shared-module runner prototype avoided static compilation but failed the
+unchanged ten-second all-language admission fence. It was discarded; the closed
+native conformance entry remains the owner of runtime controls and binary fixture
+publication. This negative result is not a reason to relax the runtime limit.
+
+=compile-static-conformance!= uses the official Gerbil =compile-module= API with
+=invoke-gsc: #f= for test leaf declarations. Their interfaces and static Scheme
+products feed the existing parallel native link owner, which compiles the closed
+runtime once. Source-expansion research helpers retain their loadable native
+products. The later =compile-shared-tests!= owner generates loadable native test
+modules for gxtest's source-interface imports. Both artifact forms remain tested;
+conformance does not manufacture an unused second form before its runtime gate.
+The separate shared-test owner also retains a 240/5-second build fence. Production
+optimization settings, independent AOT ownership and all child fences are unchanged.
+
+The disposable-environment check quarantined 401 prior shared test outputs before
+building the static product. That owner completed in 71.90 seconds, followed by
+all 28 bounded children exiting zero and exact regeneration of the twenty native
+ABI controls. The independent shared-test build completed in 30.06 seconds.
+These receipts reused production/SDK objects; complete Linux/macOS cold closure
+still requires exact-head CI. The combined static owner must run generation and
+linkage in one compiler process, as in =scripts/build-language-conformance-native.sh=.
+This retains compiler phase contexts while constructing the closed product.

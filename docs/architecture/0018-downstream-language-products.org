@@ -8,10 +8,13 @@ Product contract and implementation track. The original proposal was grounded in
 =675755009e46824327a1c05d5c787087c1297af4=. The interfaces and commands described
 as targets below remain targets unless listed in the implementation section. This proposal extends RFCs
 0004, 0006, 0007 and 0008; it does not introduce another grammar authority.
+The original audit table below retains the names and limitations of that head.
+The implemented Rust/native access contract is now maintained in
+[[file:0006-rust-aot.org][RFC 0006]]; later executable examples use current =rust-runtime= names.
 Bash 5.3 source syntax is the first demanding consumer. Shell execution,
 expansion evaluation and alias execution are outside its parser contract.
 
-* Current executable seams and gaps
+* Original audited seams and gaps
 
 | Seam | Implemented at the audited head | Missing product behavior |
 |------+---------------------------------+--------------------------|
@@ -241,9 +244,9 @@ GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
 
 * Shared scanner / contextual AOT / language C ABI implementation
 
-The public =rust-rowan-support= facade now exports
+The public =rust-runtime-support= facade now exports
 =generate-rust-scanner-module= and
-=generate-contextual-language-rust-rowan-module=. The latter takes the existing
+=generate-contextual-language-rust-runtime-module=. The latter takes the existing
 LanguageGrammar descriptor and its Scheme-compiled contextual product. It
 emits ordinary Rust data: LanguageSpec, shared ScannerSpec, LR state positions
 and ContextualParserSpec. =parse_contextual(&CONTEXTUAL, source)= uses the LR
@@ -593,8 +596,8 @@ HCL and Arithmetic both declare the two real engine providers:
 (slots build-strategies:
        (list (declare-language-build-strategy 'fused-reductions
                (make-fused-reduction-strategy my-language-grammar))
-             (declare-language-build-strategy 'rust-rowan
-               (make-rust-rowan-strategy my-language-grammar))))
+             (declare-language-build-strategy 'rust-runtime
+               (make-rust-runtime-strategy my-language-grammar))))
 #+end_src
 
 A downstream name is independent of provider kind. POO prototypes may inherit
@@ -621,7 +624,7 @@ the registered provider even when a recipe overrides its =.emit= method.
 
 Emitters must materialize/validate output before writing to the caller's port.
 The fused provider retains its closed LR action algebra; the Rust provider calls
-the existing =language-rust-rowan-module-source= producer unchanged, preserving
+the existing =language-rust-runtime-module-source= producer unchanged, preserving
 Scanner IR and portable-policy rejection. Both providers are build operations;
 repeated source parsing invokes neither provider admission nor generation.
 A format identifier does not grant a new portable runtime capability. No C

@@ -31,6 +31,10 @@ specification or field-count argument is required. The immutable descriptor is
 admitted once per handle. =root=, =children= and =field(name)= borrow the original
 source and retain ordered nodes, tokens, repeated fields and byte spans.
 A syntax rejection is a successful transport with =view.accepted() == false=.
+=for token in view.tokens()= still exposes the original scanner classes, syntax
+kinds, ids, byte spans and borrowed text for diagnostics. This does not fabricate
+an accepted AST or recovery result. Accepted and rejected paths use the same
+handle catalog and retain the same lifetime restrictions.
 Handles, results and views are tied together by Rust borrows. Sessions cannot
 cross threads. Dropping a result releases its C allocation; dropping a language
 releases its registered handle. The wrapper does not copy source or GPA1 bytes,

@@ -92,6 +92,12 @@ impl<'a> NativeArtifactView<'a> {
             .iter()
             .map(wire::event)
     }
+    /// Borrow all scanner tokens in producer order, including syntax rejection.
+    pub fn tokens(&self) -> impl Iterator<Item = NativeToken<'_, 'a>> + '_ {
+        (0..self.index.len()).filter_map(|at| {
+            (self.event(at).kind == Kind::Token).then_some(NativeToken { view: self, at })
+        })
+    }
     /// Return a token source slice. Callers cannot forge an out-of-source range.
     #[must_use]
     pub fn token_text(&self, event: NativeEvent) -> Option<&'a str> {
@@ -217,7 +223,18 @@ pub struct NativeToken<'v, 'a> {
     at: usize,
 }
 impl<'v, 'a> NativeToken<'v, 'a> {
-    /// Canonical token class name.
+    /// Scanner token ordinal, independent of syntax node ids.
+    #[must_use]
+    pub fn id(&self) -> u64 {
+        self.view.event(self.at).id
+    }
+    /// Original scanner class, before its mapping to a syntax token kind.
+    #[must_use]
+    pub fn class(&self) -> &'a str {
+        &self.view.catalog.terminals[self.view.event(self.at).symbol as usize].name
+    }
+
+    /// Published syntax kind, falling back to the scanner class when unmapped.
     #[must_use]
     pub fn kind(&self) -> &'a str {
         let terminal = &self.view.catalog.terminals[self.view.event(self.at).symbol as usize];

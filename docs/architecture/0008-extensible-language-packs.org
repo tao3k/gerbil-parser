@@ -496,7 +496,7 @@ Source v1, native metadata v1 and C ABI v2 do not change.
 ** Shared Rust result projection execution
 
 =result-profile-rust-source= lowers any admitted POO =ResultProfile.= or bound
-result plan through the existing Rust/Rowan compiler. It emits an immutable
+result plan through the existing Rust compiler. It emits an immutable
 =ResultProfileSpec=: category-separated kinds, declared node fields, typed
 span/node/parts captures and ordered token/one/many instructions. Kind indexes
 are bounded before emission. Language directories gain no extra interface or
@@ -637,14 +637,14 @@ scanner trivia at the same recognition boundaries as Scheme, validates source
 order and publishes complete Rowan events. Languages supply data; the internal
 cursor/VM bridge is private and requires no downstream callbacks.
 
-The public =rust-rowan-support= facade exports
+The public =rust-runtime-support= facade exports
 =generate-command-source-rust-module=. Its input is one admitted POO
 =ShellSourceStrategy.= value, including inherited slots; its output is one
 immutable =CommandSourceSpec= combining scanner, regions, parts, commands and
 results. The Rust host prepares the product once and reuses it:
 
 #+begin_src scheme
-(import :gerbil-parser/rust-rowan-support)
+(import :gerbil-parser/rust-runtime-support)
 (generate-command-source-rust-module my-source-strategy "src/generated.rs")
 #+end_src
 

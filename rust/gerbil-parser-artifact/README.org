@@ -34,7 +34,14 @@ records matching scope boundaries and node parents. Navigation preserves
 producer order, token trivia, UTF-8 byte spans, named field scopes, repeated
 fields and zero-width fields. Node and token text are slices of the original source.
 Field scopes remain associations; they are not converted to anonymous nodes.
-Rejected syntax exposes admitted token events but no accepted root.
+Rejected syntax exposes =view.tokens()= but no accepted root. The same borrowed
+token API is available for accepted input: =id()= is the scanner ordinal,
+=class()= is the original terminal class, and =kind()= is its published syntax
+kind (or the class for unmapped source tokens). These identities remain distinct;
+for example, an =item-token= scanner class can publish an =Identifier= syntax
+kind. Iteration preserves all trivia and returns slices of the original source,
+with no token-text allocation or recognition replay. Accepted tokens expose their
+owning node; rejected tokens have no invented node parent.
 
 Admission checks grammar and source digests, complete source coverage, catalog
 indices, node/token identities, nesting, field ownership and UTF-8 boundaries

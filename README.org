@@ -320,5 +320,5 @@ syntax corpus remain explicit future contracts.
   syntax files at macro expansion, while =defsyntax-corpus= owns multi-file
   manifests, so downstream conformance tests and
   benchmarks share one declarative source contract without runtime file I/O.
-- =docs/architecture/0006-rust-runtime-aot.org= keeps =grammar.ss= authoritative
+- =docs/architecture/0006-rust-aot.org= keeps =grammar.ss= authoritative
   while publishing reusable Rust parser and indexed CST products.

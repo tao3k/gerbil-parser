@@ -467,7 +467,7 @@ digest remains the syntax identity; it does not fingerprint callback code.
 Version the policy identity when the rule changes.
 
 All standalone Rust descriptor products delegate to the engine's
-=language-rust-rowan-module-source= admission boundary: the ordinary module
+=language-rust-runtime-module-source= admission boundary: the ordinary module
 generator, the combined contextual Scanner/Parser IR generator, and the build
 ABI. They reject this Scheme policy before product preparation or writing output. Generating raw recognition IR is a narrower
 syntax-only product and cannot establish policy equivalence. A Rust caller using
@@ -498,8 +498,8 @@ language name in the engine nor a custom C dispatcher is required.
 |---+---+---|
 | Scheme | =deflanguage-parser-loader= | Syntax declarations, optional POO services/contracts, conformance fixtures |
 | Native C ABI / Rust native wrapper | =generate-native-language-pack= and =register-native-language!= | Export the configured descriptor, link the generated factory with the normal SDK builder, use generic handle/result ownership |
-| Standalone Rust/Rowan | =generate-language-rust-rowan-module=, =generate-contextual-language-rust-rowan-module=, or the engine build ABI | Supply an admitted portable descriptor, consume generated Rust with =gerbil_parser_rowan=, compare accepted/rejected artifacts |
-| Scheme source parser | =(source descriptor)= | Declare a source descriptor and language-specific recognition; current native codec and standalone Rust do not admit it |
+| Independent Rust AOT | =generate-language-rust-runtime-module=, =generate-contextual-language-rust-runtime-module=, or the engine build ABI | Supply an admitted portable descriptor, consume generated Rust with =gerbil_parser_runtime=, compare accepted/rejected artifacts |
+| Engine-bound source parser | =deflanguage= syntax provider, then its configured parser descriptor | Native C ABI publishes the engine result catalog; independent AOT requires an explicitly admitted source product |
 
 The C factory generator takes output Scheme/header paths, the generated module
 identity, the descriptor-exporting module, its descriptor name and a C symbol
@@ -512,7 +512,7 @@ process creation is outside the loader contract.
 For working native ownership examples see
 [[file:../rust/gerbil-parser-native/README.org][Rust native wrapper guide]]. For the standalone build ABI, portable scanner
 admission and external consumer witness see
-[[file:../docs/architecture/0006-rust-rowan-aot.org][Rust/Rowan AOT design]].
+[[file:../docs/architecture/0006-rust-aot.org][Rust AOT design]].
 
 * Generated backend declarations
 

@@ -22,7 +22,11 @@ not execute that backend or create its owned index. See
 
 No performance equivalence is inferred from removing Rowan. Scheme execution,
 transport, digest admission, index construction and field traversal remain
-separate benchmark costs. Recovery, incremental identity and other open parser
+separate benchmark costs. Borrowed =tokens()= navigation now covers both accepted
+and rejected source; scanner =class()= remains distinct from syntax =kind()=.
+The canonical/contextual fixtures include source borrowing, UTF-8, NUL, trivia,
+ordinal and parent controls, and the real host probe uses the same API.
+Recovery, incremental identity and other open parser
 IR obligations are not closed by this representation change.
 
 * Local qualification of the replacement

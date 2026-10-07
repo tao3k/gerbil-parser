@@ -295,3 +295,43 @@ fn repeated_zero_width_and_absent_fields_follow_canonical_associations() {
         assert_eq!(root.fields().count(), items.len() + 1);
     }
 }
+
+#[test]
+fn accepted_and_rejected_tokens_preserve_scanner_identity_without_an_ast() {
+    for (contextual, cases) in [(false, native::CASES), (true, native::CONTEXTUAL_CASES)] {
+        for &(source, payload) in cases {
+            let source = std::str::from_utf8(source).unwrap();
+            let catalog = catalog(contextual);
+            let view = NativeArtifactView::decode(payload, source, catalog).unwrap();
+            let events: Vec<_> = view
+                .events()
+                .filter(|e| e.kind == NativeEventKind::Token)
+                .collect();
+            let tokens: Vec<_> = view.tokens().collect();
+            assert_eq!(tokens.len(), events.len());
+            let mut offset = 0;
+            for (ordinal, (token, event)) in tokens.iter().zip(events).enumerate() {
+                assert_eq!(token.id(), u64::try_from(ordinal).unwrap());
+                assert_eq!(
+                    token.class(),
+                    catalog.terminals()[event.symbol as usize].name
+                );
+                assert_eq!(token.range().start, offset);
+                assert_eq!(token.range().end, event.end);
+                assert_eq!(token.text(), &source[offset..event.end]);
+                assert_eq!(token.text().as_ptr(), source[offset..].as_ptr());
+                assert_eq!(token.parent().is_some(), view.accepted());
+                offset = event.end;
+            }
+            assert_eq!(offset, source.len());
+        }
+    }
+    let catalog = NativeCatalog::from_descriptor(native::SCOPES_DESCRIPTOR).unwrap();
+    let (source, payload) = native::SCOPES_CASES[1];
+    let view = NativeArtifactView::decode(payload, std::str::from_utf8(source).unwrap(), &catalog)
+        .unwrap();
+    for token in view.tokens() {
+        assert_eq!(token.class(), "item-token");
+        assert_eq!(token.kind(), "Identifier");
+    }
+}

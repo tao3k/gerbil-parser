@@ -31,6 +31,25 @@ fn api() -> LanguageApi {
     api
 }
 
+fn check_tokens(view: &gerbil_parser_native::NativeArtifactView<'_>, source: &str) {
+    let mut offset = 0;
+    for (ordinal, token) in view.tokens().enumerate() {
+        assert_eq!(token.id(), u64::try_from(ordinal).unwrap());
+        assert_eq!(token.range().start, offset);
+        assert_eq!(token.text(), &source[offset..token.range().end]);
+        assert_eq!(token.text().as_ptr(), source[offset..].as_ptr());
+        assert!(
+            view.catalog()
+                .terminals()
+                .iter()
+                .any(|t| t.name == token.class())
+        );
+        assert_eq!(token.parent().is_some(), view.accepted());
+        offset = token.range().end;
+    }
+    assert_eq!(offset, source.len());
+}
+
 fn check() {
     RELEASED.store(0, Ordering::Relaxed);
     FREED.store(0, Ordering::Relaxed);
@@ -64,6 +83,7 @@ fn check() {
             // The view uses the original C buffer: no Rust payload copy.
             let original = parsed.bytes().unwrap();
             assert!(original.starts_with(b"GPA1"));
+            check_tokens(&view, source);
             let other = second.parse("b=1\n").expect("concurrent owned result");
             assert!(other.view().unwrap().accepted());
             assert_eq!(parsed.bytes().unwrap().as_ptr(), original.as_ptr());

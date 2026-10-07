@@ -510,3 +510,12 @@ it has not been replaced by =gerbil-scheme-rust= archive APIs in this change.
 Those APIs require a compiler-owned program manifest and a static archive
 consumer. A downstream parser should reuse that contract when migrating its AOT
 product, rather than claiming that a different artifact format is interchangeable.
+
+The =4b1c6a6= macOS run stopped earlier, in a research helper compiled by
+=std/make=: GCC's old inline-success-only diagnostic was quiet for 5.15 seconds
+while compiling =list-language~0=. Native GCC =-fopt-info-optimized-missed= now
+reports real optimization work for these helper products. No compiler optimization
+setting or watchdog threshold changes. The focused cold helper completed in
+11.67 seconds; the complete helper group plus static declarations completed in
+24.63 seconds under the unchanged 240/5-second fence. Linux passed full gxtest
+and reached the pinned TLA+ corpus gate on that revision.

@@ -57,7 +57,7 @@
                      "t/benchmarks/versioned-languages/all-languages"))))
 (def (native-spec modules)
   (map (lambda (module)
-         `(gxc: ,module "-cc-options" "-v -Q -fopt-info-optimized-missed")) modules))
+         `(gxc: ,module "-cc-options" "-v -Q -fopt-info-all")) modules))
 (def (compile-static-tests!)
   ;; Keep source expansion and executable publication in one compiler context.
   (add-load-path! (path-directory (this-source-file)))

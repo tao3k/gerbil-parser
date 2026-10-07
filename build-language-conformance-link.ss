@@ -15,13 +15,24 @@
          (time->seconds (file-info-last-modification-time (file-info target))))))
 
 (def (run-static-jobs sources task)
-  ;; The standard workgroup owns workers, queueing and exception propagation.
-  (let (cores (string->number (getenv "GERBIL_BUILD_CORES" "1")))
+  ;; Standard workgroups own worker lifecycle, queues and exception propagation.
+  (let* ((cores (string->number (getenv "GERBIL_BUILD_CORES" "1")))
+         (ordered (list-sort (lambda (left right)
+                               (> (file-info-size (file-info left))
+                                  (file-info-size (file-info right)))) sources)))
     (unless (and (integer? cores) (exact? cores) (> cores 0))
       (error "GERBIL_BUILD_CORES must be a positive integer" cores))
-    (let (group (make-wg (min cores (max 1 (length sources)))))
-      (for-each (lambda (source) (wg-add! group (lambda () (task source)))) sources)
-      (wg-wait! group))))
+    (let* ((split (if (> cores 1) (quotient (length ordered) 2) (length ordered)))
+           (large (make-wg (max 1 (- cores 1))))
+           (small (and (> cores 1) (make-wg 1))))
+      (for-each (lambda (source) (wg-add! large (lambda () (task source))))
+                (take ordered split))
+      (for-each (lambda (source) (wg-add! small (lambda () (task source))))
+                (reverse (drop ordered split)))
+      (dynamic-wind
+        void
+        (lambda () (wg-wait! large))
+        (lambda () (wg-wait! small))))))
 
 (def (bootstrap-identities stub)
   (let (definition (call-with-input-file stub read))

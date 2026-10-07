@@ -125,14 +125,49 @@ and reached the pinned TLA+ corpus gate on that revision.
 
 The static object build now delegates workers, queueing and exception propagation
 to =std/sync/wg= (=make-wg=, =wg-add!=, =wg-wait!=). The project no longer owns a
-mutex, hand-written thread pool or size-based task scheduler. Module translation
+mutex or hand-written thread pool. Native =list-sort= orders large inputs first;
+=std/wg= alone owns queueing and workers. Two workgroups share the existing
+core budget: large objects use at most =cores - 1= workers and small objects use
+one. This retains real progress from independent compiler products; it does not
+report a timer heartbeat. Native =dynamic-wind= drains the small group when the
+large group raises. Module translation
 and object compilation still retain the compiler-generated source inputs.
 
-The native conformance build completed in 82.20 seconds under the unchanged
-240/5-second fence. Compiler diagnostics report actual optimization work; no
+An earlier warm native conformance control completed in 82.20 seconds under
+the unchanged 240/5-second fence. Compiler diagnostics report actual optimization work; no
 synthetic heartbeat or compiler optimization downgrade is introduced.
 
 Gambit link partitioning remains in the compiler adapter. Migrating it requires
 the compiler-owned program manifest accepted by =gerbil-scheme-rust='s archive
 API and preserving this executable's bootstrap, link order and runtime lifecycle.
 A static archive is not yet this project's executable publication contract.
+
+At =92cb800= Linux rejected the FIFO object build at 62.17 seconds: GQL and
+Cypher grammar objects were the final two unfinished products. Submission now
+orders large inputs first through native =list-sort=. Both worker groups remain
+=std/wg= instances; no project mutex or custom queue is restored. Input size is
+a scheduling hint, not a bound on compiler cost or a proof of idle-fence compliance.
+
+The largest-first single-group control also failed its five-second idle fence
+locally. The two standard-workgroup control then rebuilt all 112 native library
+objects from the exact compiler manifest in 67.97 seconds; SDK objects and
+generated C were retained. The full helper group and static declarations passed
+in 47.19 seconds with native =-fopt-info-all= diagnostics. The isolated Gambit
+multiple-host experiment failed in 6.16 seconds and is not production configuration.
+No compiler optimization level, test assertion or timeout threshold changes.
+
+The first two-group conformance-only control failed at 47.06 seconds with three
+unfinished test objects. It overlapped helper compilation, so it does not qualify
+the CI pipeline. Repeating the complete helper-generation, static-declaration and
+link pipeline sequentially, in one compiler process, completed in 123.74 seconds
+with exit zero and =NATIVE-CONFORMANCE-LINKED= under the unchanged 240/5-second
+fence. These local receipts retain immutable SDK and production objects. Exact-head
+Linux/macOS CI must still qualify their own complete platform builds.
+
+After that sequential build, all 28 independently bounded children exited zero.
+The twenty accepted/rejected ABI controls regenerated in 1.74 seconds and matched
+the committed binary fixture byte for byte. Focused workgroup controls passed in
+3.05 seconds: the one-core path executes, a worker exception reaches the caller,
+and the independent small group drains before the caller handles that exception.
+These controls verify build lifecycle and retained semantics; elapsed build times
+are qualification receipts, not parser performance measurements.

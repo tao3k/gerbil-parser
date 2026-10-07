@@ -1,5 +1,6 @@
 //! Generated-table execution owners for the Rowan runtime.
 
+mod command_model;
 mod command_program;
 mod command_source;
 pub use command_source::{CommandParse, CommandSourceSpec, PreparedCommandSource};

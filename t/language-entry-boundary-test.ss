@@ -1,6 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Production dispatch and development conformance have distinct dependencies.
-(import :std/test
+(import (only-in :gerbil-parser/src/ffi/parse-artifact-v1 native-descriptor-payload native-parse-binary-payload)
+        (only-in :std/vector/u8vector little u8vector-u32-ref)
+        :std/test
         (only-in :clan/poo/object .ref .slot?)
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-support/entry LanguageLoaderContract)
@@ -41,6 +43,19 @@
         (list tla-plus-sany-candidate-language tla-plus-sany-candidate-test-language 2)))
 (def language-entry-boundary-test
   (test-suite "production and development entry separation"
+    (test-case "native facade uses parser-owned descriptors for accepted and rejected UTF-8 source"
+      (for-each (lambda (row)
+        (let* ((language (car row)) (source (cadr row)) (expected (caddr row))
+               (descriptor (native-descriptor-payload language))
+               (payload (native-parse-binary-payload language source)))
+          (check (positive? (string-length descriptor)) => #t)
+          (check (subu8vector payload 0 4) => #u8(71 80 65 49))
+          (check (u8vector-u32-ref payload 8 little) => expected)
+          (check (u8vector-length payload)
+                 => (+ 80 (* 24 (u8vector-u32-ref payload 12 little))))))
+        (quote (("gql" "RETURN '你好'" 0)
+                ("cypher" "MATCH (n:Person) RETURN n\n" 0)
+                ("gql" "RETURN (" 1) ("cypher" "RETURN (" 1)))))
     (test-case "all ten production entries need no corpus or development services"
       (check (length language-entry-pairs) => 10)
       (for-each

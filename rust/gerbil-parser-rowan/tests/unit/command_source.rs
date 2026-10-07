@@ -294,7 +294,7 @@ fn renamed_id(id: &str) -> &'static str {
     Box::leak(format!("private/{id}").into_boxed_str())
 }
 fn renamed_program(program: &[CommandInstruction]) -> &'static [CommandInstruction] {
-    use CommandInstruction::*;
+    use CommandInstruction::{Balance, Branch, Call, Choose, Many, Node, Optional, Until};
     let rows: Vec<_> = program
         .iter()
         .map(|step| match *step {

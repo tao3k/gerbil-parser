@@ -1,14 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Builtin convenience facade; downstream packs use language-artifact-codec.
 (import (prefix-in ./language-artifact-codec codec-)
-(only-in ../../languages/gql/grammar
-                 gql-language-grammar)
         (only-in ../../languages/gql/parser
-                 parse-gql)
-        (only-in ../../languages/cypher/grammar
-                 opencypher-language-grammar)
+                 gql-language-grammar parse-gql)
         (only-in ../../languages/cypher/parser
-                 parse-opencypher))
+                 opencypher-language-grammar parse-opencypher))
 (export native-abi-version native-error-payload
         native-descriptor-payload native-parse-binary-payload)
 (def native-abi-version codec-native-abi-version)

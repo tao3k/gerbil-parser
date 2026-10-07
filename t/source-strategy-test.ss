@@ -1,6 +1,7 @@
 ;;; A second source family shares admission, identity, workers and publication.
 (import :std/test
         (only-in :clan/poo/object .o .cc)
+        (only-in :gerbil-parser/src/language/source-strategy SourceStrategy. bind-source-strategy declare-source-strategy-provider)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
         (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language source-language-digest)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-success? parse-artifact-roundtrip)
@@ -18,6 +19,19 @@
 (def (rejects? thunk) (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-strategy-test
  (test-suite "source recipe reuse and ownership"
+  (test-case "one compilation supplies both identity and executable source product"
+   (let ((classifications 0) (compilations 0))
+    (let-values (((recipe engine) (bind-source-strategy LineSourceStrategy.)))
+     (let* ((counted-provider (declare-source-strategy-provider (quote counted)
+                       (lambda (_) (set! classifications (+ classifications 1)) #t)
+                       (lambda (_) (set! compilations (+ compilations 1))
+                         (values (cadr recipe) engine))))
+            (strategy (.o (:: self SourceStrategy.) provider: counted-provider)))
+      (let-values (((compiled-recipe compiled-engine) (bind-source-strategy strategy)))
+       (check classifications => 1)
+       (check compilations => 1)
+       (check compiled-recipe => (list (quote counted) (cadr recipe)))
+       (check (eq? compiled-engine engine) => #t))))))
   (test-case "line recipe publishes lossless UTF-8 artifacts and owned workers"
    (let* ((source "#α\nsecond\n") (artifact (parse-notes source))
           (worker (make-language-scan-worker notes-language 'lines source)))

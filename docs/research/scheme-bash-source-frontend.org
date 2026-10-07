@@ -310,3 +310,71 @@ binding after assertions and flushed output. CI compiles that binding before
 research execution. The original timeout remains a failure receipt; completion
 markers alone are not acceptance. Local qualification does not establish remote
 CI success or completion of the remaining architecture obligations above.
+
+** Single source compilation and Rust access boundary
+
+Source providers now classify declaration shape and compile once. Compilation
+returns the identity recipe and executable engine together. Shell scanner,
+result, part and command plans are compiled/admitted in that operation; the
+recipe is projected from the plans used by the runtime. Line providers and
+negative test providers use the same protocol. This removes the former separate
+recipe-generation and engine-binding compilations, without claiming a complete
+unified Contextual Parser IR or a measured latency gain.
+
+The native convenience facade obtains release-bound descriptors from
+=parser.ss=. Raw syntax from =grammar.ss= cannot substitute for a descriptor
+whose metadata supplies language identity. The existing entry-boundary suite
+now checks native publication for accepted and rejected GQL/Cypher input,
+including UTF-8 and the binary event count/length contract.
+
+Rust consumers require usable AST access to Scheme results. They do not require
+Rowan APIs for this project. The intended primary path is:
+
+#+begin_example
+Rust caller -> C ABI -> Scheme parser engine -> canonical result
+            <- owned payload + borrowed AST/CST access
+#+end_example
+
+The Rust access layer must retain node kinds, field associations, child order,
+source spans and source text. It may index the result for navigation; it must
+not re-run language recognition or construct another authoritative syntax tree.
+An owned payload wrapper must keep the native runtime and language handle alive
+until all borrowed views are released. Semantic AST wrappers should resolve
+fields through the canonical result catalog, with no second grammar contract.
+
+The current native Rust wrapper already parses through Scheme and borrows its
+payload. Rowan construction occurs only in =NativeArtifactView::to_rowan=.
+However, =gerbil-parser-native= still depends on =gerbil-parser-rowan=, and its
+views require generated Rust =LanguageSpec= / =ContextualParserSpec= values.
+Removing this dependency requires an independent native result catalog and
+AST access surface. That separation is not implemented by this source-provider
+change. The Rust AOT executor is a separate backend and must not be a dependency
+of the primary Scheme FFI client.
+
+[[https://docs.rs/rowan/0.16.1/rowan/][Rowan 0.16.1]] describes a lossless tree library. It does not replace parser
+semantics or establish that its tree materialization is needed by this API.
+The current =to_rowan= conversion omits field records from its tree; fields remain
+in the native event stream. Rust AST access must preserve those associations
+rather than require conversion through a representation that omits them.
+
+Benchmark obligations distinguish Scheme execution, ABI transport, artifact
+admission/indexing, AST field traversal and optional extra tree materialization.
+No claim that Scheme FFI is faster or slower than Rowan follows from architecture
+alone. Equivalent outputs and downstream traversal must be compared before a
+performance conclusion is admitted.
+
+Qualification: the final native link exited 0 in 36.06 seconds. All 26 DSL
+research children exited 0 under the unchanged ten-second child limit. The
+entry-boundary suite passed five cases, including native facade publication;
+the source-services suite passed four cases, including single compilation.
+The Rust library passed 127 tests after command product types were separated
+from execution and the glob import was removed.
+
+The original full FFI test module could not load its record-parser fixture in
+the temporary environment. A separate cold interpreted facade probe exceeded
+the ten-second limit while loading dependencies, before assertions ran. Neither
+is counted as a successful FFI receipt. Native entry-boundary tests provide the
+bounded publication receipt above; the broader native ABI suite remains a CI
+obligation. The ASP Rust quality gate was not qualified locally: its initial
+cold run exceeded ten seconds, and separate dependency compilation later failed
+the five-second output-idle fence. Required limits were not increased.

@@ -2,6 +2,7 @@
 ;;; Native object products retain Gerbil's bootstrap and Gambit's native link order.
 (import (only-in :gerbil/compiler compile-exe compile-module)
         (only-in :std/list/list delete-duplicates/hash)
+        (only-in :std/sync/wg make-wg wg-add! wg-wait!)
         (only-in :std/misc/process run-process/batch))
 
 (def (unique paths)
@@ -14,31 +15,13 @@
          (time->seconds (file-info-last-modification-time (file-info target))))))
 
 (def (run-static-jobs sources task)
-  ;; Start large jobs early and reserve one worker for short independent jobs.
-  ;; Compiler frontends can be quiet; completed small jobs provide real progress.
-  (let ((pending (list-sort
-                  (lambda (a b) (> (file-info-size (file-info a))
-                                   (file-info-size (file-info b)))) sources))
-        (mutex (make-mutex 'native-conformance-translation))
-        (cores (string->number (getenv "GERBIL_BUILD_CORES" "1"))))
+  ;; The standard workgroup owns workers, queueing and exception propagation.
+  (let (cores (string->number (getenv "GERBIL_BUILD_CORES" "1")))
     (unless (and (integer? cores) (exact? cores) (> cores 0))
       (error "GERBIL_BUILD_CORES must be a positive integer" cores))
-    (def (next short-jobs?)
-      (mutex-lock! mutex)
-      (let (source (and (pair? pending) (if short-jobs? (last pending) (car pending))))
-        (when source
-          (set! pending (if short-jobs? (reverse (cdr (reverse pending))) (cdr pending))))
-        (mutex-unlock! mutex)
-        source))
-    (def (worker short-jobs?)
-      (let loop ()
-        (let (source (next short-jobs?))
-          (when source (task source) (loop)))))
-    ;; A failed compiler process raises through its worker's thread-join!.
-    (for-each thread-join!
-      (map (lambda (index)
-             (thread-start! (make-thread (lambda () (worker (= index 0))))))
-           (iota (min cores (max 1 (length sources))))))))
+    (let (group (make-wg (min cores (max 1 (length sources)))))
+      (for-each (lambda (source) (wg-add! group (lambda () (task source)))) sources)
+      (wg-wait! group))))
 
 (def (bootstrap-identities stub)
   (let (definition (call-with-input-file stub read))
@@ -116,7 +99,7 @@
         (for-each (lambda (source) (displayln "NATIVE-LIBRARY-SOURCE " source)) user-sources)
         (force-output))
       (let* ((includes (unique (map path-directory sources)))
-             (cc-options (string-append "-v -Q -fopt-info-inline-optimized "
+             (cc-options (string-append "-v -Q -fopt-info-optimized-missed "
                             (string-join
                               (map (lambda (path) (string-append "-I" path)) includes) " ")))
              (ld-options (call-with-input-file (path-expand "libgerbil.ldd" library) read)))

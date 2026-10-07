@@ -1,0 +1,138 @@
+#+title: Scheme native build ownership
+#+startup: overview
+
+This module follows [[file:scheme-engine-library-boundary.org][the engine/library boundary]] and records native build
+ownership, failed controls and qualification evidence. =std/make= owns library
+builds; native =gxtest= owns source test evaluation; the closed conformance product
+owns independently bounded native controls.
+
+* CI ownership and build pipeline
+
+At =0a4175f=, Linux exhausted the unchanged 240-second conformance-build limit;
+macOS rejected fixture-writing output calls inside a =*-test.ss= file. The binary
+fixture generator now lives in its own fixture-publication module. The compiled
+conformance gate includes the test-style contract before other language controls.
+Each static-build worker translates a module and immediately compiles its object,
+removing the global translation barrier. GCC reports optimized inlining instead
+of every rejected inlining candidate; optimization settings are unchanged.
+Qualification retains the 240/5-second build fences and ten-second child fences.
+A local cold-static build still reuses Scheme outputs and immutable SDK objects;
+only exact-head remote CI qualifies the complete platform build.
+
+The local cold-static receipt removed 451 generated C/object files from the
+disposable package environment. With four workers, static translation, compilation
+and linking completed in 90.65 seconds with exit zero under the 240/5-second
+fences. This reused Scheme compilation outputs and SDK objects.
+
+* Separate static and shared test artifact owners
+
+At =87972d8=, Linux still exhausted 240 seconds: shared test-module compilation
+finished at about 80 seconds, then the runner compiled the project closure for
+static linkage. macOS stopped at the five-second silence fence before that link
+phase. These failed runs invalidate complete platform closure claims.
+
+A shared-module runner prototype avoided static compilation but failed the
+unchanged ten-second all-language admission fence. It was discarded; the closed
+native conformance entry remains the owner of runtime controls and binary fixture
+publication. This negative result is not a reason to relax the runtime limit.
+
+=compile-static-conformance!= uses the official Gerbil =compile-module= API with
+=invoke-gsc: #f= for test leaf declarations. Their interfaces and static Scheme
+products feed the existing parallel native link owner, which compiles the closed
+runtime once. Source-expansion research helpers retain their loadable native
+products. The =0dd4391= revision added a =compile-shared-tests!= owner for loadable native test
+modules for gxtest's source-interface imports. That revision qualified both artifact forms locally;
+conformance did not manufacture an unused second form before its runtime gate.
+The separate shared-test owner retained a 240/5-second build fence. Production
+optimization settings, independent AOT ownership and all child fences are unchanged.
+
+The disposable-environment check quarantined 401 prior shared test outputs before
+building the static product. That owner completed in 71.90 seconds, followed by
+all 28 bounded children exiting zero and exact regeneration of the twenty native
+ABI controls. The independent shared-test build completed in 30.06 seconds.
+These receipts reused production/SDK objects; complete Linux/macOS cold closure
+still requires exact-head CI. The combined static owner must run generation and
+linkage in one compiler process, as in =scripts/build-language-conformance-native.sh=.
+This retains compiler phase contexts while constructing the closed product.
+
+* Reusable production object closure and retained Linux failure
+
+At =1cf51d1= macOS passed the closed build, all 28 bounded children and native ABI
+fixture comparison. Linux finished Scheme generation at about 37 seconds but
+still exhausted 240 seconds while compiling production-library objects. The
+reusable AOT library object closure is now a separate bounded product rooted in
+all eight public parser interfaces and the generic artifact codec. It contains
+112 project/dependency modules and no test corpus or language dispatcher. The
+conformance consumer reuses these objects with the same compiler flags; it owns
+its test objects and final link. Each build owner retains a 240/5-second fence.
+
+The subsequent macOS header generator failed its five-second idle fence during
+cold imports. Real native dependency admission now precedes that unchanged
+producer. Both generated Rust fixtures compare byte for byte; the local qualified
+producer completed in 6.31 seconds under its unchanged 90/5-second fences.
+
+The local production-object check quarantined 224 generated C/object files from
+that exact 112-module closure. Cold translation and object compilation completed
+in 40.99 seconds with four workers; SDK objects and Scheme outputs were retained.
+The real conformance consumer then completed in 39.75 seconds, followed by all
+28 children exiting zero and identical native ABI fixture bytes. These are local
+artifact-ownership receipts, not Linux timing or complete remote closure claims.
+
+* Native gxtest owns source tests
+
+At =0dd4391=, Linux and Rust CI passed. macOS passed conformance and both ABI
+consumers but stopped while generating redundant loadable test modules. Reusing
+=std/make= for twelve imported test services still failed the unchanged five-second
+silence fence locally. This negative control rules out claiming that merely
+moving a worker loop into a library solves the redundant artifact problem.
+
+The closed executable retains native conformance bodies and all 28 bounded
+children. Native =gxtest= evaluates test source owners and imports corpus services
+from source; their production parser dependencies remain compiled. No assertion,
+benchmark threshold, production compiler flag or watchdog limit is removed.
+
+=prepare-gxtest!= delegates output cleanup to =std/make#make-clean= using its
+native module output map plus =copy:= declarations for generated runtime wrappers.
+The library directory is explicit. A wrapper without its =.ssi= is not admitted
+as a complete native module. A matched control confirms qualified corpus imports
+resolve with the ordinary source path after cleanup; no extra path configuration
+is needed. This removes a second C build of conformance test bodies and the
+project-owned shared-test compile queue.
+
+The local preparation completed in 0.54 seconds under the unchanged 240/5-second
+fence. Source gxtest controls passed 57 TLA+ cases, 10 artifact cases and the
+versioned language benchmark, with zero harness status and final GC completion.
+The full local suite subsequently passed all 105 modules and 920 cases, with
+zero child status and final GC completion. Exact-head platform qualification
+remains a separate gate.
+
+The retained manual static closure/link builder is a separate remaining boundary;
+it has not been replaced by =gerbil-scheme-rust= archive APIs in this change.
+Those APIs require a compiler-owned program manifest and a static archive
+consumer. A downstream parser should reuse that contract when migrating its AOT
+product, rather than claiming that a different artifact format is interchangeable.
+
+The =4b1c6a6= macOS run stopped earlier, in a research helper compiled by
+=std/make=: GCC's old inline-success-only diagnostic was quiet for 5.15 seconds
+while compiling =list-language~0=. Native GCC =-fopt-info-optimized-missed= now
+reports real optimization work for these helper products. No compiler optimization
+setting or watchdog threshold changes. The focused cold helper completed in
+11.67 seconds; the complete helper group plus static declarations completed in
+24.63 seconds under the unchanged 240/5-second fence. Linux passed full gxtest
+and reached the pinned TLA+ corpus gate on that revision.
+
+* Standard native workgroup
+
+The static object build now delegates workers, queueing and exception propagation
+to =std/sync/wg= (=make-wg=, =wg-add!=, =wg-wait!=). The project no longer owns a
+mutex, hand-written thread pool or size-based task scheduler. Module translation
+and object compilation still retain the compiler-generated source inputs.
+
+The native conformance build completed in 82.20 seconds under the unchanged
+240/5-second fence. Compiler diagnostics report actual optimization work; no
+synthetic heartbeat or compiler optimization downgrade is introduced.
+
+Gambit link partitioning remains in the compiler adapter. Migrating it requires
+the compiler-owned program manifest accepted by =gerbil-scheme-rust='s archive
+API and preserving this executable's bootstrap, link order and runtime lifecycle.
+A static archive is not yet this project's executable publication contract.

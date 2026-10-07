@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
-;;; Test infrastructure: retain Gerbil's bootstrap and Gambit's native link order.
-(import (only-in :gerbil/compiler compile-exe)
+;;; Native object products retain Gerbil's bootstrap and Gambit's native link order.
+(import (only-in :gerbil/compiler compile-exe compile-module)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/misc/process run-process/batch))
 
@@ -70,20 +70,32 @@
            "-o" target group ...])
         (loop rest target (+ index 1) (cons target result))))))
 
-(def (main)
-  (let* ((source (path-expand "t/conformance-main.ss"))
-         (binary (path-expand "bin/gerbil-parser-conformance" (getenv "GERBIL_PATH")))
+(def (main (owner "conformance"))
+  (let* ((library? (equal? owner "library-objects"))
+         (source (path-expand (if library?
+                                "t/fixtures/native-ffi/library-closure.ss"
+                                "t/conformance-main.ss")))
+         (binary (path-expand (if library? "bin/gerbil-parser-library-objects"
+                                           "bin/gerbil-parser-conformance")
+                   (getenv "GERBIL_PATH")))
          (home (getenv "GERBIL_BUILD_PREFIX" (gerbil-home)))
          (library (path-expand "lib" home))
          (static (path-expand "static" library))
          (gsc (path-expand "bin/gsc" home))
          (stub (string-append binary "__exe.scm")))
+    (unless (member owner '("conformance" "library-objects"))
+      (error "unknown native object owner" owner))
+    (when library?
+      (compile-module source
+        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
+         invoke-gsc: #f optimize: #f generate-ssxi: #t static: #t keep-scm: #t verbose: #t]))
     ;; Public compiler API generates the bootstrap, including admitted identities.
     (compile-exe source [output-file: binary invoke-gsc: #f verbose: #t])
     (let* ((identities (bootstrap-identities stub))
-           (entry "gerbil-parser/t/conformance-main")
+           (entry (if library? "gerbil-parser/t/fixtures/native-ffi/library-closure"
+                               "gerbil-parser/t/conformance-main"))
            (_ (unless (member entry identities)
-                (error "conformance entry is absent from SDK bootstrap" entry)))
+                (error "native product entry is absent from SDK bootstrap" entry)))
            (ordered
             (append (filter (lambda (name)
                               (and (not (equal? name entry))
@@ -100,6 +112,9 @@
                                          (path-expand basename (path-expand "static" root))) roots))))
                      (or path (error "native bootstrap source is missing" name)))) ordered))
            (user-sources (filter (lambda (path) (not (string-prefix? static path))) sources)))
+      (when library?
+        (for-each (lambda (source) (displayln "NATIVE-LIBRARY-SOURCE " source)) user-sources)
+        (force-output))
       (let* ((includes (unique (map path-directory sources)))
              (cc-options (string-append "-v -Q -fopt-info-inline-optimized "
                             (string-join
@@ -120,6 +135,11 @@
                 (run-process/batch [gsc "-verbose" "-cc-options" cc-options
                                    "-obj" "-o" target c-file])
                 (displayln "STATIC-OBJECT-READY " c-file) (force-output)))))
+        (for-each (lambda (source)
+          (unless (file-exists? (replace-extension source ".o"))
+            (error "native library object is missing" source))) sources)
+        (if library?
+          (begin (displayln "NATIVE-LIBRARY-OBJECTS-READY") (force-output))
         (let* ((stub-c (replace-extension stub ".c"))
                (stub-object (replace-extension stub ".o"))
                (objects (map (lambda (path) (replace-extension path ".o")) sources))
@@ -147,4 +167,4 @@
                                (map (lambda (path) (replace-extension path ".o")) links) ...
                                (string-append "-Wl,-rpath," library)
                                "-L" library "-lgambit" ld-options ...])
-            (displayln "NATIVE-CONFORMANCE-LINKED " binary) (force-output)))))))
+            (displayln "NATIVE-CONFORMANCE-LINKED " binary) (force-output))))))))

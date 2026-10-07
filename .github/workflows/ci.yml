@@ -184,6 +184,13 @@ jobs:
       - name: Compile native research child support
         run: gerbil env gxi build-native-test-driver.ss compile
 
+      - name: Compile reusable native library objects
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
+            --log .data/native-library-objects.log --require NATIVE-LIBRARY-OBJECTS-READY \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)' \
+            -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main "library-objects"))))) (exit 0)'
+
       - name: Compile language conformance modules
         run: |
           GERBIL_BUILD_VERBOSE=9 GERBIL_PARSER_LR_TRACE=1 gerbil env \
@@ -231,7 +238,8 @@ jobs:
           gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
             --log .data/header-delimiter-generation.log \
             --require HEADER-DELIMITER-HL7-GENERATED --require HEADER-DELIMITER-RECORD-GENERATED \
-            -- gxi t/generate-header-delimiters.ss /tmp/hl7-header.rs /tmp/header-record.rs
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-header-delimiters.ss")' \
+            t/generate-header-delimiters.ss /tmp/hl7-header.rs /tmp/header-record.rs
           rustfmt --edition 2024 /tmp/hl7-header.rs /tmp/header-record.rs
           cmp /tmp/hl7-header.rs rust/gerbil-parser-runtime/tests/fixtures/generated/hl7_header.rs
           cmp /tmp/header-record.rs rust/gerbil-parser-runtime/tests/fixtures/generated/header_record.rs

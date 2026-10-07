@@ -453,3 +453,26 @@ These receipts reused production/SDK objects; complete Linux/macOS cold closure
 still requires exact-head CI. The combined static owner must run generation and
 linkage in one compiler process, as in =scripts/build-language-conformance-native.sh=.
 This retains compiler phase contexts while constructing the closed product.
+
+** Reusable production object closure and retained Linux failure
+
+At =1cf51d1= macOS passed the closed build, all 28 bounded children and native ABI
+fixture comparison. Linux finished Scheme generation at about 37 seconds but
+still exhausted 240 seconds while compiling production-library objects. The
+reusable AOT library object closure is now a separate bounded product rooted in
+all eight public parser interfaces and the generic artifact codec. It contains
+112 project/dependency modules and no test corpus or language dispatcher. The
+conformance consumer reuses these objects with the same compiler flags; it owns
+its test objects and final link. Each build owner retains a 240/5-second fence.
+
+The subsequent macOS header generator failed its five-second idle fence during
+cold imports. Real native dependency admission now precedes that unchanged
+producer. Both generated Rust fixtures compare byte for byte; the local qualified
+producer completed in 6.31 seconds under its unchanged 90/5-second fences.
+
+The local production-object check quarantined 224 generated C/object files from
+that exact 112-module closure. Cold translation and object compilation completed
+in 40.99 seconds with four workers; SDK objects and Scheme outputs were retained.
+The real conformance consumer then completed in 39.75 seconds, followed by all
+28 children exiting zero and identical native ABI fixture bytes. These are local
+artifact-ownership receipts, not Linux timing or complete remote closure claims.

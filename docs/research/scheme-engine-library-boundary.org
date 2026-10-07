@@ -493,14 +493,17 @@ benchmark threshold, production compiler flag or watchdog limit is removed.
 =prepare-gxtest!= delegates output cleanup to =std/make#make-clean= using its
 native module output map plus =copy:= declarations for generated runtime wrappers.
 The library directory is explicit. A wrapper without its =.ssi= is not admitted
-as a complete native module. The package source parent is on =GERBIL_LOADPATH= so
-qualified corpus imports resolve after cleanup. This removes a second C build of
-conformance test bodies and the project-owned shared-test compile queue.
+as a complete native module. A matched control confirms qualified corpus imports
+resolve with the ordinary source path after cleanup; no extra path configuration
+is needed. This removes a second C build of conformance test bodies and the
+project-owned shared-test compile queue.
 
 The local preparation completed in 0.54 seconds under the unchanged 240/5-second
 fence. Source gxtest controls passed 57 TLA+ cases, 10 artifact cases and the
 versioned language benchmark, with zero harness status and final GC completion.
-Full-suite and exact-head platform qualification remain separate gates.
+The full local suite subsequently passed all 105 modules and 920 cases, with
+zero child status and final GC completion. Exact-head platform qualification
+remains a separate gate.
 
 The retained manual static closure/link builder is a separate remaining boundary;
 it has not been replaced by =gerbil-scheme-rust= archive APIs in this change.

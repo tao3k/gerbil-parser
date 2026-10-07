@@ -68,7 +68,7 @@ def main():
     # replacing GAMBOPT makes gxc look for gsc at the release builder's path.
     runtime_options = environment.get("GAMBOPT", "")
     heap_options = "max-heap=1G,debug=q"
-    environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=os.pathsep.join([str(native_root / "lib"), environment.get("GERBIL_PARSER_OUTPUT", str(root)), str(root), str(root.parent)]),
+    environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=os.pathsep.join([str(native_root / "lib"), environment.get("GERBIL_PARSER_OUTPUT", str(root)), str(root)]),
                        GAMBOPT=runtime_options + ("," if runtime_options else "") + heap_options,
                        GERBIL_PARSER_LR_TRACE="1", GERBIL_BUILD_VERBOSE="1")
     # Match CI: report real native compiler artifacts during cold Cargo builds.

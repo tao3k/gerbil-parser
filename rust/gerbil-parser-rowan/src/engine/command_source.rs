@@ -341,7 +341,7 @@ impl<'s> Cursor<'_, 's> {
                         self.parts.assignment(self.source, token.start..token.end)?
                 {
                     self.token()?;
-                    let form = &self.plan.spec.forms[self.plan.forms["array-tail"]];
+                    let form = &self.plan.spec.forms[self.plan.assignment_tail];
                     let assignment = if self
                         .tokens
                         .get(self.at)
@@ -402,7 +402,7 @@ impl<'s> Cursor<'_, 's> {
     }
     fn pipeline(&mut self) -> Result<ProjectedNode<'s>, Diagnostic> {
         let start = self.start()?;
-        let form = &self.plan.spec.forms[self.plan.forms["pipeline-prefix"]];
+        let form = &self.plan.spec.forms[self.plan.pipeline_head];
         let mut children = Vec::new();
         if form.program.iter().any(|i| match i {
             CommandInstruction::Optional { trigger, .. }

@@ -289,3 +289,125 @@ fn source_product_rejects_missing_scanner_positions_and_terminal_publication() {
     };
     assert!(crate::PreparedCommandSource::new(&SOURCE).is_err());
 }
+
+fn renamed_id(id: &str) -> &'static str {
+    Box::leak(format!("private/{id}").into_boxed_str())
+}
+fn renamed_program(program: &[CommandInstruction]) -> &'static [CommandInstruction] {
+    use CommandInstruction::*;
+    let rows: Vec<_> = program
+        .iter()
+        .map(|step| match *step {
+            Call { field, form } => Call {
+                field,
+                form: renamed_id(form),
+            },
+            Node {
+                field,
+                kind,
+                program,
+            } => Node {
+                field,
+                kind,
+                program: renamed_program(program),
+            },
+            Optional { trigger, program } => Optional {
+                trigger,
+                program: renamed_program(program),
+            },
+            Many { trigger, program } => Many {
+                trigger,
+                program: renamed_program(program),
+            },
+            Until { trigger, program } => Until {
+                trigger,
+                program: renamed_program(program),
+            },
+            Branch { trigger, yes, no } => Branch {
+                trigger,
+                yes: renamed_program(yes),
+                no: renamed_program(no),
+            },
+            Choose(choices) => Choose(Box::leak(
+                choices
+                    .iter()
+                    .map(|choice| crate::CommandChoice {
+                        trigger: choice.trigger,
+                        program: renamed_program(choice.program),
+                    })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            )),
+            Balance {
+                open,
+                close,
+                depth,
+                open_field,
+                close_field,
+                program,
+            } => Balance {
+                open,
+                close,
+                depth,
+                open_field,
+                close_field,
+                program: renamed_program(program),
+            },
+            leaf => leaf,
+        })
+        .collect();
+    Box::leak(rows.into_boxed_slice())
+}
+#[test]
+fn private_rule_renaming_retains_scheme_events_and_rejection_controls() {
+    let original = &generated::bash::COMMAND_PROFILE;
+    let renamed = Box::leak(Box::new(CommandProgramSpec {
+        assignment_tail: renamed_id(original.assignment_tail),
+        pipeline_head: renamed_id(original.pipeline_head),
+        forms: Box::leak(
+            original
+                .forms
+                .iter()
+                .map(|form| CommandForm {
+                    id: renamed_id(form.id),
+                    program: renamed_program(form.program),
+                    ..*form
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
+        ..*original
+    }));
+    let program = PreparedCommandProgram::new(renamed, &generated::bash::RESULT_PROFILE).unwrap();
+    let parts = PreparedPartProfile::new(
+        &generated::bash::PART_PROFILE,
+        &generated::bash::RESULT_PROFILE,
+        &generated::bash::regions::REGION,
+    )
+    .unwrap();
+    for control in generated::bash::CONTROLS {
+        let outcome = ContextualScanner::new(&generated::bash::scanner::SCANNER, control.source)
+            .unwrap()
+            .scan("source")
+            .and_then(|tokens| program.parse_scanned(control.source, &tokens, &parts));
+        assert_eq!(outcome.is_ok(), control.accepted, "{}", control.source);
+        if let Ok(parsed) = outcome {
+            let events = parsed.events().unwrap();
+            assert_eq!(events, control.events, "{}", control.source);
+            assert_eq!(parsed.here_documents, control.links, "{}", control.source);
+            let tree = build_rowan_events_catalog(
+                &EventCatalog {
+                    kinds: generated::bash::RESULT_PROFILE.kinds,
+                    root_kind: parsed.root.kind(),
+                },
+                control.source,
+                &events,
+            )
+            .unwrap();
+            assert_eq!(
+                crate::SyntaxNode::new_root(tree).text().to_string(),
+                control.source
+            );
+        }
+    }
+}

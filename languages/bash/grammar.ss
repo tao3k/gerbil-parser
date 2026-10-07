@@ -99,8 +99,8 @@
      (brace-group (node BraceGroup (field open "{") (field body command-list) (field close "}")))
      (subshell (node Subshell (field open (operator "(")) (field body command-list) (field close (operator ")"))))
      (array-tail
-      (node ArrayAssignment (field open (operator "("))
-       (repeat (choice (field separator (newline)) (field element word))) (field close (operator ")"))))
+      (at assignment-tail (node ArrayAssignment (field open (operator "("))
+       (repeat (choice (field separator (newline)) (field element word))) (field close (operator ")")))))
      (pipeline-prefix
-      (node Pipeline (optional (seq (field keyword "time") (optional (field option "-p"))))
-                     (optional (field negate "!"))))))
+      (at pipeline-head (node Pipeline (optional (seq (field keyword "time") (optional (field option "-p"))))
+                     (optional (field negate "!")))))))

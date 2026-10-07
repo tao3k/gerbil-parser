@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
-(import "list-language"
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        "list-language"
         (only-in "../../../src/compiler/bound-ir" bound-grammar-ir-ref bound-grammar-ir-binding)
         (only-in "../../../src/compiler/parser-ir" parser-ir-ref)
         (only-in "../../../src/runtime/parser" parse-source)
@@ -34,4 +35,4 @@
  '("f(a,b)" "[a,b]" "f()"))
 (display "PROVENANCE-LANGUAGE-OK: ") (display checked)
 (display " checks passed") (newline) (force-output)
-(exit 0)
+(test-child-process-exit! 0)

@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
-(import "list-parser" "list-roles"
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        "list-parser" "list-roles"
         (only-in "../../../src/modules/parser/objects" make-grammar)
         (only-in "../../../src/compiler/normalize" compile-grammar grammar-ir-ref)
         (only-in "../../../src/runtime/parser" parse-source)
@@ -117,4 +118,4 @@
 
 (display "LIST-RUNTIME-OK: ") (display checked)
 (display " checks passed") (newline) (force-output)
-(exit 0)
+(test-child-process-exit! 0)

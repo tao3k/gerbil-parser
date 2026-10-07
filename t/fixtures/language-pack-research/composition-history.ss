@@ -1,7 +1,8 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 ;;; The existing normalizer remains the sole owner of composition behavior.
-(import "list-roles" "list-origins"
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        "list-roles" "list-origins"
         (only-in "../../../src/modules/parser/objects" make-grammar-role make-grammar grammar-role-ref)
         (only-in "../../../src/compiler/normalize" compile-grammar compile-grammar/receipt grammar-ir-ref
                  compile-grammar/context normalized-grammar-ir normalized-grammar-receipt
@@ -313,4 +314,4 @@
 
 (display "COMPOSITION-HISTORY-OK: ") (display checked)
 (display " checks passed") (newline) (force-output)
-(exit 0)
+(test-child-process-exit! 0)

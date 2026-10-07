@@ -1273,6 +1273,8 @@ pub mod bash {
         CommandTokenClass, CommandTrigger,
     };
     pub static COMMAND_PROFILE: CommandProgramSpec = CommandProgramSpec {
+        assignment_tail: "array-tail",
+        pipeline_head: "pipeline-prefix",
         nodes: &[
             ("Redirection", "Redirection"),
             ("ArrayAssignment", "ArrayAssignment"),
@@ -1429,7 +1431,7 @@ pub mod bash {
                     kind: "word",
                     literals: &["if"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "IfCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -1538,7 +1540,7 @@ pub mod bash {
                     kind: "word",
                     literals: &["while"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "WhileCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -1586,7 +1588,7 @@ pub mod bash {
                     kind: "word",
                     literals: &["until"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "UntilCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -1634,7 +1636,7 @@ pub mod bash {
                     kind: "word",
                     literals: &["for"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "ForCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -1677,11 +1679,8 @@ pub mod bash {
                                             literals: &["in"],
                                         },
                                     },
-                                    CommandInstruction::Many {
-                                        trigger: CommandTrigger::Token {
-                                            kind: "word",
-                                            literals: &[],
-                                        },
+                                    CommandInstruction::Until {
+                                        trigger: CommandTrigger::Role("separator"),
                                         program: &[CommandInstruction::Word("item")],
                                     },
                                 ],
@@ -1718,11 +1717,17 @@ pub mod bash {
             },
             CommandForm {
                 id: "select-loop",
-                trigger: CommandTrigger::Token {
-                    kind: "word",
-                    literals: &["select"],
-                },
-                priority: 10,
+                trigger: CommandTrigger::Lookahead(&[
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["select"],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &[],
+                    },
+                ]),
+                priority: 35,
                 kind: "SelectCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -1746,11 +1751,8 @@ pub mod bash {
                                     literals: &["in"],
                                 },
                             },
-                            CommandInstruction::Many {
-                                trigger: CommandTrigger::Token {
-                                    kind: "word",
-                                    literals: &[],
-                                },
+                            CommandInstruction::Until {
+                                trigger: CommandTrigger::Role("separator"),
                                 program: &[CommandInstruction::Word("item")],
                             },
                         ],
@@ -1785,11 +1787,21 @@ pub mod bash {
             },
             CommandForm {
                 id: "case-selection",
-                trigger: CommandTrigger::Token {
-                    kind: "word",
-                    literals: &["case"],
-                },
-                priority: 10,
+                trigger: CommandTrigger::Lookahead(&[
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["case"],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &[],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["in"],
+                    },
+                ]),
+                priority: 36,
                 kind: "CaseCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -1815,17 +1827,20 @@ pub mod bash {
                         program: &[CommandInstruction::Choose(&[
                             CommandChoice {
                                 trigger: CommandTrigger::Role("separator"),
-                                program: &[CommandInstruction::Raw("separator")],
+                                program: &[CommandInstruction::Take {
+                                    field: "separator",
+                                    trigger: CommandTrigger::Role("separator"),
+                                }],
                             },
                             CommandChoice {
                                 trigger: CommandTrigger::Or(&[
                                     CommandTrigger::Token {
-                                        kind: "word",
-                                        literals: &[],
-                                    },
-                                    CommandTrigger::Token {
                                         kind: "operator",
                                         literals: &["("],
+                                    },
+                                    CommandTrigger::Token {
+                                        kind: "word",
+                                        literals: &[],
                                     },
                                 ]),
                                 program: &[CommandInstruction::Node {
@@ -1882,7 +1897,10 @@ pub mod bash {
                                         },
                                         CommandInstruction::Optional {
                                             trigger: CommandTrigger::Role("case-end"),
-                                            program: &[CommandInstruction::Raw("terminator")],
+                                            program: &[CommandInstruction::Take {
+                                                field: "terminator",
+                                                trigger: CommandTrigger::Role("case-end"),
+                                            }],
                                         },
                                     ],
                                 }],
@@ -1900,11 +1918,17 @@ pub mod bash {
             },
             CommandForm {
                 id: "named-function",
-                trigger: CommandTrigger::Token {
-                    kind: "word",
-                    literals: &["function"],
-                },
-                priority: 10,
+                trigger: CommandTrigger::Lookahead(&[
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["function"],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &[],
+                    },
+                ]),
+                priority: 35,
                 kind: "FunctionDefinition",
                 program: &[
                     CommandInstruction::Take {
@@ -1956,7 +1980,7 @@ pub mod bash {
                         literals: &[")"],
                     },
                 ]),
-                priority: 5,
+                priority: 3,
                 kind: "FunctionDefinition",
                 program: &[
                     CommandInstruction::Word("name"),
@@ -1983,7 +2007,7 @@ pub mod bash {
                     kind: "word",
                     literals: &["[["],
                 },
-                priority: 0,
+                priority: 34,
                 kind: "ConditionalCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -2001,7 +2025,10 @@ pub mod bash {
                         program: &[CommandInstruction::Choose(&[
                             CommandChoice {
                                 trigger: CommandTrigger::Role("conditional-operator"),
-                                program: &[CommandInstruction::Raw("operator")],
+                                program: &[CommandInstruction::Take {
+                                    field: "operator",
+                                    trigger: CommandTrigger::Role("conditional-operator"),
+                                }],
                             },
                             CommandChoice {
                                 trigger: CommandTrigger::Token {
@@ -2040,7 +2067,7 @@ pub mod bash {
                         literals: &["("],
                     },
                 ]),
-                priority: 4,
+                priority: 35,
                 kind: "ArithmeticCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -2094,7 +2121,7 @@ pub mod bash {
                     kind: "word",
                     literals: &["{"],
                 },
-                priority: 0,
+                priority: 34,
                 kind: "BraceGroup",
                 program: &[
                     CommandInstruction::Take {
@@ -2127,7 +2154,7 @@ pub mod bash {
                     kind: "operator",
                     literals: &["("],
                 },
-                priority: 0,
+                priority: 34,
                 kind: "Subshell",
                 program: &[
                     CommandInstruction::Take {
@@ -2170,11 +2197,17 @@ pub mod bash {
                             literals: &["("],
                         },
                     },
-                    CommandInstruction::Until {
-                        trigger: CommandTrigger::Token {
-                            kind: "operator",
-                            literals: &[")"],
-                        },
+                    CommandInstruction::Many {
+                        trigger: CommandTrigger::Or(&[
+                            CommandTrigger::Token {
+                                kind: "newline",
+                                literals: &[],
+                            },
+                            CommandTrigger::Token {
+                                kind: "word",
+                                literals: &[],
+                            },
+                        ]),
                         program: &[CommandInstruction::Choose(&[
                             CommandChoice {
                                 trigger: CommandTrigger::Token {
@@ -7611,6 +7644,8 @@ pub mod extended {
         CommandTokenClass, CommandTrigger,
     };
     pub static COMMAND_PROFILE: CommandProgramSpec = CommandProgramSpec {
+        assignment_tail: "array-tail",
+        pipeline_head: "pipeline-prefix",
         nodes: &[
             ("Redirection", "Redirection"),
             ("ArrayAssignment", "ArrayAssignment"),
@@ -7767,7 +7802,7 @@ pub mod extended {
                     kind: "word",
                     literals: &["if"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "IfCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -7876,7 +7911,7 @@ pub mod extended {
                     kind: "word",
                     literals: &["while"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "WhileCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -7924,7 +7959,7 @@ pub mod extended {
                     kind: "word",
                     literals: &["until"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "UntilCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -7972,7 +8007,7 @@ pub mod extended {
                     kind: "word",
                     literals: &["for"],
                 },
-                priority: 10,
+                priority: 34,
                 kind: "ForCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -8015,11 +8050,8 @@ pub mod extended {
                                             literals: &["in"],
                                         },
                                     },
-                                    CommandInstruction::Many {
-                                        trigger: CommandTrigger::Token {
-                                            kind: "word",
-                                            literals: &[],
-                                        },
+                                    CommandInstruction::Until {
+                                        trigger: CommandTrigger::Role("separator"),
                                         program: &[CommandInstruction::Word("item")],
                                     },
                                 ],
@@ -8056,11 +8088,17 @@ pub mod extended {
             },
             CommandForm {
                 id: "select-loop",
-                trigger: CommandTrigger::Token {
-                    kind: "word",
-                    literals: &["select"],
-                },
-                priority: 10,
+                trigger: CommandTrigger::Lookahead(&[
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["select"],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &[],
+                    },
+                ]),
+                priority: 35,
                 kind: "SelectCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -8084,11 +8122,8 @@ pub mod extended {
                                     literals: &["in"],
                                 },
                             },
-                            CommandInstruction::Many {
-                                trigger: CommandTrigger::Token {
-                                    kind: "word",
-                                    literals: &[],
-                                },
+                            CommandInstruction::Until {
+                                trigger: CommandTrigger::Role("separator"),
                                 program: &[CommandInstruction::Word("item")],
                             },
                         ],
@@ -8123,11 +8158,21 @@ pub mod extended {
             },
             CommandForm {
                 id: "case-selection",
-                trigger: CommandTrigger::Token {
-                    kind: "word",
-                    literals: &["case"],
-                },
-                priority: 10,
+                trigger: CommandTrigger::Lookahead(&[
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["case"],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &[],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["in"],
+                    },
+                ]),
+                priority: 36,
                 kind: "CaseCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -8153,17 +8198,20 @@ pub mod extended {
                         program: &[CommandInstruction::Choose(&[
                             CommandChoice {
                                 trigger: CommandTrigger::Role("separator"),
-                                program: &[CommandInstruction::Raw("separator")],
+                                program: &[CommandInstruction::Take {
+                                    field: "separator",
+                                    trigger: CommandTrigger::Role("separator"),
+                                }],
                             },
                             CommandChoice {
                                 trigger: CommandTrigger::Or(&[
                                     CommandTrigger::Token {
-                                        kind: "word",
-                                        literals: &[],
-                                    },
-                                    CommandTrigger::Token {
                                         kind: "operator",
                                         literals: &["("],
+                                    },
+                                    CommandTrigger::Token {
+                                        kind: "word",
+                                        literals: &[],
                                     },
                                 ]),
                                 program: &[CommandInstruction::Node {
@@ -8220,7 +8268,10 @@ pub mod extended {
                                         },
                                         CommandInstruction::Optional {
                                             trigger: CommandTrigger::Role("case-end"),
-                                            program: &[CommandInstruction::Raw("terminator")],
+                                            program: &[CommandInstruction::Take {
+                                                field: "terminator",
+                                                trigger: CommandTrigger::Role("case-end"),
+                                            }],
                                         },
                                     ],
                                 }],
@@ -8238,11 +8289,17 @@ pub mod extended {
             },
             CommandForm {
                 id: "named-function",
-                trigger: CommandTrigger::Token {
-                    kind: "word",
-                    literals: &["function"],
-                },
-                priority: 10,
+                trigger: CommandTrigger::Lookahead(&[
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &["function"],
+                    },
+                    CommandTrigger::Token {
+                        kind: "word",
+                        literals: &[],
+                    },
+                ]),
+                priority: 35,
                 kind: "FunctionDefinition",
                 program: &[
                     CommandInstruction::Take {
@@ -8294,7 +8351,7 @@ pub mod extended {
                         literals: &[")"],
                     },
                 ]),
-                priority: 5,
+                priority: 3,
                 kind: "FunctionDefinition",
                 program: &[
                     CommandInstruction::Word("name"),
@@ -8321,7 +8378,7 @@ pub mod extended {
                     kind: "word",
                     literals: &["[["],
                 },
-                priority: 0,
+                priority: 34,
                 kind: "ConditionalCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -8339,7 +8396,10 @@ pub mod extended {
                         program: &[CommandInstruction::Choose(&[
                             CommandChoice {
                                 trigger: CommandTrigger::Role("conditional-operator"),
-                                program: &[CommandInstruction::Raw("operator")],
+                                program: &[CommandInstruction::Take {
+                                    field: "operator",
+                                    trigger: CommandTrigger::Role("conditional-operator"),
+                                }],
                             },
                             CommandChoice {
                                 trigger: CommandTrigger::Token {
@@ -8378,7 +8438,7 @@ pub mod extended {
                         literals: &["("],
                     },
                 ]),
-                priority: 4,
+                priority: 35,
                 kind: "ArithmeticCommand",
                 program: &[
                     CommandInstruction::Take {
@@ -8465,7 +8525,7 @@ pub mod extended {
                     kind: "operator",
                     literals: &["("],
                 },
-                priority: 0,
+                priority: 34,
                 kind: "Subshell",
                 program: &[
                     CommandInstruction::Take {
@@ -8508,11 +8568,17 @@ pub mod extended {
                             literals: &["("],
                         },
                     },
-                    CommandInstruction::Until {
-                        trigger: CommandTrigger::Token {
-                            kind: "operator",
-                            literals: &[")"],
-                        },
+                    CommandInstruction::Many {
+                        trigger: CommandTrigger::Or(&[
+                            CommandTrigger::Token {
+                                kind: "newline",
+                                literals: &[],
+                            },
+                            CommandTrigger::Token {
+                                kind: "word",
+                                literals: &[],
+                            },
+                        ]),
                         program: &[CommandInstruction::Choose(&[
                             CommandChoice {
                                 trigger: CommandTrigger::Token {

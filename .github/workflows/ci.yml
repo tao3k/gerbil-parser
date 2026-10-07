@@ -181,6 +181,9 @@ jobs:
           gerbil env gxi build-gparse.ss compile
           gerbil env gxi build-rust-rowan-aot.ss compile
 
+      - name: Compile native research child support
+        run: gerbil env gxi build-native-test-driver.ss compile
+
       - name: Compile language conformance modules
         run: |
           GERBIL_BUILD_VERBOSE=9 GERBIL_PARSER_LR_TRACE=1 gerbil env \
@@ -199,7 +202,6 @@ jobs:
             t/benchmarks/gql/runtime/execution-counts.ss \
             t/benchmarks/gql/runtime/matched-stages.ss \
             t/benchmarks/gql/runtime/actors.ss
-          gerbil env gxi build-native-test-driver.ss compile
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
               t/benchmarks/gql/runtime/native-timing.ss

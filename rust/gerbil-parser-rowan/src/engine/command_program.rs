@@ -101,6 +101,8 @@ pub struct CommandRole {
 /// Immutable node roles and forms lowered from the Scheme `CommandProfile`.
 #[derive(Clone, Copy, Debug)]
 pub struct CommandProgramSpec {
+    pub assignment_tail: &'static str,
+    pub pipeline_head: &'static str,
     pub forms: &'static [CommandForm],
     pub nodes: &'static [(&'static str, &'static str)],
     pub roles: &'static [CommandRole],
@@ -128,6 +130,8 @@ pub struct PreparedCommandProgram {
     pub(super) spec: &'static CommandProgramSpec,
     pub(super) result_owner: &'static ResultProfileSpec,
     widths: HashMap<&'static str, usize>,
+    pub(super) assignment_tail: usize,
+    pub(super) pipeline_head: usize,
     pub(super) forms: HashMap<&'static str, usize>,
     pub(super) descriptor: PreparedTextProfile,
     pub(super) tokens: HashMap<&'static str, u16>,
@@ -263,11 +267,19 @@ impl PreparedCommandProgram {
         let descriptor = PreparedTextProfile::new(spec.descriptor)
             .ok_or_else(|| error(0, "invalid descriptor text profile"))?;
         let (selectors, fallback) = admit_selectors(spec)?;
+        let assignment_tail = *forms
+            .get(spec.assignment_tail)
+            .ok_or_else(|| error(0, "missing assignment entrypoint"))?;
+        let pipeline_head = *forms
+            .get(spec.pipeline_head)
+            .ok_or_else(|| error(0, "missing pipeline entrypoint"))?;
         let mut prepared = Self {
             spec,
             result_owner: results,
             widths: HashMap::new(),
             forms,
+            assignment_tail,
+            pipeline_head,
             descriptor,
             tokens,
             selectors,
@@ -483,8 +495,8 @@ impl PreparedCommandProgram {
     }
     fn admit_entries(&self, results: &ResultProfileSpec) -> Result<(), Diagnostic> {
         for (id, kind) in [
-            ("array-tail", "ArrayAssignment"),
-            ("pipeline-prefix", "Pipeline"),
+            (self.spec.assignment_tail, "ArrayAssignment"),
+            (self.spec.pipeline_head, "Pipeline"),
         ] {
             let form = self
                 .forms
@@ -495,10 +507,10 @@ impl PreparedCommandProgram {
                 return Err(error(0, "invalid manual entrypoint"));
             }
             let width = self.validate(form.program, kind, results, 0)?;
-            if id == "array-tail" && width == 0 {
+            if id == self.spec.assignment_tail && width == 0 {
                 return Err(error(0, "array body must consume input"));
             }
-            if id == "pipeline-prefix" {
+            if id == self.spec.pipeline_head {
                 for step in form.program {
                     let (CommandInstruction::Optional { program: body, .. }
                     | CommandInstruction::Many { program: body, .. }) = step

@@ -17,6 +17,34 @@
 (def (plan profile) (admit-command-plan (compile-command-profile profile) (compile-result-profile bash-results) bash-command-scanner))
 (def command-profile-test
  (test-suite "closed command profile admission and extension"
+  (test-case "private rule renaming preserves entry positions and complete source events"
+    (let* ((source-forms (.ref bash-commands 'forms))
+           (names (map (lambda (row) (cons (car row)
+                    (string->symbol (string-append "private/" (symbol->string (car row)))))) source-forms)))
+      (def (rename id) (cdr (assq id names)))
+      (def (program data)
+        (cond ((not (pair? data)) data)
+              ((eq? (car data) 'call) (list 'call (cadr data) (rename (caddr data))))
+              (else (cons (program (car data)) (program (cdr data))))))
+      (let* ((profile (.o (:: self bash-commands)
+                       forms: (map (lambda (row) (cons (rename (car row)) (program (cdr row)))) source-forms)
+                       ports: (map (lambda (row) (list (car row) (rename (cadr row)))) (.ref bash-commands 'ports))))
+             (control (plan bash-commands)) (candidate (plan profile)))
+        (let-values (((parse-control _control) (make-shell-parser bash-word-regions (compile-result-profile bash-results) (compile-part-profile bash-parts) control))
+                     ((parse-candidate _candidate) (make-shell-parser bash-word-regions (compile-result-profile bash-results) (compile-part-profile bash-parts) candidate)))
+          (for-each (lambda (source)
+            (let ((expected (parse-control source scan "control")) (actual (parse-candidate source scan "candidate")))
+              (check (parse-artifact-success? actual) => (parse-artifact-success? expected))
+              (check (parse-artifact-events actual) => (parse-artifact-events expected))))
+            '("arr=(α 中) echo ok" "time -p ! echo α | cat" "f ( ) { echo 中; }"
+              "if echo; then echo; fi" "((1+(2*3)))" "(echo α)"
+              "cat <<A\n中\nA\n" "echo |" "arr=(x" "if echo; then fi"))))))
+  (test-case "entry positions reject missing, duplicate and foreign references"
+    (for-each (lambda (entry-values)
+      (check (rejects? (lambda () (plan (.o (:: self bash-commands) ports: entry-values)))) => #t))
+      '(() ((assignment-tail array-tail) (assignment-tail array-tail))
+           ((assignment-tail absent) (pipeline-head pipeline-prefix))
+           ((assignment-tail pipeline-prefix) (pipeline-head array-tail)))))
   (test-case "token roles and complete descriptor profiles retain exact boundaries"
    (let (prepared (plan bash-commands))
     (check (and (command-plan-token? prepared 'pipeline (make-token 'operator "|&" 0 2)) #t) => #t)

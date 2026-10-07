@@ -2,7 +2,7 @@
 ;;; Lossless Bash command/word/here-document syntax entry.
 ;;; Unsupported command forms reject explicitly until their grammar is owned.
 
-(import (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger?)
+(import (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger? command-plan-entry)
         (only-in ./funcs recognition-sequence-append recognition-sequence->list recognition-sequence-arity)
         (only-in :gerbil-parser/src/runtime/artifact
                  +diagnostic-schema+ make-failure-parse-artifact
@@ -30,7 +30,11 @@
 (def forms-index (make-hash-table-eq))
 (for-each (lambda (row) (hash-put! forms-index (car row) row)) (command-plan-forms commands))
 (def (form id) (or (hash-get forms-index id) (error "undeclared command form" id)))
-(def header-first (cons 'or (map cadr (list-tail (form 'pipeline-prefix) 4))))
+(def assignment-entry (command-plan-entry commands 'assignment-tail))
+(def pipeline-entry (command-plan-entry commands 'pipeline-head))
+(def assignment-form (form assignment-entry))
+(def pipeline-form (form pipeline-entry))
+(def header-first (cons 'or (map cadr (list-tail pipeline-form 4))))
 (def trivia? (command-plan-role-matcher commands 'trivia))
 (def separator? (command-plan-role-matcher commands 'separator))
 (def redirect? (command-plan-role-matcher commands 'redirect))
@@ -147,7 +151,7 @@
                  (token-start (cadr remaining)))))
        (def (array-assignment-open? raw)
          (and (pair? remaining)
-              (command-plan-trigger? commands (cadr (form 'array-tail)) remaining)
+              (command-plan-trigger? commands (cadr assignment-form) remaining)
               (= (token-end raw) (token-start (car remaining)))))
        (def (parse-simple-command!)
          (let* ((first (peek))
@@ -185,7 +189,7 @@
                        (set! children
                              (cons (child 'assignment
                                           (if (array-assignment-open? token)
-                                            (parse-form! 'array-tail (recognition-node-start assignment)
+                                            (parse-form! assignment-entry (recognition-node-start assignment)
                                                          (list (child 'assignment assignment)))
                                             assignment))
                                    children)))
@@ -297,7 +301,7 @@
                (start-token (peek)))
            (when (matches? header-first)
              (let-values (((_projection children)
-                           (execute-program! (list-tail (form 'pipeline-prefix) 4) 'Pipeline)))
+                           (execute-program! (list-tail pipeline-form 4) 'Pipeline)))
                (set! prefixes (recognition-sequence->list children))))
            (let* ((first (parse-command!))
                   (children

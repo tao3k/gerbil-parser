@@ -1,7 +1,7 @@
 ;;; Common source-library frontend. Language packages declare intent, not plans.
 (import (only-in :clan/poo/object .o)
         (only-in :std/list/list delete-duplicates/hash)
-        (only-in ./command-grammar lower-command-grammar)
+        (only-in ./command-grammar lower-command-grammar command-grammar-entrypoints)
         (only-in ../src/language/command-profile CommandProfile. command-node-schemas)
         (only-in ../src/language/part-profile BindingProfile. PartProfile.)
         (only-in ../src/language/result-profile ResultProfile.)
@@ -166,6 +166,7 @@
                               tokens: '(unparsed-source) projections: projection-rows))
                  (command-profile-value (.o (:: self CommandProfile.) roles: (cdar command-rows)
                               texts: (list (cons 'descriptor (cdadr command-rows)))
+                              ports: (command-grammar-entrypoints (cdr (assq 'rules command-rows)))
                               forms: (lower-command-grammar (cdr (assq 'rules command-rows))))))
             (trace "command-plans")
             (.o (:: self ShellSourceStrategy.) regions: region-plan-value scanner: scanner-profile-value parts: part-profile-value results: result-profile-value commands: command-profile-value)))))))

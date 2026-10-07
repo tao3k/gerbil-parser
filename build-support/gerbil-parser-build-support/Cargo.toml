@@ -11,8 +11,8 @@ publish = false
 [dev-dependencies]
 asp-rust.workspace = true
 asp-rust-build-support.workspace = true
-gerbil-parser-rowan.workspace = true
-gerbil-parser-rowan-arithmetic.workspace = true
+gerbil-parser-runtime.workspace = true
+gerbil-parser-runtime-arithmetic.workspace = true
 gerbil-scheme-rust-ir.workspace = true
 
 [lints]

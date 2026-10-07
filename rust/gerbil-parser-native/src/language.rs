@@ -1,14 +1,13 @@
 //! Handle/result ownership with borrowed, validated GPA1 views.
 use crate::{NativeError, NativeSession, RawResult};
-use gerbil_parser_rowan::{
-    ContextualParserSpec, LanguageSpec,
-    native_artifact::{NativeArtifactError, NativeArtifactView},
-};
+use gerbil_parser_artifact::{NativeArtifactError, NativeArtifactView, NativeCatalog};
+use std::cell::OnceCell;
 
 /// A unique registered language, released once when its last borrow ends.
 pub struct NativeLanguage<'runtime> {
     pub(crate) session: &'runtime NativeSession,
     pub(crate) handle: u64,
+    pub(crate) catalog: OnceCell<NativeCatalog>,
 }
 
 /// A C-owned result. Its bytes cannot outlive the result or replace its allocation.
@@ -29,10 +28,9 @@ pub struct NativePayload<'language, 'runtime> {
 /// ```
 /// A live view prevents freeing its C payload:
 /// ```compile_fail
-/// fn free(language: &gerbil_parser_native::NativeLanguage<'_>,
-///         spec: &'static gerbil_parser_rowan::ContextualParserSpec) {
+/// fn free(language: &gerbil_parser_native::NativeLanguage<'_>) {
 ///     let parsed = language.parse("a=1\\n").unwrap();
-///     let view = parsed.contextual_view(spec, 3).unwrap();
+///     let view = parsed.view().unwrap();
 ///     drop(parsed);
 ///     view.accepted();
 /// }
@@ -52,6 +50,32 @@ impl<'runtime> NativeLanguage<'runtime> {
         let status = unsafe { (self.session.api.descriptor)(self.handle, &raw mut result.raw) };
         result.admit(status)?;
         Ok(result)
+    }
+
+    /// Read and admit the Scheme result vocabulary once for this handle.
+    /// # Errors
+    /// Rejects transport failures or malformed native descriptors.
+    pub fn catalog(&self) -> Result<&NativeCatalog, NativeArtifactError> {
+        if let Some(catalog) = self.catalog.get() {
+            return Ok(catalog);
+        }
+        let payload = self.descriptor().map_err(|_| NativeArtifactError {
+            reason: "native-descriptor",
+            event: None,
+        })?;
+        let bytes = payload.bytes().map_err(|_| NativeArtifactError {
+            reason: "native-buffer",
+            event: None,
+        })?;
+        let catalog = NativeCatalog::from_descriptor(bytes)?;
+        self.catalog.set(catalog).map_err(|_| NativeArtifactError {
+            reason: "native-catalog",
+            event: None,
+        })?;
+        self.catalog.get().ok_or(NativeArtifactError {
+            reason: "native-catalog",
+            event: None,
+        })
     }
 
     /// Parse UTF-8 source, including embedded NUL, with no Rust payload copy.
@@ -133,41 +157,18 @@ impl NativeParsed<'_, '_, '_> {
         self.payload.bytes()
     }
 
-    /// Bind a canonical artifact to its generated catalog and original source.
+    /// Borrow AST/CST access using the descriptor from this exact native handle.
     /// # Errors
-    /// Rejects incompatible product/source identities or malformed records.
-    pub fn view(
-        &self,
-        language: &'static LanguageSpec,
-        field_count: usize,
-    ) -> Result<NativeArtifactView<'_>, NativeArtifactError> {
+    /// Rejects incompatible product/source identities, catalogs or records.
+    pub fn view(&self) -> Result<NativeArtifactView<'_>, NativeArtifactError> {
+        let catalog = self.payload.language.catalog()?;
         NativeArtifactView::decode(
             self.payload.raw.bytes().map_err(|_| NativeArtifactError {
                 reason: "native-buffer",
                 event: None,
             })?,
             self.source,
-            language,
-            field_count,
-        )
-    }
-
-    /// Bind a contextual artifact to its complete generated product digest.
-    /// # Errors
-    /// Rejects incompatible product/source identities or malformed records.
-    pub fn contextual_view(
-        &self,
-        product: &'static ContextualParserSpec,
-        field_count: usize,
-    ) -> Result<NativeArtifactView<'_>, NativeArtifactError> {
-        NativeArtifactView::decode_contextual(
-            self.payload.raw.bytes().map_err(|_| NativeArtifactError {
-                reason: "native-buffer",
-                event: None,
-            })?,
-            self.source,
-            product,
-            field_count,
+            catalog,
         )
     }
 }

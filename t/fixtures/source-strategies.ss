@@ -7,6 +7,9 @@
 (def (test-source-strategy factory scanner parser)
   (let (engine-provider
          (declare-source-strategy-provider 'test-engine (lambda (_) #t)
-          (lambda (_) (values '(test-only) (make-source-engine scanner factory parser #f
-             (compile-result-profile (.o (:: self ResultProfile.) nodes: '((Test ())) tokens: '())))))))
+          (lambda (_)
+            (values '(test-only)
+              (make-source-engine scanner factory parser #f
+                (compile-result-profile (.o (:: self ResultProfile.) nodes: '((Test ())) tokens: '()))
+                'Test)))))
     (.o (:: self SourceStrategy.) provider: engine-provider)))

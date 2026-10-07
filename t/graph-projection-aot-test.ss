@@ -7,8 +7,8 @@
         (only-in :gerbil-parser/graph-projection-support
                  make-graph-projection make-graph-node make-graph-field
                  graph-projection? graph-projection-digest))
-(import (only-in :gerbil-parser/src/compiler/graph-projection-rowan
-                 graph-projection-rowan-source))
+(import (only-in :gerbil-parser/src/compiler/graph-projection-runtime
+                 graph-projection-runtime-source))
 (export graph-projection-aot-test)
 
 (def graph-projection-aot-test
@@ -19,7 +19,7 @@
                (list (make-graph-node
                       'Expression "document" "root"
                       (list (make-graph-field 'Number "value"))))))
-             (source (graph-projection-rowan-source
+             (source (graph-projection-runtime-source
                       arithmetic-language-grammar projection))
              (digest (graph-projection-digest
                       arithmetic-language-grammar projection)))
@@ -46,7 +46,7 @@
                (list (make-graph-node
                       'Expression "document" "root"
                       (list (make-graph-field 'Number "value" 'each))))))
-             (source (graph-projection-rowan-source
+             (source (graph-projection-runtime-source
                       arithmetic-language-grammar each-rule)))
         (check (if (string-contains source "mode: GraphFieldMode::Each")
                  #t #f)
@@ -68,7 +68,7 @@
                       'Expression "document" "root"
                       (list (make-graph-field
                              'Number "value" 'append-or-empty))))))
-             (source (graph-projection-rowan-source
+             (source (graph-projection-runtime-source
                       arithmetic-language-grammar projection)))
         (check (graph-projection? projection) => #t)
         (check (if (string-contains
@@ -82,7 +82,7 @@
                       'Expression "document" "root"
                       (list (make-graph-field
                              'Expression "source" 'node-text))))))
-             (source (graph-projection-rowan-source
+             (source (graph-projection-runtime-source
                       arithmetic-language-grammar projection)))
         (check (graph-projection? projection) => #t)
         (check (if (string-contains
@@ -104,7 +104,7 @@
        (with-catch
         (lambda (error) #t)
         (lambda ()
-          (graph-projection-rowan-source
+          (graph-projection-runtime-source
            arithmetic-language-grammar
            (make-graph-projection
             (list (make-graph-node 'Number "document" "root" '()))))

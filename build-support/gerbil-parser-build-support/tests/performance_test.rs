@@ -1,2 +1,2 @@
-#[path = "performance/rowan_parse.rs"]
-mod rowan_parse;
+#[path = "performance/runtime_parse.rs"]
+mod runtime_parse;

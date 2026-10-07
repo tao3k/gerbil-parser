@@ -1,0 +1,623 @@
+#+title: RFC 0006 — Scheme artifacts and independent Rust AOT
+
+* Superseding implementation: native AST access without Rowan
+
+The preceding Rowan implementation notes describe earlier revisions. The active
+implementation removes the Rowan Cargo dependency, GreenNode materialization,
+=to_rowan= and the generated-specification requirement from native FFI access.
+Package and generator names now use =gerbil-parser-runtime= and
+=rust-runtime=; no compatibility facade retains the former names.
+
+The primary consumer path is =NativeLanguage::parse -> NativeParsed::view ->
+NativeNode / NativeField / NativeToken=. The catalog comes from the same C ABI
+handle and retains its canonical or contextual product digest. Its existing
+Scheme datum format is unchanged; =rootKind= is additionally published from
+the engine product. Admission binds fields to their declaring node kind.
+
+The independent Rust AOT backend retains recognition and semantic regression
+controls using source-range indexes. Native views borrow GPA1 directly and do
+not execute that backend or create its owned index. See
+[[../../rust/gerbil-parser-artifact/README.org][the artifact module contract]] and
+[[../../rust/gerbil-parser-native/README.org][native lifetime and host ownership]].
+
+No performance equivalence is inferred from removing Rowan. Scheme execution,
+transport, digest admission, index construction and field traversal remain
+separate benchmark costs. Recovery, incremental identity and other open parser
+IR obligations are not closed by this representation change.
+
+* Local qualification of the replacement
+
+The final local migration checks passed on macOS with Gerbil v0.19:
+
+| Owner | Executed evidence |
+|-------+-------------------|
+| Canonical artifact and runtime | 129 core tests and 3 inert descriptor-reader tests; repeated fields, zero-width nodes, absent associations, UTF-8 and field-owner rejection |
+| Language interfaces | All 26 DSL/conformance child processes exited zero after relinking the optimized production modules |
+| Native transport | Full =scripts/test-native-local.py --suite ffi= passed, including the four-module final suite and explicit =OK= |
+| Independent hosts | Fresh C, Rust-owned VM and borrowed-session hosts passed, with 100 calls, two handle releases, 113 result releases and normal cleanup |
+| Independent AOT consumers | Locked records fixture (2 tests) and ASCII fixture (1 test) passed |
+| Publication and source policy | Both replacement crates passed Cargo package verification together; ASP source-policy gate and strict all-target/all-feature Clippy passed |
+
+The 113 released results include two lazily fetched handle catalogs, one explicit
+descriptor and 110 parse results. Every release is counted by the native probe.
+All 12 final workspace test executables passed separately under ten-second
+completion limits. The three compile-fail doctests retain thread and lifetime
+controls.
+These are local receipts; GitHub checks must qualify the pushed commit separately.
+
+Earlier failed attempts remain diagnostic evidence: an aggregate ten-second Cargo
+invocation did not finish, and mixed temporary optimizer interfaces/native object
+versions caused a factory crash. Rebuilding specialized providers consistently
+and removing older owned temporary =.oN= objects resolved the crash. Gerbil's
+loader selects the highest contiguous object version. Qualification keeps the
+existing completion and output-inactivity limits; no timeout was widened.
+
+* Historical implementation records
+
+The following sections retain earlier designs and measurements. Their Rowan
+API names are historical; the implementation contract above supersedes them.
+
+#+startup: overview
+
+* Status
+
+The generic deterministic LR and bounded selective-GLR engine, arithmetic
+reference product, and an independent downstream custom-language fixture are
+executable. GQL and Cypher remain Scheme-owned language descriptions consumed
+through the generic engine boundary.
+
+The lexical algebra also admits =(line)= as a generic, allocation-free
+whole-line primitive. Scheme and Rust both consume LF, CRLF, bare CR, or a
+final unterminated line losslessly. A bounded POO =LineStructure= declaration
+now projects heading, block, list, table, and text-line rules to an immutable Rust
+table. Each block declares either opaque contents or recursively parsed
+elements. The generic engine executes section nesting, block recovery, and
+nested element/opaque block contents over that
+table; all markers and syntax-kind identities remain language-owned. This is
+not yet a complete contextual Parser IR or an Org parser cutover.
+
+* Descriptor product admission
+
+All complete descriptor-driven Rust parser products use
+=language-rust-rowan-module-source= in the engine. The ordinary writer,
+contextual Scanner/Parser IR writer and build C ABI delegate descriptor identity,
+policy capability admission and recognition emission to this single boundary.
+The contextual writer checks policy before preparing its parser product or
+creating any output directory. Neither an invalid contextual product nor a
+portable Scanner IR can mask an unsupported descriptor policy.
+
+A descriptor-bound Scheme CST checker is currently unsupported by standalone
+Rust execution; the boundary rejects it before publication. Native C ABI
+execution still runs that policy in Scheme. The raw =rust-rowan-module-source=
+IR API emits recognition-only source and does not qualify a complete language
+policy. Typed syntax/accessor generation is a catalog projection rather than a
+parser execution product.
+
+The regression suite first demonstrated that the old contextual writer emitted
+Rust for a policy-bearing records descriptor. It now requires the same
+policy rejection as ordinary generation and the build ABI. Portable records
+output is regenerated and compared against the checked-in Rust consumer.
+
+* Decision
+
+=grammar.ss= remains the single language-authoring authority.  Its hygienic
+declaration expands into canonical Grammar IR v1 and Parser IR v1 exactly as it
+does for the Scheme runtime.  A compiler-owned Rust backend serializes the
+already resolved syntax-kind catalog, lexical rules, productions, LR actions,
+gotos, field actions, aliases, identity, and grammar digest into an immutable
+Rust module.  Rust never resolves grammar conflicts or reparses a grammar
+declaration.
+
+The generic =gerbil-parser-rowan= crate executes those static tables and
+publishes a lossless Rowan green tree plus a receipt binding language, version,
+contract, grammar digest, and source digest. The parser does not publish a
+second vertical Rust package for GQL: consumers load the Scheme-owned language
+description through this generic boundary. A parse request runs no fallback
+Rust grammar, JSON grammar DSL, or S-expression interpreter.
+
+For grammars whose structure cannot be reduced to a finite flat terminal
+stream, the same crate also exposes a generic structural-event Rowan sink.
+An AOT-generated downstream parser may emit node-start, source-backed token,
+and node-finish events. The sink validates generated kind categories, balanced
+nesting, and exact ordered UTF-8 coverage before returning one green tree. It
+contains no language-specific recognition or recovery policy. The event sink
+constructs nodes bottom-up without Rowan's node-cache hash recursion, so deep
+but valid hierarchies do not incur quadratic hashing in the generic layer.
+
+The event-fold =join-once= form only factors a normal shared continuation out
+of Scheme-authored branches. Its IR requires nonempty branches and continuation,
+and an explicit =set-bool= of the join's handled marker in a branch. It is not
+an error-recovery fallback or an implicit parser alternative; malformed joins
+fail during Scheme validation and again at the Rust AOT boundary.
+
+The sink is not itself an AOT compiler for procedural =parser.ss= code.  A
+downstream script that prints a handwritten Rust scanner or event algorithm is
+not an implementation of the single-authority decision above, even when it
+embeds a Scheme-source digest and passes differential fixtures.  The remaining
+compiler boundary is a fuller contextual Parser IR derived from Scheme-owned
+language declarations. The current =LineStructure= table validates kind
+references against the canonical grammar digest and covers headings, tables,
+marker-led nested lists, keyed lines, paragraphs, inline links, opaque blocks,
+and recursively parsed block contents. The keyed-line rule binds a bounded key
+set or prefixed dynamic key, case/indent policy, heading adjacency, and
+single/repeated values to the parser digest. The list rule binds marker sets,
+ordered-item admission,
+visual tab width, and typed bullet/trivia kinds to the parser digest; checkbox,
+counter, description-tag, and full continuation policy are not admitted yet.
+Other line/byte recognition, lexical state
+transitions, structural actions, and typed recovery still need explicit
+admission. The Rust runtime executes the admitted table and hands source-backed
+events to the generic Rowan sink.
+
+Proposed RFC 0007 specifies the contextual Parser IR and compile-time dispatch
+boundary for this remaining work. Its current compiler fixture does not change
+the qualification or cutover claims in this RFC.
+
+The table-backed =parse_structural_lines= route is an interim compatibility
+slice, not the target parser engine for context-sensitive languages. Its Rust
+implementation currently chooses the order of block, list, heading, keyed-line,
+table, and paragraph decisions. Consequently, a downstream =parser.ss= can
+configure those recognizers but cannot define or test their control flow as a
+Scheme algorithm. Adding more Rust recognizers would deepen the wrong ownership
+boundary. The public =:gerbil-parser/rust-rowan-event-support= facade now admits
+one first, statically checked Scheme event-fold subset: boolean state, line-prefix
+conditions, node/token events, branching and final transitions. Its declaration
+runs in Scheme tests and lowers to a versioned, closed IR; =gerbil-scheme-rust-ir=
+constructs Rust syntax with =quote=/=syn= rather than source templates. The
+generated Rust function builds a lossless Rowan tree in a UTF-8, CRLF and
+multiline-state fixture. This proves the compiler path, not a full contextual
+parser: dynamic offsets, nested state, arbitrary Org recognition and recovery
+still require admitted IR operations and downstream parity. The full compiler
+gate requires the same Scheme functions to match their Rust event streams on
+UTF-8, malformed input, recursion, and recovery fixtures. Only event validation,
+tree construction, and typed failure transport remain handwritten in the
+generic Rust/Rowan runtime. A digest over a static rule table, by itself, does
+not satisfy this gate.
+The AOT test contract checks the typed Rust syntax tree through a parser-specific
+macro; generated source text is not used as an assertion language.
+Org-like languages may use a scan phase internally, but there is no separately
+authored =generate-scanner= program, second Rust grammar, or downstream event
+algorithm.  Arbitrary Scheme procedures are not silently translated to Rust;
+unsupported procedural behavior fails the AOT contract until it is expressed
+in the admitted Parser IR.  A downstream Cargo consumer never invokes Scheme.
+
+Cargo-only custom generation crosses a narrow native ABI: build support passes
+the downstream =grammar.ss= path to =gerbil_parser_rowan_compile=.  The
+precompiled Scheme product loads that module through Gerbil's own expander,
+requires exactly one exported language descriptor, and returns the existing
+=compiler/rust-rowan.ss= output as owned bytes. Rust writes those bytes to
+=OUT_DIR=; it never reparses Scheme, implements Grammar IR, or constructs LR
+tables. The normal parse-time dependency remains =gerbil-parser-rowan= and
+does not link the generator.
+
+The native generator product must be distributed for every admitted target.
+Its =defbuild-script= owner projects a public ASP Building API package spec
+into std/make. The runtime modules, executable, and native TLS options remain
+declarative build data, and release support does not reconstruct that graph
+from mutable cache objects.
+Until a clean Cargo consumer can use that product on Linux and macOS without a
+Gerbil installation, the native ABI is an executable boundary but the
+Cargo-only authoring claim remains open.
+
+The dedicated =gerbil-parser-rowan-aot= executable qualifies the same owner as
+a standalone product. It calls =gerbil-load-expander!= before loading the
+downstream module and can replace the runtime load path with an explicit
+metadata bundle through =GERBIL_PARSER_ROWAN_AOT_LIB=. Its public authoring
+surface is the minimal =:gerbil-parser/rust-rowan-grammar-support= facade, so a
+direct custom grammar does not pull the source-import and fixture facades into
+its build product. CI consumes the closed executable under =env -i= with no
+Gerbil command on =PATH= and explicit expansion-metadata roots. A source module
+still requires =.ssi= interfaces; packaging those immutable interfaces is a
+release concern, not a reason to reconstruct the runtime object graph.
+
+#+begin_src text
+grammar.ss
+  -> precompiled Gerbil expander FFI
+  -> Grammar IR v1
+  -> Parser IR v1 and grammar digest
+  -> compiler/rust-rowan.ss
+  -> generated immutable Rust tables
+  -> gerbil-parser-rowan runtime
+  -> lossless Rowan CST plus receipt
+  -> downstream semantic lowering
+#+end_src
+
+Downstream projects may own CST-to-domain-IR lowering, but they do not own
+another GQL parser package, syntax-kind catalog, lexer, precedence map,
+recovery table, or parser runtime.
+
+The language-pack dependency and Cargo feature boundary is specified in
+=docs/architecture/0008-extensible-language-packs.org=.  The generic Rowan
+runtime has no language registry; an optional support crate may select
+first-party packs without constraining downstream custom languages.
+
+The downstream qualification fixture owns the complete versioned language-pack
+shape: =grammar.ss=, =parser.ss=, =fixtures.ss=, =parser-test.ss=, native
+=corpus/=, and a committed generated Rust module. It deliberately has no
+=gerbil.pkg= and requires no Gerbil installation in its Rust consumer path.
+Upstream generation invokes only the public Gerbil facade; the resulting Rust
+module imports =gerbil_parser_rowan= as a normal dependency and compiles outside
+the root Cargo workspace. This is the acceptance boundary for custom DSL
+authors; an in-workspace generated module alone is not sufficient evidence.
+
+* Stable v1 boundary
+
+This work adds a backend for the existing v1 declarations.  It does not add a
+second grammar schema or a v2 compatibility route.  Generated numeric Rowan
+kinds follow Grammar IR declaration order and remain valid only with the exact
+grammar digest carried by the product.  Catalog overflow, unknown kinds,
+malformed tables, invalid UTF-8 boundaries, uncovered source, and missing LR
+actions fail closed.
+
+Rowan is a lossless syntax-tree representation, not the grammar authority and
+not a parser generator.  The Rust runtime therefore consumes only tables whose
+conflicts and precedence were already resolved by Gerbil's compiler.
+
+* First vertical slice
+
+Arithmetic v1 is the executable reference grammar.  The generic runtime admits
+the complete native LexicalExpr v1 algebra: whitespace, newline, decimal and
+profiled numbers, identifiers, quoted strings, heredocs, line and block
+comments, ordered choice, literals, precedence projection, and fallback.  It
+executes deterministic LALR actions, applies generated field and alias
+reductions, preserves trivia, constructs one balanced root, and verifies that
+the Rowan tree reproduces the exact source.  Selective-GLR forks enumerate all
+admitted actions within a bounded speculative-depth budget.  Complete branches
+are ranked by dynamic precedence and maximal consumption; equivalent CSTs
+merge, while distinct equal-score CSTs fail with a typed ambiguity diagnostic.
+The parse publishes a request-local =SelectiveGlrReceipt= for those decisions.
+
+The ISO/IEC 39075:2024 GQL Scheme language pack must losslessly accept the
+pinned OpenGQL 1.9.0 corpus through the generic consumer boundary. That corpus
+exercises real fork exploration and equivalent-completion merging; it is an
+admission floor, not yet the complete downstream cutover proof.
+
+The initial slice deliberately rejects unsupported generated features instead
+of silently interpreting them differently.  Before publishing GQL or Cypher,
+the Rust backend must add and qualify:
+
+- pinned external scanners;
+- case-insensitive keyword behavior over the complete corpora;
+- recovery behavior and diagnostic parity;
+- generated typed node and field accessors;
+- exact Scheme/Rust acceptance, rejection, CST-shape, roundtrip, and receipt
+  parity for the pinned language corpora.
+
+* Downstream cutover gate
+
+=gql-rust= may remove its native Gerbil runtime and local Rowan sink only after
+the generated GQL product passes the full pinned corpus and malformed-input
+differential gates.  Its private CST-to-=MetaQueryIR= lowering remains a
+downstream semantic owner and is not moved into =gerbil-parser=.
+
+* Local host-native qualification
+
+=python3 scripts/test-native-local.py= separates cold native compilation from
+running tests. =--suite rust= builds the complete workspace with =--no-run=
+first, then runs the tests with =--nocapture=. The compiler retains a 240s total
+and 30s output-idle bound; executing tests retain a 120s total and 5s output-idle
+bound. Compiler time does not become a parser or FFI latency claim.
+
+The local entry chooses matching Cargo/rustc tools. On macOS it discovers the
+Apple SDK with =xcrun= and uses =/usr/bin/clang= rather than a Nix compiler
+wrapper. It explicitly excludes ambient Rust profile, target, wrapper and
+compiler-flag overrides from this qualification environment. The Cargo root
+owns the optimized Dev/build and Release profiles, retaining full Dev debug
+information, assertions and overflow checks. Dependency workspace profiles
+are not inherited by a downstream Cargo root.
+
+=scripts/rustc-progress.py= forwards the compiler command, stdout, status and
+Cargo jobserver descriptors. It reports only changed, nonempty output files
+matching that invocation's crate name and Cargo output suffix. It emits no
+periodic progress line when those files do not change. These are build-work
+observations, not a completed-crate or passing-test claim. An unchanged compiler
+still reaches the existing idle deadline.
+
+For Gerbil, pass =--gerbil-path= pointing to the freshly built checkout's
+native package root. =--suite gql= requires compiled parser objects and executes
+the existing 100-parse, 40-sample, 150ms wall-clock contract through the native
+suite loader. =--suite ffi= runs the strict C header check and existing native
+payload/build-owner tests. =--suite aot= builds the canonical generator and
+executes it with =PATH=/usr/bin:/bin= and only the declared expansion metadata;
+formatted generated Rust must exactly match the record-assignment consumer.
+This tests the closed executable route; it does not add a shared-library
+Rust-to-Gerbil call or qualify arbitrary Scheme procedures.
+
+On 2026-10-04 the unchanged GQL gate passed locally at p95 11.742ms, and passed
+again at 62.282ms while the optional generator was building. The earlier local
+390.17ms failure is retained as a failed wall-clock receipt. The new entry
+repairs reproducibility and compiler-progress visibility; these observations
+alone do not identify the earlier host scheduling cause or prove an algorithm
+change. The optimized Rust workspace build and tests completed with exit zero;
+real native object writes kept the original idle bound observable. The closed
+AOT generator also produced an exact Rust fixture in the clean environment.
+
+* Native C ABI qualification and ownership
+
+The FFI implementation follows Gerbil's official C-interface guide
+(https://gerbil.scheme.org/guide/ffi.html): =begin-foreign= delegates callbacks
+and UTF-8 conversion to Gambit, while =c-declare= includes the public C header.
+The =std/build-script= / =std/make= owners supply the header include directory
+as described in https://gerbil.scheme.org/reference/dev/build.html.
+
+Both v1 result structs must be initialized once before use. A descriptor,
+parse, or Rowan generation call replaces the result's owned payload; errors
+also replace it. Allocation failure clears the old payload and sets status
+=-1=. Release frees the buffer and resets the result; repeated release and
+NULL init/release are safe. NULL request inputs return =-1= and clear an
+initialized result. These calls require Gerbil's initialized runtime and its
+calling thread. Gambit's generated callbacks use =char *= for UTF-8 strings;
+the public =const char *= entrypoints forward read-only inputs to those
+callbacks without changing the public v1 signature.
+
+=build-native-ffi-tests.ss= compiles a real C consumer through the standard
+module build owner. On ELF the consumer explicitly links its two native
+module dependencies; importing Scheme modules alone does not make their C
+symbols globally visible to a separately loaded consumer. Its tests invoke
+both public APIs, reuse a parse result
+1,000 times, cover UTF-8/error/NULL/release behavior, and compare three Rowan
+payloads byte-for-byte with the canonical Scheme generator. CI runs this on
+Linux and macOS. This establishes compiled callback conformance; it does not
+establish a standalone shared-library distribution for arbitrary Cargo hosts.
+The separately qualified Rowan executable remains the standalone AOT product.
+
+The local runner places the native library directory before source directories
+in =GERBIL_LOADPATH=. Checking that an object exists alone cannot ensure that
+Gerbil loaded it; the C consumer fails if the loader interprets an FFI module.
+The existing native-suite preload helper admits cold compiled dependencies
+with actual module load/import receipts. The ABI runner uses this same helper
+to keep cold imports under the original five-second silence fence.
+
+* GQL native timing diagnostics
+
+=t/benchmarks/gql/runtime/native-timing.ss= records the original 100 parses
+per sample across 40 samples after one warmup and one initial GC. It compares
+CLOCK_MONOTONIC, wall time, CPU time, cumulative GC counters, allocation,
+page faults and voluntary/involuntary OS context switches. Output is emitted only after a completed sample. This diagnostic
+never replaces the unchanged wall-clock p95 admission gate of 150ms.
+
+On the local native run of 2026-10-04, normal samples took approximately
+11--15ms. Four samples included one GC each, taking 52--54ms, with 40--42ms
+attributed to GC. Wall and monotonic time agreed. Each batch allocated about
+23MB. A later unchanged-workload run captured wall/CPU divergence directly:
+one sample took 293.465ms on CLOCK_MONOTONIC and 293.467ms on the wall clock,
+while consuming 18.203ms CPU with zero GC and zero major faults. Another took
+614.405ms monotonic with 70.064ms CPU, including one GC. This establishes
+non-CPU delay in the current reproduced outliers and excludes realtime-clock
+adjustment for them. A simultaneous host snapshot showed several unrelated
+compiler processes consuming CPU. Host contention is consistent with this
+evidence; it does not identify a specific scheduler or OS wait cause.
+
+That first diagnostic process subsequently failed the silence fence during
+runtime teardown; its sample measurements remain evidence but the whole run
+is not a pass. The diagnostic now uses the existing native-test child exit
+owner after its final receipt. Its follow-up 40-sample run exited successfully
+and recorded OS context-switch counters, with a 94.190ms maximum. Neither run
+changes the production wall-clock p95 gate or makes the historical logs an
+exact reproduction of the same external conditions.
+
+To compile the diagnostic, use =gxc -V= with the same native package path as
+the parser. On Darwin add =-ld-options "-Wl,-undefined,dynamic_lookup"= for
+the loadable C module. Run its exported =main= with the native library directory
+first in =GERBIL_LOADPATH=, under the existing 5-second silence fence.
+
+* Observability test owners
+
+The constructor contract gate retains its original 50 object pairs, 20 samples,
+100ms wall-clock p95 ceiling and full POO validation. Its test module owns the
+three constructor/import-boundary assertions. The complete openCypher phase
+observation assertion now has its own =language-grammar-observability-test.ss=
+owner, so native-suite runs all four original cases in two child processes.
+
+This removes the full language fixture's retained grammar graph from the
+constructor process. Local receipts measured 205,328,944 live bytes before
+separation and 119,735,648 afterwards, with p95 33.389ms and 25.038ms respectively.
+Those figures establish the changed test heap and local timing; they do not
+claim a faster production constructor. The prior Linux 103.173315ms failure
+against the unchanged 100ms ceiling remains a failed receipt. A candidate that
+moved constant slots into prototypes failed locally at 124.627ms and was
+rejected without changing the production constructors.
+
+* Digest encoding allocation
+
+The native matched-stage diagnostic now records cumulative allocated bytes
+alongside CPU and wall time. Its prepared LR and publication inputs reproduce
+the directed parser's complete artifact, but are not a decomposition of the
+streaming source path. Each informational sample starts with GC; the production
+40-sample wall-clock admission gate keeps its original single initial GC.
+
+On 2026-10-04, three samples of 100 representative GQL parses each measured
+23,052,240 allocated bytes before and 22,865,040 after replacing the digest
+encoder's two temporary index lists with indexed loops. Publication alone
+changed from 4,658,384 to 4,471,184 bytes. Lexing and prepared LR allocation
+were unchanged. This saves 1,872 bytes per artifact (about 0.81% of full-source
+allocation and 4.02% of publication allocation). Timing samples varied, so
+these receipts establish allocation reduction, not a latency improvement or
+closure of the observed non-CPU delays.
+
+SHA-256 remains owned by =:std/crypto/digest=, as documented in the official
+[[https://gerbil.scheme.org/reference/std/crypto.html][Gerbil crypto reference]]. Canonical digest tests use fixed empty, ASCII,
+UTF-8 and all-256-byte vectors independently computed with Python hashlib.
+The existing artifact identity, byte-extent and replay assertions remain in
+the same native test owner.
+
+The focused native suite passed all 19 cases across digest/artifact contracts,
+language artifact contracts and the original GQL runtime gate. The latter
+recorded p95 137.469ms over 40 samples against the unchanged 150ms ceiling
+(maximum 180.129ms). This is a passing local admission receipt, not proof that
+host-dependent wait outliers have disappeared.
+
+The supplementary local C ABI run emitted all success receipts, but failed
+its unchanged five-second silence fence during native runtime teardown. The
+local and CI ABI command owners now invoke the existing disposable-test-child
+exit helper only after =main= returns normally. The C probe explicitly releases
+both result objects before returning; callback failures still raise an error
+before the success exit. This qualifies completed ABI calls separately from
+Gerbil process shutdown, and does not claim that shutdown or leak inspection
+has been validated.
+
+A subsequent Scheme FFI run passed five cases, then hit the same silence fence
+while dynamically importing the real parser used as a negative grammar-module
+fixture. The test now declares that fixture in its import set, so the existing
+native admission loader records its actual imports before test execution.
+The negative exported-descriptor assertion and all six original cases remain.
+
+* Language-owned runtime benchmarks
+
+GQL now owns its unchanged 40 x 100 admission contract, phase controls,
+monotonic/native timing diagnostics and semantic profiling tests beneath
+=languages/gql=. See =benchmarks/README.org= there for executable
+commands, batch versus per-parse units, local CPU/GC/allocation measurements
+and the boundaries of prepared controls versus actual streamed parsing.
+The optional =src/runtime/actor= library provides application-owned Gerbil
+local actors without starting background services on import. Its separate
+language benchmark measures complete concurrent request batches rather than
+claiming that actor scheduling speeds up the LR algorithm.
+
+* Native test child monitoring
+
+=native-suite.ss= launches one isolated =gxi= test child per module and monitors
+its real output directly in the parent. It no longer boots a second interpreted
+watchdog before the test child. Each module retains the five-second silence
+fence, a 90-second total budget, explicit child exit propagation and a nonzero
+completed-case requirement. These processes isolate retained test state; they
+are not created by native parse calls or counted as parsing throughput.
+
+* Borrowed native artifact consumption in Rust
+
+=gerbil_parser_rowan::native_artifact::NativeArtifactView::decode= consumes
+GPA1 bytes from the generic C API after the host checks transport status. It
+binds the payload to the source SHA-256 and the same generated =LanguageSpec=
+grammar digest. =decode_contextual= instead binds the exact contextual product
+=parser_digest=, matching the grammar digest published by a contextual native
+handle. The field count comes from that same language's native descriptor.
+Canonical and contextual payloads cannot be substituted for each other.
+Header widths and event tags, catalog indexes, sequential node/token IDs,
+reserved positions, UTF-8 ranges, node/field nesting and complete source
+coverage are checked before a view is published. Rejected syntax retains
+source tokens and cannot publish a Rowan tree.
+
+The view borrows the payload and source. Its typed iterator retains fields
+and token byte slices; =to_rowan= feeds the existing validated Rowan sink
+through an iterator without allocating an intermediate event vector. Rowan
+owns its final tree. The host must drop views before replacing/releasing the
+C result. This consumer does not initialize Gerbil, invoke foreign callbacks,
+or supply a standalone embedding runtime.
+
+The Scheme GPA1 producer generates the accepted and rejected Unicode, CRLF,
+empty-source and embedded-NUL cases used by the Rust tests. Native CI verifies
+byte-for-byte fixture regeneration. Rust tests compare complete accepted trees
+with the same generated AOT parser and reject malformed transport records.
+
+* Rust ownership over the initialized language C ABI
+
+=gerbil-parser-native= is the separate FFI boundary. The pure Rust AOT and
+borrowed-artifact crate keeps =forbid(unsafe_code)=. A downstream pack needs
+only its generated C factory declaration and
+=LanguageApi::linked(pack_language_create)=; the generic functions are shared.
+An unsafe =NativeSession::attach= admits ABI version 2 and the runtime's OS
+owner thread. Its contract requires the embedding host to keep the runtime,
+modules and library loaded until the session and all borrowers are dropped.
+It does not initialize or shut down a Gerbil VM.
+
+The session cannot be sent or shared across threads. Registered language
+handles borrow it; results borrow their language; validated GPA1 views borrow
+the result and source. Drop releases each result and handle exactly once.
+Results retain their own C allocations, so parsing through another handle
+cannot replace the bytes of a live view. Source and payload bytes are not
+copied by this Rust wrapper. The existing C ABI still copies source into the
+Scheme runtime and publishes a C allocation; this is not end-to-end zero-copy.
+
+=t/fixtures/rust-native-language= builds a Rust static consumer linked into
+an ordinary Gerbil test module by =build-rust-native-tests.ss=. Its real C
+calls compare native contextual trees against generated Rust AOT, exercise
+empty, Unicode, CRLF, embedded-NUL and rejected source, retain two results
+simultaneously, reject OS foreign-thread admission and count automatic
+releases of two handles and 111 results. A hundred repeated parses share one
+session and handle. This verifies handle/result ownership during a live VM;
+the disposable test exit still does not qualify standalone VM shutdown.
+
+* Standalone runtime and native library product
+
+=build-native-library.ss= delegates bootstrap generation, static module closure
+and executable linking to the public Gerbil compiler API. The bootstrap only
+emits Scheme/interface files; dynamic bootstrap modules are not consumed by
+this library product. Its temporary output directory is separate from the
+language/package cache. =scripts/build-native-library.py= accepts compiled
+language module identities, isolates their Scheme binding names, and links the
+normal compiler product as a shared library. It never rewrites generated C.
+
+The installed SDK supplies Gambit headers, initialization and cleanup. The
+runtime C owner uses =___setup= once and =___cleanup= on its initializing OS
+thread. See Gambit's official [[https://raw.githubusercontent.com/gambit/gambit/master/examples/pthread/pthread.c][C embedding example]]. Initialization failure and
+successful cleanup permanently close this process-wide owner; restart is not
+supported. Live language handles or allocated C results block cleanup. A
+successful resource barrier disables C callback admission before cleanup.
+Foreign-thread operations and callbacks after cleanup fail before entering
+Scheme. These functions extend ABI v2 without changing its existing signatures.
+
+The optional Rust =standalone= feature exposes =RuntimeApi= and =NativeRuntime=.
+Its borrow chain includes the runtime, so live language/result/view borrowers
+prevent =close= or runtime destruction. Rust =close= is idempotent after
+successful cleanup; independently retained C resources require explicit
+release before dropping the owner. Existing embedding hosts retain the default
+=NativeSession::attach= interface and its explicit host lifetime contract.
+
+=scripts/test-native-host.py= executes independent C and Rust processes with
+normal SDK setup and cleanup. It verifies duplicate initialization, wrong OS
+thread, live-handle and live-result barriers, parsing/tree parity, Rust automatic
+release counts and closed-runtime rejection. This gate is distinct from the
+original disposable Gerbil transport test, which exits its child explicitly.
+Builds retain 90-second total / 30-second inactivity limits; execution retains
+90-second total / 5-second inactivity limits. A build timeout remains a failed
+build even when its linked artifact separately passes functional execution.
+
+The native compiler must consume coherent package outputs. A stale optimizer
+interface can make a consumer call an internal dispatch entry absent from an
+unoptimized producer. The normal Gerbil package owner must rebuild producers
+and consumers together; the native library builder does not manufacture or
+repair those optimizer interfaces. The native bundle uses the installed SDK's
+GCC compiler with its complete optimization flags and ABI configuration.
+Ambient =CC= and =GERBIL_GSC= overrides do not replace that compiler.
+The C runtime shim and standalone host use the same SDK-configured compiler.
+No runtime replacement is installed.
+
+Standalone GCC build and lifecycle qualification must pass the original
+90/30 build gate before the product is admitted. The build log records actual
+preprocessing/assembly/object publication times and separate whole-AOT wall
+and child CPU costs. The SDK-generated linker metadata currently preprocesses
+to approximately 34.6 MB in this fixture; it is a distinct compilation cost
+from the parse-call measurements. A previous Clang qualification does not
+qualify the GCC product. Exact-head Ubuntu qualification remains a
+separate CI gate.
+
+* Prepared scanner candidate indexes and direct native publication
+
+Reusable contextual scanner plans prepare first-character candidate rows once.
+ASCII rows use a fixed vector; Unicode literal prefixes use an indexed table
+with the same identifier-start predicate as the executor. Candidate rows retain
+original rule order, ranks, tie handling and ambiguity checks. Stateful and
+unknown matcher families remain universal candidates. Bare IR one-shot scanner
+construction keeps its existing row traversal. The shared scanner IR and opcode
+contract are unchanged; no language pack contributes a scanning callback.
+
+The contextual native handle uses the canonical recognition/event-program
+walker to validate and count events, then walks the same representation again
+to write one exact-sized GPA1 byte buffer. It avoids constructing canonical
+event vectors, their linked list and the event-index list before serialization.
+The ordinary Scheme artifact API retains its canonical event representation;
+non-contextual native handles retain their existing publication path.
+
+Strict UTF-8 admission happens before parsing. The validated input byte length
+and SHA-256 are reused for publication. Binary allocation and descriptor catalog
+errors remain outside the parser exception boundary, so they cannot become a
+syntax rejection. Tests compare every output byte with canonical publication
+for both recognition and event-program backends, including Unicode, CRLF,
+empty input, embedded NUL, rejection and 4096-row inputs.
+
+The C input copy and malloc-owned output copy remain the ABI ownership boundary.
+Rust continues borrowing a validated C result only during that result's lifetime.
+These changes do not claim zero-copy Scheme GC storage or a new ABI version.
+Complete-call Scheme/ASP benchmarks retain CPU, wall time, GC and allocation
+observations. Same-host alternating baseline/optimized runs are required for a
+runtime speedup claim; separate CI runner times do not establish that claim.

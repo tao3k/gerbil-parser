@@ -5,7 +5,7 @@
 ;; before the timed test dynamically inspects its exported descriptor kinds.
 (import (only-in :gerbil-parser/t/native-datum-support native-datum-read)
         :std/test
-        (only-in :gerbil-parser/t/fixtures/rowan-record-assignments/languages/records/parser
+        (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/parser
                  parse-records)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
 
@@ -13,9 +13,9 @@
                  native-abi-version
                  native-descriptor-payload
                  native-parse-binary-payload)
-        (only-in ../src/ffi/rust-rowan-aot-v1
-                 native-rowan-aot-abi-version
-                 native-rust-rowan-source))
+        (only-in ../src/ffi/rust-runtime-aot-v1
+                 native-runtime-aot-abi-version
+                 native-rust-runtime-source))
 
 (def native-ffi-tests
   (test-suite "parser-owned native ParseArtifact v1 ABI"
@@ -54,11 +54,11 @@
         (check (positive? (u8vector-u32-ref artifact 12 little)) => #t)))
     (test-case "unknown language fails closed"
       (check-exception (native-descriptor-payload "unknown") true))
-    (test-case "grammar path compiles through the Scheme Rowan backend"
-      (check (native-rowan-aot-abi-version) => 1)
+    (test-case "grammar path compiles through the Scheme Rust backend"
+      (check (native-runtime-aot-abi-version) => 1)
       (let (source
-            (native-rust-rowan-source
-             "t/fixtures/rowan-record-assignments/languages/records/grammar.ss"))
+            (native-rust-runtime-source
+             "t/fixtures/runtime-record-assignments/languages/records/grammar.ss"))
         (check (not (not (string-contains
                            source "language: \"record-assignments\""))) => #t)
         (check (not (not (string-contains
@@ -67,8 +67,8 @@
                            source "pub static LANGUAGE: LanguageSpec"))) => #t)))
     (test-case "module without a language descriptor fails closed"
       (check-exception
-       (native-rust-rowan-source
-        "t/fixtures/rowan-record-assignments/languages/records/parser.ss")
+       (native-rust-runtime-source
+        "t/fixtures/runtime-record-assignments/languages/records/parser.ss")
        true))))
 
 (export native-ffi-tests)

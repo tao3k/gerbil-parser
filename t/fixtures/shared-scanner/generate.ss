@@ -20,12 +20,12 @@
     (call-with-output-file output
       (lambda (port)
         (display generated port)
-        (display "pub static TRACES: &[(&str, &[gerbil_parser_rowan::ScannedToken])] = &[\n" port)
+        (display "pub static TRACES: &[(&str, &[gerbil_parser_runtime::ScannedToken])] = &[\n" port)
         (for-each
          (lambda (trace)
            (display "(" port) (write (car trace) port) (display ", &[" port)
            (for-each (lambda (row)
-                       (display "gerbil_parser_rowan::ScannedToken { terminal: " port)
+                       (display "gerbil_parser_runtime::ScannedToken { terminal: " port)
                        (write (car row) port) (display ", start: " port) (display (cadr row) port)
                        (display ", end: " port) (display (caddr row) port) (display " }," port)) (cdr trace))
            (display "]),\n" port)) traces)

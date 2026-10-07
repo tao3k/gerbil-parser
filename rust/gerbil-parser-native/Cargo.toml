@@ -12,7 +12,7 @@ readme = "README.org"
 standalone = []
 
 [dependencies]
-gerbil-parser-rowan.workspace = true
+gerbil-parser-artifact.workspace = true
 
 # Unsafe code is confined to this FFI crate; the AOT runtime remains forbidden.
 [lints.rust]

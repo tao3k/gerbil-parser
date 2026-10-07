@@ -5,10 +5,10 @@
         (only-in :std/test check test-case test-suite)
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities)
-        (only-in :gerbil-parser/src/build-support/rust-rowan-aot
-                 rust-rowan-aot-runtime-modules
-                 rust-rowan-aot-package
-                 rust-rowan-aot-build-spec))
+        (only-in :gerbil-parser/src/build-support/rust-runtime-aot
+                 rust-runtime-aot-runtime-modules
+                 rust-runtime-aot-package
+                 rust-runtime-aot-build-spec))
 
 (def (native-item-kind? kind item)
   (and (pair? item) (eq? (car item) kind)))
@@ -25,13 +25,13 @@
         (check (and (string-contains library-source
                                      "\"build-gparse.ss\"")
                     (string-contains library-source
-                                     "\"build-rust-rowan-aot.ss\"")
+                                     "\"build-rust-runtime-aot.ss\"")
                     (string-contains library-source
                                      ":asp-gerbil-scheme/building-api")
                     (string-contains library-source
                                      "\"src/cli.ss\"")
                     (string-contains library-source
-                                     "\"src/ffi/rust-rowan-aot-main.ss\"")
+                                     "\"src/ffi/rust-runtime-aot-main.ss\"")
                     #t)
                => #t)
         (check (cadr (member 'depend: (call-with-input-string package-source read)))
@@ -51,24 +51,24 @@
         (check (string-contains command-source
                                 "asp-gerbil-scheme-package-spec!")
                => #f)))
-    (test-case "ASP Building API projects the Rowan executable closure"
-      (let* ((spec (rust-rowan-aot-build-spec))
+    (test-case "ASP Building API projects the Rust generator executable closure"
+      (let* ((spec (rust-runtime-aot-build-spec))
              (gxc-items
               (filter (lambda (item) (native-item-kind? 'gxc: item)) spec))
              (exe-items
               (filter (lambda (item) (native-item-kind? 'exe: item)) spec)))
-        (check (map cadr gxc-items) => rust-rowan-aot-runtime-modules)
+        (check (map cadr gxc-items) => rust-runtime-aot-runtime-modules)
         (check (length exe-items) => 1)
         (let (executable (car exe-items))
-          (check (cadr executable) => "src/ffi/rust-rowan-aot-main")
+          (check (cadr executable) => "src/ffi/rust-runtime-aot-main")
           (check (cadr (member 'bin: executable))
-                 => "gerbil-parser-rowan-aot")
+                 => "gerbil-parser-runtime-aot")
           (check (and (member "-cc-options" executable)
                       (member "-ld-options" executable)
                       #t)
                  => #t))
         (check (asp-gerbil-scheme-package-native-capabilities
-                rust-rowan-aot-package)
+                rust-runtime-aot-package)
                => '(tls))))))
 
 (export build-product-contract-tests)

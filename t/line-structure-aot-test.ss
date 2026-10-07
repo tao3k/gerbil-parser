@@ -10,9 +10,9 @@
                  make-block-line make-block-header make-key-value-line
                  make-inline-link make-text-line make-table-line make-list-line
                  make-key-line)
-        (only-in :gerbil-parser/src/compiler/line-structure-rowan
-                 line-structure-parser-digest line-structure-rowan-source
-                 line-structure-rowan-syntax)
+        (only-in :gerbil-parser/src/compiler/line-structure-runtime
+                 line-structure-parser-digest line-structure-runtime-source
+                 line-structure-runtime-syntax)
         (only-in ./line-structure-assertions check-structural-aot))
 (export line-structure-aot-test)
 
@@ -29,7 +29,7 @@
   (test-suite "POO structural-line AOT"
     (test-case "one checked POO declaration resolves canonical parser kinds"
       (let* ((structure (fixture-structure))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check (line-structure? structure) => #t)
         (check-structural-aot syntax (identity) (block-opening "BEGIN"))))
@@ -79,7 +79,7 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f #f 'elements))
                (make-text-line 'NameExpression 'Number)))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar recursive)))
         (check-structural-aot syntax
                               (block-contents "BlockContents::Elements"))
@@ -110,7 +110,7 @@
                '()
                (make-text-line 'NameExpression 'Number)
                #f list-rule))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot syntax (list-markers "-+*" 8))
         (check (equal? (line-structure-parser-digest
@@ -139,7 +139,7 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f))
                (make-text-line 'NameExpression 'Number)))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot syntax (heading-fields))
         (check (equal? (line-structure-parser-digest
@@ -159,7 +159,7 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'recover-as-text #t body))
                (make-text-line 'NameExpression 'Number)))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot syntax (body-line))
         (check (equal? (line-structure-parser-digest
@@ -178,7 +178,7 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f header))
                (make-text-line 'NameExpression 'Number)))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot syntax (block-header))
         (check (equal? (line-structure-parser-digest
@@ -198,7 +198,7 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f))
                (make-text-line 'NameExpression 'Number link)))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot syntax (inline-link))
         (check (equal? (line-structure-parser-digest
@@ -216,7 +216,7 @@
                       'PrefixExpression 'Punctuation 'Number 'Punctuation
                       'close-at-eof #f #f))
                (make-text-line 'NameExpression 'Number #f 'NameExpression)))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot syntax (paragraph-node))
         (check (equal? (line-structure-parser-digest
@@ -234,7 +234,7 @@
                '()
                (make-text-line 'NameExpression 'Number)
                #f #f (list rule)))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot syntax
                               (key-lines '(("#+" () "KeyLineContext::Anywhere"
@@ -264,7 +264,7 @@
                '()
                (make-text-line 'NameExpression 'Number)
                table))
-             (syntax (line-structure-rowan-syntax
+             (syntax (line-structure-runtime-syntax
                       arithmetic-language-grammar structure)))
         (check-structural-aot
          syntax
@@ -279,7 +279,7 @@
       (check (with-catch
               (lambda (error) #t)
               (lambda ()
-                (line-structure-rowan-source
+                (line-structure-runtime-source
                  arithmetic-language-grammar
                  (fixture-structure 'Number))
                 #f))

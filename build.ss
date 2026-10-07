@@ -27,14 +27,14 @@
     "build-rust-native-tests.ss"
     "build-native-library.ss"
     "build-gparse.ss"
-    "build-rust-rowan-aot.ss"
-    "generate-rust-rowan.ss"
+    "build-rust-runtime-aot.ss"
+    "generate-rust-runtime.ss"
     "src/main.ss"
     "src/cli.ss"
     "src/ffi/language-v2-native.ss"
     "src/ffi/parse-artifact-v1-native.ss"
-    "src/ffi/rust-rowan-aot-v1-native.ss"
-    "src/ffi/rust-rowan-aot-main.ss"
+    "src/ffi/rust-runtime-aot-v1-native.ss"
+    "src/ffi/rust-runtime-aot-main.ss"
     "languages/bash/parser-test.ss"
     "languages/arithmetic/parser-test.ss"
     "languages/cypher/parser-test.ss"
@@ -60,7 +60,7 @@
            `(gxc: ,module "-cc-options" ,include-option ,@link-options))
          '("src/ffi/language-v2-native"
            "src/ffi/parse-artifact-v1-native"
-           "src/ffi/rust-rowan-aot-v1-native"))))
+           "src/ffi/rust-runtime-aot-v1-native"))))
 
 ;; PackageSpec remains here because the Build API derives project ownership
 ;; from this declaration's source location. Its default native projection owns

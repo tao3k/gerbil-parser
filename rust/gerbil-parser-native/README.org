@@ -3,7 +3,8 @@
 This crate calls the language-independent C ABI from an already initialized
 Gerbil embedding host. It owns language handles and C result buffers. The
 host must keep the VM and loaded modules alive until all sessions are dropped.
-VM initialization and shutdown are not provided by this crate.
+The optional =standalone= feature provides owned VM initialization and shutdown;
+see the standalone host contract below.
 
 A language author generates the Scheme/C entry with
 =generate-native-language-pack= and links that pack through the normal Gerbil
@@ -20,12 +21,15 @@ unsafe extern "C" {
 let session = unsafe { NativeSession::attach(LanguageApi::linked(my_language_create)) }?;
 let language = session.language()?;
 let parsed = language.parse(source)?;
-let view = parsed.contextual_view(&generated::CONTEXTUAL, field_count)?;
-let tree = view.to_rowan()?;
+let view = parsed.view()?;
+let root = view.root(); // None for syntax rejection.
 #+end_src
 
-Use =view= for canonical packs and =contextual_view= for contextual packs.
-The catalog and field count must come from the same generated language product.
+=view= obtains its vocabulary and product digest from the same native handle.
+Canonical and contextual packs use this same API; no generated Rust parser
+specification or field-count argument is required. The immutable descriptor is
+admitted once per handle. =root=, =children= and =field(name)= borrow the original
+source and retain ordered nodes, tokens, repeated fields and byte spans.
 A syntax rejection is a successful transport with =view.accepted() == false=.
 Handles, results and views are tied together by Rust borrows. Sessions cannot
 cross threads. Dropping a result releases its C allocation; dropping a language
@@ -91,8 +95,8 @@ let mut runtime = unsafe { NativeRuntime::start(RuntimeApi::linked(my_language_c
 {
     let language = runtime.language()?;
     let parsed = language.parse(source)?;
-    let view = parsed.contextual_view(&generated::CONTEXTUAL, field_count)?;
-    let tree = view.to_rowan()?;
+    let view = parsed.view()?;
+    let root = view.root(); // None for syntax rejection.
 }
 runtime.close()?;
 #+end_src

@@ -16,3 +16,8 @@ pub use language::{NativeLanguage, NativeParsed, NativePayload};
 #[cfg(feature = "standalone")]
 pub use runtime::NativeRuntime;
 pub use session::{NativeError, NativeSession};
+
+pub use gerbil_parser_artifact::{
+    NativeArtifactView, NativeCatalog, NativeElement, NativeField, NativeNode, NativeToken,
+    SourceRange,
+};

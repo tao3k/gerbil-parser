@@ -1,11 +1,11 @@
 #!/usr/bin/env gxi
-(import (only-in :gerbil-parser/src/compiler/rust-rowan language-rust-rowan-module-source)
+(import (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
         (only-in :gerbil-parser/t/structured-lexical-test structured-lexical-language-grammar)
         (only-in "structured-lexical-cases.ss" structured-lexical-cases))
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main output)
  (call-with-output-file output (lambda (port)
-  (display (language-rust-rowan-module-source structured-lexical-language-grammar) port)
+  (display (language-rust-runtime-module-source structured-lexical-language-grammar) port)
   (display "\npub const PROFILE_CASES: &[(&str, &str, Option<usize>)] = &[\n" port)
   (for-each (lambda (group) (for-each (lambda (row)
    (display "(" port) (write (symbol->string (car group)) port) (display ", " port)

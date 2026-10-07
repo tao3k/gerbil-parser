@@ -6,9 +6,9 @@
 (export SourceStrategy. SourceStrategyContract bind-source-strategy
         declare-source-strategy-provider make-source-engine
         source-engine? source-engine-scanner source-engine-factory
-        source-engine-parse source-engine-receipt source-engine-results)
+        source-engine-parse source-engine-receipt source-engine-results source-engine-root-kind)
 (defstruct source-strategy-provider (name admit compile))
-(defstruct source-engine (scanner factory parse receipt results))
+(defstruct source-engine (scanner factory parse receipt results root-kind))
 (def (declare-source-strategy-provider name admit compile)
   (unless (and (symbol? name) (procedure? admit) (procedure? compile))
     (error "invalid engine source strategy registration" name))
@@ -41,6 +41,7 @@
                  (procedure? (source-engine-factory engine))
                  (procedure? (source-engine-parse engine))
                  (result-plan? (source-engine-results engine))
+                 (symbol? (source-engine-root-kind engine))
                  (or (not (source-engine-receipt engine)) (procedure? (source-engine-receipt engine))))
       (error "source provider returned an invalid engine" (.ref strategy 'kind)))
     (values (list (.ref strategy 'kind) recipe) engine))))

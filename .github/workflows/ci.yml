@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  rust-rowan:
-    name: Rust/Rowan AOT runtime
+  rust-runtime:
+    name: Rust AOT runtime
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -35,20 +35,20 @@ jobs:
         run: cargo test --workspace --all-features --locked
 
       - name: Verify record assignments Cargo consumer
-        run: cargo test --locked --manifest-path t/fixtures/rowan-record-assignments/Cargo.toml
+        run: cargo test --locked --manifest-path t/fixtures/runtime-record-assignments/Cargo.toml
 
       - name: Verify external ASCII digit adapter
         run: |
-          cargo fmt --manifest-path t/fixtures/rowan-ascii-digit-run/Cargo.toml -- --check
-          cargo test --locked --manifest-path t/fixtures/rowan-ascii-digit-run/Cargo.toml
+          cargo fmt --manifest-path t/fixtures/runtime-ascii-digit-run/Cargo.toml -- --check
+          cargo test --locked --manifest-path t/fixtures/runtime-ascii-digit-run/Cargo.toml
 
       - name: Verify Rust lints
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
       - name: Verify publishable Rust products
-        run: cargo package -p gerbil-parser-rowan --locked --allow-dirty
+        run: cargo package -p gerbil-parser-artifact -p gerbil-parser-runtime --locked --allow-dirty
 
-      - name: Verify generated-table Rowan engine red zones
+      - name: Verify generated-table AOT engine red zones
         run: cargo test --release -p gerbil-parser-build-support --test performance_test -- --ignored --nocapture --test-threads=1
 
   native-gerbil:
@@ -179,7 +179,7 @@ jobs:
       - name: Build optional native commands
         run: |
           gerbil env gxi build-gparse.ss compile
-          gerbil env gxi build-rust-rowan-aot.ss compile
+          gerbil env gxi build-rust-runtime-aot.ss compile
 
       - name: Compile native research child support
         run: gerbil env gxi build-native-test-driver.ss compile
@@ -209,9 +209,9 @@ jobs:
             gerbil env gxc t/benchmarks/gql/runtime/native-timing.ss
           fi
           gerbil env gxc \
-            t/fixtures/rowan-record-assignments/languages/records/grammar.ss \
-            t/fixtures/rowan-record-assignments/languages/records/fixtures.ss \
-            t/fixtures/rowan-record-assignments/languages/records/parser.ss \
+            t/fixtures/runtime-record-assignments/languages/records/grammar.ss \
+            t/fixtures/runtime-record-assignments/languages/records/fixtures.ss \
+            t/fixtures/runtime-record-assignments/languages/records/parser.ss \
             t/header-delimiter-test.ss \
             t/structured-lexical-cases.ss \
             t/structured-lexical-test.ss \
@@ -226,8 +226,8 @@ jobs:
             --require HEADER-DELIMITER-HL7-GENERATED --require HEADER-DELIMITER-RECORD-GENERATED \
             -- gxi t/generate-header-delimiters.ss /tmp/hl7-header.rs /tmp/header-record.rs
           rustfmt --edition 2024 /tmp/hl7-header.rs /tmp/header-record.rs
-          cmp /tmp/hl7-header.rs rust/gerbil-parser-rowan/tests/fixtures/generated/hl7_header.rs
-          cmp /tmp/header-record.rs rust/gerbil-parser-rowan/tests/fixtures/generated/header_record.rs
+          cmp /tmp/hl7-header.rs rust/gerbil-parser-runtime/tests/fixtures/generated/hl7_header.rs
+          cmp /tmp/header-record.rs rust/gerbil-parser-runtime/tests/fixtures/generated/header_record.rs
 
       - name: Verify strict quoted profile Rust AOT regeneration
         run: |
@@ -237,19 +237,19 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/structured-lexical-test")' \
             t/generate-structured-lexical.ss /tmp/structured-lexical.rs
           rustfmt --edition 2024 /tmp/structured-lexical.rs
-          cmp /tmp/structured-lexical.rs rust/gerbil-parser-rowan/tests/fixtures/generated/structured_lexical.rs
+          cmp /tmp/structured-lexical.rs rust/gerbil-parser-runtime/tests/fixtures/generated/structured_lexical.rs
           gerbil env gxi t/generate-scheme-alphabetic-class.ss /tmp/scheme-alphabetic.rs
           rustfmt --edition 2024 /tmp/scheme-alphabetic.rs
-          cmp /tmp/scheme-alphabetic.rs rust/gerbil-parser-rowan/src/engine/unicode_alphabetic.rs
+          cmp /tmp/scheme-alphabetic.rs rust/gerbil-parser-runtime/src/engine/unicode_alphabetic.rs
           gerbil env gxi t/generate-scheme-numeric-class.ss /tmp/scheme-numeric.rs
           rustfmt --edition 2024 /tmp/scheme-numeric.rs
-          cmp /tmp/scheme-numeric.rs rust/gerbil-parser-rowan/src/engine/unicode_numeric.rs
+          cmp /tmp/scheme-numeric.rs rust/gerbil-parser-runtime/src/engine/unicode_numeric.rs
           gerbil env gxi t/generate-quoted-string-profile.ss /tmp/quoted-profile.rs
           rustfmt --edition 2024 /tmp/quoted-profile.rs
-          cmp /tmp/quoted-profile.rs rust/gerbil-parser-rowan/tests/fixtures/quoted_profile_generated.rs
+          cmp /tmp/quoted-profile.rs rust/gerbil-parser-runtime/tests/fixtures/quoted_profile_generated.rs
           gerbil env gxi t/generate-text-profile.ss /tmp/fhirpath-profile.rs
           rustfmt --edition 2024 /tmp/fhirpath-profile.rs
-          cmp /tmp/fhirpath-profile.rs rust/gerbil-parser-rowan/tests/fixtures/generated/fhirpath_profile.rs
+          cmp /tmp/fhirpath-profile.rs rust/gerbil-parser-runtime/tests/fixtures/generated/fhirpath_profile.rs
 
       - name: Verify prepared module framing Rust AOT regeneration
         run: |
@@ -258,10 +258,10 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/module-source-test")' \
             t/generate-module-source.ss /tmp/module-source.rs
           rustfmt --edition 2024 /tmp/module-source.rs
-          cmp /tmp/module-source.rs rust/gerbil-parser-rowan/tests/fixtures/generated/module_source.rs
+          cmp /tmp/module-source.rs rust/gerbil-parser-runtime/tests/fixtures/generated/module_source.rs
           gerbil env gxi t/generate-scheme-whitespace-class.ss /tmp/scheme-whitespace.rs
           rustfmt --edition 2024 /tmp/scheme-whitespace.rs
-          cmp /tmp/scheme-whitespace.rs rust/gerbil-parser-rowan/src/engine/unicode_whitespace.rs
+          cmp /tmp/scheme-whitespace.rs rust/gerbil-parser-runtime/src/engine/unicode_whitespace.rs
 
       - name: Verify shared result projection Rust AOT regeneration
         run: |
@@ -270,7 +270,7 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-result-projections.ss")' \
             t/generate-result-projections.ss /tmp/result-projections.rs
           rustfmt --edition 2024 /tmp/result-projections.rs
-          cmp /tmp/result-projections.rs rust/gerbil-parser-rowan/tests/fixtures/generated/result_projections.rs
+          cmp /tmp/result-projections.rs rust/gerbil-parser-runtime/tests/fixtures/generated/result_projections.rs
 
       - name: Verify ordered result catalog Rust AOT regeneration
         run: |
@@ -279,7 +279,7 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-ordered-results.ss")' \
             t/generate-ordered-results.ss /tmp/ordered-results.rs
           rustfmt --edition 2024 /tmp/ordered-results.rs
-          cmp /tmp/ordered-results.rs rust/gerbil-parser-rowan/tests/fixtures/generated/ordered_results.rs
+          cmp /tmp/ordered-results.rs rust/gerbil-parser-runtime/tests/fixtures/generated/ordered_results.rs
 
       - name: Verify shared Command Source Rust AOT regeneration
         run: |
@@ -288,7 +288,7 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-command-source.ss")' \
             t/generate-command-source.ss /tmp/command-source.rs
           rustfmt --edition 2024 /tmp/command-source.rs
-          cmp /tmp/command-source.rs rust/gerbil-parser-rowan/tests/fixtures/generated/command_source.rs
+          cmp /tmp/command-source.rs rust/gerbil-parser-runtime/tests/fixtures/generated/command_source.rs
 
       - name: Verify shared Word and Binding Rust AOT regeneration
         run: |
@@ -297,7 +297,7 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-word-parts.ss")' \
             t/generate-word-parts.ss /tmp/word-parts.rs
           rustfmt --edition 2024 /tmp/word-parts.rs
-          cmp /tmp/word-parts.rs rust/gerbil-parser-rowan/tests/fixtures/generated/word_parts.rs
+          cmp /tmp/word-parts.rs rust/gerbil-parser-runtime/tests/fixtures/generated/word_parts.rs
 
       - name: Verify shared region recognition Rust AOT regeneration
         run: |
@@ -306,7 +306,7 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-region-boundaries.ss")' \
             t/generate-region-boundaries.ss /tmp/region-boundaries.rs
           rustfmt --edition 2024 /tmp/region-boundaries.rs
-          cmp /tmp/region-boundaries.rs rust/gerbil-parser-rowan/tests/fixtures/generated/region_boundaries.rs
+          cmp /tmp/region-boundaries.rs rust/gerbil-parser-runtime/tests/fixtures/generated/region_boundaries.rs
 
       - name: Verify shared scanner and contextual Rust AOT regeneration
         run: |
@@ -316,20 +316,20 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/shared-scanner/bash")' \
             t/fixtures/shared-scanner/generate-bash.ss /tmp/bash-scanner.rs
           rustfmt --edition 2024 /tmp/bash-scanner.rs
-          cmp /tmp/bash-scanner.rs rust/gerbil-parser-rowan/tests/fixtures/generated/bash_scanner.rs
+          cmp /tmp/bash-scanner.rs rust/gerbil-parser-runtime/tests/fixtures/generated/bash_scanner.rs
           gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
             --log /tmp/binding-names-generation.log --require BINDING-NAMES-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-test-imports "t/generate-binding-names.ss")' \
             t/generate-binding-names.ss /tmp/binding-names.rs
           rustfmt --edition 2024 /tmp/binding-names.rs
-          cmp /tmp/binding-names.rs rust/gerbil-parser-rowan/tests/fixtures/generated/binding_names.rs
+          cmp /tmp/binding-names.rs rust/gerbil-parser-runtime/tests/fixtures/generated/binding_names.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-native-artifact.ss /tmp/native-artifact.rs
           rustfmt --edition 2024 /tmp/native-artifact.rs
-          cmp /tmp/native-artifact.rs rust/gerbil-parser-rowan/tests/fixtures/native_artifact_generated.rs
+          cmp /tmp/native-artifact.rs rust/gerbil-parser-runtime/tests/fixtures/native_artifact_generated.rs
           rustfmt --edition 2024 /tmp/shared-scanner.rs /tmp/records-contextual.rs
-          cmp /tmp/shared-scanner.rs rust/gerbil-parser-rowan/tests/fixtures/shared_scanner_generated.rs
-          cmp /tmp/records-contextual.rs rust/gerbil-parser-rowan/tests/fixtures/records_contextual_generated.rs
+          cmp /tmp/shared-scanner.rs rust/gerbil-parser-runtime/tests/fixtures/shared_scanner_generated.rs
+          cmp /tmp/records-contextual.rs rust/gerbil-parser-runtime/tests/fixtures/records_contextual_generated.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-native.ss /tmp/records-native.ss /tmp/records-native.h
           cmp /tmp/records-native.ss t/fixtures/shared-scanner/records-native.ss
           cmp /tmp/records-native.h t/fixtures/shared-scanner/records-native.h
@@ -341,7 +341,7 @@ jobs:
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env python3 scripts/run-bounded.py --timeout 120 --idle-timeout 5 \
             --log .data/native-abi.log --require NATIVE-ABI-OK \
-            --require 'ABI-ROWAN-GENERATED-MATCH calls=3' \
+            --require 'ABI-RUNTIME-GENERATED-MATCH calls=3' \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")' \
             -e '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'
 
@@ -420,12 +420,12 @@ jobs:
               -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/parser")' \
               t/fixtures/tla-sany-differential/corpus.ss "$corpus"
 
-      - name: Verify Rust/Rowan AOT generation is current
+      - name: Verify Rust AOT generation is current
         run: |
           arithmetic_generated="$(mktemp)"
-          gerbil env gxi generate-rust-rowan.ss "$arithmetic_generated"
+          gerbil env gxi generate-rust-runtime.ss "$arithmetic_generated"
           rustfmt --edition 2024 "$arithmetic_generated"
-          cmp "$arithmetic_generated" rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
+          cmp "$arithmetic_generated" rust/gerbil-parser-runtime-arithmetic/src/generated/mod.rs
 
       - name: Verify Scheme event strategy AOT fixture
         run: |
@@ -438,8 +438,8 @@ jobs:
           gerbil env gxi t/generate-event-fold-ir.ss "$fold_ir_generated"
           gerbil env gxi t/generate-outline-fold-ir.ss "$outline_ir_generated"
           rustfmt --edition 2024 "$event_generated" "$grammar_generated"
-          cmp "$event_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_generated.rs
-          cmp "$grammar_generated" rust/gerbil-parser-rowan/tests/unit/event_strategy_grammar.rs
+          cmp "$event_generated" rust/gerbil-parser-runtime/tests/unit/event_strategy_generated.rs
+          cmp "$grammar_generated" rust/gerbil-parser-runtime/tests/unit/event_strategy_grammar.rs
           cmp "$fold_ir_generated" t/fixtures/event_fold.ir.json
           cmp "$outline_ir_generated" t/fixtures/outline_fold.ir.json
 
@@ -447,13 +447,13 @@ jobs:
         run: |
           owned_generated="$(mktemp)"
           gerbil env gxi t/generate-owned-word-fixture.ss "$owned_generated"
-          cmp "$owned_generated" rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs
+          cmp "$owned_generated" rust/gerbil-parser-runtime/tests/unit/owned_first_word_generated.rs
 
-      - name: Verify record assignments Rust/Rowan language pack
+      - name: Verify record assignments Rust language pack
         run: |
-          fixture="t/fixtures/rowan-record-assignments"
+          fixture="t/fixtures/runtime-record-assignments"
           generated="$(mktemp)"
-          clean_home="$RUNNER_TEMP/rowan-aot-home"
+          clean_home="$RUNNER_TEMP/runtime-aot-home"
           mkdir -p "$clean_home"
           gerbil env gxc \
             "$fixture/languages/records/grammar.ss" \
@@ -464,8 +464,8 @@ jobs:
             HOME="$clean_home" \
             PATH=/usr/bin:/bin \
             GERBIL_PATH="$PWD/.gerbil" \
-            GERBIL_PARSER_ROWAN_AOT_LIB="$PWD/.gerbil/lib:$GERBIL_HOME/lib" \
-            "$PWD/.gerbil/bin/gerbil-parser-rowan-aot" \
+            GERBIL_PARSER_RUNTIME_AOT_LIB="$PWD/.gerbil/lib:$GERBIL_HOME/lib" \
+            "$PWD/.gerbil/bin/gerbil-parser-runtime-aot" \
             "$fixture/languages/records/grammar.ss" \
             "$generated"
           rustfmt --edition 2024 "$generated"

@@ -3,7 +3,7 @@
 ;;; construction IR. These controls do not claim Rust Word recognition.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :gerbil-parser/t/fixtures/bash-products bash-results bash-parts bash-word-regions)
-        (only-in :gerbil-parser/src/compiler/rust-rowan result-profile-rust-source)
+        (only-in :gerbil-parser/src/compiler/rust-runtime result-profile-rust-source)
         (only-in :gerbil-parser/src/language/result-profile compile-result-profile result-plan-recipe)
         (only-in :gerbil-parser/src/language/part-profile compile-part-profile)
         (only-in :gerbil-parser/src/runtime/shell-word make-shell-word-parser)
@@ -63,7 +63,7 @@
           (let-values (((node tokens) (parser token))) (unless node (error "control failed recognition" control)) node))) controls))
         (call-with-output-file output (lambda (port)
           (display (result-profile-rust-source plan) port)
-          (display "use gerbil_parser_rowan::{PreparedResultProfile, ProjectedNode, ResultCapture, Diagnostic, TreeEvent};\n" port)
+          (display "use gerbil_parser_runtime::{PreparedResultProfile, ProjectedNode, ResultCapture, Diagnostic, TreeEvent};\n" port)
           (display "pub static SOURCES: &[&str] = &[" port)
           (for-each (lambda (row) (write (cadr row) port) (display "," port)) controls) (display "];\n" port)
           (for-each (lambda (node index)

@@ -179,7 +179,7 @@ interfaces. Corpus declarations now live exclusively in parser-test.ss.
 
 | Entry | Corpus count | Optional development capability |
 |-------+--------------+---------------------------------|
-| arithmetic | 1 | Fused reduction and Rust/Rowan generation |
+| arithmetic | 1 | Fused reduction and independent Rust AOT generation |
 | Bash | 2 | Descriptor-bound command scanner |
 | openCypher | 5 | Corpus conformance |
 | FHIRPath | 4 | Corpus conformance |

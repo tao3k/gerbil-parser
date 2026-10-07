@@ -12,6 +12,5 @@ standalone = ["gerbil-parser-native/standalone"]
 
 [dependencies]
 gerbil-parser-native = { path = "../../../rust/gerbil-parser-native" }
-gerbil-parser-rowan = { path = "../../../rust/gerbil-parser-rowan" }
 
 [workspace]

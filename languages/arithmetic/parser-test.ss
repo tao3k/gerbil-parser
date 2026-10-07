@@ -5,7 +5,7 @@
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-fixture)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
-        (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-rowan-strategy))
+        (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy))
 (export arithmetic-basic-fixture arithmetic-test-language)
 
 (defsyntax-fixture arithmetic-basic-fixture
@@ -21,8 +21,8 @@
   (slots metadata: '((grammar-format . concise-dsl))
          build-strategies: (list (declare-language-build-strategy 'fused-reductions
                                    (make-fused-reduction-strategy arithmetic-language-grammar))
-                                 (declare-language-build-strategy 'rust-rowan
-                                   (make-rust-rowan-strategy arithmetic-language-grammar)))
+                                 (declare-language-build-strategy 'rust-runtime
+                                   (make-rust-runtime-strategy arithmetic-language-grammar)))
          fixtures: (list arithmetic-basic-fixture)))
 
 (deflanguage-parser-tests arithmetic-parser-test "arithmetic v1 language pack"

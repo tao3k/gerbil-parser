@@ -68,7 +68,7 @@ def main():
     # replacing GAMBOPT makes gxc look for gsc at the release builder's path.
     runtime_options = environment.get("GAMBOPT", "")
     heap_options = "max-heap=1G,debug=q"
-    environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=os.pathsep.join([str(native_root / "lib"), str(root)]),
+    environment.update(GERBIL_PATH=str(native_root), GERBIL_LOADPATH=os.pathsep.join([str(native_root / "lib"), environment.get("GERBIL_PARSER_OUTPUT", str(root)), str(root)]),
                        GAMBOPT=runtime_options + ("," if runtime_options else "") + heap_options,
                        GERBIL_PARSER_LR_TRACE="1", GERBIL_BUILD_VERBOSE="1")
     # Match CI: report real native compiler artifacts during cold Cargo builds.
@@ -119,16 +119,16 @@ def main():
                 '(import :gerbil-parser/t/benchmarks/gql/runtime/actors :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
                 required=["GQL-ACTORS-OK", "GQL-STAGE-SUMMARY"])
         elif suite == "aot":
-            run("aot-build", ["gxi", "build-rust-rowan-aot.ss", "compile"], build=True)
+            run("aot-build", ["gxi", "build-rust-runtime-aot.ss", "compile"], build=True)
             gerbil_home = subprocess.check_output(
                 ["gxi", "-e", '(display (gerbil-home))'], env=environment, text=True, timeout=5).strip()
-            fixture = "t/fixtures/rowan-record-assignments"
+            fixture = "t/fixtures/runtime-record-assignments"
             with tempfile.TemporaryDirectory(prefix="parser-native-aot-") as directory:
                 generated = str(Path(directory) / "records.rs")
                 run("aot-closed", ["env", "-i", "HOME=" + str(Path.home()),
                     "PATH=/usr/bin:/bin", "GERBIL_PATH=" + str(native_root),
-                    "GERBIL_PARSER_ROWAN_AOT_LIB=" + str(native_root / "lib") + ":" + gerbil_home + "/lib",
-                    str(native_root / "bin/gerbil-parser-rowan-aot"),
+                    "GERBIL_PARSER_RUNTIME_AOT_LIB=" + str(native_root / "lib") + ":" + gerbil_home + "/lib",
+                    str(native_root / "bin/gerbil-parser-runtime-aot"),
                     fixture + "/languages/records/grammar.ss", generated])
                 run("aot-format", ["rustfmt", "--edition", "2024", generated])
                 run("aot-compare", ["cmp", generated, fixture + "/src/generated/records.rs"])
@@ -141,7 +141,7 @@ def main():
                 run("ffi-abi", ["gxi", "-e",
                     '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
                     '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'],
-                    required=["NATIVE-ABI-OK", "ABI-ROWAN-GENERATED-MATCH calls=3"])
+                    required=["NATIVE-ABI-OK", "ABI-RUNTIME-GENERATED-MATCH calls=3"])
                 run("native-language-abi", ["gxi", "-e",
                     '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")', "-e",
                     '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'],
@@ -157,12 +157,12 @@ def main():
                 run("rust-native-ownership", ["gxi", "-e",
                     '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/rust-language-probe")', "-e",
                     '(import :gerbil-parser/t/fixtures/native-ffi/rust-language-probe) (main)'],
-                    required=["RUST-NATIVE-OK", "RUST-NATIVE-OWNERSHIP-OK handles=2 results=111",
+                    required=["RUST-NATIVE-OK", "RUST-NATIVE-OWNERSHIP-OK handles=2 results=113",
                               "RUST-NATIVE-100-CALLS"], timeout=90)
                 subprocess.run([sys.executable, "scripts/test-native-host.py"],
                                env=environment, check=True)
             modules = (["languages/gql/parser", "src/runtime/parser"]
-                       if suite == "gql" else ["src/ffi/rust-rowan-aot-v1"])
+                       if suite == "gql" else ["src/ffi/rust-runtime-aot-v1"])
             for module in modules:
                 # Reject interpreter-only metadata. Gerbil loads the compiled .o1.
                 object_file = native_root / "lib/gerbil-parser" / (module + ".o1")

@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; One Scheme algorithm is executed in tests and compiled for Rowan.
+;;; One Scheme algorithm is executed in tests and compiled for Rust.
 
 (import (only-in :gerbil-parser/language-support deflanguage-grammar)
         (only-in :gerbil-parser/src/compiler/event-strategy-aot

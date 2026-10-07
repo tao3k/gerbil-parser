@@ -33,7 +33,7 @@
         (list (region-plan-specification regions) scanner-ir
               (result-plan-recipe results) (part-plan-recipe parts)
               (command-plan-recipe commands))
-        (make-source-engine scan factory parse receipt results)))))
+        (make-source-engine scan factory parse receipt results 'SourceFile)))))
 (def +shell-source-provider+
   (declare-source-strategy-provider 'shell shell-source-admit? compile-shell-source))
 (def ShellSourceStrategy.
@@ -71,7 +71,7 @@
              (reasonKind . parse-rejected) (failureKind . source-rejected)
              (message . "source does not match its declared prefix") (byteOffset . 0))))))
     (values (list root-kind token-kind prefix (result-plan-recipe results))
-            (make-source-engine scan factory parse #f results))))
+            (make-source-engine scan factory parse #f results root-kind))))
 (def +line-source-provider+
   (declare-source-strategy-provider 'lines line-source-admit? compile-line-source))
 (def LineSourceStrategy.

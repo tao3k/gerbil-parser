@@ -1,7 +1,7 @@
 ;;; Independent language pack: normal descriptor + declarative scanner rows.
-(import (only-in ../rowan-record-assignments/languages/records/grammar records-language-grammar)
+(import (only-in ../runtime-record-assignments/languages/records/grammar records-language-grammar)
         (for-syntax
-         (only-in ../rowan-record-assignments/languages/records/grammar records-language-grammar records-parser-ir)
+         (only-in ../runtime-record-assignments/languages/records/grammar records-language-grammar records-parser-ir)
          (only-in :gerbil-parser/src/compiler/contextual-parser-ir compile-contextual-parser/declaration)
          (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
          (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)))

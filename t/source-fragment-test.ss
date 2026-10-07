@@ -14,7 +14,7 @@
                  source-delimited-fragment-initial source-delimited-fragment-forms
                  source-first-split-initial source-first-split-forms
                  source-reference-scan-initial source-reference-scan-forms)
-        (only-in :gerbil-parser/rust-rowan-event-support
+        (only-in :gerbil-parser/rust-runtime-event-support
                  run-event-fold event-fold-ir-json))
 (export source-fragment-test)
 

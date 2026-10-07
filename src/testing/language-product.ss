@@ -7,7 +7,7 @@
         (only-in ../language/entry parse-language-source)
         (only-in ../language/tlc qualify-language-tlc-model tla-plus-model-receipt->alist)
         (only-in ../ffi/language-artifact-codec bind-native-language native-parse-binary-payload/bytes)
-        (only-in ../ffi/rust-rowan-aot-v1 native-rust-rowan-source)
+        (only-in ../ffi/rust-runtime-aot-v1 native-rust-runtime-source)
         (only-in :std/vector/u8vector little u8vector-u32-ref))
 (export language-model-test-receipt check-language-native-entry check-language-portable-rejection)
 
@@ -54,5 +54,5 @@
            => (if accepted? 0 1))))
 
 (def (check-language-portable-rejection module-path message)
-  (check-exception (native-rust-rowan-source module-path)
+  (check-exception (native-rust-runtime-source module-path)
                    (lambda (exception) (equal? (error-message exception) message))))

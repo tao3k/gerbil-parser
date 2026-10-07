@@ -7,6 +7,7 @@
 #include <gerbil-parser/language-v2.h>
 #include "t/fixtures/shared-scanner/records-native.h"
 extern int gerbil_parser_rust_native_host_probe(void);
+extern int gerbil_parser_rust_native_probe(void);
 static double seconds(void) {
   struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts);
   return ts.tv_sec + ts.tv_nsec * 1e-9;
@@ -21,6 +22,12 @@ int main(int argc, char **argv) {
   double started = seconds();
   if (gerbil_parser_runtime_init()) return 1;
   printf("NATIVE-HOST-READY setup-ms=%.3f\n",1000*(seconds()-started));fflush(stdout);
+  if (argc == 2 && !strcmp(argv[1],"borrowed")) {
+    if (gerbil_parser_rust_native_probe()) return 12;
+    if (gerbil_parser_runtime_shutdown()) return 13;
+    puts("RUST-BORROWED-HOST-OK");fflush(stdout);
+    return 0;
+  }
   puts("NATIVE-HOST-DUPLICATE-INIT");fflush(stdout);
   if (gerbil_parser_runtime_init() != -3) return 2;
   puts("NATIVE-HOST-FOREIGN-THREAD");fflush(stdout);

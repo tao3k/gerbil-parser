@@ -1,16 +1,14 @@
 ;;; Canonical Rust outputs from two independent Scheme language declarations.
 (import (only-in :gerbil-parser/language-build-support
-                 make-rust-rowan-strategy declare-language-build-strategy emit-language-build-strategy)
-        (only-in :clan/poo/object .cc .ref)
+                 make-rust-runtime-strategy emit-build-strategy)
+        (only-in :clan/poo/object .ref)
         (only-in :gerbil-parser/languages/hl7/parser hl7-language)
         (only-in "header-delimiter-test.ss" header-record-language))
 (export main)
 (def (emit loader output)
-  (let (bound (.cc loader 'build-strategies
-                  (list (declare-language-build-strategy 'rust-rowan
-                          (make-rust-rowan-strategy (.ref loader 'descriptor))))))
+  (let (strategy (make-rust-runtime-strategy (.ref loader 'descriptor)))
     (call-with-output-file output
-      (lambda (port) (emit-language-build-strategy bound 'rust-rowan port)))))
+      (lambda (port) (emit-build-strategy strategy port)))))
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main hl7-output record-output)
   (emit hl7-language hl7-output)

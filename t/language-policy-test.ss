@@ -17,11 +17,11 @@
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
                  bind-native-language native-descriptor-payload
                  native-parse-binary-payload native-parse-binary-payload/bytes)
-        (only-in :gerbil-parser/src/compiler/rust-rowan
-                 generate-language-rust-rowan-module language-rust-rowan-module-source
-                 rust-rowan-module-source)
+        (only-in :gerbil-parser/src/compiler/rust-runtime
+                 generate-language-rust-runtime-module language-rust-runtime-module-source
+                 rust-runtime-module-source)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
-        (only-in :gerbil-parser/src/compiler/rust-scanner generate-contextual-language-rust-rowan-module)
+        (only-in :gerbil-parser/src/compiler/rust-scanner generate-contextual-language-rust-runtime-module)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records
                  records-language-grammar records-contextual-product))
 
@@ -112,12 +112,12 @@
        (list #f records-contextual-product)))
     (test-case "descriptor source admission retains portable recognition bytes"
       (check-exception
-       (language-rust-rowan-module-source descriptor)
+       (language-rust-runtime-module-source descriptor)
        (lambda (e)
          (equal? (error-message e)
                  "language parser policy is unsupported by standalone Rust AOT")))
-      (check (language-rust-rowan-module-source records-language-grammar)
-             => (rust-rowan-module-source
+      (check (language-rust-runtime-module-source records-language-grammar)
+             => (rust-runtime-module-source
                  (language-grammar-language records-language-grammar)
                  (language-grammar-version records-language-grammar)
                  (language-grammar-contract records-language-grammar)
@@ -132,7 +132,7 @@
            (for-each
             (lambda (product)
               (check-exception
-               (generate-contextual-language-rust-rowan-module path descriptor product)
+               (generate-contextual-language-rust-runtime-module path descriptor product)
                (lambda (e)
                  (equal? (error-message e)
                          "language parser policy is unsupported by standalone Rust AOT")))
@@ -153,14 +153,14 @@
                                  (equal? (error-message e)
                                          "language parser policy is unsupported by standalone Rust AOT")))
               (check (call-with-input-file path read-line) => sentinel))
-            (list (lambda () (generate-language-rust-rowan-module path descriptor))
-                  (lambda () (generate-contextual-language-rust-rowan-module path descriptor records-contextual-product))
-                  (lambda () (generate-contextual-language-rust-rowan-module path descriptor #f)))))
+            (list (lambda () (generate-language-rust-runtime-module path descriptor))
+                  (lambda () (generate-contextual-language-rust-runtime-module path descriptor records-contextual-product))
+                  (lambda () (generate-contextual-language-rust-runtime-module path descriptor #f)))))
          (lambda () (delete-file path)))))
     (test-case "standalone Rust rejects an unlowered policy before writing output"
       (let (path (path-expand "language-policy-rejected.rs" (getenv "TMPDIR" "/tmp")))
         (check (file-exists? path) => #f)
-        (check-exception (generate-language-rust-rowan-module path descriptor)
+        (check-exception (generate-language-rust-runtime-module path descriptor)
                          (lambda (e)
                            (equal? (error-message e)
                                    "language parser policy is unsupported by standalone Rust AOT")))

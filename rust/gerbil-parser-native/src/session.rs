@@ -65,6 +65,7 @@ impl NativeSession {
         Ok(NativeLanguage {
             session: self,
             handle,
+            catalog: std::cell::OnceCell::new(),
         })
     }
 }

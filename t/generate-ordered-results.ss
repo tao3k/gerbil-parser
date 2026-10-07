@@ -2,7 +2,7 @@
 ;;; Scheme-owned lexical field order for catalog constructors used by Commands.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :gerbil-parser/t/fixtures/bash-products bash-results)
-        (only-in :gerbil-parser/src/compiler/rust-rowan result-profile-rust-source)
+        (only-in :gerbil-parser/src/compiler/rust-runtime result-profile-rust-source)
         (only-in :gerbil-parser/src/language/result-profile compile-result-profile result-plan-node result-plan-recipe)
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-child recognition-node-kind recognition-node-start recognition-node-end recognition-node-children recognition-child-field recognition-child-value)
         (only-in :gerbil-parser/src/runtime/token make-token token? token-kind token-start token-end))
@@ -56,7 +56,7 @@
      (display "TreeEvent::FinishNode," port))))
   (call-with-output-file output (lambda (port)
    (display (result-profile-rust-source plan) port)
-   (display "use gerbil_parser_rowan::{PreparedResultProfile, ProjectedNode, ResultChildCapture, ProjectedValue, Diagnostic, TreeEvent};\n" port)
+   (display "use gerbil_parser_runtime::{PreparedResultProfile, ProjectedNode, ResultChildCapture, ProjectedValue, Diagnostic, TreeEvent};\n" port)
    (for-each (lambda (row at)
     (let (node (recognize (cadr row) (car row)))
      (display "pub fn replay_" port) (display at port)

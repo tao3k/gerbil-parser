@@ -55,7 +55,7 @@
                 (blocks (rust-array '()))))
              (module (rust-module '("LineStructureSpec")
                                   (rust-static STRUCTURE LineStructureSpec value)
-                                  "line-structure-rowan.ss")))
+                                  "line-structure-runtime.ss")))
         (check (rust-struct-form? value) => #t)
         (check (rust-struct-form-name value) => 'LineStructureSpec)
         (check (map rust-field-name (rust-struct-form-fields value))
@@ -63,7 +63,7 @@
         (check (rust-static-form-value (rust-module-form-item module))
                => value)
         (check (rust-module-form-origin module)
-               => "line-structure-rowan.ss")
+               => "line-structure-runtime.ss")
         (check-exception
          (rust-module '("LineStructureSpec") value "invalid\norigin")
          true)))
@@ -75,7 +75,7 @@
       (check (normalized_title "\tBeta\n") => "Beta")
       (check-rust-aot-artifact
        normalized_title_rust
-       "rust/gerbil-parser-rowan/tests/unit/pure_function_generated.rs"))
+       "rust/gerbil-parser-runtime/tests/unit/pure_function_generated.rs"))
     (test-case "left trim keeps source trailing whitespace"
       (check (trim_start_only "  Alpha  ") => "Alpha  ")
       (check (trim_start_only "\tβ ") => "β ")
@@ -143,7 +143,7 @@
              => "")
       (check-rust-aot-artifact
        classify_first_word_rust
-       "rust/gerbil-parser-rowan/tests/unit/classify_first_word_generated.rs"))
+       "rust/gerbil-parser-runtime/tests/unit/classify_first_word_generated.rs"))
     (test-case "typed pure function composition shares Scheme algorithm"
       (check (classify_or_unknown "WAIT Task" '("WAIT") '("DONE"))
              => "active")
@@ -151,7 +151,7 @@
              => "unknown")
       (check-rust-aot-artifact
        classify_or_unknown_rust
-       "rust/gerbil-parser-rowan/tests/unit/classify_or_unknown_generated.rs")
+       "rust/gerbil-parser-runtime/tests/unit/classify_or_unknown_generated.rs")
       (check-exception
        (scheme-pure->rust 'invalid '((input . "&str")) "&str"
                           '(classify_first_word input)
@@ -162,7 +162,7 @@
       (check (owned_first_word "  WAIT Task" #f) => "")
       (check-rust-aot-artifact
        owned_first_word_rust
-       "rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs")
+       "rust/gerbil-parser-runtime/tests/unit/owned_first_word_generated.rs")
       (check (owned_rest_after_first_word "  WAIT   [#A] Head :tag:  ")
              => "[#A] Head :tag:")
       (check (owned_rest_after_first_word "WAIT") => "")

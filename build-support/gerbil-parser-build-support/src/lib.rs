@@ -2,9 +2,10 @@
 #![forbid(unsafe_code)]
 
 mod policy;
-mod rowan_scenarios;
+mod runtime_scenarios;
 mod test_assertions;
 
-pub use rowan_scenarios::{
-    ROWAN_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID, ROWAN_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID,
+pub use runtime_scenarios::{
+    RUNTIME_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID,
+    RUNTIME_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID,
 };

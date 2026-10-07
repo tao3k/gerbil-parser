@@ -1,9 +1,7 @@
 //! Exercise the Rust ownership boundary through actual compiled Gerbil callbacks.
+use gerbil_parser_native::NativeElement;
 use gerbil_parser_native::{LanguageApi, NativeSession, RawResult};
-use gerbil_parser_rowan::{SyntaxNode, parse_contextual};
 use std::sync::atomic::{AtomicUsize, Ordering};
-#[path = "../../../../../rust/gerbil-parser-rowan/tests/fixtures/records_contextual_generated.rs"]
-mod generated;
 
 unsafe extern "C" {
     fn records_language_create() -> u64;
@@ -62,40 +60,35 @@ fn check() {
         }
         for source in ["", "a=1\n", "α=1\r\n", "a=1\n\0", "a=!"] {
             let parsed = language.parse(source).expect("transport");
-            let view = parsed
-                .contextual_view(&generated::CONTEXTUAL, 3)
-                .expect("bound view");
+            let view = parsed.view().expect("bound view");
             // The view uses the original C buffer: no Rust payload copy.
             let original = parsed.bytes().unwrap();
             assert!(original.starts_with(b"GPA1"));
             let other = second.parse("b=1\n").expect("concurrent owned result");
-            assert!(
-                other
-                    .contextual_view(&generated::CONTEXTUAL, 3)
-                    .unwrap()
-                    .accepted()
-            );
+            assert!(other.view().unwrap().accepted());
             assert_eq!(parsed.bytes().unwrap().as_ptr(), original.as_ptr());
-            let expected = parse_contextual(&generated::CONTEXTUAL, source);
-            assert_eq!(view.accepted(), expected.is_ok());
-            if let Ok(expected) = expected {
-                let actual = SyntaxNode::new_root(view.to_rowan().unwrap());
-                assert_eq!(format!("{actual:#?}"), format!("{:#?}", expected.syntax()));
-                assert_eq!(actual.to_string(), source);
+            assert_eq!(view.accepted(), matches!(source, "" | "a=1\n" | "α=1\r\n"));
+            if let Some(root) = view.root() {
+                assert_eq!(root.kind(), "Document");
+                assert_eq!(root.text(), source);
+                assert_eq!(root.text().as_ptr(), source.as_ptr());
+                for child in root.children() {
+                    if let NativeElement::Node(assignment) = child {
+                        assert_eq!(assignment.kind(), "Assignment");
+                        assert_eq!(assignment.field("name").count(), 1);
+                        assert_eq!(assignment.field("value").count(), 1);
+                        assert_eq!(assignment.parent().unwrap().id(), root.id());
+                    }
+                }
             } else {
-                assert_eq!(view.to_rowan().unwrap_err().reason, "rejected-syntax");
+                assert!(!view.accepted());
             }
             println!("RUST-NATIVE-SOURCE-OK bytes={}", source.len());
         }
         let started = std::time::Instant::now();
         for i in 1..=100 {
             let parsed = language.parse("α=1\n").expect("repeat parse");
-            assert!(
-                parsed
-                    .contextual_view(&generated::CONTEXTUAL, 3)
-                    .unwrap()
-                    .accepted()
-            );
+            assert!(parsed.view().unwrap().accepted());
             if i % 25 == 0 {
                 println!("RUST-NATIVE-PARSE-OK calls={i}");
             }
@@ -106,8 +99,8 @@ fn check() {
         );
     }
     assert_eq!(RELEASED.load(Ordering::Relaxed), 2);
-    assert_eq!(FREED.load(Ordering::Relaxed), 111);
-    println!("RUST-NATIVE-OWNERSHIP-OK handles=2 results=111");
+    assert_eq!(FREED.load(Ordering::Relaxed), 113);
+    println!("RUST-NATIVE-OWNERSHIP-OK handles=2 results=113");
 }
 
 /// Called by the compiled Scheme test probe while the VM is alive.
@@ -137,12 +130,7 @@ pub extern "C" fn gerbil_parser_rust_native_host_probe() -> i32 {
         {
             let language = runtime.language().expect("owned language");
             let parsed = language.parse("α=1\n").expect("owned parse");
-            assert!(
-                parsed
-                    .contextual_view(&generated::CONTEXTUAL, 3)
-                    .unwrap()
-                    .accepted()
-            );
+            assert!(parsed.view().unwrap().accepted());
         }
         check();
         runtime.close().expect("normal SDK cleanup");

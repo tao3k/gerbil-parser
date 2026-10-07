@@ -6,7 +6,7 @@
         (only-in "event-strategy-fixture.ss" event-lines-language-grammar)
         (only-in "event-fold-fixture.ss" parse-fold-lines parse_fold_lines
                  parse-outline-lines parse_outline_lines)
-        (only-in :gerbil-parser/rust-rowan-event-support
+        (only-in :gerbil-parser/rust-runtime-event-support
                  event-fold-ir-json run-event-fold))
 (export event-fold-test)
 
@@ -231,7 +231,7 @@
                              "#+BEGIN_OUTER\n#+BEGIN_INNER\n#+END_OUTER\n#+END_inner\n"
                              'Document initial forms '())))
                => '(Document Text))))
-    (test-case "state-only frame pop does not close Rowan nodes"
+    (test-case "state-only frame pop does not close syntax nodes"
       (let ((initial '((saved (uint-stack))))
             (forms '((push-frame saved (uint 7))
                      (pop-frame saved)

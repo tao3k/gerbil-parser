@@ -51,6 +51,7 @@ def main():
             ([] if platform.system() == "Darwin" else ["-ldl"]) + ["-o", str(host)], build=True)
         run("c", [str(host)], marker="NATIVE-HOST-CLEANUP-OK")
         run("rust", [str(host), "rust"], marker="RUST-HOST-CLEANUP-OK")
+        run("borrowed", [str(host), "borrowed"], marker="RUST-BORROWED-HOST-OK")
     print("NATIVE-HOST-OK", flush=True)
 
 

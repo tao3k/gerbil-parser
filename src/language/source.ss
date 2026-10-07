@@ -5,7 +5,7 @@
 (import (only-in ../runtime/artifact
                  parse-artifact-ref parse-artifact-valid? sha256-text)
         (only-in ./source-strategy bind-source-strategy source-engine-scanner source-engine-factory
-                 source-engine-parse source-engine-receipt source-engine-results)
+                 source-engine-parse source-engine-receipt source-engine-results source-engine-root-kind)
         (only-in ./result-profile result-plan-catalog))
 (export +source-language-schema+
         declare-source-language declare-source-syntax source-language-with-identity source-syntax-strategy
@@ -13,14 +13,14 @@
         source-language-language
         source-language-version
         source-language-contract
-        source-language-digest source-language-result-catalog
+        source-language-digest source-language-result-catalog source-language-root-kind
         source-language-scanner-factory parse-source-language parse-source-language/receipt
         deflanguage-parser-receipt)
 
 (def +source-language-schema+ "gerbil-parser.source-language.v1")
 
 (defstruct source-language
-  (schema language version contract digest scanner parse factory receipt results)
+  (schema language version contract digest scanner parse factory receipt results root-kind)
   transparent: #t)
 
 (def (declare-source-language language version contract strategy)
@@ -36,7 +36,7 @@
      (sha256-text (call-with-output-string
                     (lambda (port) (write (list language version contract recipe) port))))
      (source-engine-scanner engine) (source-engine-parse engine)
-     (source-engine-factory engine) (source-engine-receipt engine) (source-engine-results engine)))))
+     (source-engine-factory engine) (source-engine-receipt engine) (source-engine-results engine) (source-engine-root-kind engine)))))
 (def (source-language-result-catalog descriptor)
   (result-plan-catalog (source-language-results descriptor)))
 (def (source-language-scanner-factory descriptor) (source-language-factory descriptor))
@@ -75,7 +75,7 @@
     (make-source-syntax +source-language-schema+ #f #f #f #f
       (source-engine-scanner engine) (source-engine-parse engine)
       (source-engine-factory engine) (source-engine-receipt engine)
-      (source-engine-results engine) recipe strategy)))
+      (source-engine-results engine) (source-engine-root-kind engine) recipe strategy)))
 (def (source-language-with-identity definition language version contract)
   (unless (source-syntax? definition) (error "source identity requires unbound syntax"))
   (let ((language-value (string-copy language)) (version-value (string-copy version))
@@ -86,4 +86,4 @@
                                    (source-syntax-recipe definition)) port))))
       (source-language-scanner definition) (source-language-parse definition)
       (source-language-factory definition) (source-language-receipt definition)
-      (source-language-results definition))))
+      (source-language-results definition) (source-language-root-kind definition))))

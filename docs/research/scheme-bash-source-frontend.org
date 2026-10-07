@@ -342,14 +342,13 @@ An owned payload wrapper must keep the native runtime and language handle alive
 until all borrowed views are released. Semantic AST wrappers should resolve
 fields through the canonical result catalog, with no second grammar contract.
 
-The current native Rust wrapper already parses through Scheme and borrows its
-payload. Rowan construction occurs only in =NativeArtifactView::to_rowan=.
-However, =gerbil-parser-native= still depends on =gerbil-parser-rowan=, and its
-views require generated Rust =LanguageSpec= / =ContextualParserSpec= values.
-Removing this dependency requires an independent native result catalog and
-AST access surface. That separation is not implemented by this source-provider
-change. The Rust AOT executor is a separate backend and must not be a dependency
-of the primary Scheme FFI client.
+The implemented native Rust wrapper now obtains a catalog from its own language
+handle and borrows GPA1 through =NativeParsed::view()=. Node, token and named
+field navigation require no generated =LanguageSpec= or =ContextualParserSpec=.
+The native crate depends only on =gerbil-parser-artifact=; Rowan and the native
+conversion API have been removed. The independent Rust AOT backend uses flat
+source-range indexes in =gerbil-parser-runtime= and is not a dependency of the
+primary Scheme FFI client. See [[../architecture/0006-rust-aot.org][the implementation and qualification contract]].
 
 [[https://docs.rs/rowan/0.16.1/rowan/][Rowan 0.16.1]] describes a lossless tree library. It does not replace parser
 semantics or establish that its tree materialization is needed by this API.
@@ -378,3 +377,40 @@ bounded publication receipt above; the broader native ABI suite remains a CI
 obligation. The ASP Rust quality gate was not qualified locally: its initial
 cold run exceeded ten seconds, and separate dependency compilation later failed
 the five-second output-idle fence. Required limits were not increased.
+
+* Implemented native representation separation
+
+The preceding qualification records belong to the prior published revision.
+The current refactor implements the separation proposed above: an independent
+=gerbil-parser-artifact= vocabulary and borrowed AST API, handle-bound catalog
+admission, engine-derived =rootKind= publication, and field-owner validation.
+The FFI client has no dependency on generated =LanguageSpec= values or on the
+independent Rust AOT executor. Rowan and GreenNode construction are removed.
+
+#+begin_src scheme
+;; Parser products publish their actual root and result catalog together.
+;; Native publication reads these engine-owned values; authors do not maintain
+;; a second Rust grammar or positional catalog convention.
+(source-language-root-kind descriptor)
+(source-language-result-catalog descriptor)
+#+end_src
+
+Why does this design preserve Scheme's advantage? The =deflanguage= declaration,
+macro expansion and POO composition still select the effective parser product;
+Rust consumes that product's vocabulary and events through one publication
+contract. Language authors retain =grammar.ss=, =parser.ss= and
+=parser-test.ss= as their interfaces.
+
+Why is this design technically justified? Source and grammar digests, vocabulary
+admission, owner-specific fields and ordered scope indexes provide falsifiable
+contracts. Tests compare independent execution with canonical Scheme artifacts
+and reject damaged or mismatched results. Removing a redundant representation
+does not establish a latency improvement; equivalent traversal benchmarks are
+still required for that conclusion.
+
+The observed prior-head macOS generator failure came from applying a
+LanguageDevelopmentLoader contract to an ordinary parser Loader with one added
+slot. The generator now emits its bound BuildStrategy directly. The prior-head
+Ubuntu conformance build exceeded the unchanged 240-second fence. Test entry
+modules now skip whole-module Scheme optimizer analysis while linking the
+optimized production parser; this does not change production build settings.

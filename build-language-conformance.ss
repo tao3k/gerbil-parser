@@ -31,4 +31,7 @@
          "t/fixtures/language-pack-research/list-language"
          "t/fixtures/language-pack-research/list-parser"
          "t/fixtures/language-pack-research/list-parser-test"
-         "t/conformance-main")))
+         "t/conformance-main"))
+  ;; Test entry modules link the optimized production parser; they do not need
+  ;; whole-module Scheme optimizer analysis of the large assertion closures.
+  optimize: #f)

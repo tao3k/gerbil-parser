@@ -8,10 +8,10 @@
         (only-in ./native-datum native-datum-write)
         (only-in :std/encoding/hex hex-decode)
         (only-in ../grammar/algebra grammar-expression-fields)
-        (only-in ../language/descriptor language-grammar? language-grammar-grammar language-grammar-language language-grammar-machine
+        (only-in ../language/descriptor language-grammar-ir language-grammar? language-grammar-grammar language-grammar-language language-grammar-machine
                  language-grammar-parser-policy language-parser-policy-identity
                  language-parser-policy-branch-budget)
-        (only-in ../language/source source-language? source-language-language source-language-result-catalog)
+        (only-in ../language/source source-language-root-kind source-language? source-language-language source-language-result-catalog)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
         (only-in ../language/entry parse-language-source call-with-language-parser-policy)
         (only-in ../runtime/parser prepare-contextual-parser parse-source/contextual/prepared
@@ -253,6 +253,10 @@
   (let (payload
         (hash (schema +gerbil-parser-native-descriptor-schema+)
          (language (native-language-id language))
+         (rootKind (symbol->string
+                     (if (source-language? (native-language-descriptor language))
+                       (source-language-root-kind (native-language-descriptor language))
+                       (cdr (assq 'root-kind (language-grammar-ir (native-language-descriptor language)))))))
          (grammarDigest
           (parse-artifact-ref ((native-language-parser language) "")
                               'grammarDigest))

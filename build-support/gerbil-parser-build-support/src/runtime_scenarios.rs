@@ -19,7 +19,7 @@ macro_rules! runtime_engine_scenario_package {
                 name: $crate::RUNTIME_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID,
                 package: "gerbil-parser-build-support",
                 description: "The generic engine keeps generated-table lexing, LR execution, and lossless indexed CST construction inside the hot-path budget",
-                fixture_root: "rust/gerbil-parser-runtime-scenarios/tests/performance/scenarios/runtime_engine_deterministic_hot_path_v1",
+                fixture_root: "build-support/gerbil-parser-build-support/tests/performance/scenarios/runtime_engine_deterministic_hot_path_v1",
                 tags: ["performance", "red-zone", "runtime", "engine", "aot", "deterministic-lr"],
                 commands: [
                     {
@@ -49,7 +49,7 @@ macro_rules! runtime_engine_scenario_package {
                 name: $crate::RUNTIME_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID,
                 package: "gerbil-parser-build-support",
                 description: "The generic syntax event sink builds deeply nested lossless CSTs without language-specific parser policy",
-                fixture_root: "rust/gerbil-parser-runtime-scenarios/tests/performance/scenarios/runtime_engine_event_tree_hot_path_v1",
+                fixture_root: "build-support/gerbil-parser-build-support/tests/performance/scenarios/runtime_engine_event_tree_hot_path_v1",
                 tags: ["performance", "red-zone", "runtime", "engine", "aot", "event-tree"],
                 commands: [
                     {

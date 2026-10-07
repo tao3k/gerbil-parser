@@ -6,7 +6,6 @@ members = [
   "rust/gerbil-parser-artifact",
   "rust/gerbil-parser-runtime-external",
   "rust/gerbil-parser-runtime-arithmetic",
-  "rust/gerbil-parser-runtime-scenarios",
 ]
 resolver = "2"
 

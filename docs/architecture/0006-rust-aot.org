@@ -35,7 +35,12 @@ its owned syntax index. There is no conversion facade between the products.
 | gerbil-parser-native | Generic FFI, handle/result lifetimes, owner-thread sessions, optional standalone VM ownership | Artifact package |
 | gerbil-parser-runtime | Independent generated-table/event execution, diagnostics and source indexes | Artifact package and SHA-256 |
 | gerbil-parser-runtime-external | Optional external event producer and provider receipt | Generic runtime |
+| gerbil-parser-build-support | Source policy, integration tests and benchmark scenario data | Development dependencies only |
 | Language crates/fixtures | Generated language data and independent semantic expectations | Selected public backend |
+
+Development scenarios and arithmetic integration tests live in the existing
+=gerbil-parser-build-support= package. A separate Cargo package with a comment-only
+library is unnecessary: the test runner, policy and fixture data have one owner.
 
 Public APIs retain current names only. Cargo manifests, independent fixture
 lockfiles, Scheme generators, C headers, CI commands and documentation must

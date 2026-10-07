@@ -257,15 +257,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gerbil-parser-runtime-scenarios"
-version = "0.1.0"
-dependencies = [
- "gerbil-parser-build-support",
- "gerbil-parser-runtime",
- "gerbil-parser-runtime-arithmetic",
-]
-
-[[package]]
 name = "gerbil-scheme-rust-ir"
 version = "0.1.0"
 source = "git+https://github.com/tao3k/gerbil-scheme-rust?rev=4d8684baf99bc48b6db47a3060997540e11d6cd5#4d8684baf99bc48b6db47a3060997540e11d6cd5"

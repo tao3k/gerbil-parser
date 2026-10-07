@@ -1,4 +1,7 @@
-use gerbil_parser_runtime_arithmetic::LANGUAGE;
+#[path = "../fixtures/generated/arithmetic.rs"]
+mod generated;
+
+use generated::LANGUAGE;
 
 #[test]
 fn generated_arithmetic_parser_builds_a_lossless_runtime_tree() {

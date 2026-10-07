@@ -89,8 +89,9 @@
     (let (name (symbol->string value))
       (when (string-prefix? ":" name)
         (let (module (substring name 1 (string-length name)))
-          (when (or (compiled-file module ".ssi")
-                    (compiled-file module ".scm"))
+          ;; A runtime wrapper without its interface is an incomplete build
+          ;; product. Let Gerbil import source instead of admitting that wrapper.
+          (when (compiled-file module ".ssi")
             (preload-module module))))))
    ((string? value)
     (let (file (path-expand

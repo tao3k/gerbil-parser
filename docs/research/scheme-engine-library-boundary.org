@@ -439,10 +439,10 @@ publication. This negative result is not a reason to relax the runtime limit.
 =invoke-gsc: #f= for test leaf declarations. Their interfaces and static Scheme
 products feed the existing parallel native link owner, which compiles the closed
 runtime once. Source-expansion research helpers retain their loadable native
-products. The later =compile-shared-tests!= owner generates loadable native test
-modules for gxtest's source-interface imports. Both artifact forms remain tested;
-conformance does not manufacture an unused second form before its runtime gate.
-The separate shared-test owner also retains a 240/5-second build fence. Production
+products. The =0dd4391= revision added a =compile-shared-tests!= owner for loadable native test
+modules for gxtest's source-interface imports. That revision qualified both artifact forms locally;
+conformance did not manufacture an unused second form before its runtime gate.
+The separate shared-test owner retained a 240/5-second build fence. Production
 optimization settings, independent AOT ownership and all child fences are unchanged.
 
 The disposable-environment check quarantined 401 prior shared test outputs before
@@ -476,3 +476,34 @@ in 40.99 seconds with four workers; SDK objects and Scheme outputs were retained
 The real conformance consumer then completed in 39.75 seconds, followed by all
 28 children exiting zero and identical native ABI fixture bytes. These are local
 artifact-ownership receipts, not Linux timing or complete remote closure claims.
+
+** Native gxtest owns source tests
+
+At =0dd4391=, Linux and Rust CI passed. macOS passed conformance and both ABI
+consumers but stopped while generating redundant loadable test modules. Reusing
+=std/make= for twelve imported test services still failed the unchanged five-second
+silence fence locally. This negative control rules out claiming that merely
+moving a worker loop into a library solves the redundant artifact problem.
+
+The closed executable retains native conformance bodies and all 28 bounded
+children. Native =gxtest= evaluates test source owners and imports corpus services
+from source; their production parser dependencies remain compiled. No assertion,
+benchmark threshold, production compiler flag or watchdog limit is removed.
+
+=prepare-gxtest!= delegates output cleanup to =std/make#make-clean= using its
+native module output map plus =copy:= declarations for generated runtime wrappers.
+The library directory is explicit. A wrapper without its =.ssi= is not admitted
+as a complete native module. The package source parent is on =GERBIL_LOADPATH= so
+qualified corpus imports resolve after cleanup. This removes a second C build of
+conformance test bodies and the project-owned shared-test compile queue.
+
+The local preparation completed in 0.54 seconds under the unchanged 240/5-second
+fence. Source gxtest controls passed 57 TLA+ cases, 10 artifact cases and the
+versioned language benchmark, with zero harness status and final GC completion.
+Full-suite and exact-head platform qualification remain separate gates.
+
+The retained manual static closure/link builder is a separate remaining boundary;
+it has not been replaced by =gerbil-scheme-rust= archive APIs in this change.
+Those APIs require a compiler-owned program manifest and a static archive
+consumer. A downstream parser should reuse that contract when migrating its AOT
+product, rather than claiming that a different artifact format is interchangeable.

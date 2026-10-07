@@ -221,7 +221,6 @@ dependencies = [
  "asp-rust",
  "asp-rust-build-support",
  "gerbil-parser-runtime",
- "gerbil-parser-runtime-arithmetic",
  "gerbil-scheme-rust-ir",
 ]
 
@@ -238,13 +237,6 @@ version = "0.1.0"
 dependencies = [
  "gerbil-parser-artifact",
  "sha2 0.10.9",
-]
-
-[[package]]
-name = "gerbil-parser-runtime-arithmetic"
-version = "0.1.0"
-dependencies = [
- "gerbil-parser-runtime",
 ]
 
 [[package]]

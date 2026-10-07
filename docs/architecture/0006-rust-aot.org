@@ -41,6 +41,8 @@ its owned syntax index. There is no conversion facade between the products.
 Development scenarios and arithmetic integration tests live in the existing
 =gerbil-parser-build-support= package. A separate Cargo package with a comment-only
 library is unnecessary: the test runner, policy and fixture data have one owner.
+The arithmetic reference tables are a generated test fixture in that same package;
+their integration and performance tests do not require a separate language crate.
 
 Public APIs retain current names only. Cargo manifests, independent fixture
 lockfiles, Scheme generators, C headers, CI commands and documentation must

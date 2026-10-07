@@ -186,7 +186,7 @@ After building the Gerbil package, regenerate and verify the committed module:
 
 #+begin_src sh
 gerbil env gxi generate-rust-runtime.ss \
-  rust/gerbil-parser-runtime-arithmetic/src/generated/mod.rs
+  build-support/gerbil-parser-build-support/tests/fixtures/generated/arithmetic.rs
 cargo fmt --all
 cargo test --workspace --locked
 cargo test --release -p gerbil-parser-build-support --test performance_test -- \

@@ -1,9 +1,9 @@
 #!/usr/bin/env gxi
-;;; Closed conformance and loadable gxtest modules are separate native products.
+;;; Closed native conformance and source gxtest have distinct artifact owners.
 (import (only-in :std/build-script defbuild-script)
-        (only-in :std/make make)
+        (only-in :std/make make make-clean)
         (only-in :std/source this-source-file)
-        (only-in :gerbil/compiler compile-module execute-pending-compile-jobs!))
+        (only-in :gerbil/compiler compile-module))
 (def conformance-modules
   '("languages/arithmetic/parser-test"
     "languages/bash/parser-test"
@@ -58,31 +58,33 @@
 (def (native-spec modules)
   (map (lambda (module)
          `(gxc: ,module "-cc-options" "-v -Q -fopt-info-inline-optimized")) modules))
-(def (compile-test-modules! native?)
-  ;; Match std/make source admission before compiling mutually referring interfaces.
+(def (compile-static-tests!)
+  ;; Keep source expansion and executable publication in one compiler context.
   (add-load-path! (path-directory (this-source-file)))
   (for-each
    (lambda (module)
-     (when (and native?
-                (member module '("t/generate-native-language-alignment" "t/conformance-main")))
-       (execute-pending-compile-jobs!))
-     (displayln (if native? "SHARED-TEST-COMPILE " "STATIC-TEST-SCHEME ") module)
-     (force-output)
+     (displayln "STATIC-TEST-SCHEME " module) (force-output)
      (compile-module (string-append module ".ss")
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
         optimize: #f generate-ssxi: #t static: #t keep-scm: #t
-        invoke-gsc: native? parallel: native? verbose: #t
-        gsc-options: ["-cc-options" "-v -Q -fopt-info-inline-optimized"]]))
-   (filter shared-test-module? conformance-modules))
-  (when native? (execute-pending-compile-jobs!)))
+        invoke-gsc: #f verbose: #t]))
+   (filter shared-test-module? conformance-modules)))
 (def (compile-static-conformance!)
   ;; Source-expansion research children need these loadable helper products.
   (make (native-spec (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
     srcdir: (path-directory (this-source-file)) optimize: #f)
   ;; The closed executable owns their only required C/object compilation here.
-  (compile-test-modules! #f))
-(def (compile-shared-tests!)
-  ;; Later gxtest source owners import test fixtures through loadable modules.
-  (compile-test-modules! #t))
+  (compile-static-tests!))
+(def (prepare-gxtest!)
+  ;; gxtest owns source test evaluation. The closed executable already owns
+  ;; native conformance bodies; production parser modules remain native.
+  ;; Remove only source-only test interfaces, using std/make's own output map,
+  ;; so gxtest imports their Scheme sources rather than an incomplete product.
+  (let (modules (filter shared-test-module? conformance-modules))
+    (make-clean
+     (append (native-spec modules)
+             (map (lambda (module) `(copy: ,(string-append module ".scm"))) modules))
+     libdir: (path-expand "lib" (getenv "GERBIL_PATH"))
+     srcdir: (path-directory (this-source-file)))))
 ;; Developer multicall build retains the standard native shared-module owner.
 (defbuild-script (native-spec conformance-modules) optimize: #f)

@@ -393,17 +393,17 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")' \
             -e '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'
 
-      - name: Compile loadable native test modules
+      - name: Prepare native gxtest source owners
         run: |
           gerbil env python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
             --log .data/shared-native-tests-build.log \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)' \
-            -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (compile-shared-tests!))))) (exit 0)'
+            -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)'
 
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: |
-          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD:$(dirname "$PWD")" \
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/native-suite.ss t languages
 
@@ -420,7 +420,7 @@ jobs:
           curl --fail --location --retry 3 --silent --show-error \
             --output "$jar" \
             https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
-          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD:$(dirname "$PWD")" \
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
               gerbil env gxi \
@@ -435,7 +435,7 @@ jobs:
           git -C "$corpus" remote add origin https://github.com/tlaplus/Examples.git
           git -C "$corpus" fetch --depth=1 origin ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10
           git -C "$corpus" checkout --detach FETCH_HEAD
-          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD:$(dirname "$PWD")" \
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/watch.ss \
               gerbil env gxi \
@@ -447,7 +447,7 @@ jobs:
           arithmetic_generated="$(mktemp)"
           gerbil env gxi generate-rust-runtime.ss "$arithmetic_generated"
           rustfmt --edition 2024 "$arithmetic_generated"
-          cmp "$arithmetic_generated" rust/gerbil-parser-runtime-arithmetic/src/generated/mod.rs
+          cmp "$arithmetic_generated" build-support/gerbil-parser-build-support/tests/fixtures/generated/arithmetic.rs
 
       - name: Verify Scheme event strategy AOT fixture
         run: |

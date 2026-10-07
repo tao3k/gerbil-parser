@@ -9,7 +9,8 @@ use gerbil_parser_build_support::{
     RUNTIME_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID,
     RUNTIME_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID, runtime_engine_scenario_package,
 };
-use gerbil_parser_runtime_arithmetic as arithmetic_v1;
+#[path = "../fixtures/generated/arithmetic.rs"]
+mod arithmetic_v1;
 
 const ARITHMETIC_PARSE_COUNT: usize = 256;
 const EVENT_PARSE_COUNT: usize = 128;

@@ -5,7 +5,6 @@ members = [
   "rust/gerbil-parser-native",
   "rust/gerbil-parser-artifact",
   "rust/gerbil-parser-runtime-external",
-  "rust/gerbil-parser-runtime-arithmetic",
 ]
 resolver = "2"
 
@@ -46,7 +45,6 @@ asp-rust-build-support = { git = "https://github.com/tao3k/asp-rust", rev = "9b9
 gerbil-parser-build-support = { path = "build-support/gerbil-parser-build-support", version = "0.1.0" }
 gerbil-scheme-rust-ir = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "4d8684baf99bc48b6db47a3060997540e11d6cd5", version = "0.1.0" }
 gerbil-parser-runtime = { path = "rust/gerbil-parser-runtime", version = "0.1.0" }
-gerbil-parser-runtime-arithmetic = { path = "rust/gerbil-parser-runtime-arithmetic", version = "0.1.0" }
 gerbil-parser-artifact = { path = "rust/gerbil-parser-artifact", version = "0.1.0" }
 sha2 = "0.10.9"
 

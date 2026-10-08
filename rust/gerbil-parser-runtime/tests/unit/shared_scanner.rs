@@ -203,3 +203,72 @@ fn region_declarations_control_initial_stops_and_scalar_depth_admission() {
     assert_eq!((tokens[0].start, tokens[0].end), (0, 3));
     assert!(ContextualScanner::new(&BAD_DEPTH, "α(x)))").is_err());
 }
+
+#[test]
+fn independently_reached_edited_suffix_requires_full_context() {
+    use gerbil_parser_runtime::scanner::ScannerCheckpoint;
+    fn advance<'a, 'b>(
+        scanner: &'a ContextualScanner<'b>,
+        count: usize,
+    ) -> ScannerCheckpoint<'a, 'b> {
+        let mut state = scanner.initial_state();
+        for _ in 0..count {
+            state = scanner.step(&state, "command").expect("step").1;
+        }
+        state
+    }
+    static OTHER: gerbil_parser_runtime::scanner::ScannerSpec =
+        gerbil_parser_runtime::scanner::ScannerSpec {
+            ..generated::SCANNER
+        };
+    let old = ContextualScanner::new(&generated::SCANNER, "cat <<A\nα\nA\n").unwrap();
+    let new = ContextualScanner::new(&generated::SCANNER, "猫猫 <<A\nα\nA\n").unwrap();
+    let before = advance(&old, 5);
+    let after = advance(&new, 5);
+    assert!(before.converges_with(&after));
+    assert_ne!(before.byte_offset(), after.byte_offset());
+    let mut left = before.clone();
+    let mut right = after.clone();
+    loop {
+        let (a, next_a) = old.step(&left, "command").unwrap();
+        let (b, next_b) = new.step(&right, "command").unwrap();
+        assert_eq!(
+            a.as_ref().map(|t| (
+                t.terminal,
+                t.start - before.byte_offset(),
+                t.end - before.byte_offset()
+            )),
+            b.as_ref().map(|t| (
+                t.terminal,
+                t.start - after.byte_offset(),
+                t.end - after.byte_offset()
+            ))
+        );
+        if a.is_none() {
+            break;
+        }
+        left = next_a;
+        right = next_b;
+    }
+    for source in [
+        "cat <<B\nα\nA\n",
+        "cat <<-A\nα\nA\n",
+        "cat <<'A'\nα\nA\n",
+        "cat <<A\nβ\nA\n",
+    ] {
+        let changed = ContextualScanner::new(&generated::SCANNER, source).unwrap();
+        assert!(!before.converges_with(&advance(&changed, 5)), "{source}");
+    }
+    let q1 = ContextualScanner::new(&generated::SCANNER, "<<A <<B\ntail").unwrap();
+    let q2 = ContextualScanner::new(&generated::SCANNER, "<<B <<A\ntail").unwrap();
+    assert!(!advance(&q1, 5).converges_with(&advance(&q2, 5)));
+    assert!(advance(&old, 4).converges_with(&advance(&new, 4)));
+    let expect = ContextualScanner::new(&generated::SCANNER, "<< tail").unwrap();
+    let plain = ContextualScanner::new(&generated::SCANNER, "ab tail").unwrap();
+    let strip = ContextualScanner::new(&generated::SCANNER, "<<- tail").unwrap();
+    assert!(!advance(&expect, 1).converges_with(&advance(&plain, 1)));
+    assert!(!advance(&expect, 1).converges_with(&advance(&strip, 1)));
+    assert!(!before.converges_with(&old.with_mode(&before, "command").unwrap()));
+    let foreign = ContextualScanner::new(&OTHER, "cat <<A\nα\nA\n").unwrap();
+    assert!(!before.converges_with(&advance(&foreign, 5)));
+}

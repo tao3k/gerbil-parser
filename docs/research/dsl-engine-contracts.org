@@ -670,3 +670,38 @@ with identical formatted Rust and native binary fixtures. The integrated packed
 image revision =6c9b513= independently passed Ubuntu native and Rust AOT CI in
 [[https://github.com/tao3k/gerbil-parser/actions/runs/37727437327/job/113148708306][run 37727437327]]. That baseline qualification does not substitute for exact-head
 CI after this constructor and diagnostic change.
+
+** Independently reached scanner suffix convergence
+
+The Scheme engine now exports =contextual-scan-state-converged?= and Rust
+=ScannerCheckpoint::converges_with=. Two independently reached checkpoints
+converge only when they share the admitted immutable scanner plan, mode,
+expectation, ordered pending delimiter values and complete active delimiter
+(marker, strip-tabs, quoted), and their remaining source is exactly equal.
+Scheme compares characters in owned snapshots without copying the suffix; Rust
+compares borrowed UTF-8 suffix bytes. Digest equality alone never admits a plan.
+Raw Scheme IR requests have a private request identity; cross-request admission
+requires the shared prepared plan. No schema version or language DSL changes.
+
+This is an engine prerequisite for suffix reuse, under an identical future
+parser-position schedule. It does not relocate an old checkpoint, prove parser
+stack equivalence, or implement incremental Source/CST publication. Existing
+restore and step ownership checks still reject foreign sources/requests. The
+prefix decision-read-dependency work described above remains open.
+
+The check is linear in the remaining source and pending marker data; it must not
+be presented as a constant-time edit operation. Ordered FIFO comparison ignores
+the internal front/back partition and preserves both checkpoints. Matched HCL
+raw and Bash shell-quote-removal controls independently scan modified Unicode
+prefixes and compare the complete suffix token kinds and relative byte ranges.
+Negative controls hold the suffix fixed while changing delimiter properties,
+expectation or FIFO order, and reject changed suffixes and foreign plans.
+No runtime latency improvement is claimed by this admission primitive.
+
+Local qualification of this implementation: the pinned Gerbil 0.19 SDK and
+host GCC 16 compiled the final scanner module; the existing native-suite gate
+passed both scanner modules (12 deferred-delimiter and 12 contextual cases),
+with final =OK=. Rust runtime passed 137 cases across two suites, and strict
+Clippy for all runtime targets passed. The original 90-second total and
+5-second silence test limits remain in force. These local receipts do not
+qualify the pushed revision's Ubuntu CI by themselves.

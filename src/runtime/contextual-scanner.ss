@@ -27,6 +27,7 @@
         contextual-scan-state-mode
         contextual-scan-state-with-mode
         contextual-scan-state-canonical
+        contextual-scan-state-converged?
         restore-contextual-scan-state)
 
 ;;; Compiler products bind this semantic opcode contract. Changing opcode
@@ -34,7 +35,7 @@
 (def +contextual-scanner-opcode-contract+
   "gerbil-parser.contextual-scanner-opcodes.v1")
 
-(defstruct contextual-scanner (source source-identity digest initial-mode modes positions rules cells)
+(defstruct contextual-scanner (source source-identity digest initial-mode modes positions rules cells plan-owner)
   transparent: #t)
 ;;; Static indexes are owned by the opaque plan and read only after admission.
 (defstruct contextual-scanner-plan
@@ -332,13 +333,13 @@
        (contextual-scanner-plan-modes ir) (contextual-scanner-plan-positions ir)
        (if (< (string-length owned) 64)
          (contextual-scanner-plan-short-rules ir) (contextual-scanner-plan-long-rules ir))
-       (contextual-scanner-plan-cells ir))
+       (contextual-scanner-plan-cells ir) ir)
       (begin
         (validate-scanner-ir! ir)
         (make-contextual-scanner
          owned identity (string-copy (ir-ref ir 'digest)) (ir-ref ir 'initial-mode)
          (ir-ref ir 'modes) (ir-ref ir 'positions)
-         (index-rules (ir-ref ir 'rules) (string-length owned)) (index-cells (ir-ref ir 'cells)))))))
+         (index-rules (ir-ref ir 'rules) (string-length owned)) (index-cells (ir-ref ir 'cells)) (list 'request-local))))))
 
 (def (contextual-scanner-initial-state scanner)
   (make-contextual-scan-state scanner 0 0
@@ -359,6 +360,43 @@
    (contextual-scan-state-pending state)
    (contextual-scan-state-active state)
    (contextual-scan-state-expecting state)))
+
+(def (same-delimiter-obligation? left right)
+  (or (eq? left right)
+      (and left right
+           (string=? (delimiter-obligation-marker left) (delimiter-obligation-marker right))
+           (eq? (delimiter-obligation-strip-tabs? left) (delimiter-obligation-strip-tabs? right))
+           (eq? (delimiter-obligation-quoted? left) (delimiter-obligation-quoted? right)))))
+
+;;; Both states must have been reached independently. This proves identical
+;;; future scanner decisions only under the same parser-position schedule;
+;;; it neither relocates a checkpoint nor admits parser/subtree reuse.
+(def (contextual-scan-state-converged? before after)
+  (unless (and (contextual-scan-state? before) (contextual-scan-state? after))
+    (error "scanner convergence requires two checkpoints"))
+  (let* ((old (contextual-scan-state-scanner before))
+         (new (contextual-scan-state-scanner after))
+         (left (contextual-scanner-source old))
+         (right (contextual-scanner-source new))
+         (start-left (contextual-scan-state-character-offset before))
+         (start-right (contextual-scan-state-character-offset after)))
+    (and
+     (eq? (contextual-scanner-plan-owner old) (contextual-scanner-plan-owner new))
+     (eq? (contextual-scan-state-mode before) (contextual-scan-state-mode after))
+     (eq? (contextual-scan-state-expecting before) (contextual-scan-state-expecting after))
+     (same-delimiter-obligation? (contextual-scan-state-active before)
+                                (contextual-scan-state-active after))
+     (let loop ((a (delimiter-queue-list (contextual-scan-state-pending before)))
+                (b (delimiter-queue-list (contextual-scan-state-pending after))))
+       (if (null? a) (null? b)
+         (and (pair? b) (same-delimiter-obligation? (car a) (car b))
+              (loop (cdr a) (cdr b)))))
+     (= (- (string-length left) start-left) (- (string-length right) start-right))
+     ;; Compare the owned suffix directly: no full source hash or suffix copy.
+     (let loop ((i start-left) (j start-right))
+       (or (= i (string-length left))
+           (and (char=? (string-ref left i) (string-ref right j))
+                (loop (+ i 1) (+ j 1))))))))
 
 (def (obligation-row obligation)
   (list (string-copy (delimiter-obligation-marker obligation))

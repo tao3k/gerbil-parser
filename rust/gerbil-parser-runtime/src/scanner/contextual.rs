@@ -147,6 +147,19 @@ pub struct ScannerCheckpoint<'scanner, 'source> {
     expecting: Option<bool>,
 }
 impl ScannerCheckpoint<'_, '_> {
+    /// Admit identical future scanner decisions for independently reached states.
+    /// Callers must supply the same future parser-position schedule. This does
+    /// not relocate checkpoints or establish parser/subtree equivalence.
+    #[must_use]
+    pub fn converges_with(&self, other: &ScannerCheckpoint<'_, '_>) -> bool {
+        Arc::ptr_eq(&self.owner.plan, &other.owner.plan)
+            && self.mode == other.mode
+            && self.expecting == other.expecting
+            && self.active == other.active
+            && self.pending.equivalent(&other.pending)
+            && self.owner.source[self.offset..] == other.owner.source[other.offset..]
+    }
+
     #[must_use]
     pub fn byte_offset(&self) -> usize {
         self.offset

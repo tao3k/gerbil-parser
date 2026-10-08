@@ -13,7 +13,7 @@
                  prepare-contextual-scanner prepare-contextual-scanner-plan contextual-scanner-initial-state
                  contextual-scanner-step contextual-scan-state-byte-offset
                  contextual-scan-state-mode contextual-scan-state-canonical
-                 restore-contextual-scan-state)
+                 restore-contextual-scan-state contextual-scan-state-converged?)
         (only-in :gerbil-parser/src/runtime/token
                  token-kind token-lexeme token-start token-end))
 (export contextual-deferred-scanner-test)
@@ -79,6 +79,65 @@
 
 (def contextual-deferred-scanner-test
   (test-suite "generic deferred delimiter scanner"
+    (test-case "edited HCL and Bash prefixes converge only with the complete lexical context"
+      (for-each
+       (lambda (policy)
+         (let* ((plan (prepare-contextual-scanner-plan
+                       (deferred-scanner-ir 'convergence policy '("<<" "<<-"))))
+                (a (prepare-contextual-scanner plan "cat <<A\nα\nA\n"))
+                (b (prepare-contextual-scanner plan "猫猫 <<A\nα\nA\n")))
+           (def (advance scanner count)
+             (let loop ((state (contextual-scanner-initial-state scanner)) (n count))
+               (if (zero? n) state
+                 (let-values (((token next) (contextual-scanner-step scanner state 'command)))
+                   (loop next (- n 1))))))
+           (def (trace scanner state origin)
+             (let-values (((token next) (contextual-scanner-step scanner state 'command)))
+               (if token
+                 (cons (list (token-kind token) (token-lexeme token)
+                             (- (token-start token) origin) (- (token-end token) origin))
+                       (trace scanner next origin)) '())))
+           (let* ((old (advance a 5)) (new (advance b 5))
+                  (receipt (contextual-scan-state-canonical new)))
+             (check (contextual-scan-state-converged? old new) => #t)
+             (check (trace a old (contextual-scan-state-byte-offset old))
+                    => (trace b new (contextual-scan-state-byte-offset new)))
+             ;; Each adversarial receipt changes lexical context with the same suffix.
+             (for-each
+              (lambda (replacement)
+                (let ((changed (restore-contextual-scan-state
+                                b (map (lambda (row)
+                                         (if (eq? (car row) (car replacement)) replacement row)) receipt))))
+                  (check (contextual-scan-state-converged? old changed) => #f)))
+              '((active . ("B" #f #f)) (active . ("A" #t #f))
+                (active . ("A" #f #t)) (expecting . plain) (mode . command)
+                (pending . (("A" #f #f)))))
+             (check (contextual-scan-state-converged?
+                     old (advance (prepare-contextual-scanner plan "cat <<A\nβ\nA\n") 5)) => #f)
+             (check (contextual-scan-state-converged?
+                     old (advance (prepare-contextual-scanner
+                                   (prepare-contextual-scanner-plan
+                                    (deferred-scanner-ir 'convergence policy '("<<" "<<-")))
+                                   "cat <<A\nα\nA\n") 5)) => #f))
+           (let* ((pending (advance a 4))
+                  (receipt (contextual-scan-state-canonical pending)))
+             (check (contextual-scan-state-converged? pending (advance b 4)) => #t)
+             (for-each
+              (lambda (values)
+                (let ((changed (restore-contextual-scan-state
+                                a (map (lambda (row)
+                                         (if (eq? (car row) 'pending) (cons 'pending values) row)) receipt))))
+                  (check (contextual-scan-state-converged? pending changed) => #f)))
+              '((("B" #f #f)) (("A" #t #f)) (("A" #f #t)))))
+           (let* ((q (prepare-contextual-scanner plan "<<A <<B\nA\nB\n"))
+                  (state (advance q 5))
+                  (receipt (contextual-scan-state-canonical state))
+                  (reordered (restore-contextual-scan-state
+                              q (map (lambda (row)
+                                       (if (eq? (car row) 'pending)
+                                         (cons 'pending (reverse (cdr row))) row)) receipt))))
+             (check (contextual-scan-state-converged? state reordered) => #f))))
+       '(raw shell-quote-removal)))
     (test-case "shared scanner plans keep delimiter queues source-local"
       (let* ((ir (deferred-scanner-ir 'plan-queues 'raw '("<<")))
              (plan (prepare-contextual-scanner-plan ir))

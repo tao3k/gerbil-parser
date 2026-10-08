@@ -709,3 +709,145 @@ fn canonical_source_publication_rejects_a_replaced_root_before_emitting() {
     // Equal bytes do not authenticate the original source allocation.
     assert!(engine.parse(&source).unwrap().events().is_ok());
 }
+
+#[test]
+fn source_edit_sessions_match_fresh_events_and_publish_owned_source() {
+    let engine = crate::PreparedCommandSource::new(&generated::bash::SOURCE).unwrap();
+    let mut session = engine
+        .scan_session("echo α\necho tail\n".into(), None)
+        .unwrap();
+    assert_eq!(session.reused_token_count(), 0);
+    assert_eq!(session.scanned_token_count(), session.tokens().len());
+    for source in [
+        "echo ββ\necho tail\n",
+        "echo ββ\necho tail\n",
+        "echo γ\necho tail\n",
+        "cat <<A <<B\nα\nA\nβ\nB\necho tail\n",
+        "cat <<A <<C\nα\nA\nβ\nC\necho tail\n",
+        "echo tail\n",
+        "",
+        "echo δ\necho tail\n",
+    ] {
+        let next = engine.scan_session(source.into(), Some(&session)).unwrap();
+        let fresh = engine.parse(source).unwrap();
+        let actual = engine.parse_session(&next).unwrap();
+        assert_eq!(actual.source().as_ptr(), next.source().as_ptr());
+        assert_eq!(
+            actual.events().unwrap(),
+            fresh.events().unwrap(),
+            "{source:?}"
+        );
+        let mut canonical = Vec::new();
+        let mut expected = Vec::new();
+        actual
+            .walk_events(|event| {
+                canonical.push(canonical_event(event, generated::bash::SOURCE.results));
+            })
+            .unwrap();
+        fresh
+            .walk_events(|event| {
+                expected.push(canonical_event(event, generated::bash::SOURCE.results));
+            })
+            .unwrap();
+        assert_eq!(canonical, expected);
+        let full = ContextualScanner::new(generated::bash::SOURCE.scanner, source).unwrap();
+        assert_eq!(next.tokens(), full.scan("source").unwrap());
+        assert_eq!(
+            next.scanned_token_count() + next.reused_token_count(),
+            next.tokens().len()
+        );
+        if !source.is_empty() && !session.source().is_empty() {
+            assert!(next.reused_token_count() > 0, "{source:?}");
+        }
+        drop(actual);
+        session = next;
+    }
+}
+
+#[test]
+fn source_sessions_follow_all_scheme_controls_for_both_poo_products() {
+    for (spec, controls) in [
+        (&generated::bash::SOURCE, generated::bash::CONTROLS),
+        (&generated::extended::SOURCE, generated::extended::CONTROLS),
+    ] {
+        let engine = crate::PreparedCommandSource::new(spec).unwrap();
+        let mut previous = None;
+        for control in controls {
+            match engine.scan_session(control.source.into(), previous.as_ref()) {
+                Ok(session) => {
+                    {
+                        let parsed = engine.parse_session(&session);
+                        assert_eq!(parsed.is_ok(), control.accepted, "{:?}", control.source);
+                        if let Ok(parsed) = parsed {
+                            assert_eq!(parsed.events().unwrap(), control.events);
+                        }
+                    }
+                    previous = Some(session);
+                }
+                Err(_) => assert!(!control.accepted, "{:?}", control.source),
+            }
+        }
+    }
+}
+
+#[test]
+fn source_session_rejection_preserves_previous_history_and_checks_plan_identity() {
+    use crate::scanner::{ContextualScanSession, ScannerSpec};
+    static OTHER: ScannerSpec = ScannerSpec {
+        ..generated::bash::scanner::SCANNER
+    };
+    let engine = crate::PreparedCommandSource::new(&generated::bash::SOURCE).unwrap();
+    let old = engine
+        .scan_session("cat <<A\nα\nA\necho tail\n".into(), None)
+        .unwrap();
+    assert!(
+        engine
+            .scan_session("cat <<A\nα\n".into(), Some(&old))
+            .is_err()
+    );
+    // Equal remaining text alone cannot discharge a changed pending marker.
+    assert!(
+        engine
+            .scan_session("cat <<B\nα\nA\necho tail\n".into(), Some(&old))
+            .is_err()
+    );
+    let next = engine
+        .scan_session("cat <<A\nβ\nA\necho tail\n".into(), Some(&old))
+        .unwrap();
+    assert!(next.reused_token_count() > 0);
+    assert_eq!(
+        engine.parse_session(&next).unwrap().events().unwrap(),
+        engine.parse(next.source()).unwrap().events().unwrap()
+    );
+    let foreign =
+        ContextualScanSession::new(&OTHER, old.source().into(), "source", Some(&old)).unwrap();
+    assert_eq!(foreign.reused_token_count(), 0);
+    assert!(engine.parse_session(&foreign).is_err());
+    // A successful lexical scan can still fail recognition; the parser reports it.
+    let invalid = engine.scan_session("echo |".into(), Some(&old)).unwrap();
+    assert!(engine.parse_session(&invalid).is_err());
+    assert_eq!(
+        engine.parse_session(&old).unwrap().events().unwrap(),
+        engine.parse(old.source()).unwrap().events().unwrap()
+    );
+}
+
+#[test]
+fn source_sessions_match_scheme_edit_work_counts() {
+    let engine = crate::PreparedCommandSource::new(&generated::bash::SOURCE).unwrap();
+    let old = engine
+        .scan_session("cat <<A\nα\nA\necho end\n".into(), None)
+        .unwrap();
+    for (source, executed) in [
+        ("echo猫 <<A\nα\nA\necho end\n", 1),
+        ("cat <<'A'\nα\nA\necho end\n", 7),
+    ] {
+        let next = engine.scan_session(source.into(), Some(&old)).unwrap();
+        assert_eq!(next.scanned_token_count(), executed);
+        assert_eq!(next.reused_token_count(), old.tokens().len() - executed);
+        assert_eq!(
+            engine.parse_session(&next).unwrap().events().unwrap(),
+            engine.parse(source).unwrap().events().unwrap()
+        );
+    }
+}

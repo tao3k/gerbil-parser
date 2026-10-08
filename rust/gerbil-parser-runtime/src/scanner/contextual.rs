@@ -5,10 +5,13 @@ mod admission;
 mod matching;
 #[path = "obligations.rs"]
 mod obligations;
+#[path = "session.rs"]
+mod session;
 use crate::{Diagnostic, ScannedToken};
 use matching::matcher_end;
 pub(crate) use matching::shell_delimiter;
 use obligations::Obligations;
+pub use session::ContextualScanSession;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 

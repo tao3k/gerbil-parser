@@ -70,3 +70,6 @@ scope isolation and declaration-versus-expression boundaries with real POO roles
 The current [[file:dsl-engine-contracts.org][DSL and engine contract audit]] connects choice semantics,
 resolved grammar analysis, Source continuations and scanner state to AOT/FFI
 admission, with an ordered implementation and qualification plan.
+
+The focused [[file:scheme-source-edit-sessions.org][Source edit-session study]] defines the shared Scheme/Rust
+lexical reuse boundary, owned history and complete-recognition controls.

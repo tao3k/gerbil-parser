@@ -837,4 +837,27 @@ impl PreparedCommandSource {
             crate::scanner::ContextualScanner::new(self.spec.scanner, source)?.scan("source")?;
         self.commands.parse_scanned(source, &tokens, &self.parts)
     }
+    /// Own a complete Source scan, reusing certified lexical history after edits.
+    /// # Errors
+    /// Returns the first scanner diagnostic; no failed scan becomes a cache.
+    pub fn scan_session(
+        &self,
+        source: String,
+        previous: Option<&crate::scanner::ContextualScanSession>,
+    ) -> Result<crate::scanner::ContextualScanSession, Diagnostic> {
+        crate::scanner::ContextualScanSession::new(self.spec.scanner, source, "source", previous)
+    }
+    /// Recognize and publish against the session's owned source and tokens.
+    /// # Errors
+    /// Rejects foreign scanner products or command syntax errors.
+    pub fn parse_session<'s>(
+        &self,
+        session: &'s crate::scanner::ContextualScanSession,
+    ) -> Result<CommandParse<'s>, Diagnostic> {
+        if !session.admits(self.spec.scanner, "source") {
+            return Err(error(0, "foreign Source scanning session"));
+        }
+        self.commands
+            .parse_scanned(session.source(), session.tokens(), &self.parts)
+    }
 }

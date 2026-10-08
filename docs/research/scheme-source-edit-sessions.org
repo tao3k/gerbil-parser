@@ -1,0 +1,119 @@
+#+title: Source Edit Sessions: Scheme Authority and Rust Execution
+
+* Scope and executable path
+
+This module continues the [[file:dsl-engine-contracts.org][engine contract audit]] without adding author DSL
+clauses. The fixed-position Source path now has owned scanning histories in both
+Scheme and Rust:
+
+#+begin_example
+parser declaration -> prepared Source engine -> owned scan session
+                   -> full command recognition -> canonical events
+#+end_example
+
+Scheme's =parse-source-language/session= owns a copied source, scanner states and
+tokens, then publishes the existing validated parse artifact. Rust's
+=PreparedCommandSource::scan_session= owns a String and private token/context
+history. =parse_session= borrows that owned source and executes the existing
+command recognizer and canonical event publisher. Rust returns a scanner
+Diagnostic when lexical scanning fails; Scheme retains its established
+rejected-artifact publication path. A failed lexical scan cannot supply reuse
+history on either backend.
+
+This implements lexical suffix reuse. Source command/CST subtree reuse, dynamic
+LR-position sessions and native FFI session handles remain separate work.
+
+* Why this design is preferable
+
+Question 1: Why does this design improve the author interface?
+
+#+begin_src scheme
+;; The parser declaration owns the prepared language product. Its grammar
+;; remains syntax and rules; editing adds no scanner cache clauses to it.
+(def initial
+  (parse-source-language/session bash-source-language
+    "cat <<A\nα\nA\necho end\n"))
+(def edited
+  (parse-source-language/session bash-source-language
+    "echo猫 <<A\nα\nA\necho end\n" initial))
+(check (source-language-session-artifact edited)
+       => (parse-source-language bash-source-language
+            "echo猫 <<A\nα\nA\necho end\n"))
+#+end_src
+
+The author passes a language product and source values. The engine supplies
+ownership, checkpoint history, lexical admission and artifact validation. POO
+composition and syntax expansion continue to determine the prepared product;
+editing consumes that product rather than introducing a second grammar or
+requiring callers to reconstruct parser context.
+
+* Why the reuse condition is justified
+
+Question 2: What establishes correctness beyond a convenient S-expression API?
+
+The scanner is a deterministic transition system after specification admission.
+Its next decision depends on remaining source, fixed parser position, mode,
+expecting-marker flag, active marker attributes and ordered pending marker FIFO.
+Equal values for these inputs imply equal next tokens and contexts. Applying the
+same argument to successive transitions admits a previously recorded successful
+continuation. The concrete obligations are:
+
+| Boundary | Admission |
+| Specification | The same prepared plan identity; equal digest text alone is insufficient |
+| Parser input | The same fixed position for every future transition |
+| Source | Exact common suffix, aligned to complete UTF-8 characters |
+| State | Equal mode, expectation, active marker and ordered pending FIFO |
+| History | A token boundary reached by the new scan and recorded by the old scan |
+| Ownership | Private recorded states rebound to the new owned source; public foreign checkpoints are never transplanted |
+
+Rust maps a new byte boundary to the old boundary by equal remaining byte length,
+then binary-searches its private state vector. Token ranges and recorded states
+are relocated only after admission. Scheme maps character boundaries and computes
+its separate byte delta. Multi-byte edits therefore do not equate character and
+byte offsets.
+
+#+begin_src scheme
+;; A quote change alters the pending obligation even when the marker text is A.
+;; The engine must continue scanning until that obligation has closed.
+(def old
+  (parse-source-language/session bash-source-language
+    "cat <<A\nα\nA\necho end\n"))
+(def changed
+  (parse-source-language/session bash-source-language
+    "cat <<'A'\nα\nA\necho end\n" old))
+(check (source-language-session-scanned-token-count changed) => 7)
+(check (source-language-session-reused-token-count changed) => 4)
+#+end_src
+
+* Paper relationship and cost boundary
+
+Wagner and Graham's [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] separates parser
+state matching, sentential-form reuse and optimal node reuse. Its sequence
+balancing assumptions underpin its incremental complexity results. Our scanner
+continuation argument is an engineering derivation for this engine's lexical
+transition system; it is not an implementation of that paper's optimal parser.
+
+A session retains one token record and one context record per token boundary.
+Common suffix discovery reads suffix bytes. Admission binary-searches old
+boundaries; pending FIFO comparison visits marker values when necessary. Reusing
+a suffix copies token ranges and context records while sharing persistent marker
+storage. Full command recognition and event publication still run. Consequently,
+reused-token counts measure avoided scanner transitions, not total work or an
+end-to-end latency improvement. No logarithmic edit-cost claim follows.
+
+* Qualification controls
+
+The existing Scheme source-scanner tests and Rust command-source tests use the
+same UTF-8 prefix and quoted-marker edits: 1 scanned token for the prefix edit,
+and 7 scanned / 4 reused tokens for the quote edit. Rust additionally compares
+multi-edit token streams and published events with fresh execution, exercises
+two pending heredoc markers, checks incomplete obligations and foreign plan
+rejection, and verifies that a failed edit leaves the previous session usable.
+Both generated POO products also run every Scheme acceptance/rejection control
+through successive sessions; edit controls compare canonical event IDs, fields,
+symbols and byte spans with fresh recognition.
+
+The Rust source is owned by the session; parse results borrow that allocation.
+Token access is read-only. The ordinary full-scan API remains the independent
+semantic control. Runtime suite and strict Clippy qualification are required;
+exact-head CI is recorded separately from local receipts.

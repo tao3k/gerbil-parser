@@ -4,7 +4,7 @@ mod region;
 pub use region::{PreparedRegionPlan, PreparedRegionSource, RegionScope, RegionSpec};
 
 pub use contextual::{
-    BalancedPair, ContextualScanner, MarkerPolicy, RegionPair, RegionQuote,
+    BalancedPair, ContextualScanSession, ContextualScanner, MarkerPolicy, RegionPair, RegionQuote,
     SCANNER_OPCODE_CONTRACT, ScannerAction, ScannerCell, ScannerCheckpoint, ScannerMatcher,
     ScannerRule, ScannerSpec,
 };

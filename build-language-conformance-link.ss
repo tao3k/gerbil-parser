@@ -3,12 +3,26 @@
 (import (only-in :gerbil/compiler compile-exe compile-module)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/sync/wg make-wg wg-add! wg-wait!)
-        (only-in :std/misc/process run-process/batch))
+        (only-in :std/misc/process run-process))
 
 ;; Report actual compiler GC work while large immutable images are lowered.
 ;; This changes the compiler process diagnostics, never generated program code.
 (def compiler-progress-expression
   "(begin (port-settings-set! (current-output-port) (list buffering: #f)) (gc-report-set! #t))")
+
+;; External tools start on independent pipes owned and drained by Gerbil.
+;; Forward available bytes, including progress without a newline, before waiting.
+(def (run-compiler command)
+  (run-process command stdout-redirection: #t stderr-redirection: #t
+    coprocess:
+    (lambda (process)
+      (close-output-port process)
+      (let (buffer (make-u8vector 8192))
+        (let loop ()
+          (let (count (read-subu8vector buffer 0 (u8vector-length buffer) process 1))
+            (unless (zero? count)
+              (write-subu8vector buffer 0 count) (force-output)
+              (loop))))))))
 
 (def (unique paths)
   (delete-duplicates/hash paths from-end?: #t))
@@ -55,7 +69,7 @@
              (target (string-append binary "__link_" (number->string index) ".c")))
         (displayln "CONFORMANCE-LINK-GROUP " index " modules=" count)
         (force-output)
-        (run-process/batch
+        (run-compiler
           [gsc "-verbose" "-link"
            (if base ["-l" (path-strip-extension base)] []) ...
            "-o" target group ...])
@@ -107,7 +121,7 @@
         (for-each (lambda (source) (displayln "NATIVE-LIBRARY-SOURCE " source)) user-sources)
         (force-output))
       (let* ((includes (unique (map path-directory sources)))
-             (cc-options (string-append "-v -Q -fopt-info-all -ftrack-macro-expansion=0 "
+             (cc-options (string-append "-v -Q -ftrack-macro-expansion=0 "
                             (string-join
                               (map (lambda (path) (string-append "-I" path)) includes) " ")))
              (ld-options (call-with-input-file (path-expand "libgerbil.ldd" library) read)))
@@ -118,13 +132,13 @@
               ;; One worker owns translation and its object; no global phase barrier.
               (when (newer? source c-file)
                 (displayln "STATIC-TRANSLATE " source) (force-output)
-                (run-process/batch [gsc "-verbose" "-c" "-o" c-file
+                (run-compiler [gsc "-verbose" "-c" "-o" c-file
                                     "-e" compiler-progress-expression source])
                 (displayln "STATIC-TRANSLATED " source) (force-output))
 
               (when (newer? c-file target)
                 (displayln "STATIC-OBJECT " c-file) (force-output)
-                (run-process/batch [gsc "-verbose" "-cc-options" cc-options
+                (run-compiler [gsc "-verbose" "-cc-options" cc-options
                                    "-obj" "-o" target c-file])
                 (displayln "STATIC-OBJECT-READY " c-file) (force-output)))))
         (for-each (lambda (source)
@@ -140,8 +154,8 @@
           (for-each (lambda (object)
                       (unless (file-exists? object)
                         (error "SDK or native object is missing" object))) objects)
-          (run-process/batch [gsc "-verbose" "-c" "-o" stub-c stub])
-          (run-process/batch [gsc "-verbose" "-cc-options" cc-options
+          (run-compiler [gsc "-verbose" "-c" "-o" stub-c stub])
+          (run-compiler [gsc "-verbose" "-cc-options" cc-options
                              "-obj" "-o" stub-object stub-c])
           (let (links (link-groups gsc binary c-files))
             (run-static-jobs links
@@ -150,11 +164,11 @@
                 (let* ((final? (equal? link-file (last links)))
                        (options (string-append cc-options (if final? "" " -D___LIBRARY"))))
                   (displayln "CONFORMANCE-LINK-OBJECT " link-file) (force-output)
-                  (run-process/batch [gsc "-verbose" "-cc-options" options "-obj"
+                  (run-compiler [gsc "-verbose" "-cc-options" options "-obj"
                                      "-o" (replace-extension link-file ".o") link-file])
                   (displayln "CONFORMANCE-LINK-OBJECT-READY " link-file) (force-output))))
             ;; SDK objects are reused unchanged; only project objects are built.
-            (run-process/batch [(getenv "GERBIL_GCC" "gcc") "-w" "-o" binary
+            (run-compiler [(getenv "GERBIL_GCC" "gcc") "-w" "-o" binary
                                objects ... stub-object
                                (map (lambda (path) (replace-extension path ".o")) links) ...
                                (string-append "-Wl,-rpath," library)

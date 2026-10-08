@@ -211,6 +211,7 @@ jobs:
 
       - name: Verify Scheme preparation and test ownership controls
         run: |
+          gerbil env gxi scripts/tests/compiler-process-test.ss
           gerbil env gxi scripts/tests/preparation-test.ss
           gerbil env gxi scripts/tests/test-plan-test.ss
           gerbil env bash scripts/tests/test-conformance.sh

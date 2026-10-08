@@ -70,7 +70,7 @@
                      "t/benchmarks/versioned-languages/all-languages"))))
 (def (compiled-spec modules)
   (map (lambda (module)
-         `(gxc: ,module "-cc-options" "-v -Q -fopt-info-all")) modules))
+         `(gxc: ,module "-cc-options" "-v -Q")) modules))
 (def (compile-static-tests!)
   ;; Keep source expansion and executable publication in one compiler context.
   (add-load-path! (path-directory (this-source-file)))
@@ -104,7 +104,7 @@
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
         optimize: #t generate-ssxi: #t static: #t keep-scm: #t
         invoke-gsc: #t
-        gsc-options: ["-verbose" "-cc-options" "-v -Q -fopt-info-all -ftrack-macro-expansion=0"] verbose: #f]))
+        gsc-options: ["-verbose" "-cc-options" "-v -Q -ftrack-macro-expansion=0"] verbose: #f]))
    (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
   ;; Test bodies remain source-only here; their native objects belong to the link owner.
   (compile-static-tests!))

@@ -44,7 +44,7 @@
         lr-checkpoint-fragment-compatible? lr-checkpoint-inject-fragment
         lr-runtime-fragment-reuse-safe?
         lr-recognition-fragment-offset lr-recognition-fragment-exit-mode
-        current-lr-recognition-observer
+        current-lr-recognition-observer current-lr-transfer-yield-observer
         lr-recognition-fragment? lr-recognition-fragment-production-id
         lr-recognition-fragment-runtime lr-recognition-fragment-executor
         lr-recognition-fragment-entry-state
@@ -163,7 +163,7 @@
 ;;; This is execution metadata, never a second published parse authority.
 (defstruct lr-recognition-fragment
   (runtime executor production-id entry-state exit-state children lookahead value
-           start end token-count offset)
+           start end token-count offset terminal-yield)
   transparent: #t)
 
 (defstruct lr-recognition-view (base delta) transparent: #t)
@@ -172,6 +172,32 @@
     (make-lr-recognition-view (lr-recognition-view-base piece)
                              (+ delta (lr-recognition-view-delta piece)))
     (make-lr-recognition-view piece delta)))
+
+;;; A reduction shares its terminal yield instead of materializing a flat
+;;; token list at every ancestor. Empty/unary grammar wrappers allocate no
+;;; yield nodes; only concatenation and coordinate views need records.
+(defstruct lr-terminal-yield-branch (left right))
+(defstruct lr-terminal-yield-view (base delta))
+(def (terminal-yield-append left right)
+  (cond ((not left) right) ((not right) left)
+        (else (make-lr-terminal-yield-branch left right))))
+(def (terminal-yield-relocate yield delta)
+  (cond ((or (not yield) (zero? delta)) yield)
+        ((lr-terminal-yield-view? yield)
+         (make-lr-terminal-yield-view (lr-terminal-yield-view-base yield)
+                                     (+ delta (lr-terminal-yield-view-delta yield))))
+        (else (make-lr-terminal-yield-view yield delta))))
+(def (recognition-piece-terminal-yield piece)
+  (cond ((lr-recognition-view? piece)
+         (terminal-yield-relocate
+          (recognition-piece-terminal-yield (lr-recognition-view-base piece))
+          (lr-recognition-view-delta piece)))
+        ((token? piece) piece)
+        (else (lr-recognition-fragment-terminal-yield piece))))
+
+;;; Optional transfer-work observation, independent of admission and publication.
+;;; Receives the visited yield-node count once per attempted yield validation.
+(def current-lr-transfer-yield-observer (make-parameter #f))
 
 ;;; Observer receives the accepted deterministic root, or #f when execution
 ;;; enters a path whose structure cannot be certified (GLR/layout/recovery).
@@ -210,7 +236,10 @@
                   (if (pair? children) (recognition-piece-end (last children)) offset)
                   (foldl (lambda (piece count)
                            (+ count (recognition-piece-token-count piece)))
-                         0 children) offset)))
+                         0 children) offset
+                  (foldl (lambda (piece yield)
+                           (terminal-yield-append yield (recognition-piece-terminal-yield piece)))
+                         #f children))))
       (cons node remaining))))
 
 ;;; Iterative postorder projection reevaluates semantic actions from retained
@@ -1191,21 +1220,27 @@
        (= (token-end actual) (+ delta (token-end retained)))))
 
 (def (fragment-yield-matches? fragment delta tokens)
-  (let loop ((pending (list (cons fragment delta))) (rest tokens))
-    (if (null? pending) (null? rest)
-      (let* ((frame (car pending)) (piece (car frame)) (shift (cdr frame)))
-        (cond
-         ((lr-recognition-view? piece)
-          (loop (cons (cons (lr-recognition-view-base piece)
-                            (+ shift (lr-recognition-view-delta piece)))
-                      (cdr pending)) rest))
-         ((lr-recognition-fragment? piece)
-          (loop (append (map (lambda (child) (cons child shift))
-                             (lr-recognition-fragment-children piece))
-                        (cdr pending)) rest))
-         (else
-          (and (pair? rest) (same-transfer-token? (car rest) piece shift)
-               (loop (cdr pending) (cdr rest)))))))))
+  (let ((yield (lr-recognition-fragment-terminal-yield fragment))
+        (observer (current-lr-transfer-yield-observer)))
+    (def (finish matched? visited)
+      (when observer (observer visited))
+      matched?)
+    (let loop ((pending (if yield (list (cons yield delta)) '())) (rest tokens) (visited 0))
+      (if (null? pending) (finish (null? rest) visited)
+        (let* ((frame (car pending)) (piece (car frame)) (shift (cdr frame))
+               (visited (if observer (+ visited 1) visited)))
+          (cond
+           ((lr-terminal-yield-view? piece)
+            (loop (cons (cons (lr-terminal-yield-view-base piece)
+                              (+ shift (lr-terminal-yield-view-delta piece)))
+                        (cdr pending)) rest visited))
+           ((lr-terminal-yield-branch? piece)
+            (loop (cons (cons (lr-terminal-yield-branch-left piece) shift)
+                        (cons (cons (lr-terminal-yield-branch-right piece) shift) (cdr pending)))
+                  rest visited))
+           ((and (pair? rest) (same-transfer-token? (car rest) piece shift))
+            (loop (cdr pending) (cdr rest) visited))
+           (else (finish #f visited))))))))
 
 ;;; The source owner certifies unchanged text and both lexical boundaries.
 ;;; The LR owner independently verifies the transferred terminal yield.

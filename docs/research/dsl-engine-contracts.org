@@ -870,3 +870,47 @@ low-level suffix rebind helper requires checkpoints from the recorded old
 continuation, which the private Source cache supplies. Full recognition/CST
 execution, Rust/native incremental transport and exact-head CI remain distinct
 qualification boundaries.
+
+** Shared terminal yields for LR fragment transfer
+
+Captured LR fragments now retain a private shared terminal-yield rope. A shift
+contributes its existing terminal reference. A reduction concatenates child
+yields without flattening descendant tokens; empty and unary grammar wrappers
+share the existing yield instead of adding nodes. Relocated children contribute
+coordinate views, whose repeated moves collapse their deltas. The original
+grammar children, cached semantic value, entry/exit state and lookahead remain
+available to the source owner and independent recognition projection.
+
+The LR transfer validator now walks this yield instead of every retained grammar
+production. It still compares each significant terminal's kind, complete lexeme,
+relocated UTF-8 start/end, exact count and current first input token. Runtime,
+reducer, goto, source ownership and lexical boundary admission remain separate
+checks. No digest-only acceptance or grammar/publication schema change is added.
+
+For an unrelocated yield of T nonempty terminals, the binary representation has
+T leaves and T-1 branches. Validation therefore visits 2T-1 nodes regardless of
+unary grammar wrapper depth. Coordinate views add explicit visits. The traversal
+is iterative; this is not a balanced tree or a logarithmic edit algorithm.
+Construction adds one reference per captured grammar fragment and shared branch
+records for concatenation, plus relocation views. Capture has extra work and
+retained storage; a flat token list is never copied for each ancestor. Ordinary
+parses without recognition capture do not construct the yield index.
+
+The optional =current-lr-transfer-yield-observer= reports the actual visited yield
+node count once per validation attempt. It is observational and is disabled by
+default; source/grammar certificates do not use its output. The retained fixture
+freezes the f21204f grammar-tree traversal as an independent admission control.
+A 64-layer grammar with two multibyte-source terminals visits 67 grammar-tree
+nodes in that reference and 3 yield nodes in the indexed validator; complete
+canonical ParseArtifact publication equals a fresh parse. A 512-terminal
+left-recursive control visits 1,023 yield nodes, rejects a changed last terminal,
+and reuses the original checkpoint after rejection. Epsilon reduction and a
+recaptured relocated child plus a fresh sibling have canonical fresh-parse and
+independent projection controls, including another relocation of the new root.
+
+Local qualification: the pinned Gerbil SDK and GCC 16 compiled the updated LR
+engine. All five native transfer cases passed with final =OK= and process status
+zero, under the existing 90-second total and 5-second silence gates. These are
+structural work counts and semantic receipts, not a measured end-to-end runtime
+speedup. Source command/CST subtree reuse, cross-backend incremental transport
+and the pushed revision's full CI remain separate qualification boundaries.

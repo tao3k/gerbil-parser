@@ -429,7 +429,7 @@ jobs:
         timeout-minutes: 15
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GERBIL_TEST_CORES=2 GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            GERBIL_TEST_CORES=2 GAMBOPT=max-heap=3G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/native-suite.ss t languages
 
       - name: Report GQL native component and actor costs

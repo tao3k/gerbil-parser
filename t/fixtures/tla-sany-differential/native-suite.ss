@@ -5,6 +5,17 @@
         (only-in :std/test/base TestSuite? TestModule TestHarness TestConfig test-run! test-result-ok?))
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (prefer-native-interfaces!)
+(import (only-in :clan/poo/object .o)
+        (only-in :core/observability/testing-case
+                 poo-flow-default-testing-case-profile
+                 poo-flow-current-testing-case-profile))
+
+;; The Case sampler measures the shared process heap, including every loaded
+;; Suite. Align its absolute cap with the full runner budget; retain its growth,
+;; sampling, failure, and duration policies through POO inheritance.
+(def native-testing-case-profile
+  (.o (:: @ poo-flow-default-testing-case-profile)
+      (heap-limit-bytes (* 3 1024 1024 1024))))
 
 (def (import-test-owner file)
   (let (importer (current-expander-module-import))
@@ -45,13 +56,16 @@
   (preload-test-imports file)
   (let* ((context (import-test-owner file))
          (exports (module-context-export context))
-         (suites '()) (setup void) (cleanup void))
+         (suites '()) (setup void) (cleanup void) (affinity #f))
     (for-each
       (lambda (exported)
         (when (zero? (module-export-phi exported))
           (let* ((name (module-export-name exported))
                  (binding (core-resolve-module-export exported)))
             (cond
+              ((eq? name 'test-worker-affinity)
+               (set! affinity (eval (binding-id binding)))
+               (unless (symbol? affinity) (error "invalid test Worker affinity" file affinity)))
               ((eq? name 'test-setup!) (set! setup (eval (binding-id binding))))
               ((eq? name 'test-cleanup!) (set! cleanup (eval (binding-id binding))))
               ((string-suffix? "-test" (symbol->string name))
@@ -59,43 +73,44 @@
                  (unless (TestSuite? suite) (error "invalid exported test suite" file name))
                  (set! suites (cons suite suites)))))))) exports)
     (when (null? suites) (error "native test module exports no suites" file))
-    (TestHarness file (TestConfig verbosity: 6 capture-output?: #f)
-                 (list (TestModule file (reverse suites) '() setup cleanup)))))
+    (cons (TestHarness file (TestConfig verbosity: 6 capture-output?: #f)
+                       (list (TestModule file (reverse suites) '() setup cleanup)))
+          affinity)))
 
-(defstruct native-test-owner (file harness preparation-seconds))
+(defstruct native-test-owner (file harness preparation-seconds affinity))
 
 (def (call-with-owner-budget file emit thunk (budget 90))
   (let-values (((input output) (open-string-pipe '(buffering: #f))))
     (let* ((started (##current-time-point))
-           (worker
+           ;; The caller is the persistent Worker. Only output supervision runs
+           ;; elsewhere, preserving native ABI runtime thread ownership.
+           (monitor
              (spawn
                (lambda ()
-                 (parameterize ((current-output-port output) (current-error-port output))
-                   (try
-                    (with-catch
-                      (lambda (e) (display-exception e) (cons 'error e))
-                      (lambda () (cons 'value (thunk))))
-                    (finally (close-output-port output)))))))
-           (cases 0))
+                 (let loop ((cases 0))
+                   (let* ((reader (spawn (lambda () (read-line input))))
+                          (line (thread-join! reader
+                                  (max 0.001 (min 5 (- budget (- (##current-time-point) started)))) 'quiet)))
+                     (cond
+                       ((or (eq? line 'quiet) (> (- (##current-time-point) started) budget))
+                        (emit "MODULE-BATCH-TIMEOUT " file " reason="
+                              (if (>= (- (##current-time-point) started) budget) 'total-budget 'idle-timeout))
+                        (exit 70))
+                       ((eof-object? line) cases)
+                       (else
+                        (emit "MODULE-OUTPUT " file " " line)
+                        (loop (+ cases (if (string-prefix? "CASE-OK " line) 1 0)))))))))))
       (try
-       (let loop ()
-         (let* ((reader (spawn (lambda () (read-line input))))
-                (line (thread-join! reader
-                        (max 0.001 (min 5 (- budget (- (##current-time-point) started)))) 'quiet)))
-           (cond
-             ((or (eq? line 'quiet) (> (- (##current-time-point) started) budget))
-              (emit "MODULE-BATCH-TIMEOUT " file " reason="
-                    (if (>= (- (##current-time-point) started) budget) 'total-budget 'idle-timeout))
-              ;; Fail the runtime, never resume a timed-out thread's partial state.
-              (exit 70))
-             ((eof-object? line) (void))
-             (else
-              (when (string-prefix? "CASE-OK " line) (set! cases (+ cases 1)))
-              (emit "MODULE-OUTPUT " file " " line)
-              (loop)))))
-       (let (result (thread-join! worker))
-         (if (eq? (car result) 'error) (raise (cdr result))
-           (values (cdr result) cases)))
+       (let (result
+              (parameterize ((current-output-port output) (current-error-port output))
+                (try
+                 (with-catch
+                   (lambda (e) (display-exception e) (cons 'error e))
+                   (lambda () (cons 'value (thunk))))
+                 (finally (close-output-port output)))))
+         (let (cases (thread-join! monitor))
+           (if (eq? (car result) 'error) (raise (cdr result))
+             (values (cdr result) cases))))
        (finally (close-input-port input))))))
 
 (def (run-test-owner owner emit)
@@ -103,7 +118,10 @@
     (emit "MODULE-BATCH-START " file)
     (let-values (((ok? cases)
                    (call-with-owner-budget file emit
-                     (lambda () (test-result-ok? (test-run! (native-test-owner-harness owner))))
+                     (lambda ()
+                       (parameterize ((poo-flow-current-testing-case-profile
+                                       native-testing-case-profile))
+                         (test-result-ok? (test-run! (native-test-owner-harness owner)))))
                      (- 90 (native-test-owner-preparation-seconds owner)))))
       (unless ok? (error "native test owner failed" file))
       (when (zero? cases) (error "native test module ran no cases" file))
@@ -123,14 +141,21 @@
       (try (thunk) (finally (mutex-unlock! lock))))
     (def (emit . values)
       (locked (lambda () (apply displayln values) (force-output))))
-    (def (next-owner)
-      (locked (lambda ()
-                (and (pair? pending)
-                     (let (file (car pending))
-                       (set! pending (cdr pending)) file)))))
-    (def (worker)
+    (def (next-owner index)
+      (locked
+        (lambda ()
+          (let loop ((remaining pending) (skipped '()))
+            (cond
+              ((null? remaining) #f)
+              ((or (zero? index) (not (native-test-owner-affinity (car remaining))))
+               (set! pending (append (reverse skipped) (cdr remaining)))
+               (car remaining))
+              (else (loop (cdr remaining) (cons (car remaining) skipped))))))))
+    ;; Declared runtime-affine owners share Worker zero. Other modules remain
+    ;; work-stealing jobs; no filename or language-specific scheduler rules.
+    (def (worker index)
       (let loop ()
-        (let (owner (next-owner))
+        (let (owner (next-owner index))
           (when owner
             ;; Stop admitting new jobs after failure and join every started
             ;; Worker. Never lose an exception in thread-join!.
@@ -150,9 +175,9 @@
                               (call-with-owner-budget file emit
                                 (lambda () (prepare-test-owner file)))))
                  (emit "MODULE-PREPARE-OK " file)
-                 (make-native-test-owner file harness (- (##current-time-point) started))))) files))
+                 (make-native-test-owner file (car harness) (- (##current-time-point) started) (cdr harness))))) files))
     (emit "NATIVE-SUITE-WORKERS " (min capacity (length files)))
-    (let (workers (map (lambda (_) (spawn worker)) (iota (min capacity (length files)))))
+    (let (workers (map (lambda (index) (spawn (lambda () (worker index)))) (iota (min capacity (length files)))))
       (for-each thread-join! workers))
     (unless (null? failures) (raise (cdar failures)))
     (emit "NATIVE-SUITE-OK modules=" (length files))

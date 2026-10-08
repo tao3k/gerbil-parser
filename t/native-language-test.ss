@@ -179,3 +179,7 @@
 
 (def native-language-test native-language-tests)
 (export native-language-test)
+
+;;; Both ABI Suites share the persistent runtime owner thread.
+(def test-worker-affinity 'native-language-runtime)
+(export test-worker-affinity)

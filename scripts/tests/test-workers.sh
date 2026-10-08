@@ -37,6 +37,6 @@ GERBIL_TEST_CORES=2 gxi "$runner" "$fixtures/worker-suite-alias.ss" > "$alias_lo
 status=$?
 set -e
 test "$status" -eq 70
-rg --quiet 'duplicate test Suite object' "$alias_log"
+grep -q 'duplicate test Suite object' "$alias_log"
 echo WORKER-CONTROL-OK suite-object-ownership
 echo OK

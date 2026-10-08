@@ -13,7 +13,7 @@
                  token-end))
 (import (only-in ./lexical-expression generated-lexical-rule
                  lexical-rule-certificate-template prefer-generated-match))
-(export generated-lexer current-lexical-plan-sharing-enabled?)
+(export generated-lexer prepare-generated-lexer current-lexical-plan-sharing-enabled?)
 
 (def current-lexical-plan-sharing-enabled? (make-parameter #t))
 
@@ -92,10 +92,15 @@
   (lexical-rules extras)
   ((_ (lexical-rules row ...) (extras extra-name ...) case-insensitive?
       mode-catalog)
-   (let* ((bare-rules
-           (list (generated-lexical-rule
-                  row '(extra-name ...) case-insensitive?) ...))
-          (rules
+   (prepare-generated-lexer
+    (list (generated-lexical-rule row '(extra-name ...) case-insensitive?) ...)
+    (lambda () (list (lexical-rule-certificate-template row) ...))
+    mode-catalog)))
+
+;;; Plan construction and scanning are shared native engine code. Language
+;;; expansion contributes only rule scanners and conservative certificates.
+(def (prepare-generated-lexer bare-rules metadata-thunk mode-catalog)
+   (let* ((rules
            (let loop ((remaining bare-rules) (ordinal 0) (found '()))
              (if (null? remaining)
                (reverse found)
@@ -243,7 +248,7 @@
           ;; Normal parsing uses full plans only. Materialize ASCII certificates
           ;; once, on the first request that needs the stronger quotient.
           (certificates (delay (prepare-lexical-certificates rules mode-keys (admission-key #f)
-                                 (list (lexical-rule-certificate-template row) ...))))
+                                 (metadata-thunk))))
           (mode-scanners
            (if (current-lexical-plan-sharing-enabled?)
              (let-values (((plans unique)
@@ -291,5 +296,5 @@
       ((source offset byte-offset)
        (scan-from source offset byte-offset))
       ((source offset byte-offset mode)
-       (scan-one source offset byte-offset mode))) mode-scanners certificates)))))
+       (scan-one source offset byte-offset mode))) mode-scanners certificates))))
 

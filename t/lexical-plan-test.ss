@@ -1,5 +1,9 @@
 #!/usr/bin/env gxi
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
+(import (only-in :gerbil-parser/languages/tla-plus/syntax/core tla-plus-core-syntax)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
+        (only-in :gerbil-parser/src/language/entry parse-language-source)
+        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-success?))
 (import :std/test
         :gerbil-parser/src/language/grammar
         (only-in :gerbil-parser/src/compiler/machine
@@ -49,6 +53,30 @@
     (lambda () (call-with-values (lambda () (lexer text 0 0 mode)) list))))
 (def lexical-plan-test
   (test-suite "compiler-proved lexical scanner plans"
+    (test-case "shared engine prepares the regenerated TLA core with unchanged mode scans"
+      (let (machine (language-grammar-machine tla-plus-core-syntax))
+        (let-values (((shared plans certificates)
+                      (parameterize ((current-lexical-plan-sharing-enabled? #t))
+                        (parser-machine-prepare-lexer machine)))
+                     ((separate controls separate-certificates)
+                      (parameterize ((current-lexical-plan-sharing-enabled? #f))
+                        (parser-machine-prepare-lexer machine))))
+          (check (< (unique-count plans) (vector-length plans)) => #t)
+          (check (unique-count controls) => (vector-length controls))
+          (check (force certificates) => (force separate-certificates))
+          (for-each
+           (lambda (mode)
+             (for-each (lambda (text) (check (scan shared text mode) => (scan separate text mode)))
+                       '("MODULE" "λ中" "001" "<=>" "\\A" "(* nested (* x *) *)" "\"λ中😀\"" "@")))
+           (vector->list (lr-runtime-lexical-mode-catalog (parser-machine-runtime machine))))))
+      (for-each
+       (lambda (row)
+         (let (artifact (parse-language-source tla-plus-core-syntax (car row)))
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-success? artifact) => (cadr row))))
+       '(("---- MODULE M ----\nA == TRUE\n====\n" #t)
+         ("---- MODULE M ----\nA == IF TRUE THEN 1 ELSE 2\n====\n" #t)
+         ("---- MODULE M ----\nA == IF TRUE THEN\n====\n" #f))))
     (test-case "plan sharing changes construction count but preserves every mode scan"
       (for-each
        (lambda (machine)

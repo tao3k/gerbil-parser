@@ -3,7 +3,7 @@
 mod command_model;
 mod command_program;
 mod command_source;
-pub use command_source::{CommandParse, CommandSourceSpec, PreparedCommandSource};
+pub use command_source::{CommandEvent, CommandParse, CommandSourceSpec, PreparedCommandSource};
 mod contextual_parser;
 pub use command_program::{
     CommandChoice, CommandForm, CommandInstruction, CommandProgramSpec, CommandRole,

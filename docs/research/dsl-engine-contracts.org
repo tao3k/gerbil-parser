@@ -429,3 +429,64 @@ build improvement is claimed. Exact rebased-head CI is a separate gate.
 The next engine work is full Source ParseArtifact/C ABI ownership and diagnostic
 parity, then scanner checkpoint/edit mapping and parser subtree boundary admission.
 The proposed incremental mechanism remains unimplemented.
+
+* Implementation: canonical Source publication and shared lexer preparation
+
+Rust Source now publishes =CommandEvent= records through one iterative
+=CommandParse::walk_events= sink: preorder node IDs, producer-order token IDs,
+node boundaries, field boundaries and the complete trivia tape. The existing CST
+API projects this same walk rather than maintaining a second traversal. A sink
+receives a prefix if later validation fails and must commit only after success.
+The result retains the exact source allocation and result-profile identity;
+replacing its public root with a tree from equal bytes in another allocation is
+rejected before the sink receives anything.
+
+The Scheme Command Source generator also emits native fixture bytes through
+=bind-native-language= and =native-parse-binary-payload=, using the public codec
+consumed by the C ABI. CI regenerates both products and compares them to the
+checked-in fixtures. The 54 controls cover the original declaration and a POO
+extension changing the root projection, pipeline role and Unicode form keyword.
+Rust compares every accepted canonical record with the decoded Scheme GPA1
+record, including names, IDs, ranges, field scopes and trivia placement. Rejected
+controls check acceptance agreement and the Scheme fallback token tape. Native
+views borrow the original source slices, reject changed source digests, and
+repeated Rust publication starts with independent identifiers. Deep publication
+also walks 1,024 alternating compound/subshell levels on a 256 KiB stack.
+
+This establishes canonical accepted-event parity against native codec bytes for
+these controls. It does not implement a Rust GPA1 encoder or qualify live C
+handle allocation/release through these fixture tests. GPA1 currently contains
+status and events, not diagnostic records; diagnostic content parity and a
+language-independent diagnostic transport remain open. No schema increment or
+compatibility mode is introduced.
+
+The previous Ubuntu head failed while compiling the TLA+ core static object:
+the GCC output stopped for the existing five-second silence gate. Inspection
+found =generated-lexer= expanding the entire mode-plan construction, sharing,
+certification and traversal algorithm into each language module. That algorithm
+now resides once in =prepare-generated-lexer=; the macro supplies only declared
+rule scanners and a delayed certificate factory. Longest-match priority, rule
+order, mode-miss fallback, shared-plan identity and lazy certification remain the
+same. No backend, optimization level or watchdog deadline is changed.
+
+In the local TLA+ module, generated Scheme size fell from 254,620 to 156,138
+bytes in the final delayed-factory version. This is a structural code-size
+observation, not a runtime speedup or evidence of Ubuntu closure. Gambit's
+[[https://www.iro.umontreal.ca/~gambit/doc/gambit.pdf][compiler documentation]] explains that single-host compilation combines a
+module's procedures into one C procedure and can make optimization of large
+modules expensive. Exact-head Ubuntu CI remains the admission gate for the build
+failure; Scheme semantic controls and local GCC compilation are separate evidence.
+
+Local qualification for this slice: 135 Rust runtime tests, strict Clippy and
+formatting; 54 Source/native fixture controls regenerated under the existing
+90-second total / five-second silence gate with identical Rust and binary
+products; final GCC engine/TLA+ compilation and six lexical-plan Scheme cases.
+The added TLA+ case compares every LR mode's shared/independent scan and forced
+certificates, plus two accepted and one rejected complete ParseArtifacts.
+
+A broader source-mode =languages/tla-plus/parser-test.ss= attempt hit the unchanged
+watchdog while loading declarations, before its cases ran. That failure is
+retained; the direct engine controls do not turn it into a full language-suite
+pass. Remote revision =07e1e5c= independently corrects native compiler option
+admission and disables GCC macro diagnostic tracking; this slice rebases onto it.
+The generated-algorithm consolidation remains a separate structural correction.

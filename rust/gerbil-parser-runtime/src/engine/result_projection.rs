@@ -398,6 +398,10 @@ impl PreparedResultNode {
     }
 }
 impl<'source> ProjectedNode<'source> {
+    pub(super) fn bound_to(&self, owner: &ResultProfileSpec, source: &str) -> bool {
+        std::ptr::eq(self.owner, owner) && std::ptr::eq(self.source, source)
+    }
+
     #[must_use]
     pub(super) fn into_captures(mut self) -> Vec<ResultChildCapture<'source>> {
         std::mem::take(&mut self.children)

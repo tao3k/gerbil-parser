@@ -420,6 +420,15 @@ fn source_suspends_mixed_compounds_and_releases_deep_results_on_small_stack() {
                 .unwrap();
             let parse = program.parse_scanned(&source, &tokens, &parts).unwrap();
             assert_eq!(parse.root.span(), 0..source.len());
+            let mut body_fields = 0;
+            parse
+                .walk_events(|event| {
+                    if let crate::CommandEvent::StartField { name: "body", .. } = event {
+                        body_fields += 1;
+                    }
+                })
+                .unwrap();
+            assert_eq!(body_fields, 1024);
             let events = parse.events().unwrap();
             let tree = build_syntax_events_catalog(
                 &EventCatalog {
@@ -543,4 +552,160 @@ fn source_budget_also_bounds_a_vm_call_chain_without_source_suspensions() {
         .scan("source")
         .unwrap();
     assert!(program.parse_scanned("echo ok", &tokens, &parts).is_ok());
+}
+// Scheme emits this through the same codec used by the language-independent C ABI.
+const NATIVE_CASES: &[u8] = include_bytes!("../fixtures/generated/command_source_native.bin");
+fn native_bytes<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+    let (length, rest) = input.split_at(4);
+    let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
+    let (value, rest) = rest.split_at(length);
+    *input = rest;
+    value
+}
+fn canonical_event(
+    event: crate::CommandEvent,
+    results: &crate::ResultProfileSpec,
+) -> (
+    gerbil_parser_artifact::NativeEventKind,
+    &'static str,
+    u64,
+    usize,
+    usize,
+) {
+    use crate::CommandEvent;
+    use gerbil_parser_artifact::NativeEventKind as Kind;
+    match event {
+        CommandEvent::StartNode { id, kind, offset } => (
+            Kind::StartNode,
+            results.kinds[kind as usize].name,
+            id,
+            offset,
+            0,
+        ),
+        CommandEvent::FinishNode { id, kind, offset } => (
+            Kind::FinishNode,
+            results.kinds[kind as usize].name,
+            id,
+            0,
+            offset,
+        ),
+        CommandEvent::StartField { name, offset } => (Kind::StartField, name, 0, offset, 0),
+        CommandEvent::FinishField { name, offset } => (Kind::FinishField, name, 0, 0, offset),
+        CommandEvent::Token {
+            id,
+            kind,
+            start,
+            end,
+        } => (
+            Kind::Token,
+            results.kinds[kind as usize].name,
+            id,
+            start,
+            end,
+        ),
+    }
+}
+#[test]
+fn source_canonical_publication_matches_scheme_native_ids_fields_ranges_and_trivia() {
+    use gerbil_parser_artifact::{NativeArtifactView, NativeCatalog, NativeEventKind as Kind};
+    let mut input = NATIVE_CASES;
+    let mut count = 0;
+    for (name, spec, controls) in [
+        ("bash", &generated::bash::SOURCE, generated::bash::CONTROLS),
+        (
+            "extended",
+            &generated::extended::SOURCE,
+            generated::extended::CONTROLS,
+        ),
+    ] {
+        let engine = crate::PreparedCommandSource::new(spec).unwrap();
+        for control in controls {
+            assert_eq!(native_bytes(&mut input), name.as_bytes());
+            let catalog = NativeCatalog::from_descriptor(native_bytes(&mut input)).unwrap();
+            assert_eq!(native_bytes(&mut input), control.source.as_bytes());
+            let payload = native_bytes(&mut input);
+            let accepted = input[0] == 1;
+            input = &input[1..];
+            assert_eq!(accepted, control.accepted);
+            let view = NativeArtifactView::decode(payload, control.source, &catalog).unwrap();
+            assert_eq!(view.accepted(), accepted);
+            let parsed = engine.parse(control.source);
+            assert_eq!(parsed.is_ok(), accepted);
+            if let Ok(parsed) = parsed {
+                // Compare every canonical record, independently of CST projection.
+                let expected: Vec<_> = view
+                    .events()
+                    .map(|event| {
+                        let name = match event.kind {
+                            Kind::StartNode | Kind::FinishNode => {
+                                &catalog.kinds()[event.symbol as usize].name
+                            }
+                            Kind::StartField | Kind::FinishField => {
+                                &catalog.fields()[event.symbol as usize]
+                            }
+                            Kind::Token => &catalog.terminals()[event.symbol as usize].name,
+                        };
+                        (event.kind, name.as_str(), event.id, event.start, event.end)
+                    })
+                    .collect();
+                let mut actual = Vec::new();
+                parsed
+                    .walk_events(|event| actual.push(canonical_event(event, spec.results)))
+                    .unwrap();
+                assert_eq!(actual, expected, "{name} {:?}", control.source);
+                assert_eq!(view.root().unwrap().text(), control.source);
+                // A second publication starts its identifiers again, retaining no state.
+                let mut replay = Vec::new();
+                parsed.walk_events(|event| replay.push(event)).unwrap();
+                let mut again = Vec::new();
+                parsed.walk_events(|event| again.push(event)).unwrap();
+                assert_eq!(again, replay);
+            } else {
+                assert!(view.root().is_none());
+                let tokens: Vec<_> = view.tokens().collect();
+                assert_eq!(tokens.len(), usize::from(!control.source.is_empty()));
+                if let Some(token) = tokens.first() {
+                    assert_eq!(token.kind(), "unparsed-source");
+                    assert_eq!(token.text(), control.source);
+                }
+            }
+            for token in view.tokens() {
+                assert_eq!(
+                    token.text().as_ptr(),
+                    control.source[token.range().start..].as_ptr()
+                );
+            }
+            // Payload/source identities must be admitted together, including rejects.
+            let changed = format!("{}x", control.source);
+            assert_eq!(
+                NativeArtifactView::decode(payload, &changed, &catalog)
+                    .unwrap_err()
+                    .reason,
+                "source-digest"
+            );
+            drop(view);
+            count += 1;
+        }
+    }
+    assert!(input.is_empty());
+    assert_eq!(count, 54);
+}
+
+#[test]
+fn canonical_source_publication_rejects_a_replaced_root_before_emitting() {
+    let engine = crate::PreparedCommandSource::new(&generated::bash::SOURCE).unwrap();
+    let source = String::from("echo α");
+    let equal_source = source.clone();
+    assert_ne!(source.as_ptr(), equal_source.as_ptr());
+    let mut parsed = engine.parse(&source).unwrap();
+    assert_eq!(parsed.source().as_ptr(), source.as_ptr());
+    let foreign = engine.parse(&equal_source).unwrap();
+    parsed.root = foreign.root;
+    let mut count = 0;
+    let error = parsed.walk_events(|_| count += 1).unwrap_err();
+    assert_eq!(count, 0);
+    assert_eq!(error.message, "foreign command Source root");
+    assert!(parsed.events().is_err());
+    // Equal bytes do not authenticate the original source allocation.
+    assert!(engine.parse(&source).unwrap().events().is_ok());
 }

@@ -22,15 +22,10 @@ jobs:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Verify compiler progress reporting
-        run: python3 -m unittest discover -s scripts/tests -v
-
       - name: Verify Rust formatting
         run: cargo fmt --all -- --check
 
-      - name: Verify ASP Rust source policy
-        run: cargo test -p gerbil-parser-build-support --test asp-rust-gate --locked -- --nocapture
-
+      # Workspace includes the asp-rust-gate integration test.
       - name: Verify Rust contracts
         run: cargo test --workspace --all-features --locked
 
@@ -214,8 +209,11 @@ jobs:
           path: .gerbil/conformance-store
           key: parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.gerbil-label }}-${{ hashFiles('gerbil.pkg') }}-${{ github.sha }}
 
-      - name: Verify Scheme preparation cache controls
-        run: gerbil env gxi scripts/tests/preparation-test.ss
+      - name: Verify Scheme preparation and test ownership controls
+        run: |
+          gerbil env gxi scripts/tests/preparation-test.ss
+          gerbil env gxi scripts/tests/test-plan-test.ss
+          gerbil env bash scripts/tests/test-conformance.sh
 
       - name: Verify Scheme DSL and POO declaration closure
         run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research
@@ -233,9 +231,6 @@ jobs:
         run: |
           gerbil env gxc t/abi-datum-support.ss \
             t/line-structure-assertions.ss \
-            t/benchmarks/gql/runtime/reduction-counts.ss \
-            t/benchmarks/gql/runtime/execution-counts.ss \
-            t/benchmarks/gql/runtime/matched-stages.ss \
             t/benchmarks/gql/runtime/actors.ss
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
@@ -243,11 +238,7 @@ jobs:
           else
             gerbil env gxc t/benchmarks/gql/runtime/compiled-timing.ss
           fi
-          gerbil env gxc \
-            t/fixtures/runtime-record-assignments/languages/records/grammar.ss \
-            t/fixtures/runtime-record-assignments/languages/records/fixtures.ss \
-            t/fixtures/runtime-record-assignments/languages/records/parser.ss \
-            t/header-delimiter-test.ss \
+          gerbil env gxc t/header-delimiter-test.ss \
             t/structured-lexical-cases.ss \
             t/structured-lexical-test.ss \
             t/module-source-cases.ss \
@@ -443,12 +434,12 @@ jobs:
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
             GERBIL_TEST_CORES=2 GAMBOPT=max-heap=3G,debug=q GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss t languages
+            gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --remaining-conformance t languages
 
       - name: Report GQL native component and actor costs
         run: |
           gerbil env python3 scripts/test-local.py \
-            --suite gql-profile --suite gql-actors \
+            --prepared-diagnostics --suite gql-profile --suite gql-actors \
             --gerbil-path .gerbil --log-dir .data/gql-diagnostics
 
       - name: Compare TLA+ candidate structure with pinned SANY

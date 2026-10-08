@@ -33,30 +33,10 @@ run_child() {
 run_suite() {
   run_child "$1" "$GERBIL_PATH/bin/gerbil-parser-conformance" "$1"
 }
-# Serial execution preserves each unchanged ten-second completion fence.
-run_suite test-style
-run_suite diagnostics
-run_suite surface
-run_suite composition
-run_suite publication
-run_suite entry-boundaries
-run_suite topology
-run_suite loaders
-run_suite gql
-run_suite arithmetic
-run_suite bash
-run_suite cypher
-run_suite fhirpath
-run_suite hcl
-run_suite hl7
-run_suite tla-plus
-run_suite gql-profile
-run_suite pack-metadata
-run_suite source-services
-run_suite build-services
-run_suite concise-package
-run_suite composed-package
-run_suite downstream-records
+# Semantic groups share one compiled runtime, with their own 10s fences.
+python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
+  --log "$log_dir/semantic.log" --require '^CONFORMANCE-SEMANTIC-OK groups=' \
+  -- "$GERBIL_PATH/bin/gerbil-parser-conformance" semantic
 run_suite concise-runtime
 run_suite history
 run_suite native-poo-runtime

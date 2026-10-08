@@ -24,4 +24,19 @@ status=$?
 set -e
 test "$status" -ne 0
 echo WORKER-CONTROL-OK duplicate-ownership
+set +e
+GERBIL_TEST_CORES=2 gxi "$runner" "$fixtures/worker-reexport.ss"
+status=$?
+set -e
+test "$status" -ne 0
+echo WORKER-CONTROL-OK reexport-ownership
+alias_log=$(mktemp)
+trap 'rm -f "$alias_log"' EXIT
+set +e
+GERBIL_TEST_CORES=2 gxi "$runner" "$fixtures/worker-suite-alias.ss" > "$alias_log" 2>&1
+status=$?
+set -e
+test "$status" -eq 70
+rg --quiet 'duplicate test Suite object' "$alias_log"
+echo WORKER-CONTROL-OK suite-object-ownership
 echo OK

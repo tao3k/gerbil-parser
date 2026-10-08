@@ -7,15 +7,15 @@
         (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/composition-history main) history-)
         (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/list-runtime main) native-poo-runtime-)
         (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/provenance-language main) provenance-)
-        (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/parser-test records-parser-tests)
+        (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/parser-test parser-test)
         (only-in :gerbil-parser/t/test-style-contract-test test-style-contract-test)
         (only-in :gerbil-parser/t/language-diagnostics-test language-diagnostics-test)
-        (only-in :gerbil-parser/t/language-surface-test language-surface-test)
+        (only-in :gerbil-parser/t/language-surface-test language-surface-test language-backend-test)
         (only-in :gerbil-parser/t/grammar-composition-contract-test grammar-composition-contract-test)
         (only-in :gerbil-parser/t/grammar-composition-lowering-test grammar-composition-lowering-test)
         (only-in :gerbil-parser/t/grammar-composition-execution-test grammar-composition-execution-test)
         (only-in :gerbil-parser/t/resolved-grammar-test resolved-grammar-test)
-        (only-in :gerbil-parser/t/language-artifact-test language-artifact-tests)
+        (only-in :gerbil-parser/t/language-artifact-test language-artifact-test)
         (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test)
         (only-in :gerbil-parser/t/generate-language-abi-alignment write-language-abi-alignment!)
         (only-in :gerbil-parser/t/language-topology-test language-topology-test)
@@ -39,16 +39,19 @@
         (only-in :gerbil-parser/t/fixtures/language-pack-research/package-expression-parser-test package-expression-parser-test)
         (only-in :gerbil-parser/t/fixtures/language-pack-research/list-parser-test list-parser-test))
 (export main)
+;; Source-module admission requires a live expander; retain that Suite there.
+(def source-suites
+  '(("languages/tla-plus/parser-test" sany-closure-test)))
 (def suites
   (list
-        (cons "downstream-records" (list records-parser-tests))
+        (cons "downstream-records" (list parser-test))
         (cons "test-style" (list test-style-contract-test))
         (cons "diagnostics" (list language-diagnostics-test))
-        (cons "surface" (list language-surface-test))
+        (cons "surface" (list language-surface-test language-backend-test))
         (cons "composition" (list grammar-composition-contract-test
                                   grammar-composition-lowering-test
                                   grammar-composition-execution-test resolved-grammar-test))
-        (cons "publication" (list language-artifact-tests))
+        (cons "publication" (list language-artifact-test))
         (cons "entry-boundaries" (list language-entry-boundary-test))
         (cons "topology" (list language-topology-test))
         (cons "loaders" (list language-loader-test language-loader-value-test))
@@ -66,7 +69,36 @@
         (cons "build-services" (list build-strategy-test))
         (cons "concise-package" (list package-expression-parser-test))
         (cons "composed-package" (list list-parser-test))))
+(def (validate-conformance-suites! rows)
+  (let (seen (make-table test: eq?))
+    (for-each (lambda (row)
+                (for-each (lambda (suite)
+                            (when (table-ref seen suite #f)
+                              (error "duplicate conformance Suite" (car row)))
+                            (table-set! seen suite #t)) (cdr row))) rows)))
+(def (run-suite-row! row (budget 10))
+  ;; Execute on the caller thread and retain the ten-second group budget.
+  (let (timer (spawn (lambda () (thread-sleep! budget)
+                      (displayln "CONFORMANCE-GROUP-TIMEOUT " (car row))
+                      (force-output) (exit 70))))
+    (try
+      (for-each
+        (lambda (suite)
+          (let (result
+                 (parameterize ((current-test-config
+                                  (TestConfig verbosity: VERBOSITY-CASE capture-output?: #f)))
+                   (test-suite! suite)))
+            (unless (test-result-ok? result) (exit 1))))
+        (cdr row))
+      (displayln "DSL-SUITE-OK: " (car row)) (force-output)
+      (finally (thread-terminate! timer)))))
 (def (main name . args)
+  (when (equal? name "semantic")
+    (unless (null? args) (error "unexpected semantic arguments" args))
+    (validate-conformance-suites! suites)
+    (for-each run-suite-row! suites)
+    (displayln "CONFORMANCE-SEMANTIC-OK groups=" (length suites))
+    (force-output) (exit 0))
   (let (program (assoc name (list (cons "concise-runtime" concise-runtime-main)
                                 (cons "history" history-main)
                                 (cons "native-poo-runtime" native-poo-runtime-main)
@@ -83,12 +115,4 @@
     (let (row (assoc name suites))
       (unless (null? args) (error "unexpected native suite arguments" args))
       (unless row (error "unknown native conformance suite" name))
-      (for-each
-       (lambda (suite)
-         (let (result
-               (parameterize ((current-test-config
-                               (TestConfig verbosity: VERBOSITY-CASE capture-output?: #f)))
-                 (test-suite! suite)))
-           (unless (test-result-ok? result) (exit 1))))
-       (cdr row))
-      (displayln "DSL-SUITE-OK: " name) (force-output) (exit 0)))))
+      (run-suite-row! row) (exit 0)))))

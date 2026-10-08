@@ -837,3 +837,44 @@ loaded machine-code modules from interpreted source. The Rust
 =gerbil-parser-native= crate is the C ABI host binding; it invokes the Scheme
 runtime. The =gerbil-parser-runtime= crate executes Scheme-generated Rust plans.
 These are separate deployment products with the same Scheme-owned IR authority.
+
+** Test preparation and execution ownership
+
+The workspace Rust test command owns =asp-rust-gate= together with the other
+integration tests. A separate invocation in the same CI job repeats its execution.
+
+GQL diagnostics prepare the union of their support modules once. CI uses
+=--prepared-diagnostics= after its explicit support compilation; missing loadable
+products fail before either diagnostic runs. This option is restricted to
+=gql-profile= and =gql-actors=. Both diagnostic executions and their existing
+completion and idle budgets remain mandatory.
+
+=scripts/test-plan.ss= checks the existing conformance build catalog against
+=t/conformance-main.ss= imports and Suite execution declarations. It rejects
+missing owners, missing Suites and repeated Suite execution. The control entry is
+=gxi scripts/tests/test-plan-test.ss=. The declarations remain the authority;
+there is no additional handwritten language or Suite inventory.
+
+CI runs the 23 compiled semantic groups in one process. Each group retains its
+10-second completion fence; the aggregate runner also requires real output within
+five seconds. Suite object identity is checked before execution. Research commands
+keep their separate process boundaries because their entrypoints own process exit.
+
+After that gate succeeds, =test-suite.ss --remaining-conformance t languages=
+validates the declaration plan and runs source owners outside the compiled catalog
+and declared source-only Suites.
+Direct =test-suite.ss t languages= still qualifies all source owners. The source
+interface cleanup remains necessary for shared fixture imports, while fully covered
+modules are no longer prepared or executed as direct source test owners.
+
+=gxi scripts/tests/test-plan-test.ss= validates owner and Suite coverage, including
+omission and repetition controls. =bash scripts/tests/test-conformance.sh= exercises
+the actual production runner functions for caller thread ownership, duplicate Suite
+objects, assertion failure and completion timeout. Diagnostic runtimes use the same
+3 GiB heap budget as the shared source test runtime.
+
+The partition is by Suite, including actual phase-zero exports. A module may own
+both compiled Suites and a source-only Suite that needs dynamic module admission.
+The source runner prepares that module once and selects only its uncovered exports.
+=sany-closure-test= retains its dynamic build-policy rejection check in this scope;
+it is never treated as a successful compiled check after an illegal import.

@@ -3,7 +3,10 @@
 (import (only-in :std/build-script defbuild-script)
         (only-in :std/make make make-clean)
         (only-in :std/source this-source-file)
-        (only-in :gerbil/compiler compile-module))
+        (only-in :gerbil/compiler compile-module)
+        (only-in :gerbil/expander import-module module-context-export
+                 module-export-name module-export-phi))
+(load "scripts/test-plan.ss")
 (def conformance-modules
   '("t/fixtures/fixture-release"
     "t/fixtures/tla-sany-differential/worker-control"
@@ -77,7 +80,19 @@
      (compile-module (string-append module ".ss")
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
         optimize: #f generate-ssxi: #t static: #t keep-scm: #t
-        invoke-gsc: #f verbose: #f]))
+        invoke-gsc: #f verbose: #f])
+     (when (string-suffix? "-test" module)
+       (displayln "CONFORMANCE-EXPORT-CHECK " module) (force-output)
+       ;; Inspect the public expansion context without evaluating test bodies.
+       (let (context (import-module (string-append module ".ss") #f #f))
+         (validate-test-suite-ownership!
+          (conformance-imported-test-names module)
+          (conformance-source-suite-names module)
+          (map module-export-name
+               (filter (lambda (exported)
+                         (and (zero? (module-export-phi exported))
+                              (string-suffix? "-test" (symbol->string (module-export-name exported)))))
+                       (module-context-export context)))))))
    (filter shared-test-module? conformance-modules)))
 (def (compile-static-conformance!)
   ;; Helpers serve both the closed executable and source-mode generators.

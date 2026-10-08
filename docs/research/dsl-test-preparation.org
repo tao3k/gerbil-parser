@@ -6,7 +6,7 @@ Existing dated receipts retain their original revision and scope.
 
 * Implementation: single-runtime Scheme test preparation and Workers
 
-The native Suite entry starts one =gxi=. A single preparation owner admits the
+The Scheme Suite entry starts one =gxi=. A single preparation owner admits the
 native FFI dependencies and expands each source test module once before any
 Suite executes. Its loaded-module and interface caches survive the whole run.
 The runtime must finish module initialization before Worker execution; runtime
@@ -42,3 +42,45 @@ exercise unchanged inputs, changed/corrupt/missing products, corrupt receipts,
 failed preparation, store recovery/corruption, and mutation during preparation.
 These changes remove repeated process startup and unchanged preparation work;
 no end-to-end speedup is asserted without a matched complete-call measurement.
+
+* Implementation: disjoint compiled and source execution ownership
+
+The compiled conformance semantic entry runs every declared Suite in one process,
+checks Suite object identity for repetition, and enforces the original ten-second
+budget for each group. The outer supervisor retains its five-second idle fence.
+Research commands with process-owning entrypoints remain separate.
+
+=scripts/test-plan.ss= compares the build catalog, imported Suite names and actual
+Suite execution declarations. Missing owners, omitted Suites and repeated execution
+fail admission. Following a successful compiled gate, CI passes
+=--remaining-conformance= to the source runner. Fully covered modules are excluded before
+source preparation; the remaining modules share the existing runtime and Workers.
+The default source runner still qualifies every source module when requested.
+
+GQL support is compiled as one union for local diagnostics, while CI consumes the
+products of its prior preparation owners. Missing products fail before execution.
+Workspace Rust qualification includes its source-policy integration test, so CI
+no longer pays for a separate invocation of that same test.
+
+Compilation also compares each module's actual phase-zero =-test= exports with
+its imported conformance Suites. Public expander metadata is inspected with
+runtime evaluation disabled. This catches additional exported Suites even when
+all handwritten import declarations are internally consistent. Current-head
+source-versus-compiled Case names are compared before admitting the partition.
+
+Source-only Suite declarations cover genuine source admission boundaries. The
+SANY closure Suite needs dynamic module loading for its portable-build rejection
+control. It runs in the source runtime; other Suites from the same file run in the
+compiled runtime. Declared ownership has a complete union and an empty intersection,
+checked against actual exported Suite names during compilation. Source selection
+uses the same validated ownership and does not repeat the compiled Suites.
+
+Python process/compiler controls run once per Scheme CI platform. Ubuntu coverage
+is retained there; the Rust-only Ubuntu job no longer repeats the same discovery.
+macOS controls remain separate platform evidence.
+
+The old =t/versioned-language-pack-test.ss= forwarding module is removed. It had
+no Cases of its own and re-exported language leaf Suites already discovered from
+=languages=. Source admission now requires each test binding to belong to its
+module and each Suite object to have one owner. Re-exporting leaf Suites or
+admitting one Suite object twice fails instead of multiplying execution costs.

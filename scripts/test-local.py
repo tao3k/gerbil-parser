@@ -53,6 +53,8 @@ def native_environment():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", choices=["rust", "gql", "gql-profile", "gql-actors", "ffi", "aot"], action="append")
+    parser.add_argument("--prepared-diagnostics", action="store_true",
+                        help="consume compiled GQL diagnostics prepared by this build")
     parser.add_argument("--gerbil-path", type=Path, default=Path(".gerbil"))
     parser.add_argument("--log-dir", type=Path, default=Path(".data/local-native"))
     parser.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 1))
@@ -67,7 +69,7 @@ def main():
     # Immutable CI releases are relocated. Preserve their ~~ runtime mappings;
     # replacing GAMBOPT makes gxc look for gsc at the release builder's path.
     runtime_options = environment.get("GAMBOPT", "")
-    heap_options = "max-heap=1G,debug=q"
+    heap_options = "max-heap=3G,debug=q"
     environment.update(GERBIL_PATH=str(compiled_root), GERBIL_LOADPATH=os.pathsep.join([str(compiled_root / "lib"), environment.get("GERBIL_PARSER_OUTPUT", str(root)), str(root)]),
                        GAMBOPT=runtime_options + ("," if runtime_options else "") + heap_options,
                        GERBIL_PARSER_LR_TRACE="1", GERBIL_BUILD_VERBOSE="1")
@@ -89,9 +91,26 @@ def main():
             raise SystemExit(result.returncode)
         print("NATIVE-STAGE-OK", label, flush=True)
 
-    suites = args.suite or ["rust", "gql", "ffi", "aot"]
-    if any(suite in ("gql", "gql-profile", "gql-actors", "ffi") for suite in suites):
+    suites = list(dict.fromkeys(args.suite or ["rust", "gql", "ffi", "aot"]))
+    if args.prepared_diagnostics and any(suite not in ("gql-profile", "gql-actors") for suite in suites):
+        parser.error("--prepared-diagnostics only supports gql-profile and gql-actors")
+    if not args.prepared_diagnostics and any(suite in ("gql", "gql-profile", "gql-actors", "ffi") for suite in suites):
         run("test-driver-build", ["gxi", "build-test-driver.ss", "compile"], build=True)
+    diagnostic_modules = list(dict.fromkeys(
+        module for suite in suites for module in (
+            ["reduction-counts", "execution-counts", "matched-stages", "actors"]
+            if suite == "gql-actors" else
+            ["reduction-counts", "execution-counts", "matched-stages"]
+            if suite in ("gql", "gql-profile") else [])))
+    if diagnostic_modules:
+        if args.prepared_diagnostics:
+            for module in diagnostic_modules:
+                product = compiled_root / "lib/gerbil-parser/t/benchmarks/gql/runtime" / (module + ".o1")
+                if not product.is_file():
+                    raise SystemExit(f"missing prepared diagnostic module {product}")
+        else:
+            run("gql-support-build", ["gxc", "-V"] + [
+                "t/benchmarks/gql/runtime/" + module + ".ss" for module in diagnostic_modules], build=True)
     for suite in suites:
         if suite == "rust":
             # A cold compiler and a running test have different evidence boundaries.
@@ -100,20 +119,11 @@ def main():
             run("rust-test", ["cargo", "test", "--workspace", "--locked", "--",
                               "--nocapture"], required=[r"test result: ok\."])
         elif suite == "gql-profile":
-            run("gql-profile-build", ["gxc", "-V",
-                "t/benchmarks/gql/runtime/reduction-counts.ss",
-                "t/benchmarks/gql/runtime/execution-counts.ss",
-                "t/benchmarks/gql/runtime/matched-stages.ss"], build=True)
             run("gql-profile", ["gxi", "-e",
                 '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/gql/runtime/matched-stages") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
                 '(import :gerbil-parser/t/benchmarks/gql/runtime/matched-stages :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
                 required=["GQL-STAGES-OK", "GQL-STAGE-SUMMARY", "GQL-REDUCTION-COUNTS", "GQL-LR-EXECUTION"])
         elif suite == "gql-actors":
-            run("gql-actors-build", ["gxc", "-V",
-                "t/benchmarks/gql/runtime/reduction-counts.ss",
-                "t/benchmarks/gql/runtime/execution-counts.ss",
-                "t/benchmarks/gql/runtime/matched-stages.ss",
-                "t/benchmarks/gql/runtime/actors.ss"], build=True)
             run("gql-actors", ["gxi", "-e",
                 '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/gql/runtime/actors") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")', "-e",
                 '(import :gerbil-parser/t/benchmarks/gql/runtime/actors :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main "40" "100") (test-child-process-exit! 0)'],
@@ -168,11 +178,6 @@ def main():
                 object_file = compiled_root / "lib/gerbil-parser" / (module + ".o1")
                 if not object_file.is_file():
                     raise SystemExit(f"missing compiled module {object_file}; build this checkout first")
-            if suite == "gql":
-                run("gql-profile-build", ["gxc", "-V",
-                    "t/benchmarks/gql/runtime/reduction-counts.ss",
-                    "t/benchmarks/gql/runtime/execution-counts.ss",
-                    "t/benchmarks/gql/runtime/matched-stages.ss"], build=True)
             files = (["t/gql/runtime-benchmark-test.ss",
                       "t/gql/benchmark-profile-test.ss",
                       "t/gql/actor-test.ss"] if suite == "gql"

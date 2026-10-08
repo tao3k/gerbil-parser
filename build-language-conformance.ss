@@ -75,22 +75,19 @@
         optimize: #f generate-ssxi: #t static: #t keep-scm: #t
         invoke-gsc: #f verbose: #t]))
    (filter shared-test-module? conformance-modules)))
-;;; Exported helper macros must have native phase bodies before later imports.
-(def conformance-macro-modules
-  '("t/fixtures/fixture-release" "t/fixtures/language-pack-research/list-stage"))
 (def (compile-static-conformance!)
-  ;; Runtime objects belong to the native link owner. Exported helper macros
-  ;; also have a compile-time owner: Gerbil imports their native phase bodies.
+  ;; Helpers serve both the closed executable and source-mode generators.
+  ;; Publish complete loadable products; the link owner also consumes static SCM.
   (for-each
    (lambda (module)
      (displayln "STATIC-HELPER-SCHEME " module) (force-output)
      (compile-module (string-append module ".ss")
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
         optimize: #t generate-ssxi: #t static: #t keep-scm: #t
-        invoke-gsc: (and (member module conformance-macro-modules) #t)
+        invoke-gsc: #t
         cc-options: "-v -Q -fopt-info-all" verbose: #t]))
    (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
-  ;; The closed executable owns their only required C/object compilation here.
+  ;; Test bodies remain source-only here; their native objects belong to the link owner.
   (compile-static-tests!))
 (def (prepare-gxtest!)
   ;; gxtest owns source test evaluation. The closed executable already owns

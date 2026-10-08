@@ -841,3 +841,42 @@ actions, gotos, productions and independent profile cases are unchanged. The
 updated fixture is generated from Scheme, not patched by hand or admitted by
 weakening the comparison gate. All 130 runtime-crate tests passed locally. The
 same exact regeneration comparison remains mandatory in the next CI revision.
+
+** Complete helper products and bounded native ABI compilation
+
+Revision 11179d2 passed Rust AOT and the macOS FHIRPath comparison, then exposed
+two separate build-owner defects. Linux exceeded the five-second silence fence
+inside GCC while compiling the monolithic ABI codec. Increasing genuine GCC
+optimization diagnostics alone also failed a local control, so it is not the
+repair. Native language context/catalogs, binary event writing and ABI binding
+now occupy separate Scheme modules. The public codec API and byte layout are
+unchanged; three regenerated static C units compiled in 12.10 seconds with exit
+zero under the existing 240-second/five-second owner fences. This is a build
+receipt, not a parser runtime speedup claim.
+
+The macOS result-projection generator failed when it loaded bash-products~0.scm
+as an incomplete native module. Conformance helpers also serve source-mode
+generators: their compiler owner must publish complete loadable products, not
+only static Scheme. All helper modules now use the public compiler's native
+publication option; the special list of macro-only exceptions is removed. Test
+bodies retain their separate source/native owners. With a completed Bash helper,
+all thirteen result-projection controls regenerated in 32.59 seconds with exit
+zero, and the formatted Rust output matched the checked-in fixture exactly.
+
+#+begin_src scheme
+;; Helper modules are imported by both executable and generator owners.
+(compile-module helper
+  [optimize: #t generate-ssxi: #t static: #t keep-scm: #t invoke-gsc: #t])
+#+end_src
+
+Why is this preferable? The compiler publishes its documented loadable product
+without per-fixture loader exceptions. Why is it justified? The negative control
+identifies a missing native body, while exact regeneration checks the resulting
+consumer output. Neither elapsed nor silence limits are increased. Full CI on
+the resulting revision remains required to qualify platform behavior.
+
+The existing independent-language native-admission suite also passed after the
+split in 37.82 seconds with exit zero under source-owner fences. Its controls
+include exact direct/canonical payload bytes, source descriptors through the
+length-delimited C ABI, symbol indexing, rejected publications and released
+handles. This receipt is not a closed-native ten-second execution claim.

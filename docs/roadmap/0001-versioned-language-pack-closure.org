@@ -3,13 +3,11 @@
 
 * Current baseline and evidence
 
-Reviewed remote baseline: PR #13 =007bf80=. Rust CI passed; both native jobs
-failed because conformance preparation included compiler-generated memo
-products in its immutable input inventory. The current change corrects that
-ownership and adds native Scheme controls. The FFI/schema convergence and
-Source cost implementation have local Scheme, C and Rust receipts; their
-complete delivered-head CI remains required. Historical receipts below are
-not current CI evidence.
+Reviewed remote baseline: PR #13 =0a2a1a0=. Rust and Ubuntu CI passed.
+The macOS job was cancelled without a test failure receipt and has been rerun.
+The current preparation controls pass locally with the installed Gerbil SDK
+(1.37 seconds, exit 0). Every delivered change requires its own exact-head CI;
+historical receipts below are not current evidence.
 
 The eight language families use the three author interfaces: =grammar.ss=
 (syntax/rules), =parser.ss= (metadata and admitted execution), and

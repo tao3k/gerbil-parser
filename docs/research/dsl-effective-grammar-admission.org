@@ -1,0 +1,203 @@
+#+title: Effective grammar admission and source origins
+#+date: 2026-10-09
+
+Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
+Existing dated receipts retain their original revision and scope.
+
+* Second study: admission, suspension and reuse
+
+** Current revision and existing mechanisms
+
+This study inspects =2577253f96b2b5993706c939dbe5088ae0d56a3a=. The original
+observations above retain their historical scope. The following proposals are
+not runtime changes or new benchmark results.
+
+| Existing mechanism | Exact owner | Design consequence |
+|--------------------+-------------+--------------------|
+| Effective row owner, composition operation and contribution history | =src/compiler/normalize.ss=, =effective-grammar-row= | Extend expression origins from these selected rows; retain override history without admitting removed declarations |
+| Immutable source state with owner, source, character/byte offsets and context | =src/runtime/source-scanner.ss= | Reuse requires edit mapping and semantic context comparison; a checkpoint API already exists |
+| Command program counter, node frames and repeat/balance tasks | =rust/gerbil-parser-runtime/src/engine/command_program.rs= | Extend the existing VM suspension boundary; do not introduce an independent command interpreter |
+| Synchronous Command/List host calls and depth guard | =rust/gerbil-parser-runtime/src/engine/command_source.rs= | Explicit Command tasks alone do not remove Source recursion |
+| Explicit event traversal, private recursively owned recognition children | =command_source.rs=, =result_projection.rs= | Deep-input qualification must include destruction and error cleanup, not only recognition |
+
+The last observation is a potential lifecycle risk inferred from the recursive
+ownership shape. No stack-overflow reproduction or failure depth is established
+here. =PreparedResultProfile::check_node= checks only the immediate child's
+owner/source/span, so it is not a demonstrated recursive validation bottleneck.
+
+** One effective grammar, several target obligations
+
+The typed algebraic parsing paper's Section 3 defines separate conditions for
+alternative apartness and sequence separability. Its concatenation facts require
+those preconditions; they cannot be copied as universally valid CFG equations.
+Our design inference is to keep common facts separate from a predictive backend's
+proof obligations. A legal LR grammar may fail the predictive proof.
+
+The existing nullable/FIRST analysis remains the common authority. A proposed
+analysis result also records productivity, reference components, declaration
+origins and conservative scanner effects. These are private records computed by
+named engine functions. An unknown effect is explicit, not an empty effect set.
+
+#+begin_example
+Effective declarations + selected origin rows
+  -> common resolved facts
+  -> LR admission: supported constructs, conflicts and policy
+  -> predictive admission: supported constructs + determinism proof
+  -> scanner/Command admission: progress, state and result obligations
+  -> Scheme / Rust emission from the admitted target plan
+#+end_example
+
+A failed predictive proof rejects that requested target with an author-local
+reason; it does not change choice semantics, silently select another backend or
+reject an otherwise valid LR target. Conflict witnesses and proof failures must
+identify the target and relevant expression occurrence.
+
+Productivity is distinct from nullability: =A -> A= has no finite terminal
+word, whereas =A -> A a | b= is productive left recursion. Productivity may be
+computed monotonically with terminals/epsilon productive, choice as any child,
+and sequence as all children, with repeat/optional admitting epsilon. Admission
+must separately reject repeat of a nullable operand. This is a proposed analysis,
+not an additional implemented fixed point. Unreachable rule policy must remain
+explicit; it is not a reason to label every reference cycle invalid.
+
+POO override invalidation follows semantic dependencies. Editing only release
+metadata must not reconstruct LR states; replacing a rule or scanner policy
+invalidates its dependent analysis and target admission. Cached facts must bind
+the effective grammar and policy identity. A semantic digest must include all
+recognition-affecting declarations; a hash alone does not replace equality or
+resolve ownership. No new public schema version follows from this proposal.
+
+** Preserve expression occurrences through transformations
+
+Langcc's Section 2.3 explains delayed intermediate reductions in terms of the
+surrounding continuation. Section 2.4 bounds XLR execution by simultaneous
+branches; unbounded branching loses its stated bound. We infer that helper
+transforms need both origin records and measured conflict witnesses here; adopting
+a numeric branch cap does not prove that our admitted grammar belongs to XLR.
+
+Start from =effective-grammar-row= and assign each expression occurrence an
+internal identity: selected rule, child path, selected contribution and available
+reader coordinates. Equal expressions at two paths remain distinct occurrences.
+Generated repetition helpers point back to that identity and their lowering
+operation. This avoids exposing generated helper names in DSL diagnostics.
+
+The proposed next origin test extends the current owner/operand diagnostic:
+base role -> nullable override -> inherited repeated reference. Require the
+selected override and reference path in the diagnostic; restoring a consuming
+override must produce a fresh admitted plan. Source coordinates unavailable in
+current syntax data remain unknown rather than fabricated.
+
+** Resume Source through the existing Command VM
+
+=execute_initial= currently holds local frames/tasks while =step= calls
+=host.command()= or =host.list()= synchronously. Both Source host methods increment
+=Cursor.depth= and re-enter Source parsing. The architectural change is to retain
+the VM state across these calls and return a typed request to the outer engine.
+
+Proposed private request/result vocabulary:
+
+#+begin_example
+Command execution -> Completed(node) | NeedCompound(field) | NeedList(field, until, allow_empty)
+Outer engine      -> push Source continuation + suspended Command execution
+Source completion -> resume Command execution with exactly one owned result
+Failure           -> unwind all suspended state and pending result ownership
+#+end_example
+
+The actual names and representation remain open. Store program counters, repeat
+progress checkpoints, ordered node frames and the target field in private typed
+records. Command call/node/repeat/balance already have task semantics and should
+retain them. Word/Region need suspension only if their actual call graph also
+re-enters Source; do not turn every leaf operation into a scheduler request.
+
+Source continuations own pipeline/and-or/list assembly and the stop trigger.
+A single request-local cursor owns token position, byte position, pending heredoc
+FIFO and links. Preserve today's deferred-body behavior before considering
+scoped queues. Parent result publication happens once after child completion;
+trivia and significant ranges retain source order. No state is shared mutably
+between independent parses.
+
+The scheduler must account for the entire live request: pending tasks, retained
+frames/captures, deferred markers, consumed input and produced output. Removing
+=256= alone is insufficient. Check actual storage/work limits with structured
+failure; do not add a new user-written host callback or scheduler slot.
+
+Private result storage may require an arena or iterative destruction. Decide
+using a deep lifecycle test before changing the representation. A deep parse that
+succeeds but overflows during artifact release is not a successful migration.
+
+** Incremental reuse needs boundary validation
+
+Wagner and Graham's Sections 4–5 reuse shiftable subtrees while validating their
+right edge against lookahead. A parser-state equality check is sufficient but
+can be overly restrictive. Their sequence bounds also exclude unbounded context
+effects. The design inference is to separate scanner restart checkpoints from
+parser subtree admission, and to test context-sensitive sequences explicitly.
+
+Tree-sitter's scanner contract stores the complete lexical state so edits and
+ambiguities can restore it. The corresponding engine proposal must include
+pending deferred markers and parser-induced context changes, not only the
+scanner's mode. Existing immutable Scheme checkpoints are the starting point.
+
+An edit must map both byte and character offsets and preserve UTF-8 boundaries.
+A candidate retains old source ownership until an explicit mapped result is
+constructed for the new source. Reusing an old =ProjectedNode= directly violates
+its current source-identity contract. Reuse diagnostics should distinguish
+changed content, scanner context mismatch, parser boundary failure and unsupported
+effects. Do not expose those internal states as required language author data.
+
+** Implementation gates derived from this study
+
+| Order | Work | Semantic gate |
+|-------+------+---------------|
+| 1 | Extend selected row origins to expression occurrences | Nullable override diagnostic names selected contribution/path; removed declaration cannot own the error |
+| 2 | Suspend existing VM at Command/List requests | Existing Source corpus and exact diagnostics unchanged; mixed nesting exceeds former 256 boundary |
+| 3 | Qualify the whole deep-input lifecycle | Recognition, events, artifact publication/release and failure cleanup all complete without host recursion failure |
+| 4 | Account for request resources | Limit failure releases frames and markers; independent parse still succeeds; semantic gates keep their existing deadlines |
+| 5 | Prototype scanner restart + subtree boundary admission | Full reparse parity for delimiter, quote, heredoc, multibyte and context-changing edits |
+
+Ordinary correctness cases assert deterministic semantic properties and ownership.
+ASP performance cases measure complete calls, allocations, peak live storage and
+work; include both nesting and wide lists. No speedup follows from this design
+alone. Language packs continue using their existing grammar/parser/test interfaces
+and POO value extension points; scheduler and analysis implementation stay inside
+the engine.
+
+
+
+* Paper transfer: syntax contracts and resolved grammar contracts
+
+Reviewed primary sources on 2026-10-09:
+
+- [[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper and Felleisen, Fortifying Macros (ICFP 2010)]], sections 3--4:
+  named syntax classes combine patterns, attributes and side conditions with
+  contextual diagnostics. Transfer the separation between declaration structure
+  and semantic obligations. Gerbil =defrules=/=defsyntax= remain our substrate;
+  this is not a claim that Racket syntax classes are implemented in Gerbil.
+- [[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, A Typed, Algebraic Approach to Parsing (PLDI 2019)]],
+  sections 3 and 6: grammar facts justify a restricted predictive parser, and
+  staging specializes static grammar information. Transfer analysis before
+  execution and separation of static grammar from dynamic input. Their LL(1)
+  restrictions and linear-time theorem do not cover every grammar or backend here.
+
+The repository connection is one contract chain:
+
+| Layer | Existing owner | Evidence or remaining obligation |
+|-------+----------------+----------------------------------|
+| Hygienic vocabulary | =src/language/grammar.ss=, =defgrammar-syntax= | Generated local vocabulary is a =defrules= expansion; no new operation keywords |
+| Declaration admission | =src/language/grammar.ss=, =src/compiler/language-expander.ss= | Check syntax/rules and retain declaration-local diagnostics |
+| Effective composition | =src/compiler/normalize.ss= | Analyze selected rule values and origins after composition |
+| Resolved grammar | =src/compiler/lr.ss= | Existing nullable fixed point and original repetition obligations |
+| Target admission | =src/compiler/recursive-source.ss= and LR compiler | Restricted HCL admission remains explicit; general choice-equivalence proof remains open |
+| Publication cost | =src/ffi/language-artifact-codec.ss= | Complete payload equality remains independent of recognition strategy |
+
+Macro validation cannot establish resolved nullability from declaration shape
+alone. A POO override can change a referenced rule from consuming to empty;
+=t/resolved-grammar-test.ss= tests that effective value and retains source-owner
+diagnostics. Conversely, target restrictions do not justify rejecting productive
+left recursion from an LR-capable grammar. These are distinct admission stages
+within one pipeline, rather than additional author configuration.
+
+Next executable closure is the same call/array package across vocabulary expansion,
+composition, source diagnostics and backend admission. Keep identical fields,
+ranges and rejection expectations. The published sources establish the design
+method; actual controls establish what this implementation supports.

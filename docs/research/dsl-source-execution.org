@@ -1,0 +1,181 @@
+#+title: Source execution and artifact ownership
+#+date: 2026-10-09
+
+Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
+Existing dated receipts retain their original revision and scope.
+
+* Implementation: origins and Source continuation closure
+
+The implementation extends the selected source map into repetition diagnostics:
+rule, expression child path, selected POO contribution, and a finite nullable
+reference explanation. It records both the referenced declaration and the
+reference occurrence. Reader coordinates remain unknown where unavailable.
+A queue visits each referenced rule once; the diagnostic does not expand shared
+nullable derivations into an exponential tree. Nullable acceptance remains owned
+by the existing fixed point. Generated helper origin serialization and broader
+conflict witnesses are still separate work.
+
+The real declaration compiler binds the diagnostic context only for its compile.
+Complete declaration cache hits recheck current repetition admission using the
+cached canonical nullable facts before publication. This performs no LR lowering,
+fixed point or state reconstruction, and changes no public schema. Tests include
+an old complete cache receipt that must reject without invoking either compiler
+callback, selected nullable overrides, cyclic exits and a 32-level shared DAG.
+
+Rust Source now drives the existing Command VM through private continuation
+records. Command/List instructions suspend the VM; compound, pipeline, and/or,
+list, prefix and assignment continuations resume through one outer request loop.
+The synchronous Source host methods and recursion-depth guard have been removed.
+Words, result profiles, token ordering and heredoc FIFO remain governed by the
+admitted Scheme-generated product. Language author interfaces are unchanged.
+
+The private resource gate counts pending Source tasks plus VM tasks/node frames,
+including growth while a VM runs, with a limit of 16,384 live frames. It returns
+=command-source-resource-limit= at an input byte boundary. This is a frame limit,
+not a complete byte/allocation/work budget. It does not establish a complexity
+bound for the whole parser.
+
+Private recognition nodes now drain descendants iteratively during destruction.
+A Rust control on a 256 KiB thread stack accepts 1,024 alternating group/subshell
+levels, constructs events and a lossless event tree, and releases the tree/results.
+It also cleans up a completed deep child after a trailing-pipeline failure and
+successfully parses an independent next request. A larger input exercises the
+resource rejection path; a 6,000-form VM call chain also hits the same budget
+without returning to Source. Scheme independently admits the identical deep input
+as a valid lossless ParseArtifact. Deep input artifact/C ABI cross-target byte
+parity has not been established by these separate controls.
+
+Local qualification: 133 Rust runtime tests and strict Clippy; 18 resolved grammar,
+12 artifact, 31 composition, 5 style, and 9 Source strategy Scheme cases. Scheme
+qualification uses the existing native watchdog and GCC. The Source strategy
+suite initially hit a loading silence failure because its native product helper
+was missing; building that existing conformance helper resolved it without a
+backend or timeout change. No end-to-end runtime speedup or cold full-package
+build improvement is claimed. Exact rebased-head CI is a separate gate.
+
+The next engine work is full Source ParseArtifact/C ABI ownership and diagnostic
+parity, then scanner checkpoint/edit mapping and parser subtree boundary admission.
+The proposed incremental mechanism remains unimplemented.
+
+* Implementation: canonical Source publication and shared lexer preparation
+
+Rust Source now publishes =CommandEvent= records through one iterative
+=CommandParse::walk_events= sink: preorder node IDs, producer-order token IDs,
+node boundaries, field boundaries and the complete trivia tape. The existing CST
+API projects this same walk rather than maintaining a second traversal. A sink
+receives a prefix if later validation fails and must commit only after success.
+The result retains the exact source allocation and result-profile identity;
+replacing its public root with a tree from equal bytes in another allocation is
+rejected before the sink receives anything.
+
+The Scheme Command Source generator also emits native fixture bytes through
+=bind-language-abi= and =abi-parse-binary-payload=, using the public codec
+consumed by the C ABI. CI regenerates both products and compares them to the
+checked-in fixtures. The 54 controls cover the original declaration and a POO
+extension changing the root projection, pipeline role and Unicode form keyword.
+Rust compares every accepted canonical record with the decoded Scheme GPA1
+record, including names, IDs, ranges, field scopes and trivia placement. Rejected
+controls check acceptance agreement and the Scheme fallback token tape. Native
+views borrow the original source slices, reject changed source digests, and
+repeated Rust publication starts with independent identifiers. Deep publication
+also walks 1,024 alternating compound/subshell levels on a 256 KiB stack.
+
+This establishes canonical accepted-event parity against native codec bytes for
+these controls. It does not implement a Rust GPA1 encoder or qualify live C
+handle allocation/release through these fixture tests. GPA1 currently contains
+status and events, not diagnostic records; diagnostic content parity and a
+language-independent diagnostic transport remain open. No schema increment or
+compatibility mode is introduced.
+
+The previous Ubuntu head failed while compiling the TLA+ core static object:
+the GCC output stopped for the existing five-second silence gate. Inspection
+found =generated-lexer= expanding the entire mode-plan construction, sharing,
+certification and traversal algorithm into each language module. That algorithm
+now resides once in =prepare-generated-lexer=; the macro supplies only declared
+rule scanners and a delayed certificate factory. Longest-match priority, rule
+order, mode-miss fallback, shared-plan identity and lazy certification remain the
+same. No backend, optimization level or watchdog deadline is changed.
+
+In the local TLA+ module, generated Scheme size fell from 254,620 to 156,138
+bytes in the final delayed-factory version. This is a structural code-size
+observation, not a runtime speedup or evidence of Ubuntu closure. Gambit's
+[[https://www.iro.umontreal.ca/~gambit/doc/gambit.pdf][compiler documentation]] explains that single-host compilation combines a
+module's procedures into one C procedure and can make optimization of large
+modules expensive. Exact-head Ubuntu CI remains the admission gate for the build
+failure; Scheme semantic controls and local GCC compilation are separate evidence.
+
+Local qualification for this slice: 135 Rust runtime tests, strict Clippy and
+formatting; 54 Source/native fixture controls regenerated under the existing
+90-second total / five-second silence gate with identical Rust and binary
+products; final GCC engine/TLA+ compilation and six lexical-plan Scheme cases.
+The added TLA+ case compares every LR mode's shared/independent scan and forced
+certificates, plus two accepted and one rejected complete ParseArtifacts.
+
+A broader source-mode =languages/tla-plus/parser-test.ss= attempt hit the unchanged
+watchdog while loading declarations, before its cases ran. That failure is
+retained; the direct engine controls do not turn it into a full language-suite
+pass. Remote revision =07e1e5c= independently corrects native compiler option
+admission and disables GCC macro diagnostic tracking; this slice rebases onto it.
+The generated-algorithm consolidation remains a separate structural correction.
+
+** Source execution and publication ownership
+
+The canonical Source record implementation exceeded the Rust source-owner
+policy at revision e62b77b (1021 lines). The repair separates responsibilities:
+command_source/execution.rs owns cursor/task execution and its frame budget; the private
+command_source/publication.rs module owns CommandParse, CommandEvent and the
+iterative event walk. The command_source/mod.rs facade re-exports the existing public types, preserving
+consumer paths. Request construction fields are visible only to the parent
+owner; borrowed source, event ordering and byte ranges retain the same contract.
+No recursion limit, source rejection rule or policy threshold is weakened.
+
+The existing runtime crate tests passed after extraction: 135 cases across two
+suites, including Scheme Source record comparisons and deep command
+controls. The ASP source policy and exact-head native CI remain separate gates.
+
+Why is this boundary preferable? Execution scheduling can evolve independently
+from canonical event publication while both keep one request-owned result. Why
+is it justified? The existing event-parity and deep-input controls execute the
+same public interface after a responsibility-only extraction.
+
+The local policy also rejected a sibling command_source.rs/command_source pair
+and deep super imports in the first extraction. The completed layout uses one
+command_source/mod.rs owner facade, private execution/publication modules and
+crate::engine imports. Both findings are repaired rather than suppressed.
+
+The completed owner layout passed the ASP Rust workspace policy gate (one gate
+test, 4.40 seconds, exit zero) and the same 135 runtime cases. The policy's
+reported warnings were removed through source structure, without exceptions.
+
+** Relative module admission and embedded IR identity
+
+Source-mode test admission now resolves relative symbol imports such as
+=./parser= and =../helper= against the importing source. The module identity is
+derived from the nearest =gerbil.pkg= package declaration. A compiled interface
+uses the existing native dependency loader; a source-only helper follows its
+source imports. This closes the previously missed dependency path without a
+language-specific loader or a second parser entry point.
+
+Embedded artifact decoding retains the uncompressed UTF-8 bytes and computes
+=sha256-bytes= directly. It no longer encodes the decoded string back into bytes
+for identity verification. The largest observed TLA+ contextual IR contains
+3,483,189 uncompressed bytes; removing that repeated conversion eliminates one
+full-buffer conversion and its temporary allocation. No wall-clock runtime
+speedup is claimed. Schema, digest, framing and cache contracts are unchanged.
+
+Actual decompression and UTF-8 completion stages are observable in the existing
+artifact trace. Timeout errors distinguish silence from the total batch budget.
+Neither the 90-second batch limit nor five-second silence limit is relaxed.
+These traces diagnose real completed work; they are not performance evidence.
+
+Final local qualification under the pinned Gerbil SDK and GCC: 14 artifact cases
+and all 57 TLA+ language cases passed with final =OK=. New controls cover Unicode
+identity in sidecar and embedded images, and rejection of five malformed UTF-8
+sequences even when the supplied digest matches the malformed bytes. The earlier
+source-mode loading failure remains recorded above; this result closes that
+local language-suite failure. Ubuntu CI remains a separate admission gate.
+
+CI Rust 1.99 Clippy additionally requires an empty-slice assertion to display its
+value on failure. The generated native fixture reader now uses =assert_eq!=,
+retaining its complete-consumption assertion and all 54 fixture controls.
+

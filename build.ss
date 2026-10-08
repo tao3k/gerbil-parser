@@ -22,6 +22,7 @@
     "scripts/generate-reductions.ss"
     "scripts/preparation-cache.ss"
     "scripts/tests/preparation-test.ss"
+    "scripts/tests/compiler-process-test.ss"
     "scripts/test-plan.ss"
     "scripts/tests/test-plan-test.ss"
     "scripts/tests/conformance-runner-test.ss"

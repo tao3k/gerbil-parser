@@ -55,7 +55,7 @@
                     (kill (process-pid process) SIGKILL)
                     (thread-terminate! reader)
                     (error "native test child exceeded silence or batch budget" file
-                           (if (eq? line 'quiet) 'idle-timeout 'total-budget)
+                           (if (>= (- (##current-time-point) started) 90) 'total-budget 'idle-timeout)
                            (- (##current-time-point) started)))
                    ((eof-object? line) (void))
                    (else

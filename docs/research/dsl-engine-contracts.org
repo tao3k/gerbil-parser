@@ -598,3 +598,75 @@ Command Source controls regenerated successfully through the Scheme watchdog;
 the formatted Rust source and native binary fixture were byte-identical to the
 checked-in products. These are local semantic and target-output receipts, not a
 latency result or a portable checkpoint ABI qualification.
+
+** AOT representation experiment and the remaining edit boundary
+
+At revision =7c05c47=, Rust and macOS CI passed while Ubuntu failed the unchanged
+five-second output-silence gate during reusable native objects. The final active
+objects were TLA+ layout/core; core had entered GCC's front end, not Scheme IR
+decoding. The compiler and optimization policy remain GCC with the same settings.
+
+The AOT representation previously wrapped compressed sidecar bytes in Base64
+text. Gambit emitted =___STR8= initializers, whose character-width macro expands
+three byte/word alternatives; the runtime then allocated a decoded compressed
+buffer before decompression. An intermediate local experiment embedded the original compressed =u8vector=
+directly. The final PR implementation at =6c9b513= instead packs network-order
+unsigned 64-bit words with byte length and canonical zero tail padding. Both
+representations remove the Base64 envelope; the packed word form further limits
+C initializer work. The intermediate byte-vector implementation is superseded. Serialized IR, schemas, content hashes, sidecar files,
+DSL forms and language-loader metadata remain unchanged.
+
+A controlled representation probe rewrote only the three embedded payloads in
+the actual TLA+ core static Scheme module. The same pinned Gambit and host GCC 16
+preprocessor produced 5,141,913 bytes for the string image and 3,914,507 bytes for
+the byte image. Generated C grew from 696,003 to 736,566 bytes because byte
+literals use decimal syntax. This is a reduction in macro-expanded material,
+not measured runtime latency or proof of the Ubuntu GCC 13 gate. The final decoder removes the Base64 operation but reconstructs compressed bytes
+from packed words before decompression. No allocation or latency reduction is
+claimed for that decode step.
+
+The next cross-edit implementation must establish lexical decision validity,
+not simply relocate a checkpoint whose prefix text happens to match. A scanner
+may have read beyond a token boundary to decide longest match, failed quoted or
+balanced alternatives, or the next delimiter. Safe prefix restart needs decision
+read-dependency evidence or replay under the recorded parser positions. Suffix
+convergence instead requires independently reached states with equal effective
+scanner semantics, mode, ordered pending obligations, active delimiter and
+expectation, plus equal remaining source and compatible parser context. Neither
+criterion is implemented by this representation change; unchanged-source restore
+continues to require exact identity. This preserves the scanner-state prerequisite
+from the incremental research section without introducing an unsafe resume API.
+
+
+The packed-image constructor now reads complete unsigned words directly from the
+original byte input and builds at most one partial tail word. It no longer
+allocates and copies a padded byte vector for the whole payload before packing.
+The destination word vector and transport framing remain unchanged; the
+network-order rule is portable across host endianness. Existing every-tail,
+unsigned-max, padding-rejection and Unicode/identity controls apply directly.
+
+The intermediate local experiment passed 14 artifact cases and 54 regenerated
+Source controls. Its broad package build hit the retained 240-second total
+budget; native-object completion was then performed separately. Full source-mode
+TLA+ qualification still failed before cases at the 90-second admission budget.
+These results are not a full language-suite pass for the final packed-word head.
+
+
+The Scheme suite's failure label now gives the total budget precedence when its
+bounded read reaches 90 seconds. Previously the read returned =quiet= at that
+deadline and incorrectly labeled the total-budget failure as silence. Both
+limits and the killing behavior are unchanged; this corrects the diagnostic for
+the retained source-mode failure above.
+
+Final packed-tail qualification: the fixed SDK/GCC engine build passed and all
+16 artifact cases passed with final =OK=. The framing corpus additionally covers
+4 KiB, 8 KiB and 64 KiB buffer boundaries and neighboring partial tails. Independent
+network-order golden words cover unsigned high bits, and mutation of the original
+input cannot change the packed image. This removes the constructor's padded
+full-buffer copy; it is not a measured parser/FFI runtime speedup.
+
+On the final packed-tail workspace, all 54 Scheme Source controls regenerated
+with identical formatted Rust and native binary fixtures. The integrated packed
+image revision =6c9b513= independently passed Ubuntu native and Rust AOT CI in
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37727437327/job/113148708306][run 37727437327]]. That baseline qualification does not substitute for exact-head
+CI after this constructor and diagnostic change.

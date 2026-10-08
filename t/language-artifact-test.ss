@@ -148,7 +148,8 @@
                (loop (fx+ index 1))))
            (check (unpack-language-artifact-image (pack-language-artifact-image bytes))
                   => bytes)))
-       '(0 1 2 3 4 5 6 7 8 9 15 16 17 255 256 257))
+       '(0 1 2 3 4 5 6 7 8 9 15 16 17 255 256 257
+         4095 4096 4097 8191 8192 8193 65535 65536 65537))
       (check (pack-language-artifact-image #u8(1 2 3 4 5 6 7 8))
              => '#u64(8 #x0102030405060708))
       (check (unpack-language-artifact-image '#u64(8 #xffffffffffffffff))
@@ -158,6 +159,16 @@
          (check-exception (unpack-language-artifact-image invalid) true))
        (list "encoded" #u8(1) '#u64() '#u64(1) '#u64(0 0)
              '#u64(#xffffffffffffffff) '#u64(1 #x0100000000000001))))
+    (test-case "native producer preserves high-bit full words and partial tails"
+      (check (pack-language-artifact-image #u8(255)) => '#u64(1 #xff00000000000000))
+      (check (pack-language-artifact-image #u8(255 254 253 252 251 250 249))
+             => '#u64(7 #xfffefdfcfbfaf900))
+      (check (pack-language-artifact-image #u8(255 255 255 255 255 255 255 255 128))
+             => '#u64(9 #xffffffffffffffff #x8000000000000000))
+      (let* ((bytes (make-u8vector 17 255))
+             (image (pack-language-artifact-image bytes)))
+        (u8vector-set! bytes 0 0)
+        (check (unpack-language-artifact-image image) => (make-u8vector 17 255))))
     (test-case "an AOT image consumes the same compressed artifact without roots"
       (let* ((serialized (serialize test-value))
              (digest (sha256-text serialized))

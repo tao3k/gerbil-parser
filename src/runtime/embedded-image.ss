@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Native constant storage for compressed language images; byte identity is unchanged.
-(import (only-in :std/io open-buffered-reader BufferedReader-read-u64
+(import (only-in :std/io open-buffered-reader BufferedReader-read-u64 BufferedReader-read-u8
                         open-buffered-writer BufferedWriter-write-u64 BufferedWriter-flush))
 (export pack-language-artifact-image unpack-language-artifact-image)
 
@@ -9,18 +9,26 @@
 (def (pack-language-artifact-image bytes)
   (unless (u8vector? bytes) (error "language artifact image requires bytes"))
   (let* ((size (u8vector-length bytes))
-         (count (quotient (+ size 7) 8))
-         (padded (make-u8vector (* count 8) 0))
+         (full (quotient size 8))
+         (tail (modulo size 8))
+         (count (+ full (if (zero? tail) 0 1)))
          (words (make-u64vector (+ count 1) 0)))
-    (subu8vector-move! bytes 0 size padded 0)
     (u64vector-set! words 0 size)
-    (call-with-input-u8vector padded
+    ;; Read complete words from the original input. Only the final partial word
+    ;; needs padding; never allocate/copy a padded image of the entire payload.
+    (call-with-input-u8vector bytes
       (lambda (port)
         (let (reader (open-buffered-reader port))
           (let loop ((index 1))
-            (when (<= index count)
+            (when (<= index full)
               (u64vector-set! words index (BufferedReader-read-u64 reader))
-              (loop (fx+ index 1)))))))
+              (loop (fx+ index 1))))
+          (unless (zero? tail)
+            (let loop ((remaining tail) (word 0))
+              (if (zero? remaining)
+                (u64vector-set! words count (arithmetic-shift word (* 8 (- 8 tail))))
+                (loop (fx- remaining 1)
+                      (bitwise-ior (arithmetic-shift word 8) (BufferedReader-read-u8 reader)))))))))
     words))
 
 (def (unpack-language-artifact-image words)

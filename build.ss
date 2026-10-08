@@ -20,6 +20,8 @@
 (def gerbil-parser-exclude-modules
   '("scripts/generate-source-parser.ss"
     "scripts/generate-reductions.ss"
+    "scripts/native-preparation-cache.ss"
+    "scripts/tests/native-preparation-test.ss"
     "build-native-test-driver.ss"
     "build-language-conformance.ss"
     "build-language-conformance-link.ss"

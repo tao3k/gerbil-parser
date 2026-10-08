@@ -922,3 +922,33 @@ count =3=. All five native transfer cases and the test-style contract module
 passed locally with final =OK=, zero process status and 13.99 seconds elapsed.
 Policy restrictions and timeout/silence limits remain unchanged; latest-head
 full CI is still a separate gate.
+* Implementation: single-runtime native test preparation and Workers
+
+The native Suite entry starts one =gxi=. A single preparation owner admits the
+native FFI dependencies and expands each source test module once before any
+Suite executes. Its loaded-module and interface caches survive the whole run.
+The runtime must finish module initialization before Worker execution; runtime
+loading and source expansion are not concurrent test jobs.
+
+=GERBIL_TEST_CORES= configures the bounded Scheme Worker queue. CI selects two
+Workers. Each module owns its =std/test= harness and thread-local test parameters;
+shared-runtime barrier controls require two modules to rendezvous in one process.
+Failures stop new admission, join active Workers, and return a failing status.
+The original five-second silence and ninety-second module budgets remain;
+preparation time is deducted from the execution budget. A timed-out thread ends
+the runtime rather than continuing with partially mutated state.
+
+The conformance build has one content-admission owner. Its S-expression receipt
+covers project sources, dependency products/sources, SDK, compiler/environment,
+and the native executable plus loadable helpers. SHA-256 and file modes are
+checked, failed or input-mutating builds cannot publish a usable receipt, and an
+OS file lock releases on exit. Source-only test interfaces removed by
+=prepare-gxtest!= are deliberately outside the retained output identity.
+
+CI restores an isolated conformance product store. Only an exact content match
+can copy its declared executable/helper products into the working library;
+dependency/package cache restoration remains a separate owner. Scheme controls
+exercise unchanged inputs, changed/corrupt/missing products, corrupt receipts,
+failed preparation, store recovery/corruption, and mutation during preparation.
+These changes remove repeated process startup and unchanged preparation work;
+no end-to-end speedup is asserted without a matched complete-call measurement.

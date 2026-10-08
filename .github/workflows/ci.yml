@@ -191,12 +191,31 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)' \
             -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main "library-objects"))))) (exit 0)'
 
+      - name: Restore native conformance preparation
+        id: conformance-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .gerbil/native-conformance-store
+          key: parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.gerbil-label }}-${{ hashFiles('gerbil.pkg') }}-${{ github.sha }}
+          restore-keys: |
+            parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.gerbil-label }}-${{ hashFiles('gerbil.pkg') }}-
+
       - name: Compile language conformance modules
         run: |
           GERBIL_BUILD_VERBOSE=9 GERBIL_PARSER_LR_TRACE=1 gerbil env \
             python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- bash scripts/build-language-conformance-native.sh
+
+      - name: Save admitted native conformance preparation
+        if: steps.conformance-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .gerbil/native-conformance-store
+          key: parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.gerbil-label }}-${{ hashFiles('gerbil.pkg') }}-${{ github.sha }}
+
+      - name: Verify Scheme preparation cache controls
+        run: gerbil env gxi scripts/tests/native-preparation-test.ss
 
       - name: Verify Scheme DSL and native POO declaration closure
         run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research
@@ -403,11 +422,14 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!)' \
             -e '(call-with-native-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)'
 
+      - name: Verify shared-runtime Worker controls
+        run: gerbil env bash scripts/tests/native-workers.sh
+
       - name: Run native Gerbil tests
         timeout-minutes: 15
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            GERBIL_TEST_CORES=2 GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/native-suite.ss t languages
 
       - name: Report GQL native component and actor costs

@@ -88,19 +88,24 @@ def main():
     try:
         with args.log.open("wb") as log:
             while selector.get_map():
+                # Forwarding a large chunk can block behind a slow console. Poll
+                # queued child bytes before deciding that the child was silent.
+                # The absolute deadline still wins even when output is readable.
+                events = selector.select(timeout=0.1)
                 now = time.monotonic()
                 if now - start >= args.timeout:
                     reason = "total timeout"
                     stop_group()
                     break
-                if args.idle_timeout and now - last_output >= args.idle_timeout:
+                if (not events and args.idle_timeout
+                        and now - last_output >= args.idle_timeout):
                     reason = "output idle timeout"
                     stop_group()
                     break
                 if now >= next_progress:
                     print(f"RUNNING elapsed={now-start:.1f}s idle={now-last_output:.1f}s", flush=True)
                     next_progress = now + 5
-                for key, _ in selector.select(timeout=0.1):
+                for key, _ in events:
                     chunk = os.read(key.fileobj.fileno(), 65536)
                     if not chunk:
                         selector.unregister(key.fileobj)

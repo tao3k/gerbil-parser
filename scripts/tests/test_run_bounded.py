@@ -33,7 +33,7 @@ class BoundedEvidenceTests(unittest.TestCase):
         self.assertIn(receipt + "\n", result.stdout)
         self.assertIn(receipt + "\n", log)
 
-    def test_inherited_nonblocking_pipe_preserves_burst_evidence(self):
+    def test_backpressure_preserves_queued_evidence_past_idle_interval(self):
         with tempfile.TemporaryDirectory(prefix="parser-bounded-pipe-") as directory:
             log = Path(directory) / "child.log"
             receipt = "PIPE-PROGRESS " + "λ" * 1000
@@ -41,15 +41,16 @@ class BoundedEvidenceTests(unittest.TestCase):
             readfd, writefd = os.pipe()
             os.set_blocking(writefd, False)
             process = subprocess.Popen(
-                [sys.executable, str(RUNNER), "--timeout", "5", "--log", str(log),
-                 "--full-output", "--require", "^OK$", "--",
+                [sys.executable, str(RUNNER), "--timeout", "5", "--idle-timeout", "0.2",
+                 "--log", str(log), "--full-output", "--require", "^OK$", "--",
                  sys.executable, "-u", "-c", program],
                 stdout=writefd, stderr=subprocess.PIPE)
             os.close(writefd)
             process.stdout = os.fdopen(readfd, "rb")
             try:
-                # Force backpressure before draining the inherited pipe.
-                time.sleep(0.05)
+                # Forwarding blocks longer than the idle interval while child bytes
+                # remain queued. Console backpressure must not imply child silence.
+                time.sleep(0.5)
                 stdout, stderr = process.communicate(timeout=10)
             finally:
                 if process.poll() is None:

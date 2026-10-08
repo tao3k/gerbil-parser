@@ -920,3 +920,27 @@ option and keeps build behavior inspectable. Why is it justified? The SDK driver
 provides the admission contract, and the matched negative/positive C controls
 isolate macro tracking without changing generated parser behavior. See GCC's
 [[https://gcc.gnu.org/onlinedocs/cpp/Invocation.html][preprocessor option reference]] for the diagnostic-memory tradeoff.
+
+** Evidence forwarding must not become false child silence
+
+The macOS object owner at revision 4cd91ba failed at 43.55 seconds while the
+console was forwarding queued compiler output. The runner checked its idle
+deadline before polling the child pipe again. Forwarding one large chunk can
+block behind a slow consumer longer than the idle interval; newly queued child
+bytes must be read before deciding that the child was silent.
+
+The existing runner now polls readiness first. The absolute deadline still wins
+even when the pipe is readable; an idle failure still occurs when no event is
+available for the existing interval. Only actual child bytes update progress.
+No timer heartbeat or timeout increase is introduced. A matched slow-consumer
+control over 20,000 output records failed with the old runner (reason=output idle
+timeout, status 124) and completed with the repair (all records, exit zero). The
+existing inherited-pipe test now holds its consumer beyond the idle interval
+and checks complete stdout/log delivery. All ten runner/compiler-proxy tests
+passed, including true silence, hard total timeout, escaped-child cleanup and
+error/exit propagation. These are runner controls, not parser performance data.
+
+Why is this preferable? Console throughput cannot decide parser admission. Why
+is it justified? The negative/positive control isolates queued-byte handling,
+while the unchanged timeout controls still reject stalled or over-budget work.
+Full native CI remains the integration qualification.

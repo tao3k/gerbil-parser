@@ -81,6 +81,18 @@ pub struct ProjectedNode<'source> {
     span: Range<usize>,
     children: Vec<ProjectedChild<'source>>,
 }
+// Drain descendants before each node is dropped, bounding native call depth even
+// when a successful parse or a partially assembled failure owns a deep tree.
+impl Drop for ProjectedNode<'_> {
+    fn drop(&mut self) {
+        let mut pending = std::mem::take(&mut self.children);
+        while let Some(child) = pending.pop() {
+            if let ProjectedValue::Node(mut node) = child.value {
+                pending.append(&mut node.children);
+            }
+        }
+    }
+}
 pub struct ProjectedChild<'source> {
     field: &'static str,
     value: ProjectedValue<'source>,
@@ -387,8 +399,8 @@ impl PreparedResultNode {
 }
 impl<'source> ProjectedNode<'source> {
     #[must_use]
-    pub(super) fn into_captures(self) -> Vec<ResultChildCapture<'source>> {
-        self.children
+    pub(super) fn into_captures(mut self) -> Vec<ResultChildCapture<'source>> {
+        std::mem::take(&mut self.children)
             .into_iter()
             .map(|child| ResultChildCapture {
                 field: child.field,

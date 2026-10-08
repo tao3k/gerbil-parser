@@ -1,6 +1,7 @@
 //! Engine-owned Source cursor for closed command programs and Word recognition.
 use super::command_program::{
-    CommandHost, CommandInstruction, CommandTrigger, PreparedCommandProgram,
+    CommandExecution, CommandHost, CommandInstruction, CommandProgress, CommandRequest,
+    CommandTrigger, PreparedCommandProgram,
 };
 use super::{
     Diagnostic, PreparedPartProfile, ProjectedNode, ProjectedValue, ResultChildCapture,
@@ -91,6 +92,92 @@ impl CommandParse<'_> {
         Ok(events)
     }
 }
+const MAX_SOURCE_FRAMES: usize = 16_384;
+enum SourceTask<'s> {
+    Compound,
+    CompoundAfter,
+    Pipeline,
+    PipelinePrefixAfter {
+        start: usize,
+    },
+    Simple {
+        start: usize,
+        named: bool,
+        children: Vec<ResultChildCapture<'s>>,
+    },
+    SimpleAfter {
+        start: usize,
+        named: bool,
+        children: Vec<ResultChildCapture<'s>>,
+    },
+    PipelineAfter {
+        start: usize,
+        children: Vec<ResultChildCapture<'s>>,
+    },
+    AndOr,
+    AndOrAfter {
+        start: Option<usize>,
+        children: Vec<ResultChildCapture<'s>>,
+    },
+    List(ListFrame<'s>),
+    Vm(CommandExecution<'s>),
+    VmAfter {
+        execution: CommandExecution<'s>,
+        field: &'static str,
+    },
+}
+struct ListFrame<'s> {
+    start: usize,
+    until: CommandTrigger,
+    allow_empty: bool,
+    root: bool,
+    children: Vec<ResultChildCapture<'s>>,
+    before: Option<(usize, usize)>,
+}
+struct SourceExecution<'s> {
+    tasks: Vec<SourceTask<'s>>,
+    live_frames: usize,
+    returned: Option<ProjectedNode<'s>>,
+}
+impl<'s> SourceExecution<'s> {
+    fn schedule(&mut self, task: SourceTask<'s>, at: usize) -> Result<(), Diagnostic> {
+        schedule(&mut self.tasks, &mut self.live_frames, task, at)
+    }
+}
+impl SourceTask<'_> {
+    fn live_frames(&self) -> usize {
+        1 + match self {
+            Self::Vm(execution) | Self::VmAfter { execution, .. } => execution.live_frames(),
+            _ => 0,
+        }
+    }
+}
+fn schedule<'s>(
+    tasks: &mut Vec<SourceTask<'s>>,
+    live: &mut usize,
+    task: SourceTask<'s>,
+    at: usize,
+) -> Result<(), Diagnostic> {
+    let next = live
+        .checked_add(task.live_frames())
+        .filter(|n| *n <= MAX_SOURCE_FRAMES)
+        .ok_or_else(|| Diagnostic {
+            reason_kind: "command-source-resource-limit",
+            byte_offset: at,
+            message: "Source continuation frame budget exceeded".into(),
+        })?;
+    *live = next;
+    tasks.push(task);
+    Ok(())
+}
+fn take_result<'s>(
+    value: &mut Option<ProjectedNode<'s>>,
+    at: usize,
+) -> Result<ProjectedNode<'s>, Diagnostic> {
+    value
+        .take()
+        .ok_or_else(|| error(at, "missing Source continuation result"))
+}
 struct Cursor<'p, 's> {
     plan: &'p PreparedCommandProgram,
     source: &'s str,
@@ -100,7 +187,6 @@ struct Cursor<'p, 's> {
 
     at: usize,
     end: usize,
-    depth: usize,
     markers: VecDeque<(usize, bool)>,
     links: Vec<(usize, usize)>,
 }
@@ -141,15 +227,13 @@ impl PreparedCommandProgram {
             kinds,
             at: 0,
             end: 0,
-            depth: 0,
             markers: VecDeque::new(),
             links: Vec::new(),
         };
-        let children = cursor.children(CommandTrigger::None)?;
+        let root = cursor.run_source()?;
         if !cursor.markers.is_empty() {
             return Err(error(cursor.end, "missing deferred body"));
         }
-        let root = cursor.build("BashFile", 0, source.len(), children)?;
         let trivia = tokens
             .iter()
             .filter(|t| cursor.role("trivia", t))
@@ -320,65 +404,122 @@ impl<'s> Cursor<'_, 's> {
         children.push(child("target", value));
         self.build("Redirection", start, self.end, children)
     }
-    fn simple(&mut self) -> Result<ProjectedNode<'s>, Diagnostic> {
-        let first = self
-            .peek()
-            .ok_or_else(|| error(self.end, "expected command"))?;
-        if self.role("reserved", &first) {
-            return Err(error(first.start, "unexpected reserved token"));
+    // One outer loop drives Source and the existing Command VM. Child results
+    // move through a single slot and are published once by their continuation.
+    fn run_source(&mut self) -> Result<ProjectedNode<'s>, Diagnostic> {
+        let mut execution = SourceExecution {
+            tasks: Vec::new(),
+            live_frames: 0,
+            returned: None,
+        };
+        execution.schedule(
+            SourceTask::List(ListFrame {
+                start: 0,
+                until: CommandTrigger::None,
+                allow_empty: true,
+                root: true,
+                children: Vec::new(),
+                before: None,
+            }),
+            self.end,
+        )?;
+        while let Some(task) = execution.tasks.pop() {
+            execution.live_frames -= task.live_frames();
+            self.step_source(task, &mut execution)?;
         }
-        let mut named = false;
-        let mut children = Vec::new();
-        while let Some(token) = self.peek() {
-            if self.descriptor_before() {
-                let d = self.token()?;
-                children.push(node("redirect", self.redirection(Some(d))?));
-            } else if self.role("redirect", &token) {
-                children.push(node("redirect", self.redirection(None)?));
-            } else if token.terminal == "word" {
-                if !named
-                    && let Some(assignment) =
-                        self.parts.assignment(self.source, token.start..token.end)?
-                {
-                    self.token()?;
-                    let form = &self.plan.spec.forms[self.plan.assignment_tail];
-                    let assignment = if self
-                        .tokens
-                        .get(self.at)
-                        .is_some_and(|n| n.start == token.end)
-                        && self.test(form.trigger, self.at)
-                    {
-                        let plan = self.plan;
-                        plan.execute_initial(
-                            form,
-                            self,
-                            assignment.span().start,
-                            vec![node("assignment", assignment)],
-                        )?
-                    } else {
-                        assignment
-                    };
-                    children.push(node("assignment", assignment));
-                } else {
-                    children.push(child(if named { "argument" } else { "name" }, self.word()?));
-                    named = true;
-                }
-            } else {
-                break;
+        take_result(&mut execution.returned, self.end)
+    }
+    fn step_source(
+        &mut self,
+        task: SourceTask<'s>,
+        execution: &mut SourceExecution<'s>,
+    ) -> Result<(), Diagnostic> {
+        match task {
+            SourceTask::Compound => self.step_compound(execution)?,
+            SourceTask::CompoundAfter => self.finish_compound(execution)?,
+            SourceTask::Simple {
+                start,
+                named,
+                children,
+            } => self.step_simple(start, named, children, execution)?,
+            SourceTask::Pipeline => self.step_pipeline(execution)?,
+            SourceTask::PipelineAfter { start, children } => {
+                self.step_pipeline_after(start, children, execution)?;
+            }
+            SourceTask::AndOrAfter { start, children } => {
+                self.step_and_or_after(start, children, execution)?;
+            }
+            SourceTask::List(frame) => self.step_list(frame, execution)?,
+            SourceTask::Vm(vm) => self.step_vm(vm, execution)?,
+            SourceTask::SimpleAfter {
+                start,
+                named,
+                mut children,
+            } => {
+                children.push(node(
+                    "assignment",
+                    take_result(&mut execution.returned, self.end)?,
+                ));
+                execution.schedule(
+                    SourceTask::Simple {
+                        start,
+                        named,
+                        children,
+                    },
+                    self.end,
+                )?;
+            }
+            SourceTask::PipelinePrefixAfter { start } => {
+                let children = take_result(&mut execution.returned, self.end)?.into_captures();
+                execution.schedule(SourceTask::PipelineAfter { start, children }, self.end)?;
+                execution.schedule(SourceTask::Compound, self.end)?;
+            }
+            SourceTask::AndOr => {
+                execution.schedule(
+                    SourceTask::AndOrAfter {
+                        start: None,
+                        children: Vec::new(),
+                    },
+                    self.end,
+                )?;
+                execution.schedule(SourceTask::Pipeline, self.end)?;
+            }
+            SourceTask::VmAfter {
+                execution: mut vm,
+                field,
+            } => {
+                vm.publish(field, take_result(&mut execution.returned, self.end)?)?;
+                execution.schedule(SourceTask::Vm(vm), self.end)?;
             }
         }
-        if children.is_empty() {
-            return Err(error(first.start, "expected command or redirection"));
-        }
-        self.build("SimpleCommand", first.start, self.end, children)
+        Ok(())
     }
-    fn compound(&mut self) -> Result<ProjectedNode<'s>, Diagnostic> {
+    fn step_compound(&mut self, execution: &mut SourceExecution<'s>) -> Result<(), Diagnostic> {
         self.peek();
-        let Some(id) = self.selected() else {
-            return self.simple();
-        };
-        let plan = self.plan;
-        let command = plan.execute(id, self)?;
+        if let Some(id) = self.selected() {
+            let vm = self.plan.begin(id, self.start()?)?;
+            execution.schedule(SourceTask::CompoundAfter, self.end)?;
+            execution.schedule(SourceTask::Vm(vm), self.end)?;
+        } else {
+            let first = self
+                .peek()
+                .ok_or_else(|| error(self.end, "expected command"))?;
+            if self.role("reserved", &first) {
+                return Err(error(first.start, "unexpected reserved token"));
+            }
+            execution.schedule(
+                SourceTask::Simple {
+                    start: first.start,
+                    named: false,
+                    children: Vec::new(),
+                },
+                self.end,
+            )?;
+        }
+        Ok(())
+    }
+    fn finish_compound(&mut self, execution: &mut SourceExecution<'s>) -> Result<(), Diagnostic> {
+        let command = take_result(&mut execution.returned, self.end)?;
         let start = command.span().start;
         let mut children = vec![node("command", command)];
         while let Some(token) = self.peek() {
@@ -391,60 +532,253 @@ impl<'s> Cursor<'_, 's> {
                 break;
             }
         }
+        execution.returned = Some(self.finish_chain("RedirectedCommand", start, children)?);
+        Ok(())
+    }
+    fn step_simple(
+        &mut self,
+        start: usize,
+        mut named: bool,
+        mut children: Vec<ResultChildCapture<'s>>,
+        execution: &mut SourceExecution<'s>,
+    ) -> Result<(), Diagnostic> {
+        while let Some(token) = self.peek() {
+            if self.descriptor_before() {
+                let descriptor = self.token()?;
+                children.push(node("redirect", self.redirection(Some(descriptor))?));
+            } else if self.role("redirect", &token) {
+                children.push(node("redirect", self.redirection(None)?));
+            } else if token.terminal == "word" {
+                if !named
+                    && let Some(assignment) =
+                        self.parts.assignment(self.source, token.start..token.end)?
+                {
+                    self.token()?;
+                    let form = &self.plan.spec.forms[self.plan.assignment_tail];
+                    if self
+                        .tokens
+                        .get(self.at)
+                        .is_some_and(|n| n.start == token.end)
+                        && self.test(form.trigger, self.at)
+                    {
+                        let vm = PreparedCommandProgram::begin_initial(
+                            form,
+                            assignment.span().start,
+                            vec![node("assignment", assignment)],
+                        );
+                        execution.schedule(
+                            SourceTask::SimpleAfter {
+                                start,
+                                named,
+                                children,
+                            },
+                            self.end,
+                        )?;
+                        execution.schedule(SourceTask::Vm(vm), self.end)?;
+                        return Ok(());
+                    }
+                    children.push(node("assignment", assignment));
+                } else {
+                    children.push(child(if named { "argument" } else { "name" }, self.word()?));
+                    named = true;
+                }
+            } else {
+                break;
+            }
+        }
+        if children.is_empty() {
+            return Err(error(start, "expected command or redirection"));
+        }
+        execution.returned = Some(self.build("SimpleCommand", start, self.end, children)?);
+        Ok(())
+    }
+    fn step_pipeline(&mut self, execution: &mut SourceExecution<'s>) -> Result<(), Diagnostic> {
+        let start = self.start()?;
+        let form = &self.plan.spec.forms[self.plan.pipeline_head];
+        if form.program.iter().any(|i| match i {
+            CommandInstruction::Optional { trigger, .. }
+            | CommandInstruction::Many { trigger, .. } => self.test(*trigger, self.at),
+            _ => false,
+        }) {
+            let vm = PreparedCommandProgram::begin_initial(form, start, Vec::new());
+            execution.schedule(SourceTask::PipelinePrefixAfter { start }, self.end)?;
+            execution.schedule(SourceTask::Vm(vm), self.end)?;
+        } else {
+            execution.schedule(
+                SourceTask::PipelineAfter {
+                    start,
+                    children: Vec::new(),
+                },
+                self.end,
+            )?;
+            execution.schedule(SourceTask::Compound, self.end)?;
+        }
+        Ok(())
+    }
+    fn step_pipeline_after(
+        &mut self,
+        start: usize,
+        mut children: Vec<ResultChildCapture<'s>>,
+        execution: &mut SourceExecution<'s>,
+    ) -> Result<(), Diagnostic> {
+        children.push(node(
+            "command",
+            take_result(&mut execution.returned, self.end)?,
+        ));
+        if self.peek().is_some_and(|t| self.role("pipeline", &t)) {
+            children.push(child("operator", self.raw()?));
+            execution.schedule(SourceTask::PipelineAfter { start, children }, self.end)?;
+            execution.schedule(SourceTask::Compound, self.end)?;
+        } else {
+            execution.returned = Some(self.finish_chain("Pipeline", start, children)?);
+        }
+        Ok(())
+    }
+    fn step_and_or_after(
+        &mut self,
+        start: Option<usize>,
+        mut children: Vec<ResultChildCapture<'s>>,
+        execution: &mut SourceExecution<'s>,
+    ) -> Result<(), Diagnostic> {
+        let command = take_result(&mut execution.returned, self.end)?;
+        let start = start.unwrap_or(command.span().start);
+        children.push(node("command", command));
+        if self.peek().is_some_and(|t| self.role("and-or", &t)) {
+            children.push(child("operator", self.raw()?));
+            execution.schedule(
+                SourceTask::AndOrAfter {
+                    start: Some(start),
+                    children,
+                },
+                self.end,
+            )?;
+            execution.schedule(SourceTask::Pipeline, self.end)?;
+        } else {
+            execution.returned = Some(self.finish_chain("AndOrList", start, children)?);
+        }
+        Ok(())
+    }
+    fn step_list(
+        &mut self,
+        frame: ListFrame<'s>,
+        execution: &mut SourceExecution<'s>,
+    ) -> Result<(), Diagnostic> {
+        let ListFrame {
+            start,
+            until,
+            allow_empty,
+            root,
+            mut children,
+            before,
+        } = frame;
+
+        if let Some((at, offset)) = before {
+            children.push(node(
+                "command",
+                take_result(&mut execution.returned, self.end)?,
+            ));
+            if self.at <= at {
+                return Err(error(offset, "Source did not advance"));
+            }
+        }
+        while let Some(token) = self.peek() {
+            if self.test(until, self.at) {
+                break;
+            }
+            let at = self.at;
+            if self.role("separator", &token) {
+                if token.terminal == "operator" && !children.iter().any(|c| c.field == "command") {
+                    return Err(error(token.start, "separator has no command"));
+                }
+                children.push(child("separator", self.raw()?));
+                if token.terminal == "newline" {
+                    children.extend(self.here()?);
+                }
+                if self.at <= at {
+                    return Err(error(token.start, "Source did not advance"));
+                }
+            } else {
+                execution.schedule(
+                    SourceTask::List(ListFrame {
+                        start,
+                        until,
+                        allow_empty,
+                        root,
+                        children,
+                        before: Some((at, token.start)),
+                    }),
+                    self.end,
+                )?;
+                execution.schedule(SourceTask::AndOr, self.end)?;
+                // The list moved to its continuation; no partial result exists.
+                execution.returned = None;
+                return Ok(());
+            }
+        }
+        if !allow_empty && !children.iter().any(|c| c.field == "command") {
+            return Err(error(start, "empty compound list"));
+        }
+        let end = if root { self.source.len() } else { self.end };
+        execution.returned = Some(self.build(
+            if root { "BashFile" } else { "CommandList" },
+            start,
+            end,
+            children,
+        )?);
+        Ok(())
+    }
+    fn step_vm(
+        &mut self,
+        mut vm: CommandExecution<'s>,
+        execution: &mut SourceExecution<'s>,
+    ) -> Result<(), Diagnostic> {
+        let plan = self.plan;
+        match plan.resume(&mut vm, self, MAX_SOURCE_FRAMES - execution.live_frames - 1)? {
+            CommandProgress::Complete(result) => execution.returned = Some(result),
+            CommandProgress::Suspend(request) => {
+                let (field, next) = match request {
+                    CommandRequest::Compound(field) => (field, SourceTask::Compound),
+                    CommandRequest::List {
+                        field,
+                        until,
+                        allow_empty,
+                    } => (
+                        field,
+                        SourceTask::List(ListFrame {
+                            start: self.end,
+                            until,
+                            allow_empty,
+                            root: false,
+                            children: Vec::new(),
+                            before: None,
+                        }),
+                    ),
+                };
+                execution.schedule(
+                    SourceTask::VmAfter {
+                        execution: vm,
+                        field,
+                    },
+                    self.end,
+                )?;
+                execution.schedule(next, self.end)?;
+            }
+        }
+        Ok(())
+    }
+    fn finish_chain(
+        &self,
+        kind: &str,
+        start: usize,
+        mut children: Vec<ResultChildCapture<'s>>,
+    ) -> Result<ProjectedNode<'s>, Diagnostic> {
         if children.len() == 1 {
             let ProjectedValue::Node(command) = children.remove(0).value else {
                 unreachable!()
             };
             Ok(command)
         } else {
-            self.build("RedirectedCommand", start, self.end, children)
-        }
-    }
-    fn pipeline(&mut self) -> Result<ProjectedNode<'s>, Diagnostic> {
-        let start = self.start()?;
-        let form = &self.plan.spec.forms[self.plan.pipeline_head];
-        let mut children = Vec::new();
-        if form.program.iter().any(|i| match i {
-            CommandInstruction::Optional { trigger, .. }
-            | CommandInstruction::Many { trigger, .. } => self.test(*trigger, self.at),
-            _ => false,
-        }) {
-            let plan = self.plan;
-            children = plan
-                .execute_initial(form, self, start, Vec::new())?
-                .into_captures();
-        }
-        let first = self.compound()?;
-        children.push(node("command", first));
-        while self.peek().is_some_and(|t| self.role("pipeline", &t)) {
-            let value = self.raw()?;
-            children.push(child("operator", value));
-            children.push(node("command", self.compound()?));
-        }
-        if children.len() == 1 {
-            let ProjectedValue::Node(first) = children.remove(0).value else {
-                unreachable!()
-            };
-            Ok(first)
-        } else {
-            self.build("Pipeline", start, self.end, children)
-        }
-    }
-    fn and_or(&mut self) -> Result<ProjectedNode<'s>, Diagnostic> {
-        let first = self.pipeline()?;
-        let start = first.span().start;
-        let mut children = vec![node("command", first)];
-        while self.peek().is_some_and(|t| self.role("and-or", &t)) {
-            children.push(child("operator", self.raw()?));
-            children.push(node("command", self.pipeline()?));
-        }
-        if children.len() == 1 {
-            let ProjectedValue::Node(first) = children.remove(0).value else {
-                unreachable!()
-            };
-            Ok(first)
-        } else {
-            self.build("AndOrList", start, self.end, children)
+            self.build(kind, start, self.end, children)
         }
     }
     fn here(&mut self) -> Result<Vec<ResultChildCapture<'s>>, Diagnostic> {
@@ -486,37 +820,6 @@ impl<'s> Cursor<'_, 's> {
         }
         Ok(nodes)
     }
-    fn children(
-        &mut self,
-        until: CommandTrigger,
-    ) -> Result<Vec<ResultChildCapture<'s>>, Diagnostic> {
-        let mut children = Vec::new();
-        while let Some(token) = self.peek() {
-            if self.test(until, self.at) {
-                break;
-            }
-            let before = self.at;
-            if self.role("separator", &token) {
-                if token.terminal == "operator"
-                    && !children
-                        .iter()
-                        .any(|c: &ResultChildCapture<'s>| c.field == "command")
-                {
-                    return Err(error(token.start, "separator has no command"));
-                }
-                children.push(child("separator", self.raw()?));
-                if token.terminal == "newline" {
-                    children.extend(self.here()?);
-                }
-            } else {
-                children.push(node("command", self.and_or()?));
-            }
-            if self.at <= before {
-                return Err(error(token.start, "Source did not advance"));
-            }
-        }
-        Ok(children)
-    }
 }
 impl<'s> CommandHost<'s> for Cursor<'_, 's> {
     fn source(&self) -> &'s str {
@@ -552,34 +855,6 @@ impl<'s> CommandHost<'s> for Cursor<'_, 's> {
         Ok(ProjectedValue::Node(
             self.parts.word(self.source, token.start..token.end)?,
         ))
-    }
-    fn command(&mut self) -> Result<ProjectedValue<'s>, Diagnostic> {
-        if self.depth >= 256 {
-            return Err(error(self.end, "Source nesting exceeds engine limit"));
-        }
-        self.depth += 1;
-        let value = self.compound();
-        self.depth -= 1;
-        value.map(ProjectedValue::Node)
-    }
-    fn list(
-        &mut self,
-        until: CommandTrigger,
-        allow_empty: bool,
-    ) -> Result<ProjectedValue<'s>, Diagnostic> {
-        if self.depth >= 256 {
-            return Err(error(self.end, "Source nesting exceeds engine limit"));
-        }
-        let start = self.end;
-        self.depth += 1;
-        let children = self.children(until);
-        self.depth -= 1;
-        let children = children?;
-        if !allow_empty && !children.iter().any(|c| c.field == "command") {
-            return Err(error(start, "empty compound list"));
-        }
-        self.build("CommandList", start, self.end, children)
-            .map(ProjectedValue::Node)
     }
 }
 

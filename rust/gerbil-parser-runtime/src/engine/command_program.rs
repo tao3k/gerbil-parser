@@ -107,6 +107,35 @@ enum Task {
         before: Option<usize>,
     },
 }
+/// Request-local VM storage survives a Source suspension.
+pub(super) struct CommandExecution<'s> {
+    frames: Vec<Frame<'s>>,
+    tasks: Vec<Task>,
+}
+pub(super) enum CommandRequest {
+    Compound(&'static str),
+    List {
+        field: &'static str,
+        until: CommandTrigger,
+        allow_empty: bool,
+    },
+}
+pub(super) enum CommandProgress<'s> {
+    Complete(ProjectedNode<'s>),
+    Suspend(CommandRequest),
+}
+impl<'s> CommandExecution<'s> {
+    pub(super) fn publish(
+        &mut self,
+        field: &'static str,
+        value: ProjectedNode<'s>,
+    ) -> Result<(), Diagnostic> {
+        publish(&mut self.frames, field, ProjectedValue::Node(value))
+    }
+    pub(super) fn live_frames(&self) -> usize {
+        self.frames.len() + self.tasks.len()
+    }
+}
 impl PreparedCommandProgram {
     /// Admit all forms, field uses, consuming loops and manual-call graph once.
     /// # Errors
@@ -466,44 +495,60 @@ impl PreparedCommandProgram {
         }
         Ok(())
     }
-    pub(super) fn execute<'s>(
+    pub(super) fn begin<'s>(
         &self,
         id: &str,
-        host: &mut impl CommandHost<'s>,
-    ) -> Result<ProjectedNode<'s>, Diagnostic> {
+        start: usize,
+    ) -> Result<CommandExecution<'s>, Diagnostic> {
         let form = &self.spec.forms[*self
             .forms
             .get(id)
-            .ok_or_else(|| error(0, "unknown command entry"))?];
-        let start = host.start()?;
-        self.execute_initial(form, host, start, Vec::new())
+            .ok_or_else(|| error(start, "unknown command entry"))?];
+        Ok(Self::begin_initial(form, start, Vec::new()))
     }
-    pub(super) fn execute_initial<'s>(
-        &self,
+    pub(super) fn begin_initial<'s>(
         form: &CommandForm,
-        host: &mut impl CommandHost<'s>,
         start: usize,
         children: Vec<ResultChildCapture<'s>>,
-    ) -> Result<ProjectedNode<'s>, Diagnostic> {
-        let mut frames = vec![Frame {
-            kind: form.kind,
-            start,
-            field: None,
-            children,
-        }];
-        let mut tasks = vec![Task::Finish, Task::Program(form.program, 0)];
+    ) -> CommandExecution<'s> {
+        CommandExecution {
+            frames: vec![Frame {
+                kind: form.kind,
+                start,
+                field: None,
+                children,
+            }],
+            tasks: vec![Task::Finish, Task::Program(form.program, 0)],
+        }
+    }
+    pub(super) fn resume<'s>(
+        &self,
+        execution: &mut CommandExecution<'s>,
+        host: &mut impl CommandHost<'s>,
+        frame_budget: usize,
+    ) -> Result<CommandProgress<'s>, Diagnostic> {
+        let CommandExecution { frames, tasks } = execution;
         while let Some(task) = tasks.pop() {
+            if frames.len() + tasks.len() + 1 > frame_budget {
+                return Err(Diagnostic {
+                    reason_kind: "command-source-resource-limit",
+                    byte_offset: host.end(),
+                    message: "Source continuation frame budget exceeded".into(),
+                });
+            }
             match task {
                 Task::Program(program, at) => {
                     let Some(instruction) = program.get(at) else {
                         continue;
                     };
                     tasks.push(Task::Program(program, at + 1));
-                    self.step(*instruction, host, &mut frames, &mut tasks)?;
+                    if let Some(request) = self.step(*instruction, host, frames, tasks)? {
+                        return Ok(CommandProgress::Suspend(request));
+                    }
                 }
                 Task::Finish => {
-                    if let Some(node) = self.finish(host, &mut frames, &tasks)? {
-                        return Ok(node);
+                    if let Some(node) = self.finish(host, frames, tasks)? {
+                        return Ok(CommandProgress::Complete(node));
                     }
                 }
                 Task::Repeat {
@@ -540,12 +585,12 @@ impl PreparedCommandProgram {
                         return Err(error(host.end(), "unterminated balanced command body"));
                     }
                     if host.matches(open)? {
-                        publish(&mut frames, open_field, host.raw()?)?;
+                        publish(frames, open_field, host.raw()?)?;
                         depth = depth
                             .checked_add(1)
                             .ok_or_else(|| error(host.end(), "command depth overflow"))?;
                     } else if host.matches(close)? {
-                        publish(&mut frames, close_field, host.raw()?)?;
+                        publish(frames, close_field, host.raw()?)?;
                         depth -= 1;
                         if depth == 0 {
                             continue;
@@ -603,7 +648,7 @@ impl PreparedCommandProgram {
         host: &mut impl CommandHost<'s>,
         frames: &mut Vec<Frame<'s>>,
         tasks: &mut Vec<Task>,
-    ) -> Result<(), Diagnostic> {
+    ) -> Result<Option<CommandRequest>, Diagnostic> {
         match instruction {
             CommandInstruction::As(kind) => {
                 frames
@@ -613,7 +658,7 @@ impl PreparedCommandProgram {
             }
             CommandInstruction::Raw(field) => publish(frames, field, host.raw()?)?,
             CommandInstruction::Word(field) => publish(frames, field, host.word()?)?,
-            CommandInstruction::Command(field) => publish(frames, field, host.command()?)?,
+            CommandInstruction::Command(field) => return Ok(Some(CommandRequest::Compound(field))),
             CommandInstruction::Take { field, trigger } => {
                 if !host.matches(trigger)? {
                     return Err(error(host.end(), "expected declared command token"));
@@ -624,7 +669,13 @@ impl PreparedCommandProgram {
                 field,
                 until,
                 allow_empty,
-            } => publish(frames, field, host.list(until, allow_empty)?)?,
+            } => {
+                return Ok(Some(CommandRequest::List {
+                    field,
+                    until,
+                    allow_empty,
+                }));
+            }
             CommandInstruction::Call { field, form } => {
                 let row = &self.spec.forms[self.forms[form]];
                 enter(frames, tasks, host.start()?, field, row.kind, row.program);
@@ -685,7 +736,7 @@ impl PreparedCommandProgram {
                 before: None,
             }),
         }
-        Ok(())
+        Ok(None)
     }
 }
 fn publish<'s>(

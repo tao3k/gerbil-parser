@@ -92,6 +92,17 @@
      (set-cdr! (assq 'root-kind ir) 'Foreign)
      (check (contextual-ir-ref (source-language-contextual-ir notes-source) 'root-kind) => 'Notes)
      (check (parse-artifact-success? (parse-notes "#kept")) => #t)))
+  (test-case "Scheme source authority admits the deep mixed continuation control losslessly"
+   (let* ((strategy (.o (:: self ShellSourceStrategy.) regions: bash-word-regions
+                        results: bash-results parts: bash-parts commands: bash-commands
+                        scanner: bash-command-scanner))
+          (descriptor (declare-source-language "source-control" "v1" "source-control.v1" strategy))
+          (source (string-append (apply string-append (make-list 512 "{ ( "))
+                                 "echo α; " (apply string-append (make-list 512 "); } ; "))))
+          (artifact (parse-source-language descriptor source)))
+     (check (parse-artifact-success? artifact) => #t)
+     (check (parse-artifact-valid? artifact) => #t)
+     (check (parse-artifact-roundtrip artifact) => source)))
   (test-case "source identity includes the closed engine recipe"
    (let (other (declare-source-language "notes" "v1" "notes.v1"
                 (.o (:: self LineSourceStrategy.) root-kind: 'Different required-prefix: "#")))

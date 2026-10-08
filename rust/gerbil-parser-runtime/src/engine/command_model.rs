@@ -104,7 +104,7 @@ pub struct CommandProgramSpec {
     pub roles: &'static [CommandRole],
     pub descriptor: &'static TextProfile,
 }
-/// Engine-owned token/Word/list bridge. Languages never implement this interface.
+/// Engine-owned token/Word boundary. Source uses continuation requests instead.
 pub(crate) trait CommandHost<'source> {
     fn source(&self) -> &'source str;
     fn start(&mut self) -> Result<usize, Diagnostic>;
@@ -114,10 +114,4 @@ pub(crate) trait CommandHost<'source> {
     fn matches(&mut self, trigger: CommandTrigger) -> Result<bool, Diagnostic>;
     fn raw(&mut self) -> Result<ProjectedValue<'source>, Diagnostic>;
     fn word(&mut self) -> Result<ProjectedValue<'source>, Diagnostic>;
-    fn command(&mut self) -> Result<ProjectedValue<'source>, Diagnostic>;
-    fn list(
-        &mut self,
-        until: CommandTrigger,
-        allow_empty: bool,
-    ) -> Result<ProjectedValue<'source>, Diagnostic>;
 }

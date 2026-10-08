@@ -8,7 +8,7 @@
 (export +lr-eof+
         compute-first
         compute-nullable
-        validate-resolved-repetitions
+        validate-resolved-repetitions current-grammar-source-map
         lr-spec-ref
         lower-rules
         base-symbol
@@ -383,32 +383,106 @@
 ;;; Validate original repetition operands with the lowered grammar's converged
 ;;; nullable index. Helpers remain private; diagnostics retain the source rule
 ;;; and operand, including references and wrappers erased by LR lowering.
+(def current-grammar-source-map (make-parameter '()))
+(defstruct nullable-origin-task (owner expression path references))
+
 (def (validate-resolved-repetitions rules nullable)
+  (def source-map (current-grammar-source-map))
+  (def rule-sources (let (entry (assq 'rule source-map)) (if entry (cdr entry) '())))
+  (def (occurrence owner path)
+    (let (source (assq owner rule-sources))
+      (list (cons 'rule owner) (cons 'expressionPath (reverse path))
+            (cons 'source (if source (cdr source) '())))))
+  ;; A diagnostic reports one shortest nullable dependency path, not an expanded
+  ;; derivation tree. Rule sharing and cycles are visited once. The fixed point
+  ;; above remains the authority that the complete operand is nullable.
+  (def (witness owner expression path)
+    (def rows (make-table test: eq?))
+    (def visited (make-table test: eq?))
+    (def facts (make-table test: eq?))
+    (for-each (lambda (row) (table-set! rows (car row) (cadr row))) rules)
+    (def (nullable? expr)
+      (let (cached (table-ref facts expr 'unknown))
+        (if (not (eq? cached 'unknown)) cached
+          (let (value
+                 (case (car expr)
+                   ((empty layout-end repeat optional) #t)
+                   ((reference) (table-ref nullable (cadr expr) #f))
+                   ((repeat1) (nullable? (cadr expr)))
+                   ((sequence) (every nullable? (cdr expr)))
+                   ((choice) (any nullable? (cdr expr)))
+                   ((field alias) (nullable? (caddr expr)))
+                   ((precedence) (nullable? (cadddr expr)))
+                   (else #f)))
+            (table-set! facts expr value) value))))
+    (def front (list (make-nullable-origin-task owner expression path '())))
+    (def back '())
+    (def (enqueue owner expr path references)
+      (set! back (cons (make-nullable-origin-task owner expr path references) back)))
+    (let loop ()
+      (when (null? front) (set! front (reverse back)) (set! back '()))
+      (if (null? front) #f
+        (let* ((task (car front))
+               (owner (nullable-origin-task-owner task))
+               (expr (nullable-origin-task-expression task))
+               (path (nullable-origin-task-path task))
+               (references (nullable-origin-task-references task)))
+          (set! front (cdr front))
+          (case (car expr)
+            ((empty layout-end repeat optional) (reverse references))
+            ((reference)
+             (let ((name (cadr expr)) (row (table-ref rows (cadr expr) #f)))
+               (when (and row (table-ref nullable name #f) (not (table-ref visited name #f)))
+                 (table-set! visited name #t)
+                 (enqueue name row '()
+                          (cons (append (occurrence name '())
+                                        (list (cons 'referenceOrigin (occurrence owner path)))) references))))
+             (loop))
+            ((sequence choice)
+             (for-each
+              (lambda (child index)
+                (when (nullable? child) (enqueue owner child (cons index path) references)))
+              (cdr expr) (iota (length (cdr expr))))
+             (loop))
+            ((repeat1) (enqueue owner (cadr expr) (cons 0 path) references) (loop))
+            ((field alias) (enqueue owner (caddr expr) (cons 0 path) references) (loop))
+            ((precedence) (enqueue owner (cadddr expr) (cons 0 path) references) (loop))
+            (else (loop)))))))
+  (def (reject owner expression operand path)
+    (let (arguments (list owner (car expression) operand))
+      (apply error "resolved repetition operand accepts empty input"
+             (if (null? source-map) arguments
+               (append arguments
+                       (list (list (cons 'expressionOrigin (occurrence owner path))
+                                   (cons 'nullableReferencePath
+                                         (witness owner operand (cons 0 path))))))))))
   ;; One postorder pass validates every child and computes its nullability.
   ;; Boolean short-circuiting must never skip a nested repetition obligation.
-  (def (visit owner expression)
+  ;; Paths are only materialized when diagnostic context was supplied.
+  (def (child-path path index)
+    (if (null? source-map) '() (cons index path)))
+  (def (visit owner expression path)
     (case (car expression)
       ((empty layout-end) #t)
       ((reference) (table-ref nullable (cadr expression) #f))
       ((repeat repeat1)
        (let (operand (cadr expression))
-         (when (visit owner operand)
-           (error "resolved repetition operand accepts empty input"
-                  owner (car expression) operand))
+         (when (visit owner operand (child-path path 0))
+           (reject owner expression operand path))
          (eq? (car expression) 'repeat)))
-      ((sequence)
-       (foldl (lambda (child found)
-                (let (nullable? (visit owner child)) (and found nullable?)))
-              #t (cdr expression)))
-      ((choice)
-       (foldl (lambda (child found)
-                (let (nullable? (visit owner child)) (or found nullable?)))
-              #f (cdr expression)))
-      ((optional) (visit owner (cadr expression)) #t)
-      ((field alias) (visit owner (caddr expression)))
-      ((precedence) (visit owner (cadddr expression)))
+      ((sequence choice)
+       (let loop ((children (cdr expression)) (index 0)
+                  (found (eq? (car expression) 'sequence)))
+         (if (null? children) found
+           (let (nullable? (visit owner (car children) (child-path path index)))
+             (loop (cdr children) (+ index 1)
+                   (if (eq? (car expression) 'sequence)
+                     (and found nullable?) (or found nullable?)))))))
+      ((optional) (visit owner (cadr expression) (child-path path 0)) #t)
+      ((field alias) (visit owner (caddr expression) (child-path path 0)))
+      ((precedence) (visit owner (cadddr expression) (child-path path 0)))
       (else #f)))
-  (for-each (lambda (row) (visit (car row) (cadr row))) rules))
+  (for-each (lambda (row) (visit (car row) (cadr row) '())) rules))
 
 ;;; Computes nullable nonterminals to a monotone fixed point; the returned list
 ;;; and membership table are materialized from the same completed iteration.

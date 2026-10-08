@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Build-time declaration expansion and immutable language IR storage.
 
-(import (only-in ./lr-contextual-program compile-lr-contextual-program)
+(import (only-in ./lr current-grammar-source-map validate-resolved-repetitions lr-spec-ref)
+        (only-in ./lr-contextual-program compile-lr-contextual-program)
         (only-in ../grammar/algebra grammar-expression-header?)
         (only-in :gerbil/core/expander
                  with-syntax syntax-case syntax datum->syntax syntax->datum syntax->list
@@ -598,6 +599,18 @@
                       (publish-text-content! path serialized))) output-dirs)
         locator))))
 
+(def (validate-declaration-parser-admission grammar parser-locator source-map output-dirs)
+  ;; A complete declaration cache can skip compiler invocation. Recheck the
+  ;; current admission against its canonical nullable facts before publication;
+  ;; this needs no lowering, fixed point or LR state reconstruction.
+  (let* ((parser (load-compiled-language-artifact/roots
+                  "gerbil-parser.parser-ir.v1" parser-locator output-dirs))
+         (spec (cdr (assq 'lr-spec parser)))
+         (nullable (make-table test: eq?)))
+    (for-each (lambda (name) (table-set! nullable name #t)) (lr-spec-ref spec 'nullable))
+    (parameterize ((current-grammar-source-map source-map))
+      (validate-resolved-repetitions (cdr (assq 'rules grammar)) nullable))))
+
 ;;; Publication consumes one admitted value; cache and compiler authority stay here.
 (def (compile-admitted-language-declaration admitted compile-parser bind-grammar-ir
                                            output-dirs: (output-dirs (current-artifact-output-dirs)))
@@ -609,7 +622,9 @@
                 (compile-language-declaration-artifacts/output-dirs
                  (list origin lineage source-map) grammar
                  (lambda () (bind-grammar-ir grammar origin lineage source-map))
-                 (lambda () (compile-parser grammar)) output-dirs)))
+                 (lambda () (parameterize ((current-grammar-source-map source-map))
+                              (compile-parser grammar))) output-dirs)))
+    (validate-declaration-parser-admission grammar parser-locator source-map output-dirs)
     (make-compiled-language-declaration
      grammar grammar-locator bound-locator parser-locator
      (compile-lr-program-artifact parser-locator output-dirs))))

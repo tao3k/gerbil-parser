@@ -375,3 +375,57 @@ work; include both nesting and wide lists. No speedup follows from this design
 alone. Language packs continue using their existing grammar/parser/test interfaces
 and POO value extension points; scheduler and analysis implementation stay inside
 the engine.
+
+
+* Implementation: origins and Source continuation closure
+
+The implementation extends the selected source map into repetition diagnostics:
+rule, expression child path, selected POO contribution, and a finite nullable
+reference explanation. It records both the referenced declaration and the
+reference occurrence. Reader coordinates remain unknown where unavailable.
+A queue visits each referenced rule once; the diagnostic does not expand shared
+nullable derivations into an exponential tree. Nullable acceptance remains owned
+by the existing fixed point. Generated helper origin serialization and broader
+conflict witnesses are still separate work.
+
+The real declaration compiler binds the diagnostic context only for its compile.
+Complete declaration cache hits recheck current repetition admission using the
+cached canonical nullable facts before publication. This performs no LR lowering,
+fixed point or state reconstruction, and changes no public schema. Tests include
+an old complete cache receipt that must reject without invoking either compiler
+callback, selected nullable overrides, cyclic exits and a 32-level shared DAG.
+
+Rust Source now drives the existing Command VM through private continuation
+records. Command/List instructions suspend the VM; compound, pipeline, and/or,
+list, prefix and assignment continuations resume through one outer request loop.
+The synchronous Source host methods and recursion-depth guard have been removed.
+Words, result profiles, token ordering and heredoc FIFO remain governed by the
+admitted Scheme-generated product. Language author interfaces are unchanged.
+
+The private resource gate counts pending Source tasks plus VM tasks/node frames,
+including growth while a VM runs, with a limit of 16,384 live frames. It returns
+=command-source-resource-limit= at an input byte boundary. This is a frame limit,
+not a complete byte/allocation/work budget. It does not establish a complexity
+bound for the whole parser.
+
+Private recognition nodes now drain descendants iteratively during destruction.
+A Rust control on a 256 KiB thread stack accepts 1,024 alternating group/subshell
+levels, constructs events and a lossless Rowan tree, and releases the tree/results.
+It also cleans up a completed deep child after a trailing-pipeline failure and
+successfully parses an independent next request. A larger input exercises the
+resource rejection path; a 6,000-form VM call chain also hits the same budget
+without returning to Source. Scheme independently admits the identical deep input
+as a valid lossless ParseArtifact. Deep input artifact/C ABI cross-target byte
+parity has not been established by these separate controls.
+
+Local qualification: 133 Rust runtime tests and strict Clippy; 18 resolved grammar,
+12 artifact, 31 composition, 5 style, and 9 Source strategy Scheme cases. Scheme
+qualification uses the existing native watchdog and GCC. The Source strategy
+suite initially hit a loading silence failure because its native product helper
+was missing; building that existing conformance helper resolved it without a
+backend or timeout change. No end-to-end runtime speedup or cold full-package
+build improvement is claimed. Exact rebased-head CI is a separate gate.
+
+The next engine work is full Source ParseArtifact/C ABI ownership and diagnostic
+parity, then scanner checkpoint/edit mapping and parser subtree boundary admission.
+The proposed incremental mechanism remains unimplemented.

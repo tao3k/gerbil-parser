@@ -175,7 +175,7 @@ fn command_admission_rejects_cycles_nullable_loops_foreign_fields_and_selectors(
     }
 }
 #[test]
-fn source_rejects_invalid_tapes_foreign_word_owners_and_bounded_nesting() {
+fn source_rejects_invalid_tapes_and_foreign_word_owners() {
     let program = PreparedCommandProgram::new(
         &generated::bash::COMMAND_PROFILE,
         &generated::bash::RESULT_PROFILE,
@@ -206,16 +206,6 @@ fn source_rejects_invalid_tapes_foreign_word_owners_and_bounded_nesting() {
             .parse_scanned(source, &tokens[..tokens.len() - 1], &parts)
             .is_err()
     );
-    let source = format!("{}echo α; {}", "{ ".repeat(300), "; }".repeat(300));
-    let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, &source)
-        .unwrap()
-        .scan("source")
-        .unwrap();
-    let error = program
-        .parse_scanned(&source, &tokens, &parts)
-        .err()
-        .unwrap();
-    assert!(error.message.contains("nesting"), "{error:?}");
 }
 
 #[test]
@@ -404,4 +394,153 @@ fn private_rule_renaming_retains_scheme_events_and_rejection_controls() {
             assert_eq!(tree.root().text().to_string(), control.source);
         }
     }
+}
+
+#[test]
+fn source_suspends_mixed_compounds_and_releases_deep_results_on_small_stack() {
+    std::thread::Builder::new()
+        .stack_size(256 * 1024)
+        .spawn(|| {
+            let program = PreparedCommandProgram::new(
+                &generated::bash::COMMAND_PROFILE,
+                &generated::bash::RESULT_PROFILE,
+            )
+            .unwrap();
+            let parts = PreparedPartProfile::new(
+                &generated::bash::PART_PROFILE,
+                &generated::bash::RESULT_PROFILE,
+                &generated::bash::regions::REGION,
+            )
+            .unwrap();
+            // Alternation crosses Source List -> Command VM -> Compound repeatedly.
+            let source = format!("{}echo α; {}", "{ ( ".repeat(512), "); } ; ".repeat(512));
+            let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, &source)
+                .unwrap()
+                .scan("source")
+                .unwrap();
+            let parse = program.parse_scanned(&source, &tokens, &parts).unwrap();
+            assert_eq!(parse.root.span(), 0..source.len());
+            let events = parse.events().unwrap();
+            let tree = build_syntax_events_catalog(
+                &EventCatalog {
+                    kinds: generated::bash::RESULT_PROFILE.kinds,
+                    root_kind: parse.root.kind(),
+                },
+                &source,
+                &events,
+            )
+            .unwrap();
+            assert_eq!(tree.root().text().to_string(), source);
+            assert_eq!(
+                fields(&parse.root).iter().filter(|f| **f == "body").count(),
+                1024
+            );
+            drop(tree);
+            drop(parse);
+            // Exercise cleanup with a completed deep child retained by an unfinished parent.
+            let rejected = format!("{source} |");
+            let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, &rejected)
+                .unwrap()
+                .scan("source")
+                .unwrap();
+            assert!(program.parse_scanned(&rejected, &tokens, &parts).is_err());
+            // Failure state must not contaminate the immutable plan's next request.
+            let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, "echo ok")
+                .unwrap()
+                .scan("source")
+                .unwrap();
+            assert!(program.parse_scanned("echo ok", &tokens, &parts).is_ok());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+#[test]
+fn source_frame_budget_unwinds_and_keeps_next_parse_independent() {
+    let program = PreparedCommandProgram::new(
+        &generated::bash::COMMAND_PROFILE,
+        &generated::bash::RESULT_PROFILE,
+    )
+    .unwrap();
+    let parts = PreparedPartProfile::new(
+        &generated::bash::PART_PROFILE,
+        &generated::bash::RESULT_PROFILE,
+        &generated::bash::regions::REGION,
+    )
+    .unwrap();
+    let source = format!("{}echo ok; {}", "{ ".repeat(4096), "}; ".repeat(4096));
+    let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, &source)
+        .unwrap()
+        .scan("source")
+        .unwrap();
+    let error = program
+        .parse_scanned(&source, &tokens, &parts)
+        .err()
+        .unwrap();
+    assert_eq!(error.reason_kind, "command-source-resource-limit");
+    assert!(source.is_char_boundary(error.byte_offset));
+    let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, "echo ok")
+        .unwrap()
+        .scan("source")
+        .unwrap();
+    assert!(program.parse_scanned("echo ok", &tokens, &parts).is_ok());
+}
+
+#[test]
+fn source_budget_also_bounds_a_vm_call_chain_without_source_suspensions() {
+    let names: Vec<&'static str> = (0..6000)
+        .map(|i| Box::leak(format!("frame-{i}").into_boxed_str()) as &'static str)
+        .collect();
+    let mut forms = generated::bash::COMMAND_PROFILE.forms.to_vec();
+    let brace = forms.iter_mut().find(|f| f.id == "brace-group").unwrap();
+    brace.program = Box::leak(
+        vec![CommandInstruction::Call {
+            field: "body",
+            form: names[0],
+        }]
+        .into_boxed_slice(),
+    );
+    for (index, &id) in names.iter().enumerate() {
+        let program: &'static [CommandInstruction] = if index + 1 == names.len() {
+            &[CommandInstruction::Raw("keyword")]
+        } else {
+            Box::leak(
+                vec![CommandInstruction::Call {
+                    field: "command",
+                    form: names[index + 1],
+                }]
+                .into_boxed_slice(),
+            )
+        };
+        forms.push(CommandForm {
+            id,
+            kind: "Pipeline",
+            trigger: CommandTrigger::Manual(None),
+            priority: 0,
+            program,
+        });
+    }
+    let spec = Box::leak(Box::new(CommandProgramSpec {
+        forms: Box::leak(forms.into_boxed_slice()),
+        ..generated::bash::COMMAND_PROFILE
+    }));
+    let program = PreparedCommandProgram::new(spec, &generated::bash::RESULT_PROFILE).unwrap();
+    let parts = PreparedPartProfile::new(
+        &generated::bash::PART_PROFILE,
+        &generated::bash::RESULT_PROFILE,
+        &generated::bash::regions::REGION,
+    )
+    .unwrap();
+    let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, "{")
+        .unwrap()
+        .scan("source")
+        .unwrap();
+    let error = program.parse_scanned("{", &tokens, &parts).err().unwrap();
+    assert_eq!(error.reason_kind, "command-source-resource-limit");
+    let tokens = ContextualScanner::new(&generated::bash::scanner::SCANNER, "echo ok")
+        .unwrap()
+        .scan("source")
+        .unwrap();
+    assert!(program.parse_scanned("echo ok", &tokens, &parts).is_ok());
 }

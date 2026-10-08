@@ -10,8 +10,11 @@
         (only-in :std/encoding/zlib compress)
         (only-in :gerbil-parser/src/compiler/language-artifact
                  compile-language-declaration-artifacts/output-dirs
+                 make-admitted-language-declaration compile-admitted-language-declaration
                  compile-language-parser-artifact/output-dirs
                  materialize-compiled-language-artifact/output-dirs)
+        (only-in :gerbil-parser/src/compiler/parser-ir compile-parser)
+        (only-in :gerbil-parser/src/compiler/lr current-grammar-source-map)
         (only-in :gerbil-parser/src/runtime/identity sha256-text)
         (only-in :gerbil-parser/src/runtime/language-artifact
                  compiled-language-artifact-relative-path
@@ -59,6 +62,60 @@
 
 (def language-artifact-tests
   (test-suite "compiled language artifact admission"
+    (test-case "declaration compiler passes selected origins into LR rejection and restores context"
+      (call-with-temporary-directory
+       (lambda (root)
+         (let* ((grammar '((schema . "gerbil-parser.grammar-ir.v1")
+                           (grammar . nullable-origin)
+                           (syntax-kinds (Start node ())) (terminals) (lexical-rules)
+                           (rules (start (alias Start (repeat (reference item)))) (item (empty)))
+                           (extras) (parser-entrypoints (start Start))
+                           (flow (source lexical) (lexical cst))))
+                (source-map '((rule (start (componentOwner . selected-base))
+                                   (item (componentOwner . selected-override)))))
+                (admitted (make-admitted-language-declaration grammar 'test-origin '() source-map))
+                (condition
+                 (with-catch (lambda (condition) condition)
+                   (lambda ()
+                     (compile-admitted-language-declaration
+                      admitted compile-parser
+                      (lambda (_grammar _origin _lineage _sources)
+                        '((schema . "gerbil-parser.bound-grammar-ir.v1")))
+                      output-dirs: (list root)) #f))))
+           (check (error-message condition) => "resolved repetition operand accepts empty input")
+           (let* ((details (list-ref (error-irritants condition) 3))
+                  (references (cdr (assq 'nullableReferencePath details))))
+             (check (cdr (assq 'componentOwner (cdr (assq 'source (car references)))))
+                    => 'selected-override))
+           (check (current-grammar-source-map) => '())))))
+    (test-case "complete cached declarations cannot bypass resolved repetition admission"
+      (call-with-temporary-directory
+       (lambda (root)
+         (let* ((grammar '((schema . "gerbil-parser.grammar-ir.v1") (grammar . stale-admission)
+                           (rules (start (repeat (reference item))) (item (empty)))))
+                (source-map '((rule (item (componentOwner . cached-override)))))
+                (origin 'test-origin) (lineage '())
+                (admitted (make-admitted-language-declaration grammar origin lineage source-map)))
+           ;; Seed a complete old-generation receipt with its unchanged nullable facts.
+           (compile-language-declaration-artifacts/output-dirs
+            (list origin lineage source-map) grammar
+            (lambda () '((schema . "gerbil-parser.bound-grammar-ir.v1")))
+            (lambda () '((schema . "gerbil-parser.parser-ir.v1")
+                          (lr-spec (schema . "gerbil-parser.lr-spec.v1") (nullable item start))))
+            (list root))
+           (let ((calls 0)
+                 (condition #f))
+             (set! condition
+               (with-catch (lambda (condition) condition)
+                 (lambda ()
+                   (compile-admitted-language-declaration admitted
+                    (lambda (_) (set! calls (+ calls 1)) (error "unexpected generation"))
+                    (lambda (_grammar _origin _lineage _sources)
+                      (set! calls (+ calls 1)) (error "unexpected binding"))
+                    output-dirs: (list root)) #f)))
+             (check calls => 0)
+             (check (error-message condition) => "resolved repetition operand accepts empty input")
+             (check (current-grammar-source-map) => '()))))))
     (test-case "content identities use a portable physical filename"
       (check
        (sha256-identity-filename

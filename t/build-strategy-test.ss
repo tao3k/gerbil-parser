@@ -1,14 +1,13 @@
 ;;; Two real output targets share one engine admission and Loader dispatch.
-(import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
-        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
-        :std/test
+(import :std/test
         (only-in :clan/poo/object .o .cc .ref .slot?)
         (only-in :clan/poo/mop validate)
         (only-in :gerbil-parser/language-build-support
                  BuildStrategy. BuildStrategyContract RustRuntimeStrategy. FusedReductionStrategy.
                  make-bound-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy
+                 make-recursive-source-strategy
                  declare-language-build-strategy emit-build-strategy emit-language-build-strategy)
-        (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
+        (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract deflanguage-development-loader)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid?)
         (only-in :gerbil-parser/src/compiler/build-strategy declare-build-strategy-provider)
         (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
@@ -16,6 +15,25 @@
         (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
         (only-in :gerbil-parser/languages/arithmetic/parser  arithmetic-language-grammar))
 (export build-strategy-test)
+
+;;; This owner exercises engine admission; language corpus suites own fixtures.
+(deflanguage-development-loader hcl-test-language
+  (grammar hcl-language-grammar)
+  (parse parse-hcl-strategy-test)
+  (slots build-strategies:
+         (list (declare-language-build-strategy 'fused-reductions
+                 (make-fused-reduction-strategy hcl-language-grammar))
+               (declare-language-build-strategy 'rust-runtime
+                 (make-rust-runtime-strategy hcl-language-grammar)))))
+(deflanguage-development-loader arithmetic-test-language
+  (grammar arithmetic-language-grammar)
+  (parse parse-arithmetic-strategy-test)
+  (slots build-strategies:
+         (list (declare-language-build-strategy 'fused-reductions
+                 (make-fused-reduction-strategy arithmetic-language-grammar))
+               (declare-language-build-strategy 'rust-runtime
+                 (make-rust-runtime-strategy arithmetic-language-grammar)))))
+
 (def (loader-output loader name)
   (call-with-output-string (lambda (port) (emit-language-build-strategy loader name port))))
 (def (strategy-output strategy)
@@ -102,6 +120,14 @@
         (.cc hcl-test-language 'build-strategies
              (list (declare-language-build-strategy 'rust-output
                      (make-rust-runtime-strategy arithmetic-language-grammar))))) true))
+    (test-case "recursive emission admits only its reviewed grammar before writing"
+      (let* ((strategy (make-recursive-source-strategy hcl-language-grammar))
+             (port (open-output-string)))
+        (validate BuildStrategyContract strategy)
+        (check-exception (make-recursive-source-strategy arithmetic-language-grammar) true)
+        (check-exception
+         (emit-build-strategy (.cc strategy 'descriptor arithmetic-language-grammar) port) true)
+        (check (get-output-string port) => "")))
     (test-case "Rust policy admission remains distinct from Scheme reduction admission"
       (let (descriptor (language-grammar-with-parser-policy
                         arithmetic-language-grammar "test-policy" 16 (lambda (_) #f)))

@@ -8,6 +8,7 @@
 (export +lr-eof+
         compute-first
         compute-nullable
+        validate-resolved-repetitions
         lr-spec-ref
         lower-rules
         base-symbol
@@ -378,6 +379,36 @@
 ;; sequence-nullable?
 ;; : (-> List Table Boolean)
 (def sequence-nullable? rhs-nullable?)
+
+;;; Validate original repetition operands with the lowered grammar's converged
+;;; nullable index. Helpers remain private; diagnostics retain the source rule
+;;; and operand, including references and wrappers erased by LR lowering.
+(def (validate-resolved-repetitions rules nullable)
+  ;; One postorder pass validates every child and computes its nullability.
+  ;; Boolean short-circuiting must never skip a nested repetition obligation.
+  (def (visit owner expression)
+    (case (car expression)
+      ((empty layout-end) #t)
+      ((reference) (table-ref nullable (cadr expression) #f))
+      ((repeat repeat1)
+       (let (operand (cadr expression))
+         (when (visit owner operand)
+           (error "resolved repetition operand accepts empty input"
+                  owner (car expression) operand))
+         (eq? (car expression) 'repeat)))
+      ((sequence)
+       (foldl (lambda (child found)
+                (let (nullable? (visit owner child)) (and found nullable?)))
+              #t (cdr expression)))
+      ((choice)
+       (foldl (lambda (child found)
+                (let (nullable? (visit owner child)) (or found nullable?)))
+              #f (cdr expression)))
+      ((optional) (visit owner (cadr expression)) #t)
+      ((field alias) (visit owner (caddr expression)))
+      ((precedence) (visit owner (cadddr expression)))
+      (else #f)))
+  (for-each (lambda (row) (visit (car row) (cadr row))) rules))
 
 ;;; Computes nullable nonterminals to a monotone fixed point; the returned list
 ;;; and membership table are materialized from the same completed iteration.

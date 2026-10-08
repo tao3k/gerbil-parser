@@ -24,6 +24,7 @@
     "t/language-diagnostics-test"
     "t/language-surface-test"
     "t/grammar-composition-test"
+    "t/resolved-grammar-test"
     "t/language-artifact-test"
     "t/language-entry-boundary-test"
     "t/language-topology-test"

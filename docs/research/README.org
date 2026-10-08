@@ -65,3 +65,7 @@ renamed imports, while distinguishing parameter location from outer author conte
 
 The local [[file:scheme-syntax-parameter-context.org][official syntax-parameter context study]] checks delegated author context,
 scope isolation and declaration-versus-expression boundaries with real POO roles.
+
+The current [[file:dsl-engine-contracts.org][DSL and engine contract audit]] connects choice semantics,
+resolved grammar analysis, Source continuations and scanner state to AOT/FFI
+admission, with an ordered implementation and qualification plan.

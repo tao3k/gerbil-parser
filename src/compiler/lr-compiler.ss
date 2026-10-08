@@ -4,7 +4,7 @@
 (import (only-in :std/iter for in-range)
         (only-in ./funcs compiler-index-set-for-each)
         (only-in ./lr
-                 compute-first compute-nullable
+                 compute-first compute-nullable validate-resolved-repetitions
                  lower-rules lr-spec-ref nonterminal-name nonterminal-symbol?
                  production-action production-id production-precedence production-table
                  terminal-symbol? union-values)
@@ -298,6 +298,7 @@
     (trace-lr-phase 'lowered (length productions) started)
     (let-values (((nullable nullable-index)
                   (compute-nullable productions)))
+      (validate-resolved-repetitions rules nullable-index)
       (trace-lr-phase 'nullable (length nullable) started)
       (let-values (((first first-index)
                     (compute-first productions nullable-index)))

@@ -20,38 +20,16 @@
          (time->seconds (file-info-last-modification-time (file-info target))))))
 
 (def (run-static-jobs sources task)
-  ;; Standard workgroups own worker lifecycle, queues and exception propagation.
-  (let* ((cores (string->number (getenv "GERBIL_BUILD_CORES" "1")))
-         (ordered (list-sort (lambda (left right)
-                               (> (file-info-size (file-info left))
-                                  (file-info-size (file-info right)))) sources)))
+  ;; One standard queue keeps every worker available to the remaining closure.
+  (let (cores (string->number (getenv "GERBIL_BUILD_CORES" "1")))
     (unless (and (integer? cores) (exact? cores) (> cores 0))
       (error "GERBIL_BUILD_CORES must be a positive integer" cores))
-    (let* ((split
-            (if (= cores 1)
-              (length ordered)
-              ;; Give the single worker its proportional share of input bytes.
-              ;; Counting files leaves it idle while large modules still compile.
-              (let loop ((rest (reverse ordered))
-                         (budget (/ (foldl + 0 (map (lambda (source)
-                                                    (file-info-size (file-info source)))
-                                                  ordered)) cores))
-                         (count 0))
-                (if (or (null? rest)
-                        (and (> count 0) (> (file-info-size (file-info (car rest))) budget)))
-                  (- (length ordered) count)
-                  (loop (cdr rest)
-                        (- budget (file-info-size (file-info (car rest)))) (+ count 1))))))
-           (large (make-wg (max 1 (- cores 1))))
-           (small (and (> cores 1) (make-wg 1))))
-      (for-each (lambda (source) (wg-add! large (lambda () (task source))))
-                (take ordered split))
-      (for-each (lambda (source) (wg-add! small (lambda () (task source))))
-                (reverse (drop ordered split)))
-      (dynamic-wind
-        void
-        (lambda () (wg-wait! large))
-        (lambda () (wg-wait! small))))))
+    (let ((ordered (list-sort (lambda (left right)
+                               (> (file-info-size (file-info left))
+                                  (file-info-size (file-info right)))) sources))
+          (workers (make-wg cores)))
+      (for-each (lambda (source) (wg-add! workers (lambda () (task source)))) ordered)
+      (wg-wait! workers))))
 
 (def (bootstrap-identities stub)
   (let (definition (call-with-input-file stub read))

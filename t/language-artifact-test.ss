@@ -6,7 +6,8 @@
         (only-in :std/sync/barrier
                  barrier-post! barrier-wait! make-barrier)
         (only-in :std/test check check-exception test-case test-suite)
-        (only-in :std/encoding/base64 base64-encode)
+        (only-in :gerbil-parser/src/runtime/embedded-image
+                 pack-language-artifact-image unpack-language-artifact-image)
         (only-in :std/encoding/zlib compress)
         (only-in :gerbil-parser/src/compiler/language-artifact
                  compile-language-declaration-artifacts/output-dirs
@@ -137,20 +138,40 @@
            (check (load-compiled-language-artifact/roots
                    test-schema locator (list root))
                   => test-value)))))
+    (test-case "native image framing preserves every tail length and unsigned word"
+      (for-each
+       (lambda (size)
+         (let (bytes (make-u8vector size))
+           (let loop ((index 0))
+             (when (< index size)
+               (u8vector-set! bytes index (modulo index 256))
+               (loop (fx+ index 1))))
+           (check (unpack-language-artifact-image (pack-language-artifact-image bytes))
+                  => bytes)))
+       '(0 1 2 3 4 5 6 7 8 9 15 16 17 255 256 257))
+      (check (pack-language-artifact-image #u8(1 2 3 4 5 6 7 8))
+             => '#u64(8 #x0102030405060708))
+      (check (unpack-language-artifact-image '#u64(8 #xffffffffffffffff))
+             => #u8(255 255 255 255 255 255 255 255))
+      (for-each
+       (lambda (invalid)
+         (check-exception (unpack-language-artifact-image invalid) true))
+       (list "encoded" #u8(1) '#u64() '#u64(1) '#u64(0 0)
+             '#u64(#xffffffffffffffff) '#u64(1 #x0100000000000001))))
     (test-case "an AOT image consumes the same compressed artifact without roots"
       (let* ((serialized (serialize test-value))
              (digest (sha256-text serialized))
              (locator
               (list (compiled-language-artifact-relative-path digest) digest))
              (encoded
-              (base64-encode
+              (pack-language-artifact-image
                (compress (string->utf8 serialized) compression: 9))))
         (check (load-compiled-language-artifact/embedded
                 test-schema locator encoded)
                => test-value)
         (check-exception
          (load-compiled-language-artifact/embedded
-          test-schema locator "not-base64")
+          test-schema locator "not-a-native-image")
          true)))
     (test-case "byte hashing preserves Unicode artifact identity in sidecars and AOT images"
       (let* ((value `((schema . ,test-schema) (payload . "λ中😀é\x0;")))
@@ -159,7 +180,7 @@
              (locator (list (compiled-language-artifact-relative-path digest) digest)))
         (check (sha256-bytes bytes) => digest)
         (check (load-compiled-language-artifact/embedded
-                test-schema locator (base64-encode (compress bytes compression: 9))) => value)
+                test-schema locator (pack-language-artifact-image (compress bytes compression: 9))) => value)
         (call-with-temporary-directory
          (lambda (root)
            (write-serialized-sidecar root serialized)
@@ -174,7 +195,7 @@
                 (locator (list (compiled-language-artifact-relative-path digest) digest)))
            (check-exception
             (load-compiled-language-artifact/embedded
-             test-schema locator (base64-encode (compress bytes compression: 9))) true)))
+             test-schema locator (pack-language-artifact-image (compress bytes compression: 9))) true)))
        '(#u8(255) #u8(192 175) #u8(237 160 128) #u8(244 144 128 128) #u8(226 130))))
     (test-case "locator identity prevents absolute and traversal reads"
       (call-with-temporary-directory

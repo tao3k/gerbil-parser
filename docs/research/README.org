@@ -21,6 +21,7 @@ is modularized by responsibility:
 - [[file:scheme-contextual-parser-ir.org][Coordinated contextual IR migration and qualification obligations]]
 - [[file:scheme-bash-source-frontend.org][Bash source frontend gap and complete-package compiler obligations]]
 - [[file:scheme-dsl-engine-admission.org][Engine admission, provenance and artifact publication]]
+- [[file:scheme-native-build-ownership.org][Native image storage, compiler ownership and platform qualification]]
 - [[file:scheme-dsl-semantic-contracts.org][Semantic contracts and composition evolution]]
 - [[file:scheme-dsl-complexity-ownership.org][Complexity ownership and author change tasks]]
 - [[file:scheme-dsl-research-basis.org][Primary research basis and design method]]

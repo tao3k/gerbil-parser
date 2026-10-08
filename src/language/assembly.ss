@@ -36,13 +36,13 @@
    (begin
      (def grammar-binding
        (load-compiled-language-artifact/embedded
-        "gerbil-parser.grammar-ir.v1" 'grammar-encoded grammar-payload))
+        "gerbil-parser.grammar-ir.v1" 'grammar-encoded 'grammar-payload))
      (def bound-binding
        (load-compiled-language-artifact/embedded
-        "gerbil-parser.bound-grammar-ir.v1" 'bound-encoded bound-payload))
+        "gerbil-parser.bound-grammar-ir.v1" 'bound-encoded 'bound-payload))
      (defgeneral-parser-machine parser-binding
        (load-compiled-language-artifact/embedded
-        "gerbil-parser.contextual-parser-ir.v2" 'program-encoded program-payload)
+        "gerbil-parser.contextual-parser-ir.v2" 'program-encoded 'program-payload)
        (lexical-rules (lexical-name lexical-expression-value) ...)
        (rules (rule-name rule-expression) ...)
        (extras extra-name ...)

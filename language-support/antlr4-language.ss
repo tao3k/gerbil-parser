@@ -146,7 +146,7 @@
                  (antlr4-source-from-datum
                   (cdr (assq 'value
                     (load-compiled-language-artifact/embedded
-                     "gerbil-parser.source-catalog-image.v1" 'catalog-locator catalog-payload)))))
+                     "gerbil-parser.source-catalog-image.v1" 'catalog-locator 'catalog-payload)))))
                compiled-declaration)))))
     (_ (raise-syntax-error #f "invalid ANTLR4 language declaration" stx))))
 

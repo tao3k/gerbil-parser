@@ -3,7 +3,7 @@
 
 (import (only-in ./identity sha256-bytes)
         (only-in :std/misc/ports read-all-as-u8vector)
-        (only-in :std/encoding/base64 base64-decode)
+        (only-in ./embedded-image unpack-language-artifact-image)
         (only-in :std/string/utf8 utf8->string)
         (only-in :std/encoding/zlib uncompress))
 (export sha256-identity-filename
@@ -116,13 +116,13 @@
 ;;; AOT language packs carry the same compressed, content-addressed bytes in
 ;;; their module image. Runtime selection therefore consumes the linked
 ;;; language without consulting compiler caches or filesystem sidecars.
-;; : (forall (a) (-> String [String] String [(Pair Symbol a)]))
-;; : (-> String List String Alist)
+;; : (forall (a) (-> String [String] U64Vector [(Pair Symbol a)]))
+;; : (-> String List U64Vector Alist)
 (def (load-compiled-language-artifact/embedded expected-schema locator encoded)
-  (unless (string? encoded)
+  (unless (u64vector? encoded)
     (error "invalid embedded compiled language artifact" expected-schema))
   (decode-compiled-language-artifact
-   expected-schema locator (base64-decode encoded) 'aot-image))
+   expected-schema locator (unpack-language-artifact-image encoded) 'aot-image))
 
 ;; : (forall (a) (-> String [String] [(Pair Symbol a)]))
 ;; : (-> String List Alist)

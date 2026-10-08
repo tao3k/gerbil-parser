@@ -15,7 +15,7 @@
                  sha256-identity-filename)
         (only-in :gerbil/compiler/base current-compile-output-dir)
         (only-in :std/misc/ports read-all-as-u8vector)
-        (only-in :std/encoding/base64 base64-encode)
+        (only-in ../runtime/embedded-image pack-language-artifact-image)
         (only-in :std/string/utf8 utf8->string)
         (only-in :std/encoding/zlib compress uncompress))
 (export expand-language-grammar-syntax expand-language-declaration-syntax
@@ -249,7 +249,7 @@
 ;;; The sidecar remains the build cache; only its compressed bytes cross into
 ;;; the runtime module, so the uncompressed Grammar/LR datum is never emitted
 ;;; as per-character generated C.
-;; : (-> List String)
+;; : (-> List U64Vector)
 (def (encode-compiled-language-artifact locator)
   (let* ((relative-path (car locator))
          (path
@@ -258,7 +258,7 @@
                          (current-artifact-output-dirs)))
               (error "compiled language artifact sidecar is unavailable"
                      relative-path))))
-    (base64-encode
+    (pack-language-artifact-image
      (call-with-input-file path read-all-as-u8vector))))
 
 ;; : (-> Datum (-> Datum) (values Datum List Symbol))

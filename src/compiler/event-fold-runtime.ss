@@ -1,6 +1,12 @@
 ;;; -*- Gerbil -*-
 ;;; Execute closed event folds over source bytes; shared typed admission for AOT.
-(import (only-in :std/string/utf8 utf8->string)
+(import (only-in :std/string/utf8 utf8->string string-utf8-length)
+        (only-in ./event-fold-byte-set.ss
+                 current-fold-byte-set-cache fold-byte-set-for)
+        (only-in ./event-fold-state-frame.ss
+                 prepare-fold-state-frame fold-state-frame?
+                 fold-frame-ref fold-frame-update! fold-frame-bound?
+                 fold-frame-bind! fold-frame-unbind!)
         (only-in ./event-list-marker.ss
                  event-line-indent-column scan-event-list-marker)
         (only-in ./event-fold-future.ss
@@ -36,9 +42,11 @@
                 (else #f))))
        forms))
 (def (fold-state states name)
-  (let (entry (assq name states))
-    (unless entry (error "undeclared event fold state" name))
-    (cdr entry)))
+  (if (fold-state-frame? states)
+    (fold-frame-ref states name)
+    (let (entry (assq name states))
+      (unless entry (error "undeclared event fold state" name))
+      (cdr entry))))
 
 (def (rust-state-name name)
   (list->string
@@ -78,20 +86,25 @@
 (def (fold-unsigned? value)
   (and (exact-integer? value) (>= value 0)))
 
-(def (fold-update-state states name value)
-  (map (lambda (entry)
-         (if (eq? (car entry) name) (cons name value) entry))
-       states))
-
 (def (fold-marker-byte value)
   (unless (and (string? value) (= (string-length value) 1)
                (< (char->integer (string-ref value 0)) 128))
     (error "event fold marker must be one ASCII byte" value))
   (char->integer (string-ref value 0)))
 
+;; The immutable UTF-8 view belongs to the active statement frame, not a
+;; process-wide memo. Nested helpers bind their own view and restore callers.
+(def current-fold-line-view (make-parameter #f))
+
+(def (fold-line-bytes line)
+  (let (view (current-fold-line-view))
+    (if (and view (eq? line (car view)))
+      (cdr view)
+      (string->utf8 line))))
+
 
 (def (line-starts-with-ascii-ci? line prefix)
-  (let ((actual (string->utf8 line)) (expected (string->utf8 prefix)))
+  (let ((actual (fold-line-bytes line)) (expected (string->utf8 prefix)))
     (and (>= (u8vector-length actual) (u8vector-length expected))
          (let loop ((index 0))
            (or (= index (u8vector-length expected))
@@ -100,7 +113,7 @@
                     (loop (+ index 1))))))))
 
 (def (fold-line-blank? line)
-  (let (bytes (string->utf8 line))
+  (let (bytes (fold-line-bytes line))
     (let loop ((index 0))
       (or (= index (u8vector-length bytes))
           (and (memv (u8vector-ref bytes index) '(9 10 13 32))
@@ -108,8 +121,8 @@
 
 (def (fold-line-prefix-boundary? line prefix marker?)
   (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((bytes (string->utf8 line))
-              (start (u8vector-length (string->utf8 prefix)))
+       (let* ((bytes (fold-line-bytes line))
+              (start (string-utf8-length prefix))
               (end (u8vector-length bytes)))
          (if marker?
            (let loop ((cursor start))
@@ -133,8 +146,8 @@
 
 (def (fold-line-has-key-after-prefix? line prefix)
   (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((bytes (string->utf8 line))
-              (begin (u8vector-length (string->utf8 prefix)))
+       (let* ((bytes (fold-line-bytes line))
+              (begin (string-utf8-length prefix))
               (end (u8vector-length bytes)))
          (let loop ((cursor begin))
            (if (and (< cursor end) (fold-key-byte? (u8vector-ref bytes cursor)))
@@ -151,12 +164,12 @@
    (else
     (case (car expression)
       ((line-prefix-end)
-       (min end (+ start (u8vector-length (string->utf8 (cadr expression))))))
+       (min end (+ start (string-utf8-length (cadr expression)))))
       ((line-marker-end)
        (+ start (fold-uint (cons 'line-marker-level (cdr expression))
                            line start end states indices)))
       ((line-skip-horizontal line-scan-word line-scan-key)
-       (let* ((bytes (string->utf8 line))
+       (let* ((bytes (fold-line-bytes line))
               (cursor (fold-offset (cadr expression) line start end states indices)))
          (let loop ((offset cursor))
            (if (and (< offset end)
@@ -170,7 +183,7 @@
       ((line-scan-nonspace-until line-scan-until)
        (unless (= (length expression) 3)
          (error "invalid event fold bounded delimiter scan" expression))
-       (let* ((bytes (string->utf8 line))
+       (let* ((bytes (fold-line-bytes line))
               (cursor (fold-offset (cadr expression) line start end states indices))
               (delimiter (fold-marker-byte (caddr expression))))
          (let loop ((offset cursor))
@@ -183,7 +196,7 @@
       ((line-physical-end)
        (unless (= (length expression) 2)
          (error "invalid event fold physical-line scan" expression))
-       (let* ((bytes (string->utf8 line))
+       (let* ((bytes (fold-line-bytes line))
               (from (fold-offset (cadr expression) line start end states indices)))
          (let loop ((cursor (max start (min from end))))
            (if (and (< cursor end)
@@ -192,14 +205,14 @@
       ((line-step)
        (min end (+ 1 (fold-offset (cadr expression) line start end states indices))))
       ((line-trim-end)
-       (let (bytes (string->utf8 line))
+       (let (bytes (fold-line-bytes line))
          (let loop ((cursor end))
            (if (and (> cursor start)
                     (memv (u8vector-ref bytes (- cursor start 1))
                           '(9 10 11 12 13 32)))
              (loop (- cursor 1)) cursor))))
       ((line-trim-end-from)
-       (let ((bytes (string->utf8 line))
+       (let ((bytes (fold-line-bytes line))
              (floor (fold-offset (cadr expression) line start end states indices)))
          (let loop ((cursor end))
            (if (and (> cursor floor)
@@ -207,7 +220,7 @@
                           '(9 10 11 12 13 32)))
              (loop (- cursor 1)) cursor))))
       ((line-content-end)
-       (let (bytes (string->utf8 line))
+       (let (bytes (fold-line-bytes line))
          (let loop ((cursor end))
            (if (and (> cursor start)
                     (memv (u8vector-ref bytes (- cursor start 1)) '(10 13)))
@@ -222,12 +235,12 @@
 
 (def (fold-line-has-word-after-prefix? line prefix)
   (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((end (u8vector-length (string->utf8 line)))
+       (let* ((end (u8vector-length (fold-line-bytes line)))
               (cursor (fold-offset
                        (list 'line-skip-horizontal
                        (list 'line-prefix-end prefix)) line 0 end '() '())))
          (and (< cursor end)
-              (not (memv (u8vector-ref (string->utf8 line) cursor)
+              (not (memv (u8vector-ref (fold-line-bytes line) cursor)
                          '(9 10 13 32)))))))
 
 (def (fold-offset-ir expression states indices)
@@ -513,29 +526,26 @@
        (error "invalid event fold byte predicate" expression))
      (let ((at (fold-offset (cadr expression) line start end states indices))
            (byte (caddr expression))
-           (bytes (string->utf8 line)))
+           (bytes (fold-line-bytes line)))
        (and (< at end) (= (u8vector-ref bytes (- at start)) byte))))
     ((line-bytes-all-in? line-bytes-any-in?)
-     (unless (and (= (length expression) 4)
-                  (list? (cadddr expression))
-                  (every (lambda (byte) (and (exact-integer? byte)
-                                             (<= 0 byte 255)))
-                         (cadddr expression)))
+     (unless (= (length expression) 4)
        (error "invalid event fold byte-set predicate" expression))
-     (let ((from (fold-offset (cadr expression) line start end states indices))
+     (let ((members (fold-byte-set-for (cadddr expression) expression))
+           (from (fold-offset (cadr expression) line start end states indices))
            (until (fold-offset (caddr expression) line start end states indices))
-           (bytes (string->utf8 line)))
+           (bytes (fold-line-bytes line)))
        (unless (and (<= start from) (<= from until) (<= until end))
          (error "event fold byte range outside source line" expression))
        (let loop ((cursor from))
          (if (eq? (car expression) 'line-bytes-all-in?)
            (or (= cursor until)
-               (and (memv (u8vector-ref bytes (- cursor start))
-                          (cadddr expression))
+               (and (= 1 (u8vector-ref members
+                                      (u8vector-ref bytes (- cursor start))))
                     (loop (+ cursor 1))))
            (and (< cursor until)
-                (or (and (memv (u8vector-ref bytes (- cursor start))
-                               (cadddr expression)) #t)
+                (or (= 1 (u8vector-ref members
+                                      (u8vector-ref bytes (- cursor start))))
                     (loop (+ cursor 1))))))))
     ((line-bytes-in-set?)
      (unless (= (length expression) 4)
@@ -543,7 +553,7 @@
      (let* ((names (fold-static-name-set (cadddr expression)))
             (from (fold-offset (cadr expression) line start end states indices))
             (until (fold-offset (caddr expression) line start end states indices))
-            (bytes (string->utf8 line)))
+            (bytes (fold-line-bytes line)))
        (unless (and (<= start from) (<= from until) (<= until end))
          (error "event fold name range outside source line" expression))
        (ormap (lambda (name)
@@ -570,11 +580,13 @@
     ((and or)
      (unless (>= (length expression) 3)
        (error "event fold boolean combination needs two predicates" expression))
-     (let (evaluate (lambda (part)
-                     (fold-predicate part source-bytes line start end states indices)))
-       (if (eq? (car expression) 'and)
-         (every evaluate (cdr expression))
-         (if (ormap evaluate (cdr expression)) #t #f))))
+     ;; Keep short-circuit evaluation without allocating an escaping closure.
+     (let ((all? (eq? (car expression) 'and)))
+       (let loop ((rest (cdr expression)))
+         (if (null? rest) all?
+             (if (fold-predicate (car rest) source-bytes line start end states indices)
+               (if all? (loop (cdr rest)) #t)
+               (if all? #f (loop (cdr rest))))))))
     (else (error "unsupported event fold predicate" expression))))
 
 (def (fold-frame-finishes count)
@@ -585,51 +597,69 @@
       (loop (- remaining 1) (cons '(finish) events)))))
 
 (def (fold-statements statements source-bytes line start end states indices helpers
-                      (active-helpers '()))
-  (let loop ((rest statements) (state states) (reversed []))
-    (if (null? rest) (cons state (reverse reversed))
+                      (active-helpers '()) (reversed '()))
+  (let (view (current-fold-line-view))
+    (if (and view (eq? line (car view)))
+      (fold-statements/line-view statements source-bytes line start end
+                                 states indices helpers active-helpers reversed)
+      (parameterize ((current-fold-line-view (cons line (string->utf8 line))))
+        (fold-statements/line-view statements source-bytes line start end
+                                   states indices helpers active-helpers reversed)))))
+
+;; Thread one persistent reversed event chain through nested execution.
+;; Only the source-line/output boundary restores forward order; no shared
+;; mutable queue or continuation-sensitive builder escapes the request.
+(def (fold-statements/line-view statements source-bytes line start end states
+                               indices helpers active-helpers reversed)
+  (let (state states)
+   (let loop ((rest statements) (reversed reversed))
+    (if (null? rest) reversed
         (let* ((form (car rest))
                (step
                 (case (car form)
                   ((set-bool)
                    (let (value (fold-predicate (caddr form) source-bytes line start end state indices))
                      (fold-state-of-type state (cadr form) boolean?)
-                     (cons (fold-update-state state (cadr form) value) [])))
+                     (fold-frame-update! state (cadr form) value)
+                     reversed))
                   ((set-uint)
                    (let (value (fold-uint (caddr form) line start end state indices))
                      (fold-state-of-type state (cadr form) fold-unsigned?)
-                     (cons (fold-update-state state (cadr form) value) [])))
+                     (fold-frame-update! state (cadr form) value)
+                     reversed))
                   ((close-through)
                    (let* ((stack (fold-state-of-type state (cadr form) list?))
                           (level (fold-uint (caddr form) line start end state indices)))
-                     (let close ((rest stack) (events []))
+                     (let close ((rest stack) (events reversed))
                        (if (and (pair? rest) (>= (car rest) level))
                          (close (cdr rest) (cons '(finish) events))
-                         (cons (fold-update-state state (cadr form) rest) events)))))
+                         (begin (fold-frame-update! state (cadr form) rest)
+                                events)))))
                   ((open-level)
                    (let* ((stack (fold-state-of-type state (cadr form) list?))
                           (level (fold-uint (caddr form) line start end state indices)))
-                     (cons (fold-update-state state (cadr form) (cons level stack))
-                           (list (list 'start (cadddr form))))))
+                     (fold-frame-update! state (cadr form) (cons level stack))
+                     (cons (list 'start (cadddr form)) reversed)))
                   ((close-all)
                    (let (stack (fold-state-of-type state (cadr form) list?))
-                     (cons (fold-update-state state (cadr form) [])
-                           (map (lambda (_) '(finish)) stack))))
-                  ((start-node) (cons state (list (list 'start (cadr form)))))
+                     (fold-frame-update! state (cadr form) [])
+                     (foldl (lambda (_ events) (cons '(finish) events))
+                            reversed stack)))
+                  ((start-node) (cons (list 'start (cadr form)) reversed))
                   ((token)
                    (let ((from (fold-offset (caddr form) line start end state indices))
                          (to (fold-offset (cadddr form) line start end state indices)))
-                     (cons state (if (= from to) []
-                                   (list (list 'token (cadr form) from to))))))
-                  ((finish-node) (cons state (list '(finish))))
+                     (if (= from to) reversed
+                         (cons (list 'token (cadr form) from to) reversed))))
+                  ((finish-node) (cons '(finish) reversed))
                   ((if)
                    (fold-statements
                     (if (fold-predicate (cadr form) source-bytes line start end state indices)
                       (caddr form) (cadddr form))
-                    source-bytes line start end state indices helpers active-helpers))
+                    source-bytes line start end state indices helpers active-helpers reversed))
                   ((join-once)
                    (unless (and (= (length form) 4) (symbol? (cadr form))
-                                (not (assq (cadr form) state))
+                                (not (fold-frame-bound? state (cadr form)))
                                 (not (memq (cadr form) indices))
                                 (pair? (caddr form)) (pair? (cadddr form))
                                 (fold-join-marks-handled? (caddr form) (cadr form)))
@@ -637,30 +667,29 @@
                    (let* ((branch
                            (fold-statements
                             (caddr form) source-bytes line start end
-                            (cons (cons (cadr form) #f) state)
-                            indices helpers active-helpers))
+                            (fold-frame-bind! state (cadr form) #f)
+                            indices helpers active-helpers reversed))
                           (continuation
-                           (if (fold-state-of-type (car branch) (cadr form) boolean?)
-                             (cons (car branch) [])
+                           (if (fold-state-of-type state (cadr form) boolean?)
+                             branch
                              (fold-statements
                               (cadddr form) source-bytes line start end
-                              (car branch) indices helpers active-helpers))))
-                     (cons (filter (lambda (entry) (not (eq? (car entry) (cadr form))))
-                                   (car continuation))
-                           (append (cdr branch) (cdr continuation)))))
+                              state indices helpers active-helpers branch))))
+                     (fold-frame-unbind! state (cadr form))
+                     continuation))
                   ((for-line-bytes)
                    (let ((from (fold-offset (caddr form) line start end state indices))
                          (until (fold-offset (cadddr form) line start end state indices)))
                      (unless (and (<= start from) (<= from until) (<= until end))
                        (error "event fold iteration outside source line" form))
-                     (let iterate ((cursor from) (current state) (reversed []))
-                       (if (= cursor until) (cons current (reverse reversed))
+                     (let iterate ((cursor from) (reversed reversed))
+                       (if (= cursor until) reversed
                          (let (step (fold-statements (list-ref form 4) source-bytes line start end
-                                                      current
+                                                      state
                                                       (cons (cons (cadr form) cursor)
-                                                      indices) helpers active-helpers))
-                           (iterate (+ cursor 1) (car step)
-                                    (foldl cons reversed (cdr step))))))))
+                                                      indices) helpers active-helpers reversed))
+                           (iterate (+ cursor 1)
+                                    step))))))
                   ((with-source-bounds)
                    (unless (= (length form) 4)
                      (error "invalid event fold source bounds" form))
@@ -672,7 +701,7 @@
                      (fold-statements
                       (cadddr form) source-bytes
                       (utf8->string (subu8vector source-bytes from until))
-                      from until state indices helpers active-helpers)))
+                      from until state indices helpers active-helpers reversed)))
                   ((call-source-helper)
                    (unless (memv (length form) '(4 5))
                      (error "invalid event helper call" form))
@@ -688,23 +717,22 @@
                                           (cadddr helper) '()))
                             (arguments (if (= (length form) 5)
                                          (list-ref form 4) '()))
-                            (helper-state (fold-initial-states (cadr helper))))
+                            (helper-state (prepare-fold-state-frame
+                                           (fold-initial-states (cadr helper)))))
                        (unless (= (length parameters) (length arguments))
                          (error "event helper argument arity" form))
                        (for-each
                         (lambda (parameter argument)
                           (fold-state-of-type helper-state parameter fold-unsigned?)
-                          (set! helper-state
-                                (fold-update-state
-                                 helper-state parameter
-                                 (fold-uint argument line start end state indices))))
+                          (fold-frame-update!
+                           helper-state parameter
+                           (fold-uint argument line start end state indices)))
                         parameters arguments)
-                       (let (step (fold-statements
+                       (fold-statements
                                   (caddr helper) source-bytes
                                   (utf8->string (subu8vector source-bytes from until))
                                   from until helper-state '()
-                                  helpers (cons (cadr form) active-helpers)))
-                         (cons state (cdr step))))))
+                                  helpers (cons (cadr form) active-helpers) reversed))))
                   ((scan-list-marker)
                    (unless (= (length form) 10)
                      (error "invalid event fold list marker statement" form))
@@ -723,48 +751,48 @@
                      (for-each (lambda (name)
                                  (fold-state-of-type state name fold-unsigned?))
                                (list bullet-start bullet-end content-start))
-                     (let (updated (fold-update-state state present (if marker #t #f)))
-                       (if marker
-                         (cons (fold-update-state
-                                (fold-update-state
-                                 (fold-update-state
-                                  (fold-update-state
-                                   (fold-update-state updated column (vector-ref marker 0))
-                                   ordered (vector-ref marker 1))
-                                  bullet-start (vector-ref marker 2))
-                                 bullet-end (vector-ref marker 3))
-                                content-start (vector-ref marker 4)) [])
-                         (cons updated [])))))
+                     (fold-frame-update! state present (if marker #t #f))
+                     (when marker
+                       (fold-frame-update! state column (vector-ref marker 0))
+                       (fold-frame-update! state ordered (vector-ref marker 1))
+                       (fold-frame-update! state bullet-start (vector-ref marker 2))
+                       (fold-frame-update! state bullet-end (vector-ref marker 3))
+                       (fold-frame-update! state content-start (vector-ref marker 4)))
+                     reversed))
                   ((push-frame)
                    (let ((stack (fold-state-of-type state (cadr form) list?))
                          (value (fold-uint (caddr form) line start end state indices)))
-                     (cons (fold-update-state state (cadr form) (cons value stack)) [])))
+                     (fold-frame-update! state (cadr form) (cons value stack))
+                     reversed))
                   ((pop-frame)
                    (let (stack (fold-state-of-type state (cadr form) list?))
-                     (cons (fold-update-state state (cadr form)
-                                              (if (pair? stack) (cdr stack) [])) [])))
+                     (fold-frame-update! state (cadr form)
+                                         (if (pair? stack) (cdr stack) []))
+                     reversed))
                   ((close-frame)
                    (let ((stack (fold-state-of-type state (cadr form) list?))
                          (closes (fold-frame-finishes (caddr form))))
                      (if (pair? stack)
-                       (cons (fold-update-state state (cadr form) (cdr stack)) closes)
-                       (cons state []))))
+                       (begin (fold-frame-update! state (cadr form) (cdr stack))
+                              (foldl cons reversed closes))
+                       reversed)))
                   ((close-frames-while)
                    (let (closes (fold-frame-finishes (list-ref form 3)))
-                     (let close ((current state) (reversed []))
-                       (let (stack (fold-state-of-type current (cadr form) list?))
+                     (let close ((reversed reversed))
+                       (let (stack (fold-state-of-type state (cadr form) list?))
                          (if (and (pair? stack)
-                                  (fold-predicate (caddr form) source-bytes line start end current indices))
-                           (close (fold-update-state current (cadr form) (cdr stack))
-                                  (foldl cons reversed closes))
-                           (cons current (reverse reversed)))))))
+                                  (fold-predicate (caddr form) source-bytes line start end state indices))
+                           (begin (fold-frame-update! state (cadr form) (cdr stack))
+                                  (close (foldl cons reversed closes)))
+                           reversed)))))
                   ((close-all-frames)
                    (let ((stack (fold-state-of-type state (cadr form) list?))
                          (closes (fold-frame-finishes (caddr form))))
-                     (cons (fold-update-state state (cadr form) [])
-                           (apply append (map (lambda (_) closes) stack)))))
+                     (fold-frame-update! state (cadr form) [])
+                     (foldl (lambda (_ events) (foldl cons events closes))
+                            reversed stack)))
                   (else (error "unsupported event fold statement" form)))))
-          (loop (cdr rest) (car step) (foldl cons reversed (cdr step)))))))
+          (loop (cdr rest) step))))))
 
 (def (fold-initial-states initial)
   (map (lambda (entry)
@@ -778,24 +806,24 @@
 
 (def (run-event-fold source root initial line-forms finish-forms
                      (helpers '()) (overrides '()))
-  (parameterize ((current-future-scan-cache #f))
+  (parameterize ((current-future-scan-cache #f)
+                 (current-fold-byte-set-cache (make-table test: eq?)))
    (let ((source-bytes (string->utf8 source))
-        (states (fold-initial-states initial)))
+        (states (prepare-fold-state-frame (fold-initial-states initial))))
     (for-each (lambda (override)
                 (fold-state-of-type states (car override) fold-unsigned?)
                 (unless (fold-unsigned? (cdr override))
                   (error "invalid event fold parameter override" override))
-                (set! states (fold-update-state states (car override)
-                                                (cdr override))))
+                (fold-frame-update! states (car override) (cdr override)))
               overrides)
     (let* ((events
             (source-line-events
              source root
              (lambda (line start end)
-               (let (step (fold-statements line-forms source-bytes line start end
-                                          states '() helpers))
-                 (set! states (car step))
-                 (cdr step)))))
-           (closing (fold-statements finish-forms source-bytes "" 0 0
-                                     states '() helpers)))
-      (append (reverse (cdr (reverse events))) (cdr closing) '((finish)))))))
+               (reverse
+                (fold-statements line-forms source-bytes line start end
+                                 states '() helpers)))))
+           (closing (reverse
+                     (fold-statements finish-forms source-bytes "" 0 0
+                                      states '() helpers))))
+      (append (reverse (cdr (reverse events))) closing '((finish)))))))

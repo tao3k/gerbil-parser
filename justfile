@@ -1,10 +1,25 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# Compile the suite's own fixtures, not only its import declarations.
+build-event-fold-native output load_path:
+    mkdir -p "{{output}}"
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss
+
+test-event-fold-native binary watcher output:
+    mkdir -p "{{output}}"
+    env -u GERBIL_PATH -u GERBIL_LOADPATH GAMBOPT=max-heap=1G,debug=q python3 "{{watcher}}" "{{binary}}" 2>&1 | tee "{{output}}/native-test.log"
+    test "$(rg -c '^CASE-OK ' '{{output}}/native-test.log')" -eq 56
+    rg --quiet '^HARNESS-OK' "{{output}}/native-test.log"
+    rg --quiet '^OK$' "{{output}}/native-test.log"
+    ! rg --quiet 'ERROR|FAILED|FAILURE|FAIL:' "{{output}}/native-test.log"
+
 # Fast lexical algorithm loop; keep the POO Flow Case heap fence pre-import.
 test-lexer:
     GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/ranked-regular-scanner-test.ss
 
 # LR mode admission is checked separately from the inner scanner transition.
 test-lexical-mode:
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/grammar-composition-test.ss
+    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/grammar-composition-contract-test.ss t/grammar-composition-execution-test.ss t/grammar-composition-lowering-test.ss
 
 # Full qualification after the focused algorithm loop.
 test-all:

@@ -2,7 +2,9 @@
 ;;; Lower an admitted POO fragment to the existing Scheme/event-AOT algebra.
 ;;; One pass over the bounded slice emits source-backed separator and item events.
 
-(import (only-in ./source-fragment-types
+(import (only-in ./source-pattern-funs
+                 source-pattern-at?)
+        (only-in ./source-fragment-types
                  source-delimited-fragment? source-first-split?
                  source-reference-scan?)
         (only-in ./source-fragment-objects
@@ -100,18 +102,6 @@
 (def ref-start '(state-offset ref-start))
 (def ref-text-start '(state-offset ref-text-start))
 
-(def (offset-after offset count)
-  (let loop ((remaining count) (cursor offset))
-    (if (= remaining 0) cursor
-      (loop (- remaining 1) `(line-step ,cursor)))))
-
-(def (prefix-at offset prefix)
-  (cons 'and
-        (let loop ((chars (string->list prefix)) (cursor offset))
-          (if (null? chars) '()
-            (cons `(line-byte-equal? ,cursor ,(char->integer (car chars)))
-                  (loop (cdr chars) `(line-step ,cursor)))))))
-
 (def (ref-node rule token until (continue? #t))
   `((start-node ,(source-reference-scan-reference-node rule))
     (token ,token ,ref-start ,until)
@@ -128,7 +118,7 @@
     (set-uint ref-kind (uint ,kind))))
 
 (def (marker-start-chain rule markers call-kind)
-  `(if ,(prefix-at ref-index (source-reference-scan-call-prefix rule))
+  `(if ,(source-pattern-at? ref-index (source-reference-scan-call-prefix rule))
        ,(ref-begin rule call-kind)
        ,(let loop ((rest markers) (kind 1))
           (if (null? rest) '()

@@ -7,11 +7,227 @@
         (only-in "event-fold-fixture.ss" parse-fold-lines parse_fold_lines
                  parse-outline-lines parse_outline_lines)
         (only-in :gerbil-parser/rust-runtime-event-support
-                 event-fold-ir-json run-event-fold))
+                 event-fold-ir-json run-event-fold)
+        (only-in :gerbil-parser/src/modules/parser/interface
+                 source-offset-after source-pattern-end source-pattern-at?
+                 source-ascii-ci-pattern-at?))
 (export event-fold-test)
 
 (def event-fold-test
   (test-suite "Scheme stateful event fold AOT"
+    (test-case "engine source patterns advance by UTF-8 bytes"
+      (let (end (source-pattern-end 'start "éx"))
+        (check end => '(line-step (line-step (line-step start))))
+        (check (run-event-fold "éx\n" 'Document '()
+                 `((if ,(source-pattern-at? 'start "éx")
+                       ((token Prefix start ,end) (token Ending ,end end))
+                       ((token Other start end)))) '())
+               => '((start Document) (token Prefix 0 3)
+                    (token Ending 3 4) (finish)))))
+    (test-case "engine ASCII case-insensitive single markers stay admissible"
+      (let (predicate (source-ascii-ci-pattern-at? 'start "a"))
+        (check predicate => '(line-bytes-any-in? start (line-step start) (65 97)))
+        (check (run-event-fold "A\n" 'Document '()
+                 `((if ,predicate ((token Line start end)) ())) '())
+               => '((start Document) (token Line 0 2) (finish)))
+        (check (string? (event-fold-ir-json
+                         'single_ci event-lines-language-grammar 'Document '()
+                         `((if ,predicate ((token Line start end)) ())) '()))
+               => #t)))
+    (test-case "engine ASCII patterns retain punctuation and matching boundaries"
+      (let (forms `((if ,(source-ascii-ci-pattern-at? 'start "Ab-_")
+                       ((token Match start end)) ((token Miss start end)))))
+        (check (run-event-fold "aB-_\n" 'Document '() forms '())
+               => '((start Document) (token Match 0 5) (finish)))
+        (check (run-event-fold "ab-\n" 'Document '() forms '())
+               => '((start Document) (token Miss 0 4) (finish)))
+        (check (run-event-fold "ab+x\n" 'Document '() forms '())
+               => '((start Document) (token Miss 0 5) (finish)))))
+    (test-case "engine offset construction rejects invalid counts before iteration"
+      (check (source-offset-after 'start 0) => 'start)
+      (check (source-pattern-end 'start "") => 'start)
+      (for-each (lambda (count)
+                  (check-exception (source-offset-after 'start count) true))
+                '(-1 1/2 1.0 #f))
+      (check-exception (source-pattern-end 'start #f) true))
+    (test-case "engine pattern admission distinguishes UTF-8 from ASCII folding"
+      (for-each (lambda (pattern)
+                  (check-exception (source-ascii-ci-pattern-at? 'start pattern) true))
+                '("é" "Σ" "" #f))
+      (check-exception (source-pattern-at? 'start "") true)
+      (check-exception (source-pattern-at? 'start #f) true))
+    (test-case "one event chain preserves nested helper byte-loop and join order"
+      (check (run-event-fold
+              "ab\n" 'Document '()
+              '((start-node Text)
+                (token Prefix start (line-prefix-end "a"))
+                (for-line-bytes index start (line-content-end)
+                  ((with-source-bounds (line-index index) end
+                     ((call-source-helper piece start end)))))
+                (join-once handled
+                  ((if (bool #f) ((set-bool handled (bool #t))) ())
+                   (token Ending start end))
+                  ((token Space start end)))
+                (finish-node)) '()
+              '((piece () ((start-node Heading) (token Line start end)
+                           (finish-node)))))
+             => '((start Document) (start Text) (token Prefix 0 1)
+                  (start Heading) (token Line 0 3) (finish)
+                  (start Heading) (token Line 1 3) (finish)
+                  (token Ending 0 3) (token Space 0 3) (finish) (finish))))
+    (test-case "empty emissions and handled joins preserve an existing event chain"
+      (check (run-event-fold
+              "x\n" 'Document '()
+              '((start-node Text) (token Before start end)
+                (for-line-bytes index start start ((token Dropped start end)))
+                (token Empty start start)
+                (join-once handled
+                  ((token Branch start end) (set-bool handled (bool #t)))
+                  ((token Skipped start end)))
+                (finish-node))
+              '((start-node Heading) (finish-node)))
+             => '((start Document) (start Text) (token Before 0 2)
+                  (token Branch 0 2) (finish) (start Heading) (finish)
+                  (finish))))
+    (test-case "mutation-only byte loops retain state without emitting wrappers"
+      (check (run-event-fold
+              "aé\n" 'Document '((count 0))
+              '((for-line-bytes index start (line-content-end)
+                  ((set-uint count (uint-add (state count) (uint 1)))
+                   (if (bool #f) ((token Skipped start end)) ())))
+                (token Line start (state-offset count))
+                (token Ending (state-offset count) end)) '())
+             => '((start Document) (token Line 0 3) (token Ending 3 4)
+                  (finish))))
+    (test-case "join temporary bindings are removed before the next join"
+      (check (run-event-fold
+              "a\nb\n" 'Document '((seen #f))
+              '((join-once handled
+                  ((set-bool seen (bool #t)) (set-bool handled (bool #t)))
+                  ((token Skipped start end)))
+                (join-once handled
+                  ((if (bool #f) ((set-bool handled (bool #t))) ()))
+                  ((if (state seen) ((token Line start end)) ())))) '())
+             => '((start Document) (token Line 0 2) (token Line 2 4)
+                  (finish))))
+    (test-case "repeated helper calls own independent execution slots"
+      (check (run-event-fold
+              "a\n" 'Document '((position 2))
+              '((call-source-helper head start end)
+                (call-source-helper head start end)
+                (token Line start (state-offset position))) '()
+              '((head ((position 0))
+                      ((set-uint position (uint-add (state position) (uint 1)))
+                       (token Prefix start (state-offset position))))))
+             => '((start Document) (token Prefix 0 1) (token Prefix 0 1)
+                  (token Line 0 2) (finish))))
+    (test-case "native UTF-8 length keeps multibyte prefix source offsets"
+      (check (run-event-fold
+              "éx\n" 'Document '()
+              '((token Prefix start (line-prefix-end "é"))
+                (token Line (line-prefix-end "é") end)) '())
+             => '((start Document) (token Prefix 0 2) (token Line 2 4)
+                  (finish))))
+    (test-case "prepared byte sets preserve empty ranges and UTF-8 membership"
+      (check (run-event-fold
+              "é\n" 'Document '()
+              '((if (and (line-bytes-all-in? start (line-content-end) (195 169 195 255))
+                         (line-bytes-any-in? start (line-content-end) (169))
+                         (line-bytes-all-in? start start ())
+                         (not (line-bytes-any-in? start start ()))
+                         (not (line-bytes-any-in? start end ())))
+                    ((token Line start end)) ())) '())
+             => '((start Document) (token Line 0 3) (finish))))
+    (test-case "prepared byte sets reject malformed values only when evaluated"
+      (for-each
+       (lambda (values)
+         (check-exception
+          (run-event-fold "a\n" 'Document '()
+                          `((if (line-bytes-any-in? start end ,values) () ())) '())
+          true))
+       '((256) (-1) (1/2) (a) (1 . 2) "a"))
+      (check (run-event-fold
+              "a\n" 'Document '()
+              '((if (or (bool #t) (line-bytes-any-in? start end (256)))
+                    ((token Line start end)) ())) '())
+             => '((start Document) (token Line 0 2) (finish))))
+    (test-case "prepared byte sets do not leak across parse requests"
+      (let* ((values (list 97))
+             (forms `((if (line-bytes-any-in? start end ,values)
+                          ((token Line start end)) ()))))
+        (check (run-event-fold "a\n" 'Document '() forms '())
+               => '((start Document) (token Line 0 2) (finish)))
+        (set-car! values 98)
+        (check (run-event-fold "a\n" 'Document '() forms '())
+               => '((start Document) (finish)))))
+    (test-case "helper parameter updates preserve duplicate-name semantics"
+      (check (run-event-fold
+              "a\n" 'Document '((caller 0))
+              '((call-source-helper head start end ((uint 1))))
+              '()
+              '((head ((position 0) (position 2))
+                      ((token Line start (state-offset position))
+                       (token Line (state-offset position) end))
+                      (position))))
+             => '((start Document) (token Line 0 1) (token Line 1 2)
+                  (finish))))
+    (test-case "boolean predicate loops preserve short-circuit rejection boundaries"
+      (check (run-event-fold
+              "a\n" 'Document '()
+              '((if (and (bool #f) (state undeclared)) () ())
+                (if (or (bool #t) (state undeclared))
+                    ((token Line start end)) ())) '())
+             => '((start Document) (token Line 0 2) (finish))))
+    (test-case "helper execution restores the independent caller frame"
+      (check (run-event-fold
+              "a\n" 'Document '((position 1))
+              '((call-source-helper head start (state-offset position))
+                (token Line (state-offset position) end))
+              '()
+              '((head ((position 0) (position 2))
+                      ((set-uint position (uint 1))
+                       (token Line start (state-offset position))))))
+             => '((start Document) (token Line 0 1) (token Line 1 2)
+                  (finish))))
+    (test-case "execution slots preserve untouched and repeated bindings"
+      (let ((initial '((left 0) (middle 0) (right 2) (enabled #f)))
+            (forms
+             '((set-uint middle (uint 1))
+               (set-uint middle (uint 1))
+               (set-bool enabled (bool #t))
+               (if (and (uint-equal? (state left) (uint 0))
+                        (uint-equal? (state right) (uint 2))
+                        (state enabled))
+                   ((token Line start (state-offset middle))
+                    (token Line (state-offset middle) end)) ()))))
+        (check (run-event-fold "a\n" 'Document initial forms '())
+               => '((start Document) (token Line 0 1) (token Line 1 2)
+                    (finish)))
+        (check initial => '((left 0) (middle 0) (right 2) (enabled #f)))
+        (check (run-event-fold "b\n" 'Document initial forms '())
+               => '((start Document) (token Line 0 1) (token Line 1 2)
+                    (finish)))))
+    (test-case "duplicate runtime bindings retain the original all-update semantics"
+      (check (run-event-fold
+              "a\n" 'Document '((offset 0) (offset 2))
+              '((set-uint offset (uint 1))
+                (token Line start (state-offset offset))
+                (token Line (state-offset offset) end)) '())
+             => '((start Document) (token Line 0 1) (token Line 1 2)
+                  (finish))))
+    (test-case "nested UTF-8 helper frames restore their caller byte view"
+      (check (run-event-fold
+              "αb\nz\n" 'Document '()
+              '((if (line-byte-equal? start 206)
+                    ((call-source-helper head start (line-step (line-step start)))
+                     (if (line-byte-equal? (line-step (line-step start)) 98)
+                         ((token Line (line-step (line-step start)) end)) ()))
+                    ((token Line start end))))
+              '()
+              '((head () ((if (line-byte-equal? start 206)
+                              ((token Line start end)) ())))))
+             => '((start Document) (token Line 0 2) (token Line 2 4)
+                  (token Line 4 6) (finish))))
     (test-case "the Scheme algorithm owns multi-line node lifetimes"
       (check (parse-fold-lines "a\nb\n* α\r\nc")
              => '((start Document)

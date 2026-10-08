@@ -2,7 +2,10 @@
 ;;; Invariant: alists are emitted only at an explicit projection boundary and
 ;;; never become the semantic owner of grammar composition or behavior.
 
-(import (only-in ./objects
+(import (only-in ./source-pattern-funs
+                 source-offset-after source-pattern-end source-pattern-at?
+                 source-ascii-ci-pattern-at?)
+        (only-in ./objects
                  grammar-role-name
                  grammar-role-ref
                  grammar-schema
@@ -11,7 +14,9 @@
                  grammar-roles
                  grammar-composition))
 (export grammar-role->alist
-        grammar->alist)
+        grammar->alist
+        source-offset-after source-pattern-end source-pattern-at?
+        source-ascii-ci-pattern-at?)
 
 ;; : (-> GrammarRole Alist)
 (def (grammar-role->alist role)

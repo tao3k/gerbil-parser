@@ -1,0 +1,48 @@
+#+title: Source event Fold ownership and local qualification
+
+* Engine ownership
+
+The engine owns bounded byte predicates, source offsets, execution frames,
+helper/join scope and event accumulation. Language declarations own markers,
+node kinds and semantic composition. Public POO grammar/fragment values remain
+the extension surface; named pure functions lower literal patterns into the
+existing event algebra rather than introducing another matcher or evaluator.
+
+=source-pattern-funs.ss= provides exact UTF-8 byte patterns, byte-counted ends,
+checked offset advancement and explicitly ASCII-only case folding. One-byte
+case-insensitive patterns lower to a predicate, not an invalid unary =and=.
+The parser interface and native event support export this shared projection.
+SourceReferenceScan also consumes it; its duplicate prefix/offset builders are
+removed. Application-specific cursor names and rules stay with the language.
+
+* Request-local execution
+
+Private native-table slots replace persistent state-list reconstruction.
+Caller declarations are not mutated, helper frames are independent and join
+temporaries are removed on exit. Static IR admission retains its declaration
+representation; no execution compatibility path is retained.
+
+Statements thread one persistent reversed event chain. Mutation-only or empty
+emissions preserve that chain; loops, helpers and joins do not reverse/copy
+each nested result. Forward order is restored at output boundaries. The public
+event format and native ABI are unchanged. This follows the official Gerbil
+EBNF lexer's local accumulator principle without introducing a shared mutable
+list-builder queue across continuation re-entry.
+
+* Evidence boundary
+
+The isolated source candidate rebases on PR #13 head =2c38e9f0=. Its complete
+184-module SDK and phase/public imports pass. All 56 linked native Fold cases
+pass, including UTF-8 spans, single-byte ASCII folding, invalid declaration
+rejection, nested event ordering and independent helper/join scope.
+The Org consumer's 340-module AOT program =54e30a63= passes source-root checks,
+178 cases in 12 native suites and an independent exit-42 failure control.
+Both existing maturin/CFFI runtime features pass all 25 Python cases with the
+unchanged 5s check. This does not establish normal dependency-pin admission,
+large concurrent consumer qualification or cross-platform CI.
+
+Matched 20-sample dense and entity controls preserve source/event/contract
+identity and pass the unchanged 100ms envelope. Dense p95 is 56.839ms versus
+56.213ms; entity p95 is 3.439ms in both lanes. This convergence is not promoted
+as a latency win. Prior state/event-chain experiments have separate receipts;
+one timing sample's allocation delta is not a universal allocation guarantee.

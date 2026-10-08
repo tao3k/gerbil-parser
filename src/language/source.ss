@@ -2,7 +2,8 @@
 ;;; Versioned language ownership for stateful source parsers. The scanner and
 ;;; parser are one immutable declaration and must publish a valid artifact.
 
-(import (only-in ../compiler/contextual-program contextual-program-ir)
+(import (only-in ../runtime/parse-cost with-parser-cost-stage)
+        (only-in ../compiler/contextual-program contextual-program-ir)
         (only-in ../runtime/artifact
                  parse-artifact-ref parse-artifact-valid? sha256-text)
         (only-in ../runtime/source-scanner source-scanner-contextual? make-source-scan-session source-scan-session-tokens
@@ -117,8 +118,8 @@
                    (and (source-language-history? previous)
                         (eq? descriptor (source-language-history-descriptor previous)))))
     (error "source session requires the same language declaration"))
-  (let* ((owned (string-copy source))
-         (worker ((source-language-factory descriptor) owned))
+  (let* ((owned (with-parser-cost-stage 'source-copy (string-copy source)))
+         (worker (with-parser-cost-stage 'source-prepare ((source-language-factory descriptor) owned)))
          (snapshot #f)
          (artifact
           ((source-language-parse descriptor) owned
@@ -126,12 +127,14 @@
              (unless (eq? requested owned) (error "source session scanner received foreign input"))
              (if (source-scanner-contextual? worker)
                (begin
-                 (set! snapshot (make-source-scan-session worker #f
-                                 (and previous (source-language-history-snapshot previous))))
+                 (set! snapshot (with-parser-cost-stage 'source-scan
+                   (make-source-scan-session worker #f
+                     (and previous (source-language-history-snapshot previous)))))
                  (source-scan-session-tokens snapshot))
                ((source-language-scanner descriptor) requested)))
            (source-language-digest descriptor))))
     ;; A lexical failure is handled by the original parser's diagnostic path;
     ;; it produces no cache and cannot authorize reuse in the next edit.
-    (validate-source-publication! descriptor owned artifact)
+    (with-parser-cost-stage 'artifact-validation
+      (validate-source-publication! descriptor owned artifact))
     (make-source-language-session descriptor snapshot artifact)))

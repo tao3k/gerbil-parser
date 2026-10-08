@@ -2,12 +2,12 @@
 
 ((schema . gerbil-parser.native-ffi-scenario.v1)
  (owner . gerbil-parser)
- (abiVersion . 1)
+ (abiVersion . 2)
  (transport . caller-owned-result-struct)
  (forbiddenTransport . process-json-lines)
  (requiredSymbols
-  "gerbil_parser_result_v1_init"
-  "gerbil_parser_result_v1_release"
-  "gerbil_parser_native_abi_version"
-  "gerbil_parser_native_descriptor"
-  "gerbil_parser_native_parse"))
+  "gerbil_parser_result_init"
+  "gerbil_parser_result_release"
+  "gerbil_parser_language_abi_version"
+  "gerbil_parser_language_descriptor"
+  "gerbil_parser_language_parse"))

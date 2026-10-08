@@ -4,20 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
  */
 
-#include <gerbil-parser/parse-artifact-v1.h>
 #include <gerbil-parser/language.h>
-#include <gerbil-parser/rust-runtime-aot-v1.h>
+#include <gerbil-parser/rust-runtime-aot.h>
 
 int main(void) {
-  gerbil_parser_result_v1 parse_result;
-  gerbil_parser_runtime_result_v1 runtime_result;
-  gerbil_parser_result_v1_init(&parse_result);
-  gerbil_parser_runtime_result_v1_init(&runtime_result);
-  (void)gerbil_parser_native_descriptor("gql", &parse_result);
-  (void)gerbil_parser_native_parse("gql", "RETURN 1", &parse_result);
+  gerbil_parser_runtime_result runtime_result;
+  gerbil_parser_runtime_result_init(&runtime_result);
   (void)gerbil_parser_runtime_compile("grammar.ss", &runtime_result);
-  gerbil_parser_result_v1_release(&parse_result);
-  gerbil_parser_runtime_result_v1_release(&runtime_result);
+  gerbil_parser_runtime_result_release(&runtime_result);
   gerbil_parser_result language_result;
   gerbil_parser_result_init(&language_result);
   (void)gerbil_parser_language_descriptor(1, &language_result);

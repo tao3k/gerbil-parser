@@ -2,7 +2,8 @@
 ;;; Lossless Bash command/word/here-document syntax entry.
 ;;; Unsupported command forms reject explicitly until their grammar is owned.
 
-(import (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger? command-plan-entry)
+(import (only-in ./parse-cost with-parser-cost-stage)
+        (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger? command-plan-entry)
         (only-in ./funcs recognition-sequence-append recognition-sequence->list recognition-sequence-arity)
         (only-in :gerbil-parser/src/runtime/artifact
                  +diagnostic-schema+ make-failure-parse-artifact
@@ -69,9 +70,10 @@
   (with-catch
    (lambda (condition)
      (values
-      (make-failure-parse-artifact
-       grammar-digest source (fallback-token source)
-       (failure-diagnostic condition))
+      (with-parser-cost-stage 'artifact-publication
+       (make-failure-parse-artifact
+        grammar-digest source (fallback-token source)
+        (failure-diagnostic condition)))
       '()))
    (lambda ()
      (let ((remaining (scan source))
@@ -403,15 +405,16 @@
                    (loop with-separator))))
               (else
                (loop (cons (child 'command (parse-and-or!)) children)))))))
-       (let* ((children (parse-list! '(none)))
+       (let* ((children (with-parser-cost-stage 'command-recognition (parse-list! '(none))))
               (source-end (u8vector-length (string->utf8 source))))
          (when (marker-head)
            (error "missing Bash here-document body"))
          (let* ((root (syntax-node 'BashFile 0 source-end children))
                 (artifact
-                 (make-success-parse-artifact
-                  grammar-digest source
-                  (reverse emitted-reversed) root trivia?)))
+                 (with-parser-cost-stage 'artifact-publication
+                  (make-success-parse-artifact
+                   grammar-digest source
+                   (reverse emitted-reversed) root trivia?))))
            (values artifact (reverse links))))))))
 
 (def (parse-shell-core source scan grammar-digest)

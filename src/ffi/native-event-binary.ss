@@ -1,5 +1,6 @@
 ;;; ParseArtifact binary layout and exact-buffer event publication.
-(import (only-in :std/vector/u8vector little u8vector-u32-set! u8vector-u64-set!)
+(import (only-in ./schema +native-event-version+)
+        (only-in :std/vector/u8vector little u8vector-u32-set! u8vector-u64-set!)
         (only-in :std/encoding/hex hex-decode)
         (only-in ../runtime/token token-kind token-start token-end)
         (only-in ./native-language-context native-language-syntax-kind-index
@@ -102,7 +103,7 @@
         (walk emit-node! emit-field! emit-token!)
         (unless (= row count) (error "native event count changed during publication"))
         (subu8vector-move! #u8(71 80 65 49) 0 4 payload 0)
-        (u8vector-u32-set! payload 4 1 little)
+        (u8vector-u32-set! payload 4 +native-event-version+ little)
         (u8vector-u32-set! payload 12 count little)
         (copy-digest! payload 16 grammar-digest)
         (subu8vector-move! source-digest 0 32 payload 48)

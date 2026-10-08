@@ -116,8 +116,8 @@ products delegate to =language-rust-runtime-module-source= for identity, portabl
 policy admission and execution emission. A Scheme-only CST policy is rejected
 before AOT product publication; native parsing executes it in Scheme.
 
-The build ABI lives in =src/ffi/rust-runtime-aot-v1.ss= and
-=include/gerbil-parser/rust-runtime-aot-v1.h=. The standalone
+The build ABI lives in =src/ffi/rust-runtime-aot.ss= and
+=include/gerbil-parser/rust-runtime-aot.h=. The standalone
 =gerbil-parser-runtime-aot= command takes a downstream grammar module path;
 =GERBIL_PARSER_RUNTIME_AOT_LIB= identifies its installed metadata bundle.
 Generated Rust source imports =gerbil_parser_runtime=. The normal Gerbil build

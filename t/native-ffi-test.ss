@@ -9,19 +9,24 @@
                  parse-records)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
 
-        (only-in :gerbil-parser/src/ffi/parse-artifact-v1
-                 native-abi-version
+        (only-in :gerbil-parser/src/ffi/language-artifact-codec
+                 bind-native-language native-abi-version
                  native-descriptor-payload
                  native-parse-binary-payload)
-        (only-in ../src/ffi/rust-runtime-aot-v1
+        (only-in ../src/ffi/rust-runtime-aot
                  native-runtime-aot-abi-version
                  native-rust-runtime-source))
+
+(import (only-in :gerbil-parser/languages/gql/parser gql-language-grammar)
+        (only-in :gerbil-parser/languages/cypher/parser opencypher-language-grammar))
+(def gql-native (bind-native-language gql-language-grammar))
+(def cypher-native (bind-native-language opencypher-language-grammar))
 
 (def native-ffi-tests
   (test-suite "parser-owned native ParseArtifact v1 ABI"
     (test-case "descriptor publishes the parser-owned grammar surface"
       (check (native-abi-version) => 1)
-      (let (descriptor (native-datum-read (native-descriptor-payload "gql")
+      (let (descriptor (native-datum-read (native-descriptor-payload gql-native)
                                     ))
         (check (hash-get descriptor "schema")
                => "gerbil-parser.native-descriptor.v1")
@@ -33,7 +38,7 @@
           (check (not (not (member "sign" fields))) => #t))))
     (test-case "accepted source produces typed binary ParseArtifact v1"
       (let (artifact
-            (native-parse-binary-payload "gql" "MATCH (n) RETURN n"))
+            (native-parse-binary-payload gql-native "MATCH (n) RETURN n"))
         (check (subu8vector artifact 0 4) => #u8(71 80 65 49))
         (check (u8vector-u32-ref artifact 4 little) => 1)
         (check (u8vector-u32-ref artifact 8 little) => 0)
@@ -42,18 +47,18 @@
                => (+ 80 (* 24 (u8vector-u32-ref artifact 12 little))))))
     (test-case "openCypher uses its own descriptor and parser"
       (let* ((descriptor
-              (native-datum-read (native-descriptor-payload "cypher")
+              (native-datum-read (native-descriptor-payload cypher-native)
                             ))
              (artifact
               (native-parse-binary-payload
-               "cypher" "MATCH (n:Person) RETURN n\n")))
-        (check (hash-get descriptor "language") => "cypher")
+               cypher-native "MATCH (n:Person) RETURN n\n")))
+        (check (hash-get descriptor "language") => "opencypher")
         (check (positive? (length (hash-get descriptor "syntaxKinds")))
                => #t)
         (check (u8vector-u32-ref artifact 8 little) => 0)
         (check (positive? (u8vector-u32-ref artifact 12 little)) => #t)))
-    (test-case "unknown language fails closed"
-      (check-exception (native-descriptor-payload "unknown") true))
+    (test-case "invalid descriptor fails closed"
+      (check-exception (bind-native-language "unknown") true))
     (test-case "grammar path compiles through the Scheme Rust backend"
       (check (native-runtime-aot-abi-version) => 1)
       (let (source

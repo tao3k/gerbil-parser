@@ -18,7 +18,7 @@ const EVENT_DEPTH: usize = 128;
 
 #[test]
 #[ignore = "runner-sensitive ASP Rust performance Scenario; run focused in release mode"]
-fn runtime_engine_deterministic_hot_path_v1() {
+fn runtime_engine_deterministic_hot_path() {
     let scenario = scenario(RUNTIME_ENGINE_DETERMINISTIC_HOT_PATH_SCENARIO_ID);
     let source = "  alpha + 2 * (beta - -3) + gamma * (17 - delta)  \n";
     let measurement = measure_asp_rust_scenario(&scenario, || {
@@ -43,7 +43,7 @@ fn runtime_engine_deterministic_hot_path_v1() {
 
 #[test]
 #[ignore = "runner-sensitive ASP Rust performance Scenario; run focused in release mode"]
-fn runtime_engine_event_tree_hot_path_v1() {
+fn runtime_engine_event_tree_hot_path() {
     use gerbil_parser_runtime::TreeEvent;
 
     let scenario = scenario(RUNTIME_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID);

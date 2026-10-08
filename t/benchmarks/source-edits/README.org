@@ -1,0 +1,23 @@
+#+title: Native Source edit cost benchmark
+
+After the normal native package and =build-native-ffi-tests.ss= builds:
+
+#+begin_src shell
+just benchmark-source-edits 20 128
+#+end_src
+
+Five fixed edit kinds use two independent Bash Source handles. Fresh history
+is cleared by an empty parse, while the session handle is primed with the base
+text. Preparation stays outside timed calls. Every call uses the actual C ABI,
+reads back/releases its C result and compares all GPA1 bytes with fresh Scheme
+execution. Alternating lane order and natural GC preserve negative results.
+
+=SOURCE-EDIT-SAMPLE= gives complete-call wall/CPU, Scheme allocations and GC.
+=SOURCE-EDIT-SUMMARY= reports P50/P95 and the actual wall-P95 observation.
+=SOURCE-EDIT-STAGES= comes from a separate observed call, includes nested costs,
+scanned/reused token counts, history source/token dimensions and payload size.
+It is not an additive decomposition or exact retained heap measurement.
+CI runs 8 samples with 32 tail lines on both native platforms. Timing is
+informational; payload equality, failure behavior and handle release are gates.
+
+See [[file:../../../docs/research/source-edit-cost-contract.org][the measurement contract]] for boundaries and current receipts.

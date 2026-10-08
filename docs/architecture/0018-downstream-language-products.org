@@ -25,11 +25,13 @@ expansion evaluation and alias execution are outside its parser contract.
 | Distribution | Independent records Cargo fixture, no Gerbil at parse time | Release/package automation, minimal C product and Rust FFI consumer |
 | Runtime C ABI | Owned result allocation/release, UTF-8 error payloads, real C callback probe | Language-independent handles, explicit byte lengths and runtime-owner facade |
 
-The current =src/ffi/parse-artifact-v1.ss= imports GQL and openCypher directly;
-its =resolve-native-language= selects those builtins by name. That is not the
-extensibility boundary for a downstream language repository. The build-only
-=src/ffi/rust-runtime-aot-v1.ss= already accepts an external grammar path.
-The two C interfaces must remain distinguishable to downstream consumers.
+The parser FFI uses explicit language handles and the language-independent
+=src/ffi/language-artifact-codec.ss=. The former builtin name-dispatch facade
+and its C entry are removed; production FFI imports no GQL/openCypher package.
+The build-only =src/ffi/rust-runtime-aot.ss= accepts an external grammar path
+and generates immutable Rust source. These two services have distinct duties.
+=src/ffi/schema.ss= centrally declares their ABI/schema identities; file paths,
+module namespaces and C result names do not encode versions.
 The current Rust lexical expression enum includes a heredoc expression, but
 that does not establish Bash queued marker, quote removal or =<<-= semantics.
 

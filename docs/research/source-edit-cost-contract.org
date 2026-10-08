@@ -1,0 +1,121 @@
+#+title: Complete Source Edit Cost Contract
+
+* One producer and one consumer path
+
+Source editing uses the prepared Scheme descriptor, its private scanner history,
+full command recognition, canonical ParseArtifact publication, GPA1 encoding
+and the existing language-handle C API. The benchmark invokes the actual C API,
+reads the result back into a caller buffer and releases the C allocation.
+It does not introduce another language DSL or an alternate parser.
+
+FFI identities are declared in =src/ffi/schema.ss=. Scheme codec constants and
+the pure C ABI-version query derive from that table. Native module namespaces
+follow file paths; versions belong to schema values. The build-only Rust source
+generator is a distinct service, not a second parsing entry by builtin name.
+
+* Why the author interface is preferable
+
+Question 1: Why does this preserve Scheme's syntax/rules and POO advantages?
+
+#+begin_src scheme
+;; grammar.ss still describes syntax; parser.ss owns this prepared descriptor.
+(def previous (parse-source-language/session bash-source-language old-text))
+(def next (parse-source-language/session bash-source-language edited-text previous))
+(check (source-language-session-artifact next)
+       => (parse-source-language bash-source-language edited-text))
+;; Diagnostics belong to the engine and do not add cache clauses to deflanguage.
+(parameterize ((current-parser-cost-observer collect-stage))
+  (parse-source-language/session bash-source-language edited-text previous))
+#+end_src
+
+Hygienic declarations and POO composition select the admitted language product.
+The engine owns history, admission, allocation and publication. Ordinary values
+remain sufficient for callers that do not extend the declaration. Cost hooks
+are an optional request-local diagnostic service, not grammar syntax.
+
+* Why the measurement is justified
+
+Question 2: What makes this a complete-call comparison rather than a token count?
+
+#+begin_src scheme
+;; The reference does not consume edit history. Both native lanes must publish
+;; every byte of that reference, including status, digests, IDs and spans.
+(def expected (native-parse-binary-payload language edited-text))
+(call! fresh-handle empty-bytes empty-output)
+(call! session-handle old-bytes old-output)
+(def fresh-receipt (measure-call fresh-handle edited-bytes fresh-output))
+(def session-receipt (measure-call session-handle edited-bytes session-output))
+(check fresh-output => expected)
+(check session-output => expected)
+#+end_src
+
+Priming and validation are excluded from both timed edit calls. Sample order
+alternates. Two warmups precede each case; no forced GC occurs. All measured
+calls keep natural GC, and each wall-P95 observation carries its own CPU,
+allocation and GC counters. Full payload parity is required on every sample.
+These are edits from an established base, not a throughput measure of priming
+plus editing or an application actor queue.
+
+* Phase boundary and memory limits
+
+A separate instrumented call records UTF-8 decoding, source copy/preparation,
+scanning, command recognition, artifact publication/validation, GPA1 encoding
+and C input/result copying. The enclosing full-call observation includes C
+readback/release and remaining glue. Observations are inclusive and can nest;
+they are not summed or subtracted to invent an exclusive decomposition.
+Exceptions produce incomplete-stage receipts and preserve their conditions.
+Lexical rejection may have no command-recognition stage.
+
+Uninstrumented latency samples have the observer disabled. The disabled macro
+branch does not allocate a measuring thunk. Both lanes still pay the same
+parameter checks. Instrumented counters include observer bookkeeping and
+Scheme process-statistics overhead. Sub-microsecond C copies may be below clock
+resolution. Gambit allocation counters do not measure malloc payload bytes.
+
+Receipts report actual source byte length, history token-record count and GPA1
+payload byte length. These are retained-data dimensions, not exact retained
+heap bytes: context records, token strings, headers and allocator overhead are
+not quantified. No forced-GC subtraction is used to attribute VM live memory
+to a handle. Lexical failure retains no reusable source/token snapshot.
+
+* Initial local receipt and next decision
+
+At 20 samples and a 128-line tail, the UTF-8 prefix control passed complete
+GPA1 parity: fresh P50/P95 were 3.066/4.178ms, session 2.553/2.720ms. The
+session scanned 1 token and reused 518, retaining 519 token records and 1297
+source bytes; its payload was 93416 bytes. This is one local observation,
+not a cross-platform or stable end-to-end performance claim.
+
+One separate session observation reported scan 0.128ms, recognition 0.632ms,
+publication 0.094ms, validation 0.142ms and encoding 1.449ms, with a complete
+call of 2.546ms. Encoding is therefore the first candidate for further scale
+controls; subtree caching is not preselected. Lexical failure allocated the
+same 28104 Scheme bytes in both uninstrumented lanes and supplied no reusable
+history. Preserve this negative control.
+
+All five cases passed: UTF-8 prefix, quoted marker, ordered marker FIFO,
+grammar rejection and lexical rejection. The 20-sample benchmark exited zero
+with =SOURCE-EDIT-BENCHMARK-OK= in 10.78 seconds. This receipt qualifies the
+local call path; clean Linux/macOS qualification belongs to exact-head CI.
+
+The scanner continuation invariant remains the engineering argument in
+[[file:scheme-source-edit-sessions.org][Source edit sessions]]. It does not implement or inherit the optimal node-reuse
+bound from Wagner and Graham's incremental parsing work. A later encoding
+refactor must preserve the complete GPA1 format, publication ordering and the
+same reference controls before claiming a gain.
+
+A later concurrent 8x32 qualification completed all parity/stage controls and
+printed the final marker, but exceeded the 5-second inactivity fence during
+implicit native module teardown (22.16 seconds total, exit 124). Preserve that
+failed receipt. The disposable benchmark child now uses the existing explicit
+child-exit owner, after result release, both handle releases and baseline count
+validation. Native VM teardown remains qualified by standalone host tests;
+it is not part of an edit's cost. The timeout fence is unchanged.
+
+After the explicit exit change, the CI-sized 8x32 control is qualified separately
+from the initial timing receipt. Focused engine/FFI/cost tests pass 30 cases;
+the migrated codec suite passes six further cases. The real handle-based C
+probe passes 1000 calls, UTF-8/error/replacement checks and three identical Rust
+source generations. The Rust/C/Scheme edit consumer also passes its nine edits,
+retained-result checks and final ownership marker. C headers compile with
+strict warnings, and the renamed Rust performance scenarios compile as tests.

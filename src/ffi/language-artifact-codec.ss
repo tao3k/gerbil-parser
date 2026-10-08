@@ -1,7 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Parser-owned C ABI for language-selected ParseArtifact v1 surfaces.
 
-(import (only-in ./native-language-context make-native-language-context native-language?
+(import (only-in ../runtime/parse-cost with-parser-cost-stage)
+        (only-in ./schema +native-event-version+ +native-codec-abi-version+ +native-descriptor-schema+ +native-error-schema+)
+        (only-in ./native-language-context make-native-language-context native-language?
                  descriptor-section native-terminal-rows native-language-id
                  native-language-descriptor native-language-parser native-language-field-symbols
                  native-language-plan native-language-plan-set!)
@@ -30,15 +32,10 @@
         native-parse-binary-payload/bytes/session
         native-error-payload)
 
-(def +gerbil-parser-native-abi-version+ 1)
-(def +gerbil-parser-native-descriptor-schema+
-  "gerbil-parser.native-descriptor.v1")
-(def +gerbil-parser-native-error-schema+
-  "gerbil-parser.native-error.v1")
 
 (def (native-error-payload exception)
   (native-datum-write
-   (hash (schema +gerbil-parser-native-error-schema+)
+   (hash (schema +native-error-schema+)
          (message
           (call-with-output-string
            (lambda (port) (display-exception exception port)))))))
@@ -53,7 +50,7 @@
           (symbol->string (cadr row))))
 
 (def (native-abi-version)
-  +gerbil-parser-native-abi-version+)
+  +native-codec-abi-version+)
 
 ;; One bounded buffer crosses the C ABI. Token lexemes remain zero-copy source
 ;; slices, represented by their byte ranges instead of duplicated strings.
@@ -66,7 +63,7 @@
                       (* (length events) +binary-event-size+))
                    0)))
     (subu8vector-move! #u8(71 80 65 49) 0 4 payload 0) ; GPA1
-    (u8vector-u32-set! payload 4 1 little)
+    (u8vector-u32-set! payload 4 +native-event-version+ little)
     (u8vector-u32-set! payload 8
                        (if (eq? (parse-artifact-ref artifact 'status)
                                 'accepted)
@@ -92,8 +89,9 @@
 (def (native-parse-binary-payload/bytes/session language bytes previous)
   (let (descriptor (native-language-descriptor language))
     (if (source-language? descriptor)
-      (let* ((session (parse-source-language/session descriptor (native-source-text bytes) previous))
-             (payload (native-artifact-binary-payload language (source-language-session-artifact session))))
+      (let* ((session (parse-source-language/session descriptor (with-parser-cost-stage 'utf8-decode (native-source-text bytes)) previous))
+             (payload (with-parser-cost-stage 'payload-encoding
+                        (native-artifact-binary-payload language (source-language-session-artifact session)))))
         (values payload (source-language-session-history session)))
       (values (native-parse-binary-payload/bytes language bytes) #f))))
 
@@ -128,7 +126,7 @@
 
 (def (native-descriptor-payload language)
   (let (payload
-        (hash (schema +gerbil-parser-native-descriptor-schema+)
+        (hash (schema +native-descriptor-schema+)
          (language (native-language-id language))
          (rootKind (symbol->string
                      (if (source-language? (native-language-descriptor language))

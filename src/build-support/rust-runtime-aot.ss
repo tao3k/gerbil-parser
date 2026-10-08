@@ -29,7 +29,7 @@
     "rust-runtime-grammar-support"
     "src/compiler/rust-runtime"
     "src/language/module-input"
-    "src/ffi/rust-runtime-aot-v1"))
+    "src/ffi/rust-runtime-aot"))
 
 (asp-gerbil-scheme-package-spec!
  (rust-runtime-aot-package @ asp-gerbil-scheme-library-package-prototype)

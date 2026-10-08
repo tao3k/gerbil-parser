@@ -162,7 +162,7 @@ def main():
                 subprocess.run([sys.executable, "scripts/test-native-host.py"],
                                env=environment, check=True)
             modules = (["languages/gql/parser", "src/runtime/parser"]
-                       if suite == "gql" else ["src/ffi/rust-runtime-aot-v1"])
+                       if suite == "gql" else ["src/ffi/rust-runtime-aot"])
             for module in modules:
                 # Reject interpreter-only metadata. Gerbil loads the compiled .o1.
                 object_file = native_root / "lib/gerbil-parser" / (module + ".o1")

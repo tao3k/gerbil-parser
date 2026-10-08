@@ -1,10 +1,16 @@
 ;;; -*- Gerbil -*-
 ;;; C ABI for explicit language handles, with no builtin language dependencies.
-(import (only-in ./language-handles native-language-handle-descriptor
+(import (only-in ../runtime/parse-cost with-parser-cost-stage)
+        (only-in ./schema declare-language-abi-version)
+        (only-in ./language-handles native-language-handle-descriptor
                  native-language-handle-parse/publish release-native-language!
                  native-language-handle-owner! native-language-handle-count +native-source-byte-limit+)
         (only-in ./language-artifact-codec native-error-payload))
 (extern initialize-owner! copy-input! replace-result! result-status)
+(def (copy-native-input! input bytes)
+  (with-parser-cost-stage 'ffi-input-copy (copy-input! input bytes)))
+(def (publish-native-payload! result payload)
+  (with-parser-cost-stage 'ffi-result-copy (replace-result! result 0 payload)))
 (def (call-with-native-result result thunk)
   (with-exception-catcher
    (lambda (exception)
@@ -34,7 +40,6 @@ static _Atomic size_t gp_payload_count = 0;
 int32_t gerbil_parser_language_is_owner_thread(void) {
   return gp_owner_ready && pthread_equal(gp_owner, pthread_self());
 }
-uint32_t gerbil_parser_language_abi_version(void) { return 2; }
 void gerbil_parser_result_init(gerbil_parser_result *r) {
   if (r) { r->status = 0; r->payload = NULL; r->length = 0; }
 }
@@ -103,11 +108,11 @@ END-C
       (gerbil-parser/src/ffi/language-handles#native-language-handle-owner!)
       (when (> length gerbil-parser/src/ffi/language-handles#+native-source-byte-limit+) (error "native source byte limit"))
       (let ((bytes (make-u8vector length)))
-        (copy-input! input bytes)
+        (gerbil-parser/src/ffi/language-native#copy-native-input! input bytes)
         (gerbil-parser/src/ffi/language-handles#native-language-handle-parse/publish
          language bytes
          (lambda (payload)
-           (replace-result! result 0 payload)
+           (gerbil-parser/src/ffi/language-native#publish-native-payload! result payload)
            (zero? (result-status result))))
         (result-status result)))))
  (c-define (count-callback) () int32 "gerbil_parser_language_handle_count_impl" "extern"
@@ -123,3 +128,5 @@ END-C
 ;; Pin the C callback boundary during module initialization, before publishing
 ;; any language handle. Foreign pthreads fail before entering the Gambit VM.
 (initialize-owner!)
+
+(declare-language-abi-version)

@@ -7,7 +7,7 @@
         (only-in ../language/entry parse-language-source)
         (only-in ../language/tlc qualify-language-tlc-model tla-plus-model-receipt->alist)
         (only-in ../ffi/language-artifact-codec bind-native-language native-parse-binary-payload/bytes)
-        (only-in ../ffi/rust-runtime-aot-v1 native-rust-runtime-source)
+        (only-in ../ffi/rust-runtime-aot native-rust-runtime-source)
         (only-in :std/vector/u8vector little u8vector-u32-ref))
 (export language-model-test-receipt check-language-native-entry check-language-portable-rejection)
 

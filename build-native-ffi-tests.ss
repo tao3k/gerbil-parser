@@ -14,12 +14,15 @@
 (defbuild-script
   (list
    (native-spec "t/fixtures/native-ffi/abi-probe"
-    '("lib/gerbil-parser/src/ffi/parse-artifact-v1-native~0.o1"
-      "lib/gerbil-parser/src/ffi/rust-runtime-aot-v1-native~0.o1"))
+    '("lib/gerbil-parser/src/ffi/language-native~0.o1"
+      "lib/gerbil-parser/src/ffi/rust-runtime-aot-native~0.o1"))
    ;; ELF resolves each loadable module's native references independently.
    ;; The generated language entry calls the runtime owner-thread guard.
    (native-spec "t/fixtures/shared-scanner/records-native"
     '("lib/gerbil-parser/src/ffi/language-native~0.o1"))
    (native-spec "t/fixtures/native-ffi/language-probe"
     '("lib/gerbil-parser/src/ffi/language-native~0.o1"
-      "lib/gerbil-parser/t/fixtures/shared-scanner/records-native~0.o1"))))
+      "lib/gerbil-parser/t/fixtures/shared-scanner/records-native~0.o1"))
+   (native-spec "t/benchmarks/source-edits/native-call"
+    '("lib/gerbil-parser/src/ffi/language-native~0.o1"))
+   (native-spec "t/benchmarks/source-edits/benchmark")))

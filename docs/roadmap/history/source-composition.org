@@ -1,0 +1,287 @@
+#+title: Historical source composition receipts
+
+This module preserves prior design and qualification records. Its status notes
+are historical; the active execution plan is [[file:../0001-versioned-language-pack-closure.org][the convergence plan]].
+
+** Structured local lexemes — closed shared execution
+
+TLA+ identifier, proof-start and proof-reference no longer publish external
+callbacks. =run-containing= checks maximal runs and a required character class
+in one traversal; =ends-in= and =ends-not-in= constrain the consumed span without
+rescanning its body. These operations are general lexical IR, with Scheme and
+Rust admission, preparation and execution. Their spelling and character classes
+participate in the grammar digest. The module scanner macro now binds only the
+remaining contextual module-text scanner; obsolete local callback exports are
+removed, without aliases.
+
+Rust alphabetic classification is generated from the pinned Scheme
+=char-alphabetic?= predicate, just as numeric classification already is. The
+portable witness imports the actual TLA+ fragments, emits a standalone parser,
+and checks Unicode endpoints at nonzero offsets. This witness establishes local
+lexical portability; it does not establish standalone full SANY execution.
+
+The remaining closure sequence is explicit: prepare HL7 header and TLA+ nesting
+context once (S2), lower shell command/word recognition into shared IR (S3),
+replace the closed HCL recursive corridor with general lowering (S4), and publish
+proof policy as portable data consumed by native C/Rust (S5). No runtime speedup
+is asserted without complete-call matched measurements.
+
+** Source preparation — header captures
+
+The machine now lowers a distinct header capture plan once. Scheme and Rust
+prepare valid and invalid header captures once per parse request. Scheme scope
+restoration and parallel requests, Rust borrowed source ownership, and nested
+lexical choices have explicit semantic controls. Incremental resume starts a
+fresh source scope and retains existing runtime/checkpoint ownership. Record
+projection consumes the same canonical header scanner module; the old scan
+module forwarding exports are removed. No speedup percentage is claimed from
+algorithmic work-count reduction alone.
+
+** Source preparation — module framing
+
+All TLA+ lexical roles now use closed IR. The old module scanner profile/binder
+and its public macro are removed without aliases. =module-text= contains bounded
+framing values; the shared engine prepares header intervals and nesting events
+once per request. Long border runs do not expand into per-position records.
+Scheme and standalone Rust share lexical admission, source ownership and emitted
+values. Pinned Scheme whitespace joins alphabetic/numeric character authority.
+
+Local controls cover exact endpoints, every offset against the prior framing
+algorithm, nested comments/strings, an independent UNIT spelling, numeric extra
+name characters, long borders, ordinary parser roundtrip and malformed profiles.
+The complete TLA+ pack suite remains a required semantic gate. CI checks exact
+regeneration of the standalone framing parser and whitespace table.
+
+Header capture and module framing preparation are implemented. S2 remains open
+for Bash source state; S3 command/word IR, S4 general recursive lowering and S5
+portable proof policy still require implementation and real consumer gates.
+No complete-call speedup is claimed from the indexing change alone.
+
+Local module-framing receipt: 73 Scheme cases passed with explicit =OK= and
+zero harness return; 102 Rust syntax tests plus the complete Rust workspace passed.
+ASP Rust policy and Clippy passed. The GCC native generator built and its actual
+executable emitted the same module parser as the Scheme producer. Exact parser
+and whitespace-table regeneration passed. These are local results; exact PR-head
+Ubuntu/Rust CI is a separate publication gate. Source-backed Rust tests live in
+=tests/unit=, with explicit imports and =#[path]= mounts.
+
+** Result operation and source native admission qualification
+
+The GCC native production gate executes 63 cases over result profiles, public
+C handles, Bash syntax, source contracts, topology, source spans, native metadata
+and parser policies, with
+explicit =OK=, =HARNESS-RETURN status=0= and exit zero. A temporary Scheme
+control against =46f0c891131b8fd9f732559f0105f9f847077f36= compares all
+56 complete ParseArtifacts across scanner controls, compound forms, large
+Unicode parts and nested parameters. The former parser modules are removed
+from the production checkout after qualification.
+
+The construction contract adds runtime checks. Paired timings include negative
+samples and scheduling/GC variance; they do not establish an overall speedup.
+Child type and span admission now use one dispatch with retained bounds rather
+than repeated generic span dispatch. The real public C probe records 100
+length-delimited calls for both Bash and the independently declared line
+language, and checks UTF-8 rejection, result reuse, release and stale handles.
+The latest PR Scheme metadata transport is retained. Regenerated canonical
+GPA1 bytes match the Rust fixture exactly; three Rust Bash scanner cases and
+six native artifact consumer cases pass. No runtime timeout or compiler
+optimization level is relaxed.
+
+** Part recognition dispatch qualification
+
+The GCC native gate passes 57 cases, including a second template configuration,
+non-ASCII recognition prefixes, rule overrides, owned copies and admission
+failures. The gate ends with =OK=, =HARNESS-RETURN status=0= and exit zero
+in 32.73 seconds including imports. A temporary control against
+=78084bcfa444abc81c7580607aac748488fbc975= matches 57 complete ParseArtifacts,
+including lossless unknown-dollar grouping, compound commands, 2,000 Unicode
+parts and 512 nested parameters. These former implementations remain outside
+the production checkout after qualification.
+
+The final public C probe records 100 Bash parse calls at 6.344 ms wall/CPU and
+100 independent line calls at 0.800 ms wall / 0.799 ms CPU, excluding descriptor
+initialization. Alternating complete-parser controls retain negative samples:
+flat median 9.296 ms before / 18.604 ms after for three calls, while individual
+current samples range from 9.173 to 191.401 ms; plain medians for 10,000 calls
+are 498.641 / 425.484 ms and nested medians for three calls are 5.849 / 5.868 ms.
+These unstable wall measurements establish neither an overall speedup nor a
+zero-regression claim. ASCII dispatch uses a compiled direct index, Unicode
+prefixes use a separate index, and the Word executor binds its context outside
+the part loop. No timeout, compiler choice or schema version is relaxed.
+
+** Binding profiles and bounded Rust name qualification
+
+The GCC native gate passes 75 cases in 34.90 seconds including imports and
+retains explicit =OK=, =HARNESS-RETURN status=0= and exit zero. A temporary
+Scheme control against =1f0d87f38079d1115148d4d3421cc95416813c94= matches
+62 complete ParseArtifacts, adding parameter-name/operator controls, nested
+array indexes and literal brackets inside command substitutions. Production
+macro cases exercise 512 nested indexes; the region suite checks both query
+orders for overlapping openers under distinct scopes. Temporary former
+implementations are removed from the checkout after qualification.
+
+Production Bash name IR generates 135 bounded Unicode endpoint controls.
+Two Rust tests check every generated endpoint, nullable-profile rejection and
+invalid byte boundaries through =PreparedTextProfile=. Independent regeneration
+matches the checked-in Rust artifact byte for byte after formatting. Rust
+formatting and crate/all-target/all-feature clippy pass with warnings denied.
+CI regenerates the same artifact using the finite native child exit binding.
+A first generation printed its completion marker but remained alive during
+shutdown and failed the five-second inactivity gate; completion is now accepted
+only with process exit zero. No timeout was extended.
+
+The current complete-parser controls retain negative samples: 10,000 plain
+calls have medians 605.387 ms before / 427.741 ms after; three flat calls have
+35.738 / 25.175 ms; three nested calls have 6.033 / 6.367 ms. An isolated public
+C gate records 100 Bash calls at 7.340 ms wall / 7.153 ms CPU and 100 line calls
+at 0.889 ms wall/CPU, excluding initialization. These observations qualify
+execution and conformance; they establish no overall speedup or zero regression.
+Command grammar, result-projection lowering and complete standalone Rust
+Source recognition remain open.
+
+** Command roles, projections and linear result construction
+
+=CommandProfile.= now owns token-role indexes, full descriptor TextProfiles
+and node projection values. =defcommand-profile= constrains the grammar
+interface; Source strategy admission requires the complete effective POO value,
+checks scanner/result catalogs and includes the owned recipe in Source identity.
+Identity projections are derived inside the engine instead of repeating the
+result catalog in the language pack. No schema, loader or ABI version changes.
+
+The executor binds role matchers once, removes hand-coded descriptor walks
+and literal membership tables for declared roles, and reuses persistent engine
+recognition sequences for all growing compound child collections. Marker
+receipts use an amortized constant-time two-stack FIFO. Complete control-flow
+syntax and standalone Rust Command/Word execution remain open engine scopes;
+this is not a claim of full Source AOT closure.
+
+The GCC qualification passes 61 cases in 14.86 seconds with explicit =OK=,
+=HARNESS-RETURN status=0= and exit zero. All 65 complete ParseArtifacts match
+an exact =edc53bfe9b9b500cff54953d154da12b45128013= parser control with the
+same scanner, Word plan and digest. The control includes compound forms,
+2,001-command pipelines, 2,000-element arrays and mixed here-document quote
+policies. Temporary control sources are removed after qualification.
+
+Five alternating complete-parser samples record a 2,001-command pipeline
+median of 99.674 ms before / 24.449 ms after. Plain 10,000-call medians are
+177.565 / 168.232 ms and nested three-call medians are 6.208 / 6.213 ms.
+The first run retained a plain-input negative sample of 173.030 / 204.214 ms;
+role matchers now bind once rather than resolving role symbols per token.
+These bounded measurements support the long-collection algorithm change,
+not an overall or zero-regression performance claim. A failed first suite
+referenced a nonexistent artifact-root accessor; the final test reads the
+formal event API. No timeout or compiler choice was changed.
+
+The three scale regressions are also in the public =deflanguage-parser-tests=
+macro suite; the final Bash/Command/topology gate passes in 7.58 seconds with
+normal exit and harness status zero.
+
+** Control-program migration
+
+The =forms= slot of =CommandProfile.= now owns all compound control grammar.
+The old if, loop, iteration, case, function, conditional, arithmetic, group
+and array functions are removed in favor of one closed program executor.
+Literal dispatch, bounded lookahead, field checks, reference/cycle checks and
+consuming-loop admission are engine capabilities. Pipeline header FIRST sets
+avoid running nullable programs for ordinary commands. Source identity includes
+the owned forms without changing Source v1, Loader v2 or C ABI v2.
+Independent Unicode loop declarations and empty inherited prefix programs
+exercise POO override semantics. No former execution path or macro compatibility
+mode is kept. Complete Rust control/Word execution remains open.
+
+The module-source generator previously printed its completion marker but
+failed the five-second inactivity gate while exiting on macOS. It now flushes
+and uses the existing finite-child normal exit binding. Local bounded native
+regeneration exits zero in 8.22 seconds and matches the Rust artifact byte for
+byte after formatting; neither timeout nor compiler selection changes.
+
+The first qualification passes 54 cases and 80 old-head controls in 15.02
+seconds. Accepted artifacts match in full; rejected artifacts match with only
+the explanatory =message= field excluded, retaining all other diagnostics and
+artifact fields. The reference is the exact =ff9e1e85c454f87f38090701608215169d3e3e14=
+executor with the same scanner, Word plan and supplied digest. Its source stays
+outside the production checkout after qualification. A later FIRST-set control
+passes in 27.54 seconds; final native qualification also covers the three added
+scale cases, empty-header inheritance and a 32-token lookahead admission bound.
+
+Five alternating complete-call samples after FIRST-set admission retain medians
+of 691.763 / 649.101 ms for 10,000 plain calls, 157.004 / 137.931 ms for one
+2,001-command pipeline and 10.273 / 7.245 ms for three real 512-deep parameter
+calls. The initial plain sample is negative at 193.496 / 204.322 ms. These
+wall-clock measurements remain sensitive to allocation/GC pressure; they do
+not establish an overall speedup or zero regression. The structural change
+removes dedicated grammar execution and skips nullable header interpretation
+using an admitted FIRST set.
+
+A first suite fails its five-second inactivity gate at a test-local POO
+=forms: forms= self-reference; the local variable is renamed and the failed
+receipt retained. The successful suites require explicit =OK=,
+=HARNESS-RETURN status=0= and process exit zero. The final scale/native suite
+passes 56 cases in 12.64 seconds.
+
+Final admission review removes exponential call-path expansion with a
+visiting/done DFS memo table. A 32-layer DAG with each callee referenced twice
+now admits without rewalking completed forms; true cycles still reject. The
+last GCC native gate passes 57 cases in 13.83 seconds with final =OK=,
+=HARNESS-RETURN status=0= and normal exit.
+
+** Scheme Word projection closure
+
+=ResultProfile.= now owns closed =token=, =one= and =many= projection programs
+with typed ordered captures. Projection-only declarations derive the node,
+field and terminal catalog; Bash removes duplicated Word result catalog rows.
+POO inheritance/replacement uses ordinary values and the same admission checks.
+Word recognition retains span and boundary recognition, while field mapping,
+optional emission and persistent token publication run in the shared engine.
+All word, assignment, quote, substitution, parameter and subscript result
+builders have migrated; their dedicated field/token assembly is removed.
+Source v1, Loader v2 and C ABI v2 do not change. Complete standalone Rust Source
+control/Word execution remains open; an IR recipe alone is not Rust execution.
+
+The exact reference is =753d70bd671e7dd94283882a8510195f69b433e3= with only
+factory/module names changed for side-by-side Scheme execution. Eighty controls
+compare complete accepted and rejected artifacts, including diagnostic message
+text: no field is normalized away. Controls include Unicode, scoped array
+subscripts, 512-deep parameters, long word parts and command structures.
+Temporary reference sources remain outside the production checkout after
+qualification. The final focused suite passes 56 cases in 11.25 seconds with
+=OK=, =HARNESS-RETURN status=0= and normal exit.
+
+The first general-VM sample is negative for ordinary commands and pipelines:
+five alternating complete-call medians are 171.719 / 188.388 ms for 10,000
+plain calls, 28.761 / 31.412 ms for one 2,001-command pipeline, and
+12.883 / 8.551 ms for three 512-deep parameter calls (previous / migrated).
+It remains recorded. Binding-time specialization of static single-token and
+single-part-list programs removes dispatch and repeated catalog validation.
+The repeated five-sample medians are 168.878 / 146.832 ms, 26.245 / 23.619 ms
+and 6.256 / 5.848 ms respectively. These local wall-clock controls do not prove
+an overall speedup or zero regression.
+
+GCC emits all changed Scheme engine modules. Runtime qualification retains
+90-second total and five-second inactivity bounds; no widened timeout or
+compiler switch is used. Independent projection-only and =@name= dialects
+exercise POO replacement, inferred catalogs, Unicode offsets with nonzero
+origins, rejected signatures, bounds and recipe-copy isolation.
+
+The combined native gate passes 82 cases in 9.98 seconds, including Source and
+Loader contracts, language topology, command programs, Bash and native C ABI.
+It ends with explicit =OK=, =HARNESS-RETURN status=0= and exit zero.
+
+The final cardinality audit includes =required=/=optional= in the bound engine
+signature. A profile cannot make an optional recognition capture mandatory
+without failing admission. Catalog publication copies its node and terminal
+rows directly, avoiding two unnecessary copies of the entire projection IR.
+
+The subsequent combined qualification passes 85 cases and the same 80 exact
+artifact controls in 20.67 seconds. Its ordinary-call median is negative at
+123.355 / 185.287 ms; pipeline is 25.523 / 24.068 ms and nested parameters
+6.339 / 5.818 ms. Alternating individual plain samples range from 115 to
+311 ms across the two executors. This contradicts any claim of a stable plain
+command improvement; the result remains recorded and runtime performance
+qualification stays open.
+
+After the catalog-publication change, final native qualification passes 84
+cases plus the same 80 complete artifact comparisons in 14.09 seconds. This
+last run excludes optional timing measurements and requires final =OK=,
+=HARNESS-RETURN status=0= and exit zero.
+

@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Build-only C ABI for grammar.ss to immutable Rust source.
 
-(import :gerbil/expander
+(import (only-in ./schema +native-runtime-aot-abi-version+ +native-runtime-aot-error-schema+)
+        :gerbil/expander
         :std/encoding/json
         (only-in ../compiler/rust-runtime language-rust-runtime-module-source)
         (only-in ../language/module-input language-module-descriptor))
@@ -9,9 +10,6 @@
         native-rust-runtime-source
         native-runtime-aot-error-payload)
 
-(def +native-runtime-aot-abi-version+ 1)
-(def +native-runtime-aot-error-schema+
-  "gerbil-parser.rust-runtime-aot-error.v1")
 
 (def (native-runtime-aot-abi-version)
   +native-runtime-aot-abi-version+)

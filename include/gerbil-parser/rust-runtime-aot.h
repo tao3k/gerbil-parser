@@ -1,5 +1,5 @@
-#ifndef GERBIL_PARSER_RUST_RUNTIME_AOT_V1_H
-#define GERBIL_PARSER_RUST_RUNTIME_AOT_V1_H
+#ifndef GERBIL_PARSER_RUST_RUNTIME_AOT_H
+#define GERBIL_PARSER_RUST_RUNTIME_AOT_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -15,16 +15,16 @@ typedef struct {
   int32_t status;
   uint8_t *payload;
   size_t length;
-} gerbil_parser_runtime_result_v1;
+} gerbil_parser_runtime_result;
 
-void gerbil_parser_runtime_result_v1_init(
-    gerbil_parser_runtime_result_v1 *result);
-void gerbil_parser_runtime_result_v1_release(
-    gerbil_parser_runtime_result_v1 *result);
+void gerbil_parser_runtime_result_init(
+    gerbil_parser_runtime_result *result);
+void gerbil_parser_runtime_result_release(
+    gerbil_parser_runtime_result *result);
 uint32_t gerbil_parser_runtime_aot_abi_version(void);
 int32_t gerbil_parser_runtime_compile(
     const char *grammar_path,
-    gerbil_parser_runtime_result_v1 *result);
+    gerbil_parser_runtime_result *result);
 
 #ifdef __cplusplus
 }

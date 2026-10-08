@@ -1,5 +1,5 @@
 //! Canonical command Source event publication and borrowed result ownership.
-use super::super::{Diagnostic, ProjectedNode, ProjectedValue, ResultProfileSpec, TreeEvent};
+use crate::engine::{Diagnostic, ProjectedNode, ProjectedValue, ResultProfileSpec, TreeEvent};
 
 pub(super) fn error(at: usize, message: &str) -> Diagnostic {
     Diagnostic {

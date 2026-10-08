@@ -1,17 +1,15 @@
 //! Engine-owned Source cursor for closed command programs and Word recognition.
-use super::command_program::{
+use crate::engine::command_program::{
     CommandExecution, CommandHost, CommandInstruction, CommandProgress, CommandRequest,
     CommandTrigger, PreparedCommandProgram,
 };
-use super::{
-    Diagnostic, PreparedPartProfile, ProjectedNode, ProjectedValue, ResultChildCapture,
-    ResultProfileSpec, ScannedToken,
+use crate::engine::{
+    CommandProgramSpec, Diagnostic, PartProfileSpec, PreparedPartProfile, ProjectedNode,
+    ProjectedValue, ResultChildCapture, ResultProfileSpec, ScannedToken,
 };
 use std::collections::{HashMap, VecDeque};
 
-mod publication;
-use publication::error;
-pub use publication::{CommandEvent, CommandParse};
+use super::publication::{CommandParse, error};
 
 const MAX_SOURCE_FRAMES: usize = 16_384;
 
@@ -786,10 +784,10 @@ impl<'s> CommandHost<'s> for Cursor<'_, 's> {
 #[derive(Clone, Copy, Debug)]
 pub struct CommandSourceSpec {
     pub scanner: &'static crate::scanner::ScannerSpec,
-    pub parts: &'static super::PartProfileSpec,
+    pub parts: &'static PartProfileSpec,
     pub regions: &'static crate::scanner::RegionSpec,
-    pub results: &'static super::ResultProfileSpec,
-    pub commands: &'static super::CommandProgramSpec,
+    pub results: &'static ResultProfileSpec,
+    pub commands: &'static CommandProgramSpec,
 }
 /// Reusable admitted Source product. Languages contribute immutable data only.
 pub struct PreparedCommandSource {

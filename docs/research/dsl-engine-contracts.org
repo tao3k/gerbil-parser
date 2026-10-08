@@ -495,9 +495,9 @@ The generated-algorithm consolidation remains a separate structural correction.
 
 The canonical Source record implementation exceeded the Rust source-owner
 policy at revision e62b77b (1021 lines). The repair separates responsibilities:
-command_source.rs owns cursor/task execution and its frame budget; the private
+command_source/execution.rs owns cursor/task execution and its frame budget; the private
 command_source/publication.rs module owns CommandParse, CommandEvent and the
-iterative event walk. The parent re-exports the existing public types, preserving
+iterative event walk. The command_source/mod.rs facade re-exports the existing public types, preserving
 consumer paths. Request construction fields are visible only to the parent
 owner; borrowed source, event ordering and byte ranges retain the same contract.
 No recursion limit, source rejection rule or policy threshold is weakened.
@@ -510,3 +510,12 @@ Why is this boundary preferable? Execution scheduling can evolve independently
 from canonical event publication while both keep one request-owned result. Why
 is it justified? The existing event-parity and deep-input controls execute the
 same public interface after a responsibility-only extraction.
+
+The local policy also rejected a sibling command_source.rs/command_source pair
+and deep super imports in the first extraction. The completed layout uses one
+command_source/mod.rs owner facade, private execution/publication modules and
+crate::engine imports. Both findings are repaired rather than suppressed.
+
+The completed owner layout passed the ASP Rust workspace policy gate (one gate
+test, 4.40 seconds, exit zero) and the same 135 runtime cases. The policy's
+reported warnings were removed through source structure, without exceptions.

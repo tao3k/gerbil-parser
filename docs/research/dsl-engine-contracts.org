@@ -551,3 +551,50 @@ local language-suite failure. Ubuntu CI remains a separate admission gate.
 CI Rust 1.99 Clippy additionally requires an empty-slice assertion to display its
 value on failure. The generated native fixture reader now uses =assert_eq!=,
 retaining its complete-consumption assertion and all 54 fixture controls.
+
+** Scanner request and checkpoint ownership
+
+The next incremental boundary is executable ownership, before edit mapping or
+subtree admission. A Scheme string is mutable. Previously a scanner retained the
+caller's string, canonical receipts exposed the scanner digest and delimiter
+strings, and restored obligations retained receipt strings. Mutating an input or
+receipt could therefore change a live scanner or a future restored branch.
+
+The engine now snapshots the source once per request. A private lazy source
+identity belongs to that snapshot and is shared by checkpoint publication and
+restore. Publishing a receipt copies schema, scanner/source digests, and pending
+and active delimiter strings; restoring owns new delimiter strings. The fixed
+checkpoint schema and declaration DSL do not change. Language authors add no
+scanner callbacks, ownership wrappers, or loader slots.
+
+This is a semantic precondition for the context reasoning in
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Wagner and Graham, sections 4 and 6]]. Their state-matching condition is sufficient
+but not necessary, while conflict resolution requires additional care for subtree
+admission. Our exact-source scanner restore remains deliberately narrower than
+cross-edit parser reuse. No paper complexity bound is claimed for this change.
+The source snapshot costs one O(N) copy per prepared request; hashing is lazy and
+occurs once per request instead of once per checkpoint operation. Receipt size
+still scales with delimiter obligations, and restore's UTF-8 position check still
+examines the prefix. There is no measured end-to-end performance claim.
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop]] use Null/First/FLast information to justify predictive
+combinators and staging for their typed grammar class. Those compile-time proofs
+cannot substitute for request-owned contextual scanner state, nor be imposed
+unchanged on our LR grammar class. The DSL continues to own static declarations;
+the engine owns mutable execution, immutable plans, and receipt admission.
+
+The added semantic controls use both HCL raw and Bash quote-removal delimiter
+policies through the same engine. They mutate caller source, receipt identity
+strings, queued markers and active markers, then compare canonical states and
+exact Unicode body/end tokens after restore. Existing source/machine mismatch
+and UTF-8 position controls remain required. Rust already retains an immutable
+source borrow and private shared obligations; portable Rust/C checkpoint transport
+and cross-edit scanner mapping remain future work.
+
+Qualification for this ownership slice: pinned-SDK GCC compilation succeeded;
+all 23 contextual/deferred scanner cases passed under the unchanged 90-second
+batch/five-second silence gate, including both new ownership controls. All 54
+Command Source controls regenerated successfully through the Scheme watchdog;
+the formatted Rust source and native binary fixture were byte-identical to the
+checked-in products. These are local semantic and target-output receipts, not a
+latency result or a portable checkpoint ABI qualification.

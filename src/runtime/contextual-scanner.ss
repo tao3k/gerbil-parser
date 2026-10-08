@@ -34,7 +34,7 @@
 (def +contextual-scanner-opcode-contract+
   "gerbil-parser.contextual-scanner-opcodes.v1")
 
-(defstruct contextual-scanner (source digest initial-mode modes positions rules cells)
+(defstruct contextual-scanner (source source-identity digest initial-mode modes positions rules cells)
   transparent: #t)
 ;;; Static indexes are owned by the opaque plan and read only after admission.
 (defstruct contextual-scanner-plan
@@ -321,20 +321,24 @@
 (def (prepare-contextual-scanner ir source)
   (unless (string? source)
     (error "contextual scanner requires compiled IR and source"))
-  (if (contextual-scanner-plan? ir)
-    (make-contextual-scanner
-     source (string-copy (contextual-scanner-plan-digest ir))
-     (contextual-scanner-plan-initial-mode ir)
-     (contextual-scanner-plan-modes ir) (contextual-scanner-plan-positions ir)
-     (if (< (string-length source) 64)
-       (contextual-scanner-plan-short-rules ir) (contextual-scanner-plan-long-rules ir))
-     (contextual-scanner-plan-cells ir))
-    (begin
-      (validate-scanner-ir! ir)
+  ;; A request owns one source snapshot. Its identity is shared lazily by every
+  ;; checkpoint; caller mutation cannot change scanning or invalidate that hash.
+  (let* ((owned (string-copy source))
+         (identity (delay (sha256-text owned))))
+    (if (contextual-scanner-plan? ir)
       (make-contextual-scanner
-       source (ir-ref ir 'digest) (ir-ref ir 'initial-mode)
-       (ir-ref ir 'modes) (ir-ref ir 'positions)
-       (index-rules (ir-ref ir 'rules) (string-length source)) (index-cells (ir-ref ir 'cells))))))
+       owned identity (string-copy (contextual-scanner-plan-digest ir))
+       (contextual-scanner-plan-initial-mode ir)
+       (contextual-scanner-plan-modes ir) (contextual-scanner-plan-positions ir)
+       (if (< (string-length owned) 64)
+         (contextual-scanner-plan-short-rules ir) (contextual-scanner-plan-long-rules ir))
+       (contextual-scanner-plan-cells ir))
+      (begin
+        (validate-scanner-ir! ir)
+        (make-contextual-scanner
+         owned identity (string-copy (ir-ref ir 'digest)) (ir-ref ir 'initial-mode)
+         (ir-ref ir 'modes) (ir-ref ir 'positions)
+         (index-rules (ir-ref ir 'rules) (string-length owned)) (index-cells (ir-ref ir 'cells)))))))
 
 (def (contextual-scanner-initial-state scanner)
   (make-contextual-scan-state scanner 0 0
@@ -357,18 +361,18 @@
    (contextual-scan-state-expecting state)))
 
 (def (obligation-row obligation)
-  (list (delimiter-obligation-marker obligation)
+  (list (string-copy (delimiter-obligation-marker obligation))
         (delimiter-obligation-strip-tabs? obligation)
         (delimiter-obligation-quoted? obligation)))
 
 ;;; The canonical checkpoint binds source and machine digests, but contains no
-;;; closure, pointer, or POO object. A future resume operation can validate
-;;; these fields before rebuilding its request-local scanner state.
+;;; closure, pointer, or POO object. Receipt strings belong to the recipient;
+;;; restore validates identity and owns its reconstructed delimiter obligations.
 (def (contextual-scan-state-canonical state)
   (let (scanner (contextual-scan-state-scanner state))
-    (list (cons 'schema "gerbil-parser.contextual-scan-state.v1")
-          (cons 'scannerDigest (contextual-scanner-digest scanner))
-          (cons 'sourceDigest (sha256-text (contextual-scanner-source scanner)))
+    (list (cons 'schema (string-copy "gerbil-parser.contextual-scan-state.v1"))
+          (cons 'scannerDigest (string-copy (contextual-scanner-digest scanner)))
+          (cons 'sourceDigest (string-copy (force (contextual-scanner-source-identity scanner))))
           (cons 'characterOffset
                 (contextual-scan-state-character-offset state))
           (cons 'byteOffset (contextual-scan-state-byte-offset state))
@@ -391,7 +395,7 @@
                   (boolean? strip-tabs?) (boolean? quoted?)
                   (or (> (string-length marker) 0) quoted?))
        (error "invalid scanner delimiter obligation" row))
-     (make-delimiter-obligation marker strip-tabs? quoted?))
+     (make-delimiter-obligation (string-copy marker) strip-tabs? quoted?))
     (else (error "invalid scanner delimiter obligation" row))))
 
 (def (restore-contextual-scan-state scanner receipt)
@@ -402,7 +406,7 @@
                (equal? (receipt-ref receipt 'scannerDigest)
                        (contextual-scanner-digest scanner))
                (equal? (receipt-ref receipt 'sourceDigest)
-                       (sha256-text (contextual-scanner-source scanner))))
+                       (force (contextual-scanner-source-identity scanner))))
     (error "contextual scanner checkpoint identity mismatch"))
   (let* ((source (contextual-scanner-source scanner))
          (character-offset (receipt-ref receipt 'characterOffset))
@@ -618,7 +622,7 @@
                   (decode-shell-delimiter word))))
     (when (and (string=? marker "") (not quoted?))
       (error "empty deferred delimiter" word))
-    (make-delimiter-obligation marker strip-tabs? quoted?)))
+    (make-delimiter-obligation (string-copy marker) strip-tabs? quoted?)))
 
 (def (updated-state state mode pending active expecting)
   (make-contextual-scan-state

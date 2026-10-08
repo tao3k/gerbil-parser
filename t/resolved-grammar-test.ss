@@ -1,7 +1,8 @@
 ;;; Resolved grammar semantics must be checked before target state construction.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
-        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map)
+        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map compute-nullable
+                 production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-rejection-condition?)
@@ -42,8 +43,76 @@
 (def (rule-role name rules)
   (make-grammar-role name '() '() '() rules '() '() '() '() '()))
 
+;; Independent repeated-scan oracle retained only in this semantic control.
+(def (reference-nullable productions)
+  (let (index (make-table test: eq?))
+    (let converge ()
+      (let (changed? #f)
+        (for-each
+         (lambda (production)
+           (when (and (not (table-ref index (production-lhs production) #f))
+                      (every (lambda (value)
+                               (let (symbol (base-symbol value))
+                                 (and (nonterminal-symbol? symbol)
+                                      (table-ref index (nonterminal-name symbol) #f))))
+                             (production-rhs production)))
+             (table-set! index (production-lhs production) #t)
+             (set! changed? #t))) productions)
+        (when changed? (converge))))
+    index))
+
+(def (nullable-production name rhs) (list 0 name rhs #f #f))
+
+(def (check-nullable-reference productions)
+  (let (reference (reference-nullable productions))
+    (let-values (((names index) (compute-nullable productions)))
+      (check names => (filter (lambda (name) (table-ref reference name #f)) '(a b c)))
+      (for-each (lambda (name)
+                  (check (table-ref index name #f) => (table-ref reference name #f)))
+                '(a b c missing)))))
+
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case "dependency nullable facts match exhaustive cyclic grammar controls"
+      (let (operands '(() ((terminal literal "x")) ((nonterminal a))
+                         ((nonterminal b)) ((nonterminal c))
+                         ((nonterminal a) (nonterminal a))
+                         ((nonterminal a) (nonterminal b))
+                         ((marked (nonterminal b) (field value)))))
+        (for-each (lambda (a)
+                    (for-each (lambda (b)
+                                (for-each (lambda (c)
+                                            (check-nullable-reference
+                                             (list (nullable-production 'a a)
+                                                   (nullable-production 'b b)
+                                                   (nullable-production 'c c)))) operands)) operands)) operands)))
+    (test-case "nullable alternatives retain duplicate occurrences and terminal blockers"
+      (check-nullable-reference
+       (list (nullable-production 'a '((nonterminal b) (nonterminal b)))
+             (nullable-production 'a '((nonterminal missing)))
+             (nullable-production 'b '((nonterminal c) (terminal literal "x")))
+             (nullable-production 'b '())
+             (nullable-production 'c '((nonterminal c)))))
+      (check-nullable-reference
+       (list (nullable-production 'a '((nonterminal missing)))
+             (nullable-production 'b '((nonterminal a)))
+             (nullable-production 'c '())))
+      (check-nullable-reference
+       (list (nullable-production 'a '((marked (terminal literal "x") (field value))))
+             (nullable-production 'b '()) (nullable-production 'c '())))
+      (let-values (((names index)
+                    (compute-nullable
+                     (list (nullable-production 'c '()) (nullable-production 'b '())
+                           (nullable-production 'c '()) (nullable-production 'a '())))))
+        (check names => '(c b a))))
+    (test-case "long reverse nullable chain publishes every name in production order"
+      (let* ((names (map (lambda (n) (string->symbol (string-append "chain-" (number->string n)))) (iota 4096)))
+             (productions (map (lambda (name next)
+                                 (nullable-production name (if next (list (list 'nonterminal next)) '())))
+                               names (append (cdr names) '(#f)))))
+        (let-values (((found index) (compute-nullable productions)))
+          (check found => names)
+          (check (every (lambda (name) (table-ref index name #f)) names) => #t))))
     (test-case "direct reference to an empty rule rejects before LR conflicts"
       (check (admission-result '((start (repeat (reference item))) (item (empty))))
              => (nullable-repeat-result 'start '(reference item))))

@@ -485,7 +485,7 @@
   (for-each (lambda (row) (visit (car row) (cadr row) '())) rules))
 
 ;;; Computes nullable nonterminals to a monotone fixed point; the returned list
-;;; and membership table are materialized from the same completed iteration.
+;;; and membership table are materialized after the dependency worklist drains.
 ;; compute-nullable
 ;; : (forall (p) (-> [p] [(Pair Symbol Datum)]))
 ;; compute-nullable
@@ -500,23 +500,52 @@
 ;;       ;; => ordered nullable names and their shared membership index
 ;;       ```
 ;;     %
+(defstruct nullable-clause (owner remaining))
+
 (def (compute-nullable productions)
   (let ((names (nonterminals productions))
-        (nullable (make-table test: eq?)))
-    (let loop ()
-      (let (changed? #f)
-        (for-each
-         (lambda (production)
-           (let (lhs (production-lhs production))
-             (when (and (not (table-ref nullable lhs #f))
-                        (rhs-nullable? (production-rhs production) nullable))
-               (table-set! nullable lhs #t)
-               (set! changed? #t))))
-         productions)
-        (if changed?
-          (loop)
-          (values (filter (lambda (name) (table-ref nullable name #f)) names)
-                  nullable))))))
+        (nullable (make-table test: eq?))
+        (dependents (make-table test: eq?))
+        (work '()))
+    (def (publish! name)
+      (unless (table-ref nullable name #f)
+        (table-set! nullable name #t)
+        (set! work (cons name work))))
+    ;; A terminal blocks the entire clause. Otherwise register every occurrence,
+    ;; including duplicates: A -> B B needs both obligations discharged by B.
+    (for-each
+     (lambda (production)
+       (let (references
+             (let scan ((rhs (production-rhs production)) (found '()))
+               (if (null? rhs) found
+                   (let (symbol (base-symbol (car rhs)))
+                     (and (nonterminal-symbol? symbol)
+                          (scan (cdr rhs) (cons (nonterminal-name symbol) found)))))))
+         (when references
+           (if (null? references)
+             (publish! (production-lhs production))
+             (let (clause (make-nullable-clause (production-lhs production)
+                                               (length references)))
+               (for-each
+                (lambda (name)
+                  (table-set! dependents name
+                              (cons clause (table-ref dependents name '()))))
+                references))))))
+     productions)
+    ;; Each fact is published once and every registered occurrence is visited
+    ;; once. Pure cycles and references without a defining production stay false.
+    (let propagate ()
+      (unless (null? work)
+        (let (name (car work))
+          (set! work (cdr work))
+          (for-each
+           (lambda (clause)
+             (let (remaining (- (nullable-clause-remaining clause) 1))
+               (nullable-clause-remaining-set! clause remaining)
+               (when (zero? remaining) (publish! (nullable-clause-owner clause)))))
+           (table-ref dependents name '()))
+          (propagate))))
+    (values (filter (lambda (name) (table-ref nullable name #f)) names) nullable)))
 
 (def (symbol-first symbol first)
   (let (symbol (base-symbol symbol))

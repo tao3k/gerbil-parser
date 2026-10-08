@@ -246,3 +246,64 @@ owned by [[file:source-edit-cost-contract.org][the complete Source edit cost con
 by C cannot be treated as a stable address through an allocating callback.
 This obligation belongs to the transport owner and remains independent of
 macro hygiene, grammar recognition and target admission.
+
+* Dependency-driven nullable closure (2026-10-09)
+
+The selected grammar still flows through the existing =compute-nullable= owner
+in =src/compiler/lr.ss=. This change replaces repeated complete production scans
+with occurrence obligations; it adds no author slots, schemas or backend-specific
+analysis. Resolved repetition diagnostics and their selected POO source map keep
+using this same completed nullable index.
+
+Krishnaswami and Yallop's [[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][A Typed, Algebraic Approach to Parsing]], sections 3, 5.2
+and 6, motivates deriving static grammar facts before parser specialization.
+Their restricted predictive grammar result does not establish a complexity bound
+for our LR parser. The worklist below is our implementation of the existing
+nullable equations, rather than a claimed reproduction of their parser.
+
+** Invariants and work bound
+
+Each terminal-free production owns a private =nullable-clause= containing its
+lhs and unresolved occurrence count. Register one reverse edge for each rhs
+nonterminal occurrence, including duplicates. An empty production publishes its
+lhs immediately. A terminal anywhere in a production blocks that entire clause;
+it cannot become nullable through its prefix. Marked operands are unwrapped by
+the existing =base-symbol= operation.
+
+After all clauses are registered, drain newly published names. Each name is
+published at most once. Each reverse edge decrements its clause once; reaching
+zero publishes its lhs. Multiple alternatives can publish the same name only
+once. Pure cycles and references without a definition remain false. A cycle
+with an empty alternative propagates normally.
+
+Soundness follows by induction on publication: an empty clause is nullable, and
+a discharged clause has only nullable rhs operands. Completeness follows at
+worklist exhaustion: every clause whose rhs operands are nullable has reached
+zero, so no additional nullable lhs can be derived. With expected constant-time
+table operations, graph construction and propagation cost O(P + R), for P
+productions and R rhs occurrences, with O(P + R) auxiliary storage. In contrast,
+a reverse-ordered chain required repeated full production scans.
+
+The public list still follows first lhs occurrence in production order; the
+lookup table contains exactly those names. These are nullable facts, not
+productivity facts. Nonempty-language analysis and FIRST remain separate
+obligations, and the author grammar/tree is not rewritten by this change.
+
+** Executable evidence
+
+[[file:../../t/resolved-grammar-test.ss][Resolved grammar controls]] compare the new result against an independent
+repeated-scan oracle for 512 combinations of three-rule cyclic grammars. Other
+cases cover marked operands, duplicate occurrences, alternative productions,
+terminal blockers, undefined references, first-occurrence ordering and a reverse
+chain of 4096 names.
+Existing selected-override/source-origin diagnostics remain checked. Together
+with the canonical LR reference Suite, 38 Cases passed on the pinned Scheme SDK
+after explicit GCC module compilation.
+
+The real TLA+ layout grammar retains exact complete LRSpec equality against the
+pre-change snapshot: 40 rules, 280 lowered productions and 390 states. Ten
+complete construction samples in each local run had CPU medians 15.068 ms before
+and 14.868 ms after, with no in-call GC. This narrow difference establishes no
+end-to-end speedup. The retained improvement is dependency-bounded analysis,
+with semantic equality controls; it does not imply faster Rust AOT execution,
+FFI transport or whole-language parsing.

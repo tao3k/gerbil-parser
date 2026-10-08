@@ -53,7 +53,7 @@
              (group (take remaining count))
              (rest (drop remaining count))
              (target (string-append binary "__link_" (number->string index) ".c")))
-        (displayln "NATIVE-CONFORMANCE-LINK-GROUP " index " modules=" count)
+        (displayln "CONFORMANCE-LINK-GROUP " index " modules=" count)
         (force-output)
         (run-process/batch
           [gsc "-verbose" "-link"
@@ -64,7 +64,7 @@
 (def (main (owner "conformance"))
   (let* ((library? (equal? owner "library-objects"))
          (source (path-expand (if library?
-                                "t/fixtures/native-ffi/library-closure.ss"
+                                "t/fixtures/ffi/library-closure.ss"
                                 "t/conformance-main.ss")))
          (binary (path-expand (if library? "bin/gerbil-parser-library-objects"
                                            "bin/gerbil-parser-conformance")
@@ -83,7 +83,7 @@
     ;; Public compiler API generates the bootstrap, including admitted identities.
     (compile-exe source [output-file: binary invoke-gsc: #f verbose: #f])
     (let* ((identities (bootstrap-identities stub))
-           (entry (if library? "gerbil-parser/t/fixtures/native-ffi/library-closure"
+           (entry (if library? "gerbil-parser/t/fixtures/ffi/library-closure"
                                "gerbil-parser/t/conformance-main"))
            (_ (unless (member entry identities)
                 (error "native product entry is absent from SDK bootstrap" entry)))
@@ -131,7 +131,7 @@
           (unless (file-exists? (replace-extension source ".o"))
             (error "native library object is missing" source))) sources)
         (if library?
-          (begin (displayln "NATIVE-LIBRARY-OBJECTS-READY") (force-output))
+          (begin (displayln "COMPILED-LIBRARY-OBJECTS-READY") (force-output))
         (let* ((stub-c (replace-extension stub ".c"))
                (stub-object (replace-extension stub ".o"))
                (objects (map (lambda (path) (replace-extension path ".o")) sources))
@@ -149,14 +149,14 @@
                 ;; Library bases omit C main; the final incremental link owns it.
                 (let* ((final? (equal? link-file (last links)))
                        (options (string-append cc-options (if final? "" " -D___LIBRARY"))))
-                  (displayln "NATIVE-CONFORMANCE-LINK-OBJECT " link-file) (force-output)
+                  (displayln "CONFORMANCE-LINK-OBJECT " link-file) (force-output)
                   (run-process/batch [gsc "-verbose" "-cc-options" options "-obj"
                                      "-o" (replace-extension link-file ".o") link-file])
-                  (displayln "NATIVE-CONFORMANCE-LINK-OBJECT-READY " link-file) (force-output))))
+                  (displayln "CONFORMANCE-LINK-OBJECT-READY " link-file) (force-output))))
             ;; SDK objects are reused unchanged; only project objects are built.
             (run-process/batch [(getenv "GERBIL_GCC" "gcc") "-w" "-o" binary
                                objects ... stub-object
                                (map (lambda (path) (replace-extension path ".o")) links) ...
                                (string-append "-Wl,-rpath," library)
                                "-L" library "-lgambit" ld-options ...])
-            (displayln "NATIVE-CONFORMANCE-LINKED " binary) (force-output))))))))
+            (displayln "CONFORMANCE-LINKED " binary) (force-output))))))))

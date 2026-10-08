@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Recognition controls come from the actual Scheme Source engine, including fields and deferred links.
 (import (only-in :gerbil-parser/src/language/source declare-source-language)
-        (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-native-language native-descriptor-payload native-parse-binary-payload)
+        (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload)
         (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :clan/poo/object .o .ref)
         (only-in :gerbil-parser/t/fixtures/bash-products bash-results bash-parts bash-word-regions bash-commands bash-command-scanner)
@@ -61,7 +61,7 @@
    (for-each (lambda (entry)
     (let* ((name (car entry)) (profile (cadr entry)) (sources (caddr entry))
            (strategy (.o (:: self ShellSourceStrategy.) regions: bash-word-regions results: bash-results parts: bash-parts commands: profile scanner: bash-command-scanner))
-           (native (bind-native-language (declare-source-language name "test" "source-native-control" strategy))))
+           (native (bind-language-abi (declare-source-language name "test" "source-native-control" strategy))))
      (display "pub mod " port) (display name port) (display " {\nuse gerbil_parser_runtime::TreeEvent;\n" port)
      (display (command-source-rust-module-source (.o (:: self ShellSourceStrategy.) regions: bash-word-regions results: bash-results parts: bash-parts commands: profile scanner: bash-command-scanner)) port)
      (display "pub static CONTROLS:&[super::Control]=&[\n" port)
@@ -71,9 +71,9 @@
        (let-values (((artifact links) (receipt source (lambda (source) (scan ir source)) "control")))
         ;; These bytes come from the public language-independent ABI codec.
         (emit-bytes native-port (string->utf8 name))
-        (emit-bytes native-port (string->utf8 (native-descriptor-payload native)))
+        (emit-bytes native-port (string->utf8 (abi-descriptor-payload native)))
         (emit-bytes native-port (string->utf8 source))
-        (emit-bytes native-port (native-parse-binary-payload native source))
+        (emit-bytes native-port (abi-parse-binary-payload native source))
         (write-u8 (if (parse-artifact-success? artifact) 1 0) native-port)
         (display "super::Control {source:" port) (write source port)
         (display (if (parse-artifact-success? artifact) ",accepted:true,events:&[" ",accepted:false,events:&[") port)

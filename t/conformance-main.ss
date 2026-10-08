@@ -17,7 +17,7 @@
         (only-in :gerbil-parser/t/resolved-grammar-test resolved-grammar-test)
         (only-in :gerbil-parser/t/language-artifact-test language-artifact-tests)
         (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test)
-        (only-in :gerbil-parser/t/generate-native-language-alignment write-native-language-alignment!)
+        (only-in :gerbil-parser/t/generate-language-abi-alignment write-language-abi-alignment!)
         (only-in :gerbil-parser/t/language-topology-test language-topology-test)
         (only-in :gerbil-parser/t/language-loader-test language-loader-test)
         (only-in :gerbil-parser/t/language-loader-value-test language-loader-value-test)
@@ -74,10 +74,10 @@
     (when program
       (unless (null? args) (error "unexpected research control arguments" args))
       ((cdr program))))
-  (if (equal? name "native-language-alignment")
+  (if (equal? name "language-abi-alignment")
     (begin
       (unless (= (length args) 1) (error "expected native alignment output path" args))
-      (write-native-language-alignment! (car args)) (exit 0))
+      (write-language-abi-alignment! (car args)) (exit 0))
     (if (equal? name "all-language-benchmark")
     (apply benchmark-main (if (null? args) ["1"] args))
     (let (row (assoc name suites))

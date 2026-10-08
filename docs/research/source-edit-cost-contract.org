@@ -40,7 +40,7 @@ Question 2: What makes this a complete-call comparison rather than a token count
 #+begin_src scheme
 ;; The reference does not consume edit history. Both native lanes must publish
 ;; every byte of that reference, including status, digests, IDs and spans.
-(def expected (native-parse-binary-payload language edited-text))
+(def expected (abi-parse-binary-payload language edited-text))
 (call! fresh-handle empty-bytes empty-output)
 (call! session-handle old-bytes old-output)
 (def fresh-receipt (measure-call fresh-handle edited-bytes fresh-output))

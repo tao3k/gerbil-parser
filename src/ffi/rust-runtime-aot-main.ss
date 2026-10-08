@@ -5,7 +5,7 @@
         (only-in :gerbil/runtime/loader set-load-path!)
         (only-in :gerbil-parser/rust-runtime-grammar-support deflanguage)
         (for-syntax :gerbil-parser/rust-runtime-grammar-support)
-        (only-in ./rust-runtime-aot native-rust-runtime-source))
+        (only-in ./rust-runtime-aot rust-runtime-source))
 (export main)
 
 (def (write-generated-source output-path source)
@@ -24,4 +24,4 @@
   (gerbil-load-expander!)
   (write-generated-source
    (cadr arguments)
-   (native-rust-runtime-source (car arguments))))
+   (rust-runtime-source (car arguments))))

@@ -7,7 +7,7 @@ The optional =standalone= feature provides owned VM initialization and shutdown;
 see the standalone host contract below.
 
 A language author generates the Scheme/C entry with
-=generate-native-language-pack= and links that pack through the normal Gerbil
+=generate-language-pack= and links that pack through the normal Gerbil
 builder. Rust declares only the generated factory; the generic ABI functions
 are supplied by =LanguageApi::linked=:
 
@@ -48,16 +48,16 @@ without retaining the previous AST/artifact. Releasing the handle releases
 that history. See the [[file:../../docs/research/scheme-source-edit-sessions.org][Source edit-session research contract]].
 
 Verification uses a real Rust static consumer in
-=t/fixtures/rust-native-language=, linked into the compiled Gerbil probe.
-Run the repository's =scripts/test-native-local.py --suite ffi= or its native
+=t/fixtures/rust-language-abi=, linked into the compiled Gerbil probe.
+Run the repository's =scripts/test-local.py --suite ffi= or its Scheme
 Ubuntu CI. Compile-fail doctests verify the thread and borrow restrictions.
 
-* Native qualification build
+* Rust ABI qualification build
 
-=build-rust-native-tests.ss= uses the official =std/build-script= / =std/make=
+=build-rust-ffi-tests.ss= uses the official =std/build-script= / =std/make=
 owner to compile and link the disposable Rust/C transport probe. Its
 =optimize: #f= setting avoids whole-library optimizer analysis for this test
-entry; Gambit still produces native code. Language packs and parser runtime
+entry; Gambit still produces compiled machine code. Language packs and parser runtime
 objects retain their own optimization settings. =verbose: 9= reports real
 compiler work, and the fixture preloader traces imports throughout the build.
 
@@ -73,7 +73,7 @@ Build the parser package and language pack with their normal Gerbil build owner,
 then compile the language module into one native runtime library:
 
 #+begin_src shell
-python3 scripts/build-native-library.py --language-module my-language/native \
+python3 scripts/build-shared-library.py --language-module my-language/abi \
   --output /absolute/path/libmy_language.so
 #+end_src
 
@@ -117,7 +117,7 @@ it after its borrowers end; =close= permits reporting cleanup errors explicitly.
 Independently retained C resources must also be released before dropping it.
 The default feature set remains suitable for hosts that already own the VM.
 
-=scripts/test-native-host.py= builds independent C and Rust process hosts and
+=scripts/test-runtime-host.py= builds independent C and Rust process hosts and
 requires normal cleanup, live-resource barriers, foreign-thread rejection and
 closed-runtime rejection. Builds retain 90/30 second total/inactivity limits;
 execution retains 90/5 seconds. Build progress reports actual preprocessed, IR,

@@ -1,0 +1,16 @@
+[package]
+name = "rust-language-abi-fixture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[features]
+standalone = ["gerbil-parser-native/standalone"]
+
+[dependencies]
+gerbil-parser-native = { path = "../../../rust/gerbil-parser-native" }
+
+[workspace]

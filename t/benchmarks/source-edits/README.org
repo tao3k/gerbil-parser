@@ -1,6 +1,6 @@
 #+title: Native Source edit cost benchmark
 
-After the normal native package and =build-native-ffi-tests.ss= builds:
+After the normal native package and =build-ffi-tests.ss= builds:
 
 #+begin_src shell
 just benchmark-source-edits 20 128

@@ -20,21 +20,21 @@
 (def gerbil-parser-exclude-modules
   '("scripts/generate-source-parser.ss"
     "scripts/generate-reductions.ss"
-    "scripts/native-preparation-cache.ss"
-    "scripts/tests/native-preparation-test.ss"
-    "build-native-test-driver.ss"
+    "scripts/preparation-cache.ss"
+    "scripts/tests/preparation-test.ss"
+    "build-test-driver.ss"
     "build-language-conformance.ss"
     "build-language-conformance-link.ss"
-    "build-native-ffi-tests.ss"
-    "build-rust-native-tests.ss"
-    "build-native-library.ss"
+    "build-ffi-tests.ss"
+    "build-rust-ffi-tests.ss"
+    "build-shared-library.ss"
     "build-gparse.ss"
     "build-rust-runtime-aot.ss"
     "generate-rust-runtime.ss"
     "src/main.ss"
     "src/cli.ss"
-    "src/ffi/language-native.ss"
-    "src/ffi/rust-runtime-aot-native.ss"
+    "src/ffi/language-abi.ss"
+    "src/ffi/rust-aot-abi.ss"
     "src/ffi/rust-runtime-aot-main.ss"
     "languages/bash/parser-test.ss"
     "languages/arithmetic/parser-test.ss"
@@ -49,7 +49,7 @@
 ;; Homebrew GCC toolchain needs the standard unresolved-symbol policy for an
 ;; FFI bundle; the final AOT consumer resolves these symbols when it links the
 ;; native runtime.
-(def gerbil-parser-native-ffi-specs
+(def gerbil-parser-ffi-specs
   (let ((include-option
          (string-append "-I" (path-expand "include"
                              (path-directory (this-source-file)))))
@@ -59,8 +59,8 @@
           (else '()))))
     (map (lambda (module)
            `(gxc: ,module "-cc-options" ,include-option ,@link-options))
-         '("src/ffi/language-native"
-           "src/ffi/rust-runtime-aot-native"))))
+         '("src/ffi/language-abi"
+           "src/ffi/rust-aot-abi"))))
 
 ;; PackageSpec remains here because the Build API derives project ownership
 ;; from this declaration's source location. Its default native projection owns
@@ -73,7 +73,7 @@
  (spec gerbil-parser-build-spec)
  (exclude-dirs gerbil-parser-exclude-dirs)
  (exclude-modules gerbil-parser-exclude-modules)
- (extra-spec gerbil-parser-native-ffi-specs))
+ (extra-spec gerbil-parser-ffi-specs))
 
 ;; Keep the standard multicall entrypoint at top level. std/build-script owns
 ;; spec/compile/clean and delegates the projection to one std/make scheduler.

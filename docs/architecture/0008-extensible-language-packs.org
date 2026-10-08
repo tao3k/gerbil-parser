@@ -234,7 +234,7 @@ order, field multiplicity or a parser algorithm declaration.
 produces it from Bash's =deflanguage= syntax/rules declaration.
 =LineSourceStrategy.= derives its default result profile from =root-kind= and
 =token-kind= and permits a POO override of =results=. Both use the same node
-and terminal admission path. =generate-native-language-pack= accepts the
+and terminal admission path. =generate-language-pack= accepts the
 source descriptor export through the existing generic handle registration;
 no builtin language dispatcher or handwritten C transport is needed. Source
 parsing currently executes the Scheme engine behind the C ABI. Standalone

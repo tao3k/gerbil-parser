@@ -140,13 +140,13 @@ Question 1: Why does this preserve the Scheme and POO author boundary?
 #+begin_src scheme
 ;; The language product still supplies syntax and construction. Native
 ;; ownership uses the admitted descriptor; editing adds no author clauses.
-(def handle (register-native-language! bash-source-language))
-(native-language-handle-parse handle (string->utf8 "cat <<A\nα\nA\necho end\n"))
-(native-language-handle-parse handle (string->utf8 "echo猫 <<A\nα\nA\necho end\n"))
-(let-values (((scanned reused) (native-language-handle-scan-counts handle)))
+(def handle (register-language! bash-source-language))
+(language-handle-parse handle (string->utf8 "cat <<A\nα\nA\necho end\n"))
+(language-handle-parse handle (string->utf8 "echo猫 <<A\nα\nA\necho end\n"))
+(let-values (((scanned reused) (language-handle-scan-counts handle)))
   (check scanned => 1)
   (check (> reused 0) => #t))
-(release-native-language! handle)
+(release-language! handle)
 #+end_src
 
 Specification admission, context equivalence and byte relocation remain in the
@@ -163,7 +163,7 @@ admit owner and input -> scan candidate -> recognize complete source
                      -> commit candidate history
 #+end_example
 
-The handle's =native-language-handle-parse/publish= invokes its result owner
+The handle's =language-handle-parse/publish= invokes its result owner
 before replacing history. The C callback reports successful allocation and
 copying through that publisher. Invalid input, encoding exceptions, a publisher
 exception or allocation failure therefore cannot advance the stored history.

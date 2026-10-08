@@ -59,13 +59,13 @@
     "t/fixtures/runtime-record-assignments/languages/records/parser"
     "t/fixtures/runtime-record-assignments/languages/records/parser-test"
     "t/test-style-contract-test"
-    "t/generate-native-language-alignment"
+    "t/generate-language-abi-alignment"
     "t/conformance-main"))
 (def (shared-test-module? name)
   (or (string-suffix? "-test" name)
-      (member name '("t/generate-native-language-alignment" "t/conformance-main"
+      (member name '("t/generate-language-abi-alignment" "t/conformance-main"
                      "t/benchmarks/versioned-languages/all-languages"))))
-(def (native-spec modules)
+(def (compiled-spec modules)
   (map (lambda (module)
          `(gxc: ,module "-cc-options" "-v -Q -fopt-info-all")) modules))
 (def (compile-static-tests!)
@@ -100,9 +100,9 @@
   ;; so gxtest imports their Scheme sources rather than an incomplete product.
   (let (modules (filter shared-test-module? conformance-modules))
     (make-clean
-     (append (native-spec modules)
+     (append (compiled-spec modules)
              (map (lambda (module) `(copy: ,(string-append module ".scm"))) modules))
      libdir: (path-expand "lib" (getenv "GERBIL_PATH"))
      srcdir: (path-directory (this-source-file)))))
 ;; Developer multicall build retains the standard native shared-module owner.
-(defbuild-script (native-spec conformance-modules) optimize: #t)
+(defbuild-script (compiled-spec conformance-modules) optimize: #t)

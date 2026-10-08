@@ -76,8 +76,8 @@ The generated =CONTEXTUAL= value runs with
 =gerbil_parser_runtime::parse_contextual(&CONTEXTUAL, source)=; both LR positions
 and deferred scanner state come from shared Scheme IR.
 
-=:gerbil-parser/native-language-support= exports
-=generate-native-language-pack source header module-id grammar-module descriptor-export c-prefix [contextual-export]=.
+=:gerbil-parser/language-abi-support= exports
+=generate-language-pack source header module-id grammar-module descriptor-export c-prefix [contextual-export]=.
 Compile its Scheme output through the normal native builder; C clients call
 the generated =PREFIX_language_create()= then the generic length-bearing
 =gerbil_parser_language_parse(handle, bytes, length, result)= in

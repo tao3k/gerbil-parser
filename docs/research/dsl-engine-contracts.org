@@ -443,7 +443,7 @@ replacing its public root with a tree from equal bytes in another allocation is
 rejected before the sink receives anything.
 
 The Scheme Command Source generator also emits native fixture bytes through
-=bind-native-language= and =native-parse-binary-payload=, using the public codec
+=bind-language-abi= and =abi-parse-binary-payload=, using the public codec
 consumed by the C ABI. CI regenerates both products and compares them to the
 checked-in fixtures. The 54 controls cover the original declaration and a POO
 extension changing the root projection, pipeline role and Unicode form keyword.
@@ -504,7 +504,7 @@ owner; borrowed source, event ordering and byte ranges retain the same contract.
 No recursion limit, source rejection rule or policy threshold is weakened.
 
 The existing runtime crate tests passed after extraction: 135 cases across two
-suites, including Scheme-native Source record comparisons and deep command
+suites, including Scheme Source record comparisons and deep command
 controls. The ASP source policy and exact-head native CI remain separate gates.
 
 Why is this boundary preferable? Execution scheduling can evolve independently
@@ -700,7 +700,7 @@ expectation or FIFO order, and reject changed suffixes and foreign plans.
 No runtime latency improvement is claimed by this admission primitive.
 
 Local qualification of this implementation: the pinned Gerbil 0.19 SDK and
-host GCC 16 compiled the final scanner module; the existing native-suite gate
+host GCC 16 compiled the final scanner module; the existing test-suite gate
 passed both scanner modules (12 deferred-delimiter and 12 contextual cases),
 with final =OK=. Rust runtime passed 137 cases across two suites, and strict
 Clippy for all runtime targets passed. The original 90-second total and
@@ -922,7 +922,7 @@ count =3=. All five native transfer cases and the test-style contract module
 passed locally with final =OK=, zero process status and 13.99 seconds elapsed.
 Policy restrictions and timeout/silence limits remain unchanged; latest-head
 full CI is still a separate gate.
-* Implementation: single-runtime native test preparation and Workers
+* Implementation: single-runtime Scheme test preparation and Workers
 
 The native Suite entry starts one =gxi=. A single preparation owner admits the
 native FFI dependencies and expands each source test module once before any

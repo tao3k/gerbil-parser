@@ -54,15 +54,15 @@ An unsuccessful harness/child process is a failed run even if some cases finish.
 * Existing execution path
 
 #+begin_src sh
-gerbil env gxi build-native-test-driver.ss compile
+gerbil env gxi build-test-driver.ss compile
 GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   GAMBOPT=max-heap=1G,debug=q \
   python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 --log /private/tmp/parser-checkpoint-history.log \
-  --require 'NATIVE-SUITE-OK modules=3' --require '^OK$' \
-  -- gxi t/fixtures/tla-sany-differential/native-suite.ss \
+  --require 'TEST-SUITE-OK modules=3' --require '^OK$' \
+  -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
   t/recognition-snapshot-test.ss t/recovery-incremental-test.ss t/event-program-test.ss
 
-just test-native-local gql
+just test-local gql
 #+end_src
 
 The first command selects functional owners using the shared native harness.

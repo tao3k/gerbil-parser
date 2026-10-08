@@ -13,7 +13,7 @@
         (only-in ../../language-support/fixture syntax-fixture-source syntax-fixture-source-digest syntax-fixture-expected-status)
         (only-in ./parser-ast check-parser-ast)
         (only-in ./language-product language-model-test-receipt
-                 check-language-native-entry check-language-portable-rejection)
+                 check-language-abi-entry check-language-portable-rejection)
         (only-in ../compiler/normalize grammar-ir-ref)
         (only-in ./language-strategy check-language-strategies check-language-installed
                  check-language-fixture-strategies)
@@ -374,7 +374,7 @@
    (test-case label
      (let* ((text source) (accepted? (eq? 'accepted-status 'accepted))
             (artifact (checked-language-source loader text accepted?)))
-       (check-language-native-entry loader text artifact accepted?))))
+       (check-language-abi-entry loader text artifact accepted?))))
   ((_ loader (portable-rejected label module-path message))
    (test-case label (check-language-portable-rejection module-path message)))
   ((_ loader (property label (bindings (name value) ...) (equal actual expected) ...))

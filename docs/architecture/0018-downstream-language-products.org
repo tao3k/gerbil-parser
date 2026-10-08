@@ -19,7 +19,7 @@ expansion evaluation and alias execution are outside its parser contract.
 | Seam | Implemented at the audited head | Missing product behavior |
 |------+---------------------------------+--------------------------|
 | Authoring | Public =rust-runtime-grammar-support.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
-| Generation | =native-rust-runtime-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
+| Generation | =rust-runtime-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
 | Rust runtime | =parse(&LANGUAGE, source)=, generated LR tables, operand fields, lossless Rust syntax events | Contextual/deferred scanner IR parity and generated typed node access |
 | Scanner | Scheme contextual dispatch, balanced-word and deferred FIFO scanner tests | A Bash grammar with structured word interiors and matching Rust execution |
 | Distribution | Independent records Cargo fixture, no Gerbil at parse time | Release/package automation, minimal C product and Rust FFI consumer |
@@ -236,12 +236,12 @@ contracts. The Bash corpus and implementation live in =languages/bash=;
 there is no document-side parser audit, snapshot format or analysis pipeline.
 
 #+begin_src sh
-gerbil env gxi build-native-test-driver.ss compile
+gerbil env gxi build-test-driver.ss compile
 GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   GAMBOPT=max-heap=1G,debug=q \
   python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 --log /private/tmp/parser-bash-source.log \
-  --require 'NATIVE-SUITE-OK modules=1' --require '^OK$' \
-  -- gxi t/fixtures/tla-sany-differential/native-suite.ss languages/bash/parser-test.ss
+  --require 'TEST-SUITE-OK modules=1' --require '^OK$' \
+  -- gxi t/fixtures/tla-sany-differential/test-suite.ss languages/bash/parser-test.ss
 #+end_src
 
 * Shared scanner / contextual AOT / language C ABI implementation
@@ -281,8 +281,8 @@ fixtures belong to the Cargo package, and native CI regenerates/compares all
 three products. No downstream Rust scanner or core builtin dispatch change is
 required. These bounded fixtures do not establish complete Bash AOT support.
 
-The =native-language-support= facade exports =generate-native-language-pack=,
-=register-native-language!= and =release-native-language!=. The generator takes
+The =language-abi-support= facade exports =generate-language-pack=,
+=register-language!= and =release-language!=. The generator takes
 module/export identities and creates a normal Scheme native module plus a C
 header with =PREFIX_language_create(void)=. Each successful create returns a
 new opaque uint64 handle; zero means admission failure. Native package builders
@@ -290,7 +290,7 @@ compile the generated entry with =-I/path/to/gerbil-parser/include=. ELF clients
 link the generic ABI object and selected language entry object explicitly.
 Language/compiler dependencies remain selected by the downstream descriptor.
 
-Module namespaces follow their source paths: =src/ffi/language-native.ss=
+Module namespaces follow their source paths: =src/ffi/language-abi.ss=
 provides the language boundary, and =include/gerbil-parser/language.h= names
 its C contract. Version numbers belong to contract data returned by
 =gerbil_parser_language_abi_version()=, not module paths or C identifiers.
@@ -311,8 +311,8 @@ Gambit ___U64/___S32 declarations, while public headers use uint64_t/int32_t.
 Their widths agree without assuming that the platform's C typedef spellings
 are compatible (unsigned long and unsigned long long differ on Linux LP64).
 
-Performance is measured by =t/benchmarks/native-language/benchmark.ss= through
-=t/native-language-benchmark-test.ss=. The ASP test framework is outside the
+Performance is measured by =t/benchmarks/language-abi/benchmark.ss= through
+=t/language-abi-benchmark-test.ss=. The ASP test framework is outside the
 native C consumer's dependency closure. The fixture's contextual product is
 compiled during macro expansion, then embedded as immutable data; runtime
 language creation prepares its scanner/LR binding once per handle. A repeated
@@ -768,8 +768,8 @@ control. Full SANY proof policy portability remains separate from framing.
 
 ** Source descriptors use the same native result product
 
-An admitted source descriptor now binds through =bind-native-language= and
-=register-native-language!=. Its =ResultProfile.= supplies the native syntax,
+An admitted source descriptor now binds through =bind-language-abi= and
+=register-language!=. Its =ResultProfile.= supplies the native syntax,
 field and terminal domains; grammar descriptors continue to derive these from
 the grammar algebra. Source descriptors reject a contextual parser product
 before binding. The GPA1 buffer, native descriptor v1 and language handle ABI
@@ -812,3 +812,28 @@ claim parser/CST subtree reuse. Lexical failure publishes the normal diagnostic,
 reports no completed scan count (#f), and cannot seed a reusable cache.
 Ordinary non-contextual Source engines call their original declared scanner,
 retain no lexical cache, and also report #f for the scan count and zero reuse.
+
+* Responsibility naming
+
+Scheme Grammar/Parser IR and the parsing engine remain the semantic authority.
+An ABI context holds a descriptor, the existing parser, and field/syntax indices
+for result publication. It does not define a second grammar or parser engine.
+
+| Responsibility | Module or entry |
+|----------------+-----------------|
+| Language pack generation | =src/compiler/language-pack.ss= |
+| Language handles and histories | =src/ffi/language-handles.ss= |
+| C interface | =src/ffi/language-abi.ss= |
+| Result publication context | =src/ffi/language-abi-context.ss= |
+| Result encodings | =src/ffi/event-binary.ss= and =datum-codec.ss= |
+| Rust AOT C interface | =src/ffi/rust-aot-abi.ss= |
+| Scheme test orchestration | =t/fixtures/tla-sany-differential/test-suite.ss= |
+| Content preparation cache | =scripts/preparation-cache.ss= |
+| Shared library build | =build-shared-library.ss= |
+
+Use =abi= for foreign-call and ownership boundaries, =rust-aot= for Rust code
+generation, and =test= for Scheme test ownership. Use =compiled= when distinguishing
+loaded machine-code modules from interpreted source. The Rust
+=gerbil-parser-native= crate is the C ABI host binding; it invokes the Scheme
+runtime. The =gerbil-parser-runtime= crate executes Scheme-generated Rust plans.
+These are separate deployment products with the same Scheme-owned IR authority.

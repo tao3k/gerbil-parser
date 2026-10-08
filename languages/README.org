@@ -441,7 +441,7 @@ updates to a separate object do not rebind an already exported parse procedure;
 create a new loader declaration when defining a different language entry.
 
 The language-independent C ABI currently admits descriptors through
-=register-native-language!=. Its current codec requires a generated
+=register-language!=. Its current codec requires a generated
 =language-grammar= descriptor; Bash source descriptors are not admitted by that
 codec. It does not serialize loader slots or POO callbacks.
 An opaque lexical rejection uses the =unknown= token. GPA1 serialization requires
@@ -486,8 +486,8 @@ capabilities. Extension contracts still run only during loader admission;
 the CST checker runs once for each successful recognition.
 
 The configured descriptor is the product boundary: pass it to
-=register-native-language!= or export it from the module named by
-=generate-native-language-pack=. A prepared contextual native parser applies
+=register-language!= or export it from the module named by
+=generate-language-pack=. A prepared contextual native parser applies
 the same policy; its deferred event publication cannot bypass the CST checker.
 Native descriptor metadata contains =parserPolicy= with identity, branch
 budget, =schemeCstValidation=true= and =portable=false=. The recognition grammar
@@ -525,7 +525,7 @@ language name in the engine nor a custom C dispatcher is required.
 | Product | Engine admission | Downstream responsibility |
 |---+---+---|
 | Scheme | =deflanguage-parser-loader= | Syntax declarations, optional POO services/contracts, conformance fixtures |
-| Native C ABI / Rust native wrapper | =generate-native-language-pack= and =register-native-language!= | Export the configured descriptor, link the generated factory with the normal SDK builder, use generic handle/result ownership |
+| Native C ABI / Rust native wrapper | =generate-language-pack= and =register-language!= | Export the configured descriptor, link the generated factory with the normal SDK builder, use generic handle/result ownership |
 | Independent Rust AOT | =generate-language-rust-runtime-module=, =generate-contextual-language-rust-runtime-module=, or the engine build ABI | Supply an admitted portable descriptor, consume generated Rust with =gerbil_parser_runtime=, compare accepted/rejected artifacts |
 | Engine-bound source parser | =deflanguage= syntax provider, then its configured parser descriptor | Native C ABI publishes the engine result catalog; independent AOT requires an explicitly admitted source product |
 

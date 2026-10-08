@@ -4,12 +4,12 @@
 (def +preloaded-modules+ (make-table test: equal?))
 (def +compiled-files+ (make-table test: equal?))
 
-(def (prefer-native-interfaces!)
+(def (prefer-compiled-interfaces!)
   ;; Called only by the native suite; source benchmark entries retain their
   ;; source overlay. FFI C forms require the compiled module interface.
-  (let (native-root (getenv "GERBIL_PATH" #f))
-    (when native-root
-      (let (library (path-expand "lib" native-root))
+  (let (compiled-root (getenv "GERBIL_PATH" #f))
+    (when compiled-root
+      (let (library (path-expand "lib" compiled-root))
         (when (file-exists? library)
           (add-load-path! library))))))
 
@@ -37,7 +37,7 @@
 ;; Runtime wrappers do not list compile-time imports from .ssi interfaces.
 ;; Use the expander's import parameter to report the real nested admission
 ;; work. Delegate unchanged and restore the parameter on return or exception.
-(def (call-with-native-interface-trace thunk)
+(def (call-with-compiled-interface-trace thunk)
   (let (importer (gx#current-expander-module-import))
     (parameterize
         ((gx#current-expander-module-import
@@ -48,8 +48,8 @@
               context))))
       (thunk))))
 
-(def (import-native-interface! module)
-  (call-with-native-interface-trace
+(def (import-compiled-interface! module)
+  (call-with-compiled-interface-trace
    (lambda ()
      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
 
@@ -76,7 +76,7 @@
     (when (and (not (string-contains module "~"))
                (compiled-file module ".ssi"))
       (displayln "MODULE-IMPORT " module) (force-output)
-      (import-native-interface! module)
+      (import-compiled-interface! module)
       (displayln "MODULE-IMPORTED " module) (force-output))))
 
 ;; Admit compiled dependencies declared by tests and their source helpers.

@@ -3,13 +3,13 @@
 Run from the repository root after the native package build:
 
 #+begin_src shell
-just test-native-local gql .gerbil
+just test-local gql .gerbil
 just benchmark-gql .gerbil
 #+end_src
 
 The language owns =runtime-benchmark-test.ss=, the unchanged ASP runtime
 contract at =runtime/benchmark.ss=, and semantic diagnostic tests at
-=benchmark-profile-test.ss=. CI runs them through native-suite with the rest
+=benchmark-profile-test.ss=. CI runs them through test-suite with the rest
 of the language tests. Both native CI jobs also execute the 40 x 100 component
 and actor diagnostics, preserving sample/summary receipts in the job logs.
 Benchmark support is compiled explicitly, outside the

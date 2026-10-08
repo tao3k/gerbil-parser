@@ -9,7 +9,7 @@ accepted status and exact roundtrip for each admitted accepted source.
 
 #+begin_src sh
 # Compile the native conformance executable after the normal package build.
-gerbil env bash scripts/build-language-conformance-native.sh
+gerbil env bash scripts/prepare-conformance.sh
 for entry in arithmetic bash opencypher fhirpath gql hcl hl7 tla-plus-core tla-plus-layout tla-plus-sany-candidate; do
   gerbil env bash -c '"$GERBIL_PATH/bin/gerbil-parser-conformance" all-language-benchmark 20 "$1"' _ "$entry"
 done

@@ -1,5 +1,5 @@
 ;;; Descriptor-bound policy parity across loader, contextual C ABI and AOT admission.
-(import (only-in :gerbil-parser/t/native-datum-support native-datum-read)
+(import (only-in :gerbil-parser/t/abi-datum-support abi-datum-read)
         :std/test
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (only-in :clan/poo/object .ref)
@@ -15,8 +15,8 @@
                  parse-artifact-success? parse-artifact-valid? parse-artifact-roundtrip
                  parse-artifact-ref)
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
-                 bind-native-language native-descriptor-payload
-                 native-parse-binary-payload native-parse-binary-payload/bytes)
+                 bind-language-abi abi-descriptor-payload
+                 abi-parse-binary-payload abi-parse-binary-payload/bytes)
         (only-in :gerbil-parser/src/compiler/rust-runtime
                  generate-language-rust-runtime-module language-rust-runtime-module-source
                  rust-runtime-module-source)
@@ -97,13 +97,13 @@
     (test-case "contextual native bytes cannot bypass the policy checker"
       (for-each
        (lambda (product)
-         (let* ((language (bind-native-language descriptor product))
+         (let* ((language (bind-language-abi descriptor product))
                 (source "α=1\n") (before calls)
-                (payload (native-parse-binary-payload/bytes language (string->utf8 source))))
+                (payload (abi-parse-binary-payload/bytes language (string->utf8 source))))
            (check calls => (+ before 1))
            (check (u8vector-u32-ref payload 8 little) => 1)
-           (check payload => (native-parse-binary-payload language source))
-           (let* ((metadata (native-datum-read (native-descriptor-payload language)
+           (check payload => (abi-parse-binary-payload language source))
+           (let* ((metadata (abi-datum-read (abi-descriptor-payload language)
                                          ))
                   (policy (hash-get metadata "parserPolicy")))
              (check (hash-get policy "identity") => "records.test-policy.v1")

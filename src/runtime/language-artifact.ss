@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Runtime admission boundary for materialized language IR sidecars.
 
-(import (only-in ./identity sha256-text)
+(import (only-in ./identity sha256-bytes)
         (only-in :std/misc/ports read-all-as-u8vector)
         (only-in :std/encoding/base64 base64-decode)
         (only-in :std/string/utf8 utf8->string)
@@ -67,8 +67,11 @@
   (trace-artifact 'decode expected-schema (u8vector-length compressed))
   (let* ((relative-path (car locator))
          (expected-digest (cadr locator))
-         (serialized (utf8->string (uncompress compressed)))
-         (actual-digest (sha256-text serialized)))
+         (bytes (uncompress compressed))
+         (_uncompressed (trace-artifact 'uncompressed expected-schema (u8vector-length bytes)))
+         (serialized (utf8->string bytes))
+         (_decoded (trace-artifact 'utf8-decoded expected-schema (string-length serialized)))
+         (actual-digest (sha256-bytes bytes)))
     (unless (equal? actual-digest expected-digest)
       (error "compiled language artifact digest mismatch"
              expected-schema expected-digest actual-digest origin))

@@ -15,7 +15,7 @@
                  materialize-compiled-language-artifact/output-dirs)
         (only-in :gerbil-parser/src/compiler/parser-ir compile-parser)
         (only-in :gerbil-parser/src/compiler/lr current-grammar-source-map)
-        (only-in :gerbil-parser/src/runtime/identity sha256-text)
+        (only-in :gerbil-parser/src/runtime/identity sha256-bytes sha256-text)
         (only-in :gerbil-parser/src/runtime/language-artifact
                  compiled-language-artifact-relative-path
                  load-compiled-language-artifact/embedded
@@ -152,6 +152,30 @@
          (load-compiled-language-artifact/embedded
           test-schema locator "not-base64")
          true)))
+    (test-case "byte hashing preserves Unicode artifact identity in sidecars and AOT images"
+      (let* ((value `((schema . ,test-schema) (payload . "λ中😀é\x0;")))
+             (serialized (serialize value)) (bytes (string->utf8 serialized))
+             (digest (sha256-text serialized))
+             (locator (list (compiled-language-artifact-relative-path digest) digest)))
+        (check (sha256-bytes bytes) => digest)
+        (check (load-compiled-language-artifact/embedded
+                test-schema locator (base64-encode (compress bytes compression: 9))) => value)
+        (call-with-temporary-directory
+         (lambda (root)
+           (write-serialized-sidecar root serialized)
+           (check (load-compiled-language-artifact/roots test-schema locator (list root)) => value)))))
+    (test-case "a matching raw digest cannot admit malformed UTF-8 inside an artifact string"
+      (for-each
+       (lambda (invalid)
+         (let* ((prefix (string->utf8
+                         (string-append "((schema . " (object->string test-schema) ") (payload . \"")))
+                (bytes (u8vector-append prefix invalid #u8(34 41 41)))
+                (digest (sha256-bytes bytes))
+                (locator (list (compiled-language-artifact-relative-path digest) digest)))
+           (check-exception
+            (load-compiled-language-artifact/embedded
+             test-schema locator (base64-encode (compress bytes compression: 9))) true)))
+       '(#u8(255) #u8(192 175) #u8(237 160 128) #u8(244 144 128 128) #u8(226 130))))
     (test-case "locator identity prevents absolute and traversal reads"
       (call-with-temporary-directory
        (lambda (root)

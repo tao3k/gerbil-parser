@@ -519,3 +519,35 @@ crate::engine imports. Both findings are repaired rather than suppressed.
 The completed owner layout passed the ASP Rust workspace policy gate (one gate
 test, 4.40 seconds, exit zero) and the same 135 runtime cases. The policy's
 reported warnings were removed through source structure, without exceptions.
+
+** Relative module admission and embedded IR identity
+
+Source-mode test admission now resolves relative symbol imports such as
+=./parser= and =../helper= against the importing source. The module identity is
+derived from the nearest =gerbil.pkg= package declaration. A compiled interface
+uses the existing native dependency loader; a source-only helper follows its
+source imports. This closes the previously missed dependency path without a
+language-specific loader or a second parser entry point.
+
+Embedded artifact decoding retains the uncompressed UTF-8 bytes and computes
+=sha256-bytes= directly. It no longer encodes the decoded string back into bytes
+for identity verification. The largest observed TLA+ contextual IR contains
+3,483,189 uncompressed bytes; removing that repeated conversion eliminates one
+full-buffer conversion and its temporary allocation. No wall-clock runtime
+speedup is claimed. Schema, digest, framing and cache contracts are unchanged.
+
+Actual decompression and UTF-8 completion stages are observable in the existing
+artifact trace. Timeout errors distinguish silence from the total batch budget.
+Neither the 90-second batch limit nor five-second silence limit is relaxed.
+These traces diagnose real completed work; they are not performance evidence.
+
+Final local qualification under the pinned Gerbil SDK and GCC: 14 artifact cases
+and all 57 TLA+ language cases passed with final =OK=. New controls cover Unicode
+identity in sidecar and embedded images, and rejection of five malformed UTF-8
+sequences even when the supplied digest matches the malformed bytes. The earlier
+source-mode loading failure remains recorded above; this result closes that
+local language-suite failure. Ubuntu CI remains a separate admission gate.
+
+CI Rust 1.99 Clippy additionally requires an empty-slice assertion to display its
+value on failure. The generated native fixture reader now uses =assert_eq!=,
+retaining its complete-consumption assertion and all 54 fixture controls.

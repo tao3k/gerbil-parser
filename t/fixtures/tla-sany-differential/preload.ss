@@ -83,22 +83,50 @@
 ;; Reading import forms does not evaluate a helper or replace gxtest's owner.
 (def +preloaded-sources+ (make-table test: equal?))
 
+;;; Relative symbol and string imports have the same native ownership as colon
+;;; imports. Derive the module identity from the nearest actual package manifest.
+(def (source-module-name file)
+  (let ((file (path-normalize file)))
+    (let loop ((directory (path-directory file)))
+      (let (manifest (path-expand "gerbil.pkg" directory))
+        (cond
+         ((file-exists? manifest)
+          (let* ((declaration (call-with-input-file manifest read))
+                 (package (member 'package: declaration)))
+            (and package (pair? (cdr package)) (symbol? (cadr package))
+                 (string-append (symbol->string (cadr package)) "/"
+                   (path-strip-extension
+                    (substring file (string-length directory) (string-length file)))))))
+         ((equal? directory "/") #f)
+         (else (loop (path-directory
+                      (substring directory 0 (- (string-length directory) 1))))))))))
+
+(def (preload-relative-import value source)
+  (let (file (path-normalize
+              (path-expand
+               (if (string-suffix? ".ss" value) value (string-append value ".ss"))
+               (path-directory source))))
+    (when (file-exists? file)
+      (let (module (source-module-name file))
+        (if (and module (compiled-file module ".ssi"))
+          (preload-module module)
+          (preload-test-imports file))))))
+
 (def (preload-import-set value source)
   (cond
    ((symbol? value)
     (let (name (symbol->string value))
-      (when (string-prefix? ":" name)
+      (cond
+       ((string-prefix? ":" name)
         (let (module (substring name 1 (string-length name)))
           ;; A runtime wrapper without its interface is an incomplete build
           ;; product. Let Gerbil import source instead of admitting that wrapper.
           (when (compiled-file module ".ssi")
-            (preload-module module))))))
+            (preload-module module))))
+       ((or (string-prefix? "./" name) (string-prefix? "../" name))
+        (preload-relative-import name source)))))
    ((string? value)
-    (let (file (path-expand
-                (if (string-suffix? ".ss" value) value
-                    (string-append value ".ss"))
-                (path-directory source)))
-      (when (file-exists? file) (preload-test-imports file))))
+    (preload-relative-import value source))
    ((pair? value)
     (for-each (lambda (entry) (preload-import-set entry source)) value))))
 

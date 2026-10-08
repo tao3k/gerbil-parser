@@ -760,3 +760,53 @@ Clippy and the ASP Rust source-policy gate passed. The FIFO convergence test
 now resides under =tests/unit= with explicit imports, repairing the policy
 failure on revision =bc233b8=. These are local receipts, not qualification of
 a subsequent pushed revision. No timeout or silence limit was increased.
+
+** LR fragment transfer admission is a correctness contract
+
+Here, parser state matching concerns a current LR continuation and an actual
+retained grammar nonterminal. It is not support for an obsolete framework or
+language interface. The shared engine keeps exact prepared-runtime and reducer
+identity, entry-state matching and the admitted nonterminal goto/exit state.
+There is no old-architecture adapter or alternate grammar declaration path.
+
+The source owner still certifies unchanged source and lexical entry/exit
+boundaries. The LR injection boundary now independently checks the significant
+terminal yield: kinds, lexemes and relocated UTF-8 start/end coordinates must
+match retained terminal leaves in order. The first transferred token must also
+match the current input token. Equal token count alone is insufficient.
+Private relocation views accumulate offsets without mutating retained fragments.
+Validation completes before a new checkpoint is constructed; rejection leaves
+the original continuation usable.
+
+#+begin_src scheme
+;; Source ownership and lexical boundary checks precede this engine operation.
+;; The fragment represents a grammar production, not an AST kind.
+(def next
+  (lr-checkpoint-inject-fragment current fragment byte-delta significant-tokens))
+(lr-checkpoint-resume next)
+#+end_src
+
+Why is this preferable? Language authors retain declarative syntax/rules; the
+engine validates the transfer using its own grammar structure and continuation.
+They do not write per-language reuse callbacks or repeat parser stack logic.
+Why is it justified? A state/goto match certifies the grammar transition, while
+exact terminal comparison prevents a caller from attaching a retained semantic
+value to different token contents or coordinates. Source and lexical admission
+remain separate obligations; this check alone cannot admit an arbitrary edit.
+
+The validator uses an explicit pending work list over recognition fragments and
+views, including nested relocation. Its work is proportional to visited
+recognition structure plus terminal comparison; lexeme comparison includes text
+length. It adds validation work to each accepted transfer. This is a conservative
+engineering guard motivated by the context/reuse distinction in
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Wagner and Graham]], not their optimal reuse algorithm or complexity bound.
+Rust currently exposes no LR fragment injection API; this change does not claim
+a cross-backend incremental session or AST/CST identity-preserving edit API.
+
+Local qualification (2026-10-08): the engine-only native transfer suite passed
+with final =OK= and zero process status in 4.70 seconds. It compares canonical
+ParseArtifact publication against fresh parsing, exercises a multibyte terminal
+and nonzero relocation, rejects content/kind/coordinate/count/current-input
+mismatches, and reuses the original checkpoint after rejected requests. The
+broader local recognition suite could not load stale language interfaces;
+complete edit/reuse regression remains an exact-head CI gate, not a local claim.

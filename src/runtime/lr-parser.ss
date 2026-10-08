@@ -1181,13 +1181,44 @@
   (vector-ref (lr-runtime-lexical-modes (lr-recognition-fragment-runtime fragment))
               (lr-recognition-fragment-exit-state fragment)))
 
-;;; The source owner has certified unchanged yield and both lexical boundaries.
+;;; Compare retained terminal leaves without projecting the published AST.
+;;; Views accumulate byte relocation; pending siblings keep their own delta.
+(def (same-transfer-token? actual retained delta)
+  (and (token? actual) (token? retained)
+       (eq? (token-kind actual) (token-kind retained))
+       (equal? (token-lexeme actual) (token-lexeme retained))
+       (= (token-start actual) (+ delta (token-start retained)))
+       (= (token-end actual) (+ delta (token-end retained)))))
+
+(def (fragment-yield-matches? fragment delta tokens)
+  (let loop ((pending (list (cons fragment delta))) (rest tokens))
+    (if (null? pending) (null? rest)
+      (let* ((frame (car pending)) (piece (car frame)) (shift (cdr frame)))
+        (cond
+         ((lr-recognition-view? piece)
+          (loop (cons (cons (lr-recognition-view-base piece)
+                            (+ shift (lr-recognition-view-delta piece)))
+                      (cdr pending)) rest))
+         ((lr-recognition-fragment? piece)
+          (loop (append (map (lambda (child) (cons child shift))
+                             (lr-recognition-fragment-children piece))
+                        (cdr pending)) rest))
+         (else
+          (and (pair? rest) (same-transfer-token? (car rest) piece shift)
+               (loop (cdr pending) (cdr rest)))))))))
+
+;;; The source owner certifies unchanged text and both lexical boundaries.
+;;; The LR owner independently verifies the transferred terminal yield.
 ;;; Transfer one actual nonterminal, not an exported AST kind or an LR suffix.
 (def (lr-checkpoint-inject-fragment checkpoint fragment delta significant-tokens)
   (unless (and (lr-checkpoint-fragment-compatible? checkpoint fragment)
                (pair? (lr-checkpoint-rest checkpoint))
+               (pair? significant-tokens)
+               (same-transfer-token? (car significant-tokens)
+                                     (car (lr-checkpoint-rest checkpoint)) 0)
                (positive? (lr-recognition-fragment-token-count fragment))
-               (= (length significant-tokens) (lr-recognition-fragment-token-count fragment)))
+               (= (length significant-tokens) (lr-recognition-fragment-token-count fragment))
+               (fragment-yield-matches? fragment delta significant-tokens))
     (error "uncertified LR fragment transfer"))
   (let* ((piece (lr-recognition-relocate fragment delta))
          (end (recognition-piece-end piece))

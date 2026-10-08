@@ -124,7 +124,7 @@
         (for-each (lambda (source) (displayln "NATIVE-LIBRARY-SOURCE " source)) user-sources)
         (force-output))
       (let* ((includes (unique (map path-directory sources)))
-             (cc-options (string-append "-v -Q -fopt-info-all "
+             (cc-options (string-append "-v -Q -fopt-info-all -ftrack-macro-expansion=0 "
                             (string-join
                               (map (lambda (path) (string-append "-I" path)) includes) " ")))
              (ld-options (call-with-input-file (path-expand "libgerbil.ldd" library) read)))

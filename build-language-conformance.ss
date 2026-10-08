@@ -85,7 +85,7 @@
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
         optimize: #t generate-ssxi: #t static: #t keep-scm: #t
         invoke-gsc: #t
-        cc-options: "-v -Q -fopt-info-all" verbose: #t]))
+        gsc-options: ["-verbose" "-cc-options" "-v -Q -fopt-info-all -ftrack-macro-expansion=0"] verbose: #t]))
    (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
   ;; Test bodies remain source-only here; their native objects belong to the link owner.
   (compile-static-tests!))

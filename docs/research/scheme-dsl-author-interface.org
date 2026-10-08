@@ -880,3 +880,43 @@ split in 37.82 seconds with exit zero under source-owner fences. Its controls
 include exact direct/canonical payload bytes, source descriptors through the
 length-delimited C ABI, symbol indexing, rejected publications and released
 handles. This receipt is not a closed-native ten-second execution claim.
+
+** Compiler-option admission and macro-location overhead
+
+Revision cd7b03f passed Rust AOT but remained unqualified natively. Linux stopped
+while compiling the TLA+ syntax C units, before reporting their first host body.
+macOS stopped during the native publication of list-language. These are distinct
+from the earlier fixture digest and ABI codec failures.
+
+The pinned Gerbil compiler driver reads gsc-options: and separates compiler, C
+and linker arguments. It does not read a cc-options: entry in compile-module's
+option plist. The helper owner now supplies the documented gsc-options: list,
+so real compiler diagnostics reach the existing progress gate.
+
+The Linux SDK compiler command also lacked the macOS SDK's
+-ftrack-macro-expansion=0. GCC documents that its default full macro token-location
+tracking consumes additional memory; this affects diagnostics, not the selected
+optimization level. A matched local control over the same TLA+ generated C file
+failed the five-second silence fence with tracking level two (5.87 seconds, exit
+70), while the SDK's level zero completed with exit zero (9.40 seconds). The
+native object owner now explicitly aligns this option across platforms.
+
+An exploratory Gambit SINGLE_HOST_LIMIT=256 control also completed, but it is
+not the retained implementation: ordinary single-host compilation already passed
+when the macro-location option matched. No host partition, optimization level,
+grammar declaration, parser algorithm or time fence is changed by this repair.
+C macro expansion stack detail is reduced; compiler errors and normal source
+diagnostics remain enabled. Exact-head CI is still the platform qualification.
+
+#+begin_src scheme
+(compile-module helper
+  [invoke-gsc: #t
+   gsc-options: ["-verbose" "-cc-options"
+                 "-v -Q -fopt-info-all -ftrack-macro-expansion=0"]])
+#+end_src
+
+Why is this preferable? One compiler-owned argument list replaces an ignored
+option and keeps build behavior inspectable. Why is it justified? The SDK driver
+provides the admission contract, and the matched negative/positive C controls
+isolate macro tracking without changing generated parser behavior. See GCC's
+[[https://gcc.gnu.org/onlinedocs/cpp/Invocation.html][preprocessor option reference]] for the diagnostic-memory tradeoff.

@@ -1,5 +1,6 @@
 ;;; POO language loaders bind effective inherited slots before engine dispatch.
 (import :std/test
+        (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-source-receipt)
         (for-syntax (only-in :gerbil/expander core-expand))
         (only-in :clan/poo/object .o .ref .cc object?)
         (only-in :clan/poo/mop define-type element? validate)
@@ -122,6 +123,42 @@
 
 (def language-loader-test
   (test-suite "POO language loader admission"
+    (test-case "source schema slots admit ordinary values and native inherited POO"
+      (def template '((schema . "test.source.v1") (namespace . test)
+                     (sourceVersion . "v1") (upstreamCommit . "first")))
+      (deflanguage-parser-loader value-entry (descriptor arithmetic-language-grammar)
+        (parse value-parse) (slots source-schema: template))
+      (def parent (.o schema: "test.source.v1" namespace: 'test
+                      sourceVersion: "v1" upstreamCommit: "first"))
+      (deflanguage-parser-loader inherited-entry (descriptor arithmetic-language-grammar)
+        (parse inherited-parse)
+        (slots source-schema: (.o (:: @ parent) upstreamCommit: "second")))
+      (check (language-parser-source-receipt value-entry '(normalization factoring))
+             => '((schema . "test.source.v1") (namespace . test) (name . factoring)
+                  (kind . normalization) (sourceVersion . "v1") (upstreamCommit . "first")))
+      (check (language-parser-source-receipt inherited-entry 'replacement)
+             => '((schema . "test.source.v1") (namespace . test) (name . replacement)
+                  (sourceVersion . "v1") (upstreamCommit . "second")))
+      (check (language-parser-source-receipt value-entry 'replacement)
+             => '((schema . "test.source.v1") (namespace . test) (name . replacement)
+                  (sourceVersion . "v1") (upstreamCommit . "first")))
+      (check (parse-artifact-success? (value-parse "1 + 2")) => #t)
+      (check (parse-artifact-success? (inherited-parse "1 + 2")) => #t)
+      (check (rejects? (lambda ()
+                       (language-parser-source-receipt value-entry '(unknown factoring)))) => #t))
+    (test-case "malformed source schemas fail at production entry admission"
+      (for-each
+       (lambda (configuration)
+         (check (rejects? (lambda ()
+                  (deflanguage-parser-loader invalid-entry (descriptor arithmetic-language-grammar)
+                    (parse invalid-parse) (slots source-schema: configuration))
+                  invalid-entry)) => #t))
+       '(((schema . "test.source.v1") (namespace . test) (sourceVersion . "v1"))
+         ((schema . "test.source.v1") (namespace . test) (sourceVersion . "v1") (sourceVersion . "v2"))
+         ((schema . "test.source.v1") (namespace . "wrong") (sourceVersion . "v1") (upstreamCommit . "first"))
+         ((schema . "test.source.v1") (namespace . test) (sourceVersion . "v1") (upstreamCommit . ""))
+         ((schema . "test.source.v1") (namespace . test) (sourceVersion . "v1") (upstreamCommit . "first") (typo . 1)))))
+
     (test-case "inherits extensions and binds engine identity and dispatch"
       (check (object? arithmetic-loader) => #t)
       (check (element? LanguageDevelopmentLoaderContract arithmetic-loader) => #t)

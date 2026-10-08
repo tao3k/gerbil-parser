@@ -528,3 +528,60 @@ but failed the five-second output-silence fence before process completion. Earli
 cold/incremental object attempts also failed that fence, and one complete build
 exceeded 240 seconds. The semantic receipts and completed C-size comparison do
 not supersede those negative build receipts or establish exact-head CI closure.
+
+** Declarative source schemas at the parser entry
+
+Moving twelve expanded provenance records into parser.ss preserved duplication.
+The entry now declares one source-schema slot, using the existing slots interface.
+The common source-schema library admits either an ordinary value or a native POO
+object; object inheritance supplies effective fields without a second composition
+language. Each receipt supplies only its independent name and optional kind.
+The parser's sealed schema slot remains its engine identity. source-schema is a
+separate extension describing provenance records, not AST recognition or dispatch.
+
+#+begin_src scheme
+(deflanguage-parser-loader query-entry
+  (grammar query-syntax)
+  (parse parse-query)
+  (slots
+    source-schema: '((schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+                     (namespace . query)
+                     (sourceVersion . "pinned-source-version")
+                     (upstreamCommit . "immutable-source-commit"))
+    metadata: '((language . "query") (version . "release-version")
+                (contract . "query.syntax.v1"))))
+(language-parser-source-receipt query-entry '(normalization factoring))
+;; Question 1: Why is this design better?
+;; Shared record fields are declared once. Normal values need no object wrapper;
+;; POO inheritance is available for schema extension. Language-specific rule
+;; transformations remain authored in grammar.ss, with no engine special case.
+;; Question 2: Why is this scientifically defensible?
+;; Entry admission checks field types, completeness and distinct value keys.
+;; Independent witnesses check exact output for ordinary and inherited values,
+;; reject malformed configurations, and preserve parser behavior. Cypher still
+;; compares declared expected receipts with the compiler's admitted Bound IR.
+#+end_src
+
+The source version in this configuration is independent of the parser release
+version. Common construction does not infer upstream identity from a release
+label. No retired receipt constants or compatibility export aliases remain.
+
+The schema library depends only on standard list operations and native POO
+access. It does not import loader identity, parser dispatch, or a language
+catalog. Configuration validation therefore does not require parser startup.
+The receipt renderer constructs an expected record; it does not authenticate a
+compiler transformation or replace Bound IR source evidence.
+
+*** Qualification boundary
+
+Focused Scheme controls for the current schema library completed in 5.76 seconds
+with exit status zero under the existing 240-second source-owner and 5-second
+silence fences. Independently specified records matched for ordinary values and
+inherited POO values; five malformed configurations and an unknown provenance
+kind were rejected. This receipt does not qualify the native conformance child
+or establish a parser throughput improvement. Production-entry admission and
+Cypher Bound IR assertions are committed tests whose full native execution
+remains gated by the unresolved conformance build. Earlier attempts reached the
+assertions but failed during process exit; their final markers alone were not
+accepted as successful runs. The focused run uses the existing disposable test
+child exit contract after all assertions and buffered results complete.

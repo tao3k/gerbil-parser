@@ -2,6 +2,7 @@
 ;;; Common parsing entry without corpus, test or build dependencies.
 
 (import ./loader-identity
+        (only-in ./source-schema source-schema? source-schema-receipt)
         (only-in ../src/language/entry parse-language-source call-with-language-parser-policy)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
@@ -17,7 +18,8 @@
                  source-language-contract source-language-language
                  source-language-version source-language-digest source-language-scanner-factory))
 (export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
-        +language-parser-entry-schema+ language-parser-entry-ref language-metadata-ref parse-language-source)
+        +language-parser-entry-schema+ language-parser-entry-ref language-metadata-ref parse-language-source
+        language-parser-source-receipt)
 
 (def (loader-shape? candidate)
   (and (object? candidate)
@@ -39,6 +41,8 @@
                 (and (list? grammars) (memq descriptor grammars)
                      (every (lambda (grammar)
                               (or (language-grammar? grammar) (source-language? grammar))) grammars)))
+              (or (not (.slot? candidate 'source-schema))
+                  (source-schema? (.ref candidate 'source-schema)))
               (loader-metadata? (.ref candidate 'metadata) descriptor)
 ))))
 
@@ -208,3 +212,9 @@
              (descriptor normalized-descriptor) (parse parse-binding)
              slot-section contract-section))))
     (_ (raise-syntax-error #f "invalid language loader declaration" stx))))
+
+;;; Source schema is admitted with the entry, separate from parser dispatch.
+(def (language-parser-source-receipt entry provenance)
+  (let (configuration (language-parser-entry-ref entry 'source-schema))
+    (unless configuration (error "parser entry has no source schema" entry))
+    (source-schema-receipt configuration provenance)))

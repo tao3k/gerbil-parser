@@ -2,14 +2,19 @@
 (import :std/test
         (only-in :gerbil-parser/src/runtime/source-scanner
                  make-source-scanner source-scanner-tokens source-scanner-initial-state source-scanner-step
-                 source-scan-state-with-context source-scan-state-byte-offset)
+                 source-scan-state-with-context source-scan-state-byte-offset
+                 make-source-scan-session source-scan-session-tokens
+                 source-scan-session-scanned-token-count source-scan-session-reused-token-count)
         (only-in :gerbil-parser/src/runtime/token token-start token-end token-kind token-lexeme)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scan-state-context)
         (only-in :gerbil-parser/src/runtime/contextual-scanner
                  +empty-delimiter-queue+ delimiter-queue-enqueue delimiter-queue-take
                  delimiter-queue-list delimiter-obligation-marker delimiter-obligation-quoted?
                  contextual-scan-state-canonical decode-marker)
-        (only-in :gerbil-parser/src/language/source source-language-scanner-factory))
+        (only-in :gerbil-parser/src/language/source source-language-scanner-factory
+                 parse-source-language parse-source-language/session source-language-session-artifact
+                 source-language-session-scanned-token-count source-language-session-reused-token-count)
+        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success?))
 (import (only-in :gerbil-parser/languages/bash/parser bash-source-language))
 (def (pending-markers state)
  (map car (cdr (assq 'pending (contextual-scan-state-canonical state)))))
@@ -17,6 +22,60 @@
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-scanner-test
   (test-suite "source scanner worker ownership"
+    (test-case "Bash sessions reuse lexical suffixes and publish full fresh-parser parity"
+      (let* ((old (parse-source-language/session bash-source-language "cat <<A\nα\nA\necho end\n"))
+             (source "echo猫 <<A\nα\nA\necho end\n")
+             (next (parse-source-language/session bash-source-language source old))
+             (later-source "echo猫 <<A\nα\nA\necho 終わり\n")
+             (later (parse-source-language/session bash-source-language later-source next)))
+        (check (parse-artifact-success? (source-language-session-artifact next)) => #t)
+        (check (source-language-session-artifact next) => (parse-source-language bash-source-language source))
+        (check (source-language-session-scanned-token-count next) => 1)
+        (check (source-language-session-reused-token-count next)
+               => (- (source-language-session-scanned-token-count old) 1))
+        ;; The second edit consumes checkpoints rebound by the first edit.
+        (check (source-language-session-artifact later) => (parse-source-language bash-source-language later-source))
+        (check (> (source-language-session-reused-token-count later) 0) => #t)))
+    (test-case "changed quoted delimiter waits for the obligation to close before reuse"
+      (let* ((old (parse-source-language/session bash-source-language "cat <<A\nα\nA\necho end\n"))
+             (source "cat <<'A'\nα\nA\necho end\n")
+             (next (parse-source-language/session bash-source-language source old)))
+        (check (source-language-session-artifact next) => (parse-source-language bash-source-language source))
+        (check (source-language-session-scanned-token-count next) => 7)
+        (check (source-language-session-reused-token-count next) => 4)))
+    (test-case "source session cache owns tokens and rejects ordinary callback reuse"
+      (let* ((factory (source-language-scanner-factory bash-source-language))
+             (text (string-copy "cat <<A\nα\nA\n"))
+             (old (make-source-scan-session (factory text) 'command))
+             (published (source-scan-session-tokens old)))
+        (string-set! text 0 #\X)
+        (string-set! (token-lexeme (car published)) 0 #\X)
+        (vector-set! (car published) 2 999)
+        (check (token-lexeme (car (source-scan-session-tokens old))) => "cat")
+        (let* ((next (make-source-scan-session (factory "echo猫 <<A\nα\nA\n") 'command old))
+               (fresh (source-scanner-tokens (factory "echo猫 <<A\nα\nA\n") 'command)))
+          (check (source-scan-session-tokens next) => fresh)
+          (check (source-scan-session-scanned-token-count next) => 1)
+          (check (> (source-scan-session-reused-token-count next) 0) => #t))
+        (let* ((calls 0)
+               (worker (make-source-scanner "xy" #f
+                         (lambda (_source start context _mode)
+                           (set! calls (+ calls 1))
+                           (if (= start 2) (values #f start context)
+                             (values 'character (+ start 1) context)))))
+               (first (make-source-scan-session worker 'ordinary))
+               (second (make-source-scan-session worker 'ordinary first)))
+          (check calls => 6)
+          (check (source-scan-session-reused-token-count second) => 0))))
+    (test-case "lexical rejection publishes the original diagnostic and retains no cache"
+      (let* ((bad-source "echo 'unterminated")
+             (bad (parse-source-language/session bash-source-language bad-source))
+             (good (parse-source-language/session bash-source-language "echo ok\n" bad)))
+        (check (source-language-session-artifact bad) => (parse-source-language bash-source-language bad-source))
+        (check (parse-artifact-success? (source-language-session-artifact bad)) => #f)
+        (check (source-language-session-scanned-token-count bad) => #f)
+        (check (source-language-session-reused-token-count good) => 0)
+        (check (source-language-session-artifact good) => (parse-source-language bash-source-language "echo ok\n"))))
     (test-case "shared FIFO preserves order and branches without copying the pending prefix"
       (let* ((a (decode-marker 'raw "A" #f)) (b (decode-marker 'raw "B" #f))
              (first (delimiter-queue-enqueue +empty-delimiter-queue+ a))

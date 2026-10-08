@@ -8,7 +8,9 @@
         (only-in :gerbil-parser/src/compiler/rust-scanner command-source-rust-module-source)
         (only-in :gerbil-parser/t/fixtures/bash-products bash-results bash-parts bash-word-regions bash-commands bash-command-scanner)
         (only-in :gerbil-parser/src/runtime/source-engines ShellSourceStrategy.)
-        (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language source-language-digest source-language-contextual-ir)
+        (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language source-language-digest source-language-contextual-ir
+                 parse-source-language/session source-language-session-artifact
+                 source-language-session-scanned-token-count source-language-session-reused-token-count)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-success? parse-artifact-roundtrip)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader. declare-language-source-scan-worker make-language-scan-worker)
         (only-in :gerbil-parser/src/runtime/source-scanner source-scanner-tokens)
@@ -24,6 +26,16 @@
 (def (rejects? thunk) (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-strategy-test
  (test-suite "source recipe reuse and ownership"
+  (test-case "ordinary Source sessions preserve the declared scanner and do not admit reuse"
+   (let* ((old (parse-source-language/session notes-source "#old\n"))
+          (next (parse-source-language/session notes-source "#new\n" old)))
+     (check (source-language-session-artifact next) => (parse-source-language notes-source "#new\n"))
+     (check (source-language-session-scanned-token-count next) => #f)
+     (check (source-language-session-reused-token-count next) => 0)
+     (check (rejects? (lambda ()
+                       (parse-source-language/session
+                        (declare-source-language "foreign" "v1" "foreign.v1" LineSourceStrategy.)
+                        "#new\n" old))) => #t)))
   (test-case "one compilation supplies both identity and executable source product"
    (let ((classifications 0) (compilations 0))
     (let-values (((recipe engine) (bind-source-strategy LineSourceStrategy.)))

@@ -5,6 +5,8 @@
 (import (only-in ../compiler/contextual-program contextual-program-ir)
         (only-in ../runtime/artifact
                  parse-artifact-ref parse-artifact-valid? sha256-text)
+        (only-in ../runtime/source-scanner source-scanner-contextual? make-source-scan-session source-scan-session-tokens
+                 source-scan-session-scanned-token-count source-scan-session-reused-token-count)
         (only-in ./source-strategy bind-source-strategy source-engine-scanner source-engine-factory
                  source-engine-parse source-engine-receipt source-engine-results source-engine-root-kind source-engine-program)
         (only-in ./result-profile result-plan-catalog))
@@ -16,7 +18,9 @@
         source-language-contract
         source-language-digest source-language-result-catalog source-language-root-kind source-language-contextual-ir
         source-language-scanner-factory parse-source-language parse-source-language/receipt
-        deflanguage-parser-receipt)
+        deflanguage-parser-receipt
+        parse-source-language/session source-language-session? source-language-session-artifact
+        source-language-session-scanned-token-count source-language-session-reused-token-count)
 
 (def +source-language-schema+ "gerbil-parser.source-language.v1")
 
@@ -91,3 +95,37 @@
       (source-language-factory definition) (source-language-receipt definition)
       (source-language-results definition) (source-language-root-kind definition)
       (source-language-program definition))))
+
+;;; Source sessions reuse only certified lexical suffixes. Recognition and
+;;; canonical publication run through the existing engine on the new source.
+(defstruct source-language-session (descriptor snapshot artifact))
+(def (source-language-session-scanned-token-count session)
+  (let (snapshot (source-language-session-snapshot session))
+    (and snapshot (source-scan-session-scanned-token-count snapshot))))
+(def (source-language-session-reused-token-count session)
+  (let (snapshot (source-language-session-snapshot session))
+    (if snapshot (source-scan-session-reused-token-count snapshot) 0)))
+(def (parse-source-language/session descriptor source (previous #f))
+  (unless (and (source-language? descriptor) (string? source)
+               (or (not previous)
+                   (and (source-language-session? previous)
+                        (eq? descriptor (source-language-session-descriptor previous)))))
+    (error "source session requires the same language declaration"))
+  (let* ((owned (string-copy source))
+         (worker ((source-language-factory descriptor) owned))
+         (snapshot #f)
+         (artifact
+          ((source-language-parse descriptor) owned
+           (lambda (requested)
+             (unless (eq? requested owned) (error "source session scanner received foreign input"))
+             (if (source-scanner-contextual? worker)
+               (begin
+                 (set! snapshot (make-source-scan-session worker #f
+                                 (and previous (source-language-session-snapshot previous))))
+                 (source-scan-session-tokens snapshot))
+               ((source-language-scanner descriptor) requested)))
+           (source-language-digest descriptor))))
+    ;; A lexical failure is handled by the original parser's diagnostic path;
+    ;; it produces no cache and cannot authorize reuse in the next edit.
+    (validate-source-publication! descriptor owned artifact)
+    (make-source-language-session descriptor snapshot artifact)))

@@ -14,7 +14,8 @@
                  contextual-scanner-step contextual-scan-state-byte-offset
                  contextual-scan-state-mode contextual-scan-state-canonical
                  restore-contextual-scan-state contextual-scan-state-converged?
-                 contextual-scanner-replay-prefix contextual-scan-state-with-mode)
+                 contextual-scanner-replay-prefix contextual-scan-state-with-mode
+                 prepare-contextual-scan-suffix contextual-scan-suffix-state)
         (only-in :gerbil-parser/src/runtime/token
                  token-kind token-lexeme token-start token-end))
 (export contextual-deferred-scanner-test)
@@ -149,6 +150,19 @@
              (check (contextual-scan-state-converged? old new) => #t)
              (check (trace a old (contextual-scan-state-byte-offset old))
                     => (trace b new (contextual-scan-state-byte-offset new)))
+             (let (proof (prepare-contextual-scan-suffix old new))
+               (let-values (((body old-next) (contextual-scanner-step a old 'command)))
+                 (let-values (((body new-next) (contextual-scanner-step b new 'command)))
+                   (let (rebound (contextual-scan-suffix-state proof old-next))
+                     (check (contextual-scan-state-canonical rebound) => (contextual-scan-state-canonical new-next))
+                     (check (trace b rebound (contextual-scan-state-byte-offset new))
+                            => (trace b new-next (contextual-scan-state-byte-offset new))))))
+               (for-each
+                (lambda (outside)
+                  (check (with-catch (lambda (condition) (error-message condition))
+                           (lambda () (contextual-scan-suffix-state proof outside) #f))
+                         => "checkpoint is outside the admitted scanner suffix"))
+                (list (contextual-scanner-initial-state a) new)))
              ;; Each adversarial receipt changes lexical context with the same suffix.
              (for-each
               (lambda (replacement)

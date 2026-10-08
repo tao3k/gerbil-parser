@@ -775,3 +775,31 @@ closed profiles and match Scheme controls, as described in
 Source engine. Full Rust ParseArtifact identity, diagnostics and native binding
 remain separate from recognition/event parity. Construction field sets constrain
 publication but do not yet express field cardinality.
+
+** Scheme Source edit sessions
+
+Applications may keep a Source session without adding scanner code to a language
+repository. =parse-source-language/session= takes the same source descriptor on
+every edit and returns an opaque session whose artifact uses the normal Source
+publication contract:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/src/language/source
+                 parse-source-language/session source-language-session-artifact
+                 source-language-session-scanned-token-count
+                 source-language-session-reused-token-count))
+(def initial (parse-source-language/session bash-source-language "cat <<A\nα\nA\n"))
+(def edited (parse-source-language/session bash-source-language "echo猫 <<A\nα\nA\n" initial))
+(source-language-session-artifact edited)
+(source-language-session-scanned-token-count edited) ; 1
+(source-language-session-reused-token-count edited)  ; remaining lexical tokens
+#+end_src
+
+The engine scans the changed prefix and admits a suffix only after independently
+reached scanner states converge, including deferred delimiter attributes. It
+then runs recognition and publishes the complete artifact for the new source.
+The counts describe scanner execution and copied lexical records; they do not
+claim parser/CST subtree reuse. Lexical failure publishes the normal diagnostic,
+reports no completed scan count (#f), and cannot seed a reusable cache.
+Ordinary non-contextual Source engines call their original declared scanner,
+retain no lexical cache, and also report #f for the scan count and zero reuse.

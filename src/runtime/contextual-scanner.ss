@@ -29,6 +29,9 @@
         contextual-scan-state-canonical
         contextual-scan-state-converged?
         contextual-scanner-replay-prefix
+
+        contextual-scan-state-source-length contextual-scan-state-common-suffix-length
+        prepare-contextual-scan-suffix contextual-scan-suffix-state
         restore-contextual-scan-state)
 
 ;;; Compiler products bind this semantic opcode contract. Changing opcode
@@ -361,6 +364,44 @@
    (contextual-scan-state-pending state)
    (contextual-scan-state-active state)
    (contextual-scan-state-expecting state)))
+
+(def (contextual-scan-state-source-length state)
+  (string-length (contextual-scanner-source (contextual-scan-state-scanner state))))
+
+;;; Alignment reads only engine-owned snapshots, never caller-mutable strings.
+(def (contextual-scan-state-common-suffix-length before after)
+  (let ((left (contextual-scanner-source (contextual-scan-state-scanner before)))
+        (right (contextual-scanner-source (contextual-scan-state-scanner after))))
+    (let loop ((i (- (string-length left) 1)) (j (- (string-length right) 1)) (count 0))
+      (if (and (>= i 0) (>= j 0) (char=? (string-ref left i) (string-ref right j)))
+        (loop (- i 1) (- j 1) (+ count 1)) count))))
+
+;;; Opaque proof binds two independently reached boundaries. The source worker
+;;; supplies the same fixed parser position for the old and new continuations.
+(defstruct contextual-scan-suffix (before after))
+(def (prepare-contextual-scan-suffix before after)
+  (and (contextual-scan-state-converged? before after)
+       (make-contextual-scan-suffix before after)))
+
+;;; Only states from the admitted old continuation may be rebound. Prefix
+;;; checkpoints remain foreign; no matching-prefix restart is authorized here.
+(def (contextual-scan-suffix-state suffix state)
+  (unless (and (contextual-scan-suffix? suffix) (contextual-scan-state? state))
+    (error "invalid contextual suffix state"))
+  (let ((before (contextual-scan-suffix-before suffix))
+        (after (contextual-scan-suffix-after suffix)))
+    (unless (and (eq? (contextual-scan-state-scanner before) (contextual-scan-state-scanner state))
+                 (<= (contextual-scan-state-character-offset before) (contextual-scan-state-character-offset state))
+                 (<= (contextual-scan-state-byte-offset before) (contextual-scan-state-byte-offset state)))
+      (error "checkpoint is outside the admitted scanner suffix"))
+    (make-contextual-scan-state
+     (contextual-scan-state-scanner after)
+     (+ (contextual-scan-state-character-offset state)
+        (- (contextual-scan-state-character-offset after) (contextual-scan-state-character-offset before)))
+     (+ (contextual-scan-state-byte-offset state)
+        (- (contextual-scan-state-byte-offset after) (contextual-scan-state-byte-offset before)))
+     (contextual-scan-state-mode state) (contextual-scan-state-pending state)
+     (contextual-scan-state-active state) (contextual-scan-state-expecting state))))
 
 (def (same-delimiter-obligation? left right)
   (or (eq? left right)

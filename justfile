@@ -4,6 +4,14 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 test-native-preparation:
     GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/native-preparation-test.ss
 
+# Build the shared helper through its native owner before loading source suites.
+test-native-workers output=".data/native-worker-controls":
+    mkdir -p "{{output}}"
+    gerbil compile -O t/fixtures/tla-sany-differential/worker-control.ss
+    bash scripts/tests/native-workers.sh 2>&1 | tee "{{output}}/workers.log"
+    test "$(rg -c '^WORKER-CONTROL-OK ' '{{output}}/workers.log')" -eq 5
+    rg --quiet '^OK$' "{{output}}/workers.log"
+
 # Compile the suite's own fixtures, not only its import declarations.
 build-event-fold-native output load_path:
     mkdir -p "{{output}}"

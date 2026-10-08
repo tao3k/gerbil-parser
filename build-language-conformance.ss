@@ -6,6 +6,7 @@
         (only-in :gerbil/compiler compile-module))
 (def conformance-modules
   '("t/fixtures/fixture-release"
+    "t/fixtures/tla-sany-differential/worker-control"
     "t/fixtures/grammar-composition-models"
     "t/fixtures/language-pack-research/package-expression-runtime"
     "t/fixtures/language-pack-research/composition-history"

@@ -490,3 +490,23 @@ retained; the direct engine controls do not turn it into a full language-suite
 pass. Remote revision =07e1e5c= independently corrects native compiler option
 admission and disables GCC macro diagnostic tracking; this slice rebases onto it.
 The generated-algorithm consolidation remains a separate structural correction.
+
+** Source execution and publication ownership
+
+The canonical Source record implementation exceeded the Rust source-owner
+policy at revision e62b77b (1021 lines). The repair separates responsibilities:
+command_source.rs owns cursor/task execution and its frame budget; the private
+command_source/publication.rs module owns CommandParse, CommandEvent and the
+iterative event walk. The parent re-exports the existing public types, preserving
+consumer paths. Request construction fields are visible only to the parent
+owner; borrowed source, event ordering and byte ranges retain the same contract.
+No recursion limit, source rejection rule or policy threshold is weakened.
+
+The existing runtime crate tests passed after extraction: 135 cases across two
+suites, including Scheme-native Source record comparisons and deep command
+controls. The ASP source policy and exact-head native CI remain separate gates.
+
+Why is this boundary preferable? Execution scheduling can evolve independently
+from canonical event publication while both keep one request-owned result. Why
+is it justified? The existing event-parity and deep-input controls execute the
+same public interface after a responsibility-only extraction.

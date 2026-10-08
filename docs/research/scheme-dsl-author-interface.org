@@ -944,3 +944,37 @@ Why is this preferable? Console throughput cannot decide parser admission. Why
 is it justified? The negative/positive control isolates queued-byte handling,
 while the unchanged timeout controls still reject stalled or over-budget work.
 Full native CI remains the integration qualification.
+
+** Observe compiler work before changing artifact representation
+
+Revision 9dc3247 still failed the native object owner on both platforms. macOS
+retained an unfinished HCL Scheme-to-C translation after the other workers
+completed; Linux retained GQL and TLA+ C compilation. The existing verbose
+translation trace did not expose all work on the large module expressions.
+
+Gambit's documented gc-report-set! reports real collections, allocation, heap
+size and live data. The translation owner now enables this report and unbuffered
+stdout in the compiler process. It does not force collections, change heap
+settings, alter generated code or increase either deadline. A fresh optimized
+HCL control completed and its C product matched the control byte for byte.
+
+#+begin_src scheme
+(port-settings-set! (current-output-port) (list buffering: #f))
+(gc-report-set! #t)
+#+end_src
+
+Why is this preferable? Compiler-owned reports expose work already taking place
+without adding a timer or a second progress protocol. Why is it justified?
+Identical generated C separates observation from parser semantics. The reports
+also let allocation and collection costs be measured rather than treating GC
+as evidence of poor parser performance. See the Gambit manual's
+[[https://gambitscheme.org/4.9.7/manual/#Procedures-related-to-debugging][debugging procedures]] and
+[[https://gambitscheme.org/4.9.7/manual/#Object_002dport-settings][object-port settings]].
+
+An isolated GQL encoding control replaced the compressed Base64 literals with
+raw homogeneous bytevector literals. Both single-unit translations exceeded
+the existing silence fence without collection reports. With real collection
+reports the bytevector control completed in 14.98 seconds, but emitted 6.6 MiB
+of C versus the current image's 6.2 MiB. This encoding is not retained: shorter
+runtime byte storage alone does not establish lower compiler cost. Platform CI
+remains necessary; collection reports do not repair a silent C compiler phase.

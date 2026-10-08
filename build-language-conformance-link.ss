@@ -5,6 +5,11 @@
         (only-in :std/sync/wg make-wg wg-add! wg-wait!)
         (only-in :std/misc/process run-process/batch))
 
+;; Report actual compiler GC work while large immutable images are lowered.
+;; This changes the compiler process diagnostics, never generated program code.
+(def compiler-progress-expression
+  "(begin (port-settings-set! (current-output-port) (list buffering: #f)) (gc-report-set! #t))")
+
 (def (unique paths)
   (delete-duplicates/hash paths from-end?: #t))
 (def (replace-extension path extension)
@@ -135,7 +140,8 @@
               ;; One worker owns translation and its object; no global phase barrier.
               (when (newer? source c-file)
                 (displayln "STATIC-TRANSLATE " source) (force-output)
-                (run-process/batch [gsc "-verbose" "-c" "-o" c-file source])
+                (run-process/batch [gsc "-verbose" "-c" "-o" c-file
+                                    "-e" compiler-progress-expression source])
                 (displayln "STATIC-TRANSLATED " source) (force-output))
 
               (when (newer? c-file target)

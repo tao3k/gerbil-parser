@@ -4,6 +4,21 @@
 Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
 Existing dated receipts retain their original revision and scope.
 
+* Current scope at de8bef5
+
+The current Rust Source implementation is split across
+=rust/gerbil-parser-runtime/src/engine/command_source/mod.rs=,
+=execution.rs= and =publication.rs=. =CommandExecution=/=CommandRequest= remain
+in =command_program.rs=. Historical receipt counts below apply to their recorded
+slices, not to this source audit or a newly executed test run.
+
+Source continuations, iterative destruction and canonical accepted-event fixture
+parity are implemented. Scheme scanner edit sessions and LR fragment transfer
+also exist, under [[file:dsl-lr-transfer.org][separate admission contracts]]. Their existence does not establish
+general Rust Source subtree reuse, complete diagnostic transport or deep live C
+handle parity. The concrete next work is defined in
+[[file:dsl-engine-contracts.org::*Next implementation sequence][the integrated implementation sequence]].
+
 * Implementation: origins and Source continuation closure
 
 The implementation extends the selected source map into repetition diagnostics:
@@ -53,9 +68,11 @@ was missing; building that existing conformance helper resolved it without a
 backend or timeout change. No end-to-end runtime speedup or cold full-package
 build improvement is claimed. Exact rebased-head CI is a separate gate.
 
-The next engine work is full Source ParseArtifact/C ABI ownership and diagnostic
-parity, then scanner checkpoint/edit mapping and parser subtree boundary admission.
-The proposed incremental mechanism remains unimplemented.
+At the time of this receipt, canonical publication, ABI parity and incrementality
+were next steps. Subsequent sections record canonical accepted-event parity;
+[[file:dsl-lr-transfer.org][the transfer study]] records Scheme scanner sessions and LR fragment admission.
+Remaining cross-target obligations include diagnostic transport, Rust GPA1
+encoding, deep live C handle ownership and general Rust Source subtree reuse.
 
 * Implementation: canonical Source publication and shared lexer preparation
 

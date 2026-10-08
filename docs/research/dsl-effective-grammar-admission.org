@@ -4,13 +4,32 @@
 Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
 Existing dated receipts retain their original revision and scope.
 
-* Second study: admission, suspension and reuse
+* Current status at de8bef5
 
-** Current revision and existing mechanisms
+The historical design below motivated work that is partly implemented. Use
+[[file:dsl-engine-contracts.org::*Current implementation map][the current implementation map]] and the owning implementation sections before
+turning an old proposal into a new task.
 
-This study inspects =2577253f96b2b5993706c939dbe5088ae0d56a3a=. The original
-observations above retain their historical scope. The following proposals are
-not runtime changes or new benchmark results.
+- Selected repetition occurrences and finite nullable reference origins are
+  implemented; see [[file:dsl-source-execution.org::*Implementation: origins and Source continuation closure][origin and continuation closure]].
+- Source/Command suspension and iterative result destruction are implemented in
+  =command_source/execution.rs= and =result_projection.rs=. Their live-frame
+  budget is not a complete byte/work budget.
+- Scheme scanner session reuse and LR fragment transfer have separate admission
+  controls; see [[file:dsl-lr-transfer.org][the LR transfer contract]]. General Rust Source subtree reuse
+  and full mapped artifact publication remain separate work.
+- [[*Dependency-driven nullable closure (2026-10-09)][Dependency-driven nullable closure]] is implemented in the existing LR owner.
+  Productivity, general target choice proofs and helper/conflict origin
+  serialization remain design obligations.
+
+* Historical study: admission, suspension and reuse
+
+** Historical revision and existing mechanisms
+
+This study inspected =2577253f96b2b5993706c939dbe5088ae0d56a3a=.
+The following observations and proposals describe that revision. Several have
+since been implemented, as recorded above; this section is retained as the
+design rationale rather than the current task list.
 
 | Existing mechanism | Exact owner | Design consequence |
 |--------------------+-------------+--------------------|
@@ -145,7 +164,7 @@ its current source-identity contract. Reuse diagnostics should distinguish
 changed content, scanner context mismatch, parser boundary failure and unsupported
 effects. Do not expose those internal states as required language author data.
 
-** Implementation gates derived from this study
+** Historical implementation gates derived from this study
 
 | Order | Work | Semantic gate |
 |-------+------+---------------|
@@ -307,3 +326,72 @@ and 14.868 ms after, with no in-call GC. This narrow difference establishes no
 end-to-end speedup. The retained improvement is dependency-bounded analysis,
 with semantic equality controls; it does not imply faster Rust AOT execution,
 FFI transport or whole-language parsing.
+
+* Next resolved fact: productivity design before implementation
+
+This section is a proposed semantic contract, not a new implemented analysis or
+an acceptance-policy change. Its consumer is target admission and explanation
+of an effective start rule with no finite derivation. The domain is the existing
+lowered production graph after POO selection. Selected declaration origins must
+remain available to the diagnostic consumer.
+
+For a nonterminal A, =productive(A)= means that A has at least one finite
+derivation to terminal symbols, possibly epsilon. The equations are:
+
+#+begin_example
+productive(terminal) = true
+productive(empty rhs) = true
+productive(rhs sequence) = every rhs operand is productive
+productive(A) = some production for A has a productive rhs
+nullable(A) implies productive(A)
+productive(A) does not imply nullable(A)
+#+end_example
+
+The least fixed point starts with no productive nonterminals. Pure cycles add
+no fact. Terminal occurrences satisfy productivity obligations, whereas they
+block nullable clauses. Thus the current occurrence propagation is a relevant
+implementation pattern, but its terminal policy cannot be reused unchanged.
+A private graph-sharing abstraction requires actual consumers and measured
+benefit; do not add an author callback or a new language-level analyzer slot.
+
+Examples establish the necessary distinctions:
+
+| Effective rules | Nullable | Productive | FIRST alone sufficient? |
+|-----------------+----------+------------+-------------------------|
+| A -> A | false | false | No finite exit exists |
+| A -> epsilon | true | true | Empty FIRST can still have a finite derivation |
+| A -> A a or b | false | true | Ordinary productive LR left recursion is valid |
+| A -> a B; B -> B | false | false | FIRST can contain a even though no derivation completes |
+
+Before changing compilation acceptance, decide whether an unproductive start
+is an author error or an explicit empty-language target. Reachability and
+productivity are separate facts: an unreachable dead rule must not accidentally
+reject a productive start. Apply the decided policy per target, preserve the
+existing missing-reference check, and expose a selected rule/reference witness
+rather than a generated helper name. No general ban on reference cycles follows.
+
+Required controls compare an independent fixed-point oracle on small cyclic
+grammars; directly check the four distinctions above, undefined references,
+multiple alternatives, duplicate operands, unreachable dead rules and POO
+replacement of a dead exit by a consuming or empty exit. A finite-word example
+can establish productivity; failure to enumerate a bounded word cannot prove
+unproductivity. Admission changes need a deliberate target policy, not merely
+a new boolean field in an IR record.
+
+* FIRST propagation: next algorithm contract
+
+The current =compute-first= owner remains in =src/compiler/lr.ss=. Its consumer
+is LR lookahead/state construction and target analysis. A dependency candidate
+must register rhs nonterminals only through the nullable prefix, include the
+first terminal/nonnullable operand and stop afterward. Cyclic prefixes require
+least-fixed-point propagation. Nullable membership must be complete before these
+edges are constructed; no incremental partial index may escape admission.
+
+FIRST's result contract includes canonical terminal order from the production
+terminal catalog, not the order in which worklist facts arrive. Duplicate edges,
+marked symbols, nullable cycles, nonnullable blockers and dead tails need matched
+controls. Multiple terminal facts can update the same nonterminal, so nullable's
+one-publication bound does not automatically apply to FIRST. Measure dependency
+construction, mask propagation and result materialization together, then compare
+complete LRSpec and real full-construction cost at the same compilation tier.
+This is the next candidate study, not a claimed speedup or a new public DSL.

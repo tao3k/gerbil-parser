@@ -335,7 +335,10 @@ not reproduce the appendix proofs or prove our compiler correct.
 
 Our application of this framework is specified in
 [[file:scheme-dsl-semantic-contracts.org::*Derived facts after expansion: nullable, FIRST and completion][the derived-fact contract]]. The current =compute-nullable= and =compute-first=
-already iterate finite domains in the existing LR owner. The design obligation is
+already compute finite-domain fixed points in the existing LR owner. Nullable
+now uses [[file:dsl-effective-grammar-admission.org::*Dependency-driven nullable closure (2026-10-09)][occurrence dependency propagation]]; FIRST retains its own iteration.
+This changes evaluation order and work, not the meaning of the nullable fact.
+The design obligation is
 to state what each result observes after lowering, rather than create a second
 analyzer. Finite monotone growth establishes termination; semantic correspondence
 and transfer correctness are additional obligations. Nonempty FIRST does not

@@ -6,6 +6,20 @@
 (def output (path-expand "output.o" root))
 (def receipt (path-expand "receipt.sexp" root))
 (def count 0)
+;; Static phase products are outputs too, not new dependency inputs.
+(def library (path-expand "lib" root))
+(for-each
+ (lambda (suffix)
+   (unless (conformance-module-product?
+             (path-expand (string-append "static/gerbil-parser__t__fixture" suffix) library)
+             library '("t/fixture"))
+     (error "owned static phase product admitted as input" suffix)))
+ '(".scm" "~0.scm" "~1.scm" "~0.c"))
+(when (conformance-module-product?
+        (path-expand "static/gerbil-parser__t__fixture-other~0.scm" library)
+        library '("t/fixture"))
+  (error "foreign static module excluded from inputs"))
+(displayln "CACHE-CONTROL-OK static-phase-ownership")
 (def (put path text)
   (when (file-exists? path) (delete-file path))
   (call-with-output-file path (lambda (port) (display text port))))

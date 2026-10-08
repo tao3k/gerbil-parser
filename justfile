@@ -1,5 +1,9 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Cache admission controls stay Scheme-native and share the CI owner.
+test-native-preparation:
+    GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/native-preparation-test.ss
+
 # Compile the suite's own fixtures, not only its import declarations.
 build-event-fold-native output load_path:
     mkdir -p "{{output}}"

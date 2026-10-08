@@ -2,6 +2,68 @@
 #[path = "../fixtures/shared_scanner_generated.rs"]
 mod generated;
 use gerbil_parser_runtime::scanner::ContextualScanner;
+
+#[test]
+fn prefix_replay_reaches_new_source_state_without_relocating_checkpoints() {
+    use gerbil_parser_runtime::scanner::{ScannerCheckpoint, ScannerSpec};
+    static OTHER: ScannerSpec = ScannerSpec {
+        ..generated::SCANNER
+    };
+    fn advance<'a, 'b>(
+        scanner: &'a ContextualScanner<'b>,
+        count: usize,
+    ) -> ScannerCheckpoint<'a, 'b> {
+        let mut state = scanner.initial_state();
+        for _ in 0..count {
+            state = scanner.step(&state, "command").unwrap().1;
+        }
+        state
+    }
+    let old = ContextualScanner::new(&generated::SCANNER, "猫 <<A\nα\nA\n").unwrap();
+    let new = ContextualScanner::new(&generated::SCANNER, "猫 <<A\nβ\nA\n").unwrap();
+    for count in [0, 4, 5] {
+        let checkpoint = advance(&old, count);
+        let replayed = new
+            .replay_prefix(&checkpoint, &vec!["command"; count])
+            .unwrap();
+        let fresh = advance(&new, count);
+        assert_eq!(replayed.byte_offset(), fresh.byte_offset());
+        assert!(replayed.converges_with(&fresh));
+        assert_eq!(
+            new.step(&replayed, "command").unwrap().0,
+            new.step(&fresh, "command").unwrap().0
+        );
+        assert!(new.step(&checkpoint, "command").is_err());
+        assert_eq!(checkpoint.byte_offset(), advance(&old, count).byte_offset());
+    }
+    let checkpoint = advance(&old, 5);
+    assert!(new.replay_prefix(&checkpoint, &["command"]).is_err());
+    assert!(new.replay_prefix(&checkpoint, &["command"; 6]).is_err());
+    assert!(new.replay_prefix(&checkpoint, &["unknown"]).is_err());
+    assert!(
+        new.replay_prefix(
+            &old.with_mode(&checkpoint, "command").unwrap(),
+            &["command"; 5]
+        )
+        .is_err()
+    );
+    for (before, after) in [
+        ("cat", "catx"),
+        ("<<A", "<<-A"),
+        ("\"x\"", "\"x\"tail"),
+        ("猫 ", "犬 "),
+        ("cat ", "ca"),
+    ] {
+        let a = ContextualScanner::new(&generated::SCANNER, before).unwrap();
+        let b = ContextualScanner::new(&generated::SCANNER, after).unwrap();
+        assert!(
+            b.replay_prefix(&advance(&a, 1), &["command"]).is_err(),
+            "{before} -> {after}"
+        );
+    }
+    let foreign = ContextualScanner::new(&OTHER, "猫 <<A\nβ\nA\n").unwrap();
+    assert!(foreign.replay_prefix(&checkpoint, &["command"; 5]).is_err());
+}
 #[test]
 fn scheme_traces_execute_without_language_callbacks() {
     for (source, expected) in generated::TRACES {

@@ -9,7 +9,7 @@
                  scan-line scan-longest-literal scan-newline
                  scan-quoted-strings)
         (only-in ./region-scanner prepare-region-plan region-plan-end)
-        (only-in ./token make-token)
+        (only-in ./token make-token token-kind token-start token-end)
         (only-in ./identity sha256-text))
 (export +empty-delimiter-queue+
         delimiter-queue-empty? delimiter-queue-list
@@ -28,6 +28,7 @@
         contextual-scan-state-with-mode
         contextual-scan-state-canonical
         contextual-scan-state-converged?
+        contextual-scanner-replay-prefix
         restore-contextual-scan-state)
 
 ;;; Compiler products bind this semantic opcode contract. Changing opcode
@@ -368,6 +369,58 @@
            (eq? (delimiter-obligation-strip-tabs? left) (delimiter-obligation-strip-tabs? right))
            (eq? (delimiter-obligation-quoted? left) (delimiter-obligation-quoted? right)))))
 
+(def (same-scanner-context? before after)
+  (and
+   (eq? (contextual-scanner-plan-owner (contextual-scan-state-scanner before))
+        (contextual-scanner-plan-owner (contextual-scan-state-scanner after)))
+   (eq? (contextual-scan-state-mode before) (contextual-scan-state-mode after))
+   (eq? (contextual-scan-state-expecting before) (contextual-scan-state-expecting after))
+   (same-delimiter-obligation? (contextual-scan-state-active before)
+                              (contextual-scan-state-active after))
+   (let loop ((a (delimiter-queue-list (contextual-scan-state-pending before)))
+              (b (delimiter-queue-list (contextual-scan-state-pending after))))
+     (if (null? a) (null? b)
+       (and (pair? b) (same-delimiter-obligation? (car a) (car b))
+            (loop (cdr a) (cdr b)))))))
+
+;;; Re-execute the recorded parser positions on both owned sources. Equal text
+;;; alone cannot certify decisions that inspected past the checkpoint boundary.
+;;; Returns a newly reached checkpoint, never a relocated old state.
+(def (contextual-scanner-replay-prefix scanner checkpoint positions)
+  (unless (and (contextual-scan-state? checkpoint) (list? positions))
+    (error "scanner prefix replay requires a checkpoint and position schedule"))
+  (let* ((old (contextual-scan-state-scanner checkpoint))
+         (left (contextual-scanner-source old))
+         (right (contextual-scanner-source scanner))
+         (end (contextual-scan-state-character-offset checkpoint)))
+    (unless (and (eq? (contextual-scanner-plan-owner old) (contextual-scanner-plan-owner scanner))
+                 (<= end (string-length right))
+                 (let loop ((i 0))
+                   (or (= i end) (and (char=? (string-ref left i) (string-ref right i))
+                                     (loop (+ i 1))))))
+      (error "scanner prefix source or plan mismatch"))
+    (let loop ((rest positions) (a (contextual-scanner-initial-state old))
+               (b (contextual-scanner-initial-state scanner)))
+      (if (null? rest)
+        (begin
+          (unless (and (= (contextual-scan-state-character-offset a) end)
+                       (= (contextual-scan-state-byte-offset a) (contextual-scan-state-byte-offset checkpoint))
+                       (same-scanner-context? a checkpoint)
+                       (same-scanner-context? a b))
+            (error "scanner checkpoint not reproduced by position schedule"))
+          b)
+        (let-values (((token-a next-a) (contextual-scanner-step old a (car rest)))
+                     ((token-b next-b) (contextual-scanner-step scanner b (car rest))))
+          (unless (and (<= (contextual-scan-state-character-offset next-a) end)
+                       (= (contextual-scan-state-character-offset next-a) (contextual-scan-state-character-offset next-b))
+                       (if token-a
+                         (and token-b (eq? (token-kind token-a) (token-kind token-b))
+                              (= (token-start token-a) (token-start token-b))
+                              (= (token-end token-a) (token-end token-b)))
+                         (not token-b)))
+            (error "scanner prefix lexical decision changed"))
+          (loop (cdr rest) next-a next-b))))))
+
 ;;; Both states must have been reached independently. This proves identical
 ;;; future scanner decisions only under the same parser-position schedule;
 ;;; it neither relocates a checkpoint nor admits parser/subtree reuse.
@@ -381,16 +434,7 @@
          (start-left (contextual-scan-state-character-offset before))
          (start-right (contextual-scan-state-character-offset after)))
     (and
-     (eq? (contextual-scanner-plan-owner old) (contextual-scanner-plan-owner new))
-     (eq? (contextual-scan-state-mode before) (contextual-scan-state-mode after))
-     (eq? (contextual-scan-state-expecting before) (contextual-scan-state-expecting after))
-     (same-delimiter-obligation? (contextual-scan-state-active before)
-                                (contextual-scan-state-active after))
-     (let loop ((a (delimiter-queue-list (contextual-scan-state-pending before)))
-                (b (delimiter-queue-list (contextual-scan-state-pending after))))
-       (if (null? a) (null? b)
-         (and (pair? b) (same-delimiter-obligation? (car a) (car b))
-              (loop (cdr a) (cdr b)))))
+     (same-scanner-context? before after)
      (= (- (string-length left) start-left) (- (string-length right) start-right))
      ;; Compare the owned suffix directly: no full source hash or suffix copy.
      (let loop ((i start-left) (j start-right))

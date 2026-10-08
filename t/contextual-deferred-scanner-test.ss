@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Language declarations exercise one engine-owned deferred delimiter scanner.
 
-(import (only-in :std/test check test-case test-suite)
+(import (only-in :std/test check check-exception test-case test-suite)
         (only-in :gerbil-parser/src/modules/parser/contextual-objects
                  make-contextual-method make-contextual-role
                  make-contextual-scan-rule)
@@ -13,7 +13,8 @@
                  prepare-contextual-scanner prepare-contextual-scanner-plan contextual-scanner-initial-state
                  contextual-scanner-step contextual-scan-state-byte-offset
                  contextual-scan-state-mode contextual-scan-state-canonical
-                 restore-contextual-scan-state contextual-scan-state-converged?)
+                 restore-contextual-scan-state contextual-scan-state-converged?
+                 contextual-scanner-replay-prefix contextual-scan-state-with-mode)
         (only-in :gerbil-parser/src/runtime/token
                  token-kind token-lexeme token-start token-end))
 (export contextual-deferred-scanner-test)
@@ -79,6 +80,52 @@
 
 (def contextual-deferred-scanner-test
   (test-suite "generic deferred delimiter scanner"
+    (test-case "prefix replay reaches source-owned HCL and Bash delimiter states"
+      (for-each
+       (lambda (policy)
+         (let* ((plan (prepare-contextual-scanner-plan
+                       (deferred-scanner-ir 'prefix-replay policy '("<<" "<<-" "<<<"))))
+                (old (prepare-contextual-scanner plan "猫 <<A\nα\nA\n"))
+                (new (prepare-contextual-scanner plan "猫 <<A\nβ\nA\n")))
+           (def (advance scanner count)
+             (let loop ((state (contextual-scanner-initial-state scanner)) (n count))
+               (if (zero? n) state
+                 (let-values (((token next) (contextual-scanner-step scanner state 'command)))
+                   (loop next (- n 1))))))
+           (for-each
+            (lambda (count)
+              (let* ((checkpoint (advance old count))
+                     (receipt (contextual-scan-state-canonical checkpoint))
+                     (replayed (contextual-scanner-replay-prefix new checkpoint (make-list count 'command))))
+                (check (contextual-scan-state-canonical replayed)
+                       => (contextual-scan-state-canonical (advance new count)))
+                (check (contextual-scan-state-canonical checkpoint) => receipt)
+                (check-exception (contextual-scanner-step new checkpoint 'command) true)
+                (let-values (((token next) (contextual-scanner-step new replayed 'command)))
+                  (check (and token #t) => #t))))
+            '(0 4 5))
+           (let (checkpoint (advance old 5))
+             (check-exception (contextual-scanner-replay-prefix new checkpoint '(command)) true)
+             (check-exception (contextual-scanner-replay-prefix new checkpoint (make-list 6 'command)) true)
+             (check-exception (contextual-scanner-replay-prefix new checkpoint '(unknown)) true)
+             (check-exception
+              (contextual-scanner-replay-prefix new (contextual-scan-state-with-mode checkpoint 'command)
+                                               (make-list 5 'command)) true))
+           (for-each
+            (lambda (sources)
+              (let* ((a (prepare-contextual-scanner plan (car sources)))
+                     (b (prepare-contextual-scanner plan (cadr sources)))
+                     (checkpoint (advance a 1)))
+                ;; The prefix bytes match, but actual longest-match/EOF/quote decisions change.
+                (check-exception (contextual-scanner-replay-prefix b checkpoint '(command)) true)))
+            '(("cat" "catx") ("<<A" "<<-A") ("\"x\"" "\"x\"tail") ("猫 " "犬 ") ("cat " "ca")))
+           (let ((foreign (prepare-contextual-scanner
+                           (prepare-contextual-scanner-plan
+                            (deferred-scanner-ir 'prefix-replay policy '("<<" "<<-" "<<<")))
+                           "猫 <<A\nβ\nA\n")))
+             (check-exception (contextual-scanner-replay-prefix foreign (advance old 5)
+                                                              (make-list 5 'command)) true))))
+       '(raw shell-quote-removal)))
     (test-case "edited HCL and Bash prefixes converge only with the complete lexical context"
       (for-each
        (lambda (policy)

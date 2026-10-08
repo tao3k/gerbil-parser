@@ -147,16 +147,19 @@ pub struct ScannerCheckpoint<'scanner, 'source> {
     expecting: Option<bool>,
 }
 impl ScannerCheckpoint<'_, '_> {
-    /// Admit identical future scanner decisions for independently reached states.
-    /// Callers must supply the same future parser-position schedule. This does
-    /// not relocate checkpoints or establish parser/subtree equivalence.
-    #[must_use]
-    pub fn converges_with(&self, other: &ScannerCheckpoint<'_, '_>) -> bool {
+    fn same_context(&self, other: &ScannerCheckpoint<'_, '_>) -> bool {
         Arc::ptr_eq(&self.owner.plan, &other.owner.plan)
             && self.mode == other.mode
             && self.expecting == other.expecting
             && self.active == other.active
             && self.pending.equivalent(&other.pending)
+    }
+    /// Admit identical future scanner decisions for independently reached states.
+    /// Callers must supply the same future parser-position schedule. This does
+    /// not relocate checkpoints or establish parser/subtree equivalence.
+    #[must_use]
+    pub fn converges_with(&self, other: &ScannerCheckpoint<'_, '_>) -> bool {
+        self.same_context(other)
             && self.owner.source[self.offset..] == other.owner.source[other.offset..]
     }
 
@@ -206,6 +209,51 @@ impl<'source> ContextualScanner<'source> {
             active: None,
             expecting: None,
         }
+    }
+    /// Re-execute a prefix on both sources under the recorded parser positions.
+    /// Returns a checkpoint owned by this scanner; does not relocate old state
+    /// or establish parser/subtree reuse. External mode changes are not replayed.
+    ///
+    /// # Errors
+    /// Different plans/prefixes, an incomplete schedule or changed lexical decisions.
+    pub fn replay_prefix<'scanner>(
+        &'scanner self,
+        checkpoint: &ScannerCheckpoint<'_, '_>,
+        positions: &[&str],
+    ) -> Result<ScannerCheckpoint<'scanner, 'source>, Diagnostic> {
+        let old = checkpoint.owner;
+        if !Arc::ptr_eq(&self.plan, &old.plan)
+            || self.source.get(..checkpoint.offset) != Some(&old.source[..checkpoint.offset])
+        {
+            return Err(error(
+                checkpoint.offset,
+                "scanner prefix source or plan mismatch",
+            ));
+        }
+        let mut before = old.initial_state();
+        let mut after = self.initial_state();
+        for position in positions {
+            let (a, next_a) = old.step(&before, position)?;
+            let (b, next_b) = self.step(&after, position)?;
+            if next_a.offset > checkpoint.offset || next_a.offset != next_b.offset || a != b {
+                return Err(error(
+                    before.offset,
+                    "scanner prefix lexical decision changed",
+                ));
+            }
+            before = next_a;
+            after = next_b;
+        }
+        if before.offset != checkpoint.offset
+            || !before.same_context(checkpoint)
+            || !before.same_context(&after)
+        {
+            return Err(error(
+                checkpoint.offset,
+                "scanner checkpoint not reproduced by position schedule",
+            ));
+        }
+        Ok(after)
     }
     /// # Errors
     /// A foreign checkpoint or undeclared mode.

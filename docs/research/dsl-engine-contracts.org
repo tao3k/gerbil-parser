@@ -705,3 +705,57 @@ with final =OK=. Rust runtime passed 137 cases across two suites, and strict
 Clippy for all runtime targets passed. The original 90-second total and
 5-second silence test limits remain in force. These local receipts do not
 qualify the pushed revision's Ubuntu CI by themselves.
+
+** Prefix replay admission after suffix edits
+
+Suffix convergence alone cannot admit a prefix checkpoint on changed source:
+longest-match, EOF and quoted-region decisions may have inspected the edited
+suffix. The engine now provides =contextual-scanner-replay-prefix= and Rust
+=ContextualScanner::replay_prefix=. The caller supplies its recorded parser-position
+schedule. Both original and edited sources execute that schedule through the
+ordinary scanner, preserving full matcher selection and lookahead. Admission
+requires the same prepared plan, exact prefix text, identical token kinds and
+UTF-8 ranges, and complete matching endpoint scanner contexts. The original
+checkpoint must also be reproduced by the supplied schedule.
+
+The result belongs to the new scanner. Foreign checkpoint stepping remains
+invalid. Empty-prefix admission, pending markers and active heredoc bodies are
+covered; changed longest-match/EOF/quote decisions, shortened or edited prefixes,
+foreign plans, incomplete schedules and unrecorded external mode changes reject.
+Scheme controls exercise HCL raw and Bash shell-quote-removal policies. Rust
+executes its existing Scheme-generated specification; no hand-written language
+callbacks or DSL fields are added.
+
+#+begin_src scheme
+;; An application records its parser positions while driving the scanner.
+;; The engine owns checkpoint validation and creates a state for the new source.
+(def next-state
+  (contextual-scanner-replay-prefix edited-scanner old-checkpoint
+                                   recorded-parser-positions))
+(contextual-scanner-step edited-scanner next-state 'command)
+#+end_src
+
+Why is this preferable? A grammar author keeps syntax and rules declarative;
+lookahead validation, UTF-8 ranges, deferred obligations and source ownership are
+resolved by the shared engine. The caller supplies an existing execution input,
+not a second lexical algorithm. Why is it justified? Actual replay checks token
+observations and endpoint context on both sources, including lookahead past the
+checkpoint boundary. Exact FIFO comparison occurs only at the endpoints, avoiding
+an additional sum of queue lengths over all replayed tokens. Cost still includes
+all normal matcher work and scanning the prefix twice; no constant-time edit,
+parser speedup or whole-tree reuse claim follows.
+
+This admission primitive is an engineering prerequisite motivated by the
+context/reuse distinction in Wagner and Graham's
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]]. It does not implement that paper's
+sentential-form parser, balanced sequence transformations or optimal node reuse.
+Parser-stack compatibility and Source/CST publication remain separate contracts.
+
+Local qualification (2026-10-08): the current native scanner dependency closure
+compiled under the CI-pinned Gerbil SDK. Both scanner test modules passed
+(13 deferred-delimiter and 12 contextual cases), with final =OK= and process
+status zero in 3.92 seconds. Rust runtime passed 138 cases; strict runtime
+Clippy and the ASP Rust source-policy gate passed. The FIFO convergence test
+now resides under =tests/unit= with explicit imports, repairing the policy
+failure on revision =bc233b8=. These are local receipts, not qualification of
+a subsequent pushed revision. No timeout or silence limit was increased.

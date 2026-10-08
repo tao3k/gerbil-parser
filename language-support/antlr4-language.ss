@@ -4,7 +4,8 @@
 (import (only-in ../src/grammar/lexical-algebra expand-text-lexical-rows)
         (for-syntax :std/misc/ports
                     (only-in :gerbil-parser/src/compiler/language-artifact
-                             make-language-declaration expand-language-declaration-syntax)
+                             make-language-declaration expand-language-declaration-syntax
+                             materialize-compiled-language-artifact encode-compiled-language-artifact)
                     (only-in :gerbil-parser/src/compiler/parser-ir compile-parser)
                     (only-in :gerbil-parser/src/compiler/bound-ir bind-grammar-ir)
                     (only-in ./antlr4-source
@@ -15,6 +16,7 @@
                              antlr4-source-parser-syntax-kinds
                              parse-antlr4-source/expected))
         (only-in ./antlr4-source antlr4-source-from-datum)
+        (only-in ../src/runtime/language-artifact load-compiled-language-artifact/embedded)
         (only-in :gerbil-parser/src/language/assembly assemble-language-parser)
         (only-in :gerbil-parser/src/language/descriptor make-language-grammar))
 (export antlr4)
@@ -84,6 +86,10 @@
               (stx-e #'language) (stx-e #'source-version)
               (stx-e #'source-commit) (stx-e #'expected-digest) content))
             (bindings (syntax->datum #'(binding ...)))
+            (catalog-image
+             (materialize-compiled-language-artifact
+              `((schema . "gerbil-parser.source-catalog-image.v1")
+                (value . ,(antlr4-source->datum catalog)))))
             (syntax-rows
              (append (antlr4-source-parser-syntax-kinds catalog)
                      (syntax->datum #'(kind ...))))
@@ -124,7 +130,8 @@
                          (string->symbol
                           (string-append (symbol->string (stx-e #'prefix))
                                          "-antlr4-source"))))
-                       (catalog-data (antlr4-source->datum catalog))
+                       (catalog-locator (datum->syntax #'prefix catalog-image))
+                       (catalog-payload (datum->syntax #'prefix (encode-compiled-language-artifact catalog-image)))
                        (profile-binding (datum->syntax #'prefix
                          (string->symbol (string-append (symbol->string (stx-e #'prefix))
                                                       "-antlr4-token-bindings"))))
@@ -135,7 +142,11 @@
                          #'assemble-language-parser #'make-language-grammar #'begin #'def)))
            #'(begin
                (def profile-binding 'profile-data)
-               (def catalog-binding (antlr4-source-from-datum 'catalog-data))
+               (def catalog-binding
+                 (antlr4-source-from-datum
+                  (cdr (assq 'value
+                    (load-compiled-language-artifact/embedded
+                     "gerbil-parser.source-catalog-image.v1" 'catalog-locator catalog-payload)))))
                compiled-declaration)))))
     (_ (raise-syntax-error #f "invalid ANTLR4 language declaration" stx))))
 

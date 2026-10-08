@@ -338,8 +338,33 @@
 
 ;;; One AOT-generated capability/scanner pair. Capability checks run once per
 ;;; interned LR mode; the scanner remains the ordinary generated lexical rule.
+;;; Literal rules share construction code; their trie scanning remains unchanged.
+;;; These predicates run during mode preparation, outside token traversal.
+(def (make-generated-literal-rule name literals rank extras case-insensitive?)
+  (vector
+   (lambda (terminals)
+     (or (not terminals) (memq name extras)
+         (any (lambda (terminal)
+                (and (pair? terminal) (eq? (car terminal) 'terminal)
+                     (case (cadr terminal)
+                       ((token) (eq? (caddr terminal) name))
+                       ((literal layout-start layout-next)
+                        (lexical-literal-admitted? (caddr terminal) literals case-insensitive?))
+                       (else #f)))) terminals)))
+   (lambda (_source _offset) #f)
+   literals name rank
+   (lambda (ch)
+     (any (lambda (literal)
+            (or (zero? (string-length literal))
+                (char-ci=? ch (string-ref literal 0)))) literals))
+   #f))
+
 (defrules generated-lexical-rule
-  ()
+  (literals precedence)
+  ((_ (name (literals value ...)) extras case-insensitive?)
+   (make-generated-literal-rule 'name '(value ...) 0 extras case-insensitive?))
+  ((_ (name (precedence rank (literals value ...))) extras case-insensitive?)
+   (make-generated-literal-rule 'name '(value ...) rank extras case-insensitive?))
   ((_ (name expression) extras case-insensitive?)
    (let* ((literals (lexical-static-literals expression))
           (regular-kind (lexical-regular-kind expression))

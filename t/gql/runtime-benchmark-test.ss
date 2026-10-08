@@ -5,7 +5,7 @@
 (import :std/test
         (only-in :std/source this-source-file)
         :asp-gerbil-scheme/src/benchmark/framework
-        (only-in :gerbil-parser/languages/gql/grammar
+        (only-in :gerbil-parser/languages/gql/parser
                  +gql-representative-query+)
         (only-in :gerbil-parser/languages/gql/parser
                  parse-gql)

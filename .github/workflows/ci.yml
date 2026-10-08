@@ -202,6 +202,8 @@ jobs:
         run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research
 
       - name: Verify every language native artifact contract
+        env:
+          GERBIL_PARSER_LR_TRACE: "1"
         run: |
           gerbil env bash -c 'python3 scripts/run-bounded.py --timeout 10 --idle-timeout 5 \
             --log .data/native-language-alignment.log --require NATIVE-LANGUAGE-ALIGNMENT-GENERATED \

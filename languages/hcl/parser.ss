@@ -9,6 +9,11 @@
         hcl-language
         parse-hcl)
 
+(export +hcl-native-syntax-commit+)
+
+(def +hcl-native-syntax-commit+
+     "6b5068090eef06b1f127f61529db5ba0be7ed343")
+
 (deflanguage-parser-loader hcl-language
   (grammar hcl-language-grammar hcl-syntax)
   (parse parse-hcl)

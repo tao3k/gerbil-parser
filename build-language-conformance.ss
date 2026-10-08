@@ -75,9 +75,17 @@
         invoke-gsc: #f verbose: #t]))
    (filter shared-test-module? conformance-modules)))
 (def (compile-static-conformance!)
-  ;; Source-expansion research children need these loadable helper products.
-  (make (native-spec (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
-    srcdir: (path-directory (this-source-file)) optimize: #t)
+  ;; One Scheme emission owner; the native link owner compiles its objects once.
+  ;; Source gxtest may load emitted Scheme bodies, while closed conformance
+  ;; executes their native objects. Do not also compile duplicate dynamic bodies.
+  (for-each
+   (lambda (module)
+     (displayln "STATIC-HELPER-SCHEME " module) (force-output)
+     (compile-module (string-append module ".ss")
+       [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
+        optimize: #t generate-ssxi: #t static: #t keep-scm: #t
+        invoke-gsc: #f verbose: #t]))
+   (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
   ;; The closed executable owns their only required C/object compilation here.
   (compile-static-tests!))
 (def (prepare-gxtest!)

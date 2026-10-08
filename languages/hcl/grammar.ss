@@ -2,14 +2,7 @@
 ;;; Version-pinned HCL native syntax grammar owner.
 
 (import (only-in :gerbil-parser/language-support/grammar deflanguage))
-(export +hcl-native-syntax-commit+
-        hcl-syntax
-        hcl-grammar
-        hcl-parser-ir
-        hcl-parser)
-
-(def +hcl-native-syntax-commit+
-     "6b5068090eef06b1f127f61529db5ba0be7ed343")
+(export hcl-syntax hcl-grammar hcl-parser-ir hcl-parser)
 
 (deflanguage hcl
   (syntax

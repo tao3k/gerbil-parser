@@ -3,28 +3,8 @@
 
 (import (only-in :gerbil-parser/language-support/grammar deflanguage)
         (only-in :gerbil-parser/language-support/antlr4-language
-                 antlr4)
-        (only-in :gerbil-parser/language-support/antlr4-source
-                 antlr4-source-version antlr4-source-commit antlr4-source-digest))
-(export +gql-standard-reference+
-        +gql-opengql-reference-version+
-        +gql-opengql-reference-commit+
-        +gql-antlr4-digest+
-        +gql-representative-query+
-        gql-antlr4-token-bindings
-        gql-antlr4-source
-        gql-syntax
-        gql-grammar
-        gql-bound-grammar-ir
-        gql-parser-ir
-        gql-parser)
-
-(def +gql-standard-reference+ "ISO/IEC 39075:2024")
-(def +gql-representative-query+
-  (string-append
-   "MATCH (person:Person {name: \"Ada\"}) "
-   "OPTIONAL MATCH (person)-[:KNOWS]->(friend:Person) "
-   "RETURN person.name AS source, friend.name AS target\n"))
+                 antlr4))
+(export gql-antlr4-token-bindings gql-antlr4-source gql-syntax gql-grammar gql-bound-grammar-ir gql-parser-ir gql-parser)
 
 (deflanguage gql
  (syntax (antlr4
@@ -76,9 +56,4 @@
  (unknown UnknownToken (fallback)))
   (extras whitespace comment)))
  (rules))
-
-;;; Runtime metadata derives from the same admitted declaration and source catalog.
-(def +gql-opengql-reference-version+ (antlr4-source-version gql-antlr4-source))
-(def +gql-opengql-reference-commit+ (antlr4-source-commit gql-antlr4-source))
-(def +gql-antlr4-digest+ (antlr4-source-digest gql-antlr4-source))
 

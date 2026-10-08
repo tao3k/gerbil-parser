@@ -28,7 +28,7 @@
       (or (eq? (car form) 'export)
           (and (eq? (car form) 'import)
                (or (eq? interface 'tests) (not (development-import? form))))
-          (and (eq? (car form) 'def) (not (eq? interface 'tests))
+          (and (eq? (car form) 'def) (eq? interface 'parser)
                (= (length form) 3) (symbol? (cadr form))
                (not (and (pair? (caddr form)) (eq? (caaddr form) 'lambda))))
           (and
@@ -58,6 +58,8 @@
    (check (authoring-form? (quote (deflanguage-development-loader entry)) (quote parser)) => #f)
    (check (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser)) => #f))
   (test-case "release identity belongs to the parser interface"
+   (check (and (authoring-form? '(def +version+ "1") 'grammar) #t) => #f)
+   (check (and (authoring-form? '(def +version+ "1") 'parser) #t) => #t)
    (check (and (authoring-form? '(deflanguage example (identity "x" "1" "x.v1") (root source)) 'grammar) #t) => #f)
    (check (and (authoring-form? '(deflanguage example
   (syntax

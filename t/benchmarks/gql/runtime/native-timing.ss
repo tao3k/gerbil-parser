@@ -5,7 +5,7 @@
         :std/ffi
         (only-in :gerbil-parser/languages/gql/parser
                  parse-gql)
-        (only-in :gerbil-parser/languages/gql/grammar
+        (only-in :gerbil-parser/languages/gql/parser
                  +gql-representative-query+)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success?))
 (export main)

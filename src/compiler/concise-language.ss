@@ -11,7 +11,7 @@
         (only-in ../grammar/algebra grammar-expression-header?)
         (only-in ./language-artifact project-language-catalog
                  make-language-declaration expand-language-declaration-syntax))
-(export expand-lexical-language-syntax lower-source-rule-overlays)
+(export expand-lexical-language-syntax lower-source-rule-overlays lower-source-rule-precedences)
 
 (def (expand-concise-language-syntax stx expand-lexical-rows compile-parser bind-grammar-ir
                                       assembly-binding descriptor-binding
@@ -457,27 +457,40 @@
       ((head argument ...)
        (with-syntax (((child ...) (stx-map lower #'(argument ...)))) #'(head child ...)))
       (_ expression)))
-  (def (source-receipt provenance)
-    (let* ((origin (syntax->datum provenance))
-           (qualified? (and (list? origin) (= (length origin) 2)
-                            (memq (car origin) '(normalization disambiguation))
-                            (symbol? (cadr origin))))
-           (label (if qualified? (cadr origin) origin)))
-      (unless (symbol? label)
-        (raise-syntax-error #f "source provenance requires an identifier or a typed normalization/disambiguation identifier" provenance owner))
-      (datum->syntax namespace
-        (append (list '(schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
-                      (cons 'namespace (syntax->datum namespace)) (cons 'name label))
-                (if qualified? (list (cons 'kind (car origin))) '())
-                (list (cons 'sourceVersion (syntax->datum version))
-                      (cons 'upstreamCommit (syntax->datum commit)))))))
+
   (stx-map
    (lambda (row)
      (syntax-case row ()
        ((name provenance original replacement)
         (identifier? #'name)
         (with-syntax ((before (lower #'original)) (after (lower #'replacement))
-                      (receipt (source-receipt #'provenance)))
+                      (receipt (source-rule-receipt #'provenance owner namespace version commit)))
           #'(name receipt before after)))
        (_ (raise-syntax-error #f "source rule overlay requires name, provenance and two construction witnesses" row owner))))
+   rows))
+
+(def (source-rule-receipt provenance owner namespace version commit)
+  (let* ((origin (syntax->datum provenance))
+         (qualified? (and (list? origin) (= (length origin) 2)
+                          (memq (car origin) '(normalization disambiguation))
+                          (symbol? (cadr origin))))
+         (label (if qualified? (cadr origin) origin)))
+    (unless (symbol? label)
+      (raise-syntax-error #f "source provenance requires an identifier or a typed normalization/disambiguation identifier" provenance owner))
+    (datum->syntax namespace
+      (append (list '(schema . "gerbil-parser.iso-bnf-rule-overlay.v1")
+                    (cons 'namespace (syntax->datum namespace)) (cons 'name label))
+              (if qualified? (list (cons 'kind (car origin))) '())
+              (list (cons 'sourceVersion (syntax->datum version))
+                    (cons 'upstreamCommit (syntax->datum commit)))))))
+
+(def (lower-source-rule-precedences rows owner namespace version commit)
+  (stx-map
+   (lambda (row)
+     (syntax-case row ()
+       ((name provenance association level)
+        (identifier? #'name)
+        (with-syntax ((receipt (source-rule-receipt #'provenance owner namespace version commit)))
+          #'(name receipt association level)))
+       (_ (raise-syntax-error #f "source precedence requires rule, provenance, association and level" row owner))))
    rows))

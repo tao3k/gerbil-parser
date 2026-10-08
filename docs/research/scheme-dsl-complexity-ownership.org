@@ -28,7 +28,7 @@ This does not establish a parse-speed improvement or add language syntax.
 
 | Owner | Responsibility after refactoring | Preserved boundary |
 |-------+----------------------------------+--------------------|
-| [[file:../../src/language/grammar.ss][language/grammar.ss]] | Public hygienic grammar entry | Existing deflanguage, deflanguage-grammar and defgrammar-syntax forms |
+| [[file:../../src/language/grammar.ss][language/grammar.ss]] | Public hygienic grammar entry | Closed deflanguage syntax/rules contract and hygienic defgrammar-syntax fragments |
 | [[file:../../src/language/assembly.ss][language/assembly.ss]] | Emit admitted products into runtime bindings for native and imported declarations | Definition-context machine and artifact loader bindings |
 | [[file:../../language-support/antlr4-language.ss][antlr4-language.ss]] | Elaborate one checked source catalog into the shared declaration record | Original source identity, origin map and author syntax |
 | [[file:../../src/compiler/concise-language.ss][compiler/concise-language.ss]] | Collect syntax, expand vocabulary, validate rules, derive catalogs and submit a compile-time declaration record | Declaration-local source associations; validation before field inference |
@@ -446,3 +446,85 @@ process-completion gate cannot be counted as a benchmark pass. Reuse the existin
 language corpus and benchmark owners; do not add a new author benchmark protocol.
 No numerical overhead, memory improvement or end-to-end speedup is established
 by this cost model.
+
+* Coordinated syntax, metadata and backend boundary: Cypher, 2026-10-08
+
+The grammar module declares recognition and construction. The parser entry owns
+release metadata and parser adapters. The test module owns independent expected
+sources and behavior. An upstream grammar pin is a compilation input: changing
+it may change recognition. A release label or audit description is entry metadata:
+changing it must not silently replace recognition. This distinction determines
+ownership by meaning, rather than by the fact that both are Scheme data.
+
+The Cypher migration moves public version/source descriptions and overlay receipt
+values into parser.ss. Its grammar retains the checked BNF input and the rules
+that affect recognition. Repeated provenance fields are derived by the compiler
+from that input. This does not move Cypher-specific rules into the generic engine.
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]], Figure 1 and sections 3--5,
+provides the architectural distinction between extensible elaboration, checked
+core boundaries and compilation. Our transfer is explicit ownership of grammar
+elaboration and parser publication. Its Racket implementation and measured
+miniKanren gains do not establish Gerbil behavior or parser performance.
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]], its local-contract discussion and parser-generator case
+study, motivates rejecting malformed authored terms at their syntax boundary.
+Our additional obligation is that a test must reach the intended boundary:
+wrapping an invalid grammar in an invalid expansion context cannot prove its
+catalog contract. The corrected catalog control preserves all twelve independently
+specified malformed catalogs and checks their actual rejection category.
+
+#+begin_src scheme
+;; grammar.ss: recognition policy, not release publication.
+(deflanguage query
+  (syntax (iso-bnf
+    (reference "upstream-version" "immutable-commit")
+    (digest "sha256:verified-source") (source "grammar-source/query.bnf")
+    (rule-precedences
+      (identifier (disambiguation keyword-preference) left -1))
+    (entrypoint program) (conflicts selective-glr) (case-insensitive #t)))
+  (rules))
+;; parser.ss: a normal metadata value needs no POO wrapper.
+(deflanguage-parser-loader query-language
+  (grammar query-language-grammar query-syntax) (parse parse-query)
+  (metadata '((language . "query") (version . "release")
+              (contract . "query.syntax.v1"))))
+;; Question 1: Why is this design better?
+;; Authors edit recognition and publication under distinct, predictable owners.
+;; Hygienic syntax abstractions compose rules; the compiler derives catalogs and
+;; provenance. POO adds inherited values when needed, without duplicating a DSL.
+;; Question 2: Why is this scientifically defensible?
+;; Controls must reject retired forms, preserve independent event semantics and
+;; bind generated products to their admitted identity. Source relocation alone
+;; proves neither recognition equivalence nor compilation/runtime improvements.
+#+end_src
+
+The example describes the author contract; its illustrative upstream pin is not
+an executable source fixture. Native source admission, publication, Rust emission
+and exact-head CI remain separately reproducible obligations.
+
+The source catalog now uses the existing compressed, content-addressed artifact
+transport. Its decoded value retains the original typed catalog and digest
+validation. With the same output filename, completed generated GQL C decreased
+from 8,626,218 to 6,428,075 bytes (25.5 percent); this source-size result is
+separate from build-time and runtime qualification. Literal-rule construction now shares one Scheme procedure rather
+than repeating its capability and first-character branches in each expansion;
+the ranked literal trie and token traversal are unchanged.
+
+A raw bytevector transport experiment increased generated C to
+8,947,917 bytes and failed the unchanged object output-silence gate, so it was
+reverted rather than admitted as an optimization.
+
+Qualification for this coordinated change: all 28 native declaration/POO/language
+children completed under their existing ten-second fences. All 20 regenerated
+native language artifacts were byte-identical to the tracked corpus, and an
+independent comparison resolving catalog IDs to names preserved event semantics.
+The artifact generator completed in 3.31 seconds with the engine's existing
+actual decode/verification/admission trace enabled. This trace exposes startup
+work; it does not synthesize progress or change the timeout policy.
+
+Build admission remains open: the complete conformance attempt linked its image
+but failed the five-second output-silence fence before process completion. Earlier
+cold/incremental object attempts also failed that fence, and one complete build
+exceeded 240 seconds. The semantic receipts and completed C-size comparison do
+not supersede those negative build receipts or establish exact-head CI closure.

@@ -2,7 +2,7 @@
 ;;; Expansion-time ISO BNF compiler for runtime-only language packs.
 
 (import (for-syntax :std/misc/ports
-                    (only-in ../src/compiler/concise-language lower-source-rule-overlays)
+                    (only-in ../src/compiler/concise-language lower-source-rule-overlays lower-source-rule-precedences)
                     (only-in ./iso-bnf
                              iso-bnf-source-declaration-sources
                              iso-bnf-source-declaration-sources/overrides
@@ -159,9 +159,10 @@
                 (entrypoint root) (conflicts policy) (case-insensitive insensitive))
         (rules overlay ...))
      (identifier? #'prefix)
-     (with-syntax (((lowered ...) (lower-source-rule-overlays #'(overlay ...) stx #'prefix #'version #'commit)))
+     (with-syntax (((lowered ...) (lower-source-rule-overlays #'(overlay ...) stx #'prefix #'version #'commit))
+                   ((lowered-precedence ...) (lower-source-rule-precedences #'(precedence ...) stx #'prefix #'version #'commit)))
        #'(compile-iso-bnf-language prefix
            (reference version commit) (digest hash) (source path)
-           (rule-overrides lowered ...) (rule-precedences precedence ...)
+           (rule-overrides lowered ...) (rule-precedences lowered-precedence ...)
            (entrypoint root) (conflicts policy) (case-insensitive insensitive))))
     (_ (raise-syntax-error #f "iso-bnf vocabulary requires checked source syntax and rule overlays" stx))))

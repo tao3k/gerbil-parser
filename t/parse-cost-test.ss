@@ -1,9 +1,15 @@
 ;;; Diagnostics must preserve engine results, failure and dynamic scope.
 (import :std/test
-        (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer with-parser-cost-stage))
+        (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer with-parser-cost-stage admit-parser-allocation))
 (export parse-cost-test)
 (def parse-cost-test
   (test-suite "request-local parser cost observations"
+    (test-case "allocation admission preserves signed counter and GC boundaries"
+      (check (admit-parser-allocation 128. 0.) => 128.)
+      (check (admit-parser-allocation 0. 0.) => 0.)
+      (check (admit-parser-allocation -64. 0.) => #f)
+      (check (admit-parser-allocation 128. 1.) => #f)
+      (check (admit-parser-allocation -64. 1.) => #f))
     (test-case "disabled observation preserves zero and multiple values"
       (check (current-parser-cost-observer) => #f)
       (check (call-with-values (lambda () (with-parser-cost-stage 'zero (values))) list) => '())

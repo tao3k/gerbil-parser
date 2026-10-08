@@ -64,13 +64,14 @@ for those cases merely because their sources were inspected.
 grammar semantics and staging. It introduces no new composition keywords and
 claims no general parser complexity theorem for our multi-strategy engine.
 
-Current remote baseline =0a2a1a0= has Rust and Ubuntu success; macOS was
-cancelled and its existing job was rerun. Cancellation is not a parser failure
-receipt. The rebased preparation controls pass locally with the installed
-Gerbil SDK (1.37 seconds, exit 0). Complete delivered-head CI remains required.
+Current remote baseline =5bcc3f6= has Rust and macOS success. Ubuntu failed
+the actual C benchmark because its fixture borrowed Scheme storage through an
+allocating callback. The subsequent lifetime and allocation-accounting closure
+is recorded by [[file:source-edit-cost-contract.org][the Source edit contract]], alongside its measured encoder change.
+Complete delivered-head CI remains required.
 
 The prior [[file:source-edit-cost-contract.org][actual Source edit cost study]] selects payload encoding as a measured
 candidate. Whole-call parity and matched measurements must precede any claimed
-win. The local compiled library contains removed interfaces from an earlier
-architecture; it is not admitted as current benchmark evidence. Refresh its
-native closure before making a new performance comparison.
+win. The current pinned-SDK native closure has been refreshed before comparison.
+Prior incompatible SDK products and interface-preloading failures remain negative
+preparation receipts; they are not parser latency measurements.

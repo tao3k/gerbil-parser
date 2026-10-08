@@ -3,11 +3,12 @@
 
 * Current baseline and evidence
 
-Reviewed remote baseline: PR #13 =0a2a1a0=. Rust and Ubuntu CI passed.
-The macOS job was cancelled without a test failure receipt and has been rerun.
-The current preparation controls pass locally with the installed Gerbil SDK
-(1.37 seconds, exit 0). Every delivered change requires its own exact-head CI;
-historical receipts below are not current evidence.
+Reviewed remote baseline: PR #13 =5bcc3f6=. Rust and macOS CI passed; Ubuntu
+failed the Source benchmark because its C fixture borrowed Scheme storage across
+an allocating callback. The current unit fixes that lifetime, qualifies natural
+GC, removes the encoder's row-index list and admits allocation-counter receipts
+conservatively. Local cost and ABI suites pass 15 cases; full delivered-head CI
+remains required. Historical receipts below are not current evidence.
 
 The eight language families use the three author interfaces: =grammar.ss=
 (syntax/rules), =parser.ss= (metadata and admitted execution), and

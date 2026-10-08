@@ -21,3 +21,13 @@ CI runs 8 samples with 32 tail lines on both native platforms. Timing is
 informational; payload equality, failure behavior and handle release are gates.
 
 See [[file:../../../docs/research/source-edit-cost-contract.org][the measurement contract]] for boundaries and current receipts.
+
+The C caller copies input into C-owned storage before entering Scheme, then
+reads the result into a freshly borrowed Scheme buffer after callback return.
+Input/state/result cleanup is included in each complete call. A separate
+=verify-callback-gc= child exercises 80 large parses with natural collection;
+this semantic control changes neither GC policy nor timed sample preparation.
+
+=allocation-counter-delta= retains raw signed SDK observations. Allocation
+summaries admit only nonnegative zero-GC intervals and report their count.
+Wall/CPU/GC quantiles and the wall-P95 sample retain all observations.

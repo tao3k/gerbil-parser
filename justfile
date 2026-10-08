@@ -108,4 +108,4 @@ benchmark-gql-actors gerbil_path=".gerbil":
 
 # Real C ABI edits, full payload parity, natural GC; phase tracing is separate.
 benchmark-source-edits samples="20" lines="128":
-    gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 --log /private/tmp/parser-source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/source-edits/benchmark")' -e '(import :gerbil-parser/t/benchmarks/source-edits/benchmark) (main "{{samples}}" "{{lines}}")'
+    gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 --log /private/tmp/parser-source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "{{samples}}" "{{lines}}")))))'

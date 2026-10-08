@@ -415,13 +415,18 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/fixtures/ffi/language-probe")' \
             -e '(import :gerbil-parser/t/fixtures/ffi/language-probe) (main)'
 
+      - name: Verify Source caller survives natural collection
+        run: |
+          gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
+            --log .data/source-callback-gc.log --require SOURCE-CALLBACK-GC-OK \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (verify-callback-gc)))))'
+
       - name: Verify matched Source edit calls and phase observations
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
             --log .data/source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK \
-            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/source-edits/benchmark")' \
-            -e '(import :gerbil-parser/t/benchmarks/source-edits/benchmark) (main "8" "32")'
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "8" "32")))))'
 
       - name: Prepare gxtest source owners
         run: |

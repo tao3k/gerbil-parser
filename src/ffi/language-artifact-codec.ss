@@ -58,9 +58,10 @@
   (abi-artifact-binary-payload language ((language-abi-context-parser language) source)))
 (def (abi-artifact-binary-payload language artifact)
   (let* ((events (parse-artifact-events artifact))
+         (event-count (length events))
          (payload (make-u8vector
                    (+ +binary-header-size+
-                      (* (length events) +binary-event-size+))
+                      (* event-count +binary-event-size+))
                    0)))
     (subu8vector-move! #u8(71 80 65 49) 0 4 payload 0) ; GPA1
     (u8vector-u32-set! payload 4 +event-abi-version+ little)
@@ -69,12 +70,14 @@
                                 'accepted)
                          0 1)
                        little)
-    (u8vector-u32-set! payload 12 (length events) little)
+    (u8vector-u32-set! payload 12 event-count little)
     (copy-digest! payload 16 (parse-artifact-ref artifact 'grammarDigest))
     (copy-digest! payload 48 (parse-artifact-ref artifact 'sourceDigest))
-    (for-each (lambda (event row) (write-event! language payload row event))
-              events
-              (iota (length events)))
+    ;; Row numbering is traversal state, not another allocated event-sized list.
+    (let loop ((remaining events) (row 0))
+      (unless (null? remaining)
+        (write-event! language payload row (car remaining))
+        (loop (cdr remaining) (+ row 1))))
     payload))
 
 (def (abi-source-text bytes)

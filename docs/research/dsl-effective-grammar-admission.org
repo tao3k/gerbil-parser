@@ -201,3 +201,48 @@ Next executable closure is the same call/array package across vocabulary expansi
 composition, source diagnostics and backend admission. Keep identical fields,
 ranges and rejection expectations. The published sources establish the design
 method; actual controls establish what this implementation supports.
+
+* Staging must preserve one semantic producer
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, section 6]] separates static grammar/environment
+from the dynamic input and specializes an intermediate representation.
+[[https://www.s48.org/essence/][Sperber and Thiemann's Essence]] applies partial evaluation to a general
+LR parser; its author-maintained [[https://github.com/mikesperber/essence][Scheme implementation]] connects the generator
+to the TOPLAS 2000 paper. These sources justify studying specialization of one
+semantic producer, rather than maintaining unrelated parser implementations.
+Our engine has no corresponding general specialization-correctness proof.
+
+The present implementation boundary is concrete:
+
+| Static after descriptor admission | Dynamic for every parse |
+|-----------------------------------+-------------------------|
+| Effective syntax/rules and selected origins | Source bytes and admission outcome |
+| Grammar identity and result catalogs | Source digest, node IDs and byte spans |
+| Syntax-kind, terminal and field indexes | Ordered event traversal and result lifetime |
+| Target strategy and its admission restrictions | Scanner/recognition state and natural GC |
+
+The encoder consumes canonical events using already indexed descriptor symbols.
+Removing a temporary row-index list changes traversal storage, not declaration
+meaning or accepted language. It needs byte-level output controls and measured
+complete calls; it does not require an author-facing allocation option.
+
+#+begin_src scheme
+;; Question 1: Why is this preferable for the author DSL?
+;; Row numbering is private publication state; syntax/rules stay unchanged.
+(let loop ((remaining events) (row 0))
+  (unless (null? remaining)
+    (write-event! language payload row (car remaining))
+    (loop (cdr remaining) (+ row 1))))
+;; Question 2: What justifies this implementation change?
+;; The same ordered events and descriptor indexes must yield identical bytes.
+(check native-fresh-output => canonical-output)
+(check native-session-output => canonical-output)
+;; Allocation and wall/GC receipts qualify different performance claims.
+#+end_src
+
+These are internal-engine expressions and test expectations, not a fourth
+required language interface. Current measurement and FFI lifetime controls are
+owned by [[file:source-edit-cost-contract.org][the complete Source edit cost contract]]. A Scheme heap object borrowed
+by C cannot be treated as a stable address through an allocating callback.
+This obligation belongs to the transport owner and remains independent of
+macro hygiene, grammar recognition and target admission.

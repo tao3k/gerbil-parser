@@ -202,7 +202,7 @@ jobs:
 
       - name: Compile language conformance modules
         run: |
-          GERBIL_BUILD_VERBOSE=9 GERBIL_PARSER_LR_TRACE=1 gerbil env \
+          GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 gerbil env \
             python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- bash scripts/build-language-conformance-native.sh

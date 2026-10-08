@@ -58,6 +58,15 @@
                (string-prefix? (string-append prefix "~") path)
                (string-prefix? (string-append static-prefix ".") path)
                (string-prefix? (string-append static-prefix "~") path)))) names))
+(def (conformance-generated-cache? path library)
+  ;; Content-addressed compiler memo products are created during preparation.
+  ;; Their source and compiler inputs remain in the preparation snapshot.
+  (any (lambda (name)
+         (string-prefix?
+           (string-append (path-expand (string-append "gerbil-parser/" name) library) "/")
+           path))
+       '("compiled-language-artifacts" "compiled-language-parser-cache"
+         "compiled-language-declaration-cache" "compiled-language-program-cache")))
 (def (preparation-record path)
   (and (file-exists? path)
        (with-catch (lambda (_) #f)
@@ -170,6 +179,7 @@
         '("gerbil.pkg")
         (filter (lambda (path)
                   (not (or (conformance-module-product? path library owned)
+                           (conformance-generated-cache? path library)
                            (and (string-contains path "/static/")
                                 (or (string-suffix? ".c" path) (string-suffix? ".o" path))))))
                 (preparation-files library))

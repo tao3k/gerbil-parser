@@ -79,9 +79,9 @@
     (when library?
       (compile-module source
         [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
-         invoke-gsc: #f optimize: #f generate-ssxi: #t static: #t keep-scm: #t verbose: #t]))
+         invoke-gsc: #f optimize: #f generate-ssxi: #t static: #t keep-scm: #t verbose: #f]))
     ;; Public compiler API generates the bootstrap, including admitted identities.
-    (compile-exe source [output-file: binary invoke-gsc: #f verbose: #t])
+    (compile-exe source [output-file: binary invoke-gsc: #f verbose: #f])
     (let* ((identities (bootstrap-identities stub))
            (entry (if library? "gerbil-parser/t/fixtures/native-ffi/library-closure"
                                "gerbil-parser/t/conformance-main"))

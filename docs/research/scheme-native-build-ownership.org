@@ -483,3 +483,24 @@ passed (=COMPOSITION-PARTITION-OK cases=31=). No assertion was deleted or weaken
 Compiler flags, worker scheduling and silence/total limits remain unchanged.
 Fresh full CI must qualify the smaller compilation units; partitioning alone is
 not a proof that every compiler phase stays below the silence limit.
+
+** Preparation input ownership and compiler diagnostics (2026-10-08)
+
+At PR #13 revision =007bf80=, both native jobs failed with
+=native preparation inputs changed during build=. Their inventories each grew
+by 98 files while compiling conformance helpers. The generated language artifact,
+parser, declaration and program memo directories were incorrectly treated as
+immutable preparation inputs. Their exact directory prefixes are now excluded
+from that input inventory; project sources, dependency interfaces, SDK products
+and the input-mutation rejection remain admitted and checked.
+
+The native Scheme preparation controls pass locally (1.41 seconds, exit 0),
+including memo publication during preparation, cache hits after memo changes,
+rebuilding after dependency interface changes, sibling-prefix rejection and
+rejection of actual input mutation. Full native CI remains a separate gate.
+
+Gerbil compiler =verbose:= is disabled in the conformance expansion and link
+owners; CI uses normal build verbosity instead of level 9. Internal
+=declare-type= accessor/signature dumps are compiler optimization diagnostics,
+not parser results. Explicit module progress and native compiler diagnostics
+remain available under the unchanged total and idle limits.

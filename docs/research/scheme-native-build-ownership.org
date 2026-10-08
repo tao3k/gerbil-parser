@@ -445,3 +445,27 @@ optimized Scheme module. Single-module native publication still hit the silence
 fence after GCC optimization reports; ANTLR source compilation also retained a
 cold expansion timeout. These local failures are recorded rather than treated
 as complete native publication. Whole-package CI is the remaining qualification.
+
+** Composition conformance compilation unit partition (2026-10-08)
+
+On revision =f21204f=, macOS CI failed the unchanged five-second silence gate
+while GCC compiled =gerbil-parser__t__grammar-composition-test.c=. The last
+diagnostics concern the module's large initializer, rather than a Scheme syntax
+or test assertion failure. The bounded build ended after 68.09 seconds with
+=reason=output idle timeout=. Rust CI passed; Ubuntu completed the native suite,
+but a concurrent branch update cancelled its remaining reporting steps.
+
+The shared grammar declarations now live in
+=t/fixtures/grammar-composition-models.ss= with explicit exports. The original
+=grammar-composition-test.ss= imports those fixtures and retains all 31 cases.
+The declarations and complete assertion body were compared byte for byte against
+the prior file before commit. The native conformance build publishes the fixture
+before the test module, through its existing helper compiler owner. This reduces
+the combined module's source/initializer responsibility without changing compiler
+optimization, concurrency, test coverage or any total/silence deadline.
+
+Local engine transfer tests passed independently. Local compilation of the split
+composition modules encountered stale language/DSL interfaces, so native build
+success is not claimed from that attempt. Exact-head CI must qualify both new
+compiler units and the complete composition suite. This structural partition is
+not evidence of an end-to-end parser performance improvement.

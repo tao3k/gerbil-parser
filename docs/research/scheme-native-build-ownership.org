@@ -469,3 +469,17 @@ composition modules encountered stale language/DSL interfaces, so native build
 success is not claimed from that attempt. Exact-head CI must qualify both new
 compiler units and the complete composition suite. This structural partition is
 not evidence of an end-to-end parser performance improvement.
+
+The first partition was insufficient: on =4119de4= the remaining 31-case
+assertion module again hit the five-second silence gate in its GCC initializer
+(elapsed 73.25 seconds). The assertion owner is therefore replaced by three
+native test modules: contracts, lowering, and execution. The old aggregate module
+is removed, and both the static build inventory and conformance entry select the
+three suites directly. Source gxtest discovers each new suite exactly once.
+
+An independent Scheme reader extracted the old and new =test-case= forms and
+required exact structural equality, original ordering and count 31. This check
+passed (=COMPOSITION-PARTITION-OK cases=31=). No assertion was deleted or weakened.
+Compiler flags, worker scheduling and silence/total limits remain unchanged.
+Fresh full CI must qualify the smaller compilation units; partitioning alone is
+not a proof that every compiler phase stays below the silence limit.

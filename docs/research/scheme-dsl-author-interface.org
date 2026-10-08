@@ -807,3 +807,37 @@ control. That local environment combines refreshed and existing native products;
 the cause is unconfirmed. This negative receipt does not establish a source-code
 root cause, nor may it be called a successful complete LR regression run. The
 rebased native image and exact-head CI remain required gates.
+
+** Closing the local LR crash
+
+The earlier status -11 receipt is superseded by a diagnosed build-product
+mismatch, not by an algorithm workaround. The cached optimized lr-parser calls
+compiler/lr#alist-ref__0. Re-emitting compiler/lr with optimize: #f defines only
+compiler/lr#alist-ref; optimized native consumers still retain the former direct
+call. Production and non-optimized products must not share this output owner.
+Re-emitting LR and its compiler with optimize: #t and generate-ssxi: #t restored
+the required entry and matching compiler declarations. Both native modules then
+compiled successfully. All fifteen resolved-grammar cases, including the formerly
+crashing positive case, passed in 36.86 seconds with exit status zero under the
+existing source-owner fences. No grammar algorithm or runtime behavior was
+changed to obtain that result. The earlier negative receipt remains part of the
+investigation history; it is no longer an unexplained source-code defect.
+
+Production modules must keep the package build's optimization mode and refreshed
+optimizer interfaces. Non-optimized semantic test modules have a distinct owner;
+they must not overwrite a production dependency while retaining its optimized
+consumers. A cold compiler-interface stall is still a separate failure and is
+not repaired by this ABI correction.
+
+** Rust profile publication repair
+
+Exact-head CI at b0347f7 completed native conformance compilation, DSL/POO closure,
+resolved-grammar tests and all twenty native artifact controls on both platforms.
+It then rejected the checked-in FHIRPath Rust profile at its grammar_digest field.
+A full production re-emission of the current FHIRPath grammar and parser followed
+by the repository's Scheme generator reproduces the drift. After rustfmt, the
+entire fixture delta is one digest string; kinds, terminals, lexical rules,
+actions, gotos, productions and independent profile cases are unchanged. The
+updated fixture is generated from Scheme, not patched by hand or admitted by
+weakening the comparison gate. All 130 runtime-crate tests passed locally. The
+same exact regeneration comparison remains mandatory in the next CI revision.

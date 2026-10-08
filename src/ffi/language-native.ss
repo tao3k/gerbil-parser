@@ -17,7 +17,7 @@
      (replace-result! result 0 (thunk))
      (result-status result))))
 (begin-foreign
- (namespace ("gerbil-parser/src/ffi/language-v2-native#"
+ (namespace ("gerbil-parser/src/ffi/language-native#"
              initialize-owner! copy-input! replace-result! result-status descriptor-callback
              parse-callback release-callback count-callback))
  (c-declare #<<END-C
@@ -25,7 +25,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdatomic.h>
-#include <gerbil-parser/language-v2.h>
+#include <gerbil-parser/language.h>
 #define GP_DATA(obj) ___CAST(___U8*, ___BODY_AS((obj), ___tSUBTYPED))
 #define GP_LEN(obj) ___HD_BYTES(___HEADER(obj))
 static pthread_t gp_owner;
@@ -35,17 +35,17 @@ int32_t gerbil_parser_language_is_owner_thread(void) {
   return gp_owner_ready && pthread_equal(gp_owner, pthread_self());
 }
 uint32_t gerbil_parser_language_abi_version(void) { return 2; }
-void gerbil_parser_result_v2_init(gerbil_parser_result_v2 *r) {
+void gerbil_parser_result_init(gerbil_parser_result *r) {
   if (r) { r->status = 0; r->payload = NULL; r->length = 0; }
 }
-void gerbil_parser_result_v2_release(gerbil_parser_result_v2 *r) {
-  if (r) { if (r->payload) { free(r->payload); atomic_fetch_sub(&gp_payload_count,1); } gerbil_parser_result_v2_init(r); }
+void gerbil_parser_result_release(gerbil_parser_result *r) {
+  if (r) { if (r->payload) { free(r->payload); atomic_fetch_sub(&gp_payload_count,1); } gerbil_parser_result_init(r); }
 }
 /* Match Gambit's generated c-define types at this private boundary. On
    LP64 Linux uint64_t may be unsigned long while ___U64 is unsigned long long.
    Public declarations retain their fixed-width C ABI types. */
-___S32 gerbil_parser_language_descriptor_impl(___U64, gerbil_parser_result_v2 *);
-___S32 gerbil_parser_language_parse_impl(___U64, ___U8 *, ___U64, gerbil_parser_result_v2 *);
+___S32 gerbil_parser_language_descriptor_impl(___U64, gerbil_parser_result *);
+___S32 gerbil_parser_language_parse_impl(___U64, ___U8 *, ___U64, gerbil_parser_result *);
 ___S32 gerbil_parser_language_release_impl(___U64);
 ___S32 gerbil_parser_language_handle_count_impl(void);
 int32_t gerbil_parser_language_runtime_detach(void) {
@@ -57,15 +57,15 @@ int32_t gerbil_parser_language_runtime_detach(void) {
   atomic_store(&gp_owner_ready,0);
   return 0;
 }
-int32_t gerbil_parser_language_descriptor(uint64_t language, gerbil_parser_result_v2 *r) {
+int32_t gerbil_parser_language_descriptor(uint64_t language, gerbil_parser_result *r) {
   if (!r) return -1;
-  if (!gerbil_parser_language_is_owner_thread()) { gerbil_parser_result_v2_release(r); r->status=-1; return -1; }
+  if (!gerbil_parser_language_is_owner_thread()) { gerbil_parser_result_release(r); r->status=-1; return -1; }
   return gerbil_parser_language_descriptor_impl((___U64)language, r);
 }
-int32_t gerbil_parser_language_parse(uint64_t language, const uint8_t *source, size_t length, gerbil_parser_result_v2 *r) {
+int32_t gerbil_parser_language_parse(uint64_t language, const uint8_t *source, size_t length, gerbil_parser_result *r) {
   if (!r) return -1;
   if (!gerbil_parser_language_is_owner_thread() || (!source && length) || length > 67108864) {
-    gerbil_parser_result_v2_release(r); r->status = -1; return -1;
+    gerbil_parser_result_release(r); r->status = -1; return -1;
   }
   return gerbil_parser_language_parse_impl((___U64)language, (___U8 *)source, (___U64)length, r);
 }
@@ -75,17 +75,17 @@ int32_t gerbil_parser_language_release(uint64_t language) {
 }
 END-C
  )
- (c-define-type result-v2 (type "gerbil_parser_result_v2" (gerbil_parser_result_v2)))
- (c-define-type result-v2-ptr (pointer result-v2 (gerbil_parser_result_v2*)))
+ (c-define-type native-result (type "gerbil_parser_result" (gerbil_parser_result)))
+ (c-define-type native-result-ptr (pointer native-result (gerbil_parser_result*)))
  (define initialize-owner! (c-lambda () void "gp_owner=pthread_self();gp_owner_ready=1;___return;"))
- (define result-status (c-lambda (result-v2-ptr) int32 "___return(___arg1->status);"))
+ (define result-status (c-lambda (native-result-ptr) int32 "___return(___arg1->status);"))
  (define copy-input! (c-lambda ((pointer unsigned-int8) scheme-object) void
     "if (GP_LEN(___arg2)) memcpy(GP_DATA(___arg2), ___arg1, GP_LEN(___arg2)); ___return;"))
  (define replace-result!
-  (c-lambda (result-v2-ptr int32 scheme-object) void #<<END-C
+  (c-lambda (native-result-ptr int32 scheme-object) void #<<END-C
 size_t n = GP_LEN(___arg3);
 uint8_t *p = n ? (uint8_t *)malloc(n) : NULL;
-gerbil_parser_result_v2_release(___arg1);
+gerbil_parser_result_release(___arg1);
 if (n && !p) { ___arg1->status = -1; ___return; }
 if (n) { memcpy(p, GP_DATA(___arg3), n); atomic_fetch_add(&gp_payload_count,1); }
 ___arg1->status = ___arg2; ___arg1->payload = p; ___arg1->length = n;
@@ -93,12 +93,12 @@ ___return;
 END-C
  ))
  (c-define (descriptor-callback language result)
-  (unsigned-int64 result-v2-ptr) int32 "gerbil_parser_language_descriptor_impl" "extern"
-  (gerbil-parser/src/ffi/language-v2-native#publish-result result (lambda () (string->utf8 (gerbil-parser/src/ffi/language-handles#native-language-handle-descriptor language)))))
+  (unsigned-int64 native-result-ptr) int32 "gerbil_parser_language_descriptor_impl" "extern"
+  (gerbil-parser/src/ffi/language-native#publish-result result (lambda () (string->utf8 (gerbil-parser/src/ffi/language-handles#native-language-handle-descriptor language)))))
  (c-define (parse-callback language input length result)
-  (unsigned-int64 (pointer unsigned-int8) unsigned-int64 result-v2-ptr) int32
+  (unsigned-int64 (pointer unsigned-int8) unsigned-int64 native-result-ptr) int32
   "gerbil_parser_language_parse_impl" "extern"
-  (gerbil-parser/src/ffi/language-v2-native#call-with-native-result result
+  (gerbil-parser/src/ffi/language-native#call-with-native-result result
     (lambda ()
       (gerbil-parser/src/ffi/language-handles#native-language-handle-owner!)
       (when (> length gerbil-parser/src/ffi/language-handles#+native-source-byte-limit+) (error "native source byte limit"))

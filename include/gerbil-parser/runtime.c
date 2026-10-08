@@ -4,7 +4,7 @@
 #include <gambit.h>
 #include <pthread.h>
 #include <stdatomic.h>
-#include <gerbil-parser/language-v2.h>
+#include <gerbil-parser/language.h>
 #include <gerbil-parser/runtime.h>
 #ifndef GERBIL_PARSER_LINKER
 #error "The native library builder must supply its Gambit linker symbol"

@@ -1,5 +1,5 @@
-#ifndef GERBIL_PARSER_LANGUAGE_V2_H
-#define GERBIL_PARSER_LANGUAGE_V2_H
+#ifndef GERBIL_PARSER_LANGUAGE_H
+#define GERBIL_PARSER_LANGUAGE_H
 #include <stddef.h>
 #include <stdint.h>
 #ifdef __cplusplus
@@ -10,8 +10,8 @@ extern "C" {
  * Release invalidates a handle; its numeric identity is never reused.
  * The library/runtime must remain loaded through the last call and release.
  * This API does not initialize/shutdown the runtime or admit arbitrary threads. */
-typedef uint64_t gerbil_parser_language_v2;
-typedef struct { int32_t status; uint8_t *payload; size_t length; } gerbil_parser_result_v2;
+typedef uint64_t gerbil_parser_language;
+typedef struct { int32_t status; uint8_t *payload; size_t length; } gerbil_parser_result;
 /* Initialize once, release after use. Each call replaces the C-owned payload.
  * Result payload contains GPA1 bytes (parse) or descriptor/error UTF-8 inert Scheme v1.
  * Transport success is separate from accepted/rejected syntax in GPA1.
@@ -41,11 +41,11 @@ uint32_t gerbil_parser_language_abi_version(void);
  * result payloads remain. After success no Scheme callback is admitted.
  * This does not perform VM cleanup; runtime.h owns the standalone lifecycle. */
 int32_t gerbil_parser_language_runtime_detach(void);
-void gerbil_parser_result_v2_init(gerbil_parser_result_v2 *result);
-void gerbil_parser_result_v2_release(gerbil_parser_result_v2 *result);
-int32_t gerbil_parser_language_descriptor(gerbil_parser_language_v2 language, gerbil_parser_result_v2 *result);
-int32_t gerbil_parser_language_parse(gerbil_parser_language_v2 language, const uint8_t *source, size_t length, gerbil_parser_result_v2 *result);
-int32_t gerbil_parser_language_release(gerbil_parser_language_v2 language);
+void gerbil_parser_result_init(gerbil_parser_result *result);
+void gerbil_parser_result_release(gerbil_parser_result *result);
+int32_t gerbil_parser_language_descriptor(gerbil_parser_language language, gerbil_parser_result *result);
+int32_t gerbil_parser_language_parse(gerbil_parser_language language, const uint8_t *source, size_t length, gerbil_parser_result *result);
+int32_t gerbil_parser_language_release(gerbil_parser_language language);
 #ifdef __cplusplus
 }
 #endif

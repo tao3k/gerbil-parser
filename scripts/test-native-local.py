@@ -143,8 +143,8 @@ def main():
                     '(import :gerbil-parser/t/fixtures/native-ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'],
                     required=["NATIVE-ABI-OK", "ABI-RUNTIME-GENERATED-MATCH calls=3"])
                 run("native-language-abi", ["gxi", "-e",
-                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")', "-e",
-                    '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'],
+                    '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-probe")', "-e",
+                    '(import :gerbil-parser/t/fixtures/native-ffi/language-probe) (main)'],
                     required=["LANGUAGE-ABI-OK", "LANGUAGE-ABI-100-CALLS"])
                 environment["CARGO_TARGET_DIR"] = str(root / "target")
                 run("rust-native-build", ["cargo", "build", "--locked", "--manifest-path",

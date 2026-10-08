@@ -31,7 +31,7 @@ pub struct NativeSession {
 impl NativeSession {
     /// Admit an initialized runtime on its original OS thread.
     /// # Safety
-    /// Every function must implement `language-v2.h` and belong to the same live
+    /// Every function must implement `language.h` and belong to the same live
     /// initialized runtime. `create` must belong to an initialized pack in that
     /// runtime. Functions must not unwind across C. The embedding host must keep
     /// the VM, modules and function pointers alive until this session and all its

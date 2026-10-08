@@ -393,8 +393,8 @@ jobs:
             gerbil env python3 scripts/run-bounded.py --timeout 90 --idle-timeout 5 \
             --log .data/native-language-abi.log --require LANGUAGE-ABI-OK \
             --require LANGUAGE-ABI-100-CALLS \
-            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-v2-probe")' \
-            -e '(import :gerbil-parser/t/fixtures/native-ffi/language-v2-probe) (main)'
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-native-interfaces!) (preload-module "gerbil-parser/t/fixtures/native-ffi/language-probe")' \
+            -e '(import :gerbil-parser/t/fixtures/native-ffi/language-probe) (main)'
 
       - name: Prepare native gxtest source owners
         run: |

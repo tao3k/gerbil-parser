@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Public admission boundary for compiled language packs and native ABI v2.
+;;; Public admission boundary for compiled language packs and the native language ABI.
 (import (only-in ./src/ffi/language-handles register-native-language! release-native-language!))
 (export register-native-language! release-native-language!)
 

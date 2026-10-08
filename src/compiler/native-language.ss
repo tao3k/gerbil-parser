@@ -23,7 +23,7 @@
   (let* ((source
           (string-append
            ";;; @generated native language C entry; compile through the normal package builder.\n"
-           "(import :gerbil-parser/src/ffi/language-v2-native\n"
+           "(import :gerbil-parser/src/ffi/language-native\n"
            " (only-in :gerbil-parser/src/ffi/language-handles register-native-language!)\n"
            " (only-in :" grammar-module " " (symbol->string descriptor-export)
            (if contextual-export (string-append " " (symbol->string contextual-export)) "") "))\n"
@@ -31,14 +31,14 @@
            "(def (create-native-language-handle) (register-native-language! " (symbol->string descriptor-export)
            (if contextual-export (string-append " " (symbol->string contextual-export)) "") "))\n"
            "(begin-foreign\n (namespace (\"" module-id "#\" native-create-callback))\n"
-           " (c-declare \"#include <gerbil-parser/language-v2.h>\\n___U64 " c-prefix "_language_create_impl(void);\\nuint64_t " c-prefix "_language_create(void) { return gerbil_parser_language_is_owner_thread() ? " c-prefix "_language_create_impl() : 0; }\")\n"
+           " (c-declare \"#include <gerbil-parser/language.h>\\n___U64 " c-prefix "_language_create_impl(void);\\nuint64_t " c-prefix "_language_create(void) { return gerbil_parser_language_is_owner_thread() ? " c-prefix "_language_create_impl() : 0; }\")\n"
            " (c-define (native-create-callback) () unsigned-int64 \"" c-prefix "_language_create_impl\" \"extern\"\n"
            "  (with-exception-catcher (lambda (_) 0) (lambda () (" module-id "#create-native-language-handle)))))\n"))
          (header
           (string-append "/* @generated language entry; runtime must already be initialized on its owner thread. */\n"
-                         "#pragma once\n#include <gerbil-parser/language-v2.h>\n#ifdef __cplusplus\nextern \"C\" {\n#endif\n"
+                         "#pragma once\n#include <gerbil-parser/language.h>\n#ifdef __cplusplus\nextern \"C\" {\n#endif\n"
                          "/* Creates a distinct handle. Zero signals admission failure. Release with the generic API. */\n"
-                         "gerbil_parser_language_v2 " c-prefix "_language_create(void);\n#ifdef __cplusplus\n}\n#endif\n")))
+                         "gerbil_parser_language " c-prefix "_language_create(void);\n#ifdef __cplusplus\n}\n#endif\n")))
     (create-directory* (path-directory source-path))
     (create-directory* (path-directory header-path))
     (call-with-output-file source-path (lambda (port) (display source port)))

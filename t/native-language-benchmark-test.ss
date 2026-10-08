@@ -3,7 +3,7 @@
         :asp-gerbil-scheme/src/benchmark/framework
         (only-in :asp-gerbil-scheme/src/benchmark/gate benchmark-run/result)
         (only-in :gerbil-parser/t/fixtures/progress report-test-progress!)
-        (only-in :gerbil-parser/t/fixtures/native-ffi/language-v2-probe parse-native-batch parse-native-sized-batch create-native-handle)
+        (only-in :gerbil-parser/t/fixtures/native-ffi/language-probe parse-native-batch parse-native-sized-batch create-native-handle)
         (only-in :gerbil-parser/src/ffi/language-handles release-native-language!))
 (def native-language-benchmark-tests
   (test-suite "native language C performance"

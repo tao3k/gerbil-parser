@@ -121,7 +121,7 @@ exact-head CI is recorded separately from local receipts.
 
 * Native FFI ownership and commit boundary
 
-The existing language-v2 ABI now consumes Scheme-owned Source history behind
+The language ABI now consumes Scheme-owned Source history behind
 each registered language handle. Callers continue to use the same parse entry.
 Canonical LR and contextual LR products retain their existing execution paths;
 only Source descriptors enter the Source session engine.

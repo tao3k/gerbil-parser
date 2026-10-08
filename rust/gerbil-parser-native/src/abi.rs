@@ -1,7 +1,7 @@
 //! Exact public C representations and the only raw payload access.
 use crate::NativeError;
 
-/// Layout of `gerbil_parser_result_v2` from `language-v2.h`.
+/// Layout of `gerbil_parser_result` from `language.h`.
 /// Fields are public for foreign declarations; safe consumers use `NativePayload`.
 #[repr(C)]
 #[derive(Debug)]
@@ -11,7 +11,7 @@ pub struct RawResult {
     pub length: usize,
 }
 
-/// Functions from one loaded ABI v2 runtime and an initialized language pack.
+/// Functions from one loaded language ABI runtime and an initialized language pack.
 /// The generated pack contributes only `create`; every other function is generic.
 #[derive(Clone, Copy)]
 pub struct LanguageApi {
@@ -64,8 +64,8 @@ unsafe extern "C" {
         result: *mut RawResult,
     ) -> i32;
     fn gerbil_parser_language_release(handle: u64) -> i32;
-    fn gerbil_parser_result_v2_init(result: *mut RawResult);
-    fn gerbil_parser_result_v2_release(result: *mut RawResult);
+    fn gerbil_parser_result_init(result: *mut RawResult);
+    fn gerbil_parser_result_release(result: *mut RawResult);
 }
 
 impl LanguageApi {
@@ -80,8 +80,8 @@ impl LanguageApi {
             descriptor: gerbil_parser_language_descriptor,
             parse: gerbil_parser_language_parse,
             release: gerbil_parser_language_release,
-            result_init: gerbil_parser_result_v2_init,
-            result_release: gerbil_parser_result_v2_release,
+            result_init: gerbil_parser_result_init,
+            result_release: gerbil_parser_result_release,
         }
     }
 }

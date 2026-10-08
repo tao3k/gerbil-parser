@@ -81,7 +81,7 @@ and deferred scanner state come from shared Scheme IR.
 Compile its Scheme output through the normal native builder; C clients call
 the generated =PREFIX_language_create()= then the generic length-bearing
 =gerbil_parser_language_parse(handle, bytes, length, result)= in
-=include/gerbil-parser/language-v2.h=. The embedding host initializes the Gerbil
+=include/gerbil-parser/language.h=. The embedding host initializes the Gerbil
 runtime; calls belong to its owner thread. See RFC 0018 for lifecycle boundaries
 and the independent Records example.
 

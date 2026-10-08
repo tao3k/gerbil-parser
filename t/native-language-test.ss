@@ -4,7 +4,7 @@
         (only-in :gerbil-parser/src/language/source declare-source-language source-language-result-catalog source-language-digest)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
         (only-in :gerbil-parser/languages/bash/parser bash-source-language)
-        (only-in :gerbil-parser/t/fixtures/native-ffi/language-v2-probe probe-source-language)
+        (only-in :gerbil-parser/t/fixtures/native-ffi/language-probe probe-source-language)
         (only-in :gerbil-parser/t/native-datum-support native-datum-read)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records records-language-grammar records-contextual-product)

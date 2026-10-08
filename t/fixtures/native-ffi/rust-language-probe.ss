@@ -1,5 +1,5 @@
 ;;; Actual Rust-owned handles and GPA1 buffers over the compiled language API.
-(import :gerbil-parser/src/ffi/language-v2-native
+(import :gerbil-parser/src/ffi/language-native
         :gerbil-parser/t/fixtures/shared-scanner/records-native
         (only-in :gerbil-parser/languages/bash/parser bash-source-language)
         (only-in :gerbil-parser/src/ffi/language-handles register-native-language! native-language-handle-count)

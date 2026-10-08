@@ -125,7 +125,7 @@ The capability inventory and golden transition traces are shared conformance
 data. Existing Scheme balanced-word/deferred tests are starting seams, not
 proof that the Rust lexer or complete Bash grammar implements them.
 
-* C ABI product boundary (proposed v2)
+* C ABI product boundary (language handles)
 
 Preserve published v1 result initialization/replacement/release behavior.
 A new length-bearing API uses =const uint8_t*= plus =size_t= for source bytes;
@@ -288,7 +288,14 @@ compile the generated entry with =-I/path/to/gerbil-parser/include=. ELF clients
 link the generic ABI object and selected language entry object explicitly.
 Language/compiler dependencies remain selected by the downstream descriptor.
 
-=include/gerbil-parser/language-v2.h= is language independent. It accepts an
+Module namespaces follow their source paths: =src/ffi/language-native.ss=
+provides the language boundary, and =include/gerbil-parser/language.h= names
+its C contract. Version numbers belong to contract data returned by
+=gerbil_parser_language_abi_version()=, not module paths or C identifiers.
+The public result type is =gerbil_parser_result=; this rename introduces no
+alias for the removed versioned names.
+
+=include/gerbil-parser/language.h= is language independent. It accepts an
 explicit source pointer/length, preserves embedded NUL, rejects noncanonical
 UTF-8 and enforces 64 MiB before copying. Successful parsing transports the
 existing GPA1 event format, with syntax acceptance in its header. Results are

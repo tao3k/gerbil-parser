@@ -20,7 +20,7 @@ impl NativeRuntime {
     /// Initialize and own a standalone bundle on this OS thread.
     /// # Safety
     /// `api` must come from the bundle built by the native library builder (or
-    /// implement the same `runtime.h` and `language-v2.h` contracts). No other
+    /// implement the same `runtime.h` and `language.h` contracts). No other
     /// Gambit VM may be initialized in this process. The bundle and its functions
     /// must remain loaded until this owner is dropped. The caller must not close
     /// the VM or release resources borrowed from this owner independently.

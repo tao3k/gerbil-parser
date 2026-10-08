@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <gerbil-parser/runtime.h>
-#include <gerbil-parser/language-v2.h>
+#include <gerbil-parser/language.h>
 #include "t/fixtures/shared-scanner/records-native.h"
 extern int gerbil_parser_rust_native_host_probe(void);
 extern int gerbil_parser_rust_native_probe(void);
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   if (!handle) return 4;
   puts("NATIVE-HOST-HANDLE-BARRIER");fflush(stdout);
   if (gerbil_parser_runtime_shutdown() != -2) return 4;
-  gerbil_parser_result_v2 result; gerbil_parser_result_v2_init(&result);
+  gerbil_parser_result result; gerbil_parser_result_init(&result);
   const uint8_t source[] = "α=1\n";
   started = seconds();
   for (int i=0;i<100;i++) {
@@ -51,14 +51,14 @@ int main(int argc, char **argv) {
   if (gerbil_parser_language_release(handle)) return 6;
   /* The result alone must keep shutdown busy after the handle is released. */
   if (gerbil_parser_runtime_shutdown() != -2) return 7;
-  gerbil_parser_result_v2_release(&result);
+  gerbil_parser_result_release(&result);
   puts("NATIVE-HOST-CLEANUP");fflush(stdout);
   if (gerbil_parser_runtime_shutdown()) return 8;
   if (gerbil_parser_language_is_owner_thread() || records_language_create()) return 9;
   if (gerbil_parser_language_parse(handle,source,sizeof(source)-1,&result) != -1 ||
       gerbil_parser_language_descriptor(handle,&result) != -1 ||
       gerbil_parser_language_release(handle) != -1) return 10;
-  gerbil_parser_result_v2_release(&result);
+  gerbil_parser_result_release(&result);
   if (gerbil_parser_runtime_shutdown() != -3 || gerbil_parser_runtime_init() != -3) return 11;
   puts("NATIVE-HOST-CLEANUP-OK");fflush(stdout);
   return 0;

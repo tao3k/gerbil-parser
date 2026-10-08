@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 unsafe extern "C" {
     fn records_language_create() -> u64;
     fn gerbil_parser_language_release(handle: u64) -> i32;
-    fn gerbil_parser_result_v2_release(result: *mut RawResult);
+    fn gerbil_parser_result_release(result: *mut RawResult);
 }
 static RELEASED: AtomicUsize = AtomicUsize::new(0);
 static FREED: AtomicUsize = AtomicUsize::new(0);
@@ -21,7 +21,7 @@ unsafe extern "C" fn release(handle: u64) -> i32 {
 }
 unsafe extern "C" fn free(result: *mut RawResult) {
     // SAFETY: the session supplies its initialized, exclusive owned result.
-    unsafe { gerbil_parser_result_v2_release(result) };
+    unsafe { gerbil_parser_result_release(result) };
     FREED.fetch_add(1, Ordering::Relaxed);
 }
 fn api() -> LanguageApi {

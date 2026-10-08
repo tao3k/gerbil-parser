@@ -37,14 +37,14 @@ contract; POO objects are not required wrappers around ordinary data.
 #+begin_src scheme
 ;; Normal author value; no POO construction or prototype declaration required.
 (deflanguage-parser-loader bash-language
-  (source bash-source-language bash-syntax)
+  (source bash-syntax)
   (parse parse-bash)
-  (metadata '((language . "bash") (version . "5.3")
+  (slots metadata: '((language . "bash") (version . "5.3")
               (contract . "bash-5.3-structured-source.v1")
               (grammar-format . source-parser))))
 
 ;; With inheritance, metadata may instead be a native POO object:
-;; (metadata (.o (:: self MetadataBase.) version: "v2"))
+;; (slots metadata: (.o (:: self MetadataBase.) version: "v2"))
 ;; Its effective slots must supply valid language/version/contract values.
 
 ;; Question 1: Why is this design better?

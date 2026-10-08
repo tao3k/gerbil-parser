@@ -22,12 +22,14 @@
      "sha256:cf2a7cf29475e29b1a9188fcabea77782db59c9309b200059b3ef3f781eaae13")
 
 (deflanguage-parser-loader fhirpath-language
-  (grammar fhirpath-language-grammar fhirpath-syntax)
+  (grammar fhirpath-syntax)
   (parse parse-fhirpath)
-  (metadata `((language . "fhirpath")
+  (slots metadata: `((language . "fhirpath")
               (version . "2.0.0")
               (contract . "fhirpath-normative-2.0.0-syntax.v1")
               (grammar-format . concise-dsl)
               (source-digest . ,+fhirpath-antlr4-digest+))))
+
+(def fhirpath-language-grammar (language-parser-entry-ref fhirpath-language 'descriptor))
 
 (def +fhirpath-syntax-contract+ (language-metadata-ref (language-parser-entry-ref fhirpath-language 'metadata) 'contract))

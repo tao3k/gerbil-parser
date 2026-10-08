@@ -486,8 +486,8 @@ specified malformed catalogs and checks their actual rejection category.
   (rules))
 ;; parser.ss: a normal metadata value needs no POO wrapper.
 (deflanguage-parser-loader query-language
-  (grammar query-language-grammar query-syntax) (parse parse-query)
-  (metadata '((language . "query") (version . "release")
+  (grammar query-syntax) (parse parse-query)
+  (slots metadata: '((language . "query") (version . "release")
               (contract . "query.syntax.v1"))))
 ;; Question 1: Why is this design better?
 ;; Authors edit recognition and publication under distinct, predictable owners.

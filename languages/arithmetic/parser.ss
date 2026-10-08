@@ -7,13 +7,15 @@
 (export +arithmetic-language-version+ +arithmetic-syntax-contract+ (import: ./grammar) arithmetic-language-grammar arithmetic-language parse-arithmetic)
 
 (deflanguage-parser-loader arithmetic-language
-  (grammar arithmetic-language-grammar arithmetic-syntax)
+  (grammar arithmetic-syntax)
   (parse parse-arithmetic)
-  (metadata '((language . "arithmetic")
+  (slots metadata: '((language . "arithmetic")
               (version . "v1")
               (contract . "arithmetic-expression.v1")
               (grammar-format . concise-dsl)))
   (backends arithmetic-parser (drive direct-grammar-digest direct-drive)))
+
+(def arithmetic-language-grammar (language-parser-entry-ref arithmetic-language 'descriptor))
 
 (def +arithmetic-language-version+ (language-metadata-ref (language-parser-entry-ref arithmetic-language 'metadata) 'version))
 

@@ -75,17 +75,20 @@
         optimize: #f generate-ssxi: #t static: #t keep-scm: #t
         invoke-gsc: #f verbose: #t]))
    (filter shared-test-module? conformance-modules)))
+;;; Exported helper macros must have native phase bodies before later imports.
+(def conformance-macro-modules
+  '("t/fixtures/fixture-release" "t/fixtures/language-pack-research/list-stage"))
 (def (compile-static-conformance!)
-  ;; One Scheme emission owner; the native link owner compiles its objects once.
-  ;; Source gxtest may load emitted Scheme bodies, while closed conformance
-  ;; executes their native objects. Do not also compile duplicate dynamic bodies.
+  ;; Runtime objects belong to the native link owner. Exported helper macros
+  ;; also have a compile-time owner: Gerbil imports their native phase bodies.
   (for-each
    (lambda (module)
      (displayln "STATIC-HELPER-SCHEME " module) (force-output)
      (compile-module (string-append module ".ss")
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
         optimize: #t generate-ssxi: #t static: #t keep-scm: #t
-        invoke-gsc: #f verbose: #t]))
+        invoke-gsc: (and (member module conformance-macro-modules) #t)
+        cc-options: "-v -Q -fopt-info-all" verbose: #t]))
    (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
   ;; The closed executable owns their only required C/object compilation here.
   (compile-static-tests!))

@@ -26,15 +26,17 @@
 (def +gql-antlr4-digest+ (antlr4-source-digest gql-antlr4-source))
 
 (deflanguage-parser-loader gql-language
-  (grammar gql-language-grammar gql-syntax)
+  (grammar gql-syntax)
   (parse parse-gql)
-  (metadata `((language . "gql")
+  (slots metadata: `((language . "gql")
               (version . "edition-1-2024-04")
               (contract . "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
               (grammar-format . antlr4)
               (reference-version . ,+gql-opengql-reference-version+)
               (reference-commit . ,+gql-opengql-reference-commit+)
               (source-digest . ,+gql-antlr4-digest+))))
+
+(def gql-language-grammar (language-parser-entry-ref gql-language 'descriptor))
 
 (def +gql-standard-edition+ (language-metadata-ref (language-parser-entry-ref gql-language 'metadata) 'version))
 

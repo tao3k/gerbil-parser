@@ -27,9 +27,9 @@ Engine IR still has its own closed encoding; it is not an alternative author DSL
 
 ;; parser.ss: release identity is owned by the public parser entry.
 (deflanguage-parser-loader example-language
-  (grammar example-language-grammar example-syntax)
+  (grammar example-syntax)
   (parse parse-example)
-  (metadata '((language . "example") (version . "1")
+  (slots metadata: '((language . "example") (version . "1")
               (contract . "example.v1"))))
 
 ;; Question 1: Why is this design better?
@@ -716,3 +716,94 @@ The follow-up [[file:scheme-engine-library-boundary.org][engine/library boundary
 profile into grammar.ss, separates production entry from optional development
 services, and records semantic limits and executable falsifiers. The earlier
 corpus-in-parser implementation above is superseded by that contract.
+
+* Complete parser-entry alignment
+
+All eight shipped language packages and ten public parser entries use the same
+slot declaration. The old metadata section and three-argument descriptor alias
+form are removed from the production macro. Public descriptor accessors remain
+ordinary definitions after entry admission. Arithmetic and HCL install their
+backends through the canonical slots declaration, without a separate entry DSL.
+
+| Package | Public entries | Configuration |
+|---------+----------------+---------------|
+| arithmetic | arithmetic | ordinary metadata value |
+| bash | bash | ordinary metadata value |
+| cypher | opencypher | ordinary metadata and source-schema values |
+| fhirpath | fhirpath | ordinary metadata value |
+| gql | gql | ordinary metadata value |
+| hcl | hcl | ordinary metadata value |
+| hl7 | hl7v2 | ordinary metadata value; parser-owned projection |
+| tla-plus | core, layout, SANY candidate | inherited POO metadata |
+
+The HL7 patient projection is a parser-side product adapter. Its columns, message
+identity, schema and source digest do not define token recognition or grammar
+construction. The grammar no longer imports POO or RecordProjection, and the
+three-interface authoring contract rejects projection declarations in grammar.ss.
+The public parser continues to export the same patient projection.
+
+#+begin_src scheme
+;; Shared configuration only needs POO when variants inherit and override it.
+(def source-metadata
+  (.o language: "example" grammar-format: 'concise-dsl
+      source-catalog: pinned-source))
+(deflanguage-parser-loader example-language
+  (grammar example-syntax)
+  (parse parse-example)
+  (slots metadata: (.o (:: @ source-metadata)
+                       version: "v2" contract: "example.syntax.v2")))
+;; Question 1: Why is this design better?
+;; The same slot interface covers normal values and native inheritance. Shared
+;; fields have one owner; variants declare overrides. Recognition stays in
+;; grammar.ss, configuration and product adapters in parser.ss, witnesses in
+;; parser-test.ss. Removed forms cannot continue to publish competing entries.
+;; Question 2: Why is this scientifically defensible?
+;; Expansion rejects old forms. Independent topology checks cover every pack.
+;; Matched accepted/rejected controls preserve descriptors and named parse events;
+;; projection fields and source identity have their own independent witnesses.
+#+end_src
+
+** Qualification
+
+The complete topology suite passed in 2.69 seconds. All eight parser modules
+expanded successfully against the current macro phase, and all current parser
+runtime objects compiled. Semantic emission used optimize: #f; these are
+correctness receipts, not production optimization or latency measurements.
+The existing native alignment publisher exercised twenty accepted/rejected cases
+across all ten entries. Its complete output is byte-identical to the preceding
+literal-construction baseline; the independent Rust decoder also reported
+ALL-20-NAMED-EVENT-SEMANTICS-UNCHANGED. These controls do not cover every input in
+each language standard. The relocated HL7 projection independently preserved its
+schema, patient identifier, family name, given names and artifact source digest.
+
+Four expansion controls reject development-service slots, the removed metadata
+section and the removed descriptor alias form. The prior exact-head CI failure
+also exposed a missing native phase owner for fixture-release and list-stage:
+emitted Gambit Scheme was imported as Gerbil source. The conformance compiler now
+builds those exported macro phases through compile-module. A fresh output directory
+compiled and imported both helpers successfully. This repair does not establish
+full conformance-image linking or exact-head CI success; those gates remain
+separate. All receipts retain the existing 240-second source/build and 5-second
+silence fences. The closed native child still has its separate 10-second fence.
+
+The migrated source-entry fixtures, production-entry boundary suite and topology
+suite also compile against the current expander. One separate cold macro import
+attempt hit the existing silence fence before completion; its result is retained
+as a negative receipt rather than replaced by the successful build/import run.
+A further separate process admitted the fresh native helper dependencies and
+imported both newly built macro phases successfully in 30.20 seconds, with exit
+status zero. Its real module boundaries supplied progress; no synthetic output
+or wider silence allowance was used.
+
+** Rebase evidence boundary
+
+The alignment commit was rebased onto the concurrent PR revision 7d0a86d,
+preserving its resolved-repetition validation and research documents. The complete
+language topology suite passed again in 2.95 seconds. The twenty artifact and
+projection receipts above precede that rebase and are not exact-head CI receipts.
+The updated LR sources emitted and compiled locally; an additional resolved-
+grammar suite then terminated with status -11 during its nullable-prefix positive
+control. That local environment combines refreshed and existing native products;
+the cause is unconfirmed. This negative receipt does not establish a source-code
+root cause, nor may it be called a successful complete LR regression run. The
+rebased native image and exact-head CI remain required gates.

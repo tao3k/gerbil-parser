@@ -27,9 +27,9 @@ belong to the engine or test owners. No compatibility modules remain.
 (export example-language parse-example)
 
 (deflanguage-parser-loader example-language
-  (grammar example-language-grammar example-syntax)
+  (grammar example-syntax)
   (parse parse-example)
-  (metadata '((language . "example") (version . "v1")
+  (slots metadata: '((language . "example") (version . "v1")
               (contract . "example.syntax.v1"))))
 #+end_src
 

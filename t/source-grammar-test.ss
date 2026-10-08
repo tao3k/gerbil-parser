@@ -39,12 +39,14 @@
 (def input-metadata (list (cons 'language "notes") (cons 'version input-version)
                          (cons 'contract "notes.metadata.v1") (cons 'edition 'local)))
 (deflanguage-parser-loader value-entry
-  (source value-descriptor metadata-syntax) (parse parse-value-entry)
-  (metadata input-metadata))
+  (source metadata-syntax) (parse parse-value-entry)
+  (slots metadata: input-metadata))
+(def value-descriptor (language-parser-entry-ref value-entry 'descriptor))
 (def MetadataBase. (.o language: "notes" version: "wrong" contract: "notes.metadata.v1" edition: 'base))
 (deflanguage-parser-loader object-entry
-  (source object-descriptor metadata-syntax) (parse parse-object-entry)
-  (metadata (.o (:: self MetadataBase.) version: "v1" edition: 'local)))
+  (source metadata-syntax) (parse parse-object-entry)
+  (slots metadata: (.o (:: self MetadataBase.) version: "v1" edition: 'local)))
+(def object-descriptor (language-parser-entry-ref object-entry 'descriptor))
 (def source-grammar-test
  (test-suite "deflanguage source syntax and rule contract"
 (test-case "source errors identify the direct expression or author macro invocation"
@@ -83,7 +85,7 @@
    (for-each (lambda (value)
      (check (rejects? (lambda ()
        (let () (deflanguage-parser-loader invalid-entry
-                 (source invalid-descriptor metadata-syntax) (parse invalid-parse) (metadata value))
+                 (source metadata-syntax) (parse invalid-parse) (slots metadata: value))
          invalid-entry))) => #t))
      '(((language . "notes") (version . "v1"))
        ((language . "notes") (version . "v1") (version . "v2") (contract . "notes.v1"))

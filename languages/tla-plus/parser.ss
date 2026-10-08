@@ -21,25 +21,28 @@
   (digest "sha256:15edd079cf16cf91556ba66b496c9ffc16f26ab30856753ed58e60b0d54f2d07")
   (source "grammar-source/tla+.jj"))
 (def tla-plus-source-metadata
-  (append '((syntax-source . "Specifying Systems, Chapter 15: TLAPlusGrammar")
-            (examples-commit . "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")
-            (sany-release . "v1.7.4")
-            (sany-commit . "5a47802b5c391f59ecdd44117981f4ff8c0656ba")
-            (sany-grammar-blob . "bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56")
-            (sany-grammar-digest . "sha256:15edd079cf16cf91556ba66b496c9ffc16f26ab30856753ed58e60b0d54f2d07"))
-          (list (cons 'source-catalog tla-plus-sany-source))))
+  (.o language: "tla-plus" grammar-format: 'concise-dsl
+      syntax-source: "Specifying Systems, Chapter 15: TLAPlusGrammar"
+      examples-commit: "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10"
+      sany-release: "v1.7.4"
+      sany-commit: "5a47802b5c391f59ecdd44117981f4ff8c0656ba"
+      sany-grammar-blob: "bf9e7acb5337f4b6c2a4d6a973a1a65c95e72f56"
+      sany-grammar-digest: "sha256:15edd079cf16cf91556ba66b496c9ffc16f26ab30856753ed58e60b0d54f2d07"
+      source-catalog: tla-plus-sany-source))
 
 (deflanguage-parser-loader tla-plus-core-language
-  (grammar tla-plus-core-language-grammar tla-plus-core-syntax)
+  (grammar tla-plus-core-syntax)
   (parse parse-tla-plus-core)
-  (metadata (append '((language . "tla-plus") (version . "v1")
-              (contract . "tla-plus.native-core.v1") (grammar-format . concise-dsl)) tla-plus-source-metadata)))
+  (slots metadata: (.o (:: @ tla-plus-source-metadata) version: "v1" contract: "tla-plus.native-core.v1")))
+
+(def tla-plus-core-language-grammar (language-parser-entry-ref tla-plus-core-language 'descriptor))
 
 (deflanguage-parser-loader tla-plus-layout-language
-  (grammar tla-plus-layout-language-grammar tla-plus-layout-syntax)
+  (grammar tla-plus-layout-syntax)
   (parse parse-tla-plus-layout)
-  (metadata (append '((language . "tla-plus") (version . "v2")
-              (contract . "tla-plus.native-layout.v2") (grammar-format . concise-dsl)) tla-plus-source-metadata)))
+  (slots metadata: (.o (:: @ tla-plus-source-metadata) version: "v2" contract: "tla-plus.native-layout.v2")))
+
+(def tla-plus-layout-language-grammar (language-parser-entry-ref tla-plus-layout-language 'descriptor))
 
 (def parse-tla-plus parse-tla-plus-layout)
 
@@ -51,7 +54,8 @@
    tla-plus-sany-candidate-syntax "tla-plus.sany-proof-policy.v1" 4096 (bind-structured-proof-policy (.o (:: self StructuredProofPolicy.) code: "GERBIL-PARSER-TLA-PLUS-SANY-PROOF"))))
 
 (deflanguage-parser-loader tla-plus-sany-candidate-language
-  (grammar tla-plus-sany-candidate-language-grammar proof-syntax)
+  (grammar proof-syntax)
   (parse parse-tla-plus-sany-candidate)
-  (metadata (append '((language . "tla-plus") (version . "p4-draft")
-              (contract . "tla-plus.native-sany-candidate.p4") (grammar-format . concise-dsl)) tla-plus-source-metadata)))
+  (slots metadata: (.o (:: @ tla-plus-source-metadata) version: "p4-draft" contract: "tla-plus.native-sany-candidate.p4")))
+
+(def tla-plus-sany-candidate-language-grammar (language-parser-entry-ref tla-plus-sany-candidate-language 'descriptor))

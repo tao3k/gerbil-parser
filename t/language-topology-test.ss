@@ -23,6 +23,18 @@
                                :gerbil-parser/language-test-support
                                :gerbil-parser/language-build-support))) #t))
        (else #f)))
+;;; Parser declarations use one public slot vocabulary, with no metadata sugar.
+(def (canonical-parser-declaration? form)
+ (and (list? form) (>= (length form) 5)
+      (let ((descriptor (caddr form)) (parse (cadddr form))
+            (sections (cddddr form)))
+       (and (list? descriptor) (= (length descriptor) 2)
+            (memq (car descriptor) '(grammar source descriptor))
+            (list? parse) (= (length parse) 2) (eq? (car parse) 'parse)
+            (find (lambda (row) (and (list? row) (pair? row)
+                                    (eq? (car row) 'slots) (memq metadata: (cdr row)))) sections)
+            (every (lambda (row) (and (list? row) (pair? row)
+                                     (memq (car row) '(slots backends contracts)))) sections)))))
 (def (authoring-form? form interface)
  (and (list? form) (pair? form)
       (or (eq? (car form) 'export)
@@ -32,6 +44,8 @@
                (= (length form) 3) (symbol? (cadr form))
                (not (and (pair? (caddr form)) (eq? (caaddr form) 'lambda))))
           (and
+           (or (not (eq? (car form) 'deflanguage-parser-loader))
+               (canonical-parser-declaration? form))
            (or (not (eq? interface 'grammar))
                (not (eq? (car form) 'deflanguage))
                (and (= (length form) 4)
@@ -43,9 +57,9 @@
                     (eq? (car (cadddr form)) 'rules)))
            (memq (car form)
             (case interface
-             ((grammar) '(deflanguage defgrammar-syntax deflanguage-projection deftext-profile
+             ((grammar) '(deflanguage defgrammar-syntax deftext-profile
                           defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source))
-             ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry
+             ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry deflanguage-projection
                          defsyntax-javacc-source))
              ((tests) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests))))))))
 (def language-topology-test
@@ -57,6 +71,10 @@
    (check (authoring-form? (quote (defsyntax-corpus corpus)) (quote grammar)) => #f)
    (check (authoring-form? (quote (deflanguage-development-loader entry)) (quote parser)) => #f)
    (check (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser)) => #f))
+  (test-case "parser declarations reject legacy metadata and descriptor aliases"
+   (check (and (authoring-form? '(deflanguage-parser-loader x (grammar old syntax) (parse parse-x) (metadata '())) 'parser) #t) => #f)
+   (check (and (authoring-form? '(deflanguage-parser-loader x (grammar syntax) (parse parse-x) (metadata '())) 'parser) #t) => #f)
+   (check (and (authoring-form? '(deflanguage-parser-loader x (grammar syntax) (parse parse-x) (slots metadata: '())) 'parser) #t) => #t))
   (test-case "release identity belongs to the parser interface"
    (check (and (authoring-form? '(def +version+ "1") 'grammar) #t) => #f)
    (check (and (authoring-form? '(def +version+ "1") 'parser) #t) => #t)
@@ -70,7 +88,7 @@
   (test-case "author grammar excludes backend profile assembly"
    (for-each (lambda (head)
      (check (and (authoring-form? (list head 'backend) 'grammar) #t) => #f))
-     '(deflanguage-source defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile))
+     '(deflanguage-projection deflanguage-source defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile))
    (check (and (authoring-form? '(defgrammar-syntax (loop kind) (node kind)) 'grammar) #t) => #t))
   (test-case "every pack exposes three interfaces with declarative private syntax modules"
    (for-each

@@ -82,26 +82,16 @@
 ;;; a user prototype. Engine identity/dispatch slots are sealed by this macro.
 ;;; Additional contracts validate the effective object after inheritance.
 (defsyntax (deflanguage-parser-loader stx)
-  (syntax-case stx (@ descriptor parse slots contracts grammar source metadata backends)
-    ((_ binding (grammar descriptor-binding definition) (parse parse-binding)
-        (metadata value) (backends machine (kind digest procedure) ...))
-     (and (identifier? #'descriptor-binding) (identifier? #'machine))
+  (syntax-case stx (@ descriptor parse slots contracts grammar source backends)
+    ((_ binding (grammar definition) (parse parse-binding)
+        (slots slot ...) (backends machine (kind digest procedure) ...) section ...)
+     (identifier? #'machine)
      #'(begin
          (install-parser-machine-backends! machine
            (list (list 'kind digest procedure) ...))
          (deflanguage-parser-loader binding
-           (grammar descriptor-binding definition) (parse parse-binding)
-           (metadata value))))
-    ((_ binding (kind descriptor-binding definition) (parse parse-binding) (metadata value))
-     (and (identifier? #'descriptor-binding) (memq (syntax->datum #'kind) '(grammar source)))
-     (let (binding-name
-           (if (identifier? #'binding) #'binding
-             (syntax-case #'binding () ((name . _) #'name))))
-       (with-syntax ((loader-name binding-name))
-         #'(begin
-             (deflanguage-parser-loader binding (kind definition) (parse parse-binding)
-               (slots metadata: value))
-             (def descriptor-binding (language-parser-entry-ref loader-name 'descriptor))))))
+           (grammar definition) (parse parse-binding)
+           (slots slot ...) section ...)))
     ((_ (binding marker loader-self prototype)
         (descriptor descriptor-value)
         (parse parse-binding)

@@ -10,12 +10,14 @@
         shell-here-document-link? shell-here-document-link-marker-start shell-here-document-link-body-start)
 
 (deflanguage-parser-loader bash-language
-  (source bash-source-language bash-syntax)
+  (source bash-syntax)
   (parse parse-bash)
-  (metadata '((language . "bash")
+  (slots metadata: '((language . "bash")
               (version . "5.3")
               (contract . "bash-5.3-structured-source.v1")
               (grammar-format . source-parser))))
+
+(def bash-source-language (language-parser-entry-ref bash-language 'descriptor))
 
 (deflanguage-parser-receipt parse-bash/receipt bash-source-language)
 

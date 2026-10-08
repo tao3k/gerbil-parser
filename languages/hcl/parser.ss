@@ -15,9 +15,9 @@
      "6b5068090eef06b1f127f61529db5ba0be7ed343")
 
 (deflanguage-parser-loader hcl-language
-  (grammar hcl-language-grammar hcl-syntax)
+  (grammar hcl-syntax)
   (parse parse-hcl)
-  (metadata `((language . "hcl")
+  (slots metadata: `((language . "hcl")
               (version . "v2.24.0")
               (contract . "hcl-native-v2.24.0.v1")
               (grammar-format . concise-dsl)
@@ -26,6 +26,8 @@
     (step direct-grammar-digest direct-step)
     (source direct-hcl-grammar-digest direct-parse-hcl)
     (event-step direct-grammar-digest direct-event-step)))
+
+(def hcl-language-grammar (language-parser-entry-ref hcl-language 'descriptor))
 
 (def +hcl-native-syntax-version+ (language-metadata-ref (language-parser-entry-ref hcl-language 'metadata) 'version))
 

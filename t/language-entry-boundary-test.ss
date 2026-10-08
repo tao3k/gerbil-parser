@@ -42,23 +42,29 @@
         (list tla-plus-core-language tla-plus-core-test-language 6)
         (list tla-plus-layout-language tla-plus-layout-test-language 2)
         (list tla-plus-sany-candidate-language tla-plus-sany-candidate-test-language 2)))
-(defsyntax (development-slot-rejections stx)
+(defsyntax (production-declaration-rejections stx)
   (def (message form)
     (with-catch (lambda (condition) (error-message condition))
       (lambda () (core-expand form) (error "invalid production declaration admitted"))))
-  (datum->syntax #'development-slot-rejections
+  (datum->syntax #'production-declaration-rejections
     (list 'quote
       (list
         (message #'(deflanguage-parser-loader invalid-keyword
                      (grammar #f) (parse invalid-parse) (slots fixtures: '())))
         (message #'(deflanguage-parser-loader invalid-method
-                     (grammar #f) (parse invalid-parse) (slots (tests '()))))))))
+                     (grammar #f) (parse invalid-parse) (slots (tests '()))))
+        (message #'(deflanguage-parser-loader invalid-metadata
+                     (grammar #f) (parse invalid-parse) (metadata '())))
+        (message #'(deflanguage-parser-loader invalid-alias
+                     (grammar old #f) (parse invalid-parse) (slots metadata: '())))))))
 (def language-entry-boundary-test
   (test-suite "production and development entry separation"
-    (test-case "production declarations reject development services before binding"
-      (check (development-slot-rejections)
+    (test-case "production declarations reject development services and legacy sections before binding"
+      (check (production-declaration-rejections)
              => '("development service requires deflanguage-development-loader"
-                  "development service requires deflanguage-development-loader")))
+                  "development service requires deflanguage-development-loader"
+                  "unknown language loader section"
+                  "invalid language loader declaration")))
     (test-case "production declarations reject inherited development services"
       (check (with-catch (lambda (condition) (error-message condition))
                (lambda ()

@@ -914,3 +914,11 @@ zero, under the existing 90-second total and 5-second silence gates. These are
 structural work counts and semantic receipts, not a measured end-to-end runtime
 speedup. Source command/CST subtree reuse, cross-backend incremental transport
 and the pushed revision's full CI remain separate qualification boundaries.
+
+Qualification correction: revision =169caf7= failed the Ubuntu test-style gate
+because its ordinary transfer test printed a work-count line. The line was
+removed, and the reference count now asserts =67= directly against the yield
+count =3=. All five native transfer cases and the test-style contract module
+passed locally with final =OK=, zero process status and 13.99 seconds elapsed.
+Policy restrictions and timeout/silence limits remain unchanged; latest-head
+full CI is still a separate gate.

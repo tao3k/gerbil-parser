@@ -3,9 +3,10 @@
 
 * Scope and evidence
 
-This is a research proposal against commit =f058225a1454732af6144076f5916418bde71153=.
-Proposed analyses, scheduler changes and incremental representations below are
-not implemented by this document. No new performance result is claimed.
+Repository observations began against commit =f058225a1454732af6144076f5916418bde71153=.
+Dated implementation sections distinguish delivered mechanisms and local receipts
+from the remaining proposals. Scanner replay and convergence do not establish
+parser subtree reuse. No new performance result is claimed.
 
 Build on [[file:scheme-deflanguage-design-synthesis.org][the vocabulary study]],
 [[file:scheme-language-pack-semantics.org][binding and field semantics]] and
@@ -410,7 +411,7 @@ bound for the whole parser.
 
 Private recognition nodes now drain descendants iteratively during destruction.
 A Rust control on a 256 KiB thread stack accepts 1,024 alternating group/subshell
-levels, constructs events and a lossless Rowan tree, and releases the tree/results.
+levels, constructs events and a lossless event tree, and releases the tree/results.
 It also cleans up a completed deep child after a trailing-pipeline failure and
 successfully parses an independent next request. A larger input exercises the
 resource rejection path; a 6,000-form VM call chain also hits the same budget

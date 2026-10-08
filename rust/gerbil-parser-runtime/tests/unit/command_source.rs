@@ -687,7 +687,7 @@ fn source_canonical_publication_matches_scheme_native_ids_fields_ranges_and_triv
             count += 1;
         }
     }
-    assert!(input.is_empty());
+    assert_eq!(input, b"");
     assert_eq!(count, 54);
 }
 

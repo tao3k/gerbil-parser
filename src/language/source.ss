@@ -20,6 +20,7 @@
         source-language-scanner-factory parse-source-language parse-source-language/receipt
         deflanguage-parser-receipt
         parse-source-language/session source-language-session? source-language-session-artifact
+        source-language-history? source-language-session-history
         source-language-session-scanned-token-count source-language-session-reused-token-count)
 
 (def +source-language-schema+ "gerbil-parser.source-language.v1")
@@ -98,18 +99,23 @@
 
 ;;; Source sessions reuse only certified lexical suffixes. Recognition and
 ;;; canonical publication run through the existing engine on the new source.
-(defstruct source-language-session (descriptor snapshot artifact))
+(defstruct source-language-history (descriptor snapshot))
+(defstruct (source-language-session source-language-history) (artifact))
+;;; Retain only lexical history between foreign calls, not the published tree.
+(def (source-language-session-history session)
+  (make-source-language-history (source-language-history-descriptor session)
+                               (source-language-history-snapshot session)))
 (def (source-language-session-scanned-token-count session)
-  (let (snapshot (source-language-session-snapshot session))
+  (let (snapshot (source-language-history-snapshot session))
     (and snapshot (source-scan-session-scanned-token-count snapshot))))
 (def (source-language-session-reused-token-count session)
-  (let (snapshot (source-language-session-snapshot session))
+  (let (snapshot (source-language-history-snapshot session))
     (if snapshot (source-scan-session-reused-token-count snapshot) 0)))
 (def (parse-source-language/session descriptor source (previous #f))
   (unless (and (source-language? descriptor) (string? source)
                (or (not previous)
-                   (and (source-language-session? previous)
-                        (eq? descriptor (source-language-session-descriptor previous)))))
+                   (and (source-language-history? previous)
+                        (eq? descriptor (source-language-history-descriptor previous)))))
     (error "source session requires the same language declaration"))
   (let* ((owned (string-copy source))
          (worker ((source-language-factory descriptor) owned))
@@ -121,7 +127,7 @@
              (if (source-scanner-contextual? worker)
                (begin
                  (set! snapshot (make-source-scan-session worker #f
-                                 (and previous (source-language-session-snapshot previous))))
+                                 (and previous (source-language-history-snapshot previous))))
                  (source-scan-session-tokens snapshot))
                ((source-language-scanner descriptor) requested)))
            (source-language-digest descriptor))))

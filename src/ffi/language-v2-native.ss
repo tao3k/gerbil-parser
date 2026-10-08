@@ -1,15 +1,18 @@
 ;;; -*- Gerbil -*-
 ;;; C ABI for explicit language handles, with no builtin language dependencies.
 (import (only-in ./language-handles native-language-handle-descriptor
-                 native-language-handle-parse release-native-language!
+                 native-language-handle-parse/publish release-native-language!
                  native-language-handle-owner! native-language-handle-count +native-source-byte-limit+)
         (only-in ./language-artifact-codec native-error-payload))
 (extern initialize-owner! copy-input! replace-result! result-status)
-(def (publish-result result thunk)
+(def (call-with-native-result result thunk)
   (with-exception-catcher
    (lambda (exception)
      (replace-result! result -1 (string->utf8 (native-error-payload exception)))
      -1)
+   thunk))
+(def (publish-result result thunk)
+  (call-with-native-result result
    (lambda ()
      (replace-result! result 0 (thunk))
      (result-status result))))
@@ -95,13 +98,18 @@ END-C
  (c-define (parse-callback language input length result)
   (unsigned-int64 (pointer unsigned-int8) unsigned-int64 result-v2-ptr) int32
   "gerbil_parser_language_parse_impl" "extern"
-  (gerbil-parser/src/ffi/language-v2-native#publish-result result
+  (gerbil-parser/src/ffi/language-v2-native#call-with-native-result result
     (lambda ()
       (gerbil-parser/src/ffi/language-handles#native-language-handle-owner!)
       (when (> length gerbil-parser/src/ffi/language-handles#+native-source-byte-limit+) (error "native source byte limit"))
       (let ((bytes (make-u8vector length)))
         (copy-input! input bytes)
-        (gerbil-parser/src/ffi/language-handles#native-language-handle-parse language bytes)))))
+        (gerbil-parser/src/ffi/language-handles#native-language-handle-parse/publish
+         language bytes
+         (lambda (payload)
+           (replace-result! result 0 payload)
+           (zero? (result-status result))))
+        (result-status result)))))
  (c-define (count-callback) () int32 "gerbil_parser_language_handle_count_impl" "extern"
   (with-exception-catcher (lambda (_) -1)
     (lambda ()

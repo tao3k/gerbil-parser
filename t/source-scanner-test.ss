@@ -13,6 +13,7 @@
                  contextual-scan-state-canonical decode-marker)
         (only-in :gerbil-parser/src/language/source source-language-scanner-factory
                  parse-source-language parse-source-language/session source-language-session-artifact
+                 source-language-session? source-language-history? source-language-session-history
                  source-language-session-scanned-token-count source-language-session-reused-token-count)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success?))
 (import (only-in :gerbil-parser/languages/bash/parser bash-source-language))
@@ -22,6 +23,16 @@
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-scanner-test
   (test-suite "source scanner worker ownership"
+    (test-case "history retains scanner ownership without retaining the published artifact"
+      (let* ((initial (parse-source-language/session bash-source-language "cat <<A\nα\nA\necho end\n"))
+             (history (source-language-session-history initial))
+             (source "echo猫 <<A\nα\nA\necho end\n")
+             (next (parse-source-language/session bash-source-language source history)))
+        (check (source-language-history? history) => #t)
+        (check (source-language-session? history) => #f)
+        (check (source-language-session-artifact next) => (parse-source-language bash-source-language source))
+        (check (source-language-session-scanned-token-count next) => 1)
+        (check (> (source-language-session-reused-token-count next) 0) => #t)))
     (test-case "Bash sessions reuse lexical suffixes and publish full fresh-parser parity"
       (let* ((old (parse-source-language/session bash-source-language "cat <<A\nα\nA\necho end\n"))
              (source "echo猫 <<A\nα\nA\necho end\n")

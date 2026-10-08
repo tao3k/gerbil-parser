@@ -20,8 +20,9 @@ Diagnostic when lexical scanning fails; Scheme retains its established
 rejected-artifact publication path. A failed lexical scan cannot supply reuse
 history on either backend.
 
-This implements lexical suffix reuse. Source command/CST subtree reuse, dynamic
-LR-position sessions and native FFI session handles remain separate work.
+This implements lexical suffix reuse. Source command/CST subtree reuse and
+dynamic LR-position sessions remain separate work. The native FFI integration
+is described below.
 
 * Why this design is preferable
 
@@ -117,3 +118,92 @@ The Rust source is owned by the session; parse results borrow that allocation.
 Token access is read-only. The ordinary full-scan API remains the independent
 semantic control. Runtime suite and strict Clippy qualification are required;
 exact-head CI is recorded separately from local receipts.
+
+* Native FFI ownership and commit boundary
+
+The existing language-v2 ABI now consumes Scheme-owned Source history behind
+each registered language handle. Callers continue to use the same parse entry.
+Canonical LR and contextual LR products retain their existing execution paths;
+only Source descriptors enter the Source session engine.
+
+The engine separates =source-language-history= (descriptor and private scanner
+snapshot) from =source-language-session= (history plus this call's artifact).
+=source-language-session-history= extracts a history value with no artifact
+field. The handle retains that value after publication, so an old AST and its
+canonical event list do not remain alive merely to authorize the next scan.
+Source text, tokens and scanner contexts are retained where lexical reuse needs
+them. Retention is still proportional to the latest scan; this is not a
+constant-memory incremental algorithm.
+
+Question 1: Why does this preserve the Scheme and POO author boundary?
+
+#+begin_src scheme
+;; The language product still supplies syntax and construction. Native
+;; ownership uses the admitted descriptor; editing adds no author clauses.
+(def handle (register-native-language! bash-source-language))
+(native-language-handle-parse handle (string->utf8 "cat <<A\nα\nA\necho end\n"))
+(native-language-handle-parse handle (string->utf8 "echo猫 <<A\nα\nA\necho end\n"))
+(let-values (((scanned reused) (native-language-handle-scan-counts handle)))
+  (check scanned => 1)
+  (check (> reused 0) => #t))
+(release-native-language! handle)
+#+end_src
+
+Specification admission, context equivalence and byte relocation remain in the
+Source engine. The handle registry owns lifetime and the C callback owns result
+allocation. A second handle has independent history even when both handles share
+the same immutable language product. Descriptor queries leave histories intact.
+Releasing a handle removes its history with the registry entry.
+
+Question 2: Why is the publication transaction justified?
+
+#+begin_example
+admit owner and input -> scan candidate -> recognize complete source
+                     -> encode GPA1 -> allocate and copy C result
+                     -> commit candidate history
+#+end_example
+
+The handle's =native-language-handle-parse/publish= invokes its result owner
+before replacing history. The C callback reports successful allocation and
+copying through that publisher. Invalid input, encoding exceptions, a publisher
+exception or allocation failure therefore cannot advance the stored history.
+Tests simulate both a false publisher result and a throwing publisher, then
+verify that the next edit still uses the previous successful scan boundary.
+They do not inject a real process-wide allocator failure.
+
+Syntax rejection remains a successful GPA1 transport. A rejection with a valid
+lexical scan may retain that scan. An incomplete lexical obligation publishes
+the established diagnostic artifact with no reusable snapshot, and the next
+input must scan fully. Canonical grammar/source digests and all publication
+records are compared with fresh execution.
+
+The native Rust fixture transfers two distinct admitted Source handles to Rust
+on the VM owner thread. Rust parses successive UTF-8 and heredoc edits through
+the actual C callbacks, compares complete payloads with an independent handle
+whose token history is cleared by an empty parse, and keeps an old result alive
+through those calls. That retained result must keep its bytes and source view.
+Dropping Rust owners must release both transferred handles. This complements
+the Scheme scan-count/isolation controls and the existing ABI lifecycle tests.
+
+The host's =NativeSession= still owns VM admission; it is distinct from this
+per-language lexical history. Full Source recognition and publication still
+execute on every call. The existing ABI shape is unchanged, and this work does
+not establish Source subtree identity reuse or an end-to-end latency gain.
+
+** Local qualification
+
+The focused Source scanner, native language and test-style suites completed
+28 cases with final =OK= and =HARNESS-RETURN status=0= in 10.44 seconds. The
+linked Rust/C/Scheme probe completed its nine Source edit controls, retained
+result checks, existing 100-call control and handle-release check in 5.37 seconds
+with =RUST-NATIVE-SOURCE-EDITS-OK= and =RUST-NATIVE-OK=. Rust formatting, strict
+fixture Clippy, the four native ownership/thread compile-fail doctests and the
+ASP Rust source policy gate passed.
+
+The local dependency cache contained stale interfaces and missing native
+products. An official package build stopped at its 5-second GCC output-inactivity
+fence after 76.74 seconds. That attempt is a failed build receipt. The required
+current dependency closure was then completed with the native compiler's real
+GCC diagnostics under unchanged fences before the focused tests ran. These
+receipts qualify the changed call path; they do not substitute for clean,
+exact-head Linux/macOS CI or establish a performance improvement.

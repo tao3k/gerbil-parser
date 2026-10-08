@@ -13,7 +13,8 @@
         (only-in ../language/descriptor language-grammar-ir language-grammar? language-grammar-grammar language-grammar-language language-grammar-machine
                  language-grammar-parser-policy language-parser-policy-identity
                  language-parser-policy-branch-budget)
-        (only-in ../language/source source-language-digest source-language-root-kind source-language? source-language-language)
+        (only-in ../language/source source-language-digest source-language-root-kind source-language? source-language-language
+                 parse-source-language/session source-language-session-artifact source-language-session-history)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
         (only-in ../language/entry parse-language-source call-with-language-parser-policy)
         (only-in ../compiler/machine parser-machine-grammar-digest)
@@ -26,6 +27,7 @@
         native-descriptor-payload
         native-parse-binary-payload
         native-parse-binary-payload/bytes
+        native-parse-binary-payload/bytes/session
         native-error-payload)
 
 (def +gerbil-parser-native-abi-version+ 1)
@@ -55,10 +57,10 @@
 
 ;; One bounded buffer crosses the C ABI. Token lexemes remain zero-copy source
 ;; slices, represented by their byte ranges instead of duplicated strings.
-(def (native-parse-binary-payload language-id source)
-  (let* ((language language-id)
-         (artifact ((native-language-parser language) source))
-         (events (parse-artifact-events artifact))
+(def (native-parse-binary-payload language source)
+  (native-artifact-binary-payload language ((native-language-parser language) source)))
+(def (native-artifact-binary-payload language artifact)
+  (let* ((events (parse-artifact-events artifact))
          (payload (make-u8vector
                    (+ +binary-header-size+
                       (* (length events) +binary-event-size+))
@@ -78,11 +80,25 @@
               (iota (length events)))
     payload))
 
-(def (native-parse-binary-payload/bytes language bytes)
+(def (native-source-text bytes)
   (let (source (utf8->string bytes))
     ;; Preserve strict admission even on decoders that replace invalid sequences.
     (unless (equal? bytes (string->utf8 source))
       (error "native source is not canonical UTF-8"))
+    source))
+
+;;; Publish before returning history: any transport/admission exception leaves
+;;; the handle's previous history untouched. Syntax rejection remains GPA1.
+(def (native-parse-binary-payload/bytes/session language bytes previous)
+  (let (descriptor (native-language-descriptor language))
+    (if (source-language? descriptor)
+      (let* ((session (parse-source-language/session descriptor (native-source-text bytes) previous))
+             (payload (native-artifact-binary-payload language (source-language-session-artifact session))))
+        (values payload (source-language-session-history session)))
+      (values (native-parse-binary-payload/bytes language bytes) #f))))
+
+(def (native-parse-binary-payload/bytes language bytes)
+  (let (source (native-source-text bytes))
     (let (plan (native-language-plan language))
       (if (or (not plan)
               (language-grammar-parser-policy (native-language-descriptor language)))

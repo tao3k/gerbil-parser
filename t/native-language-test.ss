@@ -9,7 +9,9 @@
         (only-in :std/vector/u8vector little u8vector-u32-ref)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records records-language-grammar records-contextual-product)
         (only-in :gerbil-parser/src/ffi/language-handles register-native-language! release-native-language!
-                 native-language-handle-descriptor native-language-handle-parse)
+                 native-language-handle-descriptor native-language-handle-parse
+                 native-language-handle-parse/publish native-language-handle-scan-counts
+                 native-language-handle-count)
         (only-in :gerbil-parser/src/runtime/parser prepare-contextual-parser parse-source/contextual/prepared)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine
@@ -25,6 +27,56 @@
         (only-in :gerbil-parser/src/compiler/native-language generate-native-language-pack))
 (def native-language-tests
   (test-suite "independent language native admission"
+    (test-case "native Source handles own edit histories and publish fresh payload parity"
+      (let* ((baseline (native-language-handle-count))
+             (a (register-native-language! bash-source-language))
+             (b (register-native-language! bash-source-language))
+             (language (bind-native-language bash-source-language))
+             (first "cat <<A\nα\nA\necho end\n")
+             (edit "echo猫 <<A\nα\nA\necho end\n"))
+        (check (native-language-handle-parse a (string->utf8 first)) => (native-parse-binary-payload language first))
+        (check (native-language-handle-parse a (string->utf8 edit)) => (native-parse-binary-payload language edit))
+        (let-values (((scanned reused) (native-language-handle-scan-counts a)))
+          (check scanned => 1) (check (> reused 0) => #t))
+        ;; A new handle cannot consume another handle's token/context history.
+        (check (native-language-handle-parse b (string->utf8 edit)) => (native-parse-binary-payload language edit))
+        (let-values (((scanned reused) (native-language-handle-scan-counts b)))
+          (check (> scanned 1) => #t) (check reused => 0))
+        (for-each
+         (lambda (source)
+           (check (native-language-handle-parse a (string->utf8 source))
+                  => (native-parse-binary-payload language source)))
+         '("echo猫 <<'A'\nα\nA\necho end\n" "cat <<A <<B\nα\nA\nβ\nB\necho end\n"
+           "cat <<A <<C\nα\nA\nβ\nC\necho end\n" "if true; then\n" "cat <<A\nα\n" "echo done\n" ""))
+        (release-native-language! a) (release-native-language! b)
+        (check (native-language-handle-count) => baseline)
+        (check-exception (native-language-handle-scan-counts a) true)))
+    (test-case "failed UTF-8 or result publication preserves the previous Source history"
+      (let* ((handle (register-native-language! bash-source-language))
+             (first "cat <<A\nα\nA\necho end\n")
+             (edit "echo猫 <<A\nα\nA\necho end\n"))
+        (native-language-handle-parse handle (string->utf8 first))
+        (let-values (((before-scanned before-reused) (native-language-handle-scan-counts handle)))
+          (check-exception (native-language-handle-parse handle #u8(255)) true)
+          ;; Simulate the C allocation/copy owner rejecting a complete payload.
+          (native-language-handle-parse/publish handle (string->utf8 "unrelated\n") (lambda (_) #f))
+          (check-exception
+           (native-language-handle-parse/publish handle (string->utf8 "unrelated\n")
+             (lambda (_) (error "publication failed"))) true)
+          (let-values (((scanned reused) (native-language-handle-scan-counts handle)))
+            (check scanned => before-scanned) (check reused => before-reused)))
+        (native-language-handle-descriptor handle)
+        (native-language-handle-parse handle (string->utf8 edit))
+        (let-values (((scanned reused) (native-language-handle-scan-counts handle)))
+          (check scanned => 1) (check (> reused 0) => #t))
+        ;; Lexical rejection publishes a diagnostic but cannot authorize reuse.
+        (native-language-handle-parse handle (string->utf8 "cat <<A\nα\n"))
+        (let-values (((scanned reused) (native-language-handle-scan-counts handle)))
+          (check scanned => #f) (check reused => 0))
+        (native-language-handle-parse handle (string->utf8 edit))
+        (let-values (((scanned reused) (native-language-handle-scan-counts handle)))
+          (check (> scanned 1) => #t) (check reused => 0))
+        (release-native-language! handle)))
     (test-case "descriptor queries never execute a parser and retain bound identity"
       (for-each
        (lambda (descriptor)

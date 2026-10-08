@@ -40,6 +40,13 @@ cross threads. Dropping a result releases its C allocation; dropping a language
 releases its registered handle. The wrapper does not copy source or GPA1 bytes,
 though the C/Scheme boundary still copies input and publishes a C-owned payload.
 
+For Source descriptors, each language handle retains its own Scheme scanner
+history across calls. Complete recognition and GPA1 publication still run.
+History commits after successful C result allocation and copying; failed
+transport leaves the previous history intact. The cache retains lexical state
+without retaining the previous AST/artifact. Releasing the handle releases
+that history. See the [[file:../../docs/research/scheme-source-edit-sessions.org][Source edit-session research contract]].
+
 Verification uses a real Rust static consumer in
 =t/fixtures/rust-native-language=, linked into the compiled Gerbil probe.
 Run the repository's =scripts/test-native-local.py --suite ffi= or its native

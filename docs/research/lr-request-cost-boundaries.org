@@ -125,4 +125,102 @@ validation export. Reordering source and compiled dependencies subsequently
 terminated with exit 139. This establishes neither a parser regression nor a
 successful native run. Qualification requires one current native dependency
 graph; mixing an isolated rebuilt parser with stale interfaces is insufficient.
-Complete native execution remains a separate CI gate.
+At that point, complete native execution remained an outstanding gate.
+
+* Unified native qualification and allocation accounting
+
+The follow-up used the official package =clean= and =build.ss compile= entry,
+four std/make workers, and the existing Scheme process supervisor. The budget
+remained 240 seconds with a five-second no-output gate. Two initial attempts
+were rejected by that gate during cold dependency admission, before an adequate
+build receipt. Compiler verbosity alone did not expose the cold import work.
+The existing expander import tracer then reported actual interface admission
+alongside the SDK compiler logs; the unified build completed in 154.258 seconds,
+exit 0, with no timeout or error reason. No heartbeat or longer deadline was
+introduced. This is optional native qualification, not a source-test binary
+prerequisite.
+
+The subsequent execution selected the rebuilt
+=.gerbil/lib/gerbil-parser/src/runtime/parser.ssi= and completed 20 GQL samples,
+each with full reference-product equality and source-bound admission:
+
+| Stage | Native CPU P50 ms | Native CPU P95 ms | Admitted allocation P50 bytes |
+|-------+-------------------+-------------------+------------------------------|
+| source-recognition | 0.1090 | 0.1230 | 125888 |
+| artifact-materialization | 0.0170 | 0.0190 | 45392 |
+| observed-complete-request | 0.1315 | 0.1540 | 180432 |
+
+All 20 allocation intervals qualified in each row. The source and grammar
+digests match the earlier source-execution receipt. Evidence is in
+=/private/tmp/parser-current-native-supervision.log= and
+=/private/tmp/parser-current-gql-native-stages.log=. The benchmark entry itself
+is source-loaded while the production parser dependency graph is compiled.
+Observer overhead remains included. This establishes successful execution of
+the unified native graph; it does not diagnose the exact instruction that
+failed in the earlier mixed graph, admit cold-start latency, or establish a
+before/after parser optimization speedup.
+
+The source/native difference also prevents treating interpreted diagnostic
+allocation as native parser allocation. Native recognition remains the largest
+observed stage, but it requires about 126 KB per observed sample in this receipt,
+not the 3.30 MB measured during source execution.
+
+The older GQL component benchmark now uses the same allocation admission as
+the request benchmark. It retains =allocation-counter-delta= for every sample;
+only a no-GC, nonnegative interval contributes to allocation percentiles.
+=allocationSampleCount= records the admitted population. An empty population
+publishes =#f= for P50/P95, while a genuine zero-allocation sample remains zero.
+Actor batches retain raw process counters but do not attribute them to one
+caller. Twelve source controls cover these cases and the existing complete
+GQL component products.
+
+Fourteen focused GQL/request controls subsequently passed against the rebuilt
+native production graph. The all-language ABI fixture test passed separately
+through its ordinary source-owned entry, as configured in CI. An initial attempt
+to force compiled test imports selected an old test interface whose generated
+Scheme body was not a valid source module; that combined harness was rejected.
+The successful receipts are
+=/private/tmp/parser-current-native-focused-controls.log= and
+=/private/tmp/parser-current-source-abi-controls.log=. Production native
+qualification does not make stale compiled test products authoritative.
+
+This conservative policy is consistent with the official
+[[https://raw.githubusercontent.com/gambit/gambit/master/lib/_kernel.scm][process-statistics implementation]] and
+[[https://raw.githubusercontent.com/gambit/gambit/master/lib/mem.c][bytes_allocated implementation]] inspected on 2026-10-09: the statistics vector
+includes allocation and collection counters, while the allocation expression
+contains an occupied-still-object term. These upstream master sources are
+structural references, not the identity of the installed SDK. They support
+keeping raw counters, heap state and admitted interval estimates distinct;
+they do not prove a collector defect or authorize changing the allocator.
+
+* Matched native component receipt
+
+The current =execution-counts=, =reduction-counts= and =matched-stages= modules
+were compiled against the unified production graph. The existing workload
+remained 40 samples of 100 calls per component, with complete artifact
+comparisons and untimed execution/reduction controls. The supervised run
+finished in 43.882 seconds including traced cold admission, exit 0, with
+=GQL-STAGES-OK= and no timeout reason. Most of this elapsed interval is outside
+the timed batches; it is not parser latency. Receipt:
+=/private/tmp/parser-current-native-gql-components.log=.
+
+| Component | CPU P50 ms per 100 calls | CPU P95 ms per 100 calls | Allocation P50 bytes per call | Admitted allocation batches |
+|-----------+-------------------------+-------------------------+-------------------------------+----------------------------|
+| global-lexing | 1.169 | 1.223 | 50788 | 40 / 40 |
+| prepared-lr | 8.568 | 9.009 | 82484 | 39 / 40 |
+| artifact-publication | 1.317 | 1.360 | 44324 | 40 / 40 |
+| full-source | 12.095 | 22.589 | 173196.32 | 38 / 40 |
+
+Full-source wall P50/P95 per call were 0.1220/0.6866 ms. Its actual wall-P95
+batch was sample 12: 68.662 ms wall, 14.043 ms CPU, zero GC, and 17319632
+admitted allocation bytes. Thus GC does not explain this particular P95 batch.
+The signed wall-minus-CPU observation was 54.619 ms; it does not identify a
+scheduler, OS or library cause. Independent wall/CPU P95 values must not be
+subtracted to diagnose this batch.
+
+Prepared LR remains the largest CPU component among these controls. Global
+lexing is not the streaming scanner's selected lexical-mode path, and prepared
+LR does not include source scanning, so component medians are not an additive
+decomposition. These results support investigating the shared recognition
+path with its 37 shifts and 288 reductions before proposing grammar-specific
+runtime code. They do not establish a speedup or a GC problem.

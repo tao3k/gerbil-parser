@@ -5,6 +5,7 @@
 (import (only-in ./execution-counts profile-gql-prepared-execution)
         (only-in ./reduction-counts profile-gql-reductions)
         (only-in :asp-gerbil-scheme/src/benchmark/statistics benchmark-percentile-index)
+        (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation)
         :gerbil-parser/languages/gql/parser
         :gerbil-parser/src/compiler/machine
         :gerbil-parser/src/runtime/lexer
@@ -12,7 +13,22 @@
         :gerbil-parser/src/runtime/significant
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/token)
-(export main profile-gql-stages measure-gql-component sample-at-percentile gc-statistics-snapshot sample-gc-snapshot)
+(export main profile-gql-stages measure-gql-component sample-at-percentile gc-statistics-snapshot sample-gc-snapshot
+        gql-component-allocation-summary)
+
+;; Admit complete intervals, not raw counter differences across collections.
+;; Thread-switching batches remain process observations without caller ownership.
+(def (gql-component-allocation-summary rows batch-count allocation-scope)
+  (let* ((admitted (if (eq? allocation-scope 'single-caller)
+                    (filter (lambda (row) (number? (cdr (assq 'allocated-bytes row)))) rows)
+                    '()))
+         (per-parse (lambda (rank)
+                      (and (pair? admitted)
+                           (/ (percentile admitted 'allocated-bytes rank) batch-count)))))
+    (list (cons 'allocationScope allocation-scope)
+          (cons 'allocationSampleCount (length admitted))
+          (cons 'allocatedBytesPerParse (per-parse 50))
+          (cons 'allocationP95BytesPerParse (per-parse 95)))))
 
 (def (percentile rows key rank)
   (let (values (list-sort < (map (lambda (row) (cdr (assq key row))) rows)))
@@ -62,7 +78,8 @@
     (let loop ((sample 0) (rows '()))
       (if (= sample samples)
         (let (summary
-              (list (cons 'stage name) (cons 'sampleCount samples)
+              (append
+               (list (cons 'stage name) (cons 'sampleCount samples)
                     (cons 'parsesPerSample batch-count)
                     (cons 'wallP50Ms (percentile rows 'wall-ms 50))
                     (cons 'wallP95Ms (percentile rows 'wall-ms 95))
@@ -73,12 +90,9 @@
                     (cons 'maxWallSample (sample-at-percentile rows 'wall-ms 100))
                     (cons 'wallP50MsPerParse (/ (percentile rows 'wall-ms 50) batch-count))
                     (cons 'wallP95MsPerParse (/ (percentile rows 'wall-ms 95) batch-count))
-                    (cons 'allocationScope allocation-scope)
                     (cons 'gcBaseline baseline)
-                    (cons 'allocatedBytesPerParse
-                          (and (eq? allocation-scope 'single-caller)
-                               (/ (percentile rows 'allocated-bytes 50) batch-count)))
-                    (cons 'samples (reverse rows))))
+                    (cons 'samples (reverse rows)))
+               (gql-component-allocation-summary rows batch-count allocation-scope)))
           (write (list 'GQL-STAGE-SUMMARY
                        (filter (lambda (row) (not (eq? (car row) 'samples))) summary))) (newline) (force-output)
           summary)
@@ -103,7 +117,9 @@
                           (cons 'gc-wall-ms (* 1000 (delta 5)))
                           (cons 'gc-cpu-ms (* 1000 (+ (delta 3) (delta 4))))
                           (cons 'latest-gc (sample-gc-snapshot before after))
-                          (cons 'allocated-bytes (delta 7)))))
+                          (cons 'allocation-counter-delta (delta 7))
+                          (cons 'allocated-bytes
+                                (admit-parser-allocation (delta 7) (delta 6))))))
           (unless (equal? result expected)
             (error "GQL stage changed its semantic result" name sample))
           (write (list 'GQL-STAGE-SAMPLE name row)) (newline) (force-output)

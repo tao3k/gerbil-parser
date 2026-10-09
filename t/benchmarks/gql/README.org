@@ -31,6 +31,13 @@ component warms up once and performs one initial GC, followed by natural GC
 during the samples. Receipts include wall and CPU P50/P95 *per 100-call batch*, wall P50/P95 per parse, bytes allocated per parse, and each sample's
 GC count/time. =wallP50Sample=, =wallP95Sample= and =maxWallSample= retain
 CPU, GC and allocation counters from the *same wall-ranked observation*.
+The signed =allocation-counter-delta= is always retained. =allocated-bytes=
+is admitted only for a nonnegative delta in a no-GC interval. Allocation P50
+and P95 per parse use those admitted samples; =allocationSampleCount= reports
+their count. If none qualify, both percentiles are =#f= rather than zero.
+Actor batches retain process counters but do not publish caller-attributed
+allocation percentiles. This is a measurement contract, not a claim that GC
+is defective or that a language engine should replace Gambit's allocator.
 Independent wall/CPU percentiles may select different observations and must
 not be subtracted to attribute tail latency. Each sample also reports signed
 =wall-minus-cpu-ms=; this can include elapsed waiting and measurement noise

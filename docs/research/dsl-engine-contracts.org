@@ -115,6 +115,15 @@ complete LRSpec equality; real TLA+ completion facts measured 0.145 → 0.079 ms
 The full-construction difference (14.715 → 14.525 ms) is too small for a stable
 end-to-end gain claim. Exact-head CI is separate.
 
+* Compositional LR suffix analysis
+
+[[file:dsl-effective-grammar-admission.org::*LR suffix facts: compositional reverse evaluation][The reverse suffix contract]] records a single backwards rhs traversal that
+preserves the forward FIRST/nullable scans, including marks, missing references
+and all unused catalog slots. Both LALR and canonical LR(1) consume it. It removes
+quadratic operand traversal on long nullable rhs sequences; padded catalog
+allocation and terminal-mask width remain separate costs. Exact complete LRSpec
+A/B controls and native measurements bound the claim to this analysis.
+
 * Next implementation sequence
 
 | Order | Concrete code/design work | Consumer and required control |

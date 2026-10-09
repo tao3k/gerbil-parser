@@ -2,7 +2,11 @@
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive compute-completion terminal-symbol?
-                 lower-rules production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name)
+                 lower-rules production-lhs production-rhs production-table production-terminal-catalog
+                 sequence-first sequence-nullable? base-symbol nonterminal-symbol? nonterminal-name)
+        (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union)
+        (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-symbol-catalog)
+        (only-in :gerbil-parser/src/compiler/lr-lookahead make-core-lookahead-catalog)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-rejection-condition?)
@@ -15,7 +19,7 @@
                  lr1-not-lalr-rules shared-lookahead-rules precedence-expression-rules
                  mixed-context-rules lr1-context-family-rules
                  state-local-candidate-family-rules mixed-context-family-rules
-                 acyclic-mixed-context-family-rules))
+                 acyclic-mixed-context-family-rules inactive-core-conflict-rules))
 (export resolved-grammar-test)
 
 (def (admission-result rules (construction 'lalr) (policy 'reject))
@@ -147,8 +151,62 @@
                   (when (table-ref nullable name #f)
                     (check (table-ref index name #f) => #t))) (cons 'missing names)))))
 
+;; Independent forward suffix scans check the entire catalog, including
+;; unused/padded slots. The optimized builder folds backwards and uses masks.
+(def (check-suffix-catalog productions)
+  (let (table (production-table productions))
+    (let-values (((terminals terminal-index) (production-terminal-catalog productions))
+                 ((names nullable) (compute-nullable productions)))
+      (let-values (((first-rows first) (compute-first productions nullable)))
+       (let* ((layout (make-item-layout table terminals))
+             (symbols (make-core-symbol-catalog table layout))
+             (expected-masks (make-vector (vector-length symbols) 0))
+             (expected-nullable (make-vector (vector-length symbols) #f)))
+        (let production-loop ((id 0))
+          (when (< id (vector-length table))
+            (let suffix-loop ((rest (production-rhs (vector-ref table id))) (dot 0))
+              (unless (null? rest)
+                (let (item (+ dot (* id (cdr layout))))
+                  (when (nonterminal-symbol? (vector-ref symbols item))
+                    (vector-set! expected-masks item
+                      (foldl (lambda (terminal mask)
+                               (compiler-index-set-union mask
+                                 (arithmetic-shift 1 (table-ref terminal-index terminal))))
+                             0 (sequence-first (cdr rest) first nullable)))
+                    (vector-set! expected-nullable item
+                      (sequence-nullable? (cdr rest) nullable))))
+                (suffix-loop (cdr rest) (+ dot 1))))
+            (production-loop (+ id 1))))
+        (let-values (((masks nullable-tails)
+                      (make-core-lookahead-catalog table layout symbols first nullable terminal-index)))
+          (check masks => expected-masks)
+          (check nullable-tails => expected-nullable)))))))
+
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case "suffix facts preserve forward scans and marked operands"
+      (for-each (lambda (rules) (check-suffix-catalog (lower-rules rules 'source-file)))
+        [shared-lookahead-rules lr1-not-lalr-rules precedence-expression-rules
+         inactive-core-conflict-rules (mixed-context-family-rules 8)])
+      ;; Empty FIRST is not nullable; a missing reference blocks a suffix.
+      ;; Marked symbols use the same underlying terminal/nonterminal facts.
+      (let* ((a '(nonterminal a)) (b '(nonterminal b))
+             (dead '(nonterminal dead)) (missing '(nonterminal missing))
+             (x '(terminal literal "x"))
+             (marked-a (list 'marked a '((alias A))))
+             (marked-x (list 'marked x '((alias X))))
+             (operands [a b dead missing x marked-a marked-x]))
+        (for-each
+          (lambda (tail)
+            (check-suffix-catalog
+              (list (list 0 'root (append operands (list tail)) #f #f)
+                    (list 1 'a '() #f #f)
+                    (list 2 'a (list x) #f #f)
+                    (list 3 'b (list x) #f #f)
+                    (list 4 'dead (list dead) #f #f)))) operands)
+        (check-suffix-catalog
+          (list (list 0 'root (make-list 256 marked-a) #f #f)
+                (list 1 'a '() #f #f) (list 2 'a (list x) #f #f)))))
     (test-case "joint completion preserves delayed and coalesced domain publications"
       (let ((prefix (list (nullable-production 'c '((nonterminal a) (nonterminal b)))
                           (nullable-production 'a '((nonterminal d)))

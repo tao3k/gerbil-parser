@@ -434,3 +434,104 @@ dependency. It is now declared once in the existing conformance module catalog;
 final Scheme-owned preparation completed in 75.76 seconds with the same total
 and idle deadlines. No timeout or compiler backend was changed. Delivered-head
 Ubuntu/Rust CI remains a separate receipt.
+
+* LR suffix facts: compositional reverse evaluation
+
+The source baseline is =0255378568984f3f87e1f17fbf8425e30b0c2891=.
+=make-core-lookahead-catalog= in =src/compiler/lr-lookahead.ss= previously
+scanned =sequence-first= and =sequence-nullable?= separately for the suffix
+following every nonterminal occurrence. An n-item nullable rhs therefore repeated
+quadratic operand traversal, even though the catalog itself was built only once.
+Both LALR propagation and canonical LR(1) closure consume this catalog.
+
+** Paper transfer and semantic boundary
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, Figure 2 and section 3]] give compositional Null/First
+transfer for concatenation. We apply the familiar nullable-prefix recurrence to
+our existing syntactic CFG FIRST facts. The paper's complete type algebra,
+FLast/separability obligations and predictive-parser theorem do not certify our
+LR construction. In particular, our FIRST facts are not a productivity proof:
+a terminal followed by a dead nonterminal can retain that leading terminal.
+We preserve this behavior and the separate completion admission contract.
+
+Let F[i] and N[i] summarize the rhs suffix beginning at position i. For the
+empty suffix F[n] = 0 and N[n] = true. With completed per-symbol facts H[i]
+and Q[i], the recurrence is:
+
+#+begin_example
+F[i] = H[i] union (if Q[i] then F[i+1] else 0)
+N[i] = Q[i] and N[i+1]
+#+end_example
+
+A terminal has a singleton H and false Q; a missing reference has empty H and
+false Q. Before incorporating position i, the builder publishes F[i+1] and
+N[i+1] at its core-item slot only if that item is a nonterminal. Completed,
+terminal and padding slots retain the previous zero/false values. The existing
+core-symbol catalog has already unwrapped operand marks, so aliases/fields do
+not change this analysis. An empty production makes no publications.
+
+Induction backwards from n shows that each published suffix agrees with the
+independent forward scans. Every rhs position is visited once; nonterminal FIRST
+lists are converted to masks once per distinct referenced name. This removes
+quadratic suffix traversal. It does not remove the existing padded vector
+allocation, whose size is production-count times layout-width. Big-integer mask
+operations also depend on terminal count; no constant-time bitset assumption or
+whole-parser linear bound is claimed. The analysis adds no language-author slot,
+loader schema, public grammar rewrite or admission restriction.
+
+** Semantic and matched native controls
+
+The resolved grammar suite compares both entire catalog vectors against
+forward =sequence-first=/=sequence-nullable?= scans. Controls include five real
+LR fixture families, marked terminals/nonterminals, empty productions, nullable
+and nonnullable heads, empty FIRST, undefined references, duplicate operands and
+a 256-item marked nullable rhs. Full canonical/partition/parse controls remain.
+The focused source gate passed 54 Cases (37 resolved grammar and 17 canonical
+reference), final =TEST-SUITE-OK= and =OK=, exit 0, in 18.537 seconds after the Case moved into this compiled-entry-owned
+suite. The earlier 24.554-second source receipt overlapped baseline compilation;
+neither duration is a semantic-test speed claim.
+
+Temporary baseline and candidate modules were compiled with the same fixed
+Gerbil/GCC SDK, optimize/static settings, and already-completed input facts.
+One Scheme process alternated invocation order, forced GC before each call and
+compared both result vectors after every pair. CPU timing includes allocation,
+mask conversion, traversal and publication; it excludes imports, explicit GC,
+input preparation and equality checks. Seven pairs per synthetic length and
+21 pairs per real TLA+ workload produced these medians:
+
+| Workload | Baseline CPU ms | Reverse fold CPU ms |
+|----------+-----------------+---------------------|
+| 512 nullable rhs operands | 7.557 | 0.042 |
+| 1024 nullable rhs operands | 31.219 | 0.055 |
+| 2048 nullable rhs operands | 119.182 | 0.088 |
+| Real TLA+ complete suffix catalog | 0.246 | 0.209 |
+| Real TLA+ complete LALR construction | 14.954 | 14.669 |
+
+Five fixture families were also built through both LALR and canonical LR(1)
+using baseline/candidate compiler modules, with exact complete LRSpec equality.
+All 21 paired TLA+ complete constructions retained exact LRSpec equality.
+The supervised measurement exited 0 in 13.700 seconds, emitted
+=SUFFIX-NATIVE-AB-OK= and passed the unchanged 90-second total/5-second idle
+limits. No allocation count, parser throughput or FFI gain was measured. The
+small real complete-construction difference is not promoted to a stable
+end-to-end improvement. Baseline sources and raw receipts are local temporary
+qualification inputs; no JSON snapshots or runtime binding replacement were
+introduced.
+
+** Compiled consumer and remaining remote gate
+
+The suffix Case belongs to =t/resolved-grammar-test.ss=, which is admitted by the
+compiled conformance entry. It is not duplicated in the canonical reference
+suite. After the move, native preparation exited 0 in 74.165 seconds under the
+unchanged 240-second total/5-second idle limits. The compiled semantic entry
+passed 371 Cases across 23 groups, including the new suffix Case. The semantic
+process and five independent research processes all exited 0 and emitted the
+final =DSL-RESEARCH-CLOSURE-OK= and =OK= markers.
+
+These are local Darwin/GCC receipts. The baseline's Ubuntu run
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37891042027][37891042027]] failed with semantic child status 139 (=signal-exit=); its last
+Case output was =all parser tests avoid display assertions=. The negative
+conformance controls behaved as expected. There is no backtrace establishing
+the signal's cause, and local compilation/execution did not reproduce it.
+Local passing receipts do not repair or supersede that Ubuntu failure; the
+new delivery needs its own exact-head Ubuntu result before remote closure.

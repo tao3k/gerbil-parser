@@ -13,14 +13,14 @@
         (only-in ./lr
                  +lr-eof+ nonterminal-name nonterminal-symbol? production-id
                  production-index-by-lhs
-                 production-rhs production-terminal-catalog sequence-first
-                 sequence-nullable?)
+                 production-rhs production-terminal-catalog)
         (only-in ./lr-automaton
                  build-lr0-automaton
                  make-core-item
                  make-core-symbol-catalog make-item-layout
                  materialize-transitions))
-(export build-states-via-lr0 build-states-via-canonical-lr1)
+(export build-states-via-lr0 build-states-via-canonical-lr1
+        make-core-lookahead-catalog)
 
 (def (trace-lookahead-phase phase count started trace?)
   (when trace?
@@ -43,30 +43,45 @@
             mask (table-ref terminal-index terminal)))
          0 terminals))
 
-;; FIRST(tail) and tail-nullability depend only on the dotted core item. Build
-;; them once for every production position before the fixed-point queue drains.
+;;; FIRST of a concatenation is FIRST(head), plus FIRST(tail) when head
+;; is nullable. Fold this equation right-to-left once per production, instead
+;; of rescanning every nullable suffix. Cache each nonterminal's completed FIRST
+;; mask once for this catalog. The core symbols have already unwrapped marks.
 ;; : (-> Vector Pair Vector Table Table Table (values Vector Vector))
 (def (make-core-lookahead-catalog table layout core-symbols first nullable
                                   terminal-index)
   (let* ((size (* (vector-length table) (cdr layout)))
          (first-masks (make-vector size 0))
-         (nullable-tails (make-vector size #f)))
+         (nullable-tails (make-vector size #f))
+         (nonterminal-masks (make-table test: eq?)))
+    (def (first-mask name)
+      (let (known (table-ref nonterminal-masks name #f))
+        (or known
+            (let (mask (terminal-list->mask (table-ref first name '()) terminal-index))
+              (table-set! nonterminal-masks name mask)
+              mask))))
     (let production-loop ((production-id 0))
       (when (< production-id (vector-length table))
         (let item-loop
-            ((rest (production-rhs (vector-ref table production-id)))
-             (dot 0))
-          (unless (null? rest)
-            (let (item (make-core-item production-id dot layout))
-              (when (nonterminal-symbol? (vector-ref core-symbols item))
-                (let (tail (cdr rest))
-                  (vector-set!
-                   first-masks item
-                   (terminal-list->mask
-                    (sequence-first tail first nullable) terminal-index))
-                  (vector-set! nullable-tails item
-                               (sequence-nullable? tail nullable)))))
-            (item-loop (cdr rest) (+ dot 1))))
+            ((dot (- (length (production-rhs (vector-ref table production-id))) 1))
+             (tail-mask 0) (tail-nullable? #t))
+          (when (>= dot 0)
+            (let* ((item (make-core-item production-id dot layout))
+                   (symbol (vector-ref core-symbols item)))
+              (if (nonterminal-symbol? symbol)
+                (let* ((name (nonterminal-name symbol))
+                       (head-nullable? (table-ref nullable name #f))
+                       (head-mask (first-mask name)))
+                  (vector-set! first-masks item tail-mask)
+                  (vector-set! nullable-tails item tail-nullable?)
+                  (item-loop (- dot 1)
+                             (if head-nullable?
+                               (compiler-index-set-union head-mask tail-mask)
+                               head-mask)
+                             (and head-nullable? tail-nullable?)))
+                (item-loop (- dot 1)
+                           (compiler-index-set-singleton
+                            (table-ref terminal-index symbol)) #f)))))
         (production-loop (+ production-id 1))))
     (values first-masks nullable-tails)))
 

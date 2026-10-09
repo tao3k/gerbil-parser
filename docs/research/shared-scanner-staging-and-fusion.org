@@ -1,122 +1,219 @@
-#+title: 共享解析引擎的专门化、源跨度与流水线融合
+#+title: Shared parser specialization, source spans and pipeline fusion
 
-* 问题与证据边界
+* Scope and architecture
 
-优化对象是共享解析引擎。Bash 是复杂词法、延迟分隔符、Unicode 和
-完整 lossless 产物的压力样本；语言目录不增加手写扫描器或优化回调。
+This study owns specialization and representation lifetime in the shared engine.
+It extends the [[file:scheme-deflanguage-design-synthesis.org][three-interface design]], rather than proposing another
+language-author interface. Grammar intent remains in =grammar.ss=; metadata and
+entry services remain in =parser.ss=; independent expectations and benchmarks
+remain in =parser-test.ss=. Bash is a stress workload, not the implementation
+owner of a private scanner or optimization callback.
 
-2026-10-09 的 matched Bash 报告记录 28,440 UTF-8 字节、1,000 行输入：
-完整解析 CPU 中位数为 Scheme 43.320–45.093 ms、Tree-sitter
-3.196–3.203 ms，约 13.6–14.1 倍。报告位于
-=tools/benchmarks/bash-matched/results-2026-10-09.org=；它来自独立实验工作区，
-本次不把其未提交文件纳入实现提交。
+* Existing measurements and their limits
 
-独立诊断记录完整产物约 51.930 MB 无 GC 分配流量，扫描约 10.915 MB，
-发布验证约 14.464 MB。完整产物分配约为输入字节量的 1,826 倍；这是
-累计分配流量，不是峰值驻留内存。不同控制的中位数不能相加。
-200/400/1,000 行样本中分配近似随输入增长，因此当前证据首先指向
-每字节／节点的常数成本，不证明所有嵌套输入的线性复杂度。
+An independent matched Bash report dated 2026-10-09 records 28,440 UTF-8 bytes
+and 1,000 lines. Complete-parse median CPU was 43.320–45.093 ms for Scheme and
+3.196–3.203 ms for Tree-sitter, approximately 13.6–14.1 times apart. Its owner is
+=tools/benchmarks/bash-matched/results-2026-10-09.org= in a separate experimental
+workspace. That uncommitted report is not a product of this implementation
+checkout and its measurements have not been repeated by this source study.
 
-Scheme 使用 GCC16/Gambit -O1，Tree-sitter 初始语法使用 clang -O3；
-clang -O1 的对照仍约 4.016 ms，但其运行时未重新编译。
-两者产品及分配器不同，不能把该差距解释成语言本身的固有差距。
-后续优化继续固定 Scheme/GCC，不通过换编译器或省略校验改善数字。
+Independent diagnostics recorded about 51.930 MB of cumulative allocation for
+the complete artifact, 10.915 MB for scanning and 14.464 MB for publication
+validation. Complete allocation was roughly 1,826 times the input byte count;
+this is allocation traffic, not peak resident memory. Component medians cannot
+be added. Allocation across 200/400/1,000-line samples approximately followed
+input size; this motivates investigating constant costs but does not establish
+linear complexity for arbitrary nesting.
 
-* 论文可迁移的机制
+Scheme used GCC16/Gambit -O1; the initial Tree-sitter grammar used clang -O3.
+A clang -O1 grammar control still took about 4.016 ms, but its runtime was not
+rebuilt. Products and allocators differ. These observations do not isolate a
+language implementation effect. Follow-up comparisons keep the Scheme SDK
+fixed and preserve complete validation.
 
-[[https://arxiv.org/html/2304.05276][Yallop、Xie、Krishnaswami：flap，PLDI 2023]]
-第 2.2、4、5.4 节分别讨论中间 token 成本、融合和准备期专门化。
-可迁移的是把静态语法工作移出请求路径，并消除只用于阶段衔接的表示。
-其实验速度倍数不构成本引擎的预期收益。
+* Gerbil source reading: mechanisms and transfer boundaries
 
-论文的确定性语法、disjoint regex 和单 token lookahead 条件不能当作
-本引擎全部语法已经满足的性质。第 8 节明确把更强 LR、状态和多入口列为
-扩展方向。本引擎已有 longest-match、rank、冲突诊断、上下文和延迟 marker，
-迁移必须保持这些语义，不能直接裁掉候选规则。
+The inspected distribution is Gerbil =0.19.2591dcd.patchf5cedd8168cb=.
+Paths below are relative to its source tree. This includes distribution patches;
+source observations are not assertions that upstream has identical code, nor
+proof that a particular parser representation is faster.
 
-lossless token 是公开产物的一部分。这里的融合目标是减少内部阶段间的
-临时 token／节点／列表，而不是删除最终 token 事件或改变 C ABI／Rust 输出。
+| Source owner | Observed mechanism | Parser implication | Required control |
+|--------------+--------------------+--------------------+------------------|
+| gerbil/compiler/optimize-base.ss | optimizer-info owns separate identity-keyed hash tables and local type contexts | Separate identities, ownership and lifetimes; do not reinterpret structural grammar values as identity keys | Equal-but-distinct grammar values, stable output order, independent compiler invocations |
+| gerbil/runtime/hash.ss | Specialized eq/eqv/symbol/string table types coexist with checked interfaces | Select a native collection by its actual key contract; replacing make-table also requires changing its consumer API | Constructor, lookup, missing-value and iteration behavior; complete-call allocation and CPU |
+| gerbil/compiler/optimize-call.ss | Known procedure/signature information enables selected call transformations; unknown types retain ordinary calls | Preserve real bindings and make private callable contracts explicit where supported; inspect generated code before attributing a dispatch cost | Checked admission, invalid values, generated calls and end-to-end comparison |
+| gerbil/core/contract.ss | Type identifiers are resolved through syntax bindings | Keep DSL syntax objects and binding context through elaboration; do not replace the macro system with datum dispatch | Import renaming, phases, nested declarations and source diagnostics |
 
-* 当前流水线的具体成本入口
+The [[https://gerbil.scheme.org/reference/gerbil/runtime/hash-tables.html][official hash-table API]] specifies identity/equivalence choices and its own
+operations. It does not promise that changing this parser's Gambit tables to
+Gerbil tables will improve complete construction. Public Boolean tables returned
+by LR analysis currently have consumers using =table-ref=; a private index can
+be studied independently, but changing the public representation is a wider
+contract change.
 
-| 阶段 | 现有路径 | 待消除的内部成本 |
-|------+----------+------------------|
-| 规则执行 | contextual-scanner 的 best-match | 每个候选解释 matcher 列表 opcode |
-| 全源扫描 | source-engines 的 scan、source-scanner-tokens | 扫完全部源再返回反转后的 token 列表 |
-| 词分解 | shell-word 的 prepare-word、recognition-source | lexeme 快照、局部边界、进一步 token 切片 |
-| 结果投影 | result-profile 的 result-projection-build | captures、children、tokens 的多阶段表示 |
-| 发布 | artifact 的 recognition-events 与验证 | 识别树遍历、事件构造、重建源及编码验证 |
+The [[https://gerbil.scheme.org/reference/std/contract][official contract documentation]] distinguishes checked =:= declarations
+from =:-= type assertions. Its LRU example checks the external cache and asserts
+private nodes whose ownership is already established. The transferable pattern
+is checked boundaries plus justified internal facts. Blanket unsafe accessors,
+unchecked foreign input and custom substitutes for compiler optimizations are
+not implied by this example.
 
-这些是源码可观察的重复工作位置；目前没有逐函数成本归因证明它们各自占比。
-region-scanner 首字符索引降低部分临时分配，但没有改变上述整条产物流。
+In our scanner, =runtime-scan-rule.executor= currently has an unannotated private
+slot. A callable annotation is a testable hypothesis, not an admitted speedup:
+first inspect whether the current compiler already knows the returned procedure,
+then compare generated calls and complete parse cost. A closure prepared once
+still incurs a call per candidate; preparation alone does not imply complete
+inlining or lexer/parser fusion.
 
-* 已实现：关闭 IR 的准备期 matcher 绑定
+Existing =compiler-index-set-reachable= and its memoized variant already use
+indexed immutable edges, local queues and invocation-owned caches. LR suffix
+facts are shared across consumers. This study does not duplicate those kernels
+or add a global cache whose validity would depend on another grammar.
 
-[[file:../../src/runtime/contextual-scanner.ss][共享 contextual scanner]] 的私有规则
-同时保留声明式 matcher 和准备好的 executor。=prepare-matcher= 在计划准备期
-绑定静态操作数；=best-match= 只把本次 source、offset 和 checkpoint 交给它。
+* Paper mechanism and its applicability
 
-- 前缀守卫的排除／例外集合准备为 literal trie，不在每个 token 上创建谓词闭包。
-- 单 literal 直接比较 source 的字符，不为失败的前缀试探创建 substring。
-- Unicode、最长匹配、rank、声明顺序、冲突错误保持现有选择器语义。
-- marker、pending FIFO、mode、offset 留在请求 checkpoint；executor 不捕获请求。
-- matcher 数据仍用于首字符候选推导；公开 IR、opcode contract、版本和 ABI 不变。
-- 输入 IR 不接受用户函数；executor 是关闭 opcode 经引擎生成的私有能力。
+[[https://arxiv.org/html/2304.05276][Yallop, Xie and Krishnaswami: flap, PLDI 2023]] discusses intermediate token
+cost in section 2.2, fusion in section 4 and preparation-time specialization in
+section 5.4. The transferable mechanisms are moving grammar-static work out of
+requests and removing representations used only between internal stages. The
+paper's speed ratios do not predict this engine's gains.
 
-这是静态工作迁移，不是完整的词法／解析融合，也不是 10 倍差距已解决。
-Rust AOT 继续消费声明式 IR，不把 Scheme 闭包放入跨语言协议。
+Its deterministic grammar, disjoint regex and single-token lookahead assumptions
+are not established for every grammar admitted here. Section 8 treats stronger
+LR grammars, state and multiple entries as extensions. Longest match, rank,
+conflict diagnosis, contextual modes and delayed markers must retain their
+current semantics. Candidate rules cannot simply be discarded.
 
-* 后续实现的依赖与验收
+Lossless token events are public output. Fusion may remove temporary internal
+tokens, nodes and lists; it must retain the final artifact and Scheme/C ABI/Rust
+semantics. Internal allocation and observable output have different lifetimes.
 
-以下项目尚未实现；顺序由源所有权和现有 checkpoint 契约决定。
+* Implemented preparation and current cost boundaries
 
-1. *共享源跨度*：在引擎中持有一次 admitted source 和字符／字节边界。
-   内部 capture 携带 owner、start、end；词分解复用同一 owner，不再为每个
-   阶段建立文本快照。公开字符串在最终产物边界物化。调用者修改输入、
-   跨 source 拼接、Unicode 非标量、旧 checkpoint 恢复必须保留拒绝行为。
-2. *按需扫描与消费*：复用 source-scanner 的不可变 step/checkpoint，
-   让识别器按需取 lookahead，去掉“全源 token list → remaining → emitted”
-   的重复链表。统一在引擎接入，不能给某个 language 增加私有旁路。
-   源拒绝时仍必须生成覆盖完整源的 fallback 产物；恢复和 heredoc 队列不可丢失。
-3. *投影与事件融合*：把 closed projection plan 编译成直接写入规范事件的操作。
-   只在有明确结果消费需求时保留识别节点；field 顺序、节点／token id、
-   trivia、诊断、偏移及完整 artifact 必须与现有产物逐字段相等。
-4. *声明式静态 AOT*：从同一个计划生成 Scheme 和 Rust 的执行程序；
-   准备期绑定只是第一步，尚未生成按 grammar 专门化的字符分支代码。
-   增量 checkpoint 的状态等价、IR digest 和语言无关 ABI 是共同约束。
+The [[file:../../src/runtime/contextual-scanner.ss][contextual scanner]] retains both a declarative matcher and a prepared
+executor. =prepare-matcher= binds static operands after closed-IR admission;
+=best-match= supplies the request's source, offset and checkpoint.
 
-每一步都先证明所有权与语义，再做固定 GCC SDK 的原生产物 ABBA 对照。
-输入、完整输出验证、自然 GC、析构、timing 边界和 worker 数必须一致。
-记录完整解析 CPU、每输入字节分配及 GC；组件诊断不能代替完整解析计时。
-增加长普通文本、Unicode、深度嵌套、重叠分隔符、动态 marker、拒绝和编辑恢复，
-同时覆盖 HCL、HL7、FHIRPath 及 contextual LR，避免只优化 Bash 样本。
+- Prefix exclusions and exceptions use prepared literal tries.
+- Literal prefix probes compare characters without allocating a substring.
+- Unicode, longest match, rank, declaration order and conflicts retain the
+  selector's existing behavior.
+- Markers, pending FIFO, mode and offset belong to request checkpoints.
+- Executors capture plan data, not request state. Language IR cannot supply an
+  arbitrary callback. Scheme closures are not serialized into Rust AOT IR.
+- Declarative matchers remain available for first-character candidate indexing.
 
-* 本轮验证与负结果
+The former per-candidate opcode interpretation has been replaced. The following
+remaining locations are visible in source; their individual CPU shares have not
+been measured in this study.
 
-实现以 =bc9a56a= 为基线，随后对齐唯一 PR 最新 =021f97a=。
-这段提交区间没有改变上述 scanner、region、shell、artifact 和 source-strategy
-生产路径。固定 SDK 的 GCC 原生 scanner 编译控制退出 0，耗时 18.966 s。
+| Stage | Current owner | Representation to investigate |
+|-------+---------------+-------------------------------|
+| Candidate execution | contextual-scanner / best-match | Executor call and scan-match candidate allocation |
+| Whole-source scanning | source-engines / source-scanner-tokens | Accumulated and reversed token lists before recognition |
+| Word decomposition | shell-word / prepare-word / recognition-source | Lexeme snapshots, local boundaries and subsequent token slices |
+| Projection | result-profile / result-projection-build | Captures, children and tokens across intermediate stages |
+| Publication | artifact / recognition-events and validation | Recognition-tree traversal, event construction, reconstruction and encoding validation |
 
-共享 scanner 13 项、deferred scanner 13 项、Bash 29 项、HCL 30 项、HL7 5 项，
-合计 90 项，控制器耗时 9.711 s、退出 0。新增守卫控制验证 ASCII／Unicode
-前缀排除与例外的实际 token、UTF-8 偏移，并覆盖直接 IR 与 prepared plan。
+* Scheme witness and the two design questions
 
-四份 short、heredoc、compound、large 输入的完整 ParseArtifact 与原生基线相等。
-完整产品的初步 12 批、每批 10 次 CPU 观察仍约 37–40 ms／parse。
-没有对称冻结产品的完整 ABBA、没有本次分配数据，因此不宣称速度提升。
+This block illustrates the existing private literal specialization. It is not
+new public syntax or a proposed author-supplied callback. =prepare-matcher= is a
+private engine function; the illustration belongs in that module's context.
 
-第一轮断言全部输出后测试子进程没有退出，5 秒空闲控制失败；该轮不计通过。
-后续使用已有 completed-child 原生退出入口，保证 harness 完成及输出后退出，
-没有改动期限。一次候选冷启动也失败；逐依赖报告真实初始化进度后的重跑
-完成产物一致性和计时，首次失败保留为未通过。
+#+begin_src scheme
+(let* ((declaration '(literal "λ"))
+       (execute (prepare-matcher declaration)))
+  ;; Preparation owns the declaration and static width.
+  ;; Each invocation supplies its own source and character offset.
+  (values (execute "λx" 0 #f)      ; => 1
+          (execute "xλ" 0 #f)      ; => #f
+          (execute "xλ" 1 #f)))    ; => 2
+#+end_src
 
-对齐最新 PR 后测试控制器移动到 =t/support/qualification=，旧本地产物不能
-证明新路径可执行；首次追加契约测试在模块加载时失败。必须先准备新路径的
-原生控制器再重跑，不能把缺失模块算作解析语义失败或已通过。
+** Question 1: Why is this design better for the author and engine?
 
-准备最新路径的 POSIX child 模块后，在 =021f97a= 上追加／重跑九个模块：
-contextual parser 15、source scanner 11、source contract 2、ParseArtifact 8，
-加上述 90 项，总计 126 项。正式控制器报告 =TEST-SUITE-OK modules=9=、
-=OK=、退出 0、无缺失 receipt，耗时 14.178 s，仍使用 120 秒总预算和
-5 秒真实输出空闲预算。新控制器启动缺失问题由构建其声明模块解决，
-没有新增运行时兼容层。
+The author declares a literal once. The engine can inspect and validate that
+structure, derive candidate indexes and prepare execution without requiring the
+author to write trie builders, dispatch loops or state factories. Scheme gives
+us more than parentheses: hygienic macros preserve bindings and source context,
+POO composes declared policies, and lexical closures bind admitted static data.
+These mechanisms cooperate beneath the existing three interfaces.
+
+** Question 2: What makes the proposal scientifically justified?
+
+The specialization claim has a concrete invariant: matching results and emitted
+artifacts are unchanged while static decoding moves to preparation. Existing
+controls independently check Unicode, guards, ambiguity and rejection. The
+paper identifies a related staging mechanism under stronger assumptions; it
+does not prove our LR engine equivalent or faster. Performance requires matched
+complete-call evidence including preparation amortization, output validation,
+allocation and natural GC. Those observations can reject the proposal.
+
+* Dependency order for further implementation
+
+1. *Shared source spans.* Own one admitted source and its character/byte boundary
+   mapping. Internal captures carry owner/start/end; decomposition reuses that
+   owner. Materialize public strings at the artifact boundary. Preserve rejection
+   of caller mutation, cross-source spans, non-scalar Unicode and stale checkpoints.
+2. *Demand-driven scanning.* Reuse immutable step/checkpoint semantics to provide
+   lookahead without whole-source token/remaining/emitted list duplication.
+   Rejected sources must still obtain a complete covering fallback artifact;
+   edit restoration and heredoc obligations remain intact.
+3. *Projection and event fusion.* Compile the closed projection plan into event
+   emission. Keep recognition nodes where consumers require them. Field order,
+   identities, trivia, diagnostics, offsets and complete artifacts remain equal.
+4. *Static AOT specialization.* Generate Scheme and Rust execution from the same
+   admitted plan. Prepared closures are not yet grammar-specific generated
+   character branches. Checkpoint equivalence, IR identity and the common ABI
+   constrain both backends.
+
+Each step first establishes ownership and semantic controls, then uses the
+existing benchmark owners for matched complete-product ABBA measurements under
+the same GCC SDK. Hold input, output validation, natural GC, destruction, timing
+boundaries and worker count constant. Record complete CPU, allocation per input
+byte and GC. Include ordinary text, Unicode, nesting, overlapping delimiters,
+dynamic markers, rejection and edit restoration across Bash, HCL, HL7, FHIRPath
+and contextual LR. Component timings cannot replace complete-product timing.
+
+* Prior implementation receipts and retained negative results
+
+The implementation started at =bc9a56a= and aligned to =021f97a=; intervening
+commits did not change the scanner/region/shell/artifact/source-strategy product
+paths. Native scanner preparation took 18.966 s and exited zero.
+
+Contextual scanner 13, deferred scanner 13, Bash 29, HCL 30 and HL7 5 Cases
+completed: 90 total, 9.711 s, exit zero. Guard controls compared ASCII/Unicode
+prefix exclusions and exceptions, actual tokens and UTF-8 offsets for direct IR
+and prepared plans. Complete short/heredoc/compound/large artifacts matched the
+native baseline. Preliminary 12 batches of 10 complete parses remained about
+37–40 ms/parse. Without symmetric frozen products, complete ABBA and current
+allocation data, no speedup is admitted.
+
+An initial child printed assertions but did not exit; its five-second idle gate
+failed. The existing completed-child entry subsequently provided real completion
+without changing deadlines. A cold-start attempt also failed; real dependency
+initialization diagnostics enabled a later completed run. Both first failures
+remain failures.
+
+After qualification owners moved to =t/support/qualification=, old products did
+not prove that the new entry could load. An initial extra contract run failed at
+module loading. Preparing its declared POSIX child module resolved that boundary.
+On =021f97a=, nine modules then completed: the preceding 90 Cases plus contextual
+parser 15, source scanner 11, source contract 2 and ParseArtifact 8, totaling 126.
+The controller reported =TEST-SUITE-OK modules=9=, =OK=, exit zero and no missing
+receipt in 14.178 s, under 120 s total and five seconds of real-output inactivity.
+
+* Current source-reading receipt
+
+At =a725a69=, the standard source command below completed the existing 13
+contextual scanner Cases, =HARNESS-OK= and =OK=, exit zero. This verifies the
+implemented scanner controls; it does not qualify proposed spans/fusion, record
+a new performance comparison or assert exact-head CI closure.
+
+#+begin_src scheme
+;; Ordinary source Suite; no qualification executable is a prerequisite.
+;; GERBIL_LOADPATH="$PWD/.." gerbil test -v 5 t/contextual-scanner-test.ss
+#+end_src

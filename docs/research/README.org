@@ -12,6 +12,10 @@ instrumentation or runtime-binding replacement wrappers.
 The paper/framework synthesis remains in
 [[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].
 
+For the current Gerbil source study and the ordered runtime work, read
+[[file:shared-scanner-staging-and-fusion.org][shared engine specialization, source spans and fusion]]. It separates
+implemented preparation from proposed fusion and preserves negative receipts.
+
 Start authoring research with the
 [[file:scheme-deflanguage-design-synthesis.org][Scheme parser DSL design overview]]. It owns the three user interfaces,
 shared objective, evidence scope, decisions and closure sequence. Detailed design

@@ -39,6 +39,10 @@ migration and removal of legacy author recipes. It records common compiler
 ownership, native semantic evidence and remaining analysis/publication limits;
 three-file ownership alone is not treated as DSL qualification.
 
+The [[file:shared-scanner-staging-and-fusion.org][shared engine specialization study]] connects Gerbil compiler and runtime
+source patterns with staging/fusion research, source lifetime and complete-product
+controls. It keeps optimization below the same three author interfaces.
+
 Focused experiment documents remain evidence references. New conclusions should
 update their owning module and this overview's decision/evidence summary when
 needed. Do not append detailed experiments to this overview. Module boundaries

@@ -74,7 +74,7 @@ then compile the language module into one native runtime library:
 
 #+begin_src shell
 gerbil env gxi build-qualification.ss compile
-gerbil env .gerbil/bin/parser-qualify shared-library --language-module my-language/abi \
+gerbil env gxi qualify.ss shared-library --language-module my-language/abi \
   --output /absolute/path/libmy_language.so
 #+end_src
 

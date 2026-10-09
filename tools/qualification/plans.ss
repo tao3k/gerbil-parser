@@ -112,12 +112,3 @@
                (not (receipt-present? "ERROR|FAILED|FAILURE|FAIL:" text)))
    (error "compiled event-fold qualification failed" log))
   (displayln "COMPILED-EVENT-FOLD-OK cases=56") (force-output)))
-
-(def (qualify-language-alignment!)
- (with-product-directory "parser-language-alignment-"
-  (lambda (directory)
-   (let (product (path-expand "language-artifacts.bin" directory))
-    (run-qualified! [(path-expand "bin/gerbil-parser-conformance" (gerbil-path)) "language-abi-alignment" product]
-     ".data/language-abi-alignment.log" timeout: 10 idle-timeout: 5 require: '("LANGUAGE-ABI-ALIGNMENT-GENERATED"))
-    (same-product! product "rust/gerbil-parser-artifact/tests/fixtures/languages.bin"))))
- (displayln "LANGUAGE-ABI-ALIGNMENT-OK") (force-output))

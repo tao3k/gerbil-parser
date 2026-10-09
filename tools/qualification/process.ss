@@ -1,7 +1,7 @@
 ;;; One native process contract shared by compilation, testing and generation.
 (import :std/misc/process :std/io/tempfile :std/text/pregexp ./ownership)
 (export #t)
-(def qualification-launcher (path-expand "bin/parser-qualification-process-child" (gerbil-path)))
+(def qualification-library-root (path-expand "lib" (gerbil-path)))
 (defstruct process-result (status reason output elapsed) transparent: #t)
 (defstruct process-interruption (reason) transparent: #t)
 (def (normal-exit-status raw)
@@ -21,8 +21,13 @@
            (started (##current-time-point)) (last-output started)
            (coordinator (current-thread)) (capture (open-output-u8vector))
            (output (open-output-file log))
-           (process (open-process [path: qualification-launcher
-                     arguments: (cons witness command)
+           (process (open-process [path: "gxi"
+                     arguments: (append ["tools/qualification/process-child.ss" witness (getenv "GERBIL_LOADPATH" "")] command)
+                     environment: (map (lambda (entry) (string-append (car entry) "="
+                        (if (equal? (car entry) "GERBIL_LOADPATH")
+                            (string-append qualification-library-root ":" (cdr entry)) (cdr entry))))
+                       (if (getenv "GERBIL_LOADPATH" #f) (get-environment-variables)
+                           (cons (cons "GERBIL_LOADPATH" "") (get-environment-variables))))
                      stderr-redirection: #t]))
            (reader #f) (waiter #f) (monitor #f) (raw #f) (reason #f)
            (line-prefix "") (eof? #f) (output-complete? #f) (exited? #f))

@@ -31,6 +31,7 @@
     "t/grammar-composition-contract-test"
     "t/grammar-composition-lowering-test"
     "t/grammar-composition-execution-test"
+    "t/fixtures/language-entries"
     "t/fixtures/lr1-construction"
     "t/resolved-grammar-test"
     "t/language-artifact-test"
@@ -63,11 +64,10 @@
     "t/fixtures/runtime-record-assignments/languages/records/parser"
     "t/fixtures/runtime-record-assignments/languages/records/parser-test"
     "t/test-style-contract-test"
-    "t/generate-language-abi-alignment"
     "t/conformance-main"))
 (def (shared-test-module? name)
   (or (string-suffix? "-test" name)
-      (member name '("t/generate-language-abi-alignment" "t/conformance-main"
+      (member name '("t/fixtures/language-entries" "t/conformance-main"
                      "t/benchmarks/versioned-languages/all-languages"))))
 (def (compiled-spec modules)
   (map (lambda (module)

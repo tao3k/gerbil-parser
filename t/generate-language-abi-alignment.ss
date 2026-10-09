@@ -3,7 +3,7 @@
 (import (prefix-in (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload) codec-)
         (only-in :gerbil-parser/language-support/entry language-metadata-ref)
         (only-in :clan/poo/object .ref)
-        (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-pairs)
+        (only-in :gerbil-parser/t/fixtures/language-entries language-entry-pairs)
         (only-in :gerbil-parser/language-support/development language-loader-fixtures)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success?))

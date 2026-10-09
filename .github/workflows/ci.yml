@@ -158,7 +158,7 @@ jobs:
             .gerbil/bin
           key: gerbil-parser-packages-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.gerbil-label }}-${{ hashFiles('gerbil.pkg') }}
 
-      - name: Build native qualification owner
+      - name: Compile Scheme process support modules
         run: gerbil env gxi build-qualification.ss compile
 
       - name: Verify native process and plan contracts
@@ -187,6 +187,12 @@ jobs:
       - name: Verify generated HCL recursive parser is current
         run: gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
 
+      - name: Verify every language artifact ABI contract
+        env:
+          GERBIL_PARSER_LR_TRACE: "1"
+        run: |
+          GERBIL_LOADPATH="$PWD/.." gerbil env gerbil test -v 5 t/language-abi-alignment-test.ss
+
       - name: Build optional compiled commands
         run: |
           gerbil env gxi build-gparse.ss compile
@@ -197,7 +203,7 @@ jobs:
 
       - name: Compile reusable Scheme library objects
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 240 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
             --log .data/native-library-objects.log --require COMPILED-LIBRARY-OBJECTS-READY \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main "library-objects"))))) (exit 0)'
@@ -214,7 +220,7 @@ jobs:
       - name: Compile language conformance modules
         run: |
           GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 240 --idle-timeout 5 \
+            gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
 
@@ -236,12 +242,6 @@ jobs:
       - name: Verify Scheme DSL and POO declaration closure
         run: gerbil env gxi test-processes.ss research .data/dsl-research
 
-      - name: Verify every language artifact ABI contract
-        env:
-          GERBIL_PARSER_LR_TRACE: "1"
-        run: |
-          gerbil env .gerbil/bin/parser-qualify alignment
-
       - name: Compile Scheme test support
         run: |
           gerbil env gxc t/abi-datum-support.ss \
@@ -262,7 +262,7 @@ jobs:
 
       - name: Verify header-derived delimiter Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/header-delimiter-generation.log \
             --require HEADER-DELIMITER-HL7-GENERATED --require HEADER-DELIMITER-RECORD-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-header-delimiters.ss")' \
@@ -273,7 +273,7 @@ jobs:
 
       - name: Verify strict quoted profile Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/structured-lexical-generation.log \
             --require STRUCTURED-LEXICAL-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/structured-lexical-test")' \
@@ -295,7 +295,7 @@ jobs:
 
       - name: Verify prepared module framing Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/module-source-generation.log --require MODULE-SOURCE-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/module-source-test")' \
             t/generate-module-source.ss /tmp/module-source.rs
@@ -307,7 +307,7 @@ jobs:
 
       - name: Verify shared result projection Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/result-projections-generation.log --require RESULT-PROJECTIONS-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-result-projections.ss")' \
             t/generate-result-projections.ss /tmp/result-projections.rs
@@ -316,7 +316,7 @@ jobs:
 
       - name: Verify ordered result catalog Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/ordered-results-generation.log --require ORDERED-RESULTS-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-ordered-results.ss")' \
             t/generate-ordered-results.ss /tmp/ordered-results.rs
@@ -325,7 +325,7 @@ jobs:
 
       - name: Verify shared Command Source Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/command-source-generation.log --require COMMAND-SOURCE-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-command-source.ss")' \
             t/generate-command-source.ss /tmp/command-source.rs /tmp/command-source-native.bin
@@ -335,7 +335,7 @@ jobs:
 
       - name: Verify shared Word and Binding Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/word-parts-generation.log --require WORD-PARTS-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-word-parts.ss")' \
             t/generate-word-parts.ss /tmp/word-parts.rs
@@ -344,7 +344,7 @@ jobs:
 
       - name: Verify shared region recognition Rust AOT regeneration
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/region-boundaries-generation.log --require REGION-BOUNDARIES-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-region-boundaries.ss")' \
             t/generate-region-boundaries.ss /tmp/region-boundaries.rs
@@ -354,13 +354,13 @@ jobs:
       - name: Verify shared scanner and contextual Rust AOT regeneration
         run: |
           gerbil env gxi t/fixtures/shared-scanner/generate.ss /tmp/shared-scanner.rs
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/bash-scanner-generation.log --require BASH-SCANNER-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/fixtures/shared-scanner/bash")' \
             t/fixtures/shared-scanner/generate-bash.ss /tmp/bash-scanner.rs
           rustfmt --edition 2024 /tmp/bash-scanner.rs
           cmp /tmp/bash-scanner.rs rust/gerbil-parser-runtime/tests/fixtures/generated/bash_scanner.rs
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/binding-names-generation.log --require BINDING-NAMES-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-binding-names.ss")' \
             t/generate-binding-names.ss /tmp/binding-names.rs
@@ -382,7 +382,7 @@ jobs:
         run: |
           GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-ffi-tests.ss compile
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 120 --idle-timeout 5 \
+            gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
             --log .data/native-abi.log --require NATIVE-ABI-OK \
             --require 'ABI-RUNTIME-GENERATED-MATCH calls=3' \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/fixtures/ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")' \
@@ -391,16 +391,16 @@ jobs:
       - name: Verify Rust ownership over the C ABI
         run: |
           CARGO_TARGET_DIR="$PWD/target" \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 30 \
+            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 30 \
             --log .data/rust-native-build.log \
             -- cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml
           GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_language_abi_fixture.a" \
-            GERBIL_BUILD_VERBOSE=1 gerbil env .gerbil/bin/parser-qualify run \
+            GERBIL_BUILD_VERBOSE=1 gerbil env gxi qualify.ss run \
             --timeout 90 --idle-timeout 30 --log .data/rust-native-link.log \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "build-rust-ffi-tests.ss")' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-rust-ffi-tests.ss") (eval (quote (main "compile")))))'
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/rust-native-ownership.log --require RUST-NATIVE-OK \
             --require 'RUST-NATIVE-OWNERSHIP-OK handles=2 results=113' \
             --require RUST-NATIVE-100-CALLS \
@@ -410,12 +410,12 @@ jobs:
       - name: Verify independent C and Rust runtime lifecycle
         run: |
           GERBIL_BUILD_CORES=4 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
-            gerbil env .gerbil/bin/parser-qualify host
+            gerbil env gxi qualify.ss host
 
       - name: Verify language-independent C ABI and ASP performance
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/language-abi.log --require LANGUAGE-ABI-OK \
             --require LANGUAGE-ABI-100-CALLS \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/fixtures/ffi/language-probe")' \
@@ -423,20 +423,20 @@ jobs:
 
       - name: Verify Source caller survives natural collection
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-callback-gc.log --require SOURCE-CALLBACK-GC-OK \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (verify-callback-gc)))))'
 
       - name: Verify matched Source edit calls and phase observations
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 \
+            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "8" "32")))))'
 
       - name: Prepare gxtest source owners
         run: |
-          gerbil env .gerbil/bin/parser-qualify run --timeout 240 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
             --log .data/gxtest-source-prepare.log \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)'
@@ -453,7 +453,7 @@ jobs:
 
       - name: Report GQL native component and actor costs
         run: |
-          gerbil env .gerbil/bin/parser-qualify local \
+          gerbil env gxi qualify.ss local \
             --prepared-diagnostics --suite gql-profile --suite gql-actors \
             --gerbil-path .gerbil --log-dir .data/gql-diagnostics
 
@@ -466,7 +466,7 @@ jobs:
             https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- \
+            gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- \
               gerbil env gxi \
               -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/parser")' \
               t/fixtures/tla-sany-differential/compare.ss "$jar"
@@ -481,7 +481,7 @@ jobs:
           git -C "$corpus" checkout --detach FETCH_HEAD
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
             GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env .gerbil/bin/parser-qualify run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- \
+            gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- \
               gerbil env gxi \
               -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/parser")' \
               t/fixtures/tla-sany-differential/corpus.ss "$corpus"

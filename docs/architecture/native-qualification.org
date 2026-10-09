@@ -2,9 +2,10 @@
 
 * One process contract
 
-=qualify.ss= is the source entry; =build-qualification.ss= uses the standard
-Gerbil build scheduler to publish =.gerbil/bin/parser-qualify= and its support
-library. CI and Just invoke the native executable directly after that build.
+=qualify.ss= is a Scheme source entry. =build-qualification.ss= compiles the
+process support modules with the standard SDK scheduler; it declares no
+executable. Alignment is owned by =t/language-abi-alignment-test.ss= and runs
+through =gerbil test= in the same Scheme runtime as fixture generation.
 The library is tooling, excluded from the parser package's production catalog.
 =tools/qualification/process.ss= owns real-byte observation, complete logs,
 absolute and idle deadlines, exit admission, and required receipts.
@@ -15,9 +16,8 @@ the deadline monitor no longer polls for exit at 50 ms intervals.
 
 * Cancellation authority
 
-The supervisor starts a dedicated native Scheme AOT child. This avoids an
-additional interpreter startup before the requested command and keeps the
-original strict process deadlines. A thin POSIX FFI establishes
+For external build/tool commands, the supervisor starts a Scheme source child
+with the original strict process deadlines. A thin POSIX FFI establishes
 a fresh session before launching the requested command and acknowledges its
 identity through a private temporary witness. Cancellation admits process
 groups through that root and observed parent-child topology, including a
@@ -55,8 +55,9 @@ Cargo and rustc together and removes ambient cross-build overrides.
 
 =tools/qualification/performance.ss= hashes current production, language,
 test, and tooling sources before execution and after every suite. A private
-source overlay precedes compiled parser products; the native session launcher
-uses its compiled closure and preserves the requested child's load environment.
+source overlay precedes compiled parser products. The source session child
+admits the POSIX support module, then restores the requested child's load
+environment before execution.
 Final CASE/MODULE/HARNESS/OK receipts and a successful exit are all required.
 
 * SDK provisioning boundary
@@ -83,19 +84,16 @@ Removing that one generated local lock allowed the bundle to complete in
 15.7 seconds. This is a local diagnosis, not an end-to-end performance claim
 or an automatic stale-lock recovery policy. No timeout was increased.
 
-* Startup cost and measurement boundary
+* Source test entry policy
 
-The native qualification CLI still launches an AOT session owner and the actual
-command. The extra session owner is a real process/runtime cost; it is confined
-to build/test/tooling commands and does not wrap individual library parses.
-Compilation of the CLI removes repeated =gxi= module admission. Native green
-thread exit waiting removes the previous 50 ms polling delay.
+Pure Scheme semantic checks run directly through the standard test runner.
+Alignment generates and compares the complete language fixture in one runtime;
+it requires neither a qualification executable nor a conformance executable.
+The source CLI remains available for external command deadlines and logs.
+Native library/FFI module compilation and explicit AOT product verification
+retain their normal SDK owners; they do not create a prerequisite test tool.
 
-On one macOS checkout on 2026-10-09, 16 sequential =/usr/bin/true= samples per
-mode measured median/p95 milliseconds of 1.15/2.43 for direct SDK invocation,
-8.89/11.65 for the supervisor API and 24.27/25.44 for the native CLI. These are
-warm local short-process measurements, including waiting and admission, not
-parser latency or stable cross-machine guarantees. Earlier =gxi= CLI samples
-ran alongside compilation and are not a matched end-to-end A/B speedup proof.
-Session setup, blocking descriptors, signal identity and cancellation ownership
-remain separate correctness obligations when further simplifying this launch.
+CI runs the source alignment Suite before optional command/conformance executable
+construction. Its shared fixture entry list is independent of any compiled Suite.
+The source CLI loads compiler and benchmark services only for the selected
+profile, so basic external-command observation does not initialize those services.

@@ -7,6 +7,23 @@
         "./scenarios/performance/selective-glr/scenario")
 (def recognition-sequence-tests
   (test-suite "ordered semantic sequence publication"
+    (test-case "mixed branch views isolate offsets and preserve untouched children"
+      (let* ((a (make-recognition-child #f (make-token 'number "1" 0 1)))
+             (b (make-recognition-child 'item (make-token 'number "2" 2 3)))
+             (c (make-recognition-child #f (make-token 'number "3" 4 5)))
+             (sequence (recognition-sequence-append
+                        (recognition-sequence-relocate (list a) 10)
+                        (recognition-sequence-append (list b)
+                          (recognition-sequence-relocate (list c) -2))))
+             (result (recognition-sequence->list sequence)))
+        (check (map (lambda (child) (recognition-value-start (recognition-child-value child))) result)
+               => '(10 2 2))
+        (check (eq? (cadr result) b) => #t)
+        (check (recognition-child-field (cadr result)) => 'item)
+        (check (recognition-value-start (recognition-child-value a)) => 0)
+        (check (recognition-value-start (recognition-child-value c)) => 4)
+        (let (leaf (list b))
+          (check (eq? (recognition-sequence->list leaf) leaf) => #t))))
     (test-case "deep concatenation preserves order and moved bounds without recursion"
       (let* ((children (map (lambda (n) (make-recognition-child #f (make-token 'number "1" n (+ n 1)))) (iota 10000)))
              (sequence (recognition-sequence-concatenate (map list children)))

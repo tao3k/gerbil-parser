@@ -60,9 +60,20 @@
         (check (cdr (assq 'reductions counts)) => 288)
         (check (cdr (assq 'actions counts)) => 325)
         (check (cdr (assq 'accepts counts)) => 1)
+        (check (cdr (assq 'literalFreeNonEofObservations counts)) => 0)
+        (check (cdr (assq 'caseFoldObservations counts)) => 21)
+        (check (cdr (assq 'caseFoldTokens counts)) => 14)
+        (check (cdr (assq 'repeatedCaseFoldObservations counts)) => 7)
         (check (+ (cdr (assq 'nonEofObservations counts))
                   (cdr (assq 'eofObservations counts))) => 326))
       (check (cdr (assq 'accepts (profile-gql-prepared-execution "match (n) return n"))) => 1)
+      (let ((upper (profile-gql-prepared-execution "MATCH (n) RETURN n"))
+            (lower (profile-gql-prepared-execution "match (n) return n")))
+        ;; Exact literal hits short-circuit folding; lowercase contextual
+        ;; keywords add conversion observations without changing shifts.
+        (check (cdr (assq 'shifts upper)) => (cdr (assq 'shifts lower)))
+        (check (> (cdr (assq 'caseFoldObservations lower))
+                  (cdr (assq 'caseFoldObservations upper))) => #t))
       (check-exception (profile-gql-prepared-execution "RETURN @") true))
     (test-case "wall percentile retains its own CPU and GC observation"
       (let* ((rows (map (lambda (sample)

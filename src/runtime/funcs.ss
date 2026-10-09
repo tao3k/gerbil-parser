@@ -202,12 +202,23 @@
 (def (recognition-sequence->list sequence)
   (if (list? sequence) sequence
     (with-list-builder (collect!)
-      (recognition-sequence-for-each
-       (lambda (child delta moved?)
-         (collect! (if (not moved?) child
-                     (make-recognition-child (recognition-child-field child)
-                       (relocate-recognition-value (recognition-child-value child) delta #t)))))
-       sequence))))
+      ;; Ordinary branch traversal needs neither relocation state nor heap
+      ;; frames. Bound recursion before delegating a deep/view subtree to the
+      ;; existing iterative visitor, which owns translated child publication.
+      (def (collect-sequence! current depth)
+        (cond
+         ((and (< depth 64) (recognition-sequence-branch? current))
+          (collect-sequence! (recognition-sequence-branch-left current) (+ depth 1))
+          (collect-sequence! (recognition-sequence-branch-right current) (+ depth 1)))
+         ((list? current) (for-each collect! current))
+         (else
+          (recognition-sequence-for-each
+           (lambda (child delta moved?)
+             (collect! (if (not moved?) child
+                         (make-recognition-child (recognition-child-field child)
+                           (relocate-recognition-value (recognition-child-value child) delta #t)))))
+           current))))
+      (collect-sequence! sequence 0))))
 
 ;;; The interpreter and generated operand actions share this one boundary.
 (def (recognition-sequence-for-action children)

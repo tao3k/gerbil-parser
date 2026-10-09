@@ -7,7 +7,7 @@
                  parse-artifact-success? parse-artifact-valid? parse-artifact-events
                  make-success-parse-artifact
                  token-event? token-event-token-kind token-event-lexeme event-start event-end)
-        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/token make-token token-lexeme)
         (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-parse/prepared lr-initial-checkpoint lr-checkpoint-advance
@@ -28,6 +28,7 @@
                                (event-start event) (event-end event)))
                  (filter token-event? (parse-artifact-events reference))))
            (significant (parser-significant-tokens gql-parser tokens))
+           (input (list->vector significant))
            (expected (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)))
       (unless (and (null? (cadr expected))
                    (equal? (make-success-parse-artifact
@@ -36,7 +37,8 @@
                            reference))
         (error "prepared execution changed the directed artifact"))
       (let loop ((checkpoint (lr-initial-checkpoint runtime significant))
-                 (non-eof 0) (eof 0) (literal-free 0))
+                 (non-eof 0) (eof 0) (literal-free 0)
+                 (folds 0) (folded-tokens 0) (last-fold-remaining #f))
         (let* ((remaining (lr-checkpoint-remaining-token-count checkpoint))
                (row (vector-ref rows (lr-checkpoint-state checkpoint)))
                (next-non-eof (+ non-eof (if (zero? remaining) 0 1)))
@@ -45,7 +47,22 @@
                 (+ literal-free
                    (if (and (positive? remaining)
                             (not (any (lambda (entry) (eq? (cadar entry) 'literal)) row)))
-                     1 0))))
+                     1 0)))
+               ;; Count the executor's short-circuit conversion condition using
+               ;; the canonical row, without performing an extra conversion.
+               ;; This diagnostic runs outside the timed benchmark intervals.
+               (fold?
+                (and (positive? remaining) (lr-spec-ref spec 'case-insensitive?)
+                     (let (lexeme (token-lexeme
+                                   (vector-ref input (- (vector-length input) remaining))))
+                       (and (string? lexeme)
+                            (not (any (lambda (entry)
+                                        (and (eq? (cadar entry) 'literal)
+                                             (equal? (caddar entry) lexeme))) row))))))
+               (next-folds (+ folds (if fold? 1 0)))
+               (next-folded-tokens
+                (+ folded-tokens (if (and fold? (not (eqv? remaining last-fold-remaining))) 1 0)))
+               (next-last-fold-remaining (if fold? remaining last-fold-remaining)))
           (let-values (((status next) (lr-checkpoint-advance checkpoint 1)))
             (case status
               ((checkpoint)
@@ -55,7 +72,8 @@
                                 (lr-checkpoint-deterministic-shifts checkpoint))))
                  (unless (and (= actions 1) (memv shifts '(0 1)))
                    (error "checkpoint did not execute exactly one LR action"))
-                 (loop next next-non-eof next-eof next-literal-free)))
+                 (loop next next-non-eof next-eof next-literal-free
+                       next-folds next-folded-tokens next-last-fold-remaining)))
               ((accepted)
                ;; Fallback may execute a whole suffix within one call. Only a
                ;; checkpoint already at the explicit EOF accept entry qualifies.
@@ -70,5 +88,8 @@
                        (cons 'reductions (- actions shifts)) (cons 'accepts 1)
                        (cons 'nonEofObservations next-non-eof)
                        (cons 'eofObservations next-eof)
-                       (cons 'literalFreeNonEofObservations next-literal-free))))
+                       (cons 'literalFreeNonEofObservations next-literal-free)
+                       (cons 'caseFoldObservations next-folds)
+                       (cons 'caseFoldTokens next-folded-tokens)
+                       (cons 'repeatedCaseFoldObservations (- next-folds next-folded-tokens)))))
               (else (error "unexpected single-action execution status" status)))))))))

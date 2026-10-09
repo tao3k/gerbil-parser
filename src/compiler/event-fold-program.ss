@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Engine-owned static strategy data, never request buffers or mutable slots.
 (import (only-in ./event-fold-state-frame.ss prepare-fold-state-layout))
-(export prepare-event-fold-program fold-initial-states event-fold-program?
+(export prepare-event-fold-program fold-initial-states snapshot-fold-data event-fold-program?
         event-fold-program-root event-fold-program-layout
         event-fold-program-line-forms event-fold-program-finish-forms
         event-fold-program-helpers

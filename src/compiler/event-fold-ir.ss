@@ -12,7 +12,7 @@
                  fold-offset-ir fold-state-of-type fold-static-name-set fold-uint-ir
                  fold-join-marks-handled?
                  fold-unsigned? rust-state-name validate-state-names))
-(export event-fold-ir-json)
+(export event-fold-ir event-fold-ir-json)
 (def (fold-predicate-ir expression states indices allow-line?)
   (unless (pair? expression)
     (error "event fold predicate must be structured" expression))
@@ -425,7 +425,7 @@
              (else (hash ("kind" "let_usize_stack") ("name" name))))))
         initial)))
 
-(def (event-fold-ir-json name grammar root initial line-forms finish-forms
+(def (event-fold-ir name grammar root initial line-forms finish-forms
                          (helpers '()) (parameters '()))
   (let* ((states (fold-initial-states initial))
          (helper-ir
@@ -495,4 +495,10 @@
                                ("default" (caddr parameter))))
                        parameters))))
     (when (pair? helpers) (hash-put! payload "helpers" helper-ir))
-    (json->string payload sort-keys: #t)))
+    payload))
+
+(def (event-fold-ir-json name grammar root initial line-forms finish-forms
+                         (helpers '()) (parameters '()))
+  (json->string
+   (event-fold-ir name grammar root initial line-forms finish-forms helpers parameters)
+   sort-keys: #t))

@@ -1,6 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Execute closed event folds over source bytes; shared typed admission for AOT.
 (import (only-in :std/string/utf8 utf8->string string-utf8-length)
+        (only-in ../runtime/event-fold-lines
+                 current-fold-line-view fold-line-bytes fold-key-byte? fold-ascii-prefix?
+                 line-starts-with-ascii-ci? fold-line-prefix-boundary? fold-line-blank?
+                 fold-line-has-key-after-prefix? fold-line-has-word-after-prefix?)
         (only-in ./event-fold-byte-set.ss
                  current-fold-byte-set-cache fold-byte-set-for)
         (only-in ./event-fold-state-frame.ss
@@ -23,12 +27,15 @@
                  fold-future-heading-title? fold-future-heading-spec?
                  fold-future-marker-before-boundary?
                  fold-source-slices-equal?)
-        (only-in ./event-strategy-aot fold-source-lines line-starts-with?))
+        (only-in ../runtime/source-lines fold-source-lines line-starts-with?))
 (export prepare-event-fold-program run-event-fold-program
         run-event-fold fold-ascii-prefix? fold-frame-finishes
         fold-initial-states fold-marker-byte
         fold-offset-ir fold-state-of-type fold-static-name-set fold-uint-ir
-        fold-unsigned? fold-join-marks-handled? rust-state-name validate-state-names)
+        fold-unsigned? fold-join-marks-handled? rust-state-name validate-state-names
+        current-fold-line-view fold-line-bytes fold-key-byte?
+        line-starts-with-ascii-ci? fold-line-prefix-boundary? fold-line-blank?
+        fold-line-has-word-after-prefix? fold-line-has-key-after-prefix?)
 
 (def (fold-join-marks-handled? forms handled)
   (any (lambda (form)
@@ -100,68 +107,6 @@
     (error "event fold marker must be one ASCII byte" value))
   (char->integer (string-ref value 0)))
 
-;; The immutable UTF-8 view belongs to the active statement frame, not a
-;; process-wide memo. Nested helpers bind their own view and restore callers.
-(def current-fold-line-view (make-parameter #f))
-
-(def (fold-line-bytes line)
-  (let (view (current-fold-line-view))
-    (if (and view (eq? line (car view)))
-      (cdr view)
-      (string->utf8 line))))
-
-
-(def (line-starts-with-ascii-ci? line prefix)
-  (let ((actual (fold-line-bytes line)) (expected (string->utf8 prefix)))
-    (and (>= (u8vector-length actual) (u8vector-length expected))
-         (let loop ((index 0))
-           (or (= index (u8vector-length expected))
-               (and (= (ascii-lower-byte (u8vector-ref actual index))
-                       (ascii-lower-byte (u8vector-ref expected index)))
-                    (loop (+ index 1))))))))
-
-(def (fold-line-blank? line)
-  (let (bytes (fold-line-bytes line))
-    (let loop ((index 0))
-      (or (= index (u8vector-length bytes))
-          (and (memv (u8vector-ref bytes index) '(9 10 13 32))
-               (loop (+ index 1)))))))
-
-(def (fold-line-prefix-boundary? line prefix marker?)
-  (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((bytes (fold-line-bytes line))
-              (start (string-utf8-length prefix))
-              (end (u8vector-length bytes)))
-         (if marker?
-           (let loop ((cursor start))
-             (or (= cursor end)
-                 (and (memv (u8vector-ref bytes cursor) '(9 10 13 32))
-                      (loop (+ cursor 1)))))
-           (or (= start end)
-               (memv (u8vector-ref bytes start) '(9 10 13 32)))))))
-
-
-(def (fold-ascii-prefix? value)
-  (and (string? value)
-       (every (lambda (character) (< (char->integer character) 128))
-              (string->list value))))
-
-(def (fold-key-byte? byte)
-  (or (and (<= 48 byte) (<= byte 57))
-      (and (<= 65 byte) (<= byte 90))
-      (and (<= 97 byte) (<= byte 122))
-      (memv byte '(45 95))))
-
-(def (fold-line-has-key-after-prefix? line prefix)
-  (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((bytes (fold-line-bytes line))
-              (begin (string-utf8-length prefix))
-              (end (u8vector-length bytes)))
-         (let loop ((cursor begin))
-           (if (and (< cursor end) (fold-key-byte? (u8vector-ref bytes cursor)))
-             (loop (+ cursor 1))
-             (and (> cursor begin) (< cursor end)
-                  (= (u8vector-ref bytes cursor) 58)))))))
 
 (def (fold-offset expression line start end states indices)
   (cond
@@ -241,15 +186,6 @@
        (fold-state-of-type states (cadr expression) fold-unsigned?))
       (else (error "unsupported event fold source offset" expression))))))
 
-(def (fold-line-has-word-after-prefix? line prefix)
-  (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((end (u8vector-length (fold-line-bytes line)))
-              (cursor (fold-offset
-                       (list 'line-skip-horizontal
-                       (list 'line-prefix-end prefix)) line 0 end '() '())))
-         (and (< cursor end)
-              (not (memv (u8vector-ref (fold-line-bytes line) cursor)
-                         '(9 10 13 32)))))))
 
 (def (fold-offset-ir expression states indices)
   (cond

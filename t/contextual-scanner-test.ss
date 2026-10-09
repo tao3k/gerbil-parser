@@ -306,6 +306,61 @@
          '(("abc" word "abc" 3) ("abx" literal "ab" 2)
            ("λx" word "λx" 3) ("λz" literal "λ" 2)
            ("z" word "z" 1)))))
+    (test-case "candidate selection preserves length before rank in either declaration order"
+      (let* ((role (make-contextual-role 'selection
+                     (list (method 'short 'any 'any 'short 'short)
+                           (method 'long 'any 'any 'long 'long))))
+             (dispatch (compile-contextual-dispatch (list role) '(normal) '(token) '(short long))))
+        (for-each
+         (lambda (rows)
+           (let (ir (compile-contextual-scanner (map (lambda (row) (apply rule row)) rows) dispatch 'normal))
+             (for-each
+              (lambda (recipe)
+                (let (scanner (prepare-contextual-scanner recipe "λx"))
+                  (let-values (((token next) (contextual-scanner-step scanner
+                                             (contextual-scanner-initial-state scanner) 'token)))
+                    (check (list (token-kind token) (token-lexeme token) (token-end token)
+                                 (contextual-scan-state-byte-offset next)) => '(long "λx" 3 3)))))
+              (list ir (prepare-contextual-scanner-plan ir)))))
+         '(((short normal short (literal "λ") 100) (long normal long (literal "λx") 0))
+           ((long normal long (literal "λx") 0) (short normal short (literal "λ") 100))
+           ((short normal short (literal "λx") 0) (long normal long (literal "λx") 1))
+           ((long normal long (literal "λx") 1) (short normal short (literal "λx") 0))))))
+    (test-case "candidate conflicts remain eager even before a longer later match"
+      (let* ((role (make-contextual-role 'selection
+                     (list (method 'short 'any 'any 'short 'short)
+                           (method 'long 'any 'any 'long 'long))))
+             (dispatch (compile-contextual-dispatch (list role) '(normal) '(token) '(short long)))
+             (ir (compile-contextual-scanner
+                  (list (rule 'first 'normal 'short '(literal "λ") 0)
+                        (rule 'conflict 'normal 'long '(literals ("λ" "Ω")) 0)
+                        (rule 'later 'normal 'long '(literal "λx") 0)) dispatch 'normal)))
+        (for-each
+         (lambda (recipe)
+           (let (scanner (prepare-contextual-scanner recipe "λx"))
+             (check (with-catch error-message
+                      (lambda () (contextual-scanner-step scanner
+                                   (contextual-scanner-initial-state scanner) 'token) #f))
+                    => "ambiguous contextual scanner match")))
+         (list ir (prepare-contextual-scanner-plan ir)))))
+    (test-case "equivalent ties preserve the first rule in conflict diagnostics"
+      (let* ((role (make-contextual-role 'selection
+                     (list (method 'short 'any 'any 'short 'short)
+                           (method 'long 'any 'any 'long 'long))))
+             (dispatch (compile-contextual-dispatch (list role) '(normal) '(token) '(short long)))
+             (ir (compile-contextual-scanner
+                  (list (rule 'first 'normal 'short '(literal "λ") 0)
+                        (rule 'equivalent 'normal 'short '(literals ("λ" "Ω")) 0)
+                        (rule 'conflict 'normal 'long '(unless-prefix ("Ω") () (literal "λ")) 0))
+                  dispatch 'normal)))
+        (for-each
+         (lambda (recipe)
+           (let (scanner (prepare-contextual-scanner recipe "λ"))
+             (check (with-catch error-irritants
+                      (lambda () (contextual-scanner-step scanner
+                                   (contextual-scanner-initial-state scanner) 'token) #f))
+                    => '(first conflict))))
+         (list ir (prepare-contextual-scanner-plan ir)))))
     (test-case "equal token forms do not hide conflicting scanner actions"
       (let* ((role (make-contextual-role
                     'redirect

@@ -111,7 +111,7 @@ been measured in this study.
 
 | Stage | Current owner | Representation to investigate |
 |-------+---------------+-------------------------------|
-| Candidate execution | contextual-scanner / best-match | Executor call and scan-match candidate allocation |
+| Candidate execution | contextual-scanner / best-match | Executor calls and final winning match allocation |
 | Whole-source scanning | source-engines / source-scanner-tokens | Accumulated and reversed token lists before recognition |
 | Word decomposition | shell-word / prepare-word / recognition-source | Lexeme snapshots, local boundaries and subsequent token slices |
 | Projection | result-profile / result-projection-build | Captures, children and tokens across intermediate stages |
@@ -151,6 +151,83 @@ paper identifies a related staging mechanism under stronger assumptions; it
 does not prove our LR engine equivalent or faster. Performance requires matched
 complete-call evidence including preparation amortization, output validation,
 allocation and natural GC. Those observations can reject the proposal.
+
+* SDK lexer reading and winner-only materialization
+
+The SDK binary resolved =:std/text/parser/ll1=,
+=:std/text/parser/ebnf/lexer= and =:std/source= through the expander's
+=import-module= / =module-context-path=. Source reading then used the matching
+installed tree. The lexer module is =ebnf/lexer=; the initially attempted
+=:std/text/parser/lexer= is not an installed module.
+
+#+begin_src scheme
+(import :gerbil/expander)
+(module-context-path (import-module ':std/text/parser/ebnf/lexer))
+#+end_src
+
+In =std/text/parser/ebnf/lexer.ss=, =lex1= retains a fallback for the last
+accepted extent and invokes the selected reduction only after selection. Its
+mutable input stream and declaration-order tie policy are not substitutes for
+our immutable checkpoints, rank and ambiguity contracts. The useful lesson is
+the lifetime of a result: materialize the public result after deciding which
+candidate owns it.
+
+The shared contextual scanner now carries a borrowed rule and an integer end
+through its candidate loop. =prefer-rule?= applies the same length/rank/form/action
+comparison and raises the same eager conflict. =scan-match= remains the private
+result type, but is constructed once after selection instead of once for every
+successful candidate.
+
+For a completed step with m successful candidates, m >= 1, the source-level
+constructor count becomes 1 instead of m. A no-match step still returns false;
+a conflict still raises immediately. This is a source construction bound, not a
+measurement of heap bytes: compiler scalar replacement may already remove some
+allocations, and executor calls and final token construction still occur.
+
+#+begin_src scheme
+;; Engine-private selection: no new grammar callback or author configuration.
+(let select ((rules candidates) (current #f) (end #f))
+  (if (null? rules)
+    (and current (make-scan-match current end))
+    (let* ((rule (car rules))
+           (candidate-end ((runtime-scan-rule-executor rule) source start state)))
+      (if (and candidate-end (prefer-rule? current end rule candidate-end))
+        (select (cdr rules) rule candidate-end)
+        (select (cdr rules) current end)))))
+#+end_src
+
+This answers the existing design questions with an implementation witness:
+authors retain the same declarations, while engine-owned lifetime becomes
+simpler. The scientific obligation is exact observable selection and diagnostics,
+followed by complete-call measurements; fewer source constructors alone do not
+establish a throughput improvement.
+
+Three new independent Cases cover length before rank in both declaration orders,
+Unicode byte endpoints, eager conflicts before a longer later match, and the
+identity of the first rule retained by an equivalent tie. Both direct IR and
+prepared plans execute these controls. The first conflict fixture was rejected
+by the duplicate-declaration contract before execution; distinct overlapping
+matchers corrected the fixture. That first run was a failure despite its SDK
+process returning zero; final =OK= and absence of Case/Harness failures were
+required before admitting the rerun.
+
+The corrected scanner/deferred/source/parser run passed 55 Cases. Source-backed
+recognition and Bash/HCL/HL7/FHIRPath passed 74 more Cases: 129 total, final =OK=
+and exit zero for both commands. Existing =matched-scale.ss= completed 16 axes,
+8 samples, 256 words, 16 literals and 16 requests per plan batch with
+=SCANNER-SCALE-OK=. Existing =matched-parser.ss= completed 16 requests and five
+measured samples with =CONTEXTUAL-PARSER-SCALE-OK=, exact prepared/unprepared
+artifacts, valid publication and source reconstruction including rejected inputs.
+These are source semantic and workload receipts. No old/new native ABBA was run;
+no speedup or allocation-byte reduction is admitted. The full-artifact workload
+was used as a semantic control, not a performance comparison with the old code.
+
+The source-span audit also confirmed that =prepare-recognition-source= snapshots
+a token and validates its UTF-8 extent, while =prepare-contextual-scanner= owns a
+request snapshot. The mutation control proves that simply deleting those copies
+is invalid. A shared span design must transfer admitted ownership and character
+bounds across both stages before replacing either snapshot; no borrowed mutable
+caller string was introduced by this change.
 
 * Dependency order for further implementation
 
@@ -206,7 +283,7 @@ parser 15, source scanner 11, source contract 2 and ParseArtifact 8, totaling 12
 The controller reported =TEST-SUITE-OK modules=9=, =OK=, exit zero and no missing
 receipt in 14.178 s, under 120 s total and five seconds of real-output inactivity.
 
-* Current source-reading receipt
+* Source-reading receipt at a725a69
 
 At =a725a69=, the standard source command below completed the existing 13
 contextual scanner Cases, =HARNESS-OK= and =OK=, exit zero. This verifies the
@@ -292,3 +369,16 @@ The comparison modules and native control are temporary experiment owners,
 excluded from the implementation commit. Production changes are confined to
 shared reconstruction; permanent semantic controls remain in the existing
 ParseArtifact suite.
+
+* Integration with artifact reconstruction
+
+The winner-only change was rebased onto =e386be0=, which independently changed
+validated artifact reconstruction. The rebased product controls passed 83 Cases:
+source recognition, Bash/HCL/HL7/FHIRPath and ParseArtifact, including the new
+Unicode reconstruction control. Final =HARNESS-OK=, =OK= and process exit zero
+were required. The complete existing parser workload was repeated and finished
+with =CONTEXTUAL-PARSER-SCALE-OK=. This extends the semantic receipt to the
+combined changes; it is still not an old/new native timing comparison or CI
+closure. The 55 scanner/deferred/source/parser Cases were then repeated on the
+rebased implementation and completed with final =OK= and exit zero. Together
+with the 83 product Cases, 138 distinct Cases passed on the combined code.

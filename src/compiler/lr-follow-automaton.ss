@@ -93,34 +93,38 @@
         (error "missing follow vertex in partition" core lookahead))
       block)))
 
-;; Return the labeled shift target and the epsilon target set of one NFA
-;; vertex. For k=1, FIRST(tail follow) is a cached FIRST mask plus the current
-;; follow bit when the tail is nullable.
-(def (follow-successors core lookahead metadata index)
+;; Return the labeled shift target and epsilon target set of one NFA vertex.
+;; FIRST(tail follow) distributes into fixed FIRST(tail) plus the follow bit
+;; when nullable. Translate the fixed targets once per core in this round's
+;; index; a split changes IDs, so the cache must never survive the round.
+(def (follow-successors core lookahead metadata index fixed-epsilons)
   (let* ((item (vector-ref metadata core))
          (symbol (vector-ref item 0))
-         (shift (and symbol
-                     (follow-block-ref index (+ core 1) lookahead)))
-         (closure-mask
-          (if (null? (vector-ref item 3))
-            0
-            (let ((child-follows
-                   (if (vector-ref item 2)
-                     (compiler-index-set-add
-                      (vector-ref item 1) lookahead)
-                     (vector-ref item 1))))
-              (foldl
-               (lambda (child mask)
-                 (let (next mask)
-                   (compiler-index-set-for-each
-                    child-follows
-                    (lambda (terminal)
-                      (set! next
-                            (compiler-index-set-add
-                             next
-                             (follow-block-ref index child terminal)))))
-                   next))
-               0 (vector-ref item 3))))))
+         (shift (and symbol (follow-block-ref index (+ core 1) lookahead)))
+         (children (vector-ref item 3))
+         (closure-mask 0))
+    (unless (null? children)
+      (let (fixed (vector-ref fixed-epsilons core))
+        (unless fixed
+          (set! fixed
+                (foldl
+                 (lambda (child mask)
+                   (let (next mask)
+                     (compiler-index-set-for-each
+                      (vector-ref item 1)
+                      (lambda (terminal)
+                        (set! next (compiler-index-set-add
+                                    next (follow-block-ref index child terminal)))))
+                     next))
+                 0 children))
+          (vector-set! fixed-epsilons core fixed))
+        (set! closure-mask
+              (if (vector-ref item 2)
+                (foldl (lambda (child mask)
+                         (compiler-index-set-add
+                          mask (follow-block-ref index child lookahead)))
+                       fixed children)
+                fixed))))
     (cons shift closure-mask)))
 
 ;; Backward refinement: vertices in a block must agree on which target blocks
@@ -151,7 +155,8 @@
                (rounds 0))
     (let-values (((blocks index)
                   (index-follow-blocks current terminal-count)))
-      (let ((next (make-vector (vector-length current) #f))
+      (let ((fixed-epsilons (make-vector (vector-length metadata) #f))
+            (next (make-vector (vector-length current) #f))
             (next-active (make-vector (vector-length current) #f))
             (changed? #f))
         (let core-loop ((core 0))
@@ -174,7 +179,7 @@
                           (lambda (lookahead)
                             (let* ((key
                                     (follow-successors
-                                     core lookahead metadata index))
+                                     core lookahead metadata index fixed-epsilons))
                                    (known (table-ref groups key #f)))
                               (unless known (set! keys (cons key keys)))
                               (table-set!
@@ -199,7 +204,36 @@
             (core-loop (+ core 1))))
         (if changed?
           (refine next next-active (+ rounds 1))
-          (values next blocks index rounds)))))))
+          ;; A stable round preserves every block and its numeric position.
+          ;; Only this round's active nonsingleton keys use the final index;
+          ;; inactive/singleton keys may refer to earlier round IDs. Recompute
+          ;; one representative for those blocks, never reuse a stale key.
+          (let* ((count (vector-length blocks))
+                 (shifts (make-vector count #f))
+                 (epsilons (make-vector count 0))
+                 (block 0) (reused 0))
+            (let publish ((core 0))
+              (when (< core (vector-length next))
+                (let (parts (vector-ref next core))
+                  (when parts
+                    (for-each
+                     (lambda (part)
+                       (let* ((mask (cdr part))
+                              (reuse? (and (vector-ref active core)
+                                           (not (zero? (bitwise-and mask (- mask 1))))))
+                              (edge
+                               (if reuse?
+                                 (begin (set! reused (+ reused 1)) (car part))
+                                 (follow-successors
+                                  core (- (integer-length (bitwise-and mask (- mask))) 1)
+                                  metadata index fixed-epsilons))))
+                         (vector-set! shifts block (car edge))
+                         (vector-set! epsilons block (cdr edge))
+                         (set! block (+ block 1))))
+                     parts)))
+                (publish (+ core 1))))
+            (trace-follow-work 'stable-edge-reuse reused count)
+            (values next blocks index rounds shifts epsilons))))))))
 
 ;; The backward blocks are the atomic vertices for the forward pass. Begin
 ;; with one group per dotted core (and a singleton start), then split by the
@@ -327,30 +361,10 @@
          (set! reached (compiler-index-set-union reached closure)))))
     reached))
 
-(def (determinize-follow-blocks blocks index metadata terminal-values
-                                layout core-symbols)
+(def (determinize-follow-blocks blocks index shift-edges epsilon-edges
+                                terminal-values layout core-symbols)
   (let* ((block-count (vector-length blocks))
-         (shift-edges (make-vector block-count #f))
-         (epsilon-edges (make-vector block-count 0))
          (start #f))
-    (let block-loop ((block 0))
-      (when (< block block-count)
-        (let* ((entry (vector-ref blocks block))
-               (core (car entry))
-               (follow-mask (cdr entry))
-               (edge #f))
-          (compiler-index-set-for-each
-           follow-mask
-           (lambda (lookahead)
-             (let (candidate
-                   (follow-successors core lookahead metadata index))
-               (if edge
-                 (unless (equal? edge candidate)
-                   (error "backward follow block was not stable" block))
-                 (set! edge candidate)))))
-          (vector-set! shift-edges block (car edge))
-          (vector-set! epsilon-edges block (cdr edge)))
-        (block-loop (+ block 1))))
     (let ((terminal-index (make-table test: equal?)))
       (let loop ((i 0))
         (when (< i (vector-length terminal-values))
@@ -463,7 +477,7 @@
         (let* ((count (ExtensibleVector-fill-pointer states))
                (output-states (make-vector count '()))
                (offsets (make-vector (+ count 1) 0))
-               (core-masks (make-vector (vector-length metadata) 0))
+               (core-masks (make-vector (vector-length core-symbols) 0))
                (item-count 0))
           (let state-loop ((state 0))
             (when (< state count)
@@ -623,12 +637,12 @@
                            productions table first nullable
                            states count terminal-values candidates
                            lookaheads offsets)))
-              (let-values (((refined blocks index rounds)
+              (let-values (((refined blocks index rounds shifts epsilons)
                             (refine-follow-blocks
                              initial metadata (vector-length terminal-values))))
                 (trace-follow-work 'backward-complete (vector-length blocks) rounds)
                 (determinize-follow-blocks
-                 blocks index metadata terminal-values layout
+                 blocks index shifts epsilons terminal-values layout
                  core-symbols))))))
       (let (conflict-count
             (let loop ((state 0) (total 0))

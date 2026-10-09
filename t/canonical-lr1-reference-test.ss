@@ -642,6 +642,40 @@
                  '("acd" "ace" "bcd" "bce" "dd" "cdd" "acc" "cd"))))
             (iota context-count))))
        '(4 16 32 64 128)))
+    (poo-flow-test-case "FOLLOW stable edges preserve products after production reordering"
+      ;; Reordering productions changes core/block numbering. Compare with
+      ;; canonical construction to catch reuse of a previous round's edge IDs,
+      ;; including singleton and inactive blocks beside the final split.
+      (def (nullable-tail-family count)
+        (let (rules (mixed-context-family-rules count))
+          (cons (list 'source-file
+                      (list 'sequence (cadar rules) '(optional (literal "z"))))
+                (cdr rules))))
+      (for-each
+       (lambda (family)
+         (for-each
+          (lambda (count)
+            (let (rules (family count))
+              (for-each
+               (lambda (ordered)
+                 (let ((canonical (compile-lr-spec ordered 'source-file 'reject #f 'canonical-lr1))
+                       (direct (compile-lr-spec ordered 'source-file 'reject #f 'follow-partition-lr1)))
+                   (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
+                   (for-each
+                    (lambda (region)
+                      (let* ((prefix (string-append "region-" (number->string region) ":"))
+                             (size (string-length prefix)))
+                        (for-each
+                         (lambda (body)
+                           (let (tokens (cons (make-token 'punctuation prefix 0 size)
+                                             (character-tokens body size)))
+                             (check (parse-token-result direct tokens)
+                                    => (parse-token-result canonical tokens))))
+                         '("acd" "ace" "bcd" "bce" "cc" "cd" "dc" "dd" "acc" "acdz" "cddz" "accz"))))
+                    (iota count))))
+               (list rules (reverse rules)))))
+          '(4 8)))
+       (list mixed-context-family-rules acyclic-mixed-context-family-rules nullable-tail-family)))
     (poo-flow-test-case "acyclic shared contexts still need follow compression"
       (for-each
        (lambda (context-count)

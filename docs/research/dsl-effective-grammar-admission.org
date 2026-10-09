@@ -1891,3 +1891,128 @@ Group identity, signature representation and member/worklist scheduling must
 be measured together, with canonical artifact identity and result lifetimes
 preserved. Released and retained costs remain separate evidence; neither
 protocol can substitute for the other.
+
+* Stable FOLLOW edge publication and indexed FIRST reuse (2026-10-09)
+
+** Ownership and semantic obligations
+
+The backward refinement owner already computes successor signatures. The old
+[[file:../../src/compiler/lr-follow-automaton.ss][FOLLOW construction owner]] then recomputes every lookahead vertex's edge
+before determinization, checking that each member agrees. The implemented
+handoff publishes the final shift/epsilon vectors from backward refinement and
+passes them directly to determinization. These are the same two vectors that
+determinization previously allocated, with no new public language slot or ABI.
+
+A no-split final round preserves block order and IDs. Its active nonsingleton
+keys were computed against that round's final index and can be reused. Inactive
+and singleton keys may contain earlier round IDs: they are never reused. One
+representative is evaluated against the final index for each such stable block.
+The stable-partition invariant guarantees that all block members have equal
+successor signatures. Reordered production controls and independent canonical
+construction qualify this invariant instead of a duplicate production traversal.
+
+The first native experiment implements only this handoff. On actual TLA+,
+=stable-edge-reuse= reports zero reused keys out of 8888 backward blocks: the
+last round has no active nonsingleton block. Eliminating the final per-member
+pass alone is insufficient to infer meaningful complete cost reduction.
+The retained TLA+ FOLLOW median changes 1712.9290 -> 1705.1450 ms (0.45% lower),
+with the same invocation-order sensitivity as preceding experiments; its
+controller exits 0 in 58.587 seconds. No independent speed claim is admitted
+for that variant.
+
+The next implementation decomposes each vertex's epsilon targets:
+
+#+begin_example
+fixed(core, index) = union over children and FIRST(tail) terminals
+                    of singleton(index[child, terminal])
+epsilon(core, follow, index) = fixed(core, index)
+                              union nullable follow targets
+#+end_example
+
+Set union distributes over the FIRST/follow union and is idempotent, including
+when follow is already in FIRST(tail). The fixed portion is translated once per
+queried core into block IDs, using one lazy vector local to the current round.
+=#f= means uncomputed; an empty set (=0=) is a valid cached result. A new round
+gets a fresh vector because splitting can renumber targets. Final publication
+uses the same last-round vector; it cannot carry stale targets across rounds or
+invocations. Fixed FIRST expansion changes from repeated work per vertex to
+once per queried core per round; dynamic nullable follow targets remain exact.
+No smaller-half scheduling or logarithmic complexity bound is asserted.
+
+** Qualification protocol
+
+The native baseline's eight LR modules are frozen from =891364c= and verified
+byte-identical to the production LR modules at the current =fa0f283= head.
+GCC optimization, 3 GiB heap, tracing, 90-second total and 5-second idle limits
+are unchanged. Complete artifact comparisons cover five grammar families and
+five modes. Each cost protocol alternates 22 pairs for mixed FOLLOW sizes
+8/24/48 and actual TLA+ LALR, and eight actual TLA+ FOLLOW pairs. Setup,
+construction, in-call GC and final publication are included; import, explicit
+preceding GC and equality checks are excluded. Retained and released result
+lifetimes remain separate controls; even medians average the two middle samples.
+
+The canonical source owner gains a production-reordering Case across cyclic,
+acyclic and nullable-tail families, two sizes and both forward/reversed
+production orders. Each compares accepted/rejected parse products with the
+independent canonical LR(1) route for valid and invalid token sequences.
+Nullable-tail controls exercise fixed FIRST plus dynamic follow targets after
+block renumbering. Source totals become 58 Cases (37 resolved + 21 canonical).
+
+** Complete-cost results with indexed FIRST reuse
+
+| Protocol | Workload | Baseline CPU median ms | Candidate CPU median ms |
+|----------+----------+------------------------+-------------------------|
+| Retained | Mixed FOLLOW 8 | 1.5495 | 1.5375 |
+| Retained | Mixed FOLLOW 24 | 4.1955 | 4.1920 |
+| Retained | Mixed FOLLOW 48 | 10.1790 | 10.1830 |
+| Retained | TLA+ LALR | 14.5245 | 14.4460 |
+| Retained | TLA+ FOLLOW | 1910.1755 | 1406.1465 |
+| Released | Mixed FOLLOW 8 | 1.5245 | 1.4775 |
+| Released | Mixed FOLLOW 24 | 4.1410 | 4.1275 |
+| Released | Mixed FOLLOW 48 | 9.8985 | 9.9585 |
+| Released | TLA+ LALR | 14.1845 | 14.1905 |
+| Released | TLA+ FOLLOW | 1762.0145 | 1636.7625 |
+
+Both protocols pass all 25 family/mode LRSpec comparisons and the additional
+complete workload artifact checks, including actual TLA+ FOLLOW. Controllers exit 0 with =EDGE-NATIVE-AB-OK= in 56.020 seconds
+retained and 52.101 seconds released. Actual TLA+ FOLLOW complete CPU medians
+improve 26.39% and 7.11%, respectively. Every retained pair improves (6.67% to
+35.74%). Seven released pairs improve; pair 5 regresses 3.69%, with collections
+increasing from 11 to 13 and in-call GC CPU from 479.2500 to 592.9950 ms.
+This negative pair is retained rather than presenting a uniform speedup.
+
+CPU less in-call GC medians change 1236.7045 -> 1100.9600 ms retained and
+1245.4975 -> 1094.6945 ms released. Those decompositions support reduced
+non-GC construction work, without attributing all complete cost change to one
+mechanism. Retained GC counts change from 6 to 5 in baseline-first pairs and
+17 to 7 in candidate-first pairs. The invocation-order effect remains visible;
+this experiment does not prove a general GC/root-retention solution.
+
+Mixed FOLLOW 48 increases 0.04% retained and 0.61% released; the smaller
+synthetic medians are near unchanged or lower. Default TLA+ LALR bypasses this
+FOLLOW change, so its small timing differences are controls rather than an LALR
+optimization claim. Admission is limited to this Scheme FOLLOW construction
+change and the measured actual TLA+ workload. Runtime parsing, Rust/FFI,
+all-grammar acceleration and asymptotic improvements are not established.
+
+** Final preparation and source receipts
+
+The final FOLLOW/compiler native interfaces compile with GCC, exit 0 in
+9.238 seconds. Final resolved/canonical source qualification, including all
+nullable-tail and production-reordering controls, passes 58 Cases (37 + 21)
+in 18.343 seconds, =TEST-SUITE-OK= and =OK=, controller exit 0. Independent
+full LRSpec checks and paired complete costs are recorded above.
+
+Full conformance preparation finishes in 106.636 seconds, exit 0, with
+=PREPARATION-STORED-RECEIPT= (2013 files) under unchanged 240-second total and
+5-second idle limits. Preparation duration is a build receipt, excluded from
+construction CPU measurements. Scheme owns the qualification and GCC remains
+the compiler. No compatibility mode, heap/deadline increase or language schema
+change is introduced.
+
+The freshly prepared compiled consumer passes 372 semantic Cases across
+23 groups. Its five independent research entries also exit 0; all six child
+statuses are zero and the controller finishes with =DSL-RESEARCH-CLOSURE-OK=
+and =OK=, exit 0. The 58 source Cases remain a separate owner and receipt.
+The production change is confined to the FOLLOW compiler; public LRSpec,
+language loaders, Runtime and Rust/C ABI are unchanged.

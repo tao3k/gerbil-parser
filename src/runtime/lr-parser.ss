@@ -89,7 +89,8 @@
 (defstruct lr-runtime
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
-               lexical-modes lexical-mode-catalog direct-step semantic-reducer event-step event-runtime)
+               lexical-modes lexical-mode-catalog direct-step semantic-reducer event-step event-runtime
+               reduction-operands)
   transparent: #t)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
@@ -137,7 +138,8 @@
            (lr-runtime-goto-index runtime) (lr-runtime-case-insensitive? runtime)
            #f #f (lr-runtime-lexical-modes runtime)
            (lr-runtime-lexical-mode-catalog runtime)
-           (lr-runtime-event-step runtime) reduce-value/events #f #f))
+           (lr-runtime-event-step runtime) reduce-value/events #f #f
+           (lr-runtime-reduction-operands runtime)))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -369,7 +371,11 @@
          layout?
          modes
          mode-catalog
-         #f reduce-value #f #f)))))
+         #f reduce-value #f #f
+         ;; Stack values are newest first. Prepare the corresponding operand
+         ;; order once; requests borrow the existing stack without copying it.
+         (vector-map/index
+          (lambda (_index production) (reverse (production-rhs production))) table))))))
 
 ;; current-action-row
 ;; : (-> Vector Fixnum List Boolean (OrFalse Pair))
@@ -470,6 +476,25 @@
       (reduce-operands/events rhs source-values offset #f))
      (else (error "unsupported event LR production" action)))))
 
+;;; The deterministic executor consumes the immutable semantic stack directly.
+;;; Each operand's field/alias chain retains declaration order. Prepending each
+;;; completed operand restores source order without an intermediate value list.
+;;; The GLR reducer above remains an independent source-order implementation.
+(def (reduce-stack-operands production operands stack offset)
+  (let (action (production-action production))
+    (unless (or (memq action '(pass concat))
+                (layout-end-action? action))
+      (error "unknown LR semantic action" action)))
+  (let loop ((operands operands) (stack stack)
+             (children '()))
+    (if (pair? operands)
+      (let* ((actions (operand-actions (car operands)))
+             (value (apply-operand-actions (car stack) actions offset
+                                           make-recognition-fragment)))
+        (loop (cdr operands) (cdr stack)
+              (recognition-sequence-append value children)))
+      children)))
+
 ;;; Bind the popped immutable stack prefixes directly into the reduction body.
 ;;; Both private reducers stop at the RHS width, so unary reductions borrow the
 ;;; first semantic cell. Wider reductions build a source-order value list.
@@ -490,6 +515,32 @@
                (if unary? source-values
                  (cons (car remaining-values) source-values)))
           (error "LR reduction exceeds parser stack" width))))))
+
+;;; Recognition borrows the stack. Event programs retain source-order operands
+;;; for their amortized sequential append builder; right-associated joins are
+;;; semantically equivalent but need not have the same construction cost.
+(def (reduction-stack-tail stack width)
+  (let loop ((stack stack) (remaining width))
+    (cond ((zero? remaining) stack)
+          ((pair? stack) (loop (cdr stack) (fx- remaining 1)))
+          (else (error "LR reduction exceeds parser stack" width)))))
+
+(def (reduction-source-values stack width)
+  ;; The caller already validated the prefix. Unary event reductions borrow
+  ;; one value; wider event reductions retain their sequential append order.
+  (if (eqv? width 1) stack
+    (let loop ((stack stack) (remaining width) (values '()))
+      (if (zero? remaining) values
+        (loop (cdr stack) (fx- remaining 1) (cons (car stack) values))))))
+
+(defrule (with-pop-runtime-reduction states semantic-values count events?
+                                    (source-values remaining-values remaining-states)
+                                    body ...)
+  (let* ((width count) (stack semantic-values)
+         (remaining-states (reduction-stack-tail states width))
+         (remaining-values (reduction-stack-tail stack width))
+         (source-values (if events? (reduction-source-values stack width) stack)))
+    body ...))
 
 ;; goto-target
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Symbol (OrFalse Fixnum))
@@ -959,6 +1010,7 @@
          (table (lr-runtime-table runtime))
          (widths (lr-runtime-reduction-widths runtime))
          (modes (lr-runtime-lexical-modes runtime))
+         (reduction-operands (lr-runtime-reduction-operands runtime))
          (actions-table (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
@@ -1080,15 +1132,18 @@
                                    actions shifts)))
                      (let* ((production (vector-ref table production-id))
                             (count (vector-ref widths production-id)))
-                       (with-pop-reduction states semantic-values count
+                       (with-pop-runtime-reduction states semantic-values count event-semantics?
                          (source-values remaining-values remaining-states)
                          (let* ((offset
                                  (if (pair? rest) (token-start (car rest))
                                      input-end-offset))
                                 (value
-                                 (semantic-reducer
-                                  production source-values offset
-                                  make-recognition-fragment))
+                                 (if event-semantics?
+                                   (semantic-reducer production source-values offset
+                                                     make-recognition-fragment)
+                                   (reduce-stack-operands
+                                    production (vector-ref reduction-operands production-id)
+                                    source-values offset)))
                                 (target
                                  (and (pair? remaining-states)
                                       (goto-target

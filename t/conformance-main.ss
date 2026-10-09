@@ -110,4 +110,4 @@
     (let (row (assoc name suites))
       (unless (null? args) (error "unexpected native suite arguments" args))
       (unless row (error "unknown native conformance suite" name))
-      (run-suite-row! row) (exit 0)))))
+      (run-suite-row! row) (exit 0))))

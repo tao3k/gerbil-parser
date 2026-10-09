@@ -8,6 +8,12 @@
                  parse-outline-lines parse_outline_lines)
         (only-in :gerbil-parser/rust-runtime-event-support
                  event-fold-ir-json run-event-fold)
+        (only-in :gerbil-parser/src/compiler/event-fold-runtime
+                 prepare-event-fold-program run-event-fold-program)
+        (only-in :gerbil-parser/src/compiler/event-fold-state-frame
+                 prepare-fold-state-layout instantiate-fold-state-frame
+                 fold-frame-ref fold-frame-update! fold-frame-bound?
+                 fold-frame-bind! fold-frame-unbind!)
         (only-in :gerbil-parser/src/modules/parser/interface
                  source-offset-after source-pattern-end source-pattern-at?
                  source-ascii-ci-pattern-at?))
@@ -15,6 +21,69 @@
 
 (def event-fold-test
   (test-suite "Scheme stateful event fold AOT"
+    (test-case "prepared state layout isolates values and temporary bindings"
+      (let* ((layout (prepare-fold-state-layout '((flag . #f) (count . 0) (stack))))
+             (first (instantiate-fold-state-frame layout))
+             (second (instantiate-fold-state-frame layout)))
+        (fold-frame-update! first 'flag #t)
+        (fold-frame-update! first 'count 9)
+        (fold-frame-update! first 'stack '(4 2))
+        (fold-frame-bind! first 'temporary #f)
+        (check (fold-frame-bound? first 'temporary) => #t)
+        (check (fold-frame-bound? second 'temporary) => #f)
+        (check (fold-frame-ref second 'flag) => #f)
+        (check (fold-frame-ref second 'count) => 0)
+        (check (fold-frame-ref second 'stack) => '())
+        (fold-frame-unbind! first 'temporary)
+        (check (fold-frame-bound? first 'temporary) => #f)
+        (check-exception (fold-frame-ref first 'temporary) true)))
+    (test-case "prepared frames retain first binding and missing update policy"
+      (let* ((layout (prepare-fold-state-layout '((count . 0) (count . 4))))
+             (frame (instantiate-fold-state-frame layout)))
+        (check (fold-frame-ref frame 'count) => 0)
+        (fold-frame-update! frame 'missing 10)
+        (check (fold-frame-bound? frame 'missing) => #f)
+        (check-exception (fold-frame-bind! frame 'count 2) true)
+        (fold-frame-unbind! frame 'count)
+        (check (fold-frame-bound? frame 'count) => #f)
+        (fold-frame-update! frame 'count 7)
+        (check (fold-frame-bound? frame 'count) => #f)
+        (fold-frame-bind! frame 'count 3)
+        (check (fold-frame-ref frame 'count) => 3)
+        (check (fold-frame-ref (instantiate-fold-state-frame layout) 'count) => 0)))
+    (test-case "reusable programs snapshot declarations and preserve UTF-8 events"
+      (let* ((initial (list (list 'ready #f)))
+             (forms (list '(set-bool ready (bool #t)) '(token Line start end)))
+             (program (prepare-event-fold-program 'Document initial forms '())))
+        (set-car! (cdr (car initial)) #t)
+        (set-car! forms '(finish-node))
+        (for-each
+         (lambda (source)
+           (check (run-event-fold-program program source)
+                  => (run-event-fold source 'Document '((ready #f))
+                                     '((set-bool ready (bool #t)) (token Line start end)) '())))
+         '("éx\r\n" "λ\n" "" "tail"))))
+    (test-case "reused helpers and parameter overrides never retain request state"
+      (let (program
+            (prepare-event-fold-program 'Document '((level 1))
+              '((call-source-helper piece start end ((state level)))) '()
+              '((piece ((level 0) (seen #f))
+                       ((if (state seen) ((finish-node))
+                            ((set-bool seen (bool #t))
+                             (if (uint-equal? (state level) (uint 2))
+                                 ((token Other start end)) ((token Line start end))))))
+                       (level)))))
+        (check (run-event-fold-program program "a\nb\n" '((level . 2)))
+               => '((start Document) (token Other 0 2) (token Other 2 4) (finish)))
+        (check (run-event-fold-program program "λ\n")
+               => '((start Document) (token Line 0 3) (finish)))))
+    (test-case "prepared programs reject cycles callbacks and mutable initial values"
+      (let (cycle (list 'token))
+        (set-cdr! cycle cycle)
+        (check-exception (prepare-event-fold-program 'Document '() cycle '()) true))
+      (check-exception (prepare-event-fold-program 'Document '() (list void) '()) true)
+      (check-exception (prepare-fold-state-layout (list (cons 'state (vector 1)))) true)
+      (check-exception (prepare-event-fold-program 'Document '((count -1)) '() '()) true))
     (test-case "engine source patterns advance by UTF-8 bytes"
       (let (end (source-pattern-end 'start "éx"))
         (check end => '(line-step (line-step (line-step start))))

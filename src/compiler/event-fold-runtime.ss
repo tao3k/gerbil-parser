@@ -4,9 +4,16 @@
         (only-in ./event-fold-byte-set.ss
                  current-fold-byte-set-cache fold-byte-set-for)
         (only-in ./event-fold-state-frame.ss
-                 prepare-fold-state-frame fold-state-frame?
+                 instantiate-fold-state-frame fold-state-frame?
                  fold-frame-ref fold-frame-update! fold-frame-bound?
                  fold-frame-bind! fold-frame-unbind!)
+        (only-in ./event-fold-program.ss
+                 prepare-event-fold-program fold-initial-states event-fold-program?
+                 event-fold-program-root event-fold-program-layout
+                 event-fold-program-line-forms event-fold-program-finish-forms
+                 event-fold-program-helpers fold-helper-ref
+                 event-fold-helper-layout event-fold-helper-forms
+                 event-fold-helper-parameters)
         (only-in ./event-list-marker.ss
                  event-line-indent-column scan-event-list-marker)
         (only-in ./event-fold-future.ss
@@ -17,7 +24,8 @@
                  fold-future-marker-before-boundary?
                  fold-source-slices-equal?)
         (only-in ./event-strategy-aot source-line-events line-starts-with?))
-(export run-event-fold fold-ascii-prefix? fold-frame-finishes
+(export prepare-event-fold-program run-event-fold-program
+        run-event-fold fold-ascii-prefix? fold-frame-finishes
         fold-initial-states fold-marker-byte
         fold-offset-ir fold-state-of-type fold-static-name-set fold-uint-ir
         fold-unsigned? fold-join-marks-handled? rust-state-name validate-state-names)
@@ -705,7 +713,7 @@
                   ((call-source-helper)
                    (unless (memv (length form) '(4 5))
                      (error "invalid event helper call" form))
-                   (let* ((helper (assq (cadr form) helpers))
+                   (let* ((helper (fold-helper-ref helpers (cadr form)))
                           (from (fold-offset (caddr form) line start end state indices))
                           (until (fold-offset (cadddr form) line start end state indices)))
                      (unless (and helper (not (memq (cadr form) active-helpers)))
@@ -713,12 +721,11 @@
                      (unless (and (<= 0 from) (<= from until)
                                   (<= until (u8vector-length source-bytes)))
                        (error "event helper bounds outside source" form))
-                     (let* ((parameters (if (= (length helper) 4)
-                                          (cadddr helper) '()))
+                     (let* ((parameters (event-fold-helper-parameters helper))
                             (arguments (if (= (length form) 5)
                                          (list-ref form 4) '()))
-                            (helper-state (prepare-fold-state-frame
-                                           (fold-initial-states (cadr helper)))))
+                            (helper-state (instantiate-fold-state-frame
+                                           (event-fold-helper-layout helper))))
                        (unless (= (length parameters) (length arguments))
                          (error "event helper argument arity" form))
                        (for-each
@@ -729,7 +736,7 @@
                            (fold-uint argument line start end state indices)))
                         parameters arguments)
                        (fold-statements
-                                  (caddr helper) source-bytes
+                                  (event-fold-helper-forms helper) source-bytes
                                   (utf8->string (subu8vector source-bytes from until))
                                   from until helper-state '()
                                   helpers (cons (cadr form) active-helpers) reversed))))
@@ -794,22 +801,22 @@
                   (else (error "unsupported event fold statement" form)))))
           (loop (cdr rest) step))))))
 
-(def (fold-initial-states initial)
-  (map (lambda (entry)
-         (unless (and (= (length entry) 2) (symbol? (car entry))
-                      (or (boolean? (cadr entry))
-                          (fold-unsigned? (cadr entry))
-                          (equal? (cadr entry) '(uint-stack))))
-           (error "event fold requires typed state" entry))
-         (cons (car entry) (if (equal? (cadr entry) '(uint-stack))
-                             [] (cadr entry)))) initial))
-
 (def (run-event-fold source root initial line-forms finish-forms
                      (helpers '()) (overrides '()))
+  (run-event-fold-program
+   (prepare-event-fold-program root initial line-forms finish-forms helpers)
+   source overrides))
+
+(def (run-event-fold-program program source (overrides '()))
+  (unless (event-fold-program? program) (error "event fold requires prepared program"))
   (parameterize ((current-future-scan-cache #f)
                  (current-fold-byte-set-cache (make-table test: eq?)))
    (let ((source-bytes (string->utf8 source))
-        (states (prepare-fold-state-frame (fold-initial-states initial))))
+        (states (instantiate-fold-state-frame (event-fold-program-layout program)))
+        (root (event-fold-program-root program))
+        (line-forms (event-fold-program-line-forms program))
+        (finish-forms (event-fold-program-finish-forms program))
+        (helpers (event-fold-program-helpers program)))
     (for-each (lambda (override)
                 (fold-state-of-type states (car override) fold-unsigned?)
                 (unless (fold-unsigned? (cdr override))

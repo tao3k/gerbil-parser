@@ -57,7 +57,7 @@ An unsuccessful harness/child process is a failed run even if some cases finish.
 gerbil env gxi build-test-driver.ss compile
 GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   GAMBOPT=max-heap=1G,debug=q \
-  gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log /private/tmp/parser-checkpoint-history.log \
+  gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .gerbil/parser-checkpoint-history.log \
   --require 'TEST-SUITE-OK modules=3' --require '^OK$' \
   -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
   t/recognition-snapshot-test.ss t/recovery-incremental-test.ss t/event-program-test.ss

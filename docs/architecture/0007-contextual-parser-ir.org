@@ -288,7 +288,7 @@ do not qualify this later snapshot.
 | openCypher 100 clauses | no complete receipt | 250 ms | 120 s deadline |
 | Versioned language corpus | 1083.055 ms | 500 ms | fail |
 
-Logs are in =/private/tmp/parser-optimized-preflight/=. Host load averages
+Host load averages
 were observed at 150.27/139.36/122.95 and 134.82/133.28/125.22 during this run.
 Scheduling is a material confounder, but it does not explain away the failed
 admission or the baseline source GQL CPU result above.
@@ -306,7 +306,7 @@ numerical ceiling has been changed.
 This section records the pre-rebase source snapshot. Its native artifacts and
 performance receipts do not qualify the later PR #13 revision described below.
 
-The parser cache was rebuilt under =/private/tmp/parser-native-build=, without
+The parser cache was rebuilt in an isolated output directory, without
 reusing the checkout's earlier parser binaries. Existing external dependency
 artifacts were linked into this cache. Module resolution was checked through
 both =gxi= and =gerbil env gxi=; the scanner, LR runtime, and machine resolved
@@ -339,13 +339,12 @@ All eight original native performance contracts then ran against source digest
 | openCypher 100 clauses | 50.288 ms | 250 ms | pass |
 | Versioned language corpus | 16.761 ms | 500 ms | pass |
 
-Logs are in =/private/tmp/parser-native-performance/=. The GQL minimum,
+The GQL minimum,
 median, and maximum were 10.985, 40.399, and 424.968 ms. The complete native
 qualification failed; seven passing contracts do not close the eighth.
 
 The same 33 focused functional cases passed natively, with five =MODULE-OK=
-markers, =HARNESS-OK=, and final =OK= in 35.17 seconds. Their log is
-=/private/tmp/parser-native-functional.log=.
+markers, =HARNESS-OK=, and final =OK= in 35.17 seconds.
 
 Native stage diagnostics retained complete artifact equality. For 100 full
 parses, one sample measured 13.395 ms CPU versus 355.403 ms wall; another was
@@ -353,7 +352,7 @@ parses, one sample measured 13.395 ms CPU versus 355.403 ms wall; another was
 2.539 ms CPU versus 94.178 ms wall. This observes substantial elapsed time
 outside measured process CPU; it does not establish the cause or waive the
 150 ms admission ceiling. Prepared stages are still not a decomposition of
-the streaming parse. The log is =/private/tmp/parser-gql-native-stages.log=.
+the streaming parse.
 
 A further experiment bound the lexer once per parse rather than obtaining it
 through a wrapper for every token. Six complete artifacts agreed; 33 source
@@ -362,16 +361,14 @@ functional cases passed. Five alternating source pairs improved mean CPU
 However, five native pairs of 1,000 parses regressed mean CPU 203.395 to
 209.229 ms and won only twice. The experiment was discarded, the exact source
 snapshot was restored, its digest rechecked, and the parser was recompiled
-with standard =gxc -O= settings. No lexer-binding change remains. The source
-and native pair logs are =/private/tmp/parser-lexer-bind-source-matched.log=
-and =/private/tmp/parser-lexer-bind-native-matched.log=.
+with standard =gxc -O= settings. No lexer-binding change remains.
 
 After this exact restoration, a focused rerun of the unchanged GQL contract
 again failed: p95 304.289 ms against 150 ms, minimum 11.041 ms, median
 38.300 ms, maximum 401.057 ms. The callback's parse-success checks completed;
 the receipt assertion failed at =t/gql-runtime-benchmark-test.ss:40=. This
 rerun did not publish =CASE-OK= or final =OK=, and cannot qualify the native
-runtime. Its log is =/private/tmp/parser-native-gql-recheck.log=. The remaining
+runtime. The remaining
 gate is GQL wall-time admission; its cause is not fully attributed and no
 threshold or host scheduling policy was changed.
 
@@ -395,8 +392,7 @@ executed 75 cases, including contextual dispatch/scanning/parsing, Unicode
 lossless failures, upstream character runs and layout boundaries, LR/GLR
 artifact behavior, recovery, and incremental fresh equivalence. All published
 =CASE-OK=, =MODULE-OK=, =HARNESS-OK=, and final =OK=; the bounded runner exited
-zero in 23.86 seconds. The full log is
-=/private/tmp/parser-pr13-rebase-final.log=. The grammar-composition module
+zero in 23.86 seconds. The grammar-composition module
 was also loaded in an earlier run, but its plural suite export prevented case
 execution; it is excluded from the 75-case receipt.
 

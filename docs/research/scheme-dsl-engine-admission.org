@@ -107,7 +107,7 @@ source-map rows, lineage, grammar rules, target products or artifact corruption.
 The bounded invocation on 2026-10-06 was:
 
 #+begin_src sh
-PARSER_RESEARCH_ARTIFACT_ROOT="$(mktemp -d /private/tmp/parser-package-cache.XXXXXX)" \
+PARSER_RESEARCH_ARTIFACT_ROOT="$(mktemp -d)" \
   GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
   gtimeout -k 2 10 gxi t/fixtures/language-pack-research/provenance-study.ss
 #+end_src

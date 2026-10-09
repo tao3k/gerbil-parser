@@ -1208,7 +1208,8 @@ three native executable workloads on one preloaded source: directed complete
 It preflights recognition against the complete artifact, excludes process
 startup and input construction, collects CPU and elapsed time, and permits GC
 during each timed batch. With the repository's isolated =GERBIL_PATH= set,
-build it as =gxc -O -exe -o /tmp/gerbil-parser-aot-benchmark t/benchmarks/arithmetic-scale/aot-benchmark.ss= and run the executable with
+create its output directory with =mkdir -p .gerbil/benchmarks=, then
+build it as =gxc -O -exe -o .gerbil/benchmarks/gerbil-parser-aot-benchmark t/benchmarks/arithmetic-scale/aot-benchmark.ss= and run the executable with
 =1024 lines artifact 20 10=, =1024 lines source-recognition 20 10=, or
 =1024 lines recognition 20 10=. This 1,024-line arithmetic input (3,070
 source characters) is the primary baseline size for subsequent experiments. It
@@ -1226,9 +1227,9 @@ mainly establish a reproducible local gate for a generated semantic path.
 A first fused Scheme-code experiment now lives in
 =t/benchmarks/arithmetic-scale/generate-fused-lr.ss= and
 =fused-lr-benchmark-body.ss=. From the repository root, generate one standalone
-source with =gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss /tmp/fused-lr-aot.ss=,
-compile it with =gxc -O -exe -o /tmp/fused-lr-aot /tmp/fused-lr-aot.ss=,
-then run =/tmp/fused-lr-aot 1024 lines prepared 20 10= or substitute =source=
+source (after =mkdir -p .gerbil/benchmarks=) with =gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss .gerbil/benchmarks/fused-lr-aot.ss=,
+compile it with =gxc -O -exe -o .gerbil/benchmarks/fused-lr-aot .gerbil/benchmarks/fused-lr-aot.ss=,
+then run =.gerbil/benchmarks/fused-lr-aot 1024 lines prepared 20 10= or substitute =source=
 or =artifact= for =prepared=. The generator consumes the compiled arithmetic Parser IR; it
 emits state-specific action selection, inlined reduction expressions, and goto
 branches as Scheme source. Field/alias constructors remain the shared semantic

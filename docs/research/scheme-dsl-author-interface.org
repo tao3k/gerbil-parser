@@ -691,9 +691,7 @@ a root cause for the subsequent refresh timeouts or the reported parse P50/P95.
 Partial machine interfaces and objects appeared in the isolated directory after
 the standard-build timeout. They were not installed or admitted as successful
 products. A process check found no surviving compiler child belonging to this
-temporary verification. Full grammar build diagnostics remain at
-=/private/tmp/parser-gql-native-review.8kBP0I/grammar-build.log=; dependency diagnostics
-remain alongside that file. The isolated output is evidence, not a replacement
+temporary verification. The isolated output is evidence, not a replacement
 for a complete installed package.
 
 The next implementation obligation is a consistent compiler-product closure for

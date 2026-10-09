@@ -238,7 +238,7 @@ The loader v2, Source v1, native metadata v1 and language handle ABI v2 remain
 unchanged. Qualification is semantic/structural evidence, not a parse-speed claim.
 
 Local qualification: GCC compiles the producer and public facade; the SDK's
-=gambuild-C= selects =/opt/homebrew/bin/gcc-16=. The native Scheme Command/Bash
+=gambuild-C= selects =gcc-16=. The native Scheme Command/Bash
 gate passes 38 cases in 10.52 seconds with final =OK=,
 =HARNESS-RETURN status=0= and exit zero. Rust passes 126 tests, strict
 Clippy passes, and the ASP workspace source gate passes. Independent Source

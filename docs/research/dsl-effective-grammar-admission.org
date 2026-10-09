@@ -1123,12 +1123,7 @@ all-language benchmark child entries all exited 0; =DSL-RESEARCH-CLOSURE-OK=
 and =OK= were emitted by the existing Scheme process owner. Preparation is kept
 outside construction CPU measurements; it is still required for delivery.
 
-Final raw evidence remains in temporary native products:
-=/private/tmp/parser-cursor-final-ab-driver.log=,
-=/private/tmp/parser-cursor-final-traversal-driver.log=,
-=/private/tmp/parser-cursor-controls-driver.log=,
-=/private/tmp/parser-cursor-conformance-build-driver.log=, and
-=/private/tmp/parser-cursor-research/exits.tsv=. The previously admitted TLA+
+The previously admitted TLA+
 construction benchmark command exercises this engine change without another
 benchmark facade or report format.
 
@@ -1243,11 +1238,7 @@ all-language benchmark) all exited 0; the existing Scheme controller emitted
 =DSL-RESEARCH-CLOSURE-OK= and =OK=. The canonical graph oracle remains covered
 by the separate source Suite, not counted again in these 372 compiled Cases.
 
-Raw evidence is retained as temporary native products:
-=/private/tmp/parser-delta-ab-driver.log=,
-=/private/tmp/parser-delta-controls-driver.log=,
-=/private/tmp/parser-delta-conformance-build-driver.log= and
-=/private/tmp/parser-delta-research/exits.tsv=. No JSON snapshot, extra test
+No JSON snapshot, extra test
 supervisor, heap expansion, timeout relaxation or compiler switch is introduced.
 The preceding delivered head =49e297f= had Rust CI success while Ubuntu was
 still in compiled conformance preparation during local execution. Delivery of
@@ -1363,12 +1354,7 @@ limits. The compiled semantic entry passed 372 Cases across 23 groups. It and
 all five independent research entries exited 0, with =DSL-RESEARCH-CLOSURE-OK=
 and =OK=. Source Suite counts remain separate from the compiled consumer count.
 
-Raw evidence is retained in temporary native products:
-=/private/tmp/parser-subset-query-probe-driver.log=,
-=/private/tmp/parser-subset-ab-driver.log=,
-=/private/tmp/parser-subset-controls-driver.log=,
-=/private/tmp/parser-subset-conformance-build-driver.log= and
-=/private/tmp/parser-subset-research/exits.tsv=. Preparation and diagnostic
+Preparation and diagnostic
 retention are excluded from the paired construction claim and independently
 required for delivery. No JSON snapshot or additional supervisor is introduced.
 
@@ -1432,10 +1418,7 @@ a changed partition map. Semantic equivalence did not override the failed
 performance/exit admission. The Case is removed with its unpublished helpers;
 existing source Suite ownership remains unchanged.
 
-Temporary native receipts: =/private/tmp/parser-rows-controls-driver.log=,
-=/private/tmp/parser-rows-ab-driver.log=,
-=/private/tmp/parser-rows-bounded-ab-driver.log= and
-=/private/tmp/parser-rows-list-ab-driver.log=. No JSON snapshot or additional
+No JSON snapshot or additional
 supervisor is introduced.
 
 ** Next structural obligation
@@ -1457,9 +1440,7 @@ After rejecting all candidates, the three source/test files were restored
 byte-for-byte from the current head and their native compiler artifacts rebuilt
 with the same GCC SDK. The original resolved/canonical source owners pass
 56 Cases (37 + 19), =TEST-SUITE-OK= and =OK=; controller exit 0 in 31.882 seconds
-under unchanged 120-second total/5-second idle limits. Evidence:
-=/private/tmp/parser-rows-restored-compile-driver.log= and
-=/private/tmp/parser-rows-restored-controls-driver.log=. Only this Org research
+under unchanged 120-second total/5-second idle limits. Only this Org research
 record is delivered. Previously qualified compiled consumer source is unchanged;
 no new production optimization or full consumer requalification is claimed.
 
@@ -1557,9 +1538,7 @@ This admits a structurally verified reduction of redundant signature work;
 it does not establish stable latency, allocation-byte, retained-artifact memory,
 Runtime parsing, FFI or Rust throughput improvement.
 
-Native temporary receipts: =/private/tmp/parser-dirty-ab-driver.log=,
-=/private/tmp/parser-dirty-reuse-ab-driver.log= and
-=/private/tmp/parser-dirty-released-ab-driver.log=. The prior rejected static-row
+The prior rejected static-row
 cache remains removed. No JSON report or additional test supervisor is added.
 
 ** Final consumer and preparation receipts
@@ -1567,7 +1546,6 @@ cache remains removed. No JSON report or additional test supervisor is added.
 The final source controls pass 57 Cases (resolved 37, canonical 20),
 =TEST-SUITE-OK= and =OK=; controller exit 0 in 23.461 seconds. The updated
 work-count oracle excludes singleton calls and the 16-versus-24 assertions pass.
-Evidence: =/private/tmp/parser-dirty-final-controls-driver.log=.
 
 The first complete preparation links successfully but then triggers the unchanged
 5-second idle guard after the final 1866-product hash report; controller exit 124,
@@ -1584,13 +1562,10 @@ new process, compiler switch or widened timeout is introduced. Existing
 preparation controls for content invalidation, failed builds, restoration,
 corrupt stores, generated caches and object boundaries pass, final =OK= and
 controller exit 0 in 1.833 seconds. Saving/restoring real progress markers are
-required by the check. Evidence:
-=/private/tmp/parser-dirty-preparation-controls-driver.log=.
+required by the check.
 
 Complete preparation rerun passes in 82.709 seconds under unchanged 240-second
 total/5-second idle limits, including completed 1915-product storage and
 =PREPARATION-STORED-RECEIPT=; controller exit 0. The compiled semantic entry passes 372 Cases across 23 groups; it and
 all five research entries exit 0, =DSL-RESEARCH-CLOSURE-OK= and =OK=. Source Suite
-and compiled consumer counts are distinct. Evidence:
-=/private/tmp/parser-dirty-final-conformance-build-driver.log= and
-=/private/tmp/parser-dirty-research/exits.tsv=.
+and compiled consumer counts are distinct.

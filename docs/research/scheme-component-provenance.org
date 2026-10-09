@@ -51,7 +51,7 @@ artifact loader. Its bounded native invocation exited 0 and reported
 =PROVENANCE-STUDY-OK: 17 checks passed= (historical driver):
 
 #+begin_src sh
-PARSER_RESEARCH_ARTIFACT_ROOT="$(mktemp -d /private/tmp/parser-package-cache.XXXXXX)" \
+PARSER_RESEARCH_ARTIFACT_ROOT="$(mktemp -d)" \
   GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" GERBIL_PARSER_LR_TRACE=1 \
   gtimeout 10 gxi t/fixtures/language-pack-research/provenance-study.ss
 #+end_src

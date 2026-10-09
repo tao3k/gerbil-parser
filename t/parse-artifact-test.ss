@@ -24,6 +24,22 @@
 
 (def parse-artifact-tests
   (test-suite "ParseArtifact contract"
+    (test-case "source-bound admission proves lexemes and identity without roundtrip ownership"
+      (for-each (lambda (source)
+        (let (artifact (parse-source arithmetic-parser source))
+          (check (parse-artifact-valid-for-source? artifact source) => #t)
+          (check (parse-artifact-valid-for-source? artifact (string-append source "x")) => #f)
+          (check (parse-artifact-valid-for-source? artifact #f) => #f)
+          (check (parse-artifact-valid-for-source?
+                   (artifact-replace artifact 'sourceByteLength 4294967296) source) => #f)
+          (check (parse-artifact-valid-for-source?
+                   (artifact-replace artifact 'sourceDigest (sha256-text "unrelated")) source) => #f)))
+        '("" "alpha + 2" "λ中文🙂@"))
+      (let* ((artifact (parse-source arithmetic-parser "λ"))
+             (forged (artifact-replace artifact 'sourceDigest (sha256-text "β"))))
+        (check (parse-artifact-valid-for-source? forged "β") => #f)
+        (check (parse-artifact-valid-for-source? artifact "β") => #f)
+        (check (parse-artifact-roundtrip artifact) => "λ")))
     (test-case "canonical SHA-256 identities match fixed digest vectors"
       (check (sha256-text "")
              => "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
@@ -72,6 +88,7 @@
                      (artifact-replace base 'sourceDigest (sha256-text text))
                      'sourceByteLength width) 'events (list event))))
              (check (parse-artifact-valid? artifact) => #t)
+             (check (parse-artifact-valid-for-source? artifact text) => #t)
              (check (parse-artifact-roundtrip artifact) => text)
              ;; Keep advertised coverage self-consistent but falsify UTF-8 width.
              (vector-set! event 5 (+ width 1))

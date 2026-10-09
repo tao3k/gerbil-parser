@@ -5,7 +5,7 @@
 (import (only-in ../runtime/parse-cost with-parser-cost-stage)
         (only-in ../compiler/contextual-program contextual-program-ir)
         (only-in ../runtime/artifact
-                 parse-artifact-ref parse-artifact-valid? sha256-text)
+                 parse-artifact-ref parse-artifact-valid-for-source? sha256-text)
         (only-in ../runtime/source-scanner source-scanner-contextual? make-source-scan-session source-scan-session-tokens
                  source-scan-session-scanned-token-count source-scan-session-reused-token-count)
         (only-in ./source-strategy bind-source-strategy source-engine-scanner source-engine-factory
@@ -50,9 +50,8 @@
   (result-plan-catalog (source-language-results descriptor)))
 (def (source-language-scanner-factory descriptor) (source-language-factory descriptor))
 (def (validate-source-publication! descriptor source artifact)
-  (unless (and (parse-artifact-valid? artifact)
-               (equal? (parse-artifact-ref artifact 'grammarDigest) (source-language-digest descriptor))
-               (equal? (parse-artifact-ref artifact 'sourceDigest) (sha256-text source)))
+  (unless (and (equal? (parse-artifact-ref artifact 'grammarDigest) (source-language-digest descriptor))
+               (parse-artifact-valid-for-source? artifact source))
     (error "source parser published an invalid artifact"))
   artifact)
 (def (parse-source-language/receipt descriptor source)

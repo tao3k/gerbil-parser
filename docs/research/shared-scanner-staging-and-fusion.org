@@ -884,3 +884,105 @@ Coverage includes result generation/binding, recognition, immediate and deferred
 scanning, artifacts, event strategy, and four language suites. The final POO
 regeneration assertion had also passed its focused suite in 7.587 s. No temporary
 comparison source is retained in the production or test catalog.
+
+* Implemented: fuse source publication admission with input identity
+
+The shared SourceLanguage publisher previously validated the artifact by
+reconstructing a string from token lexemes and hashing it, then independently
+hashed the actual input to check its identity. The publisher already owns that
+input. This duplicates whole-source work and constructs a string used only
+between two validation steps.
+
+=parse-artifact-valid-for-source?= now binds artifact admission to the supplied
+input. The existing event walk still checks schema, digest shape, canonical
+IDs, byte coverage, UTF-8 token widths, node/field balance, root count, status and
+diagnostics. For each admitted token it compares its characters directly with
+the next input range, without a substring or encoding. Complete character
+coverage is required, then the actual input is hashed once and compared with the
+artifact identity. SourceLanguage uses this entry and retains grammar identity
+admission. All language declarations and artifact/FFI schemas remain unchanged.
+
+For lexemes L1 through Ln and input S, the walk proves each Li equals the next
+character interval in S and that their combined character count is length(S).
+This establishes concat(L1,...,Ln) = S without materializing that concatenation.
+Contiguous byte coverage and each lexeme's UTF-8 width remain separately checked.
+A forged digest that matches S but disagrees with lexeme content still fails.
+Standalone artifact admission and owned roundtrip reconstruction retain their
+existing behavior; callers with an actual input use the stronger source-bound
+entry. Both paths share the same structural validator.
+
+Both algorithms are O(events + characters). The improvement removes an internal
+representation and a repeated input hash; it does not establish a new asymptotic
+bound or complete lexer/parser fusion. Recognition trees and canonical event
+allocation remain in the current producer.
+
+The original artifact validator was frozen under a temporary native namespace.
+Both sides used the same fixed GCC SDK and optimization/diagnostic flags. The
+baseline publication obligation includes artifact validation, grammar identity
+and a second hash of the input. The candidate includes grammar identity and
+source-bound artifact validation. Full controls share the same prepared scanner
+and parser and require complete artifact equality with the public entry for
+short, heredoc, compound and large inputs before timing.
+
+ABBA blocks have one untimed warmup and 11 measured single requests. Natural GC
+is included in CPU measurements; only no-GC allocation deltas are admitted.
+Preparation, loading, IO and sample output are outside timing. Component and
+complete-engine numbers must not be added together.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| validation-old-a | 1.462 | 5054208 | 11 |
+| validation-new-a | 1.275 | 4406152 | 11 |
+| validation-new-b | 1.171 | 4406152 | 10 |
+| validation-old-b | 1.454 | 5054208 | 11 |
+| complete-old-a | 29.410 | 39054824 | 8 |
+| complete-new-a | 28.697 | 38406768 | 8 |
+| complete-new-b | 34.412 | 38406448 | 8 |
+| complete-old-b | 37.761 | 39054824 | 8 |
+
+Publication admission allocation decreases approximately 12.82%. The complete
+engine allocates approximately 648 KB less per request, about 1.66% on this
+corpus. Complete CPU pairs are approximately 2.42% and 8.87% lower, but the
+baseline changes substantially between blocks. These timings do not establish
+a stable public-entry speedup or close the Tree-sitter gap. Allocation reduction
+and complete-product parity are the admitted outcomes.
+
+Native qualification completed in 11.108 s with exit 0 and
+=SOURCE-BOUND-CONTROL-OK=. Symmetric production compilation completed in
+47.756 s and the native control compiled in 13.501 s, both with exit 0. The
+existing total/idle guards and fixed GCC configuration were retained.
+
+Permanent controls cover empty input, accepted and rejected artifacts, wrong
+or truncated inputs, non-string input, forged digests and identical-byte-width
+Unicode substitutions. The existing UTF-8 width boundary controls also admit
+through the source-bound entry. False advertised byte lengths cannot trigger
+reconstruction capacity reservation. Eleven modules completed 137 cases in
+10.382 s with exit 0 and all receipts before the next concurrent PR integration.
+The first focused-suite invocation used an incorrect file path and failed;
+only the corrected successful receipts are admitted.
+
+The ABBA table was collected on base =8fe4a0e=. Subsequent EventFold, checkpoint
+and LR reverse-list changes are integrated separately; their costs are not
+attributed to source-bound admission. Temporary comparison sources are excluded
+from the implementation commit. Future representation experiments should retain
+this input-bound publication obligation in both complete-engine controls.
+
+After rebasing the concurrent engine revisions through =ded00a4=, their changed
+production dependency chain compiled in 24.357 s. Complete native product parity
+and the matched publication obligations passed again in 12.871 s with exit 0
+and all receipts. These integration samples are not used to attribute additional
+runtime improvements to this change.
+
+The first expanded integration run crashed while importing the existing native
+=event-fold-future= interface (exit 139), before suite execution; it is excluded.
+Rebuilding that module, its direct compiler helper and the remaining EventFold
+IR consumer with the fixed SDK completed in 16.003 s. The isolated EventFold
+suite then passed 61 cases in 9.113 s. The exact failing instruction has not been
+identified; the loading failure did not recur after that rebuild.
+
+The full retained implementation subsequently passed 210 cases across thirteen
+modules in 16.288 s, with =TEST-SUITE-OK modules=13=, =OK=, exit 0 and no missing
+receipts. This includes source contracts, immediate/deferred scanners,
+checkpoints, EventFold, result AOT binding, artifacts and four language suites.
+The following =5a1074e= integration changes only documentation and a benchmark;
+the production code and suites behind this receipt are unchanged.

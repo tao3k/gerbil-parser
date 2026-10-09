@@ -36,7 +36,7 @@
         with-parse-event-walk
         parse-artifact-status
         parse-artifact-success?
-        parse-artifact-valid?
+        parse-artifact-valid? parse-artifact-valid-for-source?
         parse-artifact-roundtrip
         event-kind
         token-event?
@@ -630,11 +630,13 @@
 ;;; concatenate the complete event stream a second time. Validated lexemes are
 ;;; copied into one exactly sized string; no general text port participates in
 ;;; reconstruction and no advertised byte length drives an eager allocation.
+;;; Publication can instead bind the actual input: compare admitted lexemes
+;;; directly, prove complete character coverage and hash that input once.
 ;;; Malformed streams
 ;;; still fail closed and never become observable parse artifacts.
 ;; validate-parse-artifact!
 ;; : (-> Alist String)
-(def (validate-parse-artifact! artifact)
+(def (validate-parse-artifact! artifact (expected-source #f))
   (unless (and (list? artifact)
                (equal? (parse-artifact-ref artifact 'schema)
                        +parse-artifact-schema+)
@@ -651,7 +653,8 @@
         (expected-token-id 0)
         (expected-node-id 0)
         (root-count 0)
-        (source-chunks '()))
+        (source-chunks '())
+        (character-coverage 0))
     (unless (and (integer? source-byte-length)
                  (>= source-byte-length 0)
                  (memq status '(accepted rejected))
@@ -719,14 +722,21 @@
                          (= (- end start)
                             (string-utf8-length lexeme)))
               (error "invalid token event coverage" event coverage))
-            (set! source-chunks (cons lexeme source-chunks))
+            (if expected-source
+              (let (width (string-length lexeme))
+                (unless (and (<= (+ character-coverage width) (string-length expected-source))
+                             (source-lexeme-at? expected-source character-coverage lexeme))
+                  (error "ParseArtifact lexeme differs from input source" event))
+                (set! character-coverage (+ character-coverage width)))
+              (set! source-chunks (cons lexeme source-chunks)))
             (set! coverage end)
             (set! expected-token-id (+ expected-token-id 1))))
          (else (error "unknown CST event" event))))
      events)
-    (let (source (string-concatenate-reverse source-chunks))
+    (let (source (or expected-source (string-concatenate-reverse source-chunks)))
       (unless (and (null? stack)
                    (= coverage source-byte-length)
+                   (or (not expected-source) (= character-coverage (string-length expected-source)))
                    (equal? (sha256-text source)
                            (parse-artifact-ref artifact 'sourceDigest)))
         (error "ParseArtifact source coverage mismatch" artifact))
@@ -738,6 +748,20 @@
          (unless (and (= root-count 0) (= (length diagnostics) 1))
            (error "rejected ParseArtifact exposes partial structure" artifact))))
       source)))
+
+(def (source-lexeme-at? source offset lexeme)
+  ;; Callers prove containment first. Compare characters directly, without a
+  ;; temporary substring or encoding; byte coverage is checked independently.
+  (let (width (string-length lexeme))
+    (let loop ((index 0))
+      (or (= index width)
+          (and (char=? (string-ref source (+ offset index)) (string-ref lexeme index))
+               (loop (+ index 1)))))))
+
+(def (parse-artifact-valid-for-source? artifact source)
+  (and (string? source)
+       (with-catch (lambda (_) #f)
+         (lambda () (validate-parse-artifact! artifact source) #t))))
 
 ;; parse-artifact-valid?
 ;; : (forall (a) (-> [(Pair Symbol a)] Boolean))

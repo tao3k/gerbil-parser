@@ -2,7 +2,8 @@
 ;;; -*- Gerbil -*-
 ;;; Pure Scheme comparison of fresh, one-shot, and cached-LR edits.
 
-(import (only-in :gerbil-parser/languages/arithmetic/parser
+(import (only-in :gerbil-parser/src/runtime/observability call-with-parser-observed-phase)
+        (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-parser parse-arithmetic)
         (only-in :gerbil-parser/languages/hcl/parser
                  hcl-parser parse-hcl)
@@ -458,7 +459,34 @@
                    (event-program-value? (recognition-child-value
                      (car (recognition-sequence->list (lr-recognition-fragment-value root))))))
         (error "event benchmark did not execute the event backend")))))
+(def (phase-direct n)
+  (call-with-parser-observed-phase #f 'component (lambda () (+ n 1))))
+(def (phase-procedure n)
+  (let (invoke call-with-parser-observed-phase)
+    (invoke #f 'component (lambda () (+ n 1)))))
+(def (measure-phase-dispatch)
+  (for-each
+   (lambda (method)
+     (##gc)
+     (let* ((before (##process-statistics)) (cpu (cpu-time))
+            (total (let loop ((n 0) (total 0))
+                     (if (= n 10000) total
+                       (loop (+ n 1) (+ total ((cdr method) n))))))
+            (cpu-ms (* 1000 (- (cpu-time) cpu)))
+            (after (##process-statistics)))
+       (unless (= total 50005000) (error "phase dispatch changed result" (car method)))
+       (write (list 'phase-dispatch (car method) 'calls 10000 'cpu-ms cpu-ms
+                    'gc-count (- (f64vector-ref after 6) (f64vector-ref before 6))
+                    'allocation-counter-delta (- (f64vector-ref after 7) (f64vector-ref before 7))))
+       (newline) (force-output)))
+   (list (cons 'procedure phase-procedure) (cons 'direct phase-direct)
+         (cons 'direct phase-direct) (cons 'procedure phase-procedure)))
+  (displayln "PHASE-DISPATCH-OK") (force-output))
+
 (def (main . args)
+  (when (and (pair? args) (equal? (car args) "phase-dispatch"))
+    (measure-phase-dispatch)
+    (exit 0))
   (when (and (pair? args) (member (car args) '("event-program" "no-event-program")))
     (current-lr-event-program-enabled? (equal? (car args) "event-program"))
     (set! args (cdr args)))

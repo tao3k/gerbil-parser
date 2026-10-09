@@ -266,3 +266,73 @@ disabled and the combined event-program/sequence-fusion/lexical-plan/source-inde
 settings, with inverse-edit parity and admitted fresh-session artifacts. The
 captured fresh session also passed recognition projection and source-index
 preflight; the checkpoint-only reference passed independent artifact preflight.
+
+* Lazy phase dispatch in the checkpointed driver
+
+The checkpointed driver invokes =call-with-parser-observed-phase= for lexical
+analysis, trivia filtering and LR execution. The former procedure interface
+received a zero-argument thunk even when its policy was =#f=. The installed SDK
+binary resolves =:std/list/list-builder= to its installed interface; the matching
+source demonstrates hygienic =defrules= patterns with direct invocation and a
+first-class identifier expansion. The existing optional cost macro in
+=parse-cost.ss= similarly places its delayed body inside the enabled branch.
+This is an engine control-flow mechanism, not a replacement timer or POO policy.
+
+Question 1: Why does the Scheme design improve this boundary?
+
+#+begin_src scheme
+;; A zero-argument literal body is lowered at its existing call site.
+(call-with-parser-observed-phase policy 'lr-execution
+  (lambda () (lr-checkpoint-feed checkpoint input-token policy)))
+;; The macro evaluates policy and phase once. With #f, it executes the body
+;; directly; an enabled policy still delegates its thunk to POO Flow tracing.
+;; A computed thunk or first-class use retains ordinary procedure dispatch.
+(let (invoke call-with-parser-observed-phase)
+  (invoke policy 'lr-execution computed-thunk))
+#+end_src
+
+Hygienic syntax can distinguish the literal delayed-body call from a computed
+callback without adding a language declaration or runtime recognition opcode.
+The public phase adapter retains first-class procedure use. Enabled execution
+continues to use =call-with-poo-flow-debug-trace= and its contracts; multiple
+return values and exceptions remain owned by the original body.
+
+Question 2: What makes the lowering scientifically justified?
+
+The disabled branch must evaluate the policy, phase and body exactly once and
+return the body's values. Its literal closure has no caller-visible identity:
+it is immediately invoked by the disabled adapter. The dedicated controls check
+effect counts, two return values, original exception irritants, computed thunks
+and first-class calls. The full observed openCypher fixture checks enabled phase
+records and complete parsing. No procedure-taking call is rewritten as a
+language-specific fast path.
+
+The =phase-dispatch= mode in the existing incremental benchmark compares the
+first-class procedure and literal-body forms in one SDK process, ABBA order,
+10,000 calls per observation, explicit collection before each observation and
+an independently checked sum. Procedure dispatch observed 1.780/1.748 ms CPU
+and a 4,641,232 allocation-counter delta; direct expansion observed 1.624/1.612
+ms and 3,361,232. All observations had zero collections, and the run ended with
+=PHASE-DISPATCH-OK= and exit zero. This measures the complete component dispatch
+path, not an exact heap size for a thunk or independently compiled native parser
+performance. Native optimization may already remove some of that overhead.
+
+The final source change passed 57 Cases covering the phase adapter, parser
+runtime, recovery/incremental and GQL parsing, with final =HARNESS-OK= and =OK=,
+no Case/Harness errors and exit zero. The matched HCL capture workload again
+passed all six complete-artifact and inverse-edit controls. Its CPU observations
+were variable: first insertion observed 11.249 ms checkpoint-only, 19.120 ms
+fresh captured session and 9.353 ms cached edit. The prior matched source run
+was not ordered as a before/after ABBA pair, so these observations do not admit a
+stable complete-parser improvement. The remaining checkpoint-driver cost is
+still an open phase-profile and native before/after qualification task.
+
+The SDK compiler optimized and expanded =observability.ss=, =parser.ss= and
+=lr-parser.ss= with =invoke-gsc: #f=, each ending with =SDK-PHASE-OPTIMIZE-OK=
+and process exit zero. This checks macro binding and optimized module expansion;
+native C compilation, linking and exact-head CI remain separate gates.
+
+After rebasing onto =b4e5a6b= (artifact/source-identity admission fusion), the
+combined source run passed 80 Cases with final =OK= and no Case/Harness errors.
+The six HCL capture topology controls and complete Source-session workload also
+passed; the latter ended with =SOURCE-SESSION-PARSER-OK= and exit zero.

@@ -2,7 +2,10 @@
 (import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language)
         (only-in "fixtures/source-strategies.ss" test-source-strategy)
-        (only-in :gerbil-parser/languages/bash/parser parse-bash)
+        (only-in :gerbil-parser/languages/bash/parser parse-bash parse-bash/receipt)
+        (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
+        (only-in :clan/poo/object .o)
+        (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer)
         (only-in :gerbil-parser/src/runtime/source-scanner
                  make-source-scanner source-scanner-initial-state
                  source-scanner-step source-scan-state-byte-offset)
@@ -24,6 +27,37 @@
             (parse-source-language other "echo hi\n")
             #f))
          => #t)))
+    (test-case "public source observations preserve admitted products and receipts"
+      (def (observe parse source (scan-completed? #t))
+        (let ((rows '()) (expected (call-with-values (lambda () (parse source)) list)))
+          (let (actual
+                (parameterize ((current-parser-cost-observer
+                                (lambda (name receipt)
+                                  (set! rows (cons (cons name receipt) rows)))))
+                  (call-with-values (lambda () (parse source)) list)))
+            (check actual => expected))
+          (check (current-parser-cost-observer) => #f)
+          (for-each
+           (lambda (stage)
+             (check (length (filter (lambda (row) (eq? stage (car row))) rows)) => 1))
+           '(source-prepare source-scan artifact-validation))
+          (for-each
+           (lambda (row)
+             (check (cdr (assq 'completed (cdr row)))
+                    => (if (eq? (car row) 'source-scan) scan-completed? #t))) rows)))
+      (for-each
+       (lambda (source)
+         (let (completed? (not (string=? source "echo \"")))
+           (observe parse-bash source completed?)
+           (observe parse-bash/receipt source completed?)))
+       '("echo α\n" "echo \"" ""))
+      (let (descriptor
+            (declare-source-language "lines" "test" "stage-observation"
+              (.o (:: self LineSourceStrategy.) root-kind: 'LineFile token-kind: 'Line
+                  required-prefix: "M")))
+        (def (parse-lines source) (parse-source-language descriptor source))
+        (observe parse-lines "Mα\n")
+        (observe parse-lines "rejected\n")))
     (test-case "scanner checkpoints retain byte offsets"
       (let* ((scanner
               (make-source-scanner

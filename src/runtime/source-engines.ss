@@ -1,5 +1,6 @@
 ;;; Closed source recipes share the source engine protocol; no language imports.
-(import (only-in ../language/command-profile command-plan-kind)
+(import (only-in ./parse-cost with-parser-cost-stage)
+        (only-in ../language/command-profile command-plan-kind)
         (only-in :clan/poo/object .o .ref .slot?)
         (only-in ../language/source-strategy SourceStrategy. declare-source-strategy-provider make-source-engine)
         (only-in ./region-scanner region-plan?)
@@ -30,7 +31,9 @@
          (parts (contextual-program-parts program))
          (plan (prepare-contextual-scanner-plan scanner-ir)))
     (def (factory source) (make-contextual-source-scanner plan source 'source))
-    (def (scan source) (source-scanner-tokens (factory source) 'command))
+    (def (scan source)
+      (let (worker (with-parser-cost-stage 'source-prepare (factory source)))
+        (with-parser-cost-stage 'source-scan (source-scanner-tokens worker 'command))))
     (let-values (((parse receipt) (make-shell-parser regions results parts commands)))
       (values
         (contextual-program-ir program)
@@ -61,8 +64,11 @@
                (if (or (= end limit) (char=? (string-ref text end) #\newline))
                  (values token-kind (if (= end limit) end (+ end 1)) context)
                  (loop (+ end 1)))))))))
-    (def (scan source) (map (lambda (token) (result-plan-token results token))
-                           (source-scanner-tokens (factory source) 'lines)))
+    (def (scan source)
+      (let (worker (with-parser-cost-stage 'source-prepare (factory source)))
+        (with-parser-cost-stage 'source-scan
+          (map (lambda (token) (result-plan-token results token))
+               (source-scanner-tokens worker 'lines)))))
     (def (parse source scanner digest)
       (let (tokens (scanner source))
         (if (and (<= (string-length prefix) (string-length source))

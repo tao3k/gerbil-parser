@@ -60,7 +60,8 @@
   (let-values (((artifact receipt)
                 ((source-language-receipt descriptor) source (source-language-scanner descriptor)
                  (source-language-digest descriptor))))
-    (validate-source-publication! descriptor source artifact)
+    (with-parser-cost-stage 'artifact-validation
+      (validate-source-publication! descriptor source artifact))
     (values artifact receipt)))
 
 (defrules deflanguage-parser-receipt ()
@@ -74,7 +75,8 @@
          (artifact
           ((source-language-parse descriptor)
            source (source-language-scanner descriptor) digest)))
-    (validate-source-publication! descriptor source artifact)))
+    (with-parser-cost-stage 'artifact-validation
+      (validate-source-publication! descriptor source artifact))))
 
 ;;; An internal unbound syntax product; parser metadata supplies release identity.
 (defstruct (source-syntax source-language) (recipe strategy) transparent: #t)

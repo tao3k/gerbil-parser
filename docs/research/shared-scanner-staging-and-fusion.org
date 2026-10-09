@@ -986,3 +986,146 @@ receipts. This includes source contracts, immediate/deferred scanners,
 checkpoints, EventFold, result AOT binding, artifacts and four language suites.
 The following =5a1074e= integration changes only documentation and a benchmark;
 the production code and suites behind this receipt are unchanged.
+
+* Complete request attribution and the next representation boundary
+
+The previous complete native controls still allocated about 38 MB per large
+request. A shared diagnostic now accepts any public parser procedure and input:
+=t/benchmarks/parser-stage-cost/benchmark.ss#measure-parser-stages=. It has no
+language imports, scanner replacement, process launcher or alternative parser.
+The caller owns workload selection. Each measured request must equal the full
+unobserved reference artifact and pass source-bound admission. IO, reference
+construction, equality, admission and sample output are outside the request.
+The summary includes source and grammar identities, event count, CPU median,
+allocation median and the number of admitted allocation observations.
+
+An audit found an observability gap: session parsing already reported source
+preparation, scanning and artifact validation, whereas ordinary SourceLanguage
+and receipt entries did not. Shared shell and line providers now report the
+preparation and scanning boundaries; public source and receipt entries report
+validation. Existing disabled-path macro lowering evaluates the expression
+without constructing an observation thunk. These additions measure existing
+work; they do not implement a runtime speedup. LR and generated direct engines
+are different providers and do not acquire source-provider stage names merely
+because they support a language such as HL7 or HCL.
+
+Natural GC remains inside the measured CPU interval. Allocation deltas are
+admitted only with zero collections and a nonnegative counter delta. Observer
+callbacks and statistics calls have a cost, and outer measurements include
+that cost. Nested observations are inclusive. Medians from different stages
+and different admitted subsets must not be added or subtracted to infer an
+unobserved stage. These are localization diagnostics, not an uninstrumented
+latency comparison with Tree-sitter.
+
+A scanner exception recovered by the parser can legitimately publish a complete
+rejected artifact. The scanner observation must retain =completed=false=;
+requiring every stage to complete would misclassify correct rejection. The
+benchmark admits a rejected request through full product equality and actual
+input admission. Permanent controls cover the public shell entry, its multiple
+return-value receipt entry, a POO line provider, Unicode, empty input, lexical
+failure and prefix rejection. Dynamic observer scope is restored afterward.
+
+** Paper interpretation and bounded lowering obligations
+
+[[https://arxiv.org/html/2304.05276][flap sections 2.5, 2.7 and 2.8]] distinguish three mechanisms:
+deterministic single-token branch selection, lexer/parser fusion eliminating an
+internal token representation, and staging away statically known dispatch.
+Its generated parser still permits allocation introduced by semantic actions.
+Our required lossless artifact is such an observable semantic product. Removing
+an internal token stream does not authorize removing lexemes, field events,
+trivia coverage, diagnostics or public identities.
+
+A generic lowering must be derived from admitted engine IR. It must establish:
+
+1. Branch selection and lexical priority preserve the original recognition
+   language, including maximal-munch behavior and negative lookahead. A FIRST
+   set alone is insufficient to prove scanner/parser fusion.
+2. Skipped characters remain publishable lossless trivia. A recognizer that
+   discards them does not satisfy the complete artifact contract.
+3. Deferred delimiters, source modes and speculative branches establish explicit
+   commit boundaries. A speculative event cannot escape into canonical output.
+4. Source intervals retain byte/character agreement and input ownership through
+   Unicode and relocation. A borrowed interval cannot silently outlive its
+   request or become a mutable shared input view.
+5. ResultPlan field order, token spelling and failure diagnostics remain equal
+   to the current public product. The existing event-program and raw-event-tape
+   publication mechanisms are the targets; a new language callback protocol is
+   unnecessary.
+
+The current shell execution chain still creates scanner tokens, recognition
+values and projected word token sequences, then flattens those sequences at
+component boundaries, copies them into the parser's emitted stream and finally
+publishes canonical events. Some of this storage is transient, but canonical
+output is required. Word source preparation already uses an ASCII fast path and
+lazily prepares region caches; those mechanisms must not be proposed again as
+new work. The earlier generated projection experiment removed interpreter
+operation dispatch without establishing a complete-entry allocation or speed
+win. That negative result argues for changing producer/consumer representation
+and ownership, rather than another wrapper around projection execution.
+
+The next experiment should account for scanner and recognition construction
+separately, then lower an admitted deterministic producer/consumer boundary to
+existing publication instructions. Request-local source intervals and a single
+committed semantic stream are candidate representations, not implemented
+capabilities. They require whole-product controls for quoting, substitutions,
+here-documents, malformed input, Unicode and another applicable grammar before
+any default-path promotion. An implementation should be retained only if it
+reduces complete native allocation without a stable runtime regression.
+
+** Native diagnostic receipt on the integrated engine
+
+The final diagnostic used the fixed GCC SDK on base =8b8e7e0= plus the public
+source observation changes. It ran separately from this turn's test/build jobs.
+The large fixture has 28,040 characters and 52,852 canonical events; its source
+identity is =sha256:11a684b4a83d51ab0f5565ffad083c209ec07a0af5cdc7756c158022ac042221=.
+Its grammar identity is
+=sha256:880ba035ae26195eaeae0ce3e5fbef582e2195c46aed31703a7592395f248ce8=.
+The earlier source-bound control table has a different base and is not combined
+with this stage table to claim a subsequent speedup.
+
+| Stage | CPU P50 ms | No-GC allocation P50 bytes | Allocation samples / CPU samples |
+|-------+------------+---------------------------+---------------------------------|
+| source-prepare | 0.010 | 114432 | 11 / 11 |
+| source-scan | 8.626 | 7364432 | 10 / 11 |
+| command-recognition | 15.111 | 19334192 | 11 / 11 |
+| artifact-publication | 1.999 | 7173480 | 9 / 11 |
+| artifact-validation | 1.352 | 4407464 | 11 / 11 |
+| observed-complete-request | 27.354 | 38421712 | 8 / 11 |
+
+Recognition has the largest observed allocation and CPU interval. Scanning is
+also material. Source preparation is small for this admitted workload. This
+supports prioritizing the scanner/recognition producer-consumer boundary over
+another preparation cache or event-validator micro-optimization. It does not
+prove that all recognition allocation is avoidable, identify the individual
+constructors responsible, or establish a portable latency ratio. The next
+lowering still requires constructor attribution and an uninstrumented matched
+complete-entry experiment.
+
+Short input and lexical rejection also passed complete-product equality and
+source-bound admission. The final native diagnostic completed in 12.526 s with
+exit 0 and =STAGE-COMPLETE-PARITY-OK=. Five focused modules passed 51 cases in
+12.509 s, with =TEST-SUITE-OK modules=5=, =OK= and exit 0. The final diagnostic
+module compiled in 22.556 s; shared source modules compiled in 12.896 s. Total
+120-second and idle 5-second guards were unchanged.
+
+Earlier exploratory runs exposed missing imports, bracket errors, the incorrect
+all-stages-completed rejection requirement and a test that assigned source
+stage names to an LR language. A subsequent POO fixture needed explicit self
+inheritance to pass SourceStrategy admission. Those failed runs are excluded.
+One successful intermediate diagnostic overlapped test execution; its CPU
+numbers are also excluded from this table. No failed test receipt or concurrent
+CPU sample is promoted to the final evidence.
+
+The diagnostic can be called from another Scheme benchmark after native module
+preparation, for example:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
+                 measure-parser-stages)
+        (only-in :gerbil-parser/languages/bash/parser parse-bash))
+(measure-parser-stages parse-bash "echo hello\n" 11)
+#+end_src
+
+The procedure argument selects the existing public parser. For an engine with
+no cost-stage observations, the complete request row is still reported; absent
+stages are not fabricated or inferred from its language name.

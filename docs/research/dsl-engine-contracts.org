@@ -4,8 +4,8 @@
 
 * Scope and revision
 
-Current source audit baseline: =2feaa26727dddc379a066c6b991cd1a48c9f5504=,
-PR #13, with the FIRST dependency implementation described below.
+Current source audit baseline: =a90f23646e4bf43d9d1562d07f45cd3b2fb2674f=,
+PR #13, with the productivity entry-admission implementation described below.
 Implementation means a mechanism exists in this source revision. Qualification
 means the stated command completed with propagated status and its final marker.
 Historical receipts retain their own revisions. Neither inspected test code nor
@@ -23,7 +23,7 @@ values need no author-written thunk; engine mechanics remain engine-owned.
 |-----------------+-------------------------+-------------------------|
 | [[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]], sections 3--4 and 7.2 | Distinguish declaration shape, resolved obligations and contextual diagnostics | Gerbil macros are the substrate; this does not implement Racket syntax classes |
 | [[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][A Typed, Algebraic Approach to Parsing]], sections 3, 5.2 and 6 | Derive static facts before target specialization; retain CFG meaning | Its predictive grammar restrictions and linear parsing theorem do not cover every LR/Source target here |
-| [[file:scheme-dsl-research-basis.org::*Abstract interpretation: what can declarations teach the compiler?][Abstract interpretation study]] | Separate fixed-point meaning, convergence and efficient evaluation | Nullable closure has a dependency algorithm and controls; productivity needs its own consumer and semantic contract |
+| [[file:scheme-dsl-research-basis.org::*Abstract interpretation: what can declarations teach the compiler?][Abstract interpretation study]] | Separate fixed-point meaning, convergence and efficient evaluation | Nullable/FIRST/productivity have completed dependency analyses; LR entry admission consumes productivity |
 | [[file:dsl-effective-grammar-admission.org::*Preserve expression occurrences through transformations][Practical LR study]] | Retain expression occurrences when lowering helpers and investigate measured conflicts | Selected repetition origins exist; general helper/conflict origin serialization remains open |
 | [[file:dsl-lr-transfer.org][Incremental parsing study]] | Admit reuse by source/context and parser boundary obligations | Scheme scanner sessions and LR fragment controls exist; they do not establish general Rust Source subtree reuse |
 
@@ -39,7 +39,7 @@ into prioritized choice or silently substitute another backend.
 | Responsibility | Current mechanism and owner | Remaining boundary |
 |----------------+-----------------------------+--------------------|
 | Author syntax and POO composition | =defgrammar-syntax=, =deflanguage= and =src/compiler/normalize.ss= | Keep future admission and resource mechanics out of language author slots |
-| Resolved repetition admission | =src/compiler/lr.ss= and =t/resolved-grammar-test.ss= | Productivity and general predictive choice-equivalence proof |
+| Resolved repetition and finite LR entry admission | =src/compiler/lr.ss= and =t/resolved-grammar-test.ss= | General predictive choice-equivalence proof; productivity is not lexer realizability |
 | Nullable analysis | Same owner; occurrence counters and reverse dependencies | FIRST uses its own prefix dependency/delta worklist; no general whole-parser complexity claim |
 | Selected origin diagnostics | =expressionOrigin= and finite =nullableReferencePath= | Generated helper/conflict origin serialization and unavailable reader coordinates |
 | Source/Command scheduling | =command_program.rs= and =command_source/execution.rs= | Complete byte/allocation/work accounting beyond the live-frame budget |
@@ -88,11 +88,25 @@ After rebasing onto =344826a=, local qualification passed 44 source-mode
 resolved/canonical LR Cases, 361 compiled semantic Cases in 23 groups and all
 five independent research entries. Exact delivered-head CI remains separate.
 
+* Productivity entry admission
+
+[[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][The productivity contract]] records the finite-word meaning, occurrence worklist,
+selected-rule blocker graph and deliberate LR target policy. An unproductive
+selected entry now fails before state construction, across all existing routes
+and conflict policies. Epsilon exits and productive LR recursion remain valid;
+dead alternatives and unrelated dead rules do not reject a productive entry.
+Public LRSpec output for admitted grammars remains unchanged.
+
+Local qualification completed 52 source Cases, 369 compiled semantic Cases
+in 23 groups, all five independent research entries and an exact complete
+TLA+ LRSpec comparison. The 15.0955 ms complete construction median after adding
+the check is not evidence of acceleration. Exact delivered-head Ubuntu/Rust CI remains a separate receipt.
+
 * Next implementation sequence
 
 | Order | Concrete code/design work | Consumer and required control |
 |-------+---------------------------+-------------------------------|
-| 1 | Define productive-language facts on the effective grammar, preserving nullable distinction | Establish whether the start rule has a finite derivation; controls for dead cycles, epsilon exits, productive LR recursion and unreachable dead rules; settle diagnostic/admission policy before changing acceptance |
+| 1 | Extend completed finite-derivation facts only for a defined target consumer | LR entry policy is implemented; lexer realizability and derivation certificates need separate contracts before making stronger claims |
 | 2 | Extend FIRST/nullable evidence to any proposed target specialization | Keep the implemented completed facts and canonical order; compare full target artifacts and cost before changing admission or emission |
 | 3 | Specify target-local CFG choice admission | Keep the reviewed HCL emitter restriction until equivalence is proved; matched token segmentation, common-prefix/nested-node controls, exact output or explicit rejection |
 | 4 | Extend Source resource and ABI qualification | Deep success/failure cleanup, independent next request, owned callbacks and diagnostic transport; account for bytes/work separately from frame count |

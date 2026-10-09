@@ -327,11 +327,12 @@ end-to-end speedup. The retained improvement is dependency-bounded analysis,
 with semantic equality controls; it does not imply faster Rust AOT execution,
 FFI transport or whole-language parsing.
 
-* Next resolved fact: productivity design before implementation
+* Productivity: finite derivation and LR entry admission
 
-This section is a proposed semantic contract, not a new implemented analysis or
-an acceptance-policy change. Its consumer is target admission and explanation
-of an effective start rule with no finite derivation. The domain is the existing
+The shared =compute-productive= analysis and =validate-resolved-start= consumer
+are implemented in =src/compiler/lr.ss=. LR compilation checks the selected start
+before FIRST/state construction. This is an intentional admission change for an
+entry with no finite derivation. The domain is the existing
 lowered production graph after POO selection. Selected declaration origins must
 remain available to the diagnostic consumer.
 
@@ -363,20 +364,78 @@ Examples establish the necessary distinctions:
 | A -> A a or b | false | true | Ordinary productive LR left recursion is valid |
 | A -> a B; B -> B | false | false | FIRST can contain a even though no derivation completes |
 
-Before changing compilation acceptance, decide whether an unproductive start
-is an author error or an explicit empty-language target. Reachability and
-productivity are separate facts: an unreachable dead rule must not accidentally
-reject a productive start. Apply the decided policy per target, preserve the
-existing missing-reference check, and expose a selected rule/reference witness
-rather than a generated helper name. No general ban on reference cycles follows.
+** Target policy and paper boundary
 
-Required controls compare an independent fixed-point oracle on small cyclic
-grammars; directly check the four distinctions above, undefined references,
-multiple alternatives, duplicate operands, unreachable dead rules and POO
-replacement of a dead exit by a consuming or empty exit. A finite-word example
-can establish productivity; failure to enumerate a bounded word cannot prove
-unproductivity. Admission changes need a deliberate target policy, not merely
-a new boolean field in an IR record.
+For every existing =compile-lr-spec= route and conflict policy, an unproductive
+selected root is an author error: =LR start rule has no finite terminal derivation=.
+The lowered grammar is analyzed after POO selection and repetition validation;
+no additional author slot or schema version is introduced. A productive root is
+not rejected by productivity because of an unreachable dead rule or a dead alternative.
+Independent conflict obligations remain: a nullable optional around a pure unit
+cycle can still have a reduce/reduce conflict despite its epsilon exit. Neither
+the lowered productions nor public LRSpec rows are pruned or changed. Existing
+concise-language missing-reference validation still owns that distinct error.
+
+This target policy is our design choice, not a theorem or requirement from
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, section 3]]. Their algebra includes the empty language
+and distinguishes it from the singleton empty word. We preserve that distinction
+in the analysis while requiring a usable finite entry for the current LR target.
+The paper's predictive typing/linear parsing theorem is not extended to our LR
+routes. Terminal productivity is over abstract grammar symbols: it does not
+prove lexer realizability, successful precedence resolution, semantic action
+termination, tree equivalence or a particular input's acceptance.
+
+** Occurrence worklist and explanation
+
+Each lowered production has one remaining count for its nonterminal occurrences.
+Terminals satisfy their obligations immediately. A clause with no remaining
+nonterminals seeds its lhs, including epsilon clauses. Register every reference
+occurrence, including duplicates, before draining work. Each productive name
+publishes once and discharges each registered occurrence once. A clause that
+reaches zero publishes its lhs; alternative productions share that membership
+fact. A cycle without a finite exit and undefined references cannot seed facts.
+The result list is materialized in first-lhs order after convergence.
+
+Soundness follows by induction on publication: seed clauses derive finite words;
+a clause whose children are already productive can concatenate their finite
+words. Completeness follows by induction on the height of any finite derivation:
+its terminal/epsilon leaves seed facts, then its productions' occurrences are
+discharged. Expected constant-time table operations give O(P + R) preparation
+and propagation for P productions and R rhs occurrences, with O(P + R) storage.
+This bound is for grammar analysis, not whole-parser execution.
+
+The error carries =startOrigin= and a finite =unproductiveRuleBlockers= graph.
+Origins use selected rule metadata and expression paths. Every choice alternative
+has a blocker; one unproductive operand suffices for a sequence. Reference edges
+identify the authored occurrence and target rule. Each rule is expanded once,
+so cycles terminate without inventing source coordinates or exposing synthetic
+helper names. This graph explains the completed fixed point; a single observed
+cycle or bounded failure to enumerate a word is not the proof of unproductivity.
+
+** Semantic and complete-construction controls
+
+The existing resolved grammar Suite compares an independent repeated-scan
+productivity oracle across 729 three-rule cyclic combinations, eight actual LR
+fixture families, alternative exits, duplicate/marked operands and undefined
+references. Nullable membership must imply productivity. A 4096-name reverse
+chain checks propagation and canonical publication order. Target controls cover
+five routes and three conflict policies, finite epsilon/left-recursive exits,
+unreachable dead rules, reachable dead alternatives and the terminal-prefix/dead-
+tail counterexample. POO override controls retain the selected blocker owner and
+restore admission with either a terminal or epsilon exit. Wrapper controls retain
+authored paths through alias/repeat1/field helpers; optional/repeat epsilon exits
+and an independent reduce/reduce conflict are matched positive/negative controls.
+
+Local focused qualification completed 52 source Cases (35 resolved grammar and
+17 canonical LR), final =OK= and status zero. Formal compiled qualification
+completed 369 semantic Cases in 23 groups and all five independent research
+entries with final =DSL-RESEARCH-CLOSURE-OK=, =OK= and status zero. The final
+Scheme-owned conformance preparation took 88.43 seconds under the unchanged
+240-second total and 5-second idle contracts. Complete real TLA+ LRSpec remains
+exactly equal to the pre-change snapshot: 40 rules, 280 productions, 390 states.
+Twenty complete construction samples measured CPU median 15.0955 ms with no
+in-call GC. This is the cost after adding an admission check, not an A/B speedup
+claim. Compiler/FFI/runtime and exact delivered-head CI receipts remain separate.
 
 * FIRST propagation: contract and implementation
 

@@ -9,6 +9,7 @@
 (export +lr-eof+
         compute-first
         compute-nullable
+        compute-productive validate-resolved-start
         validate-resolved-repetitions current-grammar-source-map
         lr-spec-ref
         lower-rules
@@ -547,6 +548,118 @@
            (table-ref dependents name '()))
           (propagate))))
     (values (filter (lambda (name) (table-ref nullable name #f)) names) nullable)))
+
+;;; Productivity is finite terminal derivation, including epsilon. Terminals
+;;; satisfy clauses here; they block clauses in nullable analysis.
+(defstruct productive-clause (owner remaining))
+
+(def (compute-productive productions)
+  (let ((names (nonterminals productions))
+        (productive (make-table test: eq?))
+        (dependents (make-table test: eq?))
+        (work '()))
+    (def (publish! name)
+      (unless (table-ref productive name #f)
+        (table-set! productive name #t)
+        (set! work (cons name work))))
+    (for-each
+     (lambda (production)
+       (let (references
+             (filter-map
+              (lambda (value)
+                (let (symbol (base-symbol value))
+                  (and (nonterminal-symbol? symbol) (nonterminal-name symbol))))
+              (production-rhs production)))
+         (if (null? references)
+           (publish! (production-lhs production))
+           (let (clause (make-productive-clause (production-lhs production)
+                                               (length references)))
+             ;; Count occurrences, not unique names: A -> B B has two obligations.
+             (for-each
+              (lambda (name)
+                (table-set! dependents name
+                            (cons clause (table-ref dependents name '()))))
+              references)))))
+     productions)
+    (let propagate ()
+      (unless (null? work)
+        (let (name (car work))
+          (set! work (cdr work))
+          (for-each
+           (lambda (clause)
+             (let (remaining (- (productive-clause-remaining clause) 1))
+               (productive-clause-remaining-set! clause remaining)
+               (when (zero? remaining) (publish! (productive-clause-owner clause)))))
+           (table-ref dependents name '()))
+          (propagate))))
+    (values (filter (lambda (name) (table-ref productive name #f)) names) productive)))
+
+;;; LR parser entries require a finite derivation. Dead alternatives/rules stay
+;;; in the CFG; only an unproductive selected start is an admission error.
+;;; Explain blockers in selected author expressions, never synthetic helpers.
+(def (validate-resolved-start rules root productive)
+  (unless (table-ref productive root #f)
+    (let ((rows (make-table test: eq?))
+          (seen (make-table test: eq?))
+          (facts (make-table test: eq?))
+          (sources (let (entry (assq 'rule (current-grammar-source-map)))
+                     (if entry (cdr entry) '()))))
+      (for-each (lambda (row) (table-set! rows (car row) (cadr row))) rules)
+      (def (origin owner path)
+        (let (source (assq owner sources))
+          (list (cons 'rule owner) (cons 'expressionPath (reverse path))
+                (cons 'source (if source (cdr source) '())))))
+      (def (productive? expr)
+        (let (cached (table-ref facts expr 'unknown))
+          (if (not (eq? cached 'unknown)) cached
+            (let (value
+                   (case (car expr)
+                     ((empty layout-end literal token layout-start layout-next repeat optional) #t)
+                     ((reference) (table-ref productive (cadr expr) #f))
+                     ((sequence) (every productive? (cdr expr)))
+                     ((choice) (any productive? (cdr expr)))
+                     ((repeat1) (productive? (cadr expr)))
+                     ((field alias) (productive? (caddr expr)))
+                     ((precedence) (productive? (cadddr expr)))
+                     (else #f)))
+              (table-set! facts expr value) value))))
+      (def pending (list root))
+      (table-set! seen root #t)
+      (def blockers '())
+      (def (visit owner expr path)
+        (case (car expr)
+          ((reference)
+           (let (name (cadr expr))
+             (unless (table-ref seen name #f)
+               (table-set! seen name #t)
+               (set! pending (cons name pending)))
+             (list (list (cons 'rule name) (cons 'referenceOrigin (origin owner path))))))
+          ((choice)
+           ;; Every alternative is blocked. A single cyclic path is not a proof.
+           (apply append (map (lambda (child index) (visit owner child (cons index path)))
+                              (cdr expr) (iota (length (cdr expr))))))
+          ((sequence)
+           ;; One failed operand suffices to block this complete sequence.
+           (let loop ((children (cdr expr)) (index 0))
+             (cond ((null? children) '())
+                   ((productive? (car children)) (loop (cdr children) (+ index 1)))
+                   (else (visit owner (car children) (cons index path))))))
+          ((repeat1) (visit owner (cadr expr) (cons 0 path)))
+          ((field alias) (visit owner (caddr expr) (cons 0 path)))
+          ((precedence) (visit owner (cadddr expr) (cons 0 path)))
+          (else '())))
+      (let loop ()
+        (unless (null? pending)
+          (let* ((owner (car pending)) (expr (table-ref rows owner #f)))
+            (set! pending (cdr pending))
+            (set! blockers
+              (cons (list (cons 'ruleOrigin (origin owner '()))
+                          (cons 'defined? (and expr #t))
+                          (cons 'blockedReferences (if expr (visit owner expr '()) '()))) blockers))
+            (loop))))
+      (error "LR start rule has no finite terminal derivation" root
+             (list (cons 'startOrigin (origin root '()))
+                   (cons 'unproductiveRuleBlockers (reverse blockers)))))))
 
 (def (symbol-first symbol first)
   (let (symbol (base-symbol symbol))

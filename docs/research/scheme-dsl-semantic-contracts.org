@@ -38,14 +38,15 @@ The full source-aware publication path remains an integration obligation.
 |---------------+---------------------+-------------------|
 | Nullable | Subsets of finite nonterminal set N; add a production's lhs when every rhs symbol is nullable | A finite empty derivation exists in the lowered grammar; terminals are not nullable |
 | FIRST | One subset of finite terminal set T per nonterminal; union each rhs prefix through nullable symbols | A terminal can begin a derived sentential form; the remaining symbols need not complete |
-| Completion/productivity | Not supplied by either API | Requires its own meaning and analysis; nonnullable plus nonempty FIRST is insufficient |
+| Completion/productivity | Finite nonterminal membership; terminals/epsilon satisfy clauses and all nonterminal occurrences must complete | =compute-productive= establishes a finite terminal derivation; the LR target rejects an unproductive selected entry |
 
-Both current algorithms start with empty facts and grow monotonically. Nullable
-has at most |N| newly admitted membership facts; FIRST has at most |N| * |T|.
+All three algorithms start with empty facts and grow monotonically. Nullable
+and productivity each have at most |N| newly admitted membership facts; FIRST has at most |N| * |T|.
 These are bounds on strict fact additions, not sweep counts, compilation time or
 parser latency. FIRST uses existing indexed terminal masks and decodes them to
 its public table; epsilon is represented by nullable, not a FIRST terminal.
 No widening or duplicate analyzer is needed for these finite domains.
+[[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][The productivity implementation contract]] records the LR policy and its controls.
 
 The proof obligations are distinct: lowering preserves the intended grammar
 observation; each transfer implements that observation; iteration reaches the
@@ -62,9 +63,11 @@ completed proof of this engine's lowering or tree construction.
        (productions (lower-rules rules 'item)))
   (let-values (((nullable nullable-index) (compute-nullable productions)))
     (let-values (((first first-index) (compute-first productions nullable-index)))
-      (list (table-ref nullable-index 'item #f)
-            (table-ref first-index 'item '())))))
-;; Expected observations: #f and ((terminal token identifier)).
+      (let-values (((productive productive-index) (compute-productive productions)))
+        (list (table-ref nullable-index 'item #f)
+              (table-ref first-index 'item '())
+              (table-ref productive-index 'item #f))))))
+;; Expected observations: #f, ((terminal token identifier)), #f.
 ;; blocked has no terminating production, so FIRST is not a completion witness.
 
 ;; Question 1: Why is this DSL design better?
@@ -77,7 +80,7 @@ completed proof of this engine's lowering or tree construction.
 ;; contract distinguishes a sentential prefix from a completed derivation.
 ;; Falsifier: using nonempty FIRST to promise completion for the dead-tail grammar,
 ;; or reporting an analysis fact from a grammar different from the published one.
-;; Limit: these facts do not prove tree equivalence, productivity or runtime speed.
+;; Limit: these facts do not prove lexer realizability, tree equivalence or runtime speed.
 #+end_src
 
 On 2026-10-06, this existing control was rerun under =gtimeout -k 2 10=

@@ -334,8 +334,8 @@ fixed-point correctness, termination and efficiency. Reading these sections does
 not reproduce the appendix proofs or prove our compiler correct.
 
 Our application of this framework is specified in
-[[file:scheme-dsl-semantic-contracts.org::*Derived facts after expansion: nullable, FIRST and completion][the derived-fact contract]]. The current =compute-nullable= and =compute-first=
-already compute finite-domain fixed points in the existing LR owner. Nullable
+[[file:scheme-dsl-semantic-contracts.org::*Derived facts after expansion: nullable, FIRST and completion][the derived-fact contract]]. The current =compute-nullable=, =compute-first= and =compute-productive=
+compute finite-domain fixed points in the existing LR owner. Nullable
 now uses [[file:dsl-effective-grammar-admission.org::*Dependency-driven nullable closure (2026-10-09)][occurrence dependency propagation]]; FIRST uses
 [[file:dsl-effective-grammar-admission.org::*FIRST propagation: contract and implementation][nullable-prefix dependencies and coalesced terminal deltas]].
 This changes evaluation order and work, not the meaning of the nullable fact.
@@ -345,9 +345,10 @@ analyzer. Finite monotone growth establishes termination; semantic correspondenc
 and transfer correctness are additional obligations. Nonempty FIRST does not
 establish a completed derivation, as the existing dead-tail control demonstrates.
 
-Productivity, field multiplicity or child-category analysis would require their
-own consumer, concrete meaning and transfer contract. They are research questions,
-not facts supplied by the present nullable/FIRST API. Any grammar rewrite must
+[[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][Productivity now has a finite-word contract and LR entry-admission consumer]].
+It counts nonterminal occurrences while terminals/epsilon satisfy obligations.
+Field multiplicity and child-category analysis still require their own consumer,
+concrete meaning and transfer contract. Any grammar rewrite must
 also preserve the tree, field and source contracts; recognition facts alone do
 not justify changing an author's declared grammar.
 

@@ -8,6 +8,10 @@
 (export region-scanner-test)
 (def (rejects? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
+(def (collision-rows root count)
+  (let loop ((n 0) (rows '()))
+    (if (= n count) rows
+      (loop (+ n 1) (cons (list (string-append root (number->string n) "{") #\{ #\} 1) rows)))))
 (def region-scanner-test
   (test-suite "closed region plans"
     (test-case "longest openers and initial depth retain word boundaries"
@@ -114,6 +118,32 @@
              (check (region-source-pair-end opaque 0) => 6))))
        '((("#{" #\{ #\} 1) ("@" #\@ #\! 1) ("@(" #\( #\) 1))
          (("@(" #\( #\) 1) ("@" #\@ #\! 1) ("#{" #\{ #\} 1)))))
+    (test-case "shared prefix paths retain shorter admitted terminals in sparse and dense catalogs"
+      (for-each
+       (lambda (extra)
+         (let* ((plan (prepare-region-plan
+                        (list '(";") '()
+                          (append '(("#{" #\{ #\} 1) ("@" #\@ #\! 1)
+                                    ("@a" #\a #\! 1) ("@ab{" #\{ #\} 1)) extra) #f)))
+                (text "#{@ab{x!}")
+                (source (prepare-scoped-region-source plan text '(("#{" "@a")))))
+           (check (region-source-pair-end source 0) => (string-length text))
+           ;; A direct query is unrestricted and cannot reuse the shorter scoped row.
+           (check (region-source-pair-end source 2) => 9)
+           (for-each
+            (lambda (text) (check (rejects? (lambda () (region-plan-pair-end plan text 0))) => #t))
+            '("@" "@a" "@ab{"))))
+       (list '() (collision-rows "@" 16))))
+    (test-case "Unicode continuation edges discriminate dense ASCII and Unicode roots"
+      (for-each
+       (lambda (root)
+         (let* ((texts (map (lambda (tail) (string-append root tail)) '("α{x}" "中{x}" "😀{x}")))
+                (pairs (map (lambda (text) (list (substring text 0 3) #\{ #\} 1)) texts))
+                (plan (prepare-region-plan (list '(";") '() (append pairs (collision-rows root 16)) #f))))
+           (for-each
+            (lambda (text) (check (region-plan-pair-end plan text 0) => (string-length text))) texts)
+           (check (rejects? (lambda () (region-plan-pair-end plan (string-append root "β{x}") 0))) => #t)))
+       '("@" "α")))
     (test-case "malformed rows and foreign quote prefixes reject at admission"
       (for-each
        (lambda (spec)

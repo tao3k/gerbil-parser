@@ -1255,3 +1255,118 @@ An earlier integration test loaded the old stage diagnostic and failed at
 =cdr= of the missing =cpu-p95-ms= association. Rebuilding the changed modules
 in dependency order resolved both stale-artifact failures. Those failed
 rounds are excluded; neither production contracts nor watchdogs were relaxed.
+
+* Rejected dense region-prefix lowering
+
+** Algorithm and source review
+
+This experiment used base =9c4b7635238eeb9f1fc8c8236a345b055589ddea=, the
+fixed Gerbil/GCC SDK and unchanged 120-second total / 5-second idle guards.
+It investigated the remaining linear walk within a first-codepoint bucket.
+The engine's =make-bounded-literal-end-scanner= already follows a character
+trie. The experiment adapted that representation to terminals containing the
+original owned region rows, preserving cache identity and scope filtering.
+
+The first candidate used a trie for every nonempty bucket. A later candidate
+kept buckets of at most eight declarations as lists and compiled larger ones
+into tries. The final candidate additionally sorted short buckets by descending
+opener length, allowing the first admitted match to commit immediately.
+A unique-prefix admission rule ensures that two different terminals of the
+same width cannot both match the same source position. A rejected terminal
+cannot stop traversal: a longer descendant might still be admitted.
+
+Trie preparation uses memory proportional to its distinct prefix nodes.
+Lookup follows the source prefix with expected constant-time hash edge access;
+scope membership remains a list search at terminals. This improves dense
+first-codepoint collision scaling, but adds representation discrimination and
+edge lookups to small catalogs. It does not remove word captures, intermediate
+recognition nodes or final token publication.
+
+This distinction agrees with the materialized-token cost discussed in
+[[https://arxiv.org/html/2304.05276][flap: A Deterministic Parser with Fused Lexing]], Sections 2.2 and 2.8.
+This experiment is static prefix lookup specialization, not lexer/parser
+fusion, and does not establish the paper's deterministic grammar assumptions
+for this engine.
+
+** Matched native control
+
+The control froze the original region/part/word producers and shared the same
+current scanner and result plan on both sides. It tested full artifact equality
+against the public parser and performed source-bound artifact admission inside
+each timed complete request. Preparation and post-measurement equality were
+outside timing. Natural GC was retained; allocation deltas were admitted only
+for intervals with no GC. No overlapping local build or test was running.
+
+The collision workload used 512 =a= characters and declarations of the form
+=a<number>{=. Each sample performed twenty complete region-end scans. Every
+lookup shares the first codepoint but fails its continuation. The final
+width-ordered bounded-list/trie candidate produced the following 11-sample
+ABBA medians (all eleven allocation samples were admitted):
+
+| Declarations | Reference CPU P50 ms, A / B | Candidate CPU P50 ms, A / B | Allocation P50 bytes, both |
+|--------------+----------------------------+---------------------------+---------------------------|
+| 1 | 0.690 / 0.717 | 0.720 / 0.722 | 272 |
+| 8 | 1.342 / 1.501 | 1.351 / 1.352 | 272 |
+| 64 | 7.625 / 6.331 | 1.087 / 1.073 | 272 |
+| 256 | 23.190 / 23.048 | 1.074 / 1.077 | 272 |
+
+These are repeated region lookup costs, not public parser speed ratios.
+The constant allocation includes the measurement call boundary.
+
+The final complete-request control used 31 CPU samples per block to resolve
+variance in earlier eleven-sample controls:
+
+| Variant | CPU P50 ms | Allocation P50 bytes | Allocation samples / CPU samples |
+|---------+------------+----------------------+---------------------------------|
+| Reference A | 22.027 | 35939856 | 23 / 31 |
+| Candidate A | 21.971 | 35940496 | 23 / 31 |
+| Candidate B | 25.720 | 35940496 | 24 / 31 |
+| Reference B | 21.842 | 35940496 | 23 / 31 |
+
+Allocation did not decrease. Candidate B was approximately 17.8% slower than
+Reference B; Candidate A was approximately level with Reference A. This
+cannot prove a universal regression, but it fails to establish a reliable
+complete-request benefit without a regression. The production implementation
+was therefore restored to the prepared first-codepoint buckets. Neither the
+trie nor width ordering was promoted. The collision speed ratio is not used
+to claim progress on the complete Tree-sitter gap.
+
+The final native controller completed in 13.242 s with exit 0 and
+=REGION-TRIE-CONTROL-OK=. Short, here-document, compound, large, malformed,
+Unicode and empty inputs passed complete-product parity. The final candidate
+semantic run passed seven modules and 96 cases in 12.905 s, with
+=TEST-SUITE-OK modules=7=, =OK= and exit 0. Temporary frozen modules and the
+private experiment controller were removed after recording these results.
+
+** Retained contract tests and excluded attempts
+
+The added tests cover sparse and dense catalogs through the existing public
+API, shorter admitted terminals beneath longer forbidden ones, unrestricted
+queries after scoped cache publication, truncated openers, and Unicode edges
+under both ASCII and Unicode first codepoints. A direct query intentionally
+selects its unrestricted longest opener rather than reusing the scoped shorter
+row. An initial test expected the scoped endpoint for that direct query; it
+was corrected to the actual public contract, not by changing the engine.
+
+Early private controller builds used an incorrect import operand order, a
+keyword instead of an identifier prefix, a nonexistent optional library path
+and a malformed optional-argument definition. Gerbil's shipped
+=gerbil/core/module-sugar.ss= defines =prefix-in= as a module followed by an
+identifier prefix, and validates =rename-in= identifiers. Those failed builds
+are excluded. An initial native run printed its final assertion receipt but
+hit the idle guard during normal exit cleanup; it is not a successful
+qualification. Subsequent controllers used the existing disposable test-child
+exit interface only after every assertion and flushed receipt. Guards were
+not relaxed and assertion failures were not bypassed.
+
+The next substantial target remains word-result intermediate construction.
+The prior decomposition attributed approximately 15.3 MB to word products
+and only 0.53 MB to source-frame preparation on the large fixture. Prefix
+lookup is not sufficient to remove that representation cost. Future producer
+lowering must preserve the complete artifact, owned source boundaries and
+negative-input behavior and demonstrate admitted allocation improvement.
+
+After restoring the default engine, its native region module rebuilt in
+5.547 s. The retained tests passed seven modules and 96 cases in 12.244 s
+with =TEST-SUITE-OK modules=7=, =OK= and exit 0. This final receipt qualifies
+the restored implementation plus new contracts, not the rejected candidate.

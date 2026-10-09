@@ -42,16 +42,44 @@
 (def (compiler-index-set-member? set index)
   (not (zero? (bitwise-and set (arithmetic-shift 1 index)))))
 
-;; Gambit's optimized first-set-bit visits only present indexes. Clearing the
-;; lowest bit makes sparse traversal O(cardinality), not O(maximum index),
-;; and allocates no intermediate list on the propagation hot path.
+;; The public set stays an immutable integer. Wide traversal extracts one
+;; positive fixnum-sized field at a time; clearing a field bit never copies
+;; the full bigint. Small and extremely sparse sets retain direct traversal.
+;; Empty fields count as work: use the direct path when there are fewer set
+;; bits than fields spanning the first and last bit. This prevents a long
+;; empty gap from turning two callbacks into a scan of every field.
+(def compiler-index-field-width (integer-length (##greatest-fixnum)))
+
 ;; : (-> Integer Procedure Void)
 (def (compiler-index-set-for-each set procedure)
-  (let loop ((rest set))
-    (unless (zero? rest)
-      (let (index (first-set-bit rest))
-        (procedure index)
-        (loop (bitwise-and rest (- rest 1)))))))
+  (def (direct)
+    (let loop ((rest set))
+      (unless (zero? rest)
+        (let (index (first-set-bit rest))
+          (procedure index)
+          (loop (bitwise-and rest (- rest 1)))))))
+  (def (visit field offset)
+    (let loop ((rest field))
+      (unless (zero? rest)
+        (let (index (first-set-bit rest))
+          (procedure (+ offset index))
+          (loop (bitwise-and rest (- rest 1)))))))
+  (if (fixnum? set)
+    (let loop ((rest set))
+      (unless (zero? rest)
+        (let (index (first-set-bit rest))
+          (procedure index)
+          (loop (bitwise-and rest (- rest 1))))))
+    (let* ((limit (integer-length set))
+           (width compiler-index-field-width)
+           (start (* width (quotient (first-set-bit set) width)))
+           (fields (quotient (+ (- limit start) (- width 1)) width)))
+      (if (< (bit-count set) fields)
+        (direct)
+        (let loop ((offset start))
+          (when (< offset limit)
+            (visit (extract-bit-field width offset set) offset)
+            (loop (+ offset width))))))))
 
 ;; Materialize in canonical catalog order through the standard library's
 ;; linear list builder.

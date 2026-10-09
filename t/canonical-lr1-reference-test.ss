@@ -5,7 +5,8 @@
 (import :std/test
         (only-in :core/observability/testing-case poo-flow-test-case)
         (only-in :gerbil-parser/src/compiler/funcs
-                 compiler-index-set-difference compiler-index-set-union)
+                 compiler-index-set-difference compiler-index-set-union
+                 compiler-index-set-for-each)
         (only-in :gerbil-parser/src/compiler/lr
                  compute-first compute-nullable lower-rules lr-spec-ref
                  production-rhs production-table production-terminal-catalog)
@@ -232,6 +233,47 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "indexed traversal agrees with bit membership across fields"
+      (def (check-mask mask)
+        (let ((actual '()) (expected '()))
+          (compiler-index-set-for-each mask (lambda (index) (set! actual (cons index actual))))
+          (let bits ((index 0))
+            (when (< index (integer-length mask))
+              (when (not (zero? (bitwise-and mask (arithmetic-shift 1 index)))) (set! expected (cons index expected)))
+              (bits (+ index 1))))
+          (check actual => expected)))
+      (let masks ((mask 0))
+        (when (< mask 4096) (check-mask mask) (masks (+ mask 1))))
+      (let (width (integer-length (##greatest-fixnum)))
+        (for-each
+         (lambda (index)
+           (let (bit (arithmetic-shift 1 index))
+             (check-mask bit)
+             (check-mask (- bit 1))
+             (check-mask (bitwise-ior bit 1 (arithmetic-shift 1 (quotient index 2))))))
+         [(- width 1) width (+ width 1) (* width 2) 1024 4096]))
+      ;; Reentrant traversal must not disturb the outer field or order.
+      (let ((outer '()) (inner '()))
+        (compiler-index-set-for-each (bitwise-ior 1 (arithmetic-shift 1 1024))
+          (lambda (index)
+            (set! outer (cons index outer))
+            (compiler-index-set-for-each 5 (lambda (bit) (set! inner (cons bit inner))))))
+        (check outer => '(1024 0))
+        (check inner => '(2 0 2 0)))
+      (let ((outer '()) (nested-count 0))
+        (compiler-index-set-for-each (- (arithmetic-shift 1 128) 1)
+          (lambda (index)
+            (set! outer (cons index outer))
+            (compiler-index-set-for-each 5 (lambda (_) (set! nested-count (+ nested-count 1))))))
+        (check outer => (reverse (iota 128)))
+        (check nested-count => 256))
+      (let ((calls 0) (sentinel (list 'callback-failure)))
+        (check (with-catch identity
+                 (lambda ()
+                   (compiler-index-set-for-each (- (arithmetic-shift 1 128) 1)
+                     (lambda (_) (set! calls (+ calls 1)) (raise sentinel)))))
+               => sentinel)
+        (check calls => 1)))
     (poo-flow-test-case "LR(0) kernels uniquely identify states and goto targets"
       (check-lr0-kernel-identity precedence-expression-rules)
       (check-lr0-kernel-identity inactive-core-conflict-rules)

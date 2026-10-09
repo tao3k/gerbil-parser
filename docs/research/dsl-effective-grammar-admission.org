@@ -992,3 +992,139 @@ SDK/compiler identity must accompany those remote results.
 An identical subsequent preparation emitted =CONFORMANCE-CACHE-HIT= and exited
 0 in 11.902 seconds, with no recompilation. Inventory hashing is included in
 that cache wall time.
+
+
+* Immutable indexed-set traversal with local fixnum fields (2026-10-09)
+
+** Research boundary and design
+
+Chambi, Lemire, Kaser and Godin, /Better bitmap performance with Roaring
+bitmaps/, [[https://arxiv.org/pdf/1402.6407][arXiv:1402.6407v10]], Sections 1--2, motivate partitioning a
+bitmap's range and choosing work according to local density. Their Roaring
+representation combines sparse arrays and dense bitmap containers. This engine
+change adopts the bounded-field traversal idea; it does not implement Roaring,
+change the integer set representation, or inherit the paper's measured speedups.
+
+The [[https://gambitscheme.org/4.9.7/manual/#Bitwise_002doperations-on-exact-integers][Gambit integer-operation contract]] defines =extract-bit-field= as a fixed-width
+field shifted to index zero, and =first-set-bit= as the lowest present index.
+The engine derives field width from =integer-length(##greatest-fixnum)= rather
+than assuming a 64-bit host. Every extracted nonnegative field fits a positive
+fixnum. Per-bit subtraction and clearing operate on that field; field extraction
+may still allocate internally. The original bigint remains immutable and remains
+the identity used in state interning, union, difference and equality.
+
+The previous traversal clears the lowest present bit by subtracting one and
+ANDing the complete remaining integer. Dense wide masks repeat bigint arithmetic
+for every callback. The new private traversal starts at the field containing
+the first bit and visits fields in increasing order until the last bit. Within
+each field it emits the lowest present index plus the field offset. Disjoint
+fields and ascending local indices preserve each callback exactly once in its
+original order. No mutable global cursor, list conversion, POO slot or author
+API is introduced. Nested traversals have independent local state; callback
+exceptions propagate without admitting later callbacks.
+
+A naive field-only experiment substantially regressed the two-bit mask spanning
+4096 positions: 1000 traversals, median 0.762 -> 4.323 ms. It passed full artifact
+equality but is rejected as the final algorithm. Empty fields count as work.
+The retained algorithm selects direct clearing when cardinality is smaller than
+the number of fields between the first and last bit. Fixnum masks retain the
+original loop without offset arithmetic. This density choice uses input facts,
+not a grammar filename, language count, runtime cache or benchmark threshold.
+No asymptotic claim ignores field extraction, bigint cost or cardinality setup.
+
+** Independent controls and complete-call admission
+
+One Case in the existing canonical LR Suite compares callback lists to independent
+per-position membership: all masks below 4096, fixnum and field boundaries,
+dense prefixes, sparse high indices through 4096, both direct and field nested
+traversals, and immediate callback-failure propagation. The Suite continues to
+own its existing canonical/direct parse controls; no duplicate Suite is added.
+
+The comparison baseline freezes =f4606c3= sources for =funcs=, =lr=,
+=lr-automaton=, =lr-lookahead=, =lr-partition=, =lr-conflict-candidates=,
+=lr-follow-automaton= and =lr-compiler= under a separate temporary module package.
+All indexed-set consumers, including FIRST materialization in =lr=, therefore
+use the original traversal on the baseline side. Shared input Grammar/Parser IR
+and language fixtures retain their original identities. Both sides are compiled
+with identical optimized/static options through the fixed Gerbil/GCC SDK.
+
+Complete calls alternate baseline/candidate order with explicit GC before each
+call. Equality compares the entire LRSpec outside timing. Measurements include
+analysis, traversal selection, field extraction, in-call GC and publication.
+The existing completed-work LR trace is enabled identically on both sides.
+Five grammar families across five construction modes provide 25 complete-artifact
+pairs, followed by 21 mixed-family pairs at each size, 21 actual TLA+ LALR pairs
+and three actual TLA+ FOLLOW pairs. CPU and in-call GC observations describe
+local traced construction, not parser runtime, FFI, Rust AOT or CI throughput.
+
+The final traversal microcontrol uses 11 batches for each mask. CPU medians:
+
+| Mask | Traversals per batch | Original ms | Retained ms |
+|------+----------------------+-------------+-------------|
+| fixnum 1023 | 10000 | 5.018 | 5.047 |
+| dense 4096-bit prefix | 100 | 254.531 | 19.310 |
+| two bits at 0 and 4096 | 1000 | 0.751 | 0.850 |
+| singleton at 65536 | 1000 | 6.152 | 2.936 |
+| 16-bit cluster starting at 4080 | 1000 | 5.152 | 1.042 |
+
+The sparse guard retains a measured selection cost (~0.099 ms per 1000 calls);
+it bounds the empty-gap regression rather than claiming zero overhead. Small
+fixnum cost is nearly unchanged in this control. Full construction costs are the
+admission criterion. Raw temporary native logs retain rejected experiments and
+final receipts; no JSON snapshot or extra report supervisor is added.
+
+
+** Retained complete-construction receipt
+
+The final density-selected traversal passed all 25 full LRSpec mode/family pairs
+and the complete paired calls under unchanged 90-second total/5-second idle
+limits. Controller exit 0, elapsed 57.949 seconds, required
+=CURSOR-NATIVE-AB-OK= present. Complete CPU medians:
+
+| Complete workload | Pairs | Original ms | Retained ms |
+|-------------------+-------+-------------+-------------|
+| mixed FOLLOW, 8 regions | 21 | 1.568 | 1.526 |
+| mixed FOLLOW, 24 regions | 21 | 4.339 | 4.260 |
+| mixed FOLLOW, 48 regions | 21 | 10.363 | 10.062 |
+| actual TLA+ default LALR | 21 | 14.899 | 14.251 |
+| actual TLA+ FOLLOW | 3 | 8879.933 | 3517.695 |
+
+The three actual FOLLOW pairs are 9153.577 -> 3517.695, 8879.933 -> 3127.235,
+and 6769.970 -> 3819.975 ms. All produce the exact same complete artifact,
+8149 states. Baseline variation and only three expensive pairs bound the 60.4%
+median reduction to this local traced workload. In-call GC-count medians are
+84 -> 26; GC CPU medians are 4842.098 -> 1421.156 ms. These are matched
+collection observations, not a direct byte-allocation measurement. Unchanged
+production LALR remains 390 states and showed no complete-cost regression here.
+
+The final traversal microcontrol also exited 0 under 60-second total/5-second
+idle limits, elapsed 5.914 seconds. Independent source controls passed 55 Cases
+(37 resolved, 18 canonical), =TEST-SUITE-OK=, =OK= and controller exit 0,
+elapsed 21.592 seconds. Case count includes the one new shared traversal oracle.
+The existing conformance owner will independently admit the compiled form.
+
+During this experiment, preceding delivered head =f4606c3= completed Ubuntu
+Scheme/language and Rust AOT CI successfully (run =37901275708=). Those remote
+receipts belong to the preceding head; the density traversal requires its own
+post-delivery CI result. GCC and the original progress/deadline policy remain
+unchanged.
+
+
+** Compiled consumer closure
+
+After source and algorithm stabilization, complete preparation exited 0 in
+89.723 seconds with unchanged 240-second total/5-second idle limits. The compiled
+semantic entry passed 373 Cases across 23 groups, including the new traversal
+oracle. Semantic, concise runtime, history, native POO runtime, provenance and
+all-language benchmark child entries all exited 0; =DSL-RESEARCH-CLOSURE-OK=
+and =OK= were emitted by the existing Scheme process owner. Preparation is kept
+outside construction CPU measurements; it is still required for delivery.
+
+Final raw evidence remains in temporary native products:
+=/private/tmp/parser-cursor-final-ab-driver.log=,
+=/private/tmp/parser-cursor-final-traversal-driver.log=,
+=/private/tmp/parser-cursor-controls-driver.log=,
+=/private/tmp/parser-cursor-conformance-build-driver.log=, and
+=/private/tmp/parser-cursor-research/exits.tsv=. The previously admitted TLA+
+construction benchmark command exercises this engine change without another
+benchmark facade or report format.

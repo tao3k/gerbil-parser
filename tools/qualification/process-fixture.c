@@ -19,6 +19,18 @@ int main(int argc, char **argv) {
   if (strcmp(argv[1], "unrelated") &&
       ((fcntl(1, F_GETFL) & O_NONBLOCK) ||
        (fcntl(2, F_GETFL) & O_NONBLOCK))) return 43;
+  if (!strcmp(argv[1], "identity")) {
+    /* The target must replace the acknowledged session leader, not be its
+       child. The previous waiting-GXI topology fails this assertion. */
+    if (getpid() != getsid(0)) return 45;
+    puts("NATIVE-EXEC-IDENTITY-OK");
+    return 0;
+  }
+  if (!strcmp(argv[1], "arguments")) {
+    if (argc != 3 || strcmp(argv[2], "λ a;$(not-a-command)")) return 46;
+    puts("NATIVE-EXEC-ARGUMENTS-OK");
+    return 0;
+  }
   if (!strcmp(argv[1], "flood")) {
     if (argc != 3) return 2;
     mark(argv[2]);

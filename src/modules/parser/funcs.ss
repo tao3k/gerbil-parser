@@ -3,6 +3,7 @@
 ;;; never become the semantic owner of grammar composition or behavior.
 
 (import (only-in ./source-pattern-funs
+                 source-priority-forms
                  source-offset-after source-pattern-end source-pattern-at?
                  source-ascii-ci-pattern-at?)
         (only-in ./objects
@@ -15,6 +16,7 @@
                  grammar-composition))
 (export grammar-role->alist
         grammar->alist
+        source-priority-forms
         source-offset-after source-pattern-end source-pattern-at?
         source-ascii-ci-pattern-at?)
 

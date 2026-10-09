@@ -1,5 +1,17 @@
 set shell := ["sh", "-eu", "-c"]
 
+test-source-priority:
+    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/source-priority-test.ss
+
+build-source-priority output load_path:
+    mkdir -p "{{output}}"
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/modules/parser/source-pattern-funs.ss src/modules/parser/funcs.ss src/modules/parser/interface.ss
+
+test-process-contracts: build-qualification
+    mkdir -p .data/process-controls
+    ${CC:-cc} -std=c11 -Wall -Wextra -Werror tools/qualification/process-fixture.c -o .data/process-controls/fixture
+    gerbil env gxi tools/qualification/process-test.ss "$PWD/.data/process-controls/fixture"
+
 build-qualification:
     gerbil env gxi build-qualification.ss compile
 

@@ -1,6 +1,5 @@
 ;;; A fresh POSIX session contains the compiler/test child and its descendants.
-(import :gerbil-parser/tools/qualification/process-os
-        (only-in :std/misc/process run-process/batch))
+(import :gerbil-parser/tools/qualification/process-os)
 (export main)
 (def (main witness loadpath program . arguments)
   (let (owner (start-session!))
@@ -8,9 +7,7 @@
     (when (< owner 0) (error "cannot establish owned process session"))
     (call-with-output-file witness (lambda (port) (write owner port))))
   (if (zero? (string-length loadpath)) (setenv "GERBIL_LOADPATH") (setenv "GERBIL_LOADPATH" loadpath))
-  (let (status #f)
-    (run-process/batch (cons program arguments)
-      check-status: (lambda (raw _) (set! status raw)))
-    (call-with-output-file (string-append witness ".exit") (lambda (port) (write status port)))
-    (exit (if (zero? (modulo status 256)) (quotient status 256)
-              (+ 128 (modulo status 128))))))
+  ;; Successful exec never returns. The parent observes the target's actual
+  ;; wait status through its existing process port, including signal exits.
+  (replace-process! program (cons program arguments))
+  (error "cannot replace qualification process" program))

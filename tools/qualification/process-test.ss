@@ -8,6 +8,23 @@
    (def (run mode (budget 1.5) (idle 0.8))
     (run-observed-process [fixture mode] (path-expand (string-append mode ".log") directory)
       timeout: budget idle-timeout: idle))
+   ;; The process contract must not consume an unrelated caller notification.
+   (thread-send (current-thread) '(caller-notification))
+   (let (result (run "identity" 3 1.5))
+    (check (= (process-result-status result) 0) 'exec-session-leader)
+    (check (not (process-result-reason result)) 'exec-identity-reason)
+    (check (receipt-present? "^NATIVE-EXEC-IDENTITY-OK$"
+                            (utf8->string (process-result-output result))) 'exec-identity))
+   (check (equal? (thread-receive 0 #f) '(caller-notification)) 'caller-mailbox-preserved)
+   (let (result (run-observed-process [fixture "arguments" "λ a;$(not-a-command)"]
+                   (path-expand "arguments.log" directory) timeout: 3 idle-timeout: 1.5))
+    (check (= (process-result-status result) 0) 'exec-argv)
+    (check (not (process-result-reason result)) 'exec-argv-reason))
+   (let (result (run-observed-process ["/nonexistent/gerbil-parser-controlled-missing"]
+                   (path-expand "missing.log" directory) timeout: 3 idle-timeout: 1.5))
+    (check (not (= (process-result-status result) 0)) 'exec-failure-status)
+    (check (eq? (process-result-reason result) 'error-output) 'exec-failure-reason))
+   (displayln "PROCESS-CONTROL-OK exec-identity utf8-argv exec-failure") (force-output)
    (for-each
     (lambda (row)
      (let (result (run (car row)))

@@ -3,8 +3,22 @@
 ;;; Strings are literal grammar inputs, not a second runtime matcher or DSL.
 
 (import (only-in :std/string/utf8 string-utf8-length))
-(export source-offset-after source-pattern-end source-pattern-at?
+(export source-priority-forms source-offset-after source-pattern-end source-pattern-at?
         source-ascii-ci-pattern-at?)
+
+;;; Ordered choice is a pure lowering operation, not another runtime matcher.
+;;; Keep every predicate in source order, including branches with no emissions:
+;;; a matched empty branch still suppresses the fallback.
+(def (source-priority-forms predicates branches (otherwise '()))
+  (unless (and (list? predicates) (list? branches)
+               (= (length predicates) (length branches))
+               (every list? branches) (list? otherwise))
+    (error "source priority requires equally sized predicate/statement lists"
+           predicates branches otherwise))
+  (let loop ((tests predicates) (bodies branches))
+    (if (null? tests) otherwise
+      `((if ,(car tests) ,(car bodies)
+             ,(loop (cdr tests) (cdr bodies)))))))
 
 (def (source-offset-after from count)
   (unless (and (exact-integer? count) (>= count 0))

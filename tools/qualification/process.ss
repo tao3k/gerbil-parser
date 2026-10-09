@@ -11,6 +11,17 @@
 
 (def (run-observed-process command log timeout: (budget 60) idle-timeout: (idle #f)
                            error-output?: (error-output? #t) observe: (observe void))
+  ;; Reader/waiter notifications belong to this invocation, not the caller's
+  ;; mailbox. Cancellation can leave queued notifications behind; a fresh
+  ;; green-thread coordinator prevents them from contaminating the next run.
+  (thread-join!
+   (spawn
+    (lambda ()
+      (run-observed-process/worker command log timeout: budget idle-timeout: idle
+                                   error-output?: error-output? observe: observe)))))
+
+(def (run-observed-process/worker command log timeout: (budget 60) idle-timeout: (idle #f)
+                                  error-output?: (error-output? #t) observe: (observe void))
   (unless (and (pair? command) (> budget 0) (or (not idle) (> idle 0)))
     (error "expected command and positive deadlines" command budget idle))
   (create-directory* (path-directory log))
@@ -113,8 +124,7 @@
        (when monitor (thread-terminate! monitor) (set! monitor #f))
        (when waiter (thread-terminate! waiter) (set! waiter #f))
        (unless raw (set! raw (process-status process 2 9)))
-       (let* ((exit-file (string-append witness ".exit"))
-              (command-raw (if (file-exists? exit-file) (call-with-input-file exit-file read) raw))
+       (let* ((command-raw raw)
               (bytes (get-output-u8vector capture)) (text (utf8->string bytes))
               (failed? (and error-output? (receipt-present? "^(ERROR\\b|\\*\\*\\* ERROR)" text))))
          (process-result (normal-exit-status command-raw) (or reason (and failed? 'error-output)

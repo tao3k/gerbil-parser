@@ -382,3 +382,121 @@ combined changes; it is still not an old/new native timing comparison or CI
 closure. The 55 scanner/deferred/source/parser Cases were then repeated on the
 rebased implementation and completed with final =OK= and exit zero. Together
 with the 83 product Cases, 138 distinct Cases passed on the combined code.
+
+* Rejected experiment: prepared closures for every projection operation
+
+The general projection interpreter was replaced experimentally with prepared
+operation closures. Static field and terminal checks stayed in preparation;
+request captures, source offsets and supplied child nodes remained dynamically
+admitted. A private request frame held the reverse child list and immutable
+sequence. The two existing single-operation fast paths stayed intact.
+
+This does not implement flap's generated, direct-call staged parser. Section 2.8
+and section 5.4 describe specialization that removes intermediate higher-order
+calls. Binding an operation to another closure retains an indirect call per
+operation and adds request-frame storage. The distinction matters for this DSL:
+prepared vocabulary is not evidence of specialized runtime code.
+
+Both engines were compiled with the same fixed GCC SDK, optimization flags and
+native consumers. Four complete artifacts matched each other and the public
+parser before timing. Single-request ABBA blocks included natural GC, one untimed
+warmup per block and 11 measurements; only no-GC allocation deltas were admitted.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| original-a | 32.932 | 39912208 | 8 |
+| closures-a | 47.442 | 39821648 | 8 |
+| closures-b | 46.698 | 39821008 | 8 |
+| original-b | 46.043 | 39912528 | 8 |
+
+The allocation reduction is approximately 0.23%. Neither paired comparison
+supports a complete-engine speed improvement. The original engine also slows
+substantially between blocks; concurrent host work prevents attributing the
+entire CPU difference to the transformation. This candidate was removed rather
+than promoted. Native qualification completed in 34.306 s, with exit 0 and
+=PROJECTION-STAGE-CONTROL-OK=.
+
+The permanent mixed-projection contract test covers optional spans, required
+nodes, repeated and empty parts, Unicode source origins, empty projections,
+foreign kinds, malformed parts and parent containment. Six modules completed
+87 cases in 19.301 s with exit 0 and all completion receipts. That receipt is
+for the closure experiment, before rebasing the latest scanner revision.
+
+The next experiment fuses dynamic child admission with child construction in
+the existing general executor. It retains opcode dispatch and does not claim
+full lexer/parser fusion. Compile-time admission proves parent, field and
+terminal membership; runtime admission must still prove supplied child kinds
+and byte containment. Only those redundant checks and traversals can be removed.
+
+* Rejected experiment: fused child admission in general projections
+
+A second candidate retained the general opcode executor, eliminated its final
+=result-plan-node= traversal and fused supplied-node kind/span admission with
+child construction. Static parent, field and terminal checks stayed in plan
+compilation. It introduced no request frame or per-operation prepared closure.
+This was a shared-engine transformation; language declarations were untouched.
+
+The sole PR's scanner match-materialization revision =8e98e83= was rebased first.
+Both controls then used that same scanner, the same fixed GCC SDK and flags,
+complete publication validation and the original projection baseline. Four
+complete products again matched both implementations and the public parser.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| original-a | 28.021 | 39461328 | 8 |
+| fused-a | 28.806 | 39236048 | 8 |
+| fused-b | 31.696 | 39235408 | 7 |
+| original-b | 28.133 | 39461648 | 8 |
+
+The allocation reduction is approximately 0.57%. CPU pairs regress approximately
+2.80% and 12.67%; this does not support a full-engine optimization. Qualification
+completed in 11.417 s with exit 0 and =PROJECTION-STAGE-CONTROL-OK=. The production
+candidate was removed. Small traversal changes are insufficient evidence of a
+solution to the measured Tree-sitter gap.
+
+Compilation initially failed the five-second idle guard, including a run of the
+unchanged scanner. Compiler diagnostics were buffered and repeatedly ended in
+truncated declaration lines. Disabling buffering on the temporary compiler
+control's diagnostic ports exposed actual work without synthetic progress.
+The same GCC flags and deadlines then completed both modules in 21.766 s with
+exit 0. These compiler failures do not establish parser runtime regressions.
+
+* Next shared-engine design: direct execution and publication ownership
+
+The evidence motivates a different experiment, not another generic closure
+wrapper. flap's staging removes higher-order dispatch through generated direct
+code; its fusion removes internal representations. Neither experiment above
+performed these transformations. No speed ratio from the paper transfers here.
+
+The implementation milestones are:
+
+1. Lower closed projection IR into generated Scheme constructors with fixed
+   capture indexes and direct token/node operations. The engine owns generation;
+   the public POO profile remains the declarative authority. Prove catalog,
+   capture-order and admission parity before admitting any specialization.
+2. Measure projection execution separately from recognition, token lexeme
+   materialization and artifact publication, while retaining a complete-product
+   control. Inspect generated Scheme/C to verify that opcode dispatch and
+   per-operation indirect calls actually disappear.
+3. Establish ownership for recognition nodes that exist only until publication.
+   Prototype an engine-owned event sink that emits the required canonical
+   artifact once, retaining byte coverage, child order, identities, diagnostics
+   and rejection semantics. Keep request state private; do not add language
+   callbacks or a second public artifact protocol.
+4. Admit direct emission only after full public products and Scheme/C/Rust
+   consumers preserve their contracts. Analyze unsupported recursion/context
+   forms explicitly; deterministic lexer/parser fusion requires properties that
+   have not been proved for every supported grammar.
+
+These are design obligations, not implemented AOT or direct-publication claims.
+The current engine still uses the original projection executor. Permanent tests
+strengthen its admission contract; temporary comparison modules are excluded
+from the commit. Future measurements must include the complete publication path
+and cannot promote a component allocation saving into an end-to-end speedup.
+
+The final retained tree, after both candidates were removed and scanner revision
+=8e98e83= was incorporated, completed seven modules in 11.544 s with
+=TEST-SUITE-OK modules=7=, =OK=, exit 0 and no missing receipts. This includes
+result projections, source recognition, contextual scanning, Bash, HCL, HL7 and
+FHIRPath. The final receipt validates the retained code and added contract test;
+it does not establish a new runtime speed improvement.

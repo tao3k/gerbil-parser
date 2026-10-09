@@ -34,8 +34,43 @@
   (projections
     (leaf Atom ((text span)) (token content glyph text required))
     (pair Pair ((left node) (right parts)) (one first left optional) (many second right))))
+(defresult-profile (mixed-results :: self ResultProfile.)
+  (projections
+    (mixed Mixed ((text span) (head node) (tail parts))
+      (token text glyph text optional) (one head head required) (many tail tail))
+    (empty Empty ())))
 (def result-profile-test
   (test-suite "declarative result construction"
+    (test-case "prepared mixed projections preserve order and reject foreign or escaping children"
+      (let* ((plan (compile-result-profile mixed-results))
+             (source (prepare-recognition-source (make-token 'raw "α😀" 11 17)))
+             (mixed (result-plan-projection plan 'mixed '((text span optional) (head node required) (tail parts))))
+             (empty (result-plan-projection plan 'empty '()))
+             (a (make-recognition-node 'Empty 11 13 '()))
+             (b (make-recognition-node 'Empty 13 17 '())))
+        (let-values (((node tokens) (result-projection-build mixed source 0 2
+                           (vector (cons 0 1) (cons a '()) (cons (list b b) '())))))
+          (check (map recognition-child-field (recognition-node-children node)) => '(text head tail tail))
+          (check (map token-lexeme (recognition-sequence->list tokens)) => '("α")))
+        (let-values (((node tokens) (result-projection-build mixed source 0 2
+                           (vector #f (cons a '()) (cons '() '())))))
+          (check (map recognition-child-field (recognition-node-children node)) => '(head))
+          (check (recognition-sequence->list tokens) => '()))
+        (let-values (((node tokens) (result-projection-build empty source 0 2 (vector))))
+          (check (recognition-node-start node) => 11)
+          (check (recognition-node-end node) => 17)
+          (check (recognition-node-children node) => '()))
+        (for-each (lambda (captures)
+                    (check (rejects? (lambda () (result-projection-build mixed source 0 2 captures))) => #t))
+          (list (vector #f #f (cons '() '()))
+                (vector (cons 0 3) (cons a '()) (cons '() '()))
+                (vector #f (cons (make-recognition-node 'Foreign 11 13 '()) '()) (cons '() '()))
+                (vector #f (cons a '()) (cons (list (make-recognition-node 'Empty 10 13 '())) '()))
+                (vector #f (cons a '()) (cons (list (make-recognition-node 'Empty 13 18 '())) '()))
+                (vector #f (cons a '()) (cons (list #f) '()))
+                (vector #f (cons a '()) (cons (cons b b) '()))))
+        (check (rejects? (lambda () (result-projection-build empty
+                    (prepare-recognition-source (make-token 'raw "α" -2 0)) 0 1 (vector)))) => #t)))
     (test-case "projection-only profile derives constructors, fields and terminals without repetition"
       (check (result-plan-catalog (compile-result-profile inferred-results))
              => '((syntax-kinds (Atom result (content)) (Pair result (first second))) (terminals (glyph token)))))

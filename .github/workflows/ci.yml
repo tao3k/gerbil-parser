@@ -391,7 +391,7 @@ jobs:
       - name: Verify Rust ownership over the C ABI
         run: |
           CARGO_TARGET_DIR="$PWD/target" \
-            gxi qualify.ss run --timeout 90 --idle-timeout 30 \
+            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 30 \
             --log .data/rust-native-build.log \
             -- cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml
           GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_language_abi_fixture.a" \

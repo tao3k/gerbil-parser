@@ -11,7 +11,7 @@
                  rust-module write-rust-module))
 (export define-line-event-parser event-node event-token line-starts-with?
         compile-line-event-parser generate-line-event-module
-        source-line-events kind-index)
+        source-line-events fold-source-lines kind-index)
 
 (defrules event-node ()
   ((_ kind child ...)
@@ -25,20 +25,18 @@
   (and (<= (string-length prefix) (string-length line))
        (string=? (substring line 0 (string-length prefix)) prefix)))
 
-(def (source-line-events source root visit)
+(def (fold-source-lines source initial visit)
   (let (size (string-length source))
     (let loop ((start 0) (cursor 0) (byte-start 0)
-               (reversed (list (list 'start root))))
+               (state initial))
       (cond
        ((= cursor size)
         (if (= start size)
-          (reverse (cons '(finish) reversed))
+          state
           (let* ((line (substring source start size))
                  (byte-end (+ byte-start
                               (string-utf8-length line))))
-            (reverse (cons '(finish)
-                           (foldl cons reversed
-                                  (visit line byte-start byte-end)))))))
+            (visit line byte-start byte-end state))))
        ((or (char=? (string-ref source cursor) #\newline)
             (char=? (string-ref source cursor) #\return))
         (let* ((after (+ cursor
@@ -51,8 +49,15 @@
                (byte-end (+ byte-start
                             (string-utf8-length line))))
           (loop after after byte-end
-                (foldl cons reversed (visit line byte-start byte-end)))))
-       (else (loop start (+ cursor 1) byte-start reversed))))))
+                (visit line byte-start byte-end state))))
+       (else (loop start (+ cursor 1) byte-start state))))))
+
+(def (source-line-events source root visit)
+  (reverse
+   (cons '(finish)
+         (fold-source-lines source (list (list 'start root))
+           (lambda (line start end reversed)
+             (foldl cons reversed (visit line start end)))))))
 
 (def (kind-index grammar name category)
   (let (kinds (cdr (assq 'syntax-kinds (language-grammar-ir grammar))))

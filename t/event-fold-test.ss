@@ -10,6 +10,8 @@
                  event-fold-ir-json run-event-fold)
         (only-in :gerbil-parser/src/compiler/event-fold-runtime
                  prepare-event-fold-program run-event-fold-program)
+        (only-in :gerbil-parser/src/compiler/event-strategy-aot
+                 fold-source-lines source-line-events)
         (only-in :gerbil-parser/src/compiler/event-fold-state-frame
                  prepare-fold-state-layout instantiate-fold-state-frame
                  fold-frame-ref fold-frame-update! fold-frame-bound?
@@ -21,6 +23,33 @@
 
 (def event-fold-test
   (test-suite "Scheme stateful event fold AOT"
+    (test-case "native source fold retains line endings byte bounds and initial state"
+      (for-each
+       (lambda (fixture)
+         (check
+          (reverse
+           (fold-source-lines (car fixture) '(seed)
+             (lambda (line start end reversed)
+               (cons (list line start end) reversed))))
+          => (cadr fixture)))
+       '(("" (seed))
+         ("tail" (seed ("tail" 0 4)))
+         ("\n" (seed ("\n" 0 1)))
+         ("é\r\nλ\rtail" (seed ("é\r\n" 0 4) ("λ\r" 4 7) ("tail" 7 11)))
+         ("a\n\n" (seed ("a\n" 0 2) ("\n" 2 3)))))
+      (check (source-line-events "é\r\nλ" 'Document
+               (lambda (_ start end) (list (list 'token 'Line start end))))
+             => '((start Document) (token Line 0 4) (token Line 4 6) (finish))))
+    (test-case "native fold chains multiple line emissions before final transitions"
+      (let ((forms '((start-node Text) (token Line start end) (finish-node)))
+            (finish '((start-node Ending) (finish-node))))
+        (check (run-event-fold "é\r\nλ" 'Document '() forms finish)
+               => '((start Document)
+                    (start Text) (token Line 0 4) (finish)
+                    (start Text) (token Line 4 6) (finish)
+                    (start Ending) (finish) (finish)))
+        (check (run-event-fold "" 'Document '() forms finish)
+               => '((start Document) (start Ending) (finish) (finish)))))
     (test-case "prepared state layout isolates values and temporary bindings"
       (let* ((layout (prepare-fold-state-layout '((flag . #f) (count . 0) (stack))))
              (first (instantiate-fold-state-frame layout))

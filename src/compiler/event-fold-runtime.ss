@@ -23,7 +23,7 @@
                  fold-future-heading-title? fold-future-heading-spec?
                  fold-future-marker-before-boundary?
                  fold-source-slices-equal?)
-        (only-in ./event-strategy-aot source-line-events line-starts-with?))
+        (only-in ./event-strategy-aot fold-source-lines line-starts-with?))
 (export prepare-event-fold-program run-event-fold-program
         run-event-fold fold-ascii-prefix? fold-frame-finishes
         fold-initial-states fold-marker-byte
@@ -823,14 +823,13 @@
                   (error "invalid event fold parameter override" override))
                 (fold-frame-update! states (car override) (cdr override)))
               overrides)
-    (let* ((events
-            (source-line-events
-             source root
-             (lambda (line start end)
-               (reverse
-                (fold-statements line-forms source-bytes line start end
-                                 states '() helpers)))))
-           (closing (reverse
-                     (fold-statements finish-forms source-bytes "" 0 0
-                                      states '() helpers))))
-      (append (reverse (cdr (reverse events))) closing '((finish)))))))
+    (let* ((reversed
+            (fold-source-lines
+             source (list (list 'start root))
+             (lambda (line start end reversed)
+               (fold-statements line-forms source-bytes line start end
+                                states '() helpers '() reversed))))
+           (closing
+            (fold-statements finish-forms source-bytes "" 0 0
+                             states '() helpers '() reversed)))
+      (reverse (cons '(finish) closing))))))

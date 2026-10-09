@@ -1,0 +1,33 @@
+#+title: Native EventFold source accumulation
+
+* Ownership
+
+The engine owns =fold-source-lines=, the byte-bound source-line traversal used
+by both the public line-event strategy and the prepared EventFold executor.
+Org grammars do not implement another line scanner or event builder.
+
+* Algorithm
+
+The traversal threads a caller-owned accumulator through each complete line,
+including CR, LF, CRLF and a final unterminated line. Byte boundaries use native
+UTF-8 length; an empty source does not invoke the visitor. The general
+=source-line-events= interface retains its original forward event sequence.
+
+EventFold already emits into a persistent reversed event chain. Its executor
+now carries that chain across source lines and final transitions, then restores
+forward order exactly once. It no longer reverses and recopies each line's
+events, or reverses the full event list twice to remove the provisional root
+finish before appending final transitions. The chain remains request-owned;
+there is no shared mutable queue, kernel patch or Rust syntax implementation.
+
+* Admission
+
+The native Fold catalog includes controls for empty input, unterminated input,
+consecutive endings, mixed UTF-8 CRLF/CR/LF byte bounds, multiple emissions per
+line and final transitions after all line events. Existing helper, state,
+outline and invalid-program cases remain mandatory.
+
+This change reduces event-spine construction and traversal, not statement
+interpretation. Prepared predicates and statements still require further
+engine specialization. Allocation reduction is not a measured throughput win;
+consumer conformance and matched performance receipts remain separate gates.

@@ -657,3 +657,82 @@ The final retained tree, after both candidates were removed and scanner revision
 result projections, source recognition, contextual scanning, Bash, HCL, HL7 and
 FHIRPath. The final receipt validates the retained code and added contract test;
 it does not establish a new runtime speed improvement.
+
+* Implemented compiler milestone: direct Scheme projection generation
+
+=src/compiler/result-projection.ss= now lowers an admitted ResultPlan to a
+standalone Scheme module exporting =bind-generated-result-projections=. Each
+projection has a whole-projection executor with fixed capture indexes and direct
+operations. Its executable body does not read operation vectors, switch on
+opcodes, or call a prepared closure per operation. Variable-length captured
+parts still need traversal. Existing single-required-token and single-parts
+fast paths retain their constructor and validation behavior.
+
+=result-plan-bind-projections= checks the complete expected recipe, canonical
+projection order, unique IDs and executable entries before returning a separate
+executable plan. It preserves the original owner and catalogs. Generated
+executors are compiler-owned artifacts, not new callback slots in language
+profiles. POO inheritance and override remain declarative: a changed recipe
+requires regeneration, and stale generated code is rejected before execution.
+No language declaration, metadata version, C ABI or Rust protocol changes.
+
+The generated general executors deliberately retain =result-plan-node= dynamic
+admission and the existing immutable token sequence representation. This compiler
+milestone removes opcode interpretation; it does not fuse scanner/parser stages
+or eliminate temporary recognition trees and final publication traversals.
+
+Permanent tests execute the actual generated source for mixed captures and empty
+projections, compare complete node/token products, reject invalid spans, missing
+required nodes, foreign kinds and escaping child nodes, and reject stale POO
+recipes and malformed binding tables. A regenerated inherited profile can bind
+its changed field names. Binding returns a different plan and retains the same
+recipe.
+
+A temporary native module was generated from the admitted Bash stress-sample
+profile. Both comparison parsers use the same shared scanner and shell parser;
+only the selected result plan differs. All four corpus artifacts matched each
+other and the public parser before measurement. Both sides include artifact
+validation, grammar identity and source identity checks. File IO, preparation,
+loading and output are outside timing. Natural GC remains included; ABBA blocks
+have one warmup and 11 single-request measurements each.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| original-a | 26.666 | 39461648 | 8 |
+| direct-a | 28.744 | 39461648 | 8 |
+| direct-b | 26.792 | 39461648 | 8 |
+| original-b | 26.979 | 39461008 | 8 |
+
+Pair A regresses approximately 7.79%; pair B improves approximately 0.69%.
+Allocation is effectively unchanged. Native qualification completed in 9.006 s
+with exit 0 and =DIRECT-PROJECTION-CONTROL-OK=. These controls establish native
+execution and semantic parity, not a stable complete-engine speed improvement.
+The default parser continues to use the original result plan; this AOT compiler
+capability is not automatically selected by language loaders.
+
+The initial generator/binder native compilation completed in 17.272 s. The final
+generator compiled in 7.901 s; generation from its compiled artifact completed
+in 10.695 s; the generated executor module and native control compiled in
+13.593 s. All successful compiler receipts use the same fixed GCC SDK and the
+existing 120-second total and five-second idle limits, with real diagnostics
+unbuffered. Temporary stress-sample modules are excluded from the commit.
+
+The next admission gate is publication ownership: identify which recognition
+nodes and token copies exist only to feed canonical event construction, then
+measure an engine-owned direct emitter against complete artifact obligations.
+The unchanged allocation here is evidence against claiming that opcode removal
+alone addresses the current complete-engine allocation cost.
+
+The ABBA table above was collected on base =750b8cd=, before the concurrent
+UTF-8 extent and delimiter comparison revisions. Final integration rebased
+those changes through =92fcb1d=. Their affected production modules were rebuilt
+with the same GCC configuration. Complete native product parity was rechecked
+on the final combined implementation in 9.038 s with exit 0 and all receipts;
+that integration rerun is not used to claim an additional speed improvement.
+
+The retained implementation then completed 134 cases across ten modules in
+11.161 s, with =TEST-SUITE-OK modules=10=, =OK=, exit 0 and no missing receipts.
+Coverage includes result generation/binding, recognition, immediate and deferred
+scanning, artifacts, event strategy, and four language suites. The final POO
+regeneration assertion had also passed its focused suite in 7.587 s. No temporary
+comparison source is retained in the production or test catalog.

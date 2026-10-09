@@ -11,7 +11,7 @@
         (only-in ../runtime/funcs recognition-sequence-append))
 (export ResultProfile. ResultProfileContract defresult-profile compile-result-profile
         result-plan? result-plan-recipe result-plan-catalog result-plan-node result-plan-token
-        result-plan-projection result-projection-build)
+        result-plan-projection result-projection-build result-plan-bind-projections)
 (def ResultProfile. (.o nodes: '() tokens: '() scanner: #f projections: '()))
 (defstruct result-plan (owned-recipe node-index token-index projection-index))
 (defstruct result-projection (owner kind captures operations arity executor))
@@ -122,6 +122,24 @@
     (unless (and projection (equal? expected-captures (result-projection-captures projection)))
       (error "missing or incompatible result projection" id expected-captures))
     projection))
+(def (result-plan-bind-projections plan expected bindings)
+  ;; Generated producers bind against the complete admitted recipe. Clone the
+  ;; executable plan so another consumer cannot change this owner's execution.
+  (unless (and (result-plan? plan) (equal? expected (result-plan-recipe plan))
+               (list? bindings)
+               (andmap (lambda (row) (and (pair? row) (symbol? (car row)) (procedure? (cdr row)))) bindings)
+               (unique-symbols? (map car bindings))
+               (equal? (map car bindings) (map car (caddr expected))))
+    (error "incompatible generated result projections"))
+  (let (bound (make-result-plan (result-plan-owned-recipe plan)
+                 (result-plan-node-index plan) (result-plan-token-index plan) (make-hash-table-eq)))
+    (for-each (lambda (row)
+      (let (original (hash-get (result-plan-projection-index plan) (car row)))
+        (hash-put! (result-plan-projection-index bound) (car row)
+          (make-result-projection bound (result-projection-kind original)
+            (result-projection-captures original) (result-projection-operations original)
+            (result-projection-arity original) (cdr row))))) bindings)
+    bound))
 (def (compile-projection-executor plan kind operations)
   ;; Static one-operation programs avoid VM dispatch and redundant catalog
   ;; checks. Capture bounds and source offsets are still checked on every call.

@@ -1,5 +1,6 @@
 ;;; Result declarations constrain construction and are ordinary inheritable POO slots.
 (import :std/test
+        (only-in :gerbil-parser/src/compiler/result-projection result-profile-scheme-source)
         (only-in :clan/poo/object .o .ref)
         :gerbil-parser/src/language/result-profile
         (only-in :gerbil-parser/src/language/scanner-profile ScannerProfile. defscanner-profile)
@@ -39,8 +40,68 @@
     (mixed Mixed ((text span) (head node) (tail parts))
       (token text glyph text optional) (one head head required) (many tail tail))
     (empty Empty ())))
+(def (generated-result-plan plan)
+  ;; Evaluate the generator's complete forms, not a separately reimplemented
+  ;; constructor. Native compilation is an additional producer qualification.
+  (call-with-input-string (result-profile-scheme-source plan)
+    (lambda (port)
+      (let loop ((form (read port)))
+        (unless (eof-object? form)
+          (unless (eq? (car form) 'export) (eval form))
+          (loop (read port))))))
+  ((eval 'bind-generated-result-projections) plan))
 (def result-profile-test
   (test-suite "declarative result construction"
+    (test-case "generated direct executors preserve mixed projection products and rejection"
+      (let* ((original (compile-result-profile mixed-results))
+             (bound (generated-result-plan original))
+             (source (prepare-recognition-source (make-token 'raw "α😀" 11 17)))
+             (a (make-recognition-node 'Empty 11 13 '()))
+             (b (make-recognition-node 'Empty 13 17 '()))
+             (signature '((text span optional) (head node required) (tail parts))))
+        (check (result-plan-recipe bound) => (result-plan-recipe original))
+        (check (eq? bound original) => #f)
+        (for-each (lambda (captures)
+          (check (call-with-values (lambda () (result-projection-build
+                    (result-plan-projection bound 'mixed signature) source 0 2 captures)) list)
+                 => (call-with-values (lambda () (result-projection-build
+                    (result-plan-projection original 'mixed signature) source 0 2 captures)) list)))
+          (list (vector (cons 0 1) (cons a '()) (cons (list b b) '()))
+                (vector #f (cons a '()) (cons '() '()))))
+        (let-values (((node tokens) (result-projection-build
+                       (result-plan-projection bound 'empty '()) source 0 2 (vector))))
+          (check (recognition-node-kind node) => 'Empty)
+          (check (recognition-node-children node) => '()))
+        (for-each (lambda (captures)
+          (check (rejects? (lambda () (result-projection-build
+                    (result-plan-projection bound 'mixed signature) source 0 2 captures))) => #t))
+          (list (vector #f #f (cons '() '()))
+                (vector (cons 0 3) (cons a '()) (cons '() '()))
+                (vector #f (cons (make-recognition-node 'Foreign 11 13 '()) '()) (cons '() '()))
+                (vector #f (cons a '()) (cons (list (make-recognition-node 'Empty 13 18 '())) '()))))))
+    (test-case "generated bindings reject POO recipe drift and malformed producer tables"
+      (let* ((plan (compile-result-profile projected-results))
+             (recipe (result-plan-recipe plan))
+             (changed (compile-result-profile renamed-projection-results))
+             (stub (lambda args (error "must not execute"))))
+        (generated-result-plan plan)
+        (check (rejects? (lambda () ((eval 'bind-generated-result-projections) changed))) => #t)
+        (for-each (lambda (rows)
+          (check (rejects? (lambda () (result-plan-bind-projections plan recipe rows))) => #t))
+          (list '() (list (cons 'leaf stub))
+                (list (cons 'leaf stub) (cons 'leaf stub))
+                (list (cons 'pair stub) (cons 'leaf stub))
+                (list (cons 'leaf stub) (cons 'pair #f))))
+        (let* ((regenerated (generated-result-plan changed))
+               (source (prepare-recognition-source (make-token 'raw "α" 0 2))))
+          (let-values (((node tokens) (result-projection-build
+                         (result-plan-projection regenerated 'leaf '((text span required))) source 0 1 (vector (cons 0 1)))))
+            (check (map recognition-child-field (recognition-node-children node)) => '(value))))
+        (let* ((bound (generated-result-plan plan))
+               (source (prepare-recognition-source (make-token 'raw "α" 0 2))))
+          (let-values (((node tokens) (result-projection-build
+                         (result-plan-projection bound 'leaf '((text span required))) source 0 1 (vector (cons 0 1)))))
+            (check (map token-lexeme (recognition-sequence->list tokens)) => '("α"))))))
     (test-case "prepared mixed projections preserve order and reject foreign or escaping children"
       (let* ((plan (compile-result-profile mixed-results))
              (source (prepare-recognition-source (make-token 'raw "α😀" 11 17)))

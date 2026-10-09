@@ -113,6 +113,11 @@ jobs:
           echo "PKG_CONFIG_PATH=$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
           echo "MACOSX_DEPLOYMENT_TARGET=$macos_major.0" >> "$GITHUB_ENV"
 
+      - name: Install native task tool
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2
+        with:
+          tool: just
+
       - name: Extract immutable Gerbil host SDK
         run: |
           curl --fail --location --retry 3 --output "$RUNNER_TEMP/gerbil-sdk.tar.gz" \

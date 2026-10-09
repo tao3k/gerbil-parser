@@ -7,6 +7,7 @@
         (only-in :gerbil-parser/src/compiler/funcs
                  compiler-index-set-difference compiler-index-set-union
                  compiler-index-set-for-each compiler-index-set-reachable
+                 compiler-index-set-reachable/memo
                  compiler-index-partition-refine)
         (only-in :gerbil-parser/src/compiler/lr
                  compute-first compute-nullable lower-rules lr-spec-ref
@@ -404,10 +405,22 @@
               (let (mask (bitwise-and 7 (arithmetic-shift graph (* -3 node))))
                 (vector-set! edges node mask)
                 (vector-set! rows node (filter (lambda (target) (not (zero? (bitwise-and mask (arithmetic-shift 1 target))))) '(0 1 2))))) '(0 1 2))
-            (for-each (lambda (initial)
-              (check (compiler-index-set-reachable initial edges) => (oracle initial rows))) (iota 8)))
+            (let (cache (make-vector 3 #f))
+              (for-each
+               (lambda (initial)
+                 (let (expected (oracle initial rows))
+                   (check (compiler-index-set-reachable initial edges) => expected)
+                   (check (compiler-index-set-reachable/memo initial edges (make-vector 3 #f)) => expected)
+                   (check (compiler-index-set-reachable/memo initial edges cache) => expected)))
+               (iota 8))
+              (for-each
+               (lambda (node)
+                 (let (closure (vector-ref cache node))
+                   (when closure (check closure => (oracle (arithmetic-shift 1 node) rows)))))
+               (iota 3))))
           (graphs (+ graph 1))))
       (check (compiler-index-set-reachable 0 '#()) => 0)
+      (check (compiler-index-set-reachable/memo 0 '#() '#()) => 0)
       (let ((chain (make-vector 1024 0)) (cycle (make-vector 1024 0)))
         (let nodes ((node 0))
           (when (< node 1024)
@@ -415,7 +428,16 @@
             (vector-set! cycle node (arithmetic-shift 1 (modulo (+ node 1) 1024)))
             (nodes (+ node 1))))
         (check (compiler-index-set-reachable 1 chain) => (- (arithmetic-shift 1 1024) 1))
-        (check (compiler-index-set-reachable (arithmetic-shift 1 512) cycle) => (- (arithmetic-shift 1 1024) 1))))
+        (check (compiler-index-set-reachable (arithmetic-shift 1 512) cycle) => (- (arithmetic-shift 1 1024) 1))
+        ;; High-bit, overlapping roots preserve exact cold/warm results and
+        ;; graph-specific cache ownership across independent calls.
+        (let ((cache (make-vector 1024 #f))
+              (roots (bitwise-ior 1 (arithmetic-shift 1 512) (arithmetic-shift 1 1023)))
+              (all (- (arithmetic-shift 1 1024) 1)))
+          (check (compiler-index-set-reachable/memo roots chain cache) => all)
+          (check (vector-ref cache 0) => all)
+          (check (compiler-index-set-reachable/memo roots chain cache) => all)
+          (check (compiler-index-set-reachable/memo roots cycle (make-vector 1024 #f)) => all))))
     (poo-flow-test-case "indexed traversal agrees with bit membership across fields"
       (def (check-mask mask)
         (let ((actual '()) (expected '()))

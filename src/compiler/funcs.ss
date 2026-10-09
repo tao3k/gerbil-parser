@@ -10,6 +10,7 @@
         compiler-index-set-member?
         compiler-index-set-for-each
         compiler-index-set-reachable
+        compiler-index-set-reachable/memo
         compiler-index-partition-refine
         compiler-index-set-singleton
         compiler-index-set-union
@@ -101,6 +102,24 @@
                 (set! reached (compiler-index-set-union reached delta))
                 (compiler-index-set-for-each delta (lambda (node) (stdq-enqueue! queue node)))))))
         (drain)))
+    reached))
+
+;; Memoized reflexive transitive closure in one immutable graph. The caller
+;; owns a graph-sized cache (#f means absent) and must not reuse it with another
+;; graph. Every cached entry is an exact singleton closure; cache and output
+;; lifetime are local to the compiler invocation.
+(def (compiler-index-set-reachable/memo initial epsilon-edges cache)
+  (let (reached 0)
+    (compiler-index-set-for-each
+     initial
+     (lambda (block)
+       (let (closure (vector-ref cache block))
+         (unless closure
+           (set! closure
+                 (compiler-index-set-reachable
+                  (compiler-index-set-singleton block) epsilon-edges))
+           (vector-set! cache block closure))
+         (set! reached (compiler-index-set-union reached closure)))))
     reached))
 
 ;; Refine dense indexed partitions with label/set predecessor signatures.

@@ -8,7 +8,8 @@
                  ExtensibleVector-ref ExtensibleVector-set!)
         (only-in ./funcs
                  compiler-index-set-add compiler-index-set-for-each
-                 compiler-index-set-reachable compiler-index-partition-refine
+                 compiler-index-set-reachable compiler-index-set-reachable/memo
+                 compiler-index-partition-refine
                  compiler-index-set-singleton compiler-index-set-union)
         (only-in ./lr
                  +lr-eof+ base-symbol nonterminal-name nonterminal-symbol?
@@ -347,20 +348,6 @@
             (values merged merged-shifts merged-epsilons
                     (vector-ref next start)))))))
 
-(def (epsilon-closure/memo initial epsilon-edges cache)
-  (let (reached 0)
-    (compiler-index-set-for-each
-     initial
-     (lambda (block)
-       (let (closure (vector-ref cache block))
-         (unless closure
-           (set! closure
-                 (compiler-index-set-reachable
-                  (compiler-index-set-singleton block) epsilon-edges))
-           (vector-set! cache block closure))
-         (set! reached (compiler-index-set-union reached closure)))))
-    reached))
-
 (def (determinize-follow-blocks blocks index shift-edges epsilon-edges
                                 terminal-values layout core-symbols)
   (let* ((block-count (vector-length blocks))
@@ -422,7 +409,7 @@
                 (stdq-enqueue! queue id)
                 id))))
         (intern! (if closure-cache
-                   (epsilon-closure/memo
+                   (compiler-index-set-reachable/memo
                     (compiler-index-set-singleton start)
                     epsilon-edges closure-cache)
                    (compiler-index-set-reachable
@@ -452,7 +439,7 @@
                            (begin (set! subset-hits (+ subset-hits 1)) known)
                            (let (id (intern!
                                      (if closure-cache
-                                       (epsilon-closure/memo targets epsilon-edges closure-cache)
+                                       (compiler-index-set-reachable/memo targets epsilon-edges closure-cache)
                                        (compiler-index-set-reachable targets epsilon-edges))))
                              (when (and subset-index (< subset-count block-count))
                                (table-set! subset-index targets id)

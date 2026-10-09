@@ -2016,3 +2016,158 @@ statuses are zero and the controller finishes with =DSL-RESEARCH-CLOSURE-OK=
 and =OK=, exit 0. The 58 source Cases remain a separate owner and receipt.
 The production change is confined to the FOLLOW compiler; public LRSpec,
 language loaders, Runtime and Rust/C ABI are unchanged.
+
+* Covered-root elimination in memoized epsilon closure (2026-10-09)
+
+** Paper transfer and shared algorithm candidate
+
+[[https://aclanthology.org/J00-1005.pdf][Van Noord, Treatment of Epsilon Moves in Subset Construction (2000),
+Section 3.2, pp. 66-68]] compares per-state and per-subset closure strategies.
+Per-state memoization still pays to union the cached results for each seed;
+whole-subset memoization avoids repeated complete queries. The engine already
+has both a graph-sized singleton cache and a bounded seed-to-state cache.
+This experiment studies redundancy inside a remaining seed-query miss.
+
+The following additional elimination is our derivation from reflexive
+transitive closure, rather than a scheduling theorem stated by that paper:
+if =u= is already in a computed closed set =C=, then =closure({u})= is a subset
+of =C=. Select one pending seed, union its cached closure into the result, and
+subtract that closure from all pending seeds before selecting the next one.
+The selected seed is removed by reflexivity, so the loop terminates. Each
+omitted seed's entire closure is already covered by transitivity. Therefore
+the result equals the union of all singleton seed closures in the old engine.
+
+The candidate moves the language-specific epsilon memo helper into the shared
+indexed-set engine as =compiler-index-set-reachable/memo=. Graph edges are
+immutable; the caller owns a graph-sized cache and must never reuse it with a
+different graph. Cache entries remain exact singleton closures and only roots
+actually queried are populated. Empty seeds return zero. No SCC graph, extra
+closure table, unbounded subset retention, public language slot or compatibility
+path is added. The existing large-quotient admission cutoff remains unchanged.
+
+The canonical reachability Case adds cold and warm memo controls for all 512
+directed three-node graphs and all eight seed sets, using its independent list
+graph oracle. Populated cache entries are also checked against independent
+singleton results. A 1024-node chain/cycle control covers high-bit seeds and
+checks that already covered chain roots need no cache entries. Source counts
+remain 58 Cases (37 + 21); these controls are added inside the existing Case.
+
+** Artifact and build ownership
+
+The frozen baseline contains all eight LR modules from
+=d6e6b8a98445c9e7920c029d65f11fe3172556f8=. Each side uses the same GCC SDK,
+optimization level and heap. The diagnostic configuration is stated below. Two initial baseline builds fail the
+unchanged five-second idle guard while GCC compiles the generated C unit;
+GSC has already emitted C and GCC emits no intermediate stdout. Those failed
+builds are not qualification receipts. A prematurely started source run also
+fails because the new helper interface was not yet compiled, and is excluded.
+
+GCC's =-fopt-info-optimized= diagnostic emits actual completed optimization
+remarks without changing the optimization level. The completed remaining build
+exits 0 in 18.418 seconds; the other six frozen baseline modules are rebuilt
+with the same diagnostic option, exit 0 in 15.737 seconds. Budgets remain
+240 seconds total and five seconds idle. No compiler switch or synthetic
+heartbeat is used. An initial native A/B import run also fails the idle guard;
+explicit per-module import completion receipts localize and qualify real module
+initialization before timing. All imports remain excluded from measurements.
+
+** First implementation and negative complete cost
+
+The first implementation selects the root by isolating the least significant
+bit with =pending & -pending= and applying =integer-length=. It passes the
+58 source Cases in 23.408 seconds, with =TEST-SUITE-OK= and =OK=, exit 0.
+The retained native protocol validates 25 family/mode LRSpecs and the five
+complete workload artifacts, then alternates 22 pairs for mixed FOLLOW sizes
+8/24/48 and actual TLA+ LALR, plus eight actual TLA+ FOLLOW pairs. Construction,
+in-call GC and publication are timed; import, explicit GC and equality are not.
+
+Actual TLA+ FOLLOW CPU medians regress 1515.7385 -> 1855.9905 ms (22.45%).
+CPU less in-call GC medians increase 1107.7570 -> 1324.9600 ms. Seven of eight
+pairs regress. The controller exits 0 in 57.356 seconds with
+=DELTA-NATIVE-AB-OK=; exact artifact equality does not admit the cost.
+The dense chain eliminates all covered roots after one query, but that control
+cannot establish an actual parser workload improvement.
+
+The second implementation replaces wide integer root-isolation intermediates
+with the existing =first-set-bit= primitive and constructs a singleton only
+on a cache miss. It preserves the same pending-set algorithm and tests.
+Difference operations and lazy cache population can still offset skipped
+queries; the arithmetic rewrite alone is not an admission result.
+
+** Primitive selection remains negative; exact algorithm extraction
+
+The second candidate passes the 58 source Cases in 26.310 seconds, exit 0,
+and the same exact native LRSpec controls. Retained TLA+ FOLLOW CPU medians
+regress 1442.2830 -> 1697.3595 ms (17.69%). CPU less in-call GC medians
+increase 1114.8445 -> 1182.6900 ms. Seven of eight pairs regress, despite
+removing root-isolation intermediates; the controller exits 0 in 54.214 seconds
+with =DELTA-NATIVE-AB-OK=. Both difference-loop candidates are removed.
+Released-result timing cannot establish admission once the retained consumer
+has already demonstrated this regression, so it is not repeated for them.
+
+The final production change is instead an exact extraction of the existing
+per-seed closure union into the shared indexed-set engine. The function body
+matches the previous private =epsilon-closure/memo= body after renaming.
+The FOLLOW owner imports it directly; the old private name is removed, with no
+wrapper or compatibility path. Field-based/sparse seed enumeration, cache
+population, graph admission threshold and cache capacity remain the existing
+algorithms. This supplies one generic engine capability for compiler callers,
+not a claimed performance improvement or a new POO object exposed to language
+authors. The cache's immutable graph and invocation ownership contract is
+stated beside its implementation.
+
+Cold/warm graph controls and exact populated-entry checks remain applicable to
+this extracted algorithm. The experimental assertion that covered roots stay
+uncached is removed with the rejected scheduling strategy; it is not a semantic
+contract. The permanent 1024-node controls retain overlapping, high-bit seed
+results, exact root-zero cache content and independent chain/cycle cache owners.
+
+** Shared extraction qualification boundaries
+
+The extracted body is checked byte-for-byte against the previous private body
+with only its function name replaced (=MEMO-EXTRACTION-BODY-EXACT=). Its three
+native interfaces compile, exit 0 in 10.651 seconds. One source run prints all
+58 Case successes and =OK= but fails at process completion with idle timeout
+in 47.855 seconds; that is not a passing receipt. A final complete source run
+passes 58 Cases in 20.509 seconds with =TEST-SUITE-OK=, =OK= and controller exit 0.
+Neither timeout nor idle budgets change.
+
+The attempted complete retained A/B run for the extraction fails its 90-second
+total deadline (91.057 seconds including termination), without the final marker.
+Six reported TLA+ FOLLOW pairs are an incomplete batch and are not admitted as
+a performance result. Concurrent external GCC processes are observed, but that
+observation does not prove a complete cause for the timeout or exit-phase stall.
+These historical failures remain distinct from later passing semantic receipts.
+No new speed gain, stable latency or general timeout fix is claimed for extraction.
+
+The final native semantic-only protocol passes all 25 family/mode full LRSpec
+comparisons and all five complete workload comparisons (including actual TLA+
+LALR/FOLLOW), =MEMO-NATIVE-EXACT-OK=, controller exit 0 in 24.881 seconds.
+It deliberately performs no paired timing: this is artifact equality evidence,
+not a replacement or relaxed budget for the failed performance protocol.
+
+Full preparation emits =PREPARATION-STORED-RECEIPT= for 2062 products, but its
+controller subsequently exits with idle timeout in 242.276 seconds. A stored
+receipt alone does not pass process qualification. The next preparation run
+rechecks the same source/toolchain identity and all stored/current product
+content hashes, admits =CONFORMANCE-CACHE-HIT= and exits 0 in 11.857 seconds
+under the original 240-second total/five-second idle limits. This is valid
+content admission of the freshly generated artifacts; the preceding failed
+process remains recorded, and no successful full-build duration is claimed.
+
+The first compiled semantic process fails the five-second idle guard before
+any Case output, so its research controller exits 70 and the remaining entries
+are not qualified in that attempt. A =DYLD_PRINT_LIBRARIES= diagnostic run then
+passes all six entries. An attempted process sample finds that the semantic
+process has already completed; no stack-based root cause is established.
+The final run removes that diagnostic environment and again passes all six
+entries, each exit 0: 372 semantic Cases across 23 groups and five independent
+research owners. The controller finishes with =DSL-RESEARCH-CLOSURE-OK= and
+=OK=, exit 0. This is ordinary compiled-consumer closure under unchanged budgets,
+not proof that all startup/exit timeout causes have been fixed.
+
+Delivered changes are the direct shared primitive extraction, its FOLLOW
+consumer, cold/warm exhaustive graph controls and this Org research record.
+Both covered-root difference schedulers are rejected. The preceding indexed
+FIRST/stable-edge optimization remains intact; no additional construction speed,
+Runtime speed, Rust/C ABI change or language-author configuration is delivered.

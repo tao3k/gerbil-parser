@@ -1,10 +1,13 @@
 /* Native child behavior; Scheme owns deadlines, receipts and cancellation. */
+#define _XOPEN_SOURCE 700
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 static void mark(const char *name) {
@@ -54,7 +57,10 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 100; i++) {
       puts("CHILD-PROGRESS");
       fflush(stdout);
-      usleep(20000);
+      struct timespec remaining = { .tv_sec = 0, .tv_nsec = 20000000 };
+      while (nanosleep(&remaining, &remaining) < 0) {
+        if (errno != EINTR) return 47;
+      }
     }
     return 0;
   }

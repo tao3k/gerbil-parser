@@ -34,6 +34,56 @@
         (let (values (recognition-sequence->list moved))
           (check (recognition-value-start (recognition-child-value (car values))) => 8)
           (check (recognition-value-end (recognition-child-value (last values))) => 10008))))
+    (test-case "pending branches retain independent relocation contexts"
+      (let* ((one (make-recognition-child 'a (make-token 'number "1" 0 1)))
+             (two (make-recognition-child 'b (make-token 'number "2" 1 2)))
+             (three (make-recognition-child 'c (make-token 'number "3" 2 3)))
+             (four (make-recognition-child 'd (make-token 'number "4" 3 4)))
+             (left (recognition-sequence-relocate
+                    (recognition-sequence-append (list one) (list two)) 7))
+             (right (recognition-sequence-append (list three)
+                      (recognition-sequence-relocate (list four) -2)))
+             (sequence (recognition-sequence-append left right))
+             (observed '()))
+        (recognition-sequence-for-each
+         (lambda (child delta moved?) (set! observed (cons (list child delta moved?) observed))) sequence)
+        (check (reverse observed) => (list (list one 7 #t) (list two 7 #t)
+                                          (list three 0 #f) (list four -2 #t)))
+        (let* ((nested (recognition-sequence-relocate
+                        (recognition-sequence-append
+                         (recognition-sequence-relocate (list one) -7) (list two)) 7))
+               (observed '()))
+          (recognition-sequence-for-each
+           (lambda (child delta moved?) (set! observed (cons (list child delta moved?) observed))) nested)
+          (check (reverse observed) => (list (list one 0 #t) (list two 7 #t))))))
+    (test-case "shared subtrees restore every nested view boundary"
+      (let* ((child (make-recognition-child 'value (make-token 'number "1" 1000 1001)))
+             (product
+              (let build ((depth 8))
+                (if (zero? depth) (cons (list child) (list (list child 0 #f)))
+                  (let* ((nested (build (- depth 1))) (sequence (car nested)) (expected (cdr nested)))
+                    (cons (recognition-sequence-append
+                           (recognition-sequence-relocate sequence depth)
+                           (recognition-sequence-relocate sequence (- depth)))
+                      (append (map (lambda (row) (list (car row) (+ (cadr row) depth) #t)) expected)
+                              (map (lambda (row) (list (car row) (- (cadr row) depth) #t)) expected)))))))
+             (observed '()))
+        (recognition-sequence-for-each
+         (lambda (value delta moved?) (set! observed (cons (list value delta moved?) observed))) (car product))
+        (check (reverse observed) => (cdr product))
+        (check (map (lambda (value) (recognition-value-start (recognition-child-value value)))
+                    (recognition-sequence->list (car product)))
+               => (map (lambda (row) (+ 1000 (cadr row))) (cdr product)))))
+    (test-case "visitor failures propagate before later branches"
+      (let* ((one (make-recognition-child #f (make-token 'number "1" 0 1)))
+             (sequence (recognition-sequence-append (list one) (list one)))
+             (condition (cons 'visitor 'stopped)) (visited 0))
+        (check (with-catch (lambda (caught) (eq? caught condition))
+                 (lambda ()
+                   (recognition-sequence-for-each
+                    (lambda (_child _delta _moved?) (set! visited (+ visited 1)) (raise condition)) sequence)
+                   #f)) => #t)
+        (check visited => 1)))
     (test-case "fusion can append a prefix retained by a materialized session"
       (let (bare
             (parameterize ((current-recognition-sequence-fusion-enabled? #f))

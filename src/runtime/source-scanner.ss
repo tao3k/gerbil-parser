@@ -170,9 +170,9 @@
                            (make-source-scan-state worker (source-scanner-driver-source worker)
                             (contextual-scan-state-character-offset context)
                             (contextual-scan-state-byte-offset context) context)))
-                       (list-tail (vector->list old-states) (+ index 1)))))
-            (make-source-scan-session-state worker mode (append (reverse tokens) reused)
-             (list->vector (append (reverse states) rebound)) scanned (length reused)))
+                       (vector->list old-states (+ index 1)))))
+            (make-source-scan-session-state worker mode (append-reverse tokens reused)
+             (list->vector (append-reverse states rebound)) scanned (length reused)))
           (let-values (((token next) (source-scanner-step worker state mode)))
             (if token
               (loop next (cons token tokens) (cons next states) (+ scanned 1))

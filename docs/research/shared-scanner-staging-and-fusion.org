@@ -386,6 +386,92 @@ optimized and expanded =contextual-scanner.ss= with =invoke-gsc: #f= and ended
 with =SDK-MARKER-OPTIMIZE-OK=. Expansion and source receipts do not replace
 native compilation, execution or exact-head CI.
 
+* Incremental checkpoint publication: native bounded list operations
+
+The deferred-marker study concerns individual recognition decisions. The next
+pipeline stage publishes an incrementally scanned prefix and certified suffix.
+Previously, that stage converted every old checkpoint into a list and discarded
+the prefix with =list-tail=. It also joined both reversed token and checkpoint
+prefixes using =append= after =reverse=, allocating an intermediate prefix list.
+
+The installed SDK provides a direct solution. =src/gerbil/builtin.ssxi.ss=
+declares one-, two- and three-argument =vector->list= forms; the latter two accept
+fixnum interval bounds. Binary evaluation confirmed =(vector->list #(0 1 2) 1 3)=
+yields =(1 2)=. The native =append-reverse= binding is exposed through
+=gerbil/core/runtime.ss= and used by the official C3 implementation in
+=gerbil/runtime/c3.ss=. These existing primitives avoid a custom traversal API.
+
+#+begin_src scheme
+;; Preserve fresh rebinding while materializing only the certified suffix.
+(map rebind-checkpoint (vector->list old-states (+ index 1)))
+;; Copy a reversed private prefix once; retain the freshly created suffix.
+(append-reverse tokens reused)
+(list->vector (append-reverse states rebound))
+#+end_src
+
+*Why is this preferable?* The executor visits the old checkpoint interval it
+actually needs. It removes the discarded checkpoint-prefix list and the two
+intermediate reversed-prefix lists. Token strings are still copied, suffix
+checkpoints still bind the new worker/source, and published values cannot mutate
+session history. Language grammar, parser metadata and DSL admission stay out of
+this internal representation change.
+
+*Why is it scientifically justified?* For a proper reversed prefix, native
+=append-reverse= yields the same ordered elements as =append= after =reverse=,
+without mutating that prefix. The suffix starts after the converged checkpoint;
+the scanned prefix already owns that checkpoint. Omitting that boundary would
+lose a state; including it twice would break the one-state-per-token boundary
+index. Tests compare complete token traces against fresh scans and replay the
+result as history after prefix, middle, tail, EOF and empty-source edits. They
+also mutate published tokens and require both old and new histories to remain
+unchanged.
+
+An initial SDK =subvector-for-each= plus =with-list-builder= candidate passed
+semantic controls, but its callback path increased component costs for long
+suffixes. With 4,097 checkpoints and 100 publications, a one-checkpoint prefix
+observed about 63.6/65.5 ms CPU and a 133,147,256 allocation-counter delta,
+versus 26.9/28.5 ms and 86,027,408 for the original copying control. This
+candidate was rejected. The final implementation uses native interval
+=vector->list= and native =append-reverse=, with no added library imports.
+
+The admitted copying/native-bounded ABBA observations are:
+
+| Prefix / suffix checkpoints | Copying CPU ms | Native-bounded CPU ms | Copying allocation delta | Native-bounded allocation delta |
+|-----------------------------+----------------+-----------------------+--------------------------+---------------------------------|
+| 1 / 4096                    | 28.482, 26.896 | 27.486, 28.134        | 86027408                 | 86017808                        |
+| 2049 / 2048                 | 19.886, 20.028 | 8.627, 8.589          | 72493496                 | 55744432                        |
+| 4096 / 1                    | 2.969, 2.735   | 1.517, 1.419          | 62314032                 | 22992432                        |
+| 4097 / 0                    | 2.685, 2.688   | 1.458, 1.438          | 62307632                 | 22976432                        |
+
+These are SDK component observations in =gxi=, not separately compiled native
+parser products. The first fixture has little benefit; long retained prefixes
+avoid more discarded work. Counters use cumulative slots 6 (collections) and 7
+(allocated bytes); collections occurred in some observations. They are not peak
+live memory or a complete-parser latency ratio. The reproducible fixture is
+=t/benchmarks/source-edits/checkpoint-publication.ss=; the callback alternative
+is retained as an exploratory comparison, not production code.
+
+The final source executor passed 55 Cases across source scanning, deferred
+scanning and Bash parser integration with final =HARNESS-OK= and =OK=, no Case or
+Harness errors and exit zero. SDK optimized expansion of =source-scanner.ss=
+ended with =SDK-SESSION-OPTIMIZE-OK= using =invoke-gsc: #f=. This confirms expansion,
+not native linking or execution.
+
+The complete Scheme workload =t/benchmarks/source-edits/session-parser.ss=
+checks prefix, middle and tail edits plus grammar and lexical rejection against
+independent fresh parsing. Every complete artifact must be equal, valid and
+round-trip to the input. Its fresh/session ABBA run ended with
+=SOURCE-SESSION-PARSER-OK= and exit zero. Existing session reuse is part of this
+comparison, so its CPU observations do not isolate this publication change.
+An old/new native parser qualification remains a separate performance gate.
+
+After rebasing onto =650283d=, the combined source controls passed 131 Cases
+including the new result-projection and EventFold suites, with final =OK= and
+no Case or Harness errors. The complete session workload again ended with
+=SOURCE-SESSION-PARSER-OK= and exit zero. These post-rebase receipts cover the
+new composition with the projection and request-isolated EventFold changes;
+they do not replace exact-head native CI.
+
 * Dependency order for further implementation
 
 1. *Shared source spans.* Own one admitted source and its character/byte boundary

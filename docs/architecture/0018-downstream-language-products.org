@@ -239,7 +239,7 @@ there is no document-side parser audit, snapshot format or analysis pipeline.
 gerbil env gxi build-test-driver.ss compile
 GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   GAMBOPT=max-heap=1G,debug=q \
-  gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log /private/tmp/parser-bash-source.log \
+  gerbil env .gerbil/bin/parser-qualify run --timeout 90 --idle-timeout 5 --log /private/tmp/parser-bash-source.log \
   --require 'TEST-SUITE-OK modules=1' --require '^OK$' \
   -- gxi t/fixtures/tla-sany-differential/test-suite.ss languages/bash/parser-test.ss
 #+end_src

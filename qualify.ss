@@ -2,6 +2,7 @@
 ;;; Native qualification entry; declarations own process contracts.
 (displayln "QUALIFICATION-START") (force-output)
 (import :gerbil-parser/tools/qualification/process :gerbil-parser/tools/qualification/products :gerbil-parser/tools/qualification/plans :gerbil-parser/tools/qualification/performance)
+(export main)
 (def (run-process-cli arguments)
   (let loop ((arguments arguments) (budget 60) (idle #f) (log #f) (receipts '()))
     (unless (pair? arguments) (error "missing qualification command"))

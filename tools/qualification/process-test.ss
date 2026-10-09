@@ -31,8 +31,8 @@
     (displayln "PROCESS-CONTROL-OK escaped-session-stopped unrelated-survived") (force-output))
    (let* ((ready (path-expand "flood-ready" directory))
           (log (path-expand "flood.log" directory))
-          (pipe (open-process [path: "gxi" arguments:
-                  ["qualify.ss" "run" "--timeout" "6" "--idle-timeout" "0.8"
+          (pipe (open-process [path: (path-expand "bin/parser-qualify" (gerbil-path)) arguments:
+                  ["run" "--timeout" "6" "--idle-timeout" "0.8"
                    "--log" log "--require" "^OK$" "--" fixture "flood" ready]
                   stderr-redirection: #t])))
     (close-output-port pipe)

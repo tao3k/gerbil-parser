@@ -24,7 +24,7 @@
            (process (open-process [path: qualification-launcher
                      arguments: (cons witness command)
                      stderr-redirection: #t]))
-           (reader #f) (monitor #f) (raw #f) (reason #f)
+           (reader #f) (waiter #f) (monitor #f) (raw #f) (reason #f)
            (line-prefix "") (eof? #f) (output-complete? #f) (exited? #f))
       (close-output-port process)
       (def (fail! why)
@@ -68,6 +68,15 @@
                          (thread-send coordinator (cons 'output bytes))
                          (observe-error! bytes)
                          (loop)))))))))))
+       (set! waiter
+         (spawn
+          (lambda ()
+            (with-catch
+             (lambda (ex) (thread-send coordinator (cons 'exception ex)))
+             (lambda ()
+               ;; SDK process-status suspends this green thread until child exit.
+               (set! raw (process-status process))
+               (thread-send coordinator (cons 'exit raw)))))))
        (set! monitor
          (spawn
           (lambda ()
@@ -75,22 +84,12 @@
              (lambda (ex) (thread-send coordinator (cons 'exception ex)))
              (lambda ()
                (let loop ()
-                 (unless raw
-                   (let (status (process-status process 0 'running))
-                     (when (integer? status)
-                       (set! raw status)
-                       (thread-send coordinator (cons 'exit status)))))
                  (let (now (##current-time-point))
                    (cond ((>= (- now started) budget) (fail! 'total-timeout))
                          ((and idle (not (and output-complete? raw)) (>= (- now last-output) idle))
                           (fail! 'idle-timeout))
                          (else
                           (when (eq? (observe) #t) (set! last-output (##current-time-point)))
-                          (unless raw
-                            (let (status (process-status process 0 'running))
-                              (when (integer? status)
-                                (set! raw status)
-                                (thread-send coordinator (cons 'exit status)))))
                           (thread-sleep! 0.05) (loop))))))))))
        (with-catch
         (lambda (ex) (unless (process-interruption? ex) (raise ex)))
@@ -107,6 +106,7 @@
                   ((exception) (raise (cdr message))))
                 (loop))))))
        (when monitor (thread-terminate! monitor) (set! monitor #f))
+       (when waiter (thread-terminate! waiter) (set! waiter #f))
        (unless raw (set! raw (process-status process 2 9)))
        (let* ((exit-file (string-append witness ".exit"))
               (command-raw (if (file-exists? exit-file) (call-with-input-file exit-file read) raw))
@@ -117,6 +117,7 @@
                          (- (##current-time-point) started)))
        (finally
         (when monitor (thread-terminate! monitor))
+        (when waiter (thread-terminate! waiter))
         (when reader (thread-terminate! reader))
         (unless raw
           (stop-owned-processes! process witness #f)

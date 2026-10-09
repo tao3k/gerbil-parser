@@ -2,13 +2,16 @@
 
 * One process contract
 
-=qualify.ss= is the executable entry; =build-qualification.ss= uses the
-standard Gerbil build scheduler to compile its support library.
+=qualify.ss= is the source entry; =build-qualification.ss= uses the standard
+Gerbil build scheduler to publish =.gerbil/bin/parser-qualify= and its support
+library. CI and Just invoke the native executable directly after that build.
 The library is tooling, excluded from the parser package's production catalog.
 =tools/qualification/process.ss= owns real-byte observation, complete logs,
 absolute and idle deadlines, exit admission, and required receipts.
 A child closing its output does not end its execution deadline.
-Console backpressure does not count as child silence.
+Console backpressure does not count as child silence. A green thread waits
+with the SDK process-status primitive and delivers the exit event immediately;
+the deadline monitor no longer polls for exit at 50 ms intervals.
 
 * Cancellation authority
 
@@ -52,8 +55,8 @@ Cargo and rustc together and removes ambient cross-build overrides.
 
 =tools/qualification/performance.ss= hashes current production, language,
 test, and tooling sources before execution and after every suite. A private
-source overlay precedes compiled parser products; the native session launcher uses its compiled closure and preserves the
-requested child's load environment.
+source overlay precedes compiled parser products; the native session launcher
+uses its compiled closure and preserves the requested child's load environment.
 Final CASE/MODULE/HARNESS/OK receipts and a successful exit are all required.
 
 * SDK provisioning boundary
@@ -79,3 +82,20 @@ A local shared-library wait was traced to the SDK's empty
 Removing that one generated local lock allowed the bundle to complete in
 15.7 seconds. This is a local diagnosis, not an end-to-end performance claim
 or an automatic stale-lock recovery policy. No timeout was increased.
+
+* Startup cost and measurement boundary
+
+The native qualification CLI still launches an AOT session owner and the actual
+command. The extra session owner is a real process/runtime cost; it is confined
+to build/test/tooling commands and does not wrap individual library parses.
+Compilation of the CLI removes repeated =gxi= module admission. Native green
+thread exit waiting removes the previous 50 ms polling delay.
+
+On one macOS checkout on 2026-10-09, 16 sequential =/usr/bin/true= samples per
+mode measured median/p95 milliseconds of 1.15/2.43 for direct SDK invocation,
+8.89/11.65 for the supervisor API and 24.27/25.44 for the native CLI. These are
+warm local short-process measurements, including waiting and admission, not
+parser latency or stable cross-machine guarantees. Earlier =gxi= CLI samples
+ran alongside compilation and are not a matched end-to-end A/B speedup proof.
+Session setup, blocking descriptors, signal identity and cancellation ownership
+remain separate correctness obligations when further simplifying this launch.

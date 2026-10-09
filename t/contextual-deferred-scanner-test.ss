@@ -31,7 +31,7 @@
     "<<" ">>" "<>" "<&" ">&" ">|" "&>" ";" "&" "|" "(" ")"
     "<" ">"))
 
-(def (deferred-scanner-ir owner marker-policy operators)
+(def (deferred-scanner-ir owner marker-policy operators (separator #f))
   (let* ((role
           (make-contextual-role
            owner
@@ -60,9 +60,13 @@
                       '(horizontal-whitespace+) 0 'keep)
                 (rule 'newline 'command 'newline '(newline-one) 0
                       '(activate-next here-body))
-                (rule 'end 'here-body 'end '(marker-line) 10
+                (rule 'end 'here-body 'end
+                      (if separator (list 'marker-line-at (string separator))
+                        '(marker-line)) 10
                       '(finish-marker command here-body))
-                (rule 'body 'here-body 'body '(body-line) 0 'keep)))
+                (rule 'body 'here-body 'body
+                      (if separator (list 'body-line-at (string separator))
+                        '(body-line)) 0 'keep)))
          (ir (compile-contextual-scanner rules dispatch 'command)))
     ir))
 
@@ -269,6 +273,28 @@
                  => '())
           (check (cdr (assq 'active (contextual-scan-state-canonical final)))
                  => #f))))
+    (test-case "marker slices reject equal-prefix and equal-suffix body lines"
+      (for-each
+       (lambda (separator)
+         (let* ((line-end (string (or separator #\newline)))
+                (source (string-append "<<-猫" line-end
+                                       "\t猫x" line-end "\tx猫" line-end
+                                       "\t猫猫" line-end "\t猫"))
+                (plan (prepare-contextual-scanner-plan
+                       (deferred-scanner-ir 'slice-marker 'raw
+                                            '("<<" "<<-") separator)))
+                (scanner (prepare-contextual-scanner plan source)))
+           (let-values (((tokens final) (scan-all scanner)))
+             (check (map token-kind tokens)
+                    => '(here-open word newline here-body here-body here-body here-end))
+             (check (map token-lexeme (list-tail tokens 3))
+                    => (list (string-append "\t猫x" line-end)
+                              (string-append "\tx猫" line-end)
+                              (string-append "\t猫猫" line-end) "\t猫"))
+             (check (contextual-scan-state-mode final) => 'command)
+             (check (contextual-scan-state-byte-offset final)
+                    => (u8vector-length (string->utf8 source))))))
+       '(#f #\newline #\return)))
     (test-case "HCL raw marker uses the same deferred scanner"
       (let* ((source "<<EOF\nα\nEOF")
              (scanner (deferred-scanner source 'hcl-deferred

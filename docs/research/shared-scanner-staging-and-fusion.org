@@ -315,6 +315,77 @@ Each module ended with =SDK-OPTIMIZE-OK= and the process exited zero. This
 confirms compiler expansion and helper binding; it does not qualify native C
 compilation, linking or execution.
 
+* Deferred marker comparison: filter before materialization
+
+The installed SDK binary resolves =:std/string/misc= through
+=module-context-path= and =import-module= to its installed =misc.ssi=. The matching
+=src/std/string/misc.ss= implements =string== with a length filter, an identity
+fast path and =%string-compare= over explicit string intervals. This is a useful
+source-level mechanism to study, rather than a reason to assume every call to
+the interval API improves this parser.
+
+Both =marker-line-end= and =profile-marker-end= previously constructed a
+substring for every body line before checking marker equality. Comparing
+character counts first rejects impossible candidates without materializing a
+comparison string. This is valid after line-ending removal and optional tab
+stripping: equality requires the remaining source interval and marker to have
+identical character counts. Equal counts still require content comparison.
+
+#+begin_src scheme
+;; Shared private engine operation; no language-facing DSL addition.
+(def (marker-slice=? source start end marker)
+  (and (= (- end start) (string-length marker))
+       (string=? (substring source start end) marker)))
+#+end_src
+
+*Why is this preferable?* Length-incompatible body lines avoid their temporary
+string copy; equal-length candidates retain Gambit's existing string comparison.
+The optimization lives in the shared executor and serves both line-ending
+policies without introducing a language callback or new public contract.
+
+*Why is it scientifically justified?* The length condition is necessary for
+string equality, not a heuristic about particular languages. The public scanner
+controls include equal-prefix, equal-suffix and repeated-marker body lines,
+Unicode markers, stripped tabs, a final marker without a line ending, and both
+LF and CR profile separators. Existing controls cover CRLF, empty quoted
+markers, checkpoints, source ownership and incomplete bodies.
+
+The initially proposed direct SDK =string== interval replacement passed semantic
+controls, but the component observations did not justify adopting it. For 1,000
+comparisons of ="EOF"=, the copying control observed 0.194/0.196 ms CPU versus
+0.609/0.589 ms for the interval API. Long equal Unicode content also favored the
+existing comparison. The component fixture normalizes =string=='s truthy result;
+Scheme truth is not restricted to =#t=. No API or optimizer defect is inferred
+from this result.
+
+The admitted copying/guarded ABBA component control uses identical source and
+marker values, nonzero source offsets and five fixtures. For a 1,024-character
+Unicode body versus ="EOF"=, copying observed 0.688/0.341 ms CPU and a 4,529,232
+allocation-counter delta; guarded comparison observed 0.215/0.210 ms and
+385,232. All observations had zero collections. Equal-length candidates retain
+the same allocation delta and add the length check: short equal markers
+observed 0.262/0.274 ms versus 0.194/0.196 ms for copying. This tradeoff is
+retained; there is no universal latency improvement claim. The first probe used
+incorrect process-statistics slots and its counter results are excluded. The
+admitted probe uses cumulative GC-count slot 6 and allocated-byte slot 7.
+
+The reproducible Scheme component fixture is
+=t/benchmarks/contextual-scanner/marker-comparison.ss=. It performs 1,000 calls
+per observation, checks every observation's expected match count, collects
+before each observation and emits =SDK-MARKER-COMPONENT-OK= only after every
+fixture passes. The interval alternative has two exploratory observations;
+only copying/guarded are ordered ABBA. These are SDK component observations in
+=gxi=, not peak live memory or an old/new native parser qualification.
+
+The final executor passed 89 source Cases across contextual scanning, deferred
+scanning and Bash/HCL parser integration. Admission required final =HARNESS-OK=
+and =OK= with no Case or Harness errors. The existing deferred-scale workload
+passed three 256-delimiter observations with complete token order, lossless
+source coverage and empty final delimiter obligations. The SDK compiler also
+optimized and expanded =contextual-scanner.ss= with =invoke-gsc: #f= and ended
+with =SDK-MARKER-OPTIMIZE-OK=. Expansion and source receipts do not replace
+native compilation, execution or exact-head CI.
+
 * Dependency order for further implementation
 
 1. *Shared source spans.* Own one admitted source and its character/byte boundary

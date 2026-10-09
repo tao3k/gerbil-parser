@@ -577,6 +577,13 @@
     (- end 1))
    (else end)))
 
+;;; Filter impossible marker lengths before materializing a comparison string.
+;;; Keep Gambit string=? for equal-length candidates; SDK string= range dispatch
+;;; is more expensive for the short markers in the matched component controls.
+(def (marker-slice=? source start end marker)
+  (and (= (- end start) (string-length marker))
+       (string=? (substring source start end) marker)))
+
 (def (marker-line-end source start state)
   (let (active (contextual-scan-state-active state))
     (and active
@@ -590,9 +597,8 @@
                        (loop (+ cursor 1)) cursor))
                    start)))
            (and end
-                (string=?
-                 (substring source content-start content-end)
-                 (delimiter-obligation-marker active))
+                (marker-slice=? source content-start content-end
+                                (delimiter-obligation-marker active))
                 end)))))
 
 (def (profile-line-end source start separator)
@@ -607,7 +613,7 @@
           (content-end (if (and (> end start) (char=? (string-ref source (- end 1)) separator)) (- end 1) end))
           (content-start (if (delimiter-obligation-strip-tabs? active)
              (let loop ((at start)) (if (and (< at content-end) (char=? (string-ref source at) #\tab)) (loop (+ at 1)) at)) start)))
-    (and (equal? (substring source content-start content-end) (delimiter-obligation-marker active)) end)))))
+    (and (marker-slice=? source content-start content-end (delimiter-obligation-marker active)) end)))))
 ;;; Bind static matcher operands once, after closed-IR admission. The executor
 ;;; captures plan data only; source/checkpoint/marker state remain per request.
 ;;; Language data never supplies a callback and the public opcode contract is

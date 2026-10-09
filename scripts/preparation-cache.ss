@@ -171,8 +171,7 @@
       ;; including macro interfaces, plus the actual SDK and compiler identity.
       (append
         (apply append (map preparation-files '("src" "languages" "t" "include")))
-        (filter (lambda (path) (or (string-suffix? ".ss" path)
-                                  (string-suffix? ".sh" path)))
+        (filter (lambda (path) (string-suffix? ".ss" path))
                 (preparation-files "scripts"))
         (filter (lambda (path) (string-suffix? ".ss" path))
                 (list-sort string<? (directory-files ".")))

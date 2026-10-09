@@ -92,7 +92,7 @@ jobs:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
         run: |
           brew list --formula ghostscript >/dev/null 2>&1 && brew unlink ghostscript || true
-          brew install coreutils gcc jq openssl pkg-config sqlite zlib
+          brew install gcc jq openssl pkg-config sqlite zlib
           gcc_prefix="$(brew --prefix gcc)"
           gcc_bin="$(
             find "$gcc_prefix/bin" -maxdepth 1 -type f -name 'gcc-[0-9]*' \
@@ -200,7 +200,7 @@ jobs:
           GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 gerbil env \
             python3 scripts/run-bounded.py --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
-              -- bash scripts/prepare-conformance.sh
+              -- gxi build-conformance.ss
 
       - name: Save admitted conformance preparation
         if: steps.conformance-cache.outputs.cache-hit != 'true'
@@ -211,13 +211,14 @@ jobs:
 
       - name: Verify Scheme preparation and test ownership controls
         run: |
+          gerbil env gxi scripts/tests/process-qualification-test.ss
           gerbil env gxi scripts/tests/compiler-process-test.ss
           gerbil env gxi scripts/tests/preparation-test.ss
           gerbil env gxi scripts/tests/test-plan-test.ss
-          gerbil env bash scripts/tests/test-conformance.sh
+          gerbil env gxi test-processes.ss conformance
 
       - name: Verify Scheme DSL and POO declaration closure
-        run: gerbil env bash scripts/check-dsl-research.sh .data/dsl-research
+        run: gerbil env gxi test-processes.ss research .data/dsl-research
 
       - name: Verify every language artifact ABI contract
         env:
@@ -428,7 +429,7 @@ jobs:
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)'
 
       - name: Verify shared-runtime Worker controls
-        run: gerbil env bash scripts/tests/test-workers.sh
+        run: gerbil env gxi test-processes.ss workers
 
       - name: Run Scheme tests
         timeout-minutes: 15

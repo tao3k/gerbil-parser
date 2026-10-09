@@ -6,11 +6,8 @@ test-preparation:
 
 # Build the shared helper through its compiled module owner before loading source suites.
 test-workers output=".data/worker-controls":
-    mkdir -p "{{output}}"
     gerbil compile -O t/fixtures/tla-sany-differential/worker-control.ss
-    bash scripts/tests/test-workers.sh 2>&1 | tee "{{output}}/workers.log"
-    test "$(rg -c '^WORKER-CONTROL-OK ' '{{output}}/workers.log')" -eq 7
-    rg --quiet '^OK$' "{{output}}/workers.log"
+    gerbil env gxi test-processes.ss workers "{{output}}"
 
 # Compile the suite's own fixtures, not only its import declarations.
 build-event-fold-compiled output load_path:

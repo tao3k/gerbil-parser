@@ -111,7 +111,7 @@ native role has one normalization occurrence: its receipt is not a reconstructed
 trace of every upstream prototype operation. Arbitrary reader-coordinate capture
 and the production deflanguage integration remain separate obligations.
 
-The repository-owned [[file:../../scripts/check-dsl-research.sh][check-dsl-research.sh]] reproduces the existing and native author controls
+The repository-owned [[file:../../test-processes.ss][native process qualification]] reproduces the existing and native author controls
 serially, preserving the ten-second child fence and rejecting nonzero exits.
 It is also wired into the existing native CI job; current local results do not
 establish a remote CI pass or full native machine/runtime qualification.

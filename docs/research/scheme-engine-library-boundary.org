@@ -134,8 +134,8 @@ these responsibilities; it does not establish equivalence of the imported lexer.
 
 * Reproducible verification
 
-Build =bash scripts/prepare-conformance.sh=, then run
-=bash scripts/check-dsl-research.sh= in the project-qualified Gerbil environment.
+Build =gxi build-conformance.ss=, then run
+=gxi test-processes.ss research= in the project-qualified Gerbil environment.
 The build installs =gerbil-parser-conformance= as a native Gerbil executable.
 Suite processes call compiled runtime bindings without re-admitting the full
 interpreter macro-interface graph. The source-expansion research programs retain

@@ -294,7 +294,8 @@ inputs to that migration; adding duplicate implementations would not close it.
 
 The final native link completed in 21.62 seconds with exit 0. The focused Bash
 suite passed 46 cases and exited 0 in 1.28 seconds. All 26 children in
-=scripts/check-dsl-research.sh= exited 0 under the unchanged ten-second limit,
+The historical Bash research runner, now replaced by =test-processes.ss research=,
+exited 0 under the unchanged ten-second limit,
 including every language suite and the all-language benchmark smoke control.
 The benchmark smoke control has one sample per entry and establishes execution,
 not a statistically supported latency improvement.

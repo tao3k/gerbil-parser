@@ -52,7 +52,7 @@ all 28 bounded children exiting zero and exact regeneration of the twenty native
 ABI controls. The independent shared-test build completed in 30.06 seconds.
 These receipts reused production/SDK objects; complete Linux/macOS cold closure
 still requires exact-head CI. The combined static owner must run generation and
-linkage in one compiler process, as in =scripts/prepare-conformance.sh=.
+linkage in one compiler process, as in =build-conformance.ss=.
 This retains compiler phase contexts while constructing the closed product.
 
 * Reusable production object closure and retained Linux failure
@@ -504,3 +504,8 @@ owners; CI uses normal build verbosity instead of level 9. Internal
 =declare-type= accessor/signature dumps are compiler optimization diagnostics,
 not parser results. Explicit module progress and native compiler diagnostics
 remain available under the unchanged total and idle limits.
+
+* Native process qualification
+
+The process contracts and the replacement of Bash coordination are specified in
+[[file:scheme-test-process-ownership.org][Native ownership of process qualification]].

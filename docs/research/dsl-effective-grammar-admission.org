@@ -1371,3 +1371,94 @@ Raw evidence is retained in temporary native products:
 =/private/tmp/parser-subset-research/exits.tsv=. Preparation and diagnostic
 retention are excluded from the paired construction claim and independently
 required for delivery. No JSON snapshot or additional supervisor is introduced.
+
+* Static labeled predecessor relations: rejected experiment (2026-10-09)
+
+** Paper transfer and proof obligations
+
+Ranzato and Tapparo, /Generalizing the Paige-Tarjan Algorithm by Abstract
+Interpretation/, distinguishes partition stability from refinement scheduling:
+[[https://arxiv.org/pdf/cs/0612120][primary paper]]. FOLLOW's labeled predecessor relation is immutable during
+forward refinement; source-to-partition identities change each round. Caching
+that relation is only a representation experiment, not the paper's splitter
+algorithm or its complexity bound.
+
+Three Scheme/GCC candidates grouped and sorted labels once and subsequently
+projected source indices into current group masks. The first froze every row;
+the second froze only initial nonsingleton rows; the third additionally retained
+source lists directly instead of copying them into vectors. Initial singleton
+elision is sound because refinement only splits. All candidates preserved
+first-seen numbering, splitting schedule and full LRSpec equality. Nevertheless,
+none earned admission. All implementation and candidate-only test changes were
+removed; no helper, cache, POO model or language author API is published.
+
+** Complete construction receipts, including negative results
+
+Every candidate used the same native frozen baseline
+=abdde8648c5f5704fc66058f27765ccd33f15213=, explicit GC before each timed complete
+construction, alternating old/new order and full LRSpec comparison outside
+measurement. Preparation and evidence retention are excluded. Each run checks
+five grammar families across five modes (25 exact artifacts), then 21 paired
+mixed FOLLOW constructions at 8/24/48 regions, 21 actual TLA+ default LALR pairs,
+and 7 actual TLA+ FOLLOW pairs. Both sides include identical real stage tracing,
+setup, construction, GC and publication; results are local CPU measurements.
+
+| Candidate | TLA+ FOLLOW old median ms | Candidate median ms | Supervisor result |
+|-----------+---------------------------+---------------------+-------------------|
+| All rows, vectors | 1782.771 | 1873.932 | exit 0, 50.573 s |
+| Initial nonsingletons, vectors | 1825.951 | 1908.429 | exit 0, 54.157 s |
+| Initial nonsingletons, lists | 2423.497 | 2101.417 | idle-timeout, child exit 143, controller exit 124 |
+
+The first two candidates regress approximately 5.1% and 4.5%. Their pairs 4 and
+6 increase collections from 10 to 16. This identifies a concrete GC tradeoff,
+not a proven complete root cause. Mixed 24/48-region medians for the first are
+4.179 -> 4.233 and 9.925 -> 10.075 ms; for the second, 4.362 -> 4.363 and
+10.150 -> 10.293 ms. Default LALR is outside the changed FOLLOW path.
+
+The list representation has a lower single-run median but regresses individual
+pairs 2, 4 and 6. More decisively, =ROWS-NATIVE-AB-OK= is followed by
+=PROCESS-RESULT elapsed=82.935 exit=143 reason=idle-timeout missing=()=.
+The supervisor therefore correctly rejects the run despite the completion
+marker. This establishes an uncompleted exit/teardown boundary, not a successful
+performance receipt or a proven explanation of the stall. The 90-second total
+and 5-second idle limits remain unchanged; there is no compiler switch, timeout
+extension or synthetic progress. All three candidates are rejected.
+
+The experimental resolved/canonical source owners passed 57 Cases (37 + 20),
+=TEST-SUITE-OK= and =OK=, controller exit 0 in 26.810 seconds. The candidate Case
+independently exhausted 64 labeled relations times 27 partition maps, original
+and reversed with duplicate edges (3456 comparisons), plus identities 64/128 and
+a changed partition map. Semantic equivalence did not override the failed
+performance/exit admission. The Case is removed with its unpublished helpers;
+existing source Suite ownership remains unchanged.
+
+Temporary native receipts: =/private/tmp/parser-rows-controls-driver.log=,
+=/private/tmp/parser-rows-ab-driver.log=,
+=/private/tmp/parser-rows-bounded-ab-driver.log= and
+=/private/tmp/parser-rows-list-ab-driver.log=. No JSON snapshot or additional
+supervisor is introduced.
+
+** Next structural obligation
+
+The representation cache does not eliminate the repeated scanning of ambiguous
+blocks in each refinement round. A subsequent worklist design must prove that
+only groups whose predecessor partition sets changed need to be revisited,
+including epsilon label zero, duplicate predecessor groups and transitions that
+lose one group identity while acquiring split identities. It must preserve
+canonical first-seen final numbering independently of splitter processing order,
+compare complete artifacts across all construction modes, and include complete
+setup/GC/publication cost. The current synchronous refinement remains the
+reference. There is no admitted complexity or end-to-end runtime claim from
+this experiment.
+
+** Restoration and delivery receipt
+
+After rejecting all candidates, the three source/test files were restored
+byte-for-byte from the current head and their native compiler artifacts rebuilt
+with the same GCC SDK. The original resolved/canonical source owners pass
+56 Cases (37 + 19), =TEST-SUITE-OK= and =OK=; controller exit 0 in 31.882 seconds
+under unchanged 120-second total/5-second idle limits. Evidence:
+=/private/tmp/parser-rows-restored-compile-driver.log= and
+=/private/tmp/parser-rows-restored-controls-driver.log=. Only this Org research
+record is delivered. Previously qualified compiled consumer source is unchanged;
+no new production optimization or full consumer requalification is claimed.

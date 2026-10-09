@@ -331,8 +331,43 @@
       (compare '#(() ((0 . 0)) ((2 . 1))) '#(1 0 0) 2)
       (compare '#(() ((0 . 0)) ((2 . 1))) '#(2 0 1) 3)
       (compare '#() '#() 0)
-      ;; Both internal ID buffers must remain local to an invocation. A result
-      ;; produced after multiple rounds survives a separate refinement call.
+      ;; Larger interacting groups exercise retained/new identities and both
+      ;; member/worklist orders. Reverse the entire graph, not just its IDs;
+      ;; every result is compared with the independent synchronous oracle.
+      (let graphs ((graph 0))
+        (when (< graph 64)
+          (let ((predecessors (make-vector 6 '()))
+                (reversed (make-vector 6 '())))
+            (for-each
+             (lambda (source)
+               (let* ((target (modulo (+ source 1) 6))
+                      (label (if (zero? (bitwise-and graph (arithmetic-shift 1 source))) 0 2))
+                      (edge (cons label source)))
+                 (vector-set! predecessors target
+                              (cons edge (cons edge (vector-ref predecessors target))))
+                 (when (zero? (modulo source 2))
+                   (let (target (modulo (+ source 3) 6))
+                     (vector-set! predecessors target
+                                  (cons (cons 2 source) (vector-ref predecessors target)))))
+                 (when (not (zero? (bitwise-and graph (arithmetic-shift 1 source))))
+                   (vector-set! predecessors source
+                                (cons (cons 0 source) (vector-ref predecessors source))))))
+             (iota 6))
+            (for-each
+             (lambda (node)
+               (vector-set! reversed (- 5 node)
+                            (map (lambda (edge) (cons (car edge) (- 5 (cdr edge))))
+                                 (vector-ref predecessors node))))
+             (iota 6))
+            (for-each
+             (lambda (entry)
+               (compare predecessors (car entry) (cdr entry))
+               (compare reversed (list->vector (reverse (vector->list (car entry)))) (cdr entry)))
+             (list (cons '#(0 0 0 0 0 0) 1) (cons '#(1 0 0 1 0 0) 2)
+                   (cons '#(2 0 1 2 0 1) 3) (cons '#(0 1 1 1 1 1) 2))))
+          (graphs (+ graph 1))))
+      ;; Workspaces must remain local to an invocation. A result produced
+      ;; after multiple rounds survives a separate refinement call.
       (let ((initial '#(0 0 0)) (rounds 0))
         (let-values (((first groups)
                       (compiler-index-partition-refine

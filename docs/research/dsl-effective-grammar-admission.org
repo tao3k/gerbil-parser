@@ -1784,3 +1784,110 @@ production source; no new full preparation receipt or candidate production
 optimization is claimed. Repository test/preparation owners are linked in the
 preceding verification section; host-specific temporary files are not Git
 references.
+
+* Persistent group identity experiment (2026-10-09)
+
+** Paper transfer and implementation
+
+[[https://arxiv.org/pdf/cs/0612120][Ranzato and Tapparo, Introduction, pp. 1-2]] distinguishes correctness of
+stable refinement from the scheduling changes that earn its logarithmic bound.
+The next candidate implements the preceding structural obligation: retain group
+identities and intrusive membership chains across synchronous rounds, process
+only queued nonsingleton groups, and canonicalize once at final publication.
+
+All signatures read the same immutable round IDs. Planned target IDs are
+recorded first; member links and IDs are committed only after every signature
+read completes. The first child retains the parent identity and other children
+receive fresh dense internal IDs. Only successors of members of actually split
+source groups are queued, with group-level deduplication. Singleton targets are
+excluded. Final publication assigns first-seen IDs without mutating the input.
+Signature equality must be invariant under bijective renaming; dependency
+visitors must include every shift/epsilon edge, including self edges.
+
+The candidate uses ten invocation-owned vectors rather than six. Group
+cardinalities and membership are initialized once. Per-round sizing and global
+publication scans disappear; visited member reconstruction replaces them.
+Internal IDs and chains need not follow node order, so final publication is a
+separate semantic obligation. The final ID map reuses the member-head workspace.
+This is still synchronous signature refinement, not smaller-half splitter
+scheduling, and establishes no =O(m log n)= bound.
+
+** Semantic and complete-cost controls
+
+All eight LR modules of the native baseline are frozen from
+=891364cc476b45bf588b4266d828033c83b1c1e7=. Both sides use the same GCC SDK,
+optimization, tracing and 3 GiB heap. The 90-second total and 5-second idle
+limits remain unchanged. The existing source owners pass 57 Cases; 25 full
+LRSpec comparisons across five grammar families and five construction modes
+are exact. Timing includes setup, construction, in-call GC and publication;
+imports, explicit preceding collection and artifact equality are excluded.
+
+Each protocol has 22 alternating pairs for each mixed FOLLOW size (8/24/48)
+and actual TLA+ LALR, plus eight actual TLA+ FOLLOW pairs. Even medians average
+the two middle samples. The retained protocol holds the first timed result
+while constructing the second and checks both timed LRSpecs; the released
+protocol checks full artifact equality before timing and discards timed results.
+
+| Protocol | Workload | Baseline CPU median ms | Candidate CPU median ms |
+|----------+----------+------------------------+-------------------------|
+| Retained | Mixed FOLLOW 8 | 1.5285 | 1.5220 |
+| Retained | Mixed FOLLOW 24 | 4.1270 | 4.1210 |
+| Retained | Mixed FOLLOW 48 | 9.9790 | 10.0290 |
+| Retained | TLA+ LALR | 14.2050 | 14.1805 |
+| Retained | TLA+ FOLLOW | 1712.2985 | 1734.3080 |
+| Released | Mixed FOLLOW 8 | 1.5345 | 1.5530 |
+| Released | Mixed FOLLOW 24 | 4.1960 | 4.1300 |
+| Released | Mixed FOLLOW 48 | 10.0340 | 9.9455 |
+| Released | TLA+ LALR | 14.3535 | 14.3350 |
+| Released | TLA+ FOLLOW | 1813.1530 | 1786.0880 |
+
+Controllers exit 0 in 61.229 and 55.125 seconds, respectively, with complete
+artifact checks and =STABLE-NATIVE-AB-OK=. Retained TLA+ FOLLOW regresses 1.29%;
+released improves 1.49%. Every retained candidate-second pair regresses
+(4.19% to 29.87%), while every candidate-first pair improves
+(4.01% to 20.18%). Collections in retained pairs 0/2/4 rise from 9/9/12 to
+14/14/16; pair 6 has six collections on both sides and still regresses 4.19%.
+CPU less in-call GC medians are 1252.8425 -> 1266.9620 ms retained and
+1238.4110 -> 1231.1790 ms released. These are diagnostic decompositions,
+not independent speed gates or proof of a complete GC root cause.
+
+The conflicting protocols and order sensitivity do not establish a complete
+construction benefit. The candidate is removed; membership chains, appended
+internal group IDs and additional workspaces do not enter production. No
+runtime/FFI speed or asymptotic complexity gain is claimed.
+
+** Permanent semantic coverage
+
+The existing canonical refinement Case gains 512 six-node controls: 64 labelled
+cyclic graphs, four initial partitions and both forward/reversed node orders.
+They include duplicate edges, conditional self edges and cross-group edges.
+The reverse control remaps all edge endpoints and initial IDs, rather than
+merely permuting group names. Each checks exact first-seen IDs/group count
+against the independent exhaustive synchronous oracle, preserved input and
+signature-call count bounded by exhaustive work. These controls apply to the
+existing engine independently of the rejected membership-chain implementation.
+The Case and Suite counts stay unchanged.
+
+** Restoration and closure
+
+Production compiler source is restored byte-for-byte from the baseline head;
+its three affected native interfaces rebuild with GCC in 8.951 seconds, exit 0.
+The candidate passes the expanded 20-Case canonical Suite in 15.726 seconds.
+The restored resolved/canonical owners pass 57 Cases (37 + 20), including all
+512 new controls, in 20.867 seconds with =TEST-SUITE-OK= and =OK=, exit 0.
+All total/idle budgets remain unchanged.
+
+The unchanged compiled production consumer is reused: its 372 semantic Cases
+across 23 groups and all five independent research entries exit 0. The controller
+emits =DSL-RESEARCH-CLOSURE-OK= and =OK=. The new canonical source controls are
+excluded from that compiled consumer and are qualified separately above.
+No new full preparation or production performance receipt is implied.
+Only [[file:../../t/canonical-lr1-reference-test.ss][the canonical source test owner]] and this Org record are delivered.
+
+The remaining structural obligation is to establish where full construction
+CPU/allocation is spent before selecting the next refinement representation.
+Removing repeated whole-domain scans alone did not earn admission here.
+Group identity, signature representation and member/worklist scheduling must
+be measured together, with canonical artifact identity and result lifetimes
+preserved. Released and retained costs remain separate evidence; neither
+protocol can substitute for the other.

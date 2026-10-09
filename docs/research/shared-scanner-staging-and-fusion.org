@@ -1132,3 +1132,126 @@ preparation, for example:
 The procedure argument selects the existing public parser. For an engine with
 no cost-stage observations, the complete request row is still reported; absent
 stages are not fabricated or inferred from its language name.
+
+* Shared region opener indexing and Gerbil source review
+
+** Fixed SDK implementation evidence
+
+This review used the source shipped with Gerbil 0.19, revision =2591dcd=,
+patch =f5cedd8168cb=. Paths below are relative to that SDK's source tree:
+
+| Source | Mechanism | Consequence for this engine |
+|--------+-----------+----------------------------|
+| =std/text/parser/ll1.ss=, =ll1-case= | Prepares peek predicates outside the reader lambda | Prepare declaration indexes once; keep input inspection request-local |
+| =std/list/list-builder.ss=, =with-list-builder= | Expands collector calls directly into owned list mutation | Use the existing macro when producing lists; do not add a second collector framework |
+| =std/text/parser/ebnf/deflexer.ss= and =defparser.ss= | Validate syntax and generate bindings with source information | Keep grammar admission and generated execution separate; preserve hygienic identifiers and error locations |
+| =gerbil/compiler/optimize-call.ss= | Specializes calls using known procedure types and checked primitive information | Do not replace proven call specialization with blanket unsafe declarations |
+| =gerbil/runtime/util.ss=, =foldl1= | Implements a generic callback-driven tail loop | The engine's repeated callback construction and full declaration walk are the problem, not the generic fold itself |
+| =gerbil/runtime/hash.ss= | Provides specialized tables and checked method boundaries | Reuse an eqv table for Unicode codepoints rather than invent another hash implementation |
+
+The LL1 implementation is a source-quality reference, not a replacement for
+contextual or LR grammar semantics. Its list peeker still prepares nested
+predicates during probing; using a standard library abstraction alone does not
+prove allocation or latency improvements. The list builder's mutable chain
+belongs to one execution; moving it into shared language state would violate
+request ownership.
+
+The binding-time argument in [[https://www.cl.cam.ac.uk/~jdy22/papers/a-typed-algebraic-approach-to-parsing.pdf][A Typed, Algebraic Approach to Parsing]]
+(PLDI 2019, Section 6.1) distinguishes static grammar facts from a dynamic
+stream. That supports the preparation boundary here. Its benchmark computes
+counts instead of constructing AST nodes, so its speed ratios cannot be
+transferred to this engine's complete lossless artifact contract.
+
+** Implemented representation and preserved semantics
+
+The shared =RegionPlan= now prepares opener buckets by first codepoint: a
+128-entry vector for ASCII and an eqv hash table for other codepoints. Buckets
+refer to the same owned declaration rows used by scoped caches, and preserve
+declaration order. The public specification view remains a deep copy. Every
+probe retains scope filtering and longest-prefix selection. No language
+declaration, loader schema, C ABI or compiler selection changes.
+
+Previously, each input position built a capturing callback and walked all P
+opener declarations. The generated Scheme for the frozen reference contains
+that lambda passed to =foldl__0=. The new named loop walks only its selected
+bucket. For T inactive input positions, candidate lookup no longer grows with
+P. This is not a trie: a bucket with P colliding first codepoints still requires
+a P-row prefix walk, plus the existing allowed-prefix membership checks.
+
+** Native control on base f471694
+
+An initial decomposition of the large fixture found 2,550 words and 6,950 raw
+tokens. Word-result construction allocated 15,266,128 bytes at CPU P50
+7.809 ms (10 allocation samples of 11); source-frame preparation allocated
+532,912 bytes at 0.205 ms (11 of 11). These isolated subproducts are not
+additive full-request costs. They directed attention toward word recognition
+rather than a source-frame ownership redesign.
+
+The region control kept the input fixed at 512 inactive characters and varied
+opener declarations. Preparation and endpoint checks were outside timing.
+Each row reports 11 CPU samples and 11 no-GC allocation samples:
+
+| Openers | Reference CPU P50 ms, A / B | Indexed CPU P50 ms, A / B | Reference allocation bytes | Indexed allocation bytes |
+|---------+----------------------------+--------------------------+----------------------------+--------------------------|
+| 1 | 0.041 / 0.040 | 0.032 / 0.032 | 41168 | 208 |
+| 8 | 0.074 / 0.171 | 0.031 / 0.032 | 41168 | 208 |
+| 64 | 0.315 / 0.316 | 0.032 / 0.032 | 41168 | 208 |
+| 256 | 1.992 / 1.157 | 0.031 / 0.032 | 41168 | 208 |
+
+The complete recognition control used the same current prepared scanner on
+both sides and frozen versus indexed region/word producers. Source-bound
+artifact validation was inside both measured requests. Consequently this
+control isolates recognition lowering; a scanner-side benefit common to both
+variants is not attributed to the change in this table.
+
+| ABBA variant | Complete CPU P50 ms | Allocation P50 bytes | Allocation samples / CPU samples |
+|--------------+---------------------+----------------------+---------------------------------|
+| Reference A | 26.147 | 36814992 | 8 / 11 |
+| Indexed A | 23.315 | 35939792 | 9 / 11 |
+| Indexed B | 24.941 | 35939792 | 9 / 11 |
+| Reference B | 40.933 | 36814992 | 9 / 11 |
+
+The stable allocation reduction is 875,200 bytes, approximately 2.38%.
+Reference CPU varies substantially across blocks; this does not establish a
+stable complete-entry speedup or close the Tree-sitter performance gap.
+Short, here-document, compound, large, malformed, Unicode and empty inputs
+passed complete-product equality. The native control exited 0 in 27.548 s
+with =REGION-PREFIX-CONTROL-OK=. Seven focused modules passed 92 cases in
+14.080 s. New cases cover overlapping opener order, restricted and empty
+scopes, Unicode indexes, ownership and invalid offsets; existing cases cover
+deep nesting and separate quote/pair cache identities.
+
+** Rejected experiments and limits
+
+An ASCII class-table experiment passed semantic tests but did not reduce
+complete allocation; CPU controls were mixed. It was reverted. Its controller
+also failed the idle guard after returning from main, so that run is excluded
+from successful native qualification. The retained region controller exits
+explicitly only after completing its assertions.
+
+One exploratory GCC compile exceeded the idle guard during optimization
+diagnostics. The unchanged source and SDK compiled on a retry. This does not
+identify the precise optimizer stall or justify changing the compiler. All
+experiments retained the 120-second total and 5-second idle guards. Temporary
+frozen-reference modules and experiment controllers are not production code.
+
+Remaining algorithm work is active-bucket prefix discrimination and reducing
+word-result intermediate construction. Both require matched complete-product
+controls, including negative results; the inactive-input scaling result does
+not by itself justify either transformation.
+
+** Qualification after integrating the latest PR changes
+
+The final integration base was =f750b961e6db7fda910edbc2e2d191b82ce75e72=.
+The shared runtime build completed in 22.930 s, and the updated stage
+diagnostic compiled in 10.586 s, both with exit 0. Eight focused modules
+passed 157 cases in 11.801 s with =TEST-SUITE-OK modules=8=, =OK= and exit 0.
+This includes the newly integrated EventFold and P95 contracts; it is a local
+qualification receipt, not a remote CI result or a new performance table.
+
+An earlier compile attempted the fold runtime before rebuilding the newly
+exported =fold-source-lines= interface and failed with an unbound identifier.
+An earlier integration test loaded the old stage diagnostic and failed at
+=cdr= of the missing =cpu-p95-ms= association. Rebuilding the changed modules
+in dependency order resolved both stale-artifact failures. Those failed
+rounds are excluded; neither production contracts nor watchdogs were relaxed.

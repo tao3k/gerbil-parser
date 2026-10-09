@@ -86,6 +86,34 @@
                       (check (region-source-pair-end source 0) => 8)
                       (check (region-source-pair-end source 2) => 6))) '(0 2))
         (check (rejects? (lambda () (prepare-scoped-region-source plan "x" '(("unknown" "@"))))) => #t)))
+    (test-case "candidate indexes retain Unicode and declaration ownership"
+      (let* ((spec (list '(";") '()
+                         (list (list (string-copy "α{") #\{ #\} 1)
+                               (list (string-copy "😀[") #\[ #\] 1)) #f))
+             (plan (prepare-region-plan spec))
+             (view (region-plan-specification plan))
+             (source (prepare-region-source plan "α{😀[x]}")))
+        (string-set! (car (car (caddr spec))) 0 #\x)
+        (string-set! (car (car (caddr view))) 0 #\y)
+        (check (region-source-pair-end source 0) => 7)
+        (check (region-source-pair-end source 2) => 6)
+        (check (region-plan-end plan "βx rest" 0) => 2)
+        (for-each
+         (lambda (at) (check (rejects? (lambda () (region-source-pair-end source at))) => #t))
+         '(-1 1 7 8 0.5))))
+    (test-case "overlapping buckets preserve longest admitted opener in either order"
+      (for-each
+       (lambda (pairs)
+         (let* ((plan (prepare-region-plan (list '(";") '() pairs #f)))
+                (outer (prepare-scoped-region-source plan "#{@(x)!}" '(("#{" "@"))))
+                (unrestricted (prepare-region-source plan "@(x)!")))
+           (check (region-source-pair-end unrestricted 0) => 4)
+           (check (region-source-pair-end outer 0) => 8)
+           (check (region-source-pair-end outer 2) => 6)
+           (let (opaque (prepare-scoped-region-source plan "#{@(x}" '(("#{"))))
+             (check (region-source-pair-end opaque 0) => 6))))
+       '((("#{" #\{ #\} 1) ("@" #\@ #\! 1) ("@(" #\( #\) 1))
+         (("@(" #\( #\) 1) ("@" #\@ #\! 1) ("#{" #\{ #\} 1)))))
     (test-case "malformed rows and foreign quote prefixes reject at admission"
       (for-each
        (lambda (spec)

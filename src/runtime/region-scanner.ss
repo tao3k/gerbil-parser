@@ -7,7 +7,7 @@
         region-plan-specification prepare-region-source prepare-scoped-region-source region-source?
         region-source-pair-end region-source-quote-end)
 
-(defstruct region-plan (data stops quotes pairs operators))
+(defstruct region-plan (data stops quotes pairs operators pair-index))
 
 (defrules defregion-plan (stops quotes pairs consume-initial-stop)
   ((_ name (stops stop ...) (quotes quote-row ...) (pairs pair ...) (consume-initial-stop flag))
@@ -51,11 +51,25 @@
         (cadr spec))
        (unique? (cadr spec) car)))
 
+(def (prepare-pair-index pairs)
+  ;; Buckets retain the owned declaration rows and their stable ordering.
+  ;; Most input characters have no opener candidate; they need no prefix walk.
+  (let ((ascii (make-vector 128 '())) (wide (make-hash-table-eqv)))
+    (for-each
+     (lambda (row)
+       (let (code (char->integer (string-ref (car row) 0)))
+         (if (< code 128)
+           (vector-set! ascii code (cons row (vector-ref ascii code)))
+           (hash-put! wide code (cons row (or (hash-get wide code) '()))))))
+     (reverse pairs))
+    (cons ascii wide)))
+
 (def (prepare-region-plan spec)
   (unless (valid-region-specification? spec) (error "invalid closed region plan" spec))
   (let (owned (copy-data spec))
     (make-region-plan owned (car owned) (cadr owned) (caddr owned)
-                      (make-literal-end-scanner (car owned)))))
+                      (make-literal-end-scanner (car owned))
+                      (prepare-pair-index (caddr owned)))))
 
 (def (source-prefix-at? source at text)
   (let ((width (string-length text)) (limit (string-length source)))
@@ -70,12 +84,20 @@
     (and end (substring source start end))))
 
 (def (pair-at plan source at (allowed #f))
-  (foldl
-   (lambda (row selected)
-     (if (and (or (not allowed) (member (car row) allowed))
-              (source-prefix-at? source at (car row))
-              (or (not selected) (> (string-length (car row)) (string-length (car selected)))))
-       row selected)) #f (region-plan-pairs plan)))
+  (and (not (null? allowed)) (exact-integer? at) (<= 0 at) (< at (string-length source))
+       (let* ((index (region-plan-pair-index plan))
+              (code (char->integer (string-ref source at)))
+              (rows (if (< code 128) (vector-ref (car index) code)
+                      (or (hash-get (cdr index) code) '()))))
+         (let loop ((rest rows) (selected #f))
+           (if (null? rest) selected
+             (let (row (car rest))
+               (loop (cdr rest)
+                 (if (and (or (not allowed) (member (car row) allowed))
+                          (source-prefix-at? source at (car row))
+                          (or (not selected)
+                              (> (string-length (car row)) (string-length (car selected)))))
+                   row selected))))))))
 
 ;;; Frames are immutable quote rows or pair rows with a current depth. There
 ;;; is no recursive call on source nesting and no source-prefix substring.

@@ -326,7 +326,28 @@
           (check actual => 16)
           (check expected => 24)
           (check (< actual expected) => #t)))
-      (compare '#() '#() 0))
+      (compare '#() '#() 0)
+      ;; Both internal ID buffers must remain local to an invocation. A result
+      ;; produced after multiple rounds survives a separate refinement call.
+      (let ((initial '#(0 0 0)) (rounds 0))
+        (let-values (((first groups)
+                      (compiler-index-partition-refine
+                       initial 1 (lambda (node ids) (if (= node 0) 0 1))
+                       (lambda (source visit) (void))
+                       (lambda (groups nodes examined) (set! rounds (+ rounds 1))))))
+          (check first => '#(0 1 1))
+          (check groups => 2)
+          (check rounds => 2)
+          (let-values (((second groups)
+                        (compiler-index-partition-refine
+                         initial 1 (lambda (node ids) node)
+                         (lambda (source visit) (void))
+                         (lambda (groups nodes examined) (void)))))
+            (check second => '#(0 1 2))
+            (check groups => 3)
+            (check (eq? first second) => #f))
+          (check first => '#(0 1 1))
+          (check initial => '#(0 0 0)))))
     (poo-flow-test-case "indexed reachability agrees with exhaustive list graph oracle"
       (def (oracle initial rows)
         (let visit ((pending (filter (lambda (node) (not (zero? (bitwise-and initial (arithmetic-shift 1 node))))) (iota (vector-length rows))))

@@ -110,17 +110,20 @@
 ;; visit-successors must enumerate every signature dependency, including self
 ;; edges; observe receives completed group/node/signature counts each round.
 ;; Input IDs are never mutated. Final IDs follow first-seen node order.
+;; Signature callbacks read the current IDs only during the call: internal
+;; round buffers are reused. The returned vector is owned by this invocation.
 (def (compiler-index-partition-refine initial initial-count signature visit-successors observe)
   (let* ((count (vector-length initial))
          (sizes (make-vector count 0))
          ;; -1: unseen, -2: split, otherwise the first new group identity.
-         (first-child (make-vector count -1)))
+         (first-child (make-vector count -1))
+         (next-a (make-vector count 0)) (next-b (make-vector count 0))
+         (dirty-a (make-vector count #t)) (dirty-b (make-vector count #f)))
     (let refine ((ids initial) (group-count initial-count)
-                 (dirty (make-vector initial-count #t)))
+                 (next next-a) (spare next-b) (dirty dirty-a) (pending dirty-b))
       (vector-fill! sizes 0)
       (vector-fill! first-child -1)
-      (let ((next (make-vector count 0))
-            (keys (make-table test: equal?))
+      (let ((keys (make-table test: equal?))
             (next-count 0) (examined 0))
         (let count-loop ((node 0))
           (when (< node count)
@@ -152,15 +155,16 @@
             (node-loop (+ node 1))))
         (observe next-count count examined)
         (if (and (> next-count group-count) (< next-count count))
-          (let (next-dirty (make-vector next-count #f))
+          (begin
+            (vector-fill! pending #f)
             (let source-loop ((source 0))
               (when (< source count)
                 (when (= (vector-ref first-child (vector-ref ids source)) -2)
                   (visit-successors source
                     (lambda (target)
-                      (vector-set! next-dirty (vector-ref next target) #t))))
+                      (vector-set! pending (vector-ref next target) #t))))
                 (source-loop (+ source 1))))
-            (refine next next-count next-dirty))
+            (refine next next-count spare next pending dirty))
           (values next next-count))))))
 
 ;; Materialize in canonical catalog order through the standard library's

@@ -1569,3 +1569,116 @@ total/5-second idle limits, including completed 1915-product storage and
 =PREPARATION-STORED-RECEIPT=; controller exit 0. The compiled semantic entry passes 372 Cases across 23 groups; it and
 all five research entries exit 0, =DSL-RESEARCH-CLOSURE-OK= and =OK=. Source Suite
 and compiled consumer counts are distinct.
+
+* Invocation-owned refinement workspaces (2026-10-09)
+
+** Resource transfer from the partition refinement design
+
+The [[https://arxiv.org/pdf/cs/0612120][generalized Paige-Tarjan study]] separates correctness of stable refinement
+from algorithmic scheduling improvements. This implementation retains the
+previous affected-group schedule, exact signatures, first-seen numbering and
+termination. It changes resource ownership within the shared Scheme algorithm,
+not splitter selection or its asymptotic time bound.
+
+Each invocation allocates two ID vectors and two affected-group vectors, alongside
+the existing sizes and first-child workspace. Every next ID slot is assigned
+before publication; the next affected frontier is cleared before propagation.
+Only after all signature reads and successor visits complete are current/next
+roles exchanged. Original initial IDs are never overwritten. A signature
+callback borrows current IDs during its call; it must not retain that internal
+view. The final returned vector survives other invocations, and no buffer is
+global or retained by the language descriptor.
+
+For =r= completed rounds, the previous algorithm allocates =2r + 2= indexed
+vectors, including initial dirty flags and size/first-child storage. This version
+allocates six, independent of =r=. One-round calls therefore allocate two extra
+vectors, two-round calls the same number, and longer calls fewer. Table/signature
+allocation, vector reset work and maximum live bytes remain separate costs.
+This is a deterministic workspace allocation count, not a total allocation-byte
+or latency claim. Language author declarations and ABI contracts are unchanged.
+
+** Semantic and lifetime controls
+
+The existing canonical source owner still performs exhaustive graph comparison
+with the independent synchronous oracle. Additional assertions require two-round
+refinement to return the expected IDs, then a separate invocation to produce a
+different partition without modifying either the first returned vector or the
+initial vector. Source ownership stays at 57 Cases across the existing two
+Suites. They emit =TEST-SUITE-OK= and =OK=, controller exit 0 in 23.024 seconds
+under unchanged 120-second total/5-second idle limits.
+
+** Complete construction controls
+
+The baseline is frozen from =87c37bf52bc28f4c6da93b42c082463d680286f9= across all
+eight indexed LR modules. GCC, native options, 3 GiB heap, tracing and total/idle
+limits are matched. Every workload checks exact full LRSpec equality outside
+measurement; retained-result pairs additionally compare both timed results.
+Each protocol runs 22 alternating pairs for mixed 8/24/48-region FOLLOW and
+actual TLA+ default LALR, and eight actual TLA+ FOLLOW pairs, four per order.
+Even-sample medians average the two middle values. Construction includes setup,
+GC and publication, but excludes imports, explicit preceding GC and comparisons.
+
+| Lifecycle | Complete workload | Baseline median CPU ms | Workspace median CPU ms |
+|-----------+-------------------+------------------------+-------------------------|
+| Retain first timed artifact | Mixed FOLLOW 8 | 1.536 | 1.523 |
+| Retain first timed artifact | Mixed FOLLOW 24 | 4.157 | 4.157 |
+| Retain first timed artifact | Mixed FOLLOW 48 | 10.080 | 10.126 |
+| Retain first timed artifact | TLA+ default LALR | 14.495 | 14.304 |
+| Retain first timed artifact | TLA+ FOLLOW | 1871.222 | 1766.677 |
+| Discard timed artifacts | Mixed FOLLOW 8 | 1.566 | 1.609 |
+| Discard timed artifacts | Mixed FOLLOW 24 | 4.311 | 4.296 |
+| Discard timed artifacts | Mixed FOLLOW 48 | 10.346 | 10.187 |
+| Discard timed artifacts | TLA+ default LALR | 14.736 | 14.663 |
+| Discard timed artifacts | TLA+ FOLLOW | 1852.845 | 1885.259 |
+
+Retained actual FOLLOW medians decrease 5.59%, but all four candidate-second
+pairs regress and collections increase in several pairs. Discarded-result
+medians increase 1.75%, with four individual regressions. Both protocols emit
+=BUFFER-NATIVE-AB-OK= and exit 0 (64.007 and 56.988 seconds) under unchanged
+90-second total/5-second idle limits. These results establish no stable latency
+win or elimination of retained-output GC sensitivity. Default LALR is outside
+the changed FOLLOW path. The admitted implementation bounds multi-round
+workspace allocation; neither these controls nor the previous historical batches
+support a cumulative runtime/FFI/Rust throughput claim.
+
+** Repository verification owners
+
+Git documentation names repository-owned inputs, commands and results. Host
+checkout paths and ephemeral raw-log locations belong to local execution
+receipts, and are not references readers can reproduce from Git.
+
+- [[file:../../src/compiler/funcs.ss][Shared indexed refinement algorithms]]
+- [[file:../../t/canonical-lr1-reference-test.ss][Exhaustive semantic and lifetime controls]]
+- [[file:../../t/benchmarks/lr1-partition/construction.ss][Complete TLA+ construction benchmark]]
+- [[file:../../build-conformance.ss][Compiled conformance preparation owner]]
+- [[file:../../scripts/preparation-cache.ss][Content admission and actual copy progress]]
+- [[file:../../test-processes.ss][Compiled semantic and research process owner]]
+
+From the repository root with its configured Gerbil environment and compiled
+interfaces prepared, use the existing owners:
+
+#+begin_src sh
+mkdir -p .gerbil
+gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+  --log .gerbil/lr-controls.log --require TEST-SUITE-OK --require '^OK$' -- \
+  gxi t/fixtures/tla-sany-differential/test-suite.ss \
+  t/resolved-grammar-test.ss t/canonical-lr1-reference-test.ss
+GERBIL_PARSER_LR_TRACE=1 gerbil env gxi \
+  t/benchmarks/lr1-partition/construction.ss 8 follow-partition-lr1
+gerbil env gxi build-conformance.ss
+gerbil env gxi test-processes.ss research .gerbil/research-results
+#+end_src
+
+The construction owner retains its reference artifact to check every sample.
+It is an executable single-version consumer, not a substitute for the two
+historical frozen-baseline protocols above.
+
+** Final compiled consumer receipt
+
+Complete preparation exits 0 in 131.752 seconds under unchanged 240-second
+total/5-second idle limits, including the completed 1964-product storage receipt.
+The compiled semantic owner passes 372 Cases across 23 groups. It and the five
+independent research entries all exit 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=.
+These compiled consumer counts remain separate from the 57-Case source owner.
+Preparation time is required qualification, excluded from paired construction
+CPU measurements. No native parser runtime or Rust/FFI acceleration is claimed.

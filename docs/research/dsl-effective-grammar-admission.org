@@ -1682,3 +1682,105 @@ independent research entries all exit 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=
 These compiled consumer counts remain separate from the 57-Case source owner.
 Preparation time is required qualification, excluded from paired construction
 CPU measurements. No native parser runtime or Rust/FFI acceleration is claimed.
+
+* Group cardinality and propagation frontier experiment (2026-10-09)
+
+** Paper transfer and candidate proof
+
+[[https://arxiv.org/pdf/cs/0612120][Ranzato and Tapparo]] separates stable refinement correctness from scheduling
+improvements. The existing engine still sizes every current group in a separate
+node pass, and scans all nodes when propagating split-source dependencies.
+Two candidates were implemented and tested with identical synchronous rounds,
+exact signatures, first-seen IDs and termination:
+
+- Compute next-group cardinalities during ID publication and carry them into
+  the following round. Initial membership is counted only once.
+- Record each affected nonsingleton member in an invocation-owned source vector.
+  Only those groups can split, so propagation scans that recorded prefix and
+  visits successors only for members whose old group actually split.
+
+Candidate one retains separate size/dirty arrays and needs eight indexed
+vectors rather than six. Candidate two stores affected status in the sign of
+each cardinality: negative affected, positive clean, magnitude exact group size.
+All next sizes are counted positively before propagation; marking an already
+negative size is idempotent. This returns the workspace to six indexed vectors
+and eliminates the separate boolean frontier reset. Zero denotes an unused
+slot, never a populated group. Both preserve input and output lifetime contracts.
+
+For =r= rounds on =n= nodes, the separate membership-sizing pass would drop
+from =r*n= node reads to =n= initial reads. Publication still performs =r*n=
+node assignments and additionally counts next-group membership, including the
+last unused next size map. Propagation would inspect the affected nonsingleton
+prefix rather than =n= nodes per continuing round. These are traversal bounds,
+not total operation or complexity improvements; synchronous publication remains
+linear in every round. Neither candidate implements full Paige-Tarjan scheduling
+or establishes its logarithmic bound.
+
+** Exact artifacts and negative complete costs
+
+The native baseline is frozen from
+=2b86afaed9bf2cf9375aa966c27bedf64696f743= across all eight indexed LR modules.
+Each candidate passes the two existing source Suites, 57 Cases, including the
+exhaustive synchronous graph oracle, duplicate labels/edges, empty domain,
+multiple rounds, preserved input, independent result lifetimes and two new
+initially permuted dense-ID controls. Source checks alone do not admit either
+candidate's complete cost.
+
+Native GCC options, tracing, 3 GiB heap and 90-second total/5-second idle limits
+are unchanged. Each protocol validates 25 full LRSpec artifacts across five
+grammar families and five construction modes, then 22 alternating pairs each
+for three mixed FOLLOW sizes and actual TLA+ default LALR, plus eight actual
+TLA+ FOLLOW pairs. Both timed results remain live for pair comparison; there
+are four pairs per invocation order, and even medians average the middle two
+samples. Imports, explicit preceding GC and equality checks are excluded;
+setup, construction, in-call GC and publication are included.
+
+| Candidate | TLA+ FOLLOW baseline CPU median ms | Candidate median ms | Supervisor |
+|-----------+------------------------------------+---------------------+------------|
+| Separate size/dirty arrays | 1764.333 | 1861.461 | exit 0, 63.748 s |
+| Cardinality sign marks affected groups | 1694.290 | 1775.030 | exit 0, 55.423 s |
+
+Complete medians regress 5.50% and 4.77%. Every candidate-second actual FOLLOW
+pair regresses in both batches; GC counts and CPU increase in several pairs.
+The first candidate's pairs 2/4/6 increase collections from 10 to 16. The second
+candidate still increases them from 9 to 11 in pair 2, 11 to 15 in pair 4 and
+8 to 12 in pair 6. This preserves the invocation-order and retained-output
+sensitivity rather than claiming its root cause is solved by workspace fusion.
+Reducing an internal scan or vector count did not earn complete-cost admission.
+Further discarded-result timing is unnecessary once this retained-result
+consumer fails to establish an acceptable tradeoff.
+
+Both candidates are removed, including the cardinality encoding and new source
+workspace. The existing six-vector engine remains unchanged. No field, ABI,
+language loader slot, schema version, heap limit or compatibility API changes.
+The two new permuted-ID controls remain in the existing canonical source Case;
+they strengthen a valid baseline contract independently of the rejected algorithm.
+
+** Next structural obligation
+
+A stronger scheduler must preserve group identity while processing affected
+members, then canonicalize IDs in one final first-seen pass. It must compute the
+same coarsest stable partition regardless of worklist order, include self and
+epsilon dependencies, and handle predecessor sets containing both retained and
+new split identities. It must avoid moving the current full-domain publication
+cost into per-split member reconstruction. The existing synchronous algorithm
+and independent source oracle remain its references. Complete retained-result
+cost, resource ownership and exact LRSpec output remain required controls.
+No new production speed or complexity claim is delivered from this experiment.
+
+** Restoration and retained test receipt
+
+Production compiler source is restored byte-for-byte from the current head and
+the affected native interfaces rebuilt with the same GCC SDK; controller exit 0
+in 9.291 seconds. The resolved/canonical source owners, including both new
+permuted-ID controls, pass 57 Cases (37 + 20), =TEST-SUITE-OK= and =OK=;
+controller exit 0 in 23.545 seconds under unchanged 120-second total/5-second
+idle limits. Only the existing canonical test Case and this Org record change.
+
+The unchanged compiled consumer is reused: 372 semantic Cases across 23 groups
+pass, and its five independent research entries also exit 0. The controller
+emits =DSL-RESEARCH-CLOSURE-OK= and =OK=. This is a rerun of the unchanged compiled
+production source; no new full preparation receipt or candidate production
+optimization is claimed. Repository test/preparation owners are linked in the
+preceding verification section; host-specific temporary files are not Git
+references.

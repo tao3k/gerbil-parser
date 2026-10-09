@@ -326,6 +326,10 @@
           (check actual => 16)
           (check expected => 24)
           (check (< actual expected) => #t)))
+      ;; Sizes belong to group identities, not node order. Exercise dense IDs
+      ;; that are initially permuted before first-seen canonical publication.
+      (compare '#(() ((0 . 0)) ((2 . 1))) '#(1 0 0) 2)
+      (compare '#(() ((0 . 0)) ((2 . 1))) '#(2 0 1) 3)
       (compare '#() '#() 0)
       ;; Both internal ID buffers must remain local to an invocation. A result
       ;; produced after multiple rounds survives a separate refinement call.

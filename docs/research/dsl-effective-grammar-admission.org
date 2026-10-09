@@ -1462,3 +1462,135 @@ under unchanged 120-second total/5-second idle limits. Evidence:
 =/private/tmp/parser-rows-restored-controls-driver.log=. Only this Org research
 record is delivered. Previously qualified compiled consumer source is unchanged;
 no new production optimization or full consumer requalification is claimed.
+
+* Dependency-directed synchronous refinement (2026-10-09)
+
+** Paper transfer and engine contract
+
+[[https://arxiv.org/pdf/cs/0612120][Ranzato and Tapparo's generalized Paige-Tarjan paper]] distinguishes the
+correctness of stable partition refinement from scheduling improvements. The
+implementation here retains synchronous rounds and first-seen numbering. It
+adds an affected-group frontier; it does not implement smaller-half splitters,
+a fully asynchronous worklist, or establish an =O(m log n)= bound. Node sizing,
+publication and split-source discovery still scan the node domain per round.
+
+=compiler-index-partition-refine= in the shared Scheme compiler algorithms
+accepts dense initial group IDs, a label/set signature procedure, an exact
+successor dependency visitor and a completed-round observer. FOLLOW supplies
+shift and epsilon successors. The generic algorithm is language-independent;
+no language loader slot, POO model, FFI ABI or author API changes.
+
+Its obligations are:
+
+1. The first round marks all groups affected. Signatures are exact sets of
+   predecessor group identities per label; their equality must be invariant
+   under bijective renaming of those identities.
+2. A round only splits groups. Unsplit source groups map injectively into their
+   next identities; their renumbering preserves target signature equality.
+3. Every source member of a split group visits all successors, including epsilon
+   label zero and self edges. Every resulting target group is marked affected.
+   Extra visits from duplicate edges are idempotent.
+4. An unmarked group was stable in the prior round and no dependency source
+   group split. Its membership can therefore be copied without recomputing
+   signatures. Singleton groups also require no signature.
+5. Each node is still published in increasing original index order. The first
+   encountered child receives the next dense identity. Initial IDs are not
+   mutated, and the original termination condition is preserved.
+
+The first child mapping also represents clean-group publication and split
+status: -1 unseen, -2 split, otherwise the first child ID. That private numeric
+workspace and group sizes are allocated once per invocation and reset per round;
+there is no global state or retained signature cache. This avoids three redundant
+per-round vectors from the first candidate.
+
+** Independent executable semantic controls
+
+The canonical source owner adds one Case with a list-based synchronous oracle.
+The oracle recomputes every node's signature and uses an association list for
+first-seen groups. Work counts exclude singletons, matching the previous
+production optimization. The Case covers all 512 three-node directed graphs
+with five initial partitions (2560 controls), 64 two-label cyclic relations with
+two initial partitions and duplicate edges (128 controls), an independent
+self-loop group beside a propagating chain, and an empty domain. It checks exact
+final IDs/count, unchanged input IDs and no increase in signature calls.
+
+The chain/self-loop control requires exactly 16 candidate signature calls versus
+24 existing-engine calls. This demonstrates actual affected-group elision,
+separately from singleton elision; it is not a latency claim.
+
+** Complete cost and live-output sensitivity
+
+The native GCC baseline is frozen from
+=7a91f1dd11d2f8e7eace8a9f90d8921d5b54bc0c= across all eight indexed LR modules.
+Both baseline and candidate use matching native compilation options and real
+stage tracing. Earlier measurements retained the first full LRSpec during the
+second timed construction and used seven alternating actual FOLLOW pairs. The
+first candidate's medians were 1782.060 -> 1993.383 ms; the reused-workspace
+candidate's were 1819.706 -> 2137.694 ms. Both exit normally, but these are
+negative live-output sensitivity receipts, not ignored wins. Retaining an
+additional artifact changes collection pressure; the odd sample count also
+leaves invocation order unbalanced. These results do not establish a complete
+root cause or favorable behavior when previous artifacts remain live.
+
+For the final complete-construction control, full LRSpec equality is established
+outside timing for every workload; timed calls discard results before the next
+explicit GC. Actual FOLLOW uses eight alternating pairs, four per order, and
+conventional even-sample medians. All setup, construction, GC and publication
+remain inside timed calls. This characterizes construction without a live
+partner artifact; it does not remove the preceding resource sensitivity.
+
+| Complete workload | Pairs | Baseline median CPU ms | Frontier median CPU ms |
+|-------------------+-------+------------------------+------------------------|
+| Mixed FOLLOW 8 regions | 21 | 1.525 | 1.545 |
+| Mixed FOLLOW 24 regions | 21 | 4.180 | 4.218 |
+| Mixed FOLLOW 48 regions | 21 | 10.112 | 10.119 |
+| Actual TLA+ default LALR | 21 | 14.349 | 14.483 |
+| Actual TLA+ FOLLOW | 8 | 1925.546 | 1877.562 |
+
+The actual FOLLOW single-run median decreases 2.49%, but pairs 2 and 3 regress
+and several candidate GC counts/CPU times increase. Small FOLLOW controls add
+0.007-0.038 ms; default LALR is outside the modified refinement path. The process
+checks 25 artifacts across five grammar families and five construction modes,
+plus exact results for all cost workloads. It emits =DIRTY-NATIVE-AB-OK= and
+exits 0 in 54.939 seconds under unchanged 90-second total/5-second idle limits.
+This admits a structurally verified reduction of redundant signature work;
+it does not establish stable latency, allocation-byte, retained-artifact memory,
+Runtime parsing, FFI or Rust throughput improvement.
+
+Native temporary receipts: =/private/tmp/parser-dirty-ab-driver.log=,
+=/private/tmp/parser-dirty-reuse-ab-driver.log= and
+=/private/tmp/parser-dirty-released-ab-driver.log=. The prior rejected static-row
+cache remains removed. No JSON report or additional test supervisor is added.
+
+** Final consumer and preparation receipts
+
+The final source controls pass 57 Cases (resolved 37, canonical 20),
+=TEST-SUITE-OK= and =OK=; controller exit 0 in 23.461 seconds. The updated
+work-count oracle excludes singleton calls and the 16-versus-24 assertions pass.
+Evidence: =/private/tmp/parser-dirty-final-controls-driver.log=.
+
+The first complete preparation links successfully but then triggers the unchanged
+5-second idle guard after the final 1866-product hash report; controller exit 124,
+child exit 143, total elapsed 97.556 seconds. Inspection finds both local/store
+records and all 1866 copied products written. The hash-to-save/exit path is thus
+the evidence boundary; the original save/restore loops report no completed copy
+progress. This is a visibility gap, not a demonstrated deadlock or complete
+explanation of every historical exit stall.
+
+The Scheme preparation owner now reports each 64 actually completed copies and
+the final partial batch, plus completed local/store record writes. Total entry
+counts are computed once per operation; no repeated list-length scan, heartbeat,
+new process, compiler switch or widened timeout is introduced. Existing
+preparation controls for content invalidation, failed builds, restoration,
+corrupt stores, generated caches and object boundaries pass, final =OK= and
+controller exit 0 in 1.833 seconds. Saving/restoring real progress markers are
+required by the check. Evidence:
+=/private/tmp/parser-dirty-preparation-controls-driver.log=.
+
+Complete preparation rerun passes in 82.709 seconds under unchanged 240-second
+total/5-second idle limits, including completed 1915-product storage and
+=PREPARATION-STORED-RECEIPT=; controller exit 0. The compiled semantic entry passes 372 Cases across 23 groups; it and
+all five research entries exit 0, =DSL-RESEARCH-CLOSURE-OK= and =OK=. Source Suite
+and compiled consumer counts are distinct. Evidence:
+=/private/tmp/parser-dirty-final-conformance-build-driver.log= and
+=/private/tmp/parser-dirty-research/exits.tsv=.

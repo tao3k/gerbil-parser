@@ -10,6 +10,7 @@
         compiler-index-set-member?
         compiler-index-set-for-each
         compiler-index-set-reachable
+        compiler-index-partition-refine
         compiler-index-set-singleton
         compiler-index-set-union
         compiler-index-set->ordered-values
@@ -101,6 +102,66 @@
                 (compiler-index-set-for-each delta (lambda (node) (stdq-enqueue! queue node)))))))
         (drain)))
     reached))
+
+;; Refine dense indexed partitions with label/set predecessor signatures.
+;; Signature equality must be invariant under bijective group renaming.
+;; Only splitting a source group can change signature equality at its targets.
+;; Global renumbering of unsplit groups is injective and cannot change equality.
+;; visit-successors must enumerate every signature dependency, including self
+;; edges; observe receives completed group/node/signature counts each round.
+;; Input IDs are never mutated. Final IDs follow first-seen node order.
+(def (compiler-index-partition-refine initial initial-count signature visit-successors observe)
+  (let* ((count (vector-length initial))
+         (sizes (make-vector count 0))
+         ;; -1: unseen, -2: split, otherwise the first new group identity.
+         (first-child (make-vector count -1)))
+    (let refine ((ids initial) (group-count initial-count)
+                 (dirty (make-vector initial-count #t)))
+      (vector-fill! sizes 0)
+      (vector-fill! first-child -1)
+      (let ((next (make-vector count 0))
+            (keys (make-table test: equal?))
+            (next-count 0) (examined 0))
+        (let count-loop ((node 0))
+          (when (< node count)
+            (let (group (vector-ref ids node))
+              (vector-set! sizes group (+ 1 (vector-ref sizes group))))
+            (count-loop (+ node 1))))
+        (let node-loop ((node 0))
+          (when (< node count)
+            (let* ((group (vector-ref ids node))
+                   (singleton? (= (vector-ref sizes group) 1))
+                   (affected? (vector-ref dirty group))
+                   (key (and (not singleton?) affected?
+                             (begin (set! examined (+ examined 1))
+                                    (cons group (signature node ids)))))
+                   (found (cond (singleton? #f)
+                                (affected? (table-ref keys key #f))
+                                (else (let (first (vector-ref first-child group))
+                                        (and (>= first 0) first))))))
+              (unless found
+                (set! found next-count)
+                (set! next-count (+ next-count 1))
+                (when (and (not singleton?) affected?)
+                  (table-set! keys key found)))
+              (vector-set! next node found)
+              (let (first (vector-ref first-child group))
+                (cond ((= first -1) (vector-set! first-child group found))
+                      ((and (>= first 0) (not (= first found)))
+                       (vector-set! first-child group -2)))))
+            (node-loop (+ node 1))))
+        (observe next-count count examined)
+        (if (and (> next-count group-count) (< next-count count))
+          (let (next-dirty (make-vector next-count #f))
+            (let source-loop ((source 0))
+              (when (< source count)
+                (when (= (vector-ref first-child (vector-ref ids source)) -2)
+                  (visit-successors source
+                    (lambda (target)
+                      (vector-set! next-dirty (vector-ref next target) #t))))
+                (source-loop (+ source 1))))
+            (refine next next-count next-dirty))
+          (values next next-count))))))
 
 ;; Materialize in canonical catalog order through the standard library's
 ;; linear list builder.

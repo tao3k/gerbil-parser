@@ -6,7 +6,8 @@
         (only-in :core/observability/testing-case poo-flow-test-case)
         (only-in :gerbil-parser/src/compiler/funcs
                  compiler-index-set-difference compiler-index-set-union
-                 compiler-index-set-for-each compiler-index-set-reachable)
+                 compiler-index-set-for-each compiler-index-set-reachable
+                 compiler-index-partition-refine)
         (only-in :gerbil-parser/src/compiler/lr
                  compute-first compute-nullable lower-rules lr-spec-ref
                  production-rhs production-table production-terminal-catalog)
@@ -233,6 +234,99 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "affected partition refinement matches exhaustive synchronous oracle"
+      (def (signature predecessors node ids)
+        (filter-map
+         (lambda (label)
+           (let (groups
+                 (filter (lambda (group)
+                           (ormap (lambda (edge)
+                                    (and (= label (car edge))
+                                         (= group (vector-ref ids (cdr edge)))))
+                                  (vector-ref predecessors node)))
+                         (iota (vector-length ids))))
+             (and (pair? groups) (cons label groups))))
+         '(0 2)))
+      (def (oracle initial initial-count predecessors record)
+        (let refine ((ids initial) (groups initial-count))
+          (let ((next (make-vector (vector-length ids) 0))
+                (keys '()) (next-count 0))
+            (for-each
+             (lambda (node)
+               ;; Match the existing engine's singleton elision when counting
+               ;; work, while the oracle still recomputes every node's key.
+               (when (> (length (filter (lambda (group)
+                                         (= group (vector-ref ids node)))
+                                       (vector->list ids))) 1)
+                 (record))
+               (let* ((key (cons (vector-ref ids node)
+                                 (signature predecessors node ids)))
+                      (known (assoc key keys)))
+                 (unless known
+                   (set! known (cons key next-count))
+                   (set! keys (cons known keys))
+                   (set! next-count (+ next-count 1)))
+                 (vector-set! next node (cdr known))))
+             (iota (vector-length ids)))
+            (if (= groups next-count) (values next next-count)
+                (refine next next-count)))))
+      (def (compare predecessors initial initial-count)
+        (let ((saved (vector->list initial)) (expected-calls 0) (actual-calls 0))
+          (let-values (((expected expected-count)
+                        (oracle initial initial-count predecessors
+                                (lambda () (set! expected-calls (+ expected-calls 1)))))
+                       ((actual actual-count)
+                        (compiler-index-partition-refine
+                         initial initial-count
+                         (lambda (node ids) (signature predecessors node ids))
+                         (lambda (source visit)
+                           (for-each
+                            (lambda (target)
+                              (for-each (lambda (edge)
+                                          (when (= source (cdr edge)) (visit target)))
+                                        (vector-ref predecessors target)))
+                            (iota (vector-length predecessors))))
+                         (lambda (groups nodes examined)
+                           (set! actual-calls (+ actual-calls examined))))))
+            (check actual => expected)
+            (check actual-count => expected-count)
+            (check (vector->list initial) => saved)
+            (check (<= actual-calls expected-calls) => #t)
+            (values actual-calls expected-calls))))
+      (let graphs ((graph 0))
+        (when (< graph 512)
+          (let (predecessors (make-vector 3 '()))
+            (for-each (lambda (bit)
+                        (when (not (zero? (bitwise-and graph (arithmetic-shift 1 bit))))
+                          (let ((target (modulo bit 3)) (source (quotient bit 3)))
+                            (vector-set! predecessors target
+                                         (cons (cons 0 source) (vector-ref predecessors target))))))
+                      (iota 9))
+            (for-each (lambda (entry) (compare predecessors (car entry) (cdr entry)))
+                      (list (cons '#(0 0 0) 1) (cons '#(0 0 1) 2)
+                            (cons '#(0 1 0) 2) (cons '#(0 1 1) 2) (cons '#(0 1 2) 3))))
+          (graphs (+ graph 1))))
+      (let graphs ((graph 0))
+        (when (< graph 64)
+          (let (predecessors (make-vector 3 '()))
+            (for-each (lambda (bit)
+                        (when (not (zero? (bitwise-and graph (arithmetic-shift 1 bit))))
+                          (let* ((source (modulo bit 3)) (target (modulo (+ source 1) 3))
+                                 (edge (cons (if (< bit 3) 0 2) source)))
+                            (vector-set! predecessors target
+                                         (cons edge (cons edge (vector-ref predecessors target)))))))
+                      (iota 6))
+            (compare predecessors '#(0 0 0) 1)
+            (compare predecessors '#(0 0 1) 2))
+          (graphs (+ graph 1))))
+      ;; A split propagates along the chain while the independent self-loop
+      ;; group remains stable, despite changes to its numeric group identity.
+      (let (predecessors '#(() ((0 . 0)) ((0 . 1)) ((0 . 2)) ((0 . 3)) ((0 . 4)) ((2 . 6)) ((2 . 7))))
+        (let-values (((actual expected) (compare predecessors '#(0 1 1 1 1 1 2 2) 3)))
+          (check actual => 16)
+          (check expected => 24)
+          (check (< actual expected) => #t)))
+      (compare '#() '#() 0))
     (poo-flow-test-case "indexed reachability agrees with exhaustive list graph oracle"
       (def (oracle initial rows)
         (let visit ((pending (filter (lambda (node) (not (zero? (bitwise-and initial (arithmetic-shift 1 node))))) (iota (vector-length rows))))

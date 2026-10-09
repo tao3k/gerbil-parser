@@ -8,7 +8,7 @@
                  ExtensibleVector-ref ExtensibleVector-set!)
         (only-in ./funcs
                  compiler-index-set-add compiler-index-set-for-each
-                 compiler-index-set-reachable
+                 compiler-index-set-reachable compiler-index-partition-refine
                  compiler-index-set-singleton compiler-index-set-union)
         (only-in ./lr
                  +lr-eof+ base-symbol nonterminal-name nonterminal-symbol?
@@ -264,83 +264,54 @@
           (map (lambda (label)
                  (cons label (table-ref sources label)))
                (list-sort < labels))))
-      ;; Once a group has one block, its predecessor signature cannot split
-      ;; it. Preserve first-seen group numbering while constructing keys only
-      ;; for groups that can still split.
-      (def (refine-group-ids ids group-count)
-        (let ((sizes (make-vector group-count 0))
-              (next-ids (make-vector count 0))
-              (keys (make-table test: equal?))
-              (next-count 0))
-          (let count-loop ((block 0))
-            (when (< block count)
-              (let (group (vector-ref ids block))
-                (vector-set! sizes group (+ 1 (vector-ref sizes group))))
-              (count-loop (+ block 1))))
-          (let block-loop ((block 0))
-            (when (< block count)
-              (let* ((group (vector-ref ids block))
-                     (singleton? (= (vector-ref sizes group) 1)))
-                (if singleton?
-                  (begin
-                    (vector-set! next-ids block next-count)
-                    (set! next-count (+ next-count 1)))
-                  (let* ((key (cons group
-                                    (predecessor-signature block ids)))
-                         (found (table-ref keys key #f)))
-                    (unless found
-                      (set! found next-count)
-                      (set! next-count (+ next-count 1))
-                      (table-set! keys key found))
-                    (vector-set! next-ids block found))))
-              (block-loop (+ block 1))))
-          (values next-ids next-count)))
       (let-values (((initial initial-count)
                     (group-ids
                      (lambda (block)
                        (cons (car (vector-ref blocks block))
                              (= block start))))))
-        (let refine ((ids initial) (group-count initial-count))
-          (let-values (((next next-count)
-                        (refine-group-ids ids group-count)))
-            (trace-follow-work 'forward-refinement next-count count)
-            ;; A singleton partition is already stable: no block can split
-            ;; further, so skip the otherwise mandatory confirmation round.
-            (if (and (> next-count group-count) (< next-count count))
-              (refine next next-count)
-              (let ((merged (make-vector next-count #f))
-                    (merged-shifts (make-vector next-count 0))
-                    (merged-epsilons (make-vector next-count 0)))
-                (let block-loop ((block 0))
-                  (when (< block count)
-                    (let* ((group (vector-ref next block))
-                           (entry (vector-ref blocks block))
-                           (prior (vector-ref merged group))
-                           (shift (vector-ref shifts block)))
-                      (if prior
-                        (vector-set!
-                         merged group
-                         (cons (car prior)
-                               (compiler-index-set-union
-                                (cdr prior) (cdr entry))))
-                        (vector-set! merged group entry))
-                      (when shift
-                        (vector-set!
-                         merged-shifts group
-                         (compiler-index-set-add
-                          (vector-ref merged-shifts group)
-                          (vector-ref next shift))))
-                      (compiler-index-set-for-each
-                       (vector-ref epsilons block)
-                       (lambda (target)
-                         (vector-set!
-                          merged-epsilons group
-                          (compiler-index-set-add
-                           (vector-ref merged-epsilons group)
-                           (vector-ref next target)))))
-                      (block-loop (+ block 1)))))
-                (values merged merged-shifts merged-epsilons
-                        (vector-ref next start)))))))))
+        (let-values (((next next-count)
+                      (compiler-index-partition-refine
+                       initial initial-count predecessor-signature
+                       (lambda (source visit)
+                         (let (shift (vector-ref shifts source))
+                           (when shift (visit shift)))
+                         (compiler-index-set-for-each
+                          (vector-ref epsilons source) visit))
+                       (lambda (groups nodes examined)
+                         (trace-follow-work 'forward-refinement groups nodes)))))
+          (let ((merged (make-vector next-count #f))
+                (merged-shifts (make-vector next-count 0))
+                (merged-epsilons (make-vector next-count 0)))
+            (let block-loop ((block 0))
+              (when (< block count)
+                (let* ((group (vector-ref next block))
+                       (entry (vector-ref blocks block))
+                       (prior (vector-ref merged group))
+                       (shift (vector-ref shifts block)))
+                  (if prior
+                    (vector-set!
+                     merged group
+                     (cons (car prior)
+                           (compiler-index-set-union
+                            (cdr prior) (cdr entry))))
+                    (vector-set! merged group entry))
+                  (when shift
+                    (vector-set!
+                     merged-shifts group
+                     (compiler-index-set-add
+                      (vector-ref merged-shifts group)
+                      (vector-ref next shift))))
+                  (compiler-index-set-for-each
+                   (vector-ref epsilons block)
+                   (lambda (target)
+                     (vector-set!
+                      merged-epsilons group
+                      (compiler-index-set-add
+                       (vector-ref merged-epsilons group)
+                       (vector-ref next target)))))
+                  (block-loop (+ block 1)))))
+            (values merged merged-shifts merged-epsilons
+                    (vector-ref next start)))))))
 
 (def (epsilon-closure/memo initial epsilon-edges cache)
   (let (reached 0)

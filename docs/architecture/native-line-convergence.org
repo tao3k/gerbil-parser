@@ -9,6 +9,18 @@ link candidate state, bounded recognition and event commit. They lower into
 the existing Scheme event-fold algebra, not a second evaluator or Rust parser.
 No Org node, marker, helper name or runtime configuration belongs here.
 
+=source-boundary-types.ss= and =source-boundary-objects.ss= admit POO
+boundary queries and parent bindings. =source-boundary-funs.ss= composes
+literal and source-named parents through the existing cached native future
+queries. Languages declare closing markers, name-field bindings and heading
+policies; they do not supply raw query callbacks or rebuild parent dispatch.
+Unknown parent identifiers cannot admit a child. Duplicate identifiers,
+incomplete name bindings and unsupported literal boundary policies are
+rejected rather than silently changing semantics. Fixed queries currently
+require case-insensitive markers, text recovery and a heading boundary;
+named queries independently declare case, indentation, suffix and heading
+policies. This does not implement a new scanner or remove domain frame state.
+
 Language consumers supply node/token roles, lexical byte policies, named
 content helpers and explicit helper parameter names. These bindings are data,
 not raw callback forms. An invalid link target can recover its current span
@@ -19,18 +31,25 @@ separator recognition; committed closing bytes cannot be consumed twice.
 * Evidence and remaining work
 
 =just test-line-events OUTPUT LOAD_PATH= compiles the changed engine owners
-and runs both native suites from =t/=. The regular native test catalog already
+and runs three native suites from =t/=. The regular native test catalog already
 discovers those suites; no duplicate CI lane or independent runner is added.
-Sixteen cases cover non-Org declarations, escape parity, empty cells, CRLF,
+Twenty-four cases cover non-Org declarations, escape parity, empty cells, CRLF,
 Unicode coordinates, EOF, named helper parameters, invalid declarations,
-link truncation, adjacent links, recovery scope and overlapping markers.
+link truncation, adjacent links, recovery scope, overlapping markers and
+parent-aware recovery. Boundary controls distinguish literal stops from
+matching saved parent names, unrelated closers, unknown parents and explicit
+heading/indentation/suffix policies. Invalid declarations fail before execution.
+The focused owner requires final OK and rejects harness errors even when a
+native test command reports a zero process exit.
 The consumer's fresh production build and newly linked native Org closure
 pass 178 cases / 12 suites, final OK and the deliberate exit-42 failure
-control. These are candidate-path receipts, not exact-head CI or admission
+control. The newly linked =native-boundary-convergence-closure= repeats that
+178-case / 12-suite receipt for the boundary candidate, including final OK
+and exit-42 negative propagation. These are candidate-path receipts, not exact-head CI or admission
 of the unchanged downstream dependency pin.
 
 This closes these algorithms' implementation ownership only. A complete
-LineStructure-to-native compiler, compositional parent boundaries/recovery,
+LineStructure-to-native compiler, complete nesting/recovery,
 nested scanner composition, hygienic per-rule state allocation, inline dispatch,
 Source coordinate services and native artifact lease ownership remain open.
 The existing helper frames isolate invocations, but the projections still

@@ -9,11 +9,17 @@
         ./syntax
         ./line-structure-objects
         ./line-event-funs
-        ./inline-link-event-funs)
+        ./inline-link-event-funs
+        ./source-boundary-types
+        ./source-boundary-objects
+        ./source-boundary-funs)
 (export (import: ./types)
         (import: ./objects)
         (import: ./funcs)
         (import: ./syntax)
         (import: ./line-structure-objects)
         (import: ./line-event-funs)
-        (import: ./inline-link-event-funs))
+        (import: ./inline-link-event-funs)
+        (import: ./source-boundary-types)
+        (import: ./source-boundary-objects)
+        (import: ./source-boundary-funs))

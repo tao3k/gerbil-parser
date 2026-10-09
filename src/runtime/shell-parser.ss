@@ -2,7 +2,8 @@
 ;;; Lossless Bash command/word/here-document syntax entry.
 ;;; Unsupported command forms reject explicitly until their grammar is owned.
 
-(import (only-in ./parse-cost with-parser-cost-stage)
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./parse-cost with-parser-cost-stage)
         (only-in ../language/command-profile command-plan-role-matcher command-plan-text? command-plan-kind command-plan-forms command-plan-match-form command-plan-trigger? command-plan-entry)
         (only-in ./funcs recognition-sequence-append recognition-sequence->list recognition-sequence-arity)
         (only-in :gerbil-parser/src/runtime/artifact
@@ -61,7 +62,7 @@
 (def (fallback-token source)
   (if (zero? (string-length source)) '()
     (list (result-plan-token results (make-token 'unparsed-source source 0
-                      (u8vector-length (string->utf8 source)))))))
+                      (string-utf8-length source))))))
 
 ;;; Returns the artifact plus source-span links from redirection markers to
 ;;; their deferred here-document bodies. The links do not change CST order.
@@ -406,7 +407,7 @@
               (else
                (loop (cons (child 'command (parse-and-or!)) children)))))))
        (let* ((children (with-parser-cost-stage 'command-recognition (parse-list! '(none))))
-              (source-end (u8vector-length (string->utf8 source))))
+              (source-end (string-utf8-length source)))
          (when (marker-head)
            (error "missing Bash here-document body"))
          (let* ((root (syntax-node 'BashFile 0 source-end children))

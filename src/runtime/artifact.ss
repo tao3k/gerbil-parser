@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
-(import (only-in ./event-program event-program-value? event-program-value-kind
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./event-program event-program-value? event-program-value-kind
                  event-program-value-code event-program-walk/inline event-program-relocate)
         (only-in ./funcs recognition-sequence-for-each)
         (only-in :std/func compose every-of)
@@ -716,7 +717,7 @@
                          (= start coverage)
                          (> end start)
                          (= (- end start)
-                            (u8vector-length (string->utf8 lexeme))))
+                            (string-utf8-length lexeme)))
               (error "invalid token event coverage" event coverage))
             (set! source-chunks (cons lexeme source-chunks))
             (set! coverage end)

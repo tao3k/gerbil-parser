@@ -229,6 +229,92 @@ is invalid. A shared span design must transfer admitted ownership and character
 bounds across both stages before replacing either snapshot; no borrowed mutable
 caller string was introduced by this change.
 
+* Native UTF-8 width queries instead of temporary encoding
+
+The SDK binary resolved =:std/string/utf8= to its installed interface. Its source
+owner is =std/string/utf8.ss=. The checked =string-utf8-length= procedure validates
+string/range arguments and delegates to Gambit's =##string->utf8-length=; it does
+not create an encoded byte vector merely to obtain its length.
+
+The [[https://gerbil.scheme.org/reference/std/text/utf8.html][website's UTF-8 reference]] still describes the API under =:std/text/utf8=.
+That module was not found in this installed SDK. The implementation imports the
+actual =:std/string/utf8= binding established by source inspection; no alias or
+legacy fallback was introduced.
+
+Five length-only conversions now use the SDK procedure: each token's extent in
+ParseArtifact validation, rejected-source fallback and complete extent in the
+shell executor, and both terminated/final line extents in the Scheme event
+strategy. Source bytes used for SHA-256 and actual encoding remain materialized
+where consumed. The change neither bypasses validation nor borrows mutable
+caller text. It adds no language policy, metadata slot or author option.
+
+#+begin_src scheme
+(import :std/string/utf8)
+(let (text (list->string (map integer->char '(97 955 20013 128512))))
+  ;; Four scalars, ten bytes. Query width without constructing encoded bytes.
+  (string-utf8-length text)) ; => 10
+#+end_src
+
+The existing design questions apply directly. This is better because the engine
+expresses the operation it needs, byte extent, through the checked native library
+instead of maintaining a custom Unicode loop or an unnecessary encoded product.
+It is scientifically testable because byte coverage is observable independently
+of the chosen implementation: a token's advertised width must match fixed
+Unicode boundary expectations, source reconstruction and the unchanged digest.
+
+New artifact controls cover U+0000/U+007F, U+0080/U+07FF, U+0800/U+D7FF,
+U+E000/U+FFFF, U+10000/U+10FFFF with independently specified widths 1/2/3/4.
+Every fixture first admits and roundtrips, then changes both token end and
+advertised extent to a false but self-consistent width and must reject. A line
+control combines all boundaries with CRLF, CR and a final unterminated line;
+expected byte ends are 28, 30 and 31. Surrogate integers were refused by this
+SDK's =integer->char= during the initial probe and are not valid fixture scalars.
+
+A local component observation compared the former encode-and-length expression
+with the native procedure in encoded/native/native/encoded order, 1,000 calls
+per observation, identical loops, fixed source and explicit pre-run collection.
+ASCII contained 1,024 characters; mixed input repeated the four scalars in the
+Scheme block 128 times, totaling 512 characters and 1,280 UTF-8 bytes. Each run
+checked its summed result against the fixed expected width.
+
+| Component | Encoded counter delta | Native counter delta | Observed collections |
+|-----------+-----------------------+----------------------+----------------------|
+| ASCII | 2,209,104 bytes in both observations | 129,104 bytes in both observations | 0 for every observation |
+| Mixed | 2,721,104 bytes in both observations | 129,104 bytes in both observations | 0 for every observation |
+
+These are process-statistics counter differences with no collection, not peak
+memory or complete-parser allocation. CPU observations were 1.806/1.847 ms
+versus 1.091/1.100 ms for ASCII, and 2.128/3.204 ms versus 0.951/1.628 ms for
+mixed input. This small component study does not admit a stable end-to-end speed
+ratio. It uses the existing SDK in =gxi=, not two separately qualified native
+parser products.
+
+The first mixed command-line probe failed its expected-width check: the intended
+U+1F600 literal arrived in the evaluated string as U+F600. Integer-based scalar
+construction corrected the workload and the full rerun ended with
+=SDK-UTF8-COMPONENT-OK= and exit zero. This observes the command-line evaluation
+path; it does not establish a reader, FFI or parser cause. The failed mixed run
+is excluded from the admitted observations.
+
+The combined source run passed 144 distinct Cases across scanner, deferred
+scanner, source/parser, artifact, recognition spans, event strategy and
+Bash/HCL/HL7/FHIRPath. Admission required final =HARNESS-OK=, =OK=, no Case or
+Harness errors and exit zero. The source controls include structured Rust event
+strategy generation; they do not replace native Rust execution or exact-head CI.
+
+After integrating revision =750b8cd= (test and research changes), the added
+projection control Suite passed 13 Cases with final =HARNESS-OK= and =OK= and no
+Case or Harness errors. The matched complete-parser workload ended with
+=CONTEXTUAL-PARSER-SCALE-OK= and exit zero: prepared and unprepared products
+remained equal, validated and round-tripped, including rejection. This is a
+semantic integration receipt, not an old/new UTF-8 performance comparison.
+
+The installed SDK compiler also optimized and expanded all three changed
+production modules with =invoke-gsc: #f=, =optimize: #t= and =generate-ssxi: #t=.
+Each module ended with =SDK-OPTIMIZE-OK= and the process exited zero. This
+confirms compiler expansion and helper binding; it does not qualify native C
+compilation, linking or execution.
+
 * Dependency order for further implementation
 
 1. *Shared source spans.* Own one admitted source and its character/byte boundary

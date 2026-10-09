@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; One pure Scheme line-event algorithm, executable here and lowered to Rust.
 
-(import (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
         (only-in ./machine parser-machine-grammar-digest)
         (only-in ./rust-syntax
@@ -34,7 +35,7 @@
           (reverse (cons '(finish) reversed))
           (let* ((line (substring source start size))
                  (byte-end (+ byte-start
-                              (u8vector-length (string->utf8 line)))))
+                              (string-utf8-length line))))
             (reverse (cons '(finish)
                            (foldl cons reversed
                                   (visit line byte-start byte-end)))))))
@@ -48,7 +49,7 @@
                            2 1)))
                (line (substring source start after))
                (byte-end (+ byte-start
-                            (u8vector-length (string->utf8 line)))))
+                            (string-utf8-length line))))
           (loop after after byte-end
                 (foldl cons reversed (visit line byte-start byte-end)))))
        (else (loop start (+ cursor 1) byte-start reversed))))))

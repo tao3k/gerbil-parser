@@ -27,6 +27,15 @@
                   (start Text) (token Line 0 6) (finish)
                   (start Heading) (token Line 6 10) (finish)
                   (finish))))
+    (test-case "line extents retain NUL and all UTF-8 widths across CRLF and CR"
+      (let (prefix (list->string
+                    (map integer->char '(0 127 128 2047 2048 55295 57344 65535 65536 1114111))))
+        (check (parse-event-lines (string-append prefix "\r\nx\rY"))
+               => '((start Document)
+                    (start Text) (token Line 0 28) (finish)
+                    (start Text) (token Line 28 30) (finish)
+                    (start Text) (token Line 30 31) (finish)
+                    (finish)))))
     (test-case "AOT is a structured parser function, not source assembly"
       (check-rust-event-strategy parse_event_lines
                                  'parse_event_lines 0)

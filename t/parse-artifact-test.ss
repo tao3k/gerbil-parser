@@ -59,6 +59,26 @@
         (check (parse-artifact-ref artifact 'sourceDigest)
                => (sha256-text source))
         (check (sha256-bytes bytes) => (sha256-text source))))
+    (test-case "token byte coverage preserves every UTF-8 width boundary"
+      (let (base (parse-source arithmetic-parser "@"))
+        (for-each
+         (lambda (row)
+           (let* ((text (string (integer->char (car row))))
+                  (width (cadr row))
+                  (event (vector 'token 0 'raw text 0 width))
+                  (artifact
+                   (artifact-replace
+                    (artifact-replace
+                     (artifact-replace base 'sourceDigest (sha256-text text))
+                     'sourceByteLength width) 'events (list event))))
+             (check (parse-artifact-valid? artifact) => #t)
+             (check (parse-artifact-roundtrip artifact) => text)
+             ;; Keep advertised coverage self-consistent but falsify UTF-8 width.
+             (vector-set! event 5 (+ width 1))
+             (check (parse-artifact-valid?
+                     (artifact-replace artifact 'sourceByteLength (+ width 1))) => #f)))
+         '((0 1) (127 1) (128 2) (2047 2) (2048 3)
+           (55295 3) (57344 3) (65535 3) (65536 4) (1114111 4)))))
     (test-case "reconstruction owns its output and ignores untrusted advertised capacity"
       (let* ((source "alpha + 2")
              (artifact (parse-source arithmetic-parser source))

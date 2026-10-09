@@ -59,6 +59,17 @@
         (check (parse-artifact-ref artifact 'sourceDigest)
                => (sha256-text source))
         (check (sha256-bytes bytes) => (sha256-text source))))
+    (test-case "reconstruction owns its output and ignores untrusted advertised capacity"
+      (let* ((source "alpha + 2")
+             (artifact (parse-source arithmetic-parser source))
+             (view (parse-artifact-roundtrip artifact)))
+        (string-set! view 0 #\b)
+        (check (parse-artifact-roundtrip artifact) => source)
+        (check (parse-artifact-valid? artifact) => #t)
+        (check (parse-artifact-valid?
+                (artifact-replace artifact 'sourceByteLength #x100000000)) => #f))
+      (let (empty (parse-source arithmetic-parser ""))
+        (check (parse-artifact-roundtrip empty) => "")))
     (test-case "a missing token event fails closed"
       (let* ((artifact (parse-source arithmetic-parser "1 + 2"))
              (corrupt

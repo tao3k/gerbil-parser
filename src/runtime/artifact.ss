@@ -5,6 +5,7 @@
                  event-program-value-code event-program-walk/inline event-program-relocate)
         (only-in ./funcs recognition-sequence-for-each)
         (only-in :std/func compose every-of)
+        (only-in :std/string/misc string-concatenate-reverse)
         (only-in ../modules/parser/types
                  +diagnostic-schema+ +parse-artifact-schema+)
         (only-in ./identity sha256-bytes sha256-text)
@@ -625,7 +626,10 @@
 
 ;;; Validates identity, byte ranges, nesting, and terminal balance before publication.
 ;;; The admitted source string is returned so roundtrip does not traverse and
-;;; concatenate the complete event stream a second time. Malformed streams
+;;; concatenate the complete event stream a second time. Validated lexemes are
+;;; copied into one exactly sized string; no general text port participates in
+;;; reconstruction and no advertised byte length drives an eager allocation.
+;;; Malformed streams
 ;;; still fail closed and never become observable parse artifacts.
 ;; validate-parse-artifact!
 ;; : (-> Alist String)
@@ -646,7 +650,7 @@
         (expected-token-id 0)
         (expected-node-id 0)
         (root-count 0)
-        (source-port (open-output-string)))
+        (source-chunks '()))
     (unless (and (integer? source-byte-length)
                  (>= source-byte-length 0)
                  (memq status '(accepted rejected))
@@ -714,12 +718,12 @@
                          (= (- end start)
                             (u8vector-length (string->utf8 lexeme))))
               (error "invalid token event coverage" event coverage))
-            (display lexeme source-port)
+            (set! source-chunks (cons lexeme source-chunks))
             (set! coverage end)
             (set! expected-token-id (+ expected-token-id 1))))
          (else (error "unknown CST event" event))))
      events)
-    (let (source (get-output-string source-port))
+    (let (source (string-concatenate-reverse source-chunks))
       (unless (and (null? stack)
                    (= coverage source-byte-length)
                    (equal? (sha256-text source)

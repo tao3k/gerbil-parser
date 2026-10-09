@@ -217,3 +217,78 @@ a new performance comparison or assert exact-head CI closure.
 ;; Ordinary source Suite; no qualification executable is a prerequisite.
 ;; GERBIL_LOADPATH="$PWD/.." gerbil test -v 5 t/contextual-scanner-test.ss
 #+end_src
+
+* Implemented: exact-size source reconstruction in shared artifact validation
+
+The shared ParseArtifact validator previously called =display= into a general
+string port for every validated token. Its new reconstruction algorithm retains
+references to admitted lexemes in reverse event order, then uses the standard
+=string-concatenate-reverse= algorithm: sum actual character lengths, allocate
+one result string, and copy each fragment into its final position.
+
+Reconstruction takes O(characters + tokens) work and O(tokens) fragment-list
+storage, alongside the owned output string. Allocation follows actual lexeme
+lengths; an untrusted =sourceByteLength= does not determine reserved capacity.
+Token coverage, UTF-8 byte lengths, node/field balance, terminal IDs, root count,
+status, diagnostics, and source digest checks continue to run. The output remains
+a fresh owned string. This algorithm applies to every shared ParseArtifact
+consumer and requires no language declarations or ABI changes.
+
+The original validator was frozen under a private test namespace. Both baseline
+and candidate artifact modules were compiled symmetrically with the fixed SDK,
+GCC16 -O1, gxc optimization, and identical compiler diagnostic flags. A separately
+compiled native Scheme control exercised both implementations in one process.
+File IO, module loading, preparation, equality preflight, and sample output were
+outside timing. One initial GC preceded sampling; natural GC remained timed.
+
+Four full public products, for short, heredoc, compound, and large Bash inputs,
+were accepted and reconstructed identically by both validators. Corrupt source
+lengths, source digests, and truncated event streams retained the same admission
+results. The complete engine controls also proved full artifact equality with
+the public parser before measurement.
+
+Each block ran one untimed warmup and 11 measured single requests in old/new/new/old
+order. Allocation deltas were admitted only without GC. These component and
+complete-engine medians must not be added together.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Admitted allocation samples |
+|---------+--------------------+---------------------------+-----------------------------|
+| validation-old-a | 2.744 | 14434568 | 10 |
+| validation-new-a | 1.315 | 5372840 | 11 |
+| validation-new-b | 1.451 | 5372840 | 10 |
+| validation-old-b | 2.697 | 14434184 | 10 |
+| complete-old-a | 29.347 | 48974320 | 7 |
+| complete-new-a | 30.258 | 39912208 | 8 |
+| complete-new-b | 28.419 | 39912208 | 8 |
+| complete-old-b | 30.519 | 48973552 | 7 |
+
+Validation allocation falls approximately 62.78%; the complete-engine control
+falls approximately 18.50%, or about 9.06 MB per request on this corpus.
+Complete CPU pair A regresses 3.10%, while pair B improves 6.88%. Consequently,
+this establishes an allocation improvement, not a stable complete-parse speedup.
+It does not close the measured Tree-sitter gap.
+
+The complete controls include prepared engine parsing, complete artifact
+construction, the selected validator, grammar identity comparison, and source
+identity comparison. Both execute the same producer and publication obligations.
+They are independently compiled diagnostic controls, not timing samples from
+the public parser entry itself. No public-entry latency claim follows.
+
+Native ABBA qualification completed in 11.064 s with exit status 0 and
+=ARTIFACT-COPY-CONTROL-OK=. Seven test modules completed 85 cases in 29.349 s,
+including ParseArtifact, recognition spans, source contracts, Bash, HCL, HL7,
+and FHIRPath. The controller reported =TEST-SUITE-OK modules=7=, =OK=, exit 0,
+and no missing receipts. The added contract case covers returned-string
+ownership, empty source, and rejection of a false 4 GiB advertised byte length.
+
+The first symmetric compiler run failed its five-second idle guard while GCC
+was quiet. The rerun enabled actual GCC optimization-decision reports on both
+sides, retaining the optimization level and deadlines. It completed in 23.823 s
+with exit status 0. The native control compiled in 26.886 s with exit status 0.
+The first compiler failure remains excluded. Compiler diagnostics are outside
+runtime timing and do not establish that the original silent compile had stalled.
+
+The comparison modules and native control are temporary experiment owners,
+excluded from the implementation commit. Production changes are confined to
+shared reconstruction; permanent semantic controls remain in the existing
+ParseArtifact suite.

@@ -529,7 +529,10 @@ Fresh artifact median CPU was 1.226 ms versus 8.524 ms for the cached capture
 path in that observation. This negative overall comparison remains visible:
 those paths include existing capture, certification and incremental bookkeeping
 costs and do not isolate the four join replacements. The component result does
-not close the overall incremental execution-cost gap.
+not isolate the overall session costs. The follow-up
+[[file:source-edit-cost-contract.org::*Matched LR session responsibilities][matched LR session study]]
+adds checkpoint-only and fresh captured-session controls: artifact-only fresh
+parsing and cached capture have different executor and publication obligations.
 
 * Dependency order for further implementation
 

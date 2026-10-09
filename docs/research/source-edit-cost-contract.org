@@ -179,3 +179,90 @@ with eight natural collections (3.71 seconds), and the exact CI 8-sample/32-line
 benchmark workload (3.06 seconds). Allocation observations are processor counter
 windows and CPU observations are process counters; optional request-local hooks
 do not isolate unrelated concurrent work. This benchmark uses one owner thread.
+
+* Matched LR session responsibilities
+
+The common Source-language C-ABI study above and the LR topology workload have
+different execution owners. Their timings must not be combined. The LR workload
+=t/benchmarks/incremental-session/benchmark.ss= now reports three fresh controls
+alongside the cached edit: an artifact-only parse, a checkpoint session without
+recognition capture, and a fresh session with the same capture option as the
+cached history. The checkpoint-only reference is reported when capture is
+requested; it is =#f= otherwise rather than a duplicate timed control.
+
+Question 1: Why does this preserve Scheme's engine and authoring boundaries?
+
+#+begin_src scheme
+;; One admitted ParserMachine; capture remains an engine capability.
+(def artifact-only (parse changed))
+(def checkpoints-only (make-incremental-session machine changed #f))
+(def fresh-session (make-incremental-session machine changed capture?))
+(check (incremental-session-artifact fresh-session) => artifact-only)
+;; Capture additionally publishes a recognition root and lexical checkpoint data.
+(when capture?
+  (check (incremental-session-project-artifact fresh-session) => artifact-only))
+#+end_src
+
+The benchmark uses the existing Scheme APIs and optional capture capability.
+It introduces no grammar clause, callback protocol or language metadata. The
+same source, machine and backend settings own each control. The source-index
+and recognition projection of the fresh captured session are audited before
+timing, just as they are for the cached and inverse-edit products.
+
+Question 2: What makes the comparison scientifically justified?
+
+The former artifact-only/cached timing answered different questions. In
+=parse-source/with-capture=, the =fresh?= guard requires absent capture,
+checkpoint, retained prefix and reuse callbacks before trying =direct-source=.
+Fresh session construction passes the checkpoint capture callback and therefore
+uses the directed checkpoint path. Recognition capture adds another obligation,
+but it does not alone explain the complete path difference. Prefix snapshots
+in =lr-checkpoint-prefix-snapshot= retain persistent stacks; source inspection
+does not support assuming that every snapshot copies a whole history.
+
+The updated workload retains the artifact-only numbers and adds
+=fresh-checkpoint-cpu-samples-ms= / =fresh-checkpoint-cpu-median-ms= and
+=fresh-session-cpu-samples-ms= / =fresh-session-cpu-median-ms=. Every row admits
+=fresh-session-artifact-equal?= only after comparing the fresh session artifact
+to the independent parse. Existing cached artifact, captured projection and
+inverse-edit controls remain required.
+
+With 64 HCL sibling units, recognition capture enabled, three CPU samples per
+path and the default mechanism settings, the source workload observed:
+
+| Edit | Artifact-only median ms | Checkpoint-only median ms | Fresh captured session median ms | Cached captured edit median ms |
+|------+-------------------------+---------------------------+----------------------------------+--------------------------------|
+| First insertion | 1.256 | 11.841 | 15.250 | 8.605 |
+| First deletion  | 1.201 | 11.200 | 14.735 | 8.234 |
+| Middle insertion | 1.247 | 11.281 | 15.499 | 6.621 |
+| Middle deletion | 1.295 | 11.480 | 14.938 | 5.965 |
+| Last insertion | 1.258 | 11.202 | 15.046 | 4.426 |
+| Last deletion | 1.207 | 10.781 | 14.675 | 3.750 |
+
+The cached path was slower than artifact-only parsing and faster than constructing
+a new session with matched capture responsibilities in this workload. The
+checkpoint-only reference shows a substantial execution-path cost even without
+recognition capture. These source observations neither isolate the costs of
+individual inner phases nor admit a native speedup, P50/P95 claim or subtraction
+of medians as an additive phase profile.
+
+Five independent source workload invocations also compared the default settings,
+fragment reuse disabled, probe reuse disabled, lexical-plan reuse enabled and
+source indexing enabled. For first insertion, cached CPU medians were respectively
+9.280, 13.600, 8.857, 8.341 and 11.845 ms. Each invocation exercised all six edit
+positions/operations and complete/inverse artifact equivalence. Disabling
+fragment reuse increased work in this observation. The small probe/plan changes
+are not stable performance admissions, and the indexing observation does not
+justify globally disabling a capability. The existing defaults are preserved.
+
+The next optimization gate is an inner-phase profile of the checkpointed driver,
+fragment certification and complete publication under matched session settings,
+followed by independently compiled native before/after products. It should not
+start from the premise that capture or Gambit GC is defective. These controls
+first establish which products and executor paths are actually being compared.
+
+The revised controls completed six edits each for capture enabled, capture
+disabled and the combined event-program/sequence-fusion/lexical-plan/source-index
+settings, with inverse-edit parity and admitted fresh-session artifacts. The
+captured fresh session also passed recognition projection and source-index
+preflight; the checkpoint-only reference passed independent artifact preflight.

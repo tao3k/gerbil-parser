@@ -282,7 +282,30 @@
             (unless (equal? (begin (assert-event-backend restored) (incremental-session-project-artifact restored))
                             (incremental-session-artifact session))
               (error "inverse captured projection differs" terms location operation)))))
-      (let ((fresh-times (topology-samples (lambda () (parse changed)) 'fresh))
+      (let* ((fresh-session (make-incremental-session machine changed capture?))
+             (_ (begin
+                  (unless (equal? fresh (incremental-session-artifact fresh-session))
+                    (error "fresh session changed artifact" terms location operation))
+                  (when capture?
+                    (unless (equal? fresh
+                                    (incremental-session-artifact
+                                     (make-incremental-session machine changed #f)))
+                      (error "checkpoint-only session changed artifact" terms location operation))
+                    (audit-source-index fresh-session)
+                    (unless (equal? fresh (incremental-session-project-artifact fresh-session))
+                      (error "fresh session changed recognition projection" terms location operation)))))
+             (fresh-times (topology-samples (lambda () (parse changed)) 'fresh))
+             (fresh-checkpoint-times
+              (and capture?
+                   (topology-samples
+                    (lambda ()
+                      (incremental-session-artifact
+                       (make-incremental-session machine changed #f))) 'fresh-checkpoint)))
+             (fresh-session-times
+              (topology-samples
+               (lambda ()
+                 (incremental-session-artifact
+                  (make-incremental-session machine changed capture?))) 'fresh-session))
             (cached-times
              (topology-samples
               (lambda ()
@@ -335,6 +358,12 @@
                (cons 'cursor-visited-frames
                      (let (entry (assq 'fragmentCursorVisitCount receipt))
                        (if entry (cdr entry) 0)))
+               (cons 'fresh-session-artifact-equal? #t)
+               (cons 'fresh-checkpoint-cpu-samples-ms fresh-checkpoint-times)
+               (cons 'fresh-checkpoint-cpu-median-ms
+                     (and fresh-checkpoint-times (median fresh-checkpoint-times)))
+               (cons 'fresh-session-cpu-samples-ms fresh-session-times)
+               (cons 'fresh-session-cpu-median-ms (median fresh-session-times))
                (cons 'fresh-cpu-samples-ms fresh-times)
                (cons 'cached-cpu-samples-ms cached-times)
                (cons 'fresh-cpu-median-ms (median fresh-times))

@@ -12,7 +12,7 @@
         (only-in ./lr
                  +lr-eof+ base-symbol nonterminal-name nonterminal-symbol?
                  production-id production-index-by-lhs production-rhs
-                 production-terminal-catalog sequence-first sequence-nullable?)
+                 production-terminal-catalog)
         (only-in ./lr-automaton
                  make-core-item make-core-symbol-catalog make-item-layout
                  materialize-transitions)
@@ -20,38 +20,37 @@
                  initial-backward-follow-partitions/from-lr0
                  raw-conflict-cells)
         (only-in ./lr-lookahead
-                 build-states-via-lr0 build-states-via-canonical-lr1))
+                 build-states-via-lr0 build-states-via-canonical-lr1
+                 make-core-suffix-catalog))
 (export build-states-via-follow-partition-lr1)
 
 (def (make-follow-core-metadata productions table first nullable
                                 layout core-symbols terminal-index)
   (let ((result (make-vector (vector-length core-symbols) #f))
         (by-lhs (production-index-by-lhs productions)))
-    (let production-loop ((id 0))
-      (when (< id (vector-length table))
-        (let dot-loop ((tail (production-rhs (vector-ref table id)))
-                       (dot 0))
-          (let* ((core (make-core-item id dot layout))
-                 (symbol (vector-ref core-symbols core)))
-            (if (and symbol (nonterminal-symbol? symbol))
-              (let ((after (cdr tail)))
+    (let-values (((suffix-first nullable-suffixes)
+                  (make-core-suffix-catalog table layout core-symbols first nullable terminal-index)))
+      (let production-loop ((id 0))
+        (when (< id (vector-length table))
+          (let dot-loop ((tail (production-rhs (vector-ref table id)))
+                         (dot 0))
+            (let* ((core (make-core-item id dot layout))
+                   (symbol (vector-ref core-symbols core)))
+              (if (and symbol (nonterminal-symbol? symbol))
                 (vector-set!
-                 result core
-                 (vector
-                  symbol
-                  (foldl (lambda (terminal mask)
-                           (compiler-index-set-add
-                            mask (table-ref terminal-index terminal)))
-                         0 (sequence-first after first nullable))
-                  (sequence-nullable? after nullable)
-                  (map (lambda (child)
-                         (make-core-item (production-id child) 0 layout))
-                       (table-ref by-lhs (nonterminal-name symbol) '())))))
-              (vector-set! result core (vector symbol 0 #f '())))
-            (unless (null? tail)
-              (dot-loop (cdr tail) (+ dot 1)))))
-        (production-loop (+ id 1))))
-    result))
+                   result core
+                   (vector
+                    symbol
+                    (vector-ref suffix-first (+ core 1))
+                    (vector-ref nullable-suffixes (+ core 1))
+                    (map (lambda (child)
+                           (make-core-item (production-id child) 0 layout))
+                         (table-ref by-lhs (nonterminal-name symbol) '()))))
+                (vector-set! result core (vector symbol 0 #f '())))
+              (unless (null? tail)
+                (dot-loop (cdr tail) (+ dot 1)))))
+          (production-loop (+ id 1))))
+      result)))
 
 ;; Each block is (core . follow-mask). The index maps one (core, follow)
 ;; vertex to its current block; no canonical LR(1) DFA state is constructed.

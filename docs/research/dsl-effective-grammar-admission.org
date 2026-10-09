@@ -535,3 +535,121 @@ conformance controls behaved as expected. There is no backtrace establishing
 the signal's cause, and local compilation/execution did not reproduce it.
 Local passing receipts do not repair or supersede that Ubuntu failure; the
 new delivery needs its own exact-head Ubuntu result before remote closure.
+
+* Unified suffix facts across LR consumers
+
+This follow-up starts from =47fd87003f4bd3298fe9d472c076f25ab6e02815=.
+The previous lookahead-specific directory had a useful reverse fold, but FOLLOW
+propagation, initial backward partitioning and follow-core metadata still scanned
+suffix lists independently. They need facts at different positions, not different
+FIRST/nullable meanings. The engine now owns =make-core-suffix-catalog= in
+=src/compiler/lr-lookahead.ss= and removes =make-core-lookahead-catalog= directly.
+There is no compatibility mode or new language-author declaration.
+
+** Position contract and compositional argument
+
+The producer receives the completed FIRST and nullable tables, one terminal
+index and the existing core-symbol/layout catalog. Slot i stores facts for the
+suffix beginning at dotted position i. Every valid position is published,
+including terminal positions and the completed core: the empty suffix is
+FIRST=0 and nullable=true. Padding remains zero/false. The backwards recurrence
+in the preceding section is unchanged; induction now covers all valid slots.
+Marked operands still use the unwrapped core symbol. Undefined references
+retain empty FIRST and false nullable; FIRST does not establish productivity.
+
+| Consumer | Fact position |
+|----------+---------------|
+| LALR closure propagation | core + 1, after the predicted nonterminal |
+| Canonical LR(1) closure | core + 1 |
+| Forward reachable FOLLOW edges | core + 1 |
+| Initial backward compatibility partition | core, including completed cores |
+| Follow-core NFA metadata | core + 1 |
+
+All five consumers read the same fact meanings. Static masks are read once per
+occurrence rather than re-converted for every child alternative in the FOLLOW
+edge construction. Existing follow/state/terminal order and conflict policies
+remain unchanged. Each catalog invocation still allocates its own padded
+vectors; this change introduces neither global memoization nor whole-build
+catalog identity/reuse. Its allocation bound remains production-count times
+layout-width, and large-mask arithmetic depends on terminal count.
+
+The source-test oracle independently scans each complete suffix, including empty
+productions, terminal heads and completed positions, and compares both entire
+vectors. The 54 focused Cases passed with final =TEST-SUITE-OK= and =OK=, actual
+exit 0, in 20.581 seconds. Existing independent forward-follow, initial-partition,
+canonical/partitioned/follow construction and accepted/rejected parse controls
+remain in the canonical reference suite. There is one suffix Case, owned by the
+resolved grammar suite and shared by source and compiled conformance.
+
+** Complete outputs and matched cost
+
+Five baseline compiler modules were compiled from the exact starting revision
+under a separate temporary package, using the same Gerbil/GCC SDK, optimize and
+static settings as the candidate. They bind all five LR construction routes to
+the baseline implementations. One Scheme process alternated baseline/candidate
+order, forced GC before each invocation and checked exact output afterward.
+The admitted run had no overlapping compilation or diagnostic process.
+
+Five grammar families matched complete LRSpec through all five construction
+modes (25 pairs), and matched all initial backward partition/candidate/terminal
+outputs (5 pairs). In addition, 21 paired real TLA+ LALR constructions and 21
+paired mixed-context follow-partition constructions matched full LRSpec. The
+FOLLOW measurements include terminal catalog, core catalog, suffix facts, edge
+construction, propagation and result publication, with completed input
+FIRST/nullable preparation outside timing. Complete-construction measurements
+include all compiler analyses and publication. CPU medians are:
+
+| Workload | Pairs | Baseline ms | Shared suffix ms |
+|----------+-------+-------------+------------------|
+| FOLLOW: 512 nullable operands | 7 | 15.099 | 0.077 |
+| FOLLOW: 1024 nullable operands | 7 | 60.110 | 0.116 |
+| FOLLOW: 2048 nullable operands | 7 | 238.279 | 0.202 |
+| Real TLA+ complete FOLLOW analysis | 21 | 1.596 | 0.800 |
+| Real TLA+ complete LALR construction | 21 | 14.882 | 14.993 |
+| Mixed-context complete follow-partition construction | 21 | 1.475 | 1.469 |
+
+The complete LALR median increased slightly in this local run; no whole-parser,
+whole-construction, FFI or Rust throughput improvement follows from the analysis
+speedup. Allocation and GC counts were not measured. The admitted process
+emitted =UNIFIED-SUFFIX-NATIVE-AB-OK= and exited 0 in 15.216 seconds under the
+unchanged 90-second total/5-second idle limits. Imports, explicit GC and equality
+checks are outside the timed intervals.
+
+** Retained failures and remaining algorithmic/remote work
+
+Earlier A/B attempts hit the five-second idle limit before main or at the full
+TLA+ follow-partition construction. None of their costs is admitted. Tracing
+all real interface imports resolved the preparation observability gap without
+changing the deadline. A direct, owned baseline diagnostic was sampled and
+interrupted; it is not a successful qualification. Its sample showed numerical
+operations, GC and the baseline follow-automaton module executing, rather than
+waiting for a process. A separate temporary diagnostic baseline, never used in
+the admitted A/B, then recorded metadata/seed completion (2240 cores) and
+backward refinement completion (16 rounds). It hit the unchanged idle limit in
+the following determinization phase, exit 70/CLI 124 in 9.230 seconds. This
+locates a separate existing full-TLA follow-determinization cost; it does not
+prove the cause of state growth or repair it. The candidate's correctness and
+cost claims above do not cover completion of that workload.
+
+The previous revision's Ubuntu run
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37892498572][37892498572]] again exited semantic status 139 at the last output
+=all parser tests avoid display assertions=. The earlier =8c3364a= Ubuntu
+semantic step passed before cancellation; later test-object compiler option
+changes are a concrete comparison boundary, not an established crash cause.
+The workflow now requests a bounded GDB replay and all-thread backtrace only
+when the Ubuntu semantic gate has failed. The original gate remains failed and
+the replay retains 90-second total/5-second idle limits. Local configuration
+checks confirm its condition and options; execution/backtrace evidence still
+requires the delivered Ubuntu run. No compiler switch, widened deadline or
+success substitution is introduced.
+
+** Local compiled consumer receipt
+
+After all three engine consumers and the shared suffix Case were migrated,
+conformance preparation exited 0 in 108.297 seconds under the unchanged
+240-second total/5-second idle limits. The compiled semantic entry passed 371
+Cases across 23 groups, including the full-position suffix Case. It and all five
+independent research entries exited 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=.
+This local Darwin/GCC result does not resolve the repeated Ubuntu signal or the
+full TLA+ FOLLOW determinization workload. The delivered head needs its own
+Ubuntu result; the failure-only GDB step is prepared, not locally executed.

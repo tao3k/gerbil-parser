@@ -240,7 +240,21 @@ jobs:
           gerbil env gxi test-processes.ss conformance
 
       - name: Verify Scheme DSL and POO declaration closure
+        id: dsl-research
         run: gerbil env gxi test-processes.ss research .data/dsl-research
+
+      - name: Diagnose failed Ubuntu semantic process
+        if: ${{ failure() && runner.os == 'Linux' && steps.dsl-research.outcome == 'failure' }}
+        run: |
+          if ! command -v gdb; then
+            sudo apt-get update
+            sudo apt-get install -y gdb
+          fi
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/dsl-research-gdb.log \
+            -- gdb --nx --batch --return-child-result \
+               -ex run -ex 'thread apply all bt' \
+               --args .gerbil/bin/gerbil-parser-conformance semantic
 
       - name: Compile Scheme test support
         run: |

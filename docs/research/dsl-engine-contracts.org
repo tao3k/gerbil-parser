@@ -117,12 +117,15 @@ end-to-end gain claim. Exact-head CI is separate.
 
 * Compositional LR suffix analysis
 
-[[file:dsl-effective-grammar-admission.org::*LR suffix facts: compositional reverse evaluation][The reverse suffix contract]] records a single backwards rhs traversal that
-preserves the forward FIRST/nullable scans, including marks, missing references
-and all unused catalog slots. Both LALR and canonical LR(1) consume it. It removes
-quadratic operand traversal on long nullable rhs sequences; padded catalog
-allocation and terminal-mask width remain separate costs. Exact complete LRSpec
-A/B controls and native measurements bound the claim to this analysis.
+[[file:dsl-effective-grammar-admission.org::*Unified suffix facts across LR consumers][The shared suffix contract]] now covers FIRST/nullable for all valid dotted
+positions. LALR/canonical closures and FOLLOW metadata read core+1; backward
+compatibility partitions read core, including the empty suffix. All consumers
+use =make-core-suffix-catalog=; the old lookahead-specific directory is removed.
+Independent forward-scan, complete partition and full LRSpec controls cover the
+position change. Padding allocation, repeated catalog construction across calls
+and large-mask width remain explicit costs. Matched native FOLLOW analysis
+improved; full LALR did not show a gain. Full TLA+ FOLLOW determinization and the
+Ubuntu semantic signal remain separate unresolved qualification work.
 
 * Next implementation sequence
 

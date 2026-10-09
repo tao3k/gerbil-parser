@@ -9,9 +9,10 @@
         (only-in ./lr
                  +lr-eof+ base-symbol nonterminal-name nonterminal-symbol?
                  production-id production-index-by-lhs production-rhs
-                 production-terminal-catalog sequence-first sequence-nullable?
+                 production-terminal-catalog
                  terminal-symbol?)
-        (only-in ./lr-lookahead build-states-via-lr0))
+        (only-in ./lr-automaton make-item-layout make-core-symbol-catalog make-core-item)
+        (only-in ./lr-lookahead build-states-via-lr0 make-core-suffix-catalog))
 (export forward-reachable-follow-masks
         initial-backward-follow-partitions
         initial-backward-follow-partitions/from-lr0
@@ -27,71 +28,70 @@
                 (production-terminal-catalog productions)))
     (let* ((count (vector-length table))
            (by-lhs (production-index-by-lhs productions))
-           (edges (make-vector count '())))
-      (def (first-mask tail)
-        (foldl (lambda (terminal mask)
-                 (compiler-index-set-add
-                  mask (table-ref terminal-index terminal)))
-               0 (sequence-first tail first nullable)))
-      (let production-loop ((parent 0))
-        (when (< parent count)
-          (let occurrence-loop ((rest (production-rhs (vector-ref table parent))))
-            (unless (null? rest)
-              (let (symbol (base-symbol (car rest)))
-                (when (nonterminal-symbol? symbol)
-                  (let ((tail (cdr rest)))
-                    (for-each
-                     (lambda (child)
-                       (vector-set!
-                        edges parent
-                        (cons (vector (production-id child)
-                                      (first-mask tail)
-                                      (sequence-nullable? tail nullable))
-                              (vector-ref edges parent))))
-                     (table-ref by-lhs (nonterminal-name symbol) '())))))
-              (occurrence-loop (cdr rest))))
-          (production-loop (+ parent 1))))
-      (let ((follows (make-vector count 0))
-            (deltas (make-vector count 0))
-            (activated (make-vector count #f))
-            (queued (make-vector count #f))
-            (pending (stdq-make-Queue)))
-        (let (start-follow
-              (compiler-index-set-singleton
-               (table-ref terminal-index +lr-eof+)))
-          (vector-set! follows 0 start-follow)
-          (vector-set! deltas 0 start-follow))
-        (vector-set! queued 0 #t)
-        (stdq-enqueue! pending 0)
-        (let drain ()
-          (unless (stdq-queue-empty? pending)
-            (let* ((parent (stdq-dequeue! pending))
-                   (delta (vector-ref deltas parent))
-                   (first-visit? (not (vector-ref activated parent))))
-              (vector-set! queued parent #f)
-              (vector-set! deltas parent 0)
-              (vector-set! activated parent #t)
-              (for-each
-               (lambda (edge)
-                 (let* ((child (vector-ref edge 0))
-                        (known (vector-ref follows child))
-                        (static (if first-visit? (vector-ref edge 1) 0))
-                        (propagated (if (vector-ref edge 2) delta 0))
-                        (evidence (compiler-index-set-union
-                                   static propagated))
-                        (new (compiler-index-set-difference evidence known)))
-                   (unless (zero? new)
-                     (vector-set! follows child
-                                  (compiler-index-set-union known new))
-                     (vector-set! deltas child
-                                  (compiler-index-set-union
-                                   (vector-ref deltas child) new))
-                     (unless (vector-ref queued child)
-                       (vector-set! queued child #t)
-                       (stdq-enqueue! pending child)))))
-               (vector-ref edges parent))
-              (drain))))
-        (values follows terminal-values)))))
+           (edges (make-vector count '()))
+           (layout (make-item-layout table terminal-values))
+           (core-symbols (make-core-symbol-catalog table layout)))
+      (let-values (((suffix-first nullable-suffixes)
+                    (make-core-suffix-catalog table layout core-symbols first nullable terminal-index)))
+        (let production-loop ((parent 0))
+          (when (< parent count)
+            (let occurrence-loop ((rest (production-rhs (vector-ref table parent))) (dot 0))
+              (unless (null? rest)
+                (let (symbol (base-symbol (car rest)))
+                  (when (nonterminal-symbol? symbol)
+                    (let ((suffix (make-core-item parent (+ dot 1) layout)))
+                      (for-each
+                       (lambda (child)
+                         (vector-set!
+                          edges parent
+                          (cons (vector (production-id child)
+                                        (vector-ref suffix-first suffix)
+                                        (vector-ref nullable-suffixes suffix))
+                                (vector-ref edges parent))))
+                       (table-ref by-lhs (nonterminal-name symbol) '())))))
+                (occurrence-loop (cdr rest) (+ dot 1))))
+            (production-loop (+ parent 1))))
+        (let ((follows (make-vector count 0))
+              (deltas (make-vector count 0))
+              (activated (make-vector count #f))
+              (queued (make-vector count #f))
+              (pending (stdq-make-Queue)))
+          (let (start-follow
+                (compiler-index-set-singleton
+                 (table-ref terminal-index +lr-eof+)))
+            (vector-set! follows 0 start-follow)
+            (vector-set! deltas 0 start-follow))
+          (vector-set! queued 0 #t)
+          (stdq-enqueue! pending 0)
+          (let drain ()
+            (unless (stdq-queue-empty? pending)
+              (let* ((parent (stdq-dequeue! pending))
+                     (delta (vector-ref deltas parent))
+                     (first-visit? (not (vector-ref activated parent))))
+                (vector-set! queued parent #f)
+                (vector-set! deltas parent 0)
+                (vector-set! activated parent #t)
+                (for-each
+                 (lambda (edge)
+                   (let* ((child (vector-ref edge 0))
+                          (known (vector-ref follows child))
+                          (static (if first-visit? (vector-ref edge 1) 0))
+                          (propagated (if (vector-ref edge 2) delta 0))
+                          (evidence (compiler-index-set-union
+                                     static propagated))
+                          (new (compiler-index-set-difference evidence known)))
+                     (unless (zero? new)
+                       (vector-set! follows child
+                                    (compiler-index-set-union known new))
+                       (vector-set! deltas child
+                                    (compiler-index-set-union
+                                     (vector-ref deltas child) new))
+                       (unless (vector-ref queued child)
+                         (vector-set! queued child #t)
+                         (stdq-enqueue! pending child)))))
+                 (vector-ref edges parent))
+                (drain))))
+          (values follows terminal-values))))))
 
 ;; Keep the first raw action at each terminal and mark a conflict when a
 ;; distinct action appears. Shift is action 0, accept is 1, and reduction by
@@ -172,6 +172,8 @@
               (foldl (lambda (production width)
                        (max width (+ 1 (length (production-rhs production)))))
                      1 (vector->list table)))
+             (layout (cons (vector-length terminals) dot-width))
+             (core-symbols (make-core-symbol-catalog table layout))
              (core-count (* (vector-length table) dot-width))
              (action-by-core (make-vector core-count 0))
              (completed-core (make-vector core-count #f))
@@ -182,90 +184,87 @@
             (table-set! terminal-index
                         (vector-ref terminals terminal) terminal)
             (terminal-loop (+ terminal 1))))
-        ;; Definition 3.24 requires each item to have an action on the
-        ;; potentially conflicting lookahead. Nonterminal-dot items have no
-        ;; raw action; terminal-dot items shift only their own terminal, and
-        ;; completed items reduce only on reachable production follows.
-        (let production-loop ((id 0))
-          (when (< id (vector-length table))
-            (let dot-loop ((tail (production-rhs (vector-ref table id)))
-                           (dot 0))
-              (let* ((core (+ dot (* dot-width id)))
-                     (symbol (and (pair? tail) (base-symbol (car tail))))
-                     (action-mask
-                      (cond
-                       ((not symbol) (vector-ref follows id))
-                       ((terminal-symbol? symbol)
-                        (compiler-index-set-singleton
-                         (table-ref terminal-index symbol)))
-                       (else 0))))
-                (vector-set! action-by-core core action-mask)
-                (unless symbol
-                  (vector-set! completed-core core #t))
-                (unless (null? tail)
-                  (dot-loop (cdr tail) (+ dot 1)))))
-            (production-loop (+ id 1))))
-        (let state-loop ((state 0))
-          (when (< state count)
-            (let (node (vector-ref offsets state))
-              (for-each
-               (lambda (core)
-                 ;; A completed item's state-local LALR mask includes every
-                 ;; canonical follow at this LR(0) item. The production-wide
-                 ;; follow mask can mark an action that is absent here.
-                 ;; Shift actions remain independent of item lookahead.
-                 (let (action-mask
-                       (if (vector-ref completed-core core)
-                         (vector-ref lookaheads node)
-                         (vector-ref action-by-core core)))
-                   (vector-set!
-                    candidate-by-core core
-                    (compiler-index-set-union
-                     (vector-ref candidate-by-core core)
-                     (bitwise-and (vector-ref candidates state)
-                                  action-mask))))
-                 (set! node (+ node 1)))
-               (vector-ref states state)))
-            (state-loop (+ state 1))))
-        (let production-loop ((id 0))
-          (when (< id (vector-length table))
-            (let dot-loop ((tail (production-rhs (vector-ref table id)))
-                           (dot 0))
-              (let* ((core (+ dot (* dot-width id)))
-                     (first-mask
-                      (foldl
-                       (lambda (terminal mask)
-                         (compiler-index-set-add
-                          mask (table-ref terminal-index terminal)))
-                       0 (sequence-first tail first nullable)))
-                     (tail-nullable? (sequence-nullable? tail nullable))
-                     (candidate-mask (vector-ref candidate-by-core core))
-                     (blocks (make-table test: eq?))
-                     (signatures '()))
-                (compiler-index-set-for-each
-                 (vector-ref follows id)
-                 (lambda (lookahead)
-                   (let* ((compatible
-                           (if tail-nullable?
-                             (compiler-index-set-add first-mask lookahead)
-                             first-mask))
-                          (signature
-                           (bitwise-and compatible candidate-mask))
-                          (known (table-ref blocks signature #f)))
-                     (unless known
-                       (set! signatures (cons signature signatures)))
-                     (table-set!
-                      blocks signature
-                      (compiler-index-set-add (or known 0) lookahead)))))
-                (vector-set!
-                 partitions core
-                 (map (lambda (signature)
-                        (cons signature (table-ref blocks signature)))
-                      (reverse signatures)))
-                (unless (null? tail)
-                  (dot-loop (cdr tail) (+ dot 1)))))
-            (production-loop (+ id 1))))
-        (values partitions candidates terminals))))
+        (let-values (((suffix-first nullable-suffixes)
+                      (make-core-suffix-catalog table layout core-symbols first nullable terminal-index)))
+          ;; Definition 3.24 requires each item to have an action on the
+          ;; potentially conflicting lookahead. Nonterminal-dot items have no
+          ;; raw action; terminal-dot items shift only their own terminal, and
+          ;; completed items reduce only on reachable production follows.
+          (let production-loop ((id 0))
+            (when (< id (vector-length table))
+              (let dot-loop ((tail (production-rhs (vector-ref table id)))
+                             (dot 0))
+                (let* ((core (+ dot (* dot-width id)))
+                       (symbol (and (pair? tail) (base-symbol (car tail))))
+                       (action-mask
+                        (cond
+                         ((not symbol) (vector-ref follows id))
+                         ((terminal-symbol? symbol)
+                          (compiler-index-set-singleton
+                           (table-ref terminal-index symbol)))
+                         (else 0))))
+                  (vector-set! action-by-core core action-mask)
+                  (unless symbol
+                    (vector-set! completed-core core #t))
+                  (unless (null? tail)
+                    (dot-loop (cdr tail) (+ dot 1)))))
+              (production-loop (+ id 1))))
+          (let state-loop ((state 0))
+            (when (< state count)
+              (let (node (vector-ref offsets state))
+                (for-each
+                 (lambda (core)
+                   ;; A completed item's state-local LALR mask includes every
+                   ;; canonical follow at this LR(0) item. The production-wide
+                   ;; follow mask can mark an action that is absent here.
+                   ;; Shift actions remain independent of item lookahead.
+                   (let (action-mask
+                         (if (vector-ref completed-core core)
+                           (vector-ref lookaheads node)
+                           (vector-ref action-by-core core)))
+                     (vector-set!
+                      candidate-by-core core
+                      (compiler-index-set-union
+                       (vector-ref candidate-by-core core)
+                       (bitwise-and (vector-ref candidates state)
+                                    action-mask))))
+                   (set! node (+ node 1)))
+                 (vector-ref states state)))
+              (state-loop (+ state 1))))
+          (let production-loop ((id 0))
+            (when (< id (vector-length table))
+              (let dot-loop ((tail (production-rhs (vector-ref table id)))
+                             (dot 0))
+                (let* ((core (+ dot (* dot-width id)))
+                       (first-mask (vector-ref suffix-first core))
+                       (tail-nullable? (vector-ref nullable-suffixes core))
+                       (candidate-mask (vector-ref candidate-by-core core))
+                       (blocks (make-table test: eq?))
+                       (signatures '()))
+                  (compiler-index-set-for-each
+                   (vector-ref follows id)
+                   (lambda (lookahead)
+                     (let* ((compatible
+                             (if tail-nullable?
+                               (compiler-index-set-add first-mask lookahead)
+                               first-mask))
+                            (signature
+                             (bitwise-and compatible candidate-mask))
+                            (known (table-ref blocks signature #f)))
+                       (unless known
+                         (set! signatures (cons signature signatures)))
+                       (table-set!
+                        blocks signature
+                        (compiler-index-set-add (or known 0) lookahead)))))
+                  (vector-set!
+                   partitions core
+                   (map (lambda (signature)
+                          (cons signature (table-ref blocks signature)))
+                        (reverse signatures)))
+                  (unless (null? tail)
+                    (dot-loop (cdr tail) (+ dot 1)))))
+              (production-loop (+ id 1))))
+          (values partitions candidates terminals)))))
 
 (def (initial-backward-follow-partitions productions table first nullable)
   (let-values (((states count lookaheads offsets transitions terminals

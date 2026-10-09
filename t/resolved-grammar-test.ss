@@ -6,7 +6,7 @@
                  sequence-first sequence-nullable? base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union)
         (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-symbol-catalog)
-        (only-in :gerbil-parser/src/compiler/lr-lookahead make-core-lookahead-catalog)
+        (only-in :gerbil-parser/src/compiler/lr-lookahead make-core-suffix-catalog)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-rejection-condition?)
@@ -165,20 +165,18 @@
         (let production-loop ((id 0))
           (when (< id (vector-length table))
             (let suffix-loop ((rest (production-rhs (vector-ref table id))) (dot 0))
+              (let (item (+ dot (* id (cdr layout))))
+                (vector-set! expected-masks item
+                  (foldl (lambda (terminal mask)
+                           (compiler-index-set-union mask
+                             (arithmetic-shift 1 (table-ref terminal-index terminal))))
+                         0 (sequence-first rest first nullable)))
+                (vector-set! expected-nullable item (sequence-nullable? rest nullable)))
               (unless (null? rest)
-                (let (item (+ dot (* id (cdr layout))))
-                  (when (nonterminal-symbol? (vector-ref symbols item))
-                    (vector-set! expected-masks item
-                      (foldl (lambda (terminal mask)
-                               (compiler-index-set-union mask
-                                 (arithmetic-shift 1 (table-ref terminal-index terminal))))
-                             0 (sequence-first (cdr rest) first nullable)))
-                    (vector-set! expected-nullable item
-                      (sequence-nullable? (cdr rest) nullable))))
                 (suffix-loop (cdr rest) (+ dot 1))))
             (production-loop (+ id 1))))
         (let-values (((masks nullable-tails)
-                      (make-core-lookahead-catalog table layout symbols first nullable terminal-index)))
+                      (make-core-suffix-catalog table layout symbols first nullable terminal-index)))
           (check masks => expected-masks)
           (check nullable-tails => expected-nullable)))))))
 

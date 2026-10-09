@@ -20,7 +20,7 @@
                  make-core-symbol-catalog make-item-layout
                  materialize-transitions))
 (export build-states-via-lr0 build-states-via-canonical-lr1
-        make-core-lookahead-catalog)
+        make-core-suffix-catalog)
 
 (def (trace-lookahead-phase phase count started trace?)
   (when trace?
@@ -43,16 +43,15 @@
             mask (table-ref terminal-index terminal)))
          0 terminals))
 
-;;; FIRST of a concatenation is FIRST(head), plus FIRST(tail) when head
-;; is nullable. Fold this equation right-to-left once per production, instead
-;; of rescanning every nullable suffix. Cache each nonterminal's completed FIRST
-;; mask once for this catalog. The core symbols have already unwrapped marks.
+;;; Completed FIRST/nullable facts for every valid suffix, including the
+;; empty suffix at the completed core. Consumers select core or core+1;
+;; padding remains zero/false. Marks were unwrapped by the symbol catalog.
 ;; : (-> Vector Pair Vector Table Table Table (values Vector Vector))
-(def (make-core-lookahead-catalog table layout core-symbols first nullable
-                                  terminal-index)
+(def (make-core-suffix-catalog table layout core-symbols first nullable
+                              terminal-index)
   (let* ((size (* (vector-length table) (cdr layout)))
          (first-masks (make-vector size 0))
-         (nullable-tails (make-vector size #f))
+         (nullable-suffixes (make-vector size #f))
          (nonterminal-masks (make-table test: eq?)))
     (def (first-mask name)
       (let (known (table-ref nonterminal-masks name #f))
@@ -62,28 +61,26 @@
               mask))))
     (let production-loop ((production-id 0))
       (when (< production-id (vector-length table))
-        (let item-loop
-            ((dot (- (length (production-rhs (vector-ref table production-id))) 1))
-             (tail-mask 0) (tail-nullable? #t))
-          (when (>= dot 0)
-            (let* ((item (make-core-item production-id dot layout))
-                   (symbol (vector-ref core-symbols item)))
-              (if (nonterminal-symbol? symbol)
-                (let* ((name (nonterminal-name symbol))
-                       (head-nullable? (table-ref nullable name #f))
-                       (head-mask (first-mask name)))
-                  (vector-set! first-masks item tail-mask)
-                  (vector-set! nullable-tails item tail-nullable?)
-                  (item-loop (- dot 1)
-                             (if head-nullable?
-                               (compiler-index-set-union head-mask tail-mask)
-                               head-mask)
-                             (and head-nullable? tail-nullable?)))
-                (item-loop (- dot 1)
-                           (compiler-index-set-singleton
-                            (table-ref terminal-index symbol)) #f)))))
+        (let (width (length (production-rhs (vector-ref table production-id))))
+          (vector-set! nullable-suffixes (make-core-item production-id width layout) #t)
+          (let item-loop ((dot (- width 1)) (tail-mask 0) (tail-nullable? #t))
+            (when (>= dot 0)
+              (let* ((item (make-core-item production-id dot layout))
+                     (symbol (vector-ref core-symbols item))
+                     (nonterminal? (nonterminal-symbol? symbol))
+                     (head-nullable? (and nonterminal?
+                                          (table-ref nullable (nonterminal-name symbol) #f)))
+                     (head-mask (if nonterminal?
+                                  (first-mask (nonterminal-name symbol))
+                                  (compiler-index-set-singleton (table-ref terminal-index symbol))))
+                     (mask (if head-nullable?
+                             (compiler-index-set-union head-mask tail-mask) head-mask))
+                     (nullable? (and head-nullable? tail-nullable?)))
+                (vector-set! first-masks item mask)
+                (vector-set! nullable-suffixes item nullable?)
+                (item-loop (- dot 1) mask nullable?)))))
         (production-loop (+ production-id 1))))
-    (values first-masks nullable-tails)))
+    (values first-masks nullable-suffixes)))
 
 ;; Assign every admitted (state, core-item) pair one dense node id.  The fixed
 ;; point and immutable graph construction both use these contiguous slices.
@@ -203,7 +200,7 @@
 ;; : (-> Vector Vector Fixnum Table Vector Vector Table Table Vector Table Pair List)
 (def (propagate-lalr-lookaheads states state-transitions state-count
                                 productions-by-lhs table core-symbols
-                                tail-first-masks nullable-tails
+                                suffix-first-masks nullable-suffixes
                                 terminal-index layout)
   (let* ((queue (stdq-make-Queue))
          (processed-count 0)
@@ -252,14 +249,14 @@
                 (force-output))
               (unless (null? (vector-ref closure-targets node))
                 (let* ((first? (not (vector-ref activated node)))
-                       (nullable? (vector-ref nullable-tails item))
+                       (nullable? (vector-ref nullable-suffixes (+ item 1)))
                        (evidence
                         (cond
                          (first?
                           (if nullable?
                             (compiler-index-set-union
-                             (vector-ref tail-first-masks item) delta)
-                            (vector-ref tail-first-masks item)))
+                             (vector-ref suffix-first-masks (+ item 1)) delta)
+                            (vector-ref suffix-first-masks (+ item 1))))
                          (nullable? delta)
                          (else 0))))
                   ;; FIRST(tail) is static; subsequent activations propagate
@@ -286,8 +283,8 @@
            (core-symbols (make-core-symbol-catalog table layout))
            (started (##current-time-point))
            (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")))
-      (let-values (((tail-first-masks nullable-tails)
-                    (make-core-lookahead-catalog
+      (let-values (((suffix-first-masks nullable-suffixes)
+                    (make-core-suffix-catalog
                      table layout core-symbols first nullable terminal-index)))
        (let-values (((states state-transitions state-count productions-by-lhs
                              lr0-state-visit-count)
@@ -304,7 +301,7 @@
         (let-values (((lookaheads lookahead-offsets lookahead-item-visit-count)
                       (propagate-lalr-lookaheads
                        states state-transitions state-count productions-by-lhs
-                       table core-symbols tail-first-masks nullable-tails
+                       table core-symbols suffix-first-masks nullable-suffixes
                        terminal-index layout)))
           (when trace?
             (display "[gerbil-parser-lr] phase=lookahead count=")
@@ -338,8 +335,8 @@
            (state-index (make-table test: equal?))
            (closure-masks (make-vector (vector-length core-symbols) 0))
            (state-count 0))
-      (let-values (((tail-first-masks nullable-tails)
-                    (make-core-lookahead-catalog
+      (let-values (((suffix-first-masks nullable-suffixes)
+                    (make-core-suffix-catalog
                      table layout core-symbols first nullable terminal-index)))
         (def (canonical-closure kernels)
           (let ((cores (list->ExtensibleVector '()))
@@ -361,10 +358,10 @@
                        (symbol (vector-ref core-symbols core)))
                   (when (and symbol (nonterminal-symbol? symbol))
                     (let (evidence
-                          (if (vector-ref nullable-tails core)
+                          (if (vector-ref nullable-suffixes (+ core 1))
                             (compiler-index-set-union
-                             (vector-ref tail-first-masks core) mask)
-                            (vector-ref tail-first-masks core)))
+                             (vector-ref suffix-first-masks (+ core 1)) mask)
+                            (vector-ref suffix-first-masks (+ core 1))))
                       (for-each
                        (lambda (production)
                          (admit!

@@ -354,8 +354,8 @@ also preserve the tree, field and source contracts; recognition facts alone do
 not justify changing an author's declared grammar.
 
 The existing LR lookahead consumer now also uses
-[[file:dsl-effective-grammar-admission.org::*LR suffix facts: compositional reverse evaluation][compositional reverse evaluation of completed suffix facts]], avoiding repeated
-forward suffix scans. This is an evaluation improvement with independent
+[[file:dsl-effective-grammar-admission.org::*Unified suffix facts across LR consumers][shared compositional suffix facts for LR closure and FOLLOW/partition consumers]],
+avoiding their repeated forward suffix scans. This is an evaluation improvement with independent
 forward-scan and complete LRSpec controls, not adoption of a predictive-parser
 type theorem for arbitrary CFGs.
 

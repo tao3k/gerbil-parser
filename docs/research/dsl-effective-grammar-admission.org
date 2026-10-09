@@ -1252,3 +1252,122 @@ supervisor, heap expansion, timeout relaxation or compiler switch is introduced.
 The preceding delivered head =49e297f= had Rust CI success while Ubuntu was
 still in compiled conformance preparation during local execution. Delivery of
 this shared reachability implementation requires its own remote-head checks.
+
+
+* Bounded seed-subset reuse during determinization (2026-10-09)
+
+** Measured query shape and paper transfer
+
+Van Noord's [[https://aclanthology.org/J00-1005.pdf][2000 epsilon-move paper]], Section 3.2, memoizes both singleton
+closures and their union for a whole seed subset. The engine already caches
+singleton closure on large quotients; the missing whole-query reuse is tested
+here after the admitted delta expansion and density-selected bitmap traversal.
+These earlier improvements remain on both sides of the experiment.
+
+A temporary compiled diagnostic counted requests after forward refinement:
+
+| Workload | Quotient nodes | Requests | Unique seeds | Repeated requests | Unique seed bit-length sum |
+|----------+----------------+----------+--------------+-------------------+----------------------------|
+| mixed FOLLOW, 8 regions | 265 | 158 | 126 | 32 | 15765 |
+| mixed FOLLOW, 24 regions | 777 | 462 | 366 | 96 | 132485 |
+| mixed FOLLOW, 48 regions | 1545 | 918 | 726 | 192 | 520685 |
+| actual TLA+ FOLLOW | 3984 | 347740 | 8149 | 339591 | 22363206 |
+
+The actual TLA+ workload has 97.7% repeated seed queries. The diagnostic retains
+all keys in order to count them, so its 10.442-second controller result is not
+an admitted optimization cost. The bit-length sum describes logical mask payload,
+not heap bytes; hash entries, object headers and alignment cost extra.
+
+** Retained cache invariant and bound
+
+The cache maps an immutable target seed mask to a canonical state ID that has
+already been assigned by =intern!=. A hit reuses that ID without recomputing
+singleton unions or hashing a newly produced closure into the state index. A
+miss retains the original closure/intern path. Because entries are admitted only
+after interning, a hit cannot change first-discovery order or skip a queued new
+state. Identical seeds in one fixed graph have identical closures; every stored
+ID therefore names exactly the original transition target.
+
+The index lives inside one complete determinization invocation. It is admitted
+at the existing large-quotient threshold (3500 nodes). It retains at most one
+entry per quotient node and does not evict admitted entries; once full, uncached
+seeds still use the original exact computation. Small quotients retain no subset
+index. No cache crosses a language, source revision or compiler invocation.
+
+For a quotient with V nodes, each key contains at most V meaningful bits and
+there are at most V keys. Thus additional logical key payload is bounded by
+V squared bits plus integer alignment; table/object overhead is not included in
+that arithmetic bound. The 3984-node TLA+ bound is 1,984,032 logical bytes before
+alignment/headers. Canonical output masks are already owned by the existing
+state index/vector; subset values are only state IDs, not duplicate closure
+objects. The existing LR trace reports completed cache hits and admitted entries.
+No DSL declaration, POO slot, public schema or compatibility route is added.
+
+** Full artifact and cost control
+
+The worktree first fast-forwarded to current PR head =7449072=, retaining its
+source-priority lowering and native process-replacement changes. Its qualification
+boundary was rebuilt before experiments. The baseline freezes all eight LR
+indexed-set modules at this head; both sides use the fixed Gerbil/GCC SDK and
+identical optimized/static options. Complete calls alternate order, force GC
+before timing, and compare the complete LRSpec outside timing. Setup, hash-key
+work, cache fill, miss computation, in-call GC and publication are included.
+Real completed-work LR tracing is enabled identically.
+
+Five grammar families across five LR modes supply 25 exact full-artifact pairs.
+Every actual TLA+ pair retains the exact complete 8149-state LRSpec. The bounded
+index admits 3984 keys and hits 325223 transition queries (93.5% of transition
+requests), leaving 22516 exact miss computations. This count, unlike the earlier
+unbounded diagnostic, belongs to the retained implementation.
+
+| Complete workload | Pairs | Baseline CPU ms | Subset CPU ms |
+|-------------------+-------+-----------------+---------------|
+| mixed FOLLOW, 8 regions | 21 | 1.484 | 1.517 |
+| mixed FOLLOW, 24 regions | 21 | 4.109 | 4.108 |
+| mixed FOLLOW, 48 regions | 21 | 9.918 | 9.936 |
+| actual TLA+ default LALR | 21 | 14.215 | 14.174 |
+| actual TLA+ FOLLOW | 7 | 2432.837 | 1806.007 |
+
+| Actual FOLLOW pair | Baseline CPU ms | Subset CPU ms | Baseline GCs | Subset GCs |
+|--------------------+-----------------+---------------+--------------+------------|
+| 0 | 2929.288 | 2411.971 | 34 | 17 |
+| 1 | 2494.107 | 1801.497 | 18 | 11 |
+| 2 | 1933.464 | 2400.943 | 12 | 19 |
+| 3 | 2432.837 | 1695.287 | 17 | 9 |
+| 4 | 1783.837 | 1768.816 | 7 | 7 |
+| 5 | 2696.379 | 1806.007 | 21 | 11 |
+| 6 | 1910.477 | 1875.487 | 7 | 7 |
+
+The actual FOLLOW median decreases 25.8%, but pair 2 regresses and several
+pairs increase collection CPU. GC-count medians are 17 -> 11; GC CPU medians
+971.720 -> 459.323 ms. These observations establish a bounded local construction
+tradeoff, not universal latency, allocation-byte, parser runtime, FFI or Rust
+throughput gains. Small complete costs are approximately stable, with the
+8-region control increasing 0.033 ms. The process emitted =SUBSET-NATIVE-AB-OK=
+and exited 0 in 54.914 seconds under unchanged 90-second total/5-second idle
+limits. Prior delivered head =7449072= completed Ubuntu and Rust CI successfully;
+the subset-cache delivery needs its own remote-head results.
+
+
+** Final local consumer receipt
+
+The existing resolved/canonical source owners passed 56 Cases, =TEST-SUITE-OK=
+and =OK=, controller exit 0 in 19.796 seconds under unchanged 120-second
+total/5-second idle limits. No duplicate Case or Suite is introduced for the
+private cache; complete-artifact pairs and real cache-bound traces cover its
+large-quotient execution path.
+
+Complete preparation, including modules affected by the newly synchronized PR
+head, exited 0 in 140.339 seconds under unchanged 240-second total/5-second idle
+limits. The compiled semantic entry passed 372 Cases across 23 groups. It and
+all five independent research entries exited 0, with =DSL-RESEARCH-CLOSURE-OK=
+and =OK=. Source Suite counts remain separate from the compiled consumer count.
+
+Raw evidence is retained in temporary native products:
+=/private/tmp/parser-subset-query-probe-driver.log=,
+=/private/tmp/parser-subset-ab-driver.log=,
+=/private/tmp/parser-subset-controls-driver.log=,
+=/private/tmp/parser-subset-conformance-build-driver.log= and
+=/private/tmp/parser-subset-research/exits.tsv=. Preparation and diagnostic
+retention are excluded from the paired construction claim and independently
+required for delivery. No JSON snapshot or additional supervisor is introduced.

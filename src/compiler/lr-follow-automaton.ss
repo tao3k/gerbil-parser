@@ -422,7 +422,11 @@
             ;; Epsilon closure distributes over union. Cache singleton closures
             ;; only for large quotients, where repeated traversals dominate.
             (closure-cache (and (>= block-count 3500)
-                                (make-vector block-count #f))))
+                                (make-vector block-count #f)))
+            ;; Seed subsets recur across transitions. Retain only a graph-sized
+            ;; number of keys, mapped to canonical IDs already owned by states.
+            (subset-index (and (>= block-count 3500) (make-table test: equal?)))
+            (subset-count 0) (subset-hits 0))
         (def (intern! closure)
           (let (existing (table-ref state-index closure #f))
             (if existing
@@ -457,14 +461,18 @@
                (lambda (label)
                  (let* ((symbol (ExtensibleVector-ref label-values label))
                         (targets (vector-ref symbol-targets label))
-                        (next-closure
-                         (if closure-cache
-                           (epsilon-closure/memo
-                            targets
-                            epsilon-edges closure-cache)
-                           (compiler-index-set-reachable
-                            targets epsilon-edges)))
-                        (target (intern! next-closure)))
+                        (known (and subset-index (table-ref subset-index targets #f)))
+                        (target
+                         (if known
+                           (begin (set! subset-hits (+ subset-hits 1)) known)
+                           (let (id (intern!
+                                     (if closure-cache
+                                       (epsilon-closure/memo targets epsilon-edges closure-cache)
+                                       (compiler-index-set-reachable targets epsilon-edges))))
+                             (when (and subset-index (< subset-count block-count))
+                               (table-set! subset-index targets id)
+                               (set! subset-count (+ subset-count 1)))
+                             id))))
                    ;; Clear only touched labels before the next state's scan.
                    (vector-set! symbol-targets label 0)
                    (ExtensibleVector-set!
@@ -478,6 +486,8 @@
               (when (zero? (modulo (+ state 1) 128))
                 (trace-follow-work 'dfa-states (+ state 1) (ExtensibleVector-fill-pointer states)))
               (drain))))
+        (when subset-index
+          (trace-follow-work 'subset-cache subset-hits subset-count))
         (trace-follow-work 'dfa-complete (ExtensibleVector-fill-pointer states))
         (let* ((count (ExtensibleVector-fill-pointer states))
                (output-states (make-vector count '()))

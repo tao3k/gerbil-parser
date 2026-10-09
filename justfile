@@ -3,8 +3,8 @@ set shell := ["sh", "-eu", "-c"]
 # Public native declaration lowering; test-all discovers this suite once.
 test-line-events output load_path:
     mkdir -p "{{output}}"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/modules/parser/line-structure-objects.ss src/modules/parser/line-event-funs.ss src/modules/parser/inline-link-event-funs.ss src/modules/parser/source-boundary-types.ss src/modules/parser/source-boundary-objects.ss src/modules/parser/source-boundary-funs.ss src/modules/parser/interface.ss t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss
-    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss 2>&1 | tee "{{output}}/line-events-test.log"
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/modules/parser/line-structure-objects.ss src/modules/parser/source-event-scope-types.ss src/modules/parser/source-event-scope-objects.ss src/modules/parser/source-event-scope-funs.ss src/modules/parser/line-event-funs.ss src/modules/parser/inline-link-event-funs.ss src/modules/parser/source-boundary-types.ss src/modules/parser/source-boundary-objects.ss src/modules/parser/source-boundary-funs.ss src/modules/parser/interface.ss t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss
+    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss 2>&1 | tee "{{output}}/line-events-test.log"
     rg --quiet '^HARNESS-OK' "{{output}}/line-events-test.log"
     rg --quiet '^OK$' "{{output}}/line-events-test.log"
     ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/line-events-test.log"

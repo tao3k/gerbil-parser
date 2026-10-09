@@ -8,6 +8,9 @@
         ./funcs
         ./syntax
         ./line-structure-objects
+        ./source-event-scope-types
+        ./source-event-scope-objects
+        ./source-event-scope-funs
         ./line-event-funs
         ./inline-link-event-funs
         ./source-boundary-types
@@ -18,6 +21,9 @@
         (import: ./funcs)
         (import: ./syntax)
         (import: ./line-structure-objects)
+        (import: ./source-event-scope-types)
+        (import: ./source-event-scope-objects)
+        (import: ./source-event-scope-funs)
         (import: ./line-event-funs)
         (import: ./inline-link-event-funs)
         (import: ./source-boundary-types)

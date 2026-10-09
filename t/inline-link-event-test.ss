@@ -1,21 +1,22 @@
 ;;; Non-Org link declarations exercise the engine's native commit boundary.
 (import :std/test
         (only-in :gerbil-parser/src/modules/parser/interface
-                 make-text-line make-inline-link source-inline-link-initial
+                 make-source-event-scope make-text-line make-inline-link source-inline-link-initial
                  source-inline-link-scan-forms)
         (only-in :gerbil-parser/src/compiler/event-fold-runtime run-event-fold))
+(def scope (make-source-event-scope 'native-test))
 (export inline-link-event-test)
 (def rule (make-text-line 'Text 'Raw
              (make-inline-link "<<" "::" ">>" 'Reference 'Target 'Label 'Boundary)))
 (def (events source (literal? #f) (invalid-target 'recover-span))
   (run-event-fold source 'Document
-    (append (source-inline-link-initial rule) '((inline-cursor 0) (policy 7)))
-    `((for-line-bytes inline-byte-index start (line-content-end)
-        ,(source-inline-link-scan-forms rule
+    (append (source-inline-link-initial rule scope) '((scan-cursor 0) (policy 7)))
+    `((for-line-bytes scan-index start (line-content-end)
+        ,(source-inline-link-scan-forms rule scope index: 'scan-index cursor: 'scan-cursor
           description-helper: 'label parameters: '(policy)
           description-node: 'Description literal-description?: literal?
           invalid-target: invalid-target))
-      (token Raw (state-offset inline-cursor) end))
+      (token Raw (state-offset scan-cursor) end))
     '()
     '((label ((policy 0))
        ((if (uint-equal? (state policy) (uint 7))
@@ -61,11 +62,12 @@
            (check (covers? result source) => #t)))
        '("" "<<" "<<a" "<<a::b" "<<>>" "<<::b>>")))
     (test-case "malformed policy and missing link declarations are rejected"
-      (check-exception (source-inline-link-initial (make-text-line 'Text 'Raw)) true)
-      (check-exception (source-inline-link-scan-forms rule parameters: '(policy)) true)
-      (check-exception (source-inline-link-scan-forms rule description-helper: 'label parameters: '(p p)) true)
-      (check-exception (source-inline-link-scan-forms rule description-node: "bad") true)
-      (check-exception (source-inline-link-scan-forms rule invalid-target: 'unknown) true))
+      (check-exception (source-inline-link-scan-forms rule scope) true)
+      (check-exception (source-inline-link-initial (make-text-line 'Text 'Raw) scope) true)
+      (check-exception (source-inline-link-scan-forms rule scope index: 'scan-index cursor: 'scan-cursor parameters: '(policy)) true)
+      (check-exception (source-inline-link-scan-forms rule scope index: 'scan-index cursor: 'scan-cursor description-helper: 'label parameters: '(p p)) true)
+      (check-exception (source-inline-link-scan-forms rule scope index: 'scan-index cursor: 'scan-cursor description-node: "bad") true)
+      (check-exception (source-inline-link-scan-forms rule scope index: 'scan-index cursor: 'scan-cursor invalid-target: 'unknown) true))
     (test-case "recovery scope is declared rather than inherited from Org"
       (let (source "<<::x>> then <<a>>")
         (check (starts (events source) 'Reference) => 1)
@@ -77,10 +79,10 @@
                           (make-inline-link "<:" ":" ">" 'Reference 'Target 'Label 'Boundary)))
              (source "<:a:b>")
              (result (run-event-fold source 'Document
-                       (append (source-inline-link-initial alternate) '((inline-cursor 0)))
-                       `((for-line-bytes inline-byte-index start (line-content-end)
-                           ,(source-inline-link-scan-forms alternate))
-                         (token Raw (state-offset inline-cursor) end)) '())))
+                       (append (source-inline-link-initial alternate scope) '((scan-cursor 0)))
+                       `((for-line-bytes scan-index start (line-content-end)
+                           ,(source-inline-link-scan-forms alternate scope index: 'scan-index cursor: 'scan-cursor))
+                         (token Raw (state-offset scan-cursor) end)) '())))
         (check (starts result 'Reference) => 1)
         (check (and (member '(token Target 2 3) result) #t) => #t)
         (check (covers? result source) => #t)))))

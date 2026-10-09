@@ -1,0 +1,115 @@
+;;; -*- Gerbil -*-
+;;; Pure native event lowering of admitted contextual line declarations.
+;;; Domain nodes and content helpers are supplied by the language, not the engine.
+(import (only-in ./line-structure-objects
+                 table-line? text-line?
+                 table-line-delimiter table-line-row-node table-line-rule-row-node
+                 table-line-cell-node table-line-separator-token table-line-cell-token
+                 table-line-trivia-token table-line-rule-token
+                 text-line-node text-line-token text-line-paragraph-node))
+(export source-table-row-initial source-table-row-forms
+        source-paragraph-initial source-paragraph-close-form source-paragraph-line-form)
+
+;;; Named helper references are bindings, never arbitrary raw-form callbacks.
+(def (content-call helper parameters from until token)
+  (unless (and (or (not helper) (symbol? helper))
+               (list? parameters) (andmap symbol? parameters)
+               (let loop ((rest parameters) (seen '()))
+                 (or (null? rest)
+                     (and (not (memq (car rest) seen))
+                          (loop (cdr rest) (cons (car rest) seen))))))
+    (error "invalid native content helper binding" helper parameters))
+  (when (and (not helper) (pair? parameters))
+    (error "content parameters require a helper" parameters))
+  (if helper
+    `(call-source-helper ,helper ,from ,until
+                         ,@(if (null? parameters) '()
+                             (list (map (lambda (name) `(state ,name)) parameters))))
+    `(token ,token ,from ,until)))
+
+(def (source-table-row-initial rule)
+  (unless (table-line? rule) (error "unadmitted native table rule" rule))
+  '((table-seen-separator #f) (table-escaped #f) (table-cell-start 0)))
+
+(def (source-table-row-forms rule (helper #f) (parameters '())
+                           rule-bytes: (rule-bytes '()) rule-marker: (rule-marker #f)
+                           escape-byte: (escape-byte #f))
+  (source-table-row-initial rule)
+  (def (byte? value) (and (integer? value) (<= 0 value 255)))
+  (unless (and (list? rule-bytes) (andmap byte? rule-bytes)
+               (or (not rule-marker) (and (byte? rule-marker) (memv rule-marker rule-bytes)))
+               (or (not escape-byte) (byte? escape-byte)))
+    (error "invalid native table lexical policy" rule-bytes rule-marker escape-byte))
+  (let* ((byte (char->integer (string-ref (table-line-delimiter rule) 0)))
+         (indent '(line-skip-horizontal start))
+         (until '(line-content-end))
+         (index '(line-index table-byte-index))
+         (next `(line-step ,index))
+         (cell-start '(state-offset table-cell-start))
+         (trivia (table-line-trivia-token rule)))
+    (def (cell end)
+      `((start-node ,(table-line-cell-node rule))
+        ,(content-call helper parameters cell-start end (table-line-cell-token rule))
+        (finish-node)))
+    (let (row
+         `((start-node ,(table-line-row-node rule))
+          (for-line-bytes table-byte-index ,indent ,until
+            ((if ,(if escape-byte `(line-byte-equal? ,index ,escape-byte)
+                      '(uint-equal? (uint 0) (uint 1)))
+                 ((set-bool table-escaped (not (state table-escaped))))
+                 ((if (and (line-byte-equal? ,index ,byte) (not (state table-escaped)))
+                      ((if (state table-seen-separator)
+                           ,(cell index) ((token ,trivia start ,index)))
+                       (token ,(table-line-separator-token rule) ,index ,next)
+                       (set-uint table-cell-start (offset ,next))
+                       (set-bool table-seen-separator (bool #t))) ())
+                  (set-bool table-escaped (bool #f))))))
+          (if (state table-seen-separator)
+              ((if (line-bytes-all-in? ,cell-start ,until (9 32))
+                   ((token ,trivia ,cell-start ,until)) ,(cell until))) ())
+          (token ,trivia ,until end) (finish-node)
+          (set-bool table-seen-separator (bool #f))
+          (set-bool table-escaped (bool #f))))
+      (if rule-marker
+        (list `(if (and (line-bytes-all-in? ,indent ,until ,(cons byte rule-bytes))
+                  (line-bytes-any-in? ,indent ,until (,rule-marker)))
+             ((start-node ,(table-line-rule-row-node rule))
+              (token ,(table-line-rule-token rule) start end) (finish-node))
+             ,row))
+        row))))
+
+(def (source-paragraph-initial rule)
+  (unless (and (text-line? rule) (text-line-paragraph-node rule))
+    (error "native paragraph requires a declared paragraph node" rule))
+  '((paragraph-open #f) (paragraph-start 0) (paragraph-end 0)
+    (paragraph-blank-end 0) (paragraph-post-blank #f)))
+
+(def (source-paragraph-close-form rule (helper #f) (parameters '()) (reset? #t))
+  (source-paragraph-initial rule)
+  (unless (boolean? reset?) (error "invalid native paragraph reset policy" reset?))
+  `(if (state paragraph-open)
+       (,(content-call helper parameters '(state-offset paragraph-start)
+                       '(state-offset paragraph-end) (text-line-token rule))
+        (if (state paragraph-post-blank)
+            ((start-node ,(text-line-node rule))
+             (token ,(text-line-token rule) (state-offset paragraph-end)
+                    (state-offset paragraph-blank-end)) (finish-node)) ())
+        (finish-node)
+        ,@(if reset?
+            '((set-bool paragraph-open (bool #f))
+              (set-bool paragraph-post-blank (bool #f))) '())) ()))
+
+(def (source-paragraph-line-form rule (helper #f) (parameters '()))
+  (let (close (source-paragraph-close-form rule helper parameters))
+    `(if (line-blank?)
+         ((if (state paragraph-open)
+              ((set-bool paragraph-post-blank (bool #t))
+               (set-uint paragraph-blank-end (offset end)))
+              ((start-node ,(text-line-node rule))
+               (token ,(text-line-token rule) start end) (finish-node))))
+         ((if (state paragraph-post-blank) (,close) ())
+          (if (not (state paragraph-open))
+              ((start-node ,(text-line-paragraph-node rule))
+               (set-bool paragraph-open (bool #t))
+               (set-uint paragraph-start (offset start))) ())
+          (set-uint paragraph-end (offset end))))))

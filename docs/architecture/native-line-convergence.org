@@ -1,0 +1,40 @@
+#+title: Native line declaration compilation ownership
+
+* Engine boundary
+
+=src/modules/parser/interface.ss= exports admitted POO line declarations
+and pure native event projections. =line-event-funs.ss= owns table row
+splitting/escape and paragraph lifecycle; =inline-link-event-funs.ss= owns
+link candidate state, bounded recognition and event commit. They lower into
+the existing Scheme event-fold algebra, not a second evaluator or Rust parser.
+No Org node, marker, helper name or runtime configuration belongs here.
+
+Language consumers supply node/token roles, lexical byte policies, named
+content helpers and explicit helper parameter names. These bindings are data,
+not raw callback forms. An invalid link target can recover its current span
+or disable recognition for the remaining region. The latter is an explicit
+Org choice, not the engine default. Opening-marker bytes are skipped before
+separator recognition; committed closing bytes cannot be consumed twice.
+
+* Evidence and remaining work
+
+=just test-line-events OUTPUT LOAD_PATH= compiles the changed engine owners
+and runs both native suites from =t/=. The regular native test catalog already
+discovers those suites; no duplicate CI lane or independent runner is added.
+Sixteen cases cover non-Org declarations, escape parity, empty cells, CRLF,
+Unicode coordinates, EOF, named helper parameters, invalid declarations,
+link truncation, adjacent links, recovery scope and overlapping markers.
+The consumer's fresh production build and newly linked native Org closure
+pass 178 cases / 12 suites, final OK and the deliberate exit-42 failure
+control. These are candidate-path receipts, not exact-head CI or admission
+of the unchanged downstream dependency pin.
+
+This closes these algorithms' implementation ownership only. A complete
+LineStructure-to-native compiler, compositional parent boundaries/recovery,
+nested scanner composition, hygienic per-rule state allocation, inline dispatch,
+Source coordinate services and native artifact lease ownership remain open.
+The existing helper frames isolate invocations, but the projections still
+use a shared scanner's named state protocol; they do not prove arbitrary
+multiple-rule-instance hygiene. Language semantic/AOT/FFI and matched
+1,000/10,000-document concurrent admission remain consumer responsibilities.
+Dependency alignment and existing PR delivery require their own qualification.

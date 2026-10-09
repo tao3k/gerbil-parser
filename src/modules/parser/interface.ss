@@ -6,8 +6,14 @@
 (import ./types
         ./objects
         ./funcs
-        ./syntax)
+        ./syntax
+        ./line-structure-objects
+        ./line-event-funs
+        ./inline-link-event-funs)
 (export (import: ./types)
         (import: ./objects)
         (import: ./funcs)
-        (import: ./syntax))
+        (import: ./syntax)
+        (import: ./line-structure-objects)
+        (import: ./line-event-funs)
+        (import: ./inline-link-event-funs))

@@ -1694,3 +1694,85 @@ construction to those captures requires an admitted producer plan that
 preserves operation ordering and all field/span checks. This result closes
 the unary boundary and compiler expansion issue, not the remaining gap to a
 different parser or the full semantic-intermediary cost.
+
+* Literal-run invariant staging and bounded source admission
+
+The current Scheme design documents already describe checked public boundaries,
+known private calls, and compile-time ownership. Reading the pinned Gerbil SDK
+revision =2591dcd=, =src/gerbil/runtime/util.ss= (=string-index= and
+=__string-index/char=), provides a concrete example: validate the source range
+once, retain invariant input and endpoint, and advance only the cursor. This
+change transfers that structure without copying unchecked primitives or type
+assertions. The emitted Scheme for the previous parts scanner called the full
+context matcher on every character; its context index was not hoisted there.
+
+The shared =part-context-literal-end= now retains the prepared ASCII vector and
+Unicode character hash for the entire literal run. Empty initial buckets bypass
+rule matching. Candidate initials call the named =match-part-rules= helper also
+used by direct matching. Declaration order, prefix bounds, guard rejection,
+shorter-prefix overrides, and Unicode keys therefore retain the same matching
+algorithm. No extra index, callback, language declaration, compatibility path,
+schema version, or FFI surface is introduced.
+
+Range admission requires exact integer endpoints with
+=0 <= start <= end <= string-length=. Empty intervals return =end=. The previous
+loop started at =start + 1= and stopped only at equality with =end= or a successful
+match. With =start = end=, matching returned false beyond the endpoint and the
+cursor kept increasing. This nontermination follows from the source; the old
+infinite loop was not executed as a benchmark. Tests cover empty intervals,
+negative, reversed, escaping and fractional ranges, independent direct-matcher
+comparison at every start position, and truncated Unicode guards.
+
+** Native reference/candidate/candidate/reference control
+
+The same GCC-backed SDK, corpus, clients, 3 GiB heap, 120-second total budget
+and five-second silence limit were used throughout. Each process verified the
+actually admitted parts artifact: reference =part-profile~0.o1=, candidate
+=part-profile~0.o3=. Complete owned artifact snapshots were exchanged because
+the loader selects the last contiguous object suffix. Other native clients
+were unchanged. Temporary control entries and snapshots are qualification
+inputs, not repository interfaces. The final candidate build passed in
+16.643 seconds.
+
+Each micro sample executes 100 native literal scans through identical source
+orchestration, with 11 samples per block. ASCII and Unicode inputs each contain
+10,000 characters; rejected escape guards use a 9,000-character input. Values
+below are CPU medians in milliseconds, not complete-parser API latency.
+
+| Workload | Reference A | Candidate A | Candidate B | Reference B |
+|----------+-------------+-------------+-------------+-------------|
+| ASCII run | 15.801 | 2.428 | 2.430 | 15.018 |
+| Unicode run | 55.701 | 27.921 | 26.373 | 52.412 |
+| Guard rejection | 34.709 | 18.437 | 16.529 | 31.119 |
+| Complete public request | 31.362 | 29.057 | 23.725 | 24.700 |
+
+All micro blocks admit 11 allocation samples with the same 8,576-byte median
+from shared orchestration. The complete request uses 31 samples per block;
+admitted allocation counts are respectively 23, 23, 24 and 24. Its median
+allocation remains 39,103,304 bytes in every block. Complete products match
+the existing Scheme reference values for four corpus fixtures, empty, malformed
+and Unicode sources; source-bound checks also pass. Sequence-only allocation
+controls retain their reference values. All four processes return exit 0 and
+both literal and complete-product success receipts.
+
+The scan reduction repeats across both blocks: approximately sixfold for ASCII
+and twofold for Unicode, with substantial improvement under rejected guards.
+Complete-request CPU drifts across the surrounding references, so this control
+does not establish a stable end-to-end speedup or close the Tree-sitter gap.
+Allocation is unchanged. Remaining work must measure producer construction and
+semantic intermediary costs independently before changing their representation.
+
+Nine source modules passed 151 cases in 17.334 seconds with
+=TEST-SUITE-OK modules=9=, =OK= and exit 0. An initial invocation failed the
+five-second silence guard during entry dependency admission, before any suite
+ran. The successful invocation used the existing compiled-interface preloader
+and real import tracing around the test entry; neither guard was widened.
+That failed invocation is excluded from successful receipts.
+
+After rebasing onto the concurrent shared LR semantic-stack change =d69f015=,
+the merged LR runtime was freshly compiled with the same GCC SDK and guards
+in 48.724 seconds. Three integration modules (LR stack reductions, parts
+profiles and Bash parsing) passed 47 cases in 11.500 seconds, with
+=TEST-SUITE-OK modules=3=, =OK= and exit 0. This checks integration with that
+revision; the performance table remains a control against the earlier
+=0906fa3= client set and is not reclassified as merged-head timing.

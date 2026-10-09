@@ -472,6 +472,65 @@ no Case or Harness errors. The complete session workload again ended with
 new composition with the projection and request-isolated EventFold changes;
 they do not replace exact-head native CI.
 
+** LR fragment and GLR fork joins use the same native mechanism
+
+The source-session publication study also exposed four equivalent joins in the
+shared LR executor. Fragment reuse joined ordered token/mode segments to reversed
+accumulators with =append= after =reverse=. Both streamed and captured directed
+GLR forks reconstructed an ordered prefix plus freshly scanned suffix using
+=foldl cons=. The installed SDK binary resolved =:gerbil/runtime/c3= to its
+installed interface, and the corresponding C3 source uses =append-reverse= for
+this same persistent reversed-prefix operation. =builtin.ssxi.ss= declares the
+operation's list arguments, list return and allocation effect.
+
+#+begin_src scheme
+;; Ordered fragment into a reversed accumulated token/mode chain.
+(append-reverse segment tokens-reversed)
+(append-reverse segment-modes modes-reversed)
+;; Reversed scanned prefix into an ordered complete fork input.
+(append-reverse tokens-reversed suffix)
+#+end_src
+
+*Why is this preferable?* Fragment joins allocate the reversed segment once
+instead of constructing and copying it. Fork joins use the native operation
+instead of a general fold invoking =cons=. The existing checkpoint and observer
+calls still own admission, capture and GLR fallback; this only replaces private
+list assembly. No public DSL, source-byte rule or language-specific shortcut is
+introduced.
+
+*Why is it scientifically justified?* For proper input lists, both
+=(append (reverse head) tail)= and =(foldl cons tail head)= equal
+=(append-reverse head tail)=. The non-destructive operation preserves the input
+head and shares the exact retained tail. The existing publication component
+fixture now checks those properties at empty-prefix, empty-tail, singleton,
+256-element and 1,024-element dimensions, with each control/native pair in ABBA
+order and 1,000 joins per observation.
+
+At 1,024 prefix elements and 16 suffix elements, fragment copying observed
+14.223/13.811 ms CPU and a 98,465,440 allocation-counter delta, versus
+1.365/1.356 ms and 49,313,232 for native joining. Copying collected once in each
+observation; native joining did not. The fold control observed 5.332/5.328 ms
+and 49,457,232 versus 1.382/1.327 ms and 49,313,232 for native joining, all with
+zero collections. These are interpreted SDK component observations, including
+the observed collection differences, not a stable native-parser speed ratio.
+The fixture ended with =PARSER-JOINS-OK= and =CHECKPOINT-PUBLICATION-OK=.
+
+The production executor passed 54 Cases across runtime, recovery/incremental,
+incremental-suffix benchmark controls and GQL parsing, with final =HARNESS-OK=
+and =OK=, no Case/Harness errors and exit zero. SDK optimized expansion ended
+with =SDK-PARSER-JOINS-OPTIMIZE-OK= using =invoke-gsc: #f=; this does not qualify
+native C linking or execution.
+
+The existing =topology-hcl-capture 64= complete workload passed six first/middle/
+last insertion/deletion controls and inverse edits, with five timing samples per
+path. The first insertion admitted 64 reused recognition fragments, so fragment
+joining was exercised rather than inferred from a semantic no-reuse path.
+Fresh artifact median CPU was 1.226 ms versus 8.524 ms for the cached capture
+path in that observation. This negative overall comparison remains visible:
+those paths include existing capture, certification and incremental bookkeeping
+costs and do not isolate the four join replacements. The component result does
+not close the overall incremental execution-cost gap.
+
 * Dependency order for further implementation
 
 1. *Shared source spans.* Own one admitted source and its character/byte boundary

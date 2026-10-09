@@ -32,6 +32,41 @@
                  'gc-count (- (f64vector-ref after 6) (f64vector-ref before 6))
                  'allocation-counter-delta (- (f64vector-ref after 7) (f64vector-ref before 7))))
     (newline) (force-output)))
+(def (copied-join head tail) (append (reverse head) tail))
+(def (folded-join head tail) (foldl cons tail head))
+(def (native-join head tail) (append-reverse head tail))
+(def (observe-join name join head tail expected)
+  (##gc)
+  (let* ((before (##process-statistics)) (cpu (cpu-time))
+         (result (let loop ((n 1000) (result #f))
+                   (if (zero? n) result
+                     (loop (- n 1) (join head tail)))))
+         (cpu-ms (* 1000 (- (cpu-time) cpu)))
+         (after (##process-statistics)))
+    (unless (and (equal? result expected)
+                 (eq? (list-tail result (length head)) tail))
+      (error "parser join changed order or retained tail" name))
+    (write (list 'parser-join name 'prefix (length head) 'suffix (length tail)
+                 'cpu-ms cpu-ms
+                 'gc-count (- (f64vector-ref after 6) (f64vector-ref before 6))
+                 'allocation-counter-delta (- (f64vector-ref after 7) (f64vector-ref before 7))))
+    (newline) (force-output)))
+(def (measure-parser-joins)
+  (for-each
+   (lambda (sizes)
+     (let* ((head (iota (car sizes))) (tail (iota (cadr sizes)))
+            (retained-head (map values head))
+            (expected (copied-join head tail)))
+       (for-each
+        (lambda (control)
+          (for-each
+           (lambda (method) (observe-join (car method) (cdr method) head tail expected))
+           (list control (cons 'native native-join) (cons 'native native-join) control)))
+        (list (cons 'copied-fragment copied-join) (cons 'folded-fork folded-join)))
+       (unless (equal? head retained-head) (error "parser join mutated its prefix"))))
+   '((0 4) (4 0) (1 4) (256 256) (1024 16)))
+  (displayln "PARSER-JOINS-OK") (force-output))
+
 (def (main . _args)
   (let (states (list->vector (map (lambda (n) (vector 'checkpoint n)) (iota 4097))))
     (for-each
@@ -43,4 +78,5 @@
                 (cons 'bounded bounded) (cons 'copied copied)
                 (cons 'iterated iterated) (cons 'iterated iterated)))))
      '(0 2048 4095 4096)))
+  (measure-parser-joins)
   (displayln "CHECKPOINT-PUBLICATION-OK") (force-output))

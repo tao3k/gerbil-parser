@@ -361,7 +361,7 @@
                   machine source
                   (or pending-character character-offset)
                   (or pending-byte byte-offset)))
-                (tokens (foldl cons suffix tokens-reversed)))
+                (tokens (append-reverse tokens-reversed suffix)))
            (let-values (((significant remaining)
                          (parser-significant-joined
                           machine tokens-reversed suffix)))
@@ -417,8 +417,8 @@
               (when source-observer (source-observer segment segment-modes #t))
               (when capture (capture next #f #f next-count next-byte #t))
               (loop next-character next-byte next
-                    (append (reverse segment) tokens-reversed)
-                    (if capture (append (reverse segment-modes) modes-reversed) modes-reversed)
+                    (append-reverse segment tokens-reversed)
+                    (if capture (append-reverse segment-modes modes-reversed) modes-reversed)
                     next-count))
         (let (mode (lr-checkpoint-lexical-mode checkpoint))
           (let-values
@@ -474,7 +474,7 @@
                                machine source
                                character-offset byte-offset))))
                           (tokens
-                           (foldl cons suffix tokens-reversed)))
+                           (append-reverse tokens-reversed suffix)))
                      (let-values
                          (((significant remaining)
                            (call-with-parser-observed-phase

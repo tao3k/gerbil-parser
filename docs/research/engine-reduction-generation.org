@@ -250,6 +250,9 @@ these isolated compiler calls do not establish a second build system.
 
 * Remaining shared-engine implementation boundary
 
+The next implemented preparation boundary and its admission/cost controls are
+documented in [[file:prepared-lr-action-plans.org][prepared LR action plans]].
+
 Follow the same canonical rule/action algebra through generic LR execution,
 generated reductions, retained recognition and canonical event publication.
 Establish which representations must survive for checkpoints, GLR and replay,

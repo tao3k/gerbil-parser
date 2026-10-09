@@ -9,6 +9,25 @@
         (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation))
 (export benchmark-semantic-stack)
 
+;;; Preparation is measured separately; cached runtime requests must not hide
+;;; the allocation or CPU cost of admitting and staging their action plans.
+(def (benchmark-preparation spec width decorated? samples iterations)
+  (let sample ((index 0))
+    (when (< index samples)
+      (let (before (##process-statistics))
+        (let repeat ((count 0))
+          (when (< count iterations) (lr-prepare spec) (repeat (+ count 1))))
+        (let* ((after (##process-statistics))
+               (delta (lambda (slot) (- (f64vector-ref after slot)
+                                       (f64vector-ref before slot)))))
+          (write (list 'semantic-stack-prepare width decorated? index
+                   'cpu-ms-per-call (/ (* 1000 (+ (delta 0) (delta 1))) iterations)
+                   'allocated-bytes-per-call
+                   (let (bytes (admit-parser-allocation (delta 7) (delta 6)))
+                     (and bytes (/ bytes iterations)))))
+          (newline) (force-output)))
+      (sample (+ index 1)))))
+
 (def (benchmark-semantic-stack (samples 20) (iterations 100))
   (unless (and (integer? samples) (positive? samples)
                (integer? iterations) (positive? iterations))
@@ -22,11 +41,13 @@
                          '(token word)))
                (rules (list (list 'source-file (list 'alias 'SourceFile
                               (cons 'sequence (make-list width operand))))))
-               (runtime (lr-prepare (compile-lr-spec rules 'source-file)))
+               (spec (compile-lr-spec rules 'source-file))
+               (runtime (lr-prepare spec))
                (tokens (map (lambda (index) (make-token 'word "a" index (+ index 1)))
                             (iota width)))
                (source (make-string width #\a))
                (digest (string-append "sha256:" (make-string 64 #\0))))
+          (benchmark-preparation spec width decorated? samples iterations)
           (let-values (((reference rest receipt) (lr-parse/prepared/receipt runtime tokens)))
             (let (expected (make-success-parse-artifact digest source tokens reference false))
               (unless (and (null? rest) (parse-artifact-valid-for-source? expected source))

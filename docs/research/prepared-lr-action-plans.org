@@ -1,0 +1,131 @@
+#+title: Prepared LR action plans and engine ownership
+
+* Design question and implementation
+
+The grammar -> canonical IR -> prepared machine -> reduction -> artifact path
+must have one owner for semantic admission. This continues the
+[[file:engine-reduction-generation.org][shared reduction study]]: generated reductions already inspect canonical
+operands during compilation, while the shared deterministic executor previously
+decoded marked operands and checked the production action on every reduction.
+The new =lr-prepare= boundary checks the closed =pass=, =concat= and layout-end
+production algebra and ordered, two-element =field=/=alias= actions. Invalid
+actions fail before a request starts, including productions not executed by
+that request. Canonical grammar identity, GLR, replay and generated reductions
+retain their existing owners.
+
+Each production receives one private source-order vector of action chains.
+Recognition consumes this vector backwards alongside the newest-first semantic
+stack; events consume it forwards alongside their source-order values. Neither
+backend decodes marked grammar operands during deterministic reduction. The
+vector holds existing action chains rather than callbacks or request values.
+Like the existing prepared tables, it assumes the admitted canonical grammar
+is not mutated after preparation. No public grammar model is duplicated.
+
+* Why is this preferable for the Scheme DSL?
+
+#+begin_src scheme
+;; Author-facing syntax remains grammatical and compositional.
+(source-file
+ (node SourceFile
+  (seq (field left (node Item word))
+       (field right (node Item word)))))
+
+;; Illustrative private prepared representation, in source order:
+#(((alias Item) (field left))
+  ((alias Item) (field right)))
+
+;; Recognition reads slot 1 for the newest semantic value, then slot 0.
+;; Events read slot 0, then slot 1, preserving sequential builder appends.
+(vector-ref action-plan index)
+#+end_src
+
+The benefit comes from the macro/canonical-IR/preparation boundary, rather than
+parentheses alone. The engine resolves and validates the action algebra once;
+authors declare nodes and fields without queue, traversal, storage or backend
+controls. Gerbil's official =std/vector/vector= uses a length-bounded vector
+mapping implementation. This change likewise stages fixed-size execution data;
+it does not add another collection algorithm or replace Gerbil's compiler.
+The private execution functions remain closed named procedures, avoiding new
+capturing callbacks for each request and keeping plan access outside the LR
+continuation's generated body.
+
+* Why is the claim scientifically testable?
+
+For width n, plan slot i is exactly the action chain of canonical operand i.
+Recognition starts at n-1, applies that operand's actions in declaration order
+and prepends its result. After k steps, the accumulated children are the
+source-order results for operands n-k through n-1. Induction gives the same
+result as the independent forward materialized GLR reducer. Events append in
+increasing index order, preserving the existing event builder's association.
+Width zero returns the respective backend's empty value.
+
+Executable admission covers widths 0, 1, 2, 8 and 32, nested field/alias chains,
+distinct operand fields, retained siblings, nullable edits, layout boundaries
+and fragment transfer. Malformed production and operand actions must fail
+at preparation. Complete canonical products are compared with independent GLR
+and generated reductions; allocation and CPU observations are separate claims.
+
+The semantic-stack benchmark now measures preparation independently from
+reduction-only requests and complete artifact publication. This makes moving
+cost across phases observable. An initial two-list action plan passed semantic
+controls but added 1824 bytes per width-32 preparation and gave no stable
+request CPU improvement. It was rejected in favor of a single indexed vector.
+Its native ABBA receipts remain =/private/tmp/parser-action-plan-{1-baseline,
+2-candidate,3-candidate,4-baseline}-supervision.log=; all exited zero.
+
+An earlier plan-access expansion also failed the five-second idle compiler
+gate in 37.323 seconds. The closed-procedure revision compiled with the official
+SDK options in 50.150 seconds, exited zero and retained the same idle gate.
+These are qualification observations, not proof that generated source size
+alone caused the compiler failure. No timeout or compiler optimization level
+was relaxed.
+
+* Final vector qualification and cost boundary
+
+The final source control group passed 34 cases in 22.755 seconds, actual exit
+zero: =/private/tmp/parser-action-vector-source-supervision.log=. It includes
+the incoming scanner dispatch controls at parent =f2eb2b8=. The first vector
+compile failed the idle gate during Gambit's macro-interface generation,
+despite that Scheme file being slightly smaller than the baseline. The retry
+with official =gxc -gsc-flag -verbose= completed the LR module, latest scanner,
+test and benchmark in 23.455 seconds, actual exit zero:
+=/private/tmp/parser-action-vector-verbose-compile-supervision.log=.
+The [[https://gambitscheme.org/4.9.2/manual/][Gambit manual]] documents =-verbose= as compiler activity tracing.
+It supplies real phase output; it does not establish a causal performance fix.
+
+Final native ABBA receipts are =/private/tmp/parser-action-vector-{1-baseline,
+2-candidate,3-candidate,4-baseline}-supervision.log=. All four runs completed
+20 samples of 100 iterations for six preparation and 24 request routes,
+admitted their independent complete-product controls and exited zero.
+The baseline is the preceding =d69f015= LR implementation in the retained native
+overlay; both sides use the same expanded benchmark instrumentation. This
+isolates the LR change rather than calling an old full-language build current.
+
+| RHS width | Baseline prepare bytes/call | Vector prepare bytes/call | Difference |
+|-----------+-----------------------------+---------------------------+------------|
+|         1 |                     4290.08 |                   4242.08 |        -48 |
+|         8 |                     9106.08 |                   8834.08 |       -272 |
+|        32 |                    25618.08 |                  24578.08 |      -1040 |
+
+The table records recurring allocation levels; some admitted samples add
+2.56 bytes/call of measurement variation. The difference applies to decorated
+and undecorated families. All 24 request routes retain baseline allocation.
+The benchmark measures allocated bytes, not retained heap size.
+
+Preparation now performs additional semantic admission. Width-32 identity
+preparation CPU medians are 0.006475, 0.007150, 0.007235 and 0.006460 ms/call
+in ABBA order. Request CPU does not show a stable improvement: width-32 identity
+recognition publication measures 0.008380, 0.008430, 0.008220 and 0.008380 ms;
+decorated event publication measures 0.029335, 0.041980, 0.029675 and 0.029815 ms.
+The second run's event outlier is retained. This establishes a compact staged
+representation and earlier admission, not an end-to-end latency win. Runtime
+reuse remains necessary to amortize preparation; no numeric reuse threshold
+can be inferred from these observations.
+
+The final native integration passed twelve cases and twenty accepted/rejected
+ABI products across all ten language entries in 28.068 seconds, exit zero,
+=HARNESS-OK= and =OK=:
+=/private/tmp/parser-action-vector-native-alignment-supervision.log=.
+It covers the candidate LR and latest =f2eb2b8= scanner interfaces, independent
+GLR, generated HCL/Arithmetic recognition and event reductions, and exact Rust
+fixture bytes. Local native qualification is distinct from clean exact-head CI.

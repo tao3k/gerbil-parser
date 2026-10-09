@@ -38,6 +38,22 @@
 
 (def lr-stack-reduction-test
   (test-suite "shared LR stack reduction"
+    (test-case "prepared runtimes reject unsupported actions before execution"
+      (def (prepare action operand-actions)
+        (lr-prepare
+         (list (cons 'productions
+                     (list (list 0 'source-file
+                                 (list (list 'marked '(terminal word) operand-actions))
+                                 action #f)))
+               (cons 'actions (vector '()))
+               (cons 'gotos (vector '()))
+               (cons 'case-insensitive? #f))))
+      (check-exception (prepare 'callback '()) true)
+      (check-exception (prepare 'concat '((callback user))) true)
+      (check-exception (prepare 'concat '((field))) true)
+      (check-exception (prepare 'concat '((alias Name extra))) true)
+      (check-exception (prepare 'concat '((field Name) . invalid)) true)
+      (check (not (not (prepare 'concat '((field inner) (alias Renamed))))) => #t))
     (test-case "empty, unary and wide identity operands agree with GLR"
       (for-each (lambda (width) (check-stack-family width #f)) '(0 1 2 8 32)))
     (test-case "wide ordered field and alias chains agree with GLR"

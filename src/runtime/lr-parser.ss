@@ -90,8 +90,31 @@
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-step event-runtime
-               reduction-operands)
+               reduction-plans)
   transparent: #t)
+
+;;; Canonical operands belong to the grammar; prepared execution owns only
+;;; their ordered action chains. Both semantic backends share this admission.
+;;; One source-order vector serves both forward and reverse execution.
+
+(def (prepare-reduction-plan production)
+  (let (action (production-action production))
+    (unless (or (memq action '(pass concat)) (layout-end-action? action))
+      (error "unknown LR semantic action" action)))
+  (let* ((operands (production-rhs production))
+         (plan (make-vector (length operands))))
+    (let loop ((operands operands) (index 0))
+      (when (pair? operands)
+        (let (actions (operand-actions (car operands)))
+          (unless (and (list? actions)
+                       (every (lambda (action)
+                                (and (list? action) (= (length action) 2)
+                                     (memq (car action) '(field alias))))
+                              actions))
+            (error "invalid LR operand actions" actions))
+          (vector-set! plan index actions))
+        (loop (cdr operands) (fx+ index 1))))
+    plan))
 
 ;;; Install a generated reduction step once, before the runtime is shared.
 (def (install-lr-runtime-direct-step! runtime step)
@@ -139,7 +162,7 @@
            #f #f (lr-runtime-lexical-modes runtime)
            (lr-runtime-lexical-mode-catalog runtime)
            (lr-runtime-event-step runtime) reduce-value/events #f #f
-           (lr-runtime-reduction-operands runtime)))
+           (lr-runtime-reduction-plans runtime)))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -372,10 +395,8 @@
          modes
          mode-catalog
          #f reduce-value #f #f
-         ;; Stack values are newest first. Prepare the corresponding operand
-         ;; order once; requests borrow the existing stack without copying it.
          (vector-map/index
-          (lambda (_index production) (reverse (production-rhs production))) table))))))
+          (lambda (_index production) (prepare-reduction-plan production)) table))))))
 
 ;; current-action-row
 ;; : (-> Vector Fixnum List Boolean (OrFalse Pair))
@@ -477,23 +498,35 @@
      (else (error "unsupported event LR production" action)))))
 
 ;;; The deterministic executor consumes the immutable semantic stack directly.
-;;; Each operand's field/alias chain retains declaration order. Prepending each
+;;; Each prepared field/alias chain retains declaration order. Prepending each
 ;;; completed operand restores source order without an intermediate value list.
 ;;; The GLR reducer above remains an independent source-order implementation.
-(def (reduce-stack-operands production operands stack offset)
-  (let (action (production-action production))
-    (unless (or (memq action '(pass concat))
-                (layout-end-action? action))
-      (error "unknown LR semantic action" action)))
-  (let loop ((operands operands) (stack stack)
+(def (reduce-stack-actions actions stack offset)
+  (let loop ((index (fx- (vector-length actions) 1)) (stack stack)
              (children '()))
-    (if (pair? operands)
-      (let* ((actions (operand-actions (car operands)))
-             (value (apply-operand-actions (car stack) actions offset
-                                           make-recognition-fragment)))
-        (loop (cdr operands) (cdr stack)
+    (if (fx>= index 0)
+      (let (value (apply-operand-actions (car stack) (vector-ref actions index) offset
+                                        make-recognition-fragment))
+        (loop (fx- index 1) (cdr stack)
               (recognition-sequence-append value children)))
       children)))
+
+;;; Preserve the event builder's sequential source-order append discipline.
+(def (reduce-source-actions/events actions values offset)
+  (let (width (vector-length actions))
+  (let loop ((index 0) (values values) (children #f))
+    (if (fx< index width)
+      (loop (fx+ index 1) (cdr values)
+            (event-program-append
+             children (apply-operand-actions/events
+                       (car values) (vector-ref actions index) offset #f)))
+      children))))
+
+;;; Keep prepared-plan access outside the LR continuation's generated body.
+(def (reduce-prepared-plan plan values offset events?)
+  (if events?
+    (reduce-source-actions/events plan values offset)
+    (reduce-stack-actions plan values offset)))
 
 ;;; Bind the popped immutable stack prefixes directly into the reduction body.
 ;;; Both private reducers stop at the RHS width, so unary reductions borrow the
@@ -1010,7 +1043,7 @@
          (table (lr-runtime-table runtime))
          (widths (lr-runtime-reduction-widths runtime))
          (modes (lr-runtime-lexical-modes runtime))
-         (reduction-operands (lr-runtime-reduction-operands runtime))
+         (reduction-plans (lr-runtime-reduction-plans runtime))
          (actions-table (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
@@ -1138,12 +1171,9 @@
                                  (if (pair? rest) (token-start (car rest))
                                      input-end-offset))
                                 (value
-                                 (if event-semantics?
-                                   (semantic-reducer production source-values offset
-                                                     make-recognition-fragment)
-                                   (reduce-stack-operands
-                                    production (vector-ref reduction-operands production-id)
-                                    source-values offset)))
+                                 (reduce-prepared-plan
+                                  (vector-ref reduction-plans production-id)
+                                  source-values offset event-semantics?))
                                 (target
                                  (and (pair? remaining-states)
                                       (goto-target

@@ -12,7 +12,9 @@ Console backpressure does not count as child silence.
 
 * Cancellation authority
 
-The supervisor starts a dedicated Scheme child. A thin POSIX FFI establishes
+The supervisor starts a dedicated native Scheme AOT child. This avoids an
+additional interpreter startup before the requested command and keeps the
+original strict process deadlines. A thin POSIX FFI establishes
 a fresh session before launching the requested command and acknowledges its
 identity through a private temporary witness. Cancellation admits process
 groups through that root and observed parent-child topology, including a
@@ -50,8 +52,8 @@ Cargo and rustc together and removes ambient cross-build overrides.
 
 =tools/qualification/performance.ss= hashes current production, language,
 test, and tooling sources before execution and after every suite. A private
-source overlay precedes compiled parser products; the session launcher's own
-compiled FFI remains isolated from the requested child's load environment.
+source overlay precedes compiled parser products; the native session launcher uses its compiled closure and preserves the
+requested child's load environment.
 Final CASE/MODULE/HARNESS/OK receipts and a successful exit are all required.
 
 * SDK provisioning boundary

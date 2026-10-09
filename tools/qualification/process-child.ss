@@ -1,12 +1,12 @@
 ;;; A fresh POSIX session contains the compiler/test child and its descendants.
 (import :gerbil-parser/tools/qualification/process-os
         (only-in :std/misc/process run-process/batch))
-(def (main witness loadpath program . arguments)
+(export main)
+(def (main witness program . arguments)
   (let (owner (start-session!))
     (when (< (blocking-standard-streams!) 0) (error "cannot establish blocking compiler streams"))
     (when (< owner 0) (error "cannot establish owned process session"))
     (call-with-output-file witness (lambda (port) (write owner port))))
-  (if (zero? (string-length loadpath)) (setenv "GERBIL_LOADPATH") (setenv "GERBIL_LOADPATH" loadpath))
   (let (status #f)
     (run-process/batch (cons program arguments)
       check-status: (lambda (raw _) (set! status raw)))

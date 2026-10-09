@@ -11,4 +11,5 @@
    (gxc: "tools/qualification/products")
    (gxc: "tools/qualification/environment")
    (gxc: "tools/qualification/performance")
-   (gxc: "tools/qualification/plans")))
+   (gxc: "tools/qualification/plans")
+   (exe: "tools/qualification/process-child" bin: "parser-qualification-process-child")))

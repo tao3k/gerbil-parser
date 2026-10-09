@@ -213,8 +213,8 @@ jobs:
 
       - name: Compile language conformance modules
         run: |
-          GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 gerbil env \
-            gxi qualify.ss run --timeout 240 --idle-timeout 5 \
+          GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
 

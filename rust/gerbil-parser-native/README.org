@@ -73,8 +73,8 @@ Build the parser package and language pack with their normal Gerbil build owner,
 then compile the language module into one native runtime library:
 
 #+begin_src shell
-gxi build-qualification.ss compile
-gxi qualify.ss shared-library --language-module my-language/abi \
+gerbil env gxi build-qualification.ss compile
+gerbil env gxi qualify.ss shared-library --language-module my-language/abi \
   --output /absolute/path/libmy_language.so
 #+end_src
 

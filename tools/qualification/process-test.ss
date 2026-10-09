@@ -40,7 +40,9 @@
      (let (started (##current-time-point))
       (let loop ()
        (unless (file-exists? ready)
-        (when (> (- (##current-time-point) started) 4) (error "flood child did not start"))
+        (when (> (- (##current-time-point) started) 4)
+         (let (status (process-status pipe 0 #f))
+          (error "flood child did not start" status (and status (utf8->string (read-all-as-u8vector pipe))))))
         (thread-sleep! 0.05) (loop))))
      ;; No reads while the consumer applies more pressure than the idle fence.
      (thread-sleep! 1.2)

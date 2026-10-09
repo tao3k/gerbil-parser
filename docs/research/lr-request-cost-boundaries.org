@@ -1,0 +1,128 @@
+#+title: LR request cost boundaries and Scheme-native instrumentation
+
+* Research question and responsibility
+
+Why can the public GQL parser report request P50/P95 without explaining where
+the request spends its time? At =8e0f92c=, =measure-parser-stages= recorded only
+=observed-complete-request= for the representative GQL query. The shared Source
+engines had stage hooks, but the ordinary streaming LR path did not.
+
+This is an instrumentation coverage gap, not evidence of a Gambit GC defect or
+a grammar declaration defect. The engine owns the boundaries. Language authors
+continue to declare grammar, parser metadata and tests through their existing
+three interfaces; they do not add timing callbacks to grammar rules.
+
+* Official implementation study
+
+The installed Gerbil SDK source used for this investigation is
+=0.19.2591dcd.patchf5cedd8168cb=, upstream source directory =2591dcd=.
+=src/std/misc/ports.ss= defines =with-input= and =with-output= using hygienic
+=defrules= that lower delayed bodies to ordinary procedures.
+=src/gerbil/runtime/util.ss=, =DBG-helper=, preserves arbitrary result values
+using =call-with-values= and =apply values=. These are the relevant patterns:
+use the compiler's syntax facilities and preserve Scheme result semantics.
+They do not imply that every debugging facility is allocation-free.
+
+The existing =with-parser-cost-stage= macro follows that separation: when the
+request-local observer is absent, its expression executes directly; only the
+observed branch calls the measurement procedure with a thunk. The measurement
+procedure preserves multiple values and reports completion on dynamic exit.
+No kernel modification, second scanner or language-specific timing DSL is
+needed. Disabled calls still read the observer parameter; this study does not
+claim zero overhead.
+
+* Implemented boundaries
+
+The fast streaming path retains the same scanner, generated driver selection,
+deterministic checkpoint driver, fallback and publication behavior.
+
+| Stage | Measured operation |
+|-------+--------------------|
+| source-recognition | Selected streaming LR drive, including its scanner callbacks |
+| artifact-materialization | Successful artifact construction or failure artifact construction |
+| fallback-lexical-analysis | Remaining source tokenization after an admitted GLR fork |
+| fallback-lr-execution | LR/GLR suffix resumption after the fork |
+| generated-source-product | Optional generated complete-source backend attempt |
+
+Scanning and LR execution are interleaved inside the streaming drive. Measuring
+each token callback would insert an observer and process-statistics snapshots
+into the hot loop. The coarse fused boundary is deliberate and accurately
+named. Further separation requires a matched experiment that accounts for
+instrumentation cost, not subtraction of independent medians.
+
+Stage receipts describe invocations. A driver retry can produce several
+receipts with the same stage name in one request. The benchmark retains every
+raw receipt and reports its stage receipt count; that count must not be read
+as an independent request count. Missing stages are not zero-cost stages.
+
+* Two design questions
+
+** Why is this a better use of Scheme's DSL and macro facilities?
+
+The common engine can expose diagnostics through hygienic syntax without
+requiring duplicated timing plumbing in =grammar.ss= or a new POO slot in each
+language. POO remains responsible for loader inheritance, metadata and parser
+policy. Ordinary Scheme values and procedures express the measurement itself.
+The following is the actual engine pattern and public benchmark usage:
+
+#+begin_src scheme
+;; Engine-owned expression boundary; the macro's disabled branch is direct.
+(with-parser-cost-stage 'artifact-materialization
+  (make-success-parse-artifact grammar-digest source tokens root trivia?))
+
+;; A consumer supplies the existing public parser, not another implementation.
+(measure-parser-stages parse-gql +gql-representative-query+ 20)
+#+end_src
+
+** Why is the result scientifically testable?
+
+Each sample must equal an unobserved complete reference artifact and pass
+source-bound admission. Accepted, rejected and empty GQL inputs additionally
+exercise observation through the public parser. Allocation samples are admitted
+only when the process-statistics interval has no GC and a nonnegative counter
+delta. P95 uses the existing nearest-rank statistics index. CPU percentiles,
+allocation admission counts and complete product identities remain separate
+fields. A future optimization can fail these controls or fail to improve a
+matched native measurement; the design does not assume that it must win.
+
+* Initial receipt and limits
+
+The representative query has 138 characters and publishes 315 events. With
+observation enabled, 20 source-execution samples reported:
+
+| Stage | CPU P50 ms | CPU P95 ms | Admitted allocation P50 bytes |
+|-------+------------+------------+------------------------------|
+| source-recognition | 1.7015 | 1.8880 | 3304672 |
+| artifact-materialization | 0.2550 | 0.2880 | 644000 |
+| observed-complete-request | 1.9710 | 2.1850 | 3975904 |
+
+All 20 allocation samples were admitted in each row. Full product equality and
+source admission passed outside the measured request. The temporary receipt is
+=/private/tmp/parser-gql-stage-boundaries.log=; it is execution evidence, not a
+tracked benchmark fixture.
+
+This establishes that recognition owns most observed CPU and allocation for
+this query. It does not isolate scanning from LR, identify a particular rule,
+qualify all grammar sizes, or establish native end-to-end latency. Loading and
+grammar compilation are excluded after the reference parse. Percentiles from
+20 samples are diagnostic, not a stable service latency distribution. Stage
+medians must not be summed to estimate total latency.
+
+The next optimization target should be selected inside the shared recognition
+implementation using matched complete-product controls and native execution.
+The present change closes observable coverage without changing DSL semantics.
+
+* Qualification boundary
+
+The focused source run passed 52 cases, including public GQL accepted/rejected
+products, HCL controls, multiple values, original conditions, observer dynamic
+scope and byte-for-byte ABI fixture parity across all language packs. The
+official SDK also compiled =parse-cost.ss= and =parser.ss= into native modules.
+
+A partial native execution experiment was not admitted: the local dependency
+cache contained an artifact interface without the current source-bound
+validation export. Reordering source and compiled dependencies subsequently
+terminated with exit 139. This establishes neither a parser regression nor a
+successful native run. Qualification requires one current native dependency
+graph; mixing an isolated rebuilt parser with stale interfaces is insufficient.
+Complete native execution remains a separate CI gate.

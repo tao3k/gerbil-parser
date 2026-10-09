@@ -4,6 +4,7 @@
         (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language)
         (only-in "fixtures/source-strategies.ss" test-source-strategy)
         (only-in :gerbil-parser/languages/bash/parser parse-bash parse-bash/receipt)
+        (only-in :gerbil-parser/languages/gql/parser parse-gql +gql-representative-query+)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
         (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer)
@@ -15,6 +16,20 @@
 (export language-source-contract-test)
 (def language-source-contract-test
   (test-suite "language source contracts"
+    (test-case "public GQL observes the selected streaming engine without changing products"
+      (for-each
+       (lambda (source)
+         (let ((reference (parse-gql source)) (rows '()))
+           (check
+            (parameterize ((current-parser-cost-observer
+                            (lambda (stage receipt)
+                              (set! rows (cons (cons stage receipt) rows)))))
+              (parse-gql source))
+            => reference)
+           (check (current-parser-cost-observer) => #f)
+           (check (pair? (filter (lambda (row) (eq? 'source-recognition (car row))) rows)) => #t)
+           (check (pair? (filter (lambda (row) (eq? 'artifact-materialization (car row))) rows)) => #t)))
+       (list +gql-representative-query+ "MATCH (" "")))
     (test-case "stage diagnostics publish P50 and P95 for complete requests"
       (let (rows (parameterize ((current-output-port (open-output-string)))
                     (measure-parser-stages parse-bash "echo hi\n" 20)))

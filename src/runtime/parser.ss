@@ -2,6 +2,7 @@
 ;;; Thin request boundary over generated machines and ParseArtifact admission.
 
 (import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./parse-cost with-parser-cost-stage)
         (only-in ./parser-ir-data parser-ir-ref)
         (only-in ../compiler/machine
                  call-with-parser-machine-source parser-machine-grammar-digest parser-machine-ir
@@ -223,14 +224,15 @@
 
 ;; : (-> ParserMachine Digest String (List Token) Exception ParseArtifact)
 (def (failure-artifact machine grammar-digest source tokens condition)
-  (make-failure-parse-artifact
-   grammar-digest source
-   ;; Atomic lexing may fail before publishing any tokens. A rejection still
-   ;; owns every source byte; expose it as one opaque token, never a partial CST.
-   (if (and (null? tokens) (positive? (string-length source)))
-     (list (make-token 'unknown source 0 (string-utf8-length source)))
-     tokens)
-   (diagnostic machine condition)))
+  (with-parser-cost-stage 'artifact-materialization
+    (make-failure-parse-artifact
+     grammar-digest source
+     ;; Atomic lexing may fail before publishing any tokens. A rejection still
+     ;; owns every source byte; expose it as one opaque token, never a partial CST.
+     (if (and (null? tokens) (positive? (string-length source)))
+       (list (make-token 'unknown source 0 (string-utf8-length source)))
+       tokens)
+     (diagnostic machine condition))))
 
 ;; : (-> ParserMachine Digest String (List Token) ParseArtifact)
 (def (parse-tokenized/with machine grammar-digest source tokens
@@ -329,18 +331,22 @@
     (def (publish tokens root rest)
       (unless (null? rest)
         (error "unexpected trailing token" (token-lexeme (car rest))))
-      (make-success-parse-artifact
-       grammar-digest source tokens root trivia?))
+      (with-parser-cost-stage 'artifact-materialization
+        (make-success-parse-artifact
+         grammar-digest source tokens root trivia?)))
+    ;; Scanning and LR are interleaved; retain the selected driver and measure
+    ;; its whole recognition interval rather than instrumenting every token.
     (let-values (((status payload)
-                  (let (direct-drive
-                        (and use-generated?
-                             (parser-machine-direct-drive machine)))
-                    (if direct-drive
-                      (direct-drive
-                       (parser-machine-runtime machine)
-                       next-input after-shift)
-                      (lr-checkpoint-drive
-                       initial next-input after-shift)))))
+                  (with-parser-cost-stage 'source-recognition
+                    (let (direct-drive
+                          (and use-generated?
+                               (parser-machine-direct-drive machine)))
+                      (if direct-drive
+                        (direct-drive
+                         (parser-machine-runtime machine)
+                         next-input after-shift)
+                        (lr-checkpoint-drive
+                         initial next-input after-shift))))))
       (case status
         ((accepted)
          (unless (and (= character-offset source-length)
@@ -357,17 +363,19 @@
           machine grammar-digest source initial #f))
         ((fork)
          (let* ((suffix
-                 (lex-source-from
-                  machine source
-                  (or pending-character character-offset)
-                  (or pending-byte byte-offset)))
+                 (with-parser-cost-stage 'fallback-lexical-analysis
+                   (lex-source-from
+                    machine source
+                    (or pending-character character-offset)
+                    (or pending-byte byte-offset))))
                 (tokens (append-reverse tokens-reversed suffix)))
            (let-values (((significant remaining)
                          (parser-significant-joined
                           machine tokens-reversed suffix)))
              (let-values (((root rest)
-                           (lr-checkpoint-resume-suffix
-                            payload significant remaining)))
+                           (with-parser-cost-stage 'fallback-lr-execution
+                             (lr-checkpoint-resume-suffix
+                              payload significant remaining))))
                (publish tokens root rest)))))
         (else (error "streamed LR parse did not terminate" status))))))
 
@@ -548,7 +556,9 @@
                (and direct-source
                     (with-catch
                      (lambda (_condition) #f)
-                     (lambda () (direct-source machine source))))))
+                     (lambda ()
+                       (with-parser-cost-stage 'generated-source-product
+                         (direct-source machine source)))))))
          (if candidate
            candidate
            (let (initial

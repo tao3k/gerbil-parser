@@ -2,6 +2,9 @@
 
 * Scope and architecture
 
+The [[file:lr-request-cost-boundaries.org][LR request cost boundary study]] complements this Source-engine study
+with public GQL evidence, Scheme-native stage hooks and explicit receipt limits.
+
 This study owns specialization and representation lifetime in the shared engine.
 It extends the [[file:scheme-deflanguage-design-synthesis.org][three-interface design]], rather than proposing another
 language-author interface. Grammar intent remains in =grammar.ss=; metadata and

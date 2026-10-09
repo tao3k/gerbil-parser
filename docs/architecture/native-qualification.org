@@ -21,8 +21,10 @@ the deadline monitor no longer polls for exit at 50 ms intervals.
 
 * Cancellation authority
 
-For external build/tool commands, the supervisor starts a Scheme source child
-with the original strict process deadlines. A thin POSIX FFI establishes
+For external build/tool commands, the supervisor starts the precompiled child
+through GXI and the SDK's native =load-module= runtime-object loader.
+The original strict process deadlines remain. No source file or =.ssi= macro
+dependency graph is expanded per invocation. A thin POSIX FFI establishes
 a fresh session before launching the requested command and acknowledges its
 identity through a private temporary witness, then replaces that same GXI
 process with the command using =execvp=. There is no extra Scheme waiter or
@@ -54,6 +56,23 @@ the product owner therefore invokes Cargo directly without that proxy.
 Process controls qualify cancellation and evidence transport. They do not
 replace parser semantic controls, generated-product byte comparisons,
 independent C/Rust host qualification, or exact-head CI.
+The result also records whether the session witness was published. An
+=idle-timeout= in =bootstrap= does not prove that the requested command ran.
+Earlier cold support under concurrent production compilation failed the
+1.5-second identity idle gate before publishing that witness. Runtime-object
+loading alone did not solve it. A native startup diagnostic separated GXI
+initialization from child-module loading; the latter had a redundant private
+POSIX module boundary. Its single-consumer FFI now lives in =process-child.ss=;
+=process-os.ss= is removed, reducing support compilation from eight modules
+to seven. This is not an end-to-end performance claim.
+
+The monitor admits session acknowledgement as one real completed stage,
+only before the existing idle fence expires. It never repeatedly refreshes
+progress from the same witness; the total clock still starts before GXI.
+Six concurrent first child-module loads are checked before sequential controls
+can warm the objects. Deadlines, kernel and native GXI ownership are unchanged.
+The diagnostic =t/fixtures/qualification/startup-controls.ss= records actual
+phase times separately; it is not an admission suite or a duplicate CI test.
 
 * Source and local plans
 
@@ -65,8 +84,8 @@ Cargo and rustc together and removes ambient cross-build overrides.
 
 =t/support/qualification/performance.ss= hashes current production, language,
 test, and tooling sources before execution and after every suite. A private
-source overlay precedes compiled parser products. The source session child
-admits the POSIX support module, then restores the requested child's load
+source overlay precedes compiled parser products. The compiled session child
+owns its private POSIX FFI, then restores the requested child's load
 environment before execution.
 Final CASE/MODULE/HARNESS/OK receipts and a successful exit are all required.
 
@@ -83,6 +102,9 @@ or Bash script forwards the removed project qualification entrypoints.
 
 The controlled cancellation suite passed, including Unicode backpressure,
 blocking descriptors, immediate errors and unrelated-process survival.
+After the native owner consolidation, two fresh support roots also pass six
+concurrent cold identities, the cancellation/admission controls and native
+plan/bootstrap suites. Original idle and total limits remain unchanged.
 The existing four conformance controls, compiler pipe controls, GQL profile
 and actor stages, and current-source incremental performance contract passed
 through the Scheme owner. Independent C, Rust and borrowed host lifecycle

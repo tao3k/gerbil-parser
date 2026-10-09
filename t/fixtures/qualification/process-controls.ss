@@ -1,6 +1,7 @@
 ;;; Controlled children qualify cancellation and isolation, never existing jobs.
 (import :gerbil-parser/t/support/qualification/process :gerbil-parser/t/support/qualification/ownership :std/io/tempfile :std/misc/ports)
-(def (check condition label) (unless condition (error "process control failed" label)))
+(def (check condition label . details)
+  (unless condition (apply error "process control failed" label details)))
 (def (main fixture)
  (let (directory (make-temporary-file-name "parser-process-controls-"))
   (create-directory directory)
@@ -8,10 +9,34 @@
    (def (run mode (budget 1.5) (idle 0.8))
     (run-observed-process [fixture mode] (path-expand (string-append mode ".log") directory)
       timeout: budget idle-timeout: idle))
+   ;; Exercise the first child-module load concurrently, before sequential
+   ;; controls can warm its objects. Keep the ordinary identity deadlines.
+   (let (workers
+         (map (lambda (index)
+                (spawn (lambda ()
+                         (run-observed-process [fixture "identity"]
+                           (path-expand (string-append "cold-" (number->string index) ".log") directory)
+                           timeout: 3 idle-timeout: 1.5))))
+              '(0 1 2 3 4 5)))
+    (for-each
+     (lambda (worker)
+      (let (result (thread-join! worker))
+       (check (and (= (process-result-status result) 0)
+                   (not (process-result-reason result))
+                   (receipt-present? "^NATIVE-EXEC-IDENTITY-OK$"
+                                     (utf8->string (process-result-output result))))
+              'concurrent-cold-identity (process-result-status result)
+              (process-result-reason result) (process-result-phase result)
+              (process-result-elapsed result))))
+     workers))
+   (displayln "PROCESS-CONTROL-OK concurrent-cold-identity count=6") (force-output)
    ;; The process contract must not consume an unrelated caller notification.
    (thread-send (current-thread) '(caller-notification))
    (let (result (run "identity" 3 1.5))
-    (check (= (process-result-status result) 0) 'exec-session-leader)
+    (check (= (process-result-status result) 0) 'exec-session-leader
+           (process-result-status result) (process-result-reason result)
+           (process-result-elapsed result) (process-result-phase result)
+           (utf8->string (process-result-output result)))
     (check (not (process-result-reason result)) 'exec-identity-reason)
     (check (receipt-present? "^NATIVE-EXEC-IDENTITY-OK$"
                             (utf8->string (process-result-output result))) 'exec-identity))

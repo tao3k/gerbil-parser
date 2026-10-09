@@ -2,7 +2,7 @@
 ;;; Formal build owner for the native POSIX qualification boundary.
 (import (only-in :std/build-script defbuild-script))
 (defbuild-script
- `((gxc: "t/support/qualification/process-os"
+ `((gxc: "t/support/qualification/process-child"
          ,@(cond-expand
             (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
             (else '())))

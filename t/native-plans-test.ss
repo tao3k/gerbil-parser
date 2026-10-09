@@ -1,7 +1,16 @@
-(import :std/test :gerbil-parser/t/support/qualification/plans)
+(import :std/test :gerbil-parser/t/support/qualification/plans
+        (only-in :gerbil-parser/t/support/qualification/process process-child-arguments))
 (export native-plans-test)
 (def native-plans-test
   (test-suite "native qualification plans"
+    (test-case "native child argv is quoted data, without source imports"
+      (let (args (process-child-arguments "session" "" '("fixture" "λ a;$(not-a-command)")))
+        (check (car args) => "-e")
+        (check (cadr args)
+          => "(load-module \"gerbil-parser/t/support/qualification/process-child\")")
+        (check (read (open-input-string (list-ref args 3)))
+          => '(apply gerbil-parser/t/support/qualification/process-child#main
+                     (quote ("session" "" "fixture" "λ a;$(not-a-command)"))))))
     (test-case "diagnostic modules are unique and ordered"
       (check (diagnostic-modules '("gql-profile" "gql-actors" "gql-profile"))
         => '("reduction-counts" "execution-counts" "matched-stages" "actors")))

@@ -7,9 +7,15 @@ build-source-priority output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/modules/parser/source-pattern-funs.ss src/modules/parser/funcs.ss src/modules/parser/interface.ss
 
-test-process-contracts: build-qualification
+build-process-fixture: build-qualification
     mkdir -p .data/process-controls
     ${CC:-cc} -std=c11 -Wall -Wextra -Werror t/fixtures/qualification/process-fixture.c -o .data/process-controls/fixture
+
+# Real initialization/load phases; never substitutes for strict controls.
+diagnose-process-startup: build-process-fixture
+    gerbil env gxi t/fixtures/qualification/startup-controls.ss "$PWD/.data/process-controls/fixture"
+
+test-process-contracts: build-process-fixture
     gerbil env gxi t/fixtures/qualification/process-controls.ss "$PWD/.data/process-controls/fixture"
 
 build-qualification:

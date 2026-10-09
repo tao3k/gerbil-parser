@@ -2,7 +2,14 @@
 (import :std/misc/process :std/io/tempfile :std/text/pregexp ./ownership)
 (export #t)
 (def qualification-library-root (path-expand "lib" (gerbil-path)))
-(defstruct process-result (status reason output elapsed) transparent: #t)
+;;; Load native runtime objects, not .ssi import metadata and macro dependencies.
+;;; The SDK writer quotes argv as data; shell syntax is never evaluated.
+(def (process-child-arguments witness loadpath command)
+  ["-e" "(load-module \"gerbil-parser/t/support/qualification/process-child\")"
+   "-e" (object->string
+         `(apply gerbil-parser/t/support/qualification/process-child#main
+                 (quote (,witness ,loadpath ,@command))))])
+(defstruct process-result (status reason output elapsed phase) transparent: #t)
 (defstruct process-interruption (reason) transparent: #t)
 (def (normal-exit-status raw)
   (if (zero? (modulo raw 256)) (quotient raw 256) (+ 128 (modulo raw 128))))
@@ -33,7 +40,7 @@
            (coordinator (current-thread)) (capture (open-output-u8vector))
            (output (open-output-file log))
            (process (open-process [path: "gxi"
-                     arguments: (append ["t/support/qualification/process-child.ss" witness (getenv "GERBIL_LOADPATH" "")] command)
+                     arguments: (process-child-arguments witness (getenv "GERBIL_LOADPATH" "") command)
                      environment: (map (lambda (entry) (string-append (car entry) "="
                         (if (equal? (car entry) "GERBIL_LOADPATH")
                             (string-append qualification-library-root ":" (cdr entry)) (cdr entry))))
@@ -41,7 +48,8 @@
                            (cons (cons "GERBIL_LOADPATH" "") (get-environment-variables))))
                      stderr-redirection: #t]))
            (reader #f) (waiter #f) (monitor #f) (raw #f) (reason #f)
-           (line-prefix "") (eof? #f) (output-complete? #f) (exited? #f))
+           (line-prefix "") (eof? #f) (output-complete? #f) (exited? #f)
+           (session-observed? #f))
       (close-output-port process)
       (def (fail! why)
         (unless reason
@@ -101,6 +109,14 @@
              (lambda ()
                (let loop ()
                  (let (now (##current-time-point))
+                   ;; Session acknowledgement is a real, one-time completed
+                   ;; native stage, not a heartbeat. Total time still starts
+                   ;; before GXI and neither configured deadline is widened.
+                   (when (and (not session-observed?)
+                              (or (not idle) (< (- now last-output) idle))
+                              (file-exists? witness))
+                     (set! session-observed? #t)
+                     (set! last-output now))
                    (cond ((>= (- now started) budget) (fail! 'total-timeout))
                          ((and idle (not (and output-complete? raw)) (>= (- now last-output) idle))
                           (fail! 'idle-timeout))
@@ -129,7 +145,8 @@
               (failed? (and error-output? (receipt-present? "^(ERROR\\b|\\*\\*\\* ERROR)" text))))
          (process-result (normal-exit-status command-raw) (or reason (and failed? 'error-output)
                           (and (not (zero? (modulo command-raw 256))) 'signal-exit)) bytes
-                         (- (##current-time-point) started)))
+                         (- (##current-time-point) started)
+                         (if (file-exists? witness) 'session-ready 'bootstrap)))
        (finally
         (when monitor (thread-terminate! monitor))
         (when waiter (thread-terminate! waiter))
@@ -147,6 +164,7 @@
          (missing (filter (lambda (pattern) (not (receipt-present? pattern text))) receipts)))
     (displayln "PROCESS-RESULT elapsed=" (process-result-elapsed result)
                " exit=" (process-result-status result) " reason=" (process-result-reason result)
+               " phase=" (process-result-phase result)
                " missing=" missing) (force-output)
     (unless (and (zero? (process-result-status result)) (not (process-result-reason result)) (null? missing))
       (error "process qualification failed" log (process-result-status result)

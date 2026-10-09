@@ -4,14 +4,25 @@
         (only-in :std/os/device device-close))
 
 (def (preparation-files root)
-  (cond ((not (file-exists? root)) '())
-        ((eq? (file-type root) 'directory)
-         (apply append
-           (map (lambda (name)
-                  (if (string-prefix? "." name) '()
-                    (preparation-files (path-expand name root))))
-                (list-sort string<? (directory-files root)))))
-        (else (list root))))
+  ;; Preserve sorted depth-first identity with one accumulator. Report actual
+  ;; discovered files, including the post-link admission walk.
+  (let ((files '()) (count 0))
+    (def (walk path)
+      (when (file-exists? path)
+        (if (eq? (file-type path) 'directory)
+          (for-each (lambda (name)
+                      (unless (string-prefix? "." name)
+                        (walk (path-expand name path))))
+                    (list-sort string<? (directory-files path)))
+          (begin
+            (set! files (cons path files))
+            (set! count (+ count 1))
+            (when (zero? (modulo count 128))
+              (displayln "PREPARATION-DISCOVERED files=" count " last=" path)
+              (force-output))))))
+    (walk root)
+    (displayln "PREPARATION-DISCOVERED root=" root " files=" count) (force-output)
+    (reverse files)))
 (def (preparation-file-digest path)
   (let ((digest (Digest::sha256)) (buffer (make-u8vector 65536)))
     (call-with-input-file path
@@ -47,17 +58,24 @@
   (or (string-suffix? "-test" name)
       (member name '("t/generate-language-abi-alignment" "t/conformance-main"
                      "t/benchmarks/versioned-languages/all-languages"))))
+(def (conformance-module-product-matcher library names)
+  ;; Module topology is invariant across a complete inventory. Expand paths
+  ;; once, rather than once per file and per candidate module.
+  (let (prefixes
+         (apply append
+           (map (lambda (name)
+                  (let ((prefix (path-expand (string-append "gerbil-parser/" name) library))
+                        (static-prefix
+                          (path-expand (string-append "gerbil-parser__"
+                            (string-join (string-split name #\/) "__"))
+                            (path-expand "static" library))))
+                    (list (string-append prefix ".") (string-append prefix "~")
+                          (string-append static-prefix ".")
+                          (string-append static-prefix "~")))) names)))
+    (lambda (path)
+      (any (lambda (prefix) (string-prefix? prefix path)) prefixes))))
 (def (conformance-module-product? path library names)
-  (any (lambda (name)
-         (let* ((prefix (path-expand (string-append "gerbil-parser/" name) library))
-                (static-prefix
-                  (path-expand (string-append "gerbil-parser__"
-                    (string-join (string-split name #\/) "__"))
-                    (path-expand "static" library))))
-           (or (string-prefix? (string-append prefix ".") path)
-               (string-prefix? (string-append prefix "~") path)
-               (string-prefix? (string-append static-prefix ".") path)
-               (string-prefix? (string-append static-prefix "~") path)))) names))
+  ((conformance-module-product-matcher library names) path))
 (def (conformance-generated-cache? path library)
   ;; Content-addressed compiler memo products are created during preparation.
   ;; Their source and compiler inputs remain in the preparation snapshot.
@@ -165,7 +183,9 @@
          (binary (path-expand "bin/gerbil-parser-conformance" (getenv "GERBIL_PATH")))
          (home (getenv "GERBIL_BUILD_PREFIX" (gerbil-home)))
          (owned (conformance-owned-modules))
-         (helpers (filter (lambda (name) (not (conformance-source-only? name))) owned)))
+         (helpers (filter (lambda (name) (not (conformance-source-only? name))) owned))
+         (owned-product? (conformance-module-product-matcher library owned))
+         (helper-product? (conformance-module-product-matcher library helpers)))
     (def (inputs)
       ;; Conservative closure: all project sources and dependency products,
       ;; including macro interfaces, plus the actual SDK and compiler identity.
@@ -177,7 +197,7 @@
                 (list-sort string<? (directory-files ".")))
         '("gerbil.pkg")
         (filter (lambda (path)
-                  (not (or (conformance-module-product? path library owned)
+                  (not (or (owned-product? path)
                            (conformance-generated-cache? path library)
                            (and (string-contains path "/static/")
                                 (or (string-suffix? ".c" path) (string-suffix? ".o" path))))))
@@ -210,7 +230,7 @@
             (cons binary
               (filter (lambda (path)
                         (and (not (string-contains path "/static/"))
-                             (conformance-module-product? path library helpers)))
+                             (helper-product? path)))
                       (preparation-files library)))))
         (lambda ()
           (call-with-compiled-interface-trace
@@ -224,4 +244,4 @@
           (and (equal? path (path-normalize path))
                (or (equal? path binary)
                    (and (not (string-contains path "/static/"))
-                        (conformance-module-product? path library helpers)))))))))
+                        (helper-product? path)))))))))

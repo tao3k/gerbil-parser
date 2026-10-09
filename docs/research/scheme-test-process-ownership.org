@@ -65,3 +65,18 @@ wrong exits, rejected missing diagnostics, silence timeout, continuous-output
 total timeout, and timeout after closed output. The profiles additionally run
 the original four conformance controls, seven worker controls, all compiled
 semantic groups, and all five research entries.
+
+* Post-link inventory admission
+
+The first delivered head, =7419c1d=, passed Linux and Rust CI. macOS linked the
+native conformance executable, then failed the unchanged five-second output
+fence during post-link input collection. This result is retained as a failure,
+not a successful preparation receipt.
+
+Preparation now expands the invariant module-product prefixes once per catalog
+and reuses the matcher across inventory files. Its sorted depth-first walk
+uses one accumulator and reports actual discovered files before digesting starts.
+A source-level A/B checked identical ordered lists for six complete roots and
+identical admission for 9,633 library files. Native controls additionally check
+ordering, hidden paths, missing roots, and single-file roots. Cache identity,
+input mutation rejection, digest admission, and deadlines remain unchanged.

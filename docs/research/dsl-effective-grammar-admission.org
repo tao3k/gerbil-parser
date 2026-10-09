@@ -1131,3 +1131,124 @@ Final raw evidence remains in temporary native products:
 =/private/tmp/parser-cursor-research/exits.tsv=. The previously admitted TLA+
 construction benchmark command exercises this engine change without another
 benchmark facade or report format.
+
+
+* Delta expansion for shared indexed reachability (2026-10-09)
+
+** Paper transfer and engine boundary
+
+Gertjan van Noord, /Treatment of Epsilon Moves in Subset Construction/,
+[[https://aclanthology.org/J00-1005.pdf][Computational Linguistics 26(1), 2000]], Section 3.2 and Figure 4, separates
+per-state closure memoization from per-subset closure, and computes reachability
+by expanding only newly reached states. The paper also identifies the union cost
+of memoized singleton closures. This revision retains the existing integrated
+closure strategy and cache admission; it does not reintroduce the rejected
+whole-graph SCC precomputation or claim that the paper establishes our timings.
+
+The engine derives a bitset delta implementation of the Figure 4 worklist:
+for an expanded node u, compute =delta = edges[u] \ reached=, mark all delta
+nodes reached with one union, and enqueue just that delta. The reached set is
+reflexive in the initial set and monotonically grows. Every node is queued only
+once, so self loops, cycles, multiple initial roots and overlapping neighborhoods
+terminate without repeated expansion. When the queue is empty, every reached
+node's outgoing row is included, proving closure; each inserted node has an
+initial-to-node path, proving no spurious reachability. Bigint difference/union
+and queue costs remain part of complete-call measurement.
+
+=compiler-index-set-reachable= belongs to =src/compiler/funcs.ss=. It accepts
+an initial integer mask and a vector of immutable adjacency masks in the same
+valid finite index domain. It returns an immutable reached mask and keeps its
+queue local to the invocation. This is a named reusable engine algorithm, not a
+language-specific closure model or an author-defined scanner. The former private
+FOLLOW BFS is removed; both singleton-cache misses and uncached subset closure
+use the shared owner. Grammar DSL, POO loader slots, state interning, publication,
+conflict policy and the 3500-block singleton-cache admission remain unchanged.
+
+The old BFS creates a singleton mask and checks membership for every outgoing
+edge, including already reached neighbors. The new algorithm performs set
+operations once per expanded nonempty row and enumerates only unseen neighbors.
+Sinks skip the difference step. This is an implementation transfer of the
+worklist invariant; dense and overlapping rows supply the opportunity, while
+complete construction controls determine whether the added row operations pay.
+
+** Independent semantic and cost admission
+
+One new Case in the existing canonical source Suite compares the engine algorithm
+to a list-graph traversal using list membership. All 512 directed three-node
+graphs (including self edges) and all eight initial masks give 4096 independent
+comparisons. Empty graph, 1024-node chain and 1024-node cycle controls cross
+fixnum/field boundaries. The canonical Suite remains a source owner; it is not
+also registered in compiled conformance. Together with the existing resolved
+Suite, 56 Cases passed with =TEST-SUITE-OK=, =OK= and controller exit 0 in
+26.954 seconds under unchanged 120-second total/5-second idle limits.
+
+The baseline freezes =49e297f= and all eight LR indexed-set modules, including
+the previously admitted density-selected traversal. Both sides compile with the
+same fixed Gerbil/GCC SDK and optimized/static settings. Complete calls alternate
+order with explicit GC before each call; full LRSpec equality remains outside
+timing. CPU includes construction setup, closure misses, caching, all analyses,
+in-call GC and publication. Real completed-work tracing is enabled equally.
+Five grammar families across five LR modes yield 25 exact whole-artifact pairs;
+small mixed grammars and default TLA+ LALR each receive 21 pairs, and the real
+TLA+ FOLLOW grammar receives seven pairs. This avoids attributing previous
+traversal savings to the new closure change.
+
+
+** Complete-construction result
+
+The paired native process emitted =DELTA-NATIVE-AB-OK= and controller exit 0
+in 66.332 seconds under unchanged 90-second total/5-second idle limits. Every
+complete result matches the baseline LRSpec; actual FOLLOW remains 8149 states.
+
+| Complete workload | Pairs | Baseline CPU ms | Delta CPU ms |
+|-------------------+-------+-----------------+--------------|
+| mixed FOLLOW, 8 regions | 21 | 1.530 | 1.510 |
+| mixed FOLLOW, 24 regions | 21 | 4.163 | 4.143 |
+| mixed FOLLOW, 48 regions | 21 | 10.175 | 10.125 |
+| actual TLA+ default LALR | 21 | 14.361 | 14.334 |
+| actual TLA+ FOLLOW | 7 | 3027.127 | 2250.424 |
+
+| Actual FOLLOW pair | Baseline CPU ms | Delta CPU ms | Baseline GCs | Delta GCs |
+|--------------------+-----------------+--------------+--------------+-----------|
+| 0 | 3994.083 | 2339.458 | 48 | 15 |
+| 1 | 3027.127 | 1799.456 | 17 | 7 |
+| 2 | 2622.948 | 2250.424 | 10 | 13 |
+| 3 | 3838.403 | 2121.617 | 27 | 15 |
+| 4 | 2769.019 | 2455.940 | 16 | 17 |
+| 5 | 3131.278 | 1801.500 | 17 | 7 |
+| 6 | 2542.748 | 2250.778 | 10 | 13 |
+
+All seven complete CPU pairs improve. Median CPU reduction is 25.7%; baseline
+variation still limits the claim to this local traced workload. GC-count medians
+are 17 -> 13 and GC CPU medians 963.769 -> 750.303 ms, but three candidate
+calls collect more often than their paired baseline. Thus neither a universal GC
+reduction nor a byte-allocation reduction is established. The SDK byte counter
+is not admitted across collections. Parser runtime, FFI and Rust AOT throughput
+are outside this construction experiment.
+
+The retained change is the shared row-delta reachability owner. Further study
+should count repeated seed-subset queries and their cache footprint before
+adding per-subset memoization from Section 3.2. Existing singleton-cache reuse,
+union work, setup and retained masks must remain separate observations. No new
+whole-subset cache or SCC implementation is introduced here.
+
+
+** Local compiled closure and delivery boundary
+
+After algorithm and source controls stabilized, complete preparation exited 0 in
+93.767 seconds under unchanged 240-second total/5-second idle limits. Compiled
+semantic execution passed 372 Cases across 23 groups. It and the five independent
+research entries (concise runtime, history, native POO runtime, provenance and
+all-language benchmark) all exited 0; the existing Scheme controller emitted
+=DSL-RESEARCH-CLOSURE-OK= and =OK=. The canonical graph oracle remains covered
+by the separate source Suite, not counted again in these 372 compiled Cases.
+
+Raw evidence is retained as temporary native products:
+=/private/tmp/parser-delta-ab-driver.log=,
+=/private/tmp/parser-delta-controls-driver.log=,
+=/private/tmp/parser-delta-conformance-build-driver.log= and
+=/private/tmp/parser-delta-research/exits.tsv=. No JSON snapshot, extra test
+supervisor, heap expansion, timeout relaxation or compiler switch is introduced.
+The preceding delivered head =49e297f= had Rust CI success while Ubuntu was
+still in compiled conformance preparation during local execution. Delivery of
+this shared reachability implementation requires its own remote-head checks.

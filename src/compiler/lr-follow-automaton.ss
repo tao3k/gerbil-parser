@@ -8,6 +8,7 @@
                  ExtensibleVector-ref ExtensibleVector-set!)
         (only-in ./funcs
                  compiler-index-set-add compiler-index-set-for-each
+                 compiler-index-set-reachable
                  compiler-index-set-singleton compiler-index-set-union)
         (only-in ./lr
                  +lr-eof+ base-symbol nonterminal-name nonterminal-symbol?
@@ -341,24 +342,6 @@
                 (values merged merged-shifts merged-epsilons
                         (vector-ref next start)))))))))
 
-(def (epsilon-closure initial epsilon-edges)
-  (let ((reached initial)
-        (queue (stdq-make-Queue)))
-    (compiler-index-set-for-each
-     initial (lambda (block) (stdq-enqueue! queue block)))
-    (let drain ()
-      (unless (stdq-queue-empty? queue)
-        (let (block (stdq-dequeue! queue))
-          (compiler-index-set-for-each
-           (vector-ref epsilon-edges block)
-           (lambda (target)
-             (let (bit (compiler-index-set-singleton target))
-               (when (zero? (bitwise-and reached bit))
-                 (set! reached (compiler-index-set-union reached bit))
-                 (stdq-enqueue! queue target)))))
-          (drain))))
-    reached))
-
 (def (epsilon-closure/memo initial epsilon-edges cache)
   (let (reached 0)
     (compiler-index-set-for-each
@@ -367,7 +350,7 @@
        (let (closure (vector-ref cache block))
          (unless closure
            (set! closure
-                 (epsilon-closure
+                 (compiler-index-set-reachable
                   (compiler-index-set-singleton block) epsilon-edges))
            (vector-set! cache block closure))
          (set! reached (compiler-index-set-union reached closure)))))
@@ -453,7 +436,7 @@
                    (epsilon-closure/memo
                     (compiler-index-set-singleton start)
                     epsilon-edges closure-cache)
-                   (epsilon-closure
+                   (compiler-index-set-reachable
                     (compiler-index-set-singleton start) epsilon-edges)))
         (let drain ()
           (unless (stdq-queue-empty? queue)
@@ -479,7 +462,7 @@
                            (epsilon-closure/memo
                             targets
                             epsilon-edges closure-cache)
-                           (epsilon-closure
+                           (compiler-index-set-reachable
                             targets epsilon-edges)))
                         (target (intern! next-closure)))
                    ;; Clear only touched labels before the next state's scan.

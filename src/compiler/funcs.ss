@@ -1,13 +1,15 @@
 ;;; -*- Gerbil -*-
 ;;; Shared indexed-set and source-position algorithms for parser compilation.
 
-(import (only-in :std/list/list-builder with-list-builder))
+(import (only-in :std/list/list-builder with-list-builder)
+        (prefix-in :std/struct/queue stdq-))
 (export ascii-lower-byte
         compiler-index-set-add
         compiler-index-set-difference
         compiler-index-set-empty?
         compiler-index-set-member?
         compiler-index-set-for-each
+        compiler-index-set-reachable
         compiler-index-set-singleton
         compiler-index-set-union
         compiler-index-set->ordered-values
@@ -80,6 +82,25 @@
           (when (< offset limit)
             (visit (extract-bit-field width offset set) offset)
             (loop (+ offset width))))))))
+
+;; Reflexive transitive reachability over a vector of immutable index masks.
+;; Mark the complete outgoing delta before queuing it: every node is expanded
+;; at most once, including self edges, cycles and overlapping initial roots.
+;; Only new neighbors are enumerated; membership and union operate once per
+;; expanded nonempty row instead of once per outgoing edge.
+(def (compiler-index-set-reachable initial edges)
+  (let ((reached initial) (queue (stdq-make-Queue)))
+    (compiler-index-set-for-each initial (lambda (node) (stdq-enqueue! queue node)))
+    (let drain ()
+      (unless (stdq-queue-empty? queue)
+        (let (neighbors (vector-ref edges (stdq-dequeue! queue)))
+          (unless (zero? neighbors)
+            (let (delta (compiler-index-set-difference neighbors reached))
+              (unless (zero? delta)
+                (set! reached (compiler-index-set-union reached delta))
+                (compiler-index-set-for-each delta (lambda (node) (stdq-enqueue! queue node)))))))
+        (drain)))
+    reached))
 
 ;; Materialize in canonical catalog order through the standard library's
 ;; linear list builder.

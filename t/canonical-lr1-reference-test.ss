@@ -6,7 +6,7 @@
         (only-in :core/observability/testing-case poo-flow-test-case)
         (only-in :gerbil-parser/src/compiler/funcs
                  compiler-index-set-difference compiler-index-set-union
-                 compiler-index-set-for-each)
+                 compiler-index-set-for-each compiler-index-set-reachable)
         (only-in :gerbil-parser/src/compiler/lr
                  compute-first compute-nullable lower-rules lr-spec-ref
                  production-rhs production-table production-terminal-catalog)
@@ -233,6 +233,35 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "indexed reachability agrees with exhaustive list graph oracle"
+      (def (oracle initial rows)
+        (let visit ((pending (filter (lambda (node) (not (zero? (bitwise-and initial (arithmetic-shift 1 node))))) (iota (vector-length rows))))
+                    (seen '()))
+          (if (null? pending)
+            (foldl (lambda (node mask) (bitwise-ior mask (arithmetic-shift 1 node))) 0 seen)
+            (let (node (car pending))
+              (if (memv node seen)
+                (visit (cdr pending) seen)
+                (visit (append (vector-ref rows node) (cdr pending)) (cons node seen)))))))
+      (let graphs ((graph 0))
+        (when (< graph 512)
+          (let ((edges (make-vector 3 0)) (rows (make-vector 3 '())))
+            (for-each (lambda (node)
+              (let (mask (bitwise-and 7 (arithmetic-shift graph (* -3 node))))
+                (vector-set! edges node mask)
+                (vector-set! rows node (filter (lambda (target) (not (zero? (bitwise-and mask (arithmetic-shift 1 target))))) '(0 1 2))))) '(0 1 2))
+            (for-each (lambda (initial)
+              (check (compiler-index-set-reachable initial edges) => (oracle initial rows))) (iota 8)))
+          (graphs (+ graph 1))))
+      (check (compiler-index-set-reachable 0 '#()) => 0)
+      (let ((chain (make-vector 1024 0)) (cycle (make-vector 1024 0)))
+        (let nodes ((node 0))
+          (when (< node 1024)
+            (when (< node 1023) (vector-set! chain node (arithmetic-shift 1 (+ node 1))))
+            (vector-set! cycle node (arithmetic-shift 1 (modulo (+ node 1) 1024)))
+            (nodes (+ node 1))))
+        (check (compiler-index-set-reachable 1 chain) => (- (arithmetic-shift 1 1024) 1))
+        (check (compiler-index-set-reachable (arithmetic-shift 1 512) cycle) => (- (arithmetic-shift 1 1024) 1))))
     (poo-flow-test-case "indexed traversal agrees with bit membership across fields"
       (def (check-mask mask)
         (let ((actual '()) (expected '()))

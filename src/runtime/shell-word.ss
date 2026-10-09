@@ -120,7 +120,9 @@
                            (else (part-plan-context parts-plan context))))
     (let loop ((offset start) (parts '()) (tokens '()))
       (if (= offset end)
-        (values (reverse parts) tokens)
+        ;; This spine is private until return; token branches and nested
+        ;; result nodes are shared values and are never reversed.
+        (values (reverse! parts) tokens)
         (let-values
             (((part produced next)
               (let* ((step (part-context-match context-plan text offset end))

@@ -58,11 +58,13 @@
                           (map (lambda (value) (make-recognition-child ',(cadr single) value)) (car parts)))
                         (cdr parts))))
             (else
+             ;; Generated emitters own the accumulator spine; captured lists
+             ;; and shared recognition values never enter this reversal.
              `(let ((children '()) (tokens '()))
                 ,@(map projection-operation-source operations (iota (length operations)))
                 (values (result-plan-node plan ',(cadr row)
                           (recognition-source-offset source start) (recognition-source-offset source end)
-                          (reverse children)) tokens))))))))
+                          (reverse! children)) tokens))))))))
 
 (def (result-profile-scheme-source plan)
   (unless (result-plan? plan) (error "Scheme projection generation requires an admitted result plan"))

@@ -208,7 +208,8 @@
      (result-projection-operations projection))
     (values (result-plan-node plan (result-projection-kind projection)
                               (recognition-source-offset source start) (recognition-source-offset source end)
-                              (reverse children)) tokens)))
+                              ;; Only emit! allocated this spine; captures retain their own lists.
+                              (reverse! children)) tokens)))
 (def (profile-valid? profile)
   (with-catch (lambda (_) #f) (lambda () (profile-plan profile) #t)))
 (define-type (ResultProfileContract @ PooFlowContract.)

@@ -1481,3 +1481,100 @@ Final restored qualification completed in 12.807 seconds with eight modules,
 runtime rebuilt in 11.264 seconds. Final integration also includes revision
 =b9e1e506221d198f1202af7567373de8aab336a5=; this change adds no runtime
 optimization on top of that revision.
+
+
+* Owned publication spines in shared Word/result execution (2026-10-10)
+
+** Producer and consumer ownership
+
+After direct materialization bypassed the earlier branch-frame experiment,
+the remaining Word producer still built a reversed parts spine and copied it
+with =reverse= before projection consumed it. General result projection
+execution similarly allocated a private reversed recognition-child spine,
+then copied it into publication order. The Scheme projection generator emitted
+the same redundant reversal. Neither spine is a caller-owned capture list:
+=parts= is assembled by this =parse-parts= invocation, and =children= contains
+only cons cells created by this projection's emitter. Nested result nodes,
+capture spines, immutable token branches and source text are separate values.
+
+The retained implementation uses =reverse!= on those private spines exactly
+at publication. An n-cell temporary list no longer requires another n-cell
+copy. Traversal remains linear; this is an allocation and ownership change,
+not a new parsing-complexity bound. Public nodes, token values, ordered fields,
+source validation and the declared POO projection recipes are preserved. The
+single-operation executors are unchanged, since they already construct their
+final lists directly. No language grammar, schema version, ABI or language
+namespace changes are required.
+
+This follows shipped Gerbil SDK revision =2591dcd= examples:
+=gerbil/runtime/c3.ss=, =c4-compute-class-slots=, reverses its private =r-slots=
+at publication, and =gerbil/runtime/util.ss=, =string-split=, uses the same
+operation for its private accumulator. The SDK's =std/list/list-builder.ss=
+is another owned-list construction mechanism; its dummy head and mutable tail
+are unnecessary for an existing private reverse accumulator.
+
+[[https://arxiv.org/html/2304.05276][flap]], Sections 2.2 and 2.8, separates materialized intermediary costs from
+allocation introduced by semantic actions. Here the lossless public token and
+node products remain observable and cannot be removed using a token-free
+recognizer's benchmark as justification. The eliminated cells are redundant
+publication spines, not public token or node values. This implementation is
+not flap fusion and makes no claim to its measured speedups or proof.
+
+** Qualification and native ABBA control
+
+All three modified modules compiled with the fixed GCC/Gerbil SDK in 29.183
+seconds. The 3 GiB heap, 120-second total and five-second idle guards remained
+unchanged. Eight source suites passed 131 cases in 22.691 seconds, with
+=TEST-SUITE-OK modules=8=, =OK= and exit 0. The new mixed-projection test builds
+from the same 1,024-item capture twice through both interpreted and generated
+executors, checking ordered fields, shared node identity and preservation of
+the original capture spine. Existing cases cover optional and required
+captures, Unicode bounds, invalid fields, missing nodes, source ownership,
+nested words and incremental publication. Generated forms are evaluated by
+these source tests; this receipt is not qualification of a separately linked
+native generated executor.
+
+The native complete-request control reused the preceding private Scheme
+controller and full serialized proofs. Each fresh process reported and,
+after the first reference observation, asserted the loaded module basename.
+Reference objects were =shell-word~0.o2= and =result-profile~0.o4=;
+candidate objects were =shell-word~0.o3= and =result-profile~0.o5=. Swaps
+removed all numbered objects for these two owned modules before copying the
+selected snapshot, respecting the SDK loader's contiguous-version selection.
+All other parser/client artifacts stayed fixed. The candidate was restored
+before final tests. No controller or frozen proof is added to the repository.
+
+The large complete request includes public =parse-bash= plus an additional
+source-bound artifact validator. Product equality against the pre-existing
+reference was checked outside timing for four fixtures and empty, malformed
+and Unicode sources. Every block admitted 23 allocation samples of 31;
+GC-crossing allocation intervals were excluded. No forced GC or simultaneous
+local builds were used during timed blocks.
+
+| Block | Complete CPU median ms | Admitted allocation median bytes |
+|-------+------------------------+----------------------------------|
+| Reference A | 30.341 | 39607464 |
+| Candidate A | 25.613 | 39233704 |
+| Candidate B | 32.500 | 39233064 |
+| Reference B | 28.771 | 39607464 |
+
+Allocation decreased by 373,760 to 374,400 bytes, approximately 0.94 to 0.95
+percent. The 640-byte candidate spread is retained rather than rounded into
+an exact invariant. CPU moves in opposite directions across candidate blocks,
+so these measurements establish no CPU speedup. The unchanged sequence-only
+control allocation medians were 1,593,120 bytes unmoved, 2,880,224 bytes for a
+root view and 2,876,128 bytes for leaf views on all four runs. Their CPU drift
+is also retained as evidence against a portable timing claim.
+
+** Remaining fusion boundary
+
+This removes one avoidable list copy but leaves the parts list consumed by
+projection, the recognition-child list returned by projection, owned lexemes
+and lossless nodes/tokens. Eliminating a parts list requires fusing its producer
+with the projection's declared field emitter. A future lowering must preserve
+validation of node kinds and parent bounds, ordering across optional token,
+one-node and many-node operations, and externally supplied capture ownership.
+It must also qualify interpreted and generated executors with the same full
+products. Moving grammar complexity into a language-specific shortcut or
+changing the public capture contract merely to bypass validation would not
+address this shared producer/consumer boundary.

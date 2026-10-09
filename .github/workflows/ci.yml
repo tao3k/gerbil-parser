@@ -158,15 +158,8 @@ jobs:
             .gerbil/bin
           key: gerbil-parser-packages-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.gerbil-label }}-${{ hashFiles('gerbil.pkg') }}
 
-      - name: Compile Scheme process support modules
-        run: gerbil env gxi build-qualification.ss compile
-
-      - name: Verify native process and plan contracts
-        run: |
-          cc -Wall -Wextra -Werror tools/qualification/process-fixture.c -o "$RUNNER_TEMP/process-fixture"
-          gerbil env gxi tools/qualification/process-test.ss "$RUNNER_TEMP/process-fixture"
-          gerbil env gxi tools/qualification/plans-test.ss
-          gerbil env gxi tools/ci/bootstrap-test.ss
+      - name: Verify native process contracts
+        run: just test-process-contracts
 
       - name: Build parser and versioned language packs
         run: |

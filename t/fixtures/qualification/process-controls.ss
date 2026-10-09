@@ -1,5 +1,5 @@
 ;;; Controlled children qualify cancellation and isolation, never existing jobs.
-(import :gerbil-parser/tools/qualification/process :gerbil-parser/tools/qualification/ownership :std/io/tempfile :std/misc/ports)
+(import :gerbil-parser/t/support/qualification/process :gerbil-parser/t/support/qualification/ownership :std/io/tempfile :std/misc/ports)
 (def (check condition label) (unless condition (error "process control failed" label)))
 (def (main fixture)
  (let (directory (make-temporary-file-name "parser-process-controls-"))

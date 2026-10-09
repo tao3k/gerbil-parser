@@ -1,5 +1,5 @@
 ;;; A fresh POSIX session contains the compiler/test child and its descendants.
-(import :gerbil-parser/tools/qualification/process-os)
+(import :gerbil-parser/t/support/qualification/process-os)
 (export main)
 (def (main witness loadpath program . arguments)
   (let (owner (start-session!))

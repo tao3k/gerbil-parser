@@ -3,9 +3,9 @@
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (prefer-compiled-interfaces!)
 (call-with-compiled-interface-trace
- (lambda () (eval '(import :gerbil-parser/tools/qualification/process))))
+ (lambda () (eval '(import :gerbil-parser/t/support/qualification/process))))
 
-(import :gerbil-parser/tools/qualification/process)
+(import :gerbil-parser/t/support/qualification/process)
 
 (defstruct process-case (name arguments exit marker budget idle) transparent: #t)
 

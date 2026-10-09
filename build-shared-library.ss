@@ -1,7 +1,23 @@
 #!/usr/bin/env gxi
 ;;; SDK compiler owns static closure and job execution; no generated C rewriting.
 (import (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!)
-        (only-in :gerbil-parser/tools/qualification/process-os blocking-standard-streams! standard-streams-blocking?))
+        (only-in :std/os/fcntl __fcntl1 __fcntl2 F_GETFL F_SETFL O_NONBLOCK)
+        (only-in :std/os/error do-syscall))
+;;; Compiler children inherit these descriptors; use the SDK's native OS API.
+(def (blocking-standard-streams!)
+  (for-each
+    (lambda (fd)
+      (let (flags (__fcntl1 fd F_GETFL))
+        (unless (fxnegative? flags)
+          (do-syscall (__fcntl2 fd F_SETFL (fxand flags (fxnot O_NONBLOCK)))))))
+    '(0 1 2))
+  0)
+(def (standard-streams-blocking?)
+  (andmap
+    (lambda (fd)
+      (let (flags (__fcntl1 fd F_GETFL))
+        (and (not (fxnegative? flags)) (fxzero? (fxand flags O_NONBLOCK)))))
+    '(1 2)))
 (def (main source output cc-options ld-options)
   (displayln "COMPILER-STREAMS before-blocking=" (standard-streams-blocking?))
   (unless (zero? (blocking-standard-streams!)) (error "cannot establish blocking compiler streams"))

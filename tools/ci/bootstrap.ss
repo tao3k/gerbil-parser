@@ -1,5 +1,6 @@
 ;;; Host archive extraction precedes Scheme; activation and release admission do not.
 (import :std/encoding/json :std/string/misc :std/misc/process :std/misc/ports)
+(export main admit-release! append-lines!)
 (def (admit-release! metadata os arch)
  (unless (and (equal? (hash-ref metadata "schema" #f) "gerbil-bazel.toolchain-release.v1")
               (equal? (hash-ref metadata "upstreamRevision" #f) "2591dcd9b7c6d2c4e9dd8611a17c5b1a5d82bbdb")

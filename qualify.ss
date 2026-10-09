@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Native qualification entry; declarations own process contracts.
 (displayln "QUALIFICATION-START") (force-output)
-(import :gerbil-parser/tools/qualification/process)
+(import :gerbil-parser/t/support/qualification/process)
 ;;; Load compiler/benchmark services only for the selected source profile.
 (def (profile-value module name)
   (eval (list 'import module))
@@ -34,7 +34,7 @@
 (def (local-cli arguments)
  (let loop ((rest arguments) (suites '()) (prepared? #f) (root ".gerbil") (logs ".data/local-native") (jobs (min 4 (##core-count))))
   (if (null? rest)
-   ((profile-value ':gerbil-parser/tools/qualification/plans 'qualify-local!) (if (null? suites) '("rust" "gql" "ffi" "aot") (reverse suites)) prepared? root logs jobs)
+   ((profile-value ':gerbil-parser/t/support/qualification/plans 'qualify-local!) (if (null? suites) '("rust" "gql" "ffi" "aot") (reverse suites)) prepared? root logs jobs)
    (cond
     ((equal? (car rest) "--prepared-diagnostics") (loop (cdr rest) suites #t root logs jobs))
     ((member (car rest) '("--suite" "--gerbil-path" "--log-dir" "--jobs"))
@@ -49,10 +49,10 @@
 (def (performance-cli arguments)
  (let loop ((rest arguments) (selected '()) (budget 120) (logs ".data/performance-source") (continue? #f) (list? #f))
   (if (null? rest)
-   (let* ((catalog (profile-value ':gerbil-parser/tools/qualification/performance 'performance-suites))
+   (let* ((catalog (profile-value ':gerbil-parser/t/support/qualification/performance 'performance-suites))
           (names (if (null? selected) (map car catalog) (reverse selected))))
     (if list? (for-each (lambda (name) (displayln name ": " (cdr (or (assoc name catalog) (error "unknown suite" name))))) names)
-     ((profile-value ':gerbil-parser/tools/qualification/performance 'qualify-performance!) names budget logs continue?)))
+     ((profile-value ':gerbil-parser/t/support/qualification/performance 'qualify-performance!) names budget logs continue?)))
    (cond
     ((equal? (car rest) "--continue-on-failure") (loop (cdr rest) selected budget logs #t list?))
     ((equal? (car rest) "--list") (loop (cdr rest) selected budget logs continue? #t))
@@ -67,14 +67,14 @@
 (def (main mode . arguments)
  (cond
   ((equal? mode "run") (run-process-cli arguments))
-  ((equal? mode "compiled-event-fold") (apply (profile-value ':gerbil-parser/tools/qualification/plans 'qualify-event-fold!) arguments))
+  ((equal? mode "compiled-event-fold") (apply (profile-value ':gerbil-parser/t/support/qualification/plans 'qualify-event-fold!) arguments))
   ((equal? mode "performance") (performance-cli arguments))
   ((equal? mode "local") (local-cli arguments))
-  ((equal? mode "host") (unless (null? arguments) (error "host takes no arguments")) ((profile-value ':gerbil-parser/tools/qualification/products 'qualify-runtime-host!)))
+  ((equal? mode "host") (unless (null? arguments) (error "host takes no arguments")) ((profile-value ':gerbil-parser/t/support/qualification/products 'qualify-runtime-host!)))
   ((equal? mode "shared-library")
    (let loop ((rest arguments) (output #f) (modules '()))
     (if (null? rest)
-     (begin (unless output (error "missing --output")) ((profile-value ':gerbil-parser/tools/qualification/products 'build-language-library!) output (reverse modules)))
+     (begin (unless output (error "missing --output")) ((profile-value ':gerbil-parser/t/support/qualification/products 'build-language-library!) output (reverse modules)))
      (begin
       (unless (pair? (cdr rest)) (error "missing shared-library option value"))
       (cond ((equal? (car rest) "--output") (loop (cddr rest) (cadr rest) modules))

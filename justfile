@@ -9,11 +9,22 @@ build-source-priority output load_path:
 
 test-process-contracts: build-qualification
     mkdir -p .data/process-controls
-    ${CC:-cc} -std=c11 -Wall -Wextra -Werror tools/qualification/process-fixture.c -o .data/process-controls/fixture
-    gerbil env gxi tools/qualification/process-test.ss "$PWD/.data/process-controls/fixture"
+    ${CC:-cc} -std=c11 -Wall -Wextra -Werror t/fixtures/qualification/process-fixture.c -o .data/process-controls/fixture
+    gerbil env gxi t/fixtures/qualification/process-controls.ss "$PWD/.data/process-controls/fixture"
 
 build-qualification:
     gerbil env gxi build-qualification.ss compile
+
+# Focused native suites; test-all discovers the same suites once.
+test-qualification-suites: build-qualification
+    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/native-plans-test.ss t/bootstrap-test.ss
+
+# Exercise the downstream admission caller after support-module relocation.
+test-process-admission: build-qualification
+    GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/process-qualification-test.ss
+
+test-compiler-process:
+    GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/compiler-process-test.ss
 
 # Cache admission controls stay Scheme and share the CI owner.
 test-preparation:
@@ -41,7 +52,7 @@ test-lexical-mode:
     GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/grammar-composition-contract-test.ss t/grammar-composition-execution-test.ss t/grammar-composition-lowering-test.ss
 
 # Full qualification after the focused algorithm loop.
-test-all:
+test-all: build-qualification
     GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/... languages/...
 
 # All contracts execute from current source; every suite has a hard deadline.

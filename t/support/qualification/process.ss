@@ -33,7 +33,7 @@
            (coordinator (current-thread)) (capture (open-output-u8vector))
            (output (open-output-file log))
            (process (open-process [path: "gxi"
-                     arguments: (append ["tools/qualification/process-child.ss" witness (getenv "GERBIL_LOADPATH" "")] command)
+                     arguments: (append ["t/support/qualification/process-child.ss" witness (getenv "GERBIL_LOADPATH" "")] command)
                      environment: (map (lambda (entry) (string-append (car entry) "="
                         (if (equal? (car entry) "GERBIL_LOADPATH")
                             (string-append qualification-library-root ":" (cdr entry)) (cdr entry))))

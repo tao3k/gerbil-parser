@@ -346,7 +346,8 @@ and transfer correctness are additional obligations. Nonempty FIRST does not
 establish a completed derivation, as the existing dead-tail control demonstrates.
 
 [[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][Productivity now has a finite-word contract and LR entry-admission consumer]].
-It counts nonterminal occurrences while terminals/epsilon satisfy obligations.
+[[file:dsl-productive-entry.org::*Joint completion solver: one graph, two meanings][The joint completion solver]] now shares occurrence registration and scheduling
+with nullable while preserving the separate terminal policies.
 Field multiplicity and child-category analysis still require their own consumer,
 concrete meaning and transfer contract. Any grammar rewrite must
 also preserve the tree, field and source contracts; recognition facts alone do

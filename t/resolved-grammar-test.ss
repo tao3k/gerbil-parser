@@ -1,7 +1,7 @@
 ;;; Resolved grammar semantics must be checked before target state construction.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
-        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive terminal-symbol?
+        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive compute-completion terminal-symbol?
                  lower-rules production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
@@ -138,7 +138,9 @@
     (for-each (lambda (production)
                 (unless (memq (production-lhs production) names)
                   (set! names (append names (list (production-lhs production)))))) productions)
-    (let-values (((found index) (compute-productive productions)))
+    (let-values (((nullable-found nullable-index found index) (compute-completion productions)))
+      (check nullable-found => (filter (lambda (name) (table-ref nullable name #f)) names))
+      (for-each (lambda (name) (check (table-ref nullable-index name #f) => (table-ref nullable name #f))) (cons 'missing names))
       (check found => (filter (lambda (name) (table-ref expected name #f)) names))
       (for-each (lambda (name)
                   (check (table-ref index name #f) => (table-ref expected name #f))
@@ -147,6 +149,21 @@
 
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case "joint completion preserves delayed and coalesced domain publications"
+      (let ((prefix (list (nullable-production 'c '((nonterminal a) (nonterminal b)))
+                          (nullable-production 'a '((nonterminal d)))
+                          (nullable-production 'b '((nonterminal a) (nonterminal a)))
+                          (nullable-production 'd '((nonterminal b)))
+                          (nullable-production 'blocked '((terminal literal "x") (nonterminal missing)))))
+            (seeds (list (nullable-production 'a '((marked (terminal literal "x") (field value))))
+                         (nullable-production 'b '()))))
+        (check-productive-reference (append prefix seeds))
+        (check-productive-reference (append prefix (reverse seeds))))
+      (check-productive-reference '())
+      (check-productive-reference
+       (list (nullable-production 'a '((nonterminal missing) (nonterminal missing)))
+             (nullable-production 'b '((terminal literal "x") (nonterminal a)))
+             (nullable-production 'c '((marked (nonterminal b) (field value)))))))
     (test-case "productive facts match exhaustive cyclic fixed-point controls"
       (let (operands '(() ((terminal literal "x")) ((nonterminal a))
                          ((nonterminal b)) ((nonterminal c))

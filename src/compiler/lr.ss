@@ -8,7 +8,7 @@
                  compiler-index-set-union))
 (export +lr-eof+
         compute-first
-        compute-nullable
+        compute-nullable compute-completion
         compute-productive validate-resolved-start
         validate-resolved-repetitions current-grammar-source-map
         lr-spec-ref
@@ -502,97 +502,92 @@
 ;;       ;; => ordered nullable names and their shared membership index
 ;;       ```
 ;;     %
-(defstruct nullable-clause (owner remaining))
+;;; Two Boolean domains share one occurrence graph. Bit 1 is nullable, bit 2
+;;; productive; nullable publication also admits productivity. Pending changes
+;;; coalesce while queued, so a name's dependencies are visited at most twice.
+(defstruct completion-clause (owner nullable-remaining productive-remaining))
 
-(def (compute-nullable productions)
-  (let ((names (nonterminals productions))
-        (nullable (make-table test: eq?))
-        (dependents (make-table test: eq?))
-        (work '()))
-    (def (publish! name)
-      (unless (table-ref nullable name #f)
-        (table-set! nullable name #t)
-        (set! work (cons name work))))
-    ;; A terminal blocks the entire clause. Otherwise register every occurrence,
-    ;; including duplicates: A -> B B needs both obligations discharged by B.
+(def (compute-completion productions)
+  (let* ((names (nonterminals productions))
+         (count (length names))
+         (indices (make-table test: eq?))
+         (facts (make-vector count 0))
+         (pending (make-vector count 0))
+         (dependents (make-vector count '()))
+         (work '()))
+    (for-each (lambda (name index) (table-set! indices name index)) names (iota count))
+    (def (publish! index bits)
+      (let* ((before (vector-ref facts index))
+             (delta (bitwise-and bits (bitwise-not before))))
+        (unless (zero? delta)
+          (vector-set! facts index (bitwise-ior before delta))
+          (when (zero? (vector-ref pending index)) (set! work (cons index work)))
+          (vector-set! pending index (bitwise-ior (vector-ref pending index) delta)))))
     (for-each
      (lambda (production)
-       (let (references
-             (let scan ((rhs (production-rhs production)) (found '()))
-               (if (null? rhs) found
-                   (let (symbol (base-symbol (car rhs)))
-                     (and (nonterminal-symbol? symbol)
-                          (scan (cdr rhs) (cons (nonterminal-name symbol) found)))))))
-         (when references
-           (if (null? references)
-             (publish! (production-lhs production))
-             (let (clause (make-nullable-clause (production-lhs production)
-                                               (length references)))
-               (for-each
-                (lambda (name)
-                  (table-set! dependents name
-                              (cons clause (table-ref dependents name '()))))
-                references))))))
+       (let ((references '()) (nullable? #t) (remaining 0)
+             (owner (table-ref indices (production-lhs production))))
+         (for-each
+          (lambda (value)
+            (let (symbol (base-symbol value))
+              (if (nonterminal-symbol? symbol)
+                (begin
+                  ;; Missing names keep an obligation but have no publisher.
+                  (set! remaining (+ remaining 1))
+                  (let (index (table-ref indices (nonterminal-name symbol) #f))
+                    (when index (set! references (cons index references)))))
+                (set! nullable? #f))))
+          (production-rhs production))
+         (if (zero? remaining)
+           (publish! owner (if nullable? 3 2))
+           (let (clause (make-completion-clause owner (and nullable? remaining) remaining))
+             ;; Register occurrences once, including duplicates, before draining.
+             (for-each (lambda (index)
+                         (vector-set! dependents index
+                                      (cons clause (vector-ref dependents index)))) references)))))
      productions)
-    ;; Each fact is published once and every registered occurrence is visited
-    ;; once. Pure cycles and references without a defining production stay false.
     (let propagate ()
       (unless (null? work)
-        (let (name (car work))
+        (let* ((index (car work)) (delta (vector-ref pending index)))
           (set! work (cdr work))
+          (vector-set! pending index 0)
           (for-each
            (lambda (clause)
-             (let (remaining (- (nullable-clause-remaining clause) 1))
-               (nullable-clause-remaining-set! clause remaining)
-               (when (zero? remaining) (publish! (nullable-clause-owner clause)))))
-           (table-ref dependents name '()))
+             (when (and (not (zero? (bitwise-and delta 1)))
+                        (completion-clause-nullable-remaining clause))
+               (let (remaining (- (completion-clause-nullable-remaining clause) 1))
+                 (completion-clause-nullable-remaining-set! clause remaining)
+                 (when (zero? remaining) (publish! (completion-clause-owner clause) 3))))
+             (when (not (zero? (bitwise-and delta 2)))
+               (let (remaining (- (completion-clause-productive-remaining clause) 1))
+                 (completion-clause-productive-remaining-set! clause remaining)
+                 (when (zero? remaining) (publish! (completion-clause-owner clause) 2)))))
+           (vector-ref dependents index))
           (propagate))))
-    (values (filter (lambda (name) (table-ref nullable name #f)) names) nullable)))
+    ;; Public Boolean tables and first-lhs order are materialized only after both
+    ;; domains converge; queue order and discovery order never escape the solver.
+    (let ((nullable (make-table test: eq?)) (productive (make-table test: eq?))
+          (nullable-names '()) (productive-names '()))
+      (for-each
+       (lambda (name index)
+         (let (bits (vector-ref facts index))
+           (unless (zero? (bitwise-and bits 1))
+             (table-set! nullable name #t) (set! nullable-names (cons name nullable-names)))
+           (unless (zero? (bitwise-and bits 2))
+             (table-set! productive name #t) (set! productive-names (cons name productive-names)))))
+       names (iota count))
+      (values (reverse nullable-names) nullable (reverse productive-names) productive))))
 
-;;; Productivity is finite terminal derivation, including epsilon. Terminals
-;;; satisfy clauses here; they block clauses in nullable analysis.
-(defstruct productive-clause (owner remaining))
+;;; Standalone observations are projections of the same completed solution.
+(def (compute-nullable productions)
+  (let-values (((nullable nullable-index _productive _productive-index)
+                (compute-completion productions)))
+    (values nullable nullable-index)))
 
 (def (compute-productive productions)
-  (let ((names (nonterminals productions))
-        (productive (make-table test: eq?))
-        (dependents (make-table test: eq?))
-        (work '()))
-    (def (publish! name)
-      (unless (table-ref productive name #f)
-        (table-set! productive name #t)
-        (set! work (cons name work))))
-    (for-each
-     (lambda (production)
-       (let (references
-             (filter-map
-              (lambda (value)
-                (let (symbol (base-symbol value))
-                  (and (nonterminal-symbol? symbol) (nonterminal-name symbol))))
-              (production-rhs production)))
-         (if (null? references)
-           (publish! (production-lhs production))
-           (let (clause (make-productive-clause (production-lhs production)
-                                               (length references)))
-             ;; Count occurrences, not unique names: A -> B B has two obligations.
-             (for-each
-              (lambda (name)
-                (table-set! dependents name
-                            (cons clause (table-ref dependents name '()))))
-              references)))))
-     productions)
-    (let propagate ()
-      (unless (null? work)
-        (let (name (car work))
-          (set! work (cdr work))
-          (for-each
-           (lambda (clause)
-             (let (remaining (- (productive-clause-remaining clause) 1))
-               (productive-clause-remaining-set! clause remaining)
-               (when (zero? remaining) (publish! (productive-clause-owner clause)))))
-           (table-ref dependents name '()))
-          (propagate))))
-    (values (filter (lambda (name) (table-ref productive name #f)) names) productive)))
+  (let-values (((_nullable _nullable-index productive productive-index)
+                (compute-completion productions)))
+    (values productive productive-index)))
 
 ;;; LR parser entries require a finite derivation. Dead alternatives/rules stay
 ;;; in the CFG; only an unproductive selected start is an admission error.

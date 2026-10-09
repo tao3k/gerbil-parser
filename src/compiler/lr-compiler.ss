@@ -4,7 +4,7 @@
 (import (only-in :std/iter for in-range)
         (only-in ./funcs compiler-index-set-for-each)
         (only-in ./lr
-                 compute-first compute-nullable compute-productive
+                 compute-first compute-completion
                  validate-resolved-start validate-resolved-repetitions
                  lower-rules lr-spec-ref nonterminal-name nonterminal-symbol?
                  production-action production-id production-precedence production-table
@@ -297,13 +297,12 @@
           (lower-rules rules root (eq? conflict-policy 'selective-glr)))
          (table (production-table productions)))
     (trace-lr-phase 'lowered (length productions) started)
-    (let-values (((nullable nullable-index)
-                  (compute-nullable productions)))
+    (let-values (((nullable nullable-index productive productive-index)
+                  (compute-completion productions)))
       (validate-resolved-repetitions rules nullable-index)
       (trace-lr-phase 'nullable (length nullable) started)
-      (let-values (((productive productive-index) (compute-productive productions)))
-        (validate-resolved-start rules root productive-index)
-        (trace-lr-phase 'productive (length productive) started))
+      (validate-resolved-start rules root productive-index)
+      (trace-lr-phase 'productive (length productive) started)
       (let-values (((first first-index)
                     (compute-first productions nullable-index)))
         (trace-lr-phase 'first (length first) started)

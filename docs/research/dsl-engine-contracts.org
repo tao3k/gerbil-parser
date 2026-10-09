@@ -40,7 +40,7 @@ into prioritized choice or silently substitute another backend.
 |----------------+-----------------------------+--------------------|
 | Author syntax and POO composition | =defgrammar-syntax=, =deflanguage= and =src/compiler/normalize.ss= | Keep future admission and resource mechanics out of language author slots |
 | Resolved repetition and finite LR entry admission | =src/compiler/lr.ss= and =t/resolved-grammar-test.ss= | General predictive choice-equivalence proof; productivity is not lexer realizability |
-| Nullable analysis | Same owner; occurrence counters and reverse dependencies | FIRST uses its own prefix dependency/delta worklist; no general whole-parser complexity claim |
+| Nullable/productivity analysis | Same owner; one completion graph with separate domain counters and coalesced fact deltas | FIRST uses its own prefix dependency worklist; no general whole-parser complexity claim |
 | Selected origin diagnostics | =expressionOrigin= and finite =nullableReferencePath= | Generated helper/conflict origin serialization and unavailable reader coordinates |
 | Source/Command scheduling | =command_program.rs= and =command_source/execution.rs= | Complete byte/allocation/work accounting beyond the live-frame budget |
 | Canonical Source publication | =command_source/publication.rs= and Scheme-native fixtures | Rust GPA1 encoding, diagnostic transport and deep live C handle parity |
@@ -101,6 +101,19 @@ Local qualification completed 52 source Cases, 369 compiled semantic Cases
 in 23 groups, all five independent research entries and an exact complete
 TLA+ LRSpec comparison. The 15.0955 ms complete construction median after adding
 the check is not evidence of acceleration. Exact delivered-head Ubuntu/Rust CI remains a separate receipt.
+
+* Shared completion analysis
+
+[[file:dsl-productive-entry.org::*Joint completion solver: one graph, two meanings][The joint solver contract]] records how nullable/productivity share one indexed
+occurrence graph while preserving their distinct equations. LR construction now
+calls =compute-completion= once. Existing standalone observations project its
+completed result. Nullable implication permits two-bit publication; productivity
+alone cannot imply nullable. FIRST still consumes the complete nullable table.
+Local qualification passed 53 source Cases and 370 compiled semantic Cases in
+23 groups plus the five independent research entries. Same-tier native A/B kept
+complete LRSpec equality; real TLA+ completion facts measured 0.145 → 0.079 ms.
+The full-construction difference (14.715 → 14.525 ms) is too small for a stable
+end-to-end gain claim. Exact-head CI is separate.
 
 * Next implementation sequence
 

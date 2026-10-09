@@ -46,6 +46,8 @@ These are bounds on strict fact additions, not sweep counts, compilation time or
 parser latency. FIRST uses existing indexed terminal masks and decodes them to
 its public table; epsilon is represented by nullable, not a FIRST terminal.
 No widening or duplicate analyzer is needed for these finite domains.
+[[file:dsl-productive-entry.org::*Joint completion solver: one graph, two meanings][Nullable/productivity now share one completion graph]] and publish both completed
+observations; shared scheduling does not identify their two meanings.
 [[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][The productivity implementation contract]] records the LR policy and its controls.
 
 The proof obligations are distinct: lowering preserves the intended grammar

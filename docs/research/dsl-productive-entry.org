@@ -152,3 +152,108 @@ LR Cases passed with =HARNESS-OK=, final =OK= and status zero. The Scheme block
 above was extracted, imported with the production =deflanguage= macro and
 compiled, ending in =PRODUCTIVE-AUTHOR-EXAMPLE-OK=. This verifies its author
 syntax; it is not a new tree-equivalence or performance claim.
+
+* Joint completion solver: one graph, two meanings
+
+The follow-up source baseline is =2a4175ddea8e6c91f82f0dc91a3f91855aeda29e=.
+That revision had separate nullable and productivity occurrence graphs.
+=compute-completion= now registers the production/reference graph once and
+returns both completed ordered name lists and Boolean membership tables.
+=compile-lr-spec= calls it once. Standalone =compute-nullable= and
+=compute-productive= observe the corresponding projections; they do not own
+separate algorithms or graph construction paths. No language-author slot, public
+IR field, schema version or grammar rewrite is added.
+
+** Semantic domain and efficient evaluation
+
+For each defined nonterminal, the private two-bit state has only three semantic
+values: unknown, productive-only, and nullable-and-productive. A finite empty
+word is also a finite terminal word, so nullable admission publishes both bits.
+This invariant does not let productivity publish nullable: a terminal-only exit
+is a direct counterexample. References without a defining lhs retain obligations
+with no publisher; marked operands are interpreted through =base-symbol=.
+
+A private =completion-clause= holds the lhs index and two remaining occurrence
+counts. A terminal disables its nullable counter but satisfies its productive
+obligation. Every nonterminal occurrence is counted, including duplicates.
+Dense lhs indices, vector dependencies/facts/pending deltas and one worklist
+share discovery and scheduling. All dependencies exist before the seed queue
+drains. A queued index accumulates new bits; popping clears its pending delta
+and decrements only the counters corresponding to those new facts.
+
+Each domain's equation is unchanged. Soundness of combined nullable publication
+follows from nullable implies productive; both derivations concatenate already
+justified finite child derivations. Completeness follows from finite derivation
+height as in the separate solvers. Queue exhaustion satisfies both equations,
+and starting with no facts yields their least solutions. Shared scheduling and
+bit coalescing therefore change evaluation work, not the completed facts.
+Each name can publish at most two bits and each registered reference occurrence
+is visited at most twice. With expected constant-time index operations, graph
+preparation/propagation and storage are O(P + R); public list/table publication
+is O(N). One graph is shared, not one undifferentiated Boolean fact.
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, section 3]] supplies the language/fixed-point reading.
+The finite joint domain and dependency schedule above are this engine's design;
+the paper's predictive grammar typing and linear parsing theorem are not claims
+about our LR routes. This refinement does not prove lexical realizability,
+semantic-action termination or general runtime speed.
+
+** Controls and receipt boundary
+
+The independent repeated-scan nullable/productivity oracles both observe the
+joint result across the existing 729 cyclic combinations and eight real LR
+fixture families. New controls distinguish productive-before-nullable from
+coalesced two-bit publication by reversing seed order. They include duplicate
+operands, missing references, terminal-blocked clauses and the empty graph.
+Existing finite exits, productive LR recursion, dead-start admission, selected
+POO origins and conflict/repetition diagnostics retain their independent controls.
+
+Local source qualification completed 53 Cases (36 resolved grammar and
+17 canonical LR), final =OK= and status zero. Formal preparation completed in
+79.21 seconds with unchanged 240-second total/5-second idle contracts. Compiled
+qualification completed 370 Cases in 23 groups plus all five independent
+research entries, final =DSL-RESEARCH-CLOSURE-OK= and =OK= with all exits zero.
+Native cost/equality comparison and delivered-head CI are separate receipts.
+
+The first standalone cost script emitted 20 samples but failed to exit before
+the original idle deadline; its failed receipt is retained and is not a passing
+qualification. The paired measurement entry explicitly exits after reporting.
+Temporary baseline module preparation also exposed an ambiguous package identity;
+explicit =completion-ab= package declarations repaired their generated interfaces
+without changing production modules, timeouts or the compiler backend.
+
+** Matched native cost and complete artifact equality
+
+The baseline functions and complete LR compiler from =2a4175d= were compiled
+into temporary =completion-ab= modules at the same SDK/GCC/optimization tier
+as the current engine. The pair imports those native modules without rebinding
+production procedures. Samples alternate baseline/candidate order in one
+process; explicit GC precedes each timed call and is excluded. Initialization,
+graph preparation, propagation and public result materialization are inside the
+analysis-call timing. Every pair checks complete ordered names and Boolean
+membership. Full construction compares complete LRSpec equality, not a state
+count or isolated kernel. Imports, explicit GC and equality checks are outside
+the timed region. No compiler ran concurrently during the admitted comparison.
+
+| Workload | Samples per side | Separate CPU median (ms) | Joint CPU median (ms) |
+|----------+------------------+--------------------------+----------------------|
+| Epsilon reverse chain 4096 | 7 | 2.341 | 1.334 |
+| Terminal reverse chain 4096 | 7 | 1.799 | 1.022 |
+| Real TLA+ completion facts | 21 | 0.145 | 0.079 |
+| Real TLA+ complete default LALR | 21 | 14.715 | 14.525 |
+
+The completed supervised pair ended =COMPLETION-NATIVE-AB-OK= and status zero
+under the original 90-second total/5-second idle contract (12.98 seconds total).
+Direct invocation also exited zero. Earlier supervised attempts emitted the
+final equality marker but hit the idle deadline during termination; those failures
+are retained, and their underlying termination delay was not stably reproduced.
+Do not treat those attempts as passing costs or claim their root cause repaired.
+The successful comparison is one local-host analysis-call result. The small
+full-construction difference does not establish a stable end-to-end speedup,
+parser throughput improvement or FFI/Rust runtime gain.
+
+The combined LR consumer avoids two graph builds. A standalone projection also
+computes the other domain and is not claimed faster than the prior domain-only
+routine. Future callers needing both facts must call the joint owner once,
+rather than separately request the two projections. Admitted grammar semantics,
+diagnostic precedence and public LRSpec output are unchanged.

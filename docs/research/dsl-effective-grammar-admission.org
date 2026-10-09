@@ -1101,7 +1101,9 @@ The final traversal microcontrol also exited 0 under 60-second total/5-second
 idle limits, elapsed 5.914 seconds. Independent source controls passed 55 Cases
 (37 resolved, 18 canonical), =TEST-SUITE-OK=, =OK= and controller exit 0,
 elapsed 21.592 seconds. Case count includes the one new shared traversal oracle.
-The existing conformance owner will independently admit the compiled form.
+The canonical Suite remains a source-test owner. Compiled conformance
+independently admits consumers of the production engine; it does not rerun this
+canonical Suite.
 
 During this experiment, preceding delivered head =f4606c3= completed Ubuntu
 Scheme/language and Rust AOT CI successfully (run =37901275708=). Those remote
@@ -1114,8 +1116,9 @@ unchanged.
 
 After source and algorithm stabilization, complete preparation exited 0 in
 89.723 seconds with unchanged 240-second total/5-second idle limits. The compiled
-semantic entry passed 373 Cases across 23 groups, including the new traversal
-oracle. Semantic, concise runtime, history, native POO runtime, provenance and
+semantic entry passed 372 Cases across 23 groups. The new traversal oracle is
+covered separately by the 55-Case source control above. Semantic, concise runtime,
+history, native POO runtime, provenance and
 all-language benchmark child entries all exited 0; =DSL-RESEARCH-CLOSURE-OK=
 and =OK= were emitted by the existing Scheme process owner. Preparation is kept
 outside construction CPU measurements; it is still required for delivery.

@@ -9,6 +9,14 @@ link candidate state, bounded recognition and event commit. They lower into
 the existing Scheme event-fold algebra, not a second evaluator or Rust parser.
 No Org node, marker, helper name or runtime configuration belongs here.
 
+=list-event-funs.ss= owns admitted ListLine scanning projections, packed
+indent/kind frames, sibling and dedent transitions, item/container balance,
+paragraph spans, first-blank handling and EOF cleanup. Languages select
+marker-only or separator-inclusive bullet spans and keep their content grammar
+and element precedence. List paragraphs omit unused pending-blank state;
+ordinary paragraph projections retain their declared pending-blank behavior.
+The executor and existing list scanner are unchanged.
+
 =source-boundary-types.ss= and =source-boundary-objects.ss= admit POO
 boundary queries and parent bindings. =source-boundary-funs.ss= composes
 literal and source-named parents through the existing cached native future
@@ -30,7 +38,7 @@ separator recognition; committed closing bytes cannot be consumed twice.
 
 * Rule-instance ownership
 
-All three projections now require an admitted SourceEventScope with an
+Line, list and link projections require an admitted SourceEventScope with an
 explicit rule-instance owner. Private state and table loop identifiers are
 allocated by the engine from UTF-8 hexadecimal owner/role components. The
 result is deterministic, delimiter-safe and valid through Rust identifier
@@ -50,14 +58,18 @@ assembler or prove every remaining Org helper's recursive lifetime.
 * Evidence and remaining work
 
 =just test-line-events OUTPUT LOAD_PATH= compiles the changed engine owners
-and runs four native suites from =t/=. The regular native test catalog already
+and runs five native suites from =t/=. The regular native test catalog already
 discovers those suites; no duplicate CI lane or independent runner is added.
-Thirty cases cover non-Org declarations, escape parity, empty cells, CRLF,
+Thirty-eight cases cover non-Org declarations, escape parity, empty cells, CRLF,
 Unicode coordinates, EOF, named helper parameters, invalid declarations,
 link truncation, adjacent links, recovery scope, overlapping markers and
 parent-aware recovery. Boundary controls distinguish literal stops from
 matching saved parent names, unrelated closers, unknown parents and explicit
 heading/indentation/suffix policies. Invalid declarations fail before execution.
+List controls cover Unicode/CRLF, nesting, dedents, same-column kind changes,
+declared tab width, one/two blank transitions, bullet spans, disabled ordered
+markers, empty source and invalid policies. They require contiguous source
+coverage and balanced nodes rather than only successful execution.
 The focused owner requires final OK and rejects harness errors even when a
 native test command reports a zero process exit.
 The preceding line/link candidate's fresh production build and newly linked
@@ -68,6 +80,10 @@ and exit-42 negative propagation. The final scoped production build and fresh
 =native-scope-convergence-closure= pass 178 cases / 12 suites, final OK and
 the exit-42 failure control without OK. Its scope modules are compiled and
 linked from the final sources, not substituted with a preceding binary.
+The fresh list candidate's production build and newly linked
+=native-list-convergence-closure= pass 178 cases / 12 suites, final OK and
+the deliberate exit-42 failure control without OK. List/block continuation,
+counters, checkboxes, tags and recovery remain covered by the consumer suite.
 These are candidate-path receipts, not exact-head CI or admission
 of the unchanged downstream dependency pin.
 
@@ -75,7 +91,7 @@ This closes these algorithms' implementation ownership only. A complete
 LineStructure-to-native compiler, complete nesting/recovery,
 nested scanner composition, complete state/helper ownership, inline dispatch,
 Source coordinate services and native artifact lease ownership remain open.
-The existing helper frames isolate invocations. Table, paragraph and link
+The existing helper frames isolate invocations. Table, paragraph, list and link
 private state now has explicit rule scopes, with repeated-instance controls;
 the remaining helper/domain state and whole-program ownership still require
 admission. Language semantic/AOT/FFI and matched

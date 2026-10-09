@@ -21,7 +21,7 @@
         make-line-structure make-heading-line make-block-line make-text-line
         make-table-line make-list-line make-key-line
         make-key-value-line make-block-header make-inline-link make-heading-fields
-        line-structure? heading-line? block-line? text-line? key-value-line? table-line?
+        line-structure? heading-line? block-line? text-line? key-value-line? table-line? list-line?
         line-structure-heading line-structure-blocks line-structure-text
         line-structure-table line-structure-list line-structure-key-lines
         heading-line-marker heading-line-separator
@@ -314,3 +314,6 @@
   (admitted-line? KeyValueLineContract value))
 (def (table-line? value)
   (admitted-line? TableLineContract value))
+
+(def (list-line? value)
+  (admitted-line? ListLineContract value))

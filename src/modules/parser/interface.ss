@@ -12,6 +12,7 @@
         ./source-event-scope-objects
         ./source-event-scope-funs
         ./line-event-funs
+        ./list-event-funs
         ./inline-link-event-funs
         ./source-boundary-types
         ./source-boundary-objects
@@ -25,6 +26,7 @@
         (import: ./source-event-scope-objects)
         (import: ./source-event-scope-funs)
         (import: ./line-event-funs)
+        (import: ./list-event-funs)
         (import: ./inline-link-event-funs)
         (import: ./source-boundary-types)
         (import: ./source-boundary-objects)

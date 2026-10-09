@@ -85,6 +85,12 @@
            path))
        '("compiled-language-artifacts" "compiled-language-parser-cache"
          "compiled-language-declaration-cache" "compiled-language-program-cache")))
+(def (conformance-generated-object? path library)
+  ;; Native object option records are successful build products, not dependencies.
+  ;; Source/GSC/options owners remain inputs; contain this exclusion in static/.
+  (and (string-prefix? (string-append (path-expand "static" library) "/") path)
+       (or (string-suffix? ".c" path) (string-suffix? ".o" path)
+           (string-suffix? ".o.options.sexp" path))))
 (def (preparation-record path)
   (and (file-exists? path)
        (with-catch (lambda (_) #f)
@@ -199,8 +205,7 @@
         (filter (lambda (path)
                   (not (or (owned-product? path)
                            (conformance-generated-cache? path library)
-                           (and (string-contains path "/static/")
-                                (or (string-suffix? ".c" path) (string-suffix? ".o" path))))))
+                           (conformance-generated-object? path library))))
                 (preparation-files library))
         (preparation-files (path-expand "pkg" (getenv "GERBIL_PATH")))
         (preparation-files (path-expand "include" home))

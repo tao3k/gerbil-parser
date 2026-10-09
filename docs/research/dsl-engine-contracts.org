@@ -142,3 +142,19 @@ control and measurement boundary before adding a new abstraction. POO remains
 the public extension mechanism where values are extensible; private algorithm
 state uses named functions and compact records. No new loader schema or public
 compatibility mode follows from this research sequence.
+
+* Compiled declaration-test host contract
+
+Declarative syntax/source checks must not turn input AST depth into native call
+stack growth. Their engine-owned inspection uses explicit frames with lexical
+port authority; language authors add neither traversal nor output exceptions.
+Deep rejection, legal fixture capture and shadowed-port controls exercise the
+same compiled semantic entry used by CI.
+
+Large expanded test objects retain the immutable SDK's optimizer and tail-call
+contract. Their builder selects Gambit's per-procedure C hosts, preventing one
+expanded Suite from becoming a giant C optimization unit. Production objects
+retain SDK defaults. Effective object options participate in
+cache reuse, with success-only Scheme identity records. Full preparation still
+proves the source/SDK closure. See the [[file:dsl-effective-grammar-admission.org][admission study]] for Ubuntu stack evidence,
+rejected alternatives and delivered-head qualification limits.

@@ -29,12 +29,13 @@
 (def (replace-extension path extension)
   (string-append (path-strip-extension path) extension))
 (def (test-object-options source options)
-  ;; Semantic test bodies do not need C optimization; production objects keep
-  ;; the SDK defaults. Large expanded test suites otherwise stall GCC passes.
+  ;; Keep the SDK's optimizer and trusted tail-host contract. Split large test
+  ;; modules into Gambit's per-procedure C hosts instead of one giant function;
+  ;; -O0 would invalidate tail-call elimination on older GCC.
   (let (name (path-strip-directory source))
     (if (or (string-prefix? "gerbil-parser__t__" name)
             (string-suffix? "__parser-test.scm" name))
-      (string-append options " -O0") options)))
+      (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS") options)))
 (def (newer? source target)
   (or (not (file-exists? target))
       (> (time->seconds (file-info-last-modification-time (file-info source)))
@@ -143,11 +144,20 @@
                                     "-e" compiler-progress-expression source])
                 (displayln "STATIC-TRANSLATED " source) (force-output))
 
-              (when (newer? c-file target)
-                (displayln "STATIC-OBJECT " c-file) (force-output)
-                (run-compiler [gsc "-verbose" "-cc-options" (test-object-options source cc-options)
-                                   "-obj" "-o" target c-file])
-                (displayln "STATIC-OBJECT-READY " c-file) (force-output)))))
+              (let* ((options (test-object-options source cc-options))
+                     (stamp (string-append target ".options.sexp"))
+                     (identity (list gsc options)))
+                ;; Timestamp freshness alone cannot prove that an object was
+                ;; built with the current C host contract. Publish only on success.
+                (when (or (newer? c-file target)
+                          (not (file-exists? stamp))
+                          (not (equal? identity (call-with-input-file stamp read))))
+                  (displayln "STATIC-OBJECT " c-file) (force-output)
+                  (when (file-exists? stamp) (delete-file stamp))
+                  (run-compiler [gsc "-verbose" "-cc-options" options
+                                     "-obj" "-o" target c-file])
+                  (call-with-output-file stamp (lambda (port) (write identity port)))
+                  (displayln "STATIC-OBJECT-READY " c-file) (force-output))))))
         (for-each (lambda (source)
           (unless (file-exists? (replace-extension source ".o"))
             (error "native library object is missing" source))) sources)

@@ -653,3 +653,173 @@ independent research entries exited 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=.
 This local Darwin/GCC result does not resolve the repeated Ubuntu signal or the
 full TLA+ FOLLOW determinization workload. The delivered head needs its own
 Ubuntu result; the failure-only GDB step is prepared, not locally executed.
+
+* SCC epsilon-closure experiment: rejected for complete construction
+
+** Paper transfer and invariant
+
+[[https://www.cs.cmu.edu/~cdm/resources/Tarjan1972-sccs.pdf][Tarjan, Depth-First Search and Linear Graph Algorithms (1972), section 4]]
+provides the DFS numbering, active stack and lowlink SCC algorithm. The proposed
+engine transfer was an explicit DFS stack, followed by completed reachability
+masks in sink-first component order. For a component C, its closure is its member
+mask union the closures of all outgoing components. For a seed set S, closure(S)
+is the union of its component closures. A seed already contained in the result
+can be skipped, since its own closure is contained there too.
+
+This is an engine implementation experiment, not a new grammar declaration or
+POO slot. Tarjan's linear graph traversal bound does not make all reachability
+masks linear: bigint operations, component closure materialization and retained
+mask size remain additional costs. It also does not remove subset-construction
+state growth. No parser runtime, FFI or Rust throughput follows from this study.
+
+** Semantic and complete-cost controls
+
+Baseline was exact revision =07a1f9c=, compiled under a separate temporary package
+with the same Gerbil/GCC SDK, optimization and static settings. An independent
+BFS oracle matched all 512 directed three-node graphs and all eight initial sets
+(4096 comparisons), plus empty graph, 4096-node chain and 4096-node cycle controls.
+The initial candidate passed 55 focused Cases, final =TEST-SUITE-OK= and =OK=,
+exit 0 in 19.811 seconds. Both subsequent complete-output runs matched five
+grammar families through all five LR modes: 25 complete LRSpec pairs each.
+
+The final experiment completed sink leaves without DFS frames, used direct
+single-seed queries and skipped seeds already reached. One exclusive Scheme
+process alternated old/new order, forced GC before each call and checked exact
+results outside timed intervals. Closure timings include preparation and queries
+for every singleton seed, not just a warm lookup. Complete LR timings include
+all compiler analyses and publication. No concurrent build or test was running.
+
+| Workload | Pairs | Baseline CPU ms | SCC CPU ms |
+|----------+-------+-----------------+------------|
+| 128-node chain, all seeds | 7 | 1.419 | 0.094 |
+| 128-node cycle, all seeds | 7 | 2.416 | 0.076 |
+| 512-node chain, all seeds | 7 | 42.379 | 0.330 |
+| 512-node cycle, all seeds | 7 | 78.736 | 0.279 |
+| 1024-node chain, all seeds | 7 | 243.973 | 0.744 |
+| 1024-node cycle, all seeds | 7 | 446.493 | 0.635 |
+| Mixed-context complete FOLLOW, 8 regions | 21 | 1.444 | 1.502 |
+| Mixed-context complete FOLLOW, 24 regions | 21 | 4.097 | 4.214 |
+| Mixed-context complete FOLLOW, 48 regions | 21 | 9.935 | 10.171 |
+| Distinct-exit recursive grammar, 8 rules | 7 | 0.149 | 0.133 |
+| Distinct-exit recursive grammar, 16 rules | 7 | 0.230 | 0.233 |
+| Distinct-exit recursive grammar, 32 rules | 7 | 0.433 | 0.422 |
+
+These are local CPU medians, without allocation or GC-count measurements. Final
+process emitted =SCC-NATIVE-AB-OK= and exited 0 in 12.353 seconds under unchanged
+120-second total/5-second idle limits. Earlier candidates also increased all
+three mixed-context complete medians. The final small recursive-grammar results
+are mixed and too small to justify a general complete-construction speedup.
+
+A separate actual TLA+ FOLLOW construction still hit the five-second idle limit,
+exit 70/CLI 124 in 9.427 seconds, with its required completion marker absent.
+That probe is a failure, not an admitted cost. Its last real trace was completed
+LR(0) lookahead propagation; it does not localize the candidate's later stall.
+The earlier baseline phase diagnostic located determinization after 16 backward
+refinement rounds. Neither observation proves repeated epsilon BFS is the
+principal cost of that workload.
+
+** Decision and next experiment
+
+The SCC implementation and its temporary semantic Case were removed before
+publication. Complete mixed-context construction regressed approximately 2–4%
+even after the structural fast paths. Synthetic closure gains cannot substitute
+for improvement in the consumer. The delivered engine retains the previous
+closure algorithm and test ownership; no unused SCC API or compatibility mode
+is added.
+
+The next experiment needs actual graph/block counts after forward refinement,
+SCC distribution, determinized state/transition counts and complete phase costs
+on the failing TLA+ workload. Instrumentation must report completed work and
+retain the five-second no-progress gate. It must distinguish refinement cost,
+closure work and subset state growth before selecting another algorithm. A
+future demand-driven component cache requires exact complete-output controls,
+preparation-inclusive cost and memory accounting; no size threshold is justified
+by this rejected experiment.
+
+* Ubuntu compiled AST contract: explicit traversal frames
+
+The failure-only GDB replay of =07a1f9c= in
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37894856785/job/113703791578][Ubuntu job 113703791578]]
+caught SIGSEGV at =___H___kernel= followed by hundreds of identical frames in
+=___H_gerbil_2d_parser____t____test_2d_style_2d_contract_2d_test=, immediately after
+=all parser tests avoid display assertions=. This identifies the failing process
+and repeated module stack; it does not establish a Gerbil toolchain defect or
+source line. The replay exited 255 and the original semantic gate remained failed.
+
+The retained code change replaces recursive AST conjunctions with an explicit
+pending-frame list. Each frame carries the form and its lexical owned-port set.
+Quoted data remains inert, captured fixture writes retain their owned port,
+forbidden calls still reject, and shadowing lambdas remove inherited authority.
+Capture arguments and handler expressions are queued individually, so a bare
+=quote= argument/body cannot suppress checking a later forbidden expression.
+There is no compiler change, deadline extension or skipped source inspection.
+
+One additional Case checks 20000 nested wrappers around a forbidden call,
+20000 sibling assertions, deeply nested legal fixture writes and shadowed-port
+rejection. Existing contract Cases retain quoted negative fixtures and Rust text
+assembly restrictions. The same Case is owned by the source Suite and compiled
+semantic entry. Ubuntu confirmation belongs to the new delivered head; a local
+Darwin pass cannot by itself close the observed Linux crash.
+
+** C host tail-call contract and object-cache identity
+
+The Ubuntu compiler log identifies GCC 13.3, =-D___TRUST_C_TCO= and a final =-O0=
+for the AST contract object. In the pinned SDK's =gambit.h=, trusted host exits
+use mandatory =musttail= only when the C compiler advertises it. Otherwise they
+use an ordinary return-call, while =___USE_PROPER_TAIL_CALL_EXCLUSIVELY_TO_EXIT_HOST=
+removes stack-trip recovery. [[https://gcc.gnu.org/gcc-15/changes.html][GCC's release notes]] record mandatory statement
+tail calls as a GCC 15 addition. A local GCC 13 =-O0 -foptimize-sibling-calls=
+control still generated a call and return, rather than a tail branch. This
+explains why merely moving the explicit flag after =-O0= would not prove safety.
+
+The retained test-object policy preserves the SDK optimizer and trusted tail-host
+contract, and selects =-U___SINGLE_HOST -D___MULTIPLE_HOSTS=. The pinned header
+supports this module-local selection explicitly. Each Scheme procedure has its
+own C host, so GCC no longer optimizes one giant expanded test-module function.
+Production objects keep their SDK single-host mode. This changes compilation
+granularity without changing the compiler, heap limit, public DSL or test suite
+ownership. Complete semantic execution and build progress are required controls;
+header-size equality alone is insufficient.
+
+Two rejected host-policy experiments are retained here. Removing
+=___TRUST_C_TCO= selected stack-trip recovery and required
+=___unwind_c_stack_to_trampoline=, absent from this immutable SDK. Native linking
+failed (qualification exit 70 in 141.017 seconds). A per-test centralized
+trampoline instead preserved local state sizes but the complete executable had
+no semantic progress and hit the unchanged five-second idle gate. That binary
+is rejected. The GCC 13 header control had matched global-state size 4064,
+processor-state size 960, OS offset 648 and memory offset 688 on Darwin ARM64;
+this layout receipt did not prove compatibility with the SDK's execution
+strategy. Neither rejected option is part of the retained code.
+
+Objects now retain an adjacent Scheme =.options.sexp= identity containing the
+GSC path and effective per-object C options. Missing or changed identity forces
+recompilation even if source timestamps are unchanged. The identity is published
+only after successful compilation. Source timestamp checks remain; preparation
+continues to own immutable SDK/input identity. This prevents the new tail-host
+policy from silently reusing previously compiled unsafe test objects.
+
+The first centralized preparation linked successfully but rejected its final
+snapshot: new option records had been classified as dependency inputs. That
+attempt exited 70 in 80.054 seconds and is not an admitted preparation. The final
+classification excludes only generated C/object/option products beneath the
+library's =static/= directory. Independent cache controls publish a new option
+record during preparation, prove the next call reuses the result, then change
+the dependency interface and require rebuilding. Negative controls keep SCM,
+SSI, records outside =static/= and =static-extra/= siblings in the input domain.
+Failed object builds invalidate the previous option record before compilation,
+so a partially overwritten object cannot retain its earlier success identity.
+
+** Retained implementation receipt
+
+After the per-procedure host policy and option-record classification stabilized,
+complete preparation exited 0 in 128.332 seconds under unchanged 240-second
+total/5-second idle limits. The compiled semantic entry passed 372 Cases across
+23 groups, including the 20000-depth AST controls. It and all five independent
+research entries exited 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=. This is local
+Darwin/GCC execution evidence; Linux closure requires the delivered Ubuntu run.
+The rejected SCC experiment supplies no claimed compiler/runtime speedup.
+The following identical full preparation emitted =CONFORMANCE-CACHE-HIT= and
+exited 0 in 16.838 seconds, without recompilation. Its content inventory and
+hashing are included in that wall time; this is cache correctness evidence,
+not a parser throughput measurement.

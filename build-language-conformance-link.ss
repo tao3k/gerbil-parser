@@ -28,6 +28,13 @@
   (delete-duplicates/hash paths from-end?: #t))
 (def (replace-extension path extension)
   (string-append (path-strip-extension path) extension))
+(def (test-object-options source options)
+  ;; Semantic test bodies do not need C optimization; production objects keep
+  ;; the SDK defaults. Large expanded test suites otherwise stall GCC passes.
+  (let (name (path-strip-directory source))
+    (if (or (string-prefix? "gerbil-parser__t__" name)
+            (string-suffix? "__parser-test.scm" name))
+      (string-append options " -O0") options)))
 (def (newer? source target)
   (or (not (file-exists? target))
       (> (time->seconds (file-info-last-modification-time (file-info source)))
@@ -138,7 +145,7 @@
 
               (when (newer? c-file target)
                 (displayln "STATIC-OBJECT " c-file) (force-output)
-                (run-compiler [gsc "-verbose" "-cc-options" cc-options
+                (run-compiler [gsc "-verbose" "-cc-options" (test-object-options source cc-options)
                                    "-obj" "-o" target c-file])
                 (displayln "STATIC-OBJECT-READY " c-file) (force-output)))))
         (for-each (lambda (source)

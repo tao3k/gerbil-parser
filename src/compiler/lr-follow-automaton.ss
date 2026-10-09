@@ -24,6 +24,14 @@
                  make-core-suffix-catalog))
 (export build-states-via-follow-partition-lr1)
 
+;; Report completed compiler work only. The existing LR trace switch owns
+;; observability; there is no timer/heartbeat or changed qualification deadline.
+(def (trace-follow-work phase count (total #f))
+  (when (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")
+    (displayln "[gerbil-parser-follow] phase=" phase " count=" count
+               (if total (string-append " total=" (number->string total)) ""))
+    (force-output)))
+
 (def (make-follow-core-metadata productions table first nullable
                                 layout core-symbols terminal-index)
   (let ((result (make-vector (vector-length core-symbols) #f))
@@ -294,6 +302,7 @@
         (let refine ((ids initial) (group-count initial-count))
           (let-values (((next next-count)
                         (refine-group-ids ids group-count)))
+            (trace-follow-work 'forward-refinement next-count count)
             ;; A singleton partition is already stable: no block can split
             ;; further, so skip the otherwise mandatory confirmation round.
             (if (and (> next-count group-count) (< next-count count))
@@ -396,124 +405,148 @@
       (set! start
             (follow-block-ref
              index 0 (table-ref terminal-index +lr-eof+))))
+    (trace-follow-work 'nfa-edges block-count)
     (let-values (((merged merged-shifts merged-epsilons merged-start)
                   (forward-refine-blocks
                    blocks shift-edges epsilon-edges start core-symbols)))
+      (trace-follow-work 'forward-complete (vector-length merged) block-count)
       (set! blocks merged)
       (set! shift-edges merged-shifts)
       (set! epsilon-edges merged-epsilons)
       (set! start merged-start)
       (set! block-count (vector-length merged)))
-    (let ((states (list->ExtensibleVector '()))
-          (transitions (list->ExtensibleVector '()))
-          (state-index (make-table test: equal?))
-          (queue (stdq-make-Queue))
-          ;; Epsilon closure distributes over union. Cache singleton closures
-          ;; only for large quotients, where repeated traversals dominate.
-          (closure-cache (and (>= block-count 3500)
-                              (make-vector block-count #f))))
-      (def (intern! closure)
-        (let (existing (table-ref state-index closure #f))
-          (if existing
-            existing
-            (let (id (ExtensibleVector-push! states closure))
-              (ExtensibleVector-push! transitions '())
-              (table-set! state-index closure id)
-              (stdq-enqueue! queue id)
-              id))))
-      (intern! (if closure-cache
-                 (epsilon-closure/memo
-                  (compiler-index-set-singleton start)
-                  epsilon-edges closure-cache)
-                 (epsilon-closure
-                  (compiler-index-set-singleton start) epsilon-edges)))
-      (let drain ()
-        (unless (stdq-queue-empty? queue)
-          (let* ((state (stdq-dequeue! queue))
-                 (closure (ExtensibleVector-ref states state))
-                 (symbol-targets (make-table test: equal?))
-                 (symbols '()))
-            (compiler-index-set-for-each
-             closure
-             (lambda (block)
-               (let* ((core (car (vector-ref blocks block)))
-                      (symbol (vector-ref core-symbols core))
-                      (target (vector-ref shift-edges block)))
-                 (unless (zero? target)
-                   (unless (table-ref symbol-targets symbol #f)
-                     (set! symbols (cons symbol symbols)))
-                   (table-set!
-                    symbol-targets symbol
-                    (compiler-index-set-union
-                     (table-ref symbol-targets symbol 0) target))))))
-            (for-each
-             (lambda (symbol)
-               (let* ((next-closure
-                       (if closure-cache
-                         (epsilon-closure/memo
-                          (table-ref symbol-targets symbol)
-                          epsilon-edges closure-cache)
-                         (epsilon-closure
-                          (table-ref symbol-targets symbol) epsilon-edges)))
-                      (target (intern! next-closure)))
-                 (ExtensibleVector-set!
-                  transitions state
-                  (cons (cons symbol target)
-                        (ExtensibleVector-ref transitions state)))))
-             (reverse symbols))
-            (ExtensibleVector-set!
-             transitions state
-             (reverse (ExtensibleVector-ref transitions state)))
-            (drain))))
-      (let* ((count (ExtensibleVector-fill-pointer states))
-             (output-states (make-vector count '()))
-             (offsets (make-vector (+ count 1) 0))
-             (core-masks (make-vector (vector-length metadata) 0))
-             (item-count 0))
-        (let state-loop ((state 0))
-          (when (< state count)
-            (let ((cores '()))
+    (let ((shift-sources 0)
+          (shift-labels (make-vector block-count #f))
+          (label-index (make-table test: equal?))
+          (label-values (list->ExtensibleVector '())))
+      (let index-shifts ((block 0))
+        (when (< block block-count)
+          (unless (zero? (vector-ref shift-edges block))
+            (let* ((core (car (vector-ref blocks block)))
+                   (symbol (vector-ref core-symbols core))
+                   (label (table-ref label-index symbol #f)))
+              (unless label
+                (set! label (ExtensibleVector-push! label-values symbol))
+                (table-set! label-index symbol label))
+              (vector-set! shift-labels block label)
+              (set! shift-sources (compiler-index-set-add shift-sources block))))
+          (index-shifts (+ block 1))))
+      (let ((states (list->ExtensibleVector '()))
+            (symbol-targets (make-vector (ExtensibleVector-fill-pointer label-values) 0))
+            (transitions (list->ExtensibleVector '()))
+            (state-index (make-table test: equal?))
+            (queue (stdq-make-Queue))
+            ;; Epsilon closure distributes over union. Cache singleton closures
+            ;; only for large quotients, where repeated traversals dominate.
+            (closure-cache (and (>= block-count 3500)
+                                (make-vector block-count #f))))
+        (def (intern! closure)
+          (let (existing (table-ref state-index closure #f))
+            (if existing
+              existing
+              (let (id (ExtensibleVector-push! states closure))
+                (ExtensibleVector-push! transitions '())
+                (table-set! state-index closure id)
+                (stdq-enqueue! queue id)
+                id))))
+        (intern! (if closure-cache
+                   (epsilon-closure/memo
+                    (compiler-index-set-singleton start)
+                    epsilon-edges closure-cache)
+                   (epsilon-closure
+                    (compiler-index-set-singleton start) epsilon-edges)))
+        (let drain ()
+          (unless (stdq-queue-empty? queue)
+            (let* ((state (stdq-dequeue! queue))
+                   (closure (ExtensibleVector-ref states state))
+                   (symbols '()))
+              ;; Completed/nonshifting items remain in state identity and output,
+              ;; but cannot contribute a labeled successor. Visit only shift sources.
               (compiler-index-set-for-each
-               (ExtensibleVector-ref states state)
+               (bitwise-and closure shift-sources)
                (lambda (block)
-                 (let* ((entry (vector-ref blocks block))
-                        (core (car entry))
-                        (known (vector-ref core-masks core)))
-                   (when (zero? known)
-                     (set! cores (cons core cores)))
-                   (vector-set! core-masks core
-                                (compiler-index-set-union
-                                 known (cdr entry))))))
-              (let (ordered (list-sort < cores))
-                (vector-set! output-states state
-                             (cons ordered
-                                   (map (lambda (core)
-                                          (let (mask (vector-ref core-masks core))
-                                            (vector-set! core-masks core 0)
-                                            mask))
-                                        ordered)))
-                (vector-set! offsets state item-count)
-                (set! item-count (+ item-count (length ordered)))))
-            (state-loop (+ state 1))))
-        (vector-set! offsets count item-count)
-        (let ((lookaheads (make-vector item-count 0))
-              (state-cores (make-vector count '()))
-              (node 0))
-          (let fill ((state 0))
+                 (let* ((label (vector-ref shift-labels block))
+                        (known (vector-ref symbol-targets label)))
+                   (when (zero? known) (set! symbols (cons label symbols)))
+                   (vector-set! symbol-targets label
+                     (compiler-index-set-union known (vector-ref shift-edges block))))))
+              (for-each
+               (lambda (label)
+                 (let* ((symbol (ExtensibleVector-ref label-values label))
+                        (targets (vector-ref symbol-targets label))
+                        (next-closure
+                         (if closure-cache
+                           (epsilon-closure/memo
+                            targets
+                            epsilon-edges closure-cache)
+                           (epsilon-closure
+                            targets epsilon-edges)))
+                        (target (intern! next-closure)))
+                   ;; Clear only touched labels before the next state's scan.
+                   (vector-set! symbol-targets label 0)
+                   (ExtensibleVector-set!
+                    transitions state
+                    (cons (cons symbol target)
+                          (ExtensibleVector-ref transitions state)))))
+               (reverse symbols))
+              (ExtensibleVector-set!
+               transitions state
+               (reverse (ExtensibleVector-ref transitions state)))
+              (when (zero? (modulo (+ state 1) 128))
+                (trace-follow-work 'dfa-states (+ state 1) (ExtensibleVector-fill-pointer states)))
+              (drain))))
+        (trace-follow-work 'dfa-complete (ExtensibleVector-fill-pointer states))
+        (let* ((count (ExtensibleVector-fill-pointer states))
+               (output-states (make-vector count '()))
+               (offsets (make-vector (+ count 1) 0))
+               (core-masks (make-vector (vector-length metadata) 0))
+               (item-count 0))
+          (let state-loop ((state 0))
             (when (< state count)
-              (let ((entry (vector-ref output-states state)))
-                (vector-set! state-cores state (car entry))
-                (for-each
-                 (lambda (mask)
-                   (vector-set! lookaheads node mask)
-                   (set! node (+ node 1)))
-                 (cdr entry)))
-              (fill (+ state 1))))
-          (values state-cores count lookaheads offsets
-                  (materialize-transitions
-                   (ExtensibleVector->vector transitions) count)
-                  terminal-values layout core-symbols
-                  block-count item-count))))))
+              (let ((cores '()))
+                (compiler-index-set-for-each
+                 (ExtensibleVector-ref states state)
+                 (lambda (block)
+                   (let* ((entry (vector-ref blocks block))
+                          (core (car entry))
+                          (known (vector-ref core-masks core)))
+                     (when (zero? known)
+                       (set! cores (cons core cores)))
+                     (vector-set! core-masks core
+                                  (compiler-index-set-union
+                                   known (cdr entry))))))
+                (let (ordered (list-sort < cores))
+                  (vector-set! output-states state
+                               (cons ordered
+                                     (map (lambda (core)
+                                            (let (mask (vector-ref core-masks core))
+                                              (vector-set! core-masks core 0)
+                                              mask))
+                                          ordered)))
+                  (vector-set! offsets state item-count)
+                  (set! item-count (+ item-count (length ordered)))))
+              (when (zero? (modulo (+ state 1) 128))
+                (trace-follow-work 'state-items (+ state 1) count))
+              (state-loop (+ state 1))))
+          (vector-set! offsets count item-count)
+          (let ((lookaheads (make-vector item-count 0))
+                (state-cores (make-vector count '()))
+                (node 0))
+            (let fill ((state 0))
+              (when (< state count)
+                (let ((entry (vector-ref output-states state)))
+                  (vector-set! state-cores state (car entry))
+                  (for-each
+                   (lambda (mask)
+                     (vector-set! lookaheads node mask)
+                     (set! node (+ node 1)))
+                   (cdr entry)))
+                (fill (+ state 1))))
+            (values state-cores count lookaheads offsets
+                    (materialize-transitions
+                     (ExtensibleVector->vector transitions) count)
+                    terminal-values layout core-symbols
+                    block-count item-count)))))))
 
 (def (canonical-at-conflict-lower-bound? trial)
   (let* ((states (list-ref trial 0))
@@ -629,6 +662,7 @@
               (let-values (((refined blocks index rounds)
                             (refine-follow-blocks
                              initial metadata (vector-length terminal-values))))
+                (trace-follow-work 'backward-complete (vector-length blocks) rounds)
                 (determinize-follow-blocks
                  blocks index metadata terminal-values layout
                  core-symbols))))))

@@ -145,18 +145,23 @@
                 (displayln "STATIC-TRANSLATED " source) (force-output))
 
               (let* ((options (test-object-options source cc-options))
-                     (stamp (string-append target ".options.sexp"))
+                     (stamp (and (not (equal? options cc-options))
+                                 (string-append target ".options.sexp")))
                      (identity (list gsc options)))
-                ;; Timestamp freshness alone cannot prove that an object was
-                ;; built with the current C host contract. Publish only on success.
+                ;; A changed test-host policy needs explicit option admission.
+                ;; Production policy is unchanged: preserve its existing reuse;
+                ;; the preparation owner already proves source/SDK/environment.
+                ;; Publish an option identity only after successful compilation.
                 (when (or (newer? c-file target)
-                          (not (file-exists? stamp))
-                          (not (equal? identity (call-with-input-file stamp read))))
+                          (and stamp
+                               (or (not (file-exists? stamp))
+                                   (not (equal? identity (call-with-input-file stamp read))))))
                   (displayln "STATIC-OBJECT " c-file) (force-output)
-                  (when (file-exists? stamp) (delete-file stamp))
+                  (when (and stamp (file-exists? stamp)) (delete-file stamp))
                   (run-compiler [gsc "-verbose" "-cc-options" options
                                      "-obj" "-o" target c-file])
-                  (call-with-output-file stamp (lambda (port) (write identity port)))
+                  (when stamp
+                    (call-with-output-file stamp (lambda (port) (write identity port))))
                   (displayln "STATIC-OBJECT-READY " c-file) (force-output))))))
         (for-each (lambda (source)
           (unless (file-exists? (replace-extension source ".o"))

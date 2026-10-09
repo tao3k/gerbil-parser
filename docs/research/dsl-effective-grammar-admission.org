@@ -792,7 +792,7 @@ processor-state size 960, OS offset 648 and memory offset 688 on Darwin ARM64;
 this layout receipt did not prove compatibility with the SDK's execution
 strategy. Neither rejected option is part of the retained code.
 
-Objects now retain an adjacent Scheme =.options.sexp= identity containing the
+Test objects now retain an adjacent Scheme =.options.sexp= identity containing the
 GSC path and effective per-object C options. Missing or changed identity forces
 recompilation even if source timestamps are unchanged. The identity is published
 only after successful compilation. Source timestamp checks remain; preparation
@@ -823,3 +823,172 @@ The following identical full preparation emitted =CONFORMANCE-CACHE-HIT= and
 exited 0 in 16.838 seconds, without recompilation. Its content inventory and
 hashing are included in that wall time; this is cache correctness evidence,
 not a parser throughput measurement.
+
+* Static labeled-successor facts in FOLLOW subset construction
+
+** Paper and workload diagnosis
+
+[[https://arxiv.org/pdf/cs/0612120][Ranzato and Tapparo, Generalizing the Paige-Tarjan Algorithm by Abstract Interpretation]]
+(section 1, pages 1–2) separates a stable partition's correctness from the
+algorithm that reaches it. The transfer here treats the completed FOLLOW
+quotient and its labeled successor relation as immutable facts during subset
+construction. The existing reverse/predecessor refinement remains unchanged;
+no logarithmic partition-refinement bound is claimed for this implementation.
+
+An isolated baseline copied from =f6dfc3b= recorded completed work on the actual
+TLA+ grammar. It finished 16 backward refinement rounds (8888 NFA blocks), 23
+forward rounds (3984 quotient blocks), and 8149 DFA states. It exited 0 with the
+required full-construction marker in 16.438 seconds. A separate exclusive CPU
+diagnostic reported NFA edges 121.001 ms, forward refinement 648.036 ms and DFA
+construction 6974.526 ms; that process exited 0 in 18.647 seconds. These phase
+costs include diagnostic output and are target-selection evidence, not matched
+speedup measurements. Output-item publication is outside the DFA phase cost.
+
+The prior idle-limit failures did not prove a process wait or an infinite
+computation. Real completed-state output let this workload finish under the
+unchanged 90-second total/5-second idle limits. State growth and its cost remain.
+The retained engine trace uses the existing =GERBIL_PARSER_LR_TRACE= switch:
+completed backward/forward partitions, NFA edges, every 128 processed DFA states,
+and every 128 published state-item rows. A quiet computation still fails the
+original idle gate; there is no timer-based output or heartbeat.
+
+** Indexed successor accumulation and invariant
+
+After the forward quotient is complete, the engine indexes each shift-bearing
+block's label once. Let M contain precisely the blocks whose shift target mask
+is nonzero. For a DFA state S and label a, the original target is:
+
+=epsilon-closure(union { shift(q) | q in S, label(q) = a })=.
+
+Intersecting S with M before enumeration gives the same union, since blocks
+outside M contribute zero. A dense local vector accumulates target masks by
+indexed label; the first visit to a zero slot records the label for this state.
+Only touched slots are cleared before processing the next state. Blocks are
+visited in ascending original index order, and first-seen labels retain their
+order. The engine therefore interns successor states in the original order.
+
+The full epsilon-closed state S remains the state identity and the input to
+output-item publication. Completed/nonshifting items, lookahead masks and reduce
+behavior remain present. The epsilon-closure algorithm, its cache admission,
+partition boundaries, conflict policy and output materialization are unchanged.
+Each complete compiler invocation owns its scratch row; concurrent invocations
+share no mutable row. This introduces no language-author metadata or POO slot.
+
+Static label hashing and core/symbol lookup happen once per shift-bearing NFA
+block. The hot state loop scans only those blocks and uses vector accumulation;
+it no longer creates a symbol hash table per state or hashes each visited block's
+symbol. Extra storage is one block-label vector, one shift-source mask, one
+label catalog and one target row. Bigint operations and subset state growth
+retain their existing costs; allocation and GC counts require separate evidence.
+
+** Complete outputs and matched CPU cost
+
+An independent baseline package retained the original algorithm with the same
+completed-work trace as the candidate. Both used the same Gerbil/GCC SDK,
+optimization and static settings. One exclusive Scheme process alternated call
+order, forced GC before each call and compared entire LRSpec afterward. Imports,
+explicit GC and comparisons are outside the timed intervals. Index construction,
+all compiler analyses, in-call collections and full publication are inside.
+Trace settings were identical for baseline/candidate; these are traced-call costs.
+
+Five grammar families matched all five LR modes (25 exact complete-output
+pairs). The actual TLA+ calls additionally matched all 8149 states and the entire
+LRSpec, not merely state counts. CPU medians were:
+
+| Complete construction workload | Pairs | Baseline ms | Indexed shift ms |
+|--------------------------------+-------+-------------+------------------|
+| Mixed FOLLOW, 8 regions | 21 | 1.637 | 1.633 |
+| Mixed FOLLOW, 24 regions | 21 | 4.442 | 4.357 |
+| Mixed FOLLOW, 48 regions | 21 | 10.581 | 10.344 |
+| Actual TLA+ default LALR | 21 | 14.292 | 14.292 |
+| Actual TLA+ FOLLOW | 3 | 9505.538 | 8617.710 |
+
+The three full TLA+ FOLLOW pairs were 9685.312→8807.003,
+9505.538→7556.410 and 8957.293→8617.710 ms. Every pair improved in this run;
+the median decreased approximately 9.3%. Three pairs and their variation limit
+the claim to this local completed-construction workload. No FFI, parser-runtime,
+Rust throughput or whole-CI gain is inferred. The complete A/B emitted
+=SHIFT-INDEX-NATIVE-AB-OK= and exited 0 in 76.405 seconds under unchanged
+90-second total/5-second idle limits. The default LALR path was unchanged.
+
+** Reproducible Scheme benchmark owner
+
+The existing complete TLA+ construction benchmark is now named
+=t/benchmarks/lr1-partition/construction.ss=. It retains default LALR selection
+and accepts a second argument =follow-partition-lr1=, with a positive sample
+count first. It checks every sample against a complete reference LRSpec and
+reports CPU, in-call collection count and collection CPU separately. Both paths
+reuse the same Scheme benchmark owner; timings remain outside semantic Cases.
+For the expensive FOLLOW workload use the existing trace switch and the normal
+qualification gate, for example one sample plus reference construction. The
+benchmark's per-call collection observations are distinct from matched A/B cost.
+
+** Ubuntu production-object reuse correction
+
+The =f6dfc3b= Ubuntu job failed before semantic execution, during reusable library
+object compilation: idle-timeout, process exit 70, elapsed 20.093 seconds. Its
+four unfinished C objects were Cypher grammar, GQL grammar, HCL reductions and
+arithmetic drive. GQL, Cypher and HCL also had SCM translation in that log, so
+the four unfinished objects cannot all be attributed to option records. Requiring
+records for unchanged production policy adds recompilation whenever their C and
+object timestamps were otherwise reusable. That extra path is a cache-scope
+regression; cold translation/optimization cost remains a separate gate. This
+failure occurred before the semantic entry and supplies no semantic-crash result.
+
+Effective option records now enforce the changed per-procedure test-host policy.
+Production objects retain their prior timestamp reuse, while complete preparation
+continues to certify source/SDK/compiler/environment identity. A real library
+preparation control moved aside arithmetic drive's generated option record. The
+corrected builder emitted =COMPILED-LIBRARY-OBJECTS-READY=, exited 0 in 13.419
+seconds, and emitted no arithmetic-drive recompilation. Production cold-build
+behavior is not qualified by this reuse control; the new Ubuntu run is required.
+
+The existing independent resolved/canonical source Suites passed 54 Cases with
+=TEST-SUITE-OK= and =OK=, exit 0 in 16.875 seconds. They retain exhaustive
+accepted/rejected string controls and exact canonical/partitioned parse products;
+this change introduces no duplicate semantic Suite or timing loop in a Case.
+
+The reproducible FOLLOW benchmark (one sample plus full reference) completed
+8149 states with full LRSpec equality: CPU 8869.908 ms, 84 in-call collections,
+collection CPU 4843.012 ms. It exited 0 in 25.866 seconds under the same
+90-second total/5-second idle gate. This single-call collection observation
+suggests allocation as a next target; it does not compare allocation before and
+after. An earlier invocation completed child output but its required-marker
+argument contained an invalid regular expression, so controller admission failed;
+that invocation is not a passed qualification.
+
+The next algorithm experiment should measure indexed-set traversal allocation:
+current bit clearing creates intermediate bigints while repeatedly visiting wide
+closed-state masks. A shrinking-mask or limb cursor needs sparse/dense/high-index
+oracle controls, exact complete artifacts across LR modes, preparation-inclusive
+cost and paired in-call allocation/collection observations. Small fixnum sets
+need their own complete-cost control. That prospective cursor remains unimplemented
+in this revision; the retained optimization is static labeled-successor indexing.
+
+** Final local consumer receipt
+
+After the engine index, trace, benchmark rename and cache scope stabilized,
+complete preparation exited 0 in 85.116 seconds under unchanged 240-second
+total/5-second idle limits. The compiled semantic entry passed 372 Cases across
+23 groups; it and all five independent research entries exited 0 with
+=DSL-RESEARCH-CLOSURE-OK= and =OK=. The renamed benchmark's omitted-mode branch
+also completed default LALR, 390 states and full-reference equality, exit 0 in
+5.164 seconds. That mode check supplies no additional matched performance claim.
+
+A reproducible expensive-workload command uses one sample plus reference:
+
+#+begin_src sh
+GERBIL_PARSER_LR_TRACE=1 gerbil env gxi qualify.ss run \
+  --timeout 90 --idle-timeout 5 \
+  --log .data/tla-follow-construction.log \
+  --require 'summary workload tla-layout construction follow-partition-lr1' -- \
+  gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (call-with-compiled-interface-trace (lambda () (load "t/benchmarks/lr1-partition/construction.ss") (eval (quote (main "1" "follow-partition-lr1")))))'
+#+end_src
+
+Native logs are runtime products. No JSON snapshot or additional report wrapper
+is required. Local Darwin/GCC results remain distinct from Ubuntu cold-object
+compilation and delivered-head CI. The unchanged five-second progress gate and
+SDK/compiler identity must accompany those remote results.
+An identical subsequent preparation emitted =CONFORMANCE-CACHE-HIT= and exited
+0 in 11.902 seconds, with no recompilation. Inventory hashing is included in
+that cache wall time.

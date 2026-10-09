@@ -158,3 +158,18 @@ retain SDK defaults. Effective object options participate in
 cache reuse, with success-only Scheme identity records. Full preparation still
 proves the source/SDK closure. See the [[file:dsl-effective-grammar-admission.org][admission study]] for Ubuntu stack evidence,
 rejected alternatives and delivered-head qualification limits.
+
+* Completed FOLLOW graph facts and state-local accumulation
+
+After quotient refinement, static block labels and shift-source membership are
+indexed once by the engine. DFA target rows are local to one construction,
+reused across states and cleared only at touched labels. Full closed state
+identity and reduce/lookahead publication remain unchanged; first-seen labeled
+transition order determines the same state numbering. Language loaders contribute
+grammar values through their existing POO contract.
+
+Performance admission compares the entire target LRSpec and includes indexing,
+analyses and publication. Actual completed-state/item output is available through
+the existing LR trace switch for long constructions. See the [[file:dsl-effective-grammar-admission.org][admission study]]
+for the real TLA+ phase counts, exact-output A/B, cost limits and independent
+compiled/source controls.

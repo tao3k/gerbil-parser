@@ -610,7 +610,7 @@ were removed. A second full 12-core native build after restoring the original
 automaton passed; the permanent default-route benchmark then returned
 69.409 ms across 20 samples, close to the original 67.650 ms baseline.
 
-=t/benchmarks/lr1-partition/lalr-construction.ss= adds the real TLA+ grammar
+=t/benchmarks/lr1-partition/construction.ss= adds the real TLA+ grammar
 to the existing benchmark infrastructure. Run =just benchmark-lalr-construction
 20= with the built package and its isolated =GERBIL_PATH=. It omits the
 construction argument to exercise the production default, warms once, emits
@@ -765,7 +765,7 @@ complete-call reduction on this host and workload.
 Separate four-call process-statistics samples observed in-call collection
 counts of =(0 1 1 1)= for the baseline, with roughly 25--29 ms GC CPU in the
 three collecting calls, and =(0 0 0 0)= for the template implementation.
-The existing =lalr-construction.ss= benchmark now reports per-call collection
+The existing =construction.ss= benchmark now reports per-call collection
 count and GC CPU time plus their medians, using Gambit's statistics slots
 3/4 for GC user/system time and slot 6 for collection count. Its 20-call
 qualification measured 14.908 ms and median in-call GC count zero. GC is a

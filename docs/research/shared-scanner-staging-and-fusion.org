@@ -1,0 +1,122 @@
+#+title: 共享解析引擎的专门化、源跨度与流水线融合
+
+* 问题与证据边界
+
+优化对象是共享解析引擎。Bash 是复杂词法、延迟分隔符、Unicode 和
+完整 lossless 产物的压力样本；语言目录不增加手写扫描器或优化回调。
+
+2026-10-09 的 matched Bash 报告记录 28,440 UTF-8 字节、1,000 行输入：
+完整解析 CPU 中位数为 Scheme 43.320–45.093 ms、Tree-sitter
+3.196–3.203 ms，约 13.6–14.1 倍。报告位于
+=tools/benchmarks/bash-matched/results-2026-10-09.org=；它来自独立实验工作区，
+本次不把其未提交文件纳入实现提交。
+
+独立诊断记录完整产物约 51.930 MB 无 GC 分配流量，扫描约 10.915 MB，
+发布验证约 14.464 MB。完整产物分配约为输入字节量的 1,826 倍；这是
+累计分配流量，不是峰值驻留内存。不同控制的中位数不能相加。
+200/400/1,000 行样本中分配近似随输入增长，因此当前证据首先指向
+每字节／节点的常数成本，不证明所有嵌套输入的线性复杂度。
+
+Scheme 使用 GCC16/Gambit -O1，Tree-sitter 初始语法使用 clang -O3；
+clang -O1 的对照仍约 4.016 ms，但其运行时未重新编译。
+两者产品及分配器不同，不能把该差距解释成语言本身的固有差距。
+后续优化继续固定 Scheme/GCC，不通过换编译器或省略校验改善数字。
+
+* 论文可迁移的机制
+
+[[https://arxiv.org/html/2304.05276][Yallop、Xie、Krishnaswami：flap，PLDI 2023]]
+第 2.2、4、5.4 节分别讨论中间 token 成本、融合和准备期专门化。
+可迁移的是把静态语法工作移出请求路径，并消除只用于阶段衔接的表示。
+其实验速度倍数不构成本引擎的预期收益。
+
+论文的确定性语法、disjoint regex 和单 token lookahead 条件不能当作
+本引擎全部语法已经满足的性质。第 8 节明确把更强 LR、状态和多入口列为
+扩展方向。本引擎已有 longest-match、rank、冲突诊断、上下文和延迟 marker，
+迁移必须保持这些语义，不能直接裁掉候选规则。
+
+lossless token 是公开产物的一部分。这里的融合目标是减少内部阶段间的
+临时 token／节点／列表，而不是删除最终 token 事件或改变 C ABI／Rust 输出。
+
+* 当前流水线的具体成本入口
+
+| 阶段 | 现有路径 | 待消除的内部成本 |
+|------+----------+------------------|
+| 规则执行 | contextual-scanner 的 best-match | 每个候选解释 matcher 列表 opcode |
+| 全源扫描 | source-engines 的 scan、source-scanner-tokens | 扫完全部源再返回反转后的 token 列表 |
+| 词分解 | shell-word 的 prepare-word、recognition-source | lexeme 快照、局部边界、进一步 token 切片 |
+| 结果投影 | result-profile 的 result-projection-build | captures、children、tokens 的多阶段表示 |
+| 发布 | artifact 的 recognition-events 与验证 | 识别树遍历、事件构造、重建源及编码验证 |
+
+这些是源码可观察的重复工作位置；目前没有逐函数成本归因证明它们各自占比。
+region-scanner 首字符索引降低部分临时分配，但没有改变上述整条产物流。
+
+* 已实现：关闭 IR 的准备期 matcher 绑定
+
+[[file:../../src/runtime/contextual-scanner.ss][共享 contextual scanner]] 的私有规则
+同时保留声明式 matcher 和准备好的 executor。=prepare-matcher= 在计划准备期
+绑定静态操作数；=best-match= 只把本次 source、offset 和 checkpoint 交给它。
+
+- 前缀守卫的排除／例外集合准备为 literal trie，不在每个 token 上创建谓词闭包。
+- 单 literal 直接比较 source 的字符，不为失败的前缀试探创建 substring。
+- Unicode、最长匹配、rank、声明顺序、冲突错误保持现有选择器语义。
+- marker、pending FIFO、mode、offset 留在请求 checkpoint；executor 不捕获请求。
+- matcher 数据仍用于首字符候选推导；公开 IR、opcode contract、版本和 ABI 不变。
+- 输入 IR 不接受用户函数；executor 是关闭 opcode 经引擎生成的私有能力。
+
+这是静态工作迁移，不是完整的词法／解析融合，也不是 10 倍差距已解决。
+Rust AOT 继续消费声明式 IR，不把 Scheme 闭包放入跨语言协议。
+
+* 后续实现的依赖与验收
+
+以下项目尚未实现；顺序由源所有权和现有 checkpoint 契约决定。
+
+1. *共享源跨度*：在引擎中持有一次 admitted source 和字符／字节边界。
+   内部 capture 携带 owner、start、end；词分解复用同一 owner，不再为每个
+   阶段建立文本快照。公开字符串在最终产物边界物化。调用者修改输入、
+   跨 source 拼接、Unicode 非标量、旧 checkpoint 恢复必须保留拒绝行为。
+2. *按需扫描与消费*：复用 source-scanner 的不可变 step/checkpoint，
+   让识别器按需取 lookahead，去掉“全源 token list → remaining → emitted”
+   的重复链表。统一在引擎接入，不能给某个 language 增加私有旁路。
+   源拒绝时仍必须生成覆盖完整源的 fallback 产物；恢复和 heredoc 队列不可丢失。
+3. *投影与事件融合*：把 closed projection plan 编译成直接写入规范事件的操作。
+   只在有明确结果消费需求时保留识别节点；field 顺序、节点／token id、
+   trivia、诊断、偏移及完整 artifact 必须与现有产物逐字段相等。
+4. *声明式静态 AOT*：从同一个计划生成 Scheme 和 Rust 的执行程序；
+   准备期绑定只是第一步，尚未生成按 grammar 专门化的字符分支代码。
+   增量 checkpoint 的状态等价、IR digest 和语言无关 ABI 是共同约束。
+
+每一步都先证明所有权与语义，再做固定 GCC SDK 的原生产物 ABBA 对照。
+输入、完整输出验证、自然 GC、析构、timing 边界和 worker 数必须一致。
+记录完整解析 CPU、每输入字节分配及 GC；组件诊断不能代替完整解析计时。
+增加长普通文本、Unicode、深度嵌套、重叠分隔符、动态 marker、拒绝和编辑恢复，
+同时覆盖 HCL、HL7、FHIRPath 及 contextual LR，避免只优化 Bash 样本。
+
+* 本轮验证与负结果
+
+实现以 =bc9a56a= 为基线，随后对齐唯一 PR 最新 =021f97a=。
+这段提交区间没有改变上述 scanner、region、shell、artifact 和 source-strategy
+生产路径。固定 SDK 的 GCC 原生 scanner 编译控制退出 0，耗时 18.966 s。
+
+共享 scanner 13 项、deferred scanner 13 项、Bash 29 项、HCL 30 项、HL7 5 项，
+合计 90 项，控制器耗时 9.711 s、退出 0。新增守卫控制验证 ASCII／Unicode
+前缀排除与例外的实际 token、UTF-8 偏移，并覆盖直接 IR 与 prepared plan。
+
+四份 short、heredoc、compound、large 输入的完整 ParseArtifact 与原生基线相等。
+完整产品的初步 12 批、每批 10 次 CPU 观察仍约 37–40 ms／parse。
+没有对称冻结产品的完整 ABBA、没有本次分配数据，因此不宣称速度提升。
+
+第一轮断言全部输出后测试子进程没有退出，5 秒空闲控制失败；该轮不计通过。
+后续使用已有 completed-child 原生退出入口，保证 harness 完成及输出后退出，
+没有改动期限。一次候选冷启动也失败；逐依赖报告真实初始化进度后的重跑
+完成产物一致性和计时，首次失败保留为未通过。
+
+对齐最新 PR 后测试控制器移动到 =t/support/qualification=，旧本地产物不能
+证明新路径可执行；首次追加契约测试在模块加载时失败。必须先准备新路径的
+原生控制器再重跑，不能把缺失模块算作解析语义失败或已通过。
+
+准备最新路径的 POSIX child 模块后，在 =021f97a= 上追加／重跑九个模块：
+contextual parser 15、source scanner 11、source contract 2、ParseArtifact 8，
+加上述 90 项，总计 126 项。正式控制器报告 =TEST-SUITE-OK modules=9=、
+=OK=、退出 0、无缺失 receipt，耗时 14.178 s，仍使用 120 秒总预算和
+5 秒真实输出空闲预算。新控制器启动缺失问题由构建其声明模块解决，
+没有新增运行时兼容层。

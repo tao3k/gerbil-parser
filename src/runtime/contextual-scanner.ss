@@ -8,7 +8,7 @@
                  scan-balanced-word scan-horizontal-whitespace scan-identifier
                  scan-line scan-longest-literal scan-newline
                  scan-quoted-strings)
-        (only-in ./region-scanner prepare-region-plan region-plan-end)
+        (only-in ./region-scanner prepare-region-plan region-plan-end source-prefix-at?)
         (only-in ./token make-token token-kind token-start token-end)
         (only-in ./identity sha256-text))
 (export +empty-delimiter-queue+
@@ -48,7 +48,7 @@
 (defstruct contextual-scan-state
   (scanner character-offset byte-offset mode pending active expecting)
   transparent: #t)
-(defstruct runtime-scan-rule (name mode form matcher rank action)
+(defstruct runtime-scan-rule (name mode form matcher executor rank action)
   transparent: #t)
 (defstruct scan-match (rule end) transparent: #t)
 (defstruct delimiter-obligation (marker strip-tabs? quoted?)
@@ -124,7 +124,8 @@
              ((or ['literal-trie . _] ['prepared-region . _])
               (error "private contextual scanner matcher in input IR"))
              (else matcher)))
-       (make-runtime-scan-rule name mode form prepared rank action)))
+       (make-runtime-scan-rule name mode form prepared
+                               (prepare-matcher prepared) rank action)))
     (else (error "invalid contextual scanner rule" row))))
 
 (def (index-rules rows source-length (prefix-index? #f))
@@ -553,12 +554,6 @@
      (and active-row (restore-obligation active-row))
      expecting)))
 
-(def (literal-end source start value)
-  (let (end (+ start (string-length value)))
-    (and (<= end (string-length source))
-         (string=? (substring source start end) value)
-         end)))
-
 (def (single-newline-end source start)
   (and (< start (string-length source))
        (case (string-ref source start)
@@ -613,38 +608,57 @@
           (content-start (if (delimiter-obligation-strip-tabs? active)
              (let loop ((at start)) (if (and (< at content-end) (char=? (string-ref source at) #\tab)) (loop (+ at 1)) at)) start)))
     (and (equal? (substring source content-start content-end) (delimiter-obligation-marker active)) end)))))
-(def (matcher-end source start expression state)
+;;; Bind static matcher operands once, after closed-IR admission. The executor
+;;; captures plan data only; source/checkpoint/marker state remain per request.
+;;; Language data never supplies a callback and the public opcode contract is
+;;; unchanged. Prefix hints still inspect the retained declarative matcher.
+(def (prepare-matcher expression)
   (match expression
     (['unless-prefix prefixes exceptions child]
-     (and (or (any (lambda (prefix) (literal-end source start prefix)) exceptions)
-              (not (any (lambda (prefix) (literal-end source start prefix)) prefixes)))
-          (matcher-end source start child state)))
+     (let ((scan (prepare-matcher child))
+           (excluded (make-literal-end-scanner prefixes))
+           (admitted (make-literal-end-scanner exceptions)))
+       (lambda (source start state)
+         (and (or (admitted source start)
+                  (not (excluded source start)))
+              (scan source start state)))))
     (['line-prefix prefix separator]
-     (and (literal-end source start prefix)
-      (let* ((ch (string-ref separator 0)) (end (profile-line-end source start ch)))
-       (if (and (> end start) (char=? (string-ref source (- end 1)) ch)) (- end 1) end))))
-    (['marker-line-at separator] (profile-marker-end source start (string-ref separator 0) state))
+     (let ((scan (prepare-matcher (list 'literal prefix))) (ch (string-ref separator 0)))
+       (lambda (source start state)
+         (and (scan source start state)
+              (let (end (profile-line-end source start ch))
+                (if (and (> end start) (char=? (string-ref source (- end 1)) ch))
+                  (- end 1) end))))))
+    (['marker-line-at separator]
+     (let (ch (string-ref separator 0))
+       (lambda (source start state) (profile-marker-end source start ch state))))
     (['body-line-at separator]
-     (and (contextual-scan-state-active state) (profile-line-end source start (string-ref separator 0))))
-    (['literal value] (literal-end source start value))
-    (['literal-trie scanner _values] (scanner source start))
+     (let (ch (string-ref separator 0))
+       (lambda (source start state)
+         (and (contextual-scan-state-active state) (profile-line-end source start ch)))))
+    (['literal value]
+     (let (width (string-length value))
+       (lambda (source start _state)
+         (and (source-prefix-at? source start value) (+ start width)))))
+    (['literal-trie scanner _values]
+     (lambda (source start _state) (scanner source start)))
     (['literals values]
-     (let (found (scan-longest-literal source start values))
-       (and found (+ start (string-length found)))))
-    (['horizontal-whitespace+]
-     (scan-horizontal-whitespace source start))
-    (['newline] (scan-newline source start))
-    (['newline-one] (single-newline-end source start))
-    (['identifier] (scan-identifier source start))
-    (['marker-line] (marker-line-end source start state))
+     (lambda (source start _state)
+       (let (found (scan-longest-literal source start values))
+         (and found (+ start (string-length found))))))
+    (['horizontal-whitespace+] (lambda (source start _state) (scan-horizontal-whitespace source start)))
+    (['newline] (lambda (source start _state) (scan-newline source start)))
+    (['newline-one] (lambda (source start _state) (single-newline-end source start)))
+    (['identifier] (lambda (source start _state) (scan-identifier source start)))
+    (['marker-line] (lambda (source start state) (marker-line-end source start state)))
     (['body-line]
-     (and (contextual-scan-state-active state)
-          (scan-line source start)))
+     (lambda (source start state) (and (contextual-scan-state-active state) (scan-line source start))))
     (['quoted-string delimiters]
-     (scan-quoted-strings source start delimiters))
-    (['prepared-region plan] (region-plan-end plan source start))
+     (lambda (source start _state) (scan-quoted-strings source start delimiters)))
+    (['prepared-region plan]
+     (lambda (source start _state) (region-plan-end plan source start)))
     (['balanced-word stops quotes pairs]
-     (scan-balanced-word source start stops quotes pairs))
+     (lambda (source start _state) (scan-balanced-word source start stops quotes pairs)))
     (else (error "unknown contextual scanner opcode" expression))))
 
 (def (prefer-match current candidate)
@@ -671,9 +685,9 @@
 (def (best-match scanner state)
   (foldl
    (lambda (rule current)
-       (let (end (matcher-end (contextual-scanner-source scanner)
-                               (contextual-scan-state-character-offset state)
-                               (runtime-scan-rule-matcher rule) state))
+       (let (end ((runtime-scan-rule-executor rule)
+                 (contextual-scanner-source scanner)
+                 (contextual-scan-state-character-offset state) state))
          (if end (prefer-match current (make-scan-match rule end)) current)))
    #f
    (let (rules (table-ref (contextual-scanner-rules scanner)

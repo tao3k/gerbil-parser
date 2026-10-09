@@ -282,6 +282,30 @@
              (with-catch (lambda (condition) (error-message condition))
                (lambda () (contextual-scanner-step scanner last 'token) #f))
              => "contextual scanner has no match")))))
+    (test-case "closed guards retain Unicode exceptions and prefix rejection"
+      (let* ((role (make-contextual-role 'guarded
+                     (list (method 'word 'any 'any 'word 'word)
+                           (method 'literal 'any 'any 'literal 'literal))))
+             (dispatch (compile-contextual-dispatch
+                        (list role) '(normal) '(token) '(word literal)))
+             (ir (compile-contextual-scanner
+                  (list (rule 'guarded-word 'normal 'word
+                              '(unless-prefix ("ab" "λ") ("abc" "λx") (identifier)) 10)
+                        (rule 'fallback 'normal 'literal '(literals ("ab" "λ")) 0))
+                  dispatch 'normal)))
+        (for-each
+         (lambda (input)
+           (for-each
+            (lambda (recipe)
+              (let (scanner (prepare-contextual-scanner recipe (car input)))
+                (let-values (((token next) (contextual-scanner-step
+                                           scanner (contextual-scanner-initial-state scanner) 'token)))
+                  (check (list (token-kind token) (token-lexeme token) (token-end token))
+                         => (cdr input)))))
+            (list ir (prepare-contextual-scanner-plan ir))))
+         '(("abc" word "abc" 3) ("abx" literal "ab" 2)
+           ("λx" word "λx" 3) ("λz" literal "λ" 2)
+           ("z" word "z" 1)))))
     (test-case "equal token forms do not hide conflicting scanner actions"
       (let* ((role (make-contextual-role
                     'redirect

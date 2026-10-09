@@ -3,9 +3,9 @@
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (prefer-compiled-interfaces!)
 (call-with-compiled-interface-trace
- (lambda () (eval '(import :std/misc/process :std/os/signal))))
+ (lambda () (eval '(import :gerbil-parser/tools/qualification/process))))
 
-(import :std/misc/process :std/os/signal)
+(import :gerbil-parser/tools/qualification/process)
 
 (defstruct process-case (name arguments exit marker budget idle) transparent: #t)
 
@@ -46,65 +46,19 @@
    (else (error "unknown process qualification profile" profile))))
 
 (def (qualify-process! case directory)
-  (let* ((name (process-case-name case))
-         (started (##current-time-point))
-         (captured (open-output-u8vector))
-         (log (open-output-file (path-expand (string-append name ".log") directory)))
-         (raw-status #f)
-         (timer #f)
-         (expired? #f))
-    (displayln "PROCESS-START " name) (force-output)
-    (try
-     (run-process (process-case-arguments case) stderr-redirection: #t
-       check-status:
-       (lambda (status _)
-         ;; Stop the timer as soon as the child has been reaped; validation must
-         ;; never signal a PID whose ownership has already ended.
-         (when timer (thread-terminate! timer) (set! timer #f))
-         (set! raw-status status))
-       coprocess:
-       (lambda (process)
-         (close-output-port process)
-         ;; Cover the exit wait as well as output reads, including a child that
-         ;; closes its output before it terminates. These entries own Scheme
-         ;; threads, not external compiler trees; build supervision stays outside.
-         (set! timer
-           (spawn (lambda ()
-                    (thread-sleep! (process-case-budget case))
-                    (set! expired? #t)
-                    (with-catch void (lambda () (kill (process-pid process) SIGKILL))))))
-         (let ((buffer (make-u8vector 8192)))
-           (let loop ()
-             (let* ((remaining (- (process-case-budget case)
-                                  (- (##current-time-point) started)))
-                    (wait (max 0 (if (process-case-idle case)
-                                    (min remaining (process-case-idle case)) remaining)))
-                    (reader (spawn (lambda ()
-                                     (read-subu8vector buffer 0 8192 process 1))))
-                    (count (thread-join! reader wait 'timeout)))
-               (when (eq? count 'timeout)
-                 (kill (process-pid process) SIGKILL)
-                 (thread-terminate! reader)
-                 (error "process qualification deadline exceeded" name))
-               (unless (zero? count)
-                 (write-subu8vector buffer 0 count captured)
-                 (write-subu8vector buffer 0 count log) (force-output log)
-                 (write-subu8vector buffer 0 count (current-output-port)) (force-output)
-                 (loop)))))))
-     ;; Gambit preserves signal termination in the low byte. A signal cannot
-     ;; satisfy an expected normal failure exit.
-     (let ((status (quotient raw-status 256)) (expected (process-case-exit case)))
-       (unless (and (not expired?) (zero? (modulo raw-status 256))
-                    (if (eq? expected 'nonzero) (> status 0) (= status expected)))
-         (error "unexpected process exit" name raw-status))
-       (let (marker (process-case-marker case))
-         (when (and marker
-                    (not (string-contains (utf8->string (get-output-u8vector captured)) marker)))
-           (error "missing process receipt" name marker)))
-       status)
-     (finally
-      (when timer (thread-terminate! timer))
-      (close-port log) (close-port captured)))))
+ (let* ((name (process-case-name case))
+        (result (run-observed-process (process-case-arguments case)
+                  (path-expand (string-append name ".log") directory)
+                  timeout: (process-case-budget case) idle-timeout: (process-case-idle case)
+                  error-output?: #f))
+        (status (process-result-status result)) (expected (process-case-exit case)))
+  (unless (and (not (process-result-reason result))
+               (if (eq? expected 'nonzero) (> status 0) (= status expected)))
+   (error "unexpected process exit" name status (process-result-reason result)))
+  (let (marker (process-case-marker case))
+   (when (and marker (not (string-contains (utf8->string (process-result-output result)) marker)))
+    (error "missing process receipt" name marker)))
+  status))
 
 (def (main profile . arguments)
   (let* ((cases (qualification-cases profile))

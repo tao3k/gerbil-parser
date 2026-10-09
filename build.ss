@@ -12,13 +12,13 @@
 ;; Reference corpora are not Gerbil package sources. clan's native defaults
 ;; already exclude t/, .git/, and .gerbil/.
 (def gerbil-parser-exclude-dirs
-  (cons "benchmarks" (cons ".data" (cons "target" default-exclude-dirs))))
+  (cons "tools" (cons "benchmarks" (cons ".data" (cons "target" default-exclude-dirs)))))
 
 ;; These source files belong to executable and test owners, not the production
 ;; library catalog. Keep the boundary declarative so PackageSpec still performs
 ;; the single source discovery pass.
 (def gerbil-parser-exclude-modules
-  '("build-conformance.ss"
+  '("build-qualification.ss" "qualify.ss" "build-conformance.ss"
     "test-processes.ss"
     "scripts/tests/process-qualification-test.ss"
     "scripts/generate-source-parser.ss"

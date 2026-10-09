@@ -1,0 +1,79 @@
+#+TITLE: Native Qualification Ownership
+
+* One process contract
+
+=qualify.ss= is the executable entry; =build-qualification.ss= uses the
+standard Gerbil build scheduler to compile its support library.
+The library is tooling, excluded from the parser package's production catalog.
+=tools/qualification/process.ss= owns real-byte observation, complete logs,
+absolute and idle deadlines, exit admission, and required receipts.
+A child closing its output does not end its execution deadline.
+Console backpressure does not count as child silence.
+
+* Cancellation authority
+
+The supervisor starts a dedicated Scheme child. A thin POSIX FFI establishes
+a fresh session before launching the requested command and acknowledges its
+identity through a private temporary witness. Cancellation admits process
+groups through that root and observed parent-child topology, including a
+controlled descendant which creates another session. No existing task is a
+cleanup target. Before acknowledgement, only the direct unreaped child is
+admitted. The lifecycle owner stops its monitor before validating results.
+
+=tools/qualification/process-test.ss= exercises silent and continuously
+writing children, closed output, nonzero exits, immediate error cancellation,
+a descendant in another session, and an unrelated child which must survive.
+A real delayed pipe consumer verifies 2,000 Unicode records in both stdout and
+log; the C fixture checks blocking compiler descriptors.
+
+* Compiler responsibility
+
+Scheme owns qualification and product declarations. Gerbil and Gambit own
+module closure and native compilation. Cargo owns Rust compiler invocation
+and its jobserver. A Scheme replacement for a rustc proxy would risk closing
+Cargo's inherited jobserver descriptors through Gambit's process launcher;
+the product owner therefore invokes Cargo directly without that proxy.
+
+* Evidence boundary
+
+Process controls qualify cancellation and evidence transport. They do not
+replace parser semantic controls, generated-product byte comparisons,
+independent C/Rust host qualification, or exact-head CI.
+
+* Source and local plans
+
+=tools/qualification/plans.ss= declares compilation and execution stages with
+separate budgets and receipts. Profile and actor suites compile the union of
+diagnostic modules once. Prepared diagnostics reject other suite types and
+require the compiled products to exist. Native environment selection chooses
+Cargo and rustc together and removes ambient cross-build overrides.
+
+=tools/qualification/performance.ss= hashes current production, language,
+test, and tooling sources before execution and after every suite. A private
+source overlay precedes compiled parser products; the session launcher's own
+compiled FFI remains isolated from the requested child's load environment.
+Final CASE/MODULE/HARNESS/OK receipts and a successful exit are all required.
+
+* SDK provisioning boundary
+
+CI uses host package managers and checksum-verified archive extraction before
+Scheme exists. =tools/ci/bootstrap.ss= admits the immutable release schema,
+revision and platform, activates relocated runtime mappings, and publishes
+native capacity and SDK environment to GitHub Actions. Build, execution,
+product comparison and qualification thereafter use Scheme owners. No Python
+or Bash script forwards the removed project qualification entrypoints.
+
+* Local qualification receipts
+
+The controlled cancellation suite passed, including Unicode backpressure,
+blocking descriptors, immediate errors and unrelated-process survival.
+The existing four conformance controls, compiler pipe controls, GQL profile
+and actor stages, and current-source incremental performance contract passed
+through the Scheme owner. Independent C, Rust and borrowed host lifecycle
+receipts passed with SDK parallel compilation retained.
+
+A local shared-library wait was traced to the SDK's empty
+=parser.o.lock= from October 1; no corresponding active compiler remained.
+Removing that one generated local lock allowed the bundle to complete in
+15.7 seconds. This is a local diagnosis, not an end-to-end performance claim
+or an automatic stale-lock recovery policy. No timeout was increased.

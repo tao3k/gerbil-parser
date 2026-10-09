@@ -16,13 +16,13 @@
        (parameterize ((current-output-port output)) (run-compiler command)))))
   (unless (equal? (capture [probe "--burst"]) (make-u8vector 262144 120))
     (error "compiler output was lost under pipe pressure"))
-  (unless (equal? (capture ["sh" "-c" "printf fragment; printf diagnostic >&2"])
+  (unless (equal? (capture [probe "--fragment"])
                  (string->utf8 "fragmentdiagnostic"))
     (error "compiler fragment or stderr bytes were changed"))
   ;; Use the same workgroup and process owner as conformance preparation.
   (run-static-jobs (make-list 8 probe) (lambda (path) (run-compiler [path])))
   (unless (with-catch process-error?
-            (lambda () (run-compiler ["sh" "-c" "exit 17"]) #f))
+            (lambda () (run-compiler [probe "--failure"]) #f))
     (error "compiler process failure was not propagated")))
 (displayln "COMPILER-PROCESS-OK") (force-output)
 (exit 0)

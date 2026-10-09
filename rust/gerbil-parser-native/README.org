@@ -49,7 +49,7 @@ that history. See the [[file:../../docs/research/scheme-source-edit-sessions.org
 
 Verification uses a real Rust static consumer in
 =t/fixtures/rust-language-abi=, linked into the compiled Gerbil probe.
-Run the repository's =scripts/test-local.py --suite ffi= or its Scheme
+Run the repository's =qualify.ss local --suite ffi= or its Scheme
 Ubuntu CI. Compile-fail doctests verify the thread and borrow restrictions.
 
 * Rust ABI qualification build
@@ -73,7 +73,8 @@ Build the parser package and language pack with their normal Gerbil build owner,
 then compile the language module into one native runtime library:
 
 #+begin_src shell
-python3 scripts/build-shared-library.py --language-module my-language/abi \
+gxi build-qualification.ss compile
+gxi qualify.ss shared-library --language-module my-language/abi \
   --output /absolute/path/libmy_language.so
 #+end_src
 
@@ -117,7 +118,7 @@ it after its borrowers end; =close= permits reporting cleanup errors explicitly.
 Independently retained C resources must also be released before dropping it.
 The default feature set remains suitable for hosts that already own the VM.
 
-=scripts/test-runtime-host.py= builds independent C and Rust process hosts and
+=qualify.ss host= builds independent C and Rust process hosts and
 requires normal cleanup, live-resource barriers, foreign-thread rejection and
 closed-runtime rejection. Builds retain 90/30 second total/inactivity limits;
 execution retains 90/5 seconds. Build progress reports actual preprocessed, IR,

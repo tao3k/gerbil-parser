@@ -1,7 +1,11 @@
 #!/usr/bin/env gxi
 ;;; SDK compiler owns static closure and job execution; no generated C rewriting.
-(import (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!))
+(import (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!)
+        (only-in :gerbil-parser/tools/qualification/process-os blocking-standard-streams! standard-streams-blocking?))
 (def (main source output cc-options ld-options)
+  (displayln "COMPILER-STREAMS before-blocking=" (standard-streams-blocking?))
+  (unless (zero? (blocking-standard-streams!)) (error "cannot establish blocking compiler streams"))
+  (displayln "COMPILER-STREAMS after-blocking=" (standard-streams-blocking?))
   (displayln "SHARED-LIBRARY-MODULE-COMPILE") (force-output)
   (def output-directory (path-expand "lib" (path-directory source)))
   (compile-module source
@@ -12,4 +16,7 @@
   (compile-exe source
     [output-dir: output-directory invoke-gsc: #t output-file: output parallel: #t verbose: #t
      gsc-options: ["-cc-options" cc-options "-ld-options" ld-options]])
-  (execute-pending-compile-jobs!))
+  (execute-pending-compile-jobs!)
+  (unless (file-exists? output) (error "native bundle was not published" output))
+  (displayln "SHARED-LIBRARY-COMPILED") (force-output)
+  (exit 0))

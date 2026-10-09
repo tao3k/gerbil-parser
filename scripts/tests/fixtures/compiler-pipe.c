@@ -16,6 +16,10 @@ int main(int argc, char **argv) {
       if (fwrite(bytes, 1, sizeof bytes, stdout) != sizeof bytes) return 43;
     return fflush(stdout) ? 44 : 0;
   }
+  if (argc == 2 && !strcmp(argv[1], "--fragment")) {
+    fputs("fragment", stdout); fflush(stdout); fputs("diagnostic", stderr); return 0;
+  }
+  if (argc == 2 && !strcmp(argv[1], "--failure")) return 17;
   puts("COMPILER-PIPE-OK");
 
   return 0;

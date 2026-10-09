@@ -53,7 +53,7 @@ budget; actual branch progress is emitted under =GERBIL_PARSER_LR_TRACE=.
 
 The repository-owned Scheme =corpus.ss= verifies the checkout pin, clean
 tracked state, exact 424-file count, accepted syntax, artifact validity, and
-original bytes.  The Scheme =watch.ss= kills a check after five seconds
+original bytes.  The Scheme =qualify.ss run= kills a check after five seconds
 without child output and bounds the batch to ten minutes.  The Scheme
 =preload.ss= reports actual dependency admission;
 artifact tracing reports decode, digest verification, and schema admission.

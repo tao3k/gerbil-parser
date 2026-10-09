@@ -40,6 +40,9 @@
     (mixed Mixed ((text span) (head node) (tail parts))
       (token text glyph text optional) (one head head required) (many tail tail))
     (empty Empty ())))
+(defresult-profile (producer-results :: self ResultProfile.)
+  (nodes (List item) (Empty)) (tokens)
+  (projections (items List ((items parts)) (many item items))))
 (def (generated-result-plan plan)
   ;; Evaluate the generator's complete forms, not a separately reimplemented
   ;; constructor. Native compilation is an additional producer qualification.
@@ -50,6 +53,10 @@
           (unless (eq? (car form) 'export) (eval form))
           (loop (read port))))))
   ((eval 'bind-generated-result-projections) plan))
+(def (build-parts projection source start end parts tokens)
+  (let (field (result-projection-parts-field projection))
+    (result-projection-build-parts projection source start end
+      (if field (map (lambda (part) (make-recognition-child field part)) parts) parts) tokens)))
 (def result-profile-test
   (test-suite "declarative result construction"
     (test-case "generated direct executors preserve mixed projection products and rejection"
@@ -102,6 +109,73 @@
                 (check (length parts) => 1024)
                 (check (andmap (lambda (part) (eq? part tail)) parts) => #t))) '(first second))))
           (list original bound))))
+    (test-case "profile syntax retains clause combinations and rejects malformed declarations"
+      (eval '(import :gerbil-parser/src/language/result-profile))
+      (for-each (lambda (clauses)
+        (check (rejects? (lambda () (eval
+                  `(defresult-profile (invalid-profile :: self ResultProfile.) ,@clauses)))) => #t))
+        '(((tokens a) (tokens b)) ((tokens a) (nodes (A field)))
+          ((scanner #f) (projections)) ((nodes malformed)) ((unknown value)) ()))
+      (for-each (lambda (clauses)
+        (check (with-catch (lambda (_) #f)
+                 (lambda () (eval `(defresult-profile (valid-profile :: self ResultProfile.) ,@clauses)) #t)) => #t))
+        '(((scanner #f) (nodes) (tokens) (projections))
+          ((nodes) (tokens) (projections)) ((projections))
+          ((scanner #f) (nodes) (tokens)) ((nodes) (tokens))
+          ((nodes)) ((tokens)) ((scanner #f)))))
+    (test-case "direct parts frames match capture publication for empty and long input"
+      (let* ((original (compile-result-profile producer-results))
+             (bound (generated-result-plan original))
+             (source (prepare-recognition-source (make-token 'raw "α😀" 11 17)))
+             (a (make-recognition-node 'Empty 11 13 '()))
+             (b (make-recognition-node 'Empty 13 17 '()))
+             (tokens (list (make-token 'raw "α😀" 11 17))))
+        (for-each (lambda (parts)
+          (for-each (lambda (plan)
+            (let* ((projection (result-plan-projection plan 'items '((items parts))))
+                   (expected (call-with-values (lambda () (result-projection-build
+                                projection source 0 2 (vector (cons parts tokens)))) list))
+                   (produced (call-with-values (lambda () (build-parts projection source 0 2 parts tokens)) list)))
+              (check produced => expected)
+              (check (eq? (cadr produced) tokens) => #t)
+              (check (map recognition-child-value (recognition-node-children (car produced))) => parts)))
+            (list original bound)))
+          (list '() (list a b) (map (lambda (n) (if (even? n) a b)) (iota 1024))))
+        (let* ((projection (result-plan-projection original 'items '((items parts))))
+               (children (list (make-recognition-child 'item a) (make-recognition-child 'item b))))
+          (let-values (((node produced) (result-projection-build-parts projection source 0 2 children tokens)))
+            (check (eq? (recognition-node-children node) children) => #t)
+            (check (eq? produced tokens) => #t))
+          (check (rejects? (lambda () (result-projection-build-parts projection source 0 2
+                    (list (make-recognition-child 'other a)) tokens))) => #t))))
+    (test-case "direct parts frames retain bound executor authority"
+      (let* ((original (compile-result-profile producer-results))
+             (source (prepare-recognition-source (make-token 'raw "α" 11 13)))
+             (node (make-recognition-node 'Empty 11 13 '()))
+             (calls 0)
+             (bound (result-plan-bind-projections original (result-plan-recipe original)
+                      (list (cons 'items (lambda (given start end captures)
+                        (set! calls (+ calls 1))
+                        (check (eq? given source) => #t)
+                        (check (car (vector-ref captures 0)) => (list node node))
+                        (values node 'override-tokens)))))))
+        (check (call-with-values (lambda () (build-parts (result-plan-projection bound 'items '((items parts))) source 0 1
+                              (list node node) 'producer-tokens)) list)
+               => (list node 'override-tokens))
+        (check calls => 1)))
+    (test-case "direct parts frames reject invalid nodes and non-unary recipes"
+      (let* ((plan (compile-result-profile producer-results))
+             (projection (result-plan-projection plan 'items '((items parts))))
+             (source (prepare-recognition-source (make-token 'raw "α" 11 13))))
+        (for-each (lambda (value)
+          (check (rejects? (lambda () (build-parts projection source 0 1 (list value) '()))) => #t))
+          (list (make-token 'raw "α" 11 13)
+                (make-recognition-node 'Foreign 11 13 '())
+                (make-recognition-node 'Empty 11 14 '())))
+        (let ((mixed (result-plan-projection (compile-result-profile mixed-results) 'mixed
+                       '((text span optional) (head node required) (tail parts)))))
+          (check (rejects? (lambda () (result-projection-parts-field mixed))) => #t)
+          (check (rejects? (lambda () (result-projection-build-parts mixed source 0 1 '() '()))) => #t))))
     (test-case "generated bindings reject POO recipe drift and malformed producer tables"
       (let* ((plan (compile-result-profile projected-results))
              (recipe (result-plan-recipe plan))

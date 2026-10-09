@@ -1578,3 +1578,119 @@ It must also qualify interpreted and generated executors with the same full
 products. Moving grammar complexity into a language-specific shortcut or
 changing the public capture contract merely to bypass validation would not
 address this shared producer/consumer boundary.
+
+
+* Direct parts projection and bounded DSL expansion (2026-10-10)
+
+** Shared producer boundary
+
+The default unary =many= projection can consume the final child spine directly.
+=result-projection-parts-field= derives its field from the admitted operation;
+there is no author-facing mode or new grammar declaration. The Word engine's
+existing scan loop uses that field to construct =recognition-child= values in
+its private accumulator. =result-projection-build-parts= validates the proper
+list, exact field and node type, then delegates catalog and parent-span checks
+to =result-plan-node=. It publishes that same spine, removing the intermediate
+node list, subsequent =map= and temporary capture pair/vector on this path.
+Nested mixed projections and assignments retain their existing capture layout.
+
+The private projection record marks only engine-owned unary executors as
+eligible. =result-plan-bind-projections= clears that eligibility on a cloned
+plan: a supplied procedure is authoritative even if its declared recipe equals
+the default recipe. For bound executors, the scanner emits ordinary nodes and
+the new build boundary supplies the original capture frame. This preserves
+POO override behavior; it does not introduce a legacy schema or language mode.
+Generated bindings are tested through this authoritative frame path. This
+experiment does not claim a streaming native generated executor or Rust AOT
+allocation improvement. Public recipe digests and serialized ABI products
+remain unchanged.
+
+[[https://arxiv.org/html/2304.05276][flap]], Section 2.8, explicitly generates code that removes statically known
+information and avoids introducing higher-order operations in the parser core.
+That motivates specializing the declared field in the producer rather than
+assuming a generic callback is free. The retained code removes one semantic
+intermediary; it is not DGNF lexer/parser fusion and does not inherit flap's
+proof or measured speedups. SDK =2591dcd='s owned-list builders and private
+reverse accumulators remain the source model for publication ownership.
+
+** Rejected callback experiment
+
+The first candidate invoked a projection emitter for every produced part. It
+passed complete product equality but added closure and mutable accumulator
+state. On the same complete-request control its allocation median was
+39,427,464 bytes and CPU median 34.844 ms, versus reference A's 39,233,704
+bytes and 32.202 ms. All 23 admitted allocation intervals out of 31 agreed
+with the increase. This callback candidate was removed, including its proposed
+producer API. The replacement constructs children in the existing scan loop;
+there is no per-part callback in that path.
+
+** Actual compiler timeout and DSL correction
+
+The first build was terminated by the unchanged five-second idle guard after
+60.161 seconds. A diagnostic retry wrapped actual compiler pass entry and
+completion, without changing ASTs or adding periodic output. It terminated
+after 24.176 seconds in =apply-optimize-annotated= immediately after
+=Optimizing syntax-case expansion=. Type collection, mutable type collection
+and refinement completed in 0.059, 0.054 and 0.074 seconds respectively.
+The failure was before GCC and was not resolved by switching compilers or
+increasing either timeout.
+
+SDK =gerbil/compiler/optimize.ss= separates those passes;
+=gerbil/compiler/optimize-ann.ss= sends =@syntax-case= annotations to its
+specializing optimizer. =defresult-profile= repeated complete combination
+patterns for eight legal clause sequences. The retained macro parses each
+clause once and checks its tag sequence against those same eight combinations.
+Duplicate clauses, reordered clauses, unknown clauses and malformed node
+clauses are still rejected. Scanner expressions keep their original syntax
+binding; quoted node, token and projection slots retain their existing shape.
+
+After factoring that syntax, annotation optimization completed in 0.015
+seconds. The direct-construction revision completed the same pass in 0.008
+seconds, and its two-module build completed in 49.225 seconds. Both modules
+were compiled in one GXI invocation. The fixed GCC/Gerbil SDK, optimization
+options, 3 GiB heap and 120-second total/five-second idle guards were unchanged.
+Pass instrumentation was private diagnostic tooling, not a new repository
+runner. These receipts establish guarded completion; they are not a portable
+whole-build timing comparison under host contention.
+
+** Complete-request controls and contracts
+
+Reference A, direct candidate A, direct candidate B and reference B used
+fresh processes, unchanged clients and the same existing private controller.
+Loaded object identities were asserted: reference =shell-word~0.o3= and
+=result-profile~0.o5=; direct =shell-word~0.o5= and =result-profile~0.o7=.
+All numbered artifacts for those modules were removed before variant swaps,
+and direct artifacts were restored before final tests. Each complete block
+admitted 23 allocation intervals out of 31. GC-crossing intervals were
+excluded; no forced GC or simultaneous local builds occurred during timing.
+
+| Block | Complete CPU median ms | Admitted allocation median bytes |
+|-------+------------------------+----------------------------------|
+| Reference A | 32.202 | 39233704 |
+| Direct A | 28.583 | 39103304 |
+| Direct B | 24.530 | 39103304 |
+| Reference B | 23.199 | 39233064 |
+
+The reduction is 129,760 to 130,400 bytes, approximately 0.33 percent. CPU
+drift again prevents a stable speedup claim. Full product equality and an
+additional source-bound validator admitted four fixtures plus empty, malformed
+and Unicode inputs. The sequence-only controls retained their reference
+allocation values, so the improvement is confined to producer/projection
+construction rather than a change in sequence materialization.
+
+Eight source suites passed 135 cases in 12.888 seconds with
+=TEST-SUITE-OK modules=8=, =OK= and exit 0. New cases cover all eight legal
+DSL combinations and rejected shapes, empty and 1,024-item parts, comparison
+with the original capture API through default and generated bindings, exact
+published-spine identity, wrong fields, foreign/escaping nodes, non-unary
+recipes and custom executor authority. The initial new fixture omitted the
+empty =tokens= clause required between =nodes= and =projections=. The macro
+correctly rejected it; the fixture was fixed rather than widening the DSL.
+That failed 8.693-second preparation is excluded from successful receipts.
+
+The complete-request benefit is modest because mixed nested captures and
+observable lossless products still dominate allocation. Extending direct
+construction to those captures requires an admitted producer plan that
+preserves operation ordering and all field/span checks. This result closes
+the unary boundary and compiler expansion issue, not the remaining gap to a
+different parser or the full semantic-intermediary cost.

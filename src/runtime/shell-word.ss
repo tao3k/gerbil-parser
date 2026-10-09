@@ -2,11 +2,11 @@
 ;;; Lossless word decomposition with explicit quote and expansion boundaries.
 
 (import (only-in :gerbil-parser/src/runtime/recognition
-                 prepare-recognition-source)
+                 prepare-recognition-source make-recognition-child)
         (only-in ../language/part-profile part-plan-recipe part-plan-context part-context-match part-context-literal-end part-plan-literal
                  part-step-operation part-step-kind part-step-opening part-step-closing part-step-delimiter part-plan-name-end part-plan-binding part-step-binding
                  binding-plan-name-end binding-plan-prefix-end binding-plan-operator-end binding-plan-subscript-at? binding-plan-subscript-width binding-plan-region-plan binding-plan-region-scopes)
-        (only-in ../language/result-profile result-plan-projection result-projection-build)
+        (only-in ../language/result-profile result-plan-projection result-projection-build result-projection-parts-field result-projection-build-parts)
         (only-in :gerbil-parser/src/runtime/funcs
                  recognition-sequence-append recognition-sequence->list)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)
@@ -113,8 +113,9 @@
 ;;; Only the public word/assignment/body boundary materializes the ordered list;
 ;;; nesting never copies a growing token suffix. No relocated child views enter
 ;;; this token-only sequence, so materialization retains the original tokens.
-;;; Returns syntax parts and their nonoverlapping source token sequence.
-(def (parse-parts raw text start end context)
+;;; Returns syntax parts, or final children when a declared field is supplied,
+;;; together with their nonoverlapping source token sequence.
+(def (parse-parts raw text start end context (field #f))
   (let (context-plan (cond ((not context) word-context)
                            ((eq? context 'HereDocument) here-context)
                            (else (part-plan-context parts-plan context))))
@@ -158,13 +159,16 @@
                   (let (after (part-context-literal-end context-plan text offset end))
                     (let-values (((part produced) (leaf raw literal-kind offset after)))
                       (values part produced after))))))))
-          (loop next (cons part parts) (recognition-sequence-append tokens produced)))))))
+          (loop next (cons (if field (make-recognition-child field part) part) parts)
+                (recognition-sequence-append tokens produced)))))))
 
 (def (components token context id)
   (let-values (((raw text) (prepare-word token)))
-    (let (length (string-length text))
-      (let-values (((parts tokens) (parse-parts raw text 0 length context)))
-        (let-values (((value produced) (project raw id 0 length (vector (cons parts tokens)))))
+    (let* ((length (string-length text)) (projection (hash-get projections id))
+           (field (result-projection-parts-field projection)))
+      (let-values (((parts tokens) (parse-parts raw text 0 length context field)))
+        (let-values (((value produced) (result-projection-build-parts projection
+                        (shell-word-source-spans raw) 0 length parts tokens)))
           (values value (recognition-sequence->list produced)))))))
 (def (shell-word-components token) (components token #f 'Word))
 (def (shell-here-content-components token) (components token 'HereDocument 'HereDocumentLine))

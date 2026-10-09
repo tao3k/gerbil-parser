@@ -4,7 +4,8 @@
 
 * Scope and revision
 
-Current source audit: =de8bef52854506acea6c736860d13c843ebe0212=, PR #13.
+Current source audit baseline: =2feaa26727dddc379a066c6b991cd1a48c9f5504=,
+PR #13, with the FIRST dependency implementation described below.
 Implementation means a mechanism exists in this source revision. Qualification
 means the stated command completed with propagated status and its final marker.
 Historical receipts retain their own revisions. Neither inspected test code nor
@@ -39,7 +40,7 @@ into prioritized choice or silently substitute another backend.
 |----------------+-----------------------------+--------------------|
 | Author syntax and POO composition | =defgrammar-syntax=, =deflanguage= and =src/compiler/normalize.ss= | Keep future admission and resource mechanics out of language author slots |
 | Resolved repetition admission | =src/compiler/lr.ss= and =t/resolved-grammar-test.ss= | Productivity and general predictive choice-equivalence proof |
-| Nullable analysis | Same owner; occurrence counters and reverse dependencies | FIRST still has a separate fixed-point algorithm; no general whole-parser complexity claim |
+| Nullable analysis | Same owner; occurrence counters and reverse dependencies | FIRST uses its own prefix dependency/delta worklist; no general whole-parser complexity claim |
 | Selected origin diagnostics | =expressionOrigin= and finite =nullableReferencePath= | Generated helper/conflict origin serialization and unavailable reader coordinates |
 | Source/Command scheduling | =command_program.rs= and =command_source/execution.rs= | Complete byte/allocation/work accounting beyond the live-frame budget |
 | Canonical Source publication | =command_source/publication.rs= and Scheme-native fixtures | Rust GPA1 encoding, diagnostic transport and deep live C handle parity |
@@ -55,7 +56,7 @@ Detailed contracts are owned by these documents:
 5. [[file:dsl-lr-transfer.org][LR fragment transfer and shared terminal yields]]
 6. [[file:dsl-test-preparation.org][Shared test runtime and preparation ownership]]
 
-* Qualification of the latest algorithm slice
+* Qualification of the nullable algorithm slice
 
 =de8bef5= replaces whole-production nullable rescans with occurrence dependencies.
 For P productions and R rhs occurrences, expected constant-time table operations
@@ -75,12 +76,24 @@ end-to-end acceleration. It does not measure Rust execution, FFI or incremental
 parse latency. Latest delivered-head CI is a separate gate; inspect the PR check
 for that exact SHA before treating a local receipt as remote closure.
 
+* FIRST dependency follow-up
+
+[[file:dsl-effective-grammar-admission.org::*FIRST propagation: contract and implementation][The FIRST implementation contract]] records the completed nullable-prefix graph,
+dense private indices, coalesced deltas, canonical output order, independent
+oracles and matched native A/B. This gives the existing LR consumer dependency-
+driven analysis without changing target admission. Long reverse-chain behavior
+improves structurally; the measured real full-construction difference does not
+establish a stable end-to-end gain. The initial slower candidate remains recorded.
+After rebasing onto =344826a=, local qualification passed 44 source-mode
+resolved/canonical LR Cases, 361 compiled semantic Cases in 23 groups and all
+five independent research entries. Exact delivered-head CI remains separate.
+
 * Next implementation sequence
 
 | Order | Concrete code/design work | Consumer and required control |
 |-------+---------------------------+-------------------------------|
 | 1 | Define productive-language facts on the effective grammar, preserving nullable distinction | Establish whether the start rule has a finite derivation; controls for dead cycles, epsilon exits, productive LR recursion and unreachable dead rules; settle diagnostic/admission policy before changing acceptance |
-| 2 | Audit FIRST propagation dependencies with nullable-prefix semantics | Preserve exact ordered FIRST rows and complete LRSpec on real grammars; use a matched baseline at the same compilation tier and include preparation cost |
+| 2 | Extend FIRST/nullable evidence to any proposed target specialization | Keep the implemented completed facts and canonical order; compare full target artifacts and cost before changing admission or emission |
 | 3 | Specify target-local CFG choice admission | Keep the reviewed HCL emitter restriction until equivalence is proved; matched token segmentation, common-prefix/nested-node controls, exact output or explicit rejection |
 | 4 | Extend Source resource and ABI qualification | Deep success/failure cleanup, independent next request, owned callbacks and diagnostic transport; account for bytes/work separately from frame count |
 | 5 | Join mapped scanner and parser subtree reuse at a defined target boundary | Fresh-parse artifact equality on Unicode, quotes, heredocs, delimiter and context edits; preserve new source identity and release ownership |

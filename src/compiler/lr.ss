@@ -3,6 +3,7 @@
 
 (import (only-in ./funcs
                  compiler-index-set->ordered-values
+                 compiler-index-set-difference
                  compiler-index-set-singleton
                  compiler-index-set-union))
 (export +lr-eof+
@@ -585,8 +586,8 @@
 (def (sequence-first symbols first nullable (tail-lookahead #f))
   (sequence-first-from symbols first nullable tail-lookahead '()))
 
-;;; Computes FIRST terminal sets after nullable convergence; no partially
-;;; updated set escapes an iteration, preserving deterministic table identity.
+;;; Computes FIRST terminal sets after nullable convergence. Delta propagation
+;;; completes before canonical terminal rows and their lookup table are published.
 ;; compute-first
 ;; : (forall (p) (-> [p] Table [(Pair Symbol Datum)]))
 ;; compute-first
@@ -604,53 +605,71 @@
 (def (compute-first productions nullable)
   (let-values (((terminal-values terminal-index)
                 (production-terminal-catalog productions)))
-    (let ((names (nonterminals productions))
-          (first-masks (make-table test: eq?)))
-      (for-each (lambda (name) (table-set! first-masks name 0)) names)
-      (def (symbol-first-mask symbol)
-        (let (symbol (base-symbol symbol))
-          (if (terminal-symbol? symbol)
-            (compiler-index-set-singleton
-             (table-ref terminal-index symbol))
-            (table-ref first-masks (nonterminal-name symbol) 0))))
-      (def (sequence-first-mask symbols)
-        (let loop ((rest symbols) (mask 0))
-          (if (null? rest)
-            mask
-            (let* ((symbol (car rest))
-                   (next
-                    (compiler-index-set-union
-                     mask (symbol-first-mask symbol))))
-              (if (symbol-nullable? symbol nullable)
-                (loop (cdr rest) next)
-                next)))))
-      (let fixed-point ()
-        (let (changed? #f)
-          (for-each
-           (lambda (production)
-             (let* ((lhs (production-lhs production))
-                    (before (table-ref first-masks lhs 0))
-                    (after
-                     (compiler-index-set-union
-                      before
-                      (sequence-first-mask (production-rhs production)))))
-               (unless (= before after)
-                 (table-set! first-masks lhs after)
-                 (set! changed? #t))))
-           productions)
-          (if changed?
-            (fixed-point)
-            (let (first (make-table test: eq?))
-              (for-each
-               (lambda (name)
-                 (table-set! first name
-                             (compiler-index-set->ordered-values
-                              (table-ref first-masks name 0)
-                              terminal-values)))
-               names)
-              (values
-               (map (lambda (name) (cons name (table-ref first name '()))) names)
-               first))))))))
+    (let* ((names (nonterminals productions))
+           (count (length names))
+           (name-index (make-table test: eq?))
+           (first-masks (make-vector count 0))
+           (pending (make-vector count 0))
+           (dependents (make-vector count '()))
+           (edges (make-table test: eqv?))
+           (work '()))
+      (for-each (lambda (name index) (table-set! name-index name index)) names (iota count))
+      (def (merge! index mask)
+        (let* ((before (vector-ref first-masks index))
+               (after (compiler-index-set-union before mask)))
+          (unless (= before after)
+            (let (waiting (vector-ref pending index))
+              (vector-set! first-masks index after)
+              (vector-set! pending index
+                           (compiler-index-set-union waiting
+                             (compiler-index-set-difference after before)))
+              (when (zero? waiting) (set! work (cons index work)))))))
+      (def (depend! name target)
+        (let (source (table-ref name-index name #f))
+          ;; An undefined source has no FIRST facts. Retain the existing empty
+          ;; lookup semantics; reference admission remains a separate owner.
+          (when source
+            (let (edge (+ (* source count) target))
+              (unless (table-ref edges edge #f)
+                (table-set! edges edge #t)
+                (vector-set! dependents source
+                             (cons target (vector-ref dependents source))))))))
+      ;; FIRST(lhs) depends on each nonterminal in the completed nullable
+      ;; prefix, including its first nonnullable operand. A terminal seeds lhs
+      ;; and blocks the remainder; marked operands retain the same base symbol.
+      (for-each
+       (lambda (production)
+         (let ((lhs (table-ref name-index (production-lhs production))))
+           (let prefix ((rhs (production-rhs production)))
+             (unless (null? rhs)
+               (let (symbol (base-symbol (car rhs)))
+                 (if (terminal-symbol? symbol)
+                   (merge! lhs (compiler-index-set-singleton
+                                (table-ref terminal-index symbol)))
+                   (begin
+                     (depend! (nonterminal-name symbol) lhs)
+                     (when (symbol-nullable? symbol nullable)
+                       (prefix (cdr rhs))))))))))
+       productions)
+      ;; Coalesce pending facts per dense nonterminal index and propagate only
+      ;; newly admitted bits. All edges exist before propagation begins.
+      (let propagate ()
+        (unless (null? work)
+          (let* ((index (car work)) (delta (vector-ref pending index)))
+            (set! work (cdr work))
+            (vector-set! pending index 0)
+            (for-each (lambda (target) (merge! target delta))
+                      (vector-ref dependents index))
+            (propagate))))
+      (let (first (make-table test: eq?))
+        (for-each
+         (lambda (name index)
+           (table-set! first name
+                       (compiler-index-set->ordered-values
+                        (vector-ref first-masks index) terminal-values)))
+         names (iota count))
+        (values (map (lambda (name) (cons name (table-ref first name))) names)
+                first)))))
 
 ;;; Reads a field from the canonical LR spec association list without deriving
 ;;; alternate state; absent fields remain false and therefore fail closed.

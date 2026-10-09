@@ -31,6 +31,7 @@
     "t/grammar-composition-contract-test"
     "t/grammar-composition-lowering-test"
     "t/grammar-composition-execution-test"
+    "t/fixtures/lr1-construction"
     "t/resolved-grammar-test"
     "t/language-artifact-test"
     "t/language-entry-boundary-test"

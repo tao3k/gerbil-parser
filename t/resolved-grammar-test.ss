@@ -1,8 +1,8 @@
 ;;; Resolved grammar semantics must be checked before target state construction.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
-        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map compute-nullable
-                 production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name)
+        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map compute-nullable compute-first terminal-symbol?
+                 lower-rules production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-rejection-condition?)
@@ -11,6 +11,11 @@
                  recognition-node-kind recognition-node-start recognition-node-end
                  recognition-node-children recognition-child-field recognition-child-value
                  recognition-value-start recognition-value-end))
+(import (only-in :gerbil-parser/t/fixtures/lr1-construction
+                 lr1-not-lalr-rules shared-lookahead-rules precedence-expression-rules
+                 mixed-context-rules lr1-context-family-rules
+                 state-local-candidate-family-rules mixed-context-family-rules
+                 acyclic-mixed-context-family-rules))
 (export resolved-grammar-test)
 
 (def (admission-result rules (construction 'lalr) (policy 'reject))
@@ -71,8 +76,105 @@
                   (check (table-ref index name #f) => (table-ref reference name #f)))
                 '(a b c missing)))))
 
+(def (reference-first productions nullable)
+  (let ((index (make-table test: eq?)) (names '()) (terminals '((terminal eof))))
+    (def (union left right)
+      (foldl (lambda (value found) (if (member value found) found (append found (list value)))) left right))
+    (for-each
+     (lambda (production)
+       (set! names (if (memq (production-lhs production) names) names
+                      (append names (list (production-lhs production)))))
+       (for-each (lambda (value)
+                   (let (symbol (base-symbol value))
+                     (when (terminal-symbol? symbol)
+                       (set! terminals (union terminals (list symbol))))))
+                 (production-rhs production))) productions)
+    (def (prefix rhs)
+      (if (null? rhs) '()
+          (let (symbol (base-symbol (car rhs)))
+            (if (terminal-symbol? symbol) (list symbol)
+                (let* ((name (nonterminal-name symbol)) (found (table-ref index name '())))
+                  (if (table-ref nullable name #f) (union found (prefix (cdr rhs))) found))))))
+    (let converge ()
+      (let (changed? #f)
+        (for-each
+         (lambda (production)
+           (let* ((name (production-lhs production)) (before (table-ref index name '()))
+                  (after (union before (prefix (production-rhs production)))))
+             (unless (equal? before after)
+               (table-set! index name after) (set! changed? #t)))) productions)
+        (when changed? (converge))))
+    (map (lambda (name)
+           (cons name (filter (lambda (terminal) (member terminal (table-ref index name '()))) terminals))) names)))
+
+(def (check-first-reference productions)
+  (let* ((nullable (reference-nullable productions))
+         (expected (reference-first productions nullable)))
+    (let-values (((rows index) (compute-first productions nullable)))
+      (check rows => expected)
+      (for-each (lambda (row) (check (table-ref index (car row)) => (cdr row))) expected))))
+
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case "FIRST delta facts match exhaustive cyclic grammar controls"
+      (let (operands '(() ((terminal literal "x")) ((terminal literal "y"))
+                         ((nonterminal a)) ((nonterminal b)) ((nonterminal c))
+                         ((nonterminal a) (terminal literal "x"))
+                         ((marked (nonterminal b) (field value)))))
+        (for-each (lambda (a)
+                    (for-each (lambda (b)
+                                (for-each (lambda (c)
+                                            (check-first-reference
+                                             (list (nullable-production 'a a)
+                                                   (nullable-production 'b b)
+                                                   (nullable-production 'c c)))) operands)) operands)) operands)))
+    (test-case "FIRST facts match an independent oracle across actual LR grammar families"
+      (for-each (lambda (rules) (check-first-reference (lower-rules rules 'source-file)))
+                (list lr1-not-lalr-rules shared-lookahead-rules precedence-expression-rules
+                      mixed-context-rules (lr1-context-family-rules 8)
+                      (state-local-candidate-family-rules 4) (mixed-context-family-rules 4)
+                      (acyclic-mixed-context-family-rules 4))))
+    (test-case "FIRST prefix blockers and duplicate edges preserve canonical rows"
+      (check-first-reference
+       (list (nullable-production 'c '((marked (nonterminal a) (field value))))
+             (nullable-production 'a '((nonterminal b) (terminal literal "z")))
+             (nullable-production 'b '())
+             (nullable-production 'a '((terminal literal "x")))
+             (nullable-production 'a '((nonterminal b) (nonterminal b) (terminal literal "z")))
+             (nullable-production 'c '((nonterminal c) (terminal eof)))))
+      (check-first-reference
+       (list (nullable-production 'a '((nonterminal b) (terminal literal "blocked")))
+             (nullable-production 'b '((marked (terminal literal "y") (field value))))
+             (nullable-production 'c '((nonterminal missing) (terminal literal "blocked"))))))
+    (test-case "FIRST keeps a terminal prefix without claiming finite completion"
+      (let (productions
+            (list (nullable-production 'a '((terminal literal "x") (nonterminal b)))
+                  (nullable-production 'b '((nonterminal b)))
+                  (nullable-production 'c '((nonterminal a)))))
+        (check-first-reference productions)
+        (let-values (((rows index) (compute-first productions (reference-nullable productions))))
+          (check (table-ref index 'a) => '((terminal literal "x")))
+          (check (table-ref index 'b) => '())
+          (check (table-ref index 'c) => '((terminal literal "x"))))))
+    (test-case "FIRST bignum deltas preserve terminal catalog order across a cycle"
+      (let* ((terminals (map (lambda (n) (list 'terminal 'literal (number->string n))) (iota 128)))
+             (productions
+              (append (list (nullable-production 'a '((nonterminal b)))
+                            (nullable-production 'b '((nonterminal c)))
+                            (nullable-production 'c '((nonterminal a))))
+                      (map (lambda (terminal) (nullable-production 'b (list terminal))) terminals))))
+        (check-first-reference productions)
+        (let-values (((rows index) (compute-first productions (reference-nullable productions))))
+          (check (table-ref index 'a) => terminals))))
+    (test-case "long reverse FIRST chain propagates its terminal without full rescans"
+      (let* ((names (map (lambda (n) (string->symbol (string-append "first-chain-" (number->string n)))) (iota 4096)))
+             (productions (map (lambda (name next)
+                                 (nullable-production name (if next (list (list 'nonterminal next))
+                                                              '((terminal literal "x")))))
+                               names (append (cdr names) '(#f)))))
+        (let-values (((rows index) (compute-first productions (reference-nullable productions))))
+          (check (map car rows) => names)
+          (check (every (lambda (name) (equal? (table-ref index name) '((terminal literal "x")))) names) => #t))))
     (test-case "dependency nullable facts match exhaustive cyclic grammar controls"
       (let (operands '(() ((terminal literal "x")) ((nonterminal a))
                          ((nonterminal b)) ((nonterminal c))

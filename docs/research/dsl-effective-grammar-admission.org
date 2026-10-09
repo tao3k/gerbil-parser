@@ -378,7 +378,7 @@ can establish productivity; failure to enumerate a bounded word cannot prove
 unproductivity. Admission changes need a deliberate target policy, not merely
 a new boolean field in an IR record.
 
-* FIRST propagation: next algorithm contract
+* FIRST propagation: contract and implementation
 
 The current =compute-first= owner remains in =src/compiler/lr.ss=. Its consumer
 is LR lookahead/state construction and target analysis. A dependency candidate
@@ -394,4 +394,86 @@ controls. Multiple terminal facts can update the same nonterminal, so nullable's
 one-publication bound does not automatically apply to FIRST. Measure dependency
 construction, mask propagation and result materialization together, then compare
 complete LRSpec and real full-construction cost at the same compilation tier.
-This is the next candidate study, not a claimed speedup or a new public DSL.
+The implementation below applies this contract to the existing owner. It changes
+analysis evaluation and storage; it introduces no public DSL vocabulary or
+choice/admission policy. Productivity still requires its separate semantic
+consumer and policy decision before it can change target admission.
+
+** Implementation and fixed-point argument (2026-10-09)
+
+The baseline is =2feaa26727dddc379a066c6b991cd1a48c9f5504=. The implementation
+assigns dense indices in first-lhs order and stores FIRST/pending masks and
+reverse targets in private vectors. A source/target edge is registered once,
+even when several productions or rhs occurrences induce it. References without
+a defining lhs retain the existing empty FIRST lookup behavior; their admission
+belongs to the existing reference validator.
+
+Build every nullable-prefix dependency before draining work. Direct terminals
+seed lhs masks. A newly admitted bit enters that nonterminal's pending mask; an
+empty-to-nonempty pending transition queues the index once. Popping an index
+clears its pending mask and propagates only that delta to its reverse targets.
+Facts arriving while queued are coalesced. A self cycle has no seed of its own.
+
+Each seed is justified by a terminal with a nullable preceding prefix. Each edge
+is justified by a nonterminal at such a prefix. Propagation is therefore sound
+for the existing FIRST equations. At queue exhaustion, every admitted terminal
+has reached every dependent lhs, establishing the same least fixed point as
+repeated scans. Termination follows from finite monotone terminal membership;
+this is not a proof that every grammar derives a completed terminal word.
+
+Materialize public rows only afterward using the existing terminal catalog and
+first-lhs name order. Queue order and delta arrival order cannot change canonical
+rows. Every lookup row is derived from that same completed mask. Epsilon remains
+a nullable fact rather than a FIRST terminal.
+
+For N nonterminals, T terminal identities and E unique prefix dependencies,
+each index can publish at most T nonempty batches and each edge transmits a
+particular terminal bit at most once. Graph discovery and deduplication visit the
+prefix occurrences; propagation work is bounded by those fact/edge updates.
+Account separately for arbitrary-width mask operations and ordered result
+materialization: neither nullable's one-publication bound nor a constant-time
+bignum assumption applies. Dependency storage is O(N + E), alongside masks,
+catalogs and the required public output rows.
+
+** Controls and matched cost evidence
+
+[[file:../../t/resolved-grammar-test.ss][The existing resolved grammar Suite]] compares an independent list/set scanning
+oracle with the new completed FIRST rows and table. It includes 512 cyclic
+combinations, eight actual LR fixture families, nullable and nonnullable prefix
+blockers, duplicate edges, marked terminals/nonterminals, undefined references,
+canonical ordering, a 128-terminal cycle and a 4096-name reverse chain. Its dead
+tail control keeps FIRST separate from productivity. The canonical LR reference
+Suite checks the existing construction and recognition routes.
+
+Local native A/B compiled the baseline scanning function and candidate with the
+same pinned Scheme SDK, GCC and optimization settings. Both returned complete
+FIRST rows and lookup membership; every measured call was compared for equality.
+Five samples per workload alternated execution order in one process, with explicit
+GC before each call excluded from CPU timing. These measurements include graph
+construction, propagation and output materialization; they exclude imports and
+nullable analysis, which is held identical for the pair.
+
+| Workload | Baseline scan CPU median (ms) | Delta CPU median (ms) |
+|----------+-------------------------------+----------------------|
+| Reverse chain 256 | 3.953 | 0.154 |
+| Reverse chain 512 | 16.729 | 0.307 |
+| Reverse chain 1024 | 61.224 | 0.565 |
+| Reverse chain 2048 | 234.479 | 1.159 |
+| Real TLA+ layout FIRST | 0.379 | 0.328 |
+
+These are analysis-call results on one local host, not Rust/FFI/parser throughput
+or an end-to-end latency promise. Complete TLA+ LRSpec exactly matches the saved
+baseline. Twenty complete default LALR construction samples gave CPU medians
+14.989 ms before and 14.789 ms after with no in-call GC. An initial table-based
+candidate instead measured 15.306 ms; it was replaced by the dense-vector variant.
+Retain this negative measurement: the narrow real full-call difference supports
+no stable end-to-end speedup claim.
+
+Final local qualification after rebasing onto =344826a=: 44 source-mode resolved
+grammar/canonical LR Cases and 361 compiled semantic Cases across 23 groups, plus
+five independent research entries, completed with status zero and final receipts.
+The first compiled preparation exposed a missing static =lr1-construction= fixture
+dependency. It is now declared once in the existing conformance module catalog;
+final Scheme-owned preparation completed in 75.76 seconds with the same total
+and idle deadlines. No timeout or compiler backend was changed. Delivered-head
+Ubuntu/Rust CI remains a separate receipt.

@@ -1,6 +1,7 @@
 ;;; Complete-product diagnostics for any public parser procedure.
 ;;; Observer overhead is included; these samples are not latency comparisons.
-(import (only-in ../../../src/runtime/parse-cost
+(import (only-in :asp-gerbil-scheme/src/benchmark/statistics benchmark-percentile-index)
+        (only-in ../../../src/runtime/parse-cost
                  current-parser-cost-observer admit-parser-allocation)
         (only-in ../../../src/runtime/artifact
                  parse-artifact-valid-for-source? parse-artifact-events parse-artifact-ref))
@@ -11,6 +12,11 @@
     (and (positive? n)
          (if (odd? n) (list-ref ordered middle)
            (/ (+ (list-ref ordered (- middle 1)) (list-ref ordered middle)) 2.0)))))
+
+(def (percentile values rank)
+  (and (pair? values)
+       (let (ordered (list-sort < values))
+         (list-ref ordered (benchmark-percentile-index (length ordered) rank)))))
 
 (def (measure-parser-stages parser source (samples 11))
   (unless (and (procedure? parser) (string? source)
@@ -50,7 +56,10 @@
                         (allocations (filter number? (map (lambda (r) (cdr (assq 'allocated-bytes r))) receipts))))
                    (list (cons 'stage stage) (cons 'samples (length receipts))
                          (cons 'cpu-p50-ms (median (map (lambda (r) (cdr (assq 'cpu-ms r))) receipts)))
+                         (cons 'cpu-p95-ms
+                               (percentile (map (lambda (r) (cdr (assq 'cpu-ms r))) receipts) 95))
                          (cons 'allocation-p50-bytes (median allocations))
+                         (cons 'allocation-p95-bytes (percentile allocations 95))
                          (cons 'allocation-samples (length allocations)))))
                (foldl (lambda (row stages)
                         (if (memq (car row) stages) stages (cons (car row) stages)))

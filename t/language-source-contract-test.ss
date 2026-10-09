@@ -1,5 +1,6 @@
 ;;; Engine ownership: source-contract admission and UTF-8 scanner checkpoints.
 (import (only-in :std/test check test-case test-suite)
+        (only-in ./benchmarks/parser-stage-cost/benchmark measure-parser-stages)
         (only-in :gerbil-parser/src/language/source declare-source-language parse-source-language)
         (only-in "fixtures/source-strategies.ss" test-source-strategy)
         (only-in :gerbil-parser/languages/bash/parser parse-bash parse-bash/receipt)
@@ -14,6 +15,22 @@
 (export language-source-contract-test)
 (def language-source-contract-test
   (test-suite "language source contracts"
+    (test-case "stage diagnostics publish P50 and P95 for complete requests"
+      (let (rows (parameterize ((current-output-port (open-output-string)))
+                    (measure-parser-stages parse-bash "echo hi\n" 20)))
+        (check (pair? rows) => #t)
+        (for-each
+         (lambda (row)
+           (let ((cpu50 (cdr (assq 'cpu-p50-ms row)))
+                 (cpu95 (cdr (assq 'cpu-p95-ms row)))
+                 (alloc50 (cdr (assq 'allocation-p50-bytes row)))
+                 (alloc95 (cdr (assq 'allocation-p95-bytes row))))
+             (check (cdr (assq 'samples row)) => 20)
+             (check (and (number? cpu50) (number? cpu95) (>= cpu95 cpu50)) => #t)
+             (check (if (zero? (cdr (assq 'allocation-samples row)))
+                      (and (not alloc50) (not alloc95))
+                      (and (number? alloc50) (number? alloc95) (>= alloc95 alloc50)))
+                    => #t))) rows)))
     (test-case "source language rejects an artifact with another digest"
       (let (other
             (declare-source-language

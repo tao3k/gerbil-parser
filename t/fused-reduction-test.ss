@@ -15,6 +15,8 @@
         (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime)
         (only-in :gerbil-parser/src/testing/language-strategy parse-indexed-reference)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
+        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref production-table production-rhs)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-roundtrip)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source syntax-fixture-expected-status)
         (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
@@ -26,6 +28,33 @@
 
 (def (emitted strategy)
   (call-with-output-string (lambda (port) (emit-build-strategy strategy port))))
+
+(def (cdr-expression-count form)
+  (if (pair? form)
+    (+ (if (eq? (car form) 'cdr) 1 0)
+       (cdr-expression-count (car form)) (cdr-expression-count (cdr form)))
+    0))
+
+(def (check-linear-stack-reads descriptor)
+  (let* ((form (call-with-input-string (emitted (make-fused-reduction-strategy descriptor)) read))
+         (table (production-table (lr-spec-ref (cdr (assq 'lr-spec (language-grammar-ir descriptor))) 'productions)))
+         (steps (filter (lambda (definition)
+                          (and (pair? definition) (eq? (car definition) 'def)
+                               (pair? (cadr definition)))) (cdr form))))
+    (check (length steps) => 2)
+    (for-each
+     (lambda (step)
+       (for-each
+        (lambda (clause)
+          (when (pair? (car clause))
+            (let* ((id (caar clause))
+                   (width (length (production-rhs (vector-ref table id))))
+                   (bindings (cadr (cadr clause))))
+              (let loop ((remaining bindings) (reads 0))
+                (if (eq? (caar remaining) 'offset)
+                  (check reads => (* 2 width))
+                  (loop (cdr remaining) (+ reads (cdr-expression-count (cadar remaining)))))))))
+        (cddr (caddr step)))) steps)))
 (def (check-reductions descriptor sources step event-step)
   (let (machine (language-grammar-machine descriptor))
     (for-each
@@ -44,6 +73,8 @@
 
 (def fused-reduction-test
   (test-suite "generic POO fused reduction strategy"
+    (test-case "both emitted backends traverse each stack suffix once"
+      (for-each check-linear-stack-reads (list arithmetic-language-grammar hcl-language-grammar)))
     (test-case "two descriptors generate independently and deterministically"
       (let* ((hcl (make-fused-reduction-strategy hcl-language-grammar))
              (arithmetic (make-fused-reduction-strategy arithmetic-language-grammar))

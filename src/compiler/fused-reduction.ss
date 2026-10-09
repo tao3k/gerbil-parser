@@ -64,9 +64,26 @@
                   'gerbil-parser/fused-reduction-strategy candidate accepted?
                   (if accepted? '() '((expected gerbil-parser/fused-reduction-strategy))) context))))
 
+(def (stack-tail-name prefix index)
+  (string->symbol (string-append prefix (number->string index))))
+
 (def (nth-tail name count)
   (let loop ((n count) (value name))
     (if (zero? n) value (loop (fx- n 1) `(cdr ,value)))))
+
+;; Share each stack suffix in generated let* bindings. Repeating an nth-tail
+;; expression for every operand makes wide production source quadratic.
+(def (stack-value-bindings count)
+  (let loop ((remaining count) (tail 'semantic-values) (bindings '()))
+    (if (zero? remaining)
+      (values (reverse bindings) tail)
+      (let* ((index (fx- remaining 1))
+             (operand (stack-tail-name "v" index))
+             (next (stack-tail-name "tail" index))
+             (bound (cons (list operand `(car ,tail)) bindings)))
+        (if (zero? index)
+          (values (reverse bound) `(cdr ,tail))
+          (loop index next (cons (list next `(cdr ,tail)) bound)))))))
 
 (def (operand-expression value operand)
   (foldl
@@ -104,36 +121,24 @@
 
 (def (step-clause table production-id)
   (let* ((production (vector-ref table production-id))
-         (count (length (production-rhs production)))
-         (bindings
-          (let loop ((i 0) (acc '()))
-            (if (= i count)
-              (reverse acc)
-              (loop (fx+ i 1)
-                    (cons
-                     (list
-                      (string->symbol
-                       (string-append "v" (number->string i)))
-                      `(car ,(nth-tail 'semantic-values (fx- count i 1))))
-                     acc)))))
-         (remaining-states (nth-tail 'states count))
-         (remaining-values (nth-tail 'semantic-values count)))
-    `((,production-id)
-      (let* ((remaining-states ,remaining-states)
-             (remaining-values ,remaining-values)
-             ,@bindings
-             (offset (if (pair? rest) (token-start (car rest))
-                       input-end-offset))
-             (value ,(semantic-expression production))
-             (entry (and (pair? remaining-states)
-                         (association-row-index-ref
-                          goto-index (car remaining-states)
-                          ',(production-lhs production))))
-             (target (and entry (cdr entry))))
-        (if target
-          (values target (cons target remaining-states)
-                  (cons value remaining-values))
-          (values #f #f #f))))))
+         (count (length (production-rhs production))))
+    (let-values (((bindings remaining-values) (stack-value-bindings count)))
+      `((,production-id)
+        (let* ((remaining-states ,(nth-tail 'states count))
+               ,@bindings
+               (remaining-values ,remaining-values)
+               (offset (if (pair? rest) (token-start (car rest))
+                         input-end-offset))
+               (value ,(semantic-expression production))
+               (entry (and (pair? remaining-states)
+                           (association-row-index-ref
+                            goto-index (car remaining-states)
+                            ',(production-lhs production))))
+               (target (and entry (cdr entry))))
+          (if target
+            (values target (cons target remaining-states)
+                    (cons value remaining-values))
+            (values #f #f #f)))))))
 
 (def (step-definition table name)
   `(def (,name production-id states semantic-values rest

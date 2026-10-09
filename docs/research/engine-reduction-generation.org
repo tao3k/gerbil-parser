@@ -1,0 +1,104 @@
+#+title: Shared engine reduction generation
+
+* Scope and ownership
+
+The optimization target is the engine implementation, across language packages.
+Benchmarks and complete language products verify the implementation; they do
+not define a language-specific optimization target. This module follows one
+edge of the canonical grammar -> prepared machine -> semantic reduction ->
+canonical artifact path. It complements the
+[[file:scheme-deflanguage-design-synthesis.org][DSL architecture synthesis]] and
+[[file:lr-request-cost-boundaries.org][complete-request cost study]].
+
+The shared owner is =src/compiler/fused-reduction.ss=. Its checked strategy
+consumes production IDs, RHS operands and field/alias actions from canonical
+Parser IR. It emits both recognition and event reductions. Language authors
+keep declaring syntax and rules; no new language option or public grammar
+composition operation is introduced.
+
+* Repeated stack expressions
+
+Previously the compiler constructed an independent =nth-tail= expression for
+every operand. For a production of width n, the emitted stack-prefix bindings
+contained 2n + n(n-1)/2 =cdr= expressions: n for the state remainder, n for
+the value remainder, and the triangular sum for operand extraction. The
+generator itself repeatedly constructed those nested expression trees.
+
+The new generator walks the semantic stack once in emitted =let*= bindings,
+retaining each suffix needed by the next operand. The state remainder still
+uses one linear expression. Width zero retains the original stack; width one
+needs no intermediate suffix binding. Operand names remain in source order,
+although the stack is consumed from the last RHS operand toward the first.
+
+#+begin_src scheme
+;; Width-three prefix inside a generated reduction clause.
+;; v0, v1, v2 are consumed by the original source-order action expression.
+(let* ((remaining-states (cdr (cdr (cdr states))))
+       (v2 (car semantic-values))
+       (tail2 (cdr semantic-values))
+       (v1 (car tail2))
+       (tail1 (cdr tail2))
+       (v0 (car tail1))
+       (remaining-values (cdr tail1)))
+  ;; The existing offset, field/alias action and goto publication follow here.
+  (values v0 v1 v2 remaining-values remaining-states))
+#+end_src
+
+Why is this design preferable? The canonical compiler shares stack suffixes
+once, instead of requiring grammar authors or individual backends to encode
+their own extraction algorithm. Scheme lexical bindings express that sharing
+directly, and the same generated action algebra serves both semantic backends.
+Why is the claim scientifically testable? For every emitted rule, the test
+counts stack-prefix =cdr= expressions independently of the generator helper and
+requires exactly 2n. It also compares complete artifacts against the generic
+executor, including source order, fields, aliases, precedence and rejection.
+
+* Evidence and limits
+
+The checked-in HCL and Arithmetic reduction modules were regenerated through
+the shared strategy. HCL source changed from 126076 to 125628 bytes; Arithmetic
+from 25310 to 25246. These are source sizes, not native image sizes or runtime
+allocation measurements. The important structural result is removal of the
+quadratic operand-expression construction, not a percentage inferred from
+these two small grammar widths.
+
+Eighteen source cases passed for strategy contracts, both languages' independent
+recognition/event backends and the all-language accepted/rejected ABI byte
+fixture. The receipt is =/private/tmp/parser-linear-reduction-final-controls.log=.
+The generic executor remains the semantic control; generated modules retain
+the same grammar digest and backend admission contracts. The generated state
+and value tails are private implementation bindings.
+
+This does not establish a native speedup. Gambit or the C compiler may already
+share repeated reads during optimization. Native compilation and execution
+qualification must be reported separately, and this study does not reinterpret
+a source-expression bound as a P50/P95 result.
+
+The shared compiler and both emitted modules compiled with official
+=gerbil compile -O=. Native GxTest then passed eight cases, including the
+structural read bound and complete recognition/event artifacts for both language
+families. The child completed in 15.578 seconds, exit zero, with =HARNESS-OK=,
+final =OK=, no supervision reason and no missing receipt. The candidate load
+path was =/private/tmp/parser-linear-reductions/lib=; admission traces and
+emitted-source controls are retained in the receipt
+=/private/tmp/parser-linear-reduction-native-complete-supervision.log=.
+
+Two earlier native attempts were not admitted: one reached the five-second
+idle gate during untraced test import, and one exposed a stale local
+=parser-test~0.scm= without a usable native stage product. Recompiling the two
+test-language dependencies and using the existing dependency/actual-interface
+trace closed this qualification. No timeout was increased and no new test
+runner was added. This native result is semantic/compilation evidence, not a
+performance result or the PR's remote CI result.
+
+* Next shared-engine implementation boundary
+
+Follow the same canonical rule/action algebra through generic LR execution,
+generated reductions, retained recognition and canonical event publication.
+Establish which representations must survive for checkpoints, GLR and replay,
+and which can be eliminated for an admitted deterministic execution. Reuse
+the existing semantic backend owner rather than add grammar-level controls.
+Before changing that route, compare accepted and rejected complete products
+across independent language families, and include retained/incremental products
+where the ownership contract requires them. Core work is the compiler/runtime
+change; the corpora and benchmarks are its admission evidence.

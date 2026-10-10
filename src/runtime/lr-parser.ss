@@ -97,6 +97,18 @@
 ;;; their ordered action chains. Both semantic backends share this admission.
 ;;; One source-order vector serves both forward and reverse execution.
 
+(def (operand-action? action)
+  (match action
+    (['field _] #t)
+    (['alias _] #t)
+    (_ #f)))
+
+(def (checked-operand-actions operand)
+  (let (actions (operand-actions operand))
+    (unless (and (list? actions) (every operand-action? actions))
+      (error "invalid LR operand actions" actions))
+    actions))
+
 (def (prepare-reduction-plan production)
   (let (action (production-action production))
     (unless (or (memq action '(pass concat)) (layout-end-action? action))
@@ -105,14 +117,7 @@
          (plan (make-vector (length operands))))
     (let loop ((operands operands) (index 0))
       (when (pair? operands)
-        (let (actions (operand-actions (car operands)))
-          (unless (and (list? actions)
-                       (every (lambda (action)
-                                (and (list? action) (= (length action) 2)
-                                     (memq (car action) '(field alias))))
-                              actions))
-            (error "invalid LR operand actions" actions))
-          (vector-set! plan index actions))
+        (vector-set! plan index (checked-operand-actions (car operands)))
         (loop (cdr operands) (fx+ index 1))))
     plan))
 
@@ -430,16 +435,17 @@
      (recognition-children-alias (cadr action) materialized default-offset))
     (else (error "unknown LR operand action" action)))))
 
-;; apply-operand-actions
-;; : (-> List List Fixnum List)
-(def (apply-operand-actions value actions default-offset fragment-constructor)
-  ;; Preserve foldl1's action order and terminal identity without a callback
-  ;; capturing the offset and constructor for each decorated operand.
-  (if (pair? actions)
-    (apply-operand-actions
-     (apply-operand-action (car actions) value default-offset fragment-constructor)
-     (cdr actions) default-offset fragment-constructor)
-    value))
+;;; An admitted chain is an ordered fold, independent of its semantic backend.
+;;; Stage the backend operation into a closed tail loop, as std/iter stages
+;;; iterator dispatch. No request-time callback captures offset or constructor.
+(defrule (define-operand-action-fold fold-name action-step)
+  (def (fold-name value actions offset constructor)
+    (if (pair? actions)
+      (fold-name (action-step (car actions) value offset constructor)
+                 (cdr actions) offset constructor)
+      value)))
+
+(define-operand-action-fold apply-operand-actions apply-operand-action)
 
 ;;; Keep the two-list reduction loop closed: offset and constructor travel
 ;;; as explicit parameters, so no callback captures them for each reduction.
@@ -469,16 +475,14 @@
       (reduce-operands rhs source-values default-offset fragment-constructor '()))
      (else (error "unknown LR semantic action" action)))))
 
-(def (apply-operand-actions/events value actions offset ignored-constructor)
-  (if (pair? actions)
-    (apply-operand-actions/events
-     (let (action (car actions))
-       (case (car action)
-         ((field) (event-children-field (cadr action) value offset))
-         ((alias) (event-children-alias (cadr action) value offset))
-         (else (error "unknown event semantic action" action))))
-     (cdr actions) offset #f)
-    value))
+(defrule (apply-operand-action/events action-expr value offset ignored-constructor)
+  (let (action action-expr)
+    (case (car action)
+      ((field) (event-children-field (cadr action) value offset))
+      ((alias) (event-children-alias (cadr action) value offset))
+      (else (error "unknown event semantic action" action)))))
+
+(define-operand-action-fold apply-operand-actions/events apply-operand-action/events)
 (def (reduce-operands/events operands values offset children)
   (if (and (pair? operands) (pair? values))
     (reduce-operands/events

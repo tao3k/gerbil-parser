@@ -17,6 +17,8 @@ request controls into repeated representation validation at action/publication
 boundaries.
 The [[file:unary-reduction-corridors.org][decorated unary corridor study]] distinguishes retained semantic
 actions from the lifetime of their intermediate immutable stack heads.
+The [[file:scheme-reduction-abstractions.org][Scheme reduction abstraction study]] applies official Gerbil staging
+patterns to the shared operand-action interpreter and its preparation contract.
 
 The shared owner is =src/compiler/fused-reduction.ss=. Its checked strategy
 consumes production IDs, RHS operands and field/alias actions from canonical

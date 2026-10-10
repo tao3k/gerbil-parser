@@ -1,0 +1,166 @@
+#+title: Scheme abstractions at the semantic reduction boundary
+
+* One engine boundary, two semantic products
+
+This study connects the [[file:engine-reduction-generation.org][shared reduction generator]] to the
+generic runtime. The canonical operand action chain is shared by recognition
+trees and event programs. Its order, empty-chain identity and preparation
+contract belong to the engine. Backend-specific field and alias construction
+belongs to each semantic product. Language declarations acquire no additional
+operation or configuration.
+
+The earlier [[file:unary-reduction-corridors.org][corridor experiment]] reduced allocation but did not establish
+a consistent complete-request CPU improvement. This refactor addresses the
+maintainability of the action interpreter without reviving that execution path.
+
+* Official source evidence
+
+The installed Gerbil source used for this study is revision =2591dcd=, shipped
+with the locally qualified toolchain. Reproduction starts with the toolchain's
+source tree rather than assuming that an online development branch matches it.
+
+- =src/std/text/parser/ll1.ss=: =ll1-bind= expresses parser composition;
+  =ll1-begin= and =ll1-case= stage control structure; =ll1-char?= uses the
+  =BufferedReader= interface through =using=. The same file retains named
+  =let= loops and conditional expressions in concrete execution algorithms.
+- =src/std/iter/macros.ss=: =for1= validates declaration shape with
+  =syntax-case= and generates callbacks or typed bindings; =for1-dispatch=
+  selects an expansion appropriate to the iterator form.
+- =src/std/vector/vector.ss=: typed procedure and vector arguments define
+  contracts around vector algorithms, while =for= expresses index traversal.
+
+These examples support separate abstractions for composition, representation
+contracts and execution. They do not establish that higher-order calls are
+always faster, or that named loops are poor Scheme style.
+
+* Declarative action admission
+
+The runtime previously embedded list-length checks and a callback in vector
+construction. Preparation now names the two accepted shapes explicitly:
+
+#+begin_src scheme
+(def (operand-action? action)
+  (match action
+    (['field _] #t)
+    (['alias _] #t)
+    (_ #f)))
+#+end_src
+
+The action-chain boundary still requires a proper list. Names retain the
+existing canonical IR contract; this change does not introduce a new name
+restriction. Unknown operations, missing payloads, extra payloads and improper
+chains fail during preparation. Validation remains outside the request loop.
+
+* Stage the shared fold
+
+#+begin_src scheme
+(defrule (define-operand-action-fold fold-name action-step)
+  (def (fold-name value actions offset constructor)
+    (if (pair? actions)
+      (fold-name (action-step (car actions) value offset constructor)
+                 (cdr actions) offset constructor)
+      value)))
+
+(define-operand-action-fold apply-operand-actions apply-operand-action)
+(define-operand-action-fold apply-operand-actions/events apply-operand-action/events)
+#+end_src
+
+The recognition step remains its existing procedure. The event step is a
+hygienic rule that binds the selected action once before its dispatch, keeping
+the previous inline event evaluation. The shared rule emits closed tail loops;
+it does not install a backend callback or capture a request's offset.
+
+* Question: why is this design preferable?
+
+The source now states one action-chain traversal contract and two semantic
+interpretations. Fixing action order or identity requires changing one fold
+definition. The backend operations remain independently readable. Scheme's
+advantage here is hygienic staging of an engine algorithm, beyond merely
+representing declarations as lists. A runtime combinator remains appropriate
+where a caller genuinely supplies a dynamic strategy; these two backend choices
+are already known when the module expands.
+
+This is a local abstraction inside the shared engine. It does not justify
+turning every loop into a macro, adding POO objects to private scalar state, or
+changing the three language-author interfaces.
+
+* Question: why is the claim scientifically testable?
+
+The invariant is =fold(step, seed, actions)= with actions consumed in declaration
+order. Empty chains return the original seed. Existing negative preparation
+tests exercise malformed action shapes. Decorated chains and widths
+=0, 1, 2, 8, 32= compare complete canonical artifacts against the independent
+materialized GLR interpreter, for both recognition and event backends.
+Unary-corridor controls additionally compare bounded checkpoint action counts.
+
+Native compilation verifies the macro expansion, while matched GQL, FHIRPath
+and Arithmetic requests distinguish maintainability from performance. A
+successful source test alone does not establish native request cost. No
+end-to-end speedup is claimed from removing duplicated source text.
+
+* Qualification
+
+- Source controls: 25 cases, final =OK= and exit 0, 13.873 s.
+  Receipt: =/private/tmp/parser-action-fold-source-final-supervision.log=.
+- Official native compilation: exit 0, 18.363 s; candidate artifacts live in
+  =/private/tmp/parser-action-fold/lib=. Inspection of the emitted =.scm=
+  confirms direct recursive calls and inline event operation dispatch.
+- Native controls: five cases, final =OK= and exit 0, 15.143 s.
+  Receipt: =/private/tmp/parser-action-fold-native-supervision.log=; its
+  interface trace selects the candidate =lr-parser.ssi= explicitly.
+
+Two initial harness attempts are excluded: one named nonexistent test files;
+the other selected a C-FFI ABI module for interpretation and failed with
+=Interpreter does not support ##c-declare=. The final source run uses the
+source-owned ABI alignment control; native qualification remains separate.
+
+** Matched native request costs
+
+Four sequential runs used 20 samples of 20 requests for each route, with the
+same source products, independent GLR admission, toolchain and artifact graph.
+Only the candidate runtime overlay changed. All four runs completed with
+=LR-REQUEST-STACK-OK= and exit 0; elapsed times were 16.655, 16.384, 18.906
+and 16.335 s. Receipts are
+=/private/tmp/parser-action-fold-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=.
+
+CPU values below are batch CPU P50 divided by 20, in milliseconds per call.
+They are not individual request latency percentiles. Natural collections remain
+in timing; admitted allocation samples exclude collection intervals.
+
+| Route | Baseline 1 | Candidate 2 | Candidate 3 | Baseline 4 | Bytes/call, all runs |
+|-------+------------+-------------+-------------+------------+---------------------|
+| gql-return 64 prepared-lr | 0.2173 | 0.21595 | 0.2273 | 0.2119 | 230932. |
+| gql-return 64 full-source | 0.30345 | 0.30775 | 0.3618 | 0.31085 | 542941.6 |
+| fhirpath-addition 64 prepared-lr | 0.2104 | 0.2128 | 0.2397 | 0.2108 | 255540. |
+| fhirpath-addition 64 full-source | 0.33965 | 0.3383 | 0.44785 | 0.3427 | 695181.6 |
+| arithmetic-addition 64 prepared-lr | 0.09635 | 0.09575 | 0.09765 | 0.094 | 134804. |
+| arithmetic-addition 64 full-source | 0.1457 | 0.14455 | 0.15855 | 0.14145 | 462141.6 |
+| gql-return 512 prepared-lr | 1.75865 | 1.61955 | 1.89055 | 1.5999 | 1894004. |
+| gql-return 512 full-source | 2.64495 | 2.39755 | 2.7127 | 2.4177 | 4330101.6 |
+| fhirpath-addition 512 prepared-lr | 1.6594 | 1.6864 | 1.95235 | 1.66655 | 2104980. |
+| fhirpath-addition 512 full-source | 3.49855 | 3.0926 | 3.4138 | 3.1203 | 5585421.6 |
+| arithmetic-addition 512 prepared-lr | 0.77145 | 0.7646 | 0.76755 | 0.7565 | 1080980. |
+| arithmetic-addition 512 full-source | 1.1478 | 1.18005 | 1.2511 | 1.2851 | 3696477.6 |
+
+All twelve routes retain exactly the same admitted allocation per call. CPU
+results vary: the third run is slower across several routes, while the second
+is near or below the neighboring baseline for many routes. This does not prove
+a speedup or establish a performance equivalence margin. The maintained claim
+is shared source policy with qualified semantics and no added request-time
+closure; stable CPU improvement remains unproved. The independent Arithmetic
+full-source route still uses its generated executor and is a control for costs
+outside the changed generic fold.
+
+* Continue at cohesive engine boundaries
+
+The remaining review follows the same canonical IR -> prepared runtime ->
+execution -> artifact path, rather than a list of surface syntax substitutions.
+Preparation should express admitted representations and backend capabilities.
+Generated and generic reducers should share action policy while retaining
+their independently testable execution strategies. Checkpoint and publication
+ownership should be explicit where mutable lifetime actually matters.
+
+The next performance transformation still requires CPU attribution and matched
+complete products. This abstraction refactor does not resolve that evidence
+gap, and a larger rewrite is not admitted merely because it uses more macros
+or interfaces.

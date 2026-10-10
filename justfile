@@ -60,6 +60,19 @@ generate-event-fold-native output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil env gxi t/generate-event-fold-native.ss "{{output}}/event-fold-native-generated.ss"
     ! rg --quiet 'fold-statements|fold-predicate|fold-offset |fold-uint |run-event-fold|eval ' "{{output}}/event-fold-native-generated.ss"
 
+# Native std/test caller for the source-owned Fold, scanner and LR suites.
+build-native-engine-controls output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/event-fold-scheme-test.ss t/ranked-regular-scanner-test.ss t/parser-runtime-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/native-engine-controls" t/native-engine-controls.ss
+
+test-native-engine-controls output:
+    GAMBOPT=max-heap=1G,debug=q "{{output}}/native-engine-controls" > "{{output}}/native-engine-controls.log" 2>&1
+    rg '^CASE-OK |^OK$' "{{output}}/native-engine-controls.log"
+    test "$(rg --count '^MODULE-OK ' '{{output}}/native-engine-controls.log')" = 3
+    test "$(rg --count '^CASE-OK ' '{{output}}/native-engine-controls.log')" = 18
+    rg --quiet '^OK$' "{{output}}/native-engine-controls.log"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/native-engine-controls.log"
+
 build-event-fold-modules output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-scheme-modules.ss src/compiler/event-fold-scheme-build.ss
 

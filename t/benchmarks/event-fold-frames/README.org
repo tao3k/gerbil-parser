@@ -94,3 +94,25 @@ scanning is faster than hand-written loops. All 150 rows collected garbage;
 raw allocation deltas are not admitted allocation totals. Local stdout is
 retained as =event-fold-frame-benchmark-borrowed.log= beside the executable.
 The 100ms complete consumer gate remains a separate, unpassed qualification.
+
+* Native engine control caller
+
+=t/native-engine-controls.ss= compiles the existing Fold-source, regular-DFA
+and parser-runtime suites into one =std/test/base= harness. This is an
+alternative qualification caller, not an additional default test matrix or
+runtime process framework. =just build-native-engine-controls= prepares and
+links the caller against an already built SDK; =just test-native-engine-controls=
+requires all three modules, all 18 cases, final =OK= and the native exit status.
+
+After rebasing onto =bb53704=, the generated native Fold passed 100 controls,
+including decoder-oracle checks for split UTF-8 bounds and empty mid-character
+spans. The native suite caller passed all 18 source-owned cases; the complete
+local Just invocation took 0.789 seconds, including receipt checks. This is not
+a parser-throughput measurement and excludes the cold AOT build.
+
+Source GXI attempts hit the unchanged five-second idle gate before harness
+output, including an LR attempt using the compiled interface. Gerbil's
+=tools/gxtest.ss= prepares/evaluates modules before running the harness.
+The native caller removes this interpretation/loading stage, but does not
+prove that the source GXI startup issue itself is repaired. Failed attempts
+are excluded from successful qualification; no timeout or heap increase is used.

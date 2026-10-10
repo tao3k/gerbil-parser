@@ -53,7 +53,7 @@ test-workers output=".data/worker-controls": build-qualification
 # Compile the suite's own fixtures, not only its import declarations.
 build-event-fold-native output load_path:
     mkdir -p "{{output}}"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-ir.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss t/event-strategy-fixture.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-ir.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss t/event-strategy-fixture.ss
     just generate-event-fold-native "{{output}}" "{{load_path}}"
 
 generate-event-fold-native output load_path:
@@ -81,6 +81,12 @@ build-event-fold-frame-benchmark output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/event-fold-frame-benchmark" t/benchmarks/event-fold-frames/benchmark.ss
 
+generate-prefix-family-benchmark output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil env gxi t/benchmarks/prefix-families/generate.ss "{{output}}/prefix-family-benchmark.ss"
+
+benchmark-prefix-families binary samples="8":
+    GAMBOPT=max-heap=1G,debug=q "{{binary}}" "{{samples}}" 1000 2000 10000
+
 benchmark-event-fold-frames binary samples="7":
     GAMBOPT=max-heap=1G,debug=q "{{binary}}" "{{samples}}" 1000 2000 10000
 
@@ -97,7 +103,7 @@ test-event-fold-native output load_path:
 build-event-fold-compiled output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-aot.ss rust-runtime-event-support.ss
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-ir.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss t/event-fold-scheme-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-ir.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss t/event-fold-scheme-test.ss
 
 test-event-fold-compiled binary output: build-qualification
     gerbil env gxi qualify.ss compiled-event-fold "{{binary}}" "{{output}}"

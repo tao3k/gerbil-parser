@@ -81,7 +81,7 @@
                            fold-line-blank? fold-line-has-word-after-prefix?
                            fold-line-has-key-after-prefix? fold-line-name-set-contains?)
                   (only-in :gerbil-parser/src/compiler/event-fold-future
-                           current-future-scan-cache fold-future-cache-for
+                           ascii-lower-byte current-future-scan-cache fold-future-cache-for
                            fold-future-index-for fold-future-named-index
                            fold-future-named-index-result fold-future-heading-title?
                            fold-future-marker-before-boundary? fold-source-slices-equal?))

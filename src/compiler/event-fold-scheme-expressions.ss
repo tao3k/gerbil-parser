@@ -2,6 +2,7 @@
 ;;; Build-time lowering only. Generated requests never dispatch expression data.
 (import (only-in :std/string/utf8 string-utf8-length)
         (only-in ./event-fold-byte-set fold-byte-set-for)
+        (only-in ./event-fold-prefix-family fold-scheme-prefix-family)
         (only-in ./event-fold-scheme-context fold-scheme-share-expression)
         (only-in ./event-fold-runtime fold-marker-byte))
 (export fold-scheme-offset fold-scheme-uint fold-scheme-predicate)
@@ -125,8 +126,10 @@
     ((stack-nonempty?) `(pair? ,(slot bindings (cadr expression))))
     ((not) `(not ,(predicate (cadr expression))))
     ;; The interpreter normalizes successful Boolean combinations to #t.
-    ((and or) `(if ,(bounded-boolean-code (car expression)
-                                        (map predicate (cdr expression)) bindings indices)
+    ((and or) `(if ,(or (and (eq? (car expression) 'or)
+                            (fold-scheme-prefix-family (cdr expression)))
+                       (bounded-boolean-code (car expression)
+                                        (map predicate (cdr expression)) bindings indices))
                   #t #f))
     ((line-starts-with)
      `(fold-byte-prefix? source-bytes start end ',(string->utf8 (cadr expression)) #f))

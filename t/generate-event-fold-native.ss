@@ -7,7 +7,13 @@
 (export main)
 
 (def predicates
-  (append '((bool #t) (state ready)
+  (append '((or (line-starts-with "ab") (line-starts-with "a")
+                (line-starts-with "é") (line-starts-with "λ"))
+            (or (line-starts-with-ascii-ci "ABC") (line-starts-with-ascii-ci "A")
+                (line-starts-with-ascii-ci "B") (line-starts-with-ascii-ci "AB"))
+            (or (state ready) (line-starts-with "a")
+                (line-starts-with "ab") (line-starts-with "é"))
+            (bool #t) (state ready)
     (uint-positive? (uint 1)) (uint-equal? (uint 1) (uint 1))
     (uint-not-equal? (uint 1) (uint 2)) (uint-greater? (uint 2) (uint 1))
     (offset-less? start end) (stack-nonempty? frames)

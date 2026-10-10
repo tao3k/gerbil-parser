@@ -4,7 +4,8 @@
         (only-in ./event-strategy-fixture event-lines-language-grammar)
         (only-in ../src/compiler/event-fold-scheme event-fold-scheme-source)
         (only-in ../src/compiler/event-fold-scheme-modules event-fold-scheme-module-sources)
-        (only-in ../src/runtime/event-fold-lines fold-line-name-set-contains?))
+        (only-in ../src/runtime/event-fold-lines fold-line-name-set-contains?)
+        (only-in ../src/runtime/source-lines fold-source-lines fold-source-byte-lines))
 (export event-fold-scheme-test)
 
 (def (source initial line finish (helpers '()))
@@ -13,6 +14,22 @@
 
 (def event-fold-scheme-test
   (test-suite "Native EventFold source admission"
+    (test-case "native byte frames preserve Unicode CR LF CRLF and terminal bounds"
+      (for-each
+       (lambda (text)
+         (let* ((bytes (string->utf8 text))
+                (before (u8vector->list bytes))
+                (oracle (fold-source-lines text '()
+                          (lambda (line start end rows)
+                            (cons (list line start end) rows))))
+                (actual (fold-source-byte-lines bytes '()
+                          (lambda (line view start end rows)
+                            (check (string->utf8 line) => view)
+                            (check (u8vector-length view) => (- end start))
+                            (cons (list line start end) rows)))))
+           (check actual => oracle)
+           (check (u8vector->list bytes) => before)))
+       '("" "abc" "\n" "\r" "\r\n" "é中🦀\r\nx\ry\nz" "a\n\n")))
     (test-case "generated source is deterministic and has no interpreted request path"
       (let* ((forms '((if (line-bytes-all-in? start end (10 97))
                          ((token Line start end)) ())))
@@ -20,7 +37,8 @@
         (check (equal? first (source '() forms '())) => #t)
         (for-each (lambda (forbidden)
                     (check (not (string-contains first forbidden)) => #t))
-                  '("event-fold-runtime" "fold-statements" "fold-predicate" "run-event-fold" "eval "))
+                  '("event-fold-runtime" "fold-statements" "fold-predicate" "run-event-fold" "eval "
+                    "current-fold-line-view" "fold-line-bytes" "(string->utf8 line)"))
         (check (not (not (string-contains first "(def (bind-native-product expected-digest)"))) => #t)
         (check (not (not (string-contains first "(reverse! (cons '(finish) events))"))) => #t)
         (let (units (event-fold-scheme-module-sources
@@ -59,7 +77,9 @@
             (source '() '((call-source-helper slice start end)) '()
                     '((slice () ((token Line start end))))))
         (check (not (not (string-contains generated
-                       "(def (%event-fold-native-product-helper-0 source-bytes"))) => #t)))
+                       "(def (%event-fold-native-product-helper-0 source-bytes"))) => #t)
+        (check (not (string-contains generated "(utf8->string (subu8vector")) => #t)
+        (check (not (not (string-contains generated "(line (utf8->string line-bytes))"))) => #t)))
     (test-case "untyped slots unknown instructions and callbacks fail before generation"
       (check-exception (source '((flag #f)) '((set-uint flag (uint 1))) '()) true)
       (check-exception (source '() '((foreign-operation)) '()) true)

@@ -42,15 +42,15 @@
     `(def (,(cdr (assq (car helper) names)) source-bytes from until events ,@arguments)
        (unless (<= 0 from until (u8vector-length source-bytes))
          (error "native fold helper bounds outside source"))
-       (let ((slots ,(fold-scheme-initial initial))
-             (line (utf8->string (subu8vector source-bytes from until)))
-             (start from) (end until))
+       (let* ((slots ,(fold-scheme-initial initial))
+              (line-bytes (subu8vector source-bytes from until))
+              (line (utf8->string line-bytes))
+              (start from) (end until))
          ,@(map (lambda (parameter argument)
                   `(vector-set! slots ,(caddr (cdr (assq parameter bindings))) ,argument))
                 parameters arguments)
-         (parameterize ((current-fold-line-view (cons line (string->utf8 line))))
-           ,@(fold-scheme-statements (caddr helper) bindings '() names)
-           events)))))
+         ,@(fold-scheme-statements (caddr helper) bindings '() names)
+         events))))
 
 (def (event-fold-scheme-source name grammar root initial line finish
                                (helpers '()) (parameters '()))
@@ -76,11 +76,11 @@
        (let (forms
         `((import (only-in :std/string/utf8 utf8->string)
                   (only-in :gerbil-parser/src/runtime/source-lines
-                           fold-source-lines line-starts-with?)
+                           fold-source-byte-lines line-starts-with?)
                   (only-in :gerbil-parser/src/compiler/event-list-marker
                            event-line-indent-column scan-event-list-marker)
                   (only-in :gerbil-parser/src/runtime/event-fold-lines
-                           current-fold-line-view fold-line-bytes fold-key-byte?
+                           fold-key-byte?
                            line-starts-with-ascii-ci? fold-line-prefix-boundary?
                            fold-line-blank? fold-line-has-word-after-prefix?
                            fold-line-has-key-after-prefix? fold-line-name-set-contains?)
@@ -115,13 +115,13 @@
                      (else (error "undeclared native fold parameter" override))))
                  overrides)
                 (let* ((events
-                        (fold-source-lines source (list '(start ,root))
-                          (lambda (line start end events)
-                            (parameterize ((current-fold-line-view (cons line (string->utf8 line))))
+                        (fold-source-byte-lines source-bytes (list '(start ,root))
+                          (lambda (line line-bytes start end events)
+                            (begin
                               ,@(fold-scheme-statements line bindings '() names)
                               events))))
-                       (line "") (start 0) (end 0))
-                  (parameterize ((current-fold-line-view (cons line (string->utf8 line))))
+                       (line "") (line-bytes '#u8()) (start 0) (end 0))
+                  (begin
                     (void)
                     ,@(fold-scheme-statements finish bindings '() names))
                   ;; Every outer event cell is allocated by this request's

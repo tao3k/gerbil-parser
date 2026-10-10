@@ -1,7 +1,28 @@
 ;;; -*- Gerbil -*-
 ;;; Request source traversal has no grammar/compiler initialization dependency.
-(import (only-in :std/string/utf8 string-utf8-length))
-(export fold-source-lines source-line-events line-starts-with?)
+(import (only-in :std/string/utf8 string-utf8-length utf8->string))
+(export fold-source-lines fold-source-byte-lines source-line-events line-starts-with?)
+
+;; Generated native products already own the UTF-8 source. Traverse that
+;; representation once, retaining each frame's bytes instead of encoding its
+;; decoded line again. ASCII CR/LF cannot occur inside a UTF-8 continuation.
+(def (fold-source-byte-lines bytes initial visit)
+  (let (size (u8vector-length bytes))
+    (def (emit from until state)
+      (let (line-bytes (subu8vector bytes from until))
+        (visit (utf8->string line-bytes) line-bytes from until state)))
+    (let loop ((start 0) (cursor 0) (state initial))
+      (cond
+       ((= cursor size)
+        (if (= start size) state (emit start size state)))
+       ((memv (u8vector-ref bytes cursor) '(10 13))
+        (let (after (+ cursor
+                       (if (and (= (u8vector-ref bytes cursor) 13)
+                                (< (+ cursor 1) size)
+                                (= (u8vector-ref bytes (+ cursor 1)) 10))
+                         2 1)))
+          (loop after after (emit start after state))))
+       (else (loop start (+ cursor 1) state))))))
 
 (def (line-starts-with? line prefix)
   (and (<= (string-length prefix) (string-length line))

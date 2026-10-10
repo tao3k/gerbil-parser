@@ -1,7 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Native byte-view primitives shared by generated code and conformance.
-(import (only-in :std/string/utf8 string-utf8-length)
-        (only-in ../compiler/event-fold-future ascii-lower-byte))
+(import (only-in ../compiler/event-fold-future ascii-lower-byte))
 (export current-fold-line-view fold-line-bytes fold-key-byte? fold-ascii-prefix?
         line-starts-with-ascii-ci? fold-line-prefix-boundary? fold-line-blank?
         fold-line-has-key-after-prefix? fold-line-has-word-after-prefix?
@@ -42,8 +41,10 @@
       (string->utf8 line))))
 
 
-(def (line-starts-with-ascii-ci? line prefix)
-  (let ((actual (fold-line-bytes line)) (expected (string->utf8 prefix)))
+(def (line-starts-with-ascii-ci? line prefix
+                                  (actual (fold-line-bytes line))
+                                  (expected (string->utf8 prefix)))
+  (let ()
     (and (>= (u8vector-length actual) (u8vector-length expected))
          (let loop ((index 0))
            (or (= index (u8vector-length expected))
@@ -51,17 +52,18 @@
                        (ascii-lower-byte (u8vector-ref expected index)))
                     (loop (+ index 1))))))))
 
-(def (fold-line-blank? line)
-  (let (bytes (fold-line-bytes line))
+(def (fold-line-blank? line (bytes (fold-line-bytes line)))
+  (let ()
     (let loop ((index 0))
       (or (= index (u8vector-length bytes))
           (and (memv (u8vector-ref bytes index) '(9 10 13 32))
                (loop (+ index 1)))))))
 
-(def (fold-line-prefix-boundary? line prefix marker?)
-  (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((bytes (fold-line-bytes line))
-              (start (string-utf8-length prefix))
+(def (fold-line-prefix-boundary? line prefix marker?
+                                 (bytes (fold-line-bytes line))
+                                 (expected (string->utf8 prefix)))
+  (and (line-starts-with-ascii-ci? line prefix bytes expected)
+       (let* ((start (u8vector-length expected))
               (end (u8vector-length bytes)))
          (if marker?
            (let loop ((cursor start))
@@ -83,10 +85,11 @@
       (and (<= 97 byte) (<= byte 122))
       (memv byte '(45 95))))
 
-(def (fold-line-has-key-after-prefix? line prefix)
-  (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((bytes (fold-line-bytes line))
-              (begin (string-utf8-length prefix))
+(def (fold-line-has-key-after-prefix? line prefix
+                                      (bytes (fold-line-bytes line))
+                                      (expected (string->utf8 prefix)))
+  (and (line-starts-with-ascii-ci? line prefix bytes expected)
+       (let* ((begin (u8vector-length expected))
               (end (u8vector-length bytes)))
          (let loop ((cursor begin))
            (if (and (< cursor end) (fold-key-byte? (u8vector-ref bytes cursor)))
@@ -94,11 +97,12 @@
              (and (> cursor begin) (< cursor end)
                   (= (u8vector-ref bytes cursor) 58)))))))
 
-(def (fold-line-has-word-after-prefix? line prefix)
-  (and (line-starts-with-ascii-ci? line prefix)
-       (let* ((bytes (fold-line-bytes line))
-              (end (u8vector-length bytes)))
-         (let skip ((cursor (min end (string-utf8-length prefix))))
+(def (fold-line-has-word-after-prefix? line prefix
+                                       (bytes (fold-line-bytes line))
+                                       (expected (string->utf8 prefix)))
+  (and (line-starts-with-ascii-ci? line prefix bytes expected)
+       (let ((end (u8vector-length bytes)))
+         (let skip ((cursor (min end (u8vector-length expected))))
            (if (and (< cursor end) (memv (u8vector-ref bytes cursor) '(9 32)))
              (skip (+ cursor 1))
              (and (< cursor end)

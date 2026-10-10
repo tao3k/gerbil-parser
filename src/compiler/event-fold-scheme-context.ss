@@ -69,12 +69,12 @@
                        (let (name (fold-scheme-fresh-name 'expression))
                          (table-set! cache key name)
                          (current-fold-scheme-definitions
-                          (cons `(def (,name source-bytes line start end slots
+                          (cons `(def (,name source-bytes line line-bytes start end slots
                                             ,@(if statements? '(events) '()) ,@formals)
                                    ,normalized)
                                 (current-fold-scheme-definitions)))
                          name)))
-            `(,name source-bytes line start end slots
+            `(,name source-bytes line line-bytes start end slots
                     ,@(if statements? '(events) '()) ,@free))))
       code)))
 

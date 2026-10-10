@@ -50,6 +50,11 @@
       ((start-node Text)
        (if (uint-positive? (state parameter))
            ((token Line start end)) ())
+       (if (line-starts-with-ascii-ci "A")
+           ((start-node Heading) (finish-node)) ())
+       (with-source-bounds start end
+         ((if (line-bytes-any-in? start end (97))
+              ((token Line start end)) ())))
        (finish-node))
       (parameter))))
 

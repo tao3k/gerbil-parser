@@ -60,3 +60,32 @@ A sparse consumer view must be compiled by the engine from admitted
 declarations and checked against full native parsing, not implemented as a
 Rust scanner or inferred from a passing source-generation test. Strict
 downstream latency gates remain separate from this allocation argument.
+
+* Explicit native frame bytes
+
+The generated product now traverses its already encoded source with
+=fold-source-byte-lines=. Each line owns one byte slice and its decoded
+string; offsets come directly from the source byte cursor. Shared generated
+procedures receive =line-bytes= explicitly. Nested source bounds and helpers
+decode their slice without encoding that string again. Constant prefix bytes
+are generated at compile time, rather than allocated by each predicate call.
+The interpreter keeps its independent string traversal and dynamic view.
+
+This follows the ownership discipline in Gerbil's =std/text/parser/ebnf/lexer=
+cached stream state and =std/list/list-builder= private accumulation. The
+official buffered =std/sync/channel= synchronizes cross-thread producers; it
+is not an appropriate replacement for a synchronous request-local event
+spine. A shared builder also has continuation re-entry semantics, so the
+generator does not introduce a shared queue or mutable global byte cache.
+
+These are fewer source traversals and transient allocations, not a claimed
+end-to-end win. Native oracle parity, retained-result isolation, and the
+unchanged complete consumer latency gate must qualify this candidate.
+
+Local admission rebuilt the optimized SDK, compiled the native control
+executable, and passed all 96 oracle/override/publication controls. Helper
+controls now also execute prefix and byte predicates inside nested bounds.
+The five source-admission cases passed under the existing five-second genuine
+output watchdog. Two earlier startup attempts failed that watchdog during
+overlapping compilation; neither is admitted as passing evidence. No consumer
+latency result is established by these engine controls.

@@ -263,9 +263,9 @@ and literal scanners participated. The participation facts are derivable during
 preparation. The experiments below show why derivability alone is insufficient
 to admit a new execution representation.
 
-** Retained execution candidate
+** Historical execution candidate, withdrawn after the cross-language audit
 
-The retained candidate keeps the existing ASCII table, mode admission,
+The initially retained candidate kept the existing ASCII table, mode admission,
 conservative non-ASCII path, regular/literal dispatch and mode-miss fallback.
 The private =scan-ranked-candidates= hygienic macro preserves the stable
 source, offset and candidate bindings at its sole call site. It applies the
@@ -446,3 +446,144 @@ and regular scanner products. It emits all four required markers and exits 0
 in 11.097 seconds. Source phase results and the corrected native gate remain
 separate receipts; no repeated source test run is used to conceal the fixture
 admission failure.
+
+* Cross-language audit of callback removal
+
+** Admission correction
+
+The preceding HCL scanner receipt is insufficient to retain a shared runtime
+optimization. The macro was therefore audited on GQL, FHIRPath and Arithmetic
+at both 64 and 512 units using the existing
+[[file:../../t/benchmarks/lr-request-stack/benchmark.ss][complete-request benchmark]].
+The series order was candidate A, reference A, reference B, candidate B. Each
+route used twelve samples of ten calls, one initial GC and natural timed GC.
+CPU values below are batch medians divided by ten, not individual request
+percentiles. Import, compilation, product validation and derivation diagnostics
+are outside timed intervals. Each complete artifact agrees with the independent
+materialized GLR interpreter and owns the original source.
+
+The LR runtime was freshly compiled from the semantic preparation refactor
+included in =f3dff04=. All four children explicitly admitted =lr-parser~0.o6=;
+only the lexical module varied between the original fold =.o1= and the private
+macro =.o5=. Both use the same language modules and native benchmark caller.
+The owned checkout was aligned with =b1b13e0= before qualification. The unchanged
+GCC SDK, 3 GiB heap, 120-second total bound and five-second idle guard applied.
+All four children exited zero with both required markers in 25.807, 29.299,
+16.522 and 20.123 seconds respectively.
+
+| Family and units | Boundary | Candidate A ms | Reference A ms | Reference B ms | Candidate B ms |
+|------------------+----------+----------------+----------------+----------------+----------------|
+| GQL 64 | prepared LR | 0.2310 | 0.2638 | 0.2314 | 0.2437 |
+| GQL 64 | full source | 0.5827 | 0.4148 | 0.3278 | 0.3369 |
+| FHIRPath 64 | prepared LR | 0.2660 | 0.2180 | 0.2645 | 0.2184 |
+| FHIRPath 64 | full source | 0.4186 | 0.3917 | 0.3599 | 0.3594 |
+| Arithmetic 64 | prepared LR | 0.1068 | 0.1021 | 0.1034 | 0.0982 |
+| Arithmetic 64 | full source | 0.1864 | 0.1514 | 0.1539 | 0.1490 |
+| GQL 512 | prepared LR | 2.0286 | 1.9738 | 2.1479 | 1.9309 |
+| GQL 512 | full source | 2.9448 | 2.9773 | 2.7429 | 3.3626 |
+| FHIRPath 512 | prepared LR | 2.4565 | 1.9853 | 1.7413 | 2.1148 |
+| FHIRPath 512 | full source | 3.2144 | 3.3384 | 3.4735 | 4.0724 |
+| Arithmetic 512 | prepared LR | 0.9260 | 0.8371 | 0.8229 | 0.8247 |
+| Arithmetic 512 | full source | 1.4478 | 1.2146 | 1.4126 | 1.2914 |
+
+Full-request allocation decreases reproducibly: GQL 512 from 4,330,163.2 to
+4,231,795.2 bytes, FHIRPath 512 from 5,585,483.2 to 5,454,603.2 bytes, and
+Arithmetic 512 from 3,696,539.2 to 3,565,659.2 bytes. Prepared LR allocation is
+unchanged in every family. These are admitted no-GC intervals, not raw deltas
+across collections.
+
+CPU does not provide a consistent complete-request benefit. Candidate A's
+small GQL request and candidate B's large GQL and FHIRPath requests are slower
+than both references. Prepared LR observations also vary despite unchanged
+code, so this series cannot establish a causal regression percentage. It does
+establish that retention as a CPU optimization is unsupported. The macro is
+withdrawn and the original fold restored. Independent candidate-order and
+Unicode controls remain useful and stay in the test suite. The earlier HCL
+allocation receipt remains a historical observation, not a current runtime win.
+
+** Broader Gerbil source study and structural experiment
+
+The installed =2591dcd= sources add distinct representation contracts to the
+previous LL1 and iterator study:
+
+| SDK source | Mechanism inspected | Engine consequence |
+|------------+---------------------+--------------------|
+| src/std/text/parser/ebnf/stream.ss | char-stream-getc and location-getc keep lookahead and location ownership together | Request position state must have an explicit owner; stream state is not a free replacement for source-bound artifacts |
+| src/std/text/parser/ebnf/lexer.ss | token-stream-get removes ignored tokens in a named loop; token-stream-next caches its EOF token | Name the execution algorithm and retain stable prepared state without creating a new language interface |
+| src/std/struct/queue.ss | Typed private fields and tail-cell insertion; queue->list publishes a copy | Mutable construction and published representation have different ownership and allocation costs |
+| src/std/vector/extensible.ss | Geometric storage growth, fill-pointer contract and boundary conversion | Growth policy must be evaluated with construction and final publication; substituting vectors for lists alone is insufficient |
+| src/gerbil/runtime/hash.ss | defhash-method stages typed access; hash-fold retains a dynamic callback | Hygienic staging and runtime composition both exist in the SDK; style alone cannot decide their request cost |
+
+The next retained implementation is a benchmark capability, not another lexical
+loop substitution. =benchmark-lr-request-backends= compares the existing
+recognition and event representations across the same three languages and two
+scales. It records requested preference and prepared backend admission separately; an
+ineligible grammar remains a recognition fallback. An untimed cost observer
+records actual source stages together with installed generated drive/source
+capabilities. Its complete artifact is checked before timing; the observer is
+absent from measured calls. The reference public artifact is always
+constructed with recognition enabled. Both the selected prepared root and the
+independent materialized GLR root must publish that same canonical artifact.
+Timed public requests must agree with it too. Derivation instrumentation stays
+on recognition and outside measured intervals.
+
+This closes a previous measurement gap: selecting an event parameter does not
+prove that a language admitted the event executor, and comparing roots directly
+would confuse representation with semantic equivalence. Complete source parsing
+and prepared recognition remain separate workloads, not additive parts of a
+cost decomposition. Language declarations and public loader slots are unchanged.
+
+** Structural qualification and remaining boundaries
+
+The first native representation control uses twelve samples of ten calls per
+route with the original scanner fold restored. Six cases pass in the
+first-character and semantic-preparation suites against the fresh native LR
+runtime. Both explicitly admitted runtime objects are =.o6=. All twenty-four
+prepared/full-source routes pass complete product controls; the child exits zero
+in 19.810 seconds with =TEST-SUITE-OK=, =LR-REQUEST-BACKENDS-OK= and
+=BACKEND-CONTROL-OK=. The lexical module and benchmark caller build together in
+20.535 seconds. The earlier fresh LR build completes in 30.484 seconds with
+the unchanged compiler and guard, closing that local artifact gate.
+
+| Family, 512 units | Recognition prepared CPU ms | Requested-event prepared CPU ms | Recognition full CPU ms | Requested-event full CPU ms | Prepared event admitted? |
+|-------------------+-----------------------------+---------------------------------+-------------------------+-----------------------------+--------------------------|
+| GQL | 1.7837 | 1.7961 | 3.0839 | 2.9312 | no |
+| FHIRPath | 1.8466 | 2.8944 | 3.3349 | 4.0219 | yes |
+| Arithmetic | 0.9576 | 1.4696 | 1.2874 | 1.3076 | yes |
+
+This is a representation diagnostic in recognition-then-event order, not an
+alternating performance qualification. The event executor saves some prepared
+allocation but its CPU observations do not justify enabling it by default.
+GQL's negative eligibility is a control, not an event execution result.
+Arithmetic's installed generated drive constructs recognition fragments directly;
+its full-source allocation remains 3,696,539.2 bytes under both preferences even
+though its prepared event route drops from 1,081,000 to 851,992 bytes. FHIRPath's
+ordinary checkpoint path admits the event executor and exhibits its cost in both
+prepared and complete requests. Prepared backend admission therefore cannot be
+reported as proof of full-source executor selection.
+
+The shared follow-up now has explicit falsifiers: generated execution must own
+its semantic representation contract; prepared and generated paths must publish
+the same canonical artifact; and a representation change must qualify complete
+requests across these distinct routes before becoming a default. Neither a
+macro style preference nor reduced allocation closes that obligation. Bash's
+contextual source parser is a separate engine route and is not qualified by this
+LR family measurement.
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/lr-request-stack/benchmark)
+(benchmark-lr-request-backends 12 10)
+#+end_src
+
+Compile the current runtime and benchmark before native qualification. Source
+loading, native artifact identity, semantic tests and completed exact-head CI
+remain separate evidence boundaries. No process supervisor or alternate engine
+is added to the repository for this study.
+
+The final route-witness caller is rebuilt natively without the observer in timed
+calls. It repeats all twenty-four product-controlled routes at twelve samples
+of ten calls, explicitly admits both =.o6= runtime objects, and exits zero in
+58.928 seconds with =LR-REQUEST-BACKENDS-OK= and =BACKEND-CONTROL-OK=. The
+witness confirms Arithmetic's generated drive and the ordinary GQL/FHIRPath
+source path at both scales. This is a local receipt; PR CI belongs to the
+subsequent exact pushed head.

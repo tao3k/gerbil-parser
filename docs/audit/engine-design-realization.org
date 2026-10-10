@@ -145,3 +145,26 @@ The shared scanner study is modularized into
 [[file:../research/shared-scanner-staging-and-fusion.org][one overview and four responsibility modules]]. Its original experiments,
 failed runs, revision identities and negative results are preserved. This audit
 is the implementation entry; those modules supply detailed arguments and receipts.
+
+* Complete-request cost admission correction
+
+The [[file:../research/shared-ranked-scanner-execution.org::*Cross-language audit of callback removal][cross-language callback audit]] withdraws the private ranked loop macro.
+Reproducible allocation reduction did not establish a complete-request CPU
+benefit on GQL, FHIRPath and Arithmetic. The original fold is restored; the
+independent order and Unicode test remains. Historical component receipts are
+retained with their evidence boundary.
+
+The existing LR request benchmark now exports =benchmark-lr-request-backends=.
+It checks twenty-four prepared/public routes against one canonical recognition
+artifact, distinguishes requested preference from prepared admission, and records
+untimed actual source stages plus generated execution capabilities. GQL rejects
+the event executor, FHIRPath admits it, and Arithmetic's public request uses its
+generated recognition drive. Enabling an event preference alone therefore does
+not certify event execution of the complete public request.
+
+The next shared-engine obligation is an explicit semantic representation
+contract for generated execution, followed by matched complete-request cost
+admission across these routes. No default backend is changed on the strength
+of prepared allocation or the single-order representation diagnostic. Bash's
+contextual route remains independently qualified by its own source products;
+these LR controls do not substitute for that qualification.

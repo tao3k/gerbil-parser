@@ -2,6 +2,7 @@
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
 (import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./parse-cost with-parser-cost-stage)
         (only-in ./event-program event-program-value? event-program-value-kind
                  event-program-value-code event-program-walk/inline event-program-relocate)
         (only-in ./funcs recognition-sequence-for-each)
@@ -226,30 +227,34 @@
 ;; : (-> String String Symbol List List (? U8Vector) Alist)
 (def (artifact grammar-digest source status events diagnostics
                (source-bytes #f))
-  (let (bytes (or source-bytes (string->utf8 source)))
-    (map cons
-         '(schema grammarDigest sourceDigest sourceByteLength
-                  status events diagnostics)
-         (list +parse-artifact-schema+
-               grammar-digest
-               (sha256-bytes bytes)
-               (u8vector-length bytes)
-               status
-               events
-               diagnostics))))
+  (let (bytes (or source-bytes
+                 (with-parser-cost-stage 'artifact-source-encoding (string->utf8 source))))
+    (with-parser-cost-stage 'artifact-source-identity
+      (map cons
+           '(schema grammarDigest sourceDigest sourceByteLength
+                    status events diagnostics)
+           (list +parse-artifact-schema+
+                 grammar-digest
+                 (sha256-bytes bytes)
+                 (u8vector-length bytes)
+                 status
+                 events
+                 diagnostics)))))
 
 ;; make-success-parse-artifact
 ;; : (-> String String List Recognition Boolean Alist)
 (def (make-success-parse-artifact grammar-digest source tokens root trivia?)
-  (let* ((source-bytes (string->utf8 source))
+  (let* ((source-bytes
+          (with-parser-cost-stage 'artifact-source-encoding (string->utf8 source)))
          (source-byte-length (u8vector-length source-bytes))
          (value
           (artifact grammar-digest source 'accepted
-                    (if (or (event-program-value? root)
+                    (with-parser-cost-stage 'artifact-event-publication
+                     (if (or (event-program-value? root)
                             (and (recognition-relocation? root)
                                  (event-program-root? root)))
                       (event-program-events tokens root trivia? source-byte-length)
-                      (recognition-events tokens root trivia? source-byte-length))
+                      (recognition-events tokens root trivia? source-byte-length)))
                     '() source-bytes)))
     value))
 
@@ -355,8 +360,16 @@
 ;;; parser commits a populated prefix of the request-local tape.
 (def (make-success-parse-artifact/raw-event-tape
       grammar-digest source tokens tape raw-count trivia? source-bytes)
-  (let* ((source-byte-length (u8vector-length source-bytes))
-         (remaining tokens)
+  (let (events
+        (with-parser-cost-stage 'artifact-event-publication
+          (raw-event-tape-events tokens tape raw-count trivia?
+                                 (u8vector-length source-bytes))))
+    (artifact grammar-digest source 'accepted events '() source-bytes)))
+
+;; Event resolution owns exactly the committed tape and canonical event list.
+;; Keep source encoding/hash/header construction outside this boundary.
+(def (raw-event-tape-events tokens tape raw-count trivia? source-byte-length)
+  (let* ((remaining tokens)
          (events (cons #f '()))
          (tail events)
          (next-token-id 0)
@@ -416,7 +429,7 @@
           (loop (fx+ index 1)))))
     (unless (and (null? remaining) (null? node-ids))
       (error "generated event stream is incomplete"))
-    (artifact grammar-digest source 'accepted (cdr events) '() source-bytes)))
+    (cdr events)))
 
 ;;; A certified same-width edit changes exactly one token event. The unchanged
 ;;; suffix remains shared, including node and field events.
@@ -608,7 +621,8 @@
 (def (make-failure-parse-artifact grammar-digest source tokens diagnostic)
   (let (value
         (artifact grammar-digest source 'rejected
-                  (flat-token-events tokens)
+                  (with-parser-cost-stage 'artifact-event-publication
+                    (flat-token-events tokens))
                   (list diagnostic)))
     value))
 

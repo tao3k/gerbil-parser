@@ -36,6 +36,8 @@
     "t/resolved-grammar-test"
     "t/lr-conflict-origins-test"
     "t/language-artifact-test"
+    "t/benchmarks/parser-stage-cost/benchmark"
+    "t/artifact-publication-cost-test"
     "t/language-entry-boundary-test"
     "t/language-topology-test"
     "t/language-loader-test"

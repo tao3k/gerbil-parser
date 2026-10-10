@@ -53,8 +53,14 @@
     (let (summary
           (map (lambda (stage)
                  (let* ((receipts (map cdr (filter (lambda (row) (eq? stage (car row))) observations)))
-                        (allocations (filter number? (map (lambda (r) (cdr (assq 'allocated-bytes r))) receipts))))
-                   (list (cons 'stage stage) (cons 'samples (length receipts))
+                        (allocations (filter number? (map (lambda (r) (cdr (assq 'allocated-bytes r))) receipts)))
+                        (completed (foldl (lambda (r total)
+                                            (if (cdr (assq 'completed r)) (+ total 1) total))
+                                          0 receipts)))
+                   (list (cons 'stage stage) (cons 'request-samples samples)
+                         (cons 'samples (length receipts))
+                         (cons 'completed-samples completed)
+                         (cons 'incomplete-samples (- (length receipts) completed))
                          (cons 'cpu-p50-ms (median (map (lambda (r) (cdr (assq 'cpu-ms r))) receipts)))
                          (cons 'cpu-p95-ms
                                (percentile (map (lambda (r) (cdr (assq 'cpu-ms r))) receipts) 95))

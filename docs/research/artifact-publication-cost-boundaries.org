@@ -1,0 +1,151 @@
+#+title: Canonical artifact publication cost and ownership
+#+startup: overview
+
+Part of the [[file:shared-scanner-staging-and-fusion.org][shared engine study]] and its
+[[file:shared-source-projection-publication.org][source publication argument]]. Implementation baseline: PR #13 =11b2cf1=
+plus this source slice. This module connects an open cost-attribution obligation
+to the existing artifact owner, source tests and cross-language measurements.
+
+* Research question
+
+Which work inside =artifact-materialization= should be optimized first: source
+encoding, canonical event publication, or source identity construction? An
+inclusive materialization interval could not distinguish those operations.
+This prevents using the research proposal to choose a measured implementation
+boundary. It is not evidence that hashing or Gambit GC is defective.
+
+[[https://arxiv.org/html/2304.05276#S2.SS8][flap Section 2.8]] excludes user semantic actions from its allocation-free
+generated execution claim; Section 5.5 distinguishes recognizer pseudocode from
+constructing ASTs or other semantic values. Our inference is that the required
+lossless artifact must be measured explicitly before applying staging or fusion
+claims. This attribution change implements that measurement obligation, not
+flap's DGNF normalization, fusion algorithm or linear-time theorem.
+
+* Engine-owned phase contract
+
+The existing =with-parser-cost-stage= macro now marks three boundaries inside
+=src/runtime/artifact.ss=. It retains direct expression evaluation when the
+observer is disabled; parameter lookup still has a cost. No language slot,
+callback protocol or author configuration is added.
+
+| Stage | Work inside the interval | When absent |
+|-------+--------------------------+-------------|
+| =artifact-source-encoding= | Convert the source string to UTF-8 bytes | The caller already supplied bytes |
+| =artifact-event-publication= | Walk recognition/event programs or resolve a committed raw tape into canonical event vectors and list cells; rejected products publish flat token events | The caller already supplied canonical events, or an uninstrumented specialized constructor owns them |
+| =artifact-source-identity= | Hash supplied source bytes and construct the canonical artifact header | Publication failed before reaching identity construction |
+
+The raw-tape resolver is a private named function. Its committed prefix,
+trivia resolution, event IDs and completeness checks are unchanged. Identity
+construction executes after that function returns, outside the event interval.
+Supplying events does not imply that event construction ran in this constructor.
+The existing source-validation interval remains a separate caller obligation.
+Incremental event rewriting and generated direct sinks are not fully attributed
+by this slice; an absent phase is not a zero-cost phase.
+
+The generic stage benchmark now reports =request-samples=, invocation =samples=,
+=completed-samples= and =incomplete-samples=. A recovered failure can belong to a
+complete rejected artifact while its failed inner interval remains incomplete.
+Repeated stage invocations remain separate observations. CPU quantiles use the
+reported invocation population; allocation quantiles retain only zero-GC,
+nonnegative counter intervals. These populations must not be interchanged.
+
+* Scheme witness and design questions
+
+#+begin_src scheme
+;; Engine code; grammar.ss retains syntax and rules only.
+(let ((events
+       (with-parser-cost-stage 'artifact-event-publication
+         (raw-event-tape-events tokens tape committed-count trivia? byte-length))))
+  ;; The canonical identity owner reuses bytes and observes its own hash/header.
+  (artifact grammar-digest source 'accepted events '() source-bytes))
+#+end_src
+
+** Question: why does this design improve the DSL boundary?
+
+Cost ownership follows engine operations. Recognition, event programs and raw
+tapes publish through shared canonical contracts, so authors do not need to
+write per-language profiling adapters or expose transient event machinery in
+=grammar.ss=. =parser.ss= keeps metadata and parser adaptation; =parser-test.ss=
+keeps language behavior and workload selection. Scheme macros express the
+optional observation at the owner while preserving its normal result.
+
+** Question: why is the design scientifically testable?
+
+An observed constructor must equal its unobserved complete artifact. Source
+admission checks Unicode byte coverage and identities independently. Supplied
+bytes/events must not generate fictitious construction observations. A failed
+tape must preserve its original error, publish =completed=false= for the failed
+interval, and never report a later identity stage. The observer's dynamic scope
+must be restored. These are executable obligations, not a speed claim inferred
+from the presence of a macro or a paper result.
+
+* Native and source qualification (2026-10-10)
+
+The artifact producer compiled natively with optimize/static options; the
+benchmark module and focused test module also compiled. The first aggregate
+build rejected an unsupported =count= identifier after producer compilation
+(=23.727s=). The supported =foldl= summary then compiled; that run rejected an
+extra closing parenthesis in the new test (=12.298s=). The corrected focused
+test compiled in =15.120s=, exit zero and final =OK=. The final aggregate native
+build of all three modules completed in =67.122s=, exit zero, no supervision
+reason or missing receipt, and final =OK=. Neither rejected run is a successful
+aggregate build receipt.
+
+Source GxTest against the native producer passed all =29= cases in =16.234s=,
+exit zero, four =MODULE-OK= markers and final =OK=. These cover the new five-case
+publication contract, existing observer behavior, persistent event programs
+(including deep publication and relocation), and public source contracts.
+The focused test is registered in the native conformance publication group and
+its build module catalog. No separate qualification executable is required.
+The benchmark helper is explicitly included in that native catalog. The
+repository's test ownership plan passed all twelve controls in =1.230s=,
+exit zero and final =OK=, including the actual repository catalog/import/suite
+coverage check. Receipt: =/private/tmp/parser-publication-cost-plan-supervision.log=.
+
+Raw receipts: =/private/tmp/parser-publication-cost-build-supervision.log=,
+=/private/tmp/parser-publication-cost-controls-build-supervision.log=,
+=/private/tmp/parser-publication-cost-test-build-supervision.log=,
+=/private/tmp/parser-publication-cost-final-build-supervision.log= and
+=/private/tmp/parser-publication-cost-source-test-supervision.log=.
+
+* Cross-language localization receipt
+
+The existing =measure-parser-stages= benchmark executed GQL RETURN lists,
+FHIRPath additions and Arithmetic additions at =64= and =512= operands, under
+both requested semantic preferences. Each of the =12= profiles has =20= requests.
+Every request equals a full unobserved reference and passes source admission
+outside the measured request. The native run completed in =11.401s=, exit zero,
+=PUBLICATION-STAGES-OK= and final =OK=. All commands retained the five-second
+real-output idle gate; no synthetic output or relaxed idle budget was used.
+
+The following =512=-operand rows use requested preference =#f=. The requested
+preference is not proof of the selected representation or executed backend.
+
+| Family | Event publication CPU P50 ms | Identity CPU P50 ms | Event publication allocation P50 bytes | Identity allocation P50 bytes | Admitted event / identity allocation intervals |
+|--------+------------------------------+---------------------+----------------------------------------+-------------------------------+-----------------------------------------------|
+| GQL RETURN | 0.4280 | 0.0080 | 1168768 | 2960 | 20 / 20 |
+| FHIRPath addition | 0.3785 | 0.0040 | 1790976 | 2960 | 20 / 20 |
+| Arithmetic addition | 0.2335 | 0.0030 | 1048896 | 2960 | 19 / 20 |
+
+All publication and identity phases completed in all 240 measured requests.
+The requested =#t= profiles retain the same admitted allocation medians for
+these two phases. The Arithmetic =#f= publication allocation population excludes
+one GC interval. Natural GC remains in CPU observations. Nested intervals are
+inclusive, observer overhead is included in the complete request, and medians
+must not be added to form a cost decomposition. These are localization results,
+not paired uninstrumented latency comparisons or a backend preference decision.
+
+Receipt: =/private/tmp/parser-publication-cost-benchmark-supervision.log=.
+The Scheme population checker admitted all twelve summaries and retained the
+requested preferences separately. There is no runtime speedup claim.
+
+* Consequence for the next optimization
+
+In these measured workloads, event publication allocates far more than source
+identity construction. That interval includes required canonical vectors/list
+cells and transient traversal storage; the measurements do not separate those
+components or justify eliminating the public artifact. A subsequent producer/
+consumer change must account for retained versus transient storage, preserve
+full event/field/span/diagnostic equality and qualify complete requests. Hash
+caching, dropping source admission or reviving a rejected local iterator does
+not follow from this evidence. Exact-head platform CI remains a separate gate.

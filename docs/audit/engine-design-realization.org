@@ -3,8 +3,8 @@
 
 * Scope and evidence rules
 
-Source audit baseline: =0a1b3261114406a8564d1f6e90952e77e676976c= on PR #13.
-The representation contract below is the subsequent implementation slice.
+Source audit baseline: =11b2cf19a81acd8223b949dabd78af69dc6f7b4c= on PR #13.
+Publication cost attribution below is the subsequent implementation slice.
 This audit connects the shared engine work to the three author interfaces:
 =grammar.ss= declares syntax, =parser.ss= supplies metadata and parser adaptation,
 and =parser-test.ss= owns observable language behavior and benchmark contracts.
@@ -33,6 +33,7 @@ configure matcher caches, generic registries, opcode lowering or worker lifetime
 | Ranked competition preserves winner semantics | [[file:../../src/compiler/lexical-lexer.ss][lexical lowering]] | [[file:../../t/lexical-first-character-test.ss][competition controls]] | Original fold retained; hygienic loop candidate withdrawn after complete-request admission failed |
 | Generated entries declare engine-owned representation obligations | [[file:../../src/compiler/machine.ss][machine backend admission]] | [[file:../../t/language-surface-test.ss][backend contract and atomicity controls]] | Captured prepared representation and generated entry products are distinct; queries do not prove arbitrary procedure bodies |
 | Preparation cost remains visible | [[file:../../t/benchmarks/contextual-scanner/matched-scale.ss][contextual benchmark]] and [[file:../../t/benchmarks/regular-mode/request-cost.ss][regular benchmark]] | Native prepared products checked after measurement | Contextual preparation controls are added in this slice; historical paired receipts remain separate from fresh runs |
+| Artifact publication cost follows shared engine ownership | [[file:../../src/runtime/artifact.ss][canonical artifact owner]] and [[file:../../t/benchmarks/parser-stage-cost/benchmark.ss][generic stage benchmark]] | [[file:../../t/artifact-publication-cost-test.ss][publication observation contracts]] and existing event/source controls | Encoding, event publication and identity intervals are separate; supplied products do not imply executed construction stages |
 
 The first row's semantic and provenance limits are detailed in
 [[file:../research/dsl-engine-contracts.org][the DSL contract audit]]. This table records responsibility rather than
@@ -141,16 +142,25 @@ Local qualification passed all 41 source GxTest cases against the final native
 producer (37 existing semantic controls and four new origin controls). The
 producer and focused test module also completed native compilation with the
 unchanged five-second real-output idle gate. Both the build module catalog and
-the conformance composition suite own the new module; exact-head CI is pending.
+the conformance composition suite own the new module. The subsequent exact
+=11b2cf1= [[https://github.com/tao3k/gerbil-parser/actions/runs/38019193501][platform CI run]] passed Linux Scheme, macOS Scheme and Rust AOT.
 
 1. Keep exact-head Linux, macOS and Rust AOT CI separate from local native
-   overlays. The earlier =f3dff04= macOS language-conformance compile failed the
-   five-second idle gate; a later local producer success does not close it.
+   overlays. The earlier =f3dff04= macOS idle failure remains negative history;
+   the completed =11b2cf1= platform run qualifies that later revision. This
+   publication attribution slice requires fresh exact-head CI.
 2. Prioritize producer construction and publication traversals using the
    [[file:../research/lr-request-cost-boundaries.org][request cost study]] and
    [[file:../research/shared-source-projection-publication.org][source publication study]]. A new optimization needs complete
    artifact/field/span parity and a matched phase control. Rejected continuation,
    projection callback and dense-prefix candidates remain rejected.
+
+The [[file:../research/artifact-publication-cost-boundaries.org][publication attribution implementation]] now localizes the latter boundary:
+29 source cases passed against the native producer, and twelve native profiles
+across three language families at two scales completed 240 full-product checks.
+Observed event-publication allocation exceeds hash/header allocation in these
+workloads. This is a next-work localization receipt, not a performance benefit
+admission or an assertion that required canonical event storage is redundant.
 
 The shared scanner study is modularized into
 [[file:../research/shared-scanner-staging-and-fusion.org][one overview and four responsibility modules]]. Its original experiments,

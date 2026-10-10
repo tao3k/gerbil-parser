@@ -4,6 +4,10 @@
 Part of [[file:shared-scanner-staging-and-fusion.org][the shared scanner study]].
 Historical revisions, failed experiments and receipt limits retain their original scope.
 
+The [[file:artifact-publication-cost-boundaries.org][artifact publication cost contract]] implements the event/encoding/identity
+attribution obligation below, with independent source controls and a native
+cross-language receipt. It does not admit a new fused executor or default.
+
 * Next shared-engine design: direct execution and publication ownership
 
 The evidence motivates a different experiment, not another generic closure

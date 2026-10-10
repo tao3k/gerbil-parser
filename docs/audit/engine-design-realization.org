@@ -318,3 +318,15 @@ Arithmetic allocation controls are unchanged. Alternating lookup measurements
 admit early-miss benefit for long identifiers, but whole-parser CPU acceleration
 and the Bash/tree-sitter throughput gap remain unproved. Withdrawn prototypes
 and compiler qualification failures remain in the research history.
+
+
+* Complete-request casefold allocation proof
+
+The [[file:../research/shared-ranked-scanner-execution.org::*Complete casefold request evidence][complete request matrix]] executes 19,200 calls on one production graph, with
+only the casefold module pair withdrawn in the reference. Scheme validates 916
+exact no-GC allocation intervals and identical source/prepared saving deltas.
+Long-identifier requests reduce prepared allocation by 37.62--38.29% and full
+source allocation by 16.86--16.95%. Arithmetic allocation stays unchanged.
+Corrupted counters, forged CPU summaries and incomplete receipts are rejected.
+CPU benefit admission fails the unchanged control gate; no complete-parser CPU
+acceleration or Bash/tree-sitter throughput conclusion is made.

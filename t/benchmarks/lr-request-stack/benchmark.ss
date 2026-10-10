@@ -21,7 +21,8 @@
                  parse-artifact-events parse-artifact-valid-for-source?
                  token-event? token-event-token-kind token-event-lexeme event-start event-end))
 (export benchmark-lr-request-stack benchmark-lr-request-backends
-        benchmark-lr-completions benchmark-lr-semantic-preparation)
+        benchmark-lr-completions benchmark-lr-semantic-preparation
+        benchmark-lr-casefold-requests)
 
 ;;; Preparation includes eligibility and generic selection. Repeated selection
 ;;; uses the prepared runtime, including negative admission. Neither stage is a
@@ -135,6 +136,36 @@
 (def (benchmark-lr-request-stack (samples 20) (iterations 20))
   (benchmark-request-families samples iterations identity)
   (displayln "LR-REQUEST-STACK-OK") (force-output))
+
+;;; Complete request controls for the shared casefold algorithm. Source and
+;;; prepared products use the same independent admission as the general matrix.
+;;; Short identifiers and the generated Arithmetic entry retain negative controls.
+(def (benchmark-lr-casefold-requests (samples 20) (iterations 20))
+  (unless (and (exact-integer? samples) (positive? samples)
+               (exact-integer? iterations) (positive? iterations))
+    (error "casefold requests require positive integral counts"))
+  (for-each
+   (lambda (width)
+     (for-each
+      (lambda (units)
+        (benchmark-family
+         (if (= width 32) 'gql-identifiers-32 'gql-identifiers-256)
+         units gql-parser parse-gql
+         (string-append "RETURN "
+          (string-join
+           (map (lambda (index)
+                  (string-append "identifier_" (make-string width #\x) "_" (number->string index)))
+                (iota units)) ", ") "\n")
+         samples iterations))
+      '(64 256)))
+   '(32 256))
+  (benchmark-family 'gql-short-control 64 gql-parser parse-gql
+    (string-append "RETURN "
+     (string-join (map (lambda (index) (string-append "v" (number->string index))) (iota 64)) ", ") "\n")
+    samples iterations)
+  (benchmark-family 'arithmetic-unchanged-control 64 arithmetic-parser parse-arithmetic
+    (string-join (make-list 64 "1") " + ") samples iterations)
+  (displayln "LR-CASEFOLD-REQUESTS-OK") (force-output))
 
 ;;; Compare semantic representations across complete public requests. Every
 ;;; route publishes the recognition reference, including grammar rejection of

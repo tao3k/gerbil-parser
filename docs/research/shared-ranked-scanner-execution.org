@@ -1032,3 +1032,88 @@ The complete-request allocation table remains explicitly attributed to
 =11b2cf1=. Later artifact-publication changes have their own cost owner and are
 not covered by those historical absolute allocation values. Latest-graph
 semantic and component qualification does not silently relabel that matrix.
+
+
+* Complete casefold request evidence
+
+The request benchmark now exports =benchmark-lr-casefold-requests=. It uses
+actual =RETURN= requests at 64 and 256 identifiers, with ASCII padding of 32 or
+256 characters. Each identifier has the form =identifier_<padding>_<ordinal>=;
+its complete length is 45--47 or 269--271 characters. Short GQL identifiers and
+an independently generated Arithmetic entry are controls. Every batch validates
+complete products; untimed independent GLR, canonical artifacts and actual
+source-route witnesses remain the admission authority.
+
+** Matched production graph and exact counters
+
+The production graph is =f75aa18= with the new benchmark caller. The reference
+withdraws only the LR/action-index casefold changes using those two modules'
+=9374421= source. Shared scanner preparation, canonical/layout admission,
+artifact publication and the new sampler remain fixed. Candidate native LR/index
+objects are =o17=/=o3=; the rebuilt reference objects are =o18=/=o4=. The caller
+verifies these identities before timing. Source and static products are restored
+from checked backups after reference construction; no alternate engine remains
+in the repository.
+
+Candidate/reference/reference/candidate children each execute twelve stages,
+twenty samples and twenty calls: 19,200 timed calls in total. They complete in
+51.673, 54.037, 38.715 and 59.651 seconds, with exit zero and final markers.
+The 3 GiB heap, GCC SDK, 120-second total fence and five-second idle fence stay
+fixed. Warmup and initial GC follow the shared sampler; natural GC stays in CPU
+observations. The benchmark caller compiles in 22.194 seconds. Reference index
+and LR compilation take 9.153 and 38.688 seconds respectively.
+
+=casefold-evidence.ss= checks every raw sample count and reconstructs CPU P50
+through the shared percentile owner. It admits allocation only in complete
+no-GC intervals, compares exact integer batch counters across repeated children,
+and requires source/prepared saving equality. All 916 admitted intervals pass:
+
+| Padding | Identifiers | Prepared reduction | Source reduction | Saved bytes per request |
+|---------+-------------+--------------------+------------------+-------------------------|
+|      32 |          64 |              9.87% |            4.24% |                   24960 |
+|      32 |         256 |              9.80% |            4.30% |                  101184 |
+|     256 |          64 |             38.29% |           16.95% |                  141440 |
+|     256 |         256 |             37.62% |           16.86% |                  561728 |
+
+Short GQL requests save 2,944 bytes at both boundaries. Arithmetic allocation
+is unchanged at both boundaries. These are complete-request allocation results,
+not extrapolation from the earlier lookup component. The equality of source and
+prepared byte deltas isolates the same eliminated normalized strings across
+both routes.
+
+** CPU rejection and verifier negative controls
+
+CPU benefit admission requires both unchanged Arithmetic controls to have child
+median ratios within 0.95--1.05 and an observed ratio range containing one.
+A stage must also have its slower candidate child median below 0.95 times the
+faster reference child median. All timed CPU samples, including GC, participate.
+This is a conservative repeated-run gate, not a statistical confidence interval.
+
+The unchanged prepared Arithmetic ratio is 0.9057; its unchanged source ratio
+is 1.1933. The control gate therefore fails. No complete-parser CPU benefit is
+admitted. Descriptive ratios of child medians for the larger identifier padding
+are 0.6851/0.6823 at prepared boundaries and 0.8485/0.8749 at source boundaries.
+Short prepared GQL has ratio 1.0687. None of these ratios is promoted to causal
+CPU evidence while the controls drift. The smaller-padding, larger source
+request also has ratio 0.9856, preserving a useful near-zero result.
+
+The first verifier attempt rejects a fractional allocation summary: converting
+raw counters to exact integers produces an exact rational quotient, while the
+sampler publishes a flonum. Summary parity now explicitly compares the sampler's
+flonum representation; exact integers still own all saving calculations. No
+tolerance or admission threshold is relaxed. The corrected verifier completes
+in 15.208 seconds with =CASEFOLD-REQUEST-EVIDENCE-OK=.
+
+Three controlled corrupted receipts are rejected: an allocation counter changed
+by eight bytes, a CPU summary changed by one millisecond, and a missing completed
+workload marker. The negative-control child completes in 7.132 seconds with exit
+zero and =CASEFOLD-EVIDENCE-NEGATIVE-CONTROL-OK=. No forged positive receipt is
+stored in the repository. Validation and replay remain Scheme-owned.
+
+** Delivery boundary
+
+The =f75aa18= Ubuntu Scheme/language-pack job and Rust AOT job pass. Its macOS job
+is cancelled after the PR advances. These checks qualify that head only. The
+later Rust target-capacity admission at =8a60fb8= is retained during rebase; it
+does not alter the Scheme execution or sampling owners measured here. New-head
+CI is a separate delivery gate from these local cost observations.

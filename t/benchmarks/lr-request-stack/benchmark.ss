@@ -1,5 +1,7 @@
 ;;; Complete requests and prepared recognition at matched source scales.
 (import (only-in ./derivation profile-lr-request-reductions)
+        (only-in :gerbil-parser/t/scenarios/performance/selective-glr/scenario
+                 selective-glr-scenario selective-glr-scenario-pass?)
         (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql)
         (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-parser parse-fhirpath)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
@@ -13,7 +15,17 @@
         (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact
                  parse-artifact-events parse-artifact-valid-for-source?
                  token-event? token-event-token-kind token-event-lexeme event-start event-end))
-(export benchmark-lr-request-stack)
+(export benchmark-lr-request-stack benchmark-lr-completions)
+
+;;; A complete group contains equivalent merge, dynamic ranking, fragment
+;;; interning and typed ambiguity rejection. Machine preparation is excluded.
+(def (benchmark-lr-completions (samples 20) (iterations 20))
+  (let (reference (selective-glr-scenario))
+    (unless (selective-glr-scenario-pass? reference)
+      (error "invalid GLR completion benchmark product"))
+    (measure-parser-component 'selective-glr-completion samples iterations
+                              selective-glr-scenario reference)
+    (displayln "LR-COMPLETION-OK") (force-output)))
 (def (benchmark-family family units machine parse source samples iterations)
   (let* ((reference (parse source))
          (tokens (map (lambda (event)

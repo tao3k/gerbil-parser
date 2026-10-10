@@ -164,3 +164,154 @@ The next performance transformation still requires CPU attribution and matched
 complete products. This abstraction refactor does not resolve that evidence
 gap, and a larger rewrite is not admitted merely because it uses more macros
 or interfaces.
+
+* Completion records and ranking ownership
+
+The next boundary is the selective-GLR result retained by configuration memo
+entries. Previously it was a six-element positional list. Ranking lived inside
+the request executor, traversed token suffixes during comparison and constructed
+a provisional result followed by another copy carrying the completion count.
+
+Official =src/std/text/parser/base.ss= uses final structs for =token= and
+=location= and destructures them with =match/with=. The official
+=src/gerbil/core/contract.ss= =Using= module implements the lexical class binding
+used below. Its syntax admits one typed binding per =using= form; two objects
+use nested scopes.
+
+#+begin_src scheme
+(defstruct lr-completion
+  (root rest score ambiguities winner-reason completion-count remaining-count)
+  final: #t)
+
+(def (ranked-candidate winner reason count)
+  (using (winner : lr-completion)
+    (make-lr-completion winner.root winner.rest winner.score winner.ambiguities
+                        reason count winner.remaining-count)))
+#+end_src
+
+=src/runtime/lr-completion.ss= owns the private completion representation and
+pure comparison policy. Its API exports construction and projections without
+mutation. The executor retains chart ownership, exploration budget, diagnostics,
+ambiguity rejection and request-local counters. =select-candidate= returns a
+representative and an equivalent-merge flag; the executor updates its own merge
+counter. No language declaration acquires another interface or policy switch.
+
+The comparison order remains dynamic score, maximal consumption, then structural
+product equivalence. Distinct equal-ranked products retain their ambiguity in a
+representative so a surrounding higher-scored completion may still win. Total
+completion counts are accumulated even when one candidate outranks the other.
+Cached suffix lengths are copied from the selected record; the engine retains
+immutable token suffixes throughout a parse.
+
+** Question: why is this design preferable?
+
+A named final record exposes the actual result contract and lets Gerbil resolve
+typed slot accesses. A standalone policy can be reviewed without the chart,
+continuation and observability machinery. One final construction carries both
+ranking evidence and completion count. This applies Scheme's type and lexical
+abstraction facilities to a private protocol; POO remains appropriate for the
+extensible public grammar and parser models.
+
+** Question: why is the claim scientifically testable?
+
+Policy controls cover both exploration orders for score and consumption, equal
+structural copies, unequal suffixes, accumulated ambiguity/counts, first-result
+identity and outer-score resolution. Existing parser integration controls cover
+the corresponding complete parse receipts and failures. A benchmark group runs
+four complete prepared GLR requests: equivalent merge, dynamic ranking, fragment
+interning and typed ambiguity rejection, requiring the same complete receipt.
+
+Ordinary full-parse LR completions reach EOF, so their suffix length is zero.
+Caching its length does not by itself establish a large request-time saving.
+The extra record slot and multiple-value result also have a native cost that
+must be measured. Deterministic request controls remain necessary because the
+shared runtime imports the new module even when it does not enter GLR.
+
+** Completion qualification receipts
+
+- 34 source cases: final =OK=, exit 0, 8.222 s, in
+  =/private/tmp/parser-completion-source-final-supervision.log=.
+- Official native compilation of the producer and consumers: exit 0, 23.260 s,
+  in =/private/tmp/parser-completion-compile-supervision.log=.
+- 34 native cases plus the complete GLR scenario and six deterministic source
+  products: all required markers and exit 0, 33.040 s, in
+  =/private/tmp/parser-completion-native-supervision.log=. Interface traces
+  select both candidate =lr-completion.ssi= and =lr-parser.ssi=.
+
+An initial source run exposed an incorrect multi-binding =using= form. It was
+corrected to nested official single-binding scopes before these final receipts;
+the failed run is not counted as qualification.
+
+Four sequential native runs use the same compiled benchmark/scenario modules
+for both engines. The baseline is =31c0667=; the candidate changes only the
+completion module and its executor integration. Each GLR sample contains 100 complete groups; deterministic
+samples contain 20 requests. There are 20 samples per route. Every run requires
+the complete product markers and exit 0, with the existing five-second real
+output watchdog. Elapsed times are 16.475, 16.159, 15.879 and 16.730 s.
+Receipts are
+=/private/tmp/parser-completion-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=.
+
+The table reports batch CPU P50 divided by its iteration count, in ms per group
+or request. Natural collection remains in the measured samples.
+
+| Route | Baseline 1 | Candidate 2 | Candidate 3 | Baseline 4 | Bytes/call |
+|-------+------------+-------------+-------------+------------+------------|
+| selective-glr-completion | 0.01391 | 0.01165 | 0.01215 | 0.01397 | 60381.6 -> 58173.6 |
+| gql-return 64 prepared-lr | 0.2065 | 0.2136 | 0.2127 | 0.2077 | 230932. |
+| gql-return 64 full-source | 0.31365 | 0.30495 | 0.2995 | 0.32 | 542941.6 |
+| fhirpath-addition 64 prepared-lr | 0.2111 | 0.21335 | 0.2123 | 0.2101 | 255540. |
+| fhirpath-addition 64 full-source | 0.3517 | 0.3385 | 0.3384 | 0.34325 | 695181.6 |
+| arithmetic-addition 64 prepared-lr | 0.09345 | 0.09365 | 0.0936 | 0.09435 | 134804. |
+| arithmetic-addition 64 full-source | 0.1396 | 0.1457 | 0.1522 | 0.1412 | 462141.6 |
+| gql-return 512 prepared-lr | 1.6087 | 1.61845 | 1.60085 | 1.6266 | 1894004. |
+| gql-return 512 full-source | 2.32895 | 2.3989 | 2.5245 | 2.96145 | 4330101.6 |
+| fhirpath-addition 512 prepared-lr | 1.6559 | 1.66305 | 1.6552 | 1.66585 | 2104980. |
+| fhirpath-addition 512 full-source | 2.82765 | 3.44985 | 3.3867 | 3.1199 | 5585421.6 |
+| arithmetic-addition 512 prepared-lr | 0.74615 | 0.7507 | 0.75525 | 0.7504 | 1080980. |
+| arithmetic-addition 512 full-source | 1.12015 | 1.16495 | 1.20145 | 1.1272 | 3696477.6 |
+
+The four-request GLR group reduces admitted allocation by exactly 2,208 bytes
+(3.66%). Its two candidate CPU medians are below both baseline medians; the
+mean of the two run medians decreases approximately 14.6%. This is evidence for
+this small complete GLR workload, not for all languages or whole-engine speed.
+The twelve deterministic routes retain exactly the same admitted allocation.
+Their CPU changes are mixed, including higher short GQL prepared and short
+Arithmetic complete-request medians. General CPU non-regression is unproved.
+
+The FHIRPath 512 complete-request batches include nine collection intervals in
+every run. Median CPU over the eleven batches without collection is about
+2.69-2.70 ms/request across all four runs, while the natural-collection P50
+above varies more. This diagnostic helps separate sample composition from
+execution cost; it does not replace the complete-request measurements or blame
+Gambit's collector for an engine design problem.
+
+The existing =t/selective-glr-benchmark-test.ss= gate also passes on the candidate:
+40 samples of 100 four-request groups, wall P95 8.363 ms below the 250 ms
+maximum, final =OK= and exit 0 in 5.365 s. Receipt:
+=/private/tmp/parser-completion-glr-gate-supervision.log=.
+
+After integrating the concurrent scanner change =bb53704=, 37 source cases
+pass in 7.369 s. The updated scanner is compiled into the candidate overlay
+(9.308 s), and 37 native cases plus all complete benchmark products pass in
+12.286 s with exit 0 and every required marker. Receipts:
+=/private/tmp/parser-completion-synchronized-source-supervision.log= and
+=/private/tmp/parser-completion-synchronized-native-supervision.log=.
+These establish combined semantic qualification; the preceding ABBA timings
+remain measurements of the isolated completion refactor against =31c0667=.
+
+The declarative optional Rust AOT generator module list also registers
+=src/runtime/lr-completion= before its =lr-parser= consumer. Default package
+source discovery already admits the new module. No compatibility record or
+additional command/script is introduced.
+The existing build-product contract's two cases pass, final =OK= and exit 0,
+in 2.161 s (=/private/tmp/parser-completion-build-contract-supervision.log=).
+This receipt qualifies the product declaration, not a fresh Rust AOT executable.
+
+Further concurrent Source/Fold commits through =ec4b6b8= are integrated before
+publication. The combined source control expands to 44 cases, including the
+updated event-fold suite and build-product contract: final =OK=, exit 0,
+7.644 s in =/private/tmp/parser-completion-integrated-source-supervision.log=.
+The 37-case native receipt above covers the LR/scanner graph, whose production
+dependencies are unchanged by those later Source/Fold commits. It does not
+qualify their new native Source/Fold implementation. Exact-head CI retains
+ownership of the complete published package and optional Rust AOT integration.

@@ -17,6 +17,7 @@
     "src/runtime/reduce"
     "src/runtime/funcs"
     "src/runtime/observability"
+    "src/runtime/lr-completion"
     "src/runtime/lr-parser"
     "src/runtime/module-source"
     "src/runtime/lexical-source"

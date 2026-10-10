@@ -1,7 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in ./event-program event-program-append)
+(import (only-in ./lr-completion
+                 make-candidate candidate-root candidate-rest candidate-score
+                 candidate-ambiguities candidate-winner-reason candidate-completion-count
+                 select-candidate)
+        (only-in ./event-program event-program-append)
         (only-in ./event-reduce event-children-field event-children-alias)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr
@@ -585,18 +589,6 @@
   (let (row (association-row-index-ref gotos state lhs))
     (and row (cdr row))))
 
-;; : (-> Datum List Integer [Nat] [Symbol] [Nat] List)
-(def (make-candidate root rest score (ambiguities 0)
-                     (winner-reason 'unique-completion)
-                     (completion-count 1))
-  (list root rest score ambiguities winner-reason completion-count))
-(def candidate-root car)
-(def candidate-rest cadr)
-(def candidate-score caddr)
-(def candidate-ambiguities cadddr)
-(def (candidate-winner-reason candidate) (car (cddddr candidate)))
-(def (candidate-completion-count candidate) (cadr (cddddr candidate)))
-
 ;;; Executes immutable tables and evaluates every admitted fork within a
 ;;; deterministic branch budget. Dynamic precedence scores complete branches;
 ;;; structurally identical ties merge and distinct equal-score ties fail closed.
@@ -744,58 +736,10 @@
         (unless (memq canonical completion-identities)
           (set! completion-identities
                 (cons canonical completion-identities)))))
-    (def (candidate-with-reason candidate reason)
-      (make-candidate
-       (candidate-root candidate) (candidate-rest candidate)
-       (candidate-score candidate) (candidate-ambiguities candidate) reason
-       (candidate-completion-count candidate)))
-    (def (candidate-with-completion-count candidate count)
-      (make-candidate
-       (candidate-root candidate) (candidate-rest candidate)
-       (candidate-score candidate) (candidate-ambiguities candidate)
-       (candidate-winner-reason candidate) count))
     (def (better-candidate current candidate)
-      (if (not current)
-        candidate
-        (let* ((completion-count
-                (+ (candidate-completion-count current)
-                   (candidate-completion-count candidate)))
-               (winner
-                (cond
-                 ((> (candidate-score candidate) (candidate-score current))
-                  (candidate-with-reason candidate 'dynamic-precedence))
-                 ((< (candidate-score candidate) (candidate-score current))
-                  (candidate-with-reason current 'dynamic-precedence))
-                 ((< (length (candidate-rest candidate))
-                     (length (candidate-rest current)))
-                  (candidate-with-reason candidate 'maximal-consumption))
-                 ((> (length (candidate-rest candidate))
-                     (length (candidate-rest current)))
-                  (candidate-with-reason current 'maximal-consumption))
-                 ((and (equal? (candidate-root candidate)
-                               (candidate-root current))
-                       (equal? (candidate-rest candidate)
-                               (candidate-rest current)))
-                  (set! merge-count (+ merge-count 1))
-                  (make-candidate
-                   (candidate-root current) (candidate-rest current)
-                   (candidate-score current)
-                   (+ (candidate-ambiguities current)
-                      (candidate-ambiguities candidate))
-                   (if (or (> (candidate-ambiguities current) 0)
-                           (> (candidate-ambiguities candidate) 0))
-                     'ambiguous
-                     'equivalent-merge)))
-                 (else
-                  ;; Retain a representative so an outer dynamic-precedence
-                  ;; fork can still outrank this complete ambiguous set.
-                  (make-candidate
-                   (candidate-root current) (candidate-rest current)
-                   (candidate-score current)
-                   (+ 1 (candidate-ambiguities current)
-                      (candidate-ambiguities candidate))
-                   'ambiguous)))))
-          (candidate-with-completion-count winner completion-count))))
+      (let-values (((winner merged?) (select-candidate current candidate)))
+        (when merged? (set! merge-count (+ merge-count 1)))
+        winner))
     (def (try-action action terminal states semantic-values rest score fuel)
       (case (car action)
         ((shift)

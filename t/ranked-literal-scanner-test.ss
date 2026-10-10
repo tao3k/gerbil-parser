@@ -4,7 +4,8 @@
 
 (import :std/test
         (only-in :gerbil-parser/src/runtime/scan
-                 make-ranked-literal-scanner))
+                 make-ranked-literal-scanner make-bounded-literal-end-scanner
+                 make-literal-trie literal-trie-child))
 
 ;;; Independent linear catalog oracle; no trie or candidate publication reuse.
 (def (literal-reference entries source start admitted)
@@ -67,6 +68,22 @@
         (check (scan "ab!" 0) => '(word 2 1 0))
         (check (scan "xab" 1) => '(word 3 1 0))
         (check (scan "xb" 0) => #f)))
+    (test-case "deep prepared paths preserve bounded endpoints without preparation stack growth"
+      (let* ((text (make-string 8192 #\a))
+             (scan (make-bounded-literal-end-scanner (list text "a" "β😀"))))
+        (check (scan text 0 8192) => 8192)
+        (check (scan text 0 8191) => 1)
+        (check (scan "!β😀!" 1 3) => 3)
+        (check (scan "!β😀!" 1 2) => #f)
+        (check (scan text -1 8192) => #f)
+        (check (scan text 0 8193) => #f)))
+    (test-case "child access evaluates supplied node and character once"
+      (let ((root (make-literal-trie '(("ab" . terminal)))) (calls 0))
+        (check (not (not (literal-trie-child
+                          (begin (set! calls (+ calls 1)) root)
+                          (begin (set! calls (+ calls 1)) #\a)))) => #t)
+        (check calls => 2)
+        (check (literal-trie-child root #\z) => #f)))
     (test-case "equal rank retains the earlier rule"
       (let (scan
             (make-ranked-literal-scanner

@@ -315,3 +315,135 @@ Its receipt stem is =parser-text-class-final-head-tests-complete=.
 The following =27f5471= changes Org research/audit documents only; its code graph
 is identical to that qualified =c12dcb0= graph. Both concurrent commits are
 preserved. None of these rebases extends the earlier performance claim scope.
+
+* Compact singleton edges in the shared literal trie
+
+The engine now prepares empty child sets as false and singleton child sets as
+one character/child pair. Branching nodes retain the original eqv character
+table. This removes generic hash lookup along non-branching paths in bounded
+literal scanning, ranked literal scanning and LR casefold traversal. It changes
+prepared edge representation rather than language declarations or matching
+priority. The terminal payload and duplicate combination remain unchanged.
+
+Preparation still inserts into mutable tables, then uses an explicit work list
+to compact completed nodes. Literal depth does not grow the preparation stack.
+The child macro binds both arguments once. The ranked scanner's former direct
+access to the edge table now uses the shared child operation; the LR consumer
+is rebuilt because it imports that macro. No compatibility representation or
+language-specific dispatch is introduced.
+
+The existing ranked-literal Scheme benchmark exports
+=benchmark-literal-edge-cpu=. Its reference expands an equivalent prepared trie
+back into all-table edges and executes the original bounded scanning loop.
+The production bounded scanner uses compact edges. Both return the complete
+longest admitted endpoint and use the same argument guards. This is a reference
+primitive comparator, not a frozen alternate parser engine. An independent
+linear literal oracle checks all start/limit boundaries over successful,
+failing and Unicode sources before timing.
+
+Twenty ABBA/BAAB CPU groups are bracketed by twenty identical-operation groups
+on each side. The existing parser batch sampler and ASP percentile helper own
+measurement. Every timed batch resolves at least one millisecond of process
+user plus system CPU; controls require P10/P90 within 0.90..1.10 and candidate
+P90 below 0.95. Natural GC is recorded, not subtracted. Preparation and oracle
+validation remain outside timed scanning. CPU completion and CPU admission
+are separate outcomes.
+
+The first matrix uses one million path characters per batch across widths
+1, 8, 32 and 128. It completes in 50.900 seconds, exit zero. Candidate CPU
+P50/P90 is 0.6540/0.7078, 0.2805/0.3521, 0.1839/0.2493 and
+0.1482/0.2001, respectively. None passes the identical-operation control gate;
+these ratios alone do not authorize a performance claim. A separate repeat
+keeps thresholds unchanged and doubles batch work to reduce interval noise.
+
+GCC compiles the scanner and macro-consuming LR index in 21.272 seconds and
+the benchmark in 12.506 seconds, both exit zero. Thirteen focused suites pass
+96 cases in 22.798 seconds, including 8,192-character preparation, Unicode
+boundaries, duplicate/rank/mode oracles, LR action identity, and macro argument
+single evaluation. Build/test wall duration is not runtime CPU evidence.
+
+Receipt stems are =parser-compact-edge-build=,
+=parser-compact-edge-benchmark-build=, =parser-compact-edge-tests= and
+=parser-compact-edge-cpu-a/b=. No JSON snapshot or absolute host path is stored.
+
+** Positive CPU admission and executable performance assertion
+
+The independent two-million-character repeat completes in 106.287 seconds,
+exit zero. Widths 1, 8 and 32 retain failed control admission even though their
+candidate medians are lower. Width 128 passes the unchanged gates:
+
+| Observation | Control before | Production/reference | Control after |
+|-------------+----------------+----------------------+---------------|
+| CPU ratio P10 | 0.9319 | 0.1325 | 0.9227 |
+| CPU ratio P50 | 0.9910 | 0.1471 | 1.0096 |
+| CPU ratio P90 | 1.0727 | 0.1635 | 1.0680 |
+
+Both identical-operation controls remain within 0.90..1.10 at P10/P90.
+Production P90 is below 0.95. The admitted median reduction is 85.29 percent
+for this bounded 128-character literal path on the tested GCC/SDK/host.
+Failed controls for other widths remain visible rather than being averaged
+into this admitted workload.
+
+The benchmark now returns per-width observations. The Scheme entry
+=qualify-literal-edge-cpu= runs the 128-character workload and throws an error
+unless semantic validation, CPU resolution, both controls and the CPU benefit
+gate all pass. It emits =LITERAL-EDGE-CPU-PROOF-OK= only after that assertion.
+It can be called with the existing module:
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/ranked-literal/benchmark)
+(qualify-literal-edge-cpu 20 2000000)
+#+end_src
+
+A third independent child runs this performance test, completing in 19.863
+seconds with exit zero and both completion and proof markers. CPU ratios are:
+
+| Observation | Control before | Production/reference | Control after |
+|-------------+----------------+----------------------+---------------|
+| CPU ratio P10 | 0.9190 | 0.1332 | 0.9076 |
+| CPU ratio P50 | 0.9946 | 0.1434 | 0.9945 |
+| CPU ratio P90 | 1.0797 | 0.1470 | 1.0688 |
+
+Thus the positive CPU admission repeats, including a median reduction of
+85.66 percent. The final performance-test receipt stem is
+=parser-compact-edge-cpu-proof=; its GCC build completes in 11.635 seconds.
+The 120-second total and five-second actual-progress watchdog are unchanged.
+The CPU timing period runs without other builds or tests from this task.
+
+This proves a production shared-scanner primitive improvement, not whole-parser
+CPU throughput or closure of the Bash/tree-sitter gap. The optimized edge IR
+is shared by ranked scanning and LR casefold lookup; those consumers retain
+semantic tests, but their complete-request CPU gain is not inferred from this
+bounded scanning workload.
+
+** Final source and latest PR closure
+
+The child macro retains the original evaluation order: it reads the supplied
+node's edges before evaluating the supplied character. This avoids exposing an
+argument-evaluation change through the new representation. GCC rebuilds the
+final scanner and consuming LR index in 17.231 seconds. A stale local LR index
+static object is invalidated; generated static source and dynamic native tests
+are qualified here, not a new complete local AOT executable.
+
+The change is rebased onto =060d8a3=, including checkpoint capability and
+contextual admission. Its LR/parser owners rebuild in 38.918 seconds. Fifteen
+source suites pass 122 cases in 23.455 seconds, including the eleven layout
+boundary cases and fifteen contextual parser cases. The final receipt contains
+=TEST-SUITE-OK=, final =OK=, exit zero and no missing products.
+
+The unchanged executable CPU assertion is run again against the final scanner.
+It completes in 18.432 seconds, exit zero, with =LITERAL-EDGE-CPU-PROOF-OK=.
+
+| Observation | Control before | Production/reference | Control after |
+|-------------+----------------+----------------------+---------------|
+| CPU ratio P10 | 0.9267 | 0.1261 | 0.9460 |
+| CPU ratio P50 | 0.9995 | 0.1400 | 0.9996 |
+| CPU ratio P90 | 1.0631 | 0.1581 | 1.0728 |
+
+Both controls and the CPU benefit gate pass again. The median reduction is
+86.00 percent for the same 128-character bounded-scanner workload; other
+workloads' failed control admission remains unchanged. Final receipt stems
+are =parser-compact-edge-final-build=, =parser-compact-edge-rebased-build=,
+=parser-compact-edge-rebased-tests= and =parser-compact-edge-cpu-final-proof=.
+The following =104679f= rebase contains documentation changes only and leaves
+the qualified production source graph unchanged.

@@ -770,8 +770,11 @@
 ;;; size, and retains the longest terminal seen along that path.
 ;; : (-> (List String) (-> String Nat (Maybe Nat)))
 (defrule (literal-trie-terminal node) (vector-ref node 0))
-(defrule (literal-trie-child node character)
-  (table-ref (vector-ref node 1) character #f))
+(defrule (literal-trie-child node-expr character-expr)
+  (let* ((edges (vector-ref node-expr 1)) (character character-expr))
+    (cond ((pair? edges) (and (eqv? character (car edges)) (cdr edges)))
+          ((not edges) #f)
+          (else (table-ref edges character #f)))))
 (def (keep-first-literal previous payload) (or previous payload))
 (def (collect-literal previous payload) (cons payload previous))
 
@@ -794,6 +797,17 @@
                  (set! child (make-node))
                  (table-set! children character child))
                (insert child (+ index 1))))))) entries)
+    ;; Preparation owns mutation. Freeze empty and singleton edge sets into
+    ;; direct representations; branching nodes retain their character index.
+    ;; An explicit work list avoids growing the stack with literal depth.
+    (let freeze ((pending (list root)))
+      (unless (null? pending)
+        (let* ((node (car pending)) (children (vector-ref node 1))
+               (edges (table->list children)) (rest (cdr pending)))
+          (for-each (lambda (edge) (set! rest (cons (cdr edge) rest))) edges)
+          (cond ((null? edges) (vector-set! node 1 #f))
+                ((null? (cdr edges)) (vector-set! node 1 (car edges))))
+          (freeze rest))))
     root))
 
 (def (checked-lexer-literal literal)
@@ -850,8 +864,7 @@
           (if (= offset source-length)
             selected
             (let (child
-                  (table-ref (vector-ref node 1)
-                             (string-ref source offset) #f))
+                  (literal-trie-child node (string-ref source offset)))
               (if child
                 (let* ((next (+ offset 1))
                        (terminal

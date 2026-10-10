@@ -293,3 +293,29 @@ CI now retains the sampler published by its conformance owner. The additional
 LR benchmark and actor consumers compile against that retained interface.
 There is no ABI adapter or legacy entry. The closed executable, native module
 loads and complete GQL reporting remain distinct exact-head CI requirements.
+
+* Disposable matrix process completion
+
+At =ebb254f=, the complete Ubuntu and Rust CI jobs pass. macOS passes native
+conformance compilation, Scheme tests and both GQL reports. Its shared LR
+matrix emits all six family/scale results and =LR-REQUEST-STACK-OK=, then
+remains alive after the benchmark returns. The supervisor stops it with
+exit 143, =idle-timeout= and no missing marker. This is rejected: a completed
+receipt cannot substitute for successful process completion.
+
+The matrix invocation now uses the same checked =test-child-process-exit!=
+fixture as the existing prepared GQL and native ABI children. It flushes
+receipts and exits only after the matrix returns normally. Assertions and
+exceptions still precede that call, and the parent still requires actual
+exit zero and the complete marker under the original 90-second/five-second
+gates. This belongs to the disposable test invocation; the reusable benchmark
+procedure and parser runtime do not terminate their caller. Independent C and
+Rust lifecycle tests continue to qualify production ownership separately.
+
+A local full repeat using the available staged products exceeds the original
+90-second budget after 233 of 240 measurement rows; it is rejected, and does
+not qualify the fresh integrated graph. A terminal-protocol smoke control
+uses one sample and one request for each of the twelve matrix stages: all six
+complete-artifact controls return, the marker is flushed, and actual exit is
+zero in 57.89 seconds. This admits that process-completion path only. Fresh CI
+retains twenty samples and twenty requests, and must admit the full matrix.

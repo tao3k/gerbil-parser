@@ -503,7 +503,12 @@ jobs:
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/lr-request-stack.log --require LR-REQUEST-STACK-OK \
-            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/t/benchmarks/lr-request-stack/benchmark") (gerbil-parser/t/benchmarks/lr-request-stack/benchmark#benchmark-lr-request-stack 20 20)'
+            -- gxi -e '
+              (load "t/fixtures/tla-sany-differential/preload.ss")
+              (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+              (preload-module "gerbil-parser/t/benchmarks/lr-request-stack/benchmark")
+              (gerbil-parser/t/benchmarks/lr-request-stack/benchmark#benchmark-lr-request-stack 20 20)
+              (gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'
 
       - name: Compare TLA+ candidate structure with pinned SANY
         if: runner.os == 'Linux'

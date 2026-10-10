@@ -34,6 +34,12 @@ compiler publication -> prepared machine -> request execution -> artifact.
 Shared engine mechanisms belong beneath this sequence. Language authors do not
 configure matcher caches, generic registries, opcode lowering or worker lifetimes.
 
+The [[file:../research/shared-ranked-scanner-execution.org][integrated execution study]] now supplies one decision index for
+lexical specialization, prepared representation, casefold complete requests and
+execution evidence. These four responsibility modules follow this same sequence.
+They preserve every historical experiment and negative receipt, while separating
+retained mechanisms from withdrawn prototypes and unclosed qualification gates.
+
 | Design obligation | Implementation owner | Executable control | Scope and open boundary |
 |-------------------+----------------------+--------------------+-------------------------|
 | One effective grammar and selected source origins | [[file:../../src/compiler/normalize.ss][normalization]] and [[file:../../src/compiler/lr.ss][resolved LR analysis]] | [[file:../../t/resolved-grammar-test.ss][resolved grammar controls]] | Finite LR entry admission and rejected LR action occurrence diagnostics exist; admitted fork and runtime origin catalogs remain open |
@@ -171,6 +177,36 @@ check does not qualify external paper URLs or local links in unrelated documents
 
 * Remaining gates and next work
 
+** Integrated study qualification
+
+The ranked execution study previously accumulated 1,302 lines across lexical
+lowering, representation ownership, experiments and receipt admission. The new
+overview maps each obligation to its existing engine owner and executable
+consumer, with a single retained/withdrawn decision table, Scheme witness and
+two design questions. Four responsibility modules retain all 1,296 historical
+body lines exactly; Scheme reconstruction reproduces the complete original
+text from the published modules, including ordering and whitespace. Their
+sizes are 590, 242, 245 and 243 lines. No runtime source or default changes in
+this reorganization.
+
+Incoming audit links now name the actual module and original heading. The
+Scheme qualifier checks local files and heading targets across this audit,
+the execution overview/modules and the parent scanner study. Receipts are
+=/private/tmp/parser-ranked-study-modularize.log= and
+=/private/tmp/parser-ranked-study-qualification.log=. The first temporary
+restructuring attempt was rejected by historical equality after an incorrect
+output-port call; the first link-qualifier attempt failed import admission for
+an unavailable library. The corrected qualifier uses the project's existing
+core-backed string search utility. Neither failed attempt is a passing receipt.
+
+This closes research organization and link integrity. It does not close the
+remaining engine obligations listed in the implementation table or convert
+historical allocation observations into CPU benefits. At =c12dcb0=, Rust CI
+passed while Linux Scheme was running and macOS Scheme queued. Fresh exact-head
+platform results remain separate from document and local native qualification.
+
+** Engine qualification sequence
+
 Rejected LR action provenance is now implemented in the existing lowering and
 table-publication owners. The [[file:../research/lr-conflict-source-origins.org][focused origin module]] records the Scheme witness,
 two design questions, selected POO source contract and qualification boundary.
@@ -240,7 +276,7 @@ is the implementation entry; those modules supply detailed arguments and receipt
 
 * Complete-request cost admission correction
 
-The [[file:../research/shared-ranked-scanner-execution.org::*Cross-language audit of callback removal][cross-language callback audit]] withdraws the private ranked loop macro.
+The [[file:../research/ranked-scanner-specialization.org::*Cross-language audit of callback removal][cross-language callback audit]] withdraws the private ranked loop macro.
 Reproducible allocation reduction did not establish a complete-request CPU
 benefit on GQL, FHIRPath and Arithmetic. The original fold is restored; the
 independent order and Unicode test remains. Historical component receipts are
@@ -262,7 +298,7 @@ contextual route remains independently qualified by its own source products;
 these LR controls do not substitute for that qualification.
 
 
-The [[file:../research/shared-ranked-scanner-execution.org::*Executed interleaved backend qualification][executed paired qualification]] now replaces the single-order diagnostic as
+The [[file:../research/parser-execution-evidence.org::*Executed interleaved backend qualification][executed paired qualification]] now replaces the single-order diagnostic as
 performance evidence. Twenty ABBA/BAAB groups per workload measure 19,200 native
 calls in 53.291 seconds, following ten passed measurement controls. Small
 prepared event workloads meet the observed-regression criterion. The large GQL
@@ -288,7 +324,7 @@ The cross-language benchmark reports these contracts alongside actual untimed
 source stages. Availability and declared representation remain capabilities;
 a source specialization can decline. The existing canonical artifact equality
 controls qualify known generated implementations, not arbitrary procedure bodies.
-The [[file:../research/shared-ranked-scanner-execution.org::*Engine-owned semantic representation of installed entries][research argument]] records the Scheme witness, both design questions and limits.
+The [[file:../research/prepared-parser-representation.org::*Engine-owned semantic representation of installed entries][research argument]] records the Scheme witness, both design questions and limits.
 
 The shared request executor also reports the actual generated-drive or prepared-
 checkpoint branch, rather than relying on the inclusive source-recognition stage.
@@ -340,7 +376,7 @@ states; the original state row remains the authority for entry admission.
 ASCII early misses avoid whole-string uppercase allocation, while Unicode
 conversion retains its original owner. No language declaration changes.
 
-The [[file:../research/shared-ranked-scanner-execution.org::*Shared literal vocabulary and casefold lookup qualification][native qualification]] separates complete-request allocation evidence from
+The [[file:../research/casefold-request-qualification.org::*Shared literal vocabulary and casefold lookup qualification][native qualification]] separates complete-request allocation evidence from
 component CPU evidence. The =11b2cf1= complete matrix has 19,200 calls and 844 admitted
 allocation intervals. Latest =9374421= graph qualification passes 44 semantic
 cases and repeats the paired component benefit. GQL saves 2,944 or 24,448 bytes per request; FHIRPath and
@@ -352,7 +388,7 @@ and compiler qualification failures remain in the research history.
 
 * Complete-request casefold allocation proof
 
-The [[file:../research/shared-ranked-scanner-execution.org::*Complete casefold request evidence][complete request matrix]] executes 19,200 calls on one production graph, with
+The [[file:../research/casefold-request-qualification.org::*Complete casefold request evidence][complete request matrix]] executes 19,200 calls on one production graph, with
 only the casefold module pair withdrawn in the reference. Scheme validates 916
 exact no-GC allocation intervals and identical source/prepared saving deltas.
 Long-identifier requests reduce prepared allocation by 37.62--38.29% and full

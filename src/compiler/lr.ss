@@ -161,6 +161,21 @@
           (error "invalid canonical LR production" index production))
         (for-each validate-canonical-operand (production-rhs production)))
       (loop (cdr rest) (fx+ index 1))))
+  ;; Resolve against the complete declaration set: forward references and
+  ;; recursive unused rules are valid, absent owners are not canonical IR.
+  (let (owners (production-index-by-lhs productions))
+    (for-each
+     (lambda (production)
+       (for-each
+        (lambda (operand)
+          (match (base-symbol operand)
+            (['nonterminal name]
+             (unless (table-ref owners name #f)
+               (error "invalid canonical LR unresolved reference"
+                      (production-id production) operand)))
+            (_ (void))))
+        (production-rhs production)))
+     productions))
   productions)
 
 (def (make-production id lhs rhs action precedence)

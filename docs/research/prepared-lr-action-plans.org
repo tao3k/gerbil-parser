@@ -270,6 +270,8 @@ including their action chains. This is additional construction/preparation work;
 no preparation timing or end-to-end speedup is inferred from staging it outside
 requests. It does not validate LR transition targets, conflict equivalence,
 reference resolution or lexer realizability; those have separate owners.
+The subsequent closed-reference section below extends this canonical owner
+with reference admission; the historical qualification remains unchanged.
 The subsequent [[file:lr-table-admission.org][shared table study]] implements target bounds, row uniqueness
 and closed action/guard shape admission through the same publication sequence.
 
@@ -299,3 +301,98 @@ attempts remain =parser-production-contract-build-supervision.log= and
 intermediate retry is =parser-production-contract-compiler-retry-supervision.log=.
 Local native controls do not qualify a clean-checkout exact-head CI run or
 establish any performance benefit.
+
+* Closed rule references across canonical IR consumers
+
+The complete production contract now resolves every nonterminal operand against
+the complete production-owner index, after admitting production and operand
+shapes. This includes marked operands and unused productions. It reuses
+=production-index-by-lhs= in the canonical owner, rather than introducing a
+language registry or a second reference policy in each backend. Forward
+references, self recursion, mutual recursion and declared unused rules retain
+their production order and identities. A missing owner raises
+=invalid canonical LR unresolved reference= with the production ID and original
+operand before nullable/FIRST construction or executable publication.
+
+This boundary applies to standalone LR compilation, recognition/event
+preparation, POO fused strategy admission and raw Rust source publication.
+The table gate continues to check vocabulary, physical targets and reachable
+acceptance. Source declarations may be composed before lowering; their final
+canonical product cannot defer a missing rule to a request.
+
+#+begin_src scheme
+;; A complete product: later is a forward reference; unused is declared.
+(def productions
+  '((0 root ((marked (nonterminal later) ((field value)))) pass #f)
+    (1 later ((terminal token word)) pass #f)
+    (2 unused ((nonterminal unused)) pass #f)))
+(eq? productions (validate-production-semantics productions)) ; => #t
+
+;; A symbolic operand alone does not make the product complete.
+(validate-production-semantics
+ '((0 root ((nonterminal missing)) pass #f))) ; raises before preparation
+
+;; Being unused does not excuse an unresolved owner.
+(validate-production-semantics
+ '((0 root ((terminal token word)) pass #f)
+   (1 unused ((marked (nonterminal missing) ((alias Item)))) pass #f)))
+#+end_src
+
+** Question: why is this design preferable?
+
+Scheme symbols retain identity across the S-expression IR and the existing
+=eq?= owner index. Structural matching extracts the base of marked operands,
+preserving the field/alias chain as diagnostic evidence. The shape pass admits
+the entire declaration set before reference resolution, so source order does
+not become a restriction on grammar composition. Authors write grammatical
+references in =grammar.ss=; they do not supply dependency lists, resolution
+callbacks or backend switches. POO strategy overrides are checked against the
+same canonical owner before generated forms are emitted. This uses the DSL,
+composition and preparation stages together, rather than relying on parentheses
+or macro syntax alone.
+
+** Question: how is the claim scientifically tested?
+
+The independent falsifiers are a missing used owner, a missing owner in a dead
+marked operand, changed admission under the event backend, or any output
+created/overwritten before rejection. Positive controls retain forward and
+recursive declarations and exact list identity. Five LR construction routes
+exercise rejection before analysis. The fused override control requires an
+empty output port; Rust controls require both an absent file and a preserved
+existing sentinel. Existing language ABI, generated reductions and complete
+artifact controls establish that valid products remain consumable.
+
+Knuth's [[https://harrymoreno.com/assets/greatPapersInCompSci/2.5_-_On_the_translation_of_languages_from_left_to_right-Donald_E._Knuth.pdf][1965 primary paper]], Section I, defines production operands over the
+grammar's intermediate and terminal alphabets. It does not require every
+intermediate to have a production. Requiring an owner here is an additional
+closed-product policy of this engine, not a theorem derived from that paper.
+Likewise, an existing owner does not establish a finite derivation, LR(k),
+lexical realizability or grammar/table equivalence. Finite entry admission
+remains the compiler's productive-analysis obligation; unused declared cycles
+remain valid composition data. The reference check is linear in declarations
+and operands with an indexed owner lookup; its preparation cost is additional
+work and has no admitted parser-speedup claim.
+
+** Qualification
+
+At parent =1cfb23a=, the native canonical owner accepted the missing-owner
+witness, exit zero in 1.066 seconds:
+=/private/tmp/parser-reference-baseline-supervision.log=. This counterexample
+establishes the admission gap; it is not evidence of a production request crash.
+
+The final native build compiles the canonical owner and the stack, fused and
+Rust generation test modules with optimization and static products in 74.116
+seconds. Thirteen suites then pass 117 cases in 26.889 seconds, including all
+five construction routes, both semantic preferences, empty fused emission,
+absent/existing Rust output, resolved grammar/source-origin controls and
+ten-language ABI byte parity. The existing complete generated-reduction and
+artifact controls remain in that matrix. Both process receipts report exit
+zero, no rejection reason, no missing output and final =OK= under the unchanged
+five-second real-progress idle gate.
+
+Receipts are =/private/tmp/parser-reference-build-supervision.log= and
+=/private/tmp/parser-reference-test-supervision.log=. This is focused native
+qualification over reused dependencies, not a clean-checkout full-language
+rebuild or exact-head platform CI. At parent =1cfb23a=, Rust CI passed while
+Linux Scheme was running and macOS Scheme was queued. The new source slice
+requires its own exact-head CI. No request-performance benefit is claimed.

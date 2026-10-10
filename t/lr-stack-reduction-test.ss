@@ -55,7 +55,7 @@
          (0 root () concat (left 10))
          (0 root () layout-end #f)
          (0 root () (layout-end "END" ")") (dynamic -1))
-         (0 root ((nonterminal item) (terminal literal "+")) concat (none 0))
+         (0 root ((nonterminal root) (terminal literal "+")) concat (none 0))
          (0 root ((terminal layout-start "|>") (terminal layout-next "|>")) concat (right 2)))))
     (test-case "malformed canonical productions fail before backend preparation"
       (for-each
@@ -83,6 +83,38 @@
          ((0 root ((marked (terminal token word))) concat #f))
          ((0 root ((marked (terminal token word) () extra)) concat #f))
          ((0 root ((nonterminal "item")) concat #f)))))
+    (test-case "reference admission resolves complete owners without pruning dead cycles"
+      (def productions
+        '((0 root ((marked (nonterminal later) ((field value)))) pass #f)
+          (1 later ((terminal token word)) pass #f)
+          (2 unused ((nonterminal unused)) pass #f)))
+      (check (eq? productions (validate-production-semantics productions)) => #t)
+      (for-each
+       (lambda (events?)
+         (parameterize ((current-lr-event-program-enabled? events?))
+           (check (not (not (lr-prepare (production-spec productions)))) => #t)
+           (for-each
+            (lambda (invalid)
+              (check-exception
+               (lr-prepare (production-spec invalid))
+               (lambda (condition)
+                 (equal? (error-message condition) "invalid canonical LR unresolved reference"))))
+            '(((0 root ((nonterminal missing)) pass #f))
+              ((0 root ((terminal token word)) pass #f)
+               (1 unused ((marked (nonterminal missing) ((alias Item)))) pass #f))))))
+       '(#f #t)))
+    (test-case "all LR construction routes reject undeclared references including unused rules"
+      (for-each
+       (lambda (construction)
+         (for-each
+          (lambda (rules)
+            (check-exception
+             (compile-lr-spec rules 'root 'reject #f construction)
+             (lambda (condition)
+               (equal? (error-message condition) "invalid canonical LR unresolved reference"))))
+          '(((root (reference missing)))
+            ((root (token word)) (unused (field value (reference missing)))))))
+       '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1 lalr-then-follow)))
     (test-case "standalone lowering cannot publish invalid canonical operands"
       (for-each
        (lambda (construction)

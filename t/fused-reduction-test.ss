@@ -16,6 +16,9 @@
         (only-in :gerbil-parser/src/testing/language-strategy parse-indexed-reference)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
+        (only-in :gerbil-parser/src/language/descriptor
+                 +language-grammar-schema+ make-language-grammar language-grammar-language language-grammar-version
+                 language-grammar-contract language-grammar-grammar language-grammar-observability)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref production-table production-rhs)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-roundtrip)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source syntax-fixture-expected-status)
@@ -108,6 +111,30 @@
                (.cc hcl 'step-name '|bad name|)
                (.cc hcl 'metadata #f)))
         (check (get-output-string port) => "")))
+    (test-case "unresolved reference overrides reject before either fused backend emits"
+      (def original arithmetic-language-grammar)
+      (def ir
+        (map (lambda (entry)
+               (if (eq? (car entry) 'lr-spec)
+                 (cons 'lr-spec
+                       (map (lambda (row)
+                              (if (eq? (car row) 'productions)
+                                (cons 'productions
+                                      (append (cdr row)
+                                              (list (list (length (cdr row)) 'unused
+                                                          '((nonterminal missing)) 'pass #f))))
+                                row)) (cdr entry)))
+                 entry)) (language-grammar-ir original)))
+      (def descriptor
+        (make-language-grammar +language-grammar-schema+
+                               (language-grammar-language original) (language-grammar-version original)
+                               (language-grammar-contract original) (language-grammar-grammar original)
+                               ir (language-grammar-machine original) (language-grammar-observability original)))
+      (def candidate (.cc (make-fused-reduction-strategy original) 'descriptor descriptor))
+      (def port (open-output-string))
+      (check-exception (validate FusedReductionStrategyContract candidate) true)
+      (check-exception (emit-build-strategy candidate port) true)
+      (check (get-output-string port) => ""))
     (test-case "Loader slots admit declared strategies and reject foreign or duplicated bindings"
       (let (output (call-with-output-string (lambda (port) (emit-language-build-strategy hcl-test-language 'fused-reductions port))))
         (check output => (emitted (make-fused-reduction-strategy hcl-language-grammar)))

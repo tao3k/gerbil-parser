@@ -135,6 +135,27 @@
          (#((((terminal token number) layout-guard (shift 0 #f) (reduce 0)))) #(()))
          (#((((terminal layout-start "{") shift 0 #f))) #(()))
          (#((((terminal layout-next ";") shift 0 #f))) #(())))))
+    (test-case "unresolved dead references cannot create or overwrite Rust products"
+      (for-each
+       (lambda (operand)
+         (let ((ir (arithmetic-ir-with-production (list 'unused (list operand) 'pass #f)))
+               (path (make-temporary-file-name "unresolved-parser-reference")))
+           (try
+            (begin
+              (def (reject!)
+                (check-exception
+                 (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
+                                               +arithmetic-syntax-contract+
+                                               (parser-machine-grammar-digest arithmetic-parser) ir)
+                 (lambda (condition)
+                   (equal? (error-message condition) "invalid canonical LR unresolved reference"))))
+              (reject!)
+              (check (file-exists? path) => #f)
+              (call-with-output-file path (lambda (port) (display "preserved" port)))
+              (reject!)
+              (check (call-with-input-file path read-line) => "preserved"))
+            (finally (when (file-exists? path) (delete-file path))))))
+       '((nonterminal missing) (marked (nonterminal missing) ((field value) (alias Item))))))
     (test-case "malformed dead productions preserve an existing output file"
       (for-each
        (lambda (tail)

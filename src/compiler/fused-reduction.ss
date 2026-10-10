@@ -8,12 +8,15 @@
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?
                  make-bound-build-strategy declare-build-strategy-provider)
         (only-in ./lr lr-spec-ref production-table production-id production-lhs
-                 production-rhs production-action operand-actions operand-actions-valid?))
+                 production-rhs production-action operand-actions validate-production-semantics))
 (export FusedReductionStrategy. FusedReductionStrategyContract
         make-fused-reduction-strategy)
 
+(def (strategy-productions candidate)
+  (lr-spec-ref (cdr (assq 'lr-spec (language-grammar-ir (.ref candidate 'descriptor)))) 'productions))
+
 (def (strategy-table candidate)
-  (production-table (lr-spec-ref (cdr (assq 'lr-spec (language-grammar-ir (.ref candidate 'descriptor)))) 'productions)))
+  (production-table (strategy-productions candidate)))
 
 (def (strategy-name? name)
   (and (symbol? name)
@@ -40,18 +43,12 @@
                   (not (eq? (car names) (cadr names)))
                   (not (eq? (car names) (caddr names)))
                   (not (eq? (cadr names) (caddr names)))))
-           (let (table (strategy-table candidate))
-             (and (> (vector-length table) 0)
-                  (let loop ((index 0))
-                    (or (= index (vector-length table))
-                        (let (production (vector-ref table index))
-                          (and (= (production-id production) index)
-                               (symbol? (production-lhs production))
-                               (memq (production-action production) '(pass concat))
-                               (every (lambda (operand)
-                                        (operand-actions-valid? (operand-actions operand)))
-                                      (production-rhs production))
-                               (loop (+ index 1))))))))))))
+           (let (productions (validate-production-semantics (strategy-productions candidate)))
+             (and (pair? productions)
+                  (every (lambda (production)
+                           (memq (production-action production) '(pass concat)))
+                         productions)
+                  #t))))))
 
 (define-type (FusedReductionStrategyContract @ PooFlowContract.)
   identity: 'gerbil-parser/fused-reduction-strategy

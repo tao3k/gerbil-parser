@@ -18,6 +18,7 @@
         nonterminal-symbol?
         operand-actions
         operand-actions-valid?
+        layout-end-action? validate-production-semantics
         production-action
         production-id
         production-lhs
@@ -102,6 +103,64 @@
   (if (marked-symbol? value)
     (list 'marked (cadr value) (append (caddr value) (list action)))
     (list 'marked value (list action))))
+
+;;; Validate the producer's closed algebra before indexing or selecting an
+;;; executor. These checks belong to canonical IR, not a backend policy.
+(def (layout-end-action? action)
+  ;; Classification after admission is constant work in the request path.
+  (or (eq? action 'layout-end)
+      (and (pair? action) (eq? (car action) 'layout-end))))
+
+(def (canonical-layout-end-action? action)
+  (or (eq? action 'layout-end)
+      (and (list? action) (pair? action) (pair? (cdr action))
+           (eq? (car action) 'layout-end)
+           (every (lambda (boundary)
+                    (and (string? boundary) (positive? (string-length boundary))))
+                  (cdr action)))))
+
+(def (canonical-base-symbol? value)
+  (match value
+    (['nonterminal (? symbol?)] #t)
+    (['terminal 'token (? symbol?)] #t)
+    (['terminal (or 'literal 'layout-start 'layout-next) (? string? text)]
+     (positive? (string-length text)))
+    (_ #f)))
+
+(def (validate-canonical-operand operand)
+  (match operand
+    (['marked base actions]
+     (unless (canonical-base-symbol? base)
+       (error "invalid canonical LR operand" operand))
+     (unless (operand-actions-valid? actions)
+       (error "invalid LR operand actions" actions)))
+    (_ (unless (canonical-base-symbol? operand)
+         (error "invalid canonical LR operand" operand)))))
+
+(def (validate-production-semantics productions)
+  (unless (list? productions)
+    (error "invalid canonical LR production list" productions))
+  (let loop ((rest productions) (index 0))
+    (unless (null? rest)
+      (let (production (car rest))
+        (unless
+            (match production
+              ([id (? symbol?) rhs action precedence]
+               (and (fixnum? id) (fx= id index) (list? rhs)
+                    (or (not precedence)
+                        (match precedence
+                          ([(or 'none 'left 'right 'dynamic) (? integer?)] #t)
+                          (_ #f)))
+                    (cond
+                     ((eq? action 'pass) (and (pair? rhs) (null? (cdr rhs))))
+                     ((eq? action 'concat) #t)
+                     ((canonical-layout-end-action? action) (null? rhs))
+                     (else #f))))
+              (_ #f))
+          (error "invalid canonical LR production" index production))
+        (for-each validate-canonical-operand (production-rhs production)))
+      (loop (cdr rest) (fx+ index 1))))
+  productions)
 
 (def (make-production id lhs rhs action precedence)
   (list id lhs rhs action precedence))

@@ -8,6 +8,7 @@
                  validate-resolved-start validate-resolved-repetitions
                  lower-rules current-grammar-source-map lr-spec-ref nonterminal-name nonterminal-symbol?
                  production-action production-id production-precedence production-table
+                 layout-end-action? validate-production-semantics
                  terminal-symbol? union-values)
         (only-in ./lr-lookahead
                  build-states-via-lr0 build-states-via-canonical-lr1)
@@ -200,9 +201,7 @@
         (trace? (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1"))
         (started (##current-time-point))
         (layout? (vector-any (lambda (production)
-                     (let (action (production-action production))
-                       (or (eq? action 'layout-end)
-                           (and (pair? action) (eq? (car action) 'layout-end))))) table))
+                     (layout-end-action? (production-action production))) table))
         (processed-items 0)
         (published-actions 0)
         (publication-count 0))
@@ -344,7 +343,8 @@
     (error "unknown LR construction" construction))
   (let* ((started (##current-time-point))
          (productions
-          (lower-rules rules root (eq? conflict-policy 'selective-glr)))
+          (validate-production-semantics
+           (lower-rules rules root (eq? conflict-policy 'selective-glr))))
          (table (production-table productions)))
     (trace-lr-phase 'lowered (length productions) started)
     (let-values (((nullable nullable-index productive productive-index)

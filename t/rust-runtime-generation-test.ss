@@ -29,26 +29,55 @@
    (parser-machine-grammar-digest arithmetic-parser)
    arithmetic-parser-ir))
 
+;; Append a dead canonical rule while preserving the real language tables.
+(def (arithmetic-ir-with-production tail (id #f))
+  (map (lambda (entry)
+         (if (eq? (car entry) 'lr-spec)
+           (cons 'lr-spec
+                 (map (lambda (row)
+                        (if (eq? (car row) 'productions)
+                          (cons 'productions
+                                (append (cdr row)
+                                        (list (cons (or id (length (cdr row))) tail))))
+                          row))
+                      (cdr entry)))
+           entry))
+       arithmetic-parser-ir))
+
 (def rust-runtime-generation-test
   (test-suite "Rust AOT generation"
+    (test-case "malformed dead productions preserve an existing output file"
+      (for-each
+       (lambda (tail)
+         (let (path (make-temporary-file-name "invalid-parser-production"))
+           (try
+            (begin
+              (call-with-output-file path (lambda (port) (display "preserved\n" port)))
+              (check-exception
+               (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
+                                             +arithmetic-syntax-contract+
+                                             (parser-machine-grammar-digest arithmetic-parser)
+                                             (arithmetic-ir-with-production tail))
+               (lambda (condition)
+                 (equal? (error-message condition) "invalid canonical LR production")))
+              (check (call-with-input-file path read-line) => "preserved"))
+            (finally (when (file-exists? path) (delete-file path))))))
+       '((unused () pass #f)
+         (unused ((terminal token number)) layout-end #f)
+         (unused () (layout-end "") #f)
+         (unused () concat (left "10"))
+         ("unused" () concat #f)))
+      (check-exception
+       (rust-runtime-module-source "arithmetic" +arithmetic-language-version+
+                                   +arithmetic-syntax-contract+
+                                   (parser-machine-grammar-digest arithmetic-parser)
+                                   (arithmetic-ir-with-production '(unused () concat #f) 0))
+       (lambda (condition) (equal? (error-message condition) "invalid canonical LR production"))))
     (test-case "invalid action names in unused rules fail before file publication"
       (for-each
        (lambda (actions)
-         (let* ((ir
-                 (map (lambda (entry)
-                        (if (eq? (car entry) 'lr-spec)
-                          (cons 'lr-spec
-                                (map (lambda (row)
-                                       (if (eq? (car row) 'productions)
-                                         (cons 'productions
-                                               (append (cdr row)
-                                                       (list (list (length (cdr row)) 'unused
-                                                                   (list (list 'marked '(terminal number) actions))
-                                                                   'concat #f))))
-                                         row))
-                                     (cdr entry)))
-                          entry))
-                      arithmetic-parser-ir))
+         (let* ((ir (arithmetic-ir-with-production
+                    (list 'unused (list (list 'marked '(terminal token number) actions)) 'concat #f)))
                 (path (make-temporary-file-name "invalid-parser-actions")))
            (try
             (begin
@@ -57,7 +86,7 @@
                                              +arithmetic-syntax-contract+
                                              (parser-machine-grammar-digest arithmetic-parser) ir)
                (lambda (condition)
-                 (and (equal? (error-message condition) "invalid Rust operand actions")
+                 (and (equal? (error-message condition) "invalid LR operand actions")
                       (equal? (error-irritants condition) (list actions)))))
               (check (file-exists? path) => #f))
             (finally (when (file-exists? path) (delete-file path))))))

@@ -2,7 +2,7 @@
 ;;; Request-local source columns and branch-local indentation references.
 
 (import (only-in ../compiler/lr
-                 production-action production-rhs)
+                 production-action production-rhs layout-end-action?)
         (only-in ./lr-action-index
                  lookup-action-entry lookup-literal-action-entry
                  lookup-layout-start-action-entry
@@ -12,11 +12,7 @@
         current-layout-columns current-layout-frames
         layout-token-column layout-shift-allowed?
         layout-marker-eligible? layout-after-shift layout-after-end
-        layout-current-action-row layout-productions? layout-end-action?)
-
-(def (layout-end-action? action)
-  (or (eq? action 'layout-end)
-      (and (pair? action) (eq? (car action) 'layout-end))))
+        layout-current-action-row layout-productions?)
 
 (def (layout-productions? productions)
   (any (lambda (production)

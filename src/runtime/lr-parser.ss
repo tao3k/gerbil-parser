@@ -10,7 +10,8 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in :core/poo-clos/interface .defgeneric .defmethod)
         (only-in ../compiler/lr
-                 lr-spec-ref operand-actions operand-actions-valid? production-action
+                 lr-spec-ref operand-actions production-action
+                 validate-production-semantics layout-end-action?
                  production-lhs production-precedence production-rhs base-symbol
                  production-table)
         (only-in ./recognition
@@ -39,7 +40,7 @@
         (only-in ./layout
                  current-layout-columns current-layout-frames
                  layout-after-shift layout-after-end layout-current-action-row
-                 layout-productions? layout-end-action?)
+                 layout-productions?)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
@@ -102,21 +103,12 @@
 ;;; their ordered action chains. Both semantic backends share this admission.
 ;;; One source-order vector serves both forward and reverse execution.
 
-(def (checked-operand-actions operand)
-  (let (actions (operand-actions operand))
-    (unless (operand-actions-valid? actions)
-      (error "invalid LR operand actions" actions))
-    actions))
-
 (def (prepare-reduction-plan production)
-  (let (action (production-action production))
-    (unless (or (memq action '(pass concat)) (layout-end-action? action))
-      (error "unknown LR semantic action" action)))
   (let* ((operands (production-rhs production))
          (plan (make-vector (length operands))))
     (let loop ((operands operands) (index 0))
       (when (pair? operands)
-        (vector-set! plan index (checked-operand-actions (car operands)))
+        (vector-set! plan index (operand-actions (car operands)))
         (loop (cdr operands) (fx+ index 1))))
     plan))
 
@@ -388,7 +380,7 @@
        (error-irritants condition)))
 
 (def (lr-prepare spec)
-  (let* ((productions (lr-spec-ref spec 'productions))
+  (let* ((productions (validate-production-semantics (lr-spec-ref spec 'productions)))
          (actions (lr-spec-ref spec 'actions))
          (gotos (lr-spec-ref spec 'gotos))
          (dynamic?

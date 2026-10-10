@@ -310,3 +310,10 @@ ten-language ABI alignment and runtime/contextual parsing. Modular documentation
 qualification preserves the 1,302-line historical study and resolves 134 local
 links and 21 heading references. These are local receipts; the following pushed
 revision requires its own completed platform checks.
+
+Revision =39fd28f0006b9ad116c94b06c7aabaf41e45277f= subsequently completes
+all three [[https://github.com/tao3k/gerbil-parser/actions/runs/38045035142][exact-head platform jobs]]:
+Rust AOT runtime and Ubuntu/macOS Scheme tests with language packs.
+The [[file:compiled-language-byte-publication.org][compiled language transport study]]
+continues the same ownership sequence through immutable publication and runtime
+admission, retaining the original reader after a negative byte-port experiment.

@@ -40,8 +40,18 @@ execution evidence. These four responsibility modules follow this same sequence.
 They preserve every historical experiment and negative receipt, while separating
 retained mechanisms from withdrawn prototypes and unclosed qualification gates.
 
+The [[file:../research/compiled-language-byte-publication.org][compiled language publication study]]
+extends this sequence through immutable sidecars and linked AOT admission.
+It removes whole-text intermediates at the compiler publisher;
+content addresses and compressed output are checked against the original text
+specification. Runtime admission retains its existing reader and failure order
+after the experimental byte reader produced mixed complete-path CPU results.
+This is separate from request artifact publication and from retained-heap or
+full parser performance claims.
+
 | Design obligation | Implementation owner | Executable control | Scope and open boundary |
 |-------------------+----------------------+--------------------+-------------------------|
+| Compiled language transport preserves the ordered IR contract | [[file:../../src/compiler/language-artifact.ss][Immutable publisher]] shares owned UTF-8 bytes; [[file:../../src/runtime/language-artifact.ss][filesystem/AOT loader]] retains complete text decoding | [[file:../../t/language-artifact-test.ss][Original-text parity, encoding, framing and concurrent publication controls]]; [[file:../../t/benchmarks/language-artifact/benchmark.ss][complete roundtrip and admission benchmark]] | Cold compression, immutable publication and full datum admission remain; byte-reader candidate withdrawn; allocation, CPU and platform receipts belong to the linked study |
 | One effective grammar and selected source origins | [[file:../../src/compiler/normalize.ss][normalization]] and [[file:../../src/compiler/lr.ss][resolved LR analysis]] | [[file:../../t/resolved-grammar-test.ss][resolved grammar controls]] | Finite LR entry admission and rejected LR action occurrence diagnostics exist; admitted fork and runtime origin catalogs remain open |
 | Ordered declaration origins survive complete binding publication | Normalization, syntax-origin collection and [[file:../../src/compiler/bound-ir.ss][Bound IR owner]] use invocation-owned construction and source selection | [[file:../../t/bound-ir-index-test.ss][source selection and large catalog controls]], composition/declaration/ABI consumers and [[file:../../t/benchmarks/bound-source-catalog/benchmark.ss][complete sidecar benchmark]] | [[file:../research/bound-declaration-publication.org][Publication realization]] removes variadic catalog flattening and temporary construction spines while preserving IDs, digests and forward-reference admission; performance populations and platform CI remain separate |
 | Canonical digest input retains the declaration contract under physical sink changes | Same Bound IR owner uses the official writer with explicit UTF-8/LF byte output and existing native SHA-256 | Independent original text digests for Unicode declarations and every identity; complete sidecar comparison and final-input component controls | [[file:../research/bound-declaration-publication.org::*Canonical digest input follows the same publication owner][Digest-input study]] separates allocated flow, writer/encoding/hash costs and negative CPU evidence; bytes remain materialized, and no grammar cache or author option is introduced |

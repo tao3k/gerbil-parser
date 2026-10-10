@@ -9,7 +9,7 @@
                  identifier? stx-source stx-map stx-for-each stx-list? stx-pair? stx-car stx-cdr raise-syntax-error)
         (only-in :std/list/list delete-duplicates/hash take drop)
         (only-in :std/list/list-builder with-list-builder)
-        (only-in ../runtime/identity sha256-text)
+        (only-in ../runtime/identity sha256-text sha256-bytes)
         (only-in ../runtime/language-artifact
                  compiled-language-artifact-relative-path
                  load-compiled-language-artifact/roots
@@ -17,7 +17,6 @@
         (only-in :gerbil/compiler/base current-compile-output-dir)
         (only-in :std/misc/ports read-all-as-u8vector)
         (only-in ../runtime/embedded-image pack-language-artifact-image)
-        (only-in :std/string/utf8 utf8->string)
         (only-in :std/encoding/zlib compress uncompress))
 (export expand-language-grammar-syntax expand-language-declaration-syntax
         expand-admitted-language-declaration-syntax
@@ -52,27 +51,34 @@
 (def (serialize value)
   (call-with-output-string (lambda (port) (write value port))))
 
-;; : (-> String String (-> InputPort String) Boolean)
-(def (content-matches? path serialized read-content)
+;; Artifact identity, compression, and immutable verification share these
+;; owned bytes. Text cache receipts retain their character-port writer.
+;; : (-> Datum U8Vector)
+(def (serialize-artifact-bytes value)
+  (call-with-output-u8vector '(char-encoding: UTF-8 eol-encoding: lf)
+    (lambda (port) (write value port))))
+
+;; : (forall (a) (-> String a (-> InputPort a) Boolean))
+(def (content-matches? path expected read-content)
   (and (file-exists? path)
        (with-exception-catcher
         (lambda (_) #f)
         (lambda ()
-          (equal? serialized
+          (equal? expected
                   (call-with-input-file path read-content))))))
 
-(def (materialized-content-matches? path serialized)
+(def (materialized-content-matches? path bytes)
   (content-matches?
-   path serialized
+   path bytes
    (lambda (port)
-     (utf8->string (uncompress (read-all-as-u8vector port))))))
+     (uncompress (read-all-as-u8vector port)))))
 
 ;; Both sidecars and cache receipts are immutable. A competing writer is
 ;; accepted only after its complete content has been independently verified.
-(def (publish-immutable-content! path serialized matches? write-content!
+(def (publish-immutable-content! path expected matches? write-content!
                                  conflict-message temporary-message)
   (if (file-exists? path)
-    (unless (matches? path serialized)
+    (unless (matches? path expected)
       (error conflict-message path))
     (let make-temporary ()
       (let (temporary
@@ -84,29 +90,29 @@
            (lambda (exception)
              (when (file-exists? temporary)
                (delete-file temporary))
-             (if (matches? path serialized)
+             (if (matches? path expected)
                (void)
                (raise exception)))
            (lambda ()
              (call-with-output-file temporary write-content!)
-             (unless (matches? temporary serialized)
+             (unless (matches? temporary expected)
                (error temporary-message temporary))
              (rename-file temporary path #f))))))))
 
-;; : (-> String U8Vector String Void)
-(def (publish-materialized-content! path bytes serialized)
+;; : (-> String U8Vector U8Vector Void)
+(def (publish-materialized-content! path compressed bytes)
   (publish-immutable-content!
-   path serialized materialized-content-matches?
+   path bytes materialized-content-matches?
    (lambda (port)
-     (write-subu8vector bytes 0 (u8vector-length bytes) port))
+     (write-subu8vector compressed 0 (u8vector-length compressed) port))
    "compiled language artifact target contains different bytes"
    "compiled language artifact temporary write is invalid"))
 
 ;; : (forall (a) (-> a [String] [String]))
 ;; : (-> Datum List List)
 (def (materialize-compiled-language-artifact/output-dirs value output-dirs)
-  (let* ((serialized (serialize value))
-         (digest (sha256-text serialized))
+  (let* ((bytes (serialize-artifact-bytes value))
+         (digest (sha256-bytes bytes))
          (relative-path
           (compiled-language-artifact-relative-path digest))
          (paths (map (lambda (output-dir)
@@ -119,16 +125,16 @@
     (for-each
      (lambda (path)
        (when (file-exists? path)
-         (unless (materialized-content-matches? path serialized)
+         (unless (materialized-content-matches? path bytes)
            (error "compiled language artifact target contains different bytes"
                   path))))
      paths)
     (unless (null? missing)
-      (let (bytes (compress (string->utf8 serialized) compression: 9))
+      (let (compressed (compress bytes compression: 9))
         (for-each
          (lambda (path)
            (create-directory* (path-directory path))
-           (publish-materialized-content! path bytes serialized))
+           (publish-materialized-content! path compressed bytes))
          missing)))
     (list relative-path digest)))
 

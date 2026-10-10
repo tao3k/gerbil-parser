@@ -9,6 +9,7 @@
         (only-in :gerbil-parser/src/runtime/embedded-image
                  pack-language-artifact-image unpack-language-artifact-image)
         (only-in :std/encoding/zlib compress)
+        (only-in :std/misc/ports read-all-as-u8vector)
         (only-in :gerbil-parser/src/compiler/language-artifact
                  compile-language-declaration-artifacts/output-dirs
                  make-admitted-language-declaration compile-admitted-language-declaration
@@ -63,6 +64,37 @@
 
 (def language-artifact-tests
   (test-suite "compiled language artifact admission"
+    (test-case "Unicode publication preserves text identity and compressed bytes across both loaders"
+      (call-with-temporary-directory
+       (lambda (root)
+         (let* ((value `((schema . ,test-schema)
+                        (payload . (中文 λ "line\r\nvalue" "𝄞"))))
+                (expected-bytes (string->utf8 (serialize value)))
+                (expected-digest (sha256-text (serialize value)))
+                (expected-compressed (compress expected-bytes compression: 9))
+                (locator (materialize-compiled-language-artifact/output-dirs value (list root)))
+                (path (path-expand (car locator) root)))
+           (check locator => (list (compiled-language-artifact-relative-path expected-digest)
+                                  expected-digest))
+           (check (call-with-input-file path read-all-as-u8vector) => expected-compressed)
+           (check (load-compiled-language-artifact/roots test-schema locator (list root)) => value)
+           (check (load-compiled-language-artifact/embedded
+                   test-schema locator (pack-language-artifact-image expected-compressed)) => value)
+           (check (materialize-compiled-language-artifact/output-dirs value (list root)) => locator)
+           (check (call-with-input-file path read-all-as-u8vector) => expected-compressed)))))
+    (test-case "authenticated artifacts reject BOM framing and malformed UTF-8 in trailing comments"
+      (let (datum (string->utf8 (serialize test-value)))
+        (for-each
+         (lambda (bytes)
+           (let* ((digest (sha256-bytes bytes))
+                  (locator (list (compiled-language-artifact-relative-path digest) digest))
+                  (image (pack-language-artifact-image (compress bytes compression: 9))))
+             (check-exception
+              (load-compiled-language-artifact/embedded test-schema locator image) exception?)))
+         (list (u8vector-append #u8(239 187 191) datum)
+               (u8vector-append datum (string->utf8 " ;") #u8(255))
+               (u8vector-append datum (string->utf8 " ;") #u8(192 128))
+               (u8vector-append datum (string->utf8 " ;") #u8(226 130))))))
     (test-case "declaration compiler passes selected origins into LR rejection and restores context"
       (call-with-temporary-directory
        (lambda (root)

@@ -96,17 +96,20 @@
                  `(only-in ,(string-append "./" owner ".ss")
                            ,@(reverse (table-ref groups owner))))
                (reverse order))))
+      (def (import-forms body current)
+        (let (specifications (imports body current))
+          (if (null? specifications) '() (list `(import ,@specifications)))))
       (append
        (map
         (lambda (part module)
           (cons module
                 (forms-source
                  `(,(car forms)
-                   (import ,@(imports (map cddr part) module))
+                   ,@(import-forms (map cddr part) module)
                    (export ,@(map caadr part))
                    ,@part))))
         parts names)
        (let (public (filter (lambda (form) (not (private-definition? form))) (cdr forms)))
          (list (cons base
                      (forms-source
-                      `(,(car forms) (import ,@(imports public #f)) ,@public)))))))))
+                      `(,(car forms) ,@(import-forms public #f) ,@public)))))))))

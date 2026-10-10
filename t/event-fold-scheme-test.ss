@@ -82,6 +82,8 @@
                           '() forms '() '() '() 1))
           (for-each
            (lambda (unit)
+             ;; An empty import compiles, but runtime expander evaluation rejects it.
+             (check (not (string-contains (cdr unit) "(import)")) => #t)
              (let (definitions
                    (call-with-input-string (cdr unit)
                     (lambda (port)

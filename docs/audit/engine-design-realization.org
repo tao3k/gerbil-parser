@@ -35,6 +35,7 @@ configure matcher caches, generic registries, opcode lowering or worker lifetime
 | Preparation cost remains visible | [[file:../../t/benchmarks/contextual-scanner/matched-scale.ss][contextual benchmark]] and [[file:../../t/benchmarks/regular-mode/request-cost.ss][regular benchmark]] | Native prepared products checked after measurement | Contextual preparation controls are added in this slice; historical paired receipts remain separate from fresh runs |
 | Artifact publication cost follows shared engine ownership | [[file:../../src/runtime/artifact.ss][canonical artifact owner]] and [[file:../../t/benchmarks/parser-stage-cost/benchmark.ss][generic stage benchmark]] | [[file:../../t/artifact-publication-cost-test.ss][publication observation contracts]] and existing event/source controls | Encoding, event publication and identity intervals are separate; supplied products do not imply executed construction stages |
 | Canonical event containers have an independent executable control | Same shared benchmark and official =with-list-builder= in the artifact owner | Fresh-container/shared-payload controls, full artifact equality and source admission | Copy allocation is not a retained-heap census; variable counter medians cannot establish traversal waste |
+| Shared sampling does not depend on a language workload module | [[file:../../t/benchmarks/parser-stage-cost/benchmark.ss][sampling owner]] with direct GQL, actor and LR callers | Existing population/GC controls, language-independent batch guards and native dependency plan | [[file:../research/shared-parser-cost-sampling.org][Research contract]]; owner migration is not runtime performance admission |
 
 The first row's semantic and provenance limits are detailed in
 [[file:../research/dsl-engine-contracts.org][the DSL contract audit]]. This table records responsibility rather than
@@ -184,6 +185,19 @@ is now the next optimization obligation. The research module retains exact
 population counts, rejected prototype and receipt paths. The verified =a1df0ca=
 CI run has passed Rust AOT; Linux/macOS Scheme were still in progress. Fresh
 CI is required for this subsequent source slice.
+
+The subsequent [[file:../research/shared-parser-cost-sampling.org][shared sampling migration]] closes the cross-language dependency on GQL's
+workload module. GQL stages, actors and LR comparisons import the shared sampler
+directly; GQL sampling aliases are removed. Native qualification builds the
+owner and five consumers/controls in 76.380 s, then rebuilds existing missing
+and stale diagnostic dependencies. Both rejected attempts remain recorded.
+The final source run passes 30 cases from the staged test content in 42.303 s.
+Twelve cross-language paired summaries complete in 44.542 s with a stable
+identical-executor control and no admitted complete-request benefit. Three
+actor configurations complete in 21.921 s and retain process-only allocation
+ownership. Source semantics and default representations remain unchanged.
+The verified preceding =ecebab9= CI has passed Rust AOT; Linux is running and
+macOS queued. This migration requires fresh exact-head platform CI.
 
 The shared scanner study is modularized into
 [[file:../research/shared-scanner-staging-and-fusion.org][one overview and four responsibility modules]]. Its original experiments,

@@ -260,6 +260,11 @@ these isolated compiler calls do not establish a second build system.
 
 * Remaining shared-engine implementation boundary
 
+The [[file:shared-parser-cost-sampling.org][shared sampling owner]] now closes the cross-language measurement dependency
+on the GQL workload module. Selected-derivation counts and independent prepared/
+complete-product controls remain in place; subsequent recognition/reduction
+experiments use one sampler and one allocation/GC attribution contract.
+
 The next implemented preparation boundary and its admission/cost controls are
 documented in [[file:prepared-lr-action-plans.org][prepared LR action plans]].
 

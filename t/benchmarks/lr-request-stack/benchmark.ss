@@ -5,8 +5,8 @@
         (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql)
         (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-parser parse-fhirpath)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
-        (rename-in (only-in :gerbil-parser/t/benchmarks/gql/runtime/matched-stages measure-gql-component measure-parser-batch sample-at-percentile)
-                   (measure-gql-component measure-parser-component))
+        (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
+                 measure-parser-component measure-parser-batch sample-at-percentile)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
                  parser-machine-grammar-digest parser-machine-trivia
                  parser-machine-direct-drive parser-machine-direct-source

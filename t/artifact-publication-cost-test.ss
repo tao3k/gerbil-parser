@@ -10,7 +10,8 @@
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer with-parser-cost-stage)
         (only-in ./benchmarks/parser-stage-cost/benchmark measure-parser-stages
-                 measure-artifact-event-storage copy-canonical-event-storage))
+                 measure-artifact-event-storage copy-canonical-event-storage
+                 measure-parser-component measure-parser-batch))
 (export artifact-publication-cost-test)
 
 (def (observe-publication thunk)
@@ -25,6 +26,28 @@
 
 (def artifact-publication-cost-test
   (test-suite "artifact publication cost contracts"
+    (test-case "shared sampler validates dimensions before warmup side effects"
+      (let* ((calls 0) (thunk (lambda () (set! calls (+ calls 1)) 'complete)))
+        (for-each
+         (lambda (sizes)
+           (check-exception
+            (measure-parser-component 'invalid (car sizes) (cadr sizes) thunk 'complete) true))
+         '((0 1) (-1 1) (1.0 1) (1 0) (1 1.0)))
+        (check-exception (measure-parser-component 'invalid 1 3 thunk 'complete 2) true)
+        (check calls => 0)))
+    (test-case "shared sampler preserves complete batches and original failures"
+      (let* ((calls 0)
+             (thunk (lambda () (set! calls (+ calls 1)) '(complete result)))
+             (summary (parameterize ((current-output-port (open-output-string)))
+                        (measure-parser-component 'shared 2 2 thunk '(complete result)))))
+        (check calls => 5)
+        (check (cdr (assq 'sampleCount summary)) => 2)
+        (check (length (cdr (assq 'samples summary))) => 2)
+        (check (cdr (assq 'allocationScope summary)) => 'single-caller))
+      (check (with-catch (lambda (condition) condition)
+               (lambda () (measure-parser-batch 'failed 0 1
+                            (lambda () (raise 'original-failure)) 'complete)))
+             => 'original-failure))
     (test-case "storage control copies containers and shares canonical payloads"
       (let* ((lexeme (string-copy "α🙂"))
              (events (list (vector 'start-node 0 'Root 0)

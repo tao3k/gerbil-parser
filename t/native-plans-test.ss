@@ -17,7 +17,9 @@
     (test-case "one driver and one diagnostic build"
       (let (plan (local-diagnostic-plan '("gql-profile" "gql-actors") #f))
         (check (length plan) => 2)
-        (check (length (qualification-stage-command (cadr plan))) => 6)))
+        (check (length (qualification-stage-command (cadr plan))) => 7)
+        (check (list-ref (qualification-stage-command (cadr plan)) 2)
+          => "t/benchmarks/parser-stage-cost/benchmark.ss")))
     (test-case "prepared diagnostics do not rebuild"
       (check (local-diagnostic-plan '("gql-profile" "gql-actors") #t) => '()))
     (test-case "invalid prepared scope and unknown suites are rejected"

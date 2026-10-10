@@ -4,10 +4,11 @@
         (only-in :gerbil-parser/languages/gql/parser +gql-representative-query+)
         (only-in "../benchmarks/gql/runtime/reduction-counts" profile-gql-reductions)
         (only-in "../benchmarks/gql/runtime/execution-counts" profile-gql-prepared-execution)
-        (only-in "../benchmarks/gql/runtime/matched-stages"
-                 profile-gql-stages sample-at-percentile measure-parser-batch
+        (only-in "../benchmarks/gql/runtime/matched-stages" profile-gql-stages)
+        (only-in "../benchmarks/parser-stage-cost/benchmark"
+                 sample-at-percentile measure-parser-batch
                  gc-statistics-snapshot sample-gc-snapshot
-                 gql-component-allocation-summary)
+                 component-allocation-summary)
         (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation))
 (export gql-benchmark-profile-test)
 (def gql-benchmark-profile-test
@@ -32,7 +33,7 @@
                      (list (cons 'allocated-bytes
                                  (admit-parser-allocation (car observation) (cadr observation)))))
                    '((1000 0) (2000 0) (999999 1) (-100 0))))
-             (summary (gql-component-allocation-summary rows 10 'single-caller)))
+             (summary (component-allocation-summary rows 10 'single-caller)))
         (check (cdr (assq 'allocationSampleCount summary)) => 2)
         (check (cdr (assq 'allocatedBytesPerParse summary)) => 100)
         (check (cdr (assq 'allocationP95BytesPerParse summary)) => 200)
@@ -41,10 +42,10 @@
            (check (cdr (assq 'allocationSampleCount unavailable)) => 0)
            (check (cdr (assq 'allocatedBytesPerParse unavailable)) => #f)
            (check (cdr (assq 'allocationP95BytesPerParse unavailable)) => #f))
-         (list (gql-component-allocation-summary rows 10 'process-with-thread-switches)
-               (gql-component-allocation-summary '(((allocated-bytes . #f))) 10 'single-caller)))
+         (list (component-allocation-summary rows 10 'process-with-thread-switches)
+               (component-allocation-summary '(((allocated-bytes . #f))) 10 'single-caller)))
         (check (cdr (assq 'allocatedBytesPerParse
-                         (gql-component-allocation-summary '(((allocated-bytes . 0))) 10 'single-caller)))
+                         (component-allocation-summary '(((allocated-bytes . 0))) 10 'single-caller)))
                => 0)))
     (test-case "Unicode and trivia retain exact artifacts through all stages"
       (let (reports (profile-gql-stages "RETURN '你好' /* retained */\n" 2 2))

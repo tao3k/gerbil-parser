@@ -3,7 +3,7 @@
 (import :gerbil-parser/languages/gql/parser
         (only-in :gerbil-parser/parser-actor-support
                  spawn-parser-actor parser-actor-parse parser-actor-stop!)
-        (only-in ./matched-stages measure-gql-component))
+        (only-in ../../parser-stage-cost/benchmark measure-parser-component))
 (export main profile-gql-actors)
 
 (def (profile-gql-actors source samples batch-count clients workers)
@@ -16,7 +16,7 @@
          (actors (list->vector
                   (map (lambda (_) (spawn-parser-actor gql-parser)) (iota workers)))))
     (try
-     (measure-gql-component
+     (measure-parser-component
       (list 'actor-requests (cons 'clients clients) (cons 'workers workers))
       samples batch-count
       (lambda ()

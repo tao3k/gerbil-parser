@@ -280,7 +280,12 @@ GC wall time alone cannot distinguish collector CPU work from elapsed time
 without CPU consumption, or identify which application objects survived.
 =matched-stages.ss= therefore reports =gc-cpu-ms= alongside cumulative GC wall
 and count deltas in each paired observation. After the existing initial GC it
-also emits =GQL-GC-BASELINE=, including heap, live, movable and still bytes.
+also emits =PARSER-GC-BASELINE=, including heap, live, movable and still bytes.
+The shared =t/benchmarks/parser-stage-cost/benchmark.ss= module owns component
+sampling, allocation admission and GC snapshots. GQL, actor workloads and the
+cross-language LR request benchmark import it directly. Component receipts use
+=PARSER-COMPONENT-SAMPLE= and =PARSER-COMPONENT-SUMMARY=; GQL workload receipts
+retain their language identity. No GQL sampling aliases are retained.
 Each summary retains that baseline as =gcBaseline=.
 
 =latest-gc= is =#f= when the batch did not collect. Otherwise it reports the

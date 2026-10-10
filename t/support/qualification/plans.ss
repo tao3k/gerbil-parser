@@ -35,7 +35,8 @@
     [(qualification-stage "test-driver-build" '("gxi" "build-test-driver.ss" "compile") 240 30 '())] '())
    (if (and (not prepared?) (pair? modules))
     [(qualification-stage "gql-support-build"
-      (append '("gxc" "-V") (map (lambda (module) (string-append "t/benchmarks/gql/runtime/" module ".ss")) modules)) 240 30 '())] '()))))
+      (append '("gxc" "-V" "t/benchmarks/parser-stage-cost/benchmark.ss")
+              (map (lambda (module) (string-append "t/benchmarks/gql/runtime/" module ".ss")) modules)) 240 30 '())] '()))))
 (def (qualify-local! suites prepared? compiled-root logs jobs)
  (let ((compiled-root (path-expand compiled-root)) (logs (path-expand logs)))
   (def (run name command (build? #f) (receipts '()) (budget #f))
@@ -49,6 +50,8 @@
   (setenv "RUSTC_WRAPPER") (setenv "RUSTC_WORKSPACE_WRAPPER")
   (for-each (lambda (stage) (execute-stage! stage logs)) (local-diagnostic-plan suites prepared?))
   (when prepared?
+   (when (pair? (diagnostic-modules suites))
+    (compiled-product! compiled-root "t/benchmarks/parser-stage-cost/benchmark"))
    (for-each (lambda (module) (compiled-product! compiled-root (string-append "t/benchmarks/gql/runtime/" module)))
              (diagnostic-modules suites)))
    (for-each
@@ -61,8 +64,8 @@
       (run suite (compiled-main (string-append "gerbil-parser/t/benchmarks/gql/runtime/"
                                                (if (equal? suite "gql-profile") "matched-stages" "actors"))
                                 "(main \"40\" \"100\")") #f
-                 (if (equal? suite "gql-profile") '("GQL-STAGES-OK" "GQL-STAGE-SUMMARY" "GQL-REDUCTION-COUNTS" "GQL-LR-EXECUTION")
-                                                  '("GQL-ACTORS-OK" "GQL-STAGE-SUMMARY"))))
+                 (if (equal? suite "gql-profile") '("GQL-STAGES-OK" "PARSER-COMPONENT-SUMMARY" "GQL-REDUCTION-COUNTS" "GQL-LR-EXECUTION")
+                                                  '("GQL-ACTORS-OK" "PARSER-COMPONENT-SUMMARY"))))
      ((equal? suite "aot")
       (run "aot-build" '("gxi" "build-rust-runtime-aot.ss" "compile") #t)
       (with-product-directory "parser-native-aot-"

@@ -572,7 +572,7 @@ LR family measurement.
 
 #+begin_src scheme
 (import :gerbil-parser/t/benchmarks/lr-request-stack/benchmark)
-(benchmark-lr-request-backends 12 10)
+(benchmark-lr-request-backends 20 20)
 #+end_src
 
 Compile the current runtime and benchmark before native qualification. Source
@@ -587,3 +587,109 @@ of ten calls, explicitly admits both =.o6= runtime objects, and exits zero in
 witness confirms Arithmetic's generated drive and the ordinary GQL/FHIRPath
 source path at both scales. This is a local receipt; PR CI belongs to the
 subsequent exact pushed head.
+
+* Executed interleaved backend qualification
+
+** Protocol and admission fixed before observation
+
+The earlier recognition-then-event diagnostic did not qualify performance. The
+same benchmark now prepares both variants once and alternates timed batches
+within each workload. Even-numbered groups execute recognition/event/event/
+recognition (ABBA); odd groups execute event/recognition/recognition/event (BAAB).
+Each variant has two equally sized batches in every group. Both variants warm
+up before one initial GC per workload. Switching variants does not force GC;
+naturally occurring collections stay in request CPU and wall observations.
+
+The existing Scheme sampler exposes =measure-parser-batch= for this scheduling.
+It returns the original CPU, wall, GC, allocation-admission and product controls
+without introducing a new statistics implementation. Ordinary component callers
+retain their previous warmup and initial-GC behavior. Batch counts must be exact
+positive integers divisible by calls per thunk; no truncated invocation count
+can be reported as a complete batch. Changed semantic products reject the
+observation. The extended profile suite passes ten cases, including these
+measurement obligations.
+
+For every paired group, the CPU ratio is summed event CPU divided by summed
+recognition CPU. The P10/P50/P90 statistics describe these twenty paired ratios;
+they are not a confidence interval, individual request percentiles, or a ratio
+of independently selected CPU medians. Before execution, the practical admission
+margin was fixed at five percent:
+
+- P90 below 0.95: =observed-benefit=.
+- P10 above 1.05: =observed-regression=.
+- Otherwise: =not-admitted=.
+
+GQL is the negative control because both preferences retain recognition. Its
+paired median must remain within 0.95--1.05 and its empirical band must contain
+one at both scales and measured boundaries. Failure blocks whole-engine benefit
+admission. Passing this center check alone does not establish narrow dispersion.
+The global benefit marker additionally requires both non-GQL complete-request
+routes to meet the benefit criterion; it is a conservative universal-benefit
+check, not a proposal to change the default backend.
+
+** Actual native receipt
+
+The caller runs at source baseline =a36c4d1= with the paired benchmark changes.
+It explicitly admits the fresh =lr-parser~0.o6= and restored
+=lexical-lexer~0.o6=. The shared sampler and benchmark caller are compiled with
+the fixed =2591dcd= SDK and GCC. Heap cap remains 3 GiB, total bound 120 seconds,
+and idle bound five seconds. Benchmark compilation first rejected an incomplete
+form and then a malformed binding; both failures are retained as build failures.
+The corrected benchmark compiles successfully in 27.137 seconds.
+
+The source profile suite passes ten cases, then all twelve paired workloads
+complete: three languages, two sizes, prepared LR and complete public source.
+Twenty groups contain four batches of twenty calls each: 19,200 timed calls in
+total, excluding warmup, source-route witnesses and semantic reference admission.
+Both prepared variants publish the independent materialized GLR reference;
+public variants and untimed route witnesses publish the same source-bound
+canonical artifact. Products are checked after every batch. The complete child
+exits zero in 53.291 seconds with =TEST-SUITE-OK=,
+=LR-REQUEST-BACKENDS-OK=, =LR-BACKEND-PERFORMANCE-ADMISSION= and
+=BACKEND-CONTROL-OK=.
+
+| Family, units | Boundary | CPU ratio P10 | P50 | P90 | Observation |
+|---------------+----------+---------------+-----+-----+-------------|
+| GQL 64 | prepared LR | 0.761 | 0.995 | 1.115 | not admitted |
+| GQL 64 | full source | 0.197 | 0.999 | 1.100 | not admitted |
+| FHIRPath 64 | prepared LR | 1.275 | 1.336 | 1.358 | observed regression |
+| FHIRPath 64 | full source | 0.327 | 1.208 | 1.647 | not admitted |
+| Arithmetic 64 | prepared LR | 1.383 | 1.416 | 1.443 | observed regression |
+| Arithmetic 64 | full source | 0.635 | 0.989 | 1.020 | not admitted |
+| GQL 512 | prepared LR | 0.557 | 1.016 | 2.000 | not admitted |
+| GQL 512 | full source | 0.592 | 1.447 | 2.121 | negative control fails |
+| FHIRPath 512 | prepared LR | 0.814 | 1.404 | 2.353 | not admitted |
+| FHIRPath 512 | full source | 0.638 | 1.106 | 1.982 | not admitted |
+| Arithmetic 512 | prepared LR | 0.547 | 1.421 | 3.307 | not admitted |
+| Arithmetic 512 | full source | 0.455 | 0.530 | 2.281 | not admitted |
+
+** What the test establishes
+
+The small prepared event routes have repeatable regression observations under
+the declared empirical criterion. FHIRPath's admitted allocation ratio is 0.959
+in 19 of 20 groups; Arithmetic's is 0.790 in all twenty, with no timed GC in
+that prepared Arithmetic workload. Lower allocation therefore does not imply
+lower CPU even in an interval without collection. Those component regressions
+are observations from this caller, not a portable causal percentage.
+
+Large complete-source workloads fail allocation comparison: none of the twenty
+groups has four no-GC intervals. GQL, FHIRPath and Arithmetic encounter 25, 32
+and 21 collections respectively across their eighty timed full-source batches.
+These are whole-VM collections during the sole caller, not an allocation delta
+that can be attributed across collections. Every batch retains its raw counters
+and collection snapshot in Scheme output.
+
+The identical-executor GQL full-source control fails its median margin at 512
+units. The superficially favorable Arithmetic full-source median, 0.530, also
+has a band spanning 0.455--2.281 and is not a speedup. Collection placement in
+short interleaved batches is a concrete confounder; repeated identical source
+allocation and unchanged generated execution identify it as a measurement
+boundary that needs resolution before a complete-request CPU claim. The receipt
+alone does not prove it is the only source of variation.
+
+The executable gate reports =gql-fallback-stable #f= and
+=complete-request-benefit-admitted #f=. It passes semantic qualification and
+rejects performance admission. Default execution remains recognition. These
+results justify studying event representation and GC-sensitive request sampling;
+they do not justify enabling event execution, filtering out costly GC samples,
+increasing timeout budgets, or declaring a whole-engine speedup.

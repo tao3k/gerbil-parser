@@ -168,3 +168,12 @@ admission across these routes. No default backend is changed on the strength
 of prepared allocation or the single-order representation diagnostic. Bash's
 contextual route remains independently qualified by its own source products;
 these LR controls do not substitute for that qualification.
+
+
+The [[file:../research/shared-ranked-scanner-execution.org::*Executed interleaved backend qualification][executed paired qualification]] now replaces the single-order diagnostic as
+performance evidence. Twenty ABBA/BAAB groups per workload measure 19,200 native
+calls in 53.291 seconds, following ten passed measurement controls. Small
+prepared event workloads meet the observed-regression criterion. The large GQL
+identical-executor control fails, so the executable gate rejects complete-request
+benefit admission. Semantic pass and performance rejection are distinct outputs;
+no backend default changes on this receipt.

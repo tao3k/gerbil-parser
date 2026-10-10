@@ -5,13 +5,27 @@
         (only-in "../benchmarks/gql/runtime/reduction-counts" profile-gql-reductions)
         (only-in "../benchmarks/gql/runtime/execution-counts" profile-gql-prepared-execution)
         (only-in "../benchmarks/gql/runtime/matched-stages"
-                 profile-gql-stages sample-at-percentile
+                 profile-gql-stages sample-at-percentile measure-parser-batch
                  gc-statistics-snapshot sample-gc-snapshot
                  gql-component-allocation-summary)
         (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation))
 (export gql-benchmark-profile-test)
 (def gql-benchmark-profile-test
   (test-suite "GQL language performance diagnostics"
+    (test-case "timed batches reject truncation and changed products"
+      (let* ((calls 0)
+             (thunk (lambda () (set! calls (+ calls 1)) 'complete))
+             (row (measure-parser-batch 'shared-control 7 4 thunk 'complete 2)))
+        (check calls => 2)
+        (check (cdr (assq 'sample row)) => 7)
+        (for-each
+         (lambda (sizes)
+           (check-exception
+            (measure-parser-batch 'invalid 0 (car sizes) thunk 'complete (cadr sizes)) true))
+         '((0 1) (3 2) (4 0) (4.0 1)))
+        (check calls => 2)
+        (check-exception
+         (measure-parser-batch 'changed 0 1 (lambda () 'wrong) 'complete) true)))
     (test-case "allocation summaries exclude GC intervals and retain unavailable ownership"
       (let* ((rows
               (map (lambda (observation)

@@ -13,7 +13,7 @@
         :gerbil-parser/src/runtime/significant
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/token)
-(export main profile-gql-stages measure-gql-component sample-at-percentile gc-statistics-snapshot sample-gc-snapshot
+(export main profile-gql-stages measure-gql-component measure-parser-batch sample-at-percentile gc-statistics-snapshot sample-gc-snapshot
         gql-component-allocation-summary)
 
 ;; Admit complete intervals, not raw counter differences across collections.
@@ -96,34 +96,44 @@
           (write (list 'GQL-STAGE-SUMMARY
                        (filter (lambda (row) (not (eq? (car row) 'samples))) summary))) (newline) (force-output)
           summary)
-        (let* ((before (##process-statistics))
-               (wall-start (##current-time-point))
-               (result
-                (let repeat ((remaining (quotient batch-count calls-per-thunk)) (last-result #f))
-                  (if (zero? remaining) last-result
-                    (repeat (- remaining 1) (thunk)))))
-               (wall-ms (* 1000 (- (##current-time-point) wall-start)))
-               (after (##process-statistics))
-               (delta (lambda (index)
-                        (- (f64vector-ref after index) (f64vector-ref before index))))
-               (row (list (cons 'sample sample)
-                          (cons 'wall-ms wall-ms)
-                          (cons 'cpu-ms (* 1000 (+ (delta 0) (delta 1))))
-                          ;; Signed observation, not a scheduler attribution. It
-                          ;; includes counter/timing noise and may be negative.
-                          (cons 'wall-minus-cpu-ms
-                                (- wall-ms (* 1000 (+ (delta 0) (delta 1)))))
-                          (cons 'gc-count (delta 6))
-                          (cons 'gc-wall-ms (* 1000 (delta 5)))
-                          (cons 'gc-cpu-ms (* 1000 (+ (delta 3) (delta 4))))
-                          (cons 'latest-gc (sample-gc-snapshot before after))
-                          (cons 'allocation-counter-delta (delta 7))
-                          (cons 'allocated-bytes
-                                (admit-parser-allocation (delta 7) (delta 6))))))
-          (unless (equal? result expected)
-            (error "GQL stage changed its semantic result" name sample))
+        (let (row (measure-parser-batch name sample batch-count thunk expected calls-per-thunk))
           (write (list 'GQL-STAGE-SAMPLE name row)) (newline) (force-output)
           (loop (+ sample 1) (cons row rows)))))))
+
+;;; Shared timed batch primitive. It owns no warmup, forced GC or output, so
+;;; matched callers can alternate variants without perturbing GC at each switch.
+(def (measure-parser-batch name sample batch-count thunk expected (calls-per-thunk 1))
+  (unless (and (and (integer? batch-count) (exact? batch-count)) (positive? batch-count)
+               (and (integer? calls-per-thunk) (exact? calls-per-thunk)) (positive? calls-per-thunk)
+               (zero? (modulo batch-count calls-per-thunk)))
+    (error "parser batch requires positive integral calls without truncation"))
+  (let* ((before (##process-statistics))
+       (wall-start (##current-time-point))
+       (result
+        (let repeat ((remaining (quotient batch-count calls-per-thunk)) (last-result #f))
+          (if (zero? remaining) last-result
+            (repeat (- remaining 1) (thunk)))))
+       (wall-ms (* 1000 (- (##current-time-point) wall-start)))
+       (after (##process-statistics))
+       (delta (lambda (index)
+                (- (f64vector-ref after index) (f64vector-ref before index))))
+       (row (list (cons 'sample sample)
+                  (cons 'wall-ms wall-ms)
+                  (cons 'cpu-ms (* 1000 (+ (delta 0) (delta 1))))
+                  ;; Signed observation, not a scheduler attribution. It
+                  ;; includes counter/timing noise and may be negative.
+                  (cons 'wall-minus-cpu-ms
+                        (- wall-ms (* 1000 (+ (delta 0) (delta 1)))))
+                  (cons 'gc-count (delta 6))
+                  (cons 'gc-wall-ms (* 1000 (delta 5)))
+                  (cons 'gc-cpu-ms (* 1000 (+ (delta 3) (delta 4))))
+                  (cons 'latest-gc (sample-gc-snapshot before after))
+                  (cons 'allocation-counter-delta (delta 7))
+                  (cons 'allocated-bytes
+                        (admit-parser-allocation (delta 7) (delta 6))))))
+  (unless (equal? result expected)
+    (error "parser batch changed its semantic result" name sample))
+  row))
 
 (def (main . args)
   (let ((samples (if (pair? args) (string->number (car args)) 40))

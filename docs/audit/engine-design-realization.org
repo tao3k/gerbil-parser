@@ -217,9 +217,7 @@ this reorganization.
 
 Incoming audit links now name the actual module and original heading. The
 Scheme qualifier checks local files and heading targets across this audit,
-the execution overview/modules and the parent scanner study. Receipts are
-=/private/tmp/parser-ranked-study-modularize.log= and
-=/private/tmp/parser-ranked-study-qualification.log=. The first temporary
+the execution overview/modules and the parent scanner study. The first temporary
 restructuring attempt was rejected by historical equality after an incorrect
 output-port call; the first link-qualifier attempt failed import admission for
 an unavailable library. The corrected qualifier uses the project's existing

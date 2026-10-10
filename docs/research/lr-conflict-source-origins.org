@@ -111,9 +111,7 @@ The source suite selection is reproducible with the normal prepared project:
 gerbil test -g -v 5 t/lr-conflict-origins-test.ss t/resolved-grammar-test.ss
 #+end_src
 
-Local raw receipts are =/private/tmp/parser-conflict-origin-factored-build-supervision.log=,
-=/private/tmp/parser-conflict-origin-final-suite-build-supervision.log= and
-=/private/tmp/parser-conflict-origin-source-test-supervision.log=. Temporary
+Local raw receipts are unarchived local execution. Temporary
 overlays are local evidence, not committed bootstrap sources or CI artifacts.
 
 Unsuccessful attempts are retained as negative evidence: the first added test

@@ -101,12 +101,12 @@ end-to-end speedup is claimed from removing duplicated source text.
 * Qualification
 
 - Source controls: 25 cases, final =OK= and exit 0, 13.873 s.
-  Receipt: =/private/tmp/parser-action-fold-source-final-supervision.log=.
+  Receipt: unarchived local execution.
 - Official native compilation: exit 0, 18.363 s; candidate artifacts live in
-  =/private/tmp/parser-action-fold/lib=. Inspection of the emitted =.scm=
+  a temporary native overlay. Inspection of the emitted =.scm=
   confirms direct recursive calls and inline event operation dispatch.
 - Native controls: five cases, final =OK= and exit 0, 15.143 s.
-  Receipt: =/private/tmp/parser-action-fold-native-supervision.log=; its
+  Receipt: unarchived local execution; its
   interface trace selects the candidate =lr-parser.ssi= explicitly.
 
 Two initial harness attempts are excluded: one named nonexistent test files;
@@ -121,7 +121,7 @@ same source products, independent GLR admission, toolchain and artifact graph.
 Only the candidate runtime overlay changed. All four runs completed with
 =LR-REQUEST-STACK-OK= and exit 0; elapsed times were 16.655, 16.384, 18.906
 and 16.335 s. Receipts are
-=/private/tmp/parser-action-fold-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=.
+unarchived local execution.
 
 CPU values below are batch CPU P50 divided by 20, in milliseconds per call.
 They are not individual request latency percentiles. Natural collections remain
@@ -230,12 +230,12 @@ shared runtime imports the new module even when it does not enter GLR.
 ** Completion qualification receipts
 
 - 34 source cases: final =OK=, exit 0, 8.222 s, in
-  =/private/tmp/parser-completion-source-final-supervision.log=.
+  unarchived local execution.
 - Official native compilation of the producer and consumers: exit 0, 23.260 s,
-  in =/private/tmp/parser-completion-compile-supervision.log=.
+  in unarchived local execution.
 - 34 native cases plus the complete GLR scenario and six deterministic source
   products: all required markers and exit 0, 33.040 s, in
-  =/private/tmp/parser-completion-native-supervision.log=. Interface traces
+  unarchived local execution. Interface traces
   select both candidate =lr-completion.ssi= and =lr-parser.ssi=.
 
 An initial source run exposed an incorrect multi-binding =using= form. It was
@@ -249,7 +249,7 @@ samples contain 20 requests. There are 20 samples per route. Every run requires
 the complete product markers and exit 0, with the existing five-second real
 output watchdog. Elapsed times are 16.475, 16.159, 15.879 and 16.730 s.
 Receipts are
-=/private/tmp/parser-completion-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=.
+unarchived local execution.
 
 The table reports batch CPU P50 divided by its iteration count, in ms per group
 or request. Natural collection remains in the measured samples.
@@ -288,14 +288,13 @@ Gambit's collector for an engine design problem.
 The existing =t/selective-glr-benchmark-test.ss= gate also passes on the candidate:
 40 samples of 100 four-request groups, wall P95 8.363 ms below the 250 ms
 maximum, final =OK= and exit 0 in 5.365 s. Receipt:
-=/private/tmp/parser-completion-glr-gate-supervision.log=.
+unarchived local execution.
 
 After integrating the concurrent scanner change =bb53704=, 37 source cases
 pass in 7.369 s. The updated scanner is compiled into the candidate overlay
 (9.308 s), and 37 native cases plus all complete benchmark products pass in
 12.286 s with exit 0 and every required marker. Receipts:
-=/private/tmp/parser-completion-synchronized-source-supervision.log= and
-=/private/tmp/parser-completion-synchronized-native-supervision.log=.
+unarchived local execution.
 These establish combined semantic qualification; the preceding ABBA timings
 remain measurements of the isolated completion refactor against =31c0667=.
 
@@ -304,13 +303,13 @@ The declarative optional Rust AOT generator module list also registers
 source discovery already admits the new module. No compatibility record or
 additional command/script is introduced.
 The existing build-product contract's two cases pass, final =OK= and exit 0,
-in 2.161 s (=/private/tmp/parser-completion-build-contract-supervision.log=).
+in 2.161 s (unarchived local execution).
 This receipt qualifies the product declaration, not a fresh Rust AOT executable.
 
 Further concurrent Source/Fold commits through =ec4b6b8= are integrated before
 publication. The combined source control expands to 44 cases, including the
 updated event-fold suite and build-product contract: final =OK=, exit 0,
-7.644 s in =/private/tmp/parser-completion-integrated-source-supervision.log=.
+7.644 s in unarchived local execution.
 The 37-case native receipt above covers the LR/scanner graph, whose production
 dependencies are unchanged by those later Source/Fold commits. It does not
 qualify their new native Source/Fold implementation. Exact-head CI retains
@@ -411,11 +410,11 @@ performance.
 
 Eight source-client/contextual cases pass over the preloaded pinned native
 Core CLOS dependency: final =OK=, exit 0, 13.951 s, in
-=/private/tmp/parser-generic-contract-preloaded-supervision.log=.
+unarchived local execution.
 Official native compilation of the new suite passes in 13.917 s. Its three
 compiled cases then run directly through the native =std/test= harness: final
 =OK=, exit 0, 5.101 s, in
-=/private/tmp/parser-generic-contract-native-final-supervision.log=.
+unarchived local execution.
 
 The first fully interpreted dependency load hit the unchanged five-second
 no-progress watchdog and is excluded. A native harness attempt incorrectly
@@ -494,8 +493,7 @@ The three compiled preparation cases pass directly through =std/test= in
 46 cases in 12.627 s, including artifact parity, empty reductions, GLR,
 layout and incremental fragment controls. All accepted processes retain the
 five-second real-output watchdog and require both successful exit and final
-=OK=. Receipts are =/private/tmp/parser-semantic-preparation-{compile-repaired,
-machine-compile,native,controls-final}-supervision.log=.
+=OK=. Receipts are unarchived local execution.
 
 The first integration run exposed an old =machine= product whose inlined
 =lr-runtime-event-step= accessor used the preceding record layout. It read the
@@ -527,7 +525,7 @@ baseline/candidate comparison.
 The complete benchmark also validates six cross-language products at 64/512
 units and runs their prepared-recognition/full-source samples. Both benchmark
 markers and final =OK= pass, exit 0, 34.454 s, in
-=/private/tmp/parser-semantic-preparation-benchmark-supervision.log=.
+unarchived local execution.
 Wall observations contain substantial scheduler delay, so no wall-speedup
 claim is admitted. The large GQL preparation cost needs attribution among table
 indexing, mode interning and other preparation work; these measurements do not
@@ -536,7 +534,7 @@ identify its dominant algorithm or attribute it to generic dispatch.
 Publication integrates concurrent =aff9375= before delivery. The owned LR,
 machine and benchmark source graph is unchanged by that commit. Rebased native
 preparation controls pass all three cases again: final =OK=, exit 0, 21.962 s,
-in =/private/tmp/parser-semantic-preparation-rebased-native-supervision.log=.
+in unarchived local execution.
 These reused native products do not qualify the concurrent prefix-family
 implementation; exact-head CI owns the complete merged package and Rust AOT.
 

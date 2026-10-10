@@ -100,13 +100,9 @@ its build module catalog. No separate qualification executable is required.
 The benchmark helper is explicitly included in that native catalog. The
 repository's test ownership plan passed all twelve controls in =1.230s=,
 exit zero and final =OK=, including the actual repository catalog/import/suite
-coverage check. Receipt: =/private/tmp/parser-publication-cost-plan-supervision.log=.
+coverage check. Receipt: unarchived local execution.
 
-Raw receipts: =/private/tmp/parser-publication-cost-build-supervision.log=,
-=/private/tmp/parser-publication-cost-controls-build-supervision.log=,
-=/private/tmp/parser-publication-cost-test-build-supervision.log=,
-=/private/tmp/parser-publication-cost-final-build-supervision.log= and
-=/private/tmp/parser-publication-cost-source-test-supervision.log=.
+Raw receipts: unarchived local execution.
 
 * Cross-language localization receipt
 
@@ -135,7 +131,7 @@ inclusive, observer overhead is included in the complete request, and medians
 must not be added to form a cost decomposition. These are localization results,
 not paired uninstrumented latency comparisons or a backend preference decision.
 
-Receipt: =/private/tmp/parser-publication-cost-benchmark-supervision.log=.
+Receipt: unarchived local execution.
 The Scheme population checker admitted all twelve summaries and retained the
 requested preferences separately. There is no runtime speedup claim.
 
@@ -237,9 +233,7 @@ admitted from these values. The installed allocation counter's raw delta and
 occupied-object terms are not an object-lifetime census. The builder rerun
 checks the construction protocol directly; it does not assert a cause for the
 prototype's counter variation or weaken the allocation admission filter.
-Receipts: =/private/tmp/parser-event-storage-build-supervision.log=,
-=/private/tmp/parser-event-storage-source-test-supervision.log= and
-=/private/tmp/parser-event-storage-benchmark-supervision.log=.
+Receipts: unarchived local execution.
 
 ** Official-builder qualification and decision
 
@@ -288,9 +282,6 @@ contract and Rust consumer qualification. No such change is implemented here.
 This updates the preceding localization decision with the missing independent
 control rather than appending an unrelated language-specific optimization.
 
-Final receipts: =/private/tmp/parser-event-builder-build-supervision.log=,
-=/private/tmp/parser-event-builder-source-test-supervision.log=,
-=/private/tmp/parser-event-builder-benchmark-supervision.log= and
-=/private/tmp/parser-event-builder-report.log=. The five-second real-progress
+Final receipts: unarchived local execution. The five-second real-progress
 idle gate remains unchanged. Exact-head CI is separate: at verification,
 =a1df0ca= Rust AOT passed while Linux/macOS Scheme jobs remained in progress.

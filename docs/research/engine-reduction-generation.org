@@ -74,7 +74,7 @@ these two small grammar widths.
 
 Eighteen source cases passed for strategy contracts, both languages' independent
 recognition/event backends and the all-language accepted/rejected ABI byte
-fixture. The receipt is =/private/tmp/parser-linear-reduction-final-controls.log=.
+fixture. The receipt is unarchived local execution.
 The generic executor remains the semantic control; generated modules retain
 the same grammar digest and backend admission contracts. The generated state
 and value tails are private implementation bindings.
@@ -89,9 +89,9 @@ The shared compiler and both emitted modules compiled with official
 structural read bound and complete recognition/event artifacts for both language
 families. The child completed in 15.578 seconds, exit zero, with =HARNESS-OK=,
 final =OK=, no supervision reason and no missing receipt. The candidate load
-path was =/private/tmp/parser-linear-reductions/lib=; admission traces and
+path was a temporary native overlay; admission traces and
 emitted-source controls are retained in the receipt
-=/private/tmp/parser-linear-reduction-native-complete-supervision.log=.
+unarchived local execution.
 
 Two earlier native attempts were not admitted: one reached the five-second
 idle gate during untraced test import, and one exposed a stale local
@@ -183,8 +183,7 @@ measurement overhead. These synthetic grammar numbers are not language
 P50/P95 or Rust FFI performance claims. CPU variation prevents a general
 latency improvement claim.
 
-Initial receipts are =/private/tmp/parser-stack-{1-baseline,2-candidate,
-3-candidate,4-baseline}-supervision.log=. Keep the negative event result as
+Initial receipts are unarchived local execution. Keep the negative event result as
 part of the algorithm decision, rather than promote its lower allocations.
 
 * Final implementation qualification
@@ -200,19 +199,17 @@ The final module and new test compiled with official Gerbil =-O= and the SDK's
 native C optimization in 16.682 seconds, exit zero, no supervision reason.
 Actual interface and GCC function/pass output supplied progress; the five-second
 idle gate remained unchanged. The receipt is
-=/private/tmp/parser-stack-bounded-prefix-compile-supervision.log=.
+unarchived local execution.
 Gambit's [[https://gambitscheme.org/4.9.7/manual/][documented stdio buffering setting]] was used for compiler
 diagnostics so completed output lines are visible immediately. This is I/O
 configuration, not a timer generating progress or a GC/heap workaround.
 
 Seventeen final source cases passed in 5.670 seconds with actual zero exit,
 and two native GLR parity cases passed in 6.746 seconds. Receipts are
-=/private/tmp/parser-stack-closed-source-controls-supervision.log= and
-=/private/tmp/parser-stack-bounded-native-controls-supervision.log=.
+unarchived local execution.
 
 Final sequential native ABBA receipts are
-=/private/tmp/parser-stack-final-{1-baseline,2-candidate,3-candidate,
-4-baseline}-supervision.log=. Each completed 20 samples of 100 iterations
+unarchived local execution. Each completed 20 samples of 100 iterations
 for every route, passed complete-product admission and exited zero. The final
 recognition allocation differences remain 384 and 1536 bytes/call at widths
 8 and 32, in both reduction-only and complete-product routes. Width one and
@@ -228,7 +225,7 @@ The final source test path isolates only that existing native exit helper;
 parser modules remain source-owned. This is not permission to count an =OK=
 marker without process completion. The language test dependencies have a
 separate official native compile receipt,
-=/private/tmp/parser-stack-language-deps-compile-supervision.log= (32.976
+unarchived local execution (32.976
 seconds, exit zero), rather than relying on stale test =.scm= products.
 
 The native all-language ABI assertion and generated HCL/Arithmetic controls
@@ -236,14 +233,14 @@ passed nine cases in 38.634 seconds, actual exit zero, =HARNESS-OK= and final
 =OK=. All ten language entries supplied accepted/rejected products: twenty
 byte-for-byte controls against the existing Rust fixture. Candidate LR interface
 admission is recorded in
-=/private/tmp/parser-stack-native-language-alignment-supervision.log=.
+unarchived local execution.
 
 These cost and initial native product controls used parent =dd07195=. Before
 publication the checkout advanced to =0906fa3=, including the independent
 result-profile and private word/projection refinements. Thirty-seven source
 integration cases then passed, including the incoming result-profile rules,
 in 26.183 seconds with zero exit and no supervision reason. The receipt is
-=/private/tmp/parser-stack-latest-source-integration-supervision.log=.
+unarchived local execution.
 This distinction prevents an earlier compiled overlay from being reported as
 proof of every incoming module. Exact-head clean CI remains separate evidence.
 
@@ -253,8 +250,7 @@ local =result-profile.ssi=. Compiling the producer, generator and consumer in
 dependency order succeeded in 22.646 seconds. The refreshed native overlay then
 passed all nine controls and twenty language ABI products again in 14.162
 seconds, zero exit, no supervision reason and no missing final receipt:
-=/private/tmp/parser-stack-latest-ordered-compile-supervision.log= and
-=/private/tmp/parser-stack-latest-native-alignment-supervision.log=.
+unarchived local execution.
 The package's standard dependency scheduler owns this order in normal builds;
 these isolated compiler calls do not establish a second build system.
 

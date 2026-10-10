@@ -124,12 +124,7 @@ the staged content with relative imports resolved to the same package modules;
 the pre-existing uncommitted deferred-materialization test is not included in
 this count or staged for this migration.
 
-Receipts: =/private/tmp/parser-shared-sampling-build-supervision.log=,
-=/private/tmp/parser-shared-sampling-dependencies-build-supervision.log=,
-=/private/tmp/parser-shared-sampling-counts-build-supervision.log=,
-=/private/tmp/parser-shared-sampling-source-test-supervision.log=,
-=/private/tmp/parser-shared-sampling-final-source-test-supervision.log= and
-=/private/tmp/parser-shared-sampling-qualified-source-test-supervision.log=.
+Receipts: unarchived local execution.
 
 ** Cross-language and actor consumers
 
@@ -153,8 +148,7 @@ Exit is zero, three =SHARED-ACTOR-SAMPLING-OK= receipts, =GQL-ACTORS-OK= and fin
 =OK=. The shared owner has not silently converted actor process counters into
 single-request allocation observations.
 
-Receipts: =/private/tmp/parser-shared-sampling-backend-supervision.log= and
-=/private/tmp/parser-shared-sampling-actor-supervision.log=. All local commands
+Receipts: unarchived local execution. All local commands
 retain the five-second real-progress idle gate. At verification, the preceding
 =ecebab9= exact-head CI has passed Rust AOT; Linux Scheme remains in progress
 and macOS Scheme is queued. The migrated source needs its own exact-head CI.

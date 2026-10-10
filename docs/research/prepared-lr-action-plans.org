@@ -72,8 +72,7 @@ reduction-only requests and complete artifact publication. This makes moving
 cost across phases observable. An initial two-list action plan passed semantic
 controls but added 1824 bytes per width-32 preparation and gave no stable
 request CPU improvement. It was rejected in favor of a single indexed vector.
-Its native ABBA receipts remain =/private/tmp/parser-action-plan-{1-baseline,
-2-candidate,3-candidate,4-baseline}-supervision.log=; all exited zero.
+Its native ABBA receipts remain unarchived local execution; all exited zero.
 
 An earlier plan-access expansion also failed the five-second idle compiler
 gate in 37.323 seconds. The closed-procedure revision compiled with the official
@@ -85,18 +84,17 @@ was relaxed.
 * Final vector qualification and cost boundary
 
 The final source control group passed 34 cases in 22.755 seconds, actual exit
-zero: =/private/tmp/parser-action-vector-source-supervision.log=. It includes
+zero: unarchived local execution. It includes
 the incoming scanner dispatch controls at parent =f2eb2b8=. The first vector
 compile failed the idle gate during Gambit's macro-interface generation,
 despite that Scheme file being slightly smaller than the baseline. The retry
 with official =gxc -gsc-flag -verbose= completed the LR module, latest scanner,
 test and benchmark in 23.455 seconds, actual exit zero:
-=/private/tmp/parser-action-vector-verbose-compile-supervision.log=.
+unarchived local execution.
 The [[https://gambitscheme.org/4.9.2/manual/][Gambit manual]] documents =-verbose= as compiler activity tracing.
 It supplies real phase output; it does not establish a causal performance fix.
 
-Final native ABBA receipts are =/private/tmp/parser-action-vector-{1-baseline,
-2-candidate,3-candidate,4-baseline}-supervision.log=. All four runs completed
+Final native ABBA receipts are unarchived local execution. All four runs completed
 20 samples of 100 iterations for six preparation and 24 request routes,
 admitted their independent complete-product controls and exited zero.
 The baseline is the preceding =d69f015= LR implementation in the retained native
@@ -127,7 +125,7 @@ can be inferred from these observations.
 The final native integration passed twelve cases and twenty accepted/rejected
 ABI products across all ten language entries in 28.068 seconds, exit zero,
 =HARNESS-OK= and =OK=:
-=/private/tmp/parser-action-vector-native-alignment-supervision.log=.
+unarchived local execution.
 It covers the candidate LR and latest =f2eb2b8= scanner interfaces, independent
 GLR, generated HCL/Arithmetic recognition and event reductions, and exact Rust
 fixture bytes. Local native qualification is distinct from clean exact-head CI.
@@ -193,9 +191,8 @@ native owners in 27.542 seconds. The separate all-language ABI control passed in
 checked-in Rust fixture bytes exactly. These local receipts do not establish
 clean-checkout platform CI or a measured speedup.
 
-Receipts: =/private/tmp/parser-action-admission-{build,rust-build,test,alignment,
-baseline-qualified}-supervision.log=. The initial baseline-script failure remains
-=/private/tmp/parser-action-admission-baseline-supervision.log=.
+Receipts: unarchived local execution. The initial baseline-script failure remains
+unarchived local execution.
 
 * Complete production admission before execution products
 
@@ -294,8 +291,7 @@ test entry failed before executing cases because a newly added test form lacked
 one closing parenthesis, exit 1 after 10.948 seconds. The final test receipt
 follows that source correction; no assertion or timeout was weakened.
 
-Receipts are =/private/tmp/parser-production-contract-{final-runtime-build,
-final-publication-build,qualified-test,baseline}-supervision.log=. Failed
+Receipts are unarchived local execution. Failed
 attempts remain =parser-production-contract-build-supervision.log= and
 =parser-production-contract-test-supervision.log= in the same directory; the
 intermediate retry is =parser-production-contract-compiler-retry-supervision.log=.
@@ -377,7 +373,7 @@ work and has no admitted parser-speedup claim.
 
 At parent =1cfb23a=, the native canonical owner accepted the missing-owner
 witness, exit zero in 1.066 seconds:
-=/private/tmp/parser-reference-baseline-supervision.log=. This counterexample
+unarchived local execution. This counterexample
 establishes the admission gap; it is not evidence of a production request crash.
 
 The final native build compiles the canonical owner and the stack, fused and
@@ -390,8 +386,7 @@ artifact controls remain in that matrix. Both process receipts report exit
 zero, no rejection reason, no missing output and final =OK= under the unchanged
 five-second real-progress idle gate.
 
-Receipts are =/private/tmp/parser-reference-build-supervision.log= and
-=/private/tmp/parser-reference-test-supervision.log=. This is focused native
+Receipts are unarchived local execution. This is focused native
 qualification over reused dependencies, not a clean-checkout full-language
 rebuild or exact-head platform CI. At parent =1cfb23a=, Rust CI passed while
 Linux Scheme was running and macOS Scheme was queued. The new source slice

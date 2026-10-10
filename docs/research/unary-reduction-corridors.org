@@ -23,7 +23,7 @@ its 64-item RETURN executed 65 folds over 184 characters. FHIRPath invocation,
 FHIRPath addition, and Arithmetic addition executed zero. That does not support
 folding once per reduction; no normalization cache was added. The temporary
 instrumentation was removed. Receipt:
-=/private/tmp/parser-fold-census-supervision.log=, exit zero in 7.447 seconds.
+unarchived local execution, exit zero in 7.447 seconds.
 This complements the existing [[file:lr-request-cost-boundaries.org][literal lookup eligibility study]].
 
 The earlier census counted only *identity* unary chains. Decorated unary chains
@@ -41,7 +41,7 @@ remain. An untimed selected-derivation census now distinguishes them:
 These are execution counts for the stated sources, not CPU attribution or
 universal grammar bounds. The observer captures original derivations and
 therefore disables the optimization. Receipt:
-=/private/tmp/parser-unary-chain-census-supervision.log=, exit zero in 6.941 seconds.
+unarchived local execution, exit zero in 6.941 seconds.
 
 * Representation lifetime rather than rule deletion
 
@@ -108,11 +108,11 @@ both semantic backends, exact paused/unbounded action-count equality,
 all-language ABI products, fragment transfer, and parser runtime controls.
 The child completed in 12.453 seconds, exit zero, final =OK=, with no
 supervision reason. Receipt:
-=/private/tmp/parser-unary-corridor-source-final-supervision.log=.
+unarchived local execution.
 
 The runtime and dedicated test compiled with official Gerbil =-O= in 16.769
 seconds, exit zero. Receipt:
-=/private/tmp/parser-unary-corridor-compile-supervision.log=.
+unarchived local execution.
 
 Two initial source invocations were excluded: nonexistent test paths and a
 fixture that used =ref= where canonical GrammarExpr requires =reference=.
@@ -167,7 +167,7 @@ are failures of the proposed cost tradeoff, not evidence that Gerbil/Gambit
 or the language declarations are inherently slow.
 
 Receipts are
-=/private/tmp/parser-unary-entry-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=.
+unarchived local execution.
 All four children exited zero with =LR-REQUEST-STACK-OK= and no supervision
 reason. Final source controls passed in 12.714 seconds; the final runtime
 compiled in 16.264 seconds. Earlier native semantic controls passed 29 cases
@@ -175,7 +175,7 @@ in 10.796 seconds for the named-helper variant. They do not substitute for a
 performance result or whole-build exact-head CI.
 
 The rejected final runtime source is preserved locally at
-=/private/tmp/parser-rejected-unary-corridor/lr-parser.ss=; it is not a runtime
+unarchived local execution; it is not a runtime
 dependency. These local receipts are not durable CI artifacts.
 
 * Reusable developer diagnostics
@@ -199,19 +199,18 @@ or transferred allocation.
 
 The retained benchmark passed from source in 24.363 seconds, exit zero, with
 =LR-REQUEST-STACK-OK=; receipt:
-=/private/tmp/parser-derivation-benchmark-source-supervision.log=.
+unarchived local execution.
 The diagnostic module, benchmark and regression test compiled with official
 Gerbil =-O= in 13.830 seconds. Their final native qualification passed five
 cases and all six benchmark workload/scale products in 49.098 seconds, exit
 zero, with both =OK= and =LR-REQUEST-STACK-OK=. Receipts:
-=/private/tmp/parser-derivation-final-compile-supervision.log= and
-=/private/tmp/parser-derivation-final-native-supervision.log=.
+unarchived local execution.
 No rejected execution fast path was loaded for that final qualification.
 After preserving parallel remote commits through =a65abbd=, twenty-five source
 cases passed for the retained long-chain controls, all-language ABI, fragment
 transfer, runtime behavior and updated Fold source contracts. The child exited
 zero in 12.962 seconds with final =OK= and no supervision reason. Receipt:
-=/private/tmp/parser-derivation-synchronized-source-supervision.log=.
+unarchived local execution.
 This source receipt does not claim whole-build native qualification of the
 parallel Source/Fold changes.
 
@@ -223,8 +222,7 @@ the official =std/os/pid= interface and verified the final artifact after every
 usable CPU attribution. The workload completed 3500 calls before its existing
 60-second total gate terminated it, without its required completion marker.
 It is not admitted as a successful qualification. The gate was not widened.
-Receipts: =/private/tmp/parser-gql-native-cpu-sample-supervision.log= and
-=/private/tmp/parser-gql-native-cpu-sample.txt=.
+Receipts: unarchived local execution.
 
 An empty sampling report does not show that the parser has no hotspots.
 Future sampling must first demonstrate actual thread/stack observations and

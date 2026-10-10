@@ -127,19 +127,19 @@ into an admitted performance improvement.
 
 All four final native children returned exit zero with
 =LR-REQUEST-STACK-OK= and no supervision reason. Receipts are the
-=/private/tmp/parser-arena-transaction-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=
+unarchived local execution
 files. They are local evidence, not portable CI artifacts. The last candidate
 compiled in 18.746 seconds and passed 19 focused source cases in 9.409 seconds.
 Earlier source and native controls covered checkpoint/contextual ownership and
 all-language ABI products. These establish experiment validity, not adoption.
 
 The rejected runtime sources are retained locally under
-=/private/tmp/parser-rejected-request-stack/= for diagnosis. The repository
+unarchived local execution for diagnosis. The repository
 contains neither an unused arena backend nor a compatibility switch.
 The final retained benchmark also passed from source with one sample/call per
 route, including equality of the prepared root and independent GLR root. Its
 child returned exit zero in 9.800 seconds with the required completion marker;
-receipt: =/private/tmp/parser-lr-request-stack-source-admission-supervision.log=.
+receipt: unarchived local execution.
 That source run qualifies the benchmark contract and is not a timing result.
 
 The next question is which semantic operations dominate each reduction:

@@ -64,21 +64,21 @@ Twelve source cases passed for sequence publication, generic reduction stack
 controls, and accepted/rejected products in the all-language ABI fixture.
 The child completed in 14.633 seconds, exit zero, with final =OK= and no
 supervision reason. Receipt:
-=/private/tmp/parser-sequence-tags-source-supervision.log=.
+unarchived local execution.
 
 The changed module and shared request benchmark compiled using official
 Gerbil =-O= in 15.947 seconds, exit zero. Receipt:
-=/private/tmp/parser-sequence-tags-compile-supervision.log=.
+unarchived local execution.
 Neither receipt is evidence that the remote PR CI has completed.
 
 The same twelve controls also passed with the candidate native sequence module,
 exit zero in 14.917 seconds, final =OK= and no supervision reason. Receipt:
-=/private/tmp/parser-sequence-tags-native-controls-supervision.log=.
+unarchived local execution.
 After synchronizing the parallel Fold publication commit =3ba88c7=, sixteen
 source cases passed for these controls and native-source generation contracts.
 The child completed in 22.830 seconds, exit zero, final =OK=, with no
 supervision reason. Receipt:
-=/private/tmp/parser-sequence-tags-synchronized-source-supervision.log=.
+unarchived local execution.
 The measurements below retain their original =7c32c81= baseline; they are not
 whole-build native qualification of the parallel Fold implementation.
 
@@ -115,7 +115,7 @@ representation scans under the engine input invariant.
 All four admitted native children completed with the required
 =LR-REQUEST-STACK-OK= marker and exit zero in 40.686, 43.752, 18.372, and
 17.082 seconds. Their receipts are
-=/private/tmp/parser-sequence-admitted-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=.
+unarchived local execution.
 These are local evidence files, not durable CI artifacts.
 
 An earlier candidate cold import failed the five-second silence gate after

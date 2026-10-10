@@ -9,6 +9,40 @@ workloads, samples and thresholds in their Scheme owners. Research documentation
 has no generated result snapshots, separate JSON report schemas, source-rewriting
 instrumentation or runtime-binding replacement wrappers.
 
+* Reproduction and evidence
+
+Run commands from the repository root with the declared Gerbil dependencies
+installed. Git documents name repository source owners and executable controls;
+machine-local paths and temporary logs are not reproducible evidence. Historical
+local timings below are observations, not independently replayable receipts or
+current performance guarantees. Reproduce measurements with the committed
+benchmark workload and its sampling/admission policy on the revision under test.
+
+The continuation and contextual ownership controls use the normal source test
+entry after native package compilation:
+
+#+begin_src sh
+gerbil compile -O
+gerbil env gerbil test -v 5 t/layout-boundary-test.ss t/contextual-parser-test.ss t/lr-fragment-transfer-test.ss
+#+end_src
+
+Require successful process exit and the test harness's final =OK=; a printed
+intermediate marker alone is insufficient. The shared bounded CI execution,
+native build configuration and platform checks are defined in
+[[file:../../.github/workflows/ci.yml][the committed CI workflow]]. For complete GQL stage measurements use the
+existing Scheme qualification entry:
+
+#+begin_src sh
+gerbil env gxi qualify.ss local --suite gql-profile --gerbil-path .gerbil
+#+end_src
+
+Workloads, semantic controls, batch counts and measurement admission belong to
+[[file:../../t/gql/benchmark-profile-test.ss][the profile suite]] and its imported Scheme benchmark owners. The observed
+execution route and admitted CPU/allocation samples determine what a result can
+claim; elapsed build time and an older CI run cannot qualify the current parser.
+
+* Research map
+
 The paper/framework synthesis remains in
 [[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].
 

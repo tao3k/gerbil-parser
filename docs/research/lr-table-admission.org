@@ -81,8 +81,7 @@ No CPU, allocation or concurrent actor performance benefit is inferred.
 
 The native parent counterexample reports =input does not match LR parser= only
 inside the ambient layout context. The baseline child exits zero in 6.368
-seconds with final =OK=; its receipt is
-=/private/tmp/parser-layout-isolation-baseline-supervision.log=. This records
+seconds with final =OK=. This records
 the reproduced bug, not success of the repaired implementation.
 
 The repaired layout, LR and source request owners and the focused layout module
@@ -94,8 +93,7 @@ Scheme/Rust controls, resolved source origins, complete parser products and
 ten-language ABI byte equality. Both supervisors retain the five-second real
 progress gate and report no rejection reason or missing completion output.
 
-Receipts are =/private/tmp/parser-layout-isolation-build-supervision.log= and
-=/private/tmp/parser-layout-isolation-test-supervision.log=. Dependency products
+Dependency products
 are reused in the native overlay; this is not a clean-checkout package build.
 No Rust runtime source or language declarations change. Exact-head Linux,
 macOS and Rust platform CI remain a separate delivery gate. This qualification
@@ -171,8 +169,7 @@ contextual GLR branch state or prove arbitrary layout grammars balanced.
 *** Qualification
 
 The native parent baseline admits both objects and finishes with exit zero and
-=OK= in 19.871 seconds. Its receipt is
-=/private/tmp/parser-checkpoint-baseline-supervision.log=. Two preliminary
+=OK= in 19.871 seconds. Two preliminary
 fixture attempts fail on a missing native helper and an undeclared HCL token;
 neither is used as capability evidence. The final fixture uses the actual
 layout grammar's =word= terminal.
@@ -189,10 +186,7 @@ and is retained as a failed receipt; it is not a passing semantic run.
 The final seventeen-suite native matrix passes 167 cases in 23.001 seconds,
 including contextual ownership, layout admission/full-source parity, fragment
 transfer, deferred scanner continuations, both semantic preferences, generated
-products and ten-language ABI bytes. Its receipt is
-=/private/tmp/parser-checkpoint-test-final.log=. Build receipts are
-=/private/tmp/parser-checkpoint-consumer-build-final.log= and
-=/private/tmp/parser-checkpoint-fixture-build-supervision.log=. All final
+products and ten-language ABI bytes. All final
 supervisors retain the five-second real-progress gate, report no rejection
 reason or missing completion output and propagate the child exit code.
 These are reused dependency overlays, not a clean-checkout package build.
@@ -509,12 +503,6 @@ fixtures (24.509 and 18.406 seconds, =error-output=); those are consolidated bef
 the successful complete matrix. No parser speedup is inferred from these elapsed
 times. Fresh native module qualification is not clean-checkout exact-head CI.
 
-Receipts: =/private/tmp/parser-automaton-baseline-supervision.log=,
-=/private/tmp/parser-automaton-native-build-supervision.log= and
-=/private/tmp/parser-automaton-complete-test-supervision.log=. Rejected attempts
-retain the =parser-automaton-{test,accept-test,native-test,qualified-test}=
-supervision prefixes.
-
 ** Checked accumulation closure
 
 The =ad8c6a3= remote Rust job rejected the inline =score_tests= module under
@@ -544,10 +532,6 @@ initial direct policy execution without =CARGO_MANIFEST_DIR= are also rejected;
 the latter is rerun with Cargo's required environment before the successful
 current-source receipt. These qualification failures are not parser timings.
 
-Receipts: =/private/tmp/parser-score-relocated-tests-supervision.log= and
-=/private/tmp/parser-score-policy-current-source-supervision.log=. Rejected
-compile transcripts retain the =parser-score-policy-{gate,final}= prefix.
-
 The final Rust runtime suite passes all 145 cases in 64.892 seconds, exit zero,
 with no rejection reason or missing required output. The warnings-denied Clippy
 library/test gate passes in 52.108 seconds. Workspace formatting is checked
@@ -566,9 +550,7 @@ diagnostics supply backend activity. A temporary Scheme stream consumer samples
 verbose compiler events while preserving errors and test results. It emits no
 timer heartbeat and changes no optimizer setting. Full unsampled tracing has
 substantial output-handling overhead; these diagnostic timings are not engine
-performance evidence. Final receipts are
-=/private/tmp/parser-score-rust-final-test-supervision.log= and
-=/private/tmp/parser-score-clippy-supervision.log=.
+performance evidence.
 
 ** Rust target capacity follow-up
 
@@ -583,9 +565,6 @@ and twenty accepted/rejected ABI products across ten language entries. Successfu
 receipts report exit zero, no rejection reason, no missing required output and
 final =OK= under the unchanged five-second real-progress gate. Exact-head platform
 CI remains separate from these local controls.
-
-Receipts: =/private/tmp/parser-rust-capability-{build,test,qualified-baseline}-supervision.log=.
-The rejected probe remains =/private/tmp/parser-rust-capability-baseline-supervision.log=.
 
 After concurrent PR commits through =f75aa18=, the target change is rebased and
 its owner rebuilt (41.740 seconds). Initial cross-checkout qualification fails
@@ -604,7 +583,6 @@ eleven-suite source run passes 69 cases in 61.918 seconds, exit zero, final =OK=
 no missing required output and twenty exact ABI products. It includes the merged
 casefold/scanner controls, event execution and budget-one unary continuation
 controls. It does not repeat or relabel the other study's performance results.
-Final integrated receipt: =/private/tmp/parser-rust-capability-rebuilt-test-supervision.log=.
 
 ** Production-derived layout capability follow-up
 
@@ -633,7 +611,6 @@ creation and twenty accepted/rejected ABI products across ten language entries.
 Every successful process receipt has exit zero, no rejection reason, no missing
 required output and final =OK=. These are local native receipts, not exact-head
 platform CI or performance measurements.
-Receipts use =/private/tmp/parser-layout-contract-*-supervision.log=.
 
 ** Original physical table controls
 
@@ -658,7 +635,3 @@ artifacts, source layout boundaries, raw Rust file rejection and twenty
 accepted/rejected products across ten language entries matching ABI fixture
 bytes exactly. The complete harness and process receipts both pass; local native
 overlays remain distinct from clean-checkout exact-head platform CI.
-
-Receipts: =/private/tmp/parser-table-contract-{core-build,publication-build,test,
-qualified-baseline}-supervision.log=. The rejected probe remains
-=/private/tmp/parser-table-contract-baseline-supervision.log=.

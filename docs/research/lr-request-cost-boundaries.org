@@ -98,7 +98,7 @@ observation enabled, 20 source-execution samples reported:
 
 All 20 allocation samples were admitted in each row. Full product equality and
 source admission passed outside the measured request. The temporary receipt is
-=/private/tmp/parser-gql-stage-boundaries.log=; it is execution evidence, not a
+unarchived local execution; it is execution evidence, not a
 tracked benchmark fixture.
 
 This establishes that recognition owns most observed CPU and allocation for
@@ -152,8 +152,7 @@ each with full reference-product equality and source-bound admission:
 
 All 20 allocation intervals qualified in each row. The source and grammar
 digests match the earlier source-execution receipt. Evidence is in
-=/private/tmp/parser-current-native-supervision.log= and
-=/private/tmp/parser-current-gql-native-stages.log=. The benchmark entry itself
+unarchived local execution. The benchmark entry itself
 is source-loaded while the production parser dependency graph is compiled.
 Observer overhead remains included. This establishes successful execution of
 the unified native graph; it does not diagnose the exact instruction that
@@ -180,8 +179,7 @@ through its ordinary source-owned entry, as configured in CI. An initial attempt
 to force compiled test imports selected an old test interface whose generated
 Scheme body was not a valid source module; that combined harness was rejected.
 The successful receipts are
-=/private/tmp/parser-current-native-focused-controls.log= and
-=/private/tmp/parser-current-source-abi-controls.log=. Production native
+unarchived local execution. Production native
 qualification does not make stale compiled test products authoritative.
 
 This conservative policy is consistent with the official
@@ -202,7 +200,7 @@ comparisons and untimed execution/reduction controls. The supervised run
 finished in 43.882 seconds including traced cold admission, exit 0, with
 =GQL-STAGES-OK= and no timeout reason. Most of this elapsed interval is outside
 the timed batches; it is not parser latency. Receipt:
-=/private/tmp/parser-current-native-gql-components.log=.
+unarchived local execution.
 
 | Component | CPU P50 ms per 100 calls | CPU P95 ms per 100 calls | Allocation P50 bytes per call | Admitted allocation batches |
 |-----------+-------------------------+-------------------------+-------------------------------+----------------------------|
@@ -301,9 +299,9 @@ substantial complete-request cost, rather than manually replacing a countdown
 loop on the assumption that native lowering is inadequate.
 
 Temporary final receipts are
-=/private/tmp/parser-pop-width-owned-{1-baseline,2-candidate,3-candidate,4-baseline}.log=
+unarchived local execution
 and their =-supervision.log= peers. The superseded failed attempts remain under
-=/private/tmp/parser-pop-width-= and =/private/tmp/parser-pop-width-exit-= for
+unarchived local execution for
 audit. After restoring the original macro, the checkout was advanced to
 =9c4b763=, preserving the separately integrated shared region-opener index.
 The experiment's ABBA timings remain evidence for =f750b96=, not a performance
@@ -315,14 +313,13 @@ parity. The first local native rebuild stopped after 72.954 seconds at the
 five-second no-output gate; it is a failed receipt. The same official incremental
 build then completed in 10.628 seconds, exit zero, with no reason. Both retained
 the original budgets. These receipts are
-=/private/tmp/parser-latest-width-region-controls.log= and
-=/private/tmp/parser-latest-region-native{-retry,}-supervision.log=.
+unarchived local execution.
 
 The rebuilt =9c4b763= production graph subsequently passed the original native
 GQL 40 x 100 workload with complete product controls and =GQL-STAGES-OK=.
 The owned child completed in 39.983 seconds including cold admission, exit zero,
 with no reason or missing receipt; evidence is
-=/private/tmp/parser-latest-region-gql-native-supervision.log=. This qualifies
+unarchived local execution. This qualifies
 the selected native execution after the fast-forward without promoting the
 rejected width candidate or reusing older-head CI as current evidence.
 
@@ -356,7 +353,7 @@ full-source allocation was 173196.32 bytes in 38/40 batches in every run.
 Baseline medians also drifted substantially across the sequence. These timings
 do not support a stable CPU improvement, and the unchanged allocation agrees
 with the zero bypass eligibility. The candidate was reverted; its native
-receipts remain in =/private/tmp/parser-literal-presence-*=. This rejects this
+receipts remain in unarchived local execution. This rejects this
 candidate for the measured GQL request, not every possible grammar workload.
 
 The permanent untimed execution diagnostic now distinguishes three quantities:
@@ -384,8 +381,8 @@ the separate region-trie rejection study. These ABBA measurements qualify
 checkout; they do not establish a native performance gain on that revision.
 The final source diagnostic/index qualification passed eleven cases with
 =HARNESS-OK= and final =OK=, exit zero, with no failed cases. Its receipt is
-=/private/tmp/parser-case-fold-final-controls.log=; the representative count
-receipt is =/private/tmp/parser-case-fold-representative.log=.
+unarchived local execution; the representative count
+receipt is unarchived local execution.
 
 * Bounded recognition-sequence materialization
 
@@ -458,7 +455,7 @@ The runtime sources are identical between the native baseline's =9c4b763= and
 the candidate checkout's =cb6ff10=; the intervening commit changed a region
 study and controls only. The earlier local case-fold diagnostics do not occur
 inside any timed interval. Receipts are
-=/private/tmp/parser-sequence-materialize-{1-baseline,2-candidate,3-candidate,4-baseline}.log=
+unarchived local execution
 and their =-supervision.log= peers. Thirty-four source controls passed before
 native timing, including a 10000-child sequence, composed relocation, persistent
 fragments, GLR completion and event-program publication. The mixed-view control
@@ -473,8 +470,7 @@ with final =HARNESS-OK= and =OK=, exit zero and no failed cases. The official
 =std/make= production build completed in 125.764 seconds with exit zero and no
 supervision reason; real compiler/module output satisfied the unchanged
 five-second progress gate. These receipts are
-=/private/tmp/parser-sequence-final-controls.log= and
-=/private/tmp/parser-sequence-production-build-supervision.log=.
+unarchived local execution.
 
 The first unified-production GQL child failed at the original 60-second total
 budget during cold module admission, before =GQL-STAGES-OK=. It is not a passing
@@ -483,4 +479,4 @@ exit zero, no reason or missing receipt, reproducing the candidate's 77252
 prepared-LR and 167964.32 full-source admitted bytes per call. This confirms
 that the change is present in the official production graph. It does not
 establish why cold admission differed or remove the first failure. Receipts are
-=/private/tmp/parser-sequence-production-gql{,-retry}-supervision.log=.
+unarchived local execution.

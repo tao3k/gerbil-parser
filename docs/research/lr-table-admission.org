@@ -208,6 +208,37 @@ or successful execution of every canonical Scheme Integer grammar.
 
 ** Checked accumulation closure
 
+The =ad8c6a3= remote Rust job rejected the inline =score_tests= module under
+=RUST-AGENT-PROJECT-003=. The preceding runtime and Clippy receipts therefore
+did not establish workspace policy admission. The branch-order control now
+lives in [[file:../../rust/gerbil-parser-runtime/tests/unit/precedence_capacity.rs][the dedicated unit-test source]], mounted from the parser with =#[path]=.
+This retains access to private execution state without placing test bodies in
+the production source. No policy severity or ignored-directory setting changes.
+Runtime semantics, workspace source policy and exact-head platform CI are
+independent obligations; all three must be checked before delivery closure.
+
+After relocation, all 145 runtime library cases pass again: 7.720 seconds,
+exit zero, no rejection reason and no missing receipt. The existing workspace
+policy test product, built against the locked =9b95fd6= policy and supplied with
+Cargo's manifest-directory environment, scans the current sources successfully:
+one case, 1.403 seconds, exit zero. This is current-source policy execution,
+not a new clean compilation of the policy tool. Workspace formatting and
+=git diff --check= also pass. The remote failing job is not relabeled a success.
+
+Cold policy-tool compilation attempts hit the unchanged 180-second total fence.
+The first completes log processing after 231.857 seconds with
+=reason=total-timeout=; no success is admitted. Verbose multiline diagnostics
+and an overly broad =Running= filter caused substantial log-processing cost.
+The temporary consumer now samples actual diagnostic lines and preserves test
+results and Cargo completion output. A malformed temporary consumer and an
+initial direct policy execution without =CARGO_MANIFEST_DIR= are also rejected;
+the latter is rerun with Cargo's required environment before the successful
+current-source receipt. These qualification failures are not parser timings.
+
+Receipts: =/private/tmp/parser-score-relocated-tests-supervision.log= and
+=/private/tmp/parser-score-policy-current-source-supervision.log=. Rejected
+compile transcripts retain the =parser-score-policy-{gate,final}= prefix.
+
 The final Rust runtime suite passes all 145 cases in 64.892 seconds, exit zero,
 with no rejection reason or missing required output. The warnings-denied Clippy
 library/test gate passes in 52.108 seconds. Workspace formatting is checked

@@ -16,6 +16,17 @@ are separate facts. A research proposal or an inspected test is not a receipt.
 Each further change must name its semantic invariant, implementation owner,
 independent control and measured phase before a performance claim is admitted.
 
+The =ad8c6a3= Rust CI failure exposes an additional delivery obligation: the
+workspace source-policy gate is independent of runtime tests and Clippy. Its
+inline-test rejection is corrected by mounting
+[[file:../../rust/gerbil-parser-runtime/tests/unit/precedence_capacity.rs][the GLR capacity control]] from =tests/unit= with =#[path]=. Historical
+145-case runtime receipts remain valid semantic evidence, but do not imply that
+the failing revision passed workspace policy or remote CI.
+After relocation, the 145-case runtime suite passes again. The existing locked
+policy test product scans current sources successfully (one case, exit zero);
+this proves current-source policy admission, not fresh policy-tool compilation.
+The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qualification record]] retains failed compilation and harness attempts.
+
 * One implementation sequence
 
 The architecture remains declaration and POO composition -> canonical IR ->

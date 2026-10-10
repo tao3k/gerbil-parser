@@ -816,3 +816,32 @@ These local failures remain excluded from the admitted figures above.
 The complete-request evidence covers the TLA+ layout pipeline and these two
 source sizes. The matched 28440-byte Bash/Tree-sitter comparison requires its
 own complete-source qualification.
+
+
+*** Merged semantic-kernel qualification and GC resolution
+
+Revision =842767b3dc750666204a04fc36db5a85f48037ae= includes the concurrent
+semantic-kernel preparation and fixed factory initialization. The shared
+=action-selector= field remains intact, and alternate selector runtimes retain
+the new reduction plans. Six focused suites and 54 cases pass in 39.844 seconds
+after rebuilding the overlapping owners and their generated consumers.
+
+In [[https://github.com/tao3k/gerbil-parser/actions/runs/38057436075][CI run 38057436075]], the 517-character complete request again passes:
+CPU P50/P90 0.778406/0.926456, before P10/P90 0.916878/1.099238 and after
+P10/P90 0.912803/1.094988. It exits zero in 35.842 seconds.
+The short complete request observes P50/P90 0.860558/0.881254 but is rejected
+because before-control P90 is 1.109956, above the unchanged 1.10 bound.
+
+That control's group 13 has identical code on both sides. Its left/right
+CPU totals are 251.356/278.994 ms, including 70.630/95.819 ms GC CPU and
+3/4 collections. The 25.189 ms GC difference explains most of the 27.638 ms
+CPU difference. Every collection remains charged to its timed request batch.
+
+Ubuntu's complete-request batches now contain 256 calls for 48 clauses and
+768 calls for 12 clauses. Doubling each group's work averages more natural
+collections while retaining twenty groups, eight balanced legs, both controls,
+all samples, the original percentile bounds and the 120-second/five-second
+qualification limits. The preceding qualified times are 35.842/31.193 seconds;
+this calibration fits the existing total budget without changing a timeout.
+The original admitted figures remain attributed to their original revision and
+batch sizes above; the larger batches require a fresh admission.

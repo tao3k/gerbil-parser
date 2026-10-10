@@ -156,12 +156,79 @@ controls establish that currently supported products retain their output.
 
 The u32 domain bound is inspected directly against the Rust model; no test
 allocates billions of states or productions. Admission of an individual i32
-precedence does not prove that accumulated Rust branch scores cannot overflow;
-the current parser's score addition remains a separate runtime obligation.
+precedence alone did not close accumulated branch scores. The runtime obligation
+identified here is addressed by the following checked accumulation contract.
 This is target publication correctness, not a runtime performance claim or
 proof of complete Rust/Scheme semantic equivalence.
 
+** Checked cumulative precedence and global failure
+
+The Rust configuration, completed candidate and public receipt now carry i64
+scores. Individual generated productions retain their admitted i32 representation.
+Reduction computes checked i64 addition before draining values or truncating
+states. Capacity failure returns =dynamic-precedence-overflow= at the current
+source boundary and leaves the configuration unchanged. The same reduction owner
+serves deterministic, contextual and selective GLR execution.
+
+Selective GLR treats this diagnostic as a global failure, like its existing
+artifact and branch-budget failures. Discarding an overflowing branch as a normal
+parse rejection could admit an incorrect lower-scoring winner. Both branch orders
+must fail even when another branch has already completed.
+
+#+begin_src scheme
+;; Integer policy has the same meaning before target representation is chosen.
+(+ 2147483647 2147483647) ; => 4294967294
+(+ -2147483648 -2147483648) ; => -4294967296
+(+ 2147483647 -2147483648) ; => -1
+;; Rust accumulation preserves these values; target capacity failure is explicit,
+;; never a wrap, clamp, panic or silently discarded GLR alternative.
+#+end_src
+
+*** Question: why is this an engine responsibility?
+
+Grammar declarations state precedence meaning. Configuration arithmetic and
+candidate comparison implement that meaning; grammar authors should not configure
+integer widths, exception handling or branch-discard policy. One shared reduction
+operation checks the target's capacity before mutation, and one GLR owner classifies
+the resulting failure. The receipt reports the same wider score that selected the
+winner, with no legacy narrow-score alias.
+
+*** Question: what closes the numerical claim?
+
+Full parser controls cross both i32 limits, preserve branch ordering and retain
+equal-score ambiguity after positive/negative cancellation. Seeded i64 boundary
+controls verify failure before state/value/cursor/score mutation. Internal GLR
+controls put a completed branch before and after an overflowing branch, for both
+positive and negative overflow. Existing complete parse/event/contextual controls
+qualify the shared owner. This closes checked accumulation and propagation within
+the explicit Rust target domain; it does not claim arbitrary-precision Rust scores
+or successful execution of every canonical Scheme Integer grammar.
+
 * Native qualification and evidence boundary
+
+** Checked accumulation closure
+
+The final Rust runtime suite passes all 145 cases in 64.892 seconds, exit zero,
+with no rejection reason or missing required output. The warnings-denied Clippy
+library/test gate passes in 52.108 seconds. Workspace formatting is checked
+without rewriting unrelated files. These receipts use the native 1.95 compiler,
+the existing optimized Cargo profile and the unchanged five-second idle fence.
+
+Earlier silent and LLVM-pass-only builds are rejected for idle progress
+(6.245 and 71.450 seconds); an unsupported LLVM diagnostic option is rejected
+by the compiler before compilation. The first complete test execution passes
+144 cases and fails the new ranking control because its declared root kind
+does not match the winning branch. The fixture is corrected before final
+qualification. None of these attempts is a successful receipt.
+
+Official [[https://rustc-dev-guide.rust-lang.org/tracing.html][rustc tracing]] supplies real frontend activity; verified LLVM pass-number
+diagnostics supply backend activity. A temporary Scheme stream consumer samples
+verbose compiler events while preserving errors and test results. It emits no
+timer heartbeat and changes no optimizer setting. Full unsampled tracing has
+substantial output-handling overhead; these diagnostic timings are not engine
+performance evidence. Final receipts are
+=/private/tmp/parser-score-rust-final-test-supervision.log= and
+=/private/tmp/parser-score-clippy-supervision.log=.
 
 ** Rust target capacity follow-up
 

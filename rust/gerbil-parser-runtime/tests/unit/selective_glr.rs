@@ -95,7 +95,7 @@ static B_DISTINCT_RHS: &[Operand] = &[Operand {
 
 macro_rules! productions {
     ($name:ident, $b_rhs:ident, $a_score:expr, $b_score:expr) => {
-        static $name: &[Production] = &[
+        pub(super) static $name: &[Production] = &[
             Production {
                 lhs: "$accept",
                 rhs: AUGMENTED_RHS,
@@ -134,7 +134,7 @@ productions!(EQUIVALENT_PRODUCTIONS, B_EQUIVALENT_RHS, 0, 0);
 productions!(DYNAMIC_PRODUCTIONS, B_DISTINCT_RHS, 1, 2);
 productions!(DISTINCT_PRODUCTIONS, B_DISTINCT_RHS, 0, 0);
 
-const BASE_LANGUAGE: LanguageSpec = LanguageSpec {
+pub(super) const BASE_LANGUAGE: LanguageSpec = LanguageSpec {
     language: "selective-glr-test",
     version: "v1",
     contract: "selective-glr-test.v1",
@@ -181,6 +181,79 @@ fn dynamic_precedence_selects_the_highest_complete_branch() {
     assert_eq!(receipt.distinct_completions, 2);
     assert_eq!(receipt.winner_reason, "dynamic-precedence");
     assert_eq!(receipt.dynamic_score, 2);
+}
+
+#[test]
+fn accumulated_scores_cross_i32_bounds_without_changing_branch_order() {
+    for (a, b, root_a, root_b, expected, kind) in [
+        (
+            i32::MAX,
+            i32::MAX,
+            0,
+            i32::MAX,
+            2 * i64::from(i32::MAX),
+            "RootB",
+        ),
+        (
+            i32::MIN,
+            i32::MIN,
+            i32::MIN,
+            0,
+            i64::from(i32::MIN),
+            "RootB",
+        ),
+        (i32::MAX, i32::MIN, i32::MIN, i32::MAX, -1, "RootA"),
+    ] {
+        let mut productions = DISTINCT_PRODUCTIONS.to_vec();
+        productions[1].dynamic_precedence = root_a;
+        productions[2].dynamic_precedence = root_b;
+        productions[3].dynamic_precedence = a;
+        productions[4].dynamic_precedence = b;
+        let language = Box::leak(Box::new(LanguageSpec {
+            root_kind: u16::from(kind == "RootB"),
+            productions: Box::leak(productions.into_boxed_slice()),
+            ..BASE_LANGUAGE
+        }));
+        let result = parse(language, "x");
+        if a == i32::MAX && b == i32::MIN {
+            let error = result.expect_err("exact cancellation retains distinct equal-score roots");
+            assert_eq!(error.diagnostic.reason_kind, "selective-glr-ambiguity");
+            assert_eq!(error.selective_glr.unwrap().dynamic_score, expected);
+        } else {
+            let parsed = result.expect("exact accumulated precedence");
+            assert_eq!(parsed.kind_name(parsed.syntax().kind()), Some(kind));
+            assert_eq!(parsed.selective_glr_receipt().dynamic_score, expected);
+        }
+    }
+}
+
+#[test]
+fn score_overflow_rejects_before_mutating_a_reduction() {
+    use super::model::Value;
+    use super::parser::{ParserConfiguration, apply_reduce};
+    for (score, production) in [(i64::MAX, 3), (i64::MIN, 4)] {
+        let mut productions = DISTINCT_PRODUCTIONS.to_vec();
+        productions[3].dynamic_precedence = 1;
+        productions[4].dynamic_precedence = -1;
+        let language = LanguageSpec {
+            productions: Box::leak(productions.into_boxed_slice()),
+            ..BASE_LANGUAGE
+        };
+        let mut configuration = ParserConfiguration {
+            states: vec![0, 1],
+            values: vec![Value::Token(0)],
+            cursor: 1,
+            score,
+        };
+        let before = configuration.clone();
+        let error = apply_reduce(&language, &[], None, &mut configuration, production)
+            .expect_err("score capacity must be checked before reduction");
+        assert_eq!(error.reason_kind, "dynamic-precedence-overflow");
+        assert_eq!(configuration.states, before.states);
+        assert_eq!(configuration.values, before.values);
+        assert_eq!(configuration.cursor, before.cursor);
+        assert_eq!(configuration.score, before.score);
+    }
 }
 
 #[test]

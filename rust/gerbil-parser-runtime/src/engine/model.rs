@@ -424,7 +424,8 @@ pub struct SelectiveGlrReceipt {
     pub successful_completions: usize,
     pub distinct_completions: usize,
     pub winner_reason: &'static str,
-    pub dynamic_score: i32,
+    /// Exact accumulated score within the runtime's admitted i64 domain.
+    pub dynamic_score: i64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -69,11 +69,8 @@
                  (iterate (+ ,cursor 1)))))))
        ((with-source-bounds)
         `(let ((from ,(offset (cadr form))) (until ,(offset (caddr form))))
-           (unless (<= 0 from until (u8vector-length source-bytes))
-             (error "native fold bounds outside source"))
-           (let* ((line-bytes (subu8vector source-bytes from until))
-                  (line (utf8->string line-bytes))
-                  (start from) (end until))
+           (fold-source-frame-boundaries! source-bytes from until)
+           (let ((start from) (end until))
              ,@(body (cadddr form)))))
        ((call-source-helper)
         (let (helper (assq (cadr form) helpers))
@@ -83,8 +80,8 @@
                             events ,@(map uint (if (= (length form) 5)
                                                (list-ref form 4) '()))))))
        ((scan-list-marker)
-        `(let (marker (scan-event-list-marker line start
-                          ,(cadr form) ,(caddr form) ,(cadddr form)))
+        `(let (marker (scan-event-list-marker-bytes source-bytes start end
+                          ',(string->utf8 (cadr form)) ,(caddr form) ,(cadddr form)))
            ,(assign (lvalue bindings (list-ref form 4)) '(if marker #t #f))
            (when marker
              ,@(map (lambda (name ordinal)

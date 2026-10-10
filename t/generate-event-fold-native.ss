@@ -138,6 +138,35 @@
   (displayln "GENERATION-OK rejection-controls")
   (force-output))
 
+(def (native-boundary-controls port)
+  ;; The interpreted decoder is an independent oracle for borrowed UTF-8
+  ;; bounds, including valid empty spans inside a multibyte character.
+  (map
+   (lambda (spec)
+     (let* ((name (car spec)) (line (cadr spec)) (helpers (caddr spec))
+            (input "é\n") (initial '((cut 1)))
+            (expected
+             (with-catch (lambda (_) 'rejected)
+               (lambda () (run-event-fold input 'Document initial line '() helpers)))))
+       (unless (eq? (eq? expected 'rejected) (cadddr spec))
+         (error "UTF-8 boundary oracle disagrees with control" name expected))
+       (display (event-fold-scheme-source name event-lines-language-grammar 'Document
+                                         initial line '() helpers) port)
+       `(begin
+          (unless (equal? (with-catch (lambda (_) 'rejected)
+                           (lambda () (,name ,input))) ',expected)
+            (error "native borrowed UTF-8 boundary mismatch" ',name))
+          (displayln "CASE-OK " ',name) (force-output))))
+   '((native-split-start
+      ((with-source-bounds (state-offset cut) end ((token Line start end)))) () #t)
+     (native-split-end
+      ((with-source-bounds start (state-offset cut) ((token Line start end)))) () #t)
+     (native-split-helper
+      ((call-source-helper slice (state-offset cut) end))
+      ((slice () ((token Line start end)))) #t)
+     (native-empty-midpoint
+      ((with-source-bounds (state-offset cut) (state-offset cut) ((token Line start end)))) () #f))))
+
 (def (main output)
   (generation-controls)
   (call-with-output-file output
@@ -221,6 +250,7 @@
              (displayln "GENERATION-OK " name)
              (force-output)))
          specifications)
+        (set! controls (append (reverse (native-boundary-controls port)) controls))
         (write '(export main) port) (newline port)
         (write `(def (main . args) ,@(reverse controls) (displayln "OK") (force-output)) port)
         (newline port)))))

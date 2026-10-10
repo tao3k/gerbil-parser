@@ -5,7 +5,9 @@
         (only-in ../src/compiler/event-fold-scheme event-fold-scheme-source)
         (only-in ../src/compiler/event-fold-scheme-modules event-fold-scheme-module-sources)
         (only-in ../src/runtime/event-fold-lines fold-line-name-set-contains?)
-        (only-in ../src/runtime/source-lines fold-source-lines fold-source-byte-lines))
+        (only-in ../src/runtime/byte-spans byte-span-skip byte-span-all?)
+        (only-in ../src/runtime/source-lines fold-source-lines fold-source-byte-lines
+                 fold-source-byte-spans fold-source-frame-boundaries!))
 (export event-fold-scheme-test)
 
 (def (source initial line finish (helpers '()))
@@ -16,6 +18,11 @@
   (test-suite "Native EventFold source admission"
     (test-case "native byte frames preserve Unicode CR LF CRLF and terminal bounds"
       (check-exception (fold-source-byte-lines "not bytes" '() void) true)
+      (let (bytes (u8vector 99 32 9 97 98))
+        (check (byte-span-skip bytes 1 5 (lambda (byte) (memv byte '(9 32)))) => 3)
+        (check (byte-span-skip bytes 3 3 void) => 3)
+        (check (byte-span-all? bytes 1 3 (lambda (byte) (memv byte '(9 32)))) => #t)
+        (check (byte-span-all? bytes 1 5 (lambda (byte) (memv byte '(9 32)))) => #f))
       (for-each
        (lambda (text)
          (let* ((bytes (string->utf8 text))
@@ -29,8 +36,21 @@
                             (check (u8vector-length view) => (- end start))
                             (cons (list line start end) rows)))))
            (check actual => oracle)
+           (check (fold-source-byte-spans bytes '()
+                    (lambda (start end rows)
+                      (fold-source-frame-boundaries! bytes start end)
+                      (cons (list (utf8->string (subu8vector bytes start end)) start end) rows)))
+                  => oracle)
            (check (u8vector->list bytes) => before)))
-       '("" "abc" "\n" "\r" "\r\n" "é中🦀\r\nx\ry\nz" "a\n\n")))
+       '("" "abc" "\n" "\r" "\r\n" "é中🦀\r\nx\ry\nz" "a\n\n"))
+      (let (bytes (string->utf8 "é中🦀"))
+        (for-each (lambda (bounds)
+                    (check-exception
+                     (fold-source-frame-boundaries! bytes (car bounds) (cadr bounds)) true))
+                  '((-1 0) (0 10) (2 0) (1 2) (0 1) (2 3) (5 6)))
+        (for-each (lambda (bounds)
+                    (fold-source-frame-boundaries! bytes (car bounds) (cadr bounds)))
+                  '((0 9) (0 2) (2 5) (5 9) (1 1) (9 9)))))
     (test-case "generated source is deterministic and has no interpreted request path"
       (let* ((forms '((if (line-bytes-all-in? start end (10 97))
                          ((token Line start end)) ())))
@@ -80,7 +100,9 @@
         (check (not (not (string-contains generated
                        "(def (%event-fold-native-product-helper-0 source-bytes"))) => #t)
         (check (not (string-contains generated "(utf8->string (subu8vector")) => #t)
-        (check (not (not (string-contains generated "(line (utf8->string line-bytes))"))) => #t)))
+        (check (not (string-contains generated "subu8vector")) => #t)
+        (check (not (string-contains generated "utf8->string")) => #t)
+        (check (not (not (string-contains generated "fold-source-frame-boundaries!"))) => #t)))
     (test-case "untyped slots unknown instructions and callbacks fail before generation"
       (check-exception (source '((flag #f)) '((set-uint flag (uint 1))) '()) true)
       (check-exception (source '() '((foreign-operation)) '()) true)

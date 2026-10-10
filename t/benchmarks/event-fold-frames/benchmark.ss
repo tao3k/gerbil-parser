@@ -1,6 +1,6 @@
 ;;; Native engine frame costs, not an Org grammar or end-to-end latency gate.
 (import (only-in :gerbil-parser/src/runtime/source-lines
-                 fold-source-lines fold-source-byte-lines)
+                 fold-source-lines fold-source-byte-lines fold-source-byte-spans)
         (only-in :gerbil-parser/src/runtime/event-fold-lines
                  current-fold-line-view fold-line-prefix-boundary?)
         (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation))
@@ -29,12 +29,12 @@
           (loop after after (emit start after state))))
        (else (loop start (+ cursor 1) state))))))
 
-(def (mask line bytes explicit?)
+(def (mask line bytes explicit? (from 0) (until (and bytes (u8vector-length bytes))))
   (let loop ((names prefixes) (encoded encoded-prefixes) (bit 1) (flags 0))
     (if (null? names) flags
       (loop (cdr names) (cdr encoded) (* bit 2)
             (if (if explicit?
-                  (fold-line-prefix-boundary? line (car names) #f bytes (car encoded))
+                  (fold-line-prefix-boundary? line (car names) #f bytes (car encoded) from until)
                   (fold-line-prefix-boundary? line (car names) #f))
               (+ flags bit) flags)))))
 
@@ -47,6 +47,10 @@
       (cons (list 'line start end (mask line bytes #t)) events))
     (reverse!
      (case mode
+       ((borrowed-byte-spans)
+        (fold-source-byte-spans source '()
+          (lambda (start end events)
+            (cons (list 'line start end (mask #f source #t start end)) events))))
        ((byte-frames) (fold-source-byte-lines source '() visit))
        ((generic-byte-frames) (reference-byte-lines source '() visit))
        (else (fold-source-lines text '()
@@ -94,24 +98,22 @@
                (lambda (mode)
                  (unless (equal? reference (parse text mode))
                    (error "native frame benchmark semantic mismatch" mode text)))
-               '(explicit-string-frames generic-byte-frames byte-frames))))
+               '(explicit-string-frames generic-byte-frames byte-frames borrowed-byte-spans))))
           documents)
          (displayln "FRAME-PARITY-OK documents=" size) (force-output)
          (let sample ((index 0))
            (when (< index samples)
              ;; Rotate order so one route is not always the first cold sample.
-             (let (modes '(dynamic-string-frames explicit-string-frames generic-byte-frames byte-frames))
+             (let* ((modes '(dynamic-string-frames explicit-string-frames generic-byte-frames
+                            byte-frames borrowed-byte-spans))
+                    (offset (modulo index (length modes))))
                (for-each
                 (lambda (mode)
                   (write (cons 'event-fold-frames
                                (append (list 'documents size 'sample index 'mode mode)
                                        (measure documents mode expected))))
                   (newline) (force-output))
-                (case (modulo index 4)
-                  ((0) modes)
-                  ((1) (list (cadr modes) (caddr modes) (cadddr modes) (car modes)))
-                  ((2) (list (caddr modes) (cadddr modes) (car modes) (cadr modes)))
-                  (else (list (cadddr modes) (car modes) (cadr modes) (caddr modes))))))
+                (append (drop modes offset) (take modes offset))))
              (sample (+ index 1))))))
      sizes))
   (displayln "FRAME-BENCHMARK-OK") (force-output))

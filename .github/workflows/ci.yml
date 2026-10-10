@@ -242,11 +242,14 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
             --log .data/ranked-parser-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
             -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 768 layout 12
-          for scenario in keyword identifier literal-prefix; do
+          for scenario in keyword identifier; do
             gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
               --log ".data/ranked-${scenario}-cpu-proof.log" --require SCANNER-CPU-PROOF-OK \
               -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 250000 "$scenario"
           done
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/ranked-literal-prefix-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 750000 literal-prefix
 
       - name: Save admitted conformance preparation
         if: steps.conformance-cache.outputs.cache-hit != 'true'

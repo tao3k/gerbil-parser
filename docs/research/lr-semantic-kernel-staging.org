@@ -356,3 +356,21 @@ style cases pass in 36.78 seconds. The execution test performs real complete
 arithmetic requests and independently counts 20,481 calls per variant: one
 warmup plus the declared twenty groups. These receipts establish the planner
 and its consumer's work budget; fresh public TLA+ CPU admission remains separate.
+
+At =e1acd02=, fresh Ubuntu admits both complete public parser cases. Their
+production P50/P90 ratios are 0.83850/0.84736 for 48 clauses and
+0.85803/0.88438 for 12 clauses; both identical before/after controls pass.
+Keyword and identifier lexical controls also pass. The smaller literal-prefix
+control rejects: before P10/P90 is 0.87358/1.14591 and after is
+0.81683/1.14505, despite production P90 0.68653. The whole job is rejected.
+
+Before group 9 executes one million requests per variant. Its CPU totals are
+130.901/104.157 ms; GC CPU is 36.914/10.479 ms with seven/two collections.
+The non-GC totals are nearly equal. This subcase needs more work relative to
+that collection-count imbalance. Its nominal quantum becomes 750,000 calls,
+three times the prior value; keyword and identifier retain 250,000. The
+observed preceding elapsed times, 14.30 and 30.28 seconds, leave headroom
+under the unchanged 120-second limit for this bounded calibration. Twenty
+groups, the complete outputs, every GC interval and both 0.90--1.10 controls
+remain required. The admitted public-parser observations above remain tied
+to their revision and unchanged work budgets.

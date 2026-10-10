@@ -8,7 +8,7 @@
         (only-in ../runtime/lr-parser
                  lr-lexical-mode-id lr-lexical-mode-terminals)
         (only-in ../runtime/scan
-                 make-ranked-literal-scanner make-ranked-regular-scanner scan-emit)
+                 make-ranked-lexical-scanner-factory make-ranked-regular-scanner scan-emit)
         (only-in ../runtime/token
                  token-end))
 (import (only-in ./lexical-expression generated-lexical-rule
@@ -92,14 +92,19 @@
   (lexical-rules extras)
   ((_ (lexical-rules row ...) (extras extra-name ...) case-insensitive?
       mode-catalog)
+   (generated-lexer (lexical-rules row ...) (extras extra-name ...)
+                    case-insensitive? mode-catalog make-ranked-lexical-scanner-factory))
+  ((_ (lexical-rules row ...) (extras extra-name ...) case-insensitive?
+      mode-catalog ranked-scanner-factory)
    (prepare-generated-lexer
     (list (generated-lexical-rule row '(extra-name ...) case-insensitive?) ...)
     (lambda () (list (lexical-rule-certificate-template row) ...))
-    mode-catalog)))
+    mode-catalog ranked-scanner-factory)))
 
 ;;; Plan construction and scanning are shared native engine code. Language
 ;;; expansion contributes only rule scanners and conservative certificates.
-(def (prepare-generated-lexer bare-rules metadata-thunk mode-catalog)
+(def (prepare-generated-lexer bare-rules metadata-thunk mode-catalog
+                               (ranked-scanner-factory make-ranked-lexical-scanner-factory))
    (let* ((rules
            (let loop ((remaining bare-rules) (ordinal 0) (found '()))
              (if (null? remaining)
@@ -149,7 +154,7 @@
              starts))
           (literal-scanner
            (and (pair? literal-entries)
-                (make-ranked-literal-scanner literal-entries)))
+                (ranked-scanner-factory literal-entries)))
           (prepare-scanners
            (lambda (admissions)
              (let ((admitted-literals (make-vector (length rules) #f)))
@@ -159,16 +164,18 @@
                           (regular-first-predicates '()))
                  (if (null? remaining)
                    (let* ((regular-scanner
-                           (and (pair? regular-entries)
+                           (and (not literal-scanner) (pair? regular-entries)
                                 (make-ranked-regular-scanner regular-entries)))
                           (regular-ascii-starts
-                           (and regular-scanner
+                           (and (pair? regular-entries)
                                 (vector-map/index
                                  (lambda (index _)
                                    (any (lambda (predicate)
                                           (predicate (integer->char index)))
                                         regular-first-predicates))
                                  (make-vector 128))))
+                          (ranked-scanner (and literal-scanner
+                                               (literal-scanner regular-entries admitted-literals)))
                           (ascii-scanners
                            (vector-map/index
                             (lambda (index _)
@@ -190,22 +197,17 @@
                                   (prefer-generated-match
                                    selected ((car entry) source offset)))
                                 #f candidates)))
-                         (let (selected
-                               (if (and regular-scanner
-                                        (or (>= code 128)
-                                            (vector-ref regular-ascii-starts
-                                                        code)))
-                                 (prefer-generated-match
-                                  selected (regular-scanner source offset))
-                                 selected))
-                           (if (and literal-scanner has-literals?
-                                    (or (>= code 128)
-                                        (vector-ref literal-ascii-starts
-                                                    code)))
-                             (prefer-generated-match
-                              selected
-                              (literal-scanner source offset admitted-literals))
-                             selected)))))
+                         (cond
+                          ((and ranked-scanner
+                                (or (and has-literals?
+                                         (or (>= code 128) (vector-ref literal-ascii-starts code)))
+                                    (and (pair? regular-entries)
+                                         (or (>= code 128) (vector-ref regular-ascii-starts code)))))
+                           (prefer-generated-match selected (ranked-scanner source offset)))
+                          ((and regular-scanner
+                                (or (>= code 128) (vector-ref regular-ascii-starts code)))
+                           (prefer-generated-match selected (regular-scanner source offset)))
+                          (else selected)))))
                    (let* ((rule (car remaining))
                           (admitted? (vector-ref admissions ordinal))
                           (literals (and admitted? (vector-ref rule 2)))

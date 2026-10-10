@@ -5,13 +5,13 @@
                  lookup-action-entry lookup-literal-action-entry
                  lookup-casefolded-literal-action-entry
                  lookup-layout-start-action-entry
-                 lookup-layout-next-action-entry lr-action-row-tokens)
+                 lookup-layout-next-action-entry lr-action-row-tokens lr-action-row-eof)
         (only-in ./token token-kind token-lexeme token-start token-end))
 (export make-layout-columns
         current-layout-columns current-layout-frames
         layout-token-column layout-shift-allowed?
         layout-marker-eligible? layout-after-shift layout-after-end
-        layout-current-action-row)
+        layout-current-action-row prepare-layout-action-selector)
 
 (def current-layout-columns (make-parameter #f))
 (def current-layout-frames (make-parameter '()))
@@ -125,8 +125,9 @@
     (else action)))
 
 (def (layout-mark-entry entry role)
-  (and entry (cons (car entry)
-                   (layout-mark-action (cdr entry) role))))
+  (and entry
+       (let (action (layout-mark-action (cdr entry) role))
+         (if (eq? action (cdr entry)) entry (cons (car entry) action)))))
 
 (def (layout-current-action-row row token case-insensitive?)
   (let* ((lexeme (token-lexeme token))
@@ -146,3 +147,67 @@
     (or next start ordinary
         (layout-ordinary-entry next-entry #f)
         (layout-ordinary-entry start-entry #f))))
+
+
+;;; Layout action projections are grammar constants. Prepare both eligibility
+;;; outcomes once; requests retain only columns and branch-local frames.
+(def (layout-project-entry entry allowed?)
+  (case (cadr (car entry))
+    ((eof) entry)
+    ((layout-start layout-next)
+     (if allowed? (layout-mark-entry entry (cadr (car entry)))
+         (layout-ordinary-entry entry #f)))
+    (else (layout-ordinary-entry entry allowed?))))
+
+(defrule (layout-projected-entry pool-expression entry-expression)
+  (let ((pool pool-expression) (entry entry-expression))
+    (and entry
+         ;; Reductions cannot contain a shift. Keep their original entry and
+         ;; avoid even the prepared hash lookup on the dominant LR action.
+         (if (eq? (cadr entry) 'reduce) entry (table-ref pool entry entry)))))
+
+(def (prepared-layout-current-action-row row allowed blocked token case-insensitive? columns frames)
+  (let* ((lexeme (token-lexeme token))
+         (next (lookup-layout-next-action-entry row lexeme)))
+    (or (and next (pair? frames)
+             (= (layout-column-ref columns (- (token-end token) 1)) (caar frames))
+             (equal? lexeme (cdar frames))
+             (layout-projected-entry allowed next))
+        (let* ((start (lookup-layout-start-action-entry row lexeme))
+               (entry (or (lookup-literal-action-entry row lexeme)
+                          (and case-insensitive? (lookup-casefolded-literal-action-entry row lexeme))
+                          (lookup-action-entry (lr-action-row-tokens row) (token-kind token)))))
+          ;; Once an eligible next marker has lost and no start marker exists,
+          ;; a pure reduction is independent of the source column relation.
+          (if (and (not start) entry (eq? (cadr entry) 'reduce)) entry
+            (let (shift-allowed? (or (null? frames)
+                                    (> (layout-column-ref columns (token-start token)) (caar frames))))
+              ;; Resolve refinement before projection; denied literals retain
+              ;; their priority over generic tokens and later duplicates.
+              (or (and start shift-allowed? (layout-projected-entry allowed start))
+                  (layout-projected-entry (if shift-allowed? allowed blocked) entry)
+                  (layout-projected-entry blocked next)
+                  (layout-projected-entry blocked start))))))))
+
+(def (prepare-layout-action-selector rows original case-insensitive?)
+  (let ((allowed (make-table test: eq?)) (blocked (make-table test: eq?)))
+    (let loop ((state 0))
+      (when (< state (vector-length rows))
+        (for-each (lambda (entry)
+          (let ((positive (layout-project-entry entry #t))
+                (negative (layout-project-entry entry #f)))
+            ;; Preserve unchanged entry identity and retain #f rejections.
+            (unless (eq? positive entry) (table-set! allowed entry positive))
+            (unless (eq? negative entry) (table-set! blocked entry negative))))
+          (vector-ref rows state))
+        (loop (+ state 1))))
+    (lambda (state tokens)
+      (let (row (vector-ref original state))
+        (if (null? tokens) (lr-action-row-eof row)
+          (let ((columns (current-layout-columns)) (token (car tokens)))
+            (if columns
+              (prepared-layout-current-action-row row allowed blocked token case-insensitive?
+                                                   columns (current-layout-frames))
+              (or (lookup-literal-action-entry row (token-lexeme token))
+                  (and case-insensitive? (lookup-casefolded-literal-action-entry row (token-lexeme token)))
+                  (lookup-action-entry (lr-action-row-tokens row) (token-kind token))))))))))

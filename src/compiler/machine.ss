@@ -5,7 +5,7 @@
         (only-in ../runtime/lexical-source
                  prepare-lexical-source-plan call-with-lexical-source)
         (only-in ../runtime/lr-parser
-                 lr-prepare lr-parse/prepared lr-runtime-for-current-semantic-backend
+                 lr-prepare lr-parse/prepared lr-runtime-for-current-semantic-backend lr-runtime-with-action-selector
                  lr-runtime-lexical-mode-catalog lr-runtime-direct-step lr-runtime-event-step
                  lr-runtime-event-program? install-lr-runtime-direct-step!
                  install-lr-runtime-event-step!)
@@ -13,10 +13,12 @@
                  token-kind))
 (import (only-in ./lexical-expression lexical-end lexical-choice
                  lexical-dispatch lexical-dispatch/ranked)
-        (only-in ./lexical-lexer generated-lexer current-lexical-plan-sharing-enabled?))
+        (only-in ./lexical-lexer generated-lexer current-lexical-plan-sharing-enabled?)
+        (only-in ../runtime/scan make-ranked-lexical-scanner-factory))
 (export call-with-parser-machine-source
         parser-machine-for-current-semantic-backend
         current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer
+        parser-machine-with-ranked-scanner parser-machine-with-lr-action-selector
         parser-machine-lexical-plans parser-machine-lexical-modes-compatible?
         defgeneral-parser-machine
         lexical-end
@@ -81,6 +83,35 @@
 
 (def (parser-machine-prepare-lexer machine)
   ((parser-machine-lexer-factory machine)))
+
+;;; Rebuild the same checked lexical declarations and mode catalog with an
+;;; alternate ranked lexical core. Keep IR/runtime/source ownership together;
+;;; generated source backends must not bypass the substituted lexical plan.
+(def (parser-machine-with-ranked-scanner machine scanner-factory)
+  (unless (and (parser-machine? machine) (procedure? scanner-factory))
+    (error "ranked scanner substitution requires a machine and factory"))
+  (let (factory (parser-machine-lexer-factory machine))
+    (let-values (((lexer plans certificates) (factory scanner-factory)))
+      (make-parser-machine
+       (parser-machine-ir machine) (parser-machine-grammar-digest machine)
+       lexer (parser-machine-trivia machine) (parser-machine-runtime machine)
+       (parser-machine-parse machine) #f #f plans certificates
+       (lambda ((next-scanner-factory scanner-factory)) (factory next-scanner-factory))
+       (parser-machine-source-plan machine)
+       (parser-machine-owned-program machine)))))
+
+(def (parser-machine-with-lr-action-selector machine factory)
+  (unless (parser-machine? machine) (error "LR selector substitution requires a parser machine"))
+  (let (runtime (lr-runtime-with-action-selector (parser-machine-runtime machine) factory))
+    (make-parser-machine
+     (parser-machine-ir machine) (parser-machine-grammar-digest machine)
+     (parser-machine-lex machine) (parser-machine-trivia machine) runtime
+     (lambda (tokens . observability)
+       (lr-parse/prepared runtime tokens (if (pair? observability) (car observability) #f)))
+     #f #f (parser-machine-lexical-plans machine) (parser-machine-lexical-certificates machine)
+     (parser-machine-lexer-factory machine) (parser-machine-source-plan machine)
+     (parser-machine-owned-program machine))))
+
 (def (parser-machine-lexical-modes-compatible? machine old-mode new-mode (first-character #f))
   (or (= old-mode new-mode)
       (let (plans (parser-machine-lexical-plans machine))
@@ -220,12 +251,12 @@
             (grammar-digest (contextual-ir-ref program 'base-grammar-digest))
             (owned-ir (contextual-ir-ref (contextual-ir-ref program 'recognition) 'program))
             (runtime (lr-prepare (cdr (assq 'lr-spec owned-ir))))
-            (factory (lambda ()
+            (factory (lambda ((ranked-scanner-factory make-ranked-lexical-scanner-factory))
                        (generated-lexer
                         (lexical-rules lexical-row ...)
                         (extras extra-name ...)
                         (cdr (assq 'case-insensitive? owned-ir))
-                        (lr-runtime-lexical-mode-catalog runtime)))))
+                        (lr-runtime-lexical-mode-catalog runtime) ranked-scanner-factory))))
        (let-values (((lexer plans certificates) (factory)))
          (make-parser-machine
           owned-ir grammar-digest lexer

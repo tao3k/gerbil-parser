@@ -245,13 +245,17 @@
              (call-with-parser-observed-phase
               observability
               'significant-token-filter
-              (lambda () (parser-significant-tokens machine tokens)))))
+              (lambda ()
+                (with-parser-cost-stage 'significant-token-filter
+                  (parser-significant-tokens machine tokens))))))
        (let-values
          (((root rest)
            (call-with-parser-observed-phase
             observability
             'lr-execution
-            (lambda () (parse-significant significant observability)))))
+            (lambda ()
+              (with-parser-cost-stage 'lr-execution
+                (parse-significant significant observability))))))
        (unless (null? rest)
          (error "unexpected trailing token" (token-lexeme (car rest))))
        (call-with-parser-observed-phase
@@ -577,7 +581,8 @@
          (failure-artifact machine digest source '() condition))
        (lambda ()
          (parse-tokenized machine digest source
-                          (lex-source machine source) observability))))
+                          (with-parser-cost-stage 'lexical-analysis
+                            (lex-source machine source)) observability))))
     (parse-source/with-capture machine source observability #f)))
 
 ;; Capture sparse deterministic prefixes during the initial directed parse.

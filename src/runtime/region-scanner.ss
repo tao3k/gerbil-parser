@@ -99,8 +99,10 @@
                               (> (string-length (car row)) (string-length (car selected)))))
                    row selected))))))))
 
-;;; Frames are immutable quote rows or pair rows with a current depth. There
-;;; is no recursive call on source nesting and no source-prefix substring.
+;;; Declaration rows remain immutable. Each match owns its frame vectors and
+;;; stack cells; only the active pair frame's depth changes in place. No frame
+;;; escapes into the source cache, which stores completed numeric endpoints.
+;;; There is no recursive call on source nesting or source-prefix substring.
 (def (cached-pair-end ends start row)
   (and ends (let (entries (hash-get (vector-ref ends 1) row)) (and entries (hash-get entries start)))))
 (def (cache-pair-end! ends start row end)
@@ -139,14 +141,17 @@
             (loop (+ at (string-length (car nested)))
                   (cons (pair-frame nested (cadddr nested) at scopes) stack)))
            ((and (not quote?) (char=? ch (cadr row)))
-            (loop (+ at 1) (cons (vector 'pair row (+ (vector-ref frame 2) 1) (vector-ref frame 3) (vector-ref frame 4)) (cdr stack))))
+            (vector-set! frame 2 (+ (vector-ref frame 2) 1))
+            (loop (+ at 1) stack))
            ((and (not quote?) (char=? ch (caddr row)))
             (if (= (vector-ref frame 2) 1)
               (begin
                 (close! frame (+ at 1))
                 (if (and (null? (cdr stack)) (not word?)) (+ at 1)
                   (loop (+ at 1) (cdr stack))))
-              (loop (+ at 1) (cons (vector 'pair row (- (vector-ref frame 2) 1) (vector-ref frame 3) (vector-ref frame 4)) (cdr stack)))))
+              (begin
+                (vector-set! frame 2 (- (vector-ref frame 2) 1))
+                (loop (+ at 1) stack))))
            (else (loop (+ at 1) stack)))))
        ((not word?) at)
        (else

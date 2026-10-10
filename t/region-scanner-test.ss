@@ -36,6 +36,21 @@
              (source (string-append "xx" word " rest")))
         (check (region-plan-end bash-word-regions source 2) => (+ 2 (string-length word)))
         (check (region-plan-pair-end bash-word-regions source 2) => (+ 2 (string-length word)))))
+    (test-case "counter frames retain endpoints across reuse and independent scans"
+      (let* ((plan (prepare-region-plan '((";") ((#\" #t ())) (("@{" #\{ #\} 1) ("%(" #\( #\) 1)) #f)))
+             (text (string-append "@{" (make-string 2048 #\{) "%(a(b)c)\"}\""
+                                  (make-string 2048 #\}) "}"))
+             (end (string-length text)))
+        (for-each (lambda (_) (check (region-plan-pair-end plan text 0) => end)) (iota 3))
+        (let ((first (prepare-region-source plan text))
+              (second (prepare-region-source plan text)))
+          (check (region-source-pair-end first 0) => end)
+          (check (region-source-pair-end second 0) => end)
+          (check (region-source-pair-end first 0) => end))
+        (let (workers (map (lambda (_) (spawn (lambda () (region-plan-pair-end plan text 0)))) (iota 4)))
+          (for-each (lambda (worker) (check (thread-join! worker) => end)) workers))
+        (check (rejects? (lambda () (region-plan-pair-end plan (substring text 0 (- end 1)) 0))) => #t)
+        (check (region-plan-pair-end plan text 0) => end)))
     (test-case "source-local boundaries retain all nested frame endpoints"
       (let* ((depth 5000)
              (text (string-append (apply string-append (make-list depth "${"))

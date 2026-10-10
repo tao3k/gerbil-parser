@@ -1776,3 +1776,93 @@ profiles and Bash parsing) passed 47 cases in 11.500 seconds, with
 =TEST-SUITE-OK modules=3=, =OK= and exit 0. This checks integration with that
 revision; the performance table remains a control against the earlier
 =0906fa3= client set and is not reclassified as merged-head timing.
+
+* Request-owned region counters instead of replacement frames
+
+The pinned Gerbil SDK revision =2591dcd=, =src/std/struct/queue.ss=, updates
+queue links and length under an imperative ownership contract. Its
+=queue->list= explicitly copies the externally returned spine. The transferable
+mechanism is ownership-directed mutation, not blanket unchecked access. The
+current parser design documents likewise require explicit source and execution
+ownership. This change uses ordinary checked vector operations.
+
+The region matcher previously rebuilt a pair-frame vector and its top stack
+cell whenever a bare delimiter increased or decreased the active pair depth.
+These are counter transitions within one region, not new independently
+addressable region entries. The matcher now changes only the depth slot in the
+active frame. Named nested openers and quote entries still allocate their own
+frames. Prepared declaration rows remain immutable.
+
+All callers create initial frames for one invocation. Frames never escape the
+match, and completed boundary caches retain numeric endpoints, not frames.
+A failed match abandons its local frames. Independent scans sharing a plan
+therefore share no mutable depth. This does not grant concurrent-write authority
+to one shared source cache. Regression tests exercise deep counter nesting with
+other pair kinds and quotes, repeat calls, independent source caches, four
+concurrent scans of the same plan, failure followed by reuse, and existing
+5,000-frame cache endpoint checks.
+
+** Matched native control
+
+The independent grammar declares =@{ ... }=, with ordinary braces contributing
+to its counter. The control has three workloads: 4,096 bare nested braces with
+a Unicode payload, a flat region, and 512 explicitly named nested regions.
+Plan and source construction occur outside timing. Each of eleven samples
+runs ten native matches and checks the summed endpoint. The same interpreted
+orchestrator invokes native kernels in every block.
+
+The GCC-backed SDK, 3 GiB heap, 120-second total guard and five-second silence
+guard remain fixed. Processes verify actual loaded artifacts: reference
+=region-scanner~0.o6= and candidate =region-scanner~0.o7=. Complete owned
+artifact snapshots retain contiguous loader suffixes; other clients remain
+unchanged. The sequence is reference A, candidate A, candidate B, reference B.
+
+| Workload | Reference A CPU ms | Candidate A | Candidate B | Reference B |
+|----------+--------------------+-------------+-------------+-------------|
+| Counter depth, ten calls | 3.106 | 2.624 | 2.606 | 2.996 |
+| Flat, ten calls | 0.005 | 0.005 | 0.003 | 0.003 |
+| Distinct frames, ten calls | 0.533 | 0.471 | 0.464 | 0.462 |
+
+Counter-depth median allocation decreases from 11,799,296 to 2,816 bytes
+per ten-call sample; admission counts are 10/11 for each reference and 11/11
+for each candidate. This includes identical orchestration overhead. Flat
+allocation remains 2,816 bytes and distinct-frame allocation remains 738,656
+bytes, with 11/11 admitted samples in every block. All four controls return
+=REGION-CONTROL-OK= and exit 0.
+
+An exploratory 100-call control admitted only one of eleven reference
+allocation samples because most crossed GC. Its candidate admitted all eleven.
+The ten-call protocol improves admission for both versions; the sparse
+exploratory allocation receipt is excluded from the table. Guards and allocation
+admission rules were not changed, and no forced collection was added.
+
+The repeatable result is elimination of depth-transition allocation in the
+shared matcher. Counter-depth CPU improves modestly in these micro controls.
+The flat and distinct-frame timings are controls, not claimed improvements.
+There is no complete-request or Tree-sitter comparison in this experiment.
+
+The repository-owned =t/benchmarks/region-depth/benchmark.ss= reproduces these
+three workloads with configurable positive exact sample/iteration counts,
+endpoint validation, per-call CPU/allocation output, and existing GC-aware
+allocation admission. It is a Scheme benchmark, not a frozen alternate engine.
+
+** Integration and cache provenance
+
+The candidate scanner build passed in 14.400 seconds. Integration rebased onto
+=c1237c5=, including staged LR action vectors and semantic leaf classification.
+Changed native dependencies were rebuilt before qualification. Two existing
+local interfaces were stale: the IR interface omitted =event-fold-ir= and the
+program interface omitted =snapshot-fold-data=. The first failing invocation's
+error-prefix watchdog truncated its diagnostic; a caught compiler invocation
+rendered the complete syntax exception as one structured record. Rebuilding
+the producer interfaces before the Scheme generator consumer repaired the
+local artifact graph. Neither source compatibility nor guard relaxation was
+introduced. Failed builds are excluded from successful receipts.
+
+Six source modules passed 75 cases, and the repository benchmark executed two
+samples of two calls per workload, in 18.550 seconds total. The process returned
+=TEST-SUITE-OK modules=6=, =OK=, =REGION-DEPTH-OK= and exit 0. Owners were region
+scanning (15), parts profiles (16), LR stack reductions (3), EventFold source
+generation (4), recognition sequences (8) and Bash parsing (29). Benchmark
+smoke output establishes executability, not a second performance estimate.
+The ABBA micro table remains a control against the earlier =3ba88c7= clients.

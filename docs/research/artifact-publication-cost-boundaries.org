@@ -149,3 +149,148 @@ consumer change must account for retained versus transient storage, preserve
 full event/field/span/diagnostic equality and qualify complete requests. Hash
 caching, dropping source admission or reviving a rejected local iterator does
 not follow from this evidence. Exact-head platform CI remains a separate gate.
+
+* Executable event-storage control
+
+The shared benchmark now implements =measure-artifact-event-storage=. This
+closes the next attribution obligation at the same publication boundary. It
+copies an already source-admitted artifact's event list into fresh list cells
+and shallow-copied vectors, preserving event order, vector widths and every
+payload. IDs, symbols, byte offsets and token lexemes remain shared values.
+The control uses the existing canonical representation; it introduces no new
+parser backend, language configuration or production storage protocol.
+
+The installed Gerbil runtime uses =vector-copy= in =raw-table-copy= in
+=src/gerbil/runtime/table.ss=. Its =src/std/list/list-builder.ss= supplies
+=with-list-builder=, and =src/std/vector/vector.ss= composes that macro with
+vector iteration. The engine's private =collect-canonical-events= now uses
+that same official builder in place of its hand-written queue function. Both
+its recognition and event-program sinks retain their existing event constructors
+and source-order authority. The independent copy control uses the same builder
+with =for-each= and native shallow copying. This is a source-grounded reduction
+in duplicated infrastructure, not an inference that a higher-order function or
+unchecked mutation always improves parser performance. Builder mutation is
+confined to fresh private list cells.
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
+        :gerbil-parser/languages/arithmetic/parser
+        (only-in :std/list/list-builder with-list-builder))
+
+(let* ((source "1 + 2 + 3")
+       (artifact (parse-arithmetic source)))
+  ;; Complete requests localize the publication interval.
+  (measure-parser-stages parse-arithmetic source 20)
+  ;; Independent control isolates construction of the existing containers.
+  (measure-artifact-event-storage artifact source 20))
+
+;; Shared benchmark implementation: native shallow copies preserve payloads.
+(def (copy-canonical-event-storage events)
+  (with-list-builder (emit!)
+    (for-each (lambda (event) (emit! (vector-copy event))) events)))
+#+end_src
+
+** Question: why does this improve the DSL boundary?
+
+The engine's canonical event representation supplies the control without a
+second language-specific walker. Authors continue declaring syntax/rules and
+public parser metadata; they do not need to describe memory layouts or provide
+profiling sinks. Scheme procedure composition expresses the copying operation
+directly, while the engine remains the authority for publication and source
+admission. Generic dispatch would add no useful type decision to this homogeneous
+list of canonical vectors.
+
+** Question: why is the control scientifically testable?
+
+Each copied event vector and list cell must be distinct, each payload must retain
+its identity, and mutating a copied vector must leave the original vector intact.
+The benchmark reconstructs the complete artifact header around the copied events
+outside the measured interval, checks complete equality, then independently
+checks source admission. This preserves accepted/rejected status, diagnostics,
+fields, Unicode byte coverage and both source/grammar identities. Empty products
+and invalid inputs have explicit controls. Allocation observations retain the
+same no-GC, nonnegative-counter admission as the stage benchmark.
+
+This is an empirical container-construction control, not a retained-heap census,
+an allocation lower-bound theorem, or an alternative parser. Copy-loop and
+statistics overhead remain in the interval. Lexeme payloads and artifact-header
+construction are outside it. The summary reports event count and total vector
+slots alongside CPU/allocation populations; no fixed Gambit object-size formula
+is assumed. Subtracting independent medians would not establish recoverable
+allocation or a complete-request speedup. A large gap motivates a traversal
+experiment with matched complete-request controls; it does not admit that change.
+
+** Rejected attribution shortcut
+
+The initial =map vector-copy= prototype compiled natively in =27.682s= and
+passed all =31= source cases in =16.822s=. Twelve profiles with twenty copies
+each completed in =9.062s=, with full-product equality and source admission.
+At 512 operands, GQL's copy allocation median was =1167728= bytes against
+=1168768= publication bytes; Arithmetic's was =1047856= against =1048896=.
+FHIRPath's copy counter instead varied: its requested =#f= median was =872448=
+and P95 =1789936=, despite all twenty intervals passing the no-GC/nonnegative
+counter filter. The requested =#t= median was =872440= with the same P95.
+
+This is negative evidence for treating the prototype's median as a precise
+storage budget or the remainder as traversal waste. No allocation saving is
+admitted from these values. The installed allocation counter's raw delta and
+occupied-object terms are not an object-lifetime census. The builder rerun
+checks the construction protocol directly; it does not assert a cause for the
+prototype's counter variation or weaken the allocation admission filter.
+Receipts: =/private/tmp/parser-event-storage-build-supervision.log=,
+=/private/tmp/parser-event-storage-source-test-supervision.log= and
+=/private/tmp/parser-event-storage-benchmark-supervision.log=.
+
+** Official-builder qualification and decision
+
+Source baseline: =a1df0ca= plus this slice. The artifact producer, shared
+benchmark and focused test module compiled natively in =41.776s=. All =31=
+source cases passed against that producer in =12.914s=, including the existing
+deep event-program and relocation controls. Both commands exited zero with
+final =OK=, no supervision reason and no missing receipt. Existing native
+conformance ownership includes the updated test and benchmark modules.
+
+The twelve cross-language profiles completed =240= observed complete requests
+and =240= event copies in =33.982s=, exit zero, =EVENT-STORAGE-CONTROLS-OK= and
+final =OK=. Every product passed equality and source admission. The following
+512-operand rows use requested preference =#f=; the =#t= allocation medians
+match, without proving which representation executed from preference alone.
+
+| Family | Events | Vector slots | Publication allocation P50 bytes | Copy allocation P50 / P95 bytes | Admitted copy intervals |
+|--------+--------+--------------+----------------------------------+---------------------------------+-------------------------|
+| GQL RETURN | 8737 | 38022 | 1168768 | 1167808 / 1167808 | 20 |
+| FHIRPath addition | 14369 | 54382 | 1790976 | 1790016 / 1790016 | 20 |
+| Arithmetic addition | 8185 | 32738 | 1048896 | 1047936 / 1047936 | 20 |
+
+The builder control's admitted allocation P50 and P95 agree in all twelve
+profiles. The 64-operand FHIRPath requested =#t= control excludes one GC interval
+and retains nineteen allocation observations; CPU still includes that sample.
+All other copy profiles retain twenty. A separate Scheme report checks each
+publication population completes twenty intervals and each copy population
+contains twenty samples, with its actual allocation population reported.
+An initial temporary report rejected an incorrect summary field index; the
+corrected reader completes with =EVENT-STORAGE-REPORT-OK profiles=12=.
+
+Required container construction closely tracks publication allocation in these
+workloads. The experiment provides no evidence of a large removable traversal
+allocation budget. The small difference is not admitted as recoverable storage;
+the observed publication interval includes observer overhead and the copy
+interval has its own construction/statistics overhead. The official-builder
+migration preserves the reported publication allocation medians. It is not a
+complete-request speedup admission, and the two run elapsed times are not a
+performance comparison.
+
+The next engine experiment should therefore separate source recognition and
+semantic reduction costs, which remain larger request allocations in these
+profiles, instead of treating canonical publication vectors as disposable.
+Changing the public representation would require a separately reviewed semantic
+contract and Rust consumer qualification. No such change is implemented here.
+This updates the preceding localization decision with the missing independent
+control rather than appending an unrelated language-specific optimization.
+
+Final receipts: =/private/tmp/parser-event-builder-build-supervision.log=,
+=/private/tmp/parser-event-builder-source-test-supervision.log=,
+=/private/tmp/parser-event-builder-benchmark-supervision.log= and
+=/private/tmp/parser-event-builder-report.log=. The five-second real-progress
+idle gate remains unchanged. Exact-head CI is separate: at verification,
+=a1df0ca= Rust AOT passed while Linux/macOS Scheme jobs remained in progress.

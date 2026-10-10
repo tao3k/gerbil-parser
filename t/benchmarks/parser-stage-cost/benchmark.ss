@@ -1,11 +1,59 @@
 ;;; Complete-product diagnostics for any public parser procedure.
 ;;; Observer overhead is included; these samples are not latency comparisons.
 (import (only-in :asp-gerbil-scheme/src/benchmark/statistics benchmark-percentile-index)
+        (only-in :std/list/list-builder with-list-builder)
         (only-in ../../../src/runtime/parse-cost
                  current-parser-cost-observer admit-parser-allocation)
         (only-in ../../../src/runtime/artifact
                  parse-artifact-valid-for-source? parse-artifact-events parse-artifact-ref))
-(export measure-parser-stages)
+(export measure-parser-stages measure-artifact-event-storage copy-canonical-event-storage)
+
+;;; A representation control, not a parser or a retained-heap measurement.
+;;; Reuse payloads exactly as publication does; allocate fresh vectors/list cells.
+(def (copy-canonical-event-storage events)
+  (with-list-builder (emit!)
+    (for-each (lambda (event) (emit! (vector-copy event))) events)))
+
+(def (artifact-with-events artifact events)
+  (map (lambda (entry)
+         (if (eq? (car entry) 'events) (cons 'events events) entry)) artifact))
+
+(def (measure-artifact-event-storage artifact source (samples 11))
+  (unless (and (string? source) (integer? samples) (positive? samples)
+               (parse-artifact-valid-for-source? artifact source))
+    (error "event storage control requires a source-admitted artifact and positive sample count"))
+  (let ((events (parse-artifact-events artifact)) (observations '()))
+    (let loop ((sample 0))
+      (when (< sample samples)
+        (let* ((before (##process-statistics))
+               (copy (copy-canonical-event-storage events))
+               (after (##process-statistics))
+               (delta (lambda (index)
+                        (- (f64vector-ref after index) (f64vector-ref before index))))
+               (row (list (cons 'cpu-ms (* 1000 (+ (delta 0) (delta 1))))
+                          (cons 'allocated-bytes (admit-parser-allocation (delta 7) (delta 6)))
+                          (cons 'allocation-counter-delta (delta 7))
+                          (cons 'gc-count (delta 6)))))
+          ;; Reconstruct and admit the entire product outside the copy interval.
+          (let (product (artifact-with-events artifact copy))
+            (unless (and (equal? product artifact)
+                         (parse-artifact-valid-for-source? product source))
+              (error "event storage control changed the complete admitted product" sample)))
+          (set! observations (cons row observations))
+          (write (list 'artifact-event-storage-sample sample row))
+          (newline) (force-output))
+        (loop (+ sample 1))))
+    (let* ((allocations (filter number? (map (lambda (row) (cdr (assq 'allocated-bytes row))) observations)))
+           (summary
+            (list (cons 'samples samples) (cons 'events (length events))
+                  (cons 'vector-slots (foldl (lambda (event n) (+ n (vector-length event))) 0 events))
+                  (cons 'cpu-p50-ms (median (map (lambda (row) (cdr (assq 'cpu-ms row))) observations)))
+                  (cons 'cpu-p95-ms (percentile (map (lambda (row) (cdr (assq 'cpu-ms row))) observations) 95))
+                  (cons 'allocation-p50-bytes (median allocations))
+                  (cons 'allocation-p95-bytes (percentile allocations 95))
+                  (cons 'allocation-samples (length allocations)))))
+      (write (list 'artifact-event-storage-summary summary)) (newline) (force-output)
+      summary)))
 
 (def (median values)
   (let* ((ordered (list-sort < values)) (n (length ordered)) (middle (quotient n 2)))

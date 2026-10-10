@@ -9,7 +9,8 @@
         (only-in :gerbil-parser/src/runtime/event-program event-program-node-value)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer with-parser-cost-stage)
-        (only-in ./benchmarks/parser-stage-cost/benchmark measure-parser-stages))
+        (only-in ./benchmarks/parser-stage-cost/benchmark measure-parser-stages
+                 measure-artifact-event-storage copy-canonical-event-storage))
 (export artifact-publication-cost-test)
 
 (def (observe-publication thunk)
@@ -24,6 +25,43 @@
 
 (def artifact-publication-cost-test
   (test-suite "artifact publication cost contracts"
+    (test-case "storage control copies containers and shares canonical payloads"
+      (let* ((lexeme (string-copy "α🙂"))
+             (events (list (vector 'start-node 0 'Root 0)
+                           (vector 'start-field 'value 0)
+                           (vector 'token 0 'word lexeme 0 6)
+                           (vector 'finish-field 'value 6)
+                           (vector 'finish-node 0 'Root 6)))
+             (copy (copy-canonical-event-storage events)))
+        (check copy => events)
+        (let loop ((original events) (copied copy))
+          (unless (null? original)
+            (check (eq? original copied) => #f)
+            (check (eq? (car original) (car copied)) => #f)
+            (loop (cdr original) (cdr copied))))
+        (check (eq? (vector-ref (list-ref copy 2) 3) lexeme) => #t)
+        (vector-set! (car copy) 2 'Changed)
+        (check (vector-ref (car events) 2) => 'Root)))
+    (test-case "storage measurement admits accepted empty Unicode and rejected products"
+      (for-each
+       (lambda (source)
+         (let* ((end (u8vector-length (string->utf8 source)))
+                (tokens (if (zero? end) '() (list (make-token 'word source 0 end))))
+                (root (make-recognition-node 'Root 0 end
+                        (map (lambda (token) (make-recognition-child 'value token)) tokens))))
+           (for-each
+            (lambda (artifact)
+              (let (summary (parameterize ((current-output-port (open-output-string)))
+                               (measure-artifact-event-storage artifact source 3)))
+                (check (cdr (assq 'samples summary)) => 3)
+                (check (cdr (assq 'events summary)) => (length (parse-artifact-events artifact)))
+                (check (parse-artifact-valid-for-source? artifact source) => #t)))
+            (list (make-success-parse-artifact +publication-test-grammar+ source tokens root never-trivia?)
+                  (make-failure-parse-artifact +publication-test-grammar+ source tokens
+                    '((message . "expected another token")))))))
+       '("" "α🙂"))
+      (check-exception (measure-artifact-event-storage '() "" 1) true)
+      (check-exception (measure-artifact-event-storage '() "" 0) true))
     (test-case "recognition and event publication preserve Unicode and empty artifacts"
       (for-each
        (lambda (source)

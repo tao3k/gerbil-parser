@@ -2,6 +2,7 @@
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
 (import (only-in :std/string/utf8 string-utf8-length)
+        (only-in :std/list/list-builder with-list-builder)
         (only-in ./parse-cost with-parser-cost-stage)
         (only-in ./event-program event-program-value? event-program-value-kind
                  event-program-value-code event-program-walk/inline event-program-relocate)
@@ -205,14 +206,11 @@
     (void)))
 
 (defrule (collect-canonical-events node-emitter field-emitter token-emitter walk)
-  (let* ((events (cons #f '())) (tail events))
-    (def (emit! event)
-      (let (cell (cons event '())) (set-cdr! tail cell) (set! tail cell)))
+  (with-list-builder (emit!)
     (def (node-emitter tag id kind position) (emit! (vector tag id kind position)))
     (def (field-emitter tag field position) (emit! (vector tag field position)))
     (def (token-emitter id token) (emit! (make-token-event id token)))
-    walk
-    (cdr events)))
+    walk))
 (def (recognition-events tokens root trivia? source-byte-length)
   (collect-canonical-events node-emitter field-emitter token-emitter
     (with-recognition-event-walk tokens root trivia? source-byte-length

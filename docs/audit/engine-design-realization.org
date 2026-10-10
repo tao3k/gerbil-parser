@@ -34,6 +34,7 @@ configure matcher caches, generic registries, opcode lowering or worker lifetime
 | Generated entries declare engine-owned representation obligations | [[file:../../src/compiler/machine.ss][machine backend admission]] | [[file:../../t/language-surface-test.ss][backend contract and atomicity controls]] | Captured prepared representation and generated entry products are distinct; queries do not prove arbitrary procedure bodies |
 | Preparation cost remains visible | [[file:../../t/benchmarks/contextual-scanner/matched-scale.ss][contextual benchmark]] and [[file:../../t/benchmarks/regular-mode/request-cost.ss][regular benchmark]] | Native prepared products checked after measurement | Contextual preparation controls are added in this slice; historical paired receipts remain separate from fresh runs |
 | Artifact publication cost follows shared engine ownership | [[file:../../src/runtime/artifact.ss][canonical artifact owner]] and [[file:../../t/benchmarks/parser-stage-cost/benchmark.ss][generic stage benchmark]] | [[file:../../t/artifact-publication-cost-test.ss][publication observation contracts]] and existing event/source controls | Encoding, event publication and identity intervals are separate; supplied products do not imply executed construction stages |
+| Canonical event containers have an independent executable control | Same shared benchmark and official =with-list-builder= in the artifact owner | Fresh-container/shared-payload controls, full artifact equality and source admission | Copy allocation is not a retained-heap census; variable counter medians cannot establish traversal waste |
 
 The first row's semantic and provenance limits are detailed in
 [[file:../research/dsl-engine-contracts.org][the DSL contract audit]]. This table records responsibility rather than
@@ -161,6 +162,28 @@ across three language families at two scales completed 240 full-product checks.
 Observed event-publication allocation exceeds hash/header allocation in these
 workloads. This is a next-work localization receipt, not a performance benefit
 admission or an assertion that required canonical event storage is redundant.
+
+The subsequent [[file:../research/artifact-publication-cost-boundaries.org::*Executable event-storage control][event-storage implementation]] supplies that independent control and replaces
+the engine's duplicated private queue with Gerbil's official =with-list-builder=.
+It applies to both recognition and event-program publication. The canonical
+event constructors, author interfaces and artifact schema are unchanged.
+The initial =map vector-copy= control exposed variable FHIRPath allocation
+counters despite passing the existing no-GC filter; those observations are
+retained as negative evidence against deriving a precise storage budget from
+one median. This refactoring is an abstraction/qualification change, not an
+admitted complete-request performance improvement.
+
+Final native qualification rebuilds artifact publication, its shared benchmark
+and focused test in 41.776 s; all 31 source cases pass in 12.914 s. Twelve native
+cross-language profiles complete 240 observed requests and 240 copies in
+33.982 s, with full equality/source checks and final process receipts. Under
+the official builder, admitted copy allocation P50/P95 agree in all twelve
+profiles and closely track event-publication allocation. The small difference
+does not establish recoverable storage; recognition/reduction cost separation
+is now the next optimization obligation. The research module retains exact
+population counts, rejected prototype and receipt paths. The verified =a1df0ca=
+CI run has passed Rust AOT; Linux/macOS Scheme were still in progress. Fresh
+CI is required for this subsequent source slice.
 
 The shared scanner study is modularized into
 [[file:../research/shared-scanner-staging-and-fusion.org][one overview and four responsibility modules]]. Its original experiments,

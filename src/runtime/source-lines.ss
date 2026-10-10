@@ -6,23 +6,25 @@
 ;; Generated native products already own the UTF-8 source. Traverse that
 ;; representation once, retaining each frame's bytes instead of encoding its
 ;; decoded line again. ASCII CR/LF cannot occur inside a UTF-8 continuation.
-(def (fold-source-byte-lines bytes initial visit)
+(def (fold-source-byte-lines (bytes : :u8vector) initial visit)
   (let (size (u8vector-length bytes))
     (def (emit from until state)
       (let (line-bytes (subu8vector bytes from until))
         (visit (utf8->string line-bytes) line-bytes from until state)))
     (let loop ((start 0) (cursor 0) (state initial))
       (cond
-       ((= cursor size)
-        (if (= start size) state (emit start size state)))
-       ((memv (u8vector-ref bytes cursor) '(10 13))
-        (let (after (+ cursor
-                       (if (and (= (u8vector-ref bytes cursor) 13)
-                                (< (+ cursor 1) size)
-                                (= (u8vector-ref bytes (+ cursor 1)) 10))
-                         2 1)))
-          (loop after after (emit start after state))))
-       (else (loop start (+ cursor 1) state))))))
+       ((fx= cursor size)
+        (if (fx= start size) state (emit start size state)))
+       (else
+        ;; Vector lengths and guarded cursors are fixnums. next <= size,
+        ;; including a terminal CR; no unchecked read or overflow assumption.
+        (let ((byte (u8vector-ref bytes cursor)) (next (fx+ cursor 1)))
+          (if (or (fx= byte 10) (fx= byte 13))
+            (let (after (if (and (fx= byte 13) (fx< next size)
+                                 (fx= (u8vector-ref bytes next) 10))
+                          (fx+ next 1) next))
+              (loop after after (emit start after state)))
+            (loop start next state))))))))
 
 (def (line-starts-with? line prefix)
   (and (<= (string-length prefix) (string-length line))

@@ -89,3 +89,12 @@ The five source-admission cases passed under the existing five-second genuine
 output watchdog. Two earlier startup attempts failed that watchdog during
 overlapping compilation; neither is admitted as passing evidence. No consumer
 latency result is established by these engine controls.
+
+The native byte cursor now caches its current byte and next position, using
+fixnum operations after the u8vector entry contract. The guarded next cursor
+never exceeds the vector length, including terminal CR and CRLF cases. The
+[[file:../../t/benchmarks/event-fold-frames/README.org][native frame benchmark]] retains a benchmark-only generic cursor reference
+and full-output parity at 1,000/2,000/10,000 documents. Five source controls
+(including wrong source-type rejection) and all 96 independently compiled
+Fold controls pass after this change. CPU observations and wall-time
+regressions remain separately reported; no consumer latency gate is relaxed.

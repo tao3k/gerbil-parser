@@ -63,6 +63,14 @@ generate-event-fold-native output load_path:
 build-event-fold-modules output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-scheme-modules.ss src/compiler/event-fold-scheme-build.ss
 
+# Native engine-only frame costs; compilation is outside measured requests.
+build-event-fold-frame-benchmark output load_path:
+    mkdir -p "{{output}}"
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/event-fold-frame-benchmark" t/benchmarks/event-fold-frames/benchmark.ss
+
+benchmark-event-fold-frames binary samples="7":
+    GAMBOPT=max-heap=1G,debug=q "{{binary}}" "{{samples}}" 1000 2000 10000
+
 link-event-fold-native output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/event-fold-native" "{{output}}/event-fold-native-generated.ss"
 

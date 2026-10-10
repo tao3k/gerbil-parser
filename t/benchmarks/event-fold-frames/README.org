@@ -1,0 +1,65 @@
+#+title: Native EventFold frame benchmark
+
+* Boundary
+
+This engine-owned native executable compares dynamic string frames, explicit
+string frames, and explicit byte frames using the same prefix primitives and
+request-owned event publication. It includes whole-source encoding, source
+traversal, frame creation, 32 prefix tests per line, and complete event output.
+It is not a full Org grammar, FFI scheduler, filesystem query, or end-to-end
+100ms admission gate. The dynamic route uses the current primitive defaults,
+not an executable from a historical revision. A fourth, benchmark-only
+generic byte walker freezes the pre-fixnum algorithm, allowing the cursor
+change to be compared inside the same native process. It is not a runtime
+fallback and cannot be selected by parser consumers.
+
+Each batch contains 1,000, 2,000, or 10,000 distinct documents with mixed UTF-8,
+CR/LF/CRLF, prefix hits, rejected boundaries, blank lines, and an unterminated
+last line. Every document's complete output is compared before timing. Seven
+samples rotate route order; every sample verifies the full event count.
+Compilation and conformance checks are excluded from measured request time.
+
+* Native entry points
+
+Use the package's compiled library as =output= and supply its dependency load
+path. No Rust executable, JSON exchange, or per-document process is needed.
+
+#+begin_src sh
+just build-event-fold-frame-benchmark OUTPUT LOAD_PATH
+just benchmark-event-fold-frames OUTPUT/event-fold-frame-benchmark 7
+#+end_src
+
+CPU and wall time are distinct. GC count and the raw allocation-counter delta
+are retained; =allocated-bytes= is admitted only for a nonnegative delta with
+no collection. GC-dependent raw deltas are not proven allocation totals.
+Host contention and heap growth prevent a portable wall-time or GC ranking.
+
+* Initial observation
+
+Before the fixnum-cursor change, the 2,000-document CPU medians were 45.808ms
+(dynamic), 21.452ms (explicit string), and 22.940ms (explicit byte). This
+supports removing dynamic frame/prefix allocation, but shows that byte
+traversal was not automatically the fastest route. The subsequent cursor
+optimization borrows Gerbil's typed buffered-I/O and fixnum arithmetic style:
+one guarded byte read per cursor, a cached next position, and fixnum cursor
+operations. Bounds checks remain in place; no kernel or heap changes.
+
+* Same-process cursor control
+
+A subsequent eight-sample run rotates all four routes. Complete parity passes
+for every document at every scale. CPU medians (milliseconds per batch):
+
+| Documents | Dynamic string | Explicit string | Generic byte reference | Fixnum byte |
+|-----------+----------------+-----------------+------------------------+-------------|
+|      1000 |         19.877 |          10.639 |                 11.368 |      10.354 |
+|      2000 |         41.654 |          21.453 |                 23.271 |      20.965 |
+|     10000 |        192.046 |         109.844 |                116.198 |     106.596 |
+
+The cursor-only CPU differences are approximately 8-10% in this diagnostic
+workload. Dynamic-to-explicit differences also include prefix/view allocation
+removal; neither comparison is a whole-parser throughput claim. At 10,000
+documents the generic/fixnum wall medians are 131.927/172.467ms, respectively:
+the wall-time regression is retained, not promoted as a latency win. All rows
+had collections, so allocation totals are not admitted from raw deltas.
+Original stdout is retained as =event-fold-frame-benchmark-matched.log= next
+to the local executable, with all 96 timed rows, not selected best samples.

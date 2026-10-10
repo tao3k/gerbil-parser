@@ -15,6 +15,7 @@
 (def event-fold-scheme-test
   (test-suite "Native EventFold source admission"
     (test-case "native byte frames preserve Unicode CR LF CRLF and terminal bounds"
+      (check-exception (fold-source-byte-lines "not bytes" '() void) true)
       (for-each
        (lambda (text)
          (let* ((bytes (string->utf8 text))

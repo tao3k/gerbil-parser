@@ -17,6 +17,7 @@
         nonterminal-name
         nonterminal-symbol?
         operand-actions
+        operand-actions-valid?
         production-action
         production-id
         production-lhs
@@ -85,6 +86,17 @@
 
 (def (operand-actions value)
   (if (marked-symbol? value) (caddr value) '()))
+
+;;; Canonical semantic names have one contract for prepared and generated
+;;; execution. Validate a proper chain before either owner publishes a product.
+(def (operand-actions-valid? actions)
+  (and (list? actions)
+       (every (lambda (action)
+                (match action
+                  (['field (? symbol?)] #t)
+                  (['alias (? symbol?)] #t)
+                  (_ #f)))
+              actions)))
 
 (def (operand-add-action value action)
   (if (marked-symbol? value)

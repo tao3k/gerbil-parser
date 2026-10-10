@@ -8,7 +8,7 @@
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?
                  make-bound-build-strategy declare-build-strategy-provider)
         (only-in ./lr lr-spec-ref production-table production-id production-lhs
-                 production-rhs production-action operand-actions))
+                 production-rhs production-action operand-actions operand-actions-valid?))
 (export FusedReductionStrategy. FusedReductionStrategyContract
         make-fused-reduction-strategy)
 
@@ -49,10 +49,7 @@
                                (symbol? (production-lhs production))
                                (memq (production-action production) '(pass concat))
                                (every (lambda (operand)
-                                        (every (lambda (action)
-                                                 (and (list? action) (= (length action) 2)
-                                                      (memq (car action) '(field alias)) (symbol? (cadr action))))
-                                               (operand-actions operand)))
+                                        (operand-actions-valid? (operand-actions operand)))
                                       (production-rhs production))
                                (loop (+ index 1))))))))))))
 

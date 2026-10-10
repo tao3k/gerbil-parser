@@ -1,6 +1,7 @@
 ;;; Shared deterministic stack reduction versus independent materialized GLR.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
+        (only-in :gerbil-parser/src/compiler/lr operand-actions-valid?)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
@@ -38,6 +39,13 @@
 
 (def lr-stack-reduction-test
   (test-suite "shared LR stack reduction"
+    (test-case "canonical action admission requires proper symbolic declarations"
+      (for-each (lambda (actions) (check (operand-actions-valid? actions) => #t))
+                '(() ((field left)) ((alias Item)) ((alias Item) (field left))))
+      (for-each (lambda (actions) (check (operand-actions-valid? actions) => #f))
+                '(#f #() ((field)) ((alias Item extra)) ((callback Item))
+                  ((field #f)) ((field "left")) ((alias 1)) ((alias (Item)))
+                  ((field . left)) ((field left) . invalid))))
     (test-case "prepared runtimes reject unsupported actions before execution"
       (def (prepare action operand-actions)
         (lr-prepare
@@ -53,7 +61,33 @@
       (check-exception (prepare 'concat '((field))) true)
       (check-exception (prepare 'concat '((alias Name extra))) true)
       (check-exception (prepare 'concat '((field Name) . invalid)) true)
+      (for-each
+       (lambda (events?)
+         (parameterize ((current-lr-event-program-enabled? events?))
+           (for-each (lambda (actions)
+                       (check-exception (prepare 'concat actions)
+                                        (lambda (condition)
+                                          (and (equal? (error-message condition) "invalid LR operand actions")
+                                               (equal? (error-irritants condition) (list actions))))))
+                     '(((field #f)) ((field "left")) ((alias 1)) ((alias (Item)))))))
+       '(#f #t))
       (check (not (not (prepare 'concat '((field inner) (alias Renamed))))) => #t))
+    (test-case "unselected productions cannot bypass semantic name admission"
+      ;; Empty action tables ensure that no request could execute either rule.
+      ;; Preparation still owns admission of the whole canonical production set.
+      (for-each
+       (lambda (events?)
+         (parameterize ((current-lr-event-program-enabled? events?))
+           (check-exception
+            (lr-prepare
+             (list (cons 'productions
+                         '((0 source-file ((terminal word)) pass #f)
+                           (1 unused ((marked (terminal word) ((alias "Item")))) concat #f)))
+                   (cons 'actions (vector '())) (cons 'gotos (vector '()))
+                   (cons 'case-insensitive? #f)))
+            (lambda (condition)
+              (equal? (error-message condition) "invalid LR operand actions")))))
+       '(#f #t)))
     (test-case "empty, unary and wide identity operands agree with GLR"
       (for-each (lambda (width) (check-stack-family width #f)) '(0 1 2 8 32)))
     (test-case "wide ordered field and alias chains agree with GLR"

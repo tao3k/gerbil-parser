@@ -2,7 +2,7 @@
 ;;; Parser IR v1 is the sole authority for deterministic Rust output.
 
 (import (only-in :std/io/tempfile make-temporary-file-name)
-        (only-in :std/test check test-case test-suite)
+        (only-in :std/test check check-exception test-case test-suite)
         (only-in :gerbil-parser/languages/arithmetic/parser
                  +arithmetic-language-version+
                  +arithmetic-syntax-contract+
@@ -18,7 +18,7 @@
         (only-in :gerbil-parser/rust-runtime-support
                  generate-language-rust-runtime-module)
         (only-in :gerbil-parser/src/compiler/rust-runtime
-                 rust-runtime-module-source))
+                 rust-runtime-module-source generate-rust-runtime-module))
 (export rust-runtime-generation-test)
 
 (def (arithmetic-rust-source)
@@ -31,6 +31,38 @@
 
 (def rust-runtime-generation-test
   (test-suite "Rust AOT generation"
+    (test-case "invalid action names in unused rules fail before file publication"
+      (for-each
+       (lambda (actions)
+         (let* ((ir
+                 (map (lambda (entry)
+                        (if (eq? (car entry) 'lr-spec)
+                          (cons 'lr-spec
+                                (map (lambda (row)
+                                       (if (eq? (car row) 'productions)
+                                         (cons 'productions
+                                               (append (cdr row)
+                                                       (list (list (length (cdr row)) 'unused
+                                                                   (list (list 'marked '(terminal number) actions))
+                                                                   'concat #f))))
+                                         row))
+                                     (cdr entry)))
+                          entry))
+                      arithmetic-parser-ir))
+                (path (make-temporary-file-name "invalid-parser-actions")))
+           (try
+            (begin
+              (check-exception
+               (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
+                                             +arithmetic-syntax-contract+
+                                             (parser-machine-grammar-digest arithmetic-parser) ir)
+               (lambda (condition)
+                 (and (equal? (error-message condition) "invalid Rust operand actions")
+                      (equal? (error-irritants condition) (list actions)))))
+              (check (file-exists? path) => #f))
+            (finally (when (file-exists? path) (delete-file path))))))
+       '(((field "left")) ((field #f)) ((alias 1)) ((alias (Item)))
+         ((field Name extra)) ((field Name) . invalid))))
     (test-case "one Parser IR produces one deterministic Rust module"
       (let ((first (arithmetic-rust-source))
             (second (arithmetic-rust-source)))

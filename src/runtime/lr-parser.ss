@@ -10,7 +10,7 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in :core/poo-clos/interface .defgeneric .defmethod)
         (only-in ../compiler/lr
-                 lr-spec-ref operand-actions production-action
+                 lr-spec-ref operand-actions operand-actions-valid? production-action
                  production-lhs production-precedence production-rhs base-symbol
                  production-table)
         (only-in ./recognition
@@ -102,15 +102,9 @@
 ;;; their ordered action chains. Both semantic backends share this admission.
 ;;; One source-order vector serves both forward and reverse execution.
 
-(def (operand-action? action)
-  (match action
-    (['field _] #t)
-    (['alias _] #t)
-    (_ #f)))
-
 (def (checked-operand-actions operand)
   (let (actions (operand-actions operand))
-    (unless (and (list? actions) (every operand-action? actions))
+    (unless (operand-actions-valid? actions)
       (error "invalid LR operand actions" actions))
     actions))
 

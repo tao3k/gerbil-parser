@@ -8,7 +8,9 @@ must have one owner for semantic admission. This continues the
 operands during compilation, while the shared deterministic executor previously
 decoded marked operands and checked the production action on every reduction.
 The new =lr-prepare= boundary checks the closed =pass=, =concat= and layout-end
-production algebra and ordered, two-element =field=/=alias= actions. Invalid
+production algebra and ordered, two-element =field=/=alias= actions with symbolic
+names. The shared canonical predicate also admits generated Scheme and Rust
+publication. Invalid
 actions fail before a request starts, including productions not executed by
 that request. Canonical grammar identity, GLR, replay and generated reductions
 retain their existing owners.
@@ -129,3 +131,68 @@ ABI products across all ten language entries in 28.068 seconds, exit zero,
 It covers the candidate LR and latest =f2eb2b8= scanner interfaces, independent
 GLR, generated HCL/Arithmetic recognition and event reductions, and exact Rust
 fixture bytes. Local native qualification is distinct from clean exact-head CI.
+
+* Canonical action admission across product owners
+
+The subsequent source audit found a concrete mismatch: fused Scheme generation
+required symbolic field and alias names, while prepared LR checked only the
+two-element shape. Rust's raw-IR emitter had its own operand decoder and could
+emit string field names. A well-shaped list was therefore insufficient to make
+the same semantic declaration legal across execution products.
+
+=src/compiler/lr.ss= now owns =operand-actions-valid?=. Prepared LR, fused Scheme
+strategy admission and Rust table publication call this predicate. Rust also
+uses the canonical operand accessor instead of a duplicated decoder. Rust
+validates all production chains before constructing output; file publication
+already follows successful source construction. Unused productions cannot
+bypass either preparation or raw-IR publication admission.
+
+#+begin_src scheme
+;; Canonical semantic declarations, not an additional author interface.
+(operand-actions-valid? '((alias Item) (field left))) ; => #t
+(operand-actions-valid? '((field "left")))            ; => #f
+(operand-actions-valid? '((alias #f)))                ; => #f
+(operand-actions-valid? '((field left) . invalid))    ; => #f
+#+end_src
+
+** Question: why is this design preferable?
+
+Scheme's structural matching expresses the closed declaration algebra directly:
+each action has exactly one operation and one Symbol name. The invariant belongs
+to canonical IR, so a POO strategy override cannot change semantic name legality
+and backend selection cannot choose a different contract. Authors retain the
+existing node/field DSL. Validation occurs at preparation or publication rather
+than inside repeated reductions; no request callback or generic dispatch is added.
+This completes the staging boundary studied above without adding a new DSL.
+
+** Question: how is the claim scientifically tested?
+
+The falsifier is a malformed chain accepted by any product owner, a published
+file following rejection, or changed complete output for a valid declaration.
+The preceding native LR accepted four malformed names under each of two backend
+preferences: eight =BASELINE-ACCEPTED= receipts, exit zero in 10.026 seconds.
+The first temporary baseline probe failed because an interpreted script used an
+unqualified binding after an evaluated import; its failure is retained and is
+not semantic evidence. The corrected probe used qualified native bindings.
+
+The executable controls check proper and dotted chains, unknown actions,
+non-symbol payloads, both backend preferences and unused productions. Rust
+controls append an unused malformed production to real Arithmetic IR and require
+failure before a temporary output file exists. Existing wide/nullable/ordered
+reductions compare complete artifacts with independent GLR; HCL and Arithmetic
+generated backends and deterministic Rust/GQL output retain their own controls.
+This is contract closure, with no latency or allocation improvement claim.
+
+Qualification at parent =989e117= used the official SDK with the native candidate
+overlay ahead of previously qualified dependencies. The canonical LR owner,
+runtime and fused strategy compiled in 95.047 seconds; the Rust emitter compiled
+in 34.007 seconds. Both exited zero with final =OK= and the unchanged five-second
+real-output idle gate. Four source GxTest suites passed all 22 cases against these
+native owners in 27.542 seconds. The separate all-language ABI control passed in
+15.793 seconds: twenty accepted/rejected products across ten entries matched the
+checked-in Rust fixture bytes exactly. These local receipts do not establish
+clean-checkout platform CI or a measured speedup.
+
+Receipts: =/private/tmp/parser-action-admission-{build,rust-build,test,alignment,
+baseline-qualified}-supervision.log=. The initial baseline-script failure remains
+=/private/tmp/parser-action-admission-baseline-supervision.log=.

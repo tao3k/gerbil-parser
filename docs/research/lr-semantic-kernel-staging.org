@@ -266,3 +266,30 @@ Fresh static native object compilation completes in 69.64 seconds with actual
 exit zero and no silence-gate violation, retaining the SDK's optimizer and
 existing multiple-host policy. Full platform CI remains a separate admission
 requirement; this single local object cannot qualify the complete build.
+
+* Shared diagnostic module publication
+
+At =ba81c0e=, Ubuntu passes the calibrated CPU gates but the GQL component
+report terminates with signal 139. Its first loader warning identifies the
+undefined =measure-parser-component__0= entry referenced by the previously
+compiled =matched-stages= consumer. This is a generated-interface mismatch,
+not a parser timeout or a failed artifact-equality assertion.
+
+The conformance build already owns the complete shared stage sampler and its
+GQL consumers. A later CI support command unnecessarily recompiles the sampler
+with the bare =gxc= CLI. The SDK's =gxc-main.ss= defaults to =gerbil/base= and
+sets that language before compilation. This differs from the compiler context
+that generated the consumers: the former wraps optional arguments in a local
+procedure, while the latter publishes the fixed-arity =__0= and =__1= entries.
+Overwriting the native producer cannot preserve those earlier references.
+
+Fresh Scheme generation reproduces both shapes. The conformance-context
+sampler defines =__%=, =__0=, =__1= and the public wrapper; the exact bare-CLI
+command defines only the public wrapper with a local optional-argument
+procedure. Both generation processes exit zero, confirming that successful
+compilation alone cannot establish producer/consumer interface agreement.
+
+CI now retains the sampler published by its conformance owner. The additional
+LR benchmark and actor consumers compile against that retained interface.
+There is no ABI adapter or legacy entry. The closed executable, native module
+loads and complete GQL reporting remain distinct exact-head CI requirements.

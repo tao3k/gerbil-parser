@@ -709,5 +709,4 @@
     (test-case-add! (TestCase "choice ordering preserves node fields and exact ranges"
                       choice-span-case))
     (test-case-add! (TestCase "CFG helper-reference alternatives preserve enclosing continuation"
-                      helper-continuation-case))
-    ))
+                      helper-continuation-case))))

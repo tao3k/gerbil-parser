@@ -284,7 +284,6 @@ jobs:
         run: |
           gerbil env gxc t/abi-datum-support.ss \
             t/line-structure-assertions.ss \
-            t/benchmarks/parser-stage-cost/benchmark.ss \
             t/benchmarks/lr-request-stack/derivation.ss \
             t/scenarios/performance/selective-glr/scenario.ss \
             t/benchmarks/lr-request-stack/benchmark.ss \

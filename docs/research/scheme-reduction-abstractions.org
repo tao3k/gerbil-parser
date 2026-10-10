@@ -315,3 +315,113 @@ The 37-case native receipt above covers the LR/scanner graph, whose production
 dependencies are unchanged by those later Source/Fold commits. It does not
 qualify their new native Source/Fold implementation. Exact-head CI retains
 ownership of the complete published package and optional Rust AOT integration.
+
+* Generic functions as preparation protocols
+
+The available mechanisms have different owners. Gerbil =defmethod= associates
+behavior with a receiver type. Upstream =clan/poo/mop .defgeneric= invokes a
+receiver's prototype slot; it is a single-receiver protocol. The pinned
+=core/poo-clos/interface= provides actual multiple dispatch, =eql=/class/prototype
+specializers, method combinations and generic generations. Treating these as
+one interchangeable mechanism would obscure the extension contract.
+
+Source evidence is =gerbil-poo/mop.ss .defgeneric= and POO Flow Core's
+=poo-clos/{syntax,dispatch,objects}.ss=. In particular,
+=applicable-ranked-methods= computes applicability from an immutable generic
+generation and sorts by =argument-precedence-order=; =compute-effective-method=
+admits protocol hooks. The checked runtime is already a dependency. The parser
+must not implement a second generic registry or method-combination evaluator.
+
+The existing engine uses receiver protocols for grammar/context role access,
+but does not use a CLOS generic preparation protocol for semantic backends.
+That is an architectural opportunity, not evidence that the dependency is
+missing or incapable.
+
+** Separate selection from repeated execution
+
+The executable control in =t/generic-dispatch-contract-test.ss= uses the actual
+Core CLOS declaration syntax and ordinary Scheme values:
+
+#+begin_src scheme
+(.defgeneric test-select-semantic-plan (backend capability))
+(.defmethod (test-select-semantic-plan (backend (eql 'event))
+                                     (capability (eql 'plain)))
+  (lambda (value) (list 'event value)))
+
+;; Selection belongs to preparation; the returned kernel is reused.
+(let (kernel (test-select-semantic-plan 'event 'plain))
+  (kernel 'a)
+  (kernel 'b))
+#+end_src
+
+The probe counts method-body selection separately from kernel calls and checks
+that repeated execution does not redispatch. It is a design control, not an
+installed event parser, an allocation benchmark or an implementation of a new
+public grammar operation. Its unsupported-pair rejection is an explicit probe
+contract; it does not change the existing optional event backend fallback.
+
+| Engine boundary | Appropriate generic operation | Prepared result |
+|-----------------+-------------------------------+-----------------|
+| Admitted recognition dialect and semantic backend | Resolve a supported lowering strategy | Checked closed recipe plus derived executor |
+| Result schema and publication target | Resolve encoding/publication strategy | Schema-admitted publication kernel |
+| Open POO authoring role and compiler target | Elaborate inherited behavior | Canonical IR with source origins |
+
+These are independent variation axes. The first migration should move strategy
+selection out of nested runtime branches into one preparation owner, retain
+the prepared runtime's identity, and keep each kernel's traversal explicit.
+Grammar authors continue to use the existing three interfaces. Ordinary values
+are sufficient for fixed strategies; POO/class specialization supports genuine
+extension. A closed scalar algorithm such as completion score comparison does
+not acquire a class hierarchy solely to increase generic usage.
+
+Prepared products must bind the admitted generic generation or immutable method
+snapshot; otherwise changing methods could silently change a retained parser.
+Procedure-valued derived executors must not enter canonical, digest-bearing IR.
+Reusing generic selection requires preserving both constraints before replacing
+the current backend policy.
+
+** Contextual conflict semantics remain an independent contract
+
+Two applicable methods can be more specific on different arguments. Ordinary
+CLOS chooses using argument precedence. Current contextual grammar selection
+uses componentwise dominance: incomparable maximal methods with unequal results
+are an error, while equal results retain both declaration origins.
+
+The executable control tests both behaviors on the same =shell/command=
+intersection. It shows why blindly substituting ordinary primary-method
+selection could hide a grammar conflict. Core's existing generic-protocol and
+method-combination facilities are the appropriate place to express the required
+policy if that resolver migrates; parser-specific conflict admission remains
+explicit. No new dispatch kernel is justified.
+
+** Question: why is this design preferable and testable?
+
+Multiple dispatch states which combinations the engine supports without making
+each caller reproduce a decision tree. Hygienic declarations, POO extensions,
+normal values and prepared kernels can cooperate: the generic owns selection,
+the compiler owns admission, and the executor owns repeated work.
+
+The controls demonstrate actual two-argument selection, fixed-kernel reuse,
+unsupported combinations and the contextual conflict boundary. Production
+migration additionally requires generation invalidation controls, complete
+artifact/diagnostic parity, preparation cost and complete-request benchmarks.
+These executable controls alone do not close that migration or establish its
+performance.
+
+** Generic control qualification
+
+Eight source-client/contextual cases pass over the preloaded pinned native
+Core CLOS dependency: final =OK=, exit 0, 13.951 s, in
+=/private/tmp/parser-generic-contract-preloaded-supervision.log=.
+Official native compilation of the new suite passes in 13.917 s. Its three
+compiled cases then run directly through the native =std/test= harness: final
+=OK=, exit 0, 5.101 s, in
+=/private/tmp/parser-generic-contract-native-final-supervision.log=.
+
+The first fully interpreted dependency load hit the unchanged five-second
+no-progress watchdog and is excluded. A native harness attempt incorrectly
+addressed the re-exported =TestHarness= as a runtime symbol owned by =base=;
+using the module's normal imported binding fixes that driver error. These
+negative receipts establish neither a generic-dispatch performance result nor
+a defect in Core. Native dependency reuse and source-client qualification are
+separate from a fully interpreted dependency run.

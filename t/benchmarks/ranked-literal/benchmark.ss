@@ -1,7 +1,8 @@
 ;;; Shared lexer publication: prefix chains, filtered modes and scalar controls.
 (import (only-in :gerbil-parser/src/runtime/scan make-ranked-literal-scanner)
-        (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation))
-(export benchmark-ranked-literal)
+        (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation)
+        (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark measure-parser-component))
+(export benchmark-ranked-literal benchmark-ranked-literal-requests)
 (def (benchmark-ranked-literal (samples 11) (iterations 1000))
   (unless (and (exact-integer? samples) (positive? samples)
                (exact-integer? iterations) (positive? iterations))
@@ -34,3 +35,23 @@
       (list (list scan text #f 32 'prefix-chain) (list scan text short 1 'short-admitted)
             (list single "a" #f 1 'single-terminal) (list scan text none 0 'all-filtered))))
   (displayln "RANKED-LITERAL-OK") (force-output))
+
+;;; Compiled complete-result controls across accepting-prefix depths.
+(def (benchmark-ranked-literal-requests)
+  (for-each
+   (lambda (width)
+     (let* ((entries (map (lambda (index)
+                           (list (make-string (+ index 1) #\a) 'literal index index))
+                         (iota width)))
+            (scan (make-ranked-literal-scanner entries))
+            (source (string-append (make-string width #\a) "!"))
+            (mask (make-vector width #f)))
+       (vector-set! mask 0 #t)
+       (measure-parser-component (list 'accepting-prefixes width) 20 5000
+         (lambda () (scan source 0)) (list 'literal width (- width 1) (- width 1)))
+       (measure-parser-component (list 'filtered-prefixes width) 20 5000
+         (lambda () (scan source 0 mask)) '(literal 1 0 0))
+       (measure-parser-component (list 'missing-prefix width) 20 5000
+         (lambda () (scan "!" 0)) #f)))
+   '(1 4 16 64))
+  (displayln "RANKED-LITERAL-REQUESTS-OK") (force-output))

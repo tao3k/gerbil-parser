@@ -1,6 +1,107 @@
 #+title: Canonical LR table admission and staged execution
 #+startup: overview
 
+* Prepared capability and request-local layout execution
+
+The table contract derives layout capability from canonical productions. The
+execution boundary must preserve that decision: ambient dynamic parameters are
+request data, not evidence that a prepared runtime admits layout semantics.
+At parent =27f5471=, a plain runtime accepts one =word= token normally, but the
+same runtime rejects it inside an outer column table and reference frame. The
+old action lookup consults =current-layout-columns= without its own capability,
+so an unrelated frame can remove the ordinary shift.
+
+The LR executor now captures its prepared layout capability once alongside
+case policy and indexes. Its deterministic loop and both GLR lookups pass that
+value to the private action selector. Only a layout-capable runtime consults
+dynamic source columns. Existing GLR memo keys and acceptance already use
+runtime capability; branch-local layout shifts and closing reductions retain
+their existing owners. This fixes capability leakage without changing grammar
+declarations or introducing a request-time generic dispatch protocol.
+
+The tokenized source boundary independently binds its own columns and empty
+initial frames for every request. Plain requests bind no columns; layout
+requests construct columns from their own source. Parameter restoration protects
+an enclosing request after acceptance or rejection. Layout ordinary literals
+also use the same prepared casefold lookup as plain LR, followed by the existing
+guard/column decision; a second whole-string conversion path is removed.
+
+#+begin_src scheme
+(def runtime
+  (lr-prepare (compile-lr-spec '((root (alias Root (token word)))) 'root)))
+(def tokens (list (make-token 'word "x" 0 1)))
+;; These values belong to an enclosing source request, not runtime's grammar.
+(parameterize ((current-layout-columns (make-layout-columns "x"))
+               (current-layout-frames '((100 . "outer"))))
+  (let-values (((root rest) (lr-parse/prepared runtime tokens)))
+    (null? rest))) ; => #t, matching execution outside the dynamic bindings
+
+;; Source ownership is bound once at the existing request boundary.
+(parameterize ((current-layout-columns
+                (and (lr-runtime-layout? (parser-machine-runtime machine))
+                     (make-layout-columns source)))
+               (current-layout-frames '()))
+  (parse-tokenized/with machine digest source tokens parse-significant policy))
+#+end_src
+
+** Question: why is this design preferable?
+
+The symbolic grammar determines the immutable prepared capability. Dynamic
+parameters carry only request-owned coordinates and branch frames. Keeping
+these roles distinct lets the same prepared parser run from ordinary code,
+callbacks or nested services. The existing Scheme request scope handles binding
+and restoration, while named LR algorithms retain explicit prepared arguments.
+POO/macro composition continues to select the declaration before lowering;
+authors add no layout switch, column builder or cleanup callback to their three
+interfaces. The existing casefold index is reused rather than implementing a
+second lexical algorithm for layout requests.
+
+** Question: how is the claim scientifically tested?
+
+The matched counterexample changes only ambient parameters around the same
+runtime and tokens. Permanent controls compare complete artifacts outside and
+inside those bindings, under both requested semantic preferences, with a plain
+grammar and a dynamic-precedence fork grammar. The independent materialized GLR
+entry exercises its fast and memoized lookups; a streaming driver checks token
+callbacks. Separate source controls execute success/rejection/success and require
+the original outer parameter identities after each request. ASCII and Unicode
+casefold controls check row identity, case-sensitive token fallback, primary
+shift and blocked-shift reduction fallback. They do not prove every possible
+layout grammar balanced or every compiler-generated fallback equivalent.
+
+The [[https://small.r7rs.org/attachment/r7rs.pdf][R7RS-small report]], Section 4.2.6, specifies temporary dynamic parameter
+values and restoration. The installed Gerbil =2591dcd= runtime
+=src/gerbil/runtime/control.ss= delegates =call-with-parameters= to Gambit's
+=##parameterize1=. This is the existing language mechanism, not a replacement
+scheduler or private dynamic-binding implementation. The report motivates the
+scope boundary; actual Gerbil controls qualify the implemented request behavior.
+No CPU, allocation or concurrent actor performance benefit is inferred.
+
+** Qualification
+
+The native parent counterexample reports =input does not match LR parser= only
+inside the ambient layout context. The baseline child exits zero in 6.368
+seconds with final =OK=; its receipt is
+=/private/tmp/parser-layout-isolation-baseline-supervision.log=. This records
+the reproduced bug, not success of the repaired implementation.
+
+The repaired layout, LR and source request owners and the focused layout module
+compile natively with optimization/static products in 70.397 seconds, exit zero
+and final =OK=. Fourteen consumer suites pass 131 cases in 26.984 seconds. The
+matrix includes the four new isolation/streaming/casefold/restoration cases,
+both semantic preferences, deterministic and dynamic fork grammars, generated
+Scheme/Rust controls, resolved source origins, complete parser products and
+ten-language ABI byte equality. Both supervisors retain the five-second real
+progress gate and report no rejection reason or missing completion output.
+
+Receipts are =/private/tmp/parser-layout-isolation-build-supervision.log= and
+=/private/tmp/parser-layout-isolation-test-supervision.log=. Dependency products
+are reused in the native overlay; this is not a clean-checkout package build.
+No Rust runtime source or language declarations change. Exact-head Linux,
+macOS and Rust platform CI remain a separate delivery gate. This qualification
+closes the reproduced request-capability leakage and tested restoration paths;
+it does not establish arbitrary layout equivalence or actor concurrency safety.
+
 * One boundary from productions to executable tables
 
 This completes the structural table boundary identified in

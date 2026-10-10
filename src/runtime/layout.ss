@@ -3,6 +3,7 @@
 
 (import (only-in ./lr-action-index
                  lookup-action-entry lookup-literal-action-entry
+                 lookup-casefolded-literal-action-entry
                  lookup-layout-start-action-entry
                  lookup-layout-next-action-entry lr-action-row-tokens)
         (only-in ./token token-kind token-lexeme token-start token-end))
@@ -128,7 +129,7 @@
           (layout-ordinary-entry
            (or (lookup-literal-action-entry row lexeme)
                (and case-insensitive?
-                    (lookup-literal-action-entry row (string-upcase lexeme)))
+                    (lookup-casefolded-literal-action-entry row lexeme))
                (lookup-action-entry (lr-action-row-tokens row) (token-kind token)))
            (layout-shift-allowed? token))))
     (or next start ordinary

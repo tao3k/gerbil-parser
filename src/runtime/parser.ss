@@ -268,14 +268,12 @@
 
 (def (parse-tokenized machine grammar-digest source tokens
                       (observability #f))
-  (if (lr-runtime-layout? (parser-machine-runtime machine))
-    (parameterize ((current-layout-columns (make-layout-columns source))
-                   (current-layout-frames '()))
-      (parse-tokenized/with
-       machine grammar-digest source tokens
-       (lambda (significant observability)
-         ((parser-machine-parse machine) significant observability))
-       observability))
+  ;; Every source request owns its columns and initial frames. Parameter
+  ;; restoration also protects an outer request after success or rejection.
+  (parameterize ((current-layout-columns
+                  (and (lr-runtime-layout? (parser-machine-runtime machine))
+                       (make-layout-columns source)))
+                 (current-layout-frames '()))
     (parse-tokenized/with
      machine grammar-digest source tokens
      (lambda (significant observability)

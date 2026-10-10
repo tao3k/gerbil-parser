@@ -419,15 +419,17 @@
          (select-lr-semantic-reducer 'event capability) #f #f plans)))))
 
 ;; current-action-row
-;; : (-> Vector Fixnum List Boolean (OrFalse Pair))
-(def (current-action-row actions state tokens case-insensitive?)
+;; : (-> Vector Fixnum List Boolean Boolean (OrFalse Pair))
+(def (current-action-row actions state tokens case-insensitive? layout?)
   (let (row (vector-ref actions state))
     (if (null? tokens)
       (lr-action-row-eof row)
       ;; A literal is a contextual keyword/punctuation refinement of its
       ;; lexical token kind. It precedes the generic kind action.
       (let (input-token (car tokens))
-        (if (current-layout-columns)
+        ;; Dynamic columns belong to a surrounding source request. They do
+        ;; not grant layout capability to a nested plain prepared runtime.
+        (if (and layout? (current-layout-columns))
           (layout-current-action-row row input-token case-insensitive?)
           (or (lookup-literal-action-entry row (token-lexeme input-token))
               (and case-insensitive?
@@ -630,6 +632,7 @@
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
+         (layout? (lr-runtime-layout? runtime))
          (input-end-offset
           (fold (lambda (input-token offset)
                   (max offset (token-end input-token)))
@@ -874,7 +877,7 @@
       (if (positive? fuel)
         (let (action-row
               (current-action-row action-index (car states) rest
-                                  case-insensitive?))
+                                  case-insensitive? layout?))
           (cond
            ((not action-row)
             (record-failure! (car states) rest)
@@ -913,7 +916,7 @@
             (configuration-bucket-set! results state bucket key memo)
             (let* ((action-row
                     (current-action-row
-                     action-index state rest case-insensitive?))
+                     action-index state rest case-insensitive? layout?))
                    (result
                     (if action-row
                       (try-action (cdr action-row) (car action-row)
@@ -1005,6 +1008,7 @@
          (action-index (lr-runtime-action-index runtime))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
+         (layout? (lr-runtime-layout? runtime))
          (tokens
           (if feed-token
             (cons feed-token (lr-checkpoint-tokens checkpoint))
@@ -1064,7 +1068,7 @@
                   rest))
                (action-row
                 (current-action-row
-                 action-index state rest case-insensitive?)))
+                 action-index state rest case-insensitive? layout?)))
           (if (not action-row)
             (if stop-at-failure?
               (values

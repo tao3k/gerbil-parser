@@ -3,7 +3,7 @@
         (only-in :gerbil-parser/src/compiler/machine parser-machine-ir)
         (only-in :gerbil-parser/src/runtime/lr-action-index
                  index-action-rows lookup-literal-action-entry lookup-casefolded-literal-action-entry)
-        (only-in :gerbil-parser/t/benchmarks/gql/runtime/matched-stages
+        (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
                  measure-parser-batch sample-at-percentile))
 (export benchmark-lr-casefold)
 (def (field row key) (cdr (assq key row)))

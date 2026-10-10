@@ -1,7 +1,6 @@
 ;;; -*- Gerbil -*-
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-table validate-lr-tables layout-productions?)
-        (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare)
         (only-in :gerbil-parser/src/runtime/funcs
                  association-row-vector->index association-row-index-ref)
         (only-in :gerbil-parser/src/runtime/lr-action-index

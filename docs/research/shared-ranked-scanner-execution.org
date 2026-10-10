@@ -965,7 +965,7 @@ the total fence at 127.608 seconds; it is not a successful build receipt.
 
 At source graph =11b2cf1=, seven modules pass 35 semantic cases with the new
 native objects in 30.247 seconds. Four native matrix children complete in
-57.506, 62.648, 89.158 and 68.538 seconds with exit zero and final workload
+57.506, 72.633, 89.158 and 68.538 seconds with exit zero and final workload
 markers. Candidate/reference/reference/candidate order executes 19,200 timed
 calls. Each child verifies the LR and action-index object identities. Both
 module prefixes change together; the lexical and shared scanner products stay

@@ -299,3 +299,20 @@ admission is =#f=. This small-batch rerun qualifies the merged execution and
 admission path, not a portable CPU benefit. The earlier two-sample caller receipts
 remain historical execution controls; they do not satisfy the current paired
 performance protocol.
+
+
+* Shared literal IR and casefold lookup
+
+Bounded and ranked literal preparation and case-insensitive action lookup now
+share the literal trie builder. The prepared vocabulary is shared across LR
+states; the original state row remains the authority for entry admission.
+ASCII early misses avoid whole-string uppercase allocation, while Unicode
+conversion retains its original owner. No language declaration changes.
+
+The [[file:../research/shared-ranked-scanner-execution.org::*Shared literal vocabulary and casefold lookup qualification][native qualification]] separates complete-request allocation evidence from
+component CPU evidence. The complete matrix has 19,200 calls and 844 admitted
+allocation intervals. GQL saves 2,944 or 24,448 bytes per request; FHIRPath and
+Arithmetic allocation controls are unchanged. Alternating lookup measurements
+admit early-miss benefit for long identifiers, but whole-parser CPU acceleration
+and the Bash/tree-sitter throughput gap remain unproved. Withdrawn prototypes
+and compiler qualification failures remain in the research history.

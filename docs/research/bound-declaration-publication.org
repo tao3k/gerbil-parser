@@ -1,0 +1,164 @@
+#+title: Ordered declaration origins and complete Bound IR publication
+#+startup: overview
+
+* One compilation responsibility
+
+This implements the publication part of the
+[[file:scheme-component-provenance.org][component provenance study]] and
+[[file:scheme-source-origin-contract.org][reader-origin contract]]. The original producer is =5bc7d2f=;
+the integrated parent =4319c94= retains its source and adds shared CPU sampling.
+The language author interfaces remain =grammar.ss=, =parser.ss= and
+=parser-test.ss=. No new author composition clause, callback or IR schema is
+introduced.
+
+The user-selected
+[[https://github.com/tao3k/gerbil-ascent/blob/f84155662b57ec8034bb60f0d14968715ad15cce/docs/scheme-coding-style.org][Scheme Coding Style]] guides ownership, representation, admission and evidence.
+The relevant upstream mechanisms are Gerbil =2591dcd='s
+=std/list/list-builder.ss= and =gerbil/expander/stx.ss=. The former owns fresh
+queue cells through hygienic syntax; the latter provides =stx-for-each= and
+defines =syntax->list= as =stx-map values=. Source syntax can therefore be
+visited directly without first copying an identity-mapped list.
+
+* Paper, contract and implementation
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Ryan Culpepper and Matthias Felleisen, Fortifying Macros, ICFP 2010]] argues for
+checking macro uses and explaining errors at the author's language boundary.
+Our inference is that optimization must preserve the selected declaration,
+reader syntax and contextual source record through lowering. The paper does
+not prescribe our indexes, canonical digests or list representation. This
+change does not implement Racket's =syntax-parse= system.
+
+| Owner | Implemented responsibility | Preserved contract |
+|-------+----------------------------+--------------------|
+| [[file:../../src/compiler/normalize.ss][POO normalization]] | One ordered composition collector; direct field-origin emission | Parent order, repeated inherited occurrences, role order, cycle rejection and selected source ownership |
+| [[file:../../src/compiler/language-artifact.ss][Declaration expansion]] | =stx-for-each= emits field origins directly | Reader syntax identity, field order, scope and malformed-row diagnostics |
+| [[file:../../src/compiler/bound-ir.ss][Bound IR publication]] | Invocation-owned source selection; direct section, field and reference construction | First source entries, qualified field names, present false values, declaration/reference order, IDs and canonical digests |
+
+All binding IDs are collected before references are validated, so forward
+references remain legal and unresolved references fail before publication.
+The required reference list still exists: it is canonical digest input. The
+temporary flattened binding catalog, per-kind field batches, reversed bound
+sections and variadic reference flattening are removed. Published source records
+and declaration payloads are borrowed exactly as before; queue mutation is
+confined to new list cells.
+
+Source selection previously repeated linear =assoc= searches for every binding.
+One private index per known source namespace now retains original association
+entries. This preserves the first row and a present =#f= value; qualified field
+keys use structural equality. The index belongs to one binding invocation and
+is neither published nor retained by a grammar or parser. With bounded key
+shapes and normal hash behavior, source indexing and lookup cost is expected
+to grow with source records plus bindings, rather than their product. This
+algorithmic analysis is separate from measured complete-publication CPU.
+
+#+begin_src scheme
+;; Private publication extent: data order and complete closure share one owner.
+(with-list-builder (emit)
+  (for-each
+   (lambda (section)
+     (for-each
+      (lambda (binding)
+        (table-set! binding-ids (bound-grammar-ir-ref binding 'bindingId) #t)
+        (for-each emit (bound-grammar-ir-ref binding 'references)))
+      (cdr section)))
+   sections))
+;; Validate references after every binding ID is present, before publishing IR.
+#+end_src
+
+** Question: why does this improve the Scheme DSL boundary?
+
+Author declarations retain their vocabulary and source syntax. POO composition
+selects the effective declaration; the compiler owns its transient construction
+and lookup costs. Hygienic construction syntax expresses private list ownership,
+=syntax-case= retains identifier/context-sensitive admission, and named functions
+express closed algorithms. Adding a public generic protocol would not help this
+fixed publication contract.
+
+** Question: why is this scientifically testable?
+
+[[file:../../t/bound-ir-index-test.ss][Independent controls]] check first-entry selection, empty first sections,
+present false values, qualified fields, defaults, duplicate declaration rejection
+and unresolved references. The 20,000-binding case preserves full declaration
+order without a variadic call. The original producer rejects that same input
+with Gambit's =Number of arguments exceeds implementation limit= at reference
+flattening. This is an engine algorithm defect, not a GC diagnosis or a timing
+sample. Existing composition, declaration, LR-origin and language ABI consumers
+check the entire compiler chain.
+
+[[file:../../t/benchmarks/bound-source-catalog/benchmark.ss][The permanent benchmark]] measures complete binding, closure checks and all
+canonical digest construction. Its original constructor is an experiment input,
+never a production fallback. Every original/candidate product must equal the
+entire current sidecar, including source records and digests. Catalog construction
+is outside timing. Existing shared samplers retain natural GC, admitted allocation
+populations and alternating CPU order. These are binding-publication measurements,
+not complete grammar compilation or parsing throughput.
+
+* Reproduction
+
+#+begin_src sh
+gerbil compile -O
+gerbil env gerbil test -v 5 t/bound-ir-index-test.ss t/grammar-composition-contract-test.ss t/grammar-composition-lowering-test.ss t/grammar-composition-execution-test.ss t/language-artifact-test.ss
+gerbil compile -O t/fixtures/bound-source-catalog.ss t/benchmarks/bound-source-catalog/benchmark.ss
+gerbil env gxi -e '(import :gerbil-parser/t/benchmarks/bound-source-catalog/benchmark) (benchmark-bound-source-catalog 20 5 512)'
+#+end_src
+
+The isolated comparison reconstructs only the original owner, with a different
+module basename and the same dependencies; reference code is not committed:
+
+#+begin_src sh
+mkdir -p .cache/bound-source-reference/src/compiler
+cp gerbil.pkg .cache/bound-source-reference/gerbil.pkg
+git show 5bc7d2f:src/compiler/bound-ir.ss > .cache/bound-source-reference/src/compiler/bound-ir-reference.ss
+gerbil compile -O .cache/bound-source-reference/src/compiler/bound-ir-reference.ss
+gerbil env gxi -e '(import (prefix-in :gerbil-parser/src/compiler/bound-ir-reference original-) :gerbil-parser/t/benchmarks/bound-source-catalog/benchmark) (compare-bound-source-catalog original-bind-grammar-ir 20 2 512)'
+#+end_src
+
+* Qualification and negative evidence
+
+The completed normalization, syntax-origin and Bound IR chain passed 12 native
+consumer modules and all 136 cases in 47.121 seconds, exit zero, final =OK=,
+no supervision reason or missing receipt. The original large-catalog control
+exited one with the call-arity error; it is not a successful performance receipt.
+Optimized native compilation of the two source-origin owners completed in
+56.481 seconds. Local reuse of native artifacts remains distinct from clean
+platform CI.
+
+An initial CPU experiment used ten-call batches. It completed some component
+measurements and two paired populations, then stopped under the unchanged
+five-second idle watchdog during the larger catalog. That aggregate run is
+rejected. Two-call batches retain the same complete inputs, twenty alternating
+groups and the sampler's one-millisecond resolution requirement; they allow
+genuine group receipts within the original progress budget. Allocation intervals
+that contain GC are excluded rather than replaced with plausible estimates.
+
+The completed two-call CPU comparison used 20 alternating groups per size,
+preserved every complete sidecar and passed the one-millisecond batch-resolution
+check. It exited zero in 32.655 seconds with final =OK=:
+
+| Syntax kinds (two bindings each) | Ratio P10 | Ratio P50 | Ratio P90 |
+|--------------------------------+-----------+-----------+-----------|
+| 16 | 0.718 | 1.019 | 1.169 |
+| 128 | 0.526 | 1.062 | 1.773 |
+| 512 | 0.635 | 0.810 | 1.149 |
+
+Ratios are candidate/original user+system CPU including natural GC. The upper
+quantiles and small/medium medians reject a stable speedup claim. The incomplete
+ten-call experiment also produced inconsistent ratios: its 16-kind median was
+1.413 and its 128-kind median 1.030. Neither population can be discarded merely
+because a later median looks better.
+
+Its component allocation population admitted 19 samples on each 16-kind side,
+with medians 1,794,904 and 1,712,315.2 bytes/call. This modest observation is not
+a large-catalog claim: the original 128-kind population admitted zero samples,
+the candidate admitted six, and both 512-kind populations admitted zero. Missing
+allocation evidence remains missing. Canonical serialization, digest construction
+and retained object effects still need attribution before another performance
+claim; no private index result proves full grammar compilation speed.
+
+The saved native comparison entry was then invoked with the original constructor,
+20 groups, two calls and 16 kinds. It preserved all complete sidecars and exited
+zero in 28.583 seconds with =BOUND-SOURCE-COMPARISON-OK= and final =OK=. Its CPU
+ratios were 0.746 / 0.985 / 1.646 (P10/P50/P90), again rejecting stable speedup.
+The integrated parent =4319c94= completed Ubuntu Scheme, macOS Scheme and Rust
+AOT CI successfully. Those parent checks do not qualify the new source slice;
+its pushed revision still needs its own clean-checkout platform results.

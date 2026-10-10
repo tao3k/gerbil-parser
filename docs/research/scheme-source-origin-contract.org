@@ -3,6 +3,11 @@
 
 * Research question and evidence boundary
 
+The [[file:bound-declaration-publication.org][ordered declaration publication study]] implements the shared normalization,
+syntax-origin and Bound IR construction path, with source-selection controls and
+complete sidecar measurements. It preserves the historical origin experiment
+below and its separate qualification limits.
+
 Can a concise multi-rule component retain both its author invocation and its
 macro definition origin, through the existing POO and Bound IR owners?
 This follows the [[file:scheme-component-provenance.org][component provenance]] and

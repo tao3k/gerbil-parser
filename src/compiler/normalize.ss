@@ -4,6 +4,7 @@
                  grammar-composition grammar-name grammar-parents
                  grammar-role-name grammar-role-ref grammar-roles)
         (only-in ../runtime/identity sha256-text)
+        (only-in :std/list/list-builder with-list-builder)
         (only-in ../utilities/lists append-unique merge-keyed-row))
 (export compile-grammar
         compile-grammar/receipt
@@ -21,15 +22,15 @@
 
 ;; : (-> Grammar (List Grammar) (List GrammarRole))
 (def (collect-steps grammar (active '()))
-  (when (memq grammar active)
-    (error "grammar inheritance cycle" (grammar-name grammar)))
-  (let (next (cons grammar active))
-    (append
-     (apply append
-            (map (lambda (parent) (collect-steps parent next))
-                 (grammar-parents grammar)))
-     (map (lambda (role) (cons 'merge role)) (grammar-roles grammar))
-     (grammar-composition grammar))))
+  (with-list-builder (emit)
+    (def (visit grammar active)
+      (when (memq grammar active)
+        (error "grammar inheritance cycle" (grammar-name grammar)))
+      (let (next (cons grammar active))
+        (for-each (lambda (parent) (visit parent next)) (grammar-parents grammar))
+        (for-each (lambda (role) (emit (cons 'merge role))) (grammar-roles grammar))
+        (for-each emit (grammar-composition grammar))))
+    (visit grammar active)))
 
 (def (replace-keyed-row rows row section)
   (let ((key ((section-row-key section) row))
@@ -152,13 +153,15 @@
           (lexical-rules . lexical-rule) (rules . rule)))
    (list
     (cons 'field
-          (apply append
-                 (map (lambda (entry)
-                        (let ((row (effective-grammar-row-row (cdr entry)))
-                              (selected-source (source (cdr entry))))
-                          (map (lambda (name) (cons (list (car row) name) selected-source))
-                               (caddr row))))
-                      (entries 'syntax-kinds)))))))
+          (with-list-builder (emit)
+            (for-each
+             (lambda (entry)
+               (let ((row (effective-grammar-row-row (cdr entry)))
+                     (selected-source (source (cdr entry))))
+                 (for-each
+                  (lambda (name) (emit (cons (list (car row) name) selected-source)))
+                  (caddr row))))
+             (entries 'syntax-kinds)))))))
 
 ;; : (-> List List List)
 (def (append-flow merged edge)

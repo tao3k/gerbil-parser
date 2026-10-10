@@ -6,8 +6,9 @@
         (only-in ../grammar/algebra grammar-expression-header?)
         (only-in :gerbil/core/expander
                  with-syntax syntax-case syntax datum->syntax syntax->datum syntax->list
-                 identifier? stx-source stx-map stx-list? stx-pair? stx-car stx-cdr raise-syntax-error)
+                 identifier? stx-source stx-map stx-for-each stx-list? stx-pair? stx-car stx-cdr raise-syntax-error)
         (only-in :std/list/list delete-duplicates/hash take drop)
+        (only-in :std/list/list-builder with-list-builder)
         (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/language-artifact
                  compiled-language-artifact-relative-path
@@ -526,21 +527,18 @@
   (def (field-sources rows)
     (cons
      'field
-     (apply append
-            (stx-map
-             (lambda (row)
-               (syntax-case row ()
-                 ((kind _ (field ...))
-                  (map
-                   (lambda (field)
-                     (cons
-                      (list (syntax->datum #'kind)
-                            (syntax->datum field))
-                      (source-location field)))
-                   (stx-map (lambda (value) value) #'(field ...))))
-                 (_ (raise-syntax-error #f
-                        "invalid bound syntax-kind row" row))))
-             rows))))
+     (with-list-builder (emit)
+       (stx-for-each
+        (lambda (row)
+          (syntax-case row ()
+            ((kind _ (field ...))
+             (stx-for-each
+              (lambda (field)
+                (emit (cons (list (syntax->datum #'kind) (syntax->datum field))
+                            (source-location field))))
+              #'(field ...)))
+            (_ (raise-syntax-error #f "invalid bound syntax-kind row" row))))
+        rows))))
   (let* ((source-map
           (append
            explicit-source-map

@@ -2100,3 +2100,212 @@ Repeating through the existing test-only process exit interface completed in
 11.954 seconds with exit 0 and both required markers. That receipt qualifies
 the merged runtime; it does not establish that the direct GXI shutdown issue
 is resolved.
+
+* First-character competition staging and callback ownership
+
+** Source study and phase ownership
+
+The pinned Gerbil SDK revision =2591dcd= provides a useful distinction in
+=src/std/text/parser/ll1.ss=. The =ll1-bind= and =ll1-begin= combinators compose
+procedures before reader execution, whereas =ll1-or/list= retains a named loop
+where input-dependent failure determines the next alternative. The =peeker=
+constructor resolves the specification's outer representation before the
+resulting predicate sees input. These are concrete implementation patterns,
+not evidence that every closure composition improves performance.
+
+The existing [[file:scheme-dsl-research-basis.org][DSL research basis]] and
+[[file:scheme-macro-binding-experiments.org][binding experiments]] retain
+language declaration context and place derived execution mechanisms in the
+shared engine. These experiments need no author macro, POO slot, grammar field,
+unsafe assertion, or compatibility path. They investigate prepared dispatch
+and callback ownership inside the existing ranked lexical algebra.
+
+Previously, an ASCII table selected the nonregular candidate list, but each
+token folded that list with a source/offset callback and checked whether regular
+and literal scanners participated. The participation facts are derivable during
+preparation. The experiments below show why derivability alone is insufficient
+to admit a new execution representation.
+
+** Retained execution candidate
+
+The retained candidate keeps the existing ASCII table, mode admission,
+conservative non-ASCII path, regular/literal dispatch and mode-miss fallback.
+The private =scan-ranked-candidates= hygienic macro preserves the stable
+source, offset and candidate bindings at its sole call site. It applies the
+existing =prefer-generated-match= in a named loop without a new procedure
+argument boundary. It preserves
+all candidate calls and their order, including no-match results. The caller no
+longer constructs a source-dependent fold callback for each token. There is no
+new prepared procedure catalog, nested composition graph or transient interning
+cost. This isolates callback ownership from the rejected staging designs.
+
+The original nonregular order, regular scanner and literal scanner order remain
+unchanged. Token materialization and byte extents retain their existing owner.
+No claim about eliminating all scanner allocation follows from removing this
+one callback. The fixed GCC compiler owns ordinary procedure and sequence checks.
+
+** Independent semantic controls
+
+The initial staged prototype passes six modules with 55 cases in 21.287 seconds
+and exit 0: first-character admission, lexical plans, ranked regular and literal
+scanners, parser runtime, and Bash. The new first-character case uses independent
+instrumented scanners to check evaluation order, longest match before priority,
+a missing candidate, Unicode byte offsets and an empty ASCII projection.
+Existing controls retain unfiltered reference dispatch, declaration-order ties,
+directed mode fallback, all 64 regular subsets and complete incremental products.
+
+Native callers are held constant within each matched control series. Reference
+and candidate lexical module objects are selected explicitly before process
+admission. The 3 GiB heap, 120-second total bound and five-second idle guard
+remain unchanged. Compilation and semantic admission are outside measured
+request batches.
+
+** Rejected nested-composition prototype
+
+The first prototype composed a captured previous procedure and next scanner for
+each ranked fold edge. The complete HCL lexer allocated 312,330.4 bytes instead
+of 336,906.4 in both candidate blocks. Its CPU medians were 49.05 and 47.40
+microseconds per call, against reference values 98.75 and 58.50; the reference
+itself varied considerably. Each block used eleven samples of twenty lexer
+calls and checked complete tokens against the independent direct HCL lexer.
+
+That component result did not justify retention. Native complete requests use
+twenty samples of twenty calls at sizes 64 and 512, with complete source-bound
+artifacts admitted against independent materialized GLR output. The 512-item
+GQL route regressed in both candidate blocks: 2.55185 and 2.50270 ms per call,
+against references 2.29435 and 2.33710. Prepared LR allocation remained unchanged
+while complete requests allocated fewer bytes. CPU improvements on some other
+routes could not override this repeated regression.
+
+The prototype also increased HCL lexer preparation allocation from 353,360 to
+1,023,200 bytes per call; all eleven samples in each block were admitted.
+Preparation CPU medians were 0.185 and 0.196 ms for the references, versus
+0.407 and 0.406 for the candidates. Those calls execute the factory once per
+sample and check its returned lexer against independent complete tokens after
+timing. The two cost boundaries therefore exposed both request and setup risks.
+
+A second staging prototype replaces nested composition with a named loop
+and interns tuple keys before building procedure lists, so equivalent ASCII
+classes do not repeatedly allocate those lists. It retains staged participation
+and removes the per-token fold callback. Nested frames remain an investigation
+hypothesis, not a proven isolated cause of the first prototype's CPU change.
+The second prototype was also rejected, as recorded below.
+
+** Rejected staged-loop prototype
+
+The second prototype's complete-request ABBA still leaves the 512-item GQL
+candidate above both references. Prepared LR CPU also varies, so these data do
+not isolate the cause or establish a speed equivalence margin. The prototype
+is not retained as a performance optimization. CPU values below are batch CPU
+P50 divided by twenty, in milliseconds per call; allocation is admitted
+bytes per call. Complete products remain admitted against independent GLR.
+
+| Route | Reference A | Candidate A | Candidate B | Reference B | Reference bytes | Candidate bytes |
+|-------+-------------+-------------+-------------+-------------+-----------------+-----------------|
+| gql-return 64 prepared-lr | 0.26665 | 0.22170 | 0.28530 | 0.21620 | 230932. | 230932. |
+| gql-return 64 full-source | 0.36290 | 0.31155 | 0.35580 | 0.32865 | 542941.6 | 530589.6 |
+| fhirpath-addition 64 prepared-lr | 0.22660 | 0.21915 | 0.22460 | 0.23470 | 255540. | 255540. |
+| fhirpath-addition 64 full-source | 0.39165 | 0.35525 | 0.36910 | 0.35280 | 695181.6 | 678989.6 |
+| arithmetic-addition 64 prepared-lr | 0.09380 | 0.12410 | 0.09520 | 0.09490 | 134804. | 134804. |
+| arithmetic-addition 64 full-source | 0.15455 | 0.15155 | 0.15885 | 0.15105 | 462141.6 | 445949.6 |
+| gql-return 512 prepared-lr | 1.77545 | 2.03600 | 1.98900 | 1.84755 | 1894004. | 1894004. |
+| gql-return 512 full-source | 2.77905 | 2.96355 | 3.15610 | 2.79175 | 4330101.6 | 4231733.6 |
+| fhirpath-addition 512 prepared-lr | 1.76920 | 1.76395 | 1.99520 | 1.79975 | 2104980. | 2104980. |
+| fhirpath-addition 512 full-source | 3.59885 | 3.29520 | 3.55690 | 3.40980 | 5585421.6 | 5454541.6 |
+| arithmetic-addition 512 prepared-lr | 0.79980 | 0.89065 | 0.75345 | 0.76800 | 1080980. | 1080980. |
+| arithmetic-addition 512 full-source | 1.44400 | 1.17690 | 1.19105 | 1.18840 | 3696477.6 | 3565597.6 |
+
+HCL preparation allocation falls from the first prototype's 1,023,200 bytes to
+656,624, but still exceeds the reference's 353,360. Eleven of eleven samples
+are admitted in every block. Preparation CPU medians are 0.172, 0.353, 0.435
+and 0.175 ms in ABBA order. Thus reducing repeated prepared-key construction
+improves that prototype's setup cost without qualifying it for retention.
+
+The complete HCL lexer still allocates 312,330.4 candidate bytes per call,
+against 336,906.4 reference bytes. Its CPU medians are 75.35, 63.35, 50.10
+and 53.60 microseconds per call in ABBA order, with eleven samples of twenty
+calls. Allocation admission is 11/11, 10/11, 10/11 and 11/11 respectively.
+Those component results cannot override the complete GQL request risk.
+
+
+** Procedure-boundary loop experiment and system contention
+
+A third candidate preserved the original preparation and dispatch but moved the
+candidate fold into an ordinary named procedure. Preparation allocation stayed
+at 353,360 bytes, and the complete HCL lexer allocated 312,330.4 bytes. However,
+its HCL CPU medians were 97.35 and 116.75 microseconds per call, against references
+54.25 and 55.50. Those timings do not qualify the procedure form as a CPU
+optimization. The focused 512-item GQL ABBA also varies, including unchanged
+prepared-LR controls: complete-request CPU medians are 3.38985, 3.53775,
+3.36565 and 3.67730 ms in order. No stable complete-request speedup follows.
+
+A live process inventory during the last series confirmed concurrent GXI, GSC
+and GCC compilation processes. The logs also show substantial wall-minus-CPU
+intervals. This is evidence that the measurement environment was not exclusive;
+it does not isolate the cause of any earlier prototype's CPU result or excuse a
+regression. The procedure-boundary version is not retained. The next lowering
+uses a private hygienic macro, following the qualified regular-run lowering in
+the preceding section, to preserve call-site bindings directly.
+
+Two preliminary focused-control entries failed before sampling because they
+used a parser-module namespace for the grammar-owned GQL machine binding.
+The generated interface identified the correct grammar binding; the corrected
+four blocks completed with every required marker and exit 0. These entry errors
+are excluded from the performance table.
+
+** Rebase compilation boundary
+
+The work rebases onto =aff9375=. Byte-span helpers, source-line helpers and the
+new completion-policy module compile before the affected LR runtime. The GCC
+invocation for =lr-parser~0= then triggers the unchanged five-second silence
+guard; the overall run exits 124 after 72.626 seconds, with an idle-timeout
+reason and no completed new LR object. This failure is retained. No compiler
+switch or deadline increase is used to admit it. The shared lexical module
+with the hygienic loop independently compiles with GCC in 39.100 seconds and
+exits 0. Its component receipts do not by themselves qualify that failed LR
+rebuild or establish whole-head native closure.
+
+** Hygienic loop component control
+
+The final component series runs candidate/reference/reference/candidate in
+that order. Each block uses the same compiled =request-cost.ss= caller,
+independently checks complete HCL tokens, and asserts the loaded lexical phase.
+The native lowering has no separate =scan-ranked-candidates= procedure: the
+named loop is in the prepared scanner's lexical body. Ordinary checked engine
+operations and the original prepared tables remain intact.
+
+| Boundary | Candidate A | Reference A | Reference B | Candidate B |
+|----------+-------------+-------------+-------------+-------------|
+| Complete HCL lexer CPU, us/call | 50.300 | 60.750 | 60.200 | 83.800 |
+| complete-hcl-lexer bytes/call | 312330.4 | 336906.4 | 336906.4 | 312330.4 |
+| complete-hcl-lexer allocation admission | 10/11 | 10/11 | 10/11 | 10/11 |
+| HCL preparation CPU, ms/call | 0.175 | 0.221 | 0.203 | 0.202 |
+| hcl-lexer-preparation bytes/call | 353360.0 | 353360.0 | 353360.0 | 353360.0 |
+| hcl-lexer-preparation allocation admission | 11/11 | 11/11 | 11/11 | 11/11 |
+
+Preparation allocation is identical in all blocks. The complete lexer saves
+24,576 admitted bytes per call (about 7.3 percent) in both candidates. Existing
+regular scanner microcontrols retain their products and allocation. CPU is
+reported with the known contention boundary; no stable complete-parser CPU
+improvement or portable latency multiplier is claimed. These receipts qualify
+the shared lexical component, not the previously failed fresh LR rebuild.
+
+A bounded retry compiles only the LR runtime and its current native benchmark
+caller. It completes in 64.801 seconds with exit 0 under the same GCC toolchain,
+heap, total limit and idle guard. The earlier failed run remains part of the
+receipt. The successful retry resolves the fresh native object gate for these
+related modules; it does not prove that shared-host contention is absent or that
+all unrelated runtime owners have been requalified locally.
+
+The rebased test phase at =aff9375= completes all eight modules and 63 cases,
+including completion-policy and generic dispatch contracts, and emits both
+=TEST-SUITE-OK modules=8= and =OK=. The combined entry then fails while loading
+the current benchmark's unbuilt selective-GLR fixture; its overall exit is 1,
+so that combined command is not reported as a successful gate. Building only
+that missing fixture completes in 15.494 seconds with exit 0. A separate native
+control then checks explicit current LR and lexical phase identities, complete
+GQL/FHIRPath/Arithmetic artifacts against independent GLR, HCL token equality,
+and regular scanner products. It emits all four required markers and exits 0
+in 11.097 seconds. Source phase results and the corrected native gate remain
+separate receipts; no repeated source test run is used to conceal the fixture
+admission failure.

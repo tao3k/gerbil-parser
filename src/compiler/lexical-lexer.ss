@@ -74,6 +74,16 @@
         (vector (vector-map/index (lambda (_index entry) (car entry)) classes) modes)))))
 
 
+;;; Private hygienic loop: all inputs are stable bindings at this call site.
+;;; Preserve their context without a per-token callback or procedure boundary.
+(defrules scan-ranked-candidates ()
+  ((_ candidates source offset)
+   (let loop ((remaining candidates) (selected #f))
+     (if (null? remaining) selected
+       (let (candidate ((caar remaining) source offset))
+         (loop (cdr remaining)
+               (prefer-generated-match selected candidate)))))))
+
 ;;; Generates only the source traversal shell; token construction remains scan-owned.
 ;;; Declaration order is observable only after length and precedence tie.
 ;; generated-lexer
@@ -185,11 +195,7 @@
                                  (vector-ref ascii-scanners code)
                                  scanners))
                               (selected
-                               (fold
-                                (lambda (entry selected)
-                                  (prefer-generated-match
-                                   selected ((car entry) source offset)))
-                                #f candidates)))
+                               (scan-ranked-candidates candidates source offset)))
                          (let (selected
                                (if (and regular-scanner
                                         (or (>= code 128)

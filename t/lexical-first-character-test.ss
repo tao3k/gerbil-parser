@@ -3,6 +3,7 @@
 (import :std/test
         :gerbil-parser/src/language/grammar
         (only-in :gerbil-parser/src/compiler/machine lexical-dispatch/ranked)
+        (only-in :gerbil-parser/src/compiler/lexical-lexer prepare-generated-lexer)
         (only-in :gerbil-parser/src/runtime/lexer scan-source-token)
         (only-in :gerbil-parser/src/runtime/scan scan-emit)
         (only-in :gerbil-parser/src/runtime/source-scanner
@@ -43,6 +44,37 @@
 
 (def lexical-first-character-test
   (test-suite "closed lexical first-character admission"
+    (test-case "prepared competition preserves evaluation order and empty projections"
+      (let (observed '())
+        (def (rule name rank first? extent)
+          (vector (lambda (terminals) #t)
+                  (lambda (source offset)
+                    (set! observed (cons name observed))
+                    (let (end (extent source offset))
+                      (and end (list name end rank))))
+                  #f name rank first? #f))
+        (let-values (((lexer plans certificates)
+                      (prepare-generated-lexer
+                       (list
+                        (rule 'first 0 char-alphabetic? (lambda (s o) (+ o 1)))
+                        (rule 'long 0 (lambda (ch) (char=? ch #\a))
+                              (lambda (s o) (and (char=? (string-ref s o) #\a) (+ o 2))))
+                        (rule 'priority 9 char-alphabetic? (lambda (s o) (+ o 1))))
+                       (lambda () (error "unused certificate preparation")) '#())))
+          (for-each
+           (lambda (row)
+             (set! observed '())
+             (let-values (((token end) (lexer (car row) 0 7 #f)))
+               (check (list (token-kind token) (token-lexeme token)
+                            (token-start token) (token-end token) end)
+                      => (cadr row)))
+             (check (reverse observed) => (caddr row)))
+           '(("ab" (long "ab" 7 9 2) (priority long first))
+             ("b" (priority "b" 7 8 1) (priority first))
+             ("α" (priority "α" 7 9 1) (priority long first))))
+          (set! observed '())
+          (check-exception (lexer "?" 0 0 #f) true)
+          (check observed => '()))))
     (test-case "engine token bytes preserve 1-4 byte scalars NUL and combining marks"
       (let* ((source (string-append "Aé中😀" (string #\nul) "e" (string (integer->char #x301))))
              (scanner (make-source-scanner source #f

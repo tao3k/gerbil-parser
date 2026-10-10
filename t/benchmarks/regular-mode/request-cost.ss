@@ -1,10 +1,11 @@
-;;; Native caller qualification for regular DFA start-state specialization.
+;;; Native caller qualification for shared regular scans and lexer preparation.
 (import (only-in :gerbil-parser/src/runtime/scan make-ranked-regular-scanner)
         (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation)
         (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
         (only-in :gerbil-parser/src/runtime/lexer lex-source)
-        (only-in :gerbil-parser/src/compiler/hcl-source direct-lex-hcl))
-(export benchmark-regular-mode)
+        (only-in :gerbil-parser/src/compiler/hcl-source direct-lex-hcl)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-prepare-lexer))
+(export benchmark-regular-mode benchmark-lexical-preparation)
 (def (measure-regular-mode name run valid? samples iterations)
   (let sample ((index 0))
     (when (< index samples)
@@ -50,3 +51,16 @@
     (measure-regular-mode 'complete-hcl-lexer (lambda () (lex-source hcl-parser source))
       (lambda (found) (equal? found expected)) samples 20))
   (displayln "REGULAR-MODE-OK") (force-output))
+
+;;; Preparation remains visible when scan dispatch moves out of the request.
+;;; Validate the returned native lexer after timing, against the independent lexer.
+(def (benchmark-lexical-preparation (samples 11))
+  (unless (and (exact-integer? samples) (positive? samples))
+    (error "lexical preparation benchmark requires a positive exact count"))
+  (let* ((source "alpha = 12\n") (expected (direct-lex-hcl source)))
+    (measure-regular-mode 'hcl-lexer-preparation
+      (lambda ()
+        (let-values (((lexer plans certificates) (parser-machine-prepare-lexer hcl-parser)))
+          lexer))
+      (lambda (lexer) (equal? (lexer source) expected)) samples 1))
+  (displayln "LEXICAL-PREPARATION-OK") (force-output))

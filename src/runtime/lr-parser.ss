@@ -8,6 +8,7 @@
         (only-in ./event-program event-program-append)
         (only-in ./event-reduce event-children-field event-children-alias)
         (only-in :std/vector/vector vector-map/index)
+        (only-in :core/poo-clos/interface .defgeneric .defmethod)
         (only-in ../compiler/lr
                  lr-spec-ref operand-actions production-action
                  production-lhs production-precedence production-rhs base-symbol
@@ -93,7 +94,7 @@
 (defstruct lr-runtime
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
-               lexical-modes lexical-mode-catalog direct-step semantic-reducer event-step event-runtime
+               lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
                reduction-plans)
   transparent: #t)
 
@@ -135,6 +136,34 @@
   (lr-runtime-event-runtime-set! runtime #f))
 
 (def current-lr-event-program-enabled? (make-parameter #f))
+
+;;; Closed preparation protocol: ordinary values specialize two independent
+;;; axes. Capture the selected procedures in the runtime, never redispatch in
+;;; a request or reduction. These methods are private and cannot evolve through
+;;; a public extension API; retained runtimes own their admitted executors.
+(.defgeneric select-lr-semantic-reducer (backend capability))
+(.defmethod (select-lr-semantic-reducer (backend (eql 'recognition)) capability)
+  reduce-value)
+(.defmethod (select-lr-semantic-reducer (backend (eql 'event)) capability)
+  #f)
+(.defmethod (select-lr-semantic-reducer (backend (eql 'event))
+                                          (capability (eql 'plain)))
+  reduce-value/events)
+
+;;; Grammar eligibility belongs to preparation, including negative admission.
+;;; It is independent of the request's optional backend preference.
+(def (lr-semantic-capability table actions dynamic? layout?)
+  (cond
+   (layout? 'layout)
+   (dynamic? 'dynamic)
+   ((vector-any (lambda (row)
+                  (any (lambda (entry) (eq? (cadr entry) 'fork)) row)) actions)
+    'branching)
+   ((vector-any (lambda (production)
+                  (not (memq (production-action production) '(pass concat)))) table)
+    'general)
+   (else 'plain)))
+
 (def (lr-runtime-event-program? runtime)
   (eq? (lr-runtime-semantic-reducer runtime) reduce-value/events))
 (def (install-lr-runtime-event-step! runtime step)
@@ -154,13 +183,7 @@
         (lr-runtime-event-program? runtime)) runtime)
    ;; Check the selected runtime before scanning grammar eligibility again.
    ((lr-runtime-event-runtime runtime) => identity)
-   ((or (lr-runtime-layout? runtime) (lr-runtime-dynamic? runtime)
-        (vector-any (lambda (row)
-                      (any (lambda (entry) (eq? (cadr entry) 'fork)) row))
-                    (lr-runtime-actions runtime))
-        (vector-any (lambda (production)
-                      (not (memq (production-action production) '(pass concat))))
-                    (lr-runtime-table runtime))) runtime)
+   ((not (lr-runtime-event-reducer runtime)) runtime)
    (else
     (let (selected
           (make-lr-runtime
@@ -170,7 +193,7 @@
            (lr-runtime-goto-index runtime) (lr-runtime-case-insensitive? runtime)
            #f #f (lr-runtime-lexical-modes runtime)
            (lr-runtime-lexical-mode-catalog runtime)
-           (lr-runtime-event-step runtime) reduce-value/events #f #f
+           (lr-runtime-event-step runtime) (lr-runtime-event-reducer runtime) #f #f #f
            (lr-runtime-reduction-plans runtime)))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
@@ -386,7 +409,10 @@
                    (lambda (row) (map car row))
                    (lambda (terminals id)
                      (make-lr-lexical-mode id terminals)))))
-      (let (table (production-table productions))
+      (let* ((table (production-table productions))
+             (plans (vector-map/index
+                     (lambda (_index production) (prepare-reduction-plan production)) table))
+             (capability (lr-semantic-capability table actions dynamic? layout?)))
         (make-lr-runtime
          productions
          table
@@ -403,9 +429,8 @@
          layout?
          modes
          mode-catalog
-         #f reduce-value #f #f
-         (vector-map/index
-          (lambda (_index production) (prepare-reduction-plan production)) table))))))
+         #f (select-lr-semantic-reducer 'recognition capability)
+         (select-lr-semantic-reducer 'event capability) #f #f plans)))))
 
 ;; current-action-row
 ;; : (-> Vector Fixnum List Boolean (OrFalse Pair))

@@ -7,15 +7,40 @@
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
         (rename-in (only-in :gerbil-parser/t/benchmarks/gql/runtime/matched-stages measure-gql-component)
                    (measure-gql-component measure-parser-component))
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
                  parser-machine-grammar-digest parser-machine-trivia)
-        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/prepared lr-parse/prepared/receipt)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/prepared lr-parse/prepared/receipt
+                 lr-prepare lr-runtime-for-current-semantic-backend
+                 current-lr-event-program-enabled? lr-runtime-event-program?)
         (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact
                  parse-artifact-events parse-artifact-valid-for-source?
                  token-event? token-event-token-kind token-event-lexeme event-start event-end))
-(export benchmark-lr-request-stack benchmark-lr-completions)
+(export benchmark-lr-request-stack benchmark-lr-completions benchmark-lr-semantic-preparation)
+
+;;; Preparation includes eligibility and generic selection. Repeated selection
+;;; uses the prepared runtime, including negative admission. Neither stage is a
+;;; decomposition of full parsing or a before/after performance claim.
+(def (benchmark-lr-semantic-preparation (samples 20) (preparations 10) (selections 1000))
+  (parameterize ((current-lr-event-program-enabled? #t))
+    (for-each
+     (lambda (entry)
+       (let* ((family (car entry))
+              (spec (cdr (assq 'lr-spec (parser-machine-ir (cdr entry)))))
+              (runtime (lr-prepare spec))
+              (select (lambda (runtime)
+                        (lr-runtime-event-program?
+                         (lr-runtime-for-current-semantic-backend runtime))))
+              (expected (select runtime)))
+         (displayln "LR-SEMANTIC-ADMISSION " family " event=" expected) (force-output)
+         (measure-parser-component (list family 'semantic-preparation) samples preparations
+                                   (lambda () (select (lr-prepare spec))) expected)
+         (measure-parser-component (list family 'prepared-backend-selection) samples selections
+                                   (lambda () (select runtime)) expected)))
+     (list (cons 'gql gql-parser) (cons 'fhirpath fhirpath-parser)
+           (cons 'arithmetic arithmetic-parser))))
+  (displayln "LR-SEMANTIC-PREPARATION-OK") (force-output))
 
 ;;; A complete group contains equivalent merge, dynamic ranking, fragment
 ;;; interning and typed ambiguity rejection. Machine preparation is excluded.

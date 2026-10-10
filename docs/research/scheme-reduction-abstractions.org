@@ -332,10 +332,9 @@ generation and sorts by =argument-precedence-order=; =compute-effective-method=
 admits protocol hooks. The checked runtime is already a dependency. The parser
 must not implement a second generic registry or method-combination evaluator.
 
-The existing engine uses receiver protocols for grammar/context role access,
-but does not use a CLOS generic preparation protocol for semantic backends.
-That is an architectural opportunity, not evidence that the dependency is
-missing or incapable.
+The engine uses receiver protocols for grammar/context role access. The initial
+audit found no CLOS preparation protocol for semantic backends; the LR migration
+below now installs one. The dependency already provided the required mechanism.
 
 ** Separate selection from repeated execution
 
@@ -425,3 +424,118 @@ using the module's normal imported binding fixes that driver error. These
 negative receipts establish neither a generic-dispatch performance result nor
 a defect in Core. Native dependency reuse and source-client qualification are
 separate from a fully interpreted dependency run.
+
+** Production LR preparation: select admitted executors once
+
+=src/runtime/lr-parser.ss= now separates the grammar's semantic capability from
+the request's backend preference. =lr-prepare= validates reduction plans,
+classifies the admitted grammar and selects both executors through the existing
+Core CLOS implementation:
+
+#+begin_src scheme
+(.defgeneric select-lr-semantic-reducer (backend capability))
+(.defmethod (select-lr-semantic-reducer (backend (eql 'recognition)) capability)
+  reduce-value)
+(.defmethod (select-lr-semantic-reducer (backend (eql 'event)) capability)
+  #f)
+(.defmethod (select-lr-semantic-reducer (backend (eql 'event))
+                                     (capability (eql 'plain)))
+  reduce-value/events)
+#+end_src
+
+The general event method denotes unavailable optional execution; the more
+specific =event/plain= method supplies the executor. Layout, dynamic precedence
+and branching grammars retain recognition execution. Unsupported semantic
+actions still fail during reduction-plan validation. No public grammar syntax,
+POO wrapper or alternate generic registry is introduced.
+
+The prepared runtime stores the returned procedure or negative admission.
+=lr-runtime-for-current-semantic-backend= performs constant-size preference and
+identity checks, then obtains or constructs the cached event runtime. It no
+longer traverses the LR action and production tables, including repeated
+requests against an ineligible grammar. Generated step installation invalidates
+future runtime selection while previously retained runtimes keep their executor.
+
+This first protocol is closed and module-private. Core's lowering constructs a
+lexical =poo-clos-generic-binding=; the parser exports neither that binding nor
+the generic. Preparation captures the selected executor itself, so later
+requests do not consult a generic generation. An open extension protocol still
+needs explicit generation admission; this change does not implement one.
+Executors remain derived runtime values, absent from canonical digest-bearing
+grammar and parser IR.
+
+*** Question: why is this abstraction preferable?
+
+Support for a backend/capability combination is a method declaration owned by
+preparation. Callers do not inspect grammar tables or reproduce support rules.
+Ordinary Scheme values suffice for these fixed strategies; actual open authoring
+objects retain their POO interfaces. Multiple dispatch resolves variation while
+named pure algorithms perform capability classification and the fixed reduction
+kernel performs traversal. This assigns each abstraction a concrete job.
+
+*** Question: what makes the claim testable?
+
+=t/lr-semantic-preparation-test.ss= checks preference-independent preparation,
+runtime identity and cache reuse, generated-step replacement without changing
+retained executors, and recognition fallback for dynamic, branching and layout
+grammars. Existing artifact, GLR, empty-reduction and fragment tests supply
+semantic controls. Two generic selections and eligibility scanning now belong
+to preparation even when event execution is not requested. Preparation overhead,
+cold native dependency loading and complete-request performance must therefore
+be measured separately; removing request-time table traversal alone proves no
+end-to-end speedup.
+
+*** Qualification and separated cost observations
+
+The runtime and new contract suite compile natively with final =OK=, exit 0,
+42.902 s. The native =machine= consumer is rebuilt in dependency order, 18.726 s.
+The three compiled preparation cases pass directly through =std/test= in
+14.981 s. Seven source-client suites over the rebuilt native runtime pass
+46 cases in 12.627 s, including artifact parity, empty reductions, GLR,
+layout and incremental fragment controls. All accepted processes retain the
+five-second real-output watchdog and require both successful exit and final
+=OK=. Receipts are =/private/tmp/parser-semantic-preparation-{compile-repaired,
+machine-compile,native,controls-final}-supervision.log=.
+
+The first integration run exposed an old =machine= product whose inlined
+=lr-runtime-event-step= accessor used the preceding record layout. It read the
+new executor slot and incorrectly rejected backend installation. Recompiling
+the consumer resolves the mismatch; this failed run is excluded. Incorrect
+compiler entry names, a delimiter error and an invalid verbosity argument in
+temporary drivers are also excluded. No compatibility accessor is installed.
+
+The existing =t/benchmarks/lr-request-stack/benchmark.ss= now exports a separate
+preparation/selection observation alongside complete-request controls:
+
+#+begin_src scheme
+(benchmark-lr-semantic-preparation 8 3 1000)
+(benchmark-lr-request-stack 8 3)
+#+end_src
+
+Each prepared runtime is warmed before repeated selection. Preparation samples
+include =lr-prepare= and initial backend selection, including construction of
+the selected runtime where admitted. Eight samples observe three preparations
+or 1,000 warmed selections per batch. These observations are not a paired
+baseline/candidate comparison.
+
+| Language | Event admitted | Preparation plus first selection CPU median, ms/call | Warmed selection CPU median, us/call |
+|----------+----------------+-----------------------------------------------------+-------------------------------------|
+| GQL | no | 75.079 | 0.081 |
+| FHIRPath | yes | 1.139 | 0.053 |
+| Arithmetic | yes | 0.565 | 0.054 |
+
+The complete benchmark also validates six cross-language products at 64/512
+units and runs their prepared-recognition/full-source samples. Both benchmark
+markers and final =OK= pass, exit 0, 34.454 s, in
+=/private/tmp/parser-semantic-preparation-benchmark-supervision.log=.
+Wall observations contain substantial scheduler delay, so no wall-speedup
+claim is admitted. The large GQL preparation cost needs attribution among table
+indexing, mode interning and other preparation work; these measurements do not
+identify its dominant algorithm or attribute it to generic dispatch.
+
+Publication integrates concurrent =aff9375= before delivery. The owned LR,
+machine and benchmark source graph is unchanged by that commit. Rebased native
+preparation controls pass all three cases again: final =OK=, exit 0, 21.962 s,
+in =/private/tmp/parser-semantic-preparation-rebased-native-supervision.log=.
+These reused native products do not qualify the concurrent prefix-family
+implementation; exact-head CI owns the complete merged package and Rust AOT.

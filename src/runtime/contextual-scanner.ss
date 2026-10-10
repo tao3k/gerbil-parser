@@ -50,6 +50,7 @@
   transparent: #t)
 (defstruct runtime-scan-rule (name mode form matcher executor rank action)
   transparent: #t)
+(defstruct contextual-matcher-plan (expression executor))
 (defstruct scan-match (rule end) transparent: #t)
 (defstruct delimiter-obligation (marker strip-tabs? quoted?)
   transparent: #t)
@@ -99,41 +100,69 @@
 
 ;;; Trie construction pays off for larger catalogs scanned over longer sources.
 ;;; Keep small catalogs and short one-shot inputs on the linear path.
-(def (decode-rule row literal-cache source-length)
+(def (trie-matcher? matcher source-length)
+  (and (>= source-length 64)
+       (match matcher
+         (['literals values] (>= (length values) 128))
+         (else #f))))
+
+(def (lower-rule-matcher matcher)
+  (match matcher
+    (['region-word spec] (list 'prepared-region (prepare-region-plan spec)))
+    (['unless-prefix prefixes exceptions child]
+     (match child
+       (['region-word spec]
+        (list 'unless-prefix prefixes exceptions (list 'prepared-region (prepare-region-plan spec))))
+       ((or ['literal-trie . _] ['prepared-region . _])
+        (error "private contextual scanner matcher in input IR"))
+       (['unless-prefix . _] (error "nested contextual scanner guard in input IR"))
+       (else matcher)))
+    ((or ['literal-trie . _] ['prepared-region . _])
+     (error "private contextual scanner matcher in input IR"))
+    (else matcher)))
+
+;;; Region/guard configuration owns expensive prepared indexes. Source, mode
+;;; and delimiter state remain executor arguments; rule policy is never interned.
+(def (prepare-rule-matcher matcher cache)
+  (or (table-ref cache matcher #f)
+      (let* ((prepared (lower-rule-matcher matcher))
+             (plan (make-contextual-matcher-plan prepared (prepare-matcher prepared))))
+        (table-set! cache matcher plan)
+        plan)))
+
+(def (decode-rule row source-length cache)
   (match row
     ([name mode form matcher rank action]
-     (let (prepared
-           (match matcher
-             (['literals values]
-              (if (and (>= source-length 64) (>= (length values) 128))
-                (let (scanner (or (table-ref literal-cache values #f)
+     ;; Stage record construction with lexical rule metadata, without a closure
+     ;; or multiple-value carrier for each primitive rule.
+     (defrule (finish expression executor)
+       (make-runtime-scan-rule name mode form expression executor rank action))
+     (match matcher
+       (['literals values]
+        ;; Literal catalogs already share their trie. Preserve that admission
+        ;; and leave short-input executors on their existing linear path.
+        (let (prepared
+              (if (trie-matcher? matcher source-length)
+                (let (scanner (or (table-ref cache values #f)
                                   (let (scanner (make-literal-end-scanner values))
-                                    (table-set! literal-cache values scanner)
+                                    (table-set! cache values scanner)
                                     scanner)))
                   (list 'literal-trie scanner values))
                 matcher))
-             (['region-word spec] (list 'prepared-region (prepare-region-plan spec)))
-             (['unless-prefix prefixes exceptions child]
-              (match child
-                (['region-word spec]
-                 (list 'unless-prefix prefixes exceptions (list 'prepared-region (prepare-region-plan spec))))
-                ((or ['literal-trie . _] ['prepared-region . _])
-                 (error "private contextual scanner matcher in input IR"))
-                (['unless-prefix . _] (error "nested contextual scanner guard in input IR"))
-                (else matcher)))
-             ((or ['literal-trie . _] ['prepared-region . _])
-              (error "private contextual scanner matcher in input IR"))
-             (else matcher)))
-       (make-runtime-scan-rule name mode form prepared
-                               (prepare-matcher prepared) rank action)))
+          (finish prepared (prepare-matcher prepared))))
+       ((or ['region-word _] ['unless-prefix . _])
+        (let (plan (prepare-rule-matcher matcher cache))
+          (finish (contextual-matcher-plan-expression plan) (contextual-matcher-plan-executor plan))))
+       ((or ['literal-trie . _] ['prepared-region . _])
+        (error "private contextual scanner matcher in input IR"))
+       (else (finish matcher (prepare-matcher matcher)))))
     (else (error "invalid contextual scanner rule" row))))
 
-(def (index-rules rows source-length (prefix-index? #f))
-  (let ((index (make-table test: eq?))
-        (literal-cache (make-table test: equal?)))
+(def (index-rules rows source-length (prefix-index? #f) (matcher-cache (make-table test: equal?)))
+  (let (index (make-table test: eq?))
     (for-each
      (lambda (row)
-       (let* ((rule (decode-rule row literal-cache source-length))
+       (let* ((rule (decode-rule row source-length matcher-cache))
               (mode (runtime-scan-rule-mode rule)))
          (table-set! index mode
                      (cons rule (table-ref index mode '())))))
@@ -313,7 +342,8 @@
   (let (owned (snapshot-scanner-ir ir))
     (validate-scanner-ir! owned)
     (let* ((rules (ir-ref owned 'rules))
-           (short-rules (index-rules rules 0 #t))
+           (matcher-cache (make-table test: equal?))
+           (short-rules (index-rules rules 0 #t matcher-cache))
            (has-trie? (any (lambda (row)
                             (match (list-ref row 3)
                               (['literals values] (>= (length values) 128))
@@ -321,7 +351,7 @@
       (make-contextual-scanner-plan
        (ir-ref owned 'digest) (ir-ref owned 'initial-mode)
        (ir-ref owned 'modes) (ir-ref owned 'positions)
-       short-rules (if has-trie? (index-rules rules 64 #t) short-rules)
+       short-rules (if has-trie? (index-rules rules 64 #t matcher-cache) short-rules)
        (index-cells (ir-ref owned 'cells))))))
 
 (def (prepare-contextual-scanner ir source)

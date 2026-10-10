@@ -15,7 +15,7 @@
   (map (lambda (n) (string->symbol (string-append prefix (number->string n))))
        (iota size)))
 
-(def (fixture-ir axes (literals '()))
+(def (fixture-ir axes (literals '()) (word-matcher '(identifier)))
   (let* ((modes (catalog "m" axes))
          (positions (catalog "p" axes))
          (role (make-contextual-role
@@ -35,7 +35,7 @@
               (list
                (make-contextual-scan-rule
                 (string->symbol (string-append (symbol->string mode) "-word"))
-                mode 'word '(identifier) 0 'keep)
+                mode 'word word-matcher 0 'keep)
                (make-contextual-scan-rule
                 (string->symbol (string-append (symbol->string mode) "-space"))
                 mode 'space '(horizontal-whitespace+) 0 'keep))))

@@ -539,3 +539,140 @@ preparation controls pass all three cases again: final =OK=, exit 0, 21.962 s,
 in =/private/tmp/parser-semantic-preparation-rebased-native-supervision.log=.
 These reused native products do not qualify the concurrent prefix-family
 implementation; exact-head CI owns the complete merged package and Rust AOT.
+
+* Contextual matcher preparation across modes and source sizes
+
+The adjacent audit covers contextual scanner preparation, closed region plans,
+lexical source capture and source-engine binding. =region-scanner.ss= already
+owns explicit nested frames and a prepared opener index. =source-strategy.ss=
+already admits an owned contextual program and checks its publication owner.
+The concrete duplication is in =contextual-scanner.ss=: equivalent configured
+matchers are lowered separately for each mode, and the short/long source indexes
+repeat source-independent lowering when a large literal catalog is present.
+
+Official Gerbil =std/text/parser/ll1.ss= provides relevant abstraction evidence:
+=ll1-bind= constructs a reader procedure, =ll1-or/list= separates declared
+alternatives from the later reader, and =peeker= interprets specification data
+into predicate procedures. These examples support separating declaration and
+execution; they do not justify caching arbitrary closures. The parser's matcher
+executors take source, offset and contextual state as arguments. Their captured
+configuration belongs to a prepared plan.
+
+** Share executable configuration, preserve rule semantics
+
+The implementation separates =lower-rule-matcher=, =prepare-rule-matcher= and
+=decode-rule=. A private =contextual-matcher-plan= holds an admitted expression
+and executor. One preparation-local equal?-table shares region/guard matcher
+plans across modes and both source-size indexes. Their declaration keys begin
+with opcode symbols; existing literal-trie keys are catalogs of strings. These
+key domains are disjoint. Literal catalogs retain their established short-input
+linear and long-input trie paths. Primitive opcodes retain the compiler's
+existing configuration-free closures directly.
+
+#+begin_src scheme
+;; A hygienic local constructor retains lexical rule metadata without a closure.
+(defrule (finish expression executor)
+  (make-runtime-scan-rule name mode form expression executor rank action))
+(let (plan (prepare-rule-matcher matcher matcher-cache))
+  (finish (contextual-matcher-plan-expression plan)
+          (contextual-matcher-plan-executor plan)))
+#+end_src
+
+The plan takes ownership of closed IR before interning. No process-global cache,
+new grammar declaration, user-visible wrapper or runtime generic dispatch is
+introduced. The preparation table is discarded after the completed indexes own
+their executors. State, pending delimiters and source identity remain request
+owned; rule name, form, rank and action remain distinct records. Canonical IR,
+its digest and opcode meaning are unchanged.
+
+** Question: why is this abstraction preferable?
+
+Matcher configuration and contextual rule policy vary independently. Naming the
+preparation product makes their sharing boundary explicit, while S-expression
+data supplies structural equality and pattern-based lowering. A rule's parser
+position and method origins stay with contextual dispatch. Existing CLOS
+preparation protocols select independent backend/capability axes; this closed
+opcode lowering uses structural =match=. Each mechanism has an identified owner
+and does not impose another configuration interface on a language author.
+
+** Question: how is the claim tested?
+
+The native scanner suite adds a shared =<<= matcher under different ranks,
+actions and modes, checking independent requests and short/long input plans.
+Existing controls cover longest Unicode literals, guards, ambiguity diagnostics,
+IR mutation, deferred delimiters, region nesting and source strategies.
+
+The first all-matcher interning experiment exposed a negative control: primitive
+=identifier=/whitespace executors already have compiler-hoisted closures.
+Wrapping and caching them adds allocation without providing sharing. A second
+experiment bypassed their cache but used a uniform multiple-value return carrier;
+it still added 96 bytes per one-mode preparation and 1,536 bytes at sixteen modes.
+Literal-catalog CPU results were mixed, including a regressed median in that
+second run. The final implementation confines matcher-plan sharing to region
+and guard lowering, preserves the established primitive/literal paths and uses
+a local =defrule= to stage record construction. This is a measured selection
+boundary, rather than an assumption that every Scheme value benefits from
+interning or a uniform return protocol.
+
+Preparation comparison uses exact =f3dff04= scanner source compiled under an
+isolated temporary test namespace. The production package contains no baseline
+or legacy executor. The existing =matched-scale.ss fixture-ir= now accepts an
+optional declared word matcher, enabling the same mode/position fixture to
+exercise identifier, literal-catalog and region configurations. Both native
+implementations consume the same compiled IR and source. Each measured product
+is scanned afterward and checked for equal token kinds, lexemes, byte boundaries
+and final offset. Allocation is admitted only for intervals without collection.
+Alternating ABBA order controls sample order; preparation timing excludes IR
+compilation and scanning. These controls cannot establish whole-parser speedup.
+
+** Native matched controls and qualification
+
+Each run uses four ABBA rounds and three preparations per sample. CPU entries
+are per-preparation medians in milliseconds; byte entries are medians admitted
+only without GC. Both runs validate every resulting scanner product afterward.
+
+| Configuration | Baseline bytes | Candidate bytes | CPU first run old/new | CPU confirmation old/new |
+|---------------+----------------+-----------------+-----------------------+--------------------------|
+| identifier, one mode | 64,709 | 64,709 | 0.0557 / 0.0477 | 0.0573 / 0.0577 |
+| identifier, sixteen modes | 1,986,165 | 1,986,165 | 3.3897 / 3.9307 | 3.2960 / 3.2733 |
+| literal catalog, sixteen modes | 2,647,259 | 2,647,131 | 4.0503 / 3.5953 | 4.2430 / 3.7817 |
+| region, sixteen modes | 6,576,181 | 3,611,723 | 11.1537 / 4.4853 | 9.2747 / 4.8883 |
+
+The confirmation region baseline is 6,576,309 bytes. The two region controls
+reduce preparation allocation by approximately 2.96 MB, or 45%. Identifier CPU
+results are mixed, including a regression in the first sixteen-mode run. They
+support no general CPU improvement claim. The region preparation control is
+narrow: it does not measure scanning, parsing, request latency or application
+throughput. The literal path is retained, rather than redesigned on these data.
+
+Final accepted receipts retain exit 0, final =OK= and the five-second idle gate:
+
+- Native contextual producer compilation: 35.987 s.
+- Native scanner suite and paired benchmark consumer compilation: 22.562 s.
+- Native scanner suite: all 17 cases, 11.410 s.
+- Source suites over the native producer: all 68 cases across contextual,
+  deferred, region, source-scanner and source-strategy suites, 22.113 s.
+- Exact baseline native compilation: 45.282 s.
+- Matched comparison and confirmation: 8.290 s and 19.849 s, both with
+  =MATCHER-COMPARISON-OK= and validated scanned products.
+
+Two final compilation attempts stopped at the idle gate during GCC function
+compilation and are excluded. An earlier combined baseline compilation emitted
+=OK= but had =reason=idle-timeout= and is also excluded. The successful producer
+compile enables actual GCC integrated-register-allocator diagnostics with
+=-fira-verbose=10=, alongside verbose optimization reports. GCC documents that
+values of ten or more send those diagnostics to stderr in its
+[[https://gcc.gnu.org/onlinedocs/gcc/Developer-Options.html][developer options]]. This changes observability, not optimization or the idle
+deadline. No synthetic progress or relaxed timeout is admitted as a receipt.
+
+The source controls load reused native dependency products. They qualify this
+matcher preparation change, not the complete concurrently changing compiler
+package. Exact-head CI owns complete package and Rust AOT qualification after
+publication.
+
+Publication rebases this change onto =b5a3141=, preserving the concurrent
+hygienic ranked-candidate-loop work. That commit changes the regular lexical
+compiler, not this contextual matcher graph. All 17 native contextual cases pass
+again after rebase: 9.655 s, exit 0, =HARNESS-OK= and final =OK=, with the
+five-second gate. Reused native products do not qualify the concurrent compiler
+change; complete merged-head CI remains a separate gate.

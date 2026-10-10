@@ -106,6 +106,35 @@
 
 (def contextual-scanner-test
   (test-suite "generic contextual scanner"
+    (test-case "shared guarded matchers retain rule rank, action and independent request state"
+      (let* ((role (make-contextual-role 'shared
+                     (list (method 'normal 'normal 'any 'redirect 'redirect)
+                           (method 'plain 'plain 'any 'redirect 'plain))))
+             (dispatch (compile-contextual-dispatch
+                        (list role) '(normal plain) '(token) '(redirect)))
+             (catalog (map (lambda (n) (string-append "padding" (number->string n))) (iota 128)))
+             (ir (compile-contextual-scanner
+                  (list (rule 'expect 'normal 'redirect '(unless-prefix ("<<<") () (literal "<<")) 20 '(expect-marker #f))
+                        (rule 'lower 'normal 'redirect '(unless-prefix ("<<<") () (literal "<<")) 0)
+                        (rule 'plain 'plain 'redirect '(unless-prefix ("<<<") () (literal "<<")) 0)
+                        (rule 'catalog 'normal 'redirect (list 'literals catalog) -1))
+                  dispatch 'normal))
+             (plan (prepare-contextual-scanner-plan ir)))
+        (for-each
+         (lambda (source)
+           (let ((a (prepare-contextual-scanner plan source))
+                 (b (prepare-contextual-scanner plan source)))
+             (let-values (((token next) (contextual-scanner-step
+                                        a (contextual-scanner-initial-state a) 'token)))
+               (check (token-kind token) => 'redirect)
+               (check (cdr (assq 'expecting (contextual-scan-state-canonical next))) => 'plain))
+             (let-values (((token next) (contextual-scanner-step b
+                                        (contextual-scan-state-with-mode
+                                         (contextual-scanner-initial-state b) 'plain) 'token)))
+               (check (token-kind token) => 'plain)
+               (check (token-lexeme token) => "<<")
+               (check (cdr (assq 'expecting (contextual-scan-state-canonical next))) => #f))))
+         (list "<<" (string-append "<<" (make-string 64 #\space))))))
     (test-case "prepared prefixes preserve full-row outcomes and checkpoint receipts"
       (for-each
        (lambda (source)

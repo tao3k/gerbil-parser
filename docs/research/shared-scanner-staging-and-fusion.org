@@ -763,3 +763,56 @@ Ubuntu now enforces the same complete-request admission for both source sizes
 and the keyword, identifier and literal-prefix complete ranked products.
 Each invocation retains the 120-second total and five-second idle bounds,
 three-GiB maximum heap, twenty groups and unchanged percentile gates.
+
+
+*** Admitted complete-request and ranked CPU evidence on Ubuntu
+
+Code revision =c6a6565b910b1a82168c7bfd618b612b1183be87= passes the complete
+Scheme CPU gate in [[https://github.com/tao3k/gerbil-parser/actions/runs/38054496900][CI run 38054496900]]. All five assertions emit
+=SCANNER-CPU-PROOF-OK= and finish with exit zero. Ratios below are candidate CPU
+divided by reference CPU across twenty balanced paired groups, including
+natural GC. Preparation and result admission remain outside timed requests.
+
+| Complete workload | Calls per batch | CPU P50 ratio | CPU P90 ratio | Median CPU decrease | Qualified seconds |
+|-------------------+-----------------+---------------+---------------+---------------------+-------------------|
+| Public TLA+ layout, 48 clauses, 517 characters | 128 | 0.775231 | 0.919257 | 22.48% | 37.836 |
+| Public TLA+ layout, 12 clauses, 157 characters | 384 | 0.868511 | 0.874858 | 13.15% | 32.242 |
+| Ranked keyword competition | 250000 | 0.566157 | 0.580265 | 43.38% | 50.490 |
+| Ranked identifier competition | 250000 | 0.640662 | 0.657650 | 35.93% | 56.993 |
+| Ranked literal-prefix competition | 250000 | 0.552558 | 0.568744 | 44.74% | 29.125 |
+
+Every identical-code control also passes the original P10 >= 0.90 and
+P90 <= 1.10 bounds:
+
+| Workload | Before P10 | Before P50 | Before P90 | After P10 | After P50 | After P90 |
+|----------+------------+------------+------------+-----------+-----------+-----------|
+| Layout, 48 clauses | 0.920056 | 0.995391 | 1.087544 | 0.918577 | 0.998814 | 1.083092 |
+| Layout, 12 clauses | 0.990513 | 0.998758 | 1.019033 | 0.930102 | 1.000409 | 1.091494 |
+| Keyword | 0.952565 | 0.990232 | 1.034907 | 0.957547 | 0.996479 | 1.021163 |
+| Identifier | 0.951134 | 0.991495 | 1.018879 | 0.972458 | 0.999915 | 1.023100 |
+| Literal prefix | 0.966161 | 1.001431 | 1.029086 | 0.969034 | 1.001863 | 1.028954 |
+
+The full-request assertions execute the normal public layout path, including
+lexical analysis, significant-token filtering, LR/layout, source identity and
+complete artifact publication. The reference and candidate must equal the
+unmodified production artifact and pass source admission before timing. The
+engine derives all preparation from checked grammar tables and lexical modes;
+the language declarations contribute no optimization hints.
+
+The exact rebased code also passes five focused Scheme suites and 43 cases in
+34.518 seconds, covering action projections, full parser requests, layout
+boundaries and the concurrently merged canonical identity/publication owners.
+The earlier broader qualification passed 21 suites and 146 cases. The new
+pure-reduction precedence case is included in the final focused qualification.
+
+The separate local literal-prefix run passes with CPU P50/P90
+0.508880/0.570142, before P10/P90 0.916130/1.075357 and after P10/P90
+0.911077/1.075920, exit zero in 102.443 seconds. Local identifier runs retain
+negative results: 150000 calls fails control P90 1.124001/1.105859, while
+250000 and 200000 calls reach the unchanged 120-second total bound. Ubuntu's
+isolated run admits the 250000-call workload without changing any threshold.
+These local failures remain excluded from the admitted figures above.
+
+The complete-request evidence covers the TLA+ layout pipeline and these two
+source sizes. The matched 28440-byte Bash/Tree-sitter comparison requires its
+own complete-source qualification.

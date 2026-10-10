@@ -21,7 +21,7 @@
         (only-in ./contextual-ir contextual-ir-ref contextual-parser-ir-valid?)
         (only-in ./identity sha256-text)
         (only-in ./lr-parser
-                 lr-runtime-layout?
+                 lr-runtime-layout? require-lr-checkpoint-runtime!
                  lr-checkpoint-deterministic-shifts lr-checkpoint-drive
                  lr-checkpoint-drive/contextual
                  lr-checkpoint-feed
@@ -110,6 +110,7 @@
 (def (prepare-contextual-parser machine product)
   (unless (valid-contextual-product? machine product)
     (error "contextual parser product does not match parser machine"))
+  (require-lr-checkpoint-runtime! (parser-machine-runtime machine))
   (let* ((scanner-ir (contextual-ir-ref product 'scanner))
          (positions (validate-contextual-position-table
                      machine scanner-ir (contextual-ir-ref (contextual-ir-ref product 'context) 'state-positions)))
@@ -120,14 +121,9 @@
 ;;; Internal deterministic LR slice. Full contextual admission still requires
 ;;; declaration-macro binding and GLR branch state. Forks yield rejected artifacts.
 (def (parse-source/contextual machine product source)
-  (unless (and (string? source)
-               (valid-contextual-product? machine product))
+  (unless (string? source)
     (error "contextual parser product does not match parser machine"))
-  (let* ((scanner-ir (contextual-ir-ref product 'scanner))
-         (positions (validate-contextual-position-table
-                     machine scanner-ir (contextual-ir-ref (contextual-ir-ref product 'context) 'state-positions)))
-         (scanner (prepare-contextual-scanner scanner-ir source)))
-    (parse-contextual machine (contextual-ir-ref product 'digest) positions scanner source)))
+  (parse-source/contextual/prepared (prepare-contextual-parser machine product) source))
 
 (def (parse-source/contextual/prepared plan source)
   (unless (and (contextual-parser-plan? plan) (string? source))

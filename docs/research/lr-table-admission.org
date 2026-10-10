@@ -102,6 +102,104 @@ macOS and Rust platform CI remain a separate delivery gate. This qualification
 closes the reproduced request-capability leakage and tested restoration paths;
 it does not establish arbitrary layout equivalence or actor concurrency safety.
 
+** Checkpoint and contextual execution admission
+
+Request isolation alone does not establish resumability. At parent =36c9f84=,
+=lr-initial-checkpoint= accepts a layout runtime, although =lr-checkpoint= and
+its prefix snapshot carry neither source columns nor branch reference frames.
+The contextual executor uses this checkpoint record and likewise admits a
+self-consistent layout product. The native baseline explicitly constructs both
+objects; it does not claim that a particular continuation corruption was
+observed. Its terminal catalog contains the fixture's actual =word= token, so
+the counterexample is independent of a mismatched scanner declaration.
+
+The LR owner now defines =require-lr-checkpoint-runtime!= and applies it before
+semantic backend selection or checkpoint construction. Contextual preparation
+uses that same requirement before building positions or a scanner plan. The raw
+contextual entry delegates to prepared admission and execution, eliminating its
+separate validation/indexing/scanner path. Both entries consequently own their
+published digest strings; mutation of the caller's product cannot rewrite a
+previously published raw artifact. These are execution requirements derived
+from the existing continuation representation, not new language author slots.
+
+#+begin_src scheme
+;; A continuation must own every value needed to resume execution.
+(def (require-lr-checkpoint-runtime! runtime)
+  (when (lr-runtime-layout? runtime)
+    (error "LR checkpoints require a runtime without layout")))
+
+(def (lr-initial-checkpoint runtime tokens)
+  (require-lr-checkpoint-runtime! runtime)
+  (lr-initial-checkpoint/selected
+   (lr-runtime-for-current-semantic-backend runtime) tokens))
+
+;; Raw and prepared calls share product admission and private plan ownership.
+(parse-source/contextual/prepared
+ (prepare-contextual-parser machine product) source)
+
+;; Full source layout parsing retains its GLR owner. The high-level incremental
+;; entry returns a complete artifact and no reusable checkpoint for this runtime.
+(let-values (((artifact tokens modes snapshots)
+              (parse-source/checkpoints layout-machine source 1)))
+  (and (parse-artifact-valid? artifact)
+       (not tokens) (not modes) (equal? snapshots '#())))
+#+end_src
+
+*** Question: why is this design preferable?
+
+The symbolic production capability is checked by the owner of continuation
+state. Plain checkpoint, contextual preparation and full layout execution
+therefore have explicit, consistent requirements. Scheme procedures reuse one
+admission algorithm and one owned contextual plan; POO/macro declarations still
+lower through the same machine without duplicated author configuration.
+Supporting layout continuations later requires an owned coordinate/frame
+representation with branch semantics, rather than an ambient parameter switch.
+
+*** Question: how is the claim scientifically tested?
+
+The parent control admits both incomplete representations. The repaired control
+requires the same error for initial checkpoints, prepared contextual admission
+and raw contextual admission under both semantic preferences. Independent full
+source controls compare complete artifacts, exact round trips and absence of
+snapshots for single-line success, multiline success and rejected layout input.
+The contextual identity control mutates the original product without freezing
+the reference artifact; ordinary HCL, Unicode and rejection paths must still
+agree with prepared execution. This establishes the tested capability and
+ownership boundary. It does not implement layout continuation capture,
+contextual GLR branch state or prove arbitrary layout grammars balanced.
+
+*** Qualification
+
+The native parent baseline admits both objects and finishes with exit zero and
+=OK= in 19.871 seconds. Its receipt is
+=/private/tmp/parser-checkpoint-baseline-supervision.log=. Two preliminary
+fixture attempts fail on a missing native helper and an undeclared HCL token;
+neither is used as capability evidence. The final fixture uses the actual
+layout grammar's =word= terminal.
+
+The LR producer emits its optimized/static products. Initial consumer admission
+fails because the reused overlay precedes the new interface; the first retry
+still has the same ordering error. With the new overlay placed last in the
+environment setup (and therefore first in the resolved load path), a fresh
+consumer process compiles the source owner and both focused test modules in
+57.451 seconds with exit zero and =OK=. The contextual fixture helper compiles
+in 16.309 seconds. The initial test admission reports its missing native helper
+and is retained as a failed receipt; it is not a passing semantic run.
+
+The final seventeen-suite native matrix passes 167 cases in 23.001 seconds,
+including contextual ownership, layout admission/full-source parity, fragment
+transfer, deferred scanner continuations, both semantic preferences, generated
+products and ten-language ABI bytes. Its receipt is
+=/private/tmp/parser-checkpoint-test-final.log=. Build receipts are
+=/private/tmp/parser-checkpoint-consumer-build-final.log= and
+=/private/tmp/parser-checkpoint-fixture-build-supervision.log=. All final
+supervisors retain the five-second real-progress gate, report no rejection
+reason or missing completion output and propagate the child exit code.
+These are reused dependency overlays, not a clean-checkout package build.
+The integrated Org qualifier preserves the historical body and checks 104
+local links and 17 heading targets. No performance benefit is claimed;
+fresh exact-head platform CI is a separate gate.
+
 * One boundary from productions to executable tables
 
 This completes the structural table boundary identified in

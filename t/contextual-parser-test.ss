@@ -29,7 +29,7 @@
                => (parser-machine-ir hcl-parser))
         (set-cdr! (assq 'root-kind ir) 'Foreign)
         (check (contextual-parser-ir-valid? (parser-machine-contextual-ir hcl-parser)) => #t)))
-    (test-case "prepared parser owns product and published artifact identities"
+    (test-case "raw and prepared parsers own product and published artifact identities"
       (let* ((machine hcl-parser)
              (literal (string-copy "1"))
              (product (contextual-product machine (parser-machine-grammar-digest machine)
@@ -38,11 +38,7 @@
              (sources '("x = 1\n" "名字 = 1\n" "x = " "x = @你好\n"))
              (expected
               (map (lambda (source)
-                     (let (artifact (parse-source/contextual machine product source))
-                       ;; Raw artifacts expose the product digest; freeze the reference.
-                       (set-cdr! (assq 'grammarDigest artifact)
-                                 (string-copy (parse-artifact-ref artifact 'grammarDigest)))
-                       artifact)) sources)))
+                     (parse-source/contextual machine product source)) sources)))
         (string-set! literal 0 #\2)
         (set-cdr! (car (cdr (assq 'state-positions (cdr (assq 'context product))))) 'foreign)
         (string-set! (cdr (assq 'digest product)) 0 #\x)

@@ -6,7 +6,14 @@
 (import :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
-        (only-in :gerbil-parser/src/runtime/parser parse-source)
+        (only-in :gerbil-parser/src/runtime/parser
+                 parse-source parse-source/checkpoints
+                 prepare-contextual-parser parse-source/contextual)
+        (only-in :gerbil-parser/src/compiler/machine
+                 parser-machine-runtime parser-machine-grammar-digest parser-machine-ir)
+        (only-in :gerbil-parser/src/modules/parser/contextual-objects
+                 make-contextual-method make-contextual-role make-contextual-scan-rule)
+        (only-in :gerbil-parser/src/compiler/contextual-parser-ir compile-contextual-parser)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
@@ -44,8 +51,45 @@
            (layout-end "END"))))))
  (bind-fixture-grammar-release closing-boundary-probe "closing-boundary-probe" "v1" "closing-boundary-probe.v1") )
 
+(def (layout-contextual-product machine)
+  (compile-contextual-parser
+   (parser-machine-ir machine) (parser-machine-grammar-digest machine)
+   (list (make-contextual-role
+          'layout-probe
+          (list (make-contextual-method 'word 'any 'any 'word 'word))))
+   '(normal) '(body) '(word)
+   (list (make-contextual-scan-rule 'word 'normal 'word '(identifier) 0 'keep))
+   'normal '((body () ()))))
+
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "layout continuations are rejected before contextual preparation"
+      (let* ((machine closing-boundary-probe-parser)
+             (runtime (parser-machine-runtime machine))
+             (product (layout-contextual-product machine)))
+        (for-each
+         (lambda (events?)
+           (parameterize ((current-lr-event-program-enabled? events?))
+             (for-each
+              (lambda (create)
+                (check (with-catch (lambda (condition) (error-message condition)) create)
+                       => "LR checkpoints require a runtime without layout"))
+              (list (lambda () (lr-initial-checkpoint runtime '()) #f)
+                    (lambda () (prepare-contextual-parser machine product) #f)
+                    (lambda () (parse-source/contextual machine product "( |> x END") #f)))))
+         '(#f #t))))
+    (test-case "layout checkpoint source requests retain complete GLR artifacts"
+      (for-each
+       (lambda (source)
+         (let-values (((artifact tokens modes snapshots)
+                       (parse-source/checkpoints closing-boundary-probe-parser source 1)))
+           (check artifact => (parse-source closing-boundary-probe-parser source))
+           (check (parse-artifact-valid? artifact) => #t)
+           (check (parse-artifact-roundtrip artifact) => source)
+           (check tokens => #f)
+           (check modes => #f)
+           (check snapshots => '#())))
+       '("( |> x END" "( |> x\n  |> y END" "( |>")))
     (test-case "plain prepared runtimes ignore outer layout columns and frames"
       (for-each
        (lambda (rules)

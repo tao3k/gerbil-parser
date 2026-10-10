@@ -63,7 +63,7 @@
         lr-parse/prepared/receipt
         lr-prepare
         lr-parse/prepared
-        lr-checkpoint? lr-initial-checkpoint lr-checkpoint-advance
+        lr-checkpoint? lr-initial-checkpoint require-lr-checkpoint-runtime! lr-checkpoint-advance
         lr-checkpoint-advance-shifts lr-checkpoint-resume lr-checkpoint-frontier
         lr-checkpoint-feed lr-checkpoint-drive
         lr-checkpoint-drive/contextual
@@ -345,7 +345,14 @@
 (defstruct lr-failure-frontier (checkpoint state expected-terminals)
   transparent: #t)
 
+;;; Checkpoints own all continuation state. Layout execution also needs source
+;;; columns and branch frames, which this record does not capture.
+(def (require-lr-checkpoint-runtime! runtime)
+  (when (lr-runtime-layout? runtime)
+    (error "LR checkpoints require a runtime without layout")))
+
 (def (lr-initial-checkpoint runtime tokens)
+  (require-lr-checkpoint-runtime! runtime)
   (lr-initial-checkpoint/selected (lr-runtime-for-current-semantic-backend runtime) tokens))
 (def (lr-initial-checkpoint/selected runtime tokens)
   (make-lr-checkpoint

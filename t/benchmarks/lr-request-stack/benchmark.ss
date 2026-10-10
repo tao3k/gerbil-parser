@@ -9,7 +9,8 @@
                    (measure-gql-component measure-parser-component))
         (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
                  parser-machine-grammar-digest parser-machine-trivia
-                 parser-machine-direct-drive parser-machine-direct-source)
+                 parser-machine-direct-drive parser-machine-direct-source
+                 parser-machine-backend-representation parser-machine-for-current-semantic-backend)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/prepared lr-parse/prepared/receipt
                  lr-prepare lr-runtime-for-current-semantic-backend
                  current-lr-event-program-enabled? lr-runtime-event-program?)
@@ -88,11 +89,21 @@
              (parse source)))
         (unless (equal? witness reference)
           (error "source route witness changed complete product" family units)))
+      (let* ((expected-route (if (parser-machine-direct-drive machine)
+                              'generated-drive-execution 'prepared-checkpoint-execution))
+             (completed (assq expected-route stages)))
+        (unless (and completed (cdr completed))
+          (error "complete request did not execute its expected engine route" family units expected-route)))
       (write (list 'LR-REQUEST-BACKEND family units
                    'requested-event (current-lr-event-program-enabled?)
                    'prepared-event (lr-runtime-event-program? runtime)
                    'generated-drive (and (parser-machine-direct-drive machine) #t)
                    'generated-source (and (parser-machine-direct-source machine) #t)
+                   'prepared-representation
+                   (parser-machine-backend-representation
+                    (parser-machine-for-current-semantic-backend machine) 'prepared)
+                   'generated-drive-representation (parser-machine-backend-representation machine 'drive)
+                   'generated-source-representation (parser-machine-backend-representation machine 'source)
                    'source-stages (reverse stages))))
     (newline) (force-output)
     (write (list 'LR-STACK-WORKLOAD family units 'source-characters (string-length source)

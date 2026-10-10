@@ -33,6 +33,7 @@
         parser-machine-parse
         parser-machine-direct-drive
         parser-machine-direct-source
+        parser-machine-backend-representation
         install-parser-machine-backends!
         install-parser-machine-direct-drive!
         install-parser-machine-direct-source!
@@ -91,7 +92,8 @@
              (eq? (vector-ref (vector-ref modes old-mode) class)
                   (vector-ref (vector-ref modes new-mode) class))))))
 
-;;; A generated driver is admitted only for the exact Parser IR whose digest
+;;; A generated driver produces recognition values, independently of the
+;;; optional prepared event executor. It is admitted only for the Parser IR whose digest
 ;;; was embedded in its source. Install during language-module initialization,
 ;;; before the machine is shared with parser requests.
 (def (install-parser-machine-direct-drive! machine digest drive)
@@ -103,7 +105,8 @@
     (error "generated LR driver does not match parser machine" digest))
   (parser-machine-direct-drive-set! machine drive))
 
-;;; Grammar-derived source parsers may admit a complete artifact directly for
+;;; Grammar-derived source parsers produce a ParseArtifact or decline with #f.
+;;; They may admit a complete artifact directly for
 ;;; fresh unobserved requests. Returning #f leaves the ordinary LR path to
 ;;; own rejection, diagnostics, checkpoints, and unsupported source shapes.
 (def (install-parser-machine-direct-source! machine digest parse)
@@ -119,7 +122,8 @@
   (unless (and (parser-machine? machine)
                (string? digest)
                (equal? digest (parser-machine-grammar-digest machine))
-               (procedure? step))
+               (procedure? step)
+               (not (lr-runtime-event-program? (parser-machine-runtime machine))))
     (error "generated LR step does not match parser machine" digest))
   (install-lr-runtime-direct-step!
    (parser-machine-runtime machine) step))
@@ -131,6 +135,30 @@
     (error "generated LR event step does not match parser machine" digest))
   (install-lr-runtime-event-step! (parser-machine-runtime machine) step))
 
+;;; Installed kinds bind representation obligations without an author annotation.
+(def (backend-semantic-representation kind)
+  (case kind
+    ((drive step) 'recognition)
+    ((event-step) 'event-program)
+    ((source) 'parse-artifact)
+    (else #f)))
+
+;;; Describe an installed entry, not a requested preference. Generated drive
+;;; and source entries retain their own product contracts on a selected machine.
+;;; This reads captured runtime identity; it does not select or prepare a backend.
+(def (parser-machine-backend-representation machine kind)
+  (unless (and (parser-machine? machine)
+               (or (eq? kind 'prepared) (backend-semantic-representation kind)))
+    (error "unknown parser backend representation" kind))
+  (let (runtime (parser-machine-runtime machine))
+    (case kind
+      ((prepared) (if (lr-runtime-event-program? runtime) 'event-program 'recognition))
+      ((drive) (and (parser-machine-direct-drive machine) 'recognition))
+      ((source) (and (parser-machine-direct-source machine) 'parse-artifact))
+      ((step) (and (lr-runtime-direct-step runtime)
+                   (if (lr-runtime-event-program? runtime) 'event-program 'recognition)))
+      ((event-step) (and (lr-runtime-event-step runtime) 'event-program)))))
+
 ;;; Check the entire declaration before mutating any machine/runtime slot.
 ;;; Each row is (kind exact-parser-ir-digest generated-procedure).
 (def (install-parser-machine-backends! machine rows)
@@ -140,12 +168,14 @@
     (for-each
      (lambda (row)
        (unless (and (list? row) (= (length row) 3)
-                    (memq (car row) '(drive source step event-step))
+                    (backend-semantic-representation (car row))
                     (not (memq (car row) seen))
                     (string? (cadr row))
                     (equal? (cadr row) (parser-machine-grammar-digest machine))
                     (procedure? (caddr row)))
          (error "invalid or stale parser backend declaration" row))
+       (when (and (eq? (car row) 'step) (lr-runtime-event-program? runtime))
+         (error "recognition step requires a recognition runtime" row))
        (when (case (car row)
                ((drive) (parser-machine-direct-drive machine))
                ((source) (parser-machine-direct-source machine))

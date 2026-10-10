@@ -693,3 +693,127 @@ rejects performance admission. Default execution remains recognition. These
 results justify studying event representation and GC-sensitive request sampling;
 they do not justify enabling event execution, filtering out costly GC samples,
 increasing timeout budgets, or declaring a whole-engine speedup.
+* Engine-owned semantic representation of installed entries
+
+The complete-route audit above identifies two independent axes: the prepared
+LR runtime's captured semantic executor and the installed generated entry's
+product. =src/compiler/machine.ss= now makes those obligations queryable through
+=parser-machine-backend-representation=. This is an engine capability contract,
+not another language declaration or a backend-selection policy.
+
+| Entry query | Contract |
+|-------------+----------|
+| prepared | Captured recognition or event-program executor |
+| drive | Installed whole-source driver returns recognition values |
+| source | Installed source specialization returns ParseArtifact or declines with #f |
+| step | Installed active reduction step uses the captured runtime representation |
+| event-step | Separately installed optional event-program reduction step |
+
+Missing optional entries return =#f=. Unknown kinds and non-machine values reject.
+The =step= slot deserves an explicit distinction: on the base recognition runtime
+it holds a recognition step; the selected event runtime captures the admitted
+event step into its active step slot. The separate =event-step= slot describes
+an optional installation on the base runtime, not a claim that every selected
+runtime retains that installation slot. Backend installation admits the same
+closed kind domain before any mutation; digest and duplicate-slot checks retain
+their existing atomic admission behavior.
+
+The representation review found an installation mismatch, not just a missing
+label: recognition =step= declarations previously admitted an event machine.
+The direct machine installer and the full-batch precheck now reject that pairing.
+The batch precheck runs before all mutation, so a valid earlier drive remains
+uninstalled when a later step has the wrong semantic runtime. Existing raw LR
+step operations remain low-level active-step operations; the machine declaration
+owner supplies this generated recognition-entry obligation.
+
+#+begin_src scheme
+;; Preference selects the prepared executor; it does not rewrite generated code.
+(let* ((selected
+         (parameterize ((current-lr-event-program-enabled? #t))
+           (parser-machine-for-current-semantic-backend machine)))
+       (prepared (parser-machine-backend-representation selected 'prepared))
+       (drive (parser-machine-backend-representation selected 'drive)))
+  ;; For an eligible machine with an installed recognition drive:
+  ;; prepared => event-program, drive => recognition.
+  ;; A later parameter change does not change either captured obligation.
+  (values prepared drive))
+#+end_src
+
+** Question: why is this abstraction preferable?
+
+The generated entry kind already expresses an engine responsibility. Deriving
+its representation obligation there avoids another metadata annotation in
+=parser.ss= and another POO wrapper around an ordinary procedure. Captured runtime
+identity supplies the prepared representation. Named closed-domain algorithms
+are appropriate here; the existing CLOS preparation protocol remains responsible
+for backend/capability selection. No generic query, grammar scan or backend
+selection occurs when describing a captured machine.
+
+This slice makes an existing semantic obligation explicit. It does not enable
+event generation for a recognition drive, change the default backend, clear a
+generated entry, alter canonical IR or add another compatibility route.
+
+** Question: what makes the claim testable?
+
+=t/language-surface-test.ss= adds a control that selects an event runtime, installs
+a recognition drive on that selected machine and verifies both distinct products
+are described correctly. The base machine remains unchanged. Switching the
+preference back to recognition must not change the retained event machine's
+reported representation. A source specialization that declines remains a
+ParseArtifact-producing capability with ordinary LR fallback.
+
+The existing =benchmark-lr-request-backends= caller now reports these representation
+obligations alongside requested preference, prepared admission, generated entry
+availability and actual untimed source stages. Its twenty-four routes still
+publish the canonical recognition reference before timing is admitted. This
+combination separates capability from the route actually taken: a source entry
+can decline, and an observed generated-drive stage has its own recognition
+contract. The new fields are emitted outside timed intervals.
+
+The previous =source-recognition= stage is an inclusive interval and cannot by
+itself distinguish a generated drive from ordinary checkpoints. The shared
+=src/runtime/parser.ss= now reports =generated-drive-execution= or
+=prepared-checkpoint-execution= at the actual branch. The benchmark asserts the
+expected completed branch before admitting cost samples. These child intervals
+are nested inside =source-recognition= and must not be added to it as independent
+costs. Disabled observation retains the macro's direct expression path; it does
+not invoke an observer thunk. No token-level tracing is introduced.
+
+The CI-owned =t/language-source-contract-test.ss= checks Arithmetic's actual
+generated-drive branch under both preferences and compares its canonical artifact
+with the unobserved product. GQL accepted, rejected and empty requests retain the
+ordinary checkpoint witness. Existing =t/parse-cost-test.ss= controls preserve
+multiple values, thrown conditions and observer scope. These controls connect
+the declared representation, actual branch and published artifact.
+
+The query describes the engine's admitted obligation; it cannot inspect an
+arbitrary procedure body and prove its semantic correctness. Known generated
+implementations need artifact/field/span equality controls. No new speedup claim
+is made by this change, and a query result alone does not qualify a full request.
+
+** Qualification of the representation contract
+
+The native machine/interface constraint rebuild completes in 32.273 s, and the
+actual route owner/caller rebuild in 31.856 s. The final native interface suite
+passes nine cases (10.707 s); source cost and source-contract suites pass nine
+cases over the native producer (13.255 s). The final native cross-language caller
+validates all twenty-four prepared/public routes in 15.774 s, with two samples
+of two calls per route. Arithmetic reports actual generated-drive execution;
+GQL and FHIRPath report checkpoint execution. All publish the canonical reference
+under both requested preferences. Each gate retains exit 0, final =OK= and the
+five-second idle fence; the caller also emits =LR-REQUEST-BACKENDS-OK=.
+
+These are local product/route controls over the reused dependency closure,
+not a fresh full-package build, a paired CPU comparison or exact-head CI. The
+next measured optimization must preserve the contracts and qualify complete
+requests; this slice supplies their executable admission boundary.
+
+The final rebase incorporates =0a1b326='s paired sampler and negative controls.
+Native sampler/caller rebuilding completes in 51.951 s; the merged caller
+completes twenty ABBA/BAAB groups with two calls per batch in 24.615 s. Twelve
+paired workload summaries cover the twenty-four representation routes, with
+completed actual-branch witnesses and canonical products. Exit 0 and both final
+markers retain the five-second gate. The GQL identical-executor control is stable;
+complete-request benefit admission is =#f=. This smaller-batch run closes merged
+execution qualification, not a new portable performance claim. Historical
+two-sample receipts above are execution controls from the earlier caller.

@@ -342,11 +342,13 @@
                           (and use-generated?
                                (parser-machine-direct-drive machine)))
                       (if direct-drive
-                        (direct-drive
-                         (parser-machine-runtime machine)
-                         next-input after-shift)
-                        (lr-checkpoint-drive
-                         initial next-input after-shift))))))
+                        (with-parser-cost-stage 'generated-drive-execution
+                          (direct-drive
+                           (parser-machine-runtime machine)
+                           next-input after-shift))
+                        (with-parser-cost-stage 'prepared-checkpoint-execution
+                          (lr-checkpoint-drive
+                           initial next-input after-shift)))))))
       (case status
         ((accepted)
          (unless (and (= character-offset source-length)

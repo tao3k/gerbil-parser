@@ -3,7 +3,8 @@
 
 * Scope and evidence rules
 
-Source baseline: =b1b13e00b3bde9ffa6e2815fb7bda90c76834945= on PR #13.
+Source audit baseline: =0a1b3261114406a8564d1f6e90952e77e676976c= on PR #13.
+The representation contract below is the subsequent implementation slice.
 This audit connects the shared engine work to the three author interfaces:
 =grammar.ss= declares syntax, =parser.ss= supplies metadata and parser adaptation,
 and =parser-test.ss= owns observable language behavior and benchmark contracts.
@@ -29,7 +30,8 @@ configure matcher caches, generic registries, opcode lowering or worker lifetime
 | Static matcher configuration shared across lexical modes | [[file:../../src/runtime/contextual-scanner.ss][contextual preparation]] | [[file:../../t/contextual-scanner-test.ss][rank/action/state controls]] | Region/guard sharing exists; primitive closures and literal source-size strategy retain separate admission |
 | Nested regions retain request-owned state | [[file:../../src/runtime/region-scanner.ss][region executor]] | [[file:../../t/region-scanner-test.ss][region controls]] and [[file:../../t/contextual-deferred-scanner-test.ss][deferred controls]] | Prepared opener data is shared; counters, frames and delimiter obligations belong to requests |
 | Contextual program and source publication have explicit owners | [[file:../../src/language/source-strategy.ss][source strategy]] | [[file:../../t/source-strategy-test.ss][strategy controls]] and [[file:../../t/source-scanner-test.ss][source scanner controls]] | These focused controls do not establish general cross-edit Rust subtree reuse |
-| Ranked competition preserves winner semantics | [[file:../../src/compiler/lexical-lexer.ss][lexical lowering]] | [[file:../../t/lexical-first-character-test.ss][competition controls]] | Hygienic loop staging is implemented; complete-parser CPU improvement is unproved |
+| Ranked competition preserves winner semantics | [[file:../../src/compiler/lexical-lexer.ss][lexical lowering]] | [[file:../../t/lexical-first-character-test.ss][competition controls]] | Original fold retained; hygienic loop candidate withdrawn after complete-request admission failed |
+| Generated entries declare engine-owned representation obligations | [[file:../../src/compiler/machine.ss][machine backend admission]] | [[file:../../t/language-surface-test.ss][backend contract and atomicity controls]] | Captured prepared representation and generated entry products are distinct; queries do not prove arbitrary procedure bodies |
 | Preparation cost remains visible | [[file:../../t/benchmarks/contextual-scanner/matched-scale.ss][contextual benchmark]] and [[file:../../t/benchmarks/regular-mode/request-cost.ss][regular benchmark]] | Native prepared products checked after measurement | Contextual preparation controls are added in this slice; historical paired receipts remain separate from fresh runs |
 
 The first row's semantic and provenance limits are detailed in
@@ -113,7 +115,7 @@ preparation control does not measure natural application GC, amortized request
 latency, scan throughput or complete-language parsing. Existing =scan=,
 =prepare-scan= and =plan-batch= entry modes retain those distinct boundaries.
 
-* Qualification of this slice
+* Qualification of the preparation-control slice
 
 The benchmark module compiles natively with the installed Gerbil/Gambit and GCC
 toolchain in 16.912 seconds, exit 0 and final =OK=. Its native caller completes
@@ -162,9 +164,9 @@ the event executor, FHIRPath admits it, and Arithmetic's public request uses its
 generated recognition drive. Enabling an event preference alone therefore does
 not certify event execution of the complete public request.
 
-The next shared-engine obligation is an explicit semantic representation
-contract for generated execution, followed by matched complete-request cost
-admission across these routes. No default backend is changed on the strength
+That audit identifies an explicit semantic representation contract for generated
+execution as the next obligation. The following section implements the contract;
+matched complete-request cost admission remains separate. No default backend is changed on the strength
 of prepared allocation or the single-order representation diagnostic. Bash's
 contextual route remains independently qualified by its own source products;
 these LR controls do not substitute for that qualification.
@@ -177,3 +179,64 @@ prepared event workloads meet the observed-regression criterion. The large GQL
 identical-executor control fails, so the executable gate rejects complete-request
 benefit admission. Semantic pass and performance rejection are distinct outputs;
 no backend default changes on this receipt.
+* Installed representation admission
+
+=parser-machine-backend-representation= reports the captured prepared runtime or
+an installed drive/source/step/event-step product. The engine owns this closed
+domain; language entries retain their existing backend declarations. Missing
+optional entries return =#f=; malformed machine/kind queries reject. A retained
+event machine continues reporting event-program after the dynamic preference
+changes. Its generated drive may still report recognition.
+
+The contract exposed a concrete admission gap: a recognition =step= could be
+installed on an event machine. Both the direct machine installer and the
+declarative batch precheck now reject that mismatch. A batch with a valid drive
+followed by such a step leaves the drive uninstalled. This preserves all-or-nothing
+admission and avoids interpreting recognition values with an event reducer.
+
+The cross-language benchmark reports these contracts alongside actual untimed
+source stages. Availability and declared representation remain capabilities;
+a source specialization can decline. The existing canonical artifact equality
+controls qualify known generated implementations, not arbitrary procedure bodies.
+The [[file:../research/shared-ranked-scanner-execution.org::*Engine-owned semantic representation of installed entries][research argument]] records the Scheme witness, both design questions and limits.
+
+The shared request executor also reports the actual generated-drive or prepared-
+checkpoint branch, rather than relying on the inclusive source-recognition stage.
+CI-owned source-contract tests cover generated execution under both preferences
+and ordinary accepted/rejected/empty requests. The benchmark requires the expected
+branch to complete before admitting its cost samples. Nested child intervals are
+not additive to their inclusive source-recognition parent.
+
+** Qualification of representation and actual-route admission
+
+Native rebuilding covers the current lexical producer, machine, interface suite
+and caller (109.692 s); the final installation constraint rebuilds machine and
+interface controls (32.273 s); the actual-branch owner and caller rebuild in
+31.856 s. Every compile exits 0 with final =OK= under the five-second idle gate.
+Other dependency products are reused; this is not complete-package qualification.
+
+The final native interface/backend suite passes all nine cases in 10.707 s.
+Source evaluation over the native producer passes all nine cost-observer and
+language-source-contract cases in 13.255 s. The final native backend caller
+qualifies twenty-four prepared/public routes across GQL, FHIRPath and Arithmetic,
+two source scales and two preferences, in 15.774 s. Each timed route retains
+canonical artifact equality; each public route has an untimed completed-branch
+witness. The caller uses two samples of two calls as an execution gate, not a
+matched performance comparison. Final markers and process exits propagate.
+
+No default executor changes and no speedup claim follows from these receipts.
+The remaining obligation is measured complete-request cost admission for any
+future representation change. Exact pushed-head platform and Rust AOT CI remain
+separate from these local controls.
+
+After integrating =0a1b326=, the shared sampler and current caller rebuild
+natively in 51.951 s. The updated caller retains the twenty-group ABBA/BAAB
+minimum and runs two calls per timed batch: twelve paired workload summaries,
+covering the twenty-four prepared/public representation routes, complete in
+24.615 s with exit 0, =LR-REQUEST-BACKENDS-OK= and final =OK=. Every source
+witness asserts the completed engine branch and every batch validates its product.
+The identical-executor GQL control is admitted stable; complete-request benefit
+admission is =#f=. This small-batch rerun qualifies the merged execution and
+admission path, not a portable CPU benefit. The earlier two-sample caller receipts
+remain historical execution controls; they do not satisfy the current paired
+performance protocol.

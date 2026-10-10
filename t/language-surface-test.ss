@@ -15,7 +15,9 @@
                  lexical-choice lexical-dispatch lexical-dispatch/ranked
                  lexical-end install-parser-machine-backends!
                  parser-machine-grammar-digest parser-machine-direct-drive
-                 parser-machine-direct-source)
+                 parser-machine-direct-source parser-machine-backend-representation
+                 parser-machine-for-current-semantic-backend install-parser-machine-direct-step!)
+        (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?)
         (only-in :gerbil-parser/src/language/grammar
                  deflanguage
                  defgrammar-syntax)
@@ -255,6 +257,33 @@
 
 (def language-backend-test
   (test-suite "Engine-owned parser backend admission"
+    (test-case "captured representations distinguish generated entries from prepared preference"
+      (let* ((machine backend-admission-witness-parser)
+             (selected (parameterize ((current-lr-event-program-enabled? #t))
+                         (parser-machine-for-current-semantic-backend machine))))
+        (check (eq? machine selected) => #f)
+        (check (parser-machine-backend-representation machine 'prepared) => 'recognition)
+        (check (parser-machine-backend-representation selected 'prepared) => 'event-program)
+        (check (parser-machine-backend-representation selected 'drive) => #f)
+        (check (parser-machine-backend-representation selected 'source) => 'parse-artifact)
+        (check (backend-rejects?
+                (lambda ()
+                  (install-parser-machine-backends! selected
+                    (list (list 'drive (parser-machine-grammar-digest selected) (lambda _ #f))
+                          (list 'step (parser-machine-grammar-digest selected) (lambda _ #f)))))) => #t)
+        (check (parser-machine-backend-representation selected 'drive) => #f)
+        (check (backend-rejects?
+                (lambda () (install-parser-machine-direct-step!
+                            selected (parser-machine-grammar-digest selected) (lambda _ #f)))) => #t)
+        (install-parser-machine-backends! selected
+          (list (list 'drive (parser-machine-grammar-digest selected)
+                      (lambda _ (error "contract control must not execute generated drive")))))
+        (check (parser-machine-backend-representation selected 'drive) => 'recognition)
+        (check (parser-machine-backend-representation machine 'drive) => #f)
+        (parameterize ((current-lr-event-program-enabled? #f))
+          (check (parser-machine-backend-representation selected 'prepared) => 'event-program))
+        (check (backend-rejects? (lambda () (parser-machine-backend-representation #f 'prepared))) => #t)
+        (check (backend-rejects? (lambda () (parser-machine-backend-representation machine 'unknown))) => #t)))
     (test-case "declarative source backend retains the ordinary LR fallback"
       (check (eq? (parser-machine-direct-source backend-admission-witness-parser)
                   backend-source-fallback) => #t)

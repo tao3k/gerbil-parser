@@ -1,5 +1,6 @@
 ;;; Complete requests and prepared recognition at matched source scales.
-(import (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql)
+(import (only-in ./derivation profile-lr-request-reductions)
+        (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql)
         (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-parser parse-fhirpath)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
         (rename-in (only-in :gerbil-parser/t/benchmarks/gql/runtime/matched-stages measure-gql-component)
@@ -33,6 +34,9 @@
         (error "independent GLR product mismatch" family units)))
     (write (list 'LR-STACK-WORKLOAD family units 'source-characters (string-length source)
                  'tokens (length significant))) (newline) (force-output)
+    (write (list 'LR-REQUEST-REDUCTIONS family units
+                 (profile-lr-request-reductions machine significant)))
+    (newline) (force-output)
     (measure-parser-component (list family units 'prepared-lr) samples iterations
       (lambda () (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)) parsed)
     (measure-parser-component (list family units 'full-source) samples iterations

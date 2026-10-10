@@ -1,0 +1,232 @@
+#+title: Decorated unary corridors: rejected execution experiment
+
+* Decision
+
+The execution fast path is rejected for production. Three coherent variants
+were tested: a named helper returning multiple values, a hygienic macro
+publishing the stack heads directly, and that macro carrying its resolved next
+action row into the outer loop. Allocation improved, but short-chain CPU
+regressions remained and complete requests did not improve consistently.
+The engine implementation remains unchanged. The retained code is the shared
+derivation diagnostic and long-chain semantic/count regression control.
+
+* One engine investigation
+
+This study continues [[file:engine-reduction-generation.org][shared reduction generation]], the
+[[file:request-owned-lr-stacks.org][rejected vector-stack representation]], and
+[[file:semantic-sequence-representation.org][semantic sequence boundaries]]. It targets the generic LR engine,
+not a grammar-specific optimization or a new author declaration.
+
+Temporary source instrumentation first tested the repeated case-folding
+hypothesis. GQL's representative request executed 21 folds over 116 characters;
+its 64-item RETURN executed 65 folds over 184 characters. FHIRPath invocation,
+FHIRPath addition, and Arithmetic addition executed zero. That does not support
+folding once per reduction; no normalization cache was added. The temporary
+instrumentation was removed. Receipt:
+=/private/tmp/parser-fold-census-supervision.log=, exit zero in 7.447 seconds.
+This complements the existing [[file:lr-request-cost-boundaries.org][literal lookup eligibility study]].
+
+The earlier census counted only *identity* unary chains. Decorated unary chains
+are different: field and alias actions are observable semantic work and must
+remain. An untimed selected-derivation census now distinguishes them:
+
+| Workload | Tokens | Reductions | All unary | Identity unary | Longest all-unary chain |
+|----------+--------+------------+-----------+----------------+-------------------------|
+| GQL representative | 37 | 288 | 213 | 81 | 11 |
+| GQL RETURN 64 | 128 | 935 | 661 | 197 | 9 |
+| FHIRPath invocation | 12 | 135 | 68 | 15 | 6 |
+| FHIRPath addition 64 | 127 | 985 | 585 | 191 | 4 |
+| Arithmetic addition 64 | 127 | 318 | 255 | 127 | 2 |
+
+These are execution counts for the stated sources, not CPU attribution or
+universal grammar bounds. The observer captures original derivations and
+therefore disables the optimization. Receipt:
+=/private/tmp/parser-unary-chain-census-supervision.log=, exit zero in 6.941 seconds.
+
+* Representation lifetime rather than rule deletion
+
+Every unary reduction pops one state and one semantic value, applies its
+original action chain, and pushes one state and one value. Consecutive unary
+reductions keep the same stack suffix. The changing heads can therefore remain
+lexical locals until execution reaches a non-unary action. The implementation
+owner was =src/runtime/lr-parser.ss=; that candidate code has been withdrawn.
+
+#+begin_src scheme
+;; Conceptual engine kernel: base-state and suffixes remain unchanged.
+(let loop ((state first-target) (value first-value) (actions first-count))
+  (let (entry (lookup-original-action state lookahead))
+    (if (admitted-unary-reduction? entry)
+      (loop (goto-original-production base-state entry)
+            (apply-original-actions value entry offset)
+            (+ actions 1))
+      ;; The caller publishes the final immutable heads once.
+      (values state value actions))))
+#+end_src
+
+The candidate helper checked the original indexed LR action and goto at every step.
+It executes the same prepared field/alias chain in declaration order, and
+increments the action count for every reduction. It does not eliminate rules,
+change production IDs, merge AST nodes, alter precedence, or change grammar
+digests. A missing goto stops the helper before committing that reduction;
+the original executor owns fallback at the reconstructed frontier.
+
+Eligibility requires an existing non-EOF lookahead, no finite action budget,
+no captured derivation stack, and no layout runtime/context. Generated reduction
+steps retain their independent protocol. Action-budget checkpoints and captured
+derivations preserve every original boundary. EOF remains in the outer executor
+so streaming callbacks retain their existing invocation behavior. The helper
+uses immutable semantic values and ordinary tail calls; no vector arena, global
+cache, unsafe access, or grammar option is introduced.
+
+Why does this improve the Scheme DSL design? The author describes syntax and
+closed actions once. Canonical IR, prepared actions, and Scheme lexical scope
+allow the engine to shorten the lifetime of private intermediate stack heads
+while retaining the complete author-visible tree. POO composition and macro
+expansion retain their current authority; authors need no optimization controls.
+This ownership advantage does not prove the rejected runtime implementation
+is faster.
+
+Why is the design scientifically testable? Independent materialized GLR must
+produce the same complete artifact for both recognition/event backends. Long
+decorated chains must preserve every nested field/alias and the exact action
+count observed after the following shift. A one-action checkpoint walk supplies
+an independent count control. Complete requests then test whether eliminating
+intermediate heads improves actual cost.
+
+* Paper mechanism and boundary
+
+[[https://arxiv.org/html/2304.05276][Yallop, Xie and Krishnaswami, flap (PLDI 2023)]] demonstrates removal
+of intermediate representations while retaining modular definitions. This
+motivates asking which internal values need materialization. Our kernel is a
+runtime LR stack optimization, not their DGNF normalization or lexer/parser
+fusion algorithm. Their assumptions and speed ratios do not establish ours.
+
+* Qualification
+
+Twenty source cases passed, including decorated chain depths 0, 1, 4, and 16,
+both semantic backends, exact paused/unbounded action-count equality,
+all-language ABI products, fragment transfer, and parser runtime controls.
+The child completed in 12.453 seconds, exit zero, final =OK=, with no
+supervision reason. Receipt:
+=/private/tmp/parser-unary-corridor-source-final-supervision.log=.
+
+The runtime and dedicated test compiled with official Gerbil =-O= in 16.769
+seconds, exit zero. Receipt:
+=/private/tmp/parser-unary-corridor-compile-supervision.log=.
+
+Two initial source invocations were excluded: nonexistent test paths and a
+fixture that used =ref= where canonical GrammarExpr requires =reference=.
+Neither is an admitted pass. The corrected controls above use actual source
+
+* Matched native results and decision evidence
+
+The final variant used a hygienic =defrule= to publish directly into the
+outer loop, avoiding a per-corridor multiple-value return envelope. It also
+carried the already-resolved final action row while the state and lookahead
+were unchanged. Shifts and ordinary reductions discarded that private entry.
+These changes reduced the first variant's overhead, but did not establish a
+general win.
+
+The baseline LR/sequence implementation was =c1237c5=, reused in an isolated
+prepared native graph. Only the candidate LR executor was replaced. Parallel
+Source/Fold commits are not measured by these LR comparisons.
+The final native order was baseline/candidate/candidate/baseline, 20 samples
+of 20 calls per workload and route. The table reports CPU batch P50 divided
+by 20, in milliseconds/call. Allocation is admitted only for single-caller
+samples without GC; GC-containing timing observations remain in the samples.
+
+| Workload and route | A1 CPU | B1 CPU | B2 CPU | A2 CPU | A bytes/call | B bytes/call |
+|--------------------+--------+--------+--------+--------+--------------+--------------|
+| gql-return 64 prepared-lr | 0.21700 | 0.21250 | 0.20755 | 0.20970 | 230932 | 182548 |
+| gql-return 64 full-source | 0.32150 | 0.29765 | 0.31020 | 0.30705 | 542941.6 | 494557.6 |
+| fhirpath-addition 64 prepared-lr | 0.21380 | 0.21455 | 0.22375 | 0.21260 | 255540 | 225300 |
+| fhirpath-addition 64 full-source | 0.36145 | 0.34405 | 0.34995 | 0.35435 | 695181.6 | 664941.6 |
+| arithmetic-addition 64 prepared-lr | 0.09440 | 0.09960 | 0.09905 | 0.09400 | 134804 | 128756 |
+| arithmetic-addition 64 full-source | 0.15705 | 0.15355 | 0.15455 | 0.14405 | 462141.6 | 462141.6 |
+| gql-return 512 prepared-lr | 1.81945 | 1.70225 | 1.59040 | 1.60840 | 1894004 | 1501556 |
+| gql-return 512 full-source | 2.80255 | 2.46990 | 2.32485 | 2.66735 | 4330101.6 | 3937653.6 |
+| fhirpath-addition 512 prepared-lr | 1.78685 | 1.65430 | 1.77775 | 1.69415 | 2104980 | 1859700 |
+| fhirpath-addition 512 full-source | 3.22805 | 3.43450 | 3.19350 | 3.08775 | 5585421.6 | 5340141.6 |
+| arithmetic-addition 512 prepared-lr | 0.76130 | 0.92860 | 0.79930 | 0.75930 | 1080980 | 1031924 |
+| arithmetic-addition 512 full-source | 1.34725 | 1.24615 | 1.17790 | 1.13235 | 3696477.6 | 3696477.6 |
+
+GQL 512 full-source allocation fell by 392448 bytes/call, about 9.1%.
+FHIRPath 512 full-source allocation fell by 245280 bytes/call, about 4.4%.
+Arithmetic's generated full-source route allocated the same bytes in both
+variants. Short generic Arithmetic recognition still regressed in both
+candidate trials. FHIRPath full-source did not show a consistent improvement.
+GQL's larger request benefit therefore does not admit the implementation as
+a general shared-engine optimization. No general P95 improvement is claimed.
+
+The named-helper variant increased generic Arithmetic allocation; its
+multiple-value boundary cost exceeded its saved stack cells. The macro
+removed that increase, but retained a duplicated final action lookup until
+the last variant. The last variant removed that duplicate lookup while
+retaining all original semantic actions. CPU regressions persisted. These
+are failures of the proposed cost tradeoff, not evidence that Gerbil/Gambit
+or the language declarations are inherently slow.
+
+Receipts are
+=/private/tmp/parser-unary-entry-{1-baseline,2-candidate,3-candidate,4-baseline}-supervision.log=.
+All four children exited zero with =LR-REQUEST-STACK-OK= and no supervision
+reason. Final source controls passed in 12.714 seconds; the final runtime
+compiled in 16.264 seconds. Earlier native semantic controls passed 29 cases
+in 10.796 seconds for the named-helper variant. They do not substitute for a
+performance result or whole-build exact-head CI.
+
+The rejected final runtime source is preserved locally at
+=/private/tmp/parser-rejected-unary-corridor/lr-parser.ss=; it is not a runtime
+dependency. These local receipts are not durable CI artifacts.
+
+* Reusable developer diagnostics
+
+=t/benchmarks/lr-request-stack/derivation.ss= now exports
+=profile-lr-request-reductions=. The shared benchmark prints
+=LR-REQUEST-REDUCTIONS= for each workload before timing. It reports total,
+empty, unary, multi-operand and identity-unary reductions, decorated operands,
+and the longest all-unary chain. The captured derivation is discarded before
+measurement. These counts explain execution shape; they do not attribute CPU.
+
+=t/lr-unary-corridor-test.ss= retains independent GLR artifact comparisons for
+both semantic backends at chain depths 0, 1, 4 and 16, plus exact action-count
+comparison against one-action checkpoints. It remains useful when changing
+semantic construction or publishing a future engine optimization.
+
+The next cost boundary is semantic node/fragment construction and canonical
+publication. Future experiments must retain complete artifacts and quantify
+both sides of that boundary, rather than infer speed from reduction counts
+or transferred allocation.
+
+The retained benchmark passed from source in 24.363 seconds, exit zero, with
+=LR-REQUEST-STACK-OK=; receipt:
+=/private/tmp/parser-derivation-benchmark-source-supervision.log=.
+The diagnostic module, benchmark and regression test compiled with official
+Gerbil =-O= in 13.830 seconds. Their final native qualification passed five
+cases and all six benchmark workload/scale products in 49.098 seconds, exit
+zero, with both =OK= and =LR-REQUEST-STACK-OK=. Receipts:
+=/private/tmp/parser-derivation-final-compile-supervision.log= and
+=/private/tmp/parser-derivation-final-native-supervision.log=.
+No rejected execution fast path was loaded for that final qualification.
+After preserving parallel remote commits through =a65abbd=, twenty-five source
+cases passed for the retained long-chain controls, all-language ABI, fragment
+transfer, runtime behavior and updated Fold source contracts. The child exited
+zero in 12.962 seconds with final =OK= and no supervision reason. Receipt:
+=/private/tmp/parser-derivation-synchronized-source-supervision.log=.
+This source receipt does not claim whole-build native qualification of the
+parallel Source/Fold changes.
+
+* CPU attribution remains open
+
+A separate complete-request sampling workload reported its own PID through
+the official =std/os/pid= interface and verified the final artifact after every
+50 calls. The macOS sampler produced an empty call graph, so it supplies no
+usable CPU attribution. The workload completed 3500 calls before its existing
+60-second total gate terminated it, without its required completion marker.
+It is not admitted as a successful qualification. The gate was not widened.
+Receipts: =/private/tmp/parser-gql-native-cpu-sample-supervision.log= and
+=/private/tmp/parser-gql-native-cpu-sample.txt=.
+
+An empty sampling report does not show that the parser has no hotspots.
+Future sampling must first demonstrate actual thread/stack observations and
+distinguish native parsing, publication, GC and driver work. Execution counts
+alone cannot close this missing attribution.

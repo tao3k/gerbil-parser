@@ -218,3 +218,51 @@ remains unproved. The combined six-case process stops at its unchanged total
 gate after these three cases; it is not a passed whole-matrix receipt.
 Large cases use the per-case entry, and CI separately validates the complete
 public request matrix against a freshly built integrated graph.
+
+* Integrated CI control calibration
+
+At revision =842767b=, the fresh Ubuntu build passes the 48-clause complete
+public parser CPU gate: production P50/P90 ratios are 0.7784/0.9265. The
+12-clause, 384-call gate is rejected: production P50/P90 is 0.8606/0.8813,
+but the identical before-control P90 is 1.10996, outside the unchanged 1.10
+stability limit. Its after-control P90 is 1.02133. The production benefit
+alone cannot admit the failed control or the whole CI job.
+
+The rejected control group's paired totals are 251.356/278.994 ms, with
+70.630/95.819 ms GC CPU and three/four collections. The extra collection
+accounts for most of the paired CPU difference. The integrated calibration
+therefore uses 768 calls per short-request batch and 256 per long-request
+batch, keeping twenty eight-leg groups, every measured sample,
+natural GC, identical before/after controls, the 0.90--1.10 stability limits,
+production P90 below 0.95, and the existing 120-second/five-second gates.
+This doubles measured work to reduce the relative size of a collection;
+it does not change parser output, remove failed observations or admit the
+new CI run in advance. The original long-request receipt above remains
+attributed to its 128-call batch.
+
+* Native test procedure ownership
+
+The macOS job at =842767b= stops while compiling the resolved-grammar test
+object: actual compiler output becomes quiet for more than five seconds.
+This is a native compilation failure, separate from parser execution and the
+Ubuntu CPU-control rejection. Additional register-allocation and optimization
+diagnostics also fail the local silence gate and are rejected; diagnostic
+volume does not resolve compilation cost.
+
+The SDK's =std/test/unit.ss= expands each =test-case= into an anonymous
+procedure nested in the suite procedure. Gambit's native host grouping can
+therefore collect a large suite into one compilation unit even with multiple
+hosts enabled. The resolved-grammar suite now owns named top-level case
+procedures and registers them through the SDK's =TestCase= and
+=test-case-add!= operations. Assertions remain in Scheme, and suite discovery
+and its exported identity remain unchanged. No additional test framework,
+compiler optimization exception or process wrapper is introduced.
+
+An independent reader compares all 37 original titles and complete assertion
+bodies with the registered named procedures: every body is structurally
+equal. The source-owned resolved-grammar and test-style suites pass all 43
+cases with actual exit zero. Fresh static Scheme generation also exits zero.
+Fresh static native object compilation completes in 69.64 seconds with actual
+exit zero and no silence-gate violation, retaining the SDK's optimizer and
+existing multiple-host policy. Full platform CI remains a separate admission
+requirement; this single local object cannot qualify the complete build.

@@ -241,7 +241,7 @@ jobs:
             -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 128 layout 48
           gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
             --log .data/ranked-parser-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
-            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 384 layout 12
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 768 layout 12
           for scenario in keyword identifier literal-prefix; do
             gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
               --log ".data/ranked-${scenario}-cpu-proof.log" --require SCANNER-CPU-PROOF-OK \

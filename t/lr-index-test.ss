@@ -5,7 +5,13 @@
         (only-in :gerbil-parser/src/runtime/funcs
                  association-row-vector->index association-row-index-ref)
         (only-in :gerbil-parser/src/runtime/lr-action-index
-                 index-action-row lookup-action-entry lr-action-row-tokens))
+                 index-action-row index-action-rows lookup-casefolded-literal-action-entry
+                 lookup-action-entry lr-action-row-tokens
+                 lookup-literal-action-entry lr-action-row-has-literals?)
+        (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare lr-parse/prepared)
+        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/recognition recognition-node-kind))
 (export lr-index-test)
 
 (def (check-table-rejected actions gotos)
@@ -102,4 +108,65 @@
             (lambda (entry)
               (check (eq? (lookup-action-entry index (string-copy (caddar entry))) entry) => #t))
             entries)))
-       '(0 1 7 8 9 32)))))
+       '(0 1 7 8 9 32)))
+    (test-case "literal capability retains indexed association semantics"
+      (for-each
+       (lambda (width)
+         (let* ((entries (map (lambda (n)
+                               (cons (list 'terminal 'literal (string-append "KEY" (number->string n)))
+                                     (list 'shift n))) (iota width)))
+                (row (index-action-row entries)) (reads 0))
+           (check (lr-action-row-has-literals? (begin (set! reads (+ reads 1)) row)) => (> width 0))
+           (check reads => 1)
+           (check (lookup-literal-action-entry row "missing") => #f)
+           (for-each
+            (lambda (entry)
+              (check (eq? (lookup-literal-action-entry row (string-copy (caddar entry))) entry) => #t))
+            entries)))
+       '(0 1 8 9 32))
+      (for-each
+       (lambda (literal)
+         (let* ((entry (cons (list 'terminal 'literal literal) '(shift 1)))
+                (row (index-action-row (list entry))))
+           (check (lr-action-row-has-literals? row) => #t)
+           (check (eq? (lookup-literal-action-entry row literal) entry) => #t)))
+       '("+" "A" "λ" "CAFÉ"))
+      (for-each
+       (lambda (terminal)
+         (check (lr-action-row-has-literals? (index-action-row (list (cons terminal '(shift 1))))) => #f))
+       '((terminal token word) (terminal eof) (terminal layout-start line) (terminal layout-next line))))
+    (test-case "shared casefold trie agrees with whole-string conversion and row admission"
+      (def (entry text n) (cons (list 'terminal 'literal text) (list 'shift n)))
+      (for-each
+       (lambda (width)
+         (let* ((entries (append (map (lambda (n) (entry (string-append "KEY" (number->string n)) n)) (iota width))
+                                 (map (lambda (text) (entry text 100)) '("" "A" "AB" "ABC" "CAFÉ" "Λ" "SS" "S" "K" "lower"))))
+                (first (entry "KEY0" 201))
+                (rows (index-action-rows (vector (cons first entries) (list (entry "OTHER" 202)) '()) #t)))
+           (for-each
+            (lambda (row)
+              (for-each
+               (lambda (text)
+                 (check (eq? (lookup-casefolded-literal-action-entry row text)
+                             (lookup-literal-action-entry row (string-upcase text))) => #t))
+               '("" "a" "ab" "abc" "abcd" "key0" "key31" "other" "café" "λ" "ß" "ſ" "K" "lower" "missing-long-identifier")))
+            (vector->list rows))
+           (check (eq? (lookup-casefolded-literal-action-entry (vector-ref rows 0) "key0") first) => #t)
+           (check (lookup-casefolded-literal-action-entry (vector-ref rows 0) "other") => #f)
+           (check (lookup-casefolded-literal-action-entry (vector-ref rows 1) "key0") => #f)
+           (check (lookup-casefolded-literal-action-entry (vector-ref rows 0) 'word) => #f)))
+       '(0 1 8 9 32)))
+    (test-case "literal priority and case-sensitive token fallback remain distinct"
+      (def rules '((source-file (choice (alias Keyword (literal "KEY"))
+                                       (alias Word (token word))))))
+      (def (check-root grammar insensitive? text expected)
+        (let* ((runtime (lr-prepare (compile-lr-spec grammar 'source-file 'error insensitive?)))
+               (token (make-token 'word text 0 (u8vector-length (string->utf8 text)))))
+          (let-values (((root rest) (lr-parse/prepared runtime (list token))))
+            (check rest => '())
+            (check (recognition-node-kind root) => expected))))
+      (check-root rules #t "keY" 'Keyword)
+      (check-root rules #f "keY" 'Word)
+      (check-root rules #f "KEY" 'Keyword)
+      (check-root rules #t "café" 'Word)
+      (check-root '((source-file (alias Word (token word)))) #t "café" 'Word))))

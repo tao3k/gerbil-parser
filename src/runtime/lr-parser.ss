@@ -33,11 +33,11 @@
                  value-interner-intern
                  vector-intern-map)
         (only-in ./lr-action-index
-                 index-action-row
+                 index-action-rows
                  lookup-action-entry
                  lookup-literal-action-entry
                  lr-action-row-eof
-                 lr-action-row-tokens)
+                 lr-action-row-tokens lookup-casefolded-literal-action-entry)
         (only-in ./layout
                  current-layout-columns current-layout-frames
                  layout-after-shift layout-after-end layout-current-action-row)
@@ -407,8 +407,7 @@
           (lambda (_index production)
             (length (production-rhs production))) table)
          actions
-         (vector-map/index
-          (lambda (_index row) (index-action-row row)) actions)
+         (index-action-rows actions (lr-spec-ref spec 'case-insensitive?))
          gotos
          (association-row-vector->index gotos)
          (lr-spec-ref spec 'case-insensitive?)
@@ -432,9 +431,7 @@
           (layout-current-action-row row input-token case-insensitive?)
           (or (lookup-literal-action-entry row (token-lexeme input-token))
               (and case-insensitive?
-                   (string? (token-lexeme input-token))
-                   (lookup-literal-action-entry
-                    row (string-upcase (token-lexeme input-token))))
+                   (lookup-casefolded-literal-action-entry row (token-lexeme input-token)))
               (lookup-action-entry
                (lr-action-row-tokens row) (token-kind input-token))))))))
 

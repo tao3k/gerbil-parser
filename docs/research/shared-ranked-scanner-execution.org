@@ -817,3 +817,193 @@ markers retain the five-second gate. The GQL identical-executor control is stabl
 complete-request benefit admission is =#f=. This smaller-batch run closes merged
 execution qualification, not a new portable performance claim. Historical
 two-sample receipts above are execution controls from the earlier caller.
+
+* Prepared identity reduction elimination
+
+** Scope and rejected alternatives
+
+The first four native comparisons use the production graph at =0a1b326= and
+requested event preference. Each comparison executes candidate/reference/
+reference/candidate children, with twenty batches of twenty calls for three
+languages, sizes 64 and 512, and prepared/full-source boundaries: 19,200 timed
+calls per comparison. Independent materialized GLR and complete canonical
+artifacts admit the products before measurement; every batch checks its result.
+
+Three earlier candidates were withdrawn:
+
+- Borrowing the event stack and applying actions while recursive traversal
+  unwinds removes the source-order operand list. Prepared allocation falls
+  about 9.4% for FHIRPath and 8.6% for Arithmetic at 512 units, but CPU medians
+  and unchanged GQL controls do not establish an acceleration.
+- Empty/unary semantic dispatch avoids the generic reducer and join. Large
+  prepared medians sometimes improve, while small routes and the unchanged
+  generated Arithmetic driver remain variable. It is not retained as a CPU win.
+- A single checked traversal pops both stacks and collects event operands.
+  Allocation is unchanged. Complete-request and prepared CPU comparisons do
+  not justify replacing the existing pop protocol. It is also withdrawn.
+
+These completed comparisons are negative optimization evidence, despite passing
+21 semantic cases each. No backend default or admission margin is changed.
+The first identity candidate then removes its redundant semantic call and stack
+publication, with classification still inside execution. Four native children
+repeat a 48-byte reduction per identity occurrence in this SDK's admitted
+allocation intervals. The later prototypes move that classification to
+preparation; the earlier event-preference receipts are not its default-path CPU
+qualification.
+
+The first prepared marker used =#f= for identity and vectors for other plans.
+Although allocation fell, its default-path comparison repeated a 17.5% CPU
+increase in small prepared FHIRPath (mean of two child medians). That prototype
+is withdrawn. The homogeneous candidate instead interns one valid unary vector.
+Compiler diagnostics distinguish the result: the false-marker helper returns
+=(nullable vector::t)=; the homogeneous helper returns =vector::t=. This supports
+the representation distinction, not a causal explanation for the CPU result.
+
+** Withdrawn preparation proof and execution
+
+=prepare-reduction-plan= first validates the production action and every ordered
+operand-action chain. Exactly one operand with an empty chain uses a shared
+valid unary plan, =(vector '())=. All plans remain source-order vectors. Identity
+is a private pointer-equality proof against that shared prepared plan. No grammar hint,
+loader schema change, public option or language-specific rule is introduced.
+This stages a closed semantic fact, following the engine's existing prepared
+executor and staged operand-fold design.
+
+Execution retains the original semantic value and immutable semantic-stack cell
+for that certified identity. State popping, goto lookup, state publication,
+action counting, budget consumption and recognition capture still occur. There
+is no corridor jump or mutable checkpoint. Decorated and wider productions keep
+the original reducers. The independent GLR implementation remains unchanged.
+Both captured semantic backends share the same proof, even when a generated
+entry independently owns a different representation.
+
+The tests expand identity/decorated RHS widths through 128 and run decorated and
+identity unary chains through depth 16 under both semantic backends. Every
+budget-one pause increments the action count by exactly one; complete artifacts
+match independent GLR and unpaused execution. Existing event tests retain
+Unicode, generated entries, relocation, history edits and retained roots.
+
+** Native artifact and latest-graph admission
+
+The initial HCL test load exposed a stale compiled machine consumer: an older
+inlined event-step getter read the event-reducer slot after the runtime record
+had changed. Rebuilding the machine consumer restores the correct slot before
+any comparison. This is an artifact dependency failure, not a language-parser
+failure or a reason to bypass the generated-entry contract.
+
+Three unary-build attempts stop at the five-second idle fence, with exit 137:
+63.485, 55.941 and 69.529 seconds. GCC diagnostics alone do not establish progress
+through every compiler stage. The existing Scheme native artifact observer and
+GCC saved intermediate products expose actual writes; no synthetic heartbeat or
+larger deadline is introduced. A simplified unary candidate compiles in 30.935
+seconds but is later withdrawn on cost evidence. The prepared identity
+false-marker prototype compiles in 35.073 seconds; the homogeneous candidate
+compiles in 22.007 seconds with the fixed =2591dcd= SDK and GCC.
+
+Before final admission, the checkout incorporates =95de0d9= and =11b2cf1=.
+The changed LR compiler and its consumer rebuild in 25.506 seconds. Machine,
+parser and benchmark consumers rebuild in 56.895 seconds. The final four-module
+source test child passes 23 cases in 14.458 seconds, with exit zero, final =OK=
+and =TEST-SUITE-OK=. An earlier new-test syntax failure is corrected before this
+admission. These are qualified changed-module consumers, not a fresh build of
+all package products or a Rust AOT receipt.
+
+The identity comparison uses the latest caller and default recognition preference.
+Only the LR module prefix changes between children; the fresh compiler, machine,
+parser, sampler and lexical artifacts remain identical. Each child verifies its
+loaded native LR suffix: reference =o6=, homogeneous candidate =o13=; lexical =o6=
+remains fixed. The reference LR source is unchanged between =0a1b326= and
+=11b2cf1=. Heap cap is 3 GiB, total budget 120 seconds and idle budget five seconds.
+Warmup and initial GC follow the unchanged component sampler; naturally occurring
+GC remains in CPU and wall observations. Allocation uses only admitted no-GC
+counter deltas and is reported separately from CPU.
+
+
+The homogeneous identity candidate is also withdrawn from production. Across
+four default-path children, 848 admitted allocation intervals repeat the same
+48-byte saving per identity reduction. An exact Scheme checker verifies the raw
+integer batch deltas, identity counts and zero delta in generated Arithmetic
+source execution. This establishes an allocation result for the prototype only.
+CPU observations remain unstable, including a 16.35% increase in the unchanged
+generated Arithmetic control when averaging child medians. No CPU improvement
+or retained runtime acceleration follows from this result. The wider RHS and
+budget-one identity-chain semantic tests remain useful regression coverage.
+
+* Shared literal vocabulary and casefold lookup qualification
+
+A row-without-literals guard alone changes none of the measured allocation
+values in the initial twelve-route child. The next candidate reuses the shared
+literal trie representation for case-insensitive LR lookup. One prepared
+vocabulary is shared by all action rows; the original row index still admits
+only the current state's entry and preserves first duplicate semantics.
+ASCII prefixes are converted while traversing the trie, avoiding a new whole
+uppercase string. Non-ASCII input delegates to the original whole-string
+Unicode conversion. The exact literal lookup retains priority over normalized
+lookup and token-kind fallback. There is no language hint or loader option.
+
+The trie builder also owns bounded and ranked literal preparation. Existing
+ranked matching, precedence, declaration order and mode admission stay in their
+original execution loops. Independent action-index tests compare the new
+casefold operation with the original whole-string conversion across empty keys,
+prefixes, list/table boundaries, duplicate entries, row-specific misses and
+Unicode mappings. The following native qualification bounds the performance claims.
+
+
+Native construction initially fails the five-second idle fence twice, at
+54.246 and 60.068 seconds. The runtime object completes when selected real GCC
+pass products are observed, but the later macro-phase compilation fails that
+fence at 73.113 seconds. Gerbil's compiler driver deliberately drops ordinary
+GSC C options for the macro phase (=gsc-cc-options= with =phi?=), so runtime
+instrumentation does not cover that phase. Compiling the same generated macro
+source with the SDK GSC and selected GCC diagnostic products completes in
+14.996 seconds. Compiler and optimization flags remain unchanged apart from
+diagnostic output. An all-pass diagnostic attempt writes about 679 MB and fails
+the total fence at 127.608 seconds; it is not a successful build receipt.
+
+
+** Positive allocation evidence and bounded CPU scope
+
+At source graph =11b2cf1=, seven modules pass 35 semantic cases with the new
+native objects in 30.247 seconds. Four native matrix children complete in
+57.506, 62.648, 89.158 and 68.538 seconds with exit zero and final workload
+markers. Candidate/reference/reference/candidate order executes 19,200 timed
+calls. Each child verifies the LR and action-index object identities. Both
+module prefixes change together; the lexical and shared scanner products stay
+fixed. The candidate uses =o15=/=o3= and the baseline uses =o6=/=o2=.
+
+A Scheme checker validates all 844 admitted raw no-GC allocation intervals,
+repeated variant values and unchanged-language controls. The exact batch
+counter deltas establish the following saving per request:
+
+| GQL units | Boundary | Reference bytes | Candidate bytes | Saved bytes | Reduction |
+|-----------+----------+-----------------+-----------------+-------------+-----------|
+|        64 | Prepared |        230928.8 |        227984.8 |        2944 |     1.27% |
+|        64 | Source   |        542916.0 |        539972.0 |        2944 |     0.54% |
+|       512 | Prepared |       1894000.8 |       1869552.8 |       24448 |     1.29% |
+|       512 | Source   |       4330076.0 |       4305628.0 |       24448 |     0.56% |
+
+All FHIRPath and Arithmetic allocation values are unchanged at both sizes and
+boundaries. CPU is not admitted as a complete-parser benefit: the mean of child
+medians includes a 16.03% increase for small GQL source execution, while the
+unchanged large prepared Arithmetic control improves 17.93%. These descriptive
+values expose drift; neither is a causal optimization result.
+
+The native =benchmark-lr-casefold= component uses all 2,834 actual GQL action
+rows. It checks original entry identity against whole-string conversion before
+measurement. Each row is queried with a non-keyword identifier, using suffixes
+of 32 or 256 characters (complete identifiers of 43 or 267 characters). Twenty
+ABBA/BAAB groups per width execute 9,068,800 timed lookups in total. Initial GC
+occurs once per width; natural collections remain in CPU measurements.
+The completed child takes 25.289 seconds, with exit zero and =LR-CASEFOLD-OK=.
+
+| Identifier characters | CPU ratio P10 | CPU ratio P50 | CPU ratio P90 | Lookup benefit |
+|-----------------------+---------------+---------------+---------------+----------------|
+|                    43 |        0.1185 |        0.2213 |        0.2723 | Admitted       |
+|                   267 |        0.0377 |        0.0405 |        0.0524 | Admitted       |
+
+The empirical P90 ratio is below the existing 0.95 margin for both component
+workloads. This establishes early-miss lookup benefit on this native SDK and
+actual row vocabulary. It does not describe the live state frequency of a full
+request, keyword hits, Unicode-heavy input, portable throughput or the Bash
+comparison with tree-sitter. The complete-request allocation saving and the
+component CPU benefit are separate positive results.

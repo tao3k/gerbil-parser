@@ -7,7 +7,8 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in ./token make-token))
 
-(export make-bounded-text-profile-scanner make-bounded-literal-end-scanner
+(export make-literal-trie literal-trie-terminal literal-trie-child
+        make-bounded-text-profile-scanner make-bounded-literal-end-scanner
         make-text-profile-scanner
         identifier-start? horizontal-whitespace? newline?
         scan-whitespace
@@ -768,36 +769,51 @@
 ;;; scanner follows at most the matching source prefix, independent of catalog
 ;;; size, and retains the longest terminal seen along that path.
 ;; : (-> (List String) (-> String Nat (Maybe Nat)))
-(def (make-bounded-literal-end-scanner literals)
-  (def (make-node) (vector #f (make-table test: eqv?)))
-  (def (insert! root literal)
-    (unless (and (string? literal) (positive? (string-length literal)))
-      (error "lexer literals must be non-empty strings" literal))
-    (let loop ((node root) (index 0))
-      (if (= index (string-length literal))
-        (vector-set! node 0 #t)
-        (let* ((children (vector-ref node 1))
-               (character (string-ref literal index))
-               (child (table-ref children character #f)))
-          (unless child
-            (set! child (make-node))
-            (table-set! children character child))
-          (loop child (+ index 1))))))
+(defrule (literal-trie-terminal node) (vector-ref node 0))
+(defrule (literal-trie-child node character)
+  (table-ref (vector-ref node 1) character #f))
+(def (keep-first-literal previous payload) (or previous payload))
+(def (collect-literal previous payload) (cons payload previous))
+
+;;; Common prepared literal IR: accepting payload and character-indexed edges.
+;;; Combining duplicate payloads is preparation work, never scanner dispatch.
+(def (make-literal-trie entries (initial #f) (combine keep-first-literal))
+  (def (make-node) (vector initial (make-table test: eqv?)))
   (let (root (make-node))
-    (for-each (cut insert! root <>) literals)
+    (for-each
+     (lambda (entry)
+       (let (literal (car entry))
+         (unless (string? literal) (error "literal trie requires strings" literal))
+         (let insert ((node root) (index 0))
+           (if (= index (string-length literal))
+             (vector-set! node 0 (combine (literal-trie-terminal node) (cdr entry)))
+             (let* ((children (vector-ref node 1))
+                    (character (string-ref literal index))
+                    (child (table-ref children character #f)))
+               (unless child
+                 (set! child (make-node))
+                 (table-set! children character child))
+               (insert child (+ index 1))))))) entries)
+    root))
+
+(def (checked-lexer-literal literal)
+  (unless (and (string? literal) (positive? (string-length literal)))
+    (error "lexer literals must be non-empty strings" literal))
+  literal)
+
+(def (make-bounded-literal-end-scanner literals)
+  (let (root (make-literal-trie
+              (map (lambda (literal) (cons (checked-lexer-literal literal) #t)) literals)))
     (lambda (source start source-length)
       (and (exact-integer? start) (exact-integer? source-length)
            (<= 0 start source-length (string-length source))
         (let loop ((node root) (offset start) (selected #f))
           (if (= offset source-length)
             selected
-            (let (child
-                  (table-ref (vector-ref node 1)
-                             (string-ref source offset) #f))
+            (let (child (literal-trie-child node (string-ref source offset)))
               (if child
                 (let (next (+ offset 1))
-                  (loop child next
-                        (if (vector-ref child 0) next selected)))
+                  (loop child next (if (literal-trie-terminal child) next selected)))
                 selected))))))))
 
 (def (make-literal-end-scanner literals)
@@ -808,7 +824,6 @@
 ;;; Entries carry (literal name precedence declaration-index); the optional
 ;;; admitted vector filters complete rules without copying the trie per mode.
 (def (make-ranked-literal-scanner entries)
-  (def (make-node) (vector '() (make-table test: eqv?)))
   (def (best-admitted candidates admitted)
     (let loop ((remaining candidates) (best #f))
       (if (null? remaining)
@@ -824,29 +839,11 @@
                              (< (caddr candidate) (caddr best)))))
              candidate
              best))))))
-  (let (root (make-node))
-    (for-each
-     (lambda (entry)
-       (let ((literal (car entry))
-             (name (cadr entry))
-             (rank (caddr entry))
-             (ordinal (cadddr entry)))
-         (unless (and (string? literal)
-                      (positive? (string-length literal)))
-           (error "lexer literals must be non-empty strings" literal))
-         (let insert ((node root) (index 0))
-           (if (= index (string-length literal))
-             (vector-set! node 0
-                          (cons (list name rank ordinal)
-                                (vector-ref node 0)))
-             (let* ((children (vector-ref node 1))
-                    (character (string-ref literal index))
-                    (child (table-ref children character #f)))
-               (unless child
-                 (set! child (make-node))
-                 (table-set! children character child))
-               (insert child (+ index 1)))))))
-     entries)
+  (let (root (make-literal-trie
+              (map (lambda (entry)
+                     (cons (checked-lexer-literal (car entry))
+                           (list (cadr entry) (caddr entry) (cadddr entry)))) entries)
+              '() collect-literal))
     (lambda (source start (admitted #f))
       (let (source-length (string-length source))
         (let scan ((node root) (offset start) (selected #f))

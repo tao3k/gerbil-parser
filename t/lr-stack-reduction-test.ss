@@ -142,6 +142,6 @@
               (equal? (error-message condition) "invalid LR operand actions")))))
        '(#f #t)))
     (test-case "empty, unary and wide identity operands agree with GLR"
-      (for-each (lambda (width) (check-stack-family width #f)) '(0 1 2 8 32)))
+      (for-each (lambda (width) (check-stack-family width #f)) '(0 1 2 8 32 128)))
     (test-case "wide ordered field and alias chains agree with GLR"
-      (for-each (lambda (width) (check-stack-family width #t)) '(1 2 8 32)))))
+      (for-each (lambda (width) (check-stack-family width #t)) '(1 2 8 32 128)))))

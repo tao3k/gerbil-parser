@@ -10,16 +10,17 @@
         (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact))
 (export lr-unary-corridor-test)
 
-(def (check-unary-chain depth events?)
+(def (check-unary-chain depth events? (decorated? #t))
   (def (name n) (string->symbol (string-append "layer" (number->string n))))
   (let* ((rules
           (cons '(source-file (alias SourceFile (sequence (reference layer0) (token end))))
                 (map (lambda (n)
                        (list (name n)
-                             (list 'field (name n)
-                                   (list 'alias (name n)
-                                         (if (= n depth) '(token word)
-                                           (list 'reference (name (+ n 1))))))))
+                             (let (operand (if (= n depth) '(token word)
+                                             (list 'reference (name (+ n 1)))))
+                               (if decorated?
+                                 (list 'field (name n) (list 'alias (name n) operand))
+                                 operand))))
                      (iota (+ depth 1)))))
          (runtime (lr-prepare (compile-lr-spec rules 'source-file)))
          (tokens (list (make-token 'word "a" 0 1) (make-token 'end ";" 1 2)))
@@ -43,6 +44,8 @@
               (let-values (((status result) (lr-checkpoint-advance checkpoint 1)))
                 (case status
                   ((checkpoint)
+                   (check (lr-checkpoint-deterministic-actions result)
+                          => (+ 1 (lr-checkpoint-deterministic-actions checkpoint)))
                    (if (= (lr-checkpoint-deterministic-shifts result) 2)
                      (check (lr-checkpoint-deterministic-actions result) => second-shift-actions)
                      (pause result)))
@@ -53,4 +56,8 @@
     (test-case "decorated chains retain canonical artifacts and every action count"
       (for-each (lambda (depth)
                   (for-each (lambda (events?) (check-unary-chain depth events?)) '(#f #t)))
+                '(0 1 4 16)))
+    (test-case "identity chains preserve artifacts and every paused action"
+      (for-each (lambda (depth)
+                  (for-each (lambda (events?) (check-unary-chain depth events? #f)) '(#f #t)))
                 '(0 1 4 16)))))

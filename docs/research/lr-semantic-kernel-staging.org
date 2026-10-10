@@ -1,0 +1,183 @@
+#+title: LR semantic kernel staging
+
+* Cost boundary and implementation owner
+
+This study continues [[file:prepared-lr-action-plans.org][prepared action admission]] and
+[[file:lr-request-cost-boundaries.org][complete request cost attribution]]. The latter identifies recognition as the
+largest measured CPU stage. Compiled language publication is a separate cold
+path. This change targets the shared LR engine, without language declarations,
+request caches or additional author configuration.
+
+[[file:../../src/runtime/reduction-plan.ss][Reduction preparation]] lowers admitted canonical operand actions to private
+procedures. Its finite backend/action generic selects the two recognition or
+event kernel factories once per backend preparation. Names are lexical constants;
+semantic values, offsets and fragment constructors remain invocation inputs.
+The LR driver owns admission, stack bounds, layout transitions, precedence and
+branch selection. Zero-width reductions return the backend's empty value;
+unary reductions apply their prepared step directly, without an operand loop
+or an identity join. Generated reducers share the engine's expression emitter;
+canonical projection retains an independent interpreter. Canonical IR remains
+inspectable and serializable data.
+
+Deterministic recognition traverses the borrowed stack backwards and prepends
+completed operands. GLR traverses source-order values forwards with its own
+request-local fragment interner. Event preparation occurs when the eligible
+event runtime is selected; its forward append association is preserved.
+Installing generated steps invalidates future selection without changing
+retained checkpoints or their prepared kernels.
+
+* Research transfer and official Scheme patterns
+
+Jones, Gomard and Sestoft's [[https://studwww.itu.dk/people/sestoft/pebook/][Partial Evaluation and Automatic Program Generation]]
+(1993) separates known inputs from later inputs and constructs a residual
+program. Here the known inputs are the admitted backend, action kind and name;
+the later inputs are request values and positions. This is a small explicit
+specialization of the semantic interpreter, rather than a general partial
+evaluator or a parser-generation theorem. Preparation cost and residual calls
+must be measured; specialization alone does not establish a speedup.
+
+The installed Gerbil compiler's =compiler/method.ss= separates =compile-e=
+method selection from the hygienic =with-context= rule. The SDK's
+=std/vector/vector.ss= owns =vector-map/index=. We use the same responsibility
+separation: a finite preparation generic, bounded vector construction, named
+execution algorithms and one hygienic rule for the two forward traversals.
+Higher-order composition binds an admitted action chain once, preserving its
+declaration order; the hot traversal does not use generic dispatch.
+
+* Scheme witness and the two design questions
+
+#+begin_src scheme
+;; Grammar authors declare meaning, not a backend traversal or callback.
+(field outer (alias Renamed (field inner (token word))))
+
+;; Illustration of the private preparation/execution boundary:
+(let ((field (select-lr-action-factory 'recognition 'field))
+      (alias (select-lr-action-factory 'recognition 'alias)))
+  (let ((apply-inner (field 'inner))
+        (apply-name (alias 'Renamed))
+        (apply-outer (field 'outer)))
+    (lambda (value offset constructor)
+      (apply-outer (apply-name (apply-inner value offset constructor)
+                              offset constructor)
+                   offset constructor))))
+#+end_src
+
+** Question 1: Why is this better for the DSL and its engine?
+
+The declaration remains a structured semantic specification. Macro expansion
+and POO composition produce canonical data; engine admission then selects a
+closed executable operation. Lexical closures exploit Scheme's binding rules
+to stage fixed names without capturing a request. Hygienic syntax shares the
+ordered traversal while preserving its two distinct join operations. The
+benefit comes from these cooperating mechanisms beneath =grammar.ss=,
+=parser.ss= and =parser-test.ss=, rather than S-expression notation alone.
+
+** Question 2: What makes this scientifically testable?
+
+For every admitted chain, the prepared operation equals the canonical action
+interpreter applied in declaration order. The empty chain is identity. An
+induction on chain length preserves values and supplied offsets; a second
+induction on operand count preserves the executor's existing association and
+source order. Neither argument permits moving GLR interners into preparation
+or reversing event joins. This equivalence statement must also specify the
+origin supplied to an empty operand; agreement between two executors alone
+does not establish the source-origin contract.
+
+* Nullable origins across execution owners
+
+An independent expected tree exposed an error in both the original and staged
+LR reducers. An empty alias preceding a token received the enclosing
+production's end offset. The parent then inherited that incorrect start.
+The smallest witness is:
+
+#+begin_src scheme
+(source-file
+ (node SourceFile (seq (node Before (empty)) word (node After (empty)))))
+;; For word spanning [0, 1): Before is [0, 0), After is [1, 1),
+;; and SourceFile is [0, 1). Reusing a prepared runtime must not retain
+;; either boundary from an earlier request.
+#+end_src
+
+For raw operand values v_i and production lookahead L, define b_n = L and
+b_i = start(v_i, b_(i+1)). An empty marked operand i receives b_i; a
+nonempty action computes its own span from its children. This suffix
+recurrence preserves source order without introducing a second empty-value
+representation. The deterministic stack already traverses backwards. Forward
+GLR and event executors build a linear suffix index lazily, only when a
+marked empty input requires it. The independent canonical projection applies
+the same origin contract through its literal action interpreter.
+
+The generated Scheme owner uses static nullability to emit shared suffix
+bindings only for nullable aliased operands. Each needed bound is computed
+once, and nonnullable productions emit no new boundary work. Arithmetic's
+generator calls this engine-owned expression emitter instead of maintaining
+another action interpreter. Rust native reduction traverses operands backwards
+to establish boundaries, then restores source-order groups before flattening.
+
+[[file:../../t/fused-reduction-test.ss][Generated recognition and event controls]] compare a fresh grammar's complete
+artifacts with a manually constructed tree. [[file:../../rust/gerbil-parser-runtime/tests/unit/nullable_boundary.rs][The Rust unit control]] supplies
+the same empty/token/empty production at offsets 0, 17 and 3. These controls
+test source semantics independently of the original implementation; the
+original's incorrect result is a falsifier, not a compatibility requirement.
+
+[[file:../../t/lr-stack-reduction-test.ss][Stack controls]] construct the expected semantic tree independently of both
+LR executors at widths 0, 1, 2, 8 and 32, including nested field/alias chains.
+The GLR, deterministic recognition and event products must equal that oracle.
+Preparation admission, retained backend selection, fragment transfer, layout,
+contextual parsing and language ABI suites cover the surrounding contracts.
+
+[[file:../../t/benchmarks/lr-request-stack/benchmark.ss][The native benchmark]] accepts original runtime procedures as explicit
+experiment inputs. It verifies every complete artifact against the public
+parser, measures preparation plus one complete request separately, and compares
+prepared execution plus publication in alternating CPU pairs. Its language
+matrix is GQL RETURN, FHIRPath addition and Arithmetic addition at 64 and 512
+units. Natural collection and the existing CPU resolution/allocation admission
+rules apply. Prepared-artifact CPU is not whole-source parser CPU, retained
+heap, or a claim about generated Arithmetic execution.
+
+* Qualification boundary
+
+The initial candidate passed 82 cases in ten modules with final =OK= and actual
+exit zero. The LR module's bounded native build exits
+zero in 71.353 seconds; the benchmark module build exits zero in 50.556 seconds.
+These are local observations, separate from exact-revision platform CI.
+
+Earlier compiler attempts failed the existing five-second idle or 120-second
+total gate. The original interpreter control also failed during native macro
+compilation. A static C object was rejected as a dynamic macro module; the
+control must be a loadable SDK module before comparison. Actual compiler GC
+and register-allocation diagnostics expose work; no heartbeat, optimization
+reduction or timeout extension is admitted. Generated diagnostics remain
+unarchived local execution, outside Git documentation.
+
+The first implementation selected a generic method for every operand action.
+Its GQL preparation-plus-request CPU P50 increased from 241.676 to 421.816 ms
+at 64 units. It is rejected. The corrected owner selects two factories once,
+then traverses admitted actions with closed construction procedures. This
+negative result explains why a preparation boundary alone is insufficient:
+the frequency and lifetime of selection also matter.
+
+The first combined six-case process exceeded its fixed total budget. Cases
+can be qualified separately through =compare-lr-staged-case=; its default
+200-call alternating batches retain natural GC and complete product admission.
+The whole matrix remains available through =compare-lr-staged-actions=.
+
+The corrected implementation passes 93 source-owned Scheme cases in eleven
+modules with actual exit zero, including independent nullable-origin controls,
+both generated semantic backends, layout restoration and language ABI alignment.
+The optimized Rust unit executable passes 146 cases with actual exit zero.
+Fresh platform builds remain a separate CI gate. A private generated-HCL native
+build failed its idle gate; incomplete products were isolated before testing.
+The new grammar's generated procedures are evaluated directly by the source
+suite, so this receipt does not assert fresh native compilation of every
+generated language module.
+
+The 64-unit comparisons use twenty samples and twenty alternating pairs of
+100 complete requests. GQL cold CPU P50 is 262.936 ms for the original and
+266.985 ms for the corrected owner; the former 75% regression is absent in
+this observation. Paired request CPU P50 ratios are 0.932 for GQL, 1.031 for
+FHIRPath and 0.988 for Arithmetic. Their P10/P90 intervals span both sides of
+one. FHIRPath cold P50 is 4.033 versus 5.009 ms, an unfavorable observation.
+These mixed results do not admit a stable latency improvement or a
+language-wide performance claim. Allocation medians and non-GC batches cannot
+replace complete-request CPU evidence.

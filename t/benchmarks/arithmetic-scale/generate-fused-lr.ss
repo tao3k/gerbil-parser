@@ -8,7 +8,8 @@
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/compiler/lr
                  lr-spec-ref production-table production-lhs production-rhs
-                 production-action operand-actions)
+                 compute-nullable)
+        (only-in :gerbil-parser/src/compiler/fused-reduction fused-production-expression)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-runtime-lexical-mode-catalog
                  lr-lexical-mode-terminals))
@@ -17,6 +18,8 @@
 (def actions (lr-spec-ref spec 'actions))
 (def gotos (lr-spec-ref spec 'gotos))
 (def table (production-table (lr-spec-ref spec 'productions)))
+(def nullable-index
+  (let-values (((_names index) (compute-nullable (lr-spec-ref spec 'productions)))) index))
 (def mode-catalog
   (lr-runtime-lexical-mode-catalog (lr-prepare spec)))
 
@@ -34,37 +37,6 @@
 (def (nth-tail name count)
   (let loop ((n count) (value name))
     (if (zero? n) value (loop (- n 1) `(cdr ,value)))))
-
-(def (operand-expression value operand)
-  (foldl (lambda (action current)
-           (case (car action)
-             ((field)
-              `(recognition-children-field ',(cadr action)
-                 (recognition-sequence-for-action ,current) offset
-                 make-recognition-fragment))
-             ((alias)
-              `(recognition-children-alias ',(cadr action)
-                 (recognition-sequence-for-action ,current) offset))
-             (else (error "unsupported operand action" action))))
-         value (operand-actions operand)))
-
-(def (semantic-expression production count)
-  (let ((rhs (production-rhs production))
-        (action (production-action production)))
-    (cond
-     ((and (eq? action 'pass) (= count 1))
-      (operand-expression 'v0 (car rhs)))
-     ((memq action '(pass concat))
-      (let loop ((operands rhs) (i 0) (combined ''()))
-        (if (null? operands)
-          combined
-          (loop (cdr operands) (+ i 1)
-                `(recognition-sequence-append
-                  ,combined
-                  ,(operand-expression
-                    (string->symbol (string-append "v" (number->string i)))
-                    (car operands)))))))
-     (else (error "unsupported semantic action" action)))))
 
 (def (goto-expression lhs)
   (let ((clauses '()))
@@ -97,7 +69,7 @@
             ,@bindings
             (offset (if (pair? rest) (token-start (car rest))
                       input-end-offset))
-            (value ,(semantic-expression production count))
+            (value ,(fused-production-expression production nullable-index))
             (target ,(goto-expression (production-lhs production))))
        (if target
          (loop (cons target remaining-states)
@@ -235,7 +207,8 @@
              (only-in :gerbil-parser/src/runtime/reduce
                       recognition-children-field recognition-children-alias)
              (only-in :gerbil-parser/src/runtime/funcs
-                      recognition-sequence->list recognition-sequence-for-action recognition-sequence-append)
+                      recognition-sequence->list recognition-sequence-for-action recognition-sequence-append
+                      recognition-sequence-start)
              (only-in :gerbil-parser/src/runtime/token
                       token-kind token-lexeme token-start token-end))
      (export direct-parse direct-drive)
@@ -269,7 +242,8 @@
              (only-in :gerbil-parser/src/runtime/reduce
                       recognition-children-field recognition-children-alias)
              (only-in :gerbil-parser/src/runtime/funcs
-                      recognition-sequence->list recognition-sequence-for-action recognition-sequence-append)
+                      recognition-sequence->list recognition-sequence-for-action recognition-sequence-append
+                      recognition-sequence-start)
              (only-in :gerbil-parser/src/runtime/token
                       token-kind token-lexeme token-start token-end))
      (export direct-drive direct-grammar-digest)

@@ -9,9 +9,10 @@
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?
                  make-bound-build-strategy declare-build-strategy-provider)
         (only-in ./lr lr-spec-ref production-table production-id production-lhs
-                 production-rhs production-action operand-actions validate-production-semantics))
+                 production-rhs production-action operand-actions validate-production-semantics
+                 compute-nullable base-symbol nonterminal-symbol? nonterminal-name))
 (export FusedReductionStrategy. FusedReductionStrategyContract
-        make-fused-reduction-strategy)
+        make-fused-reduction-strategy fused-production-expression)
 
 (def (strategy-productions candidate)
   (lr-spec-ref (cdr (assq 'lr-spec (language-grammar-ir (.ref candidate 'descriptor)))) 'productions))
@@ -25,7 +26,8 @@
                         car cdr cons values error token-start event-program-append
                         make-recognition-fragment recognition-children-field recognition-children-alias
                         event-children-field event-children-alias association-row-index-ref
-                        recognition-sequence-for-action recognition-sequence-append recognition-sequence->list)))
+                        recognition-sequence-for-action recognition-sequence-append recognition-sequence->list
+                        recognition-sequence-start)))
        (let (text (symbol->string name))
          (and (> (string-length text) 0) (char-alphabetic? (string-ref text 0))
               (andmap (lambda (ch) (or (char-alphabetic? ch) (char-numeric? ch) (memq ch '(#\- #\_))))
@@ -82,41 +84,58 @@
           (values (reverse bound) `(cdr ,tail))
           (loop index next (cons (list next `(cdr ,tail)) bound)))))))
 
-(def (operand-expression value operand)
+(def (operand-expression value operand offset)
   (foldl
    (lambda (action current)
      (case (car action)
        ((field)
         `(recognition-children-field ',(cadr action)
-           (recognition-sequence-for-action ,current) offset
+           (recognition-sequence-for-action ,current) ,offset
            make-recognition-fragment))
        ((alias)
         `(recognition-children-alias ',(cadr action)
-           (recognition-sequence-for-action ,current) offset))
+           (recognition-sequence-for-action ,current) ,offset))
        (else (error "unsupported fused reduction operand action" action))))
    value (operand-actions operand)))
 
-(def (semantic-expression production)
+(def (nullable-operand? operand nullable)
+  (let (base (base-symbol operand))
+    (and (nonterminal-symbol? base) (table-ref nullable (nonterminal-name base) #f))))
+
+;;; Share each required suffix bound once. Only aliases of nullable operands
+;;; need a later sibling's origin; nonnullable productions emit no extra work.
+(def (fused-production-expression production nullable)
+  (unless (memq (production-action production) '(pass concat))
+    (error "unsupported fused reduction semantic action" (production-action production)))
   (let* ((rhs (production-rhs production))
          (count (length rhs))
-         (action (production-action production)))
-    (cond
-     ((and (eq? action 'pass) (= count 1))
-      (operand-expression 'v0 (car rhs)))
-     ((memq action '(pass concat))
-      (let loop ((operands rhs) (i 0) (combined ''()))
-        (if (null? operands)
-          combined
-          (loop (cdr operands) (fx+ i 1)
-                `(recognition-sequence-append
-                  ,combined
-                  ,(operand-expression
-                    (string->symbol
-                     (string-append "v" (number->string i)))
-                    (car operands)))))))
-     (else (error "unsupported fused reduction semantic action" action)))))
+         (operands (list->vector rhs))
+         (boundaries (make-vector count #f))
+         (bindings '()))
+    (def (following-bound index)
+      (if (fx>= index count) 'offset
+        (or (vector-ref boundaries index)
+            (let* ((following (if (nullable-operand? (vector-ref operands index) nullable)
+                               (following-bound (fx+ index 1)) 'offset))
+                   (name (stack-tail-name "source-offset" index)))
+              (set! bindings
+                (cons `(,name (recognition-sequence-start ,(stack-tail-name "v" index) ,following)) bindings))
+              (vector-set! boundaries index name)
+              name))))
+    (let (value
+          (let loop ((remaining rhs) (index 0) (combined ''()))
+            (if (null? remaining) combined
+              (let* ((operand (car remaining))
+                     (offset (if (and (nullable-operand? operand nullable)
+                                      (any (lambda (action) (eq? (car action) 'alias)) (operand-actions operand)))
+                               (following-bound (fx+ index 1)) 'offset))
+                     (value (operand-expression (stack-tail-name "v" index) operand offset)))
+                (loop (cdr remaining) (fx+ index 1)
+                  (if (and (eq? (production-action production) 'pass) (= count 1)) value
+                    `(recognition-sequence-append ,combined ,value)))))))
+      (if (null? bindings) value `(let* ,(reverse bindings) ,value)))))
 
-(def (step-clause table production-id)
+(def (step-clause table nullable production-id)
   (let* ((production (vector-ref table production-id))
          (count (length (production-rhs production))))
     (let-values (((bindings remaining-values) (stack-value-bindings count)))
@@ -126,7 +145,7 @@
                (remaining-values ,remaining-values)
                (offset (if (pair? rest) (token-start (car rest))
                          input-end-offset))
-               (value ,(semantic-expression production))
+               (value ,(fused-production-expression production nullable))
                (entry (and (pair? remaining-states)
                            (association-row-index-ref
                             goto-index (car remaining-states)
@@ -137,13 +156,13 @@
                     (cons value remaining-values))
             (values #f #f #f)))))))
 
-(def (step-definition table name)
+(def (step-definition table nullable name)
   `(def (,name production-id states semantic-values rest
                       input-end-offset goto-index)
      (case production-id
        ,@(let loop ((i 0) (acc '()))
            (if (= i (vector-length table)) (reverse acc)
-             (loop (fx+ i 1) (cons (step-clause table i) acc))))
+             (loop (fx+ i 1) (cons (step-clause table nullable i) acc))))
        (else (error "unknown generated reduction" production-id)))))
 (def (event-step-definition form step-name event-name)
   (cond
@@ -160,20 +179,21 @@
 
 (def (fused-reduction-module strategy)
   (validate FusedReductionStrategyContract strategy)
-  (let* ((table (strategy-table strategy)) (name (.ref strategy 'step-name))
-         (event-name (.ref strategy 'event-name)) (digest-name (.ref strategy 'digest-name))
-         (step (step-definition table name)))
-    `(begin
-       (import (only-in :gerbil-parser/src/runtime/event-program event-program-append)
-               (only-in :gerbil-parser/src/runtime/recognition make-recognition-fragment)
-               (only-in :gerbil-parser/src/runtime/reduce recognition-children-field recognition-children-alias)
-               (only-in :gerbil-parser/src/runtime/event-reduce event-children-field event-children-alias)
-               (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref recognition-sequence->list
-                        recognition-sequence-for-action recognition-sequence-append)
-               (only-in :gerbil-parser/src/runtime/token token-start))
-       (export ,name ,event-name ,digest-name)
-       (def ,digest-name ,(.ref strategy 'digest))
-       ,step ,(event-step-definition step name event-name))))
+  (let-values (((_names nullable) (compute-nullable (strategy-productions strategy))))
+    (let* ((table (strategy-table strategy)) (name (.ref strategy 'step-name))
+           (event-name (.ref strategy 'event-name)) (digest-name (.ref strategy 'digest-name))
+           (step (step-definition table nullable name)))
+      `(begin
+         (import (only-in :gerbil-parser/src/runtime/event-program event-program-append)
+                 (only-in :gerbil-parser/src/runtime/recognition make-recognition-fragment)
+                 (only-in :gerbil-parser/src/runtime/reduce recognition-children-field recognition-children-alias)
+                 (only-in :gerbil-parser/src/runtime/event-reduce event-children-field event-children-alias)
+                 (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref recognition-sequence->list
+                          recognition-sequence-for-action recognition-sequence-append recognition-sequence-start)
+                 (only-in :gerbil-parser/src/runtime/token token-start))
+         (export ,name ,event-name ,digest-name)
+         (def ,digest-name ,(.ref strategy 'digest))
+         ,step ,(event-step-definition step name event-name)))))
 
 (def (emit-fused-reduction-module strategy port)
   ;; Validate and materialize before writing even the first output byte.

@@ -6,7 +6,7 @@
         (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-parser parse-fhirpath)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
         (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
-                 measure-parser-component measure-parser-batch sample-at-percentile)
+                 measure-parser-component measure-parser-batch measure-parser-cpu-pairs sample-at-percentile)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
                  parser-machine-grammar-digest parser-machine-trivia
                  parser-machine-direct-drive parser-machine-direct-source
@@ -22,7 +22,68 @@
                  token-event? token-event-token-kind token-event-lexeme event-start event-end))
 (export benchmark-lr-request-stack benchmark-lr-request-backends
         benchmark-lr-completions benchmark-lr-semantic-preparation
-        benchmark-lr-casefold-requests benchmark-lr-text-class-requests)
+        benchmark-lr-casefold-requests benchmark-lr-text-class-requests
+        compare-lr-staged-actions compare-lr-staged-case)
+
+;;; Original runtime procedures are independent experiment inputs. Both sides
+;;; publish the entire artifact, with the same source, tokens and grammar ID.
+(def (compare-lr-staged-family family units machine parse source original-prepare original-parse groups calls)
+  (let* ((expected (parse source))
+         (tokens (map (lambda (event)
+                        (make-token (token-event-token-kind event) (token-event-lexeme event)
+                                    (event-start event) (event-end event)))
+                      (filter token-event? (parse-artifact-events expected))))
+         (significant (parser-significant-tokens machine tokens))
+         (spec (cdr (assq 'lr-spec (parser-machine-ir machine))))
+         (original (original-prepare spec))
+         (current (lr-prepare spec))
+         (publish
+          (lambda (execute runtime)
+            (let-values (((root rest) (execute runtime significant)))
+              (unless (null? rest) (error "staged reduction leaves unconsumed input" family units))
+              (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                source tokens root (parser-machine-trivia machine)))))
+         (left (lambda () (publish original-parse original)))
+         (right (lambda () (publish lr-parse/prepared current))))
+    (unless (parse-artifact-valid-for-source? expected source)
+      (error "invalid complete staged reduction reference" family units))
+    (measure-parser-component (list family units 'original-preparation-and-request) 20 1
+      (lambda () (publish original-parse (original-prepare spec))) expected)
+    (measure-parser-component (list family units 'staged-preparation-and-request) 20 1
+      (lambda () (publish lr-parse/prepared (lr-prepare spec))) expected)
+    (measure-parser-component (list family units 'original-prepared-artifact) 20 calls left expected)
+    (measure-parser-component (list family units 'staged-prepared-artifact) 20 calls right expected)
+    (let (ratios (measure-parser-cpu-pairs 'staged-lr-actions (list family units)
+                   groups calls expected left right))
+      (write (list 'LR-STAGED-ACTION-CPU-RATIOS family units ratios))
+      (newline) (force-output))))
+
+(def (compare-lr-staged-case family units original-prepare original-parse (groups 20) (calls 200))
+  (parameterize ((current-lr-event-program-enabled? #f))
+    (case family
+      ((gql-return)
+       (compare-lr-staged-family family units gql-parser parse-gql
+         (string-append "RETURN "
+           (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota units)) ", ")
+           "\n") original-prepare original-parse groups calls))
+      ((fhirpath-addition)
+       (compare-lr-staged-family family units fhirpath-parser parse-fhirpath
+         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls))
+      ((arithmetic-addition)
+       (compare-lr-staged-family family units arithmetic-parser parse-arithmetic
+         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls))
+      (else (error "unknown staged LR benchmark family" family))))
+  (displayln "LR-STAGED-ACTION-CASE-OK " family " " units) (force-output))
+
+(def (compare-lr-staged-actions original-prepare original-parse (groups 20) (calls 200))
+  (for-each
+   (lambda (units)
+     (for-each
+      (lambda (family)
+        (compare-lr-staged-case family units original-prepare original-parse groups calls))
+      '(gql-return fhirpath-addition arithmetic-addition)))
+   '(64 512))
+  (displayln "LR-STAGED-ACTIONS-COMPARISON-OK") (force-output))
 
 ;;; Preparation includes eligibility and generic selection. Repeated selection
 ;;; uses the prepared runtime, including negative admission. Neither stage is a

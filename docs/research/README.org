@@ -59,6 +59,11 @@ For current compiler-source work, read
 traces canonical rules into both semantic backends and separates implementation
 changes from language benchmark evidence.
 
+The [[file:lr-semantic-kernel-staging.org][LR semantic kernel study]] applies specialization to admitted operand
+actions, retains request-local offsets and constructors, and qualifies empty,
+unary and wide reductions against an independent tree oracle. It records
+preparation regressions as well as complete-product benchmark results.
+
 Start authoring research with the
 [[file:scheme-deflanguage-design-synthesis.org][Scheme parser DSL design overview]]. It owns the three user interfaces,
 shared objective, evidence scope, decisions and closure sequence. Detailed design

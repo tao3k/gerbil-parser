@@ -101,6 +101,10 @@ const SELECTIVE_GLR_BRANCH_BUDGET: usize = 256;
 #[path = "../../tests/unit/precedence_capacity.rs"]
 mod score_tests;
 
+#[cfg(test)]
+#[path = "../../tests/unit/nullable_boundary.rs"]
+mod nullable_boundary_tests;
+
 #[derive(Clone, Debug)]
 pub(super) struct ParserConfiguration {
     pub(super) states: Vec<u32>,
@@ -600,7 +604,7 @@ pub(super) fn find_action(
 
 fn reduce(
     production: &Production,
-    mut values: impl ExactSizeIterator<Item = Value>,
+    mut values: impl ExactSizeIterator<Item = Value> + DoubleEndedIterator,
     tokens: &[Token<'_>],
     fallback: usize,
 ) -> Value {
@@ -613,9 +617,12 @@ fn reduce(
         );
     }
     let mut groups = Vec::with_capacity(values.len());
-    for (operand, value) in production.rhs.iter().zip(values) {
-        groups.push(apply_operand_actions(operand, value, tokens, fallback));
+    let mut boundary = fallback;
+    for (operand, value) in production.rhs.iter().zip(values).rev() {
+        boundary = value.start(tokens, boundary);
+        groups.push(apply_operand_actions(operand, value, tokens, boundary));
     }
+    groups.reverse();
     match production.reduction {
         Reduction::Pass | Reduction::Concat => {
             Value::Fragment(groups.into_iter().flat_map(Value::into_children).collect())

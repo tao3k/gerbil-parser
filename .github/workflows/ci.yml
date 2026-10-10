@@ -267,6 +267,10 @@ jobs:
         run: |
           gerbil env gxc t/abi-datum-support.ss \
             t/line-structure-assertions.ss \
+            t/benchmarks/parser-stage-cost/benchmark.ss \
+            t/benchmarks/lr-request-stack/derivation.ss \
+            t/scenarios/performance/selective-glr/scenario.ss \
+            t/benchmarks/lr-request-stack/benchmark.ss \
             t/benchmarks/gql/runtime/actors.ss
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
@@ -477,6 +481,13 @@ jobs:
           gerbil env gxi qualify.ss local \
             --prepared-diagnostics --suite gql-profile --suite gql-actors \
             --gerbil-path .gerbil --log-dir .data/gql-diagnostics
+
+      - name: Verify shared LR complete request matrix
+        run: |
+          GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/lr-request-stack.log --require LR-REQUEST-STACK-OK \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/t/benchmarks/lr-request-stack/benchmark") (gerbil-parser/t/benchmarks/lr-request-stack/benchmark#benchmark-lr-request-stack 20 20)'
 
       - name: Compare TLA+ candidate structure with pinned SANY
         if: runner.os == 'Linux'

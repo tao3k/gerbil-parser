@@ -1,7 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in ./lr-completion
+(import (only-in ./reduction-plan prepare-lr-reduction-plans reduce-lr-stack-plan
+                 reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets)
+        (only-in ./lr-completion
                  make-candidate candidate-root candidate-rest candidate-score
                  candidate-ambiguities candidate-winner-reason candidate-completion-count
                  select-candidate)
@@ -27,6 +29,7 @@
                  make-value-interner
                  recognition-sequence-relocate
                  recognition-sequence-append
+                 recognition-sequence-start
                  recognition-sequence->list recognition-sequence-for-action current-recognition-sequence-fusion-enabled?
                  value-interner-created-count
                  value-interner-hit-count
@@ -99,19 +102,6 @@
                reduction-plans)
   transparent: #t)
 
-;;; Canonical operands belong to the grammar; prepared execution owns only
-;;; their ordered action chains. Both semantic backends share this admission.
-;;; One source-order vector serves both forward and reverse execution.
-
-(def (prepare-reduction-plan production)
-  (let* ((operands (production-rhs production))
-         (plan (make-vector (length operands))))
-    (let loop ((operands operands) (index 0))
-      (when (pair? operands)
-        (vector-set! plan index (operand-actions (car operands)))
-        (loop (cdr operands) (fx+ index 1))))
-    plan))
-
 ;;; Install a generated reduction step once, before the runtime is shared.
 (def (install-lr-runtime-direct-step! runtime step)
   (unless (and (lr-runtime? runtime)
@@ -180,7 +170,7 @@
            #f #f (lr-runtime-lexical-modes runtime)
            (lr-runtime-lexical-mode-catalog runtime)
            (lr-runtime-event-step runtime) (lr-runtime-event-reducer runtime) #f #f #f
-           (lr-runtime-reduction-plans runtime)))
+           (prepare-lr-reduction-plans 'event (lr-runtime-table runtime))))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -404,8 +394,7 @@
                    (lambda (terminals id)
                      (make-lr-lexical-mode id terminals)))))
       (let* ((table (production-table productions))
-             (plans (vector-map/index
-                     (lambda (_index production) (prepare-reduction-plan production)) table))
+             (plans (prepare-lr-reduction-plans 'recognition table))
              (capability (lr-semantic-capability table actions dynamic? layout?)))
         (make-lr-runtime
          productions
@@ -472,13 +461,15 @@
 ;;; Keep the two-list reduction loop closed: offset and constructor travel
 ;;; as explicit parameters, so no callback captures them for each reduction.
 ;;; Like foldl2, consume the lists together in source order.
-(def (reduce-operands operands values offset constructor children)
+(def (reduce-operands operands values offset constructor children offsets index)
   (if (and (pair? operands) (pair? values))
     (reduce-operands
      (cdr operands) (cdr values) offset constructor
      (recognition-sequence-append
       children (apply-operand-actions
-                (car values) (operand-actions (car operands)) offset constructor)))
+                (car values) (operand-actions (car operands))
+                (if offsets (vector-ref offsets index) offset) constructor))
+     offsets (fx+ index 1))
     children))
 
 ;; reduce-value
@@ -494,7 +485,9 @@
        default-offset fragment-constructor))
      ((or (eq? action 'concat) (eq? action 'pass)
           (layout-end-action? action))
-      (reduce-operands rhs source-values default-offset fragment-constructor '()))
+      (reduce-operands rhs source-values default-offset fragment-constructor '()
+        (and (any null? source-values)
+             (source-operand-offsets (length rhs) source-values default-offset recognition-sequence-start)) 0))
      (else (error "unknown LR semantic action" action)))))
 
 (defrule (apply-operand-action/events action-expr value offset ignored-constructor)
@@ -505,13 +498,15 @@
       (else (error "unknown event semantic action" action)))))
 
 (define-operand-action-fold apply-operand-actions/events apply-operand-action/events)
-(def (reduce-operands/events operands values offset children)
+(def (reduce-operands/events operands values offset children offsets index)
   (if (and (pair? operands) (pair? values))
     (reduce-operands/events
      (cdr operands) (cdr values) offset
      (event-program-append
       children (apply-operand-actions/events
-                (car values) (operand-actions (car operands)) offset #f)))
+                (car values) (operand-actions (car operands))
+                (if offsets (vector-ref offsets index) offset) #f))
+     offsets (fx+ index 1))
     children))
 (def (reduce-value/events production source-values offset ignored-constructor)
   (let ((rhs (production-rhs production)) (action (production-action production)))
@@ -520,39 +515,16 @@
       (apply-operand-actions/events (car source-values)
         (operand-actions (car rhs)) offset #f))
      ((memq action '(pass concat))
-      (reduce-operands/events rhs source-values offset #f))
+      (reduce-operands/events rhs source-values offset #f
+        (and (any (lambda (value) (or (not value) (null? value))) source-values)
+             (source-operand-offsets (length rhs) source-values offset recognition-sequence-start)) 0))
      (else (error "unsupported event LR production" action)))))
-
-;;; The deterministic executor consumes the immutable semantic stack directly.
-;;; Each prepared field/alias chain retains declaration order. Prepending each
-;;; completed operand restores source order without an intermediate value list.
-;;; The GLR reducer above remains an independent source-order implementation.
-(def (reduce-stack-actions actions stack offset)
-  (let loop ((index (fx- (vector-length actions) 1)) (stack stack)
-             (children '()))
-    (if (fx>= index 0)
-      (let (value (apply-operand-actions (car stack) (vector-ref actions index) offset
-                                        make-recognition-fragment))
-        (loop (fx- index 1) (cdr stack)
-              (recognition-sequence-append value children)))
-      children)))
-
-;;; Preserve the event builder's sequential source-order append discipline.
-(def (reduce-source-actions/events actions values offset)
-  (let (width (vector-length actions))
-  (let loop ((index 0) (values values) (children #f))
-    (if (fx< index width)
-      (loop (fx+ index 1) (cdr values)
-            (event-program-append
-             children (apply-operand-actions/events
-                       (car values) (vector-ref actions index) offset #f)))
-      children))))
 
 ;;; Keep prepared-plan access outside the LR continuation's generated body.
 (def (reduce-prepared-plan plan values offset events?)
   (if events?
-    (reduce-source-actions/events plan values offset)
-    (reduce-stack-actions plan values offset)))
+    (reduce-lr-event-plan plan values offset #f)
+    (reduce-lr-stack-plan plan values offset)))
 
 ;;; Bind the popped immutable stack prefixes directly into the reduction body.
 ;;; Both private reducers stop at the RHS width, so unary reductions borrow the
@@ -787,8 +759,9 @@
              (let* ((offset (if (pair? rest) (token-start (car rest))
                             input-end-offset))
                 (value
-                 (reduce-value
-                  production source-values offset intern-fragment))
+                 (reduce-lr-source-plan
+                  (vector-ref (lr-runtime-reduction-plans runtime) production-id)
+                  source-values offset intern-fragment))
                 (precedence (production-precedence production))
                 (next-score
                  (if (and precedence (eq? (car precedence) 'dynamic))

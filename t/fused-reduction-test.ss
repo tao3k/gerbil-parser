@@ -3,6 +3,9 @@
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-official-fixtures)
         :std/test
+        :gerbil-parser/src/grammar/algebra
+        (only-in :gerbil-parser/src/language/grammar deflanguage)
+        (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :clan/poo/object .o .cc .ref)
         (only-in :clan/poo/mop validate)
@@ -20,7 +23,11 @@
                  +language-grammar-schema+ make-language-grammar language-grammar-language language-grammar-version
                  language-grammar-contract language-grammar-grammar language-grammar-observability)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref production-table production-rhs)
-        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-roundtrip)
+        (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact
+                 parse-artifact-valid? parse-artifact-roundtrip)
+        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/recognition make-recognition-node make-recognition-child)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest parser-machine-trivia)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source syntax-fixture-expected-status)
         (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
         (only-in :gerbil-parser/languages/arithmetic/parser  arithmetic-language-grammar)
@@ -28,6 +35,18 @@
         (prefix-in :gerbil-parser/src/compiler/hcl-reductions hcl-)
         (prefix-in "fixtures/arithmetic-reductions.ss" arithmetic-))
 (export fused-reduction-test)
+
+(deflanguage nullable-boundary-probe
+  (syntax
+   (lexical
+    (root source-file)
+    (lex (word Word (identifier)))
+    (extras) (keywords) (recoveries) (conflicts selective-glr)
+    (case-insensitive #f)))
+  (rules
+   (source-file (node SourceFile (seq (node Before (empty)) word (node After (empty)))))))
+(bind-fixture-grammar-release nullable-boundary-probe
+  "nullable-boundary-probe" "test" "nullable-boundary-probe.test")
 
 (def (emitted strategy)
   (call-with-output-string (lambda (port) (emit-build-strategy strategy port))))
@@ -76,6 +95,26 @@
 
 (def fused-reduction-test
   (test-suite "generic POO fused reduction strategy"
+    (test-case "generated recognition and event reducers preserve nullable sibling origins"
+      (let* ((descriptor nullable-boundary-probe-language-grammar)
+             (machine (language-grammar-machine descriptor))
+             (token (make-token 'word "a" 0 1))
+             (root (make-recognition-node 'SourceFile 0 1
+                     (list (make-recognition-child #f (make-recognition-node 'Before 0 0 '()))
+                           (make-recognition-child #f token)
+                           (make-recognition-child #f (make-recognition-node 'After 1 1 '())))))
+             (expected (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                         "a" (list token) root (parser-machine-trivia machine)))
+             (strategy (.cc (make-fused-reduction-strategy descriptor)
+                            'step-name 'nullable-step 'event-name 'nullable-event-step
+                            'digest-name 'nullable-digest)))
+        (eval (call-with-input-string (emitted strategy) read))
+        (check (parse-artifact-valid? expected) => #t)
+        (check (parse-indexed-reference machine "a") => expected)
+        (check (parse-indexed-reference machine "a" (eval 'nullable-step)) => expected)
+        (parameterize ((current-lr-event-program-enabled? #t))
+          (check (parse-indexed-reference (parser-machine-for-current-semantic-backend machine)
+                                         "a" (eval 'nullable-event-step)) => expected))))
     (test-case "both emitted backends traverse each stack suffix once"
       (for-each check-linear-stack-reads (list arithmetic-language-grammar hcl-language-grammar)))
     (test-case "two descriptors generate independently and deterministically"

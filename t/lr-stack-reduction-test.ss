@@ -3,6 +3,8 @@
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr operand-actions-valid? validate-production-semantics)
         (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/recognition
+                 make-recognition-child make-recognition-node)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
                  current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend)
@@ -26,11 +28,23 @@
          (runtime (lr-prepare (compile-lr-spec rules 'source-file)))
          (source (make-string width #\a))
          (tokens (map (lambda (index) (make-token 'word "a" index (+ index 1)))
-                      (iota width))))
+                      (iota width)))
+         ;; This tree is the declaration's semantic oracle, independent of
+         ;; either LR executor and its prepared action representation.
+         (expected-root
+          (make-recognition-node 'SourceFile 0 width
+            (map (lambda (token index)
+                   (if decorated?
+                     (make-recognition-child 'outer
+                       (make-recognition-node 'Renamed index (+ index 1)
+                         (list (make-recognition-child 'inner token))))
+                     (make-recognition-child #f token)))
+                 tokens (iota width)))))
     (let-values (((reference rest receipt) (lr-parse/prepared/receipt runtime tokens)))
       (check rest => '())
       (let* ((digest (string-append "sha256:" (make-string 64 #\0)))
-             (expected (make-success-parse-artifact digest source tokens reference false)))
+             (expected (make-success-parse-artifact digest source tokens expected-root false)))
+        (check (make-success-parse-artifact digest source tokens reference false) => expected)
         (check (parse-artifact-valid? expected) => #t)
         (check (parse-artifact-roundtrip expected) => source)
         (for-each
@@ -45,6 +59,35 @@
 
 (def lr-stack-reduction-test
   (test-suite "shared LR stack reduction"
+    (test-case "prepared nullable aliases receive each request's actual boundaries"
+      (let (runtime
+            (lr-prepare
+             (compile-lr-spec
+              '((source-file
+                 (alias SourceFile
+                   (sequence (alias Before (sequence)) (token word)
+                             (alias After (sequence)))))) 'source-file)))
+        (for-each
+         (lambda (offset)
+           (let* ((end (+ offset 1)) (token (make-token 'word "a" offset end))
+                  (expected-root
+                   (make-recognition-node 'SourceFile offset end
+                     (list
+                      (make-recognition-child #f (make-recognition-node 'Before offset offset '()))
+                      (make-recognition-child #f token)
+                      (make-recognition-child #f (make-recognition-node 'After end end '())))))
+                  (source (string-append (make-string offset #\space) "a"))
+                  (digest (string-append "sha256:" (make-string 64 #\0)))
+                  (publish (lambda (root)
+                             (make-success-parse-artifact digest source (list token) root false)))
+                  (expected (publish expected-root)))
+             (let-values (((root rest) (lr-parse/prepared runtime (list token))))
+               (check rest => '())
+               (check (publish root) => expected))
+             (let-values (((root rest receipt) (lr-parse/prepared/receipt runtime (list token))))
+               (check rest => '())
+               (check (publish root) => expected))))
+         '(0 17 3))))
     (test-case "canonical productions validate numbering, width and scalar metadata"
       (for-each
        (lambda (production)

@@ -1,5 +1,12 @@
 #+title: Prepared LR action plans and engine ownership
 
+This document records the initial indexed action-chain implementation and its
+qualification. [[file:lr-semantic-kernel-staging.org][Semantic kernel staging]] continues the same admission boundary:
+private prepared slots now contain executable steps or identity, while canonical
+operand chains remain grammar data. GLR and deterministic execution share the
+lowered operations; current stack tests use a manually constructed semantic
+oracle to preserve independent evidence.
+
 * Design question and implementation
 
 The grammar -> canonical IR -> prepared machine -> reduction -> artifact path

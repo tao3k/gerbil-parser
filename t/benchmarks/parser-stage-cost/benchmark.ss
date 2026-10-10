@@ -6,7 +6,7 @@
         (only-in ../../../src/runtime/artifact
                  parse-artifact-valid-for-source? parse-artifact-events parse-artifact-ref))
 (export measure-parser-stages measure-artifact-event-storage copy-canonical-event-storage
-        measure-parser-component measure-parser-batch sample-at-percentile
+        measure-parser-component measure-parser-batch measure-parser-cpu-pairs sample-at-percentile
         gc-statistics-snapshot sample-gc-snapshot component-allocation-summary)
 
 (def (require-parser-batch! batch-count calls-per-thunk)
@@ -252,3 +252,31 @@
       (newline) (force-output)
       (displayln "PARSER-STAGE-COST-OK samples=" samples) (force-output)
       summary)))
+
+;;; Same-process CPU comparison with complete products and alternating order.
+(def (cpu-pair-field row key) (cdr (assq key row)))
+(def (measure-parser-cpu-pairs name phase groups calls expected left right)
+         (unless (and (exact-integer? groups) (>= groups 20))
+    (error "paired CPU proof requires at least twenty groups" groups))
+  (require-parser-batch! calls 1)
+  (unless (and (equal? (left) expected) (equal? (right) expected))
+    (error "paired CPU warmup differs from complete expected product" name))
+  (##gc)
+         (let loop ((group 0) (rows '()))
+           (if (= group groups)
+             (map (lambda (rank) (cpu-pair-field (sample-at-percentile rows 'ratio rank) 'ratio)) '(10 50 90))
+             (let* ((order (if (even? group) '(left right right left) '(right left left right)))
+                    (batches (map (lambda (variant)
+                      (cons variant (measure-parser-batch (list 'literal-edges name phase) group calls
+                                      (if (eq? variant 'left) left right) expected))) order))
+                    (sum (lambda (variant)
+                      (apply + (map (lambda (batch) (cpu-pair-field (cdr batch) 'cpu-ms))
+                                    (filter (lambda (batch) (eq? (car batch) variant)) batches)))))
+                    (cpu (sum 'left)))
+               (unless (and (positive? cpu)
+                            (andmap (lambda (batch) (>= (cpu-pair-field (cdr batch) 'cpu-ms) 1.0)) batches))
+                 (error "edge CPU batch does not resolve one millisecond" name phase group))
+               (let (row (list (cons 'sample group) (cons 'ratio (/ (sum 'right) cpu))))
+                 (write (list 'PARSER-CPU-PAIR name phase row 'batches batches)) (newline) (force-output)
+                 (loop (+ group 1) (cons row rows)))))))
+

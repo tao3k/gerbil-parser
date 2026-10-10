@@ -1,0 +1,147 @@
+#+title: Engine design realization audit
+#+startup: overview
+
+* Scope and evidence rules
+
+Source baseline: =b1b13e00b3bde9ffa6e2815fb7bda90c76834945= on PR #13.
+This audit connects the shared engine work to the three author interfaces:
+=grammar.ss= declares syntax, =parser.ss= supplies metadata and parser adaptation,
+and =parser-test.ss= owns observable language behavior and benchmark contracts.
+It does not audit every language-standard production or assert complete package
+qualification. Historical research receipts keep their original revisions.
+
+An implemented mechanism, a passed focused control and completed exact-head CI
+are separate facts. A research proposal or an inspected test is not a receipt.
+Each further change must name its semantic invariant, implementation owner,
+independent control and measured phase before a performance claim is admitted.
+
+* One implementation sequence
+
+The architecture remains declaration and POO composition -> canonical IR ->
+compiler publication -> prepared machine -> request execution -> artifact.
+Shared engine mechanisms belong beneath this sequence. Language authors do not
+configure matcher caches, generic registries, opcode lowering or worker lifetimes.
+
+| Design obligation | Implementation owner | Executable control | Scope and open boundary |
+|-------------------+----------------------+--------------------+-------------------------|
+| One effective grammar and selected source origins | [[file:../../src/compiler/normalize.ss][normalization]] and [[file:../../src/compiler/lr.ss][resolved LR analysis]] | [[file:../../t/resolved-grammar-test.ss][resolved grammar controls]] | Finite LR entry admission exists; general generated helper/conflict origin serialization remains open |
+| Backend/capability selection at preparation | [[file:../../src/runtime/lr-parser.ss][LR preparation]] | [[file:../../t/lr-semantic-preparation-test.ss][semantic preparation controls]] | Private CLOS methods select executors; this does not supply an open generic extension protocol |
+| Static matcher configuration shared across lexical modes | [[file:../../src/runtime/contextual-scanner.ss][contextual preparation]] | [[file:../../t/contextual-scanner-test.ss][rank/action/state controls]] | Region/guard sharing exists; primitive closures and literal source-size strategy retain separate admission |
+| Nested regions retain request-owned state | [[file:../../src/runtime/region-scanner.ss][region executor]] | [[file:../../t/region-scanner-test.ss][region controls]] and [[file:../../t/contextual-deferred-scanner-test.ss][deferred controls]] | Prepared opener data is shared; counters, frames and delimiter obligations belong to requests |
+| Contextual program and source publication have explicit owners | [[file:../../src/language/source-strategy.ss][source strategy]] | [[file:../../t/source-strategy-test.ss][strategy controls]] and [[file:../../t/source-scanner-test.ss][source scanner controls]] | These focused controls do not establish general cross-edit Rust subtree reuse |
+| Ranked competition preserves winner semantics | [[file:../../src/compiler/lexical-lexer.ss][lexical lowering]] | [[file:../../t/lexical-first-character-test.ss][competition controls]] | Hygienic loop staging is implemented; complete-parser CPU improvement is unproved |
+| Preparation cost remains visible | [[file:../../t/benchmarks/contextual-scanner/matched-scale.ss][contextual benchmark]] and [[file:../../t/benchmarks/regular-mode/request-cost.ss][regular benchmark]] | Native prepared products checked after measurement | Contextual preparation controls are added in this slice; historical paired receipts remain separate from fresh runs |
+
+The first row's semantic and provenance limits are detailed in
+[[file:../research/dsl-engine-contracts.org][the DSL contract audit]]. This table records responsibility rather than
+introducing another authoring DSL or a compatibility route.
+
+* Scheme witness: declaration, preparation and repeated requests
+
+#+begin_src scheme
+;; Engine-owned lowering of an admitted declaration. No new author slot.
+(def (prepare-rule-matcher declaration cache)
+  (or (table-ref cache declaration #f)
+      (let* ((expression (lower-rule-matcher declaration))
+             (plan (make-contextual-matcher-plan
+                    expression (prepare-matcher expression))))
+        (table-set! cache declaration plan)
+        plan)))
+
+;; Rule policy is separate from executable configuration. The actual local
+;; macro is defined inside decode-rule, where these metadata bindings exist.
+(defrule (finish expression executor)
+  (make-runtime-scan-rule name mode form expression executor rank action))
+#+end_src
+
+** Question: why is this design preferable?
+
+S-expression declarations permit structural equality and engine-owned matching.
+Hygienic =defrule= expansion retains lexical rule policy without allocating a
+per-rule constructor callback. POO composition selects declared values and
+origins; private CLOS preparation methods select backend/capability combinations;
+named algorithms implement their execution. Each mechanism has a concrete
+responsibility. Authors retain ordinary values unless they need actual extension.
+
+This is deliberately selective: the preparation cache shares expensive immutable
+region/guard configuration. It does not intern request state or all Scheme
+closures. Rejected broad-cache and multiple-value experiments are retained in
+[[file:../research/scheme-reduction-abstractions.org::*Contextual matcher preparation across modes and source sizes][the preparation study]].
+
+** Question: how is the claim scientifically tested?
+
+The falsifiers are changed rule rank/action outcomes, state leaking between
+requests, changed Unicode byte boundaries, or preparation cost moved into scan
+timing. Shared guard controls exercise independent modes and requests on short
+and long sources. Existing region/deferred/source suites exercise the adjacent
+semantic obligations. Preparation controls independently declare expected words,
+check token kinds, complete lexemes and final UTF-8 byte coverage after timing.
+
+The historical paired region configuration reduces admitted preparation allocation
+by approximately 45%. Identifier CPU results are mixed; neither that allocation
+result nor the papers prove whole-parser speedup. The papers motivate staging
+under explicit assumptions; semantic controls and matched measurements decide
+which lowering is retained in this engine.
+
+* Reproducible preparation controls
+
+The existing benchmark exports =benchmark-matcher-preparation=. It exercises
+one-mode identifier, sixteen-mode identifier, a 128-literal catalog, a region
+configuration and a guarded region configuration. The region source includes
+Unicode quotes and nested interpolation. Defaults are eleven samples and three
+preparations per sample; both counts must be positive exact integers.
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/contextual-scanner/matched-scale)
+(benchmark-matcher-preparation 11 3)
+#+end_src
+
+Run this expression through the repository's configured Gerbil environment.
+For native cost evidence, compile the benchmark module through the existing
+compiler owner and load its native product. Source interpretation is a distinct
+control. No new executable, process wrapper or baseline executor is introduced.
+Compare revisions through the same caller, toolchain, configuration and sample
+order, with explicit loaded-product identities. Each measured interval contains
+only plan preparation: IR construction, source encoding and returned-product
+validation are excluded. The final plan in each batch is validated; the output
+does not assert that every intermediate plan was scanned.
+
+The output records CPU milliseconds per preparation, GC count and admitted
+allocated bytes per preparation. Collection or a negative raw delta makes the
+allocation value =#f=, not zero. A GC is forced before each interval; this isolated
+preparation control does not measure natural application GC, amortized request
+latency, scan throughput or complete-language parsing. Existing =scan=,
+=prepare-scan= and =plan-batch= entry modes retain those distinct boundaries.
+
+* Qualification of this slice
+
+The benchmark module compiles natively with the installed Gerbil/Gambit and GCC
+toolchain in 16.912 seconds, exit 0 and final =OK=. Its native caller completes
+in 12.033 seconds, exit 0, =MATCHER-PREPARATION-OK= and final =OK=. All fifteen
+preparation samples validate their returned products, including Unicode region
+and guarded-region sources. Existing =scan=, =prepare-scan= and =plan-batch=
+modes each retain two reported samples and complete =SCANNER-SCALE-OK=.
+Both gates retain the five-second idle limit and report real compiler/module
+progress. This is focused native caller qualification over reused dependency
+products, not a fresh complete-package build or a new paired speedup result.
+
+The modularization check compares all 2,311 original lines with their corresponding
+overview/module ranges; every historical section is retained exactly. All 65
+local file links in the seven touched audit/research documents resolve. This
+check does not qualify external paper URLs or local links in unrelated documents.
+
+* Remaining gates and next work
+
+1. Keep exact-head Linux, macOS and Rust AOT CI separate from local native
+   overlays. The earlier =f3dff04= macOS language-conformance compile failed the
+   five-second idle gate; a later local producer success does not close it.
+2. Prioritize producer construction and publication traversals using the
+   [[file:../research/lr-request-cost-boundaries.org][request cost study]] and
+   [[file:../research/shared-source-projection-publication.org][source publication study]]. A new optimization needs complete
+   artifact/field/span parity and a matched phase control. Rejected continuation,
+   projection callback and dense-prefix candidates remain rejected.
+
+The shared scanner study is modularized into
+[[file:../research/shared-scanner-staging-and-fusion.org][one overview and four responsibility modules]]. Its original experiments,
+failed runs, revision identities and negative results are preserved. This audit
+is the implementation entry; those modules supply detailed arguments and receipts.

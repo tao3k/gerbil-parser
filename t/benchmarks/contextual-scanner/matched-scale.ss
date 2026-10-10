@@ -9,7 +9,8 @@
  (only-in :gerbil-parser/src/modules/parser/contextual-objects
           make-contextual-role make-contextual-method make-contextual-scan-rule)
  (only-in :gerbil-parser/src/runtime/token token-lexeme token-kind))
-(export main fixture-ir)
+(import (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation))
+(export main fixture-ir benchmark-matcher-preparation)
 
 (def (catalog prefix size)
   (map (lambda (n) (string->symbol (string-append prefix (number->string n))))
@@ -52,6 +53,58 @@
     (let-values (((token next) (contextual-scanner-step scanner state position)))
       (if token (loop next (cons token tokens))
         (values (reverse tokens) (contextual-scan-state-byte-offset next))))))
+
+;;; Compare revisions through this same caller; no baseline executor ships here.
+;;; IR construction and product checks remain outside the preparation interval.
+(def (benchmark-matcher-preparation (samples 11) (iterations 3))
+  (unless (and (exact-integer? samples) (positive? samples)
+               (exact-integer? iterations) (positive? iterations))
+    (error "matcher preparation requires positive exact sample/iteration counts"))
+  (let* ((literals (map (lambda (n) (string-append "word" (number->string n))) (iota 128)))
+         (stops (append '(" " ";")
+                        (map (lambda (n) (string-append "stop" (number->string n))) (iota 128))))
+         (region (list 'region-word
+                       (list stops '((#\" #t ("${"))) '(("${" #\{ #\} 1)) #f)))
+         (plain-words '("word0" "word7" "word127" "wording"))
+         (region-words '("${α}" "\"β\"" "word0" "wording")))
+    (for-each
+     (match <>
+       ([name axes catalog matcher words]
+        (let* ((expected-words (apply append (make-list 32 words)))
+               (source (string-join expected-words " "))
+               (source-bytes (u8vector-length (string->utf8 source))))
+          (let-values (((ir position) (fixture-ir axes catalog matcher)))
+            (let sample ((index 0))
+              (when (< index samples)
+                (##gc)
+                (let* ((before (##process-statistics))
+                       (plan (let repeat ((left iterations) (plan #f))
+                               (if (zero? left) plan
+                                 (repeat (- left 1) (prepare-contextual-scanner-plan ir)))))
+                       (after (##process-statistics))
+                       (delta (lambda (slot) (- (f64vector-ref after slot) (f64vector-ref before slot)))))
+                  (let-values (((tokens byte-end) (scan-all (prepare-contextual-scanner plan source) position)))
+                    (unless (and (= byte-end source-bytes)
+                                 (= (length tokens) (- (* 2 (length expected-words)) 1))
+                                 (equal? (map token-lexeme (filter (lambda (token) (eq? (token-kind token) 'word)) tokens))
+                                         expected-words)
+                                 (equal? (string-join (map token-lexeme tokens) "") source))
+                      (error "prepared matcher product differs from declared words" name)))
+                  (write (list 'matcher-preparation name index 'iterations iterations
+                               'cpu-ms-per-call (/ (* 1000 (+ (delta 0) (delta 1))) iterations)
+                               'allocated-bytes-per-call
+                               (let (bytes (admit-parser-allocation (delta 7) (delta 6)))
+                                 (and bytes (/ bytes iterations)))
+                               'gc-count (delta 6)))
+                  (newline) (force-output))
+                (sample (+ index 1))))))))
+     (list (list 'identifier-one 1 '() '(identifier) plain-words)
+           (list 'identifier-sixteen 16 '() '(identifier) plain-words)
+           (list 'literal-sixteen 16 literals '(identifier) plain-words)
+           (list 'region-sixteen 16 literals region region-words)
+           (list 'guarded-region-sixteen 16 literals
+                 (list 'unless-prefix '("<<<") '() region) region-words))))
+  (displayln "MATCHER-PREPARATION-OK") (force-output))
 
 (def (main . args)
   (let* ((axes (if (pair? args) (string->number (car args)) 16))

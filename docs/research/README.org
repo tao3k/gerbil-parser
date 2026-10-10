@@ -12,6 +12,10 @@ instrumentation or runtime-binding replacement wrappers.
 The paper/framework synthesis remains in
 [[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].
 
+The [[file:../audit/engine-design-realization.org][design-to-code audit]] connects the active research decisions to
+implementation owners, executable controls and remaining qualification gates.
+Use it to choose the next coherent implementation task.
+
 For the current Gerbil source study and the ordered runtime work, read
 [[file:shared-scanner-staging-and-fusion.org][shared engine specialization, source spans and fusion]]. It separates
 implemented preparation from proposed fusion and preserves negative receipts.
@@ -30,7 +34,7 @@ is modularized by responsibility:
 - [[file:scheme-contextual-parser-ir.org][Coordinated contextual IR migration and qualification obligations]]
 - [[file:scheme-bash-source-frontend.org][Bash source frontend gap and complete-package compiler obligations]]
 - [[file:scheme-dsl-engine-admission.org][Engine admission, provenance and artifact publication]]
-- [[file:scheme-native-build-ownership.org][Native image storage, compiler ownership and platform qualification]]
+- [[file:scheme-build-ownership.org][Native image storage, compiler ownership and platform qualification]]
 - [[file:scheme-dsl-semantic-contracts.org][Semantic contracts and composition evolution]]
 - [[file:scheme-dsl-complexity-ownership.org][Complexity ownership and author change tasks]]
 - [[file:scheme-dsl-research-basis.org][Primary research basis and design method]]

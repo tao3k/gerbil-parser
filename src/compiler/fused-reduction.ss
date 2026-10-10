@@ -46,7 +46,7 @@
                   (not (eq? (cadr names) (caddr names)))))
            (let (productions (validate-production-semantics (strategy-productions candidate)))
              (let (spec (cdr (assq 'lr-spec (language-grammar-ir (.ref candidate 'descriptor)))))
-               (validate-lr-tables (length productions) (lr-spec-ref spec 'actions) (lr-spec-ref spec 'gotos)))
+               (validate-lr-tables productions (lr-spec-ref spec 'actions) (lr-spec-ref spec 'gotos)))
              (and (pair? productions)
                   (every (lambda (production)
                            (memq (production-action production) '(pass concat)))

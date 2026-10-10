@@ -1,8 +1,20 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical LR table admission before indexes or executable products exist.
 (import (only-in :std/iter for in-range)
-        (only-in ./lr +lr-eof+ canonical-base-symbol?))
-(export validate-lr-tables)
+        (only-in ./lr +lr-eof+ canonical-base-symbol?
+                 production-action production-rhs base-symbol layout-end-action?))
+(export validate-lr-tables layout-productions?)
+
+;;; Derive capability from admitted declarations, never from an author flag.
+(def (layout-productions? productions)
+  (any (lambda (production)
+         (or (layout-end-action? (production-action production))
+             (any (lambda (operand)
+                    (match (base-symbol operand)
+                      (['terminal (or 'layout-start 'layout-next) _] #t)
+                      (_ #f)))
+                  (production-rhs production))))
+       productions))
 
 (def (bounded-index? value count)
   (and (fixnum? value) (fx>= value 0) (fx< value count)))
@@ -18,7 +30,7 @@
       (and (pair? value) (eq? (car value) 'terminal)
            (canonical-base-symbol? value))))
 
-(def (make-action-validator states productions)
+(def (make-action-validator states productions layout?)
   (def (reduce? value)
     (match value
       (['reduce id] (bounded-index? id productions))
@@ -46,7 +58,7 @@
         (fork? action (lambda (branch) (atomic? branch terminal)))
         (match action
           (['layout-guard primary fallback]
-           (and (shift? primary) (or (reduce? fallback) (fork? fallback reduce?))))
+           (and layout? (shift? primary) (or (reduce? fallback) (fork? fallback reduce?))))
           (_ #f)))))
 
 (def (validate-rows rows key? value? kind)
@@ -63,14 +75,21 @@
        row)))
   rows)
 
-(def (validate-lr-tables production-count actions gotos)
+(def (validate-lr-tables productions actions gotos)
+  ;; Production semantics are admitted by each publishing owner first.
+  (def production-count (length productions))
+  (def layout? (layout-productions? productions))
   (unless (and (fixnum? production-count) (fx>= production-count 0)
                (vector? actions) (vector? gotos)
                (positive? (vector-length actions))
                (= (vector-length actions) (vector-length gotos)))
     (error "invalid LR table dimensions" production-count actions gotos))
   (let (states (vector-length actions))
-    (validate-rows actions terminal? (make-action-validator states production-count) 'actions)
+    (validate-rows actions
+                   (lambda (key)
+                     (and (terminal? key)
+                          (or layout? (not (memq (cadr key) '(layout-start layout-next))))))
+                   (make-action-validator states production-count layout?) 'actions)
     (validate-rows gotos symbol?
                    (lambda (target _) (bounded-index? target states)) 'gotos))
   (values actions gotos))

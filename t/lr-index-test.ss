@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 (import :std/test
-        (only-in :gerbil-parser/src/compiler/lr-table validate-lr-tables)
+        (only-in :gerbil-parser/src/compiler/lr-table validate-lr-tables layout-productions?)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare)
         (only-in :gerbil-parser/src/runtime/funcs
                  association-row-vector->index association-row-index-ref)
@@ -22,7 +22,8 @@
       (for-each
        (lambda (entry)
          (let ((actions (vector (list entry))) (gotos (vector '((root . 0)))))
-           (let-values (((same-actions same-gotos) (validate-lr-tables 1 actions gotos)))
+           (let-values (((same-actions same-gotos)
+                         (validate-lr-tables '((0 root () layout-end #f)) actions gotos)))
              (check (eq? actions same-actions) => #t)
              (check (eq? gotos same-gotos) => #t)
              (check (eq? entry (car (vector-ref same-actions 0))) => #t))))
@@ -34,6 +35,22 @@
          ((terminal token word) fork (shift 0 #f) (reduce 0))
          ((terminal token word) layout-guard (shift 0 #f) (reduce 0))
          ((terminal token word) layout-guard (shift 0 #f) (fork (reduce 0) (reduce 0))))))
+    (test-case "layout tables require production-derived request capability"
+      (for-each
+       (lambda (entry) (check-table-rejected (vector (list entry)) (vector '())))
+       '(((terminal token word) layout-guard (shift 0 #f) (reduce 0))
+         ((terminal layout-start "{") shift 0 #f)
+         ((terminal layout-next ";") shift 0 #f)))
+      (for-each
+       (lambda (rhs)
+         (let ((productions (list (list 0 'root rhs 'concat #f)))
+               (actions '#((((terminal layout-start "{") shift 0 #f))))
+               (gotos '#(())))
+           (check (layout-productions? productions) => #t)
+           (let-values (((same-actions _) (validate-lr-tables productions actions gotos)))
+             (check (eq? same-actions actions) => #t))))
+       '(((terminal layout-start "{"))
+         ((marked (terminal layout-next ";") ((field separator)))))))
     (test-case "malformed dimensions and rows fail before indexing"
       (for-each (lambda (pair) (check-table-rejected (car pair) (cadr pair)))
                 '((#f #()) (#() #()) (#(()) #()) (#(invalid) #(()))

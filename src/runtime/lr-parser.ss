@@ -5,7 +5,7 @@
                  make-candidate candidate-root candidate-rest candidate-score
                  candidate-ambiguities candidate-winner-reason candidate-completion-count
                  select-candidate)
-        (only-in ../compiler/lr-table validate-lr-tables)
+        (only-in ../compiler/lr-table validate-lr-tables layout-productions?)
         (only-in ./event-program event-program-append)
         (only-in ./event-reduce event-children-field event-children-alias)
         (only-in :std/vector/vector vector-map/index)
@@ -40,8 +40,7 @@
                  lr-action-row-tokens)
         (only-in ./layout
                  current-layout-columns current-layout-frames
-                 layout-after-shift layout-after-end layout-current-action-row
-                 layout-productions?)
+                 layout-after-shift layout-after-end layout-current-action-row)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
@@ -390,7 +389,7 @@
                    (and precedence (eq? (car precedence) 'dynamic))))
                productions))
          (layout? (layout-productions? productions)))
-    (validate-lr-tables (length productions) actions gotos)
+    (validate-lr-tables productions actions gotos)
     (let-values (((modes mode-catalog)
                   (vector-intern-map
                    actions

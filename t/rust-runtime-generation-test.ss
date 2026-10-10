@@ -46,7 +46,7 @@
 
 (def rust-runtime-generation-test
   (test-suite "Rust AOT generation"
-    (test-case "raw Rust publication rejects invalid table targets and duplicate keys"
+    (test-case "raw Rust publication rejects invalid table domains and layout capability"
       (for-each
        (lambda (tables)
          (let ((path (make-temporary-file-name "invalid-parser-table"))
@@ -71,7 +71,10 @@
             (finally (when (file-exists? path) (delete-file path))))))
        '((#((((terminal token number) shift 1 #f))) #(()))
          (#(()) #(((root . 1))))
-         (#((((terminal token number) shift 0 #f) ((terminal token number) reduce 0))) #(())))))
+         (#((((terminal token number) shift 0 #f) ((terminal token number) reduce 0))) #(()))
+         (#((((terminal token number) layout-guard (shift 0 #f) (reduce 0)))) #(()))
+         (#((((terminal layout-start "{") shift 0 #f))) #(()))
+         (#((((terminal layout-next ";") shift 0 #f))) #(())))))
     (test-case "malformed dead productions preserve an existing output file"
       (for-each
        (lambda (tail)

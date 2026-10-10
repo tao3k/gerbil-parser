@@ -26,6 +26,9 @@ The shared gate establishes:
 - Flat forks with at least two atomic alternatives. Layout guards contain a
   shift and a reduction or flat reduction fork. Request-generated layout-shift
   actions are not a published table declaration.
+- Layout guards and layout terminal keys require layout capability derived from
+  admitted productions. Preparation uses the same predicate to enable source
+  columns and request-local frames; table shape alone cannot enable that protocol.
 
 Standalone LR compilation, prepared execution, fused Scheme strategy admission
 and raw-IR Rust publication consume this gate. The source build catalog discovers
@@ -38,14 +41,20 @@ unchanged. As with prepared productions, callers must not mutate admitted IR.
 
 #+begin_src scheme
 ;; One state and one production: every referenced offset is zero.
-(let ((actions '#((((terminal token word) shift 0 #f))))
+(let ((productions '((0 root () concat #f)))
+      (actions '#((((terminal token word) shift 0 #f))))
       (gotos '#(((root . 0)))))
-  (validate-lr-tables 1 actions gotos))
+  (validate-lr-tables productions actions gotos))
 
 ;; Each is rejected before preparation or Rust publication.
-(validate-lr-tables 1 '#((((terminal token word) shift 1 #f))) '#(()))
-(validate-lr-tables 1 '#((((terminal token word) reduce 1))) '#(()))
-(validate-lr-tables 1 '#((((terminal token word) fork (reduce 0)))) '#(()))
+(let (productions '((0 root () concat #f)))
+  (validate-lr-tables productions '#((((terminal token word) shift 1 #f))) '#(()))
+  (validate-lr-tables productions '#((((terminal token word) reduce 1))) '#(()))
+  (validate-lr-tables productions '#((((terminal token word) fork (reduce 0)))) '#(())))
+;; A separate negative control: ordinary productions cannot publish a guard.
+(validate-lr-tables '((0 root () concat #f))
+                   '#((((terminal token word) layout-guard (shift 0 #f) (reduce 0))))
+                   '#(()))
 #+end_src
 
 ** Question: why is this design preferable?
@@ -56,6 +65,12 @@ action algebra, while a shared row traversal owns domain and uniqueness checks.
 POO strategies inherit the same canonical admission rather than supplying their
 own definition of a legal table. These mechanisms implement the staging boundary
 of the [[file:engine-reduction-generation.org][integrated reduction study]]; they add no author slots or compatibility path.
+
+Layout capability is declared by canonical production meaning: a layout-end
+action or a layout-start/layout-next operand, including marked operands. One
+structural matching function now serves table admission and runtime preparation.
+This uses Scheme's symbolic action algebra to move a protocol obligation into
+the engine, rather than asking grammar authors to duplicate an enable flag.
 
 The table gate preserves original entries, including the identity required by
 GLR receipts and checkpoint execution. Generic association helpers still support
@@ -79,14 +94,51 @@ generated/GLR artifacts, layout closure and ten-language ABI fixture bytes provi
 independent valid-product controls. Raw Rust publication has separate failure
 controls for target bounds and duplicate keys.
 
+Layout falsifiers additionally include a guard or layout key admitted with plain
+productions, or loss of capability through an operand's field/alias wrapper.
+Positive controls cover end actions, bare start markers and marked next markers;
+the source layout suite exercises actual request columns and frame transitions.
+
 Validation adds a row traversal and per-row equality hash tables; lookup cost
 and hashing literal keys contribute to preparation work. No worst-case total
 cost bound or measured preparation/request benefit is claimed. It does not
 certify state reachability, goto completeness, conflict equivalence, lexical
-realizability or the relation between layout capability and a supplied table.
+realizability. Layout correspondence here is a necessary capability condition,
+not proof that markers are balanced or that every guard has the correct fallback.
 Backend-specific capability admission retains its existing owners.
 
 * Native qualification and evidence boundary
+
+** Production-derived layout capability follow-up
+
+At parent =af52bc3=, the native prepared runtime accepted three inconsistent
+controls: plain concat productions paired with a layout guard, a start key or
+a next key. The retained baseline completed in 12.677 seconds with exit zero.
+All four publication owners now pass admitted productions to the table gate;
+the runtime consumes its shared layout predicate rather than a second classifier.
+
+The table/layout/compiler native batch passed in 62.396 seconds. The combined
+runtime/generator attempt failed the unchanged five-second idle gate (exit 137,
+159.927 seconds); an isolated runtime retry also failed (50.044 seconds).
+An overlapping generation attempt failed on an incomplete macro product, so
+consumers were subsequently built in dependency order. These attempts are not
+successful qualification receipts.
+
+Official Gerbil =compiler/driver.ss= makes =gsc-cc-options= ignore ordinary
+CC options for the macro phase. The newly emitted runtime macro source was
+therefore compiled directly with official Gambit and explicit real compiler
+progress options; it passed in 24.709 seconds under the same watchdog. This
+qualification adjustment changes neither engine optimization nor idle limits.
+The subsequent fused Scheme/Rust native batch passed in 44.575 seconds.
+Seven source GxTest suites then passed all 39 cases in 27.894 seconds, with
+complete artifact controls, actual layout requests, rejection before Rust file
+creation and twenty accepted/rejected ABI products across ten language entries.
+Every successful process receipt has exit zero, no rejection reason, no missing
+required output and final =OK=. These are local native receipts, not exact-head
+platform CI or performance measurements.
+Receipts use =/private/tmp/parser-layout-contract-*-supervision.log=.
+
+** Original physical table controls
 
 The retained parent runtime admitted all five malformed table controls in
 16.695 seconds, exit zero. The first temporary baseline probe instead failed

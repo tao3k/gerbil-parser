@@ -1,9 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Request-local source columns and branch-local indentation references.
 
-(import (only-in ../compiler/lr
-                 production-action production-rhs layout-end-action?)
-        (only-in ./lr-action-index
+(import (only-in ./lr-action-index
                  lookup-action-entry lookup-literal-action-entry
                  lookup-layout-start-action-entry
                  lookup-layout-next-action-entry lr-action-row-tokens)
@@ -12,22 +10,7 @@
         current-layout-columns current-layout-frames
         layout-token-column layout-shift-allowed?
         layout-marker-eligible? layout-after-shift layout-after-end
-        layout-current-action-row layout-productions?)
-
-(def (layout-productions? productions)
-  (any (lambda (production)
-         (or (layout-end-action? (production-action production))
-             (any (lambda (operand)
-                    (let (symbol (if (and (pair? operand)
-                                           (eq? (car operand) 'marked))
-                                    (cadr operand)
-                                    operand))
-                      (and (pair? symbol)
-                           (eq? (car symbol) 'terminal)
-                           (memq (cadr symbol)
-                                 '(layout-start layout-next)))))
-                  (production-rhs production))))
-       productions))
+        layout-current-action-row)
 
 (def current-layout-columns (make-parameter #f))
 (def current-layout-frames (make-parameter '()))

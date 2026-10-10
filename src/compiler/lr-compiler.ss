@@ -382,7 +382,7 @@
                      state-count action-state-publication-count))
             (trace-lr-phase 'actions (vector-length actions) started)
             (let (gotos (build-gotos transitions state-count))
-              (validate-lr-tables (vector-length table) actions gotos)
+              (validate-lr-tables productions actions gotos)
               (trace-lr-phase 'gotos (vector-length gotos) started)
               (let (spec
                     (list

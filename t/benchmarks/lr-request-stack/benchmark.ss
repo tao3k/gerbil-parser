@@ -22,7 +22,7 @@
                  token-event? token-event-token-kind token-event-lexeme event-start event-end))
 (export benchmark-lr-request-stack benchmark-lr-request-backends
         benchmark-lr-completions benchmark-lr-semantic-preparation
-        benchmark-lr-casefold-requests)
+        benchmark-lr-casefold-requests benchmark-lr-text-class-requests)
 
 ;;; Preparation includes eligibility and generic selection. Repeated selection
 ;;; uses the prepared runtime, including negative admission. Neither stage is a
@@ -166,6 +166,30 @@
   (benchmark-family 'arithmetic-unchanged-control 64 arithmetic-parser parse-arithmetic
     (string-join (make-list 64 "1") " + ") samples iterations)
   (displayln "LR-CASEFOLD-REQUESTS-OK") (force-output))
+
+;;; Shared character-class dispatch measured through complete FHIRPath requests.
+(def (benchmark-lr-text-class-requests (samples 20) (iterations 100))
+  (for-each
+   (lambda (width)
+     (benchmark-family
+      (if (= width 32) 'fhirpath-classes-32 'fhirpath-classes-256)
+      64 fhirpath-parser parse-fhirpath
+      (string-join
+       (map (lambda (index)
+              (string-append "item_" (make-string width #\x) "_" (number->string index)))
+            (iota 64)) " + ") samples iterations)) '(32 256))
+  (for-each
+   (lambda (units)
+     (benchmark-family 'fhirpath-unicode-control units fhirpath-parser parse-fhirpath
+       (string-join
+        (map (lambda (index)
+               (string-append "item_" (make-string 256 #\٣) "_" (number->string index)))
+             (iota units)) " + ") samples iterations)) '(16 64))
+  (benchmark-family 'fhirpath-short-control 64 fhirpath-parser parse-fhirpath
+    (string-join (make-list 64 "1") " + ") samples iterations)
+  (benchmark-family 'arithmetic-unchanged-control 64 arithmetic-parser parse-arithmetic
+    (string-join (make-list 64 "1") " + ") samples iterations)
+  (displayln "LR-TEXT-CLASS-REQUESTS-OK") (force-output))
 
 ;;; Compare semantic representations across complete public requests. Every
 ;;; route publishes the recognition reference, including grammar rejection of

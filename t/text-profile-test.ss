@@ -7,6 +7,17 @@
         (only-in :gerbil-parser/languages/hl7/grammar hl7-parser-ir))
 (export text-profile-test)
 
+;;; Independent declaration interpreter, never prepared engine predicates.
+(def (class-oracle expression character)
+  (case (car expression)
+    ((numeric) (char-numeric? character))
+    ((alphabetic) (char-alphabetic? character))
+    ((ascii-letter)
+     (or (and (char>=? character #\A) (char<=? character #\Z))
+         (and (char>=? character #\a) (char<=? character #\z))))
+    ((characters) (and (memv character (string->list (cadr expression))) #t))
+    ((union) (ormap (lambda (part) (class-oracle part character)) (cdr expression)))))
+
 (def text-profile-test
   (test-suite "closed text profile IR"
     (test-case "real language profiles preserve rollback, commitment and Unicode endpoints"
@@ -45,6 +56,36 @@
          (optional (literal "x")) (not-next (numeric))
          (if-next (numeric) (literal "x"))
          (seq (literal "x") (if-next (numeric) invalid)))))
+    (test-case "closed union classes agree over ASCII and Unicode boundaries"
+      (let ((observations 0)
+            (characters (append (map integer->char (iota 256))
+                                (string->list "α中😀٣４²é𝟡"))))
+        (for-each
+         (lambda (class)
+           (let (scan (make-text-profile-scanner (list 'run class 1 #f)))
+             (for-each
+              (lambda (character)
+                (let* ((source (string character))
+                       (expected (and (class-oracle class character) 1)))
+                  (unless (equal? (scan source 0) expected)
+                    (error "text class declaration changed" class character expected))
+                  (set! observations (+ observations 1)))) characters)))
+         '((union (ascii-letter) (characters "_") (numeric))
+           (union (characters "ABCDEFGHIJKLMNOPQRSTUVWXYZ") (numeric))
+           (union (alphabetic) (numeric) (characters "_"))
+           (union (characters "éα😀_") (numeric))
+           (union (union (characters "_") (numeric)) (ascii-letter))
+           (union (characters "aaé") (characters "é_"))))
+        (check observations => 1584)))
+    (test-case "prepared character unions isolate declaration string mutation"
+      (let* ((characters (string-copy "_α"))
+             (scan (make-text-profile-scanner
+                    (list 'run (list 'union (list 'characters characters) '(numeric)) 1 #f))))
+        (string-set! characters 0 #\x)
+        (string-set! characters 1 #\β)
+        (check (scan "_α٣" 0) => 3)
+        (check (scan "x" 0) => #f)
+        (check (scan "β" 0) => #f)))
     (test-case "prepared profiles retain source and offset bounds"
       (let (scan (make-text-profile-scanner '(run (numeric) 1 #f)))
         (check (scan "1" -1) => #f)

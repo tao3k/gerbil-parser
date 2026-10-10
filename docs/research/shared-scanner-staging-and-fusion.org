@@ -166,3 +166,152 @@ experiments and negative receipts; they do not define separate migration plans.
 - [[file:shared-ranked-scanner-execution.org][Ranked scanner specialization and execution]]
 - [[file:scheme-reduction-abstractions.org][Reduction protocols and contextual matcher preparation]]
 - [[file:../audit/engine-design-realization.org][Current design-to-code audit and open qualification gates]]
+
+* Closed ASCII union dispatch: rejected runtime experiment
+
+The pinned Gerbil SDK's =src/std/text/parser/char-set.ss= separates codepoint
+predicates from checked character entrypoints. Its ASCII predicates use finite
+ranges, while Unicode predicates retain Scheme's classification. This suggests
+partial evaluation of a closed class declaration; it does not establish that
+another dispatch representation is faster in this engine.
+
+The production =prepare-text-class= compiles a union into short-circuit predicate
+closures. The experiment evaluates those pure predicates over all 128 ASCII
+codepoints during preparation and captures a private byte vector. Runtime ASCII
+characters use one indexed Boolean lookup; other characters invoke the original
+union predicate. This moves ASCII classification out of scanning without
+changing the class IR, language declarations, schema, C ABI or Rust lowering.
+Preparation is bounded by the ASCII domain, but each Unicode character gains
+an additional codepoint test before its original predicate work. Nested unions
+also retain their prepared predicate structure. The candidate is withdrawn.
+
+** Independent semantics and complete-request controls
+
+Six union declarations cover the actual FHIRPath, HL7 and Bash class shapes,
+including nested unions and duplicate character declarations. An independent
+interpreter checks all codepoints from 0 through 255 plus eight Unicode boundary
+and category examples: 1,584 comparisons. A separate test mutates the original
+character-declaration string after preparation; ASCII and Unicode behavior
+must retain the prepared value. These two cases are added to the existing
+=text-profile-test= Suite and are retained against production.
+
+The new =benchmark-lr-text-class-requests= entry reuses the complete-request
+owner's independent materialized GLR, canonical artifact and source-route
+witnesses. The timed prepared boundary uses existing tokens; the source boundary
+includes actual scanning and complete publication. Their costs are not
+subtracted or treated as an additive decomposition. Each timed batch's complete
+result is checked. No alternate engine or frozen result snapshot is committed.
+
+The first matrix uses twenty samples of twenty calls over FHIRPath identifier
+widths 32/256 and 16/64 expression terms, a short numeric FHIRPath request and
+Arithmetic. Four fresh children execute reference/candidate/candidate/reference,
+4,800 calls per child, completing in 23.506, 13.606, 14.480 and 14.092 seconds.
+All emit =LR-TEXT-CLASS-REQUESTS-OK= and qualified exit zero. The 948 admitted
+collection-free intervals retain identical allocation across all twelve
+boundaries. However, prepared LR also becomes faster despite unchanged execution
+work. The control gate rejects CPU admission. The initial reference runner
+precedes the explicit scanner-object assertion used by subsequent children;
+this round therefore does not provide the final matched-runner comparison.
+
+The concrete drift motivates one bounded repeat with the same scanner-object
+assertion throughout, twenty samples of one hundred calls and full Unicode
+identifier controls. The final six workloads are ASCII identifier widths 32
+and 256 with 64 terms; identifiers containing 256 Arabic-Indic digits with
+16/64 terms; 64 numeric FHIRPath terms; and 64 Arithmetic terms. Each has a
+prepared and full-source boundary. All commands retain GCC, the 3 GiB heap,
+120-second total and five-second silence limits. Each child executes 24,000
+calls. No other build or test overlaps the measured children.
+
+| Full-source workload | Reference A CPU ms/100 | Candidate A | Candidate B | Reference B | Ratio of summed candidate/reference medians |
+|----------------------+-----------------------+-------------+-------------+-------------+--------------------------------------------|
+| ASCII width 32, 64 terms | 54.332 | 56.655 | 65.362 | 56.744 | 1.0985 |
+| ASCII width 256, 64 terms | 88.536 | 83.890 | 95.151 | 88.556 | 1.0110 |
+| Unicode digits, 16 terms | 30.564 | 36.731 | 43.041 | 32.811 | 1.2587 |
+| Unicode digits, 64 terms | 138.616 | 152.830 | 167.875 | 123.502 | 1.2235 |
+
+The children complete in 42.265, 38.862, 72.844 and 32.725 seconds, respectively.
+All completion and exit receipts are present. The Scheme evidence verifier
+admits 808 allocation intervals and requires exact counter equality across all
+four children. Allocation is unchanged everywhere. All prepared boundaries,
+Arithmetic source and Unicode requests are CPU controls. Their median stability
+gate still fails; no CPU benefit is admitted. Both candidate Unicode medians
+are above both corresponding reference medians. These descriptive regressions
+and the absent ASCII benefit do not justify retaining the extra Unicode dispatch.
+Control drift prevents a portable causal or percentage claim.
+
+=t/benchmarks/text-class/evidence.ss= uses the shared sampler receipt admission,
+not another log parser. Its batch-count argument admits reproducible analysis
+of the first twenty-call receipts as well as the default hundred-call matrix.
+The original runtime source is restored and its native module and generated
+static source are rebuilt. The older static object is invalidated rather than
+claimed as qualification of the regenerated source. No runtime optimization
+from this experiment is shipped.
+
+** Build and test qualification boundaries
+
+The first candidate GCC build reaches optimization but is rejected after
+37.504 seconds by the silence guard. Existing limited GCC CFG, optimized, RTL
+expansion, CSE, reload and final-pass products then expose actual compiler work;
+the same compiler and optimization settings complete the candidate in 46.833
+seconds. These are real changing compiler outputs, not periodic heartbeats.
+The initial request benchmark compiles in 39.102 seconds; the revised matrix
+and native evidence consumer compile in 51.501 seconds. Restoration from the
+original scanner source completes in 17.399 seconds. Native runtime objects
+are asserted as =scan~0.o8= for measured references and =scan~0.o9= for measured
+candidates. The restored production object is regenerated after those measurements;
+its suffix alone must not be used as a historical content identity.
+
+An untraced source-test bootstrap is rejected in 6.223 seconds while importing
+the test/POO framework. The existing expander-import trace records those actual
+cold admission boundaries; the same silence deadline then admits nine Suites,
+54 cases, final =OK= and exit zero in 18.007 seconds on the candidate. After
+restoration, Bash command and structured-profile consumers join the same single
+runtime: eleven Suites and 68 cases pass with final =OK= and qualified exit zero
+in 43.603 seconds. These are semantic receipts, not parser speedup measurements.
+
+Local receipt stems are =parser-text-class-reference-a=,
+=parser-text-class-candidate-a=, =parser-text-class-candidate-b=,
+=parser-text-class-reference-b= and =parser-text-class-evidence= for the first
+round; =parser-text-class-long-reference-a=, =parser-text-class-long-candidate-a=,
+=parser-text-class-long-candidate-b=, =parser-text-class-long-reference-b= and
+=parser-text-class-long-evidence= for the repeat; and
+=parser-text-class-tests-traced= and =parser-text-class-restored-tests= for
+semantics. At verification, preceding PR head =6f796fe= passes Ubuntu Scheme
+and Rust AOT CI. The new test/evidence commit needs its own exact-head checks.
+
+** Post-rebase source qualification
+
+Concurrent PR commit =1cfb23a= adds production-relative LR vocabulary admission
+and reachable acceptance. The test/evidence change is rebased onto it before
+publication. The performance receipts above remain scoped to =6f796fe=; no
+measurement is relabeled as performance evidence for the later graph.
+
+The current =src/compiler/lr-table.ss= native module rebuilds in 7.034 seconds.
+The first expanded source gate then detects a stale native Rust generator:
+publication negative controls return a path instead of the exceptions already
+required by current source. Its apparent =HARNESS-OK= is followed by
+=MODULE-BATCH-FAILED= and qualified failure (=17.687s=, exit 143,
+=error-output=). This is not an admitted test result. Rebuilding
+=src/compiler/rust-runtime.ss= from current source completes in 19.194 seconds;
+no expected exception or capacity is relaxed.
+
+The final source gate covers the updated LR index and stack controls, Rust IR
+publication, Bash command profiles, structured profiles, character profiles,
+receipt admission and existing LR semantic/execution controls. Twelve Suites
+and 82 cases pass with =TEST-SUITE-OK modules=12=, final =OK=, qualified exit zero
+and no missing receipt in 17.835 seconds. Its receipt stem is
+=parser-text-class-rebased-tests-final=. This is native/source semantic
+qualification; exact-head remote CI is a separate gate.
+
+The subsequent concurrent =c12dcb0= closes canonical rule references before
+executable publication. It is retained by another normal rebase. Its LR
+producer rebuilds in 10.652 seconds. Adding its fused-reduction source controls
+first exposes missing native Arithmetic/HCL parser-test products: the loader
+attempts the generated Scheme fallback and rejects illegal syntax (=26.319s=,
+exit 143, =error-output=). These two current-source products compile in 20.294
+seconds. The final expanded gate then passes thirteen Suites and 94 cases with
+=TEST-SUITE-OK modules=13=, final =OK= and qualified exit zero in 21.676 seconds.
+Its receipt stem is =parser-text-class-final-head-tests-complete=.
+The following =27f5471= changes Org research/audit documents only; its code graph
+is identical to that qualified =c12dcb0= graph. Both concurrent commits are
+preserved. None of these rebases extends the earlier performance claim scope.

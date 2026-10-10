@@ -39,6 +39,8 @@
     "t/layout-column-storage-test"
     "t/language-artifact-test"
     "t/benchmarks/parser-stage-cost/benchmark"
+    "t/benchmarks/ranked-literal/benchmark"
+    "t/benchmarks/layout-columns/benchmark"
     "t/artifact-publication-cost-test"
     "t/fixtures/artifact-window"
     "t/artifact-window-publication-test"

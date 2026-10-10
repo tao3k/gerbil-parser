@@ -1,6 +1,6 @@
 ;;; Source coordinates retain byte semantics across private storage choices.
 (import :std/test
-        (only-in ./fixtures/layout-columns reference-layout-columns layout-column-sources)
+        (only-in ./fixtures/layout-columns reference-layout-columns reference-packed-layout-columns layout-column-sources)
         (only-in :gerbil-parser/src/runtime/layout
                  make-layout-columns current-layout-columns layout-token-column)
         (only-in :gerbil-parser/src/runtime/token make-token))
@@ -13,6 +13,7 @@
        (lambda (source)
          (let* ((expected (reference-layout-columns source))
                 (columns (make-layout-columns source)))
+           (check (u32vector->list (reference-packed-layout-columns source)) => (vector->list expected))
            (check (u32vector? columns) => #t)
            (check (u32vector-length columns) => (vector-length expected))
            (parameterize ((current-layout-columns columns))
@@ -22,6 +23,13 @@
                         => (vector-ref expected offset))
                  (visit (+ offset 1)))))))
        layout-column-sources))
+    (test-case "ASCII fast path rejoins multibyte filling with exact byte columns"
+      (for-each (lambda (source)
+        (let (expected (vector->list (reference-layout-columns source)))
+          (check (u32vector->list (reference-packed-layout-columns source)) => expected)
+          (check (u32vector->list (make-layout-columns source)) => expected)))
+        (list (list->string (map integer->char (iota 128)))
+              (string-append (make-string 1024 #\space) "λ\t\r\n😀" (make-string 1024 #\space)))))
     (test-case "long tab columns remain exact beyond u16 and retain CRLF resets"
       (let* ((source (string-append (make-string 10000 #\tab) "中\r\n😀"))
              (columns (make-layout-columns source)))

@@ -267,7 +267,7 @@
              (map (lambda (rank) (cpu-pair-field (sample-at-percentile rows 'ratio rank) 'ratio)) '(10 50 90))
              (let* ((order (if (even? group) '(left right right left) '(right left left right)))
                     (batches (map (lambda (variant)
-                      (cons variant (measure-parser-batch (list 'literal-edges name phase) group calls
+                      (cons variant (measure-parser-batch (list 'paired-cpu name phase) group calls
                                       (if (eq? variant 'left) left right) expected))) order))
                     (sum (lambda (variant)
                       (apply + (map (lambda (batch) (cpu-pair-field (cdr batch) 'cpu-ms))
@@ -275,7 +275,7 @@
                     (cpu (sum 'left)))
                (unless (and (positive? cpu)
                             (andmap (lambda (batch) (>= (cpu-pair-field (cdr batch) 'cpu-ms) 1.0)) batches))
-                 (error "edge CPU batch does not resolve one millisecond" name phase group))
+                 (error "parser CPU batch does not resolve one millisecond" name phase group))
                (let (row (list (cons 'sample group) (cons 'ratio (/ (sum 'right) cpu))))
                  (write (list 'PARSER-CPU-PAIR name phase row 'batches batches)) (newline) (force-output)
                  (loop (+ group 1) (cons row rows)))))))

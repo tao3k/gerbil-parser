@@ -1,0 +1,31 @@
+#!/usr/bin/env gxi
+;;; CPU assertions use compiled benchmark owners and one isolated Scheme VM.
+(port-settings-set! (current-output-port) '(buffering: #f))
+(displayln "CPU-PROOF-BOOTSTRAP") (force-output)
+(load "t/fixtures/tla-sany-differential/preload.ss")
+(prefer-compiled-interfaces!)
+(call-with-compiled-interface-trace
+ (lambda ()
+   (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+   (preload-module "gerbil-parser/t/benchmarks/ranked-literal/benchmark")))
+(def leave (eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!))
+(def (positive-exact-count text)
+  (let (count (string->number text))
+    (unless (and (exact-integer? count) (positive? count))
+      (error "CPU proof requires positive exact counts" text))
+    count))
+(def (main (workload "bounded") (groups "20") (characters "2000000"))
+  (with-catch
+    (lambda (condition)
+      (write (list 'CPU-PROOF-REJECTED (error-message condition) (error-irritants condition)))
+      (newline) (force-output) (leave 1))
+    (lambda ()
+      (let (entry
+        (cond ((equal? workload "bounded")
+               'gerbil-parser/t/benchmarks/ranked-literal/benchmark#qualify-literal-edge-cpu)
+              ((equal? workload "ranked")
+               'gerbil-parser/t/benchmarks/ranked-literal/benchmark#qualify-ranked-edge-cpu)
+              (else (error "unknown CPU proof workload" workload))))
+        ((eval entry) (positive-exact-count groups) (positive-exact-count characters)))
+      (displayln "SCANNER-CPU-PROOF-OK " workload) (force-output)
+      (leave 0))))

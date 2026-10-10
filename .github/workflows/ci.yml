@@ -222,6 +222,15 @@ jobs:
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
 
+      - name: Prove shared Scheme scanner CPU improvement
+        if: runner.os == 'Linux'
+        env:
+          GAMBOPT: max-heap=3G,debug=q
+        run: |
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/scanner-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss bounded 20 2000000
+
       - name: Save admitted conformance preparation
         if: steps.conformance-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9

@@ -447,3 +447,151 @@ are =parser-compact-edge-final-build=, =parser-compact-edge-rebased-build=,
 =parser-compact-edge-rebased-tests= and =parser-compact-edge-cpu-final-proof=.
 The following =104679f= rebase contains documentation changes only and leaves
 the qualified production source graph unchanged.
+
+* Shared CPU admission across ranked scanning and complete layout products
+
+The paired measurement loop is moved into the existing Scheme parser-stage
+sampler as =measure-parser-cpu-pairs=. The bounded proof, ranked proof and
+layout product comparison share the same CPU counters, alternating ABBA/BAAB
+order, actual batch records, one-millisecond resolution floor and ASP percentile
+selection. Complete warmup and final batch results must equal the supplied
+expected product. Tests do not add a process per sample or change compiler,
+heap, total timeout, idle timeout or CPU admission thresholds.
+
+The existing ranked benchmark gains =benchmark-ranked-edge-cpu= and the
+executable assertion =qualify-ranked-edge-cpu=. The comparator retains the old
+ranked traversal with all-table edges, original duplicate combination, terminal
+selection, mode admission and four-field result publication. The production
+scanner uses the retained compact-edge engine. An independent linear catalog
+oracle validates every tested start offset over successful, failing and Unicode
+sources, including mode filtering. Scalar endpoint agreement is insufficient.
+
+Initial ranked fixtures include an accepted one-character prefix before the
+128-character terminal. This publishes two results per successful call. A
+separate final fixture has only the final terminal, representing a long keyword
+without an accepted shorter prefix. Earlier prefix-chain benchmarks and semantic
+mode/rank/order tests remain available. These are distinct declared workloads;
+results from one do not qualify the other.
+
+| Ranked workload | Calls per batch | CPU ratio P50 | CPU ratio P90 | Admission |
+|-----------------+-----------------+---------------+---------------+-----------|
+| Accepted prefix and final terminal | 15625 | 0.1776 | 0.2263 | Rejected controls |
+| Same prefix workload, larger batch | 31250 | 0.1926 | 0.3182 | Rejected controls |
+| All terminals rejected by mode | 31250 | 0.1888 | 0.2143 | Rejected controls |
+| Final terminal only | 15625 | 0.1853 | 0.2288 | Rejected controls |
+
+The prefix children complete in 30.222 and 62.833 seconds, but their performance
+assertions fail. The initial runner lets the Scheme error reach the process
+watchdog (=error-output=), which rejects it rather than accepting a completion
+marker. The all-rejected diagnostic completes in 80.302 seconds with exit zero;
+its CPU admission remains false. The final-terminal assertion fails with an
+explicit exit one in 35.616 seconds. Smaller observed candidate ratios alone
+are not sufficient to pass unchanged control gates.
+
+** Complete GLR artifact CPU test and rejected layout candidate
+
+The latest PR includes =8a206b5=, packed request-owned layout columns. The layout
+benchmark gains =benchmark-layout-request-cpu= and
+=qualify-layout-request-cpu=. Each complete-product operation executes lexical
+scanning, significant-token selection, source-column construction, GLR parsing
+and success-artifact publication. Both variants use the same parser machine,
+source and recognition runtime. The complete source-admitted ParseArtifact must
+match, rather than only a token count or root summary. This is a complete GLR
+product path, not measurement of an arbitrary language's public entry route.
+
+The initial complete-product test uses the independent boxed column oracle.
+With twenty groups and one hundred products per batch, its 24,000 timed products
+complete in 57.692 seconds; product equality passes, but the performance test
+exits one. Production/reference CPU P50/P90 is 0.8065/1.3086. Before-control
+P10/P90 is 0.7123/1.3946; after-control is 0.6747/1.4197. The initial missing
+native fixture load is a separate failed bootstrap; compiling its source owner
+fixes that load without weakening any benchmark gate.
+
+An engine candidate directly publishes ASCII columns and reserves the byte-fill
+loop for multibyte characters. Sixteen semantic suites pass 125 cases in 37.510
+seconds, including byte interiors, EOF, tab/CRLF and complete parser controls.
+Against the boxed oracle, twenty groups of five hundred constructions produce
+CPU P50/P90 0.7153/0.7595 in 75.797 seconds. Controls fail, so the assertion exits
+one. A former-packed comparator then retains the same u32 buffer and private
+bounded native setter as the original producer; this isolates the algorithm
+from the previously admitted storage allocation change.
+
+For a smaller 128-space source and five thousand constructions per batch, the
+same-storage comparison completes in 29.221 seconds. CPU P50/P90 is
+0.7745/0.8438, but before-control P10/P90 is 0.2821/1.3219 and after-control is
+0.2695/1.6292. The assertion again exits one. The ASCII runtime candidate is
+therefore withdrawn and the retained =8a206b5= producer is rebuilt from source.
+No additional runtime gain is claimed from these rejected measurements.
+
+The same-storage comparator is checked against the independent boxed byte
+oracle. Added regression tests cover all ASCII bytes and long ASCII runs that
+rejoin Unicode, tab and CRLF handling. This test data is source-owned Scheme;
+there are no serialized benchmark results or frozen alternate parser engines.
+
+Receipt stems are =parser-ranked-edge-proof-a/b=,
+=parser-ranked-edge-rejected=, =parser-ranked-terminal-proof-a=,
+=parser-layout-cpu-before-retry=, =parser-layout-ascii-columns= and
+=parser-layout-packed-small=. Every failed gate remains part of the evidence.
+
+** Isolated Ubuntu CPU gate and final replay interface
+
+The larger final-terminal ranked test also fails its control gate: CPU
+P50/P90 is 0.1992/0.3120, with before-control P10/P90 0.8181/1.0931 and
+after-control 0.9078/1.1290. It propagates exit one in 78.315 seconds. Its
+receipt stem is =parser-ranked-terminal-proof-b=.
+
+The original bounded proof is then replayed through the shared sampler. It
+observes CPU P50/P90 0.1307/0.1552 but rejects before-control P10/P90
+0.8862/1.1308. After-control is 0.9166/1.0236. The run ends after 100.100
+seconds with a rejected error-output receipt, not a new admitted CPU result.
+This leaves the earlier completed positive proofs intact in their recorded
+source/environment scope; it does not manufacture a new positive head receipt.
+Several unrelated GCC and GXI processes are active on this shared host. They
+are not stopped or included in this task's CPU ownership. The expanded tests
+expose drift rather than prove its complete causal decomposition.
+
+The executable source replay entry is
+=t/benchmarks/ranked-literal/cpu-proof.ss=. It loads compiled benchmark owners
+with actual import tracing, runs one CPU proof in one Scheme VM and propagates
+failed assertions as exit one through the existing test exit binding. A
+deliberately insufficient one-group request emits =CPU-PROOF-REJECTED= and
+qualified exit one in 9.811 seconds, confirming that successful bootstrap or
+logging cannot satisfy the performance proof.
+
+#+begin_src sh
+gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+  --log .data/scanner-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+  -- gxi t/benchmarks/ranked-literal/cpu-proof.ss bounded 20 2000000
+#+end_src
+
+Use =ranked= instead of =bounded= to execute its separate assertion. The
+ranked assertion remains diagnostically rejected in the local receipts above.
+The layout entry is available directly in Scheme:
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/layout-columns/benchmark)
+(benchmark-layout-request-cpu 20 100 32768)
+(qualify-layout-request-cpu 20 100 32768)
+#+end_src
+
+Conformance preparation owns native compilation of both benchmark modules;
+there is no benchmark-specific discovery/compiler supervisor. Ubuntu CI now
+runs the retained bounded assertion after source compilation completes and
+before the test workers start. It keeps the 3 GiB maximum heap, fixed GCC SDK,
+120-second total deadline, five-second actual-progress deadline and original
+control/benefit thresholds. Missing =SCANNER-CPU-PROOF-OK= or nonzero exit fails
+that step. The gate makes CPU improvement an executable requirement in an
+isolated runner instead of treating semantic success as performance proof.
+Its exact-head outcome must be reported from CI; it is not assumed here.
+
+The branch is synchronized with =5bc7d2f=, certified artifact-window publication,
+before final source qualification. That producer is rebuilt from its current
+source; unrelated concurrent commits are preserved.
+
+Final source qualification rebuilds the latest artifact producer and its
+window fixture with GCC in 27.010 seconds, exit zero. The final Scheme replay
+passes 17 suites and 129 cases in 38.464 seconds, with final =OK= and qualified
+exit zero. This covers certified artifact windows, ranked scanner results,
+layout byte boundaries, contextual LR integration and Rust source generation.
+It establishes semantic conformance, not CPU improvement. Receipt stems are
+=parser-cpu-proof-rebased-build= and =parser-cpu-proof-final-tests=.

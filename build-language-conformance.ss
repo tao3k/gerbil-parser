@@ -35,6 +35,8 @@
     "t/fixtures/lr1-construction"
     "t/resolved-grammar-test"
     "t/lr-conflict-origins-test"
+    "t/fixtures/layout-columns"
+    "t/layout-column-storage-test"
     "t/language-artifact-test"
     "t/benchmarks/parser-stage-cost/benchmark"
     "t/artifact-publication-cost-test"

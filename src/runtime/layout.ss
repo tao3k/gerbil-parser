@@ -16,41 +16,52 @@
 (def current-layout-columns (make-parameter #f))
 (def current-layout-frames (make-parameter '()))
 
-;;; Each byte offset maps to the source character column before that byte.
-;;; Tabs use JavaCC's eight-column stops; UTF-8 continuation bytes keep their
-;;; leading character's column. The table is built only for layout grammars.
-(def (make-layout-columns source)
-  (let* ((bytes (string->utf8 source))
-         (length (u8vector-length bytes))
-         (columns (make-vector (+ length 1) 0)))
+;;; Stage storage operations once, rather than dispatch for every source byte.
+;;; Each UTF-8 byte retains its leading character's column, including EOF.
+(defrule (build-layout-columns input storage put!)
+  (let* ((bytes input) (columns storage) (size (u8vector-length bytes)))
     (let loop ((offset 0) (column 0))
-      (if (= offset length)
-        (begin (vector-set! columns offset column) columns)
+      (if (= offset size)
+        (begin (put! columns offset column) columns)
         (let* ((byte (u8vector-ref bytes offset))
-               (width (cond ((< byte 128) 1)
-                            ((< byte 224) 2)
-                            ((< byte 240) 3)
-                            (else 4)))
-               (end (min length (+ offset width)))
+               (width (cond ((< byte 128) 1) ((< byte 224) 2)
+                            ((< byte 240) 3) (else 4)))
+               (end (+ offset width))
                (next-column
-                (cond ((or (= byte 10) (= byte 13)) 0)
-                      ((= byte 9)
-                       (* (+ (quotient column 8) 1) 8))
-                      (else (+ column 1)))))
+                (case byte
+                  ((10 13) 0)
+                  ((9) (* (+ (quotient column 8) 1) 8))
+                  (else (+ column 1)))))
           (let fill ((cursor offset))
             (when (< cursor end)
-              (vector-set! columns cursor column)
+              (put! columns cursor column)
               (fill (+ cursor 1))))
           (loop end next-column))))))
 
+;;; Tabs advance at most eight columns per character. Choose packed storage
+;;; only when that bound fits u32; larger sources retain exact Scheme integers.
+;;; The native UTF-8 encoder retains its ownership of character conversion.
+;;; Its valid widths keep private write indices within the allocated buffer;
+;;; only that bounded builder uses the native setter. Token reads stay checked.
+(def (make-layout-columns source)
+  (let* ((bytes (string->utf8 source)) (size (+ (u8vector-length bytes) 1)))
+    (if (<= (string-length source) (quotient #xffffffff 8))
+      (build-layout-columns bytes (make-u32vector size 0) ##u32vector-set!)
+      (build-layout-columns bytes (make-vector size 0) vector-set!))))
+
+(def (layout-column-ref columns offset)
+  (if (u32vector? columns)
+    (u32vector-ref columns offset)
+    (vector-ref columns offset)))
+
 (def (layout-token-column token)
   (let (columns (current-layout-columns))
-    (and columns (vector-ref columns (token-start token)))))
+    (and columns (layout-column-ref columns (token-start token)))))
 
 (def (layout-token-end-column token)
   ;; JavaCC uses the final characters column, not the exclusive token end.
   ;; UTF-8 continuation bytes already carry their leading characters column.
-  (vector-ref (current-layout-columns) (- (token-end token) 1)))
+  (layout-column-ref (current-layout-columns) (- (token-end token) 1)))
 
 (def (layout-shift-allowed? token)
   (let (frames (current-layout-frames))

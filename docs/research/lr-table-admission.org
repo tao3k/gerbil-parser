@@ -194,6 +194,133 @@ The integrated Org qualifier preserves the historical body and checks 104
 local links and 17 heading targets. No performance benefit is claimed;
 fresh exact-head platform CI is a separate gate.
 
+** Compact request-owned source coordinates
+
+The request capability boundary also identifies a source-size cost in the shared
+engine: layout preparation encoded the source with Gambit's native UTF-8 encoder
+and then stored one boxed-vector slot per byte, including EOF. This allocation
+is incurred even when the significant token stream is short. No language
+declaration or POO metadata can eliminate that engine-owned representation cost.
+
+The retained design uses a =u32vector= where the column bound fits. Every
+character advances a column by at most eight (a tab); newline/return reset it.
+Consequently =8 * string-length(source)= bounds every column, independent of
+UTF-8 byte width. Above the conservative u32 admission bound the same builder
+uses exact Scheme integer slots. Neither path truncates columns or narrows the
+language domain. Queries remain constant-time and continuation-byte offsets
+retain the leading character's column.
+
+A hygienic =defrule= stages the storage operation once into the builder. It
+expands directly to the selected vector setter, avoiding a callback or storage
+dispatch for each byte. Read dispatch is private to the coordinate owner; the
+LR engine and the three author interfaces still consume the same source-column
+semantics. The official native UTF-8 encoder retains character-conversion
+ownership. On a 64-bit VM the column payload falls from eight to four bytes per
+offset; the temporary encoded source remains part of preparation cost.
+
+#+begin_src scheme
+;; A tab advances at most eight columns per source character.
+(def (make-layout-columns source)
+  (let* ((bytes (string->utf8 source)) (size (+ (u8vector-length bytes) 1)))
+    (if (<= (string-length source) (quotient #xffffffff 8))
+      (build-layout-columns bytes (make-u32vector size 0) ##u32vector-set!)
+      (build-layout-columns bytes (make-vector size 0) vector-set!))))
+
+;; Storage is an engine-owned value, not a language-author configuration.
+(parameterize ((current-layout-columns (make-layout-columns source)))
+  (layout-token-column token))
+#+end_src
+
+*** Question: why is this design preferable?
+
+The DSL declares layout semantics; the engine selects a bounded physical
+representation and stages its primitive operation. Scheme's hygienic syntax
+therefore supplies specialization without adding author slots, generic registry
+lookups or per-byte procedure calls. POO remains responsible for extensible
+declarations, while this closed storage choice belongs to the named coordinate
+algorithm. Exact integer storage preserves the mathematical contract outside
+the packed domain without introducing an alternative grammar architecture.
+
+*** Question: how is the claim scientifically tested?
+
+An independent boxed-vector oracle checks every byte, UTF-8 interior and EOF for
+empty input, ASCII, tabs, CR/LF/CRLF and Unicode scalar-width boundaries. Explicit
+controls check 80000-column tab input, Unicode after CRLF, missing request context
+and wide exact-integer reads. Existing layout action guards, complete artifacts,
+GLR branches, nested request restoration and all-language ABI controls qualify
+the consumers of the new value. The native conformance catalog owns the new
+fixture and suite.
+
+The committed [[file:../../t/benchmarks/layout-columns/benchmark.ss][coordinate benchmark]] uses the existing shared batch sampler
+for preparation and complete prepared-GLR products, including lexing, significant
+token selection, recognition and canonical artifact construction. Both storage
+variants must produce equal complete TLA+ artifacts. The workload exposes source
+size with 32768 whitespace characters; it is not a representative language-wide
+request distribution or a claim about GQL latency. Natural collections and
+allocation admission retain the shared owner's policy.
+
+A rejected first candidate traversed source characters with the official
+=:std/string/utf8= length helpers and eliminated the encoded byte vector. Its
+admitted preparation allocation fell from 295897.6 to 131737.6 bytes/call, but
+batch CPU P50 rose from 2.181 to 5.408 ms for ten calls; complete-product batch
+CPU P50 rose from 6.461 to 8.304 ms. Those block observations falsify adoption of
+that traversal on this workload. The retained builder restores native encoding
+and byte traversal; these rejected measurements do not qualify its performance.
+
+Reproduce the current semantic and measurement contracts from the repository
+root with declared dependencies installed:
+
+#+begin_src sh
+gerbil compile -O
+gerbil env gerbil test -v 5 t/layout-column-storage-test.ss t/layout-boundary-test.ss
+gerbil compile -O t/fixtures/layout-columns.ss t/benchmarks/layout-columns/benchmark.ss
+gerbil env gxi -e '(import :gerbil-parser/t/benchmarks/layout-columns/benchmark) (benchmark-layout-columns)'
+#+end_src
+
+Historical local observations are not archived replay receipts. The committed
+workload and assertions are the reproduction entry; exact-head platform CI is
+an additional delivery gate.
+
+*** Native storage qualification and rejected alternatives
+
+The checked u32 writer also regressed preparation CPU (3.450 ms versus 2.202 ms
+for ten calls). It is not retained. The final private writer uses
+=##u32vector-set!=, following the installed Gerbil standard library's
+=std/serde/unmarshal.ss= =defparse-hvector= specialization. The encoder produces
+valid widths, the allocated buffer contains every byte plus EOF, and the proven
+column bound covers every stored value. Only private writes use this primitive;
+public token reads remain checked. Compiler optimization settings are unchanged.
+
+Four sequential native runs change only the layout producer: boxed, packed,
+packed, boxed. All complete-product controls pass. Each component has twenty
+samples of ten calls; all allocation intervals are admitted. Both boxed runs
+allocate 295897.6 bytes per coordinate construction and 512984 bytes per complete
+product. Both packed runs allocate 164609.6 and 381696 bytes respectively: the
+same 131288-byte reduction occurs in preparation and the complete product.
+This is approximately 44.4% and 25.6% less allocation for this padded workload,
+not retained-heap measurement or a language-wide allocation claim.
+
+Packed preparation batch CPU P50 is 1.969/2.019 ms; boxed observations are
+2.145/2.136 ms. Complete-product CPU P50 is 6.000/5.454 ms for packed and
+5.789/5.558 ms for boxed. These observations do not establish a complete-request
+CPU improvement. Adoption is limited to the stable allocation reduction with
+preserved byte coordinates and complete products. The first baseline attempt
+failed the unchanged idle gate because its copied overlay omitted phase-zero
+native artifacts; it is excluded from the completed four-run sequence.
+
+The final native matrix passes 172 cases across eighteen suites in 44.874
+seconds, with propagated exit zero, final =OK= and the unchanged five-second
+real-progress gate. It includes every byte oracle, layout boundaries, full
+ten-language ABI bytes, contextual ownership and fragment/deferred continuations.
+An earlier merged run failed language ABI admission after only the concurrent
+scanner producer was rebuilt. Its exported trie macro had changed representation;
+rebuilding the direct =lr-action-index= consumer restored consistent expansion
+and the entire matrix passed. That failed mixed graph is retained as a build
+qualification failure, not evidence of a packed coordinate mismatch. The native
+coordinate build, final bounded writer and macro consumer compile normally;
+no optimizer setting or watchdog threshold is relaxed. Research and audit links
+are checked by the Scheme qualifier. Clean exact-head CI remains separate.
+
 * One boundary from productions to executable tables
 
 This completes the structural table boundary identified in

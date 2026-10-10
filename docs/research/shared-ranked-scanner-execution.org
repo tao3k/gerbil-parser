@@ -1007,3 +1007,28 @@ actual row vocabulary. It does not describe the live state frequency of a full
 request, keyword hits, Unicode-heavy input, portable throughput or the Bash
 comparison with tree-sitter. The complete-request allocation saving and the
 component CPU benefit are separate positive results.
+
+
+** Latest PR graph requalification
+
+The optimization is rebased onto =9374421=, including canonical production,
+LR table and layout-capability admission. The component imports the shared
+=parser-stage-cost= sampler directly; no compatibility alias or duplicate
+sampler is introduced. Its native rebuild completes in 23.190 seconds.
+Canonical authority and consumer rebuilds complete before execution; the final
+LR runtime rebuild completes in 25.108 seconds with GCC and the original
+qualification fences. Seven source modules now pass 44 cases in 16.802 seconds,
+including the new producer admission tests and the casefold/scanner controls.
+
+A second native paired component child completes in 23.553 seconds with exit
+zero and =LR-CASEFOLD-OK=. The lookup-benefit decision repeats on the latest graph:
+
+| Identifier characters | CPU ratio P10 | CPU ratio P50 | CPU ratio P90 | Lookup benefit |
+|-----------------------+---------------+---------------+---------------+----------------|
+|                    43 |        0.1210 |        0.2436 |        0.2952 | Admitted       |
+|                   267 |        0.0365 |        0.0421 |        0.0513 | Admitted       |
+
+The complete-request allocation table remains explicitly attributed to
+=11b2cf1=. Later artifact-publication changes have their own cost owner and are
+not covered by those historical absolute allocation values. Latest-graph
+semantic and component qualification does not silently relabel that matrix.

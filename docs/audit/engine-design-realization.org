@@ -310,8 +310,9 @@ ASCII early misses avoid whole-string uppercase allocation, while Unicode
 conversion retains its original owner. No language declaration changes.
 
 The [[file:../research/shared-ranked-scanner-execution.org::*Shared literal vocabulary and casefold lookup qualification][native qualification]] separates complete-request allocation evidence from
-component CPU evidence. The complete matrix has 19,200 calls and 844 admitted
-allocation intervals. GQL saves 2,944 or 24,448 bytes per request; FHIRPath and
+component CPU evidence. The =11b2cf1= complete matrix has 19,200 calls and 844 admitted
+allocation intervals. Latest =9374421= graph qualification passes 44 semantic
+cases and repeats the paired component benefit. GQL saves 2,944 or 24,448 bytes per request; FHIRPath and
 Arithmetic allocation controls are unchanged. Alternating lookup measurements
 admit early-miss benefit for long identifiers, but whole-parser CPU acceleration
 and the Bash/tree-sitter throughput gap remain unproved. Withdrawn prototypes

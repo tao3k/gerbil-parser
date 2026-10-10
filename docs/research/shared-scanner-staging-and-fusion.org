@@ -1972,3 +1972,131 @@ compiled benchmark completed again in 23.223 seconds, with all success
 receipts and exit 0. The concurrent Fold change is outside this experiment's
 performance scope; neither these tests nor the micro table qualify its new
 byte-frame implementation. The shared scanner source has no retained diff.
+
+* Closed-start specialization of the shared regular DFA
+
+The current Scheme Coding Style research favors binding-preserving syntax,
+prepared decisions and small named loops. Reading the pinned Gerbil SDK
+=2591dcd=, =src/gerbil/core/contract.ss= (=definline=) shows signature-aware
+dispatch expansion rather than a promise that every abstract call is free.
+The SDK's =src/std/text/parser/ll1.ss= likewise retains compact loop state.
+The transfer here is to remove state that cannot occur, using a private
+hygienic lowering whose expansion is inspected before measurement.
+
+** State argument and implementation
+
+A regular scanner's initial mask contains only the six declared run bits,
+so it lies in 0..63. Number starts use bit 32. If an admitted initial mask
+lies below 32, no transition can introduce a number state: the generic
+number transition only advances already active number states. The other
+five run families intersect their active mask with the current character
+mask; they can lose bits but never gain them. Every surviving subset is
+accepting. This path therefore needs neither pending fraction/exponent state
+nor an accepted-subset/accepted-end rollback pair.
+
+=make-ranked-regular-scanner= retains its prepared winner table and numeric
+state machine. At matching entry, a nonnumeric initial subset selects the
+existing monotone run algorithm, even when the grammar also declares a
+number rule. Numeric starts keep their original rollback behavior. Modes
+without number rules also use the same monotone lowering. The private
+=scan-regular-run= syntax expands that algorithm at both call sites using
+caller bindings and evaluates the initial offset once. No callback, table,
+public scanner API, language metadata, schema version or compatibility route
+is added. The final implementation adds no unsafe operation or type assertion.
+
+** Rejected contract lowering and generated-code inspection
+
+The first =definline= attempt with an empty argument contract failed macro
+admission with =invalid match target=. Supplying a checked string contract
+compiled correctly, and emitted Scheme showed the loop expanded at both
+call sites, with a remaining =string?= check and parameter binding group.
+A subsequent private string assertion relied on the caller's preceding
+=string-length= and removed that check. It still failed the complete-lexer
+control: batched HCL lexer medians were 60.20/61.50 microseconds for the
+surrounding references and 64.80/65.95 for the candidate. Neither contract
+version is retained. These measurements do not prove that the bindings
+caused the difference.
+
+The final implementation uses Gerbil's ordinary hygienic =defrules= mechanism
+for the private loop. Generated Scheme contains the expanded cursor/active
+loop at each call site, with no helper call, contract check or contract
+parameter binding group. Entry selection uses the proven initial range
+instead of computing a bit intersection and then testing zero.
+
+** Native caller reference/candidate/candidate/reference control
+
+The shared engine benchmark is compiled with the same GCC-backed SDK before
+all measured blocks. It invokes native scanner closures inside native loops;
+GXI only starts the entry. The 3 GiB heap, 120-second total guard and five-second
+silence guard remain fixed. Loaded artifacts are asserted: reference
+=scan~0.o3= and final candidate =scan~0.o7=. Complete owned snapshots preserve
+contiguous loader suffixes; other clients are unchanged. No build or test
+from this task overlaps timing. The final scanner build passed in 10.568
+seconds; the preserved legacy benchmark and new request-cost entry compiled
+in 15.193 seconds.
+
+Each block uses eleven samples. The six scanner controls run 100 calls per
+sample. Long inputs contain 4,096 ASCII identifier characters, Unicode
+identifier characters, spaces or decimal digits. Singleton and unmatched
+inputs are one character. Complete HCL lexer samples run 20 calls on a
+64-line assignment source. Independent =direct-lex-hcl= equality checks
+complete token products before measurement and the last product of each
+sample after measurement. Preparation and equality are outside timing.
+
+CPU medians below are microseconds per call:
+
+| Workload | Reference A | Candidate A | Candidate B | Reference B |
+|----------+-------------+-------------+-------------+-------------|
+| ASCII identifier | 62.84 | 26.48 | 26.48 | 56.95 |
+| Unicode identifier | 194.85 | 173.38 | 146.16 | 203.53 |
+| Whitespace | 58.11 | 29.76 | 26.44 | 66.38 |
+| Numeric | 56.56 | 60.84 | 51.84 | 51.77 |
+| Singleton | 0.07 | 0.03 | 0.03 | 0.03 |
+| Unmatched | 0.02 | 0.05 | 0.02 | 0.02 |
+| Complete HCL lexer | 60.60 | 63.50 | 56.00 | 61.85 |
+
+Successful scanner allocation remains 194.08 bytes per call, and unmatched
+allocation remains 2.08, including measurement overhead; every scanner block
+admits 11/11 allocation samples. Complete lexer median allocation remains
+336,906.4 bytes per call with 10/11 admitted samples in every block. Natural
+GC is retained, with the existing allocation admission rule unchanged. All
+four blocks emit =REGULAR-MODE-OK= and =REGULAR-CONTROL-OK= and exit 0.
+
+Long ASCII and whitespace scan costs improve by roughly a factor of two
+in both candidate blocks. Unicode scans also improve. Numeric and very short
+controls vary; the short timings are too small for a portable speed claim.
+Complete lexer CPU moves in opposite directions across candidate blocks,
+so no stable complete-lexer or complete-parser speedup is established. This
+is a shared engine state specialization, not closure of the Tree-sitter gap.
+An earlier one-call complete-lexer protocol was visibly noisy and was
+replaced by the same twenty-call protocol on both sides; its timings are
+excluded from the final table.
+
+The existing =t/benchmarks/regular-mode/benchmark.ss= CLI and its independent
+old-mode oracle are preserved. The adjacent =request-cost.ss= owns these
+native caller controls and complete-token checks. No language implementation
+file is modified. Permanent tests compare the subset DFA against independent
+individual run scanners at every input offset across all 64 rule subsets,
+including Unicode numeric characters and truncated fraction/exponent forms.
+
+** Qualification after the latest PR rebase
+
+After rebasing onto revision =6dbc112=, eight source test modules passed
+71 cases: ranked regular and literal scanning, lexical plans and first-character
+contracts, structured lexical behavior, parser runtime, region scanning, and
+Bash. The regular suite includes the independent comparison across all 64
+rule subsets. The compiled =request-cost.ss= entry also completed its scanner
+result and complete HCL token checks. The combined qualification exited 0 in
+29.465 seconds, under the unchanged 120-second total and five-second idle
+limits with a 3 GiB heap. This smoke run establishes semantic qualification;
+the performance conclusions remain bounded by the native ABBA controls above.
+
+A subsequent remote LR update (=31c0667=) arrived during publication and was
+rebased before delivery. Its runtime module rebuilt with GCC in 18.117 seconds.
+The regular scanner, parser runtime, and Bash suites passed 42 cases together.
+The direct GXI entry emitted both success markers but stalled during process
+shutdown; the unchanged idle guard rejected that run after 18.046 seconds.
+Repeating through the existing test-only process exit interface completed in
+11.954 seconds with exit 0 and both required markers. That receipt qualifies
+the merged runtime; it does not establish that the direct GXI shutdown issue
+is resolved.

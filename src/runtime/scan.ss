@@ -446,6 +446,20 @@
      (regular-number-transition
       active ch (not (zero? (bitwise-and mask 8)))))))
 
+;;; Private hygienic lowering: arguments are stable caller bindings, except
+;;; offset, which is evaluated once by the loop initializer. A subset without
+;;; a number state is monotone and needs no acceptance rollback machinery.
+(defrules scan-regular-run ()
+  ((_ source offset limit initial winners)
+   (let loop ((at offset) (active initial))
+     (let (next (if (< at limit)
+                  (bitwise-and active (regular-mask (string-ref source at) #f))
+                  0))
+       (if (zero? next)
+         (let (winner (vector-ref winners active))
+           (list (car winner) at (cadr winner) (caddr winner)))
+         (loop (+ at 1) next))))))
+
 ;;; entries: (expression-kind token-name precedence declaration-index).
 ;;; A lexical mode admits whole rules before building this scanner.
 (def (make-ranked-regular-scanner entries)
@@ -471,47 +485,29 @@
     (if (zero? (bitwise-and available 32))
       (lambda (source start)
         (let* ((length (string-length source))
-               (initial
-                (and (< start length)
-                     (bitwise-and available
-                                  (regular-mask (string-ref source start) #t)))))
-          (and initial
-               (not (zero? initial))
-               (let loop ((offset (+ start 1)) (active initial))
-                 (let (next
-                       (if (< offset length)
-                         (bitwise-and active
-                                      (regular-mask (string-ref source offset) #f))
-                         0))
-                   (if (zero? next)
-                     (let (winner (vector-ref winners active))
-                       (list (car winner) offset
-                             (cadr winner) (caddr winner)))
-                     (loop (+ offset 1) next)))))))
+               (initial (and (< start length)
+                             (bitwise-and available (regular-mask (string-ref source start) #t)))))
+          (and initial (not (zero? initial))
+               (scan-regular-run source (+ start 1) length initial winners))))
       (lambda (source start)
         (let* ((length (string-length source))
-               (initial
-                (and (< start length)
-                     (bitwise-and available
-                                  (regular-mask (string-ref source start) #t)))))
-          (and initial
-               (not (zero? initial))
-               (let loop ((offset (+ start 1)) (active initial)
-                          (accepted initial) (accepted-end (+ start 1)))
-                 (let* ((next
-                         (if (< offset length)
-                           (regular-transition active (string-ref source offset))
-                           0))
-                        (accept (regular-accept-mask next)))
-                   (cond
-                    ((zero? next)
-                     (let (winner (vector-ref winners accepted))
-                       (list (car winner) accepted-end
-                             (cadr winner) (caddr winner))))
-                    ((zero? accept)
-                     (loop (+ offset 1) next accepted accepted-end))
-                    (else
-                     (loop (+ offset 1) next accept (+ offset 1))))))))))))
+               (initial (and (< start length)
+                             (bitwise-and available (regular-mask (string-ref source start) #t)))))
+          (and initial (not (zero? initial))
+               ;; Initial masks are in 0..63; bit 32 is the number start.
+               (if (< initial 32)
+                 (scan-regular-run source (+ start 1) length initial winners)
+                 (let loop ((offset (+ start 1)) (active initial)
+                            (accepted initial) (accepted-end (+ start 1)))
+                   (let* ((next (if (< offset length)
+                                  (regular-transition active (string-ref source offset)) 0))
+                          (accept (regular-accept-mask next)))
+                     (cond
+                      ((zero? next)
+                       (let (winner (vector-ref winners accepted))
+                         (list (car winner) accepted-end (cadr winner) (caddr winner))))
+                      ((zero? accept) (loop (+ offset 1) next accepted accepted-end))
+                      (else (loop (+ offset 1) next accept (+ offset 1)))))))))))))
 
 ;; scan-quoted-string
 ;;   : (-> String Fixnum String Fixnum)

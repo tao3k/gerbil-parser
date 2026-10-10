@@ -15,6 +15,7 @@
                  gql-parser)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-grammar-digest)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare)
         (only-in :gerbil-parser/rust-runtime-support
                  generate-language-rust-runtime-module)
         (only-in :gerbil-parser/src/compiler/rust-runtime
@@ -46,6 +47,56 @@
 
 (def rust-runtime-generation-test
   (test-suite "Rust AOT generation"
+    (test-case "Rust target admits exact i32 precedence boundaries"
+      (for-each
+       (lambda (value)
+         (let (source (rust-runtime-module-source
+                       "arithmetic" +arithmetic-language-version+ +arithmetic-syntax-contract+
+                       (parser-machine-grammar-digest arithmetic-parser)
+                       (arithmetic-ir-with-production (list 'unused '() 'concat (list 'dynamic value)))))
+           (check (and (string-contains source
+                        (string-append "dynamic_precedence: " (number->string value))) #t) => #t)))
+       '(-2147483648 0 2147483647)))
+    (test-case "Rust target failures preserve an existing output before emission"
+      (for-each
+       (lambda (tail)
+         (let ((path (make-temporary-file-name "unrepresentable-parser"))
+               (ir (arithmetic-ir-with-production tail)))
+           ;; Target limits do not redefine canonical Scheme legality.
+           (lr-prepare (cdr (assq 'lr-spec ir)))
+           (try
+            (begin
+              (call-with-output-file path (lambda (port) (display "preserved\n" port)))
+              (check-exception
+               (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
+                                             +arithmetic-syntax-contract+
+                                             (parser-machine-grammar-digest arithmetic-parser)
+                                             ir)
+               (lambda (condition) (string-prefix? "Rust LR" (error-message condition))))
+              (check (call-with-input-file path read-line) => "preserved"))
+            (finally (when (file-exists? path) (delete-file path))))))
+       '((unused () concat (dynamic -2147483649))
+         (unused () concat (dynamic 2147483648))
+         (unused () concat (dynamic 1267650600228229401496703205376))
+         (unused () layout-end #f)
+         (unused ((terminal layout-start "{")) concat #f)
+         (unused ((marked (terminal layout-next ";") ((field separator)))) concat #f))))
+    (test-case "Rust kind capacity is checked before file creation"
+      (let ((path (make-temporary-file-name "oversized-parser-catalog"))
+            (ir (map (lambda (entry)
+                       (if (eq? (car entry) 'syntax-kinds)
+                         (cons 'syntax-kinds (make-list 65537 (car (cdr entry))))
+                         entry)) arithmetic-parser-ir)))
+        (try
+         (begin
+           (check-exception
+            (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
+                                          +arithmetic-syntax-contract+
+                                          (parser-machine-grammar-digest arithmetic-parser) ir)
+            (lambda (condition)
+              (equal? (error-message condition) "Rust LR kind catalog exceeds u16 capacity")))
+           (check (file-exists? path) => #f))
+         (finally (when (file-exists? path) (delete-file path))))))
     (test-case "raw Rust publication rejects invalid table domains and layout capability"
       (for-each
        (lambda (tables)

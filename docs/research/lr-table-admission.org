@@ -107,7 +107,97 @@ realizability. Layout correspondence here is a necessary capability condition,
 not proof that markers are balanced or that every guard has the correct fallback.
 Backend-specific capability admission retains its existing owners.
 
+* Rust target representability after canonical admission
+
+The next audit follows the same staged contract to the actual Rust model.
+=engine/model.rs= represents syntax aliases as =u16=, state/production references
+as =u32= and each production's dynamic precedence as =i32=. Canonical Scheme
+precedence accepts Integer. The emitter previously printed that integer directly,
+so canonical legality could produce Rust source with an out-of-range literal.
+
+=validate-rust-lr-capability= now runs after shared production/table admission
+and before the output-string buffer. It checks kind/reference domain capacities,
+rejects production-derived layout capability unavailable in the Rust model,
+and checks dynamic precedence against the inclusive signed 32-bit bounds.
+Layout uses the shared production predicate, including marked operands and unused
+rules; it is not a second DSL interpretation or an author-configured feature flag.
+
+#+begin_src scheme
+;; Canonical Scheme legality does not inherit a consumer's fixed-width limit.
+(validate-production-semantics
+ '((0 root () concat (dynamic 1267650600228229401496703205376))))
+
+;; The target owner applies this additional obligation before source emission.
+(let (precedence (production-precedence production))
+  (when (and precedence (eq? (car precedence) 'dynamic)
+             (not (<= -2147483648 (cadr precedence) 2147483647)))
+    (error "Rust LR dynamic precedence exceeds i32 capacity" production)))
+#+end_src
+
+** Question: why does this preserve the Scheme design advantage?
+
+Symbolic productions carry meaning independently of a target's machine widths.
+The engine admits this meaning once; each publication target owns its additional
+representation obligations. Scheme matching and first-class traversal keep that
+boundary explicit without expanding grammar.ss/parser.ss author configuration.
+Both raw IR publication and descriptor publication use the same Rust entry, so
+both paths enforce the target capacity gate. Descriptor policy admission keeps
+its separate owner.
+
+** Question: what evidence establishes the target claim?
+
+The falsifier is Rust source emitted with an out-of-range production precedence.
+Controls cover both exact endpoints, zero, each adjacent overflow and a bignum.
+The same rejected target IR must still prepare under Scheme. An existing output
+file must retain its contents after target rejection; an oversized kind catalog
+must create no file. Layout controls include end actions, start operands and
+marked next operands. Existing ten-language ABI bytes and deterministic source
+controls establish that currently supported products retain their output.
+
+The u32 domain bound is inspected directly against the Rust model; no test
+allocates billions of states or productions. Admission of an individual i32
+precedence does not prove that accumulated Rust branch scores cannot overflow;
+the current parser's score addition remains a separate runtime obligation.
+This is target publication correctness, not a runtime performance claim or
+proof of complete Rust/Scheme semantic equivalence.
+
 * Native qualification and evidence boundary
+
+** Rust target capacity follow-up
+
+The parent native emitter printed all three overflowing precedence controls in
+8.162 seconds, exit zero. The first temporary probe failed on an unbound
+re-exported language binding (9.669 seconds); resolving exports through official
+module import corrected the probe. That first failure is not target evidence.
+
+The final native emitter built in 32.608 seconds. Seven source GxTest suites
+passed all 42 cases in 22.200 seconds, including boundary/prepublication controls
+and twenty accepted/rejected ABI products across ten language entries. Successful
+receipts report exit zero, no rejection reason, no missing required output and
+final =OK= under the unchanged five-second real-progress gate. Exact-head platform
+CI remains separate from these local controls.
+
+Receipts: =/private/tmp/parser-rust-capability-{build,test,qualified-baseline}-supervision.log=.
+The rejected probe remains =/private/tmp/parser-rust-capability-baseline-supervision.log=.
+
+After concurrent PR commits through =f75aa18=, the target change is rebased and
+its owner rebuilt (41.740 seconds). Initial cross-checkout qualification fails
+on incomplete compiled test modules; two partial native dependency combinations
+also exit 139 at the arithmetic ABI control. These failures do not qualify the
+rebased graph and are retained in the =rebased-*-test= receipts.
+
+The scanner, action index, LR runtime and machine are then rebuilt sequentially
+in this checkout's dependency environment. Official Scheme expansion emits each
+phase, and SDK Gambit compiles it with real compiler progress options. The final
+native batch receipt is 210.095 seconds, exit zero; the temporary all-pass GCC
+diagnostics produce 6.5 million lines and include substantial supervisor output
+handling. That receipt is neither a package-build benchmark nor parser timing.
+The final
+eleven-suite source run passes 69 cases in 61.918 seconds, exit zero, final =OK=,
+no missing required output and twenty exact ABI products. It includes the merged
+casefold/scanner controls, event execution and budget-one unary continuation
+controls. It does not repeat or relabel the other study's performance results.
+Final integrated receipt: =/private/tmp/parser-rust-capability-rebuilt-test-supervision.log=.
 
 ** Production-derived layout capability follow-up
 

@@ -5,7 +5,7 @@
                  grammar-expression-references
                  grammar-expression-terminals)
         (only-in :std/list/list-builder with-list-builder)
-        (only-in ../runtime/identity sha256-text))
+        (only-in ../runtime/identity sha256-bytes))
 (export +bound-grammar-ir-schema+
         bind-grammar-ir
         bound-grammar-ir-ref
@@ -42,6 +42,13 @@
 ;; : (-> BoundGrammarDatum CanonicalBoundGrammarText)
 (def (canonical value)
   (call-with-output-string (lambda (port) (write value port))))
+
+;;; Preserve the canonical writer while emitting digest input directly in UTF-8.
+;;; Implicit port encoding is not part of the canonical identity contract.
+(def (canonical-digest value)
+  (sha256-bytes
+   (call-with-output-u8vector '(char-encoding: UTF-8 eol-encoding: lf)
+     (lambda (port) (write value port)))))
 
 ;;; Binding identity is structured package data.  Native grammar names are not
 ;;; rewritten into a second slash-delimited namespace.
@@ -119,7 +126,7 @@
           (list owner namespace row source lineage references)))
     (list
      (cons 'bindingId identity)
-     (cons 'declarationId (sha256-text (canonical declaration)))
+     (cons 'declarationId (canonical-digest declaration))
      (cons 'namespace namespace)
      (cons 'name name)
      (cons 'scope scope)
@@ -128,7 +135,7 @@
      (cons 'source source)
      (cons 'expansionLineage lineage)
      (cons 'references references)
-     (cons 'referenceDigest (sha256-text (canonical references))))))
+     (cons 'referenceDigest (canonical-digest references)))))
 
 ;;; Keep a section-local name index while preserving declaration order.  A
 ;;; duplicate declaration fails before any partially bound section escapes.
@@ -222,9 +229,9 @@
        (cons 'sections sections)
        (cons 'bindingCount binding-count)
        (cons 'referenceCount (length references))
-       (cons 'referenceDigest (sha256-text (canonical references)))
-       (cons 'grammarDigest (sha256-text (canonical grammar)))
-       (cons 'identityDigest (sha256-text (canonical sections)))))))
+       (cons 'referenceDigest (canonical-digest references))
+       (cons 'grammarDigest (canonical-digest grammar))
+       (cons 'identityDigest (canonical-digest sections))))))
 
 ;; : (forall (a) (-> [(Pair Symbol a)] String))
 ;; : (-> BoundGrammarIR CanonicalBoundGrammarText)

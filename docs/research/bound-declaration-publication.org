@@ -162,3 +162,151 @@ ratios were 0.746 / 0.985 / 1.646 (P10/P50/P90), again rejecting stable speedup.
 The integrated parent =4319c94= completed Ubuntu Scheme, macOS Scheme and Rust
 AOT CI successfully. Those parent checks do not qualify the new source slice;
 its pushed revision still needs its own clean-checkout platform results.
+
+The publication revision =4e6095c= subsequently completed all three checks in
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38039773306][its exact-head CI run]]: Ubuntu Scheme, macOS Scheme and Rust AOT runtime.
+This closes platform qualification for that revision, independently of the
+following digest-input experiment.
+
+* Canonical digest input follows the same publication owner
+
+The next implementation compares against =4e6095c=. That producer writes each
+declaration, each reference catalog, the grammar and the final section catalog
+to a character string, then allocates UTF-8 bytes before SHA-256. The full
+sections include already published source records and per-binding identities;
+optimizing only source lookup does not remove this traversal or encoding cost.
+
+The candidate keeps the canonical Scheme =write= operation and the existing
+SHA-256 implementation. A private named function writes directly to a fresh
+UTF-8 byte port. It removes the intermediate character string and its subsequent
+encoding traversal; it still materializes bytes and performs digest computation.
+It is not incremental hashing, serializer replacement or memoization. Each call
+owns its port and bytes; no mutable grammar cache or new author option exists.
+
+#+begin_src scheme
+(def (canonical-digest value)
+  (sha256-bytes
+   (call-with-output-u8vector '(char-encoding: UTF-8 eol-encoding: lf)
+     (lambda (port) (write value port)))))
+#+end_src
+
+The [[https://gambitscheme.org/4.9.7/manual/][Gambit manual, byte-port settings and u8vector ports]] specifies character
+and line-ending conversion at byte ports. Both settings are explicit: implicit
+encoding escaped non-ASCII symbols and strings in our independent local probe,
+and the documented line-ending default depends on the operating system. LF
+preserves the character writer's newline bytes. Gerbil =2591dcd='s
+=std/text/markup/sxml/tal/syntax.ss= uses =call-with-output-u8vector= with =write=;
+=std/crypto/digest.ss='s generated =sha256= consumes bytes through its native
+digest context. These mechanisms supply the implementation, not a new emitter
+or foreign hashing protocol.
+
+** Question: why is this preferable at the Scheme DSL boundary?
+
+The existing declaration, POO-selected origins, lineage and reference structure
+remain digest inputs. The compiler chooses the physical sink beneath the DSL;
+authors retain the three interfaces without encoding switches. The named
+function owns a closed algorithm. A generic dispatch or macro would add no
+binding or extension responsibility here. The public canonical-text operation
+continues to produce text for consumers that actually request it.
+
+The Fortifying Macros correspondence remains preservation of the author's
+validated declaration and context across compiler layers. Direct byte output
+is an engineering inference, not a technique proved or prescribed by that paper.
+
+** Question: how is equivalence and cost scientifically tested?
+
+The independent control retains the original character writer and UTF-8 text
+hashing. It reconstructs every declaration digest and checks all per-binding
+reference digests, final reference digest, grammar digest and identity digest.
+Non-ASCII declaration and field names, Unicode origins, escaped quotes/newlines
+and byte-vector lineage are included. A default byte port would fail this
+control. Existing source selection, closure, large catalog and language ABI
+consumers remain necessary beside it.
+
+The existing complete-sidecar comparator accepts the isolated =4e6095c=
+constructor and checks every timed product against the candidate. The added
+=benchmark-bound-identity-input= controls final-section text writing, UTF-8
+encoding, direct byte writing and SHA-256 separately. Inputs are prepared before
+timing; every result is checked afterward. Their independently sampled
+percentiles must not be summed or represented as fractions of a complete
+publication interval. They exclude per-binding serialization, source indexing
+and reference admission; complete-publication comparison includes those costs.
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/bound-source-catalog/benchmark)
+(benchmark-bound-identity-input 20 5 16)
+;; Use the original constructor reproduction above with revision 4e6095c.
+(compare-bound-source-catalog original-bind-grammar-ir 20 2 512)
+#+end_src
+
+The fixture and benchmark use their existing source-owned compilation command.
+No additional test executable, scheduler, runtime fallback or schema version is
+introduced. CPU, admitted allocation samples, natural collections and exact-head
+platform qualification remain separate evidence obligations.
+
+** Native cost observations
+
+The complete-publication component comparison used 16 syntax kinds, 20 samples
+and five calls per sample. Both constructors returned identical full sidecars.
+Nineteen allocation samples were admitted on each side; one natural-collection
+interval on each side was excluded from allocation attribution. Median allocated
+bytes per publication were 1,712,392.0 for =4e6095c= and 1,328,073.6 for direct
+byte output, a 22.4% reduction in this population. This is allocation flow, not
+retained heap or language request memory.
+
+The same run's 20 alternating two-call CPU groups gave candidate/original ratios
+0.705 / 1.046 / 1.370 at P10/P50/P90. That population does not admit a CPU
+speedup. The run exited zero with both complete-component markers and final
+=OK= in 14.898 seconds.
+
+The final-section controls used the same 16-kind input, 20 samples and five
+calls. All 20 allocation samples were admitted in each component. The existing
+sampler checks full returned text, bytes or digest after every timed batch.
+
+| Isolated component | CPU P50 microseconds/call | Allocated bytes/call |
+|--------------------+---------------------------+----------------------|
+| Character writer | 542.2 | 385,315.2 |
+| UTF-8 encoding of supplied text | 35.0 | 19,691.2 |
+| Direct UTF-8 byte writer | 433.6 | 189,899.2 |
+| SHA-256 of supplied bytes | 8.8 | 947.2 |
+
+These observations locate substantial work in canonical writing for this final
+catalog, rather than native hashing. They do not establish a universal ranking,
+complete publisher phase fractions or parse-request latency. Component samples
+were sequential; their CPU percentiles are not a paired significance test.
+The text writer's wall P95 batch was 61.107 ms with 4.654 ms CPU and no GC;
+that delay cannot be labeled collection overhead. The controls exited zero in
+12.864 seconds with =BOUND-IDENTITY-INPUT-BENCHMARK-OK= and final =OK=.
+
+The initial native test compilation failed because an experiment used an
+unimported =append-map=. The corrected control uses the official list builder.
+This failed attempt exited nonzero with missing final =OK=; it is not included
+in successful receipts. Before explicit LF was added, the twelve-suite consumer
+matrix passed 137 cases in 50.983 seconds. Final-source qualification follows
+the explicit character and line-ending settings and must be recorded separately.
+
+The completed size matrix used 20 alternating groups, two calls per side and
+the unchanged minimum CPU-duration admission threshold. It preserved all full
+sidecars and exited zero in 65.586 seconds with final =OK=.
+
+| Syntax kinds | CPU ratio P10 | CPU ratio P50 | CPU ratio P90 |
+|--------------+---------------+---------------+---------------|
+| 16 | 0.838 | 1.025 | 1.403 |
+| 128 | 0.612 | 0.875 | 1.718 |
+| 512 | 0.882 | 1.031 | 1.431 |
+
+The median favors neither implementation consistently across sizes; every upper
+decile ratio exceeds one. Direct output is retained for removal of the measured
+intermediate allocation and explicit encoding ownership, not as a demonstrated
+CPU or latency win. Large-catalog allocation admission, retained heap and
+whole-language parsing remain unmeasured by this matrix.
+
+The final UTF-8/LF producer and saved component benchmark compile natively in
+23.568 seconds, exit zero and emit final =OK=. The twelve-suite consumer matrix
+then passes 137 cases in 59.006 seconds, exit zero, with no missing markers and
+final =OK=. It includes the independent original-text identities, 20,000-kind
+publication, composition/origin consumers, language surface and entry contracts,
+ten-language ABI alignment and runtime/contextual parsing. Modular documentation
+qualification preserves the 1,302-line historical study and resolves 134 local
+links and 21 heading references. These are local receipts; the following pushed
+revision requires its own completed platform checks.

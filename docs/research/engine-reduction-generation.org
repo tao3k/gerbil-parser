@@ -12,6 +12,9 @@ canonical artifact path. It complements the
 The [[file:request-owned-lr-stacks.org][request-owned stack experiment]] records a larger
 representation change rejected after matched native measurements, with a
 cross-language benchmark retained for subsequent engine work.
+The subsequent [[file:semantic-sequence-representation.org][semantic sequence study]] follows the same
+request controls into repeated representation validation at action/publication
+boundaries.
 
 The shared owner is =src/compiler/fused-reduction.ss=. Its checked strategy
 consumes production IDs, RHS operands and field/alias actions from canonical

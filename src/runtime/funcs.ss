@@ -178,7 +178,9 @@
 ;;; Consume original child order and accumulated position views without
 ;;; building a translated child list. The visitor owns publication/materialization.
 (def (recognition-sequence-for-each visit sequence)
-  (if (list? sequence)
+  ;; Engine sequences admit proper-list leaves and private record variants.
+  ;; Classify the outer representation; list? would rescan every leaf.
+  (if (or (pair? sequence) (null? sequence))
     (for-each (lambda (child) (visit child 0 #f)) sequence)
     (if (event-program-sequence? sequence)
       (event-program-sequence-for-each
@@ -200,7 +202,7 @@
             (loop (vector-ref frame 0) (vector-ref frame 1) (vector-ref frame 2)
                   (cdr pending))))))))))
 (def (recognition-sequence->list sequence)
-  (if (list? sequence) sequence
+  (if (or (pair? sequence) (null? sequence)) sequence
     (with-list-builder (collect!)
       ;; Ordinary branch traversal needs neither relocation state nor heap
       ;; frames. Bound recursion before delegating a deep/view subtree to the
@@ -210,7 +212,7 @@
          ((and (< depth 64) (recognition-sequence-branch? current))
           (collect-sequence! (recognition-sequence-branch-left current) (+ depth 1))
           (collect-sequence! (recognition-sequence-branch-right current) (+ depth 1)))
-         ((list? current) (for-each collect! current))
+         ((or (pair? current) (null? current)) (for-each collect! current))
          (else
           (recognition-sequence-for-each
            (lambda (child delta moved?)

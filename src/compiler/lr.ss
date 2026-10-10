@@ -19,6 +19,7 @@
         operand-actions
         operand-actions-valid?
         layout-end-action? validate-production-semantics
+        canonical-base-symbol?
         production-action
         production-id
         production-lhs

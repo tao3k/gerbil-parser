@@ -2,6 +2,7 @@
 ;;; LR conflict resolution and canonical parser-table publication.
 
 (import (only-in :std/iter for in-range)
+        (only-in ./lr-table validate-lr-tables)
         (only-in ./funcs compiler-index-set-for-each)
         (only-in ./lr
                  compute-first compute-completion
@@ -381,6 +382,7 @@
                      state-count action-state-publication-count))
             (trace-lr-phase 'actions (vector-length actions) started)
             (let (gotos (build-gotos transitions state-count))
+              (validate-lr-tables (vector-length table) actions gotos)
               (trace-lr-phase 'gotos (vector-length gotos) started)
               (let (spec
                     (list

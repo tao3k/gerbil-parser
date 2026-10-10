@@ -46,6 +46,32 @@
 
 (def rust-runtime-generation-test
   (test-suite "Rust AOT generation"
+    (test-case "raw Rust publication rejects invalid table targets and duplicate keys"
+      (for-each
+       (lambda (tables)
+         (let ((path (make-temporary-file-name "invalid-parser-table"))
+               (ir (map (lambda (entry)
+                          (if (eq? (car entry) 'lr-spec)
+                            (cons 'lr-spec
+                                  (map (lambda (row)
+                                         (case (car row)
+                                           ((actions) (cons 'actions (car tables)))
+                                           ((gotos) (cons 'gotos (cadr tables)))
+                                           (else row)))
+                                       (cdr entry)))
+                            entry)) arithmetic-parser-ir)))
+           (try
+            (begin
+              (check-exception
+               (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
+                                             +arithmetic-syntax-contract+
+                                             (parser-machine-grammar-digest arithmetic-parser) ir)
+               (lambda (condition) (string-prefix? "invalid LR table" (error-message condition))))
+              (check (file-exists? path) => #f))
+            (finally (when (file-exists? path) (delete-file path))))))
+       '((#((((terminal token number) shift 1 #f))) #(()))
+         (#(()) #(((root . 1))))
+         (#((((terminal token number) shift 0 #f) ((terminal token number) reduce 0))) #(())))))
     (test-case "malformed dead productions preserve an existing output file"
       (for-each
        (lambda (tail)

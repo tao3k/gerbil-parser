@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Descriptor-bound fused reductions; no builtin language imports or dispatch.
-(import (only-in :clan/poo/object .o .cc .ref .slot? object?)
+(import (only-in ./lr-table validate-lr-tables)
+        (only-in :clan/poo/object .o .cc .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../language/descriptor language-grammar? language-grammar-ir language-grammar-machine)
@@ -44,6 +45,8 @@
                   (not (eq? (car names) (caddr names)))
                   (not (eq? (cadr names) (caddr names)))))
            (let (productions (validate-production-semantics (strategy-productions candidate)))
+             (let (spec (cdr (assq 'lr-spec (language-grammar-ir (.ref candidate 'descriptor)))))
+               (validate-lr-tables (length productions) (lr-spec-ref spec 'actions) (lr-spec-ref spec 'gotos)))
              (and (pair? productions)
                   (every (lambda (production)
                            (memq (production-action production) '(pass concat)))

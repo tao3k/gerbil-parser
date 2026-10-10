@@ -1,0 +1,115 @@
+#+title: Canonical LR table admission and staged execution
+#+startup: overview
+
+* One boundary from productions to executable tables
+
+This completes the structural table boundary identified in
+[[file:prepared-lr-action-plans.org::*Complete production admission before execution products][the production admission study]]. Production semantics and LR table structure
+are related obligations with distinct owners. =src/compiler/lr.ss= admits
+production declarations. =src/compiler/lr-table.ss= admits the resulting action
+and goto vectors before indexes or executable products are published.
+
+The source audit at parent =5a6a70b= found that preparation indexed rows without
+checking target ranges or uniqueness. A valid terminal key could conceal an
+out-of-range shift/reduce reference, a singleton fork or duplicate row entries.
+The old association/index helpers selected the first duplicate; that utility
+behavior did not establish canonical table legality.
+
+The shared gate establishes:
+
+- Nonempty action vectors and equally sized goto vectors, with proper rows.
+- Canonical terminal keys, symbolic goto keys and no repeated key within a row.
+- Shift and goto targets within the state domain; reduce targets within the
+  admitted production domain. Numeric references are nonnegative Fixnums.
+- Three-element shifts with the existing precedence contract, two-element
+  reductions, EOF-only acceptance and matching nonassociative terminal metadata.
+- Flat forks with at least two atomic alternatives. Layout guards contain a
+  shift and a reduction or flat reduction fork. Request-generated layout-shift
+  actions are not a published table declaration.
+
+Standalone LR compilation, prepared execution, fused Scheme strategy admission
+and raw-IR Rust publication consume this gate. The source build catalog discovers
+the new production module through the existing PackageSpec. The action validator
+captures state and production domains once per admission; queries retain their
+existing indexes and captured executors. Row and entry objects are returned
+unchanged. As with prepared productions, callers must not mutate admitted IR.
+
+* Scheme witness
+
+#+begin_src scheme
+;; One state and one production: every referenced offset is zero.
+(let ((actions '#((((terminal token word) shift 0 #f))))
+      (gotos '#(((root . 0)))))
+  (validate-lr-tables 1 actions gotos))
+
+;; Each is rejected before preparation or Rust publication.
+(validate-lr-tables 1 '#((((terminal token word) shift 1 #f))) '#(()))
+(validate-lr-tables 1 '#((((terminal token word) reduce 1))) '#(()))
+(validate-lr-tables 1 '#((((terminal token word) fork (reduce 0)))) '#(()))
+#+end_src
+
+** Question: why is this design preferable?
+
+The Scheme DSL states grammar meaning; users do not configure table validation,
+index storage or backend dispatch. Structural matching expresses the closed
+action algebra, while a shared row traversal owns domain and uniqueness checks.
+POO strategies inherit the same canonical admission rather than supplying their
+own definition of a legal table. These mechanisms implement the staging boundary
+of the [[file:engine-reduction-generation.org][integrated reduction study]]; they add no author slots or compatibility path.
+
+The table gate preserves original entries, including the identity required by
+GLR receipts and checkpoint execution. Generic association helpers still support
+first-match duplicate lookup as utilities; a canonical parser table cannot use
+that behavior to bypass admission. Each responsibility has its own control.
+
+** Question: how is the claim scientifically tested?
+
+For s states and p productions, every admitted shift/goto target is in [0,s)
+and every admitted reduction is in [0,p). Matching each atomic branch extends
+that invariant to flat forks and guarded reduction alternatives. Uniqueness
+is checked with a preparation-owned equality table, independently for each row.
+These are structural invariants, not a proof of LR conflict resolution or that
+the table recognizes its declared grammar.
+
+Falsifiers include an admitted out-of-range reference or malformed wrapper,
+changed original-entry identity, modified valid artifacts, or a Rust output file
+published after admission failure. Focused index controls test boundaries and
+malformed rows; existing utility controls retain first-match behavior. Full
+generated/GLR artifacts, layout closure and ten-language ABI fixture bytes provide
+independent valid-product controls. Raw Rust publication has separate failure
+controls for target bounds and duplicate keys.
+
+Validation adds a row traversal and per-row equality hash tables; lookup cost
+and hashing literal keys contribute to preparation work. No worst-case total
+cost bound or measured preparation/request benefit is claimed. It does not
+certify state reachability, goto completeness, conflict equivalence, lexical
+realizability or the relation between layout capability and a supplied table.
+Backend-specific capability admission retains its existing owners.
+
+* Native qualification and evidence boundary
+
+The retained parent runtime admitted all five malformed table controls in
+16.695 seconds, exit zero. The first temporary baseline probe instead failed
+with a pair error because its quoted vector omitted one row-list level; that
+failure remains recorded and is not target-range evidence. The corrected probe
+uses explicit vector -> row -> entry -> terminal nesting, as do the Rust controls
+and Scheme witness above.
+
+The canonical owner, new table module and LR compiler completed native
+compilation in 112.424 seconds. The runtime, fused Scheme and Rust consumers
+completed in 174.309 seconds. Both receipts report exit zero, no rejection
+reason, no missing required output and final =OK= under the unchanged five-second
+real-progress idle gate and official SDK optimization settings. Build elapsed
+time is not preparation timing or parser throughput evidence.
+
+Seven source GxTest suites passed all 38 cases against the final native owners
+in 78.591 seconds. They cover valid original-entry identity, malformed physical
+tables, utility duplicate behavior, production admission, generated/GLR complete
+artifacts, source layout boundaries, raw Rust file rejection and twenty
+accepted/rejected products across ten language entries matching ABI fixture
+bytes exactly. The complete harness and process receipts both pass; local native
+overlays remain distinct from clean-checkout exact-head platform CI.
+
+Receipts: =/private/tmp/parser-table-contract-{core-build,publication-build,test,
+qualified-baseline}-supervision.log=. The rejected probe remains
+=/private/tmp/parser-table-contract-baseline-supervision.log=.

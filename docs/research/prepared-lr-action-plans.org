@@ -270,6 +270,8 @@ including their action chains. This is additional construction/preparation work;
 no preparation timing or end-to-end speedup is inferred from staging it outside
 requests. It does not validate LR transition targets, conflict equivalence,
 reference resolution or lexer realizability; those have separate owners.
+The subsequent [[file:lr-table-admission.org][shared table study]] implements target bounds, row uniqueness
+and closed action/guard shape admission through the same publication sequence.
 
 Final qualification used the official SDK and native overlay at parent
 =93d179c=. The canonical owner, layout runtime and LR runtime compiled in

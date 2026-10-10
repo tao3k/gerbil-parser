@@ -31,7 +31,7 @@
         scan-block-comment
         scan-nested-block-comment
         make-literal-end-scanner
-        make-ranked-literal-scanner
+        make-ranked-literal-scanner make-ranked-lexical-scanner-factory
         make-ranked-regular-scanner
         scan-longest-literal
         scan-emit)
@@ -837,44 +837,166 @@
 ;;; Merge literal-only lexical rules into one trie shared by every LR mode.
 ;;; Entries carry (literal name precedence declaration-index); the optional
 ;;; admitted vector filters complete rules without copying the trie per mode.
-(def (make-ranked-literal-scanner entries)
+(def (ranked-literal-before? left right)
+  (or (> (cadr left) (cadr right))
+      (and (= (cadr left) (cadr right)) (< (caddr left) (caddr right)))))
+
+;;; Order terminal catalogs once; mode filtering then stops at its first winner.
+(def (prepare-ranked-literal-terminals! root)
+  (let visit ((pending (list root)))
+    (unless (null? pending)
+      (let* ((node (car pending)) (edges (vector-ref node 1))
+             (children (cond ((not edges) '())
+                             ((pair? edges) (list (cdr edges)))
+                             (else (map cdr (table->list edges))))))
+        (vector-set! node 0 (list-sort ranked-literal-before? (vector-ref node 0)))
+        (visit (append children (cdr pending))))))
+  root)
+
+;;; Dense ASCII fanout gets a request-independent root directory. Sparse and
+;;; non-ASCII transitions retain the compact trie; the directory shares nodes.
+(def (ranked-literal-root-ascii root)
+  (let (edges (vector-ref root 1))
+    (and edges (not (pair? edges))
+         (let* ((entries (table->list edges))
+                (ascii (filter (lambda (entry) (< (char->integer (car entry)) 128)) entries)))
+           (and (>= (length ascii) 8)
+                (let (directory (make-vector 128 #f))
+                  (for-each (lambda (entry)
+                              (vector-set! directory (char->integer (car entry)) (cdr entry))) ascii)
+                  directory))))))
+
+(def (prepare-ranked-literal-root entries)
+  (prepare-ranked-literal-terminals!
+              (make-literal-trie
+               (map (lambda (entry)
+                      (cons (checked-lexer-literal (car entry))
+                            (list (cadr entry) (caddr entry) (cadddr entry)
+                                  (string-length (car entry))))) entries)
+               '() collect-literal)))
+
+(def (make-ranked-literal-scanner/prepared root (ascii (ranked-literal-root-ascii root)))
   (def (best-admitted candidates admitted)
-    (let loop ((remaining candidates) (best #f))
-      (if (null? remaining)
-        best
-        (let (candidate (car remaining))
-          (loop
-           (cdr remaining)
-           (if (and (or (not admitted)
-                        (vector-ref admitted (caddr candidate)))
-                    (or (not best)
-                        (> (cadr candidate) (cadr best))
-                        (and (= (cadr candidate) (cadr best))
-                             (< (caddr candidate) (caddr best)))))
-             candidate
-             best))))))
-  (let (root (make-literal-trie
-              (map (lambda (entry)
-                     (cons (checked-lexer-literal (car entry))
-                           (list (cadr entry) (caddr entry) (cadddr entry)))) entries)
-              '() collect-literal))
-    (lambda (source start (admitted #f))
-      (let (source-length (string-length source))
-        (let scan ((node root) (offset start) (selected #f))
-          (if (= offset source-length)
-            selected
-            (let (child
-                  (literal-trie-child node (string-ref source offset)))
-              (if child
-                (let* ((next (+ offset 1))
-                       (terminal
-                        (best-admitted (vector-ref child 0) admitted)))
-                  (scan child next
-                        (if terminal
-                          (list (car terminal) next
-                                (cadr terminal) (caddr terminal))
-                          selected)))
-                selected))))))))
+    (if admitted
+      (let loop ((remaining candidates))
+        (and (pair? remaining)
+             (if (vector-ref admitted (caddr (car remaining)))
+               (car remaining) (loop (cdr remaining)))))
+      (and (pair? candidates) (car candidates))))
+  (def (publish terminal start)
+    (and terminal (list (car terminal) (+ start (cadddr terminal))
+                        (cadr terminal) (caddr terminal))))
+  (lambda (source start (admitted #f))
+        (let (source-length (string-length source))
+          (and (not (= start source-length))
+               (let* ((ch (string-ref source start))
+                      (child (if ascii
+                               (let (code (char->integer ch))
+                                 (if (< code 128) (vector-ref ascii code)
+                                     (literal-trie-child root ch)))
+                               (literal-trie-child root ch))))
+                 (and child
+                      (let scan ((node child) (offset (+ start 1))
+                                 (selected (best-admitted (vector-ref child 0) admitted)))
+                        (if (= offset source-length)
+                          (publish selected start)
+                          (let (child (literal-trie-child node (string-ref source offset)))
+                            (if child
+                              (let* ((candidates (vector-ref child 0))
+                                     (terminal (and (pair? candidates) (best-admitted candidates admitted))))
+                                (scan child (+ offset 1) (or terminal selected)))
+                              (publish selected start)))))))))))
+
+(def (make-ranked-literal-scanner entries)
+  (make-ranked-literal-scanner/prepared (prepare-ranked-literal-root entries)))
+
+;;; Product of the literal trie and the closed monotone run DFA. Rule masks
+;;; are frozen by mode preparation; source scanning carries only automaton state
+;;; and the last accepting winner. Numeric pending/rollback states retain their
+;;; existing complete scanner rather than treating them as monotone runs.
+(defrule (ranked-core-literal node admitted)
+  (and node
+       (let find ((candidates (vector-ref node 0)))
+         (and (pair? candidates)
+              (if (or (not admitted) (vector-ref admitted (caddr (car candidates))))
+                (car candidates) (find (cdr candidates)))))))
+(defrule (ranked-core-winner node active admitted winners)
+  (let ((literal (ranked-core-literal node admitted)) (run (vector-ref winners active)))
+    (if (and run
+             (or (not literal) (> (cadr run) (cadr literal))
+                 (and (= (cadr run) (cadr literal)) (< (caddr run) (caddr literal))))) run literal)))
+
+(def (make-ranked-lexical-scanner-factory entries)
+  (let* ((entries (map (lambda (entry)
+                         (list (string-copy (car entry)) (cadr entry)
+                               (caddr entry) (cadddr entry))) entries))
+         (root (prepare-ranked-literal-root entries))
+         (ascii (ranked-literal-root-ascii root))
+         (literal-only (make-ranked-literal-scanner/prepared root ascii)))
+    (lambda (regular-entries admissions)
+      (let* ((eligible (filter (lambda (entry)
+                                (or (not admissions) (vector-ref admissions (cadddr entry)))) entries))
+             ;; An unrestricted mode has no per-terminal mask operation.
+             (admitted (and admissions (not (= (length eligible) (length entries)))
+                            (vector-copy admissions)))
+             (has-literals? (pair? eligible))
+             (regular (and (pair? regular-entries) (make-ranked-regular-scanner regular-entries)))
+             (available (fold (lambda (entry mask) (bitwise-ior mask (regular-kind-bit (car entry)))) 0 regular-entries))
+             (winners
+              (vector-map/index
+               (lambda (mask _)
+                 (fold (lambda (entry best)
+                         (let (candidate (cdr entry))
+                           (if (and (not (zero? (bitwise-and mask (regular-kind-bit (car entry)))))
+                                    (or (not best) (ranked-literal-before? candidate best))) candidate best)))
+                       #f regular-entries)) (make-vector 32 #f))))
+        (def (publish selected end)
+          (and selected (list (car selected) end (cadr selected) (caddr selected))))
+        (def (prefer left right)
+          (cond ((not left) right) ((not right) left)
+                ((or (> (cadr right) (cadr left))
+                     (and (= (cadr right) (cadr left))
+                          (or (> (caddr right) (caddr left))
+                              (and (= (caddr right) (caddr left))
+                                   (<= (cadddr right) (cadddr left)))))) right)
+                (else left)))
+        (cond ((not has-literals?) (or regular (lambda (_source _start) #f)))
+              ((and (not regular) (null? (cdr eligible)))
+               ;; A closed singleton mode needs neither trie traversal nor
+               ;; winner competition. Literal bounds still use Scheme chars.
+               (let* ((entry (car eligible)) (text (car entry))
+                      (winner (cdr entry)) (width (string-length text)))
+                 (lambda (source start)
+                   (and (literal-at? source start text)
+                        (publish winner (+ start width))))))
+              ((not regular) (lambda (source start) (literal-only source start admitted)))
+              (else
+               (lambda (source start)
+                 (let (limit (string-length source))
+                   (and (not (= start limit))
+                        (let* ((ch (string-ref source start))
+                               (active (bitwise-and available (regular-mask ch #t))))
+                          (if (not (zero? (bitwise-and active 32)))
+                            (prefer (regular source start) (literal-only source start admitted))
+                            (let* ((node (if ascii
+                                           (let (code (char->integer ch))
+                                             (if (< code 128) (vector-ref ascii code) (literal-trie-child root ch)))
+                                           (literal-trie-child root ch)))
+                                   (initial (ranked-core-winner node active admitted winners)))
+                              (let scan ((node node) (at (+ start 1)) (active active)
+                                         (selected initial) (selected-end (+ start 1)))
+                                (cond ((= at limit) (publish selected selected-end))
+                                      ((and (not node) (not (zero? active)))
+                                       (scan-regular-run source at limit active winners))
+                                      (else
+                                       (let* ((ch (string-ref source at))
+                                              (child (and node (literal-trie-child node ch)))
+                                              (next (if (zero? active) 0 (bitwise-and active (regular-mask ch #f)))))
+                                         (if (and (not child) (zero? next))
+                                           (publish selected selected-end)
+                                           (let (candidate (ranked-core-winner child next admitted winners))
+                                             (scan child (+ at 1) next (or candidate selected)
+                                                   (if candidate (+ at 1) selected-end))))))))))))))))))))
 
 ;; scan-longest-literal
 ;;   : (-> String Fixnum List String)

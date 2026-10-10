@@ -231,6 +231,23 @@ jobs:
             --log .data/scanner-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
             -- gxi t/benchmarks/ranked-literal/cpu-proof.ss bounded 20 2000000
 
+      - name: Prove complete ranked scanning and public parser CPU improvement
+        if: runner.os == 'Linux'
+        env:
+          GAMBOPT: max-heap=3G,debug=q
+        run: |
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/ranked-parser-long-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 128 layout 48
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/ranked-parser-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 384 layout 12
+          for scenario in keyword identifier literal-prefix; do
+            gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+              --log ".data/ranked-${scenario}-cpu-proof.log" --require SCANNER-CPU-PROOF-OK \
+              -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 250000 "$scenario"
+          done
+
       - name: Save admitted conformance preparation
         if: steps.conformance-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9

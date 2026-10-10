@@ -43,12 +43,13 @@
                  lr-action-row-tokens lookup-casefolded-literal-action-entry)
         (only-in ./layout
                  current-layout-columns current-layout-frames
-                 layout-after-shift layout-after-end layout-current-action-row)
+                 layout-after-shift layout-after-end layout-current-action-row prepare-layout-action-selector)
         (only-in ./observability
                  call-with-parser-observed-phase)
         (only-in ./token
                  make-token token? token-end token-kind token-lexeme token-start))
-(export lr-checkpoint-state lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
+(export lr-runtime-with-action-selector
+        lr-checkpoint-state lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
         lr-recognition-relocate lr-checkpoint-before-shift
         lr-checkpoint-fragment-compatible? lr-checkpoint-inject-fragment
         lr-runtime-fragment-reuse-safe?
@@ -99,7 +100,7 @@
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
-               reduction-plans)
+               reduction-plans action-selector)
   transparent: #t)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
@@ -170,7 +171,8 @@
            #f #f (lr-runtime-lexical-modes runtime)
            (lr-runtime-lexical-mode-catalog runtime)
            (lr-runtime-event-step runtime) (lr-runtime-event-reducer runtime) #f #f #f
-           (prepare-lr-reduction-plans 'event (lr-runtime-table runtime))))
+           (prepare-lr-reduction-plans 'event (lr-runtime-table runtime))
+           (lr-runtime-action-selector runtime)))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -395,7 +397,9 @@
                      (make-lr-lexical-mode id terminals)))))
       (let* ((table (production-table productions))
              (plans (prepare-lr-reduction-plans 'recognition table))
-             (capability (lr-semantic-capability table actions dynamic? layout?)))
+             (capability (lr-semantic-capability table actions dynamic? layout?))
+             (case-insensitive? (lr-spec-ref spec 'case-insensitive?))
+             (action-index (index-action-rows actions case-insensitive?)))
         (make-lr-runtime
          productions
          table
@@ -403,7 +407,7 @@
           (lambda (_index production)
             (length (production-rhs production))) table)
          actions
-         (index-action-rows actions (lr-spec-ref spec 'case-insensitive?))
+         action-index
          gotos
          (association-row-vector->index gotos)
          (lr-spec-ref spec 'case-insensitive?)
@@ -412,26 +416,36 @@
          modes
          mode-catalog
          #f (select-lr-semantic-reducer 'recognition capability)
-         (select-lr-semantic-reducer 'event capability) #f #f plans)))))
+         (select-lr-semantic-reducer 'event capability) #f #f plans
+         (make-lr-action-selector actions action-index case-insensitive? layout?))))))
 
-;; current-action-row
-;; : (-> Vector Fixnum List Boolean Boolean (OrFalse Pair))
-(def (current-action-row actions state tokens case-insensitive? layout?)
-  (let (row (vector-ref actions state))
-    (if (null? tokens)
-      (lr-action-row-eof row)
-      ;; A literal is a contextual keyword/punctuation refinement of its
-      ;; lexical token kind. It precedes the generic kind action.
-      (let (input-token (car tokens))
-        ;; Dynamic columns belong to a surrounding source request. They do
-        ;; not grant layout capability to a nested plain prepared runtime.
-        (if (and layout? (current-layout-columns))
-          (layout-current-action-row row input-token case-insensitive?)
-          (or (lookup-literal-action-entry row (token-lexeme input-token))
-              (and case-insensitive?
-                   (lookup-casefolded-literal-action-entry row (token-lexeme input-token)))
-              (lookup-action-entry
-               (lr-action-row-tokens row) (token-kind input-token))))))))
+(def (make-lr-action-selector rows index case-insensitive? layout?)
+  (if layout?
+    (prepare-layout-action-selector rows index case-insensitive?)
+    (lambda (state tokens)
+      (let (row (vector-ref index state))
+        (if (null? tokens) (lr-action-row-eof row)
+          (let (token (car tokens))
+            (or (lookup-literal-action-entry row (token-lexeme token))
+                (and case-insensitive? (lookup-casefolded-literal-action-entry row (token-lexeme token)))
+                (lookup-action-entry (lr-action-row-tokens row) (token-kind token)))))))))
+
+;;; Qualification/extension preparation replaces only the action lookup
+;;; primitive. Immutable grammar tables, semantic plans and modes stay owned.
+;;; Generated steps cannot bypass the supplied selection procedure.
+(def (lr-runtime-with-action-selector runtime factory)
+  (unless (procedure? factory) (error "LR action selector factory must be a procedure"))
+  (let (selector (factory (lr-runtime-actions runtime) (lr-runtime-action-index runtime)
+                         (lr-runtime-case-insensitive? runtime) (lr-runtime-layout? runtime)))
+    (unless (procedure? selector) (error "LR action selector factory must produce a procedure"))
+    (make-lr-runtime
+     (lr-runtime-productions runtime) (lr-runtime-table runtime)
+     (lr-runtime-reduction-widths runtime) (lr-runtime-actions runtime)
+     (lr-runtime-action-index runtime) (lr-runtime-gotos runtime) (lr-runtime-goto-index runtime)
+     (lr-runtime-case-insensitive? runtime) (lr-runtime-dynamic? runtime) (lr-runtime-layout? runtime)
+     (lr-runtime-lexical-modes runtime) (lr-runtime-lexical-mode-catalog runtime)
+     #f (lr-runtime-semantic-reducer runtime) (lr-runtime-event-reducer runtime) #f #f
+     (lr-runtime-reduction-plans runtime) selector)))
 
 ;; apply-operand-action
 ;; : (-> List List Fixnum List)
@@ -609,6 +623,7 @@
          (widths (lr-runtime-reduction-widths runtime))
          (actions (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
+         (select-action (lr-runtime-action-selector runtime))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
          (layout? (lr-runtime-layout? runtime))
@@ -856,8 +871,7 @@
                     (fuel deterministic-memo-fuel))
       (if (positive? fuel)
         (let (action-row
-              (current-action-row action-index (car states) rest
-                                  case-insensitive? layout?))
+              (select-action (car states) rest))
           (cond
            ((not action-row)
             (record-failure! (car states) rest)
@@ -895,8 +909,7 @@
           (let (memo (cons configuration-result-visiting #f))
             (configuration-bucket-set! results state bucket key memo)
             (let* ((action-row
-                    (current-action-row
-                     action-index state rest case-insensitive? layout?))
+                    (select-action state rest))
                    (result
                     (if action-row
                       (try-action (cdr action-row) (car action-row)
@@ -986,6 +999,7 @@
          (reduction-plans (lr-runtime-reduction-plans runtime))
          (actions-table (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
+         (select-action (lr-runtime-action-selector runtime))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
          (layout? (lr-runtime-layout? runtime))
@@ -1047,8 +1061,7 @@
                       '()))
                   rest))
                (action-row
-                (current-action-row
-                 action-index state rest case-insensitive? layout?)))
+                (select-action state rest)))
           (if (not action-row)
             (if stop-at-failure?
               (values

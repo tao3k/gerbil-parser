@@ -595,3 +595,224 @@ exit zero. This covers certified artifact windows, ranked scanner results,
 layout byte boundaries, contextual LR integration and Rust source generation.
 It establishes semantic conformance, not CPU improvement. Receipt stems are
 =parser-cpu-proof-rebased-build= and =parser-cpu-proof-final-tests=.
+
+
+** Complete ranked lexical competition and request ownership
+
+The ranked scanner now stages terminal precedence and declaration order once.
+Traversal retains a winning prepared payload and allocates the complete
+=(name character-end rank ordinal)= result only at publication. Dense ASCII
+root fanout uses one shared directory; non-ASCII edges retain the compact trie.
+
+=make-ranked-lexical-scanner-factory= forms the product of that trie and the
+closed monotone regular DFA. A source character advances both states once.
+The last accepting state retains maximal munch; rank and declaration ordinal
+resolve only equal endpoints. Numeric fraction/exponent pending states retain
+the existing rollback scanner. This is shared engine preparation, independent
+of language declarations.
+
+Mode preparation snapshots its literal catalog and admission mask. Modes with
+all literals admitted remove the runtime mask operation. A literal-only mode
+with one admitted literal performs bounded direct character matching. Other
+modes retain the shared product. Neither specialization changes the result
+protocol or exposes a language-specific optimization slot.
+
+=parser-machine-with-ranked-scanner= rebuilds the same checked lexical rules
+and mode catalog with a supplied ranked factory. It preserves the grammar IR,
+digest, runtime, source plan and owned program. Generated direct source/drive
+products cannot bypass that replacement. The CPU reference is the former
+compact-trie primitive plus separate regular scanning and original ranked
+competition. It is not a copied parser. Both variants execute =parse-source=,
+including source traversal, LR/layout, source identity and complete artifact
+publication. Preparation occurs before measured requests.
+
+The semantic controls cover all 64 regular subsets, multiple literal masks,
+all source offsets including EOF, Unicode, numeric rollback, longest matching,
+rank ties, mutable input/result ownership, ordinary LR and layout requests.
+The complete reference, candidate and production artifacts must be equal and
+admitted for their source before any CPU interval starts.
+
+*** Measurement limits retained during the investigation
+
+Eight-leg observations include both ABBA and BAAB. Four-leg observations
+aliased periodic natural collection onto one variant: identical full-parser
+controls produced CPU P50/P90 near 0.59/2.08. All natural GC CPU remains in the
+measurement. No samples are removed, no per-batch collection is forced and no
+control threshold is relaxed. There remain twenty observations in each of the
+before-control, production and after-control phases.
+
+Runtime CPU entries load compiled phase-zero owners without source expander
+interfaces. They still trace real dependency initialization. Source gxtest
+entries retain interface admission. Both timed variants share this environment;
+removing unused compiler contexts is not counted as an engine CPU improvement.
+
+The initial complete ranked lexical run at 100000 calls per batch observed
+production CPU P50/P90 of 0.5205/0.6240 for keyword competition,
+0.5677/0.6688 for identifier competition and 0.5650/0.6536 for literal prefixes.
+Its identical controls failed, so these are rejected observations rather than
+admitted performance claims. Receipt stem: =parser-ranked-lexical-fused=.
+Larger individually bounded scenarios retain the same admission rules:
+
+#+begin_src sh
+gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+  --log .data/ranked-lexical-cpu.log --require SCANNER-CPU-PROOF-OK \
+  -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 250000 keyword
+#+end_src
+
+Replace =keyword= with =identifier= or =literal-prefix= for the other complete
+ranked scenarios. The =parser= workload includes =layout=, =core= and
+=assumptions= source scenarios. A rejected workload exits nonzero; it cannot
+emit the required success marker.
+
+The first fused layout request run observed CPU P50/P90 0.9759/1.1688 and
+failed both control/benefit admission. The ordinary LR diagnostic likewise
+failed: P50/P90 1.0078/1.3272. Receipt stems:
+=parser-ranked-public-parser-fused= and =parser-ranked-core-proof-rebuilt=.
+These are preserved negative results, not complete-parser CPU wins.
+
+Missing layout cost observations are now present for lexical analysis,
+significant-token filtering and LR execution. For the 157-character layout
+request, twenty instrumented requests attributed CPU P50 0.1455 ms to LR,
+0.0210 ms to lexical analysis and 0.2210 ms to the observed complete request.
+LR allocated 122688 bytes; lexical analysis allocated 39440 bytes. The observer
+is diagnostic overhead and these samples are not an uninstrumented latency
+comparison. They explain why a large primitive scanner ratio need not produce
+a large complete-request ratio. Receipt stem: =parser-ranked-stage-diagnostic-v2=.
+
+
+*** Admitted complete ranked keyword result
+
+The final keyword workload passes the complete Scheme CPU assertion with
+20 groups and 250000 calls per batch. CPU ratio P50/P90 is 0.526162/0.572052,
+corresponding to a 47.38 percent median CPU decrease for complete ranked
+keyword competition. Before-control P10/P50/P90 is
+0.941734/1.006953/1.046188; after-control is
+0.947828/0.995368/1.056494. Qualified elapsed time is 92.946 seconds, exit zero,
+with =SCANNER-CPU-PROOF-OK=. Receipt stem:
+=parser-ranked-keyword-calibrated-cpu=.
+
+The preceding 500000-call run reaches the unchanged 120-second limit during
+the after-control and is rejected. Its completed before/production phases use
+28.392/21.575 CPU seconds and 62.051/44.274 wall seconds, including
+12.173/7.618 GC CPU seconds. The admitted rerun calibrates the workload unit;
+it retains every group, both controls, all natural GC CPU and the same gates.
+Receipt stem: =parser-ranked-keyword-final-cpu=.
+
+This is a complete ranked scanner result. It does not establish a complete
+parser speedup; that assertion separately includes every public request stage.
+
+
+*** Prepared layout decisions in complete requests
+
+LR preparation now owns an action-selector procedure. The layout selector
+prepares allowed and blocked projections of grammar-owned actions once,
+retaining original entry identity when the action is unchanged. The request
+keeps only source columns and branch-local frames. Projection never reindexes
+filtered rows: the first literal still wins lookup, and a denied literal cannot
+fall through to a generic token or a later duplicate.
+
+The selector snapshots request columns and frames once. Eligible next markers
+retain priority over start markers and ordinary actions. Start eligibility and
+ordinary shift eligibility share one column relation. After an eligible next
+marker has lost, a pure ordinary reduction with no start marker skips that
+relation entirely. Pure reductions also skip the prepared projection lookup.
+These are shared layout/LR algorithms, with no language-specific hints.
+
+=parser-machine-with-lr-action-selector= replaces only the checked action
+selection primitive and reparents the parse closure to the new runtime. The
+CPU reference combines the former compact ranked scanner with the former pure
+layout lookup/projection primitive. Both variants execute the complete public
+=parse-source= pipeline and must equal the unmodified production artifact.
+
+The first prepared layout run at 512 calls per batch observed CPU P50/P90
+0.885612/0.974036, but the after-control P10 was 0.874845. It is rejected.
+The subsequent frame-staged run at 256 calls observed 0.884177/0.978420;
+control P10 values 0.851950/0.879642 also reject it. These observations do not
+establish a complete-request CPU win. Receipt stems:
+=parser-ranked-layout-prepared-cpu= and =parser-ranked-layout-frame-batch-cpu=.
+
+A preceding frame-staged run stopped on the unchanged five-second idle bound
+between group outputs. The shared sampler now publishes each completed batch's
+CPU, wall, GC and allocation observations immediately, outside the measured
+interval. No unfinished batch emits progress. The eight-leg group statistics,
+minimum resolved CPU, twenty groups and all admission thresholds are unchanged.
+
+The complete parser CLI additionally accepts a positive clause count:
+
+#+begin_src sh
+gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+  --log .data/ranked-parser-cpu.log --require SCANNER-CPU-PROOF-OK \
+  -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 384 layout 12
+#+end_src
+
+Changing the final count to 48 measures a longer complete layout request; batch
+work must be calibrated without changing controls, sample count or deadlines.
+
+
+The final pure-reduction staging run at 384 calls per batch observed complete
+157-character request CPU P50/P90 0.860601/0.957299. Before-control P10/P90 was
+0.896855/1.125763 and after-control was 0.911401/1.107213; admission failed.
+The 517-character request at 128 calls observed P50/P90 0.806723/0.943927.
+Its before-control P10/P90 was 0.860899/1.111094 and after-control was
+0.844897/1.118945, so it too is rejected despite passing the production P90
+benefit bound. Qualified elapsed times were 113.113 and 102.889 seconds.
+Receipt stems: =parser-ranked-layout-reduce-cpu-v2= and
+=parser-ranked-layout-long-cpu=. No control failures are promoted to wins.
+
+Ubuntu now enforces the same complete-request admission for both source sizes
+and the keyword, identifier and literal-prefix complete ranked products.
+Each invocation retains the 120-second total and five-second idle bounds,
+three-GiB maximum heap, twenty groups and unchanged percentile gates.
+
+
+*** Admitted complete-request and ranked CPU evidence on Ubuntu
+
+Code revision =c6a6565b910b1a82168c7bfd618b612b1183be87= passes the complete
+Scheme CPU gate in [[https://github.com/tao3k/gerbil-parser/actions/runs/38054496900][CI run 38054496900]]. All five assertions emit
+=SCANNER-CPU-PROOF-OK= and finish with exit zero. Ratios below are candidate CPU
+divided by reference CPU across twenty balanced paired groups, including
+natural GC. Preparation and result admission remain outside timed requests.
+
+| Complete workload | Calls per batch | CPU P50 ratio | CPU P90 ratio | Median CPU decrease | Qualified seconds |
+|-------------------+-----------------+---------------+---------------+---------------------+-------------------|
+| Public TLA+ layout, 48 clauses, 517 characters | 128 | 0.775231 | 0.919257 | 22.48% | 37.836 |
+| Public TLA+ layout, 12 clauses, 157 characters | 384 | 0.868511 | 0.874858 | 13.15% | 32.242 |
+| Ranked keyword competition | 250000 | 0.566157 | 0.580265 | 43.38% | 50.490 |
+| Ranked identifier competition | 250000 | 0.640662 | 0.657650 | 35.93% | 56.993 |
+| Ranked literal-prefix competition | 250000 | 0.552558 | 0.568744 | 44.74% | 29.125 |
+
+Every identical-code control also passes the original P10 >= 0.90 and
+P90 <= 1.10 bounds:
+
+| Workload | Before P10 | Before P50 | Before P90 | After P10 | After P50 | After P90 |
+|----------+------------+------------+------------+-----------+-----------+-----------|
+| Layout, 48 clauses | 0.920056 | 0.995391 | 1.087544 | 0.918577 | 0.998814 | 1.083092 |
+| Layout, 12 clauses | 0.990513 | 0.998758 | 1.019033 | 0.930102 | 1.000409 | 1.091494 |
+| Keyword | 0.952565 | 0.990232 | 1.034907 | 0.957547 | 0.996479 | 1.021163 |
+| Identifier | 0.951134 | 0.991495 | 1.018879 | 0.972458 | 0.999915 | 1.023100 |
+| Literal prefix | 0.966161 | 1.001431 | 1.029086 | 0.969034 | 1.001863 | 1.028954 |
+
+The full-request assertions execute the normal public layout path, including
+lexical analysis, significant-token filtering, LR/layout, source identity and
+complete artifact publication. The reference and candidate must equal the
+unmodified production artifact and pass source admission before timing. The
+engine derives all preparation from checked grammar tables and lexical modes;
+the language declarations contribute no optimization hints.
+
+The exact rebased code also passes five focused Scheme suites and 43 cases in
+34.518 seconds, covering action projections, full parser requests, layout
+boundaries and the concurrently merged canonical identity/publication owners.
+The earlier broader qualification passed 21 suites and 146 cases. The new
+pure-reduction precedence case is included in the final focused qualification.
+
+The separate local literal-prefix run passes with CPU P50/P90
+0.508880/0.570142, before P10/P90 0.916130/1.075357 and after P10/P90
+0.911077/1.075920, exit zero in 102.443 seconds. Local identifier runs retain
+negative results: 150000 calls fails control P90 1.124001/1.105859, while
+250000 and 200000 calls reach the unchanged 120-second total bound. Ubuntu's
+isolated run admits the 250000-call workload without changing any threshold.
+These local failures remain excluded from the admitted figures above.
+
+The complete-request evidence covers the TLA+ layout pipeline and these two
+source sizes. The matched 28440-byte Bash/Tree-sitter comparison requires its
+own complete-source qualification.

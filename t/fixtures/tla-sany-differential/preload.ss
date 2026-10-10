@@ -53,15 +53,16 @@
    (lambda ()
      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
 
-(def (preload-module module)
-  (unless (table-ref +preloaded-modules+ module #f)
-    (table-set! +preloaded-modules+ module #t)
+(def (preload-compiled-module! module interfaces?)
+  (let (key (cons module interfaces?))
+  (unless (table-ref +preloaded-modules+ key #f)
+    (table-set! +preloaded-modules+ key #t)
     ;; Generated wrapper modules list dependencies without evaluating their
     ;; initializers. Phase bodies (~0/~1) are admitted directly, never decoded.
     (unless (string-contains module "~")
       (let (source (compiled-file module ".scm"))
         (when source
-          (for-each preload-module
+          (for-each (lambda (dependency) (preload-compiled-module! dependency interfaces?))
                     (call-with-input-file source
                       (lambda (port)
                         (let loop ((dependencies '()))
@@ -73,11 +74,18 @@
     (displayln "MODULE-LOADED " module) (force-output)
     ;; Admit phase bindings incrementally as well. Deferring all .ssi imports
     ;; until gxtest loads its first source module hides cold macro work.
-    (when (and (not (string-contains module "~"))
+    (when (and interfaces? (not (string-contains module "~"))
                (compiled-file module ".ssi"))
       (displayln "MODULE-IMPORT " module) (force-output)
       (import-compiled-interface! module)
-      (displayln "MODULE-IMPORTED " module) (force-output))))
+      (displayln "MODULE-IMPORTED " module) (force-output)))))
+
+(def (preload-module module) (preload-compiled-module! module #t))
+
+;;; Compiled benchmark entries execute phase-zero procedures only. Loading
+;;; source expander interfaces would retain unrelated compiler state in their
+;;; runtime heap; dependency initialization still reports actual progress.
+(def (preload-runtime-module module) (preload-compiled-module! module #f))
 
 ;; Admit compiled dependencies declared by tests and their source helpers.
 ;; Reading import forms does not evaluate a helper or replace gxtest's owner.

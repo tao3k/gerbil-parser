@@ -4,7 +4,7 @@
 (import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/src/compiler/machine lexical-dispatch/ranked)
         (only-in :gerbil-parser/src/runtime/scan
-                 make-ranked-regular-scanner scan-whitespace scan-horizontal-whitespace
+                 make-ranked-regular-scanner make-ranked-lexical-scanner-factory scan-whitespace scan-horizontal-whitespace
                  scan-newline scan-decimal-digits scan-identifier scan-number-literal))
 
 (def regular-scanner
@@ -34,7 +34,8 @@
   (list scan-whitespace scan-horizontal-whitespace scan-newline
         scan-decimal-digits scan-identifier scan-number-literal))
 (def (masked-run-reference source at mask)
-  (let loop ((entries regular-entries) (runs independent-runs) (index 0) (best #f))
+  (and (< at (string-length source))
+   (let loop ((entries regular-entries) (runs independent-runs) (index 0) (best #f))
     (if (null? entries) best
       (let* ((entry (car entries))
              (end (and (odd? (quotient mask (expt 2 index))) ((car runs) source at)))
@@ -46,7 +47,24 @@
                                 (or (> (caddr candidate) (caddr best))
                                     (and (= (caddr candidate) (caddr best))
                                          (< index (cadddr best)))))))
-                candidate best))))))
+                candidate best)))))))
+
+(def fused-literals
+  '(("if" keyword 2 6) ("ifelse" longer 2 7) ("a" short 9 8)
+    ("ab" exact 0 9) ("α😀" wide 2 10) ("1e" prefix 6 11) ("1.2" fraction 10 12)))
+(def (prefer-oracle left right)
+  (if (and right
+           (or (not left) (> (cadr right) (cadr left))
+               (and (= (cadr right) (cadr left))
+                    (or (> (caddr right) (caddr left))
+                        (and (= (caddr right) (caddr left)) (< (cadddr right) (cadddr left))))))) right left))
+(def (fused-literal-oracle source at admissions)
+  (fold (lambda (entry best)
+    (let (end (+ at (string-length (car entry))))
+      (prefer-oracle best
+        (and (vector-ref admissions (cadddr entry)) (<= end (string-length source))
+             (string=? (car entry) (substring source at end))
+             (list (cadr entry) end (caddr entry) (cadddr entry)))))) #f fused-literals))
 
 (def ranked-regular-scanner-tests
   (test-suite "ranked regular scanner"
@@ -75,6 +93,43 @@
             '("alpha-27 42\r\n" "αβ-٣\t\n?" "1." "1e" "1e+" "1.2e+3"
               "٧.٢E-٣" "Ⅳ¼²名字" "8e+4z" "e.E+-1" "_name-1+other" "" "?"))))
         (iota 64)))
+    (test-case "product automaton agrees with independent scans in every regular subset"
+      (let (factory (make-ranked-lexical-scanner-factory fused-literals))
+        (for-each (lambda (mask)
+          (for-each (lambda (literal-mask)
+            (let* ((admissions (list->vector (map (lambda (index)
+                                                   (odd? (quotient literal-mask (expt 2 index)))) (iota 13))))
+                   (entries (filter (lambda (entry) (odd? (quotient mask (expt 2 (cadddr entry))))) regular-entries))
+                   (scan (factory entries admissions)))
+              (for-each (lambda (source)
+                (let offsets ((at 0))
+                  (when (<= at (string-length source))
+                    (check (scan source at)
+                           => (prefer-oracle (masked-run-reference source at mask)
+                                             (fused-literal-oracle source at admissions)))
+                    (offsets (+ at 1)))))
+                '("if ifelse ifelseif" "a ab abc" "α😀 αβ-٣ \t\r\n"
+                  "1.2e+3 1e+ 1." "Ⅳ¼² 名字 ?"))))
+            '(0 64 8191 4096))) (iota 64))))
+    (test-case "mode preparation freezes masks and publishes fresh complete results"
+      (let* ((factory (make-ranked-lexical-scanner-factory fused-literals))
+             (admissions (make-vector 13 #t))
+             (scan (factory regular-entries admissions))
+             (result (scan "if!" 0)))
+        (vector-set! admissions 6 #f)
+        (set-car! result 'foreign)
+        (check (scan "if!" 0) => '(keyword 2 2 6))
+        (check (scan "ifelsewhere!" 0) => '(name 11 0 4))))
+    (test-case "closed singleton modes own their literal snapshot"
+      (let* ((text (string-copy "α😀")) (entry (list text 'wide 2 0))
+             (factory (make-ranked-lexical-scanner-factory (list entry))))
+        (string-set! text 0 #\x)
+        (set-car! (cdr entry) 'foreign)
+        (let (scan (factory '() (vector #t)))
+          (check (scan "α😀!" 0) => '(wide 2 2 0))
+          (check (scan "x😀!" 0) => #f)
+          (check (scan "α" 0) => #f)
+          (check (scan "" 0) => #f))))
     (test-case "longest match precedes rank and declaration order"
       (check (regular-scanner " \t\n" 0) => '(white 3 0 0))
       (check (regular-scanner "\t\tx" 0) => '(horizontal 2 3 1))

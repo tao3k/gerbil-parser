@@ -16,6 +16,8 @@
         (only-in :gerbil-parser/t/grammar-composition-execution-test grammar-composition-execution-test)
         (only-in :gerbil-parser/t/resolved-grammar-test resolved-grammar-test)
         (only-in :gerbil-parser/t/lr-conflict-origins-test lr-conflict-origins-test)
+        (only-in :gerbil-parser/t/lr-action-preparation-test lr-action-preparation-test)
+        (only-in :gerbil-parser/t/ranked-parser-request-test ranked-parser-request-test)
         (only-in :gerbil-parser/t/layout-column-storage-test layout-column-storage-test)
         (only-in :gerbil-parser/t/language-artifact-test language-artifact-test)
         (only-in :gerbil-parser/t/artifact-publication-cost-test artifact-publication-cost-test)
@@ -47,6 +49,7 @@
   '(("languages/tla-plus/parser-test" sany-closure-test)))
 (def suites
   (list
+        (cons "ranked-requests" (list lr-action-preparation-test ranked-parser-request-test))
         (cons "downstream-records" (list parser-test))
         (cons "test-style" (list test-style-contract-test))
         (cons "diagnostics" (list language-diagnostics-test))

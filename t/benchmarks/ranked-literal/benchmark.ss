@@ -1,10 +1,12 @@
 ;;; Shared lexer publication: prefix chains, filtered modes and scalar controls.
 (import (only-in :gerbil-parser/src/runtime/scan make-ranked-literal-scanner make-literal-trie
-                 make-bounded-literal-end-scanner)
+                 make-bounded-literal-end-scanner literal-trie-child)
         (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation)
         (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark measure-parser-component measure-parser-batch sample-at-percentile measure-parser-cpu-pairs))
 (export benchmark-ranked-literal benchmark-ranked-literal-requests benchmark-literal-edge-cpu qualify-literal-edge-cpu
-        benchmark-ranked-edge-cpu qualify-ranked-edge-cpu)
+        benchmark-ranked-edge-cpu qualify-ranked-edge-cpu
+        benchmark-ranked-publication-cpu qualify-ranked-publication-cpu
+        ranked-cpu-admission)
 (def (benchmark-ranked-literal (samples 11) (iterations 1000))
   (unless (and (exact-integer? samples) (positive? samples)
                (exact-integer? iterations) (positive? iterations))
@@ -235,4 +237,54 @@
     (unless (andmap (lambda (entry) (edge-field (cdr entry) 'cpu-benefit)) summaries)
       (error "ranked edge CPU controls or benefit gate failed" summaries))
     (displayln "RANKED-EDGE-CPU-PROOF-OK") (force-output)
+    summaries))
+
+;;; Matched primitive reference: retain compact edges and the former complete
+;;; terminal selection/publication algorithm. No parser is duplicated.
+(import (only-in ../../fixtures/ranked-publication reference-ranked-publication-scanner))
+
+(def (ranked-cpu-admission name groups calls expected reference candidate)
+  (let* ((before (measure-parser-cpu-pairs name 'control-before groups calls expected reference reference))
+         (result (measure-parser-cpu-pairs name 'production groups calls expected reference candidate))
+         (after (measure-parser-cpu-pairs name 'control-after groups calls expected reference reference))
+         (stable? (lambda (ratios) (and (>= (car ratios) 0.90) (<= (caddr ratios) 1.10))))
+         (summary (list (cons 'before before) (cons 'production result) (cons 'after after)
+                        (cons 'cpu-benefit (and (stable? before) (stable? after) (< (caddr result) 0.95))))))
+    (write (list 'RANKED-PUBLICATION-CPU-SUMMARY name 'groups groups 'calls-per-batch calls summary))
+    (newline) (force-output)
+    (cons name summary)))
+
+(def (benchmark-ranked-publication-cpu (groups 20) (calls 20000)
+                                      (names '(prefix-hit prefix-filtered short-hit rank-fanout branch-hit)))
+  (unless (and (list? names) (pair? names)
+               (andmap (lambda (name) (memq name '(prefix-hit prefix-filtered short-hit rank-fanout branch-hit))) names))
+    (error "ranked publication requires declared workload names" names))
+  (map (lambda (name)
+    (let* ((entries (case name
+                      ((branch-hit) (append (map (lambda (code) (list (string (integer->char code)) 'branch 0 (- code 32))) (iota 96 32)) '(("λ😀" unicode 0 96))))
+                      ((rank-fanout) (map (lambda (rank) (list "word" 'word rank rank)) (iota 16)))
+                      ((short-hit) '(("word" word 0 0) ("while" while 0 1)))
+                      (else '(("+" plus 9 0) ("++" increment 2 1) ("+++" triple 1 2)
+                              ("++++" quad 0 3) ("++" later 2 4)))))
+           (source (case name ((short-hit rank-fanout) "word!") ((branch-hit) "x!") (else "++++!")))
+           (mask (and (eq? name 'prefix-filtered) '#(#t #f #f #f #f)))
+           (old (reference-ranked-publication-scanner entries))
+           (new (make-ranked-literal-scanner entries))
+           (expected (ranked-edge-oracle entries source 0 mask)))
+      (for-each (lambda (text)
+        (let offsets ((offset 0))
+          (when (<= offset (string-length text))
+            (let (oracle (ranked-edge-oracle entries text offset mask))
+              (unless (and (equal? (old text offset mask) oracle) (equal? (new text offset mask) oracle))
+                (error "ranked publication differs from complete catalog oracle" name offset)))
+            (offsets (+ offset 1))))) (list source "!β😀" "" "+" "++" "word"))
+      (ranked-cpu-admission name groups calls expected
+        (lambda () (old source 0 mask)) (lambda () (new source 0 mask))))) names))
+
+(def (qualify-ranked-publication-cpu (groups 20) (calls 20000)
+                                     (names '(prefix-hit rank-fanout branch-hit)))
+  (let (summaries (benchmark-ranked-publication-cpu groups calls names))
+    (unless (andmap (lambda (entry) (edge-field (cdr entry) 'cpu-benefit)) summaries)
+      (error "ranked publication CPU controls or benefit gate failed" summaries))
+    (displayln "RANKED-PUBLICATION-CPU-PROOF-OK") (force-output)
     summaries))

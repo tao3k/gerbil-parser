@@ -253,6 +253,9 @@
       (displayln "PARSER-STAGE-COST-OK samples=" samples) (force-output)
       summary)))
 
+;;; Each observation contains both ABBA and BAAB. Four-leg groups can alias
+;;; a periodic natural GC onto one variant; retain all CPU while balancing
+;;; both order orientations inside the observation used for percentile gates.
 ;;; Same-process CPU comparison with complete products and alternating order.
 (def (cpu-pair-field row key) (cdr (assq key row)))
 (def (measure-parser-cpu-pairs name phase groups calls expected left right)
@@ -265,10 +268,16 @@
          (let loop ((group 0) (rows '()))
            (if (= group groups)
              (map (lambda (rank) (cpu-pair-field (sample-at-percentile rows 'ratio rank) 'ratio)) '(10 50 90))
-             (let* ((order (if (even? group) '(left right right left) '(right left left right)))
+             (let* ((order (if (even? group) '(left right right left right left left right)
+                                      '(right left left right left right right left)))
                     (batches (map (lambda (variant)
-                      (cons variant (measure-parser-batch (list 'paired-cpu name phase) group calls
-                                      (if (eq? variant 'left) left right) expected))) order))
+                      (let (batch (measure-parser-batch (list 'paired-cpu name phase) group calls
+                                    (if (eq? variant 'left) left right) expected))
+                        ;; Emit completed work outside timing; a whole group can
+                        ;; exceed the watchdog interval on a contended host.
+                        (write (list 'PARSER-CPU-BATCH name phase group variant batch))
+                        (newline) (force-output)
+                        (cons variant batch))) order))
                     (sum (lambda (variant)
                       (apply + (map (lambda (batch) (cpu-pair-field (cdr batch) 'cpu-ms))
                                     (filter (lambda (batch) (eq? (car batch) variant)) batches)))))

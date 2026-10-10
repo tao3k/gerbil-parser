@@ -29,6 +29,12 @@ The shared gate establishes:
 - Layout guards and layout terminal keys require layout capability derived from
   admitted productions. Preparation uses the same predicate to enable source
   columns and request-local frames; table shape alone cannot enable that protocol.
+- Action keys belong to the canonical production terminal catalog (including
+  EOF); goto keys name a declared production LHS. Marked operands retain their
+  base-symbol membership and unused declared rules remain admissible.
+- The graph from state zero has a reachable EOF acceptance. Shift edges in
+  forks/guards and goto edges all participate. Conflict resolution may leave
+  disconnected states; admission preserves their existing identities.
 
 Standalone LR compilation, prepared execution, fused Scheme strategy admission
 and raw-IR Rust publication consume this gate. The source build catalog discovers
@@ -41,18 +47,18 @@ unchanged. As with prepared productions, callers must not mutate admitted IR.
 
 #+begin_src scheme
 ;; One state and one production: every referenced offset is zero.
-(let ((productions '((0 root () concat #f)))
-      (actions '#((((terminal token word) shift 0 #f))))
+(let ((productions '((0 root ((terminal token word)) concat #f)))
+      (actions '#((((terminal token word) shift 0 #f) ((terminal eof) accept))))
       (gotos '#(((root . 0)))))
   (validate-lr-tables productions actions gotos))
 
 ;; Each is rejected before preparation or Rust publication.
-(let (productions '((0 root () concat #f)))
+(let (productions '((0 root ((terminal token word)) concat #f)))
   (validate-lr-tables productions '#((((terminal token word) shift 1 #f))) '#(()))
   (validate-lr-tables productions '#((((terminal token word) reduce 1))) '#(()))
   (validate-lr-tables productions '#((((terminal token word) fork (reduce 0)))) '#(())))
 ;; A separate negative control: ordinary productions cannot publish a guard.
-(validate-lr-tables '((0 root () concat #f))
+(validate-lr-tables '((0 root ((terminal token word)) concat #f))
                    '#((((terminal token word) layout-guard (shift 0 #f) (reduce 0))))
                    '#(()))
 #+end_src
@@ -101,11 +107,82 @@ the source layout suite exercises actual request columns and frame transitions.
 
 Validation adds a row traversal and per-row equality hash tables; lookup cost
 and hashing literal keys contribute to preparation work. No worst-case total
-cost bound or measured preparation/request benefit is claimed. It does not
-certify state reachability, goto completeness, conflict equivalence, lexical
+cost bound or measured preparation/request benefit is claimed. Reachable
+acceptance is checked below; it does not certify goto completeness, conflict equivalence, lexical
 realizability. Layout correspondence here is a necessary capability condition,
 not proof that markers are balanced or that every guard has the correct fallback.
 Backend-specific capability admission retains its existing owners.
+
+* Production-relative vocabulary and reachable acceptance
+
+This follows the same admission boundary through all four consumers, rather
+than adding a language-specific validator. The =0c46a44= baseline gate admits
+an undeclared token key, an undeclared goto symbol and an isolated cycle with no
+acceptance reachable from state zero. Their numeric offsets and row shapes are
+valid; structural shape alone cannot establish the production/table relationship.
+
+The implementation reuses =production-terminal-catalog= from the LR owner.
+Its index includes EOF at offset zero; Scheme's truth semantics correctly treat
+that zero as present. A separate equality set admits production LHS symbols.
+No second terminal-normalization policy is introduced. Operand actions are
+projected by the existing canonical catalog, so field and alias annotations do
+not change terminal membership. Dead declared rules remain legal composition
+inputs; absent table symbols do not become implicit declarations.
+
+#+begin_src scheme
+(def productions '((0 root ((terminal token word)) concat #f)))
+(def actions '#((((terminal token word) shift 1 #f))
+                (((terminal eof) reduce 0))
+                (((terminal eof) accept))))
+(def gotos '#(((root . 2)) () ()))
+(validate-lr-tables productions actions gotos) ; same vectors and entries
+
+;; An accepting row does not legalize an undeclared grammar symbol.
+(validate-lr-tables productions
+                   '#((((terminal token unknown) reduce 0)
+                       ((terminal eof) accept))) '#(())) ; rejected
+;; An isolated accepting cycle cannot be entered from the initial state.
+(validate-lr-tables productions
+                   '#(() (((terminal token word) shift 1 #f)
+                          ((terminal eof) accept))) '#(() ())) ; rejected
+#+end_src
+
+** Question: why does this exploit Scheme and keep complexity in the engine?
+
+The symbolic IR supplies the vocabulary directly. Structural matching traverses
+the closed shift/fork/layout algebra without another opcode registry or author
+configuration. POO-selected strategies consume one canonical gate before
+execution or publication. The graph worklist uses the installed Gerbil SDK's
+=:std/struct/queue= implementation: typed final queue storage, enqueue/dequeue
+operations and a state-sized visited vector. Each discovered state is enqueued
+at most once. Graph traversal is bounded by states plus action/goto alternatives;
+symbol hashing and terminal-catalog construction remain separate admission costs.
+These mechanisms execute during preparation/publication, not token lookup.
+
+** Question: what does the research prove, and what falsifies this contract?
+
+Knuth's [[https://doi.org/10.1016/S0019-9958(65)90426-2][On the Translation of Languages from Left to Right]] (1965), definitions
+and Section II, separates grammar symbols, derivations and recognizer
+construction. The [[https://harrymoreno.com/assets/greatPapersInCompSci/2.5_-_On_the_translation_of_languages_from_left_to_right-Donald_E._Knuth.pdf][primary paper scan]] is the research source. Our vocabulary check
+and reachable-acceptance check are necessary artifact conditions derived from
+that separation; they do not decide the LR(k) property or prove table/grammar
+equivalence. A reachable goto is an abstract graph edge, not proof of a viable
+runtime reduction stack. No accepted input string is inferred from this graph.
+
+An initially stronger proposal rejected every disconnected state. Actual GQL
+qualification falsifies it at state 1001: static conflict resolution removes
+shift edges while retaining the original state identities. That implementation
+is withdrawn. The final contract checks reachable acceptance and preserves
+disconnected state rows; it neither trims nor renumbers the automaton.
+
+Independent falsifiers include an undeclared key admitted despite an otherwise
+reachable accept, an isolated accepting cycle admitted from state zero, missing
+second-fork or layout-primary edges, and lost marked-operand membership. Positive
+controls retain unused declarations, cycles, goto-only paths and disconnected
+rows beside a reachable acceptance. Runtime rejection and Rust publication use
+the same malformed inputs; publication must neither create a missing file nor
+overwrite an existing sentinel. Existing compiler, layout, fused execution and
+ten-language ABI controls qualify the complete consumer boundary.
 
 * Rust target representability after canonical admission
 
@@ -205,6 +282,39 @@ the explicit Rust target domain; it does not claim arbitrary-precision Rust scor
 or successful execution of every canonical Scheme Integer grammar.
 
 * Native qualification and evidence boundary
+
+** Production-relative admission closure
+
+The final shared gate and both changed index/publication test modules compile
+natively with optimize/static enabled: 39.392 seconds, exit zero and final =OK=.
+The complete consumer matrix passes 72 cases in 51.872 seconds, exit zero,
+=reason=#f=, no missing receipt and final =OK=. Its eleven modules cover LR
+indexes, stack reduction, semantic preparation, fused reduction, Rust generation,
+layout boundaries, ten-language ABI parity, event programs, unary corridors,
+ranked literals and scanner profiles. The three new table cases include several
+independent graph and symbol witnesses; the publication case checks absent and
+existing files for every malformed input.
+
+The production-shape fixtures now share an already accepting graph. This keeps
+their positive controls independent of the new table gate and prevents malformed
+production/operand tests from succeeding merely because their graph is invalid.
+Existing complete parser controls still use real compiled grammars.
+
+Qualification keeps the five-second idle fence and a 120-second total budget.
+The withdrawn all-states-reachable implementation fails GQL at state 1001:
+27.763 seconds, exit one and =error-output=. A source test run reaches GQL Rust
+source generation but fails the idle fence after 37.865 seconds; it is not a
+success. The changed test modules are then compiled normally, without changing
+production optimization or timeouts. Two subsequent runs expose old empty-graph
+fixtures (24.509 and 18.406 seconds, =error-output=); those are consolidated before
+the successful complete matrix. No parser speedup is inferred from these elapsed
+times. Fresh native module qualification is not clean-checkout exact-head CI.
+
+Receipts: =/private/tmp/parser-automaton-baseline-supervision.log=,
+=/private/tmp/parser-automaton-native-build-supervision.log= and
+=/private/tmp/parser-automaton-complete-test-supervision.log=. Rejected attempts
+retain the =parser-automaton-{test,accept-test,native-test,qualified-test}=
+supervision prefixes.
 
 ** Checked accumulation closure
 

@@ -1,8 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical LR table admission before indexes or executable products exist.
 (import (only-in :std/iter for in-range)
+        (prefix-in :std/struct/queue stdq-)
         (only-in ./lr +lr-eof+ canonical-base-symbol?
-                 production-action production-rhs base-symbol layout-end-action?))
+                 production-action production-lhs production-rhs base-symbol layout-end-action?
+                 production-terminal-catalog))
 (export validate-lr-tables layout-productions?)
 
 ;;; Derive capability from admitted declarations, never from an author flag.
@@ -75,6 +77,57 @@
        row)))
   rows)
 
+;;; Tables name only the vocabulary of their admitted production IR. Operand
+;;; annotations are semantic metadata; membership uses the canonical base.
+(def (production-vocabulary productions)
+  (def nonterminals (make-table test: eq?))
+  (for-each
+   (lambda (production)
+     (table-set! nonterminals (production-lhs production) #t))
+   productions)
+  (let-values (((_ terminals) (production-terminal-catalog productions)))
+    (values terminals nonterminals)))
+
+(def (for-each-shift-target visit action)
+  (match action
+    (['shift target _] (visit target))
+    (['fork branches ...]
+     (for-each (lambda (branch) (for-each-shift-target visit branch)) branches))
+    (['layout-guard primary fallback]
+     (for-each-shift-target visit primary)
+     (for-each-shift-target visit fallback))
+    (_ (void))))
+
+(def (accepting-action? action)
+  (match action
+    (['accept] #t)
+    (['fork branches ...] (any accepting-action? branches))
+    (_ #f)))
+
+;;; Conflict resolution can disconnect states of the original LR automaton.
+;;; Retain their IDs, but require a reachable accepting state. This graph check
+;;; is necessary, not proof that reductions have a viable parse stack.
+(def (validate-accept-reachability actions gotos)
+  (def states (vector-length actions))
+  (def seen (make-vector states #f))
+  (def pending (stdq-make-Queue))
+  (def accepted? #f)
+  (def (enqueue! state)
+    (unless (vector-ref seen state)
+      (vector-set! seen state #t)
+      (stdq-enqueue! pending state)))
+  (enqueue! 0)
+  (let loop ()
+    (unless (or accepted? (stdq-queue-empty? pending))
+      (let (state (stdq-dequeue! pending))
+        (set! accepted? (any (lambda (entry) (accepting-action? (cdr entry)))
+                             (vector-ref actions state)))
+        (for-each (lambda (entry) (for-each-shift-target enqueue! (cdr entry)))
+                  (vector-ref actions state))
+        (for-each (lambda (entry) (enqueue! (cdr entry))) (vector-ref gotos state)))
+      (loop)))
+  (unless accepted? (error "invalid LR table no reachable acceptance")))
+
 (def (validate-lr-tables productions actions gotos)
   ;; Production semantics are admitted by each publishing owner first.
   (def production-count (length productions))
@@ -84,12 +137,16 @@
                (positive? (vector-length actions))
                (= (vector-length actions) (vector-length gotos)))
     (error "invalid LR table dimensions" production-count actions gotos))
-  (let (states (vector-length actions))
+  (let-values (((terminals nonterminals) (production-vocabulary productions)))
+    (def states (vector-length actions))
     (validate-rows actions
                    (lambda (key)
                      (and (terminal? key)
+                          (table-ref terminals key #f)
                           (or layout? (not (memq (cadr key) '(layout-start layout-next))))))
                    (make-action-validator states production-count layout?) 'actions)
-    (validate-rows gotos symbol?
+    (validate-rows gotos
+                   (lambda (key) (and (symbol? key) (table-ref nonterminals key #f)))
                    (lambda (target _) (bounded-index? target states)) 'gotos))
+  (validate-accept-reachability actions gotos)
   (values actions gotos))

@@ -113,14 +113,23 @@
                             entry)) arithmetic-parser-ir)))
            (try
             (begin
-              (check-exception
-               (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
-                                             +arithmetic-syntax-contract+
-                                             (parser-machine-grammar-digest arithmetic-parser) ir)
-               (lambda (condition) (string-prefix? "invalid LR table" (error-message condition))))
-              (check (file-exists? path) => #f))
+              (def (reject!)
+                (check-exception
+                 (generate-rust-runtime-module path "arithmetic" +arithmetic-language-version+
+                                               +arithmetic-syntax-contract+
+                                               (parser-machine-grammar-digest arithmetic-parser) ir)
+                 (lambda (condition) (string-prefix? "invalid LR table" (error-message condition)))))
+              (reject!)
+              (check (file-exists? path) => #f)
+              (call-with-output-file path (lambda (port) (display "preserve-existing-output" port)))
+              (reject!)
+              (check (call-with-input-file path read-line) => "preserve-existing-output"))
             (finally (when (file-exists? path) (delete-file path))))))
        '((#((((terminal token number) shift 1 #f))) #(()))
+         (#((((terminal token undeclared) reduce 0) ((terminal eof) accept))) #(()))
+         (#((((terminal eof) accept))) #(((undeclared . 0))))
+         (#(() ()) #(() ()))
+         (#(() (((terminal token number) shift 1 #f) ((terminal eof) accept))) #(() ()))
          (#(()) #(((root . 1))))
          (#((((terminal token number) shift 0 #f) ((terminal token number) reduce 0))) #(()))
          (#((((terminal token number) layout-guard (shift 0 #f) (reduce 0)))) #(()))

@@ -11,8 +11,9 @@
 (export lr-stack-reduction-test)
 
 (def (production-spec productions)
+  ;; Isolate production admission with an already accepting table graph.
   (list (cons 'productions productions)
-        (cons 'actions (vector '())) (cons 'gotos (vector '()))
+        (cons 'actions (vector '(((terminal eof) accept)))) (cons 'gotos (vector '()))
         (cons 'case-insensitive? #f)))
 
 (def (check-stack-family width decorated?)
@@ -102,13 +103,10 @@
     (test-case "prepared runtimes reject unsupported actions before execution"
       (def (prepare action operand-actions)
         (lr-prepare
-         (list (cons 'productions
-                     (list (list 0 'source-file
-                                 (list (list 'marked '(terminal token word) operand-actions))
-                                 action #f)))
-               (cons 'actions (vector '()))
-               (cons 'gotos (vector '()))
-               (cons 'case-insensitive? #f))))
+         (production-spec
+          (list (list 0 'source-file
+                      (list (list 'marked '(terminal token word) operand-actions))
+                      action #f)))))
       (check-exception (prepare 'callback '()) true)
       (check-exception (prepare 'concat '((callback user))) true)
       (check-exception (prepare 'concat '((field))) true)
@@ -126,18 +124,16 @@
        '(#f #t))
       (check (not (not (prepare 'concat '((field inner) (alias Renamed))))) => #t))
     (test-case "unselected productions cannot bypass semantic name admission"
-      ;; Empty action tables ensure that no request could execute either rule.
+      ;; Immediate acceptance does not select either production for reduction.
       ;; Preparation still owns admission of the whole canonical production set.
       (for-each
        (lambda (events?)
          (parameterize ((current-lr-event-program-enabled? events?))
            (check-exception
             (lr-prepare
-             (list (cons 'productions
-                         '((0 source-file ((terminal token word)) pass #f)
-                           (1 unused ((marked (terminal token word) ((alias "Item")))) concat #f)))
-                   (cons 'actions (vector '())) (cons 'gotos (vector '()))
-                   (cons 'case-insensitive? #f)))
+             (production-spec
+              '((0 source-file ((terminal token word)) pass #f)
+                (1 unused ((marked (terminal token word) ((alias "Item")))) concat #f))))
             (lambda (condition)
               (equal? (error-message condition) "invalid LR operand actions")))))
        '(#f #t)))

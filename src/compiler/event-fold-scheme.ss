@@ -124,7 +124,11 @@
                   (parameterize ((current-fold-line-view (cons line (string->utf8 line))))
                     (void)
                     ,@(fold-scheme-statements finish bindings '() names))
-                  (reverse (cons '(finish) events))))))))
+                  ;; Every outer event cell is allocated by this request's
+                  ;; root, transitions or closed helpers. No callback can
+                  ;; retain that private spine; publication consumes it once.
+                  ;; Event payloads (including quoted markers) stay untouched.
+                  (reverse! (cons '(finish) events))))))))
          (for-each
           (lambda (form) (write form port) (newline port))
           (cons (car forms)

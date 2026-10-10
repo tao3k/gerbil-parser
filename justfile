@@ -69,7 +69,7 @@ link-event-fold-native output load_path:
 test-event-fold-native output load_path:
     GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" "{{output}}/event-fold-native" > "{{output}}/event-fold-native.log" 2>&1
     rg '^CASE-OK |^OK$' "{{output}}/event-fold-native.log"
-    test "$(rg --count '^CASE-OK ' '{{output}}/event-fold-native.log')" = 90
+    test "$(rg --count '^CASE-OK ' '{{output}}/event-fold-native.log')" = 96
     rg --quiet '^OK$' "{{output}}/event-fold-native.log"
     ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/event-fold-native.log"
 

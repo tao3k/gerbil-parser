@@ -193,6 +193,26 @@
                                    controls))))
                    '(0 7 0)))
                 '("a\n" "")))
+             ;; Hold published output while reusing the executor, then mutate
+             ;; only its caller-owned spine. Neither later calls nor the
+             ;; empty root may share those cells with a prior publication.
+             (let ((first-source "é\r\nλ\rtail")
+                   (expected (run-event-fold "é\r\nλ\rtail" 'Document initial line finish helpers))
+                   (empty (run-event-fold "" 'Document initial line finish helpers)))
+               (set! controls
+                 (cons `(let* ((held (,name ,first-source)) (other (,name "")))
+                          (unless (and (equal? held ',expected) (equal? other ',empty)
+                                       (equal? (,name ,first-source) ',expected)
+                                       (equal? held ',expected) (not (eq? held other)))
+                            (error "native publication retained a request spine" ',name))
+                          (set-cdr! held '())
+                          (set-cdr! other '())
+                          (unless (and (equal? (,name ,first-source) ',expected)
+                                       (equal? (,name "") ',empty))
+                            (error "native publication shares caller-owned cells" ',name))
+                          (displayln "CASE-OK publication " ',name)
+                          (force-output))
+                       controls)))
              (displayln "GENERATION-OK " name)
              (force-output)))
          specifications)

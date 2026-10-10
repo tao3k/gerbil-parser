@@ -31,3 +31,32 @@ This change reduces event-spine construction and traversal, not statement
 interpretation. Prepared predicates and statements still require further
 engine specialization. Allocation reduction is not a measured throughput win;
 consumer conformance and matched performance receipts remain separate gates.
+
+* Generated native publication
+
+The closed Scheme generator now consumes its private reversed outer spine
+with =reverse!= at publication. Each request allocates its root cell; every
+transition and admitted helper prepends fresh cells. Helpers receive and
+return that spine synchronously, and the closed algebra cannot expose it to a
+callback or retain it in a state slot. Quoted start/finish payloads and token
+payloads are not mutated. The general callback-based line-event API and the
+independent interpreted oracle retain their existing publication algorithms.
+
+The native executable catalog adds one retained-result/caller-mutation
+control for each of its six products. It compares mixed UTF-8/CRLF/CR input
+and empty input with the independent oracle, holds both results across
+repeated calls, truncates their caller-owned outer cells, and requires fresh
+subsequent calls to retain complete output. The catalog therefore contains
+96 controls, not 90. Source admission also requires destructive publication
+in generated code; no public event format, digest recipe or ABI changes.
+
+This removes exactly one newly allocated outer cell per published event
+relative to copying =reverse=. It does not remove event payloads, parser
+recognition, metadata evaluation or full graph publication. In particular,
+existing =ResultProfile= constructs recognition results, while
+=GraphProjection= generates a Rust syntax projection table; neither currently
+provides a native EventFold selection plan that suppresses irrelevant output.
+A sparse consumer view must be compiled by the engine from admitted
+declarations and checked against full native parsing, not implemented as a
+Rust scanner or inferred from a passing source-generation test. Strict
+downstream latency gates remain separate from this allocation argument.

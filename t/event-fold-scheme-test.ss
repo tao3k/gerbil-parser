@@ -22,6 +22,7 @@
                     (check (not (string-contains first forbidden)) => #t))
                   '("event-fold-runtime" "fold-statements" "fold-predicate" "run-event-fold" "eval "))
         (check (not (not (string-contains first "(def (bind-native-product expected-digest)"))) => #t)
+        (check (not (not (string-contains first "(reverse! (cons '(finish) events))"))) => #t)
         (let (units (event-fold-scheme-module-sources
                      'native-product event-lines-language-grammar 'Document
                      '() forms '() '() '() 1))

@@ -9,8 +9,9 @@ path. This change targets the shared LR engine, without language declarations,
 request caches or additional author configuration.
 
 [[file:../../src/runtime/reduction-plan.ss][Reduction preparation]] lowers admitted canonical operand actions to private
-procedures. Its finite backend/action generic selects the two recognition or
-event kernel factories once per backend preparation. Names are lexical constants;
+procedures. Its finite backend/action generic selects the recognition and
+event kernel factories once when the private backend catalog initializes.
+Grammar preparation reads that closed catalog. Names are lexical constants;
 semantic values, offsets and fragment constructors remain invocation inputs.
 The LR driver owns admission, stack bounds, layout transitions, precedence and
 branch selection. Zero-width reductions return the backend's empty value;
@@ -51,8 +52,8 @@ declaration order; the hot traversal does not use generic dispatch.
 (field outer (alias Renamed (field inner (token word))))
 
 ;; Illustration of the private preparation/execution boundary:
-(let ((field (select-lr-action-factory 'recognition 'field))
-      (alias (select-lr-action-factory 'recognition 'alias)))
+(let ((field (car +recognition-action-factories+))
+      (alias (cdr +recognition-action-factories+)))
   (let ((apply-inner (field 'inner))
         (apply-name (alias 'Renamed))
         (apply-outer (field 'outer)))
@@ -153,8 +154,9 @@ unarchived local execution, outside Git documentation.
 The first implementation selected a generic method for every operand action.
 Its GQL preparation-plus-request CPU P50 increased from 241.676 to 421.816 ms
 at 64 units. It is rejected. The corrected owner selects two factories once,
-then traverses admitted actions with closed construction procedures. This
-negative result explains why a preparation boundary alone is insufficient:
+then traverses admitted actions with closed construction procedures. The
+later catalog correction below moves these fixed choices out of grammar
+preparation entirely. This negative result explains why a preparation boundary alone is insufficient:
 the frequency and lifetime of selection also matter.
 
 The first combined six-case process exceeded its fixed total budget. Cases
@@ -181,3 +183,38 @@ one. FHIRPath cold P50 is 4.033 versus 5.009 ms, an unfavorable observation.
 These mixed results do not admit a stable latency improvement or a
 language-wide performance claim. Allocation medians and non-GC batches cannot
 replace complete-request CPU evidence.
+
+All six language/scale controls subsequently pass complete artifact equality
+and their unchanged process budgets, with 25 requests per batch at 512 units.
+The 100-call GQL 512 process exceeded its total budget; that failed observation
+is retained and is not admitted as a complete comparison. Clippy with warnings
+denied and the two owned Rust files' format check also pass.
+
+Across the six controls, preparation adds about 700 KB even for Arithmetic's
+small grammar. Its 64-unit cold CPU P50 is 0.606 versus 1.150 ms. This rejects
+the per-preparation factory selection as the final lifetime: the four generic
+choices belong to the closed backend catalog's module initialization.
+Grammar preparation subsequently binds only admitted names. Initialization
+cost still exists and is distinct from repeated preparation and request cost;
+this is not a global grammar or request cache. The catalog is private and
+closed, so it has no caller-visible method-registration invalidation contract.
+
+The catalog revision compiles natively with the SDK's existing optimization
+settings and passes the same 93 Scheme cases. Its 64-unit cold preparation
+plus request observations are:
+
+| Family | Original CPU P50 ms | Catalog CPU P50 ms | Original allocation bytes | Catalog allocation bytes |
+|--------+---------------------+--------------------+---------------------------+--------------------------|
+| GQL RETURN | 247.499 | 239.119 | 107079088 | 107107328 |
+| FHIRPath addition | 4.373 | 4.186 | 3135536 | 3140000 |
+| Arithmetic addition | 0.633 | 0.474 | 1047504 | 1048656 |
+
+The grammar-independent 700 KB preparation penalty is absent; remaining
+increments depend on the admitted action plans. This establishes the corrected
+lifetime boundary, not a retained-heap or initialization-cost reduction.
+Twenty pairs of 25 requests produce CPU P50 ratios 0.941, 0.920 and 1.064,
+respectively; all P10/P90 intervals still cross one. Stable request CPU benefit
+remains unproved. The combined six-case process stops at its unchanged total
+gate after these three cases; it is not a passed whole-matrix receipt.
+Large cases use the per-case entry, and CI separately validates the complete
+public request matrix against a freshly built integrated graph.

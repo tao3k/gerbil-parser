@@ -65,8 +65,8 @@
              (compile-lr-spec
               '((source-file
                  (alias SourceFile
-                   (sequence (alias Before (sequence)) (token word)
-                             (alias After (sequence)))))) 'source-file)))
+                   (sequence (alias Before (empty)) (token word)
+                             (alias After (empty)))))) 'source-file)))
         (for-each
          (lambda (offset)
            (let* ((end (+ offset 1)) (token (make-token 'word "a" offset end))

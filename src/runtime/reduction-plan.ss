@@ -44,7 +44,8 @@
 (def (event-alias-kernel name)
   (lambda (value offset _constructor) (event-children-alias name value offset)))
 
-;;; Select the two factories once per backend preparation, not per operand.
+;;; The backend catalog is closed and private. Resolve its generic choices
+;;; once at module initialization; grammar preparation binds only rule names.
 (.defgeneric select-lr-action-factory (backend kind))
 (.defmethod (select-lr-action-factory (backend (eql 'recognition)) (kind (eql 'field)))
   recognition-field-kernel)
@@ -54,6 +55,13 @@
   event-field-kernel)
 (.defmethod (select-lr-action-factory (backend (eql 'event)) (kind (eql 'alias)))
   event-alias-kernel)
+
+(def +recognition-action-factories+
+  (cons (select-lr-action-factory 'recognition 'field)
+        (select-lr-action-factory 'recognition 'alias)))
+(def +event-action-factories+
+  (cons (select-lr-action-factory 'event 'field)
+        (select-lr-action-factory 'event 'alias)))
 
 (def (prepare-operand-actions field alias actions)
   (and (pair? actions)
@@ -75,10 +83,13 @@
     plan))
 
 (def (prepare-lr-reduction-plans backend table)
-  (let ((field (select-lr-action-factory backend 'field))
-        (alias (select-lr-action-factory backend 'alias)))
+  (let (factories (case backend
+                   ((recognition) +recognition-action-factories+)
+                   ((event) +event-action-factories+)
+                   (else (error "unknown LR semantic backend" backend))))
     (vector-map/index
-     (lambda (_index production) (prepare-reduction-plan field alias production)) table)))
+     (lambda (_index production)
+       (prepare-reduction-plan (car factories) (cdr factories) production)) table)))
 
 ;;; The deterministic executor consumes the immutable semantic stack directly.
 ;;; Each prepared field/alias chain retains declaration order. Prepending each

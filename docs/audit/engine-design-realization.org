@@ -25,7 +25,7 @@ configure matcher caches, generic registries, opcode lowering or worker lifetime
 
 | Design obligation | Implementation owner | Executable control | Scope and open boundary |
 |-------------------+----------------------+--------------------+-------------------------|
-| One effective grammar and selected source origins | [[file:../../src/compiler/normalize.ss][normalization]] and [[file:../../src/compiler/lr.ss][resolved LR analysis]] | [[file:../../t/resolved-grammar-test.ss][resolved grammar controls]] | Finite LR entry admission exists; general generated helper/conflict origin serialization remains open |
+| One effective grammar and selected source origins | [[file:../../src/compiler/normalize.ss][normalization]] and [[file:../../src/compiler/lr.ss][resolved LR analysis]] | [[file:../../t/resolved-grammar-test.ss][resolved grammar controls]] | Finite LR entry admission and rejected LR action occurrence diagnostics exist; admitted fork and runtime origin catalogs remain open |
 | Backend/capability selection at preparation | [[file:../../src/runtime/lr-parser.ss][LR preparation]] | [[file:../../t/lr-semantic-preparation-test.ss][semantic preparation controls]] | Private CLOS methods select executors; this does not supply an open generic extension protocol |
 | Static matcher configuration shared across lexical modes | [[file:../../src/runtime/contextual-scanner.ss][contextual preparation]] | [[file:../../t/contextual-scanner-test.ss][rank/action/state controls]] | Region/guard sharing exists; primitive closures and literal source-size strategy retain separate admission |
 | Nested regions retain request-owned state | [[file:../../src/runtime/region-scanner.ss][region executor]] | [[file:../../t/region-scanner-test.ss][region controls]] and [[file:../../t/contextual-deferred-scanner-test.ss][deferred controls]] | Prepared opener data is shared; counters, frames and delimiter obligations belong to requests |
@@ -133,6 +133,15 @@ local file links in the seven touched audit/research documents resolve. This
 check does not qualify external paper URLs or local links in unrelated documents.
 
 * Remaining gates and next work
+
+Rejected LR action provenance is now implemented in the existing lowering and
+table-publication owners. The [[file:../research/lr-conflict-source-origins.org][focused origin module]] records the Scheme witness,
+two design questions, selected POO source contract and qualification boundary.
+Local qualification passed all 41 source GxTest cases against the final native
+producer (37 existing semantic controls and four new origin controls). The
+producer and focused test module also completed native compilation with the
+unchanged five-second real-output idle gate. Both the build module catalog and
+the conformance composition suite own the new module; exact-head CI is pending.
 
 1. Keep exact-head Linux, macOS and Rust AOT CI separate from local native
    overlays. The earlier =f3dff04= macOS language-conformance compile failed the

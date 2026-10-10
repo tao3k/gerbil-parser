@@ -34,6 +34,7 @@
     "t/fixtures/language-entries"
     "t/fixtures/lr1-construction"
     "t/resolved-grammar-test"
+    "t/lr-conflict-origins-test"
     "t/language-artifact-test"
     "t/language-entry-boundary-test"
     "t/language-topology-test"

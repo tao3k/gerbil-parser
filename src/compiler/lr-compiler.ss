@@ -6,7 +6,7 @@
         (only-in ./lr
                  compute-first compute-completion
                  validate-resolved-start validate-resolved-repetitions
-                 lower-rules lr-spec-ref nonterminal-name nonterminal-symbol?
+                 lower-rules current-grammar-source-map lr-spec-ref nonterminal-name nonterminal-symbol?
                  production-action production-id production-precedence production-table
                  terminal-symbol? union-values)
         (only-in ./lr-lookahead
@@ -117,6 +117,56 @@
    (else
     (error "unresolved LR action conflict" state terminal current action))))
 
+(def (resolve-action/diagnosed state terminal current action table policy
+                               reject-conflict items)
+  (with-catch
+   (lambda (condition)
+     (reject-conflict condition state items terminal current action))
+   (lambda () (resolve-action state terminal current action table policy))))
+
+;; Reconstruct occurrence evidence only after admission rejects an action pair.
+;; This sidecar never enters the canonical table, serialized IR or runtime.
+(def (reject-lr-conflict condition rules root policy table layout core-symbols
+                         state items terminal left right)
+  (def origins (make-vector (vector-length table) #f))
+  (def sources
+    (let (entry (assq 'rule (current-grammar-source-map)))
+      (if entry (cdr entry) '())))
+  (lower-rules
+   rules root (eq? policy 'selective-glr)
+   (lambda (production owner path expression)
+     (let (source (assq owner sources))
+       (vector-set! origins (production-id production)
+                    (list (cons 'rule owner) (cons 'expressionPath path)
+                          (cons 'loweringOperation (car expression))
+                          (cons 'source (if source (cdr source) '())))))))
+  (vector-set! origins 0
+               (list (cons 'rule root) (cons 'expressionPath '())
+                     (cons 'loweringOperation 'augmented-start)
+                     (cons 'source '())))
+  (def (action-evidence action)
+    (cons (cons 'action action)
+          (if (eq? (car action) 'reduce)
+            (list (cons 'expressionOrigin (vector-ref origins (cadr action)))) '())))
+  ;; A shift is shared by all matching state items, not owned by one arbitrary
+  ;; production. Keep each occurrence and dot separately, including helpers.
+  (def shift-items
+    (if (or (eq? (car left) 'shift) (eq? (car right) 'shift))
+      (filter-map
+       (lambda (item)
+         (and (equal? terminal (vector-ref core-symbols item))
+           (list (cons 'dot (modulo item (cdr layout)))
+                 (cons 'expressionOrigin
+                       (vector-ref origins (quotient item (cdr layout)))))))
+       items)
+      '()))
+  (apply error (error-message condition)
+         (append (error-irritants condition)
+                 (list (list (cons 'lrConflict
+                                   (list (cons 'state state) (cons 'terminal terminal)
+                                         (cons 'actions (map action-evidence (list left right)))
+                                         (cons 'shiftItems shift-items))))))))
+
 ;; index-state-rows
 ;; : (-> List Fixnum Procedure Procedure Vector)
 (def (index-state-rows rows state-count key-procedure value-procedure)
@@ -138,7 +188,7 @@
 ;; : (-> Vector Fixnum Vector Vector List Vector Vector Pair Vector Symbol
 ;;        (values Vector Fixnum))
 (def (build-actions states state-count lookaheads lookahead-offsets transitions table
-                    terminal-values layout core-symbols conflict-policy)
+                    terminal-values layout core-symbols conflict-policy reject-conflict)
   (let ((actions (make-vector state-count '()))
         (transition-rows
          (index-state-rows transitions state-count cadr caddr))
@@ -185,9 +235,9 @@
            (let (current (vector-ref state-actions terminal-id))
              (if current
                (vector-set! state-actions terminal-id
-                           (resolve-action state-id (vector-ref terminal-values terminal-id)
-                                           current action
-                                           table conflict-policy))
+                           (resolve-action/diagnosed
+                            state-id (vector-ref terminal-values terminal-id)
+                            current action table conflict-policy reject-conflict state-items))
                (begin
                  (vector-set! state-actions terminal-id action)
                  (set! terminal-order (cons terminal-id terminal-order))))))
@@ -321,7 +371,11 @@
                         (build-actions
                          states state-count lookaheads lookahead-offsets transitions
                          table terminal-values layout core-symbols
-                         conflict-policy)))
+                         conflict-policy
+                         (lambda (condition state items terminal left right)
+                           (reject-lr-conflict condition rules root conflict-policy
+                                              table layout core-symbols
+                                              state items terminal left right)))))
             (unless (= action-state-publication-count state-count)
               (error "LR action rows were not published exactly once per state"
                      state-count action-state-publication-count))

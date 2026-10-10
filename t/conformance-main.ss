@@ -15,6 +15,7 @@
         (only-in :gerbil-parser/t/grammar-composition-lowering-test grammar-composition-lowering-test)
         (only-in :gerbil-parser/t/grammar-composition-execution-test grammar-composition-execution-test)
         (only-in :gerbil-parser/t/resolved-grammar-test resolved-grammar-test)
+        (only-in :gerbil-parser/t/lr-conflict-origins-test lr-conflict-origins-test)
         (only-in :gerbil-parser/t/language-artifact-test language-artifact-test)
         (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test)
         (only-in :gerbil-parser/t/language-topology-test language-topology-test)
@@ -49,7 +50,8 @@
         (cons "surface" (list language-surface-test language-backend-test))
         (cons "composition" (list grammar-composition-contract-test
                                   grammar-composition-lowering-test
-                                  grammar-composition-execution-test resolved-grammar-test))
+                                  grammar-composition-execution-test resolved-grammar-test
+                                  lr-conflict-origins-test))
         (cons "publication" (list language-artifact-test))
         (cons "entry-boundaries" (list language-entry-boundary-test))
         (cons "topology" (list language-topology-test))

@@ -88,6 +88,10 @@ resolve ownership. No new public schema version follows from this proposal.
 
 ** Preserve expression occurrences through transformations
 
+Current implementation: [[file:lr-conflict-source-origins.org][rejected LR conflict source origins]] implements helper
+occurrence paths and selected POO source evidence without changing canonical
+productions. The following proposal retains its historical transformation scope.
+
 Langcc's Section 2.3 explains delayed intermediate reductions in terms of the
 surrounding continuation. Section 2.4 bounds XLR execution by simultaneous
 branches; unbounded branching loses its stated bound. We infer that helper

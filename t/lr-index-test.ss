@@ -139,7 +139,7 @@
       (for-each
        (lambda (width)
          (let* ((entries (append (map (lambda (n) (entry (string-append "KEY" (number->string n)) n)) (iota width))
-                                 (map (lambda (text) (entry text 100)) '("" "A" "AB" "ABC" "CAFÉ" "Λ" "SS" "S" "K" "lower"))))
+                                 (map (lambda (text) (entry text 100)) '("" "A" "AB" "ABC" "CAFÉ" "ZÉ" "+É" "Λ" "SS" "S" "K" "lower"))))
                 (first (entry "KEY0" 201))
                 (rows (index-action-rows (vector (cons first entries) (list (entry "OTHER" 202)) '()) #t)))
            (for-each
@@ -148,7 +148,7 @@
                (lambda (text)
                  (check (eq? (lookup-casefolded-literal-action-entry row text)
                              (lookup-literal-action-entry row (string-upcase text))) => #t))
-               '("" "a" "ab" "abc" "abcd" "key0" "key31" "other" "café" "λ" "ß" "ſ" "K" "lower" "missing-long-identifier")))
+               '("" "a" "ab" "abc" "abcd" "key0" "key31" "other" "café" "zé" "xé" "+é" "λ" "ß" "ſ" "K" "lower" "missing-long-identifier")))
             (vector->list rows))
            (check (eq? (lookup-casefolded-literal-action-entry (vector-ref rows 0) "key0") first) => #t)
            (check (lookup-casefolded-literal-action-entry (vector-ref rows 0) "other") => #f)

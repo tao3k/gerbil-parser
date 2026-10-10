@@ -1117,3 +1117,53 @@ is cancelled after the PR advances. These checks qualify that head only. The
 later Rust target-capacity admission at =8a60fb8= is retained during rebase; it
 does not alter the Scheme execution or sampling owners measured here. New-head
 CI is a separate delivery gate from these local cost observations.
+
+* State-initial admission experiment: withdrawn
+
+A proposed dispatch refinement added a 26-bit uppercase ASCII initial mask to
+prepared LR action rows. It rejected an ASCII letter before walking the shared
+literal trie when that state's vocabulary could not admit that initial. Empty
+strings, punctuation and non-ASCII initials retained the existing path; a later
+Unicode character still used whole-string conversion when traversal reached it.
+The implementation followed the SDK's =fxarithmetic-shift=/=fxand= idiom, also
+used by its vector utilities. No language-specific rule was introduced.
+
+The 44-case, seven-module semantic gate passed in 16.829 seconds. The independent
+whole-string oracle now includes =ZÉ=, =+É=, =zé=, =xé= and =+é= to exercise row
+admission before a later Unicode character, as well as punctuation and existing
+cross-state, duplicate and entry-identity controls.
+
+** Complete-request decision
+
+The same twelve complete-request stages ran candidate/reference/reference/
+candidate, twenty samples of twenty calls each: 19,200 timed calls. Both variants
+used the =9184d01= Scheme graph; only the action-index object changed (=o4= mask,
+=o3= original). LR =o17=, lexical =o6= and the native benchmark caller remained
+fixed. Children completed in 19.216, 17.019, 16.916 and 17.628 seconds. Compiler,
+heap and qualification fences stayed unchanged. The concurrently published
+=ad8c6a3= change affects Rust execution and documentation, not this Scheme graph.
+
+The shared Scheme verifier now exposes
+=compare-casefold-request-cpu-receipts= for dispatch-only experiments. It uses
+the same raw-sample reconstruction and CPU gate, while requiring every repeated
+complete-request allocation counter to remain exactly unchanged. The verifier
+admitted 920 no-GC intervals and completed in 12.143 seconds. Arithmetic control
+ratios were 0.9712 prepared and 1.0460 source, satisfying the existing control
+gate. No stage satisfied the repeated CPU benefit gate.
+
+| Request | Units | Prepared median ratio | Source median ratio |
+|---------+-------+-----------------------+---------------------|
+| Padding 32 | 64 | 1.1469 | 1.0672 |
+| Padding 32 | 256 | 0.9829 | 1.0430 |
+| Padding 256 | 64 | 1.0576 | 1.1062 |
+| Padding 256 | 256 | 0.9439 | 1.0760 |
+| Short GQL control | 64 | 1.0248 | 1.0640 |
+
+Ratios divide the sum of two candidate child CPU medians by the sum of two
+reference medians. They are descriptive, not confidence intervals. The smaller
+prepared request is slower in both candidate children than both references;
+the apparent 0.9439 result does not repeat across children. This experiment does
+not justify publication. The production mask and its native/static products
+are removed. The original shared trie remains, with its previously established
+complete-request allocation savings. The additional Unicode oracle cases and
+allocation-preserving CPU verifier remain as reusable qualification tools.

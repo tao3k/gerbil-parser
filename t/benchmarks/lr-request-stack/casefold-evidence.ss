@@ -1,7 +1,7 @@
 ;;; Exact allocation evidence and conservative CPU admission from native receipts.
 (import :std/string/misc :std/misc/ports
         (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark sample-at-percentile))
-(export main compare-casefold-request-receipts)
+(export main compare-casefold-request-receipts compare-casefold-request-cpu-receipts)
 (def (field row key) (cdr (assq key row)))
 (def (require! condition . detail)
   (unless condition (apply error "casefold request evidence rejected" detail)))
@@ -49,6 +49,14 @@
      (hash-keys summaries))
     (list summaries samples admitted)))
 (def (compare-casefold-request-receipts candidate-a reference-a reference-b candidate-b)
+  (compare-request-receipts candidate-a reference-a reference-b candidate-b 'reduced))
+
+;;; A dispatch-only change must preserve every complete-request allocation
+;;; counter. CPU admission uses the same controls and repeated-median gate.
+(def (compare-casefold-request-cpu-receipts candidate-a reference-a reference-b candidate-b)
+  (compare-request-receipts candidate-a reference-a reference-b candidate-b 'unchanged))
+
+(def (compare-request-receipts candidate-a reference-a reference-b candidate-b allocation-policy)
   (let* ((ca (read-request-receipt candidate-a)) (ra (read-request-receipt reference-a))
          (rb (read-request-receipt reference-b)) (cb (read-request-receipt candidate-b))
          (savings (make-hash-table)) (rows '()))
@@ -72,7 +80,8 @@
            (require! (= baseline (car (hash-get (cadr rb) key))) key 'reference-drift)
            (require! (= candidate (car (hash-get (cadr cb) key))) key 'candidate-drift)
            (require! (integer? delta) key 'fractional-saving)
-           (require! (if (eq? (car key) 'arithmetic-unchanged-control) (= delta 0) (> delta 0)) key 'allocation)
+           (require! (if (or (eq? allocation-policy 'unchanged)
+                             (eq? (car key) 'arithmetic-unchanged-control)) (= delta 0) (> delta 0)) key 'allocation)
            (hash-put! savings key delta)
            (let (row (list (cons 'stage key) (cons 'saved-bytes delta)
                           (cons 'allocation-reduction (/ (- baseline candidate) baseline))
@@ -89,6 +98,7 @@
                         (hash-get savings (list (car key) (cadr key) 'full-source))) key 'boundary-drift)))
        (hash-keys savings))
       (write (list 'CASEFOLD-REQUEST-ALLOCATION-OK
+                   'allocation-policy allocation-policy
                    'admitted-intervals (+ (caddr ca) (caddr ra) (caddr rb) (caddr cb))
                    'unchanged-controls-stable? controls-stable?)) (newline)
       (reverse rows))))

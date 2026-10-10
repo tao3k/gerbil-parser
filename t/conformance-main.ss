@@ -16,8 +16,10 @@
         (only-in :gerbil-parser/t/grammar-composition-execution-test grammar-composition-execution-test)
         (only-in :gerbil-parser/t/resolved-grammar-test resolved-grammar-test)
         (only-in :gerbil-parser/t/lr-conflict-origins-test lr-conflict-origins-test)
+        (only-in :gerbil-parser/t/layout-column-storage-test layout-column-storage-test)
         (only-in :gerbil-parser/t/language-artifact-test language-artifact-test)
         (only-in :gerbil-parser/t/artifact-publication-cost-test artifact-publication-cost-test)
+        (only-in :gerbil-parser/t/artifact-window-publication-test artifact-window-publication-test)
         (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test)
         (only-in :gerbil-parser/t/language-topology-test language-topology-test)
         (only-in :gerbil-parser/t/language-loader-test language-loader-test)
@@ -52,8 +54,9 @@
         (cons "composition" (list grammar-composition-contract-test
                                   grammar-composition-lowering-test
                                   grammar-composition-execution-test resolved-grammar-test
-                                  lr-conflict-origins-test))
-        (cons "publication" (list language-artifact-test artifact-publication-cost-test))
+                                  lr-conflict-origins-test layout-column-storage-test))
+        (cons "publication" (list language-artifact-test artifact-publication-cost-test
+                                  artifact-window-publication-test))
         (cons "entry-boundaries" (list language-entry-boundary-test))
         (cons "topology" (list language-topology-test))
         (cons "loaders" (list language-loader-test language-loader-value-test))

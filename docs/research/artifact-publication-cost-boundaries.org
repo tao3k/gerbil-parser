@@ -146,6 +146,125 @@ full event/field/span/diagnostic equality and qualify complete requests. Hash
 caching, dropping source admission or reviving a rejected local iterator does
 not follow from this evidence. Exact-head platform CI remains a separate gate.
 
+* Direct certified-window and rejected-product publication
+
+The shared artifact owner now applies the official Gerbil list-builder idiom
+to certified incremental windows and flat rejected token products. This is an
+implementation of the publication ownership obligation above. It does not alter
+the grammar DSL, recognition algorithm, edit certificate or public event schema.
+
+The old window publisher flattened assigned token groups for comparison,
+reversed the old window to find its end, constructed replacement event lists,
+then copied those lists into the result during a right fold. The new publisher
+compares groups with a private tail-recursive cursor, borrows their token lists
+through a vector index, and emits replacement vectors directly into the final
+list. It visits the original event stream in source order. Unchanged event
+vectors remain shared; fresh list cells belong only to this publication request.
+The old artifact and certified token groups are never mutated. Rejected token
+publication similarly assigns contiguous IDs while emitting, without an =iota=
+list or a preliminary token count traversal.
+
+This is our engineering inference from the ownership measurements, not an
+implementation of [[https://arxiv.org/html/2304.05276#S2.SS8][flap's staging theorem]]. Sections 2.8 and 5.5 distinguish
+generated recognition from semantic value construction. Canonical event output
+still requires allocation. Our transformation removes temporary containers at
+that semantic boundary; it does not establish allocation-free parsing or
+lexer/parser fusion. Gerbil's =std/list/list-builder.ss= supplies the hygienic
+=emit= syntax; its mutation stays inside newly allocated queue cells.
+
+#+begin_src scheme
+;; Private shared-engine publication, not a new author callback or POO slot.
+(with-list-builder (emit)
+  (for-each
+   (lambda (source-token)
+     (emit (make-token-event next-id source-token))
+     (set! next-id (+ next-id 1)))
+   certified-token-group))
+#+end_src
+
+** Question: why does this improve the DSL and Scheme boundary?
+
+The language author still defines syntax in =grammar.ss=, metadata/adaptation in
+=parser.ss= and behavior in =parser-test.ss=. Publication complexity is removed
+at its shared owner. Hygienic syntax expresses direct construction while ordinary
+named functions express group admission. No language-specific allocator, public
+multiple-dispatch protocol or additional user configuration is required for this
+closed representation operation.
+
+** Question: why is the transformation scientifically testable?
+
+[[file:../../t/artifact-window-publication-test.ss][Independent source controls]] compare expansion, contraction, equal-width and
+Unicode edits with freshly constructed complete artifacts. Empty assignment
+groups preserve event order; wrong assignments are rejected. A 20,000-token
+window checks full product equality, contiguous IDs, source admission, shared
+node vectors and independent list ownership. The rejected-product control
+checks the same large source and final token ID. Existing incremental consumer
+tests retain certificate, field, span, fallback and reuse receipt obligations.
+
+[[file:../../t/benchmarks/artifact-window/benchmark.ss][The permanent benchmark]] measures complete window and rejected publication,
+including source encoding and identity construction. Inputs, prepared groups,
+reference artifacts and independent source validation are outside timing.
+Each measured result must equal its complete reference. Allocation admission,
+natural GC and CPU populations use the existing shared sampler. Reproduction:
+
+#+begin_src sh
+gerbil compile -O
+gerbil env gerbil test -v 5 t/artifact-window-publication-test.ss t/artifact-publication-cost-test.ss t/recovery-incremental-test.ss
+gerbil compile -O t/benchmarks/artifact-window/benchmark.ss
+gerbil env gxi -e '(import :gerbil-parser/t/benchmarks/artifact-window/benchmark) (benchmark-artifact-window)'
+#+end_src
+
+Nine local native consumer modules passed all 99 cases in 34.572 seconds,
+exit zero, no watchdog reason or missing receipt, and final =OK=. This reused
+native graph includes cross-language ABI, event-program, contextual, layout and
+incremental controls. It is distinct from clean-checkout platform CI. A temporary
+comparison manifest initially selected the current producer for its supposed
+baseline; that build is excluded from matched performance evidence. The original
+Git source must be independently compiled before a baseline can be admitted.
+
+The first isolated original-producer compilation stopped under the unchanged
+five-second idle watchdog. A sequential retry after other native compilations
+finished completed successfully without changing optimization or supervision
+limits. Against that qualified original producer, the 20,000-group warmup failed
+with Gambit's =Number of arguments exceeds implementation limit=: admission
+called =(apply append assigned)= with one positional argument per group. This
+is a bounded call-arity defect in our engine algorithm, not a GC diagnosis. The
+new cursor passes the same large complete-product control. The rejected run
+is not assigned latency or allocation quantiles. Matched cost comparison uses
+the separately declared 1,000-token input on which both producers can complete;
+this does not erase the large-window negative control or alter a latency gate.
+
+The sequential A/B/B/A comparison used that independently compiled original
+producer and the new producer, with the same dependency graph, native compiler
+options and permanent benchmark. Each component used 20 samples of five complete
+publications. Both complete reference products passed; every block exited zero
+with final =OK=. All 20 allocation samples in each component were admitted:
+
+| Producer block | Window bytes/call | Window CPU P50, five calls (ms) | Rejected bytes/call | Rejected CPU P50, five calls (ms) |
+|----------------+-------------------+---------------------------------+---------------------+-----------------------------------|
+| Original A | 487515.2 | 2.075 | 212019.2 | 0.128 |
+| Direct B | 247515.2 | 1.946 | 164099.2 | 0.112 |
+| Direct B | 247515.2 | 2.813 | 164099.2 | 0.113 |
+| Original A | 487515.2 | 2.087 | 212019.2 | 0.128 |
+
+The repeated allocation reductions are 240,000 bytes/call (49.2%) for the
+window and 47,920 bytes/call (22.6%) for the rejected product on this input.
+Window CPU is inconsistent, so these observations admit no CPU improvement.
+They measure complete publication, including identity construction, but do not
+measure complete parsing, live retained heap, actor throughput or every language.
+The large production-only run also completed with 20 samples of five calls;
+its allocation populations admitted 17 window and 18 rejected samples. Its
+measurements are not paired with the original producer, which failed warmup.
+
+The previous =8a206b5= platform CI exposed a separate ownership omission:
+=t/layout-column-storage-test= was in the compilation catalog but absent from
+=t/conformance-main.ss=. Both Scheme platforms rejected it with =missing
+conformance test import=; Rust AOT passed. The native suite entry now imports and
+registers that suite and this window suite. The same import/export ownership
+check passed locally for both modules in 9.785 seconds, exit zero and final =OK=.
+That check fixes the observed cause; new-revision platform completion remains
+an independent gate.
+
 * Executable event-storage control
 
 The shared benchmark now implements =measure-artifact-event-storage=. This

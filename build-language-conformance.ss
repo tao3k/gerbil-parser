@@ -40,6 +40,8 @@
     "t/language-artifact-test"
     "t/benchmarks/parser-stage-cost/benchmark"
     "t/artifact-publication-cost-test"
+    "t/fixtures/artifact-window"
+    "t/artifact-window-publication-test"
     "t/language-entry-boundary-test"
     "t/language-topology-test"
     "t/language-loader-test"

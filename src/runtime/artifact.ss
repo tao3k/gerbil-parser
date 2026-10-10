@@ -219,7 +219,11 @@
 ;; flat-token-events
 ;; : (-> List List)
 (def (flat-token-events tokens)
-  (map make-token-event (iota (length tokens)) tokens))
+  (with-list-builder (emit)
+    (let loop ((rest tokens) (id 0))
+      (unless (null? rest)
+        (emit (make-token-event id (car rest)))
+        (loop (cdr rest) (+ id 1))))))
 
 ;; artifact
 ;; : (-> String String Symbol List List (? U8Vector) Alist)
@@ -510,6 +514,15 @@
 ;;; Each old token boundary in a certified window has one new boundary. LR
 ;;; reductions can only place node and field boundaries at token boundaries,
 ;;; so the event topology remains valid when their offsets are remapped.
+(def (token-groups-match? groups tokens)
+  (let groups-loop ((groups groups) (tokens tokens))
+    (if (null? groups) (null? tokens)
+      (let group-loop ((group (car groups)) (tokens tokens))
+        (cond
+         ((null? group) (groups-loop (cdr groups) tokens))
+         ((or (null? tokens) (not (equal? (car group) (car tokens)))) #f)
+         (else (group-loop (cdr group) (cdr tokens))))))))
+
 (def (make-certified-window-artifact old-artifact source first-id
                                       old-window new-window delta
                                       (assigned #f) (boundaries #f))
@@ -517,31 +530,24 @@
                (pair? old-window)
                (or (not assigned)
                    (and (= (length assigned) (length old-window))
-                        (equal? (apply append assigned) new-window))))
+                        (token-groups-match? assigned new-window))))
     (error "invalid certified token window"))
   (let* ((boundary-map (make-table test: equal?))
          (start (token-start (car old-window)))
-         (end (token-end (car (reverse old-window))))
-         (limit (+ first-id (length old-window)))
-         (id-delta (- (length new-window) (length old-window)))
+         (old-count (length old-window))
+         (end (token-end (list-ref old-window (- old-count 1))))
+         (limit (+ first-id old-count))
+         (id-delta (- (length new-window) old-count))
          (groups
           (or assigned
               (if (zero? id-delta)
                 (map list new-window)
                 (cons new-window
-                      (make-list (- (length old-window) 1) '())))))
+                      (make-list (- old-count 1) '())))))
          (next-id first-id)
-         (replacement-vector
-          (list->vector
-           (map
-            (lambda (group)
-              (map
-               (lambda (source-token)
-                 (let (event (make-token-event next-id source-token))
-                   (set! next-id (+ next-id 1))
-                   event))
-               group))
-            groups)))
+         ;; Borrow certified token groups until publication; construct each
+         ;; replacement event directly in its final request-owned list spine.
+         (replacement-vector (list->vector groups))
          (shared 0))
     (table-set! boundary-map start start)
     (table-set! boundary-map end (+ end delta))
@@ -571,44 +577,46 @@
       (set! shared (+ shared 1))
       event)
     (let (events
-          (foldr
-           (lambda (event tail)
+          (with-list-builder (emit)
+           (for-each
+            (lambda (event)
              (case (event-kind event)
                ((token)
                 (let ((id (token-event-id event))
                       (old-start (event-start event))
                       (old-end (event-end event)))
                   (cond
-                   ((< id first-id) (cons (keep event) tail))
+                   ((< id first-id) (emit (keep event)))
                    ((< id limit)
-                    (append (vector-ref replacement-vector
-                                        (- id first-id))
-                            tail))
+                    (for-each
+                     (lambda (source-token)
+                       (emit (make-token-event next-id source-token))
+                       (set! next-id (+ next-id 1)))
+                     (vector-ref replacement-vector (- id first-id))))
                    ((and (zero? delta) (zero? id-delta))
-                    (cons (keep event) tail))
+                    (emit (keep event)))
                    (else
-                    (cons
+                    (emit
                      (vector 'token (+ id id-delta)
                              (token-event-token-kind event)
                              (token-event-lexeme event)
-                             (offset old-start) (offset old-end))
-                     tail)))))
+                             (offset old-start) (offset old-end)))))))
                ((start-node finish-node)
                 (let* ((value (vector-ref event 3))
                        (mapped (offset value)))
                   (if (= value mapped)
-                    (cons (keep event) tail)
-                    (cons (vector (event-kind event) (vector-ref event 1)
-                                  (vector-ref event 2) mapped) tail))))
+                    (emit (keep event))
+                    (emit (vector (event-kind event) (vector-ref event 1)
+                                  (vector-ref event 2) mapped)))))
                ((start-field finish-field)
                 (let* ((value (vector-ref event 2))
                        (mapped (offset value)))
                   (if (= value mapped)
-                    (cons (keep event) tail)
-                    (cons (vector (event-kind event) (vector-ref event 1)
-                                  mapped) tail))))
+                    (emit (keep event))
+                    (emit (vector (event-kind event) (vector-ref event 1)
+                                  mapped)))))
                (else (error "unknown recognition event" event))))
-           '() (parse-artifact-events old-artifact)))
+            (parse-artifact-events old-artifact))))
       (values
        (artifact (parse-artifact-ref old-artifact 'grammarDigest)
                  source 'accepted events '())

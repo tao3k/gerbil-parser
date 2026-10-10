@@ -6,6 +6,22 @@
         (only-in :gerbil-parser/src/runtime/scan
                  make-ranked-literal-scanner))
 
+;;; Independent linear catalog oracle; no trie or candidate publication reuse.
+(def (literal-reference entries source start admitted)
+  (let loop ((rest entries) (best #f))
+    (if (null? rest)
+      (and best (list (cadr best) (+ start (string-length (car best))) (caddr best) (cadddr best)))
+      (let* ((entry (car rest)) (text (car entry)) (width (string-length text)))
+        (loop (cdr rest)
+          (if (and (or (not admitted) (vector-ref admitted (cadddr entry)))
+                   (<= (+ start width) (string-length source))
+                   (string=? text (substring source start (+ start width)))
+                   (or (not best) (> width (string-length (car best)))
+                       (and (= width (string-length (car best)))
+                            (or (> (caddr entry) (caddr best))
+                                (and (= (caddr entry) (caddr best)) (< (cadddr entry) (cadddr best)))))))
+            entry best))))))
+
 (def ranked-literal-scanner-tests
   (test-suite "ranked literal scanner"
     (test-case "longest match precedes rank, then declaration order"
@@ -26,6 +42,31 @@
           (vector-set! admitted 4 #f)
           (check (scan "ab!" 0 admitted) => '(short 1 99 0)))
         (check (scan "!" 0) => #f)))
+    (test-case "accepting prefixes agree with linear catalog under every mode mask"
+      (let* ((entries '(("a" short 9 0) ("ab" medium 1 1) ("abc" long 0 2)
+                        ("ab" ranked 2 3) ("α" wide 1 4) ("α😀" wider 0 5)))
+             (scan (make-ranked-literal-scanner entries)))
+        (for-each (lambda (source)
+          (let offsets ((at 0))
+            (when (<= at (string-length source))
+              (check (scan source at) => (literal-reference entries source at #f))
+              (let masks ((mask 0))
+                (when (< mask 64)
+                  (let (admitted (list->vector (map (lambda (index) (odd? (quotient mask (expt 2 index)))) (iota 6))))
+                    (check (scan source at admitted) => (literal-reference entries source at admitted)))
+                  (masks (+ mask 1))))
+              (offsets (+ at 1)))))
+          '("" "a" "ab" "abc" "abcd" "!abc!α😀?" "α" "α😀" "x"))))
+    (test-case "prepared widths and fresh results are isolated from caller mutation"
+      (let* ((text (string-copy "ab"))
+             (scan (make-ranked-literal-scanner (list (list text 'word 1 0))))
+             (result (scan "ab!" 0)))
+        (string-set! text 0 #\x)
+        (set-car! result 'foreign)
+        (set-car! (cdr result) 999)
+        (check (scan "ab!" 0) => '(word 2 1 0))
+        (check (scan "xab" 1) => '(word 3 1 0))
+        (check (scan "xb" 0) => #f)))
     (test-case "equal rank retains the earlier rule"
       (let (scan
             (make-ranked-literal-scanner

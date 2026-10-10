@@ -1866,3 +1866,109 @@ scanning (15), parts profiles (16), LR stack reductions (3), EventFold source
 generation (4), recognition sequences (8) and Bash parsing (29). Benchmark
 smoke output establishes executability, not a second performance estimate.
 The ABBA micro table remains a control against the earlier =3ba88c7= clients.
+
+* Ranked literal publication experiment: rejected lowering
+
+The current Coding Style research requires known private calls, checked
+boundaries, and admitted ownership. Reading the pinned Gerbil SDK =2591dcd=,
+=src/std/text/parser/ll1.ss=, shows =ll1-uint= accumulating its scalar result
+while consuming digits. This motivates retaining a decision during traversal
+and constructing an observable result only at the output boundary. It does
+not establish that an additional accumulator is free in a compiled lexer.
+The earlier rejected dense region-trie experiment remains rejected.
+
+The shared ranked literal trie originally constructs a four-element result
+for each admitted accepting prefix along the matching path. A prefix chain
+can therefore allocate O(A) result spines for A accepted terminals even though
+only one escapes. Three candidates reduced publication to O(1) per successful
+call while retaining the same trie edges and terminal selection: an explicit
+endpoint plus a named publication helper; a prepared terminal width with
+publication after traversal; and an explicit endpoint with direct publication
+at each exit. Traversal and terminal admission complexity were unchanged.
+No language-specific rule, unchecked annotation, compatibility mode or schema
+change was added. None of these runtime candidates is retained.
+
+** Native qualification and negative result
+
+The GCC SDK, 3 GiB heap, 120-second total guard and five-second silence guard
+were fixed. Reference artifact =scan~0.o3=, helper candidate =scan~0.o4=,
+width candidate =scan~0.o5= and direct-exit candidate =scan~0.o6= were verified
+from the runtime loader in fresh processes. Complete artifact snapshots
+retained contiguous object suffixes. No build or test from this task overlapped
+timed controls. Identical interpreted orchestration invokes native scanner
+closures; these are component measurements, not a compiled-parser latency claim.
+
+Each block takes eleven samples of 1,000 scanner calls. Preparation occurs
+outside timing. The catalog has 32 accepting prefixes of one through 32 ASCII
+characters. Controls admit only the shortest terminal, use a singleton catalog,
+and reject every terminal through the mode mask. Endpoint sums are checked
+for every sample. Natural GC is retained; allocation intervals crossing GC
+remain unadmitted.
+
+The prepared-width candidate used reference/candidate/candidate/reference
+blocks with the following CPU medians in milliseconds per 1,000-call sample:
+
+| Workload | Reference A | Width candidate A | Width candidate B | Reference B |
+|----------+-------------+-------------------+-------------------+-------------|
+| Prefix chain | 1.054 | 1.048 | 1.045 | 1.270 |
+| Short admitted | 1.216 | 1.077 | 1.076 | 1.000 |
+| Singleton | 0.215 | 0.287 | 0.282 | 0.211 |
+| All filtered | 1.342 | 1.383 | 1.062 | 0.974 |
+
+The named-helper candidate also measured singleton medians of 0.286 and
+0.288 ms against the initial reference's 0.214 ms. Direct exit publication
+was then bracketed by the previous final reference and a new trailing reference:
+
+| Workload | Reference before | Direct A | Direct B | Reference after |
+|----------+------------------+----------+----------+-----------------|
+| Prefix chain | 1.270 | 1.139 | 1.072 | 1.218 |
+| Short admitted | 1.000 | 1.198 | 1.048 | 1.002 |
+| Singleton | 0.211 | 0.245 | 0.286 | 0.220 |
+| All filtered | 0.974 | 0.957 | 1.033 | 0.982 |
+
+All three candidates reduce prefix-chain median allocation from 6,464,576
+to 512,576 bytes. The reference admits 10/11 allocation samples in every
+reported block; candidates admit 11/11. Short-admitted and singleton allocation
+remain 512,576 bytes, and all-filtered allocation remains 320,576 bytes, with
+11/11 admission. These figures include unchanged interpreted orchestration.
+Every successful control emits =RANKED-CONTROL-OK= and exits 0.
+
+Publication allocation decreases substantially, but singleton CPU is worse
+across the tested representations, and shortest-admitted CPU also worsens
+in some surrounding comparisons. The final direct-exit candidate therefore
+fails the admission gate. The original runtime source and complete native
+artifact snapshot are restored. No complete-request or Tree-sitter improvement
+is claimed. These controls do not identify whether argument passing, generated
+control flow or call-boundary behavior explains the CPU cost. That diagnosis
+requires a compiled caller and complete lexer/request controls before another
+production representation change.
+
+** Permanent contracts and reproducibility
+
+The independent linear catalog oracle compares every source position across
+all 64 mode masks for six overlapping, tied-rank and Unicode declarations.
+It validates longest match before rank and declaration order, rejected longer
+terminals retaining shorter accepted candidates, and end-of-source behavior.
+Additional cases mutate caller-owned declaration strings and returned results
+to prove preparation and future-call isolation. These tests are retained
+against the restored production scanner.
+
+The repository-owned =t/benchmarks/ranked-literal/benchmark.ss= exposes the
+four workloads with positive exact sample/iteration counts, checked endpoint
+sums, per-call CPU/allocation output and the existing GC-aware allocation
+admission rule. It can be compiled and invoked as a native caller; no alternate
+engine, JSON result snapshot or process-per-case wrapper is committed.
+Two candidate edits initially failed reader admission with an incomplete form.
+Both were fixed before measurement; those failed builds are excluded from
+successful receipts.
+
+The permanent benchmark compiled natively in 4.643 seconds. On the restored
+=b61522e= engine, eight source modules passed 70 cases and the compiled
+benchmark completed two 1,000-call samples for each workload in 23.403 seconds
+total. Receipts include =TEST-SUITE-OK modules=8=, =OK=,
+=RANKED-LITERAL-OK= and exit 0. After rebasing onto the concurrent Fold revision
+=26f96a5=, two directly owned scanner modules passed six cases and the same
+compiled benchmark completed again in 23.223 seconds, with all success
+receipts and exit 0. The concurrent Fold change is outside this experiment's
+performance scope; neither these tests nor the micro table qualify its new
+byte-frame implementation. The shared scanner source has no retained diff.

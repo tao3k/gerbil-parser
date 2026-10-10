@@ -53,7 +53,10 @@
    (for-each
     (lambda (row)
      (let (result (run (car row)))
-      (check (eq? (process-result-reason result) (cadr row)) (car row))
+      (check (eq? (process-result-reason result) (cadr row)) (car row)
+             'expected (cadr row) 'actual (process-result-reason result)
+             'status (process-result-status result) 'elapsed (process-result-elapsed result)
+             'phase (process-result-phase result))
       (displayln "PROCESS-CONTROL-OK " (car row)) (force-output)))
     '(("silent" idle-timeout) ("continuous" total-timeout)
       ("closed-output" idle-timeout) ("error" error-output)))

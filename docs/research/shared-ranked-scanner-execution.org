@@ -1167,3 +1167,68 @@ not justify publication. The production mask and its native/static products
 are removed. The original shared trie remains, with its previously established
 complete-request allocation savings. The additional Unicode oracle cases and
 allocation-preserving CPU verifier remain as reusable qualification tools.
+
+* Qualification output completion
+
+A real Rust compiler trace exposed a separate test-cost defect. The child had
+completed its test, but the qualification parent continued processing a roughly
+200 MB output receipt for several minutes. Inspection found a redundant final
+UTF-8 conversion, line-list construction and per-line regexp check after the
+monitor had already stopped. Incoming error prefixes were already checked by
+the streaming reader. That final pass duplicated its work outside the active
+watchdog and retained additional whole-log representations.
+
+The process owner now reuses the reader's prefix state. Bare =ERROR= at EOF is
+the remaining delimiter-free case; =ERROR!= and =*** ERROR= are already rejected
+while streaming. Identifier prefixes such as =ERROR_COUNT= remain ordinary
+output. The required-receipt path decodes captured bytes only when a caller
+actually declares receipts. Byte capture, log storage, status propagation,
+owned-session cancellation and configured deadlines retain their original
+contracts. The new tests explicitly provide a byte sink while invoking this
+raw-output protocol inside a Suite that otherwise captures text.
+
+** Executable receipts
+
+=qualification-output-test.ss= exercises ordinary prefixes, three error forms,
+bare error across the 65,536-byte read boundary and complete eight MiB output.
+All four cases pass. The large child returns exactly 8,388,608 captured bytes,
+status zero and no reason in 0.668 seconds, including result construction. The
+whole Suite qualifies in 12.108 seconds with exit zero and final =OK=. Bootstrap
+and completed harness import are actual phase markers; no heartbeat or deadline
+extension is used.
+
+The current Rust library's 145 tests pass and its qualification parent exits
+normally in 8.017 seconds while handling a 200,000,405-byte diagnostic console
+receipt. This is a functional and bounded-output receipt, not a matched parser
+CPU comparison. LLVM pass diagnostics retain the compiler and optimization
+settings; they are confined to local troubleshooting.
+
+The existing native ownership controls also pass with GCC 16, including six
+concurrent cold initializations, caller-mailbox preservation, UTF-8 argv,
+nonzero/signal exits, silent/continuous/closed-output timeouts, escaped-session
+cancellation, unrelated-process survival, Unicode backpressure and immediate
+error cancellation. A first run rejects =closed-output=; a narrow reproducer
+returns the required =idle-timeout= in 1.245 seconds, and the complete recheck
+passes without changing any budget. Control failures now report the expected
+and actual reason, status, elapsed time and phase. This preserves the initial
+negative result and improves future attribution.
+
+The standalone C fixture initially fails to link because the shell resolves
+=ld= outside the SDK environment. The fixed SDK environment resolves the system
+linker and GCC 16 builds the same fixture successfully. The compiler is not
+replaced. The restored shared-engine semantic gate passes all 44 cases in
+19.376 seconds. The allocation verifier recheck admits the previous 916 exact
+intervals in 17.894 seconds, preserving its complete-request savings and CPU
+rejection boundary.
+
+** Rust policy delivery
+
+PR head =ad8c6a3= fails =RUST-AGENT-PROJECT-003= because its precedence-capacity
+unit test is inline in =engine/parser.rs=. The test is moved unchanged to
+=tests/unit/precedence_capacity.rs= and mounted with =#[path]=.
+The upstream =8bfc1fa= independently provides the same migration; rebase keeps
+that owner and drops the duplicate local commit. The existing ASP policy
+executable uses the current workspace manifest as its input; its policy source
+matches this checkout. That source-policy gate passes in 1.568 seconds. The
+145-test receipt above includes the moved assertion. Remote CI for the next
+published head remains a separate gate.

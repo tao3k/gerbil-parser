@@ -141,8 +141,12 @@
        (when waiter (thread-terminate! waiter) (set! waiter #f))
        (unless raw (set! raw (process-status process 2 9)))
        (let* ((command-raw raw)
-              (bytes (get-output-u8vector capture)) (text (utf8->string bytes))
-              (failed? (and error-output? (receipt-present? "^(ERROR\\b|\\*\\*\\* ERROR)" text))))
+              (bytes (get-output-u8vector capture))
+              ;; Every incoming prefix has already been checked by the reader.
+              ;; Only bare ERROR at EOF needs admission without a delimiter.
+              ;; Re-decoding and regex-scanning a large completed log happens
+              ;; after the monitor stops and can dominate the whole command.
+              (failed? (and error-output? (equal? line-prefix "ERROR"))))
          (process-result (normal-exit-status command-raw) (or reason (and failed? 'error-output)
                           (and (not (zero? (modulo command-raw 256))) 'signal-exit)) bytes
                          (- (##current-time-point) started)
@@ -160,7 +164,7 @@
                      require: (receipts '()) observe: (observe void))
   (displayln "PROCESS-START " log " timeout=" budget) (force-output)
   (let* ((result (run-observed-process command log timeout: budget idle-timeout: idle observe: observe))
-         (text (utf8->string (process-result-output result)))
+         (text (and (pair? receipts) (utf8->string (process-result-output result))))
          (missing (filter (lambda (pattern) (not (receipt-present? pattern text))) receipts)))
     (displayln "PROCESS-RESULT elapsed=" (process-result-elapsed result)
                " exit=" (process-result-status result) " reason=" (process-result-reason result)

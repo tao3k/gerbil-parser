@@ -389,3 +389,17 @@ This improves the collection-count resolution while retaining twenty groups,
 every natural collection, full artifact validation and the original percentile
 limits. The 48-clause case retains 256 calls, and the literal-prefix calibration
 above remains independently required. No rejected run becomes admitted.
+
+At =6733f32=, the 1,536-call short case exceeds the unchanged 120-second
+budget after both twenty-group before/production series and eight after-control
+groups. All completed identical-control observations remain within 0.90--1.10,
+but the incomplete series cannot qualify either performance or completion.
+The same runner's long case takes 81.35 seconds, compared with the preceding
+41.26-second receipt: elapsed capacity must be checked on the actual runner.
+
+The short case's fixed nominal quantum becomes 1,024 calls, between the
+768-call control-resolution failure and the 1,536-call budget failure.
+Scaling the completed work leaves headroom for all sixty groups under the
+original budget. Fresh CI must independently admit this intermediate quantum;
+neither the partial controls nor the elapsed projection constitute admission.
+No group count, CPU resolution, percentile limit or timeout changes.

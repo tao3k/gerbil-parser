@@ -374,3 +374,18 @@ under the unchanged 120-second limit for this bounded calibration. Twenty
 groups, the complete outputs, every GC interval and both 0.90--1.10 controls
 remain required. The admitted public-parser observations above remain tied
 to their revision and unchanged work budgets.
+
+At =b793f0f=, the 48-clause control passes again, with production P50/P90
+0.85467/0.86281. The 12-clause control rejects: before P10 is 0.89505 and
+after P10/P90 is 0.89117/1.12283; production P90 is 0.93351. Before group
+10 compares 301.930/270.241 ms including 110.742/79.472 ms GC CPU and
+seven/five collections. Its non-GC totals are 191.188/190.769 ms.
+The roughly 32 ms collection-count difference dominates the failed ratio.
+
+The short public case's fixed nominal quantum therefore becomes 1,536 calls.
+The preceding complementary-plan elapsed times are 35.35 and 50.26 seconds;
+doubling work fits the original 120-second budget on those recorded runners.
+This improves the collection-count resolution while retaining twenty groups,
+every natural collection, full artifact validation and the original percentile
+limits. The 48-clause case retains 256 calls, and the literal-prefix calibration
+above remains independently required. No rejected run becomes admitted.

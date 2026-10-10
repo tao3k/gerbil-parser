@@ -6,7 +6,7 @@
         (only-in ../../../src/runtime/artifact
                  parse-artifact-valid-for-source? parse-artifact-events parse-artifact-ref))
 (export measure-parser-stages measure-artifact-event-storage copy-canonical-event-storage
-        measure-parser-component measure-parser-batch measure-parser-cpu-pairs sample-at-percentile
+        measure-parser-component measure-parser-batch measure-parser-cpu-pairs cpu-pair-request-plan sample-at-percentile
         gc-statistics-snapshot sample-gc-snapshot component-allocation-summary)
 
 (def (require-parser-batch! batch-count calls-per-thunk)
@@ -253,39 +253,55 @@
       (displayln "PARSER-STAGE-COST-OK samples=" samples) (force-output)
       summary)))
 
-;;; Each observation contains both ABBA and BAAB. Four-leg groups can alias
-;;; a periodic natural GC onto one variant; retain all CPU while balancing
-;;; both order orientations inside the observation used for percentile gates.
+;;; Complementary half-quantum blocks share one observation. Each variant
+;;; still executes four nominal quanta, including an odd quantum's remainder.
+;;; Subdivision changes timing boundaries, never the complete request budget.
+(def (cpu-pair-request-plan calls group)
+  (require-parser-batch! calls 1)
+  (let* ((order (if (even? group) '(left right right left right left left right)
+                   '(right left left right left right right left)))
+         (half (quotient calls 2))
+         (work (lambda (order count)
+                 (map (lambda (variant) (cons variant count)) order))))
+    (if (zero? half) (work order calls)
+      (append (work order half)
+              (work (map (lambda (variant) (if (eq? variant 'left) 'right 'left)) order)
+                    (- calls half))))))
+
 ;;; Same-process CPU comparison with complete products and alternating order.
 (def (cpu-pair-field row key) (cdr (assq key row)))
 (def (measure-parser-cpu-pairs name phase groups calls expected left right)
-         (unless (and (exact-integer? groups) (>= groups 20))
+  (unless (and (exact-integer? groups) (>= groups 20))
     (error "paired CPU proof requires at least twenty groups" groups))
   (require-parser-batch! calls 1)
   (unless (and (equal? (left) expected) (equal? (right) expected))
     (error "paired CPU warmup differs from complete expected product" name))
   (##gc)
-         (let loop ((group 0) (rows '()))
-           (if (= group groups)
-             (map (lambda (rank) (cpu-pair-field (sample-at-percentile rows 'ratio rank) 'ratio)) '(10 50 90))
-             (let* ((order (if (even? group) '(left right right left right left left right)
-                                      '(right left left right left right right left)))
-                    (batches (map (lambda (variant)
-                      (let (batch (measure-parser-batch (list 'paired-cpu name phase) group calls
-                                    (if (eq? variant 'left) left right) expected))
-                        ;; Emit completed work outside timing; a whole group can
-                        ;; exceed the watchdog interval on a contended host.
-                        (write (list 'PARSER-CPU-BATCH name phase group variant batch))
-                        (newline) (force-output)
-                        (cons variant batch))) order))
-                    (sum (lambda (variant)
-                      (apply + (map (lambda (batch) (cpu-pair-field (cdr batch) 'cpu-ms))
-                                    (filter (lambda (batch) (eq? (car batch) variant)) batches)))))
-                    (cpu (sum 'left)))
-               (unless (and (positive? cpu)
-                            (andmap (lambda (batch) (>= (cpu-pair-field (cdr batch) 'cpu-ms) 1.0)) batches))
-                 (error "parser CPU batch does not resolve one millisecond" name phase group))
-               (let (row (list (cons 'sample group) (cons 'ratio (/ (sum 'right) cpu))))
-                 (write (list 'PARSER-CPU-PAIR name phase row 'batches batches)) (newline) (force-output)
-                 (loop (+ group 1) (cons row rows)))))))
+  (let loop ((group 0) (rows '()))
+    (if (= group groups)
+      (map (lambda (rank) (cpu-pair-field (sample-at-percentile rows 'ratio rank) 'ratio)) '(10 50 90))
+      (let* ((plan (cpu-pair-request-plan calls group))
+             (batches
+              (map
+               (lambda (work)
+                 (let* ((variant (car work))
+                        (batch (measure-parser-batch (list 'paired-cpu name phase) group (cdr work)
+                                 (if (eq? variant 'left) left right) expected)))
+                   ;; Publish completed work outside timing; a whole group can
+                   ;; exceed the watchdog interval on a contended host.
+                   (write (list 'PARSER-CPU-BATCH name phase group variant
+                                (cons (cons 'calls (cdr work)) batch)))
+                   (newline) (force-output)
+                   (cons variant (cons (cons 'calls (cdr work)) batch)))) plan))
+             (sum (lambda (variant)
+                    (apply + (map (lambda (batch) (cpu-pair-field (cdr batch) 'cpu-ms))
+                                  (filter (lambda (batch) (eq? (car batch) variant)) batches)))))
+             (cpu (sum 'left)))
+        (unless (and (positive? cpu)
+                     (andmap (lambda (batch) (>= (cpu-pair-field (cdr batch) 'cpu-ms) 1.0)) batches))
+          (error "parser CPU batch does not resolve one millisecond" name phase group))
+        (let (row (list (cons 'sample group) (cons 'ratio (/ (sum 'right) cpu))
+                       (cons 'legs (length plan)) (cons 'requests-per-variant (* 4 calls))))
+          (write (list 'PARSER-CPU-PAIR name phase row 'batches batches)) (newline) (force-output)
+          (loop (+ group 1) (cons row rows)))))))
 

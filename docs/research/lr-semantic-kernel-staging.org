@@ -319,3 +319,40 @@ uses one sample and one request for each of the twelve matrix stages: all six
 complete-artifact controls return, the marker is flushed, and actual exit is
 zero in 57.89 seconds. This admits that process-completion path only. Fresh CI
 retains twenty samples and twenty requests, and must admit the full matrix.
+
+* Complementary CPU observations
+
+At =7f93f63=, Ubuntu rejects the 48-clause control despite production P50/P90
+0.84905/0.88740. Before-control P10 is 0.89421; after-control P10 is 0.89166.
+In before group 14, identical left/right code consumes 394.131/352.436 ms,
+including 142.419/101.369 ms GC CPU and eight/six collections. In after group
+9, the corresponding totals are 437.726/376.318 ms, including
+170.288/103.445 ms GC CPU and eight/six collections. The completed run is
+rejected; preceding admitted revisions cannot qualify this one.
+
+Increasing the nominal batch further would approach the original 120-second
+budget on the slower recorded runner. The shared sampler instead subdivides
+each nominal quantum and places both complementary eight-leg blocks inside
+each observation. Each variant still executes exactly four nominal quanta;
+odd call counts split into floor and remainder, and an indivisible one-call
+quantum retains eight legs. Twenty observations remain disjoint: no
+overlapping windows, repeated admission attempts or sample removal are used.
+
+The pure request planner is tested through work conservation, positive exact
+sub-batches and equal weighted leg-position moments through degree two,
+including odd call counts and both observation orientations. Each timed
+sub-batch still validates its complete expected result and resolves at least
+one millisecond. Receipts record actual sub-batch calls, leg count and requests
+per variant. All GC CPU remains charged; no collection is forced between
+variant switches. Thresholds and total/idle budgets remain unchanged.
+
+This balances temporal exposure and changes natural-collection phase sampling
+without increasing total parser work. It does not prove immunity to arbitrary
+GC or host noise; the complete fresh CI controls must still qualify it.
+
+The final sampler builds with the conformance compiler policy in 36.27 seconds
+and exits zero without a silence violation. Nine source-owned benchmark and
+style cases pass in 36.78 seconds. The execution test performs real complete
+arithmetic requests and independently counts 20,481 calls per variant: one
+warmup plus the declared twenty groups. These receipts establish the planner
+and its consumer's work budget; fresh public TLA+ CPU admission remains separate.

@@ -1,0 +1,451 @@
+#+title: Engine design realization audit
+#+startup: overview
+
+* Scope and evidence rules
+
+Source audit baseline: =11b2cf19a81acd8223b949dabd78af69dc6f7b4c= on PR #13.
+Publication cost attribution below is the subsequent implementation slice.
+This audit connects the shared engine work to the three author interfaces:
+=grammar.ss= declares syntax, =parser.ss= supplies metadata and parser adaptation,
+and =parser-test.ss= owns observable language behavior and benchmark contracts.
+It does not audit every language-standard production or assert complete package
+qualification. Historical research receipts keep their original revisions.
+
+An implemented mechanism, a passed focused control and completed exact-head CI
+are separate facts. A research proposal or an inspected test is not a receipt.
+Each further change must name its semantic invariant, implementation owner,
+independent control and measured phase before a performance claim is admitted.
+
+The =ad8c6a3= Rust CI failure exposes an additional delivery obligation: the
+workspace source-policy gate is independent of runtime tests and Clippy. Its
+inline-test rejection is corrected by mounting
+[[file:../../rust/gerbil-parser-runtime/tests/unit/precedence_capacity.rs][the GLR capacity control]] from =tests/unit= with =#[path]=. Historical
+145-case runtime receipts remain valid semantic evidence, but do not imply that
+the failing revision passed workspace policy or remote CI.
+After relocation, the 145-case runtime suite passes again. The existing locked
+policy test product scans current sources successfully (one case, exit zero);
+this proves current-source policy admission, not fresh policy-tool compilation.
+The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qualification record]] retains failed compilation and harness attempts.
+
+* One implementation sequence
+
+The [[file:../research/request-lookahead-classification.org][invocation-owned lookahead study]] connects grammar preparation,
+deterministic action selection, callback mutation controls and complete paired
+requests in one implementation slice. Focused semantic receipts are available;
+fresh complete native request performance remains a separate admission gate.
+
+The architecture remains declaration and POO composition -> canonical IR ->
+compiler publication -> prepared machine -> request execution -> artifact.
+Shared engine mechanisms belong beneath this sequence. Language authors do not
+configure matcher caches, generic registries, opcode lowering or worker lifetimes.
+
+The [[file:../research/shared-ranked-scanner-execution.org][integrated execution study]] now supplies one decision index for
+lexical specialization, prepared representation, casefold complete requests and
+execution evidence. These four responsibility modules follow this same sequence.
+They preserve every historical experiment and negative receipt, while separating
+retained mechanisms from withdrawn prototypes and unclosed qualification gates.
+
+The [[file:../research/compiled-language-byte-publication.org][compiled language publication study]]
+extends this sequence through immutable sidecars and linked AOT admission.
+It removes whole-text intermediates at the compiler publisher;
+content addresses and compressed output are checked against the original text
+specification. Runtime admission retains its existing reader and failure order
+after the experimental byte reader produced mixed complete-path CPU results.
+This is separate from request artifact publication and from retained-heap or
+full parser performance claims.
+
+| Design obligation | Implementation owner | Executable control | Scope and open boundary |
+|-------------------+----------------------+--------------------+-------------------------|
+| Compiled language transport preserves the ordered IR contract | [[file:../../src/compiler/language-artifact.ss][Immutable publisher]] shares owned UTF-8 bytes; [[file:../../src/runtime/language-artifact.ss][filesystem/AOT loader]] retains complete text decoding | [[file:../../t/language-artifact-test.ss][Original-text parity, encoding, framing and concurrent publication controls]]; [[file:../../t/benchmarks/language-artifact/benchmark.ss][complete roundtrip and admission benchmark]] | Cold compression, immutable publication and full datum admission remain; byte-reader candidate withdrawn; allocation, CPU and platform receipts belong to the linked study |
+| One effective grammar and selected source origins | [[file:../../src/compiler/normalize.ss][normalization]] and [[file:../../src/compiler/lr.ss][resolved LR analysis]] | [[file:../../t/resolved-grammar-test.ss][resolved grammar controls]] | Finite LR entry admission and rejected LR action occurrence diagnostics exist; admitted fork and runtime origin catalogs remain open |
+| Ordered declaration origins survive complete binding publication | Normalization, syntax-origin collection and [[file:../../src/compiler/bound-ir.ss][Bound IR owner]] use invocation-owned construction and source selection | [[file:../../t/bound-ir-index-test.ss][source selection and large catalog controls]], composition/declaration/ABI consumers and [[file:../../t/benchmarks/bound-source-catalog/benchmark.ss][complete sidecar benchmark]] | [[file:../research/bound-declaration-publication.org][Publication realization]] removes variadic catalog flattening and temporary construction spines while preserving IDs, digests and forward-reference admission; performance populations and platform CI remain separate |
+| Canonical digest input retains the declaration contract under physical sink changes | Same Bound IR owner uses the official writer with explicit UTF-8/LF byte output and existing native SHA-256 | Independent original text digests for Unicode declarations and every identity; complete sidecar comparison and final-input component controls | [[file:../research/bound-declaration-publication.org::*Canonical digest input follows the same publication owner][Digest-input study]] separates allocated flow, writer/encoding/hash costs and negative CPU evidence; bytes remain materialized, and no grammar cache or author option is introduced |
+| Backend/capability selection at preparation | [[file:../../src/runtime/lr-parser.ss][LR preparation]] | [[file:../../t/lr-semantic-preparation-test.ss][semantic preparation controls]] | Private CLOS methods select executors; this does not supply an open generic extension protocol |
+| Canonical operand actions lower once beneath all author interfaces | [[file:../../src/runtime/reduction-plan.ss][Prepared semantic kernels]] select two backend factories, preserve ordered chains and specialize empty/unary execution; [[file:../../src/compiler/fused-reduction.ss][shared generated expressions]] and Rust reduction apply the nullable-origin contract | [[file:../../t/lr-stack-reduction-test.ss][Independent expected trees and request-boundary reuse]], [[file:../../t/fused-reduction-test.ss][generated recognition/event controls]] and [[file:../../rust/gerbil-parser-runtime/tests/unit/nullable_boundary.rs][Rust boundary control]]; [[file:../../t/benchmarks/lr-request-stack/benchmark.ss][cold and complete-artifact comparisons]]; CI runs the shared public request matrix | [[file:../research/lr-semantic-kernel-staging.org][Staging study]] records 93 Scheme and 146 Rust cases, the rejected per-operand generic selection and mixed CPU observations; stable latency improvement is unproved; exact-revision CI is a separate gate |
+| CPU evidence conserves complete parser work and includes natural GC | [[file:../../t/benchmarks/parser-stage-cost/benchmark.ss][Shared sampler]] owns complementary sub-batches, complete-result validation and raw CPU/GC receipts | [[file:../../t/benchmark-test.ss][Independent work and leg-position invariants]] plus actual complete-request counts; native compilation and nine source-owned cases pass | [[file:../research/lr-semantic-kernel-staging.org::*Complementary CPU observations][Control rejection and corrected observations]] retain twenty disjoint groups, four nominal quanta per variant, all samples and unchanged admission limits; fresh complete-request CPU qualification is distinct |
+| Canonical semantic names have one admission contract | [[file:../../src/compiler/lr.ss][canonical operand predicate]], LR preparation, fused Scheme and Rust publication | [[file:../../t/lr-stack-reduction-test.ss][malformed and complete-product controls]] and [[file:../../t/rust-runtime-generation-test.ss][Rust publication controls]] | Symbol names and proper field/alias chains are required even in unused productions; 22 local cases and ten-language ABI byte parity passed; [[file:../research/prepared-lr-action-plans.org::*Canonical action admission across product owners][research witness, falsifiers and receipts]] |
+| Complete production semantics precede indexing and execution | Same canonical owner and standalone LR lowering; compiler/runtime share layout classification; complete rule references resolve through the existing production-owner index | Production numbering/width/precedence/operand controls, both semantic backends, five construction routes, fused empty-output rejection and Rust absent/existing file controls | [[file:../research/prepared-lr-action-plans.org::*Closed rule references across canonical IR consumers][Closed reference contract]] follows the historical 32-case production qualification; forward references and declared dead cycles remain legal; productivity and grammar/table equivalence are distinct |
+| Physical LR tables and layout capability are admitted before execution and publication | [[file:../../src/compiler/lr-table.ss][shared table contract]] consumed by compiler, runtime, fused Scheme and Rust; canonical terminal catalog, declared LHS symbols and reachable EOF acceptance share this boundary | [[file:../../t/lr-index-test.ss][domain, vocabulary, graph, layout and identity controls]] and [[file:../../t/rust-runtime-generation-test.ss][atomic publication rejection]] | [[file:../research/lr-table-admission.org][Table study]]; historical 39-case and ten-language receipts remain separate from the production-relative extension; grammar/table equivalence, balanced markers and guard fallback correctness remain open; disconnected post-conflict states are retained |
+| Prepared layout capability controls request execution and continuation admission | [[file:../../src/runtime/lr-parser.ss][deterministic/GLR selectors and checkpoint requirement]], [[file:../../src/runtime/parser.ss][source scope and shared contextual preparation]] and [[file:../../src/runtime/layout.ss][shared casefold lookup]] | [[file:../../t/layout-boundary-test.ss][ambient-context, streaming, branch, restoration, Unicode guard and continuation controls]]; [[file:../../t/contextual-parser-test.ss][raw/prepared publication ownership]] | [[file:../research/lr-table-admission.org::*Checkpoint and contextual execution admission][Continuation contract]] extends the [[file:../research/lr-table-admission.org::*Prepared capability and request-local layout execution][request study]]; layout continuations are rejected before construction, full layout source parsing retains GLR; layout continuation capture, contextual GLR, arbitrary balance and fallback equivalence remain distinct |
+| Request source coordinates have bounded physical storage | [[file:../../src/runtime/layout.ss][column builder and private reads]] select packed u32 storage under a proven column bound and stage primitive writes with hygienic syntax | [[file:../../t/layout-column-storage-test.ss][per-byte, Unicode, tab, CRLF and exact integer controls]]; [[file:../../t/benchmarks/layout-columns/benchmark.ss][shared preparation and complete GLR product benchmark]] | [[file:../research/lr-table-admission.org::*Compact request-owned source coordinates][Coordinate study]]; constant-time query and complete artifacts are retained; the slower direct character traversal is rejected; current CPU/allocation observations do not imply language-wide latency or retained-heap savings |
+| Rust target capacities follow canonical Scheme admission | [[file:../../src/compiler/rust-runtime.ss][Rust publication entry]] admits u16/u32 domains, i32 production precedence and absence of layout capability before source allocation; [[file:../../rust/gerbil-parser-runtime/src/engine/parser.rs][shared reduction]] checks i64 accumulated scores before mutation and propagates overflow globally through GLR | [[file:../../t/rust-runtime-generation-test.ss][publication controls]], [[file:../../rust/gerbil-parser-runtime/tests/unit/selective_glr.rs][cumulative ordering and atomic failure controls]], plus internal GLR branch-order controls | [[file:../research/lr-table-admission.org::*Checked cumulative precedence and global failure][Checked numeric contract]]; 145 runtime cases pass, with prior 69 Scheme cases and ten-language ABI parity; numeric overflow handling is closed within the declared target domain; arbitrary-precision target equivalence remains outside this contract |
+| Static matcher configuration shared across lexical modes | [[file:../../src/runtime/contextual-scanner.ss][contextual preparation]] | [[file:../../t/contextual-scanner-test.ss][rank/action/state controls]] | Region/guard sharing exists; primitive closures and literal source-size strategy retain separate admission |
+| Nested regions retain request-owned state | [[file:../../src/runtime/region-scanner.ss][region executor]] | [[file:../../t/region-scanner-test.ss][region controls]] and [[file:../../t/contextual-deferred-scanner-test.ss][deferred controls]] | Prepared opener data is shared; counters, frames and delimiter obligations belong to requests |
+| Contextual program and source publication have explicit owners | [[file:../../src/language/source-strategy.ss][source strategy]] | [[file:../../t/source-strategy-test.ss][strategy controls]] and [[file:../../t/source-scanner-test.ss][source scanner controls]] | These focused controls do not establish general cross-edit Rust subtree reuse |
+| Ranked competition preserves winner semantics | [[file:../../src/compiler/lexical-lexer.ss][lexical lowering]] | [[file:../../t/lexical-first-character-test.ss][competition controls]] | Original fold retained; hygienic loop candidate withdrawn after complete-request admission failed |
+| Generated entries declare engine-owned representation obligations | [[file:../../src/compiler/machine.ss][machine backend admission]] | [[file:../../t/language-surface-test.ss][backend contract and atomicity controls]] | Captured prepared representation and generated entry products are distinct; queries do not prove arbitrary procedure bodies |
+| Preparation cost remains visible | [[file:../../t/benchmarks/contextual-scanner/matched-scale.ss][contextual benchmark]] and [[file:../../t/benchmarks/regular-mode/request-cost.ss][regular benchmark]] | Native prepared products checked after measurement | Contextual preparation controls are added in this slice; historical paired receipts remain separate from fresh runs |
+| Artifact publication cost follows shared engine ownership | [[file:../../src/runtime/artifact.ss][canonical artifact owner]] and [[file:../../t/benchmarks/parser-stage-cost/benchmark.ss][generic stage benchmark]] | [[file:../../t/artifact-publication-cost-test.ss][publication observation contracts]] and existing event/source controls | Encoding, event publication and identity intervals are separate; supplied products do not imply executed construction stages |
+| Certified windows and rejected products construct final event containers directly | Same artifact owner uses the official list builder and a private group-comparison cursor | [[file:../../t/artifact-window-publication-test.ss][large complete-product, Unicode and assignment controls]] plus the existing incremental consumer suite; [[file:../../t/benchmarks/artifact-window/benchmark.ss][complete publication benchmark]] | [[file:../research/artifact-publication-cost-boundaries.org::*Direct certified-window and rejected-product publication][Publication realization]] removes temporary flattened groups, reversed windows, replacement event lists and rejected-product ID lists; source identity, event schema and certificate obligations remain; local qualification is separate from platform CI |
+| Canonical event containers have an independent executable control | Same shared benchmark and official =with-list-builder= in the artifact owner | Fresh-container/shared-payload controls, full artifact equality and source admission | Copy allocation is not a retained-heap census; variable counter medians cannot establish traversal waste |
+| Shared sampling does not depend on a language workload module | [[file:../../t/benchmarks/parser-stage-cost/benchmark.ss][sampling owner]] with direct GQL, actor and LR callers | Existing population/GC controls, language-independent batch guards and native dependency plan | [[file:../research/shared-parser-cost-sampling.org][Research contract]]; owner migration is not runtime performance admission |
+
+The first row's semantic and provenance limits are detailed in
+[[file:../research/dsl-engine-contracts.org][the DSL contract audit]]. This table records responsibility rather than
+introducing another authoring DSL or a compatibility route.
+
+The production-relative LR extension follows one implementation boundary through
+compiler admission, runtime preparation, fused strategy and Rust publication.
+The [[file:../research/lr-table-admission.org::*Production-relative admission closure][complete consumer matrix]] passes 72 cases, including ten-language ABI parity
+and absent/existing output-file rejection. Its graph condition is reachable EOF
+acceptance, not removal of disconnected states; actual GQL conflict resolution
+falsified that stronger proposal. The canonical terminal catalog and official
+Gerbil queue are reused. All claims remain admission correctness; preparation
+overhead, full grammar/table equivalence and exact-head platform CI are distinct.
+
+The subsequent canonical-reference closure uses the existing production-owner
+index before analysis, preparation and publication. Its baseline missing-owner
+witness was admitted; the final native build and 117-case, thirteen-suite
+consumer matrix reject it before execution or output while preserving forward
+references and declared unused cycles. The
+[[file:../research/prepared-lr-action-plans.org::*Closed rule references across canonical IR consumers][integrated production study]] records the Scheme witness, two design
+questions, the additional project policy beyond Knuth's alphabet definition,
+and exact qualification receipts. This closes rule-owner resolution, not finite
+derivation or grammar/table equivalence, and makes no performance claim.
+
+The runtime-capability follow-up reproduces ambient layout leakage on the same
+plain runtime and tokens, then changes all three LR action selectors to use the
+runtime's prepared capability. The tokenized source owner binds request-local
+columns and empty initial frames; the layout consumer reuses the existing
+prepared casefold index. The three runtime owners and focused module compile
+natively in 70.397 seconds; fourteen suites pass 131 cases in 26.984 seconds,
+including complete artifacts, independent GLR, generated products, source-origin
+controls and ten-language ABI bytes. The
+[[file:../research/lr-table-admission.org::*Prepared capability and request-local layout execution][integrated capability study]] records the matched failing baseline,
+Scheme scope witness, standard/source correspondence and qualification limits.
+No user-facing switches or language-specific adapters are added. Tested request
+isolation is closed; general layout balance, fallback equivalence and fresh
+exact-head CI remain separate obligations.
+
+The continuation follow-up closes the same capability contract at checkpoint
+creation and contextual preparation. Raw contextual execution now delegates to
+the owned prepared plan, including publication identity ownership. The parent
+control admits layout objects without captured layout state; the repaired
+seventeen-suite native matrix passes 167 cases in 23.001 seconds. Full layout
+source requests still produce complete GLR artifacts and no reusable snapshots.
+The [[file:../research/lr-table-admission.org::*Checkpoint and contextual execution admission][integrated continuation study]] records the Scheme witness, design questions,
+failed artifact-admission attempts and final receipts. Layout continuation
+capture and contextual GLR remain unimplemented; no throughput or CPU improvement
+is inferred, and exact-head platform checks remain distinct.
+
+* Scheme witness: declaration, preparation and repeated requests
+
+#+begin_src scheme
+;; Engine-owned lowering of an admitted declaration. No new author slot.
+(def (prepare-rule-matcher declaration cache)
+  (or (table-ref cache declaration #f)
+      (let* ((expression (lower-rule-matcher declaration))
+             (plan (make-contextual-matcher-plan
+                    expression (prepare-matcher expression))))
+        (table-set! cache declaration plan)
+        plan)))
+
+;; Rule policy is separate from executable configuration. The actual local
+;; macro is defined inside decode-rule, where these metadata bindings exist.
+(defrule (finish expression executor)
+  (make-runtime-scan-rule name mode form expression executor rank action))
+#+end_src
+
+** Question: why is this design preferable?
+
+S-expression declarations permit structural equality and engine-owned matching.
+Hygienic =defrule= expansion retains lexical rule policy without allocating a
+per-rule constructor callback. POO composition selects declared values and
+origins; private CLOS preparation methods select backend/capability combinations;
+named algorithms implement their execution. Each mechanism has a concrete
+responsibility. Authors retain ordinary values unless they need actual extension.
+
+This is deliberately selective: the preparation cache shares expensive immutable
+region/guard configuration. It does not intern request state or all Scheme
+closures. Rejected broad-cache and multiple-value experiments are retained in
+[[file:../research/scheme-reduction-abstractions.org::*Contextual matcher preparation across modes and source sizes][the preparation study]].
+
+** Question: how is the claim scientifically tested?
+
+The falsifiers are changed rule rank/action outcomes, state leaking between
+requests, changed Unicode byte boundaries, or preparation cost moved into scan
+timing. Shared guard controls exercise independent modes and requests on short
+and long sources. Existing region/deferred/source suites exercise the adjacent
+semantic obligations. Preparation controls independently declare expected words,
+check token kinds, complete lexemes and final UTF-8 byte coverage after timing.
+
+The historical paired region configuration reduces admitted preparation allocation
+by approximately 45%. Identifier CPU results are mixed; neither that allocation
+result nor the papers prove whole-parser speedup. The papers motivate staging
+under explicit assumptions; semantic controls and matched measurements decide
+which lowering is retained in this engine.
+
+* Reproducible preparation controls
+
+The existing benchmark exports =benchmark-matcher-preparation=. It exercises
+one-mode identifier, sixteen-mode identifier, a 128-literal catalog, a region
+configuration and a guarded region configuration. The region source includes
+Unicode quotes and nested interpolation. Defaults are eleven samples and three
+preparations per sample; both counts must be positive exact integers.
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/contextual-scanner/matched-scale)
+(benchmark-matcher-preparation 11 3)
+#+end_src
+
+Run this expression through the repository's configured Gerbil environment.
+For native cost evidence, compile the benchmark module through the existing
+compiler owner and load its native product. Source interpretation is a distinct
+control. No new executable, process wrapper or baseline executor is introduced.
+Compare revisions through the same caller, toolchain, configuration and sample
+order, with explicit loaded-product identities. Each measured interval contains
+only plan preparation: IR construction, source encoding and returned-product
+validation are excluded. The final plan in each batch is validated; the output
+does not assert that every intermediate plan was scanned.
+
+The output records CPU milliseconds per preparation, GC count and admitted
+allocated bytes per preparation. Collection or a negative raw delta makes the
+allocation value =#f=, not zero. A GC is forced before each interval; this isolated
+preparation control does not measure natural application GC, amortized request
+latency, scan throughput or complete-language parsing. Existing =scan=,
+=prepare-scan= and =plan-batch= entry modes retain those distinct boundaries.
+
+* Qualification of the preparation-control slice
+
+The benchmark module compiles natively with the installed Gerbil/Gambit and GCC
+toolchain in 16.912 seconds, exit 0 and final =OK=. Its native caller completes
+in 12.033 seconds, exit 0, =MATCHER-PREPARATION-OK= and final =OK=. All fifteen
+preparation samples validate their returned products, including Unicode region
+and guarded-region sources. Existing =scan=, =prepare-scan= and =plan-batch=
+modes each retain two reported samples and complete =SCANNER-SCALE-OK=.
+Both gates retain the five-second idle limit and report real compiler/module
+progress. This is focused native caller qualification over reused dependency
+products, not a fresh complete-package build or a new paired speedup result.
+
+The modularization check compares all 2,311 original lines with their corresponding
+overview/module ranges; every historical section is retained exactly. All 65
+local file links in the seven touched audit/research documents resolve. This
+check does not qualify external paper URLs or local links in unrelated documents.
+
+* Remaining gates and next work
+
+** Integrated study qualification
+
+The ranked execution study previously accumulated 1,302 lines across lexical
+lowering, representation ownership, experiments and receipt admission. The new
+overview maps each obligation to its existing engine owner and executable
+consumer, with a single retained/withdrawn decision table, Scheme witness and
+two design questions. Four responsibility modules retain all 1,296 historical
+body lines exactly; Scheme reconstruction reproduces the complete original
+text from the published modules, including ordering and whitespace. Their
+sizes are 590, 242, 245 and 243 lines. No runtime source or default changes in
+this reorganization.
+
+Incoming audit links now name the actual module and original heading. The
+Scheme qualifier checks local files and heading targets across this audit,
+the execution overview/modules and the parent scanner study. The first temporary
+restructuring attempt was rejected by historical equality after an incorrect
+output-port call; the first link-qualifier attempt failed import admission for
+an unavailable library. The corrected qualifier uses the project's existing
+core-backed string search utility. Neither failed attempt is a passing receipt.
+
+This closes research organization and link integrity. It does not close the
+remaining engine obligations listed in the implementation table or convert
+historical allocation observations into CPU benefits. At =c12dcb0=, Rust CI
+passed while Linux Scheme was running and macOS Scheme queued. Fresh exact-head
+platform results remain separate from document and local native qualification.
+
+** Engine qualification sequence
+
+The [[file:../research/dense-lr-item-space.org][dense item-space implementation]] addresses the suffix study's remaining
+production-count times maximum-width padding. One private layout and logical
+coordinate operations now serve all LR construction routes and conflict-origin
+publication. Explicit epsilon/production-boundary controls, independent suffix
+scans and complete compiler-product benchmarks own its qualification. This is
+a compiler representation change; complete-request latency remains a separate
+measurement obligation. Existing CI jobs and required stages are unchanged.
+
+Rejected LR action provenance is now implemented in the existing lowering and
+table-publication owners. The [[file:../research/lr-conflict-source-origins.org][focused origin module]] records the Scheme witness,
+two design questions, selected POO source contract and qualification boundary.
+Local qualification passed all 41 source GxTest cases against the final native
+producer (37 existing semantic controls and four new origin controls). The
+producer and focused test module also completed native compilation with the
+unchanged five-second real-output idle gate. Both the build module catalog and
+the conformance composition suite own the new module. The subsequent exact
+=11b2cf1= [[https://github.com/tao3k/gerbil-parser/actions/runs/38019193501][platform CI run]] passed Linux Scheme, macOS Scheme and Rust AOT.
+
+1. Keep exact-head Linux, macOS and Rust AOT CI separate from local native
+   overlays. The earlier =f3dff04= macOS idle failure remains negative history;
+   the completed =11b2cf1= platform run qualifies that later revision. This
+   publication attribution slice requires fresh exact-head CI.
+2. Prioritize producer construction and publication traversals using the
+   [[file:../research/lr-request-cost-boundaries.org][request cost study]] and
+   [[file:../research/shared-source-projection-publication.org][source publication study]]. A new optimization needs complete
+   artifact/field/span parity and a matched phase control. Rejected continuation,
+   projection callback and dense-prefix candidates remain rejected.
+
+The [[file:../research/artifact-publication-cost-boundaries.org][publication attribution implementation]] now localizes the latter boundary:
+29 source cases passed against the native producer, and twelve native profiles
+across three language families at two scales completed 240 full-product checks.
+Observed event-publication allocation exceeds hash/header allocation in these
+workloads. This is a next-work localization receipt, not a performance benefit
+admission or an assertion that required canonical event storage is redundant.
+
+The subsequent [[file:../research/artifact-publication-cost-boundaries.org::*Executable event-storage control][event-storage implementation]] supplies that independent control and replaces
+the engine's duplicated private queue with Gerbil's official =with-list-builder=.
+It applies to both recognition and event-program publication. The canonical
+event constructors, author interfaces and artifact schema are unchanged.
+The initial =map vector-copy= control exposed variable FHIRPath allocation
+counters despite passing the existing no-GC filter; those observations are
+retained as negative evidence against deriving a precise storage budget from
+one median. This refactoring is an abstraction/qualification change, not an
+admitted complete-request performance improvement.
+
+Final native qualification rebuilds artifact publication, its shared benchmark
+and focused test in 41.776 s; all 31 source cases pass in 12.914 s. Twelve native
+cross-language profiles complete 240 observed requests and 240 copies in
+33.982 s, with full equality/source checks and final process receipts. Under
+the official builder, admitted copy allocation P50/P95 agree in all twelve
+profiles and closely track event-publication allocation. The small difference
+does not establish recoverable storage; recognition/reduction cost separation
+is now the next optimization obligation. The research module retains exact
+population counts, rejected prototype and receipt paths. The verified =a1df0ca=
+CI run has passed Rust AOT; Linux/macOS Scheme were still in progress. Fresh
+CI is required for this subsequent source slice.
+
+The subsequent [[file:../research/shared-parser-cost-sampling.org][shared sampling migration]] closes the cross-language dependency on GQL's
+workload module. GQL stages, actors and LR comparisons import the shared sampler
+directly; GQL sampling aliases are removed. Native qualification builds the
+owner and five consumers/controls in 76.380 s, then rebuilds existing missing
+and stale diagnostic dependencies. Both rejected attempts remain recorded.
+The final source run passes 30 cases from the staged test content in 42.303 s.
+Twelve cross-language paired summaries complete in 44.542 s with a stable
+identical-executor control and no admitted complete-request benefit. Three
+actor configurations complete in 21.921 s and retain process-only allocation
+ownership. Source semantics and default representations remain unchanged.
+The verified preceding =ecebab9= CI has passed Rust AOT; Linux is running and
+macOS queued. This migration requires fresh exact-head platform CI.
+
+The shared scanner study is modularized into
+[[file:../research/shared-scanner-staging-and-fusion.org][one overview and four responsibility modules]]. Its original experiments,
+failed runs, revision identities and negative results are preserved. This audit
+is the implementation entry; those modules supply detailed arguments and receipts.
+
+* Complete-request cost admission correction
+
+The [[file:../research/ranked-scanner-specialization.org::*Cross-language audit of callback removal][cross-language callback audit]] withdraws the private ranked loop macro.
+Reproducible allocation reduction did not establish a complete-request CPU
+benefit on GQL, FHIRPath and Arithmetic. The original fold is restored; the
+independent order and Unicode test remains. Historical component receipts are
+retained with their evidence boundary.
+
+The existing LR request benchmark now exports =benchmark-lr-request-backends=.
+It checks twenty-four prepared/public routes against one canonical recognition
+artifact, distinguishes requested preference from prepared admission, and records
+untimed actual source stages plus generated execution capabilities. GQL rejects
+the event executor, FHIRPath admits it, and Arithmetic's public request uses its
+generated recognition drive. Enabling an event preference alone therefore does
+not certify event execution of the complete public request.
+
+That audit identifies an explicit semantic representation contract for generated
+execution as the next obligation. The following section implements the contract;
+matched complete-request cost admission remains separate. No default backend is changed on the strength
+of prepared allocation or the single-order representation diagnostic. Bash's
+contextual route remains independently qualified by its own source products;
+these LR controls do not substitute for that qualification.
+
+
+The [[file:../research/parser-execution-evidence.org::*Executed interleaved backend qualification][executed paired qualification]] now replaces the single-order diagnostic as
+performance evidence. Twenty ABBA/BAAB groups per workload measure 19,200 native
+calls in 53.291 seconds, following ten passed measurement controls. Small
+prepared event workloads meet the observed-regression criterion. The large GQL
+identical-executor control fails, so the executable gate rejects complete-request
+benefit admission. Semantic pass and performance rejection are distinct outputs;
+no backend default changes on this receipt.
+* Installed representation admission
+
+=parser-machine-backend-representation= reports the captured prepared runtime or
+an installed drive/source/step/event-step product. The engine owns this closed
+domain; language entries retain their existing backend declarations. Missing
+optional entries return =#f=; malformed machine/kind queries reject. A retained
+event machine continues reporting event-program after the dynamic preference
+changes. Its generated drive may still report recognition.
+
+The contract exposed a concrete admission gap: a recognition =step= could be
+installed on an event machine. Both the direct machine installer and the
+declarative batch precheck now reject that mismatch. A batch with a valid drive
+followed by such a step leaves the drive uninstalled. This preserves all-or-nothing
+admission and avoids interpreting recognition values with an event reducer.
+
+The cross-language benchmark reports these contracts alongside actual untimed
+source stages. Availability and declared representation remain capabilities;
+a source specialization can decline. The existing canonical artifact equality
+controls qualify known generated implementations, not arbitrary procedure bodies.
+The [[file:../research/prepared-parser-representation.org::*Engine-owned semantic representation of installed entries][research argument]] records the Scheme witness, both design questions and limits.
+
+The shared request executor also reports the actual generated-drive or prepared-
+checkpoint branch, rather than relying on the inclusive source-recognition stage.
+CI-owned source-contract tests cover generated execution under both preferences
+and ordinary accepted/rejected/empty requests. The benchmark requires the expected
+branch to complete before admitting its cost samples. Nested child intervals are
+not additive to their inclusive source-recognition parent.
+
+** Qualification of representation and actual-route admission
+
+Native rebuilding covers the current lexical producer, machine, interface suite
+and caller (109.692 s); the final installation constraint rebuilds machine and
+interface controls (32.273 s); the actual-branch owner and caller rebuild in
+31.856 s. Every compile exits 0 with final =OK= under the five-second idle gate.
+Other dependency products are reused; this is not complete-package qualification.
+
+The final native interface/backend suite passes all nine cases in 10.707 s.
+Source evaluation over the native producer passes all nine cost-observer and
+language-source-contract cases in 13.255 s. The final native backend caller
+qualifies twenty-four prepared/public routes across GQL, FHIRPath and Arithmetic,
+two source scales and two preferences, in 15.774 s. Each timed route retains
+canonical artifact equality; each public route has an untimed completed-branch
+witness. The caller uses two samples of two calls as an execution gate, not a
+matched performance comparison. Final markers and process exits propagate.
+
+No default executor changes and no speedup claim follows from these receipts.
+The remaining obligation is measured complete-request cost admission for any
+future representation change. Exact pushed-head platform and Rust AOT CI remain
+separate from these local controls.
+
+After integrating =0a1b326=, the shared sampler and current caller rebuild
+natively in 51.951 s. The updated caller retains the twenty-group ABBA/BAAB
+minimum and runs two calls per timed batch: twelve paired workload summaries,
+covering the twenty-four prepared/public representation routes, complete in
+24.615 s with exit 0, =LR-REQUEST-BACKENDS-OK= and final =OK=. Every source
+witness asserts the completed engine branch and every batch validates its product.
+The identical-executor GQL control is admitted stable; complete-request benefit
+admission is =#f=. This small-batch rerun qualifies the merged execution and
+admission path, not a portable CPU benefit. The earlier two-sample caller receipts
+remain historical execution controls; they do not satisfy the current paired
+performance protocol.
+
+
+* Shared literal IR and casefold lookup
+
+Bounded and ranked literal preparation and case-insensitive action lookup now
+share the literal trie builder. The prepared vocabulary is shared across LR
+states; the original state row remains the authority for entry admission.
+ASCII early misses avoid whole-string uppercase allocation, while Unicode
+conversion retains its original owner. No language declaration changes.
+
+The [[file:../research/casefold-request-qualification.org::*Shared literal vocabulary and casefold lookup qualification][native qualification]] separates complete-request allocation evidence from
+component CPU evidence. The =11b2cf1= complete matrix has 19,200 calls and 844 admitted
+allocation intervals. Latest =9374421= graph qualification passes 44 semantic
+cases and repeats the paired component benefit. GQL saves 2,944 or 24,448 bytes per request; FHIRPath and
+Arithmetic allocation controls are unchanged. Alternating lookup measurements
+admit early-miss benefit for long identifiers, but whole-parser CPU acceleration
+and the Bash/tree-sitter throughput gap remain unproved. Withdrawn prototypes
+and compiler qualification failures remain in the research history.
+
+
+* Complete-request casefold allocation proof
+
+The [[file:../research/casefold-request-qualification.org::*Complete casefold request evidence][complete request matrix]] executes 19,200 calls on one production graph, with
+only the casefold module pair withdrawn in the reference. Scheme validates 916
+exact no-GC allocation intervals and identical source/prepared saving deltas.
+Long-identifier requests reduce prepared allocation by 37.62--38.29% and full
+source allocation by 16.86--16.95%. Arithmetic allocation stays unchanged.
+Corrupted counters, forged CPU summaries and incomplete receipts are rejected.
+CPU benefit admission fails the unchanged control gate; no complete-parser CPU
+acceleration or Bash/tree-sitter throughput conclusion is made.

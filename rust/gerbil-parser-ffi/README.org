@@ -1,0 +1,125 @@
+#+title: Rust FFI language ownership
+
+This crate calls the language-independent C ABI from an already initialized
+Gerbil embedding host. It owns language handles and C result buffers. The
+host must keep the VM and loaded modules alive until all sessions are dropped.
+The optional =standalone= feature provides owned VM initialization and shutdown;
+see the standalone host contract below.
+
+A language author generates the Scheme/C entry with
+=generate-language-pack= and links that pack through the normal Gerbil
+builder. Rust declares only the generated factory; the generic ABI functions
+are supplied by =LanguageApi::linked=:
+
+#+begin_src rust
+use gerbil_parser_ffi::{LanguageApi, NativeSession};
+unsafe extern "C" {
+    fn my_language_create() -> u64;
+}
+// SAFETY: this host has initialized the pack on this OS thread and will keep
+// the VM and linked libraries alive until this scope and its borrowers end.
+let session = unsafe { NativeSession::attach(LanguageApi::linked(my_language_create)) }?;
+let language = session.language()?;
+let parsed = language.parse(source)?;
+let view = parsed.view()?;
+let root = view.root(); // None for syntax rejection.
+#+end_src
+
+=view= obtains its vocabulary and product digest from the same native handle.
+Canonical and contextual packs use this same API; no generated Rust parser
+specification or field-count argument is required. The immutable descriptor is
+admitted once per handle. =root=, =children= and =field(name)= borrow the original
+source and retain ordered nodes, tokens, repeated fields and byte spans.
+A syntax rejection is a successful transport with =view.accepted() == false=.
+=for token in view.tokens()= still exposes the original scanner classes, syntax
+kinds, ids, byte spans and borrowed text for diagnostics. This does not fabricate
+an accepted AST or recovery result. Accepted and rejected paths use the same
+handle catalog and retain the same lifetime restrictions.
+Handles, results and views are tied together by Rust borrows. Sessions cannot
+cross threads. Dropping a result releases its C allocation; dropping a language
+releases its registered handle. The wrapper does not copy source or GPA1 bytes,
+though the C/Scheme boundary still copies input and publishes a C-owned payload.
+
+For Source descriptors, each language handle retains its own Scheme scanner
+history across calls. Complete recognition and GPA1 publication still run.
+History commits after successful C result allocation and copying; failed
+transport leaves the previous history intact. The cache retains lexical state
+without retaining the previous AST/artifact. Releasing the handle releases
+that history. See the [[file:../../docs/research/scheme-source-edit-sessions.org][Source edit-session research contract]].
+
+Verification uses a real Rust static consumer in
+=t/fixtures/rust-language-abi=, linked into the compiled Gerbil probe.
+Run the repository's =qualify.ss local --suite ffi= or its Scheme
+Ubuntu CI. Compile-fail doctests verify the thread and borrow restrictions.
+
+* Rust ABI qualification build
+
+=build-rust-ffi-tests.ss= uses the official =std/build-script= / =std/make=
+owner to compile and link the disposable Rust/C transport probe. Its
+=optimize: #f= setting avoids whole-library optimizer analysis for this test
+entry; Gambit still produces compiled machine code. Language packs and parser runtime
+objects retain their own optimization settings. =verbose: 9= reports real
+compiler work, and the fixture preloader traces imports throughout the build.
+
+Both local and CI entrypoints use the native Cargo compiler progress proxy.
+The Rust consumer build/link gates remain 90 seconds with 30 seconds of output
+inactivity; execution remains 90 seconds with 5 seconds of output inactivity.
+Qualification requires actual native handle/result ownership and 100-call
+markers, not only a successful static Rust build.
+
+* Standalone C and Cargo hosts
+
+Build the parser package and language pack with their normal Gerbil build owner,
+then compile the language module into one native runtime library:
+
+#+begin_src shell
+gerbil env gxi build-qualification.ss compile
+gerbil env gxi qualify.ss shared-library --language-module my-language/abi \
+  --output /absolute/path/libmy_language.so
+#+end_src
+
+Use =.dylib= on macOS. Repeat =--language-module= for additional packs. The
+builder delegates Scheme generation, dependency closure and static compilation
+to the public Gerbil compiler API. The installed SDK's GCC compiler,
+optimization flags and ABI macros are retained; ambient =CC= does not replace
+the Scheme compiler. Its temporary root emits no unused dynamic
+modules, and all of its intermediate files are removed. Do not mix an
+unoptimized module with previously generated optimizer interfaces or consumers;
+rebuild the producer and consumers through their normal build owner.
+
+The C ABI headers and lifecycle implementation live together in
+=include/gerbil-parser/=; the bundle builder compiles =runtime.c= once with the
+SDK compiler. C hosts include =gerbil-parser/runtime.h=, initialize once, use
+generated pack factories and the generic language ABI, release all handles and results, and
+shut down on the initializing OS thread. Status =-2= retains a live runtime
+while C resources exist. Successful shutdown uses normal Gambit cleanup and
+permanently closes admission. Loading another Gambit VM or restarting this
+runtime in the same process is unsupported.
+
+Cargo hosts enable this crate's =standalone= feature, link that library in their
+usual =build.rs=, and declare only their generated factory:
+
+#+begin_src rust
+use gerbil_parser_ffi::{NativeRuntime, RuntimeApi};
+unsafe extern "C" { fn my_language_create() -> u64; }
+// SAFETY: this is the only Gambit VM, and its library remains loaded.
+let mut runtime = unsafe { NativeRuntime::start(RuntimeApi::linked(my_language_create)) }?;
+{
+    let language = runtime.language()?;
+    let parsed = language.parse(source)?;
+    let view = parsed.view()?;
+    let root = view.root(); // None for syntax rejection.
+}
+runtime.close()?;
+#+end_src
+
+Language, result and view borrows prevent closing their runtime. =Drop= closes
+it after its borrowers end; =close= permits reporting cleanup errors explicitly.
+Independently retained C resources must also be released before dropping it.
+The default feature set remains suitable for hosts that already own the VM.
+
+=qualify.ss host= builds independent C and Rust process hosts and
+requires normal cleanup, live-resource barriers, foreign-thread rejection and
+closed-runtime rejection. Builds retain 90/30 second total/inactivity limits;
+execution retains 90/5 seconds. Build progress reports actual preprocessed, IR,
+assembly and object file writes. No forced child exit qualifies this path.

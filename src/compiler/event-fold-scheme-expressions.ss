@@ -1,0 +1,222 @@
+;;; -*- Gerbil -*-
+;;; Build-time lowering only. Generated requests never dispatch expression data.
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in ./event-fold-byte-set fold-byte-set-for)
+        (only-in ./event-fold-prefix-family fold-scheme-prefix-family)
+        (only-in ./event-fold-scheme-context fold-scheme-share-expression)
+        (only-in ./event-fold-runtime fold-marker-byte))
+(export fold-scheme-offset fold-scheme-uint fold-scheme-predicate)
+
+;; Bindings map admitted names to generated lvalues, not runtime name tables.
+(def (slot bindings name)
+  (let (entry (assq name bindings))
+    (unless entry (error "unbound native fold slot" name))
+    (cdr entry)))
+
+(def (fold-scheme-offset expression bindings indices)
+  (fold-scheme-share-expression
+   (fold-scheme-offset/body expression bindings indices) bindings indices))
+
+(def (fold-scheme-offset/body expression bindings indices)
+  (def (offset value) (fold-scheme-offset value bindings indices))
+  (def (uint value) (fold-scheme-uint value bindings indices))
+  (cond
+   ((memq expression '(start end)) expression)
+   (else
+    (case (car expression)
+      ((line-prefix-end)
+       `(min end (+ start ,(string-utf8-length (cadr expression)))))
+      ((line-marker-end)
+       `(+ start ,(uint (cons 'line-marker-level (cdr expression)))))
+      ((line-index) (slot indices (cadr expression)))
+      ((state-offset) (slot bindings (cadr expression)))
+      ((line-step) `(min end (+ 1 ,(offset (cadr expression)))))
+      ((line-skip-horizontal line-scan-word line-scan-key
+        line-scan-nonspace-until line-scan-until line-physical-end)
+       (let* ((kind (car expression))
+              (from (offset (cadr expression)))
+              (test
+               (case kind
+                 ((line-skip-horizontal) '(memv byte '(9 32)))
+                 ((line-scan-word) '(not (memv byte '(9 10 13 32))))
+                 ((line-scan-key) '(fold-key-byte? byte))
+                 ((line-physical-end) '(not (memv byte '(10 13))))
+                 (else
+                  `(and (not (= byte ,(fold-marker-byte (caddr expression))))
+                        ,@(if (eq? kind 'line-scan-until) '()
+                            '((not (memv byte '(9 10 13 32))))))))))
+         `(let (bytes source-bytes)
+            (let loop ((cursor ,(if (eq? kind 'line-physical-end)
+                                 `(max start (min ,from end)) from)))
+              (if (and (< cursor end)
+                       (let (byte (u8vector-ref bytes cursor)) ,test))
+                (loop (+ cursor 1)) cursor)))))
+      ((line-trim-end line-trim-end-from line-content-end)
+       `(let (bytes source-bytes)
+          (let ((floor ,(if (eq? (car expression) 'line-trim-end-from)
+                         (offset (cadr expression)) 'start)))
+            (let loop ((cursor end))
+              (if (and (> cursor floor)
+                       (memv (u8vector-ref bytes (- cursor 1))
+                             ',(if (eq? (car expression) 'line-content-end)
+                                 '(10 13) '(9 10 11 12 13 32))))
+                (loop (- cursor 1)) cursor)))))
+      (else (error "unadmitted native fold offset" expression))))))
+
+(def (fold-scheme-uint expression bindings indices)
+  (fold-scheme-share-expression
+   (fold-scheme-uint/body expression bindings indices) bindings indices))
+
+(def (fold-scheme-uint/body expression bindings indices)
+  (def (uint value) (fold-scheme-uint value bindings indices))
+  (case (car expression)
+    ((uint) (cadr expression))
+    ((state) (slot bindings (cadr expression)))
+    ((offset) (fold-scheme-offset (cadr expression) bindings indices))
+    ((line-indent-column) `(event-byte-indent-column source-bytes start end ,(cadr expression)))
+    ((stack-top) `(let (stack ,(slot bindings (cadr expression)))
+                    (if (null? stack) 0 (car stack))))
+    ((uint-add uint-multiply uint-divide)
+     (let ((left (uint (cadr expression))) (right (uint (caddr expression))))
+       (case (car expression)
+         ((uint-add) `(+ ,left ,right))
+         ((uint-multiply) `(* ,left ,right))
+         (else `(quotient ,left (max 1 ,right))))))
+    ((line-marker-level)
+     `(fold-byte-marker-level source-bytes start end
+                              ,(fold-marker-byte (cadr expression))
+                              ,(fold-marker-byte (caddr expression))))
+    (else (error "unadmitted native fold unsigned expression" expression))))
+
+(def (fold-scheme-predicate expression bindings indices)
+  (fold-scheme-share-expression
+   (fold-scheme-predicate/body expression bindings indices) bindings indices))
+
+(def (bounded-boolean-code operator operands bindings indices)
+  ;; Preserve left-to-right short circuiting, but do not feed a monolithic
+  ;; branch chain to the native compiler. Shared groups remain ordinary
+  ;; native calls over this request's explicit slots and source bounds.
+  (if (<= (length operands) 8)
+    `(,operator ,@operands)
+    (let group ((rest operands) (part '()) (count 0) (groups '()))
+      (cond
+       ((or (null? rest) (= count 8))
+        (let (groups
+              (cons (fold-scheme-share-expression `(,operator ,@(reverse part))
+                                                  bindings indices)
+                    groups))
+          (if (null? rest)
+            (bounded-boolean-code operator (reverse groups) bindings indices)
+            (group rest '() 0 groups))))
+       (else (group (cdr rest) (cons (car rest) part) (+ count 1) groups))))))
+
+(def (fold-scheme-predicate/body expression bindings indices)
+  (def (predicate value) (fold-scheme-predicate value bindings indices))
+  (def (uint value) (fold-scheme-uint value bindings indices))
+  (def (offset value) (fold-scheme-offset value bindings indices))
+  (case (car expression)
+    ((bool) (cadr expression))
+    ((state) (slot bindings (cadr expression)))
+    ((uint-positive?) `(> ,(uint (cadr expression)) 0))
+    ((uint-equal? uint-greater? uint-not-equal?)
+     (let (comparison `(,(if (eq? (car expression) 'uint-greater?) '> '=)
+                        ,(uint (cadr expression)) ,(uint (caddr expression))))
+       (if (eq? (car expression) 'uint-not-equal?) `(not ,comparison) comparison)))
+    ((offset-less?) `(< ,(offset (cadr expression)) ,(offset (caddr expression))))
+    ((stack-nonempty?) `(pair? ,(slot bindings (cadr expression))))
+    ((not) `(not ,(predicate (cadr expression))))
+    ;; The interpreter normalizes successful Boolean combinations to #t.
+    ((and or) `(if ,(or (and (eq? (car expression) 'or)
+                            (fold-scheme-prefix-family (cdr expression)))
+                       (bounded-boolean-code (car expression)
+                                        (map predicate (cdr expression)) bindings indices))
+                  #t #f))
+    ((line-starts-with)
+     `(fold-byte-prefix? source-bytes start end ',(string->utf8 (cadr expression)) #f))
+    ((line-starts-with-ascii-ci)
+     `(line-starts-with-ascii-ci? #f ,(cadr expression) source-bytes
+                                ',(string->utf8 (cadr expression)) start end))
+    ((line-prefix-boundary-ascii-ci line-marker-ascii-ci)
+     `(fold-line-prefix-boundary? #f ,(cadr expression)
+                                  ,(eq? (car expression) 'line-marker-ascii-ci)
+                                  source-bytes ',(string->utf8 (cadr expression)) start end))
+    ((line-blank?) '(fold-line-blank? #f source-bytes start end))
+    ((line-has-word-after-prefix?)
+     `(fold-line-has-word-after-prefix? #f ,(cadr expression) source-bytes
+                                      ',(string->utf8 (cadr expression)) start end))
+    ((line-has-key-after-prefix?)
+     `(fold-line-has-key-after-prefix? #f ,(cadr expression) source-bytes
+                                     ',(string->utf8 (cadr expression)) start end))
+    ((line-byte-equal?)
+     `(let ((at ,(offset (cadr expression))) (bytes source-bytes))
+        (and (< at end) (= (u8vector-ref bytes at) ,(caddr expression)))))
+    ((line-bytes-all-in? line-bytes-any-in? line-bytes-in-set?)
+     (let* ((all? (eq? (car expression) 'line-bytes-all-in?))
+            (names? (eq? (car expression) 'line-bytes-in-set?))
+            (members (cadddr expression))
+            (byte-set (and (not names?) (fold-byte-set-for members expression))))
+       `(let ((from ,(offset (cadr expression))) (until ,(offset (caddr expression)))
+              (bytes source-bytes))
+          (unless (<= start from until end) (error "native fold range outside source line"))
+          ,(if names?
+             `(fold-line-name-set-contains? bytes from until
+                                             ',(list->vector members))
+             `(let loop ((cursor from))
+                ,(if all?
+                   `(or (= cursor until)
+                         (and (= 1 (u8vector-ref ',byte-set
+                                               (u8vector-ref bytes cursor)))
+                              (loop (+ cursor 1))))
+                   `(and (< cursor until)
+                          (or (= 1 (u8vector-ref ',byte-set
+                                                (u8vector-ref bytes cursor)))
+                              (loop (+ cursor 1))))))))))
+    ((source-slices-equal? source-slices-equal-ascii-ci?)
+     `(fold-source-slices-equal? source-bytes
+          ,@(map offset (cdr expression))
+          ,(eq? (car expression) 'source-slices-equal-ascii-ci?)))
+    ((future-line-marker-before-boundary?)
+     `(fold-future-marker-before-boundary?
+        source-bytes end ,(cadr expression)
+        ,(and (> (string-length (caddr expression)) 0) (caddr expression))
+        ,(fold-marker-byte (cadddr expression))
+        ,(fold-marker-byte (list-ref expression 4))
+        ,(list-ref expression 5) ,(list-ref expression 6)
+        ,(and (> (string-length (list-ref expression 7)) 0)
+              (fold-marker-byte (list-ref expression 7)))
+        (fold-future-cache-for ',expression)))
+    ((future-heading-title?)
+     (let (level (list-ref expression 3))
+       `(let (minimum (max 1 ,(if (pair? level) (uint level) level)))
+          (fold-future-heading-title?
+           source-bytes end ,(fold-marker-byte (cadr expression))
+           ,(fold-marker-byte (caddr expression)) minimum ,(list-ref expression 4)
+           (fold-future-cache-for (list ',expression minimum))))))
+    ((future-named-line-marker-before-boundary?)
+     (let ((parent? (= (length expression) 16))
+           (boundary (list-ref expression 5)))
+       `(let* ((name-from ,(offset (cadr expression)))
+                (name-until ,(offset (caddr expression)))
+                (stop-from ,(and parent? (offset (list-ref expression 11))))
+                (stop-until ,(and parent? (offset (list-ref expression 12))))
+                (index
+                 (fold-future-index-for
+                  '(future-named-index ,expression)
+                  (lambda ()
+                    (fold-future-named-index
+                     source-bytes ,(list-ref expression 3)
+                     ,(if parent? (list-ref expression 13) "")
+                     ,(and (> (string-length boundary) 0) boundary)
+                     ,(fold-marker-byte (list-ref expression 6))
+                     ,(fold-marker-byte (list-ref expression 7))
+                     ,(list-ref expression 8) ,(list-ref expression 9)
+                     ,(list-ref expression 10) ,parent?
+                     ,(and parent? (list-ref expression 15)))))))
+          (fold-future-named-index-result
+           index source-bytes end name-from name-until
+           ,(list-ref expression 3) ,(list-ref expression 4) ,(list-ref expression 10)
+           stop-from stop-until
+           ,(if parent? (list-ref expression 13) "")
+           ,(if parent? (list-ref expression 14) "")
+           ,(and parent? (list-ref expression 15))))))
+    (else (error "unadmitted native fold predicate" expression))))

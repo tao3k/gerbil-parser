@@ -1,0 +1,149 @@
+#+TITLE: Qualification Ownership
+
+* One process contract
+
+=qualify.ss= is a Scheme source entry. =build-qualification.ss= compiles the
+process support modules with the standard SDK scheduler; it declares no
+executable. Alignment is owned by =t/language-abi-alignment-test.ss= and runs
+through =gerbil test= in the same Scheme runtime as fixture generation.
+The library is tooling, excluded from the parser package's production catalog.
+Test support lives under =t/support/qualification/=; native process controls
+live under =t/fixtures/qualification/=. Pure plan and SDK admission controls
+are exported =:std/test= suites in =t/=, discovered by =gerbil test t/...=.
+CI runs process controls through =just test-process-contracts= and does not
+start separate GXI processes for those pure suites before the normal harness.
+=t/support/qualification/process.ss= owns real-byte observation, complete logs,
+absolute and idle deadlines, exit admission, and required receipts.
+A child closing its output does not end its execution deadline.
+Console backpressure does not count as child silence. A green thread waits
+with the SDK process-status primitive and delivers the exit event immediately;
+the deadline monitor no longer polls for exit at 50 ms intervals.
+
+* Cancellation authority
+
+For external build/tool commands, the supervisor starts the precompiled child
+through GXI and the SDK's native =load-module= runtime-object loader.
+The original strict process deadlines remain. No source file or =.ssi= macro
+dependency graph is expanded per invocation. A thin POSIX FFI establishes
+a fresh session before launching the requested command and acknowledges its
+identity through a private temporary witness, then replaces that same GXI
+process with the command using =execvp=. There is no extra Scheme waiter or
+project launcher binary. Cancellation admits process
+groups through that root and observed parent-child topology, including a
+controlled descendant which creates another session. No existing task is a
+cleanup target. Before acknowledgement, only the direct unreaped child is
+admitted. The lifecycle owner stops its monitor before validating results.
+
+=t/fixtures/qualification/process-controls.ss= exercises silent and continuously
+writing children, closed output, nonzero exits, immediate error cancellation,
+a descendant in another session, and an unrelated child which must survive.
+A real delayed pipe consumer verifies 2,000 Unicode records in both stdout and
+log; the C fixture checks blocking compiler descriptors.
+
+* Compiler responsibility
+
+Scheme owns qualification and product declarations. Gerbil and Gambit own
+module closure and native compilation.
+The production =build-shared-library.ss= entry uses =:std/os/fcntl= directly
+to clear inherited nonblocking descriptor flags; it imports no test support.
+Cargo owns Rust compiler invocation and its jobserver.
+A Scheme replacement for a rustc proxy would risk closing
+Cargo's inherited jobserver descriptors through Gambit's process launcher;
+the product owner therefore invokes Cargo directly without that proxy.
+
+* Evidence boundary
+
+Process controls qualify cancellation and evidence transport. They do not
+replace parser semantic controls, generated-product byte comparisons,
+independent C/Rust host qualification, or exact-head CI.
+The result also records whether the session witness was published. An
+=idle-timeout= in =bootstrap= does not prove that the requested command ran.
+Earlier cold support under concurrent production compilation failed the
+1.5-second identity idle gate before publishing that witness. Runtime-object
+loading alone did not solve it. A native startup diagnostic separated GXI
+initialization from child-module loading; the latter had a redundant private
+POSIX module boundary. Its single-consumer FFI now lives in =process-child.ss=;
+=process-os.ss= is removed, reducing support compilation from eight modules
+to seven. This is not an end-to-end performance claim.
+
+The monitor admits session acknowledgement as one real completed stage,
+only before the existing idle fence expires. It never repeatedly refreshes
+progress from the same witness; the total clock still starts before GXI.
+Six concurrent first child-module loads are checked before sequential controls
+can warm the objects. Deadlines, kernel and native GXI ownership are unchanged.
+The diagnostic =t/fixtures/qualification/startup-controls.ss= records actual
+phase times separately; it is not an admission suite or a duplicate CI test.
+
+* Source and local plans
+
+=t/support/qualification/plans.ss= declares compilation and execution stages with
+separate budgets and receipts. Profile and actor suites compile the union of
+diagnostic modules once. Prepared diagnostics reject other suite types and
+require the compiled products to exist. Native environment selection chooses
+Cargo and rustc together and removes ambient cross-build overrides.
+
+=t/support/qualification/performance.ss= hashes current production, language,
+test, and tooling sources before execution and after every suite. A private
+source overlay precedes compiled parser products. The compiled session child
+owns its private POSIX FFI, then restores the requested child's load
+environment before execution.
+Final CASE/MODULE/HARNESS/OK receipts and a successful exit are all required.
+
+* SDK provisioning boundary
+
+CI uses host package managers and checksum-verified archive extraction before
+Scheme exists. =tools/ci/bootstrap.ss= admits the immutable release schema,
+revision and platform, activates relocated runtime mappings, and publishes
+native capacity and SDK environment to GitHub Actions. Build, execution,
+product comparison and qualification thereafter use Scheme owners. No Python
+or Bash script forwards the removed project qualification entrypoints.
+
+* Local qualification receipts
+
+The controlled cancellation suite passed, including Unicode backpressure,
+blocking descriptors, immediate errors and unrelated-process survival.
+After the native owner consolidation, two fresh support roots also pass six
+concurrent cold identities, the cancellation/admission controls and native
+plan/bootstrap suites. Original idle and total limits remain unchanged.
+The existing four conformance controls, compiler pipe controls, GQL profile
+and actor stages, and current-source incremental performance contract passed
+through the Scheme owner. Independent C, Rust and borrowed host lifecycle
+receipts passed with SDK parallel compilation retained.
+
+A local shared-library wait was traced to the SDK's empty
+=parser.o.lock= from October 1; no corresponding active compiler remained.
+Removing that one generated local lock allowed the bundle to complete in
+15.7 seconds. This is a local diagnosis, not an end-to-end performance claim
+or an automatic stale-lock recovery policy. No timeout was increased.
+
+* Source test entry policy
+
+Pure Scheme semantic checks run directly through the standard test runner.
+Alignment generates and compares the complete language fixture in one runtime;
+it requires neither a qualification executable nor a conformance executable.
+The source CLI remains available for external command deadlines and logs.
+Native library/FFI module compilation and explicit AOT product verification
+retain their normal SDK owners; they do not create a prerequisite test tool.
+
+CI runs the source alignment Suite before optional command/conformance executable
+construction. Its shared fixture entry list is independent of any compiled Suite.
+The source CLI loads compiler and benchmark services only for the selected
+profile, so basic external-command observation does not initialize those services.
+
+* CI correctness and performance acceptance
+
+Pull requests and main pushes run production builds, Scheme/Rust semantic
+tests, generated-product comparisons, ABI ownership, lifecycle and natural-GC
+correctness controls. Standalone scanner/public-parser CPU benefit proofs,
+Source edit cost observations, GQL component/actor reports and the repeated
+complete LR request matrix run through the same workflow's native
+=workflow_dispatch= event. Their existing assertions, samples and deadlines
+remain required when selected. Semantic tests for those engine paths remain
+in the ordinary test suites; an optional cost report is not their replacement.
+
+Before claiming an optimization benefit or accepting a performance release,
+run the workflow manually for the exact candidate revision. A passing ordinary
+PR run establishes its executed correctness gates, not the skipped performance
+proofs. The =ae13f1b= run qualified all these paths before this scheduling split;
+its performance evidence remains tied to that revision. No additional script,
+job, dependency or benchmark dispatcher is introduced.

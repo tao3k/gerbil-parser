@@ -1,6 +1,7 @@
 ;;; Grammar IR to immutable parser-machine IR compilation.
 
-(import (only-in ./lr-compiler compile-lr-spec)
+(import (prefix-in ../runtime/parser-ir-data irdata-)
+        (only-in ./lr-compiler compile-lr-spec)
         (only-in ../grammar/algebra
                  grammar-expression? grammar-expression-references
                  grammar-expression-terminals)
@@ -9,13 +10,17 @@
         parser-ir-ref
         parser-ir-canonical)
 
-;; : (-> (List SyntaxKindRow) Symbol)
-;; require-root
-;; : (-> List Symbol)
-(def (require-root syntax-kinds)
-  (if (null? syntax-kinds)
-    (error "parser grammar requires a root syntax kind")
-    (caar syntax-kinds)))
+;; Derive aliased roots from the entry rule; raw contracts retain catalog roots.
+;; : (-> List List Symbol Symbol)
+(def (require-root syntax-kinds rules root-rule)
+  (when (null? syntax-kinds) (error "parser grammar requires a root syntax kind"))
+  (let* ((expression (cadr (assq root-rule rules)))
+         (kind (if (and (pair? expression) (eq? (car expression) 'alias))
+                 (cadr expression) (caar syntax-kinds)))
+         (row (assq kind syntax-kinds)))
+    (unless (and row (eq? (cadr row) 'node))
+      (error "parser entrypoint must publish a declared node root" root-rule kind))
+    kind))
 
 (def (row-names rows)
   (map car rows))
@@ -48,7 +53,7 @@
     (for-each
      (lambda (row)
        (unless (lexical-expression? (cadr row))
-         (error "invalid normalized lexical expression" (car row))))
+         (error "invalid normalized lexical expression" (car row) (cadr row))))
      lexical-rules)))
 
 (def (validate-rules rules terminals)
@@ -99,7 +104,7 @@
 
 ;; compile-parser
 ;; : (-> Alist Alist)
-(def (compile-parser grammar)
+(def (compile-parser grammar (construction 'lalr))
   (unless (and (list? grammar)
                (equal? (let (row (assq 'schema grammar))
                          (and row (cdr row)))
@@ -128,11 +133,11 @@
      (cons 'grammar (parser-ir-ref grammar-ir 'grammar))
      (cons 'compositionDigest
            (parser-ir-ref grammar-ir 'compositionDigest))
-     (cons 'root-kind (require-root syntax-kinds))
+     (cons 'root-kind (require-root syntax-kinds rules (require-entrypoint entrypoints rules)))
      (cons 'root-rule (require-entrypoint entrypoints rules))
      (cons 'lr-spec
            (compile-lr-spec rules (require-entrypoint entrypoints rules)
-                            conflict-policy case-insensitive?))
+                            conflict-policy case-insensitive? construction))
      (cons 'conflict-policy conflict-policy)
      (cons 'case-insensitive? case-insensitive?)
      (cons 'syntax-kinds syntax-kinds)
@@ -147,9 +152,7 @@
 
 ;; parser-ir-ref
 ;; : (-> Alist Symbol Datum)
-(def (parser-ir-ref ir key)
-  (alet (entry (assq key ir))
-    (cdr entry)))
+(def parser-ir-ref irdata-parser-ir-ref)
 
 (def (parser-ir-canonical ir)
   (call-with-output-string

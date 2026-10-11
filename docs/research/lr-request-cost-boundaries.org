@@ -1,0 +1,482 @@
+#+title: LR request cost boundaries and Scheme-native instrumentation
+
+* Research question and responsibility
+
+Why can the public GQL parser report request P50/P95 without explaining where
+the request spends its time? At =8e0f92c=, =measure-parser-stages= recorded only
+=observed-complete-request= for the representative GQL query. The shared Source
+engines had stage hooks, but the ordinary streaming LR path did not.
+
+This is an instrumentation coverage gap, not evidence of a Gambit GC defect or
+a grammar declaration defect. The engine owns the boundaries. Language authors
+continue to declare grammar, parser metadata and tests through their existing
+three interfaces; they do not add timing callbacks to grammar rules.
+
+* Official implementation study
+
+The installed Gerbil SDK source used for this investigation is
+=0.19.2591dcd.patchf5cedd8168cb=, upstream source directory =2591dcd=.
+=src/std/misc/ports.ss= defines =with-input= and =with-output= using hygienic
+=defrules= that lower delayed bodies to ordinary procedures.
+=src/gerbil/runtime/util.ss=, =DBG-helper=, preserves arbitrary result values
+using =call-with-values= and =apply values=. These are the relevant patterns:
+use the compiler's syntax facilities and preserve Scheme result semantics.
+They do not imply that every debugging facility is allocation-free.
+
+The existing =with-parser-cost-stage= macro follows that separation: when the
+request-local observer is absent, its expression executes directly; only the
+observed branch calls the measurement procedure with a thunk. The measurement
+procedure preserves multiple values and reports completion on dynamic exit.
+No kernel modification, second scanner or language-specific timing DSL is
+needed. Disabled calls still read the observer parameter; this study does not
+claim zero overhead.
+
+* Implemented boundaries
+
+The fast streaming path retains the same scanner, generated driver selection,
+deterministic checkpoint driver, fallback and publication behavior.
+
+| Stage | Measured operation |
+|-------+--------------------|
+| source-recognition | Selected streaming LR drive, including its scanner callbacks |
+| artifact-materialization | Successful artifact construction or failure artifact construction |
+| fallback-lexical-analysis | Remaining source tokenization after an admitted GLR fork |
+| fallback-lr-execution | LR/GLR suffix resumption after the fork |
+| generated-source-product | Optional generated complete-source backend attempt |
+
+Scanning and LR execution are interleaved inside the streaming drive. Measuring
+each token callback would insert an observer and process-statistics snapshots
+into the hot loop. The coarse fused boundary is deliberate and accurately
+named. Further separation requires a matched experiment that accounts for
+instrumentation cost, not subtraction of independent medians.
+
+Stage receipts describe invocations. A driver retry can produce several
+receipts with the same stage name in one request. The benchmark retains every
+raw receipt and reports its stage receipt count; that count must not be read
+as an independent request count. Missing stages are not zero-cost stages.
+
+* Two design questions
+
+** Why is this a better use of Scheme's DSL and macro facilities?
+
+The common engine can expose diagnostics through hygienic syntax without
+requiring duplicated timing plumbing in =grammar.ss= or a new POO slot in each
+language. POO remains responsible for loader inheritance, metadata and parser
+policy. Ordinary Scheme values and procedures express the measurement itself.
+The following is the actual engine pattern and public benchmark usage:
+
+#+begin_src scheme
+;; Engine-owned expression boundary; the macro's disabled branch is direct.
+(with-parser-cost-stage 'artifact-materialization
+  (make-success-parse-artifact grammar-digest source tokens root trivia?))
+
+;; A consumer supplies the existing public parser, not another implementation.
+(measure-parser-stages parse-gql +gql-representative-query+ 20)
+#+end_src
+
+** Why is the result scientifically testable?
+
+Each sample must equal an unobserved complete reference artifact and pass
+source-bound admission. Accepted, rejected and empty GQL inputs additionally
+exercise observation through the public parser. Allocation samples are admitted
+only when the process-statistics interval has no GC and a nonnegative counter
+delta. P95 uses the existing nearest-rank statistics index. CPU percentiles,
+allocation admission counts and complete product identities remain separate
+fields. A future optimization can fail these controls or fail to improve a
+matched native measurement; the design does not assume that it must win.
+
+* Initial receipt and limits
+
+The representative query has 138 characters and publishes 315 events. With
+observation enabled, 20 source-execution samples reported:
+
+| Stage | CPU P50 ms | CPU P95 ms | Admitted allocation P50 bytes |
+|-------+------------+------------+------------------------------|
+| source-recognition | 1.7015 | 1.8880 | 3304672 |
+| artifact-materialization | 0.2550 | 0.2880 | 644000 |
+| observed-complete-request | 1.9710 | 2.1850 | 3975904 |
+
+All 20 allocation samples were admitted in each row. Full product equality and
+source admission passed outside the measured request. The temporary receipt is
+unarchived local execution; it is execution evidence, not a
+tracked benchmark fixture.
+
+This establishes that recognition owns most observed CPU and allocation for
+this query. It does not isolate scanning from LR, identify a particular rule,
+qualify all grammar sizes, or establish native end-to-end latency. Loading and
+grammar compilation are excluded after the reference parse. Percentiles from
+20 samples are diagnostic, not a stable service latency distribution. Stage
+medians must not be summed to estimate total latency.
+
+The next optimization target should be selected inside the shared recognition
+implementation using matched complete-product controls and native execution.
+The present change closes observable coverage without changing DSL semantics.
+
+* Qualification boundary
+
+The focused source run passed 52 cases, including public GQL accepted/rejected
+products, HCL controls, multiple values, original conditions, observer dynamic
+scope and byte-for-byte ABI fixture parity across all language packs. The
+official SDK also compiled =parse-cost.ss= and =parser.ss= into native modules.
+
+A partial native execution experiment was not admitted: the local dependency
+cache contained an artifact interface without the current source-bound
+validation export. Reordering source and compiled dependencies subsequently
+terminated with exit 139. This establishes neither a parser regression nor a
+successful native run. Qualification requires one current native dependency
+graph; mixing an isolated rebuilt parser with stale interfaces is insufficient.
+At that point, complete native execution remained an outstanding gate.
+
+* Unified native qualification and allocation accounting
+
+The follow-up used the official package =clean= and =build.ss compile= entry,
+four std/make workers, and the existing Scheme process supervisor. The budget
+remained 240 seconds with a five-second no-output gate. Two initial attempts
+were rejected by that gate during cold dependency admission, before an adequate
+build receipt. Compiler verbosity alone did not expose the cold import work.
+The existing expander import tracer then reported actual interface admission
+alongside the SDK compiler logs; the unified build completed in 154.258 seconds,
+exit 0, with no timeout or error reason. No heartbeat or longer deadline was
+introduced. This is optional native qualification, not a source-test binary
+prerequisite.
+
+The subsequent execution selected the rebuilt
+=.gerbil/lib/gerbil-parser/src/runtime/parser.ssi= and completed 20 GQL samples,
+each with full reference-product equality and source-bound admission:
+
+| Stage | Native CPU P50 ms | Native CPU P95 ms | Admitted allocation P50 bytes |
+|-------+-------------------+-------------------+------------------------------|
+| source-recognition | 0.1090 | 0.1230 | 125888 |
+| artifact-materialization | 0.0170 | 0.0190 | 45392 |
+| observed-complete-request | 0.1315 | 0.1540 | 180432 |
+
+All 20 allocation intervals qualified in each row. The source and grammar
+digests match the earlier source-execution receipt. Evidence is in
+unarchived local execution. The benchmark entry itself
+is source-loaded while the production parser dependency graph is compiled.
+Observer overhead remains included. This establishes successful execution of
+the unified native graph; it does not diagnose the exact instruction that
+failed in the earlier mixed graph, admit cold-start latency, or establish a
+before/after parser optimization speedup.
+
+The source/native difference also prevents treating interpreted diagnostic
+allocation as native parser allocation. Native recognition remains the largest
+observed stage, but it requires about 126 KB per observed sample in this receipt,
+not the 3.30 MB measured during source execution.
+
+The older GQL component benchmark now uses the same allocation admission as
+the request benchmark. It retains =allocation-counter-delta= for every sample;
+only a no-GC, nonnegative interval contributes to allocation percentiles.
+=allocationSampleCount= records the admitted population. An empty population
+publishes =#f= for P50/P95, while a genuine zero-allocation sample remains zero.
+Actor batches retain raw process counters but do not attribute them to one
+caller. Twelve source controls cover these cases and the existing complete
+GQL component products.
+
+Fourteen focused GQL/request controls subsequently passed against the rebuilt
+native production graph. The all-language ABI fixture test passed separately
+through its ordinary source-owned entry, as configured in CI. An initial attempt
+to force compiled test imports selected an old test interface whose generated
+Scheme body was not a valid source module; that combined harness was rejected.
+The successful receipts are
+unarchived local execution. Production native
+qualification does not make stale compiled test products authoritative.
+
+This conservative policy is consistent with the official
+[[https://raw.githubusercontent.com/gambit/gambit/master/lib/_kernel.scm][process-statistics implementation]] and
+[[https://raw.githubusercontent.com/gambit/gambit/master/lib/mem.c][bytes_allocated implementation]] inspected on 2026-10-09: the statistics vector
+includes allocation and collection counters, while the allocation expression
+contains an occupied-still-object term. These upstream master sources are
+structural references, not the identity of the installed SDK. They support
+keeping raw counters, heap state and admitted interval estimates distinct;
+they do not prove a collector defect or authorize changing the allocator.
+
+* Matched native component receipt
+
+The current =execution-counts=, =reduction-counts= and =matched-stages= modules
+were compiled against the unified production graph. The existing workload
+remained 40 samples of 100 calls per component, with complete artifact
+comparisons and untimed execution/reduction controls. The supervised run
+finished in 43.882 seconds including traced cold admission, exit 0, with
+=GQL-STAGES-OK= and no timeout reason. Most of this elapsed interval is outside
+the timed batches; it is not parser latency. Receipt:
+unarchived local execution.
+
+| Component | CPU P50 ms per 100 calls | CPU P95 ms per 100 calls | Allocation P50 bytes per call | Admitted allocation batches |
+|-----------+-------------------------+-------------------------+-------------------------------+----------------------------|
+| global-lexing | 1.169 | 1.223 | 50788 | 40 / 40 |
+| prepared-lr | 8.568 | 9.009 | 82484 | 39 / 40 |
+| artifact-publication | 1.317 | 1.360 | 44324 | 40 / 40 |
+| full-source | 12.095 | 22.589 | 173196.32 | 38 / 40 |
+
+Full-source wall P50/P95 per call were 0.1220/0.6866 ms. Its actual wall-P95
+batch was sample 12: 68.662 ms wall, 14.043 ms CPU, zero GC, and 17319632
+admitted allocation bytes. Thus GC does not explain this particular P95 batch.
+The signed wall-minus-CPU observation was 54.619 ms; it does not identify a
+scheduler, OS or library cause. Independent wall/CPU P95 values must not be
+subtracted to diagnose this batch.
+
+Prepared LR remains the largest CPU component among these controls. Global
+lexing is not the streaming scanner's selected lexical-mode path, and prepared
+LR does not include source scanning, so component medians are not an additive
+decomposition. These results support investigating the shared recognition
+path with its 37 shifts and 288 reductions before proposing grammar-specific
+runtime code. They do not establish a speedup or a GC problem.
+
+* Reduction-width specialization experiment
+
+** Question and Scheme design
+
+Does explicitly separating epsilon, unary and wider stack pops improve the
+shared native LR path enough to justify more expanded code? The existing
+=with-pop-reduction= macro already borrows the top semantic stack for a unary
+production and allocates a source-order value list only for wider productions.
+The candidate separated widths zero and one from the generic countdown loop,
+retained the same underflow condition and evaluated all inputs once. Its three
+branches duplicated the hygienically bound continuation body.
+
+The relevant Scheme abstraction stays inside the engine:
+
+#+begin_src scheme
+(with-pop-reduction states semantic-values count
+  (source-values remaining-values remaining-states)
+  ;; Existing semantic reduction and goto publication consume these bindings.
+  (reduce-value production source-values offset make-recognition-fragment))
+#+end_src
+
+Why does this serve the DSL design? The macro binds the engine's private
+representation protocol without asking grammar authors to declare stack
+operations or choose another backend. POO loader/metadata composition remains
+separate. Why is the choice scientific? Equivalent syntax is not sufficient:
+the compiler sees ordinary Scheme in either version, so the candidate must
+preserve complete products and justify its expansion cost in native controls.
+
+** Controls and execution boundary
+
+Nineteen source cases passed for empty/unary operand actions, retained siblings,
+fragment transfer and GQL component products. The baseline was the unified
+native production graph at =f750b96=. The candidate rebuilt only
+=src/runtime/lr-parser.ss= with the same SDK and optimization settings, retaining
+the other compiled production modules. Each child asserted its selected LR
+=.ssi= path before running the unchanged 40 x 100 component workload. Timing
+processes ran sequentially in ABBA order.
+
+An initial ABBA attempt stopped in its third child after =GQL-STAGES-OK= because
+the child did not exit within the no-output gate. A repeat using ordinary
+=exit= also stopped after a completed baseline receipt. Neither incomplete
+sequence was admitted. The final experiment used the repository's existing
+disposable native child exit contract, which flushes receipts and exits only
+after the benchmark returns. This is the same ownership boundary already used
+by =t/support/qualification/plans.ss=; no new project runner or timeout change
+was required. All four final children exited zero, with no reason or missing
+completion receipt. This does not diagnose the earlier teardown stall.
+
+** Native ABBA results and decision
+
+| Order | Variant | Prepared LR CPU P50 ms / 100 | Full-source CPU P50 ms / 100 | Full-source CPU P95 ms / 100 |
+|-------+---------+-----------------------------+-----------------------------+-----------------------------|
+| A1 | baseline | 8.653 | 11.876 | 15.690 |
+| B1 | candidate | 8.517 | 11.713 | 16.790 |
+| B2 | candidate | 8.445 | 11.759 | 17.420 |
+| A2 | baseline | 8.734 | 11.860 | 12.477 |
+
+All four runs reproduced the admitted complete artifact and untimed reduction
+controls. Admitted prepared-LR allocation remained 82484 bytes per call in
+39/40 batches; full-source allocation remained 173196.32 bytes per call in
+38/40 batches. The arithmetic mean of the two run medians decreased about
+2.4% for prepared LR and 1.1% for full-source. This is a descriptive summary,
+not a confidence interval or a tail-latency guarantee. Full-source P95 did not
+improve consistently. The generated LR Scheme body grew from 141221 to 145903
+bytes, about 3.3%; this is generated-source size, not native binary size.
+
+The candidate was reverted. The small full-product CPU change, unchanged
+allocation and inconsistent tails do not justify adopting body duplication on
+this evidence. The result does not prove that every width specialization is
+useless, nor that the compiler emits identical instructions. It rejects this
+candidate as the next production optimization. Further work should investigate
+representation or repeated action work that can remove measured allocation or
+substantial complete-request cost, rather than manually replacing a countdown
+loop on the assumption that native lowering is inadequate.
+
+Temporary final receipts are
+unarchived local execution
+and their =-supervision.log= peers. The superseded failed attempts remain under
+unarchived local execution for
+audit. After restoring the original macro, the checkout was advanced to
+=9c4b763=, preserving the separately integrated shared region-opener index.
+The experiment's ABBA timings remain evidence for =f750b96=, not a performance
+claim about that later revision.
+
+After the fast-forward, 32 controls passed for region scanning, epsilon/unary
+reductions, fragment transfer, GQL diagnostics and all-language ABI fixture
+parity. The first local native rebuild stopped after 72.954 seconds at the
+five-second no-output gate; it is a failed receipt. The same official incremental
+build then completed in 10.628 seconds, exit zero, with no reason. Both retained
+the original budgets. These receipts are
+unarchived local execution.
+
+The rebuilt =9c4b763= production graph subsequently passed the original native
+GQL 40 x 100 workload with complete product controls and =GQL-STAGES-OK=.
+The owned child completed in 39.983 seconds including cold admission, exit zero,
+with no reason or missing receipt; evidence is
+unarchived local execution. This qualifies
+the selected native execution after the fast-forward without promoting the
+rejected width candidate or reusing older-head CI as current evidence.
+
+* Literal lookup eligibility and repeated conversion
+
+The next candidate used the prepared action row to bypass literal lookup and
+=string-upcase= when the row contained no literal entries. Its predicate
+checked the existing ASCII vector and the empty-list/table representation;
+it added neither a user declaration nor a new row field. Layout dispatch,
+exact-literal priority, token-kind fallback and original action-pair identity
+were preserved. Twenty-two source controls passed, including empty, ASCII,
+Unicode and table-backed literal rows.
+
+The representative GQL request has zero literal-free states among its 279
+non-EOF action observations. Therefore the candidate's bypass is never selected
+on this workload. Four sequential native children used the same =9c4b763=
+production graph, with only the candidate action-index and LR modules replaced.
+Each asserted the selected LR interface path, executed the original 40 x 100
+complete-product controls and exited zero without a supervision reason or
+missing receipt. The timeout and five-second no-output gate were unchanged.
+
+| Order | Variant | Prepared LR CPU P50 ms / 100 | Full-source CPU P50 ms / 100 | Full-source CPU P95 ms / 100 |
+|-------+---------+-----------------------------+-----------------------------+-----------------------------|
+| A1 | baseline | 9.795 | 12.936 | 20.775 |
+| B1 | candidate | 10.604 | 14.887 | 23.100 |
+| B2 | candidate | 10.896 | 15.929 | 22.907 |
+| A2 | baseline | 11.117 | 18.196 | 25.796 |
+
+Admitted prepared allocation was 82484 bytes per call in 39/40 batches and
+full-source allocation was 173196.32 bytes in 38/40 batches in every run.
+Baseline medians also drifted substantially across the sequence. These timings
+do not support a stable CPU improvement, and the unchanged allocation agrees
+with the zero bypass eligibility. The candidate was reverted; its native
+receipts remain in unarchived local execution. This rejects this
+candidate for the measured GQL request, not every possible grammar workload.
+
+The permanent untimed execution diagnostic now distinguishes three quantities:
+=caseFoldObservations= counts the current executor's conversion condition after
+an exact-literal miss, =caseFoldTokens= counts distinct input positions requiring
+conversion, and =repeatedCaseFoldObservations= counts additional conversions on
+those positions. It consults canonical action rows without performing another
+conversion, retains the complete directed-artifact comparison and excludes EOF.
+This is a GQL prepared-execution diagnostic, not an instrumented layout or GLR
+trace and not a timing decomposition of streaming recognition.
+
+For the representative request, the counts are 21, 14 and 7 respectively.
+Although there are 288 reductions, most action observations hit an exact
+literal or do not reach the conversion condition. A per-token conversion cache
+could eliminate at most those seven repeated conversions on this request;
+the action counts alone do not justify it as a major optimization. Uppercase
+and lowercase keyword controls check that exact hits short-circuit conversion
+while admitted shifts remain identical. Further representation work should
+be prioritized against the measured complete-request allocation, rather than
+assuming every reduction repeats case folding.
+
+After this experiment, the checkout was fast-forwarded to =cb6ff10=, preserving
+the separate region-trie rejection study. These ABBA measurements qualify
+=9c4b763= only. The diagnostic changes and source controls run on the later
+checkout; they do not establish a native performance gain on that revision.
+The final source diagnostic/index qualification passed eleven cases with
+=HARNESS-OK= and final =OK=, exit zero, with no failed cases. Its receipt is
+unarchived local execution; the representative count
+receipt is unarchived local execution.
+
+* Bounded recognition-sequence materialization
+
+After rejecting repeated case folding as the major next target, this study
+followed semantic representation through operand actions and publication.
+=recognition-sequence-append= retains immutable branch operands. The previous
+=recognition-sequence->list= delegated every non-list sequence to the generic
+visitor, which allocated a pending-list cell and a three-slot vector for each
+deferred right branch. Those frames preserve relocation state even for ordinary
+unrelocated branches. This is engine representation work, not a language-pack
+configuration problem or evidence of a Gambit GC defect.
+
+The candidate keeps Gerbil's official =:std/list/list-builder= macro as the
+output-list owner. Its installed SDK implementation expands collection to a
+single locally owned chain. A private traversal visits ordinary branches
+directly while depth is below 64, appends list leaves with the standard
+=for-each=, and delegates deep, relocated or event-program subtrees to the
+existing iterative visitor. The direct traversal does not traverse child node
+bodies and has a fixed recursion bound. It changes no field/alias action,
+sequence ownership, token identity, parser setting or grammar declaration.
+The cutoff is a storage safety bound, not a language precedence or indentation
+parameter. Its value was not tuned against the benchmark.
+
+#+begin_src scheme
+;; The same sequence contract covers persistent concatenation and publication.
+;; A language author does not select traversal or temporary-frame storage.
+(let* ((left (list (make-recognition-child #f (make-token 'number "1" 0 1))))
+       (right (list (make-recognition-child 'item (make-token 'number "2" 2 3))))
+       (sequence (recognition-sequence-append left right)))
+  (equal? (recognition-sequence->list sequence) (append left right)))
+#+end_src
+
+Why is this interface preferable? Persistent semantic composition remains one
+engine contract while temporary storage stays private; language packages need
+no additional declaration to obtain the improvement. Why is the claim
+scientifically testable? The old and candidate native modules execute the same
+tokens and complete artifact controls, and admitted no-GC allocation measures
+the actual request interval independently of the temporary-frame hypothesis.
+This example alone is not performance evidence.
+
+** Matched native evidence
+
+The sequential ABBA runs kept the original 40 x 100 sample/batch sizes and the
+same production dependency graph. The isolated candidate replaced only
+=src/runtime/funcs.ss=, compiled with official =gerbil compile -O=. Each child
+asserted the selected =funcs.ssi= path before dependency admission, reproduced
+the complete artifact and derivation controls, and exited zero with no reason
+or missing completion receipt. The original 60-second budget and five-second
+no-output gate remained in force.
+
+| Order | Variant | Prepared LR CPU P50 ms / 100 | Full-source CPU P50 ms / 100 | Full-source CPU P95 ms / 100 |
+|-------+---------+-----------------------------+-----------------------------+-----------------------------|
+| A1 | baseline | 8.665 | 12.144 | 16.915 |
+| B1 | candidate | 8.509 | 11.621 | 17.484 |
+| B2 | candidate | 8.620 | 11.800 | 16.742 |
+| A2 | baseline | 8.641 | 12.332 | 16.954 |
+
+Every baseline admitted 82484 prepared-LR bytes per call and 173196.32
+full-source bytes per call; every candidate admitted 77252 and 167964.32.
+The decrease is 5232 bytes per call, approximately 6.34% of prepared LR and
+3.02% of the full-source interval. Each run admitted 39/40 prepared batches and
+38/40 full-source batches. Global lexing and artifact publication allocations
+were unchanged. This supports reduced allocation on the complete measured
+request, not a workload-independent percentage or an allocation-free parser.
+The mean of the two full-source CPU medians decreased approximately 4.31%;
+that descriptive value is not a confidence interval. P95 did not improve
+consistently, so this study makes no tail-latency claim.
+
+The runtime sources are identical between the native baseline's =9c4b763= and
+the candidate checkout's =cb6ff10=; the intervening commit changed a region
+study and controls only. The earlier local case-fold diagnostics do not occur
+inside any timed interval. Receipts are
+unarchived local execution
+and their =-supervision.log= peers. Thirty-four source controls passed before
+native timing, including a 10000-child sequence, composed relocation, persistent
+fragments, GLR completion and event-program publication. The mixed-view control
+also checks that relocation does not spill into a sibling and untouched child
+identity is retained. Production-build and final language-alignment qualification
+are recorded separately from this matched experiment.
+
+** Production qualification
+
+The final source suite passed 35 cases, including all-language ABI fixtures,
+with final =HARNESS-OK= and =OK=, exit zero and no failed cases. The official
+=std/make= production build completed in 125.764 seconds with exit zero and no
+supervision reason; real compiler/module output satisfied the unchanged
+five-second progress gate. These receipts are
+unarchived local execution.
+
+The first unified-production GQL child failed at the original 60-second total
+budget during cold module admission, before =GQL-STAGES-OK=. It is not a passing
+receipt. The identical command and budgets then completed in 10.620 seconds,
+exit zero, no reason or missing receipt, reproducing the candidate's 77252
+prepared-LR and 167964.32 full-source admitted bytes per call. This confirms
+that the change is present in the official production graph. It does not
+establish why cold admission differed or remove the first failure. Receipts are
+unarchived local execution.

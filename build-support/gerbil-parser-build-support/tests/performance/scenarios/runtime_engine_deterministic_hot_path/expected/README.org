@@ -1,0 +1,3 @@
+#+title: expected
+
+Every generated-table engine execution must produce a complete lossless indexed CST without external processes.

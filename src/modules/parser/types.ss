@@ -2,12 +2,14 @@
 ;;; Invariant: grammar values prove prototype ancestry and every public slot
 ;;; before object behavior or compiler normalization can observe them.
 
-(import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop define-type element?)
+(import (only-in :clan/poo/object .o .ref .slot? object? compute-precedence-list!)
+        (only-in :clan/poo/mop define-type element? raise-type-error)
         (only-in :core/types
                  PooFlowContract.
                  PooFlowNativeObjectContract.
-                 poo-flow-classification-evidence))
+                 poo-flow-classification-evidence
+                 poo-flow-contract-admit
+                 poo-flow-validation-evidence-accepted?))
 
 (export +grammar-role-kind+
         +grammar-kind+
@@ -106,7 +108,9 @@
       keywords: ParserList
       parser-entrypoints: ParserList
       recoveries: ParserList
-      flow: ParserList))
+      flow: ParserList)
+  .element?: (cut parser-object-element? @ <>)
+  .validate: (cut parser-object-validate @ <>))
 
 ;; : (-> Object Object [Object])
 (def (grammar-object-obligations candidate _context)
@@ -139,4 +143,59 @@
       parents: ParserList
       roles: ParserList
       composition: ParserList)
-  .obligations: grammar-object-obligations)
+  .obligations: grammar-object-obligations
+  .element?: (cut parser-object-element? @ <>)
+  .validate: (cut parser-object-validate @ <>))
+
+;; Capture exact builtin descriptors privately, rather than following any
+;; subsequent rebinding of an exported contract to a refinement.
+(def +grammar-role-boolean-contract+ GrammarRoleContract)
+(def +grammar-boolean-contract+ GrammarContract)
+
+;;; Boolean membership and successful validation do not need responsibility
+;;; evidence objects. Explicit .admit still belongs to the full Core protocol.
+;;; Only these exact builtin descriptors use the specialization; refinements
+;;; keep their own classifiers, responsibilities and obligations.
+(def (parser-slot-matches? candidate slot predicate)
+  (and (.slot? candidate slot) (predicate (.ref candidate slot))))
+
+(def (parser-native-ancestry? descriptor candidate)
+  (and (object? candidate)
+       (if (memq (.ref descriptor 'proto) (compute-precedence-list! candidate)) #t #f)))
+
+(def (parser-role-slots? candidate)
+  (and (parser-slot-matches? candidate 'kind (lambda (value) (eq? value +grammar-role-kind+)))
+       (parser-slot-matches? candidate 'name symbol?)
+       (andmap (lambda (slot) (parser-slot-matches? candidate slot list?))
+               '(syntax-kinds terminals lexical-rules rules extras keywords
+                 parser-entrypoints recoveries flow))))
+
+(def (parser-grammar-slots? candidate)
+  (and (parser-slot-matches? candidate 'kind (lambda (value) (eq? value +grammar-kind+)))
+       (parser-slot-matches? candidate 'schema (lambda (value) (equal? value +grammar-schema+)))
+       (parser-slot-matches? candidate 'name symbol?)
+       (andmap (lambda (slot) (parser-slot-matches? candidate slot list?))
+               '(parents roles composition))
+       (null? (grammar-object-obligations candidate #f))))
+
+(def (parser-object-element? descriptor candidate)
+  (cond
+   ((eq? descriptor +grammar-role-boolean-contract+)
+    (and (parser-native-ancestry? descriptor candidate) (parser-role-slots? candidate)))
+   ((eq? descriptor +grammar-boolean-contract+)
+    (and (parser-native-ancestry? descriptor candidate) (parser-grammar-slots? candidate)))
+   (else
+    (poo-flow-validation-evidence-accepted?
+     (poo-flow-contract-admit descriptor candidate #f)))))
+
+(def (parser-object-validate descriptor candidate)
+  (if (and (or (eq? descriptor +grammar-role-boolean-contract+)
+               (eq? descriptor +grammar-boolean-contract+))
+           (parser-object-element? descriptor candidate))
+    candidate
+    ;; A refined descriptor is admitted exactly once. Its classifier and
+    ;; obligations belong to the open protocol, including invocation count.
+    (let (evidence (poo-flow-contract-admit descriptor candidate #f))
+      (if (poo-flow-validation-evidence-accepted? evidence)
+        candidate
+        (raise-type-error descriptor candidate (.ref evidence 'diagnostics))))))

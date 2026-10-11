@@ -1,0 +1,22 @@
+[package]
+name = "gerbil-parser-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Thread-bound Rust ownership for the Gerbil parser language C ABI"
+readme = "README.org"
+
+[features]
+standalone = []
+
+[dependencies]
+gerbil-parser-artifact.workspace = true
+
+# Unsafe code is confined to this FFI crate; the AOT runtime remains forbidden.
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

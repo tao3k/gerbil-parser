@@ -1,0 +1,167 @@
+#+title: LR fragment transfer and shared terminal yields
+#+date: 2026-10-09
+
+Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
+Existing dated receipts retain their original revision and scope.
+
+* LR fragment transfer admission is a correctness contract
+
+Here, parser state matching concerns a current LR continuation and an actual
+retained grammar nonterminal. It is not support for an obsolete framework or
+language interface. The shared engine keeps exact prepared-runtime and reducer
+identity, entry-state matching and the admitted nonterminal goto/exit state.
+There is no old-architecture adapter or alternate grammar declaration path.
+
+The source owner still certifies unchanged source and lexical entry/exit
+boundaries. The LR injection boundary now independently checks the significant
+terminal yield: kinds, lexemes and relocated UTF-8 start/end coordinates must
+match retained terminal leaves in order. The first transferred token must also
+match the current input token. Equal token count alone is insufficient.
+Private relocation views accumulate offsets without mutating retained fragments.
+Validation completes before a new checkpoint is constructed; rejection leaves
+the original continuation usable.
+
+#+begin_src scheme
+;; Source ownership and lexical boundary checks precede this engine operation.
+;; The fragment represents a grammar production, not an AST kind.
+(def next
+  (lr-checkpoint-inject-fragment current fragment byte-delta significant-tokens))
+(lr-checkpoint-resume next)
+#+end_src
+
+Why is this preferable? Language authors retain declarative syntax/rules; the
+engine validates the transfer using its own grammar structure and continuation.
+They do not write per-language reuse callbacks or repeat parser stack logic.
+Why is it justified? A state/goto match certifies the grammar transition, while
+exact terminal comparison prevents a caller from attaching a retained semantic
+value to different token contents or coordinates. Source and lexical admission
+remain separate obligations; this check alone cannot admit an arbitrary edit.
+
+The validator uses an explicit pending work list over recognition fragments and
+views, including nested relocation. Its work is proportional to visited
+recognition structure plus terminal comparison; lexeme comparison includes text
+length. It adds validation work to each accepted transfer. This is a conservative
+engineering guard motivated by the context/reuse distinction in
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Wagner and Graham]], not their optimal reuse algorithm or complexity bound.
+Rust currently exposes no LR fragment injection API; this change does not claim
+a cross-backend incremental session or AST/CST identity-preserving edit API.
+
+Local qualification (2026-10-08): the engine-only native transfer suite passed
+with final =OK= and zero process status in 4.70 seconds. It compares canonical
+ParseArtifact publication against fresh parsing, exercises a multibyte terminal
+and nonzero relocation, rejects content/kind/coordinate/count/current-input
+mismatches, and reuses the original checkpoint after rejected requests. The
+broader local recognition suite could not load stale language interfaces;
+complete edit/reuse regression remains an exact-head CI gate, not a local claim.
+
+* Source scanning sessions consume the convergence proof
+
+=make-source-scan-session= retains private token and checkpoint sequences. On a
+new source it reads the longest common suffix from the scanner-owned snapshots,
+scans the prefix from the initial state, and binary-searches old boundaries at
+the translated character position. It checks plan identity, the fixed parser
+position and full delimiter context before admitting the suffix. It never
+restarts from an old matching-prefix checkpoint.
+
+An opaque =contextual-scan-suffix= binds the independently reached boundaries.
+Only checkpoints from that old source at or after the admitted boundary can be
+rebound to the new owner; character and UTF-8 byte deltas are distinct. The worker
+copies token records and marker text stays shared inside private immutable
+checkpoints. Public token snapshots are copied, so consumer mutation cannot
+change later reuse. Rebound checkpoints support a second edit without rescanning
+the old suffix merely to populate the next cache.
+
+=parse-source-language/session= integrates this scanner cache into the existing
+Source language parser. It owns the input, retains the declaration identity and
+runs the original recognition/publication path with the new token stream. Every
+published artifact is validated against the declaration and new source identity.
+Lexical rejection uses the original parser diagnostic path and retains no cache;
+ordinary Source engines call their original declared scanner so projection and
+mode handling are preserved; they retain no cache and cannot admit lexical reuse.
+
+Matched Bash controls now demonstrate one scanned token after a Unicode command
+prefix edit with the remaining lexical records reused. Changing an unquoted
+here-document marker to a quoted marker scans all seven tokens through the
+marker close before reusing the four-token footer. Both artifacts equal complete
+fresh parses, and a subsequent edit consumes the rebound checkpoints. Source
+mutation, published token mutation and unclosed quote recovery have executable
+controls. These counts measure skipped scanner recognition, not preserved token
+object identity, parser-state reuse or measured end-to-end latency.
+
+This implementation retains O(tokens) checkpoint storage, reads source suffixes
+linearly and copies/relocates the admitted tail. Recognition and canonical CST
+publication still execute fully. Rust/native incremental Source transport and
+parser-stack/subtree reuse remain separate implementation work; no ABI, schema
+version or language declaration changes are introduced here.
+
+The previous exact head bc233b8 passed both native CI platforms, but the Rust
+ASP gate rejected the inline FIFO test and parent-scope glob import. The test
+now lives in =tests/unit/scanner_obligations.rs= with explicit imports. The actual
+ASP workspace gate passes against the repaired source. On this macOS host,
+relinking that gate with the Nix =cc= failed because =-liconv= was unavailable;
+the existing gate binary was executed with its manifest path. The current locked
+dependency gate was then rebuilt and passed with the macOS native platform
+linker; Scheme compilation continued to use GCC 16.
+
+After rebasing onto =f21204f=, all 33 focused native cases passed with final
+=OK=: Source scanner sessions (10), Source strategies (10) and deferred scanner
+admission/rebinding (13). The merged scanner compiled with the pinned Gerbil
+SDK and host GCC 16. Rebased Rust runtime passed 138 cases, strict runtime
+Clippy passed, and the current locked ASP workspace gate passed after native
+platform linking. The public session API takes no caller checkpoints; the
+low-level suffix rebind helper requires checkpoints from the recorded old
+continuation, which the private Source cache supplies. Full recognition/CST
+execution, Rust/native incremental transport and exact-head CI remain distinct
+qualification boundaries.
+
+* Shared terminal yields for LR fragment transfer
+
+Captured LR fragments now retain a private shared terminal-yield rope. A shift
+contributes its existing terminal reference. A reduction concatenates child
+yields without flattening descendant tokens; empty and unary grammar wrappers
+share the existing yield instead of adding nodes. Relocated children contribute
+coordinate views, whose repeated moves collapse their deltas. The original
+grammar children, cached semantic value, entry/exit state and lookahead remain
+available to the source owner and independent recognition projection.
+
+The LR transfer validator now walks this yield instead of every retained grammar
+production. It still compares each significant terminal's kind, complete lexeme,
+relocated UTF-8 start/end, exact count and current first input token. Runtime,
+reducer, goto, source ownership and lexical boundary admission remain separate
+checks. No digest-only acceptance or grammar/publication schema change is added.
+
+For an unrelocated yield of T nonempty terminals, the binary representation has
+T leaves and T-1 branches. Validation therefore visits 2T-1 nodes regardless of
+unary grammar wrapper depth. Coordinate views add explicit visits. The traversal
+is iterative; this is not a balanced tree or a logarithmic edit algorithm.
+Construction adds one reference per captured grammar fragment and shared branch
+records for concatenation, plus relocation views. Capture has extra work and
+retained storage; a flat token list is never copied for each ancestor. Ordinary
+parses without recognition capture do not construct the yield index.
+
+The optional =current-lr-transfer-yield-observer= reports the actual visited yield
+node count once per validation attempt. It is observational and is disabled by
+default; source/grammar certificates do not use its output. The retained fixture
+freezes the f21204f grammar-tree traversal as an independent admission control.
+A 64-layer grammar with two multibyte-source terminals visits 67 grammar-tree
+nodes in that reference and 3 yield nodes in the indexed validator; complete
+canonical ParseArtifact publication equals a fresh parse. A 512-terminal
+left-recursive control visits 1,023 yield nodes, rejects a changed last terminal,
+and reuses the original checkpoint after rejection. Epsilon reduction and a
+recaptured relocated child plus a fresh sibling have canonical fresh-parse and
+independent projection controls, including another relocation of the new root.
+
+Local qualification: the pinned Gerbil SDK and GCC 16 compiled the updated LR
+engine. All five native transfer cases passed with final =OK= and process status
+zero, under the existing 90-second total and 5-second silence gates. These are
+structural work counts and semantic receipts, not a measured end-to-end runtime
+speedup. Source command/CST subtree reuse, cross-backend incremental transport
+and the pushed revision's full CI remain separate qualification boundaries.
+
+Qualification correction: revision =169caf7= failed the Ubuntu test-style gate
+because its ordinary transfer test printed a work-count line. The line was
+removed, and the reference count now asserts =67= directly against the yield
+count =3=. All five native transfer cases and the test-style contract module
+passed locally with final =OK=, zero process status and 13.99 seconds elapsed.
+Policy restrictions and timeout/silence limits remain unchanged; latest-head
+full CI is still a separate gate.

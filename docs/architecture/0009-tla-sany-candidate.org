@@ -1,0 +1,112 @@
+#+title: RFC 0009 — Independent TLA+ SANY syntax candidate
+#+startup: overview
+
+* Contract boundary
+
+The published =tla-plus.native-layout.v2= grammar remains the syntax
+contract used by POO Flow.  Its namespace is unversioned and its identity
+lives in =languages/tla-plus/grammar.ss=.  Further SANY syntax work
+uses =languages/tla-plus/grammar.ss= with a separate
+=p4-draft= metadata version and =tla-plus.native-sany-candidate.p4=
+contract.  The candidate has its own parser entry and test suite.  Neither
+entry silently changes the other grammar's identity or accepted syntax.
+
+The candidate inherits the generic source-column junction semantics.  It
+adds variable-width module and separator borders, function-set expressions,
+operator constants, =EXCEPT= updates, record-field selection, instance
+qualification, infix operator definitions, symbolic qualified names, and
+several arithmetic and relation operators.  Record-set types with =:=
+fields remain distinct from record values with =|->= fields.  Temporal
+leads-to is recognized as one =~>= infix operator.  These are grammar-owned
+constructs.  The language-neutral engine only gained =character-run=, a
+bounded lexical primitive for repeated source characters.
+
+* Evidence and limits
+
+The independent candidate test checks structural nodes and source-exact
+round trips for each added family.  The pinned =tlaplus/Examples= corpus at
+commit =ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10= is a regression
+source, with per-file accepted, rejected, validity, and round-trip outcomes.
+The candidate now accepts all 424 files at that immutable pin, with zero
+rejections, invalid artifacts, or source round-trip failures.  The final
+195 rejections were handled together, retaining all 229 previously accepted
+files.  The published layout entry and the candidate each retain all 28
+POO models.  These counts describe this exact corpus and parser contract.
+
+The final slice covers nested and concatenated modules, preserved document
+text, digit-prefixed identifiers, higher-order formals, symbolic operator
+formals and definitions, LAMBDA, labels, subexpression selectors, LET
+recursion and instantiation, proof statements, ASSUME/PROVE, and original
+proof-step lexemes.  A pure validator checks proof levels, QED completion,
+which steps admit subproofs, and label parameter syntax.  Proof levels remain
+explicit in the CST rather than being erased as trivia.  Embedded PlusCal
+remains preserved comment text; this receipt does not execute or translate it.
+
+Three engine fixes account for the nested-list failures: the source reference
+uses the markers inclusive final-character column; reductions under an
+ineligible layout marker remain available when ordinary actions are absent;
+and layout tables retain precedence-suppressed reductions behind a guarded
+shift for outdent.  Ordinary non-layout tables keep their precedence behavior.
+The candidate uses a request-local speculative-depth budget of 4096, while the
+runtime default remains 256.  The 258793-byte TCP proof exercises the larger
+budget; actual branch progress is emitted under =GERBIL_PARSER_LR_TRACE=.
+
+The repository-owned Scheme =corpus.ss= verifies the checkout pin, clean
+tracked state, exact 424-file count, accepted syntax, artifact validity, and
+original bytes.  The Scheme =qualify.ss run= kills a check after five seconds
+without child output and bounds the batch to ten minutes.  The Scheme
+=preload.ss= reports actual dependency admission;
+artifact tracing reports decode, digest verification, and schema admission.
+Child stdin is closed so completed noninteractive gxi scripts cannot wait
+in the REPL.  The native suite runs each test module in its own process,
+retaining the 1 GB heap fence and existing performance gates without retaining
+every module's expansion context in one heap.  Both the corpus
+and structural differential are required Linux CI gates.  Import/dependency
+and semantic checks remain separate oracle outcomes.
+
+A Scheme-owned structural differential runs the official v1.7.4 SANY
+XML exporter against the candidate on temporal and arithmetic modules.  It
+verifies the pinned =tla2tools.jar= SHA-256 and compares seventy-two normalized
+expression trees across =~>=, =/\\=, =\\/=, ==>=, =+=, =-=, =*=, =/==, and ==<=.
+This check exposed a real =A + B - C= grouping difference; the candidate now
+follows SANY's precedence for that expression.  Six action-subscript trees
+cover square and angle actions, tuples, a single name, a parenthesized tuple,
+and the =[]= / =<>= prefixes.
+The lexer follows SANY's =]_= / =>>_= tokens.  Further cases cover local
+function definitions, repeated LET definitions, weak/strong fairness,
+shared-domain and tuple bindings, function/set constructors, and bounded,
+unbounded, and temporal quantifiers.  The comparison retains every bound
+name, its domain, and the tuple marker, rather than comparing bodies alone.
+Further operator cases cover sequence aliases, function merge/pair grouping,
+and both explicit groupings of division and exponentiation.
+Ten negative differentials require both parsers to reject =[A]x=, a
+bounded temporal quantifier, ungrouped =/=, =\\div=, =^=, and =:>= chains,
+an incorrectly indented junction body, missing QED, inconsistent proof levels,
+and a forbidden subproof of HAVE;
+a SANY semantic/import error does not satisfy
+that negative gate.  Two controls verify that missing imports and undeclared
+identifiers fail the oracle without being counted as syntax rejection.
+Tuple-binding support exposed a set-filter/set-map ambiguity in =Digraph.tla=.
+The candidate now follows SANY's
+=BraceCases/matchFcnConst= selection for that overlap, with ambiguous and
+explicitly parenthesized expression regressions.
+Aligned junctions exposed a different boundary error: both bounded quantifiers
+parsed successfully, but a same-line =]_= to the right of the marker could not
+close the list.  The candidate now declares =)=, =]=, =}=, =>>=, =]_=, and
+=>>_= as explicit layout closing boundaries.  Eight structural cases compare
+the resulting conjunction/disjunction lists, including nested lists and
+function/set/tuple/action closers.  The indentation negative verifies that a
+closing boundary does not admit an incorrectly indented body token.
+Seven more trees retain lists that end before a comma, colon, function arrow,
+constructor arrow, or =THEN= / =ELSE= / =IN= keyword.  Those spellings are
+also declared by the candidate grammar as explicit boundaries.
+Five CASE trees additionally check greedy final-arm arithmetic, function
+application, record selection, explicit grouping, and multiple ordinary arms.
+This remains a bounded structural gate.  The 424-file syntax receipt does not
+prove semantic equivalence or complete structural equivalence of every corpus
+expression, proof hierarchy, operator precedence interval, or PlusCal program.
+
+The candidate is not a replacement for the layout grammar in POO Flow.
+Language-pack authors select a descriptor explicitly and retain the grammar
+metadata identity in syntax receipts.  A future promotion requires a
+separate contract review and a corpus with exact structural expectations.

@@ -1,0 +1,954 @@
+#+title: Scheme syntax and POO language components: expression and list studies
+#+date: 2026-10-06
+
+* Working discussion draft
+
+This local research draft studies how Gerbil syntax expansion, POO grammar
+composition and parser compilation can cooperate. Source baseline:
+=783381f33fa1b309ac4cc4b0012696f24c852d93=. It makes no public API decision and
+implements no new engine behavior. The author discussion should precede selecting
+syntax or committing to a component abstraction.
+
+Latest executable result: the section [[*Complete native language witness: numeric-free tiers][Complete native language witness]]
+records 65 runtime checks and a successful bounded native exit for a small
+=deflanguage= declaration assembled from numeric-free templates. Earlier sections
+record the preceding core-only experiments and their evidence boundaries.
+
+The primary question is: how can a language author express semantic intent once,
+compose reusable pieces, and obtain the existing parser and language services
+through explicit, understandable contracts?
+
+* Important existing foundation: POO already composes grammars
+
+The current code supplies more than a POO language loader:
+
+| Owner | Current behavior | Design consequence |
+|-------+------------------+--------------------|
+| [[file:../../src/modules/parser/syntax.ss][parser syntax]] | =defgrammar-role=, =defgrammar= and =defgrammar-compose= | Reuse existing role and composition concepts |
+| [[file:../../src/modules/parser/objects.ss][parser objects]] | Checked GrammarRole/Grammar objects and receiver-owned =.section= protocol | POO is already a grammar representation and extension boundary |
+| [[file:../../src/compiler/normalize.ss][grammar normalization]] | Ordered parent traversal and merge/append/override/remove operations | Composition has deliberate semantics and produces a receipt |
+| [[file:../../src/language/grammar.ss][language syntax]] | =defgrammar-syntax= templates and =deflanguage= compile-time elaboration | A concise author vocabulary can share canonical grammar semantics |
+| [[file:../../src/language/entry.ss][language entry]] | POO loader inheritance, service slots and effective-object admission | Grammar components and service components have related but distinct roles |
+| [[file:../../t/grammar-composition-test.ss][composition tests]] | Declared receipts, collision handling and parser qualification cases | Extend established semantic controls instead of inventing another merger |
+
+The normalization owner traverses parents, then ordinary roles, then explicit
+composition operations. =append= requires a new identity; =override= requires an
+existing identity and replaces its row; =remove= requires an existing target.
+Ordinary =merge= uses the current keyed-row merger. These choices must remain
+visible when a higher-level component is elaborated.
+
+Earlier discussion emphasized POO service organization. Source inspection adds
+an important correction: POO grammar roles and explicit grammar composition are
+already implemented. The research should connect concise authoring to these
+existing capabilities rather than propose them as missing infrastructure.
+
+* Native POO substrate and parser operation labels
+
+The four words merge/append/override/remove are not four Gerbil core syntax forms.
+They are labels in the parser's existing normalization contract. That statement
+must not imply that native POO lacks the corresponding expressive power or that
+language authors need a new operation DSL. The preferred author substrate is
+upstream POO syntax and ordinary Scheme abstraction.
+
+The installed pinned implementation in :clan/poo/object and its doc/poo.md
+"POO Definition Syntax" define .o, .mix, ordinary slot replacement, inherited
+slot computation (=>), nested object override (=>.+), and an explicit inherited
+computation binding. POO Flow's :core/extension-graph/interface also supplies
+slot-append, slot-prepend, slot-override, slot-remove and node operations. Existing
+capabilities should be reused rather than wrapped in another author mini-language.
+
+| Existing facility | Native meaning | Parser responsibility |
+|-------------------+----------------+-----------------------|
+| .o / .mix | Compose prototype objects with upstream inheritance semantics | Admit resulting language declarations and grammar identities |
+| (slot expression) | Replace that slot computation | Check the effective grammar's references, fields and policy |
+| (slot => function arguments ...) | Combine inherited value through a Scheme function | Project accepted grammar data and sources to canonical IR |
+| (slot (inherited) expression) | Name the inherited computation inside a native expression | Preserve actual declaration context without inventing coordinates |
+| slot-remove in POO Flow extension graph | Remove values from a list-valued slot | Do not equate this automatically with removing a keyed grammar rule |
+
+Native slot replacement and the old parser merge rule are not identical:
+parser merge rejects unequal rows for an existing key. POO Flow slot-remove
+removes values from a list slot; parser remove deletes a keyed declaration.
+These are domain admission distinctions, not a reason to require authors to use
+a second composition language. The existing legacy operation controls remain
+independent semantic controls while native authoring is qualified.
+
+#+begin_src scheme
+;; Implemented factory fragment from list-roles.ss: upstream slot combination.
+(.o (:: self list-study-base-role)
+    name: 'native-list-role
+    (rules => append (grammar-role-ref arguments 'rules)
+                     (grammar-role-ref elements 'rules)))
+
+;; Implemented inherited-computation fragment: explicit language policy.
+(.o (:: self (make-native-list-role))
+    name: 'native-single-list-role
+    (rules (inherited)
+      (filter-map
+       (lambda (row)
+         (case (car row)
+           ((arguments) '(arguments (field argument (reference name))))
+           ((call-arguments/tail) #f)
+           (else row)))
+       (inherited))))
+
+;; Question 1: Why is this design better?
+;; Authors use one existing POO inheritance/computation model with native Scheme
+;; functions. The parser projects the resulting checked value, then owns binding,
+;; compilation and publication. No new composition-keyword language is needed.
+;; Question 2: Why does this design have a scientific basis?
+;; An extensible surface can elaborate to one compiler core. We test the native
+;; path against independently declared list policies using complete events,
+;; accepted/rejected status and roundtrip. This is evidence of the selected
+;; implementation's preservation, not a proof of optimal DSL syntax or speed.
+#+end_src
+
+The native factories enter the same canonical compiler, shared machine emission
+and checked Loader entries as the earlier composition controls. The runtime
+study now contains 119 checks, including 40 native author controls. Native
+row-source slot computations retain declarationOwner and generated status;
+componentOwner still names the actual normalized receiver. A single resolved
+native role has one normalization occurrence: its receipt is not a reconstructed
+trace of every upstream prototype operation. Arbitrary reader-coordinate capture
+and the production deflanguage integration remain separate obligations.
+
+The repository-owned [[file:../../test-processes.ss][native process qualification]] reproduces the existing and native author controls
+serially, preserving the ten-second child fence and rejecting nonzero exits.
+It is also wired into the existing native CI job; current local results do not
+establish a remote CI pass or full native machine/runtime qualification.
+
+* Two stages that must be designed together
+
+Current grammar roles expand into constructor calls that create checked POO
+values when evaluated. The normalization/compiler functions consume those values.
+The concise =deflanguage= path uses =for-syntax= compiler dependencies to generate
+immutable grammar/parser products during expansion. Its current optional sections
+are =node-fields=, =catalog=, =flow= and =backends=; it does not expose a role-import
+section merely because POO roles exist elsewhere.
+
+Therefore a shared core representation does not automatically make all component
+values available at the same phase. The study must specify where a component is
+created, composed, checked and compiled. A module-load POO object cannot be assumed
+to be available to a macro transformer without a phase design.
+
+Candidate architecture:
+
+1. Author syntax describes rules, policies and public tree meaning.
+2. Gerbil macro expansion elaborates the chosen vocabulary and preserves origins.
+3. Existing checked grammar composition applies explicit component operations at
+   a specified stage, producing the admitted declaration for the compiler.
+4. The canonical compiler derives Parser IR and generated products.
+5. The POO loader organizes qualified services and effective-object contracts.
+
+Step 3's integration into concise authoring is a research decision. Possible
+approaches include declaration templates expanded before composition, explicit
+phase-qualified role modules, or a shared elaborator used by both current entry
+paths. Compare author burden, repeated work, determinism and separate compilation
+before choosing one. Avoid assuming runtime object construction belongs in the
+per-token parsing path.
+
+* Additional papers for the POO dimension
+
+** Extensibility for the Masses: Practical Extensibility with Object Algebras
+
+Bruno C. d. S. Oliveira and William R. Cook, ECOOP 2012,
+[[https://www.cs.utexas.edu/~wcook/Drafts/2012/ecoop2012.pdf][author paper]]. Sections 2–3 describe extensibility of variants and operations;
+section 7 studies modular combination of independently developed components and
+combination of operations. The examples use Java factory interfaces and generics.
+
+Our interpretation: distinguish extending language constructs from extending the
+analyses/products over those constructs. POO grammar roles help the former;
+receiver protocols and compiler passes can support the latter. A role is not
+therefore an object algebra in the paper's technical sense. Java's static typing
+proof obligations do not automatically transfer to our Scheme contracts.
+
+Study application: compose arithmetic and call syntax, then add a field-summary
+operation without requiring every author to rewrite the grammar. We should first
+try the existing IR and POO protocols. Whether an additional algebra protocol is
+useful depends on a concrete operation and measured complexity.
+
+** Polymorphic Embedding of DSLs
+
+Christian Hofer, Klaus Ostermann, Tillmann Rendel and Adriaan Moors, GPCE 2008,
+[[https://pure.au.dk/portal/en/publications/polymorphic-embedding-of-dsls/][university publication record and abstract]]. The abstract motivates decoupling
+DSL syntax from a single fixed interpretation. This annotation is based on the
+record/abstract; the full paper has not been inspected in this study.
+
+Our interpretation: a declared structure can support more than one compiler
+observation, such as grammar construction, shape analysis or explanation. For
+this parser, observations should still share the admitted core and recognition
+semantics. Alternative analyses are not permission to implement independent
+Scheme and Rust parsers with divergent meaning.
+
+The [[file:scheme-dsl-research-basis.org][six-paper synthesis]] remains the main basis: Scheme syntax abstraction for
+vocabulary, hosted DSL elaboration for shared compilation, Fortifying Macros for
+declaration structure, scopes for modular composition, PEG for semantic discipline,
+and abstract interpretation for derived facts. These two papers add the object
+composition and multiple-observation questions to that existing study.
+
+* Expression component: author decisions and generated obligations
+
+Study three changes in order: add an operator, add a tier, then combine call syntax
+with arithmetic. Use arithmetic, HCL and FHIRPath to expose differing semantics.
+
+| Concern | Author-owned intent | Possible compiler-owned result |
+|---------+---------------------+-------------------------------|
+| Operator identity | Spelling and lexical/category meaning | Required literal/catalog entries under declared lexical policy |
+| Binding strength | Tier ordering and precedence | Core productions carrying explicit precedence |
+| Associativity | Left, right or a deliberately constrained form | Parser policy on each production |
+| Tree shape | Public node and operand/operator fields | Consistent catalog and shape facts |
+| Operand grammar | Which constructs are allowed in each position | Resolved rule references and dependency information |
+| Dialect extension | Add a construct or deliberately replace an existing rule | Explicit composition steps and receipt |
+
+A template can abstract the repeated binary-node construction. A procedural
+=defsyntax= can elaborate an operator table and explain generated alternatives.
+POO grammar composition can organize independently declared rule contributions.
+Those mechanisms solve different parts of the author task and should cooperate.
+
+An important existing constraint: =override= replaces a keyed rule row. Adding an
+operator alternative to an existing expression rule is not the same operation as
+appending a new rule identity. A component vocabulary must state how alternatives
+are assembled. Candidate choices are an explicit operator table, a named
+extension point whose elaborator constructs one final row, or an explicit full
+rule replacement. Implicit object slot inheritance is insufficient to specify
+this grammar transformation.
+
+Case matrix to discuss:
+
+- Arithmetic: left-recursive binary productions and explicit precedence.
+- HCL: binary expression represented by a first operand and repeated suffixes.
+- FHIRPath: expression forms following its admitted normative syntax.
+
+Do not force these into one tree convention for the convenience of a library.
+A reusable component should parameterize meaningful differences or remain narrow.
+The shared benefit is a contract and predictable expansion, not identical grammar
+for languages with different syntax and published trees.
+
+* List component: recognition, structure and context
+
+Study argument lists, array elements and declaration sequences. A candidate
+parameter set includes item expression, separator, minimum item count, trailing
+separator policy, delimiter choice and intended field placement. Before exposing
+all parameters, determine which combinations real language packs use.
+
+| Decision | Recognition question | Tree/product consequence |
+|----------+----------------------+--------------------------|
+| Minimum count | Is the empty form accepted? | Item field may be absent |
+| Separator | Which token separates items? | Separator tokens remain in lossless source |
+| Trailing separator | Is it optional, required or forbidden? | Recognition and diagnostic expectations differ |
+| Delimiters | Does the list own brackets/parentheses? | Span and recovery context differ |
+| Field per item | Does each item contribute a field instance? | Repeated fields |
+| Field around the whole list | Is the sequence one labeled value? | Zero/one outer field with possible fragment |
+| Named list node | Is the list a public tree boundary? | Catalog identity and field ownership |
+
+Scheme templates can compose a nonempty list, optionality and delimiters.
+=defsyntax= is useful when a structured policy declaration needs validation and
+elaboration. A full POO grammar role is useful when the component contributes
+named rules, lexical rows or other declarations. An inline list expression alone
+need not become a runtime object or a large component declaration.
+
+Composition cannot choose recovery solely from the separator: a call argument,
+an array element and a statement sequence have different enclosing contexts.
+Treat recovery as an explicit contract or a caller-provided policy until a
+principled shared rule has been demonstrated.
+
+* Two possible public authoring directions
+
+A. Template vocabulary over current =deflanguage= expressions, with explicit
+   POO roles for larger declaration contributions. This minimizes new concepts;
+   authors may still need to understand the boundary between the two paths.
+
+B. A unified component declaration that elaborates grammar contributions and
+   exposes related service obligations together. This may reduce repeated wiring,
+   but introduces phase, dependency and interface questions. It should be
+   justified by complete language-pack tasks before a public macro is chosen.
+
+Working preference: begin with A, using expression and list cases to discover
+what B would need. This is an investigation order, not a decision to exclude B.
+Do not publish a =defcomponent= form or a new registry before the component's
+meaning and consumers have been discussed.
+
+* Why this develops the Scheme/Gerbil/POO advantage
+
+S-expression structure makes declarations directly composable. Gerbil templates
+make repeated patterns reusable; procedural transformers express richer
+elaboration with the same host language. Modules provide ordinary visibility and
+phase boundaries. POO supplies checked component values and receiver protocols;
+normalization makes ordered composition explicit. The parser compiler turns that
+result into shared executable products and analysis inputs.
+
+The combined advantage is a progression from a local grammar idiom to an admitted
+language component, with a common semantic path. It does not rely on parentheses
+alone, arbitrary runtime callbacks, or an assumed speed advantage from inheritance.
+
+* Discussion and evaluation plan
+
+First discuss the intended author task, then compare explicit rules and candidate
+abstractions. For each case record:
+
+1. Semantic decisions visible to the author.
+2. Facts maintained more than once and facts derived by the compiler.
+3. Expansion and composition explanation, including rule identity and order.
+4. Nodes, fields, spans, accepted/rejected inputs and recovery behavior.
+5. Creation/compilation/loading stage and analysis cost.
+6. Qualified generated products using the existing semantic controls.
+
+Current evidence is source inspection and primary-paper reading. Existing test
+cases are referenced but have not been rerun by this document change. No new
+language component has been implemented or benchmarked.
+
+* Agreed direction: default tree structure with explicit language customization
+
+The user agreed to this direction on 2026-10-06. The agreement concerns the design
+principle, not the proposed names, exact defaults or implementation stage below.
+Components may provide a documented default tree structure. Each language pack
+can explicitly choose its node and field conventions. Recognition, precedence,
+associativity and recovery remain separately defined language decisions.
+
+** Representation differences are more than label differences
+
+| Examined grammar | Recognition organization | Current public representation | Component implication |
+|------------------+--------------------------+-------------------------------+-----------------------|
+| Arithmetic | Left-recursive alternatives with explicit precedence | Nested Expression nodes with left/operator/right | Binary-node vocabulary fits its existing shape |
+| HCL | First operand followed by repeated operator/operand suffixes | BinaryExpression with potentially repeated operator/right fields | A chain vocabulary preserves its shape |
+| FHIRPath | Separate precedence-tier rules; repeated suffixes and a recursive implies rule | Expression wrappers and tier-dependent field multiplicity | Parameterize rule dependencies and retain tier structure |
+
+This is source inspection of the existing grammar declarations, not a runtime
+migration receipt. Renaming a default BinaryExpression node to HCL's public name
+would not, by itself, preserve HCL's chain representation. Define a structural
+strategy before applying node/field name customization.
+
+** Expression component sketch
+
+Three useful study strategies are a binary node, a flat chain and a recursive
+right-hand tier. These are descriptive research names, not new DSL keywords.
+
+- Binary-node strategy: one left operand, one operator and one right operand
+  per node, with the caller's precedence/associativity policy.
+- Chain strategy: one initial operand and a sequence of operator/operand pairs;
+  repeated pairs stay in one public node.
+- Recursive-tier strategy: the caller identifies the next-tier and recursive
+  rule dependencies; wrapper placement stays explicit.
+
+For a new binary-node component, a candidate default is =BinaryExpression= with
+=left/operator/right= fields. A language can explicitly use =Expression= or
+another published node, and map the operand fields. The default itself remains
+a discussion candidate. Existing languages select their current structure and
+labels explicitly during a study so comparison has a stable target.
+
+Required semantic inputs are operand/rule dependencies, operator expression,
+and the intended precedence/associativity organization. A chain's structural
+shape does not alone establish how a consumer evaluates its operators; do not
+infer semantic associativity merely from repeated suffixes.
+
+** List component sketch
+
+Start with a transparent sequence that contributes a field per item; a candidate
+default field label is =item=. A named list node or one outer list field is an
+explicit structural customization. Delimiters can compose around the sequence
+without introducing an additional node automatically.
+
+A list study must still specify whether it is empty or nonempty and whether a
+trailing separator is allowed. The agreed default-tree direction does not settle
+those recognition choices. Inline composition of =optional=, a nonempty-list
+template and delimiters keeps the choices visible before any larger policy form
+is justified.
+
+For example, a call language can choose repeated =argument= fields while an array
+language chooses repeated =element= fields. Choosing an outer =arguments= field
+around the full sequence is a different representation with fragment behavior;
+it is not a field-name substitution.
+
+** Customization scope and conflict meaning
+
+| Customization | Intended effect | Must not be silently changed |
+|---------------+-----------------+------------------------------|
+| Node label | Published node identity | Nesting or ownership |
+| Field label | Name of a semantic position | Cardinality or child boundaries |
+| Structural strategy | Binary versus chain/wrapper/list representation | Accepted language and parser policy |
+| Grammar dependencies | Referenced operand/item/tier rules | Their resolution and declared semantics |
+| Recognition policy | Allowed operators, separators, emptiness or trailing form | Public tree meaning without an explicit structural decision |
+
+Each customization should have one semantic owner. An unknown setting or two
+contradictory structural choices should be explained at declaration time. Public
+catalog projection continues to use the existing identity/order authority.
+Defaults need documentation and a change policy once they become a public
+library; the current study does not publish them.
+
+** Cooperation between syntax, POO and compilation
+
+1. A small =defrules= template expresses a common node/list idiom.
+2. A =defsyntax= elaborator handles structured choices and produces explicit
+   grammar declarations plus source explanations when the template is insufficient.
+3. Larger contributions use the existing checked GrammarRole representation and
+   explicit composition semantics at a specified phase.
+4. Canonical compilation derives the parser and catalogs from the final grammar.
+5. The loader's POO services refer to that admitted descriptor and its products.
+
+A new tier may introduce a new rule identity. A modification of alternatives
+within an existing rule must produce one final rule row or use deliberate
+replacement. Treating every extension as =append= would not express these
+operations correctly. Keep this choice in the component's elaboration contract.
+
+** Next concrete comparison
+
+Prepare a side-by-side author example for Arithmetic's binary structure and
+HCL's chain structure using shared vocabulary. For each show the chosen default,
+explicit customization, resulting core rules and expected public tree.
+Then compare a call argument list and an array element list.
+
+The next discussion question is whether component selection should make the
+structural strategy explicit in the author's form, or choose it through a named
+component whose contract fixes the structure. Working preference: named narrow
+components such as binary-expression and expression-chain, with node/field
+customization. This reduces contradictory option combinations and makes the tree
+model apparent at the use site. The public names remain undecided.
+
+* Concrete expression vocabulary comparison
+
+** Local executable study, 2026-10-06
+
+The study modules are
+[[file:../../t/fixtures/language-pack-research/expression-vocabulary.ss][expression-vocabulary.ss]] and
+[[file:../../t/fixtures/language-pack-research/expression-comparison.ss][expression-comparison.ss]].
+They use Gerbil =defrules= for structural templates and a small =defsyntax=
+bridge to the existing =grammar-expression= macro. Their names are local
+research vocabulary, not published parser API. No parser implementation or
+language package has been migrated by this experiment.
+
+The bridge expands these known templates until the outer form is =prec= or
+=alias=, then invokes =grammar-expression=. Its bounded expansion loop is a
+fixture convenience, not a general extension protocol. An eventual language
+elaborator needs a specified extension boundary and declaration diagnostics.
+
+The native command, run from the isolated checkout, was:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" gtimeout 10 gerbil env gxi \
+  t/fixtures/language-pack-research/expression-comparison.ss
+#+end_src
+
+It exited 0 and reported six checks: Arithmetic core equivalence, HCL core
+equivalence, binary defaults, chain defaults, explicit field customization and
+distinct binary/chain values. The last check is only a structural sanity check;
+it does not establish equivalence or difference of recognized languages.
+The other checks compare constructed canonical grammar values, not parser
+output, spans, conflict handling, allocation or performance. The run also
+reported the existing =std/net/request= deprecation warning.
+
+** Author-facing forms
+
+Arithmetic's additive alternative can select its existing published node:
+
+#+begin_src scheme
+(binary-expression left 10
+  (reference expression)
+  (choice (literal "+") (literal "-"))
+  (node Expression)
+  (fields left operator right))
+#+end_src
+
+HCL's existing chain representation can select the chain component:
+
+#+begin_src scheme
+(expression-chain
+  (reference unary-expression)
+  (reference binary-operator))
+#+end_src
+
+The latter uses the proposed defaults =BinaryExpression= and
+=left/operator/right=. Both node and fields can be specified explicitly.
+Arithmetic supplies associativity and precedence at the use site; neither
+component infers an operator precedence table from token spelling. HCL's
+component expresses the current chain rule without adding a precedence policy.
+
+This vocabulary removes repeated structural mechanics while leaving the
+language decisions visible: operand dependencies, operator recognition,
+precedence where applicable, and any change to the public node or fields.
+
+** Expansion into existing grammar forms
+
+The Arithmetic form expands to:
+
+#+begin_src scheme
+(prec left 10
+  (alias Expression
+    (seq (field left (reference expression))
+         (field operator (choice (literal "+") (literal "-")))
+         (field right (reference expression)))))
+#+end_src
+
+The HCL form expands to:
+
+#+begin_src scheme
+(alias BinaryExpression
+  (seq (field left (reference unary-expression))
+       (repeat
+         (seq (field operator (reference binary-operator))
+              (field right (reference unary-expression))))))
+#+end_src
+
+The existing =grammar-expression= macro maps these into the canonical
+=precedence/alias/sequence/field/repeat= values. Shared compiler analysis can
+therefore inspect the explicit result, rather than needing separate knowledge
+of each author's shorthand.
+
+** Expected public structure to verify next
+
+For =a + b + c=, the following are schematic consequences of the rules. They
+omit operand wrappers and lexical details; they are not captured parser output.
+
+#+begin_example
+Arithmetic, additive left-associative binary structure:
+Expression
+  left: Expression
+    left: a
+    operator: +
+    right: b
+  operator: +
+  right: c
+
+HCL, expression-chain structure:
+BinaryExpression
+  left: a
+  operator: +
+  right: b
+  operator: +
+  right: c
+#+end_example
+
+A node rename cannot turn the second structure into the first. Repeated
+=operator/right= fields and nested binary nodes are different public contracts.
+A subsequent parser fixture should verify actual child ordering, field
+multiplicity, spans and zero-suffix behavior. In particular, the chain permits
+zero repeated pairs and still has an alias node, whereas a binary alternative
+requires an operator and two operands.
+
+** Where POO belongs
+
+A structural template constructs a rule expression. A GrammarRole can own
+that expression together with its dependent rules, tokens and declarations.
+Composition then operates on the resulting named contributions using the
+existing checked grammar protocol.
+
+Adding a new rule identity may use =append=. Adding operators to an existing
+expression rule requires construction of its final alternatives or an explicit
+=override= of that rule. The prototype does not alter those meanings and does
+not yet bridge runtime GrammarRole construction into =deflanguage='s expansion
+phase. That phase bridge remains a design question with its own executable
+acceptance criteria.
+
+POO's contribution is to let related grammar contributions be named, composed
+and checked together. The macro system's contribution is to let authors express
+those contributions in a vocabulary that expands to explicit grammar forms.
+The canonical compiler remains responsible for deriving parser products.
+
+** Connection to the papers and the design decision
+
+- Dybvig/Hieb/Bruggeman supplies the distinction between pattern templates and
+  procedural syntax transformation. These two structural idioms fit =defrules=;
+  collecting an operator family and its dependencies may require =defsyntax=.
+- Ballantyne/Gamburg/Hemann motivates an extensible author vocabulary that
+  elaborates into a shared core. The checked core-value comparisons are a small
+  executable step in that direction, not an implementation of their framework.
+- Culpepper/Felleisen motivates diagnostics in the author's declaration
+  vocabulary. The present prototype has only generic macro mismatch errors;
+  vocabulary-specific diagnostics remain future work.
+- Oliveira/Cook motivates separating reusable construction interfaces from
+  consumers. It informs the POO study, but does not establish that the existing
+  role protocol is an object algebra with the paper's static guarantees.
+
+The working recommendation is two named structural components with documented
+defaults and explicit customization. The next study should compare call
+arguments and array elements, then test a complete language declaration and
+its actual tree. Publish names and the POO phase bridge only after discussing
+those results; the current drafts remain local.
+
+* Discussion correction: author intent versus numeric precedence
+
+The author questioned why the example exposes =left 10= when native AST
+structure is independent of indentation. This distinction must be explicit in
+our examples, before choosing author-facing syntax.
+
+** Three different structures
+
+1. The grammar declaration is Gerbil Scheme source. Parentheses establish its
+   S-expression structure; ordinary formatting indentation does not establish
+   precedence or field ownership.
+2. The target source may have explicit parentheses, infix operators or meaningful
+   layout. Its grammar determines which of those distinctions matter. An input
+   such as =(+ a (* b c))= already makes operator nesting explicit; it does not
+   require an infix priority table to discover that nesting.
+3. The parser produces a public tree under the chosen recognition and reduction
+   rules. Tree construction preserves the selected structure; it cannot determine
+   an infix language's intended binding policy merely from AST node names.
+
+The Arithmetic fixture parses infix input and has recursive alternatives for
+=expression operator expression=. In this existing grammar, =left= is the
+conflict policy for equal ranks and =10= is a relative priority, not an
+indentation level or an AST depth. Its =20= multiplicative tier outranks the
+=10= additive tier. The current
+[[file:../../src/compiler/lr-compiler.ss][LR conflict resolver]] compares ranks and, at equal ranks, selects reduce for
+left associativity or shift for right associativity. This is source inspection,
+not a new runtime measurement.
+
+For the infix input =a - b - c=, associativity distinguishes =(a - b) - c= from
+=a - (b - c)=. For =a + b * c=, the relative binding policy distinguishes
+=a + (b * c)= from =(a + b) * c=. Whitespace formatting alone does not resolve
+these choices in this language. The explicit =extras whitespace= declaration
+in [[file:../../languages/arithmetic/grammar.ss][Arithmetic]] is separate from precedence. Layout-sensitive target languages
+can use declared layout markers; that does not make Scheme declaration
+indentation a priority mechanism.
+
+** Revised author-facing direction
+
+The earlier =binary-expression left 10= prototype reproduces existing core
+semantics and proves a small macro mapping. It is not the recommended final
+author interface. Numeric ranks should remain an available core representation;
+author vocabulary can instead name the semantic organization.
+
+Two alternatives deserve comparison:
+
+| Author representation | Benefit | Composition question |
+|-----------------------+---------+----------------------|
+| Named operand tiers, such as sum referring to product | Grammar dependencies express binding; no numeric rank in ordinary author code | Preserve tree wrappers and specify recursive association when extending a tier |
+| Named operator groups with relative order | Retains a compact recursive infix rule while hiding arbitrary rank numbers | Independently contributed groups need explicit ordering/equality constraints |
+
+A local group name should have component-qualified identity. If two groups have
+no declared relation, an elaborator must not invent semantic priority from
+import order or the lexical spelling of their names. Cyclic strict ordering is
+an invalid declaration. Equality of priority needs its own declared grouping or
+constraint and a compatible association policy. A total-order prototype would
+be insufficient evidence for independently composed partial orders.
+
+For either alternative, default =BinaryExpression= and per-language node/field
+customization remain useful. Recognition organization and public-tree shape
+are separate decisions: changing to named tiers must not silently add tier
+nodes. Preserve explicit provenance so a conflict can cite the author's operator
+group or dependency rather than only a generated integer.
+
+This follows our interpretation of
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Ballantyne/Gamburg/Hemann, section 3.3]]: an expressive surface can elaborate
+into a small compilation core. The paper does not prescribe this operator-group
+API. Likewise,
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper/Felleisen, sections 3.2 and 7.2]] motivates vocabulary-specific
+validation and collection of declarations before dependency checks; it does not
+supply Gerbil syntax classes or prove our proposed ordering contract.
+
+Before publishing expression component syntax, compare these alternatives on
+Arithmetic and a language with explicit tiers. The design goal is semantic
+intent expressed once, with numeric precedence emitted only where the chosen
+grammar strategy needs it.
+
+* Numeric-free expression strategies: concrete comparison
+
+** What the named-tier prototype establishes
+
+[[file:../../t/fixtures/language-pack-research/tier-comparison.ss][tier-comparison.ss]] extends the local macro study with six checks. Its native
+command was the same bounded Gerbil invocation as the earlier comparison, with
+=tier-comparison.ss= as the entry file. It exited 0, printed
+=TIER-COMPARISON-OK: 6 checks passed=, and reported the existing
+=std/net/request= deprecation warning.
+
+The checks cover left-binary core structure, right-binary core structure,
+FHIRPath's actual =or= tier, FHIRPath's actual =implies= tier, explicit node/field
+customization and absence of canonical numeric precedence in the two binary
+values. These are canonical-value checks. They do not prove LR admission,
+recognition equivalence, actual CST equivalence or performance.
+
+Two local author forms illustrate numeric-free binary rules:
+
+#+begin_src scheme
+;; Rule named sum: the base operand comes from the product rule.
+(left-binary-tier sum (reference product)
+  (choice (literal "+") (literal "-"))
+  (node Expression) (fields left operator right))
+
+;; Rule named power: recursive suffix produces right nesting.
+(right-binary-tier power (reference atom) (literal "**"))
+#+end_src
+
+Their explicit core rules are respectively:
+
+#+begin_src scheme
+(choice
+ (alias Expression
+   (seq (field left (reference sum))
+        (field operator (choice (literal "+") (literal "-")))
+        (field right (reference product))))
+ (reference product))
+
+(choice
+ (alias BinaryExpression
+   (seq (field left (reference atom))
+        (field operator (literal "**"))
+        (field right (reference power))))
+ (reference atom))
+#+end_src
+
+The first places recursion on the left; the second places it on the right.
+Both pass through their base operand without adding a public binary node when
+there is no operator. Dependencies encode tier organization, so these examples
+have no =prec= annotation. Actual complete grammar admission still needs a parser
+fixture, especially when combining prefix, postfix or overlapping alternatives.
+The names remain local prototypes, and an eventual rule-declaration form may
+avoid repeating the enclosing rule's own identity as an argument.
+
+** Existing FHIRPath demonstrates a different structural contract
+
+[[file:../../languages/fhirpath/grammar.ss][FHIRPath]] already expresses relative tiers as references, without numeric
+precedence annotations in these rules. The current =or-expression= references
+=and-expression= as its operand and repeats operator/right pairs inside an
+=Expression= alias. The =implies-expression= references =or-expression= and has
+an optional right-recursive pair. Their reusable local forms are:
+
+#+begin_src scheme
+(expression-chain (reference and-expression)
+  (choice (literal "or") (literal "xor"))
+  (node Expression) (fields left operator right))
+
+(recursive-right-chain implies-expression (reference or-expression)
+  (literal "implies")
+  (node Expression) (fields left operator right))
+#+end_src
+
+The comparison checks these forms against the current explicit core structures.
+The chain templates wrap the operand even when there is no operator; binary
+tier templates do not. This is a tree contract, not an optimization detail.
+A common word such as "tier" must not silently select one of these structures.
+
+| Template | Recursion / repetition | Zero operators | Multiple operators |
+|----------+------------------------+----------------+--------------------|
+| Left binary tier | Self reference in left operand | Base operand passes through | Nested binary nodes on the left |
+| Right binary tier | Self reference in right operand | Base operand passes through | Nested binary nodes on the right |
+| Expression chain | Repeated suffix over one operand rule | Alias remains | Repeated operator/right fields in one node |
+| Recursive right chain | Optional suffix with self reference on right | Alias remains | Right-recursive alias structure, including base wrappers |
+
+These are rule-derived expectations. The prototype checks their declarations;
+actual event order, public fields, spans and wrapper counts still need runtime
+assertions. Arithmetic migration and FHIRPath reuse are consequently separate
+experiments: one restructures recognition rules and must establish equivalence;
+the other can first preserve existing expressions exactly.
+
+** Alternative: named operator groups
+
+A second vocabulary could keep a recursive infix rule and allow a language to
+name groups and their relative binding. The following is design notation only:
+
+#+begin_src scheme
+(operator-groups
+ (sum (operators "+" "-") (associativity left))
+ (product (operators "*" "/") (associativity left)))
+(binding-order sum product) ; weaker to stronger, explicitly declared
+#+end_src
+
+Neither form is implemented or proposed as the final spelling. In this sketch,
+=associativity= resolves same-group infix chaining; it does not affect Scheme
+indentation. Prefix/postfix placement is another declaration dimension and needs
+its own contract rather than being inferred from operator spelling.
+
+Group elaboration could generate the current =prec= core values. Numeric ranks
+would be compilation output, while diagnostics retain component-qualified group
+names and source declarations. Numeric values are still allowed in low-level
+core authoring; the study is about reducing ordinary language-author burden.
+
+A composed partial order deserves special care. A deterministic topological
+sort can assign a total order, but it would also decide undeclared relations.
+Likewise, assigning equal numeric ranks to incomparable groups would introduce
+a tie policy the author did not select. Neither operation is a sufficient
+semantic implementation of partial ordering.
+
+A defensible design needs to distinguish irrelevant pairs from pairs that
+actually participate in a parser conflict. For relevant pairs, it must require
+an explicit relation/grouping or retain an unresolved conflict under the existing
+admission policy. Ordering constraints, conflicting association declarations,
+duplicate operator contributions and cyclic strict order need author-level
+explanations. This contract is still under study; there is no ranking algorithm
+implemented in the research fixtures.
+
+** Why these are different Scheme strengths
+
+Pattern macros can abstract a recurring grammar shape while preserving caller
+syntax. Procedural macros can collect richer declarations and check dependencies
+before emitting explicit core forms. Module exports can give a language pack its
+own reusable vocabulary. These are distinct capabilities beyond parenthesized
+notation.
+
+Our reading of
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs, section 3.3]] supports this surface/core
+separation and deliberate extension positions. Its Racket extension classes are
+not automatically available in Gerbil, and the present fixtures do not implement
+that paper's expander. Our reading of
+[[https://www.cs.utexas.edu/~wcook/Drafts/2012/ecoop2012.pdf][Extensibility for the Masses]] motivates considering both contributed constructs
+and analyses over their common representation. It does not turn a syntax macro
+into a POO grammar object or grant Java's typing guarantees to Scheme.
+
+For this repository, the sequence is author vocabulary, explicit core expression,
+checked named grammar contributions, canonical compilation, and admitted services.
+The phase at which those contributions become POO values remains explicit work.
+A component cannot assume that template expansion and runtime role construction
+are interchangeable. No additional per-token object dispatch follows from this
+proposal.
+
+** Working recommendation and next evidence
+
+Prefer named rule dependencies as the first numeric-free authoring strategy.
+Existing FHIRPath offers a concrete reuse target; the binary-tier prototypes
+show a possible Arithmetic direction. Retain operator-group elaboration as a
+separate option for grammars where it reduces author effort and has an explicit
+composition contract. Do not make all language authors declare a group table.
+
+The next complete fixture should verify:
+
+1. Actual left/right nesting and base-operand behavior for a small admitted
+   language, with =a-b-c= and a right-associative example.
+2. Arithmetic precedence and existing public node/field structure for =a+b*c=,
+   grouped input and prefix interaction, against the current parser.
+3. Exact FHIRPath chain/wrapper behavior using the reusable templates.
+4. Module import/rename behavior and ownership of any generated helper rule.
+5. A minimal POO role composition at a declared phase before integrating a
+   role-import clause into =deflanguage=.
+
+Only after those controls should an API spelling be selected or languages be
+migrated. This is a local research recommendation for discussion, not a released
+implementation or a measured engine performance improvement.
+
+* Complete native language witness: numeric-free tiers
+
+** Implementation boundary and result
+
+The local [[file:../../t/fixtures/language-pack-research/tier-language.ss][tier-language.ss]] imports the template vocabulary and uses the existing
+=deflanguage= compiler. Its declaration uses named sum, product, power, prefix
+and atom rules. Sum/product are left-recursive binary tiers; power is a
+right-recursive binary tier. Prefix binding is explicit: it binds more tightly
+than the study's exponentiation rule. None of these rules uses numeric
+precedence. The language is a research fixture, not a replacement for Arithmetic.
+
+The local [[file:../../t/fixtures/language-pack-research/tier-runtime.ss][tier-runtime.ss]] runs the repository's =parse-source= and consumes the
+canonical ParseArtifact events. It implements no alternate source parser.
+The successful native invocation was:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" GERBIL_PARSER_LR_TRACE=1 \
+  gtimeout 10 gxi t/fixtures/language-pack-research/tier-runtime.ss
+#+end_src
+
+It exited 0 and reported =TIER-RUNTIME-OK: 65 checks passed=. Compiler progress
+reported 24 lowered productions and 31 LR states, followed by artifact admission.
+These counts describe this fixture, not a speed or allocation comparison.
+The driver explicitly exits only after all assertions and its final flushed
+summary. No timeout threshold was widened.
+
+** What is checked
+
+| Control | Evidence | Boundary |
+|---------+----------+----------|
+| Twelve shared inputs | Each parser accepts; candidate roundtrips; complete event lists equal | Finite sample parity, not grammar equivalence |
+| =1-2-3= | Binary boundaries open at 0, open at 0, close at 3, close at 5 | Left nesting with exact spans |
+| =a**b**c= | Binary boundaries open at 0, open at 3, close at 7, close at 7 | Study-only right-associative extension |
+| =a-b-c= | No binary node | Current identifier lexical policy permits hyphens |
+| =a= | No binary node | Transparent base operand in this binary-tier design |
+| Five invalid inputs | Empty, missing right operand, invalid initial operator, adjacent names, unmatched parenthesis reject | Local admission controls |
+
+The twelve shared inputs are =a=, =42=, =a-b-c=, =1-2-3=, =a - b - c=,
+=a+b*c=, =(a+b)*c=, =-a*b=, =a+-b=, =--a=, =a / b - c= and a source with
+leading newline/space and trailing tab. The event comparison includes node IDs,
+kinds and order, field boundaries, tokens and spans. Grammar digests differ
+because the declarations differ; equality here deliberately compares emitted
+public events rather than whole artifact identity.
+
+The right-associative extension is not compared against Arithmetic. Arithmetic's
+punctuation inventory includes =**=, but its examined expression alternatives
+do not admit exponentiation. Lexical recognition is not proof of grammar support.
+The fixture also does not claim any normative exponentiation/prefix policy for
+another language.
+
+** Retained unsuccessful attempts and corrected test meaning
+
+The first runtime attempt exited 70 on the left-nesting assertion. It used
+=a-b-c=, which the current =identifier= scanner recognizes as one token:
+[[file:../../src/runtime/scan.ss][identifier-rest?]] explicitly allows a hyphen. Acceptance and event parity alone
+therefore did not establish that subtraction had been exercised. The corrected
+fixture keeps this identifier case and uses =1-2-3= plus spaced identifiers for
+subtraction. The expected tree assertion remains mandatory.
+
+A later =gerbil env gxi= attempt emitted all 65 successful assertions but exited
+124 under the same ten-second bound. That invocation is retained as a timeout,
+not a passing receipt. The terminal driver now explicitly exits after its final
+summary, and the successful receipt uses the direct =gxi= entry used in the
+repository's native commands. This is not evidence isolating the cause of the
+wrapper's shutdown behavior. The passing invocation has both the required
+summary and exit 0.
+
+** Design consequences and remaining author burden
+
+This witness establishes that the current compiler can admit a complete small
+language assembled from numeric-free grammar templates. Named rule dependencies
+can express binding while keeping public binary nodes, fields and spans aligned
+with the current Arithmetic parser on selected inputs. It is stronger evidence
+than core-expression equality and supports the named-tier direction.
+
+It does not establish that every numeric priority can be removed, that grammar
+ambiguity disappears, or that every tier strategy produces the same tree. The
+FHIRPath chain/wrapper runtime checks, module composition phase bridge and general
+operator-group ordering contracts remain open.
+
+The current prototype still repeats =sum= as both the enclosing rule name and
+the template's self-reference parameter. A final vocabulary should study a
+rule-declaration elaborator that supplies this context once. The existing
+=deflanguage= extension path expands expressions within rule rows; it does not
+already provide an arbitrary declaration-row extension protocol. The design must
+specify that boundary before proposing context-dependent shorthand.
+
+Similarly, moving binding into named rules introduces helper-rule identities.
+Their visibility and component-qualified ownership need to be settled with POO
+composition. Public AST/CST node identity remains separate from helper-rule
+identity: transparent helper rules should not become public nodes by accident.
+
+The next discussion should evaluate author burden across a complete declaration:
+explicit dependencies, helper naming, tree customization, lexical policy and
+module composition. The successful witness supports simplification of precedence
+configuration, while leaving those other decisions visible for research.
+
+* Follow-up: declare a rule identity once
+
+The [[file:scheme-rule-context-design.org][rule-context declaration study]] adds a local declaration wrapper and 59
+successful native checks. It removes explicit self-name repetition, while
+separately documenting host binding, grammar identity, POO contribution ownership
+and the declaration-provenance boundary. Its public syntax remains undecided.
+
+* Scheme design rationale: two required questions
+
+This local vocabulary rule row shows structural binding order. The complete
+fixture connects sum to product, product to power, and power to its operand.
+
+#+begin_src scheme
+(sum
+ (left-binary-tier sum (reference product)
+   (choice (literal "+") (literal "-"))
+   (node Expression) (fields left operator right)))
+
+;; Question 1: Why is this DSL design better?
+;; Named dependencies express operands from product without numeric ranks in this example.
+;; Macros share tree contracts; POO roles compose contributions; the compiler uses common IR.
+;; S-expressions carry structure, defsyntax/defrules abstraction, and POO composition.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Tier dependencies and recursion direction specify binding; nodes, fields and spans are observable.
+;; Evidence: 65 native checks cover selected Arithmetic events and associativity spans.
+;; Falsifier: wrong nesting of 1-2-3 or right-associative inputs, or extra base-operand nodes.
+;; Limit: tiers do not suit every grammar; general groups, author tasks and performance remain open.
+#+end_src
+
+The contextual follow-up removes the repeated self identifier shown here.
+These successive witnesses measure separate improvements; they are not evidence
+that one shorthand solves the entire language-package declaration problem.
+
+* Latest PR rebase qualification
+
+The refactor was rebased onto PR #13 head
+=f058225a1454732af6144076f5916418bde71153=. The native author fixture
+build completed in 7.90 seconds with exit status 0 under the unchanged
+240-second total and 5-second idle watchdog. The portable research gate
+passed 296 checks across ten processes, each exiting 0. The rebased GQL
+fixture checks compare identifiers and sources because Loader copies fixture
+records. These local receipts do not establish GitHub CI success or a complete
+native runtime qualification.

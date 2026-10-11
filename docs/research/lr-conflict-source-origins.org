@@ -1,0 +1,137 @@
+#+title: LR conflict diagnostics from effective Scheme declarations
+#+startup: overview
+
+* Research question and implementation boundary
+
+How can a compact Scheme grammar remain understandable after the engine lowers
+its expressions into synthetic productions? This module closes the rejected LR
+action diagnostic part of the [[file:dsl-engine-contracts.org][integrated DSL study]]. The implementation
+baseline is PR #13 =95de0d9= plus this source slice. It does not change CFG choice,
+precedence, conflict policy, production numbering or the canonical LRSpec schema.
+
+Zimmerman's [[https://arxiv.org/pdf/2209.08383][Practical LR Parser Generation]], Section 2.3, studies intermediate
+grammar transformations that defer reductions. Our inference is that generated
+helpers must remain attributable to author expressions before investigating a
+similar transformation. The paper does not prove this repository's lowering or
+source attribution. We implement attribution and test it independently; this
+slice does not implement CPS lowering or claim an XLR execution bound.
+
+* One occurrence contract
+
+The shared lowering owner accepts an optional diagnostic observer. Each emitted
+production reports the selected rule, expression child path and original
+GrammarExpr. Child indices count semantic expression children: field, alias,
+precedence and unary operators use index zero; sequence and choice use their
+ordered child positions. Wrapper names and precedence ranks are not children.
+Equal expression values at different paths remain different occurrences.
+
+The observer reconstructs an indexed sidecar after an LR action pair is rejected.
+Normal compilation does not replay lowering or construct source paths. The
+sidecar is neither a language entry slot nor part of a published runtime table.
+Existing normalization remains the authority for selected POO source rows.
+
+The appended =lrConflict= diagnostic contains:
+
+- =state= and =terminal= at the rejected action pair;
+- =actions=, with =expressionOrigin= for each reduce production;
+- =shiftItems=, each matching state item with its dot and =expressionOrigin=.
+
+Each origin contains =rule=, =expressionPath=, =loweringOperation= and =source=.
+The source is the selected normalized row, including its composition history
+when available. A shared shift has several candidate items; the diagnostic lists
+them instead of assigning it to an arbitrary production. These are candidates
+in that state, not a shortest derivation or a proof that every item wins a
+precedence comparison. Unavailable reader coordinates remain unavailable.
+Raw rule lists receive empty source rows. Existing error messages and irritants
+are preserved, followed by the new structured evidence.
+
+* Scheme witness
+
+#+begin_src scheme
+;; grammar.ss: the author states syntax, without naming helper productions.
+(rules
+  (start (seq (optional "a") (optional "a"))))
+
+;; Engine-side diagnostic occurrence shape, shown without state numbering.
+;; The two equal optional expressions have distinct identities.
+((rule . start)
+ (expressionPath 0)
+ (loweringOperation . optional)
+ (source))
+((rule . start)
+ (expressionPath 1)
+ (loweringOperation . optional)
+ (source))
+#+end_src
+
+** Question: why is this DSL design better for authors?
+
+The engine owns helper expansion and diagnostics. Authors can write nested
+syntax directly and receive failures in those same terms. POO overrides select
+the effective rule and source together; an inherited rule's replaced declaration
+is not reported as the active owner. No diagnostic configuration or generated
+helper naming convention is added to =grammar.ss= or =parser.ss=.
+
+** Question: why is the design scientifically justified?
+
+The identity is structural and falsifiable: selected rule plus child path, not
+expression equality or a generated symbol name. An observer replay must produce
+exactly the same ordered productions as ordinary lowering. All four construction
+strategies consume the same origin contract while retaining their own state
+numbers and admission behavior. These controls establish the tested attribution
+invariant; the paper supplies a transformation motivation, not a correctness
+certificate or a performance result.
+
+* Code owners and qualification
+
+| Responsibility | Owner | Executable control |
+|----------------+-------+--------------------|
+| Preserve occurrence during lowering | =src/compiler/lr.ss= | =t/lr-conflict-origins-test.ss=: equal optional helpers under an alias have separate paths; replayed productions equal ordinary productions |
+| Attach rejection evidence | =src/compiler/lr-compiler.ss= | Shift/reduce and reduce/reduce failures retain their messages and both action witnesses |
+| Resolve effective source ownership | Existing =src/compiler/normalize.ss= | An ambiguous POO override is reported as selected source across four constructions |
+| Retain construction semantics | =t/resolved-grammar-test.ss= and =t/lr-conflict-origins-test.ss= | Existing nullable, productivity, precedence and LR construction controls run with the new compiler; focused origin controls belong to the native conformance grammar suite |
+
+The focused native qualification uses the existing Scheme test harness and
+process watchdog, with a five-second real-output idle gate. No project script,
+standalone qualification binary or author-facing compatibility path is added.
+
+** Local receipt (2026-10-10)
+
+The final LR producer compiled natively with the existing optimize/static
+options: =26.667s=, propagated exit zero and final =OK=. The focused contract
+test module also compiled natively: =34.346s=, exit zero and =OK=. The existing
+semantic module did not have a reusable native object, so both test sources were
+executed through the repository's GxTest source path against the final native
+producer overlay. All =41= cases passed (=37= existing semantic cases and =4=
+new origin cases), =27.035s=, exit zero, both =MODULE-OK= markers and final =OK=.
+
+The source suite selection is reproducible with the normal prepared project:
+
+#+begin_src sh
+gerbil test -g -v 5 t/lr-conflict-origins-test.ss t/resolved-grammar-test.ss
+#+end_src
+
+Local raw receipts are unarchived local execution. Temporary
+overlays are local evidence, not committed bootstrap sources or CI artifacts.
+
+Unsuccessful attempts are retained as negative evidence: the first added test
+form had an unmatched parenthesis; placing the new tests in the large existing
+semantic module hit the five-second GCC idle gate (=82.157s= total); the nested
+diagnostic exception closure also hit that gate (=51.701s= total). The tests were
+separated into their own module and the exception boundary became a named
+function. Native loading of the existing semantic module failed because its
+object was unavailable; its unchanged source passed through GxTest. None of
+these attempts is admitted as a success, and the five-second idle gate was not
+relaxed.
+
+The native conformance module catalog and composition suite both include the
+new module. Exact-head Linux, macOS and Rust AOT CI remain separate gates.
+
+* Remaining boundaries
+
+This diagnostic is produced when table admission rejects an action pair. It is
+not a serialized origin catalog for admitted GLR forks, runtime rejection,
+scanner programs or generated backend entries. It does not reconstruct exact
+reader coordinates from normalized values or infer an ambiguous input string.
+Those mechanisms require their own source identity and witness contracts.
+No performance benefit is claimed for this diagnostic change.

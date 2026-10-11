@@ -1,0 +1,92 @@
+;;; Closed source recipes share the source engine protocol; no language imports.
+(import (only-in ./parse-cost with-parser-cost-stage)
+        (only-in ../language/command-profile command-plan-kind)
+        (only-in :clan/poo/object .o .ref .slot?)
+        (only-in ../language/source-strategy SourceStrategy. declare-source-strategy-provider make-source-engine)
+        (only-in ./region-scanner region-plan?)
+        (only-in ./contextual-scanner prepare-contextual-scanner-plan)
+        (only-in ./shell-parser make-shell-parser)
+        (only-in ./source-scanner make-source-scanner make-contextual-source-scanner source-scanner-tokens)
+        (only-in ./recognition make-recognition-child)
+        (only-in ../language/result-profile ResultProfile. result-plan-node result-plan-token)
+        (only-in ../compiler/contextual-program compile-command-contextual-program compile-line-contextual-program
+                 contextual-program-ir contextual-program-regions contextual-program-scanner
+                 contextual-program-results contextual-program-parts contextual-program-commands)
+        (only-in ./contextual-ir contextual-ir-ref)
+        (only-in ./token token-start token-end)
+        (only-in ./artifact make-success-parse-artifact make-failure-parse-artifact))
+(export ShellSourceStrategy. LineSourceStrategy.)
+;;; Shape classification is separate from semantic compilation. The compiler
+;;; admits each plan once and uses that same owned plan for identity and runtime.
+(def (shell-source-admit? candidate)
+  (and (andmap (lambda (slot) (.slot? candidate slot))
+               '(regions scanner parts results commands))
+       (region-plan? (.ref candidate 'regions))))
+(def (compile-shell-source candidate)
+  (let* ((program (compile-command-contextual-program candidate))
+         (results (contextual-program-results program))
+         (regions (contextual-program-regions program))
+         (scanner-ir (contextual-program-scanner program))
+         (commands (contextual-program-commands program))
+         (parts (contextual-program-parts program))
+         (plan (prepare-contextual-scanner-plan scanner-ir)))
+    (def (factory source) (make-contextual-source-scanner plan source 'source))
+    (def (scan source)
+      (let (worker (with-parser-cost-stage 'source-prepare (factory source)))
+        (with-parser-cost-stage 'source-scan (source-scanner-tokens worker 'command))))
+    (let-values (((parse receipt) (make-shell-parser regions results parts commands)))
+      (values
+        (contextual-program-ir program)
+        (make-source-engine scan factory parse receipt results (command-plan-kind commands 'BashFile) program)))))
+(def +shell-source-provider+
+  (declare-source-strategy-provider 'shell shell-source-admit? compile-shell-source))
+(def ShellSourceStrategy.
+  (.o (:: self SourceStrategy.) provider: +shell-source-provider+ regions: #f scanner: #f results: #f parts: #f commands: #f))
+(def (line-source-admit? candidate)
+  (and (andmap (lambda (slot) (.slot? candidate slot)) '(root-kind token-kind required-prefix))
+       (symbol? (.ref candidate 'root-kind)) (symbol? (.ref candidate 'token-kind))
+       (string? (.ref candidate 'required-prefix))
+       (.slot? candidate 'results)))
+(def (compile-line-source candidate)
+  (let* ((program (compile-line-contextual-program candidate))
+         (ir (contextual-program-ir program))
+         (recognition (contextual-ir-ref (contextual-ir-ref ir 'recognition) 'program))
+         (root-kind (contextual-ir-ref ir 'root-kind))
+         (token-kind (contextual-ir-ref recognition 'token-kind))
+         (prefix (contextual-ir-ref recognition 'required-prefix))
+         (results (contextual-program-results program)))
+    (def (factory source)
+      (make-source-scanner source #f
+       (lambda (text start context _mode)
+         (let (limit (string-length text))
+           (if (= start limit) (values #f start context)
+             (let loop ((end start))
+               (if (or (= end limit) (char=? (string-ref text end) #\newline))
+                 (values token-kind (if (= end limit) end (+ end 1)) context)
+                 (loop (+ end 1)))))))))
+    (def (scan source)
+      (let (worker (with-parser-cost-stage 'source-prepare (factory source)))
+        (with-parser-cost-stage 'source-scan
+          (map (lambda (token) (result-plan-token results token))
+               (source-scanner-tokens worker 'lines)))))
+    (def (parse source scanner digest)
+      (let (tokens (scanner source))
+        (if (and (<= (string-length prefix) (string-length source))
+                 (equal? prefix (substring source 0 (string-length prefix))))
+          (make-success-parse-artifact digest source tokens
+           (result-plan-node results root-kind 0
+            (if (null? tokens) 0 (token-end (last tokens)))
+            (map (lambda (token) (make-recognition-child 'line token)) tokens)) (lambda (_) #f))
+          (make-failure-parse-artifact digest source tokens
+           '((schema . "gerbil-parser.diagnostic.v1") (code . "SOURCE-PREFIX")
+             (reasonKind . parse-rejected) (failureKind . source-rejected)
+             (message . "source does not match its declared prefix") (byteOffset . 0))))))
+    (values ir (make-source-engine scan factory parse #f results root-kind program))))
+(def +line-source-provider+
+  (declare-source-strategy-provider 'lines line-source-admit? compile-line-source))
+(def LineSourceStrategy.
+  (.o (:: self SourceStrategy.) provider: +line-source-provider+
+      root-kind: 'SourceFile token-kind: 'Line required-prefix: ""
+      (results (.o (:: result ResultProfile.)
+                   nodes: (list (list (.ref self 'root-kind) '(line)))
+                   tokens: (list (.ref self 'token-kind))))))

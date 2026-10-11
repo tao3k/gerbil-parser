@@ -8,11 +8,10 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[dependencies]
+[dev-dependencies]
 asp-rust.workspace = true
 asp-rust-build-support.workspace = true
-
-[dev-dependencies]
+gerbil-parser-runtime.workspace = true
 gerbil-scheme-rust-ir.workspace = true
 
 [lints]

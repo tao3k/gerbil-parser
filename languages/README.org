@@ -1,0 +1,734 @@
+#+title: Language pack boundary
+
+Each language pack has three Scheme interfaces:
+
+| Interface | Responsibility |
+|-----------+----------------|
+| =grammar.ss= | Declarative syntax, pinned source metadata and corpus declarations |
+| =parser.ss= | Production POO Loader entry and parser exports |
+| =parser-test.ss= | Corpus declarations, development Loader and native conformance tests |
+
+Raw upstream grammar and corpus files remain resources. Scanning, state,
+recognition, source offsets, backend generation and FFI execution belong to the
+engine. =deflanguage-parser-loader= admits the effective POO object, its grammar
+and extension values before publishing the entry. Inheritance, overrides and
+extension contracts use the same admission boundary. Authors supply fixture
+values directly; the engine owns evaluation and service binding.
+
+All eight builtin language directories now follow this contract. TLA+ declares
+its core, layout and candidate scopes in the same grammar and parser interfaces.
+Generated products, scanners, projection execution and benchmark infrastructure
+belong to the engine or test owners. No compatibility modules remain.
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support
+                 deflanguage-parser-loader)
+        ./grammar)
+(export example-language parse-example)
+
+(deflanguage-parser-loader example-language
+  (grammar example-syntax)
+  (parse parse-example)
+  (slots metadata: '((language . "example") (version . "v1")
+              (contract . "example.syntax.v1"))))
+#+end_src
+
+The loader is a POO object, admitted when the module loads. =parse-example= binds
+the engine method once. Parsing neither rebuilds the loader nor repeats POO
+contract admission. Engine slots bind schema, descriptor, language, version,
+syntax contract, capabilities and dispatch; extension declarations cannot
+replace them. Parent prototypes cannot replace the bound engine slots either.
+
+* Grammar declaration contract
+
+=deflanguage= accepts exactly =(syntax (vocabulary ...))= and =(rules ...)=.
+Builtin lexical grammars use =lexical=; pinned source grammars use their imported
+=antlr4= or =iso-bnf= vocabulary; Bash uses =shell=. All share the same author
+boundary and canonical engine admission. The flat form and old source-adapter
+macro exports are removed, so a retired declaration cannot publish a parser.
+
+#+begin_src scheme
+;; grammar.ss
+(deflanguage example
+  (syntax (lexical (root name)
+                  (lex (identifier Identifier (identifier)))))
+  (rules (name (node Name (field value identifier)))))
+#+end_src
+
+Token kinds and node fields are derived from these declarations. Grammar rules
+use =node=, =seq= and =prec= where explicit construction is needed; engine
+=alias/sequence/precedence= encodings are not author constructors. Strings and
+unambiguous declared names need no literal/token/reference wrapper. Hygienic
+=defgrammar-syntax= abstractions preserve author binding and source diagnostics.
+
+Release metadata belongs to the parser Loader. A generated execution backend is
+bound through the parser declaration's =backends= section, where engine admission
+checks its kind, grammar digest and procedure before publication. Grammar authors
+cannot provide =flow= or =backends= clauses. Corpus and benchmarks remain under
+the test and development interfaces.
+
+* Extension slots and contracts
+
+Use ordinary POO inheritance for language options and tooling services. Supply
+POO contracts when an extension needs additional constraints. These contracts
+check the effective inherited object before its parse entry is published.
+
+#+begin_src scheme
+(import (only-in :clan/poo/object .o .ref)
+        (only-in :clan/poo/mop define-type)
+        (only-in :core/types PooFlowContract. poo-flow-classification-evidence))
+
+(def ExampleDialect.
+  (.o (:: @ LanguageLoader.) dialect: 'example))
+
+(define-type (ExampleDialectContract @ PooFlowContract.)
+  identity: 'example/dialect
+  .classify: (lambda (candidate context)
+               (let (accepted? (eq? (.ref candidate 'dialect) 'example))
+                 (poo-flow-classification-evidence
+                  'example/dialect candidate accepted?
+                  (if accepted? '() '((invalid dialect))) context))))
+
+(deflanguage-parser-loader (example-language :: self ExampleDialect.)
+  (descriptor example-language-grammar)
+  (parse parse-example)
+  (slots display-name: "Example"
+         (summary (string-append (.ref self 'display-name) " dialect")))
+  (contracts ExampleDialectContract))
+#+end_src
+
+The explicit =self= name binds computations in the extension slots. The shorter
+=(name @ prototype)= form is available when slots do not need a self binding.
+
+The grammar descriptor remains the compiler's admission boundary. Slots do not
+make arbitrary parser callbacks into a portable Scanner/Parser IR, or qualify a
+backend automatically. A source parser such as Bash uses the same loader but
+advertises =scheme-source=; generated grammar entries advertise
+=grammar-ir=, =parser-ir= and =scheme=. Rust AOT and C ABI products retain their
+own artifact/capability checks.
+
+* Grammar DSL
+
+Native grammar packs use =deflanguage=: =root=, =lex= and =rules=
+define the syntax. =extras=, =keywords= and =recoveries= default to empty;
+=conflicts= defaults to =reject= and =case-insensitive= to =#f=. Optional sections
+can be declared in any order; unknown or duplicate sections reject.
+The engine infers syntax kinds, fields, terminals and lexical
+rules. Alternatives of the same named node contribute to one field catalog.
+Use explicit =(token name)= or =(reference name)= when both namespaces contain
+the same name; an ambiguous bare identifier is rejected.
+
+=node-fields= declares optional public fields required by an existing syntax
+contract, without repeating the complete inferred catalog. =flow= can retain a
+pack's phase names; the default is source → lexical → parser → CST. The engine
+validates both through the same canonical Grammar IR compiler.
+
+A minimal =grammar.ss= is:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support/grammar deflanguage))
+(export example-syntax)
+
+(deflanguage example
+  (root document)
+  (lex (word Identifier (identifier)))
+  (rules (document (node SourceFile (field name word)))))
+#+end_src
+
+The =parser.ss= example above imports =./grammar= and exports
+=example-language= and =parse-example=. The compiler generates
+=example-syntax=; parser metadata binds =example-language-grammar=. The pack does not write its own terminal catalog,
+Parser IR assembler, backend installer or Rust/C bridge. Product generation
+still uses the engine's build entrypoints and each target's capability admission.
+
+Imported ANTLR/ISO-BNF grammars keep their source-admission DSL; they produce the
+same generated descriptor and use the same loader. Bash's compiled source
+plans and TLA+'s multiple grammar scopes remain explicit implementation
+boundaries. Their shared-IR migration is not implied by entry unification.
+
+** Strict quoted text in shared lexical IR
+
+Use =(quoted-string-profile delimiter escapes unicode-width)= for quoted text
+whose backslash escapes must be admitted explicitly. For example, FHIRPath
+strings and delimited identifiers declare:
+
+#+begin_src scheme
+(lex
+ (string StringToken (quoted-string-profile "'" "`'\\/fnrt" 4))
+ (delimited-identifier DelimitedIdentifierToken
+  (quoted-string-profile "`" "`'\\/fnrt" 4)))
+#+end_src
+
+=delimiter= is exactly one character. =escapes= lists accepted single-character
+backslash escapes. =unicode-width= is an exact integer from 0 to 8; zero disables
+special =\u= handling. Simple escapes take priority, so including =u= in
+=escapes= makes it a one-character escape. Otherwise =\u= requires exactly
+=unicode-width= numeric or ASCII A–F/a–f source characters. Recognition preserves
+source spelling without decoding Unicode values. The numeric class retains the
+existing Scheme scanner contract, including non-ASCII decimal digits. Rust uses
+a generated range table from the pinned native =char-numeric?= implementation;
+superscripts, fractions and Roman numeral characters remain rejected.
+
+Raw newlines remain accepted; adjacent quoted values stay separate. Unknown
+escapes, incomplete hex sequences and missing closing delimiters fail closed.
+The descriptor owns these rules: loader extension slots and scan workers cannot
+redefine an admitted lexical profile. Scheme executes the compiled profile with
+character endpoints; generated Rust executes the same data with UTF-8 byte
+endpoints. Grammar identity includes the declaration.
+
+FHIRPath uses shared quote and closed text profiles for strings, identifiers,
+numbers and temporal lexemes. Each portable product still requires its own
+producer and consumer qualification.
+=t/quoted-string-profile-test.ss= owns Scheme semantics and the portable grammar
+witness. =t/generate-quoted-string-profile.ss OUTPUT.rs= emits that witness for
+Rust; CI regenerates it and Cargo tests its accepted/rejected source behavior.
+
+
+* POO pack metadata and services
+
+Public entries use native POO prototypes: =LanguageLoader.= for production parsing
+and =LanguageDevelopmentLoader.= for optional corpus, scanner and build services.
+Both use the explicit =(name :: self prototype)=
+form. =slots= are ordinary POO slots: a downstream prototype can inherit or
+replace the language-facing services, and =contracts= validate the effective
+object. They are not a second parser registry.
+
+| Slot | Default | Admission / interface |
+|---+---+---|
+| =grammars= | List containing the configured =descriptor= | List of grammar/source descriptors; must contain the entry descriptor. Multiple scopes may be exposed here. |
+| =metadata= | Normal value or native POO object | parser.ss declares language/version/contract; the engine binds syntax and derives digest/digest-kind. Native inheritance is optional; extension contracts constrain extra fields. |
+| =fixtures= (development only) | Empty list | Ordinary POO value containing native =syntax-fixture= data. Override with a new corpus or extend with =append=; no callback wrapper. Loader admission checks the value shape; the common development test service checks identity and conformance. |
+| =tests= (development only) | Common fixture conformance service | Unique named, descriptor-bound =declare-language-fixture-test= declarations. =run-language-test= executes the common conformance protocol; bare procedures, duplicate names and foreign descriptors reject. |
+| =scan-workers= (development only) | Empty list | Unique named declarations bound to the exact source descriptor; bare procedures and foreign descriptors reject. Engine creation checks the executor/source binding. |
+
+For example, the HCL development entry binds its existing corpus and the common
+conformance service through POO rather than another language-specific wrapper:
+
+#+begin_src scheme
+(deflanguage-development-loader hcl-test-language
+  (grammar hcl-language-grammar)
+  (parse parse-hcl-test)
+  (slots metadata: '((grammar-format . concise-dsl))
+         fixtures: hcl-official-fixtures))
+
+(run-language-test hcl-test-language 'fixtures)
+#+end_src
+
+Production pack entries import =language-support/entry=. The optional
+=parser-test.ss= interface imports =language-support/development= and
+=language-support/fixture= directly. This removes their direct dependency
+on optional ANTLR/BNF/JavaCC authoring importers in the aggregate
+=language-support= facade; the facade exports the production entry API; optional development operations
+are imported from =language-support/development=.
+Native grammar modules import the narrow =language-support/grammar= frontend;
+ANTLR and ISO-BNF modules import their respective source adapters.
+
+The unreleased =gerbil-parser.language-entry.v2= contract is corrected in place;
+this source migration does not create a new schema or release version.
+Language modules and public bindings use stable names (=languages/hcl/parser=,
+=hcl-language=, =parse-hcl=). Edition/version data belongs in Loader metadata.
+
+The development prototype using =gerbil-parser.language-entry.v2= derives the default fixture-test
+declaration from the effective descriptor through the inherited POO slot.
+Fixture values participate in ordinary POO inheritance. Users assign a new list
+for replacement, or a computed value slot such as
+=(fixtures (append (.ref BaseLanguage. 'fixtures) extra-fixtures))= for extension.
+POO handles value-slot evaluation; callers never invoke the fixture slot.
+
+Additional names may use =declare-language-fixture-test= with that descriptor.
+A new service kind requires an engine opcode and input/result contract.
+
+=check-language-loader-fixtures!= first admits the whole corpus: fixture IDs
+must be unique and every fixture's language/version/contract must match the
+loader. A foreign fixture or duplicate ID rejects before any source is parsed.
+It then owns status, roundtrip, root and required-kind checks and returns the
+admitted artifacts. Lexical rejection retains the complete source bytes as an
+opaque token when the lexer cannot publish a token stream. This makes negative
+fixtures lossless even when a language has no fallback lexical rule.
+The fixture slot must contain syntax-fixture data; a mismatch raises an error.
+Loader admission reads the value and checks its shape without running fixture
+parses, test services or scan workers. Ordinary parsing does not
+resolve these services. Corpus declarations belong to =parser-test.ss=, which
+imports the production parser; production modules never import their tests.
+
+All shipped development entries register their corpus conformance service,
+including HL7, FHIRPath, Bash, TLA layout and the policy-bound SANY candidate.
+The services are available through =language-support/development=. A short
+fixture is declared inside =parser-test.ss= without a fourth interface:
+
+#+begin_src scheme
+(defsyntax-corpus example-fixtures
+  (identity "example" "v1" "example.syntax.v1")
+  (accepted ("example/word" example-word (text "hello") SourceFile ()))
+  (rejected ("example/empty" example-empty (text ""))))
+#+end_src
+
+A corpus source is either a path string relative to the declaration or
+=(text "source bytes")=. Both produce the same immutable =syntax-fixture=
+representation and SHA-256 source identity. =defsyntax-fixture= likewise accepts
+=(source "path")= or =(text "source bytes")=. Providers are still ordinary POO
+slots and are invoked only when the test service is explicitly run; file sources
+are embedded at expansion, so runtime conformance has no filesystem dependency.
+These syntax fixtures complement language-specific projection, concurrency and
+incremental tests; they do not stand in for those assertions.
+
+Bash registers its =command= source worker using
+=(declare-language-source-scan-worker bash-source-language)=.
+Create it with =(make-language-scan-worker loader 'command source)=. This is an
+explicit transitional source-parser declaration, not a closed Scanner IR product.
+The loader rejects raw factories, duplicate names and foreign descriptors;
+creation rejects malformed or foreign-source executors. Checkpoints bind the
+creating worker even when two workers receive the exact same string object.
+The engine's
+=source-scanner-tokens= owns traversal, checkpoint progression, UTF-8 offsets and
+token construction through =source-scanner-step=. The shell engine owns word
+recognition and deferred here-document transitions. HL7 uses portable closed
+header rules; FHIRPath uses portable local text profiles. Structured TLA+ module
+text and proof scanners are bound from POO recipes in the Scheme engine.
+Those recipes do not yet have a standalone Rust consumer.
+
+* Shared closed text profiles
+
+Local lexemes use =(text-profile expression)= inside =deflanguage='s =lex=
+section. The engine prepares the Scheme matcher once when constructing its
+lexer and emits the same closed data into Rust AOT. Language packs supply
+syntax; neither target requires a language callback.
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support deflanguage deftext-profile))
+(deftext-profile fractional-part
+  (optional (seq (literal ".") (run (numeric) 1 #f))))
+;; Within a lex row:
+;; (number Number (text-profile
+;;   (seq (run (numeric) 1 #f) (ref fractional-part))))
+#+end_src
+
+=deftext-profile= declares a reusable syntax fragment. =(ref fragment)= expands
+hygienically during declaration compilation; fragment names do not survive in
+Grammar/Parser IR and cannot become runtime lookups. Cyclic or excessively deep
+expansion rejects before publication. Direct profile data remains available in
+the canonical IR; fragments are not runtime scanner procedures.
+
+| Operation | Semantics |
+|---+---|
+| =(literal text)= | Consume nonempty exact text |
+| =(run class minimum maximum)= | Consume a maximal class run within bounds; =#f= means input-bounded maximum |
+| =(seq expression ...)= | Require every step in order |
+| =(optional expression)= | Restore the entry offset when the whole child fails |
+| =(if-next class yes [no])= | Choose by the next character; a chosen branch must succeed |
+| =(not-next class)= | Reject a matching next character without consuming input |
+
+Classes are =(numeric)=, =(ascii-letter)=, =(characters text)= and
+=(union class ...)=. Numeric matches Scheme's Unicode decimal-digit semantics,
+including Arabic and full-width digits; general Unicode number categories are
+not interchangeable. Widths count characters in both engines. Scheme returns
+character positions; Rust returns UTF-8 byte spans. Counts and summed minimum
+widths fit an unsigned 32-bit value. Profiles and classes have depth below 64.
+Empty character sets, malformed bounds, unknown operations and nullable roots
+reject at compilation/product admission. Interior zero-width guards are valid;
+there is no repetition operator over a nullable profile.
+
+Choose rollback explicitly: =1.= retains the integer token, while a date/month
+prefix such as =@2024-= must reject after the hyphen selects its required
+month branch. FHIRPath's date/time grammar declares these decisions directly.
+Source-dependent delimiters, nesting and deferred obligations require shared
+source context/state IR; a local text profile does not encode those mechanisms.
+
+* Source-dependent scanners and migration boundary
+
+=deflanguage-parser-loader= admits the worker declaration against its exact
+source descriptor. A worker's checkpoints belong to the creating worker, even
+when another worker scans the same string. Source callbacks retain their Scheme
+capability classification until the language's execution is represented by
+closed Scanner IR; loader registration alone does not confer Rust portability.
+
+Bash uses the engine's deferred delimiter queue and quote-removal semantics.
+Its language context retains syntax routing and exposes pending obligations as
+an ordered value; insertion does not rebuild that list. Closed contextual
+Scanner IR uses the same queue and marker operation. Engine admission rejects
+unknown marker policies, malformed values and foreign obligation types.
+
+The next source declarations require worker-local prepared captures (HL7), a
+source revision bound nesting index (TLA+) and closed region/command transitions
+(Bash). These are implementation work, not currently available authoring slots.
+The detailed contract and closure gates are in
+[[file:../docs/roadmap/0001-versioned-language-pack-closure.org][the language convergence roadmap]].
+
+Bash authoring now declares =ShellSourceStrategy.= and a closed region value.
+The engine owns scanners, word recognition, span links and artifacts. Full
+standalone Rust execution still requires command/state IR and an equivalent
+consumer; source strategy registration does not grant that capability.
+
+* Published catalog projection
+
+New concise DSL packs infer their kinds, fields and terminals. An existing pack
+may supply =(catalog (syntax-kinds ...) (terminals ...))= to preserve its public
+ABI. The engine validates it against the inferred declaration: every emitted
+kind/category/field remains present; terminal mappings remain exact; kind,
+field and terminal identities remain unique. Additional reserved nodes and
+fields are allowed. Unused token kinds require the explicit optional
+=(reserved-token-kinds ...)= section inside =catalog=; reservations must name
+unique unused token rows. Undeclared extra tokens or reservations of active
+lexer kinds are rejected. Public row and
+field order is retained, and lexical priority still follows =lex= order.
+
+The first published kind must be a node and retains the existing Parser IR
+=root-kind= identity. It may differ from the entry rule's constructed node in a
+legacy catalog: the SANY candidate historically starts with =SelectorArguments=.
+The projection preserves that ABI rather than silently resetting it during
+migration. Core, layout and SANY candidate now use =deflanguage= with their
+published catalogs; syntax-scope and proof-policy boundaries stay explicit.
+The candidate also retains its unused =SeparatorLine= token through an explicit
+reservation. The candidate projection exposed a historical metadata omission: =TerminalProof=
+emits =item= through =fact-list=, while its catalog declared only =fact/definition=.
+Its catalog now includes =item=. Kind IDs and recognition rules are retained;
+the field catalog and grammar digest change deliberately. Consumers must use the
+regenerated descriptor/product identity for this draft scope.
+
+* Ownership
+
+- =grammar.ss=: declarative syntax, language profiles and pinned metadata.
+- =parser.ss=: the only public loader entry, including declared POO extensions.
+- =parser-test.ss=: corpus values, development Loader and conformance assertions.
+- Resource files: pinned upstream grammar and corpus source text.
+- Engine: scanner algorithms, state/checkpoints, recognition, byte offsets,
+  parser assembly, generated backends and C/Rust products. Existing handwritten
+  language modules and checked-in specializations remain migration debt until
+  this execution is derived from admitted declarations.
+
+* =deflanguage-parser-loader= contract
+
+This is the production parsing macro. Optional development services use
+=deflanguage-development-loader= and =LanguageDevelopmentLoader.=. The former =deflanguage-parser= and
+=deflanguage-loader= names have been removed from this development branch;
+existing packs and the external record-pack fixture use the canonical name.
+=LanguageLoader.= is its POO prototype and =LanguageLoaderContract= is the
+common parsing-entry admission contract.
+
+The declaration defines two bindings: the admitted loader object and the
+procedure named in =(parse ...)=. It does not read files, resolve package names,
+start a VM, emit C or Rust, or compile a grammar on a parse request.
+
+The following forms show the arguments after =deflanguage-parser-loader=.
+
+| Form | Required input | Result |
+|---+---+---|
+| =(name (grammar descriptor) (parse procedure))= | Generated =language-grammar= descriptor | Grammar/Parser IR Scheme entry |
+| =(name (source descriptor) (parse procedure))= | =source-language= descriptor | Scheme source entry |
+| =(name (descriptor descriptor) (parse procedure))= | Either descriptor type | Descriptor-selected entry |
+| =((name @ prototype) (descriptor descriptor) (parse procedure) (slots ...) (contracts ...))= | POO parent plus either descriptor | Inherited extension object, then engine and extension admission |
+| =((name :: self prototype) (descriptor descriptor) (parse procedure) (slots ...) (contracts ...))= | Same, with an explicit self binding | Computed extension slots can refer to the effective object |
+
+For both =@= and explicit =self=, =slots= and =contracts= may be omitted,
+including a contracts-only declaration. When both are supplied, =slots= precedes
+=contracts=. =grammar= and =source= may replace =descriptor= in any prototype
+form and reject a descriptor of the other kind. All forms normalize to the same
+admission and dispatch implementation.
+
+Protected slots are =schema=, =descriptor=, =language=, =version=, =contract=,
+=capabilities=, and =.parse=. The macro rejects direct extension overrides and
+binds these slots at the leaf so inherited methods cannot replace them.
+User slots can describe dialects, editor services, query/projection services,
+and other language-specific options; additional POO contracts constrain these
+slots after inheritance. Adding a slot alone does not make the recognition
+engine consume it. New recognition policies require an engine-owned consumer
+and a defined artifact/capability contract.
+
+=language-parser-entry-ref= reads metadata. The exported parse binding captures
+the descriptor once; it performs no per-call POO lookup or extension admission.
+A prototype's own =.parse= cannot override engine recognition. General POO
+updates to a separate object do not rebind an already exported parse procedure;
+create a new loader declaration when defining a different language entry.
+
+The language-independent C ABI currently admits descriptors through
+=register-language!=. Its current codec requires a generated
+=language-grammar= descriptor; Bash source descriptors are not admitted by that
+codec. It does not serialize loader slots or POO callbacks.
+An opaque lexical rejection uses the =unknown= token. GPA1 serialization requires
+that token in the descriptor terminal catalog; descriptors without it receive an
+explicit catalog error. Scheme fixture conformance alone does not qualify that
+C ABI rejection path.
+Standalone Rust AOT consumes admitted portable IR. Neither path automatically
+inherits arbitrary POO extension behavior. Descriptor-bound Scheme policies
+are consumed by the loader and native C ABI; standalone Rust AOT rejects them
+before emission until a portable policy representation exists.
+
+* Parser policy and capability admission
+
+Use =language-grammar-with-parser-policy= from the public language-support facade
+when a generated language needs a recognition budget and a successful-CST
+validation rule. Configure the descriptor before declaring the loader; export
+that configured descriptor from the public entry module.
+
+#+begin_src scheme
+(def example-language-grammar
+  (language-grammar-with-parser-policy
+   recognition-language-grammar "example.validation.v1" 4096 example-cst-diagnostic))
+
+(deflanguage-parser-loader (example-language :: self ExampleDialect.)
+  (grammar example-language-grammar)
+  (parse parse-example)
+  (slots display-name: "Example"))
+#+end_src
+
+=recognition-language-grammar= is the raw grammar descriptor imported under a
+local name. The policy identity is a nonempty, versioned author-owned string;
+the budget must be a positive fixnum and the checker a procedure. The checker
+receives a successful CST and returns =#f= to accept or a valid
+=gerbil-parser.diagnostic.v1= diagnostic to reject. Recognition failures skip
+the checker. Exceptions propagate, and an invalid diagnostic cannot publish an
+artifact. The engine retains all token spans and source bytes in a rejection.
+
+The budget is dynamically scoped to recognition and validation, including
+exceptional exits. =language-grammar-with-observability= preserves this policy.
+The loader advertises =scheme-policy= in addition to its generated-grammar
+capabilities. Extension contracts still run only during loader admission;
+the CST checker runs once for each successful recognition.
+
+The configured descriptor is the product boundary: pass it to
+=register-language!= or export it from the module named by
+=generate-language-pack=. A prepared contextual native parser applies
+the same policy; its deferred event publication cannot bypass the CST checker.
+Native descriptor metadata contains =parserPolicy= with identity, branch
+budget, =schemeCstValidation=true= and =portable=false=. The recognition grammar
+digest remains the syntax identity; it does not fingerprint callback code.
+Version the policy identity when the rule changes.
+
+All standalone Rust descriptor products delegate to the engine's
+=language-rust-runtime-module-source= admission boundary: the ordinary module
+generator, the combined contextual Scanner/Parser IR generator, and the build
+ABI. They reject this Scheme policy before product preparation or writing output. Generating raw recognition IR is a narrower
+syntax-only product and cannot establish policy equivalence. A Rust caller using
+the native C ABI does execute the Scheme policy through that ABI. Do not
+advertise a standalone Rust policy capability until its shared representation,
+lowering and parity tests exist.
+
+* A downstream language repository
+
+The minimum authored files are =gerbil.pkg=, =grammar.ss= and =parser.ss=;
+conformance fixtures belong alongside them. Choose a package namespace and pin
+engine dependencies through the normal Gerbil package workflow. Neither a new
+language name in the engine nor a custom C dispatcher is required.
+
+1. Declare syntax in =grammar.ss= using the minimal DSL example above. Keep its
+   language, version and syntax-contract identities explicit.
+2. Declare the public loader in =parser.ss=. Export its parse procedure, loader
+   object and configured descriptor when native consumers need it. Import only
+   the required names from =:gerbil-parser/language-support=.
+3. Validate accepted and rejected source, lossless roundtrip, UTF-8/CRLF spans,
+   field catalogs and any language policy using Scheme tests. POO extension
+   tests must include inherited values, invalid values and sealed-slot rejection.
+4. Select a product using the table below. Generate it through the engine and
+   run downstream semantic parity; a successful loader admission alone does not
+   qualify a target.
+
+| Product | Engine admission | Downstream responsibility |
+|---+---+---|
+| Scheme | =deflanguage-parser-loader= | Syntax declarations, optional POO services/contracts, conformance fixtures |
+| Native C ABI / Rust native wrapper | =generate-language-pack= and =register-language!= | Export the configured descriptor, link the generated factory with the normal SDK builder, use generic handle/result ownership |
+| Independent Rust AOT | =generate-language-rust-runtime-module=, =generate-contextual-language-rust-runtime-module=, or the engine build ABI | Supply an admitted portable descriptor, consume generated Rust with =gerbil_parser_runtime=, compare accepted/rejected artifacts |
+| Engine-bound source parser | =deflanguage= syntax provider, then its configured parser descriptor | Native C ABI publishes the engine result catalog; independent AOT requires an explicitly admitted source product |
+
+The C factory generator takes output Scheme/header paths, the generated module
+identity, the descriptor-exporting module, its descriptor name and a C symbol
+prefix. Its optional contextual export must come from that same module. It
+emits integration code; the normal Gerbil builder owns compilation and linking.
+Create a language handle once and reuse it across parses; initialize the runtime
+once and release results and handles through the generic ABI. Per-call VM or
+process creation is outside the loader contract.
+
+For working native ownership examples see
+[[file:../rust/gerbil-parser-ffi/README.org][Rust FFI wrapper guide]]. For the standalone build ABI, portable scanner
+admission and external consumer witness see
+[[file:../docs/architecture/0006-rust-aot.org][Rust AOT design]].
+
+* Generated backend declarations
+
+=deflanguage= accepts an optional =backends= section for existing generated
+specializations. Packs declare what they supply; the engine installs it.
+
+#+begin_src scheme
+(backends
+ (step direct-grammar-digest direct-step)
+ (source direct-hcl-grammar-digest direct-parse-hcl)
+ (event-step direct-grammar-digest direct-event-step))
+#+end_src
+
+The closed kinds are =drive=, =source=, =step=, and =event-step=. The engine
+checks every row's kind, exact Parser IR digest, procedure, duplicate kind, and
+occupied slot before installing any row. A rejected later row cannot leave an
+earlier backend installed. This check establishes identity and assembly safety;
+semantic equivalence still requires regeneration and language conformance tests.
+The declaration is excluded from Grammar/Parser IR, so installing the same
+specialization does not change syntax identity. New ordinary language packs do
+not need a specialization or this section.
+
+* Migration audit and remaining engine work
+
+The complete dependency plan, all-eight-family inventory and stage exit criteria
+are maintained in [[file:../docs/roadmap/0001-versioned-language-pack-closure.org][the language-pack convergence plan]].
+
+This inventory describes implementation boundaries, not equivalent syntax
+coverage across the languages.
+
+| Pack | Authoring and engine ownership | Capability boundary |
+|---+---+---|
+| Arithmetic | Three interfaces; generated drive in =src/compiler/arithmetic-drive.ss= | Reviewed specialization; shared reduction and Rust build providers |
+| HCL | Three interfaces; source generator and generated products in =src/compiler/= | Recursive source provider admits the reviewed lexical/grammar corridor |
+| HL7 | Three interfaces; closed header rules and generic record projection | Independent record recipe validates projection reuse; Rust header consumer remains qualified separately |
+| FHIRPath | Three interfaces; shared quote/text profile execution | Portable products retain their independent admission gates |
+| openCypher | Three interfaces; pinned ISO-BNF grammar admission | Shared graph syntax emits the constrained MATCH/WHERE/RETURN subset |
+| GQL | Three interfaces; pinned ANTLR4 admission | Graph syntax in the engine; actor/profile/benchmark tests under =t/= |
+| TLA+ | Three interfaces contain all three scopes; structured lexeme/proof recipes | Scheme execution; proof policy still rejects standalone Rust AOT |
+| Bash | Three interfaces; =deflanguage= syntax/rules compile through the common shell vocabulary | Scheme source engine; full shell grammar is not standalone Rust Scanner/Parser IR |
+
+* Source author contract and reusable engine contracts
+
+Source-backed authors use =deflanguage= with one =syntax= block and one =rules=
+block. Release language/version/contract are declared once in parser.ss metadata. Bash uses =shell= from
+=:gerbil-parser/language-support/shell= and native =defgrammar-syntax= vocabulary.
+The common library derives scanner, capture and command plans, then binds the
+checked source descriptor.
+
+=SourceStrategy.=, its profiles and =declare-source-language= are implementation
+interfaces, not an alternative author entry. The old =deflanguage-source= entry
+has been removed. =language-source-support= supplies source inspection and
+=deflanguage-parser-receipt= for parser.ss. See the complete
+[[file:../docs/research/scheme-bash-source-frontend.org][Bash frontend implementation and admission study]].
+
+Module framing is declared as closed lexical data:
+
+#+begin_src scheme
+(module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_")
+#+end_src
+
+The seven values specify the opening border, header word, closing border, nested
+comment delimiters, line-comment prefix and extra name character. Borders must
+repeat a single character; values are nonempty and at most 128 characters. The
+engine prepares compact header intervals and nested-depth events once per source.
+Scheme and Rust execute the same declaration. No scanner closure is supplied by
+the pack; framing spelling participates in the grammar digest.
+
+=language-support/structured= exposes =StructuredProofPolicy.= with its POO
+contract. Policies constrain CST kinds, field names, terminal commands and
+forbidden subproof commands/kinds. Independent checklist tests exercise inherited
+overrides with different CST fields. Effective values are validated and copied
+before binding. This proof policy remains a Scheme CST service; portable proof
+policy execution is a separate implementation obligation.
+
+=language-support/projection= provides =RecordProjection.= and
+=deflanguage-projection=. Projection columns are closed =record=, =split=, =text=,
+=concat= and =list= selectors. Prefix, delimiter count, expectations and constant
+fields are ordinary values. The engine checks accepted artifact ownership and
+publishes source/grammar digests. HL7 and an independent Unicode header record
+use this protocol; columns cannot substitute arbitrary projection callbacks.
+
+=graph-syntax-support= exposes shared =GraphSyntax*= POO prototypes for a
+constrained graph pattern. GQL and openCypher both parse the generated source.
+This contract does not describe all graph language syntax or domain semantics.
+
+=RecursiveSourceStrategy.= uses the common =BuildStrategy.= protocol. Its closed
+HCL corridor remains explicit; moving its generator does not claim universal
+recursive lowering. The generic generation entry is:
+
+#+begin_src sh
+gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
+#+end_src
+
+A module exporting several descriptors must select an export for build input:
+=languages/tla-plus/parser.ss#tla-plus-sany-candidate-language-grammar=.
+The same selector is used by the build C ABI and generator CLIs. Ambiguous,
+missing or non-descriptor exports reject before code emission.
+
+=t/language-topology-test.ss= checks all builtin packs for exactly three Scheme
+interfaces and mandatory Loader/test declarations. The Loader schema remains
+=gerbil-parser.language-entry.v2=. There are no versioned namespace aliases or
+compatibility adapters. Shared Scheme recipes, portable Scanner/Parser IR and
+actual C/Rust products retain separate qualification boundaries.
+
+* Authoring design research
+
+[[file:../docs/research/scheme-language-pack-design.org][Scheme language pack design]] records paper-based research into macro
+composition, binding, diagnostics and derived language products. It is a research
+proposal; the authoring contract above describes the implemented interfaces.
+
+* Fixture metadata through the Loader
+
+For every language, declare corpus rows in =parser-test.ss= and assign their list to the
+development Loader's =fixtures= value slot. The common development library
+derives =fixture-catalog= internally;
+this slot is sealed by =deflanguage-development-loader=. Authors write neither a
+filter nor a factory/thunk for status groups or indexes.
+
+#+begin_src scheme
+(deflanguage-development-loader (example-test-language :: self LanguageDevelopmentLoader.)
+  (grammar example-language-grammar)
+  (parse parse-example-test)
+  (slots fixtures: example-fixtures))
+
+(language-loader-fixture-count example-test-language)           ; total
+(language-loader-fixture-count example-test-language 'accepted)
+(language-loader-fixtures example-test-language 'rejected)
+(language-loader-fixture example-test-language "example/valid") ; fixture or #f
+#+end_src
+
+These functions are exported from =language-support/development=. Only =accepted=,
+=rejected= or omitted status is admitted. Loading validates descriptor identity,
+unique nonempty IDs, source digests and expectation shapes, then owns copies of
+the corpus and derives its partitions and ID index once. Counting is constant
+time; ID lookup uses the index. Published fixture values are copies and cannot
+change the admitted snapshot. Selection preserves declaration order, including
+interleaved statuses. Parsing/conformance remains an explicit test service;
+metadata admission does not parse every fixture.
+
+POO replacement/extension of =fixtures= through =.cc= or =.o= derives a new
+index for that effective object. Existing metadata versions and Loader v2 stay
+unchanged. Mutating input strings after admission does not replace the bound
+snapshot; use a new POO value override to rebind. Pack-specific accepted and
+rejected aliases have been removed; test and benchmark consumers use this same
+engine interface. Benchmark corpora prepare outside the timed parse region.
+
+
+* Portable result construction
+
+Declare constructors with =defresult-profile= and POO inheritance. The engine's
+=result-profile-rust-source= lowers the admitted profile to immutable Rust
+projection tables; =PreparedResultProfile= validates them and executes typed
+captures through bound projection entries. Fields and terminal names remain
+grammar data, shared with Scheme. Downstream authors do not implement tree
+building or token accumulation in Rust.
+
+This generic construction capability is available independently of syntax
+recognition. Complete standalone Rust Source/Command recognition remains
+an engine implementation boundary; emitting result tables alone does not
+publish a standalone language parser.
+
+
+* Portable Word/Binding engine
+
+PartProfile and BindingProfile POO slots now lower through
+=part-profile-rust-source= to a shared Rust =PreparedPartProfile=. An inherited
+profile can replace rules, binding prefixes/operators and subscript delimiters;
+the same engine executes those admitted values. Languages supply no Rust Word
+scanner or callback. Recognition accepts a full source and bounded UTF-8 range,
+and composes captured nodes through the declared ResultProfile instructions.
+Production Bash and an inherited Unicode configuration have independent
+Scheme/Rust event, field and lossless-text controls. Complete Command/Source AOT
+and full ParseArtifact parity still require the next shared engine boundary.
+
+* Production and development responsibilities
+
+Every shipped =parser.ss= imports =language-support/entry= and exports a
+corpus-free production Loader. Each =parser-test.ss= owns its corpus and declares
+a =LanguageDevelopmentLoader.= with =deflanguage-development-loader=. This
+contract covers all eight packages and ten production entries.
+The engine's =src/language/entry= exports descriptor dispatch and generic policy
+execution; it does not supply fixture or Loader development services.
+
+ANTLR source adaptation requires an explicit =lexical-profile= in the language
+grammar. GQL declares exact token bindings, scanner expressions, terminal kinds
+and trivia there. The common adapter does not classify tokens by GQL name patterns.
+See [[file:../docs/research/scheme-engine-library-boundary.org][the ownership contract and paper-to-code rationale]] for the full boundary,
+verification route and remaining semantic limits.
+
+See [[file:../docs/research/scheme-engine-library-boundary.org::*Complete language alignment][Complete language alignment]] for the per-entry corpus inventory and verification obligations.

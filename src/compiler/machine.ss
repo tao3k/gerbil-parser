@@ -1,33 +1,45 @@
 ;;; -*- Gerbil -*-
-;;; Hygienic LexicalExpr expansion and deterministic LALR(1) machine binding.
+;;; Nominal parser machine, prepared execution and checked backend binding.
 
-(import (only-in :std/vector/vector vector-map/index)
+(import (only-in ../runtime/contextual-ir contextual-ir-ref contextual-ir-copy)
+        (only-in ../runtime/lexical-source
+                 prepare-lexical-source-plan call-with-lexical-source)
         (only-in ../runtime/lr-parser
-                 lr-lexical-mode-id lr-lexical-mode-terminals
-                 lr-prepare lr-parse/prepared
-                 lr-runtime-lexical-mode-catalog)
-        (only-in ../runtime/scan
-                 scan-block-comment scan-decimal-digits scan-heredoc
-                 scan-horizontal-whitespace scan-identifier scan-line scan-line-comment
-                 scan-until-delimiters
-                 make-literal-end-scanner scan-longest-literal
-                 scan-nested-block-comment scan-newline
-                 scan-number-literal scan-number-literal/profile
-                 scan-escaped-quoted-strings scan-quoted-strings scan-whitespace
-                 scan-emit)
-        (only-in ../runtime/token token-end token-kind))
-(export defgeneral-parser-machine
+                 lr-prepare lr-parse/prepared lr-runtime-for-current-semantic-backend lr-runtime-with-action-selector
+                 lr-runtime-lexical-mode-catalog lr-runtime-direct-step lr-runtime-event-step
+                 lr-runtime-event-program? install-lr-runtime-direct-step!
+                 install-lr-runtime-event-step!)
+        (only-in ../runtime/token
+                 token-kind))
+(import (only-in ./lexical-expression lexical-end lexical-choice
+                 lexical-dispatch lexical-dispatch/ranked)
+        (only-in ./lexical-lexer generated-lexer current-lexical-plan-sharing-enabled?)
+        (only-in ../runtime/scan make-ranked-lexical-scanner-factory))
+(export call-with-parser-machine-source
+        parser-machine-for-current-semantic-backend
+        current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer
+        parser-machine-with-ranked-scanner parser-machine-with-lr-action-selector
+        parser-machine-lexical-plans parser-machine-lexical-modes-compatible?
+        defgeneral-parser-machine
         lexical-end
         lexical-choice
         lexical-dispatch
         lexical-dispatch/ranked
         parser-machine?
         parser-machine-ir
+        parser-machine-contextual-ir
         parser-machine-grammar-digest
         parser-machine-lex
         parser-machine-trivia
         parser-machine-runtime
-        parser-machine-parse)
+        parser-machine-parse
+        parser-machine-direct-drive
+        parser-machine-direct-source
+        parser-machine-backend-representation
+        install-parser-machine-backends!
+        install-parser-machine-direct-drive!
+        install-parser-machine-direct-source!
+        install-parser-machine-direct-step! install-parser-machine-event-step!)
 
 ;; parser-machine
 ;;   : ParserMachine
@@ -41,334 +53,176 @@
 ;;       ;; => #t for a generated parser machine
 ;;       ```
 ;;     %
-(defstruct parser-machine (ir grammar-digest lex trivia runtime parse)
+(defstruct parser-machine
+  (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory source-plan owned-program)
   transparent: #t)
 
-;;; Expands one closed lexical algebra case into its ordinary scanner call.
-;;; The templates preserve source/offset bindings; runtime behavior stays in scan.ss.
-;; lexical-end
-;;   : (-> Syntax Syntax)
-;;   | doc m%
-;;       `lexical-end` expands a declared lexical expression.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (lexical-end source offset (identifier))
-;;       ;; => (scan-identifier source offset)
-;;       ```
-;;     %
-(defrules lexical-end
-  (whitespace+ horizontal-whitespace+ newline+ line decimal-digit+ number identifier
-   heredoc number-literal
-   quoted-string escaped-quoted-string until-delimiters
-   line-comment block-comment nested-block-comment
-   choice literals fallback precedence external)
-  ((_ source offset (whitespace+))
-   (scan-whitespace source offset))
-  ((_ source offset (horizontal-whitespace+))
-   (scan-horizontal-whitespace source offset))
-  ((_ source offset (newline+))
-   (scan-newline source offset))
-  ((_ source offset (line))
-   (scan-line source offset))
-  ((_ source offset (decimal-digit+))
-   (scan-decimal-digits source offset))
-  ((_ source offset (number))
-   (scan-number-literal source offset))
-  ((_ source offset
-      (number-literal (prefix ...) separator (suffix ...)
-                      leading-period? trailing-period?))
-   (scan-number-literal/profile
-    source offset (list prefix ...) separator (list suffix ...)
-    leading-period? trailing-period?))
-  ((_ source offset (identifier))
-   (scan-identifier source offset))
-  ((_ source offset (quoted-string delimiter ...))
-   (scan-quoted-strings source offset (list delimiter ...)))
-  ((_ source offset (escaped-quoted-string delimiter ...))
-   (scan-escaped-quoted-strings source offset (list delimiter ...)))
-  ((_ source offset (until-delimiters characters))
-   (scan-until-delimiters source offset characters))
-  ((_ source offset (heredoc))
-   (scan-heredoc source offset))
-  ((_ source offset (line-comment start ...))
-   (scan-line-comment source offset (list start ...)))
-  ((_ source offset (block-comment opening closing))
-   (scan-block-comment source offset opening closing))
-  ((_ source offset (nested-block-comment opening closing))
-   (scan-nested-block-comment source offset opening closing))
-  ((_ source offset (choice expression ...))
-   (lexical-choice source offset (expression ...)))
-  ((_ source offset (precedence _rank expression))
-   (lexical-end source offset expression))
-  ((_ source offset (external _version scanner))
-   (scanner source offset))
-  ((_ source offset (literals value ...))
-   (let (matched (scan-longest-literal source offset (list value ...)))
-     (and matched (+ offset (string-length matched)))))
-  ((_ source offset (fallback))
-   (+ offset 1)))
+;;; The machine caches the exact instruction object in its canonical owner.
+;;; Both fields reference the same object; parser hot paths retain a native accessor.
+(def (parser-machine-contextual-ir machine)
+  (contextual-ir-copy (parser-machine-owned-program machine)))
 
-;; : (-> (OrFalse Fixnum) (OrFalse Fixnum) (OrFalse Fixnum))
-(def (prefer-longest-end current candidate)
-  (cond
-   ((not current) candidate)
-   ((not candidate) current)
-   ((>= current candidate) current)
-   (else candidate)))
+;;; A captured session owns the selected runtime together with its parser machine.
+;;; This preserves the exact runtime identity required by certified fragment reuse.
+(def (parser-machine-for-current-semantic-backend machine)
+  (let (runtime (lr-runtime-for-current-semantic-backend (parser-machine-runtime machine)))
+    (if (eq? runtime (parser-machine-runtime machine)) machine
+      (make-parser-machine
+       (parser-machine-ir machine) (parser-machine-grammar-digest machine)
+       (parser-machine-lex machine) (parser-machine-trivia machine) runtime
+       (lambda (tokens . maybe-observability)
+         (lr-parse/prepared runtime tokens
+           (if (null? maybe-observability) #f (car maybe-observability))))
+       (parser-machine-direct-drive machine) (parser-machine-direct-source machine)
+       (parser-machine-lexical-plans machine) (parser-machine-lexical-certificates machine)
+       (parser-machine-lexer-factory machine) (parser-machine-source-plan machine)
+       (parser-machine-owned-program machine)))))
 
-;;; Chooses the longest lexical alternative; declaration order breaks ties.
-;; lexical-choice
-;;   : (-> Syntax Syntax)
-;;   | doc m%
-;;       `lexical-choice` expands an ordered lexical alternative.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (lexical-choice source offset ((identifier) (fallback)))
-;;       ;; => first matching end offset
-;;       ```
-;;     %
-(defrules lexical-choice
-  ()
-  ((_ source offset ()) #f)
-  ((_ source offset (expression rest ...))
-   (prefer-longest-end
-    (lexical-end source offset expression)
-    (lexical-choice source offset (rest ...)))))
+(def (call-with-parser-machine-source machine source thunk)
+ (call-with-lexical-source (parser-machine-source-plan machine) source thunk))
 
-;;; Projects optional lexical precedence without inspecting scanner results.
-;; lexical-expression-rank
-;;   : (-> Syntax Syntax)
-;;   | doc m%
-;;       Expands the precedence rank carried by one lexical expression.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (lexical-expression-rank (precedence 10 (identifier)))
-;;       ;; => 10
-;;       ```
-;;     %
-(defrules lexical-expression-rank (precedence)
-  ((_ (precedence rank _expression)) rank)
-  ((_ _expression) 0))
+(def (parser-machine-prepare-lexer machine)
+  ((parser-machine-lexer-factory machine)))
 
-;;; Materializes one scanner per declared lexical rule. Static literal
-;;; catalogs compile to a trie here, while the parser machine is initialized,
-;;; instead of linearly probing every literal for every source token.
-(defrules lexical-scanner (literals precedence)
-  ((_ (literals value ...))
-   (make-literal-end-scanner '(value ...)))
-  ((_ (precedence _rank expression))
-   (lexical-scanner expression))
-  ((_ expression)
-   (lambda (source offset)
-     (lexical-end source offset expression))))
+;;; Rebuild the same checked lexical declarations and mode catalog with an
+;;; alternate ranked lexical core. Keep IR/runtime/source ownership together;
+;;; generated source backends must not bypass the substituted lexical plan.
+(def (parser-machine-with-ranked-scanner machine scanner-factory)
+  (unless (and (parser-machine? machine) (procedure? scanner-factory))
+    (error "ranked scanner substitution requires a machine and factory"))
+  (let (factory (parser-machine-lexer-factory machine))
+    (let-values (((lexer plans certificates) (factory scanner-factory)))
+      (make-parser-machine
+       (parser-machine-ir machine) (parser-machine-grammar-digest machine)
+       lexer (parser-machine-trivia machine) (parser-machine-runtime machine)
+       (parser-machine-parse machine) #f #f plans certificates
+       (lambda ((next-scanner-factory scanner-factory)) (factory next-scanner-factory))
+       (parser-machine-source-plan machine)
+       (parser-machine-owned-program machine)))))
 
-;; prefer-ranked-match
-;;   : (-> (OrFalse List) (OrFalse List) (OrFalse List))
-;;   | doc m%
-;;       Chooses one scanner match by length, precedence, then declaration.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (prefer-ranked-match '(left 4 1) '(right 4 2))
-;;       ;; => (right 4 2)
-;;       ```
-;;     %
-(def (prefer-ranked-match current candidate)
-  (cond
-   ((not current) candidate)
-   ((not candidate) current)
-   ((> (cadr current) (cadr candidate)) current)
-   ((< (cadr current) (cadr candidate)) candidate)
-   ((>= (caddr current) (caddr candidate)) current)
-   (else candidate)))
+(def (parser-machine-with-lr-action-selector machine factory)
+  (unless (parser-machine? machine) (error "LR selector substitution requires a parser machine"))
+  (let (runtime (lr-runtime-with-action-selector (parser-machine-runtime machine) factory))
+    (make-parser-machine
+     (parser-machine-ir machine) (parser-machine-grammar-digest machine)
+     (parser-machine-lex machine) (parser-machine-trivia machine) runtime
+     (lambda (tokens . observability)
+       (lr-parse/prepared runtime tokens (if (pair? observability) (car observability) #f)))
+     #f #f (parser-machine-lexical-plans machine) (parser-machine-lexical-certificates machine)
+     (parser-machine-lexer-factory machine) (parser-machine-source-plan machine)
+     (parser-machine-owned-program machine))))
 
-;;; Keeps large literal catalogs as immutable data instead of expanding one C
-;;; branch per literal.  Capability checks run only while preparing interned LR
-;;; lexical modes, so SRFI-1's maintained list search avoids code-size growth
-;;; without entering the source-scanning hot path.
-(def (lexical-literal-admitted? literal values case-insensitive?)
-  (member literal values (if case-insensitive? string-ci=? string=?)))
+(def (parser-machine-lexical-modes-compatible? machine old-mode new-mode (first-character #f))
+  (or (= old-mode new-mode)
+      (let (plans (parser-machine-lexical-plans machine))
+        (eq? (vector-ref plans old-mode) (vector-ref plans new-mode)))
+      (and first-character (< (char->integer first-character) 128)
+           (let* ((certificates (force (parser-machine-lexical-certificates machine)))
+                  (class (vector-ref (vector-ref certificates 0) (char->integer first-character)))
+                  (modes (vector-ref certificates 1)))
+             (eq? (vector-ref (vector-ref modes old-mode) class)
+                  (vector-ref (vector-ref modes new-mode) class))))))
 
-;;; AOT capability predicate for literal-producing lexical algebra. Runtime
-;;; mode selection never probes scanners with synthetic input: closed literal
-;;; and choice forms lower to ordinary comparisons, while opaque external
-;;; scanners are conservatively admitted.
-(defrules lexical-expression-admits-literal?
-  (choice literals precedence external)
-  ((_ literal case-insensitive? (literals value ...))
-   (lexical-literal-admitted? literal '(value ...) case-insensitive?))
-  ((_ literal case-insensitive? (choice expression ...))
-   (or (lexical-expression-admits-literal?
-        literal case-insensitive? expression) ...))
-  ((_ literal case-insensitive? (precedence _rank expression))
-   (lexical-expression-admits-literal?
-    literal case-insensitive? expression))
-  ((_ _literal _case-insensitive? (external _version _scanner)) #t)
-  ((_ _literal _case-insensitive? _expression) #f))
+;;; A generated driver produces recognition values, independently of the
+;;; optional prepared event executor. It is admitted only for the Parser IR whose digest
+;;; was embedded in its source. Install during language-module initialization,
+;;; before the machine is shared with parser requests.
+(def (install-parser-machine-direct-drive! machine digest drive)
+  (unless (and (parser-machine? machine)
+               (string? digest)
+               (equal? digest (parser-machine-grammar-digest machine))
+               (procedure? drive)
+               (not (parser-machine-direct-drive machine)))
+    (error "generated LR driver does not match parser machine" digest))
+  (parser-machine-direct-drive-set! machine drive))
 
-;;; A lexical mode admits complete rules, not already-produced lexemes. This
-;;; preserves each admitted rule's ordinary longest-match behavior on source
-;;; (for example a rule containing both "*" and "**").
-(defrules lexical-rule-admitted?
-  ()
-  ((_ terminals name expression extras case-insensitive?)
-   (or (not terminals)
-       (memq 'name extras)
-       (any
-        (lambda (terminal)
-          (and (pair? terminal)
-               (eq? (car terminal) 'terminal)
-               (case (cadr terminal)
-                 ((token) (eq? (caddr terminal) 'name))
-                 ((literal)
-                  (lexical-expression-admits-literal?
-                   (caddr terminal) case-insensitive? expression))
-                 (else #f))))
-        terminals))))
+;;; Grammar-derived source parsers produce a ParseArtifact or decline with #f.
+;;; They may admit a complete artifact directly for
+;;; fresh unobserved requests. Returning #f leaves the ordinary LR path to
+;;; own rejection, diagnostics, checkpoints, and unsupported source shapes.
+(def (install-parser-machine-direct-source! machine digest parse)
+  (unless (and (parser-machine? machine)
+               (string? digest)
+               (equal? digest (parser-machine-grammar-digest machine))
+               (procedure? parse)
+               (not (parser-machine-direct-source machine)))
+    (error "generated source parser does not match parser machine" digest))
+  (parser-machine-direct-source-set! machine parse))
 
-;;; One AOT-generated capability/scanner pair. Capability checks run once per
-;;; interned LR mode; the scanner remains the ordinary generated lexical rule.
-(defrules generated-lexical-rule
-  ()
-  ((_ (name expression) extras case-insensitive?)
-   (let (scanner (lexical-scanner expression))
-     (cons
-      (lambda (terminals)
-        (lexical-rule-admitted?
-         terminals name expression extras case-insensitive?))
-      (lambda (source offset)
-        (let (end (scanner source offset))
-          (and end
-               (list 'name end (lexical-expression-rank expression)))))))))
+(def (install-parser-machine-direct-step! machine digest step)
+  (unless (and (parser-machine? machine)
+               (string? digest)
+               (equal? digest (parser-machine-grammar-digest machine))
+               (procedure? step)
+               (not (lr-runtime-event-program? (parser-machine-runtime machine))))
+    (error "generated LR step does not match parser machine" digest))
+  (install-lr-runtime-direct-step!
+   (parser-machine-runtime machine) step))
 
-;;; Returns name, end offset, and precedence for generated-lexer. Longest
-;;; consumption wins globally; lexical precedence breaks equal-length ties.
-;; lexical-dispatch/ranked
-;;   : (-> Syntax Syntax)
-;;   | doc m%
-;;       Expands global longest-match dispatch with lexical tie precedence.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (lexical-dispatch/ranked source offset rows)
-;;       ;; => (token-name end-offset precedence) or #f
-;;       ```
-;;     %
-(defrules lexical-dispatch/ranked
-  ()
-  ((_ source offset ()) #f)
-  ((_ source offset ((name expression) row ...))
-   (let ((end (lexical-end source offset expression))
-         (rest (lexical-dispatch/ranked source offset (row ...))))
-     (prefer-ranked-match
-      (and end (list 'name end (lexical-expression-rank expression)))
-      rest))))
+(def (install-parser-machine-event-step! machine digest step)
+  (unless (and (parser-machine? machine) (string? digest)
+               (equal? digest (parser-machine-grammar-digest machine))
+               (procedure? step))
+    (error "generated LR event step does not match parser machine" digest))
+  (install-lr-runtime-event-step! (parser-machine-runtime machine) step))
 
-;;; Binds the matched declaration name to its end offset without runtime macro state.
-;; lexical-dispatch
-;;   : (-> Syntax Syntax)
-;;   | doc m%
-;;       `lexical-dispatch` expands the ordered token-rule dispatch.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (lexical-dispatch source offset ((Identifier (identifier))))
-;;       ;; => (Identifier . end-offset)
-;;       ```
-;;     %
-(defrules lexical-dispatch
-  ()
-  ((_ source offset ()) #f)
-  ((_ source offset rows)
-   (let (match (lexical-dispatch/ranked source offset rows))
-     (and match (cons (car match) (cadr match))))))
+;;; Installed kinds bind representation obligations without an author annotation.
+(def (backend-semantic-representation kind)
+  (case kind
+    ((drive step) 'recognition)
+    ((event-step) 'event-program)
+    ((source) 'parse-artifact)
+    (else #f)))
 
-;;; Generates only the source traversal shell; token construction remains scan-owned.
-;;; Declaration order is observable only after length and precedence tie.
-;; generated-lexer
-;;   : (-> Syntax Syntax)
-;;   | doc m%
-;;       `generated-lexer` expands lexical rows into a source-to-token procedure.
-;;
-;;       # Examples
-;;
-;;       ```scheme
-;;       (generated-lexer (lexical-rules (Identifier (identifier))))
-;;       ;; => source-to-token procedure
-;;       ```
-;;     %
-(defrules generated-lexer
-  (lexical-rules extras)
-  ((_ (lexical-rules row ...) (extras extra-name ...) case-insensitive?
-      mode-catalog)
-   (let* ((rules
-           (list (generated-lexical-rule
-                  row '(extra-name ...) case-insensitive?) ...))
-          (all-scanners (map cdr rules))
-          (mode-scanners
-           (vector-map/index
-            (lambda (_index mode)
-              (filter-map
-               (lambda (rule)
-                 (and ((car rule) (lr-lexical-mode-terminals mode))
-                      (cdr rule)))
-               rules))
-            mode-catalog)))
-     (letrec
-       ((scan-scanners
-         (lambda (scanners source offset)
-           (fold
-            (lambda (scanner selected)
-              (prefer-ranked-match selected (scanner source offset)))
-            #f scanners)))
-        (scan-one
-         (lambda (source offset byte-offset mode)
-           (let (match
-                 (or (if mode
-                       (scan-scanners
-                        (vector-ref mode-scanners
-                                    (lr-lexical-mode-id mode))
-                        source offset)
-                       (scan-scanners all-scanners source offset))
-                     ;; A mode miss must still materialize the offending token
-                     ;; for the LR failure frontier and lossless diagnostics.
-                     ;; Successful directed scans never enter this cold path.
-                     (and mode
-                          (scan-scanners all-scanners source offset))))
-             (unless match
-               (error "no lexical rule matched parser-directed source"
-                      offset mode))
-             (let (output-token
-                   (scan-emit source (car match) offset (cadr match)
-                              byte-offset))
-               (values output-token (cadr match))))))
-        (scan-from
-         (lambda (source initial-offset initial-byte-offset)
-           (let (length (string-length source))
-             (let loop ((offset initial-offset)
-                        (byte-offset initial-byte-offset)
-                        (tokens '()))
-               (if (= offset length)
-                 (reverse tokens)
-                 (let-values (((output-token end)
-                               (scan-one source offset byte-offset #f)))
-                   (loop end (token-end output-token)
-                         (cons output-token tokens)))))))))
-     (case-lambda
-      ((source) (scan-from source 0 0))
-      ((source offset byte-offset)
-       (scan-from source offset byte-offset))
-      ((source offset byte-offset mode)
-       (scan-one source offset byte-offset mode)))))))
+;;; Describe an installed entry, not a requested preference. Generated drive
+;;; and source entries retain their own product contracts on a selected machine.
+;;; This reads captured runtime identity; it does not select or prepare a backend.
+(def (parser-machine-backend-representation machine kind)
+  (unless (and (parser-machine? machine)
+               (or (eq? kind 'prepared) (backend-semantic-representation kind)))
+    (error "unknown parser backend representation" kind))
+  (let (runtime (parser-machine-runtime machine))
+    (case kind
+      ((prepared) (if (lr-runtime-event-program? runtime) 'event-program 'recognition))
+      ((drive) (and (parser-machine-direct-drive machine) 'recognition))
+      ((source) (and (parser-machine-direct-source machine) 'parse-artifact))
+      ((step) (and (lr-runtime-direct-step runtime)
+                   (if (lr-runtime-event-program? runtime) 'event-program 'recognition)))
+      ((event-step) (and (lr-runtime-event-step runtime) 'event-program)))))
+
+;;; Check the entire declaration before mutating any machine/runtime slot.
+;;; Each row is (kind exact-parser-ir-digest generated-procedure).
+(def (install-parser-machine-backends! machine rows)
+  (unless (and (parser-machine? machine) (list? rows))
+    (error "invalid parser backend declaration" rows))
+  (let ((seen '()) (runtime (parser-machine-runtime machine)))
+    (for-each
+     (lambda (row)
+       (unless (and (list? row) (= (length row) 3)
+                    (backend-semantic-representation (car row))
+                    (not (memq (car row) seen))
+                    (string? (cadr row))
+                    (equal? (cadr row) (parser-machine-grammar-digest machine))
+                    (procedure? (caddr row)))
+         (error "invalid or stale parser backend declaration" row))
+       (when (and (eq? (car row) 'step) (lr-runtime-event-program? runtime))
+         (error "recognition step requires a recognition runtime" row))
+       (when (case (car row)
+               ((drive) (parser-machine-direct-drive machine))
+               ((source) (parser-machine-direct-source machine))
+               ((step) (lr-runtime-direct-step runtime))
+               ((event-step) (or (lr-runtime-event-step runtime)
+                                (lr-runtime-event-program? runtime))))
+         (error "parser backend slot is already installed" (car row)))
+       (set! seen (cons (car row) seen))) rows)
+    (for-each
+     (lambda (row)
+       ((case (car row)
+          ((drive) install-parser-machine-direct-drive!)
+          ((source) install-parser-machine-direct-source!)
+          ((step) install-parser-machine-direct-step!)
+          ((event-step) install-parser-machine-event-step!))
+        machine (cadr row) (caddr row))) rows)))
 
 ;;; Connects immutable parser IR to generated lexer and LR runtime entrypoints once.
 ;;; Runtime calls receive the compiled machine and never re-enter grammar expansion.
@@ -380,36 +234,36 @@
 ;;       # Examples
 ;;
 ;;       ```scheme
-;;       (defgeneral-parser-machine parser parser-ir ...)
+;;       (defgeneral-parser-machine parser contextual-program ...)
 ;;       ;; => immutable parser-machine binding
 ;;       ```
 ;;     %
 (defrules defgeneral-parser-machine
-  (grammar-digest lexical-rules rules extras parser-entrypoints)
-  ((_ binding parser-ir
-      (grammar-digest parser-artifact-digest)
+  (lexical-rules rules extras parser-entrypoints)
+  ((_ binding program-expression
       (lexical-rules lexical-row ...)
       (rules (rule-name rule-expression) ...)
       (extras extra-name ...)
       (parser-entrypoints
        (root-rule root-action root-effect) entry-row ...))
    (def binding
-     (let (runtime
-           (lr-prepare (cdr (assq 'lr-spec parser-ir))))
-       (make-parser-machine
-        parser-ir
-        parser-artifact-digest
-        (generated-lexer
-         (lexical-rules lexical-row ...)
-         (extras extra-name ...)
-         (cdr (assq 'case-insensitive? parser-ir))
-         (lr-runtime-lexical-mode-catalog runtime))
-        (lambda (input-token)
-          (memq (token-kind input-token) '(extra-name ...)))
-        runtime
-        (lambda (tokens . maybe-observability)
-          (lr-parse/prepared
-           runtime tokens
-           (if (null? maybe-observability)
-             #f
-             (car maybe-observability)))))))))
+     (let* ((program program-expression)
+            (grammar-digest (contextual-ir-ref program 'base-grammar-digest))
+            (owned-ir (contextual-ir-ref (contextual-ir-ref program 'recognition) 'program))
+            (runtime (lr-prepare (cdr (assq 'lr-spec owned-ir))))
+            (factory (lambda ((ranked-scanner-factory make-ranked-lexical-scanner-factory))
+                       (generated-lexer
+                        (lexical-rules lexical-row ...)
+                        (extras extra-name ...)
+                        (cdr (assq 'case-insensitive? owned-ir))
+                        (lr-runtime-lexical-mode-catalog runtime) ranked-scanner-factory))))
+       (let-values (((lexer plans certificates) (factory)))
+         (make-parser-machine
+          owned-ir grammar-digest lexer
+          (lambda (input-token) (memq (token-kind input-token) '(extra-name ...)))
+          runtime
+          (lambda (tokens . maybe-observability)
+            (lr-parse/prepared runtime tokens
+              (if (null? maybe-observability) #f (car maybe-observability))))
+          #f #f plans certificates factory
+          (prepare-lexical-source-plan (cdr (assq 'lexical-rules owned-ir))) program))))))

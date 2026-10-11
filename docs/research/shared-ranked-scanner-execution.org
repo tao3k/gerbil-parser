@@ -1,0 +1,103 @@
+#+title: Ranked scanner and parser execution study
+#+startup: overview
+
+Part of [[file:shared-scanner-staging-and-fusion.org][the shared scanner study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+* One argument from declaration to complete product
+
+This is the integration entry for lexical specialization, prepared execution and
+performance evidence. Its four responsibility modules preserve the original
+experiments; they are parts of one implementation sequence, not separate author
+interfaces or optimization roadmaps.
+
+The sequence is =grammar.ss= -> macro expansion and POO composition -> canonical
+IR -> compiler publication -> prepared machine -> =parser.ss= request -> canonical
+artifact -> =parser-test.ss= qualification. Static decisions belong to preparation;
+request values and mutable execution state belong to the request. A cheaper
+component is not sufficient evidence for a cheaper complete product.
+
+* Responsibility and implementation map
+
+| Engine obligation | Detailed study | Existing code and executable consumer |
+|-------------------+----------------+---------------------------------------|
+| Specialize only states admitted by the declaration | [[file:ranked-scanner-specialization.org][Lexical specialization]] | [[file:../../src/runtime/scan.ss][Shared scanner]]; [[file:../../t/ranked-literal-scanner-test.ss][literal controls]]; [[file:../../t/benchmarks/regular-mode/request-cost.ss][regular request control]] |
+| Bind semantic representation and reduction ownership before execution | [[file:prepared-parser-representation.org][Prepared execution]] | [[file:../../src/compiler/machine.ss][machine admission]]; [[file:../../src/runtime/lr-parser.ss][LR execution]]; [[file:../../t/language-surface-test.ss][installed entry controls]] |
+| Share immutable literal vocabulary while preserving state admission | [[file:casefold-request-qualification.org][Casefold complete requests]] | [[file:../../src/runtime/lr-action-index.ss][action index]]; [[file:../../t/lr-index-test.ss][independent lookup oracle]]; [[file:../../t/benchmarks/lr-request-stack/casefold-evidence.ss][request comparison]] |
+| Admit observations before claiming benefit or delivery | [[file:parser-execution-evidence.org][Execution evidence]] | [[file:../../t/benchmarks/parser-stage-cost/receipt.ss][shared receipt owner]]; [[file:../../t/benchmarks/ranked-literal/evidence.ss][ranked comparison]]; [[file:../audit/engine-design-realization.org][design realization audit]] |
+
+The canonical production and table contracts are established by
+[[file:prepared-lr-action-plans.org][production/operand/reference admission]] and [[file:lr-table-admission.org][table/target admission]].
+Their semantic controls qualify preparation and publication. They do not upgrade
+historical performance observations or substitute for exact-head platform CI.
+
+* Retained mechanisms and rejected candidates
+
+| Mechanism or candidate | Decision | Evidence limit |
+|------------------------+----------+----------------|
+| Closed-start monotone regular DFA path | Retained | Independent 64-subset controls and historical native request qualification; no complete-parser CPU claim |
+| First-character ranked callback replacement | Withdrawn | Complete cross-language audit rejects the component-only inference |
+| Engine-owned installed-entry representation | Retained contract | Actual branch and complete-product controls; arbitrary procedure bodies are not proved correct by a representation query |
+| Prepared identity elimination | Withdrawn | Repeatable prototype allocation savings, unstable CPU controls |
+| Shared literal vocabulary/casefold lookup | Retained | Complete-request allocation evidence; CPU benefit is rejected |
+| ASCII state-initial mask | Withdrawn | Complete-request decision rejects the additional dispatch refinement |
+| Delayed ranked result publication | Withdrawn | Compiled component allocation evidence; unchanged CPU controls drift and no complete-parser benefit is established |
+| Shared receipt admission | Retained test infrastructure | Detects inconsistent/forged observations; cannot certify unseen execution or manufacture CPU stability |
+
+The detailed modules retain revision identities and numerical observations.
+This table is a decision index, not a new experiment or a portable speed claim.
+
+* Scheme witness
+
+#+begin_src scheme
+;; Authors declare a grammatical value; preparation derives immutable execution.
+;; This is an illustrative ownership boundary, not another public DSL slot.
+(let* ((declaration '(literal "λ"))
+       (execute (prepare-matcher declaration)))
+  (values (execute "λx" 0 #f)       ; => 1
+          (execute "xλ" 0 #f)       ; => #f
+          (execute "xλ" 1 #f)))     ; => 2
+
+;; Scientific admission consumes the complete observation and its controls.
+;; A component allocation result cannot imply complete-request CPU improvement.
+(equal? candidate-artifact reference-artifact)
+#+end_src
+
+** Question: why does this exploit Scheme beyond S-expression notation?
+
+The inspectable declaration gives the engine a static value to admit and lower.
+Hygienic syntax retains caller bindings; lexical closures capture prepared data;
+POO composes extensible declarations and policies; structural matching handles
+closed IR alternatives. Their responsibilities are explicit. Authors need no
+matcher cache, dispatch loop, opcode, storage visitor or measurement reader in
+=grammar.ss=. The detailed studies show where these mechanisms helped and where
+additional abstract calls or traversal transfers were rejected by execution.
+
+** Question: how is the design scientifically justified?
+
+The [[file:shared-scanner-staging-and-fusion.org][paper-to-engine argument]] states the assumptions of staging and fusion.
+Independent token/field/span/artifact controls test semantics, while paired
+native observations with unchanged controls decide performance admission. A
+changed result, invalid source ownership, unstable control, incomplete receipt
+or failed process gate falsifies the corresponding claim. Papers motivate the
+mechanism; their proofs do not certify this LR/GLR implementation. Rejected
+candidates remain visible and the current defaults follow the retained decisions.
+
+* Integration and delivery gates
+
+Continue through the shared engine sequence above. Every optimization must name
+its producer, semantic consumer, independent falsifier and complete-product
+boundary before changing a default. Preparation, execution, publication,
+allocation, CPU and exact-head CI remain distinct evidence categories.
+
+The modules preserve all 1,296 original body lines from the 1,302-line study at
+=c12dcb0=. A Scheme reconstruction check compares the full historical text
+exactly, including order and whitespace. Incoming audit heading links move to
+their actual module; all owned local file and heading links are qualified.
+The first temporary restructuring attempt failed that equality check due to an
+incorrect output-port call and is not admitted as successful publication.
+
+At =c12dcb0=, focused canonical-reference qualification passed 117 cases and
+Rust platform CI passed. Linux Scheme was running and macOS Scheme queued.
+Those historical receipts do not close platform CI for this documentation
+revision. Fresh exact-head results remain the delivery gate.

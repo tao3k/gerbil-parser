@@ -1,0 +1,451 @@
+#+title: Scheme DSL semantic contracts and composition evolution
+#+date: 2026-10-06
+
+Scope: recognition, public trees, fields, composition and source consistency for
+the common call/array package. Read the [[file:scheme-deflanguage-design-synthesis.org][design overview]] first. These contracts
+connect [[file:scheme-dsl-author-interface.org][author declarations]] to [[file:scheme-dsl-engine-admission.org][engine admission]]; local receipts have separate
+scopes and are not a combined public-package qualification.
+
+* Unified semantic and diagnostic contract
+
+| Contract | Meaning in the running language | Owner and evidence boundary |
+|----------+---------------------------------+-----------------------------|
+| Recognition | Containers may be empty; an item follows each comma | Existing parser; selected native event controls |
+| Tree | Call/Array expose repeated argument/element fields without a list wrapper | Existing tree construction; compare complete events and spans |
+| Required items | One required item expression in the list entry | Component shape; does not imply token consumption |
+| Repetition consumption | Nullable body equals nullable(separator) AND nullable(item) | Existing resolved LR facts; no general runtime liveness proof |
+| Completion | A finite item derivation exists | Neither nonnullable nor nonempty FIRST alone proves this |
+| Composition | Operations have different admission and replacement meanings | Existing POO normalization; effective provenance must follow the selected row |
+| Author context | Keep author entry, offending parameter and validating declaration distinct | Scoped syntax controls; presentation and general chains pending |
+| Persistent identity | Metadata-sensitive declaration identities differ from reference identity | Existing Bound IR; arbitrary supplied source records are not verified history |
+
+Constructor-local validation can reject immediate syntax or visibly nullable
+repetition. Reference-dependent facts belong after composition and reference
+validation. Stronger author contracts must consume existing engine facts and
+retain the relevant component origin. This is a proposed diagnostic integration,
+not an implemented new global gate.
+
+* Derived facts after expansion: nullable, FIRST and completion
+
+This contract connects contextual Scheme expansion, canonical admission and
+analysis. Reusable vocabulary expands to existing grammar primitives; resolved
+rules are lowered once for the existing [[file:../../src/compiler/lr.ss][LR analysis owner]]. An author-level
+idiom name is not an additional semantic guarantee. Facts must refer to the same
+effective grammar used by the published parser and carry its diagnostic origin.
+The full source-aware publication path remains an integration obligation.
+
+| Existing fact | Domain and transfer | Meaning and limit |
+|---------------+---------------------+-------------------|
+| Nullable | Subsets of finite nonterminal set N; add a production's lhs when every rhs symbol is nullable | A finite empty derivation exists in the lowered grammar; terminals are not nullable |
+| FIRST | One subset of finite terminal set T per nonterminal; union each rhs prefix through nullable symbols | A terminal can begin a derived sentential form; the remaining symbols need not complete |
+| Completion/productivity | Finite nonterminal membership; terminals/epsilon satisfy clauses and all nonterminal occurrences must complete | =compute-productive= establishes a finite terminal derivation; the LR target rejects an unproductive selected entry |
+
+All three algorithms start with empty facts and grow monotonically. Nullable
+and productivity each have at most |N| newly admitted membership facts; FIRST has at most |N| * |T|.
+These are bounds on strict fact additions, not sweep counts, compilation time or
+parser latency. FIRST uses existing indexed terminal masks and decodes them to
+its public table; epsilon is represented by nullable, not a FIRST terminal.
+No widening or duplicate analyzer is needed for these finite domains.
+[[file:dsl-productive-entry.org::*Joint completion solver: one graph, two meanings][Nullable/productivity now share one completion graph]] and publish both completed
+observations; shared scheduling does not identify their two meanings.
+[[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][The productivity implementation contract]] records the LR policy and its controls.
+
+The proof obligations are distinct: lowering preserves the intended grammar
+observation; each transfer implements that observation; iteration reaches the
+least solution of those equations; consumers use the result with its stated
+meaning. Finite monotone iteration alone does not discharge the first two.
+The [[file:scheme-dsl-research-basis.org::*Abstract interpretation: what can declarations teach the compiler?][abstract-interpretation reading]] supplies this reasoning framework, not a
+completed proof of this engine's lowering or tree construction.
+
+#+begin_src scheme
+;; Engine observation using existing APIs, not additional author configuration.
+;; The same grammar can derive an identifier prefix, but no complete terminal word.
+(let* ((rules '((item (sequence (token identifier) (reference blocked)))
+                (blocked (reference blocked))))
+       (productions (lower-rules rules 'item)))
+  (let-values (((nullable nullable-index) (compute-nullable productions)))
+    (let-values (((first first-index) (compute-first productions nullable-index)))
+      (let-values (((productive productive-index) (compute-productive productions)))
+        (list (table-ref nullable-index 'item #f)
+              (table-ref first-index 'item '())
+              (table-ref productive-index 'item #f))))))
+;; Expected observations: #f, ((terminal token identifier)), #f.
+;; blocked has no terminating production, so FIRST is not a completion witness.
+
+;; Question 1: Why is this DSL design better?
+;; Authors write reusable Scheme vocabulary and independent semantic expectations.
+;; The existing engine derives recursive facts after expansion and resolution;
+;; authors do not duplicate FIRST tables or manually traverse macro output.
+;; Compare the same edit and diagnosis task with explicit primitive declarations.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Finite domains and monotone transfer explain termination; the observation
+;; contract distinguishes a sentential prefix from a completed derivation.
+;; Falsifier: using nonempty FIRST to promise completion for the dead-tail grammar,
+;; or reporting an analysis fact from a grammar different from the published one.
+;; Limit: these facts do not prove lexer realizability, tree equivalence or runtime speed.
+#+end_src
+
+On 2026-10-06, this existing control was rerun under =gtimeout -k 2 10=
+with the project load path. It emitted all 35 case observations,
+=LIST-NULLABILITY-CONTRACT-OK: 35 checks passed= and exited 0. This receipt
+qualifies these selected analysis observations, not a new compiler proof or
+runtime performance claim.
+
+The existing [[file:../../t/fixtures/language-pack-research/list-nullability-contract.ss][list-nullability control]] covers token, optional/empty item,
+recursive base, indirect nullability, closed cycle and token-prefix/dead-tail
+cases. Its required-items entry is nullable when its item is nullable; a nullable
+item also permits the comma to appear in FIRST. An idiom's required first
+expression therefore does not imply token consumption. A stronger author promise
+needs an explicit contract and an origin-aware diagnostic consuming existing
+facts. It must not silently rewrite the grammar or reject all nullable items.
+
+For the call/array package, test acceptance, fields and spans independently of
+these facts. For GQL, retain independent source/corpus expectations and the
+compiler-product gate. The polymorphic-embedding reading motivates distinct
+observations of one admitted grammar, while these recursive facts retain the
+existing fixed-point owner. This is one admission/analysis/product contract
+across the three interfaces, not an additional author DSL.
+
+** Finite explanations belong to the existing fact owner
+
+A proposed explanation consumer must not choose arbitrary matching productions
+from the final fact tables. For =A -> A | empty=, choosing the recursive production
+would never finish explaining nullable(A), although the empty derivation is finite.
+The existing recursive-base and closed-cycle controls distinguish these facts;
+they do not yet qualify explanation generation.
+
+The code-facing design direction is to record evidence when the existing analysis
+first admits a new fact. This is a proposal for the current =compute-nullable= and
+=compute-first= owners, not a new solver or published callback API:
+
+| New fact | Evidence needed at its first admission | Decreasing dependency condition |
+|----------+----------------------------------------+---------------------------------|
+| Nullable(A) | Production id and nullable facts for every rhs symbol; empty rhs is a base | Each referenced fact was already available before admitting Nullable(A) |
+| FIRST(A,t) | Production id, selected rhs position, nullable facts for its preceding prefix, and terminal t or FIRST(B,t) at that position | Referenced FIRST fact predates FIRST(A,t); nullable evidence belongs to the already completed nullable phase |
+
+Assign admission order to new facts, not iterations: the current loops update
+facts within a sweep. A later update in the same sweep can depend on an earlier
+one. A self-dependent fact cannot bootstrap its own first admission. For each
+new FIRST mask bit, retain a supported cause before publishing that bit; a bulk
+union alone loses which rhs occurrence justified it. Existing terminal indexing
+and ordered decoding remain the fact implementation.
+
+This supplies a finite directed acyclic explanation graph, subject to checking
+each recorded cause against the actual production. Store shared evidence once;
+rendering it as a fully duplicated tree could grow much larger. A deterministic
+first cause is not necessarily the shortest or most helpful explanation. Grammar
+reordering can change that cause while leaving the fact unchanged. A stable
+minimal explanation is a separate problem, not an implied guarantee.
+
+#+begin_src scheme
+;; Existing grammar primitives illustrating the evidence obligation.
+(a (choice (reference a) (empty)))
+(b (reference a))
+;; nullable(a) is first justified by empty, not by a -> a.
+;; nullable(b) can refer to that already admitted fact.
+
+;; Question 1: Why is this DSL design better?
+;; The engine can explain recursive facts through existing analysis, while authors
+;; keep reusable grammar vocabulary and independent parser-test.ss expectations.
+;; No author needs to reconstruct the compiler's recursion or proof traversal.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Earlier-admission dependencies give a decreasing order for proof traversal;
+;; each leaf and production is checked against the same lowered grammar.
+;; Falsifiers: a cause cites itself or a later fact, references another grammar,
+;; or presents a FIRST prefix as a complete parse.
+;; Limit: a valid finite witness is not a proof of lowering, optimal diagnostics,
+;; runtime performance or preservation of trees and spans.
+#+end_src
+
+Implementation qualification must compare evidence enabled/disabled for equal
+productions, nullable/FIRST values and parser observations. Check recursive base,
+closed cycle, indirect nullable prefix and token-prefix/dead-tail cases against
+the existing controls. Separately measure compilation work and evidence size;
+do not infer zero overhead from sharing the fixed-point owner. The [[file:scheme-dsl-engine-admission.org::*Evidence lifecycle across cache hits and misses][lifecycle recommendation]] prefers request-scoped capture from current admitted
+input, with explicit replay cost when needed. This is not implemented or yet
+qualified; the current engine does not publish these evidence records.
+
+* Field derivation uses the validated grammar
+
+The [[file:scheme-dsl-engine-admission.org::*Implemented follow-up: validate rules before deriving fields][implemented phase adjustment]] connects existing author diagnostics and inferred
+catalogs. Normalize/check every rule before field derivation traverses transparent
+references. Reuse the resulting normalized rules for both inference and publication;
+raw surface syntax remains diagnostic context rather than a second semantic input.
+
+#+begin_src scheme
+;; Excerpt from the same grammar.ss rules section.
+(source-file (node SourceFile (reference helper)))
+(helper (field argument))
+;; The field arity is invalid. Validation reports (field argument) before the
+;; root's field inference follows this forward reference.
+
+;; Valid recursive helper control from the existing surface suite:
+(source-file (node Root helper))
+(helper (choice (field item word)
+                (seq "(" helper ")" (field tail word))))
+;; Existing expected catalog: (Root node (item tail)).
+
+;; Question 1: Why is this DSL design better?
+;; Authors can order reusable rules naturally while the engine validates their
+;; shapes and derives fields from one normalized grammar. They need no helper
+;; ordering workaround or manually copied catalog to obtain an accurate error.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; The forward-helper negative control isolates inference-before-validation blame.
+;; Old/new native macro outputs differ in blame but the complete call/array Grammar
+;; IR and Parser IR match byte for byte. Recursive/alternative catalogs and actual
+;; AST/span expectations are additional independent observations.
+;; Falsifiers: raw malformed helpers reach inference, node/field order changes,
+;; a named child leaks its fields into a parent, or recursion loses sibling fields.
+;; Limit: selected controls do not prove all-input field inference or faster parsing.
+#+end_src
+
+The validated representation eliminates the need for inference to interpret bare
+identifiers or repeat local shape validation. Postorder node collection preserves
+its earlier catalog registration order. The visited-name mechanism is unchanged;
+this work does not introduce a new fixed-point field analysis. Multi-error priority
+can differ because validation now precedes inference, and is a diagnostic behavior
+separate from accepted-language/tree parity.
+
+* One constructor contract across declaration entries
+
+This is the integrated expression-admission task, rather than another vocabulary
+proposal. The canonical algebra owns constructor arity and scalar metadata through
+=grammar-expression-header?=. Recursive =grammar-expression?= consumes that same
+predicate. Source-aware compiler traversal checks each header before indexing its
+children; the concise projection reuses the predicate for its missing scalar checks.
+Grammar/Parser IR publication and resolved LR analyses retain their existing owners.
+
+| Contract | Canonical owner | Declaration behavior |
+|----------+-----------------+----------------------|
+| empty | No operands | Reject extra operands |
+| literal / layout-start / layout-next | One nonempty string | Reject empty/non-string metadata before parser compilation |
+| layout-end | Zero or more nonempty strings | Reject invalid boundary metadata |
+| token / reference | One symbol | Canonical shape check; concise entry also resolves declared names |
+| sequence / choice | One or more children | Validate shape before child traversal |
+| optional / repeat / repeat1 | One child | Arity precedes indexing; resolved consumption remains separate |
+| field / alias | Symbol plus one child | Concise node/alias implicit bodies normalize first |
+| precedence | Direction in none/left/right/dynamic; integer rank; one child | Shared canonical metadata check, not a new associativity algorithm |
+
+#+begin_src scheme
+;; grammar.ss excerpts; declaration sections and catalog ownership stay unchanged.
+(source-file (node SourceFile (prec sideways 10 identifier)))
+;; Invalid direction is a syntax error at this authored expression.
+(source-file (node SourceFile (literal "")))
+;; Empty literal is invalid; use (empty) for an explicit empty expression.
+(source-file (alias SourceFile (optional)))
+;; The canonical entry also rejects arity before reading a missing child.
+(source-file (alias SourceFile (optional . identifier)))
+;; Proper-list structure is checked through Gerbil's existing syntax traversal.
+
+;; Question 1: Why is this DSL design better?
+;; Authors keep native Scheme vocabulary and the three package interfaces. Both
+;; declaration entries explain constructor misuse at syntax time without requiring
+;; users to know which list operation or parser validation would fail downstream.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Constructor constraints are factored out of the existing canonical predicate,
+;; not invented by a second validator. Independent invalid-input and membership
+;; controls distinguish arity, metadata, child validity and resolved consumption.
+;; Native compilation qualifies behavior that interpreted expansion alone missed.
+;; Falsifiers: either entry accesses malformed children before rejecting shape,
+;; canonical recursive membership changes, or complete accepted package IR changes.
+;; Limit: selected controls are not a full language-equivalence proof, performance
+;; qualification, usability study or complete declaration-section validation.
+#+end_src
+
+Fortifying Macros sections 3–4 and 7.2 motivate reusable constraints, author-level
+errors and separation of collection from dependent checking. The Gerbil transfer
+uses ordinary predicates, syntax objects and existing compiler phases, without a
+syntax-parse port. Constructor structure is distinct from resolved reference
+semantics and nullable repetition. In particular, structural membership still
+accepts =(repeat (empty))=; construction/resolved analysis owns consumption policy.
+
+The first native attempt exposed an important phase boundary: its generated macro
+replaced the new datum =list?= condition with true, and dotted input reached =length=.
+That run exited 70. The repaired boundary reuses Gerbil's =stx-list?= and runtime
+=__AST-list?= traversal; the installed runtime implementation checks the terminal
+tail rather than merely observing an outer pair. This is an observed native failure
+and bounded repair, not a diagnosis of the optimizer's general correctness.
+
+* Declaration obligations explain the authored term
+
+Root shape and node/token kind separation are already engine obligations. Source
+associations extend their explanations without asking grammar.ss authors to build
+catalogs or diagnostic metadata. The [[file:scheme-dsl-engine-admission.org::*Declaration obligations retain author syntax][implementation receipt]] distinguishes authored
+parameters, entire multiple-body rows and conservative vocabulary invocation blame.
+
+#+begin_src scheme
+;; Excerpts from a declaration with (lex (identifier Identifier (identifier))).
+(rules (source-file identifier))
+;; Root obligation: blame identifier, which does not construct the required node.
+(rules (source-file identifier identifier))
+;; The implicit sequence has no single authored expression; blame this rule row.
+(rules (source-file (node Identifier identifier)))
+;; Kind obligation: blame the node-kind parameter Identifier, retaining the whole
+;; declaration as supporting context for the conflicting lexical kind.
+(defrules token-node () ((_ item) (node Identifier item)))
+(rules (source-file (node SourceFile (token-node identifier))))
+;; Generated kind obligation: blame (token-node identifier), not template text.
+
+;; Question 1: Why is this DSL design better?
+;; The engine explains existing declaration constraints using the syntax authors
+;; supplied, including ordinary Scheme vocabulary calls. No source tables or extra
+;; public forms are required in the language package's three interfaces.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; The pre-change negative controls fail on blame; direct/macro, multiple-body and
+;; source-free controls isolate distinct origin boundaries. Fresh native diagnostics
+;; pass while the complete selected package's Grammar IR and Parser IR stay equal.
+;; Falsifiers: template text is blamed for a generated kind, source-free input gains
+;; coordinates, or accepted package products change merely to attach diagnostics.
+;; Limit: first node-kind blame is not a two-location collision explanation, and
+;; arbitrary transformer parameter correspondence remains unspecified.
+#+end_src
+
+Fortifying Macros section 4.2 motivates locating the faulty authored term and
+stating the expectation at its language level. This implementation transfers that
+criterion to existing Gerbil checks; it does not reproduce syntax-parse's failure
+progress ordering or establish usability superiority through a user study.
+
+* Verified field-contract controls through the three DSL interfaces
+
+Two complete variants of the same call/array package change the call's emitted
+field from =argument= to =parameter=. The second additionally declares
+=(node-fields (Call argument))=. All other grammar recognition policy remains
+as in the baseline. Each variant uses its own grammar, checked parser entry and
+declarative test module; no source-map or catalog assembly is required of the author.
+
+| Variant | Exact Call field catalog | Selected actual AST observations |
+|---------+--------------------------+----------------------------------|
+| [[file:../../t/fixtures/language-pack-research/package-parameter-inferred-grammar.ss][Inferred fields]] | callee, parameter | f() has no argument/parameter fields; f(a,b,c) has three parameter fields and no argument fields |
+| [[file:../../t/fixtures/language-pack-research/package-parameter-retained-grammar.ss][Explicit retained field]] | argument, callee, parameter | The same selected observations; retained argument does not fabricate a field occurrence |
+
+The [[file:../../t/fixtures/language-pack-research/package-parameter-inferred-parser-test.ss][inferred variant tests]] and
+[[file:../../t/fixtures/language-pack-research/package-parameter-retained-parser-test.ss][retained variant tests]] each use existing =syntax-kind=, =accepted=,
+=rejected-many= and =ast= clauses. Each suite has five cases: exact catalog,
+empty-call fields, three-parameter fields, four rejected call sources and an
+independently authored exact tree/span expectation for =f(a)=. Both isolated
+runners emitted five =CASE-OK= results, =SUITE-OK= and their success marker,
+then exited 0 under =gtimeout -k 2 10= on 2026-10-06.
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/package-parameter-inferred-runner.ss
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/package-parameter-retained-runner.ss
+#+end_src
+
+The initial invocation put the baseline and both new variants in one import path.
+It emitted no output and exited 124 at the same 10-second limit. The fixtures
+were then separated so each variant could be qualified without changing baseline
+imports or extending the execution limit. The individual passes do not establish
+why the combined invocation timed out or qualify that combined startup path.
+These are selected semantic controls, not throughput or compilation measurements.
+
+#+begin_src scheme
+;; In the complete retained variant's grammar.ss:
+(optional (required-items parameter (reference name) (literal ",")))
+;; At the language declaration boundary:
+(node-fields (Call argument))
+
+;; In its parser-test.ss, using existing engine-owned assertions:
+(syntax-kind "exact effective Call field catalog"
+  Call node (argument callee parameter))
+(accepted "three parameters without historical argument fields" "f(a,b,c)"
+  (field-counts Call parameter (3))
+  (field-counts Call argument (0)))
+
+;; Question 1: Why is this DSL design better?
+;; The author states emitted fields and explicitly retained optional fields.
+;; The engine derives the full catalog and checks independent tree expectations.
+;; No copied field catalog, AST walker or manual artifact metadata is needed.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; The matched variants isolate node-fields while keeping emitted-field policy equal.
+;; Catalog equality and actual occurrence counts are different observations;
+;; an independent exact tree/span expectation detects fabricated optional fields.
+;; Falsifier: retained metadata creates occurrences or erases emitted parameter fields.
+;; Limit: retention does not make a renamed emitted field compatible with old consumers.
+;; The POO override/source-aware publication path remains unqualified by these variants.
+#+end_src
+
+The engine admission plan can therefore reuse existing =node-fields= behavior
+and the test DSL's catalog/AST checks. The open integration obligation is to
+preserve that distinction when selecting effective POO contributions and their
+sources, not invent another field-retention configuration. Optional catalog
+availability and consumer-observed field compatibility must remain distinct
+claims in the eventual component contract.
+
+* POO override and field catalogs: current engine control
+
+The existing [[file:../../t/fixtures/language-pack-research/composition-history.ss][composition-history control]] was extended for the same list package.
+A rule-only override changes both the argument entry and its tail to emit
+=parameter=. Its explicit canonical Call catalog remains =(callee argument)=.
+A coordinated override supplies the same effective rules plus the explicit catalog
+=(argument callee parameter)=. These are low-level engine controls, not author
+requirements or a new public component DSL.
+
+| Observation | Rule-only override | Rule/catalog override |
+|-------------+--------------------+-----------------------|
+| Effective entry and tail field | parameter | parameter |
+| Catalog retained by Parser IR | callee, argument | argument, callee, parameter |
+| Bound parameter field | Absent from supplied catalog | Present |
+| Bound optional argument field | Present | Present |
+| Selected rule source | No automatic source collection asserted | Supplied owner parameter-extension preserved for entry and tail |
+
+On 2026-10-06 the expanded driver passed 31 checks and exited 0 under
+=gtimeout -k 2 10=. This includes the earlier 19 composition controls and 12
+new field/catalog/source checks. The historical 19-check receipt remains useful;
+counts must not be summed as separate complete-package passes.
+
+The observation confirms a responsibility boundary: canonical POO role data
+already includes catalogs, whereas the concise author DSL derives catalogs.
+The low-level normalizer/compiler does not replay concise inference merely
+because a rule is overridden. The DSL admission owner must connect effective
+rules, retained public fields and their sources before canonical publication.
+The test supplies selected source records manually; no automatic origin resolver,
+parser machine execution or full event parity is established for these POO variants.
+
+#+begin_src scheme
+;; Engine control data; the user continues to declare intent through grammar.ss.
+(Call node (argument callee parameter))
+(arguments
+ (sequence (field parameter (reference name))
+           (reference call-arguments/tail)))
+
+;; Question 1: Why is this DSL design better?
+;; Author DSL can delegate effective catalog reconciliation to the engine owner.
+;; Public optional fields stay explicit without hand-maintained canonical catalogs.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Matched overrides hold effective rules equal and vary only explicit catalog data.
+;; Bound fields, Parser IR catalogs and selected sources are independently checked.
+;; Falsifier: DSL publication retains a stale inferred catalog or attributes a replaced
+;; rule to its previous owner, while claiming automatic reconciliation.
+;; Limit: these canonical controls do not qualify source-aware DSL runtime publication.
+#+end_src
+
+Use [[file:scheme-dsl-engine-admission.org][the engine admission module]] to integrate this contract with canonical
+publication. Use [[file:scheme-dsl-author-interface.org][the author interface module]] for the complete running declarations.
+
+* Existing catalog projection: bounded admission controls
+
+The same composition driver now also calls the existing
+[[file:../../src/compiler/language-artifact.ss][project-language-catalog]] with explicit known catalog inputs. It does not
+implement or claim a new derivation algorithm.
+
+| Control | Existing outcome |
+|---------+------------------|
+| Extra optional argument field over inferred parameter fields | Accepted |
+| Historical catalog missing emitted parameter | Rejected |
+| Projection drops argument after it is included as an explicit field obligation | Rejected |
+| Terminal mapping changes identifier to Punctuation | Rejected |
+| Duplicate parameter field | Rejected |
+| No explicit projection | Supplied inferred kinds/terminals retained |
+
+On 2026-10-06, =gtimeout -k 2 10 gxi= completed the expanded driver with
+=COMPOSITION-HISTORY-OK: 37 checks passed= and exit 0. This includes the earlier
+31 controls plus six projection controls. An initial invocation exited 70 with a
+reader error caused by an extra closing parenthesis in the new research block;
+that fixture syntax was repaired before the successful bounded rerun.
+
+These controls qualify the existing validator on supplied inputs. They do not
+prove automatic field inference after POO composition, automatic origin selection,
+or all-input runtime tree equivalence. The [[file:scheme-dsl-engine-admission.org][engine module]] owns the resulting
+integration order; authors continue to use the same three DSL interfaces.

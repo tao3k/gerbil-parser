@@ -1,0 +1,105 @@
+;;; Guarded CPU pairs with complete entries and identical-operation controls.
+(import (only-in :gerbil-parser/languages/gql/parser gql-parser)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-ir)
+        (only-in :gerbil-parser/src/runtime/lr-action-index
+                 index-action-rows lookup-literal-action-entry lookup-casefolded-literal-action-entry
+                 lr-action-row-has-literals?)
+        (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
+                 measure-parser-batch sample-at-percentile))
+(export benchmark-lr-casefold)
+(def (field row key) (cdr (assq key row)))
+;;; CPU qualification of the production mechanism against a guarded reference.
+;;; Return every original entry, not only a hit count. This remains a lookup
+;;; component: its uniform state sweep is not a complete-request distribution.
+(def (benchmark-lr-casefold (groups 20) (iterations 20) (workload-names #f))
+  (unless (and (exact-integer? groups) (>= groups 20)
+               (exact-integer? iterations) (positive? iterations))
+    (error "CPU qualification requires at least twenty groups and positive batches"))
+  (let* ((spec (cdr (assq 'lr-spec (parser-machine-ir gql-parser))))
+         (rows (index-action-rows (cdr (assq 'actions spec)) #t))
+         (count (vector-length rows)))
+    (def (sweep source optimized?)
+      (let (result (make-vector count #f))
+        (let loop ((state 0))
+          (when (< state count)
+            (let (row (vector-ref rows state))
+              (vector-set! result state
+                (if optimized?
+                  (lookup-casefolded-literal-action-entry row source)
+                  (and (lr-action-row-has-literals? row)
+                       (lookup-literal-action-entry row (string-upcase source))))))
+            (loop (+ state 1))))
+        result))
+    (def (paired name reference candidate expected)
+      (unless (and (equal? (reference) expected) (equal? (candidate) expected))
+        (error "CPU pair warmup changed complete entries" name))
+      (##gc)
+      (let loop ((group 0) (observations '()))
+        (if (= group groups)
+          (let ((p10 (field (sample-at-percentile observations 'cpu-ratio 10) 'cpu-ratio))
+                (p50 (field (sample-at-percentile observations 'cpu-ratio 50) 'cpu-ratio))
+                (p90 (field (sample-at-percentile observations 'cpu-ratio 90) 'cpu-ratio)))
+            (write (list 'LR-CPU-CONTROL-SUMMARY name 'groups groups
+                         'cpu-ratio-p10 p10 'cpu-ratio-p50 p50 'cpu-ratio-p90 p90))
+            (newline) (force-output)
+            (list p10 p50 p90
+              (andmap (lambda (observation)
+                        (andmap (lambda (batch) (>= (field (cdr batch) 'cpu-ms) 1.0))
+                                (field observation 'batches))) observations)))
+          (let* ((order (if (even? group) '(reference candidate candidate reference)
+                          '(candidate reference reference candidate)))
+                 (batches (map (lambda (variant)
+                                 (cons variant
+                                   (measure-parser-batch name group (* iterations count)
+                                     (if (eq? variant 'reference) reference candidate)
+                                     expected count))) order))
+                 (sum (lambda (variant)
+                        (apply + (map (lambda (batch) (field (cdr batch) 'cpu-ms))
+                                      (filter (lambda (batch) (eq? (car batch) variant)) batches)))))
+                 (denominator (sum 'reference)))
+            (unless (positive? denominator) (error "CPU reference interval is not positive" name group))
+            (let (observation (list (cons 'sample group)
+                                   (cons 'cpu-ratio (/ (sum 'candidate) denominator))
+                                   (cons 'batches batches)))
+              (write (list 'LR-CPU-CONTROL-PAIR name observation)) (newline) (force-output)
+              (loop (+ group 1) (cons observation observations)))))))
+    (let (workloads
+      (list (list 'early-miss-43 (string-append "identifier_" (make-string 32 #\x)))
+            (list 'early-miss-267 (string-append "identifier_" (make-string 256 #\x)))
+            (list 'keyword-hit "match")
+            (list 'late-miss "matching")
+            (list 'unicode-fallback "éclair")))
+      (when workload-names
+        (unless (and (list? workload-names) (pair? workload-names)
+                     (andmap (lambda (name) (assq name workloads)) workload-names))
+          (error "unknown or empty CPU workload selection" workload-names)))
+      (for-each
+     (lambda (workload)
+       (let* ((name (car workload)) (source (cadr workload))
+              (reference (lambda () (sweep source #f)))
+              (candidate (lambda () (sweep source #t)))
+              (expected (reference)))
+         (let ((actual (candidate)))
+           (let loop ((state 0))
+             (when (< state count)
+               (unless (eq? (vector-ref expected state) (vector-ref actual state))
+                 (error "CPU qualification lost original entry identity" name state))
+               (loop (+ state 1)))))
+         ;; Identical-operation control brackets each workload. Admission needs
+         ;; both controls, not merely a faster optimized batch.
+         (let* ((before (paired (list name 'control-before) reference reference expected))
+                (result (paired (list name 'production) reference candidate expected))
+                (after (paired (list name 'control-after) reference reference expected))
+                (stable? (lambda (ratios)
+                           (and (cadddr ratios) (>= (car ratios) 0.90) (<= (caddr ratios) 1.10))))
+                (controls? (and (stable? before) (stable? after))))
+           (write (list 'LR-CPU-ADMISSION name 'states count 'groups groups
+                        'iterations iterations 'controls-stable controls?
+                        'cpu-ratio-p50 (cadr result) 'cpu-ratio-p90 (caddr result)
+                        'timing-resolved (cadddr result)
+                        'component-benefit (and controls? (cadddr result) (< (caddr result) 0.95))))
+           (newline) (force-output))))
+     (if workload-names
+       (map (lambda (name) (assq name workloads)) workload-names)
+       workloads))))
+  (displayln "LR-CASEFOLD-CPU-CONTROLS-OK") (force-output))

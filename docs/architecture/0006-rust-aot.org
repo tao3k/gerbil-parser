@@ -1,0 +1,174 @@
+#+title: RFC 0006 — Scheme artifacts and independent Rust AOT
+#+startup: overview
+
+* Authority and public interfaces
+
+Language authors define syntax in =grammar.ss=, parser identity and production
+entry points in =parser.ss=, and corpus/test services in =parser-test.ss=.
+Macro expansion and POO composition feed admitted canonical products. The engine
+owns validation, compilation, publication and execution; language-specific
+recognition data remain in the language package or explicit common adapter.
+
+The primary Rust path is:
+
+#+begin_example
+Rust caller -> generic C ABI -> Scheme parser engine -> canonical GPA1 result
+            <- C-owned result bytes + borrowed Rust node/field/token access
+#+end_example
+
+The independent AOT path is:
+
+#+begin_example
+Scheme descriptor -> admitted compiler/build product -> generated Rust tables
+                  -> generic Rust executor -> validated source-range index
+#+end_example
+
+These products have distinct dependencies and receipts. Native access never
+imports generated LR tables, invokes the independent executor, or constructs
+its owned syntax index. There is no conversion facade between the products.
+
+* Ownership and dependency direction
+
+| Package | Responsibility | Runtime dependency |
+|---------+----------------+--------------------|
+| gerbil-parser-artifact | Inert descriptor reader, GPA1 admission, borrowed navigation; separate validated flat index for AOT | SHA-256 and descriptor data representation |
+| gerbil-parser-ffi | Generic FFI, handle/result lifetimes, owner-thread sessions, optional standalone VM ownership | Artifact package |
+| gerbil-parser-runtime | Independent generated-table/event execution, diagnostics and source indexes | Artifact package and SHA-256 |
+| gerbil-parser-runtime-external | Optional external event producer and provider receipt | Generic runtime |
+| gerbil-parser-build-support | Source policy, integration tests and benchmark scenario data | Development dependencies only |
+| Language crates/fixtures | Generated language data and independent semantic expectations | Selected public backend |
+
+Development scenarios and arithmetic integration tests live in the existing
+=gerbil-parser-build-support= package. A separate Cargo package with a comment-only
+library is unnecessary: the test runner, policy and fixture data have one owner.
+The arithmetic reference tables are a generated test fixture in that same package;
+their integration and performance tests do not require a separate language crate.
+
+Public APIs retain current names only. Cargo manifests, independent fixture
+lockfiles, Scheme generators, C headers, CI commands and documentation must
+use the same names. No package redirect or compatibility implementation exists.
+
+* Descriptor and admission contract
+
+=NativeLanguage::catalog()= reads the immutable descriptor from its exact C ABI
+handle once. The existing inert Scheme datum representation is retained; the
+reader does not evaluate expressions. Duplicate keys, invalid escapes, trailing
+forms, excessive depth and malformed catalog rows are rejected.
+
+The descriptor publishes =language=, =grammarDigest=, =rootKind=, =syntaxKinds=,
+=terminals= and =fields=. Source providers publish their declared root and result
+catalog; LR descriptors publish the root of their canonical IR. A contextual
+handle publishes its contextual product digest. Native consumers obtain these
+values from the handle, rather than supplying a separate generated specification.
+
+GPA1 admission checks magic/version/status, exact payload length, product and
+source digests, valid categories and symbol indexes, sequential node/token ids,
+reserved positions, balanced node/field scopes, UTF-8 boundaries and complete
+ordered token coverage. Fields must belong to their nearest declaring node kind.
+Canonical and contextual product identities cannot be substituted.
+
+Rejection can contain an engine-owned opaque =unknown= token for unscanned
+source. Native publication includes this terminal when the language does not
+already declare it, in both the descriptor and the encoder index. Existing
+terminal indexes and grammar recognition remain unchanged. Source-engine roots
+are admitted against their result catalog and derived from the compiled command
+projection. Aliased LR entry rules determine their root kind independently of
+catalog ordering, and the compiler requires that kind to be a declared node.
+
+* Borrowed AST and token contract
+
+=NativeLanguage::parse -> NativeParsed::view -> root/children/fields/tokens=
+uses the original source and C result buffers. A flat scope/parent index supports
+navigation; it carries no duplicated token text. Fields remain associations,
+including repeated scopes and zero-width node values. An absent association is
+not fabricated as an empty field.
+
+=NativeToken::class()= preserves the scanner terminal class; =kind()= returns
+its declared syntax kind, or the class when no syntax mapping exists. =id()=
+is the scanner ordinal, independent of node ids. =tokens()= preserves trivia
+and source order for accepted and rejected inputs. Rejected syntax has no accepted
+root and no invented node parent. It is successful transport with an explicit
+syntax-rejection status, not a transport failure or recovery result.
+
+The C/Scheme boundary copies input and allocates the output payload. Rust views
+borrow those buffers and the original Rust source; this is not a claim of zero
+allocation across the ABI. The caller releases views before releasing the result.
+
+* Runtime and lifetime contract
+
+An application with an initialized VM uses =NativeSession::attach=. A standalone
+Cargo application enables =standalone= and uses =NativeRuntime::start=. C hosts
+use =runtime.h= and the generated factory. Initialization, handles and parsing
+remain on the initializing OS thread. A second VM or VM restart in one process
+is unsupported.
+
+Rust borrows prevent dropping the language or closing its runtime while results
+or views survive. Native results release their C allocation once; language
+handles unregister once. Standalone shutdown performs normal Gambit cleanup.
+Independent C resources must be released before shutdown; a live-resource
+rejection retains the runtime. Libraries remain loaded until all owners end.
+
+* Independent AOT and publication
+
+=rust-runtime-support= exposes ordinary and contextual language generators,
+shared scanner generation and the bounded Command/Source generator. Descriptor
+products delegate to =language-rust-runtime-module-source= for identity, portable
+policy admission and execution emission. A Scheme-only CST policy is rejected
+before AOT product publication; native parsing executes it in Scheme.
+
+The build ABI lives in =src/ffi/rust-runtime-aot.ss= and
+=include/gerbil-parser/rust-runtime-aot.h=. The standalone
+=gerbil-parser-runtime-aot= command takes a downstream grammar module path;
+=GERBIL_PARSER_RUNTIME_AOT_LIB= identifies its installed metadata bundle.
+Generated Rust source imports =gerbil_parser_runtime=. The normal Gerbil build
+owner controls compilation and dependency closure.
+
+The independent executor validates event ancestry, source ranges, complete
+coverage and subtree intervals before exposing =SyntaxTree=. Iterative traversal
+and flat debug output avoid recursive tree walks. Recognition, external provider
+identity and language policy remain separate obligations; an index or table hash
+alone does not establish semantic conformance.
+
+* Qualification
+
+| Gate | Local evidence |
+|------+--------------------------------------------------|
+| Runtime | 130 core tests, including canonical/contextual native token controls |
+| Artifact admission | Three inert-reader tests and twenty controls from all ten production entries |
+| Language interfaces | 28 bounded DSL/conformance child processes, including the independent records consumer |
+| Native transport | Full FFI owner suite, final four-module suite and explicit OK |
+| Host ownership | Fresh C, Rust-owned VM and borrowed-session processes, 100 calls, two handle releases, 113 result releases and normal cleanup |
+| AOT consumers | Locked records fixture (two tests) and ASCII fixture (one test) |
+| Quality/publication | Strict workspace Clippy, source-policy gate and replacement crate package verification |
+
+The 113 result releases include two lazy catalogs, one explicit descriptor and
+110 parse results. Compile-fail doctests retain thread and lifetime restrictions.
+All twelve workspace test executables passed individually under the existing
+ten-second completion limit. These are local receipts; CI must qualify each
+pushed commit separately.
+
+Earlier failures remain bounded evidence: an aggregate ten-second Cargo run did
+not finish; mixed temporary optimizer interfaces and native object versions
+caused a factory crash. Consistent specialized producer/consumer builds and
+removal of older owned temporary object versions resolved the crash. The loader
+selects the highest contiguous object version. No timeout was widened.
+
+* Remaining architecture obligations
+
+Language-wide ABI conformance now generates accepted/rejected controls from all
+ten production entries in the eight language packages. The generic artifact crate
+admits those bytes without importing language tables. The controls are binary test\ndata, not generated Rust parser source. CI regenerates and compares
+the controls through the native conformance executable. Backend capability admission must remain explicit; supporting native
+source parsing does not qualify every source strategy for independent AOT.
+
+Aliased entry roots derive from their entry rules rather than syntax catalog
+order. Both parser and declaration generator contracts are version 3 so changed
+compiler semantics cannot reuse older cache receipts. Source providers must
+publish a root in their admitted result catalog. Opaque rejection tokens are
+engine-owned publication vocabulary; language grammars need no fallback rule.
+
+A unified Contextual Parser IR, selector specificity/overlap witnesses, macro
+lineage, general recovery and incremental subtree certificates remain separate
+open contracts. Benchmark execution, ABI transport, digest admission, navigation
+index construction and field traversal separately. Representation changes alone
+establish no end-to-end latency or throughput improvement.

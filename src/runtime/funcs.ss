@@ -1,7 +1,14 @@
 ;;; -*- Gerbil -*-
 ;;; Small immutable sequence algorithms for the LR semantic hot path.
 
-(import (only-in :std/list/list-builder with-list-builder)
+(import (only-in ./event-program
+                 event-program-sequence? event-program-sequence-arity
+                 event-program-sequence-start event-program-sequence-end
+                 event-program-sequence-for-each event-program-relocate)
+        (only-in ./recognition
+                 make-recognition-child recognition-child-field recognition-child-value
+                 relocate-recognition-value recognition-value-start recognition-value-end)
+        (only-in :std/list/list-builder with-list-builder)
         (only-in :std/vector/vector vector-map/index))
 (export association-row-vector->index
         association-row-index-ref
@@ -12,7 +19,12 @@
         vector-intern-map
         recognition-sequence-append
         recognition-sequence-concatenate
-        recognition-sequence->list)
+        recognition-sequence->list
+        recognition-sequence-for-action
+        recognition-sequence-relocate
+        current-recognition-sequence-fusion-enabled?
+        recognition-sequence-arity recognition-sequence-start recognition-sequence-end
+        recognition-sequence-for-each)
 
 ;;; Request-local hash-consing over immutable structural keys. Gerbil's
 ;;; standard equal?-table owns lookup; callers provide the canonical value
@@ -94,7 +106,9 @@
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Value (OrFalse Pair))
 (def (association-row-index-ref indexes state key)
   (let (index (vector-ref indexes state))
-    (if (list? index)
+    ;; Preparation admits only proper lists or tables. Inspect the outer
+    ;; representation rather than traversing a whole list before assoc.
+    (if (or (pair? index) (null? index))
       (assoc key index)
       (hash-get index key))))
 
@@ -102,7 +116,19 @@
 ;; singleton shifts and already-materialized field/alias results allocate no
 ;; wrapper. This turns left-recursive repetition from repeated list copying
 ;; into constant-time concatenation.
+(def current-recognition-sequence-fusion-enabled? (make-parameter #f))
 (defstruct recognition-sequence-branch (left right) transparent: #t)
+
+(defstruct recognition-sequence-position-view (value delta) transparent: #t)
+(def (recognition-sequence-relocate value delta)
+  (cond
+   ((event-program-sequence? value) (event-program-relocate value delta))
+   ((null? value) '())
+   ((recognition-sequence-position-view? value)
+    (make-recognition-sequence-position-view
+     (recognition-sequence-position-view-value value)
+     (+ delta (recognition-sequence-position-view-delta value))))
+   (else (make-recognition-sequence-position-view value delta))))
 
 ;; : (-> RecognitionSequence RecognitionSequence RecognitionSequence)
 (def (recognition-sequence-append left right)
@@ -118,21 +144,85 @@
          '()
          sequences))
 
-;; Iterative depth-first traversal avoids both quadratic append and stack
-;; growth when a repeat production has built a deeply left-associated rope.
-;; : (-> RecognitionSequence List)
-(def (recognition-sequence->list sequence)
-  (if (not (recognition-sequence-branch? sequence))
-    sequence
-    (with-list-builder (collect!)
-      (let loop ((pending (list sequence)))
+;;; Cardinality is capped at two: semantic fields distinguish empty,
+;;; singleton and multiple children, not the total length of a sequence.
+(def (recognition-sequence-arity sequence)
+  (cond
+   ((recognition-sequence-position-view? sequence)
+    (recognition-sequence-arity (recognition-sequence-position-view-value sequence)))
+   ;; Append removes empty operands and relocate preserves empty as empty.
+   ;; Therefore a branch always contains at least two semantic children.
+   ((recognition-sequence-branch? sequence) 2)
+   ((and (not (pair? sequence)) (event-program-sequence? sequence))
+    (event-program-sequence-arity sequence))
+   ((null? sequence) 0) ((null? (cdr sequence)) 1) (else 2)))
+(def (recognition-sequence-bound sequence default-offset end?)
+  (let loop ((current sequence) (delta 0))
+    (cond
+     ((and (not (pair? current)) (event-program-sequence? current))
+      (+ delta ((if end? event-program-sequence-end event-program-sequence-start) current default-offset)))
+     ((null? current) default-offset)
+     ((recognition-sequence-position-view? current)
+      (loop (recognition-sequence-position-view-value current)
+            (+ delta (recognition-sequence-position-view-delta current))))
+     ((recognition-sequence-branch? current)
+      (loop (if end? (recognition-sequence-branch-right current)
+                      (recognition-sequence-branch-left current)) delta))
+     (else (+ delta ((if end? recognition-value-end recognition-value-start)
+                    (recognition-child-value (if end? (last current) (car current)))))))))
+(def (recognition-sequence-start sequence default-offset)
+  (recognition-sequence-bound sequence default-offset #f))
+(def (recognition-sequence-end sequence default-offset)
+  (recognition-sequence-bound sequence default-offset #t))
+
+;;; Consume original child order and accumulated position views without
+;;; building a translated child list. The visitor owns publication/materialization.
+(def (recognition-sequence-for-each visit sequence)
+  ;; Engine sequences admit proper-list leaves and private record variants.
+  ;; Classify the outer representation; list? would rescan every leaf.
+  (if (or (pair? sequence) (null? sequence))
+    (for-each (lambda (child) (visit child 0 #f)) sequence)
+    (if (event-program-sequence? sequence)
+      (event-program-sequence-for-each
+       (lambda (field value delta moved?)
+         (visit (make-recognition-child field value) delta moved?)) sequence)
+    (let loop ((current sequence) (delta 0) (moved? #f) (pending '()))
+      (cond
+       ((recognition-sequence-position-view? current)
+        (loop (recognition-sequence-position-view-value current)
+              (+ delta (recognition-sequence-position-view-delta current)) #t pending))
+       ((recognition-sequence-branch? current)
+        ;; Descend left in registers; only the deferred right side needs a frame.
+        (loop (recognition-sequence-branch-left current) delta moved?
+              (cons (vector (recognition-sequence-branch-right current) delta moved?) pending)))
+       (else
+        (for-each (lambda (child) (visit child delta moved?)) current)
         (unless (null? pending)
-          (let (current (car pending))
-            (if (recognition-sequence-branch? current)
-              (loop
-               (cons (recognition-sequence-branch-left current)
-                     (cons (recognition-sequence-branch-right current)
-                           (cdr pending))))
-              (begin
-                (for-each collect! current)
-                (loop (cdr pending))))))))))
+          (let (frame (car pending))
+            (loop (vector-ref frame 0) (vector-ref frame 1) (vector-ref frame 2)
+                  (cdr pending))))))))))
+(def (recognition-sequence->list sequence)
+  (if (or (pair? sequence) (null? sequence)) sequence
+    (with-list-builder (collect!)
+      ;; Ordinary branch traversal needs neither relocation state nor heap
+      ;; frames. Bound recursion before delegating a deep/view subtree to the
+      ;; existing iterative visitor, which owns translated child publication.
+      (def (collect-sequence! current depth)
+        (cond
+         ((and (< depth 64) (recognition-sequence-branch? current))
+          (collect-sequence! (recognition-sequence-branch-left current) (+ depth 1))
+          (collect-sequence! (recognition-sequence-branch-right current) (+ depth 1)))
+         ((or (pair? current) (null? current)) (for-each collect! current))
+         (else
+          (recognition-sequence-for-each
+           (lambda (child delta moved?)
+             (collect! (if (not moved?) child
+                         (make-recognition-child (recognition-child-field child)
+                           (relocate-recognition-value (recognition-child-value child) delta #t)))))
+           current))))
+      (collect-sequence! sequence 0))))
+
+;;; The interpreter and generated operand actions share this one boundary.
+(def (recognition-sequence-for-action children)
+  (if (current-recognition-sequence-fusion-enabled?) children
+    (recognition-sequence->list children)))

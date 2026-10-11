@@ -4,7 +4,8 @@
 (import (only-in ../grammar/algebra
                  grammar-expression-references
                  grammar-expression-terminals)
-        (only-in ../runtime/identity sha256-text))
+        (only-in :std/list/list-builder with-list-builder)
+        (only-in ../runtime/identity sha256-bytes))
 (export +bound-grammar-ir-schema+
         bind-grammar-ir
         bound-grammar-ir-ref
@@ -42,6 +43,13 @@
 (def (canonical value)
   (call-with-output-string (lambda (port) (write value port))))
 
+;;; Preserve the canonical writer while emitting digest input directly in UTF-8.
+;;; Implicit port encoding is not part of the canonical identity contract.
+(def (canonical-digest value)
+  (sha256-bytes
+   (call-with-output-u8vector '(char-encoding: UTF-8 eol-encoding: lf)
+     (lambda (port) (write value port)))))
+
 ;;; Binding identity is structured package data.  Native grammar names are not
 ;;; rewritten into a second slash-delimited namespace.
 ;; : (-> Symbol Symbol Datum Alist)
@@ -57,10 +65,28 @@
         (cons 'location origin)
         (cons 'generated? #f)))
 
-;; : (-> Alist Symbol Symbol String Alist)
-(def (declaration-source source-map namespace name origin)
-  (let* ((section (assq namespace source-map))
-         (row (and section (assoc name (cdr section)))))
+;;; One invocation owns the lookup index. Retain association entries so a
+;;; present false source remains distinct from absence; first occurrences win.
+(def (index-declaration-sources source-map)
+  (let (sections (make-table test: eq?))
+    (for-each
+     (lambda (namespace)
+       (let (section (assq namespace source-map))
+         (when section
+           (let (names (make-table test: equal?))
+             (for-each
+              (lambda (row)
+                (unless (table-ref names (car row) #f)
+                  (table-set! names (car row) row)))
+              (cdr section))
+             (table-set! sections namespace names)))))
+     '(syntax-kind terminal lexical-rule rule field))
+    sections))
+
+;; : (-> SourceIndex Symbol Datum String Alist)
+(def (declaration-source source-index namespace name origin)
+  (let* ((section (table-ref source-index namespace #f))
+         (row (and section (table-ref section name #f))))
     (if row (cdr row) (default-source origin))))
 
 ;; : (-> Symbol Symbol Datum Alist)
@@ -88,19 +114,19 @@
      (list (reference-binding-id owner 'syntax-kind (cadr row))))
     (else '())))
 
-;; : (-> Symbol Symbol List String List Alist Alist)
-(def (bind-row owner namespace row origin lineage source-map)
+;; : (-> Symbol Symbol List String List SourceIndex Alist)
+(def (bind-row owner namespace row origin lineage source-index)
   (let* ((name (car row))
          (scope (and (eq? namespace 'field) (cadr row)))
          (identity-name (if scope (list scope name) name))
          (identity (binding-id owner namespace identity-name))
-         (source (declaration-source source-map namespace identity-name origin))
+         (source (declaration-source source-index namespace identity-name origin))
          (references (row-references owner namespace row))
          (declaration
           (list owner namespace row source lineage references)))
     (list
      (cons 'bindingId identity)
-     (cons 'declarationId (sha256-text (canonical declaration)))
+     (cons 'declarationId (canonical-digest declaration))
      (cons 'namespace namespace)
      (cons 'name name)
      (cons 'scope scope)
@@ -109,29 +135,26 @@
      (cons 'source source)
      (cons 'expansionLineage lineage)
      (cons 'references references)
-     (cons 'referenceDigest (sha256-text (canonical references))))))
+     (cons 'referenceDigest (canonical-digest references)))))
 
 ;;; Keep a section-local name index while preserving declaration order.  A
 ;;; duplicate declaration fails before any partially bound section escapes.
-;; : (forall (r b) (-> Symbol Symbol [r] String List Alist [b]))
+;; : (forall (r b) (-> Symbol Symbol [r] String List SourceIndex [b]))
 ;; : (-> GrammarOwner GrammarNamespace DeclarationRows OriginModule ExpansionLineage BoundDeclarations)
-(def (bind-section owner namespace rows origin lineage source-map)
-  (let ((seen (make-table test: eq?))
-        (bound '()))
-    (for-each
-     (lambda (row)
-       (let (name (and (pair? row) (car row)))
-         (unless (symbol? name)
-           (error "bound grammar declaration requires a symbolic identity"
-                  namespace row))
-         (when (table-ref seen name #f)
-           (error "duplicate bound grammar declaration" namespace name))
-         (table-set! seen name #t)
-         (set! bound
-           (cons (bind-row owner namespace row origin lineage source-map)
-                 bound))))
-     rows)
-    (reverse bound)))
+(def (bind-section owner namespace rows origin lineage source-index)
+  (let (seen (make-table test: eq?))
+    (with-list-builder (emit)
+      (for-each
+       (lambda (row)
+         (let (name (and (pair? row) (car row)))
+           (unless (symbol? name)
+             (error "bound grammar declaration requires a symbolic identity"
+                    namespace row))
+           (when (table-ref seen name #f)
+             (error "duplicate bound grammar declaration" namespace name))
+           (table-set! seen name #t)
+           (emit (bind-row owner namespace row origin lineage source-index))))
+       rows))))
 
 ;; : (forall (a) (-> [(Pair Symbol a)] Symbol (Maybe a)))
 ;; : (-> Alist Symbol Datum)
@@ -155,43 +178,42 @@
          (terminals (grammar-ir-value grammar 'terminals))
          (lexical-rules (grammar-ir-value grammar 'lexical-rules))
          (rules (grammar-ir-value grammar 'rules))
-         (fields
-          (apply append
-                 (map (lambda (row)
-                        (map (lambda (field) (list field (car row)))
-                             (caddr row)))
-                      syntax-kinds)))
+         (source-index (index-declaration-sources source-map))
          (sections
           (list
            (cons 'syntax-kind
-                 (bind-section owner 'syntax-kind syntax-kinds origin lineage source-map))
+                 (bind-section owner 'syntax-kind syntax-kinds origin lineage source-index))
            (cons 'terminal
-                 (bind-section owner 'terminal terminals origin lineage source-map))
+                 (bind-section owner 'terminal terminals origin lineage source-index))
            (cons 'lexical-rule
-                 (bind-section owner 'lexical-rule lexical-rules origin lineage source-map))
+                 (bind-section owner 'lexical-rule lexical-rules origin lineage source-index))
            (cons 'rule
-                 (bind-section owner 'rule rules origin lineage source-map))
+                 (bind-section owner 'rule rules origin lineage source-index))
            ;; Field identity is qualified by its node owner, so the same field
            ;; spelling in two syntax kinds is not a namespace collision.
            (cons 'field
-                 (map (lambda (row)
-                        (bind-row owner 'field
-                                  row
-                                  origin lineage source-map))
-                      fields)))))
-    (let* ((bindings (apply append (map cdr sections)))
-           (binding-ids (make-table test: equal?))
+                 (with-list-builder (emit)
+                   (for-each
+                    (lambda (row)
+                      (for-each
+                       (lambda (field)
+                         (emit (bind-row owner 'field (list field (car row))
+                                         origin lineage source-index)))
+                       (caddr row)))
+                    syntax-kinds))))))
+    (let* ((binding-ids (make-table test: equal?))
+           (binding-count 0)
            (references
-            (apply append
-                   (map (lambda (binding)
-                          (bound-grammar-ir-ref binding 'references))
-                        bindings))))
-      (for-each
-       (lambda (binding)
-         (table-set! binding-ids
-                     (bound-grammar-ir-ref binding 'bindingId)
-                     #t))
-       bindings)
+            (with-list-builder (emit)
+              (for-each
+               (lambda (section)
+                 (for-each
+                  (lambda (binding)
+                    (set! binding-count (+ binding-count 1))
+                    (table-set! binding-ids (bound-grammar-ir-ref binding 'bindingId) #t)
+                    (for-each emit (bound-grammar-ir-ref binding 'references)))
+                  (cdr section)))
+               sections))))
       ;; Admission closes the sidecar over the exact declaration set.  Missing
       ;; targets are never retained as advisory or deferred references.
       (for-each
@@ -205,11 +227,11 @@
        (cons 'originModule origin)
        (cons 'expansionLineage lineage)
        (cons 'sections sections)
-       (cons 'bindingCount (length bindings))
+       (cons 'bindingCount binding-count)
        (cons 'referenceCount (length references))
-       (cons 'referenceDigest (sha256-text (canonical references)))
-       (cons 'grammarDigest (sha256-text (canonical grammar)))
-       (cons 'identityDigest (sha256-text (canonical sections)))))))
+       (cons 'referenceDigest (canonical-digest references))
+       (cons 'grammarDigest (canonical-digest grammar))
+       (cons 'identityDigest (canonical-digest sections))))))
 
 ;; : (forall (a) (-> [(Pair Symbol a)] String))
 ;; : (-> BoundGrammarIR CanonicalBoundGrammarText)

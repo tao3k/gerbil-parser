@@ -1,0 +1,386 @@
+;;; Complete requests and prepared recognition at matched source scales.
+(import (only-in ./derivation profile-lr-request-reductions)
+        (only-in ./lookahead benchmark-lr-lookahead)
+        (only-in :gerbil-parser/t/scenarios/performance/selective-glr/scenario
+                 selective-glr-scenario selective-glr-scenario-pass?)
+        (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql)
+        (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-parser parse-fhirpath)
+        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
+        (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
+                 measure-parser-component measure-parser-batch measure-parser-cpu-pairs sample-at-percentile)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
+                 parser-machine-grammar-digest parser-machine-trivia
+                 parser-machine-direct-drive parser-machine-direct-source
+                 parser-machine-backend-representation parser-machine-for-current-semantic-backend)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/prepared lr-parse/prepared/receipt
+                 lr-prepare lr-runtime-for-current-semantic-backend
+                 current-lr-event-program-enabled? lr-runtime-event-program?)
+        (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer)
+        (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)
+        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact
+                 parse-artifact-events parse-artifact-valid-for-source?
+                 token-event? token-event-token-kind token-event-lexeme event-start event-end))
+(export benchmark-lr-request-stack benchmark-lr-request-backends
+        benchmark-lr-completions benchmark-lr-semantic-preparation
+        benchmark-lr-casefold-requests benchmark-lr-text-class-requests
+        compare-lr-staged-actions compare-lr-staged-case)
+
+;;; Original runtime procedures are independent experiment inputs. Both sides
+;;; publish the entire artifact, with the same source, tokens and grammar ID.
+(def (compare-lr-staged-family family units machine parse source original-prepare original-parse groups calls)
+  (let* ((expected (parse source))
+         (tokens (map (lambda (event)
+                        (make-token (token-event-token-kind event) (token-event-lexeme event)
+                                    (event-start event) (event-end event)))
+                      (filter token-event? (parse-artifact-events expected))))
+         (significant (parser-significant-tokens machine tokens))
+         (spec (cdr (assq 'lr-spec (parser-machine-ir machine))))
+         (original (original-prepare spec))
+         (current (lr-prepare spec))
+         (publish
+          (lambda (execute runtime)
+            (let-values (((root rest) (execute runtime significant)))
+              (unless (null? rest) (error "staged reduction leaves unconsumed input" family units))
+              (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                source tokens root (parser-machine-trivia machine)))))
+         (left (lambda () (publish original-parse original)))
+         (right (lambda () (publish lr-parse/prepared current))))
+    (unless (parse-artifact-valid-for-source? expected source)
+      (error "invalid complete staged reduction reference" family units))
+    (measure-parser-component (list family units 'original-preparation-and-request) 20 1
+      (lambda () (publish original-parse (original-prepare spec))) expected)
+    (measure-parser-component (list family units 'staged-preparation-and-request) 20 1
+      (lambda () (publish lr-parse/prepared (lr-prepare spec))) expected)
+    (measure-parser-component (list family units 'original-prepared-artifact) 20 calls left expected)
+    (measure-parser-component (list family units 'staged-prepared-artifact) 20 calls right expected)
+    (let (ratios (measure-parser-cpu-pairs 'staged-lr-actions (list family units)
+                   groups calls expected left right))
+      (write (list 'LR-STAGED-ACTION-CPU-RATIOS family units ratios))
+      (newline) (force-output))))
+
+(def (compare-lr-staged-case family units original-prepare original-parse (groups 20) (calls 200))
+  (parameterize ((current-lr-event-program-enabled? #f))
+    (case family
+      ((gql-return)
+       (compare-lr-staged-family family units gql-parser parse-gql
+         (string-append "RETURN "
+           (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota units)) ", ")
+           "\n") original-prepare original-parse groups calls))
+      ((fhirpath-addition)
+       (compare-lr-staged-family family units fhirpath-parser parse-fhirpath
+         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls))
+      ((arithmetic-addition)
+       (compare-lr-staged-family family units arithmetic-parser parse-arithmetic
+         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls))
+      (else (error "unknown staged LR benchmark family" family))))
+  (displayln "LR-STAGED-ACTION-CASE-OK " family " " units) (force-output))
+
+(def (compare-lr-staged-actions original-prepare original-parse (groups 20) (calls 200))
+  (for-each
+   (lambda (units)
+     (for-each
+      (lambda (family)
+        (compare-lr-staged-case family units original-prepare original-parse groups calls))
+      '(gql-return fhirpath-addition arithmetic-addition)))
+   '(64 512))
+  (displayln "LR-STAGED-ACTIONS-COMPARISON-OK") (force-output))
+
+;;; Preparation includes eligibility and generic selection. Repeated selection
+;;; uses the prepared runtime, including negative admission. Neither stage is a
+;;; decomposition of full parsing or a before/after performance claim.
+(def (benchmark-lr-semantic-preparation (samples 20) (preparations 10) (selections 1000))
+  (parameterize ((current-lr-event-program-enabled? #t))
+    (for-each
+     (lambda (entry)
+       (let* ((family (car entry))
+              (spec (cdr (assq 'lr-spec (parser-machine-ir (cdr entry)))))
+              (runtime (lr-prepare spec))
+              (select (lambda (runtime)
+                        (lr-runtime-event-program?
+                         (lr-runtime-for-current-semantic-backend runtime))))
+              (expected (select runtime)))
+         (displayln "LR-SEMANTIC-ADMISSION " family " event=" expected) (force-output)
+         (measure-parser-component (list family 'semantic-preparation) samples preparations
+                                   (lambda () (select (lr-prepare spec))) expected)
+         (measure-parser-component (list family 'prepared-backend-selection) samples selections
+                                   (lambda () (select runtime)) expected)))
+     (list (cons 'gql gql-parser) (cons 'fhirpath fhirpath-parser)
+           (cons 'arithmetic arithmetic-parser))))
+  (displayln "LR-SEMANTIC-PREPARATION-OK") (force-output))
+
+;;; A complete group contains equivalent merge, dynamic ranking, fragment
+;;; interning and typed ambiguity rejection. Machine preparation is excluded.
+(def (benchmark-lr-completions (samples 20) (iterations 20))
+  (let (reference (selective-glr-scenario))
+    (unless (selective-glr-scenario-pass? reference)
+      (error "invalid GLR completion benchmark product"))
+    (measure-parser-component 'selective-glr-completion samples iterations
+                              selective-glr-scenario reference)
+    (displayln "LR-COMPLETION-OK") (force-output)))
+(def (benchmark-family family units machine parse source samples iterations
+                       (measure measure-parser-component))
+  (let* ((reference (parameterize ((current-lr-event-program-enabled? #f)) (parse source)))
+         (tokens (map (lambda (event)
+                        (make-token (token-event-token-kind event) (token-event-lexeme event)
+                                    (event-start event) (event-end event)))
+                      (filter token-event? (parse-artifact-events reference))))
+         (significant (parser-significant-tokens machine tokens))
+         (materialized-runtime (parser-machine-runtime machine))
+         (runtime (lr-runtime-for-current-semantic-backend materialized-runtime))
+         (parsed (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)))
+    (unless (and (parse-artifact-valid-for-source? reference source) (null? (cadr parsed)))
+      (error "invalid complete stack benchmark product" family units))
+    (let-values (((root rest receipt) (lr-parse/prepared/receipt materialized-runtime significant)))
+      (unless (and (null? rest)
+                   (equal? reference
+                     (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                       source tokens (car parsed) (parser-machine-trivia machine)))
+                   (equal? reference
+                     (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                       source tokens root (parser-machine-trivia machine))))
+        (error "independent GLR product mismatch" family units)))
+    ;; Cost observation preserves the fresh public route. This untimed witness
+    ;; records actual source stages; prepared admission alone cannot establish
+    ;; which executor a generated source/drive path used.
+    (let (stages '())
+      (let (witness
+            (parameterize
+             ((current-parser-cost-observer
+               (lambda (name receipt)
+                 (set! stages (cons (cons name (cdr (assq 'completed receipt))) stages)))))
+             (parse source)))
+        (unless (equal? witness reference)
+          (error "source route witness changed complete product" family units)))
+      (let* ((expected-route (if (parser-machine-direct-drive machine)
+                              'generated-drive-execution 'prepared-checkpoint-execution))
+             (completed (assq expected-route stages)))
+        (unless (and completed (cdr completed))
+          (error "complete request did not execute its expected engine route" family units expected-route)))
+      (write (list 'LR-REQUEST-BACKEND family units
+                   'requested-event (current-lr-event-program-enabled?)
+                   'prepared-event (lr-runtime-event-program? runtime)
+                   'generated-drive (and (parser-machine-direct-drive machine) #t)
+                   'generated-source (and (parser-machine-direct-source machine) #t)
+                   'prepared-representation
+                   (parser-machine-backend-representation
+                    (parser-machine-for-current-semantic-backend machine) 'prepared)
+                   'generated-drive-representation (parser-machine-backend-representation machine 'drive)
+                   'generated-source-representation (parser-machine-backend-representation machine 'source)
+                   'source-stages (reverse stages))))
+    (newline) (force-output)
+    (write (list 'LR-STACK-WORKLOAD family units 'source-characters (string-length source)
+                 'tokens (length significant))) (newline) (force-output)
+    (write (list 'LR-REQUEST-REDUCTIONS family units
+                 (parameterize ((current-lr-event-program-enabled? #f))
+                   (profile-lr-request-reductions machine significant))))
+    (newline) (force-output)
+    (measure (list family units 'prepared-lr) samples iterations
+      (lambda () (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)) parsed)
+    (measure (list family units 'full-source) samples iterations
+      (lambda () (parse source)) reference)))
+(def (benchmark-request-families samples iterations label
+                                 (measure measure-parser-component))
+  (unless (and (integer? samples) (positive? samples)
+               (integer? iterations) (positive? iterations))
+    (error "stack benchmark requires positive sample and iteration counts"))
+  (for-each
+   (lambda (units)
+     (benchmark-family (label 'gql-return) units gql-parser parse-gql
+       (string-append "RETURN "
+         (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota units)) ", ")
+         "\n") samples iterations measure)
+     (let (source (string-join (make-list units "1") " + "))
+       (benchmark-family (label 'fhirpath-addition) units fhirpath-parser parse-fhirpath source samples iterations measure)
+       (benchmark-family (label 'arithmetic-addition) units arithmetic-parser parse-arithmetic source samples iterations measure)))
+   '(64 512)))
+
+(def (benchmark-lr-request-stack (samples 20) (iterations 20))
+  (benchmark-request-families samples iterations identity)
+  ;; Keep one existing optional request gate. Complete paired controls include
+  ;; the small workload and the unchanged generated Arithmetic executor.
+  (for-each
+   (lambda (units)
+     (let ((calls (if (= units 1) 900 64))
+           (addition (string-join (make-list units "1") " + ")))
+       (benchmark-lr-lookahead (list 'gql-return units) gql-parser
+         (string-append "RETURN "
+           (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota units)) ", ")
+           "\n") 20 calls)
+       (benchmark-lr-lookahead (list 'fhirpath-addition units) fhirpath-parser addition 20 calls)
+       (benchmark-lr-lookahead (list 'arithmetic-addition units) arithmetic-parser addition 20 calls)))
+   '(1 64))
+  (displayln "LR-REQUEST-STACK-OK") (force-output))
+
+;;; Complete request controls for the shared casefold algorithm. Source and
+;;; prepared products use the same independent admission as the general matrix.
+;;; Short identifiers and the generated Arithmetic entry retain negative controls.
+(def (benchmark-lr-casefold-requests (samples 20) (iterations 20))
+  (unless (and (exact-integer? samples) (positive? samples)
+               (exact-integer? iterations) (positive? iterations))
+    (error "casefold requests require positive integral counts"))
+  (for-each
+   (lambda (width)
+     (for-each
+      (lambda (units)
+        (benchmark-family
+         (if (= width 32) 'gql-identifiers-32 'gql-identifiers-256)
+         units gql-parser parse-gql
+         (string-append "RETURN "
+          (string-join
+           (map (lambda (index)
+                  (string-append "identifier_" (make-string width #\x) "_" (number->string index)))
+                (iota units)) ", ") "\n")
+         samples iterations))
+      '(64 256)))
+   '(32 256))
+  (benchmark-family 'gql-short-control 64 gql-parser parse-gql
+    (string-append "RETURN "
+     (string-join (map (lambda (index) (string-append "v" (number->string index))) (iota 64)) ", ") "\n")
+    samples iterations)
+  (benchmark-family 'arithmetic-unchanged-control 64 arithmetic-parser parse-arithmetic
+    (string-join (make-list 64 "1") " + ") samples iterations)
+  (displayln "LR-CASEFOLD-REQUESTS-OK") (force-output))
+
+;;; Shared character-class dispatch measured through complete FHIRPath requests.
+(def (benchmark-lr-text-class-requests (samples 20) (iterations 100))
+  (for-each
+   (lambda (width)
+     (benchmark-family
+      (if (= width 32) 'fhirpath-classes-32 'fhirpath-classes-256)
+      64 fhirpath-parser parse-fhirpath
+      (string-join
+       (map (lambda (index)
+              (string-append "item_" (make-string width #\x) "_" (number->string index)))
+            (iota 64)) " + ") samples iterations)) '(32 256))
+  (for-each
+   (lambda (units)
+     (benchmark-family 'fhirpath-unicode-control units fhirpath-parser parse-fhirpath
+       (string-join
+        (map (lambda (index)
+               (string-append "item_" (make-string 256 #\٣) "_" (number->string index)))
+             (iota units)) " + ") samples iterations)) '(16 64))
+  (benchmark-family 'fhirpath-short-control 64 fhirpath-parser parse-fhirpath
+    (string-join (make-list 64 "1") " + ") samples iterations)
+  (benchmark-family 'arithmetic-unchanged-control 64 arithmetic-parser parse-arithmetic
+    (string-join (make-list 64 "1") " + ") samples iterations)
+  (displayln "LR-TEXT-CLASS-REQUESTS-OK") (force-output))
+
+;;; Compare semantic representations across complete public requests. Every
+;;; route publishes the recognition reference, including grammar rejection of
+;;; the requested event backend and independent generated source/drive routes.
+;;; Prepared roots may differ in representation;
+;;; their canonical artifacts must agree before any timed batch is admitted.
+(defstruct request-variant (events? thunk expected))
+
+(def (batch-value row key) (cdr (assq key row)))
+(def (paired-percentile rows key rank)
+  (batch-value (sample-at-percentile rows key rank) key))
+
+;;; Empirical observation band, not a confidence interval or causal proof.
+;;; A practical 5% margin is fixed before sampling; natural GC stays in CPU.
+(def (paired-decision rows)
+  (cond ((< (paired-percentile rows 'cpu-ratio 90) 0.95) 'observed-benefit)
+        ((> (paired-percentile rows 'cpu-ratio 10) 1.05) 'observed-regression)
+        (else 'not-admitted)))
+
+(def (measure-backend-pair name variants groups iterations)
+  (def (run variant sample)
+    (parameterize ((current-lr-event-program-enabled? (request-variant-events? variant)))
+      (measure-parser-batch name sample iterations
+        (request-variant-thunk variant) (request-variant-expected variant))))
+  ;; Warm both admitted representations before one initial collection. Variant
+  ;; construction, derivation, source witnesses and validation are untimed.
+  (run (car variants) -1) (run (cadr variants) -1) (##gc)
+  (let loop ((group 0) (observations '()))
+    (if (= group groups)
+      (let* ((rows (reverse observations))
+             (allocated (filter (lambda (row) (number? (batch-value row 'allocation-ratio))) rows))
+             (summary
+              (list (cons 'workload name) (cons 'groups groups)
+                    (cons 'calls-per-batch iterations)
+                    (cons 'decision (paired-decision rows))
+                    (cons 'cpu-ratio-p10 (paired-percentile rows 'cpu-ratio 10))
+                    (cons 'cpu-ratio-p50 (paired-percentile rows 'cpu-ratio 50))
+                    (cons 'cpu-ratio-p90 (paired-percentile rows 'cpu-ratio 90))
+                    (cons 'recognition-cpu-ms-per-call
+                          (paired-percentile rows 'recognition-cpu-ms-per-call 50))
+                    (cons 'event-cpu-ms-per-call
+                          (paired-percentile rows 'event-cpu-ms-per-call 50))
+                    (cons 'allocation-admitted-groups
+                          (length allocated))
+                    (cons 'allocation-ratio-p50
+                          (and (pair? allocated) (paired-percentile allocated 'allocation-ratio 50)))
+                    (cons 'gc-collections
+                          (apply + (map (lambda (row)
+                                          (apply + (map (lambda (entry) (batch-value (cdr entry) 'gc-count))
+                                                        (batch-value row 'batches)))) rows)))
+                    (cons 'observations rows))))
+        (write (list 'LR-BACKEND-PAIR-SUMMARY
+                     (filter (lambda (entry) (not (eq? (car entry) 'observations))) summary)))
+        (newline) (force-output)
+        summary)
+      (let* ((order (if (even? group) '(0 1 1 0) '(1 0 0 1)))
+             (batches (map (lambda (index)
+                            (cons index (run (list-ref variants index) group))) order))
+             (selected (lambda (index key)
+                         (map (lambda (entry) (batch-value (cdr entry) key))
+                              (filter (lambda (entry) (= (car entry) index)) batches)))))
+        (def (sum index key) (apply + (selected index key)))
+        (let* ((recognition (sum 0 'cpu-ms)) (events (sum 1 'cpu-ms))
+               (allocations (map (lambda (entry) (batch-value (cdr entry) 'allocated-bytes)) batches)))
+          (unless (and (positive? recognition) (positive? events))
+            (error "paired benchmark CPU resolution is insufficient" name group))
+          (let (row
+                (list (cons 'sample group) (cons 'order order)
+                      (cons 'cpu-ratio (/ events recognition))
+                      (cons 'recognition-cpu-ms-per-call (/ recognition (* 2 iterations)))
+                      (cons 'event-cpu-ms-per-call (/ events (* 2 iterations)))
+                      (cons 'allocation-ratio
+                            (and (every number? allocations)
+                                 (positive? (sum 0 'allocated-bytes))
+                                 (/ (sum 1 'allocated-bytes) (sum 0 'allocated-bytes))))
+                      (cons 'batches batches)))
+            (write (list 'LR-BACKEND-PAIR-SAMPLE name row)) (newline) (force-output)
+            (loop (+ group 1) (cons row observations))))))))
+
+(def (benchmark-lr-request-backends (groups 20) (iterations 20))
+  (unless (and (integer? groups) (exact? groups) (>= groups 20)
+               (integer? iterations) (exact? iterations) (positive? iterations))
+    (error "matched backend qualification requires at least 20 groups and positive integral calls"))
+  (let ((catalog (make-hash-table)) (keys '()))
+    (for-each
+     (lambda (events?)
+       (parameterize ((current-lr-event-program-enabled? events?))
+         (benchmark-request-families groups iterations identity
+           (lambda (key _samples _iterations thunk expected)
+             (let (variant (make-request-variant events? thunk expected))
+               (if events?
+                 (hash-put! catalog key (list (car (hash-ref catalog key)) variant))
+                 (begin (set! keys (cons key keys))
+                        (hash-put! catalog key (list variant)))))))))
+     '(#f #t))
+    (let* ((summaries (map (lambda (key)
+                            (measure-backend-pair key (hash-ref catalog key) groups iterations))
+                          (reverse keys)))
+           (controls (filter (lambda (row)
+                               (eq? (car (batch-value row 'workload)) 'gql-return)) summaries))
+           (stable? (every (lambda (row)
+                            (and (<= (batch-value row 'cpu-ratio-p10) 1)
+                                 (>= (batch-value row 'cpu-ratio-p90) 1)
+                                 (<= 0.95 (batch-value row 'cpu-ratio-p50) 1.05))) controls)))
+      (write (list 'LR-BACKEND-CONTROL-ADMISSION 'gql-fallback-stable stable?))
+      (newline) (force-output)
+      (write (list 'LR-BACKEND-PERFORMANCE-ADMISSION
+                   'control-stable stable?
+                   'complete-request-benefit-admitted
+                   (and stable?
+                        (every (lambda (row)
+                                 (eq? (batch-value row 'decision) 'observed-benefit))
+                               (filter (lambda (row)
+                                         (let (key (batch-value row 'workload))
+                                           (and (not (eq? (car key) 'gql-return))
+                                                (eq? (caddr key) 'full-source)))) summaries)))))
+      (newline) (force-output)
+      (displayln "LR-REQUEST-BACKENDS-OK") (force-output)
+      summaries)))

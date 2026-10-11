@@ -1,0 +1,669 @@
+#+title: RFC 0008 — Extensible language packs and selective Rust builds
+#+startup: overview
+
+* Decision
+
+The parser core has no built-in language registry, list of supported language
+names, or per-language dispatch branch.  A language pack owns its syntax
+authority, metadata identity, corpus, expected failures, and any semantic
+lowering.  A native pack compiles language-neutral lexical and Grammar IR into
+Parser IR and an immutable parser artifact.  An external pack may keep its own
+parser and publish source-backed lossless syntax events through the source-index sink.
+The two authorities have distinct receipts.  For a native pack, version and
+contract live in configured parser metadata; neither a namespace nor a Rust module path
+is the version authority.
+
+The Rust runtime crate accepts an explicit =LanguageSpec= and source bytes on
+the independent AOT path.  Its event sink also accepts a minimal kind catalog and
+source-backed events without requiring LR tables.  It depends on the artifact index library and
+generic runtime support only.  Generated language tables, external adapters,
+and optional semantic adapters live in separate crates.  A downstream author
+can create a native language crate from the public Scheme grammar facade or
+adapt a maintained external parser.  Adding either never requires an edit to
+the engine or an upstream enum.  The existing independent records fixture
+exercises the native boundary outside the root Cargo workspace.
+
+The opt-in =gerbil-parser-runtime-external= crate owns the second receipt type.
+=ExternalLanguageSpec= supplies only provider identity and an =EventCatalog=;
+=parse_external_events= checks the generic event sink and returns
+=ExternalParseReceipt= with =authority = external-parser=.  The adapter does
+not require =LanguageSpec=, LR tables, or Scheme tooling at parse time.  Its
+runtime check establishes that the declared digest is well formed; a build
+gate must separately prove that it matches the actual external provider
+artifact.
+
+* Selective distribution
+
+A convenience language-support crate may re-export first-party language crates
+behind additive Cargo features.  Its default feature set is empty; each
+language feature enables one optional language dependency and gates its public
+re-export.  A downstream consumer can instead depend directly on one generated
+language crate, which is the smallest supported path.  The generic runtime
+does not acquire these language features or dependencies.
+
+Cargo unifies features enabled for the same package by all dependency paths.
+Therefore minimal-build evidence must inspect the resolved dependency graph,
+not just one =default-features = false= declaration.  A support crate's =all=
+feature may be a convenience for tools, but it is never a prerequisite for
+downstream custom languages.  Features select *which artifacts compile*; they
+do not change a grammar's identity, parsing semantics, or receipt schema.
+
+* Public authoring and runtime contract
+
+1. =grammar.ss= uses the public declarative facade and publishes one explicit
+   grammar identity.  Expansion emits canonical Grammar IR and Parser IR or a
+   typed rejection.  The author does not implement another scanner, LR table,
+   conflict resolver, or hand-written Rust parser behind the facade.
+2. The build product generates immutable Rust tables and their grammar digest.
+   The generator is a build or release dependency, never a parse-time
+   dependency.  A committed generated artifact is permitted when it is checked
+   against the Scheme owner and source digest.
+3. =parse(&LANGUAGE, source)= returns a lossless CST and a receipt tied to the
+   selected artifact.  The language crate may expose a semantic adapter, but
+   generic runtime output remains available without that adapter.
+4. An external parser adapter emits one balanced source-exhaustive event tree
+   whose token ranges are ordered UTF-8 boundaries and whose node/token kinds
+   belong to its declared catalog.  Its receipt binds the external provider,
+   provider version and artifact digest, syntax contract, and source digest.
+   It does not fill the native =grammar_digest= or =parser_digest= fields with
+   an unrelated provider identity, and it cannot claim Scheme Parser IR parity
+   without a separate differential gate.
+5. A service chooses a descriptor explicitly.  A registry for discovery or
+   user configuration belongs in the host and is populated from linked
+   language crates.  It cannot force every installed language into a minimal
+   executable.
+6. The Scheme actor/request layer may schedule independent calls.  Native FFI
+   handles need a separately verified ownership, lifetime, and thread-safety
+   contract before they are shared across such calls.
+
+* Declarative source scanner profiles
+
+=language-source-support= exports =ScannerProfile.=, =ScannerProfileContract=
+and =defscanner-profile=. A profile is a POO object with ordinary =modes=,
+=initial-mode=, =tokens= and =rules= values. A rule is
+=(name mode form matcher rank action)=. The compiler validates effective
+inherited values, resolves token dispatch and emits closed contextual Scanner IR.
+Callbacks and private prepared-runtime objects are not profile data.
+
+#+begin_src scheme
+(defscanner-profile (letters :: self ScannerProfile.)
+  (modes main) (initial-mode main) (tokens letter)
+  (rules (letter main letter (literal "α") 0 keep)))
+
+;; Inherit modes, token roles and initial state; replace the rule value.
+(defscanner-profile (digits :: self letters)
+  (rules (digit main letter (literal "1") 0 keep)))
+#+end_src
+
+Ordinary POO value overrides and extensions pass the same contract when bound.
+There is no public thunk slot or language-owned scanning loop. The macro handles
+region-plan extraction internally with =(region-word plan initial-stop?)=.
+The compiler handles serialization, worker ownership and backend emission.
+
+The production Bash grammar declares command/marker/body modes, quote removal,
+FIFO markers, tab stripping, comments and LF boundaries. =ShellSourceStrategy.=
+requires its =scanner= profile in addition to its =regions= value. Both enter
+source identity. The engine prepares mode/dispatch/region indexes once per
+bound strategy; input workers hold source-local immutable checkpoints. The
+SourceScanner adapter forwards existing tokens and byte ranges without another
+UTF-8 encoding pass or duplicate token construction.
+
+| Closed operation | Meaning |
+|---+---|
+| =(unless-prefix blocked exceptions child)= | Evaluate one admitted child unless a blocked prefix matches; an explicit exception admits it. Nested guards reject. This prevents region errors inside comments and shields process substitutions from operator prefixes. |
+| =(line-prefix prefix separator)= | Match prefix-led content up to one declared separator, excluding it. Prefix must not contain that separator. |
+| =(marker-line-at separator)= / =(body-line-at separator)= | Match active obligation lines with an explicit separator; existing CRLF-normalizing line operations retain their own meaning. |
+| =(expect-marker-in strip-tabs? mode)= | Enter a declared delimiter mode; reject a second outstanding expectation. |
+| =(enqueue-marker-in policy mode)= | Require an expectation, decode its marker with a closed policy, queue it and enter a declared base mode. |
+| =(activate-next mode)= / =(finish-marker base body)= | Activate/drain the immutable FIFO and select declared modes. |
+
+Longest match precedes rank; equal-width conflicts use rank and unresolved
+ambiguity rejects. Mode names, dispatch coverage, matcher progress and action
+compatibility are checked before execution. Scanner/loader schemas are unchanged.
+The Scheme generator emits the actual Bash scanner profile plus token/span and
+rejection controls; Rust consumes this data without Scheme at scan time. Native
+CI regenerates and compares the artifact.
+
+This closes Bash scanner state execution. Structured word and command recognition
+still use engine procedures. A scanner artifact alone is not a complete Bash Rust
+parser or a source-descriptor C ABI product; those require recognition/result
+lowering and native catalog admission. These remain S3 in the convergence plan.
+
+** Source-backed recognition publication
+
+The engine's =recognition.ss= prepares an owned source span from one scanner
+token. It validates the declared byte length and Unicode scalars once. ASCII
+uses origin plus character offset without allocating an index; other sources
+share one character-to-byte index across every recursive result. Node and token
+publication use checked constant-time endpoint lookup. Returned source views
+are copies, so callers cannot invalidate admitted offsets.
+
+=region-scanner.ss= prepares a source-local boundary context only when matching
+is requested. Closing an outer region records every nested quote/pair endpoint.
+Later decomposition reuses those endpoints. Quote and pair identities have
+separate indexes even when their openers share an offset. Source text and
+indexes belong to the request, while the admitted declaration plan is reusable.
+This is deliberately demand-driven: literal quote characters in a here-document
+must not be interpreted before an expansion requests a declared region.
+
+Bash word, assignment and expanding here-document results use these shared
+primitives. Their recursive token publication shares the existing persistent
+recognition sequence and materializes one ordered list at the public result
+boundary. It does not repeatedly encode source prefixes, rescan nested regions
+or copy nested token suffixes. Ordinary words do not allocate region contexts.
+These mechanisms are engine capabilities; language authors retain the same
+three interfaces and do not supply endpoint or token-list workers.
+
+Word/command recognition is still procedural. Result construction and its
+derived catalog now use the shared POO operations described below; source
+descriptors also use the generic native C ABI. Standalone Rust recognition
+requires a separate producer and consumer qualification.
+
+* Acceptance gates
+
+- Build the generic Rust runtime with no first-party language crate linked.
+- Build and test exactly one first-party language selection and the independent
+  record assignments fixture without a Gerbil installation at parse time.
+- Build one independent external adapter against the minimal event catalog.
+  Reject wrong kind categories, unbalanced events, overlapping or missing
+  source bytes, invalid UTF-8 boundaries, and malformed provider identity.
+  Bind and verify the provider artifact digest at build time.  Verify
+  that its receipt names the external authority and never impersonates native
+  Grammar IR.
+- Build two selected languages together and verify that identities, kind
+  catalogs, and receipts do not cross; inspect the resolved Cargo feature and
+  dependency graph for each build.
+- Regenerate a custom language from its public Scheme declaration and reject
+  stale generated tables, wrong grammar digests, invalid kind references,
+  malformed source, and unsupported Parser IR constructs.
+- Compare source bytes and structural CST projections with the Scheme parser
+  on the admitted native corpus before claiming AOT parity.  An external
+  provider has its own independent conformance corpus.  Measure binary size
+  and cold build cost for minimal and selected-language builds separately.
+
+The language feature packaging is owned by the Rust build support.  This RFC
+fixes the common interface it must preserve; it does not add language cases to
+the generic engine.
+
+* Current evidence
+
+The generic runtime depends on the artifact index library and SHA-256 hashing.  The standalone records fixture resolves only the generic
+Rust runtime crate as its direct runtime dependency and passes its two Cargo tests.
+The external adapter's two focused tests cover source-exact output, external
+receipt identity, invalid UTF-8 token range, and malformed provider digest.
+The event sink separately tests root, kind, and source-coverage rejection.
+An independent ASCII digit parser fixture builds outside the root workspace,
+derives its provider digest from its parser table in =build.rs=, consumes that
+same table when recognizing a digit run, and passes its lossless-tree/receipt
+test.  Production providers must apply the same artifact-binding gate to
+their actual parser artifact.  The optional language-support feature crate,
+two-language selection gate, and production-provider conformance remain
+acceptance work.
+
+** Source result construction through POO slots
+
+The three pack interfaces remain =grammar.ss=, =parser.ss= and
+=parser-test.ss=. Source packs declare their result operations in the grammar:
+
+#+begin_src scheme
+(defresult-profile (pack-results :: self ResultProfile.)
+  (scanner pack-scanner)
+  (nodes (File item) (Item text))
+  (tokens item-text unparsed-source))
+#+end_src
+
+=nodes= declares each node constructor and its legal child field names.
+=tokens= declares generated terminal kinds. =scanner= admits the existing
+=ScannerProfile.= and derives its terminals; the author does not repeat that
+list. These are ordinary POO value slots. A declaration can inherit a profile,
+replace =nodes=, =tokens=, =scanner= or =projections=, or assign an extended list through
+=.o=. There are no user thunks and no callback result builders in this facade.
+The same =ResultProfileContract= checks inherited and replaced values.
+
+The bound engine owns immutable copies and indexed operations. Its node builder
+rejects undeclared kinds/fields, invalid child values and children outside the
+parent byte span. Its token builder rejects undeclared terminals and invalid
+byte bounds. Published catalog copies cannot mutate the execution plan.
+=source-language-result-catalog= derives syntax kinds, fields and terminals
+from those operations; the native encoder has no Bash-specific symbol table.
+The operations participate in source identity, without changing the source or
+Loader schema versions. This is a construction contract, not recognition rule
+order, field multiplicity or a parser algorithm declaration.
+
+=ShellSourceStrategy.= requires a =results= slot; the common shell compiler
+produces it from Bash's =deflanguage= syntax/rules declaration.
+=LineSourceStrategy.= derives its default result profile from =root-kind= and
+=token-kind= and permits a POO override of =results=. Both use the same node
+and terminal admission path. =generate-language-pack= accepts the
+source descriptor export through the existing generic handle registration;
+no builtin language dispatcher or handwritten C transport is needed. Source
+parsing currently executes the Scheme engine behind the C ABI. Standalone
+Rust Word recognition is qualified below; standalone Command/Source parsing
+remains an open producer obligation.
+
+** Internal source compilation products
+
+The profile constructors below describe internal source compiler and executor
+contracts. They are not language author declarations and are no longer exported
+by =language-source-support=. Authors use =deflanguage= syntax/rules through the
+common library; see [[file:../research/scheme-bash-source-frontend.org][the complete Bash frontend migration]].
+
+** Executable part recognition slots
+
+=PartProfile.= owns =contexts=, =rules= and =literal= value slots.
+=defpart-profile= creates the same ordinary POO object as the other profiles;
+a child replaces =rules= or =literal=, and =.o= can extend inherited rule data.
+No procedure, matcher callback or user thunk is admitted.
+
+#+begin_src scheme
+(defpart-profile (template-parts :: self PartProfile.)
+  (contexts word HereDocument)
+  (bindings (identifier (.o (:: self BindingProfile.))))
+  (rules ((word HereDocument) (prefix "@" next)
+          (name SimpleParameter identifier)))
+  (literal LiteralPart))
+#+end_src
+
+Each row names its applicable contexts, a prefix and a following-character
+condition (=any=, =next= or a string of allowed characters), and an operation.
+Rows retain declaration order within a context; this is explicit recognition
+precedence, including intentional shorter-prefix overrides. Operations are
+=quote=, =quoted-body=, =pair=, =parameter=, =name= and =escape=. Quote/pair
+operations declare opening/closing widths; =name= refers to a named
+=BindingProfile.= value. Its =name= slot uses the existing closed TextProfile
+DSL, including numeric runs, character classes, bounded sequences and guarded
+branches. =parameter= uses the required =parameter= binding. The engine owns
+the constrained parameter/result projection.
+
+Binding checks required contexts, operation fields and terminals, quote
+contexts and delimiters, and pair prefixes/closing widths against the admitted
+ResultProfile and RegionPlan. It owns declaration copies and compiles ordered
+first-character buckets per context, with direct indexes for ASCII and a
+separate index for other characters. The same matcher drives both literal
+boundaries and part selection. A name prefix followed by an invalid name still
+ends the preceding literal; the following literal retains that prefix. This
+preserves lossless grouping for inputs such as =a$%b$x=.
+
+=ShellSourceStrategy.= now requires =parts= alongside =regions=, =scanner= and
+=results=. The common shell compiler derives Bash's part profile and executes the
+compiled plan through the shared Word, assignment and here-document paths.
+The rule recipe participates in Source identity; schema versions do not
+change. The independent template configuration above executes the same part
+operations in tests. Parameter/assignment name, prefix, operator and subscript
+recognition now comes from binding values. Command recognition and complete
+standalone Rust Source recognition remain open obligations.
+
+** Binding values and scoped embedded regions
+
+=BindingProfile.= has four value slots: =name= (nonnullable TextProfile IR),
+=prefixes=, =operators= and =subscript=. =defbinding-profile= constrains the
+corresponding declarations. POO inheritance can override any value; no
+procedure or thunk is accepted. =PartProfile.bindings= associates names with
+these objects. A =name= operation chooses its declared binding. The required
+=parameter= binding supplies parameter prefixes/operators and optional array
+index delimiters; the optional =assignment= binding supplies identifier and
+operator recognition at command positions. Assignment bindings require
+operators and exclude prefixes/subscripts, matching their execution role.
+
+#+begin_src scheme
+(defbinding-profile (assignment-binding :: self BindingProfile.)
+  (name (seq (run (union (alphabetic) (characters "_")) 1 1)
+             (run (union (alphabetic) (numeric) (characters "_")) 0 #f)))
+  (prefixes) (operators "=" ":=") (subscript #f))
+#+end_src
+
+The engine compiles names with the existing TextProfile implementation and
+prefix/operator sets with the existing literal trie. Both now accept an
+explicit local end bound. The trie retains the longest accepted prefix inside
+that bound, even when a longer candidate exists beyond it. A parameter prefix
+requires a following body character. Every binding recipe is owned and enters
+Source identity with the other admitted operations.
+
+Array indexes use an engine-derived region context. Added index delimiters
+apply in index frames; ordinary substitution frames retain their declared
+nesting policy. Thus =$(echo [)= inside an index does not create an unmatched
+array frame. The ordinary command scanner is unchanged. Closed pair captures
+are indexed by the actual declared opener row and source offset, avoiding
+collisions between overlapping prefixes; repeated nested captures use their
+stored endpoint. Quote and pair caches remain independent.
+
+=PreparedTextProfile= exposes the existing Rust matcher as a reusable bounded
+recognizer. Preparation admits a nonnullable static profile once. Matching
+returns an absolute byte end or =None= for no match/invalid UTF-8 boundaries;
+it borrows a bounded source slice and allocates no intermediate string. The
+Scheme producer lowers the production Bash simple/parameter/assignment name
+recipes through the same TextProfile emitter and generates their boundary
+controls. CI regenerates this artifact and the Rust executor checks every
+control. This qualifies binding-name AOT; complete Word/Command Source AOT,
+Command execution remains an open obligation; Part/Binding composition is qualified below.
+Result projection and scoped-region execution are qualified below.
+
+** CommandProfile roles and projections
+
+=defcommand-profile= constructs an inherited =CommandProfile.= POO value.
+The =roles= slot declares every closed command role exactly once: trivia,
+separator, redirect, here-redirect, strip-redirect, reserved,
+conditional-operator, pipeline, and-or and case-end. Each role contains token
+clauses =(terminal literal ...)=; a clause without literals accepts that
+terminal kind. Role matchers bind once when the engine prepares the source
+strategy; execution uses owned token-kind/literal indexes.
+
+The =texts= slot declares =(descriptor TextProfile)= using the existing
+nonnullable TextProfile DSL. Full-string admission keeps =123x= and
+={name}tail= from becoming file descriptors. There is no user procedure slot.
+The =projections= slot maps closed engine node roles to declared ResultProfile
+kinds. The base value derives identity projections for all command shapes;
+ordinary grammar packs omit this clause. POO inheritance can replace the
+value with a complete mapping, and loader admission checks required fields
+before installing the parser. Unknown roles, duplicates, callback values,
+undeclared scanner terminals and missing projection fields reject.
+
+A shell strategy now requires =commands:= together with =scanner:=, =parts:=,
+=regions:= and =results:=. No fallback builds a former command profile.
+The owned command recipe participates in Source identity under the existing
+Source v1 schema; loader and C ABI versions stay unchanged. Effective inherited
+slot values are compiled internally and require no thunks from the author.
+
+Command result construction reuses engine recognition sequences: compound
+children append in constant time and materialize once per published node.
+Deferred here-document marker receipts use a two-stack FIFO, preserving lexical
+order and independent quote policies without copying the existing marker list.
+This layer declares token roles and node projections. Control-flow grammar
+execution remains in the engine; complete standalone Rust Command execution still requires lowering those
+grammar operations to shared IR. Word execution is qualified below.
+
+** Closed control programs
+
+=CommandProfile.= adds a =forms= value slot. =defcommand-profile= now requires
+=(forms ...)= after =texts=, before the optional =projections= clause. There
+is no legacy macro form and no callback slot. Effective inherited forms are
+copied, admitted and included in the Source recipe using the existing schema.
+
+Each form is =(id selector priority node-role operation ...)=. Literal
+=word=/=operator= selectors compile to token-kind/literal indexes; bounded
+=lookahead= and =adjacent= selectors handle implicit function headers and
+balanced starts. Higher priorities decide literal versus lookahead selection.
+Duplicate literals/lookaheads reject. =manual= entries provide the constrained
+array and pipeline-header hooks. =array-tail= declares its opener in the
+manual selector; =pipeline-prefix= may contain zero or more guarded consuming
+operations. Its FIRST set skips the interpreter on ordinary commands.
+
+| Operation | Engine meaning |
+|---+---|
+| =(take field trigger)= / =(raw field)= | Consume a matching/raw source token |
+| =(word field)= / =(command field)= | Invoke the admitted Word/Command capability |
+| =(list field terminator allow-empty?)= | Parse an ordered compound list with typed termination |
+| =(call field form-id)= | Invoke a nonnullable declared form |
+| =(node field role operation ...)= | Build a nested admitted node |
+| =(as role)= | Select a compatible projection for this branch |
+| =(optional trigger ...)= / =(branch trigger yes no)= | Guard or select a program body |
+| =(many trigger ...)= / =(until trigger ...)= | Run a consuming repeated body |
+| =(choose (trigger ...) ...)= | Select an ordered declared alternative |
+| =(balance open close depth open-field close-field ...)= | Match balanced nested tokens with a consuming body |
+
+Triggers are closed token predicates, role references, ordered =or= values,
+and lookahead/adjacency values bounded to 32 tokens. All fields resolve against engine
+node shapes before execution. Unknown opcodes, fields, form references,
+cyclic direct calls, zero-consumption repetitions and invalid projections
+reject during loader admission. Call-graph DFS memoizes visiting/done states,
+so shared callee bodies are visited once rather than expanding every path.
+Runtime repetition additionally checks cursor
+progress, and missing terminators reject at EOF.
+
+If/elif/else, while/until, for/select including arithmetic headers, case
+clauses, explicit/implicit functions, conditionals, arithmetic commands,
+groups, array tails and pipeline prefixes all use this program executor.
+Their dedicated parser functions are removed. POO overrides can define an
+independent Unicode loop syntax without editing the executor. A declarative
+refactor gives failures new explanatory text; diagnostic codes, reason kinds,
+source identity, rejected status and source retention stay qualified.
+This is real Scheme execution of the closed IR. Full Rust control interpretation remains separate work; Word execution is
+qualified below; Word result-projection IR executes in
+the Scheme engine as described below.
+
+** Shared result-projection IR
+
+=ResultProfile.= has a =projections= POO value slot. A program declares its
+identity, result kind, ordered typed captures and closed construction operations:
+
+#+begin_src scheme
+(defresult-profile (template-results :: self ResultProfile.)
+  (projections
+    (atom Atom ((text span)) (token content glyph text required))
+    (word Word ((parts parts)) (many fragment parts))))
+#+end_src
+
+Projection-only profiles derive node kinds, fields and token kinds. Existing
+explicit =nodes= constrain legal fields; =tokens= supplies additional terminals,
+and =scanner= derives scanner terminals. Different programs can construct the
+same derived kind; its fields are the ordered union of their declarations.
+Authors do not repeat a projection's catalog. Unknown operations, duplicate
+programs or captures, invalid cardinalities and captures used with the wrong
+type reject before execution. Each capture is consumed exactly once in order.
+=token= consumes a character-span capture, =one= consumes a nested node and its
+persistent token sequence, and =many= consumes an ordered list of parts with
+its sequence. =token= and =one= declare =required= or =optional=; =many= admits
+an empty part list. There are no author procedures or thunks.
+
+The engine resolves fields, terminals and capture indexes once at binding.
+Single required-token and single part-list programs specialize internally;
+other programs use the same closed executor. These are engine-generated
+execution paths for admitted IR, not compatibility modes. Runtime capture arity,
+character bounds, UTF-8 byte offsets and child containment remain checked.
+Token sequences share immutable branches and materialize at public publication;
+a nested projection never copies an expanding token suffix.
+
+Word, here-document line, assignment, literal/name/escape, quoted part,
+substitution, parameter and array-subscript construction all execute this IR.
+The word recognizer supplies typed spans and nested captures; it no longer owns
+result-field names or terminal-kind names. =admit-part-plan= checks capture types and required/optional cardinalities
+against the projection signatures required by its operations. An independent =@name=
+language replaces Word, body, literal and identifier result kinds, fields and
+terminals through the same macro, without modifying the engine.
+
+Projection recipes and returned copies are owned independently and participate
+in Source identity. Source v1, Loader v2 and C ABI v2 remain unchanged. This
+closes Scheme Word result projection; full standalone Rust Source control execution still needs a shared interpreter
+and qualification. Shared Word recognition is qualified below.
+
+** Engine-owned fixture metadata
+
+The Loader's ordinary =fixtures= slot remains the authoring value. Its derived
+=fixture-catalog= slot is sealed at the public macro leaf, including against a
+prototype override. =LanguageLoaderContract= now admits the cached catalog and
+its descriptor/origin ownership. Foreign identities, duplicate IDs, bad source
+digests, unsupported expectations and non-fixture values reject during loading.
+The engine neither runs a parser nor invokes a fixture callback at admission.
+
+The bound snapshot owns copied strings/lists, status partitions, counts and an
+ID index. =language-loader-fixtures= selects all/accepted/rejected and publishes
+copies; =language-loader-fixture-count= reads a stored count;
+=language-loader-fixture= returns an indexed copy or =#f=. Queries do not filter
+or rehash the full corpus. POO replacement/extension recomputes the effective
+catalog, while repeated access to one object uses POO's cached slot. The named
+fixture test service parses the owned snapshot and retains complete roundtrip,
+expected status, root and required-node obligations. Test strategy selection and
+fixture-catalog assertions use this same shared capability.
+
+HCL, openCypher and TLA+ remove every hand-written fixture partition and their
+five exported group aliases. Their declarations remain corpus data in
+=grammar.ss= and one =fixtures:= value in the Loader. All affected test and
+benchmark consumers migrate directly; no compatibility names remain. Loader v2,
+Source v1, native metadata v1 and C ABI v2 do not change.
+
+
+** Shared Rust result projection execution
+
+=result-profile-rust-source= lowers any admitted POO =ResultProfile.= or bound
+result plan through the existing Rust compiler. It emits an immutable
+=ResultProfileSpec=: category-separated kinds, declared node fields, typed
+span/node/parts captures and ordered token/one/many instructions. Kind indexes
+are bounded before emission. Language directories gain no extra interface or
+Rust implementation. Result field and terminal renaming remains declaration data.
+
+=PreparedResultProfile= admits the entire table once, including entries not
+selected by a particular parse. =bind= resolves a projection during source
+engine preparation; its =PreparedResultProjection= executes fixed instructions
+without another identifier lookup. The bound handle owns its static table
+identity and outlives the preparer, so a Source engine needs no self-referential
+borrow. Captures move into private =ProjectedNode=
+values. Child composition checks the exact result catalog, source borrow and
+parent byte range. Span captures require UTF-8 boundaries, correct arity and
+required/optional cardinality. Node and token spellings inhabit separate
+categories, as in Scheme.
+
+Projected children retain their declared fields. Nested captures own their
+subtrees without cloning accumulated token/event suffixes. An iterative walk
+materializes events once for the existing source-index sink, which separately verifies
+ordered, exhaustive token coverage. Projection construction does not decide
+syntax recognition or recovery.
+
+The production Bash result profile and thirteen actual Scheme Word/assignment/
+heredoc captures form a reproducible cross-backend witness. Rust independently
+executes the same construction instructions; tests compare every event, field
+order and final source text. This closes portable result construction. Shared
+Rust Part/Binding recognition is qualified below. Command program interpretation,
+Source admission and end-to-end standalone parser receipts remain subsequent engine obligations.
+No Loader, Source, native metadata or C ABI schema changes are introduced.
+
+
+** Shared Rust region recognition
+
+The Scheme =region-plan-rust-source= producer emits an immutable =RegionSpec=
+from the admitted region declaration. Scanner RegionWord and downstream
+quote/pair decomposition share one explicit-stack execution algorithm and one
+admission predicate; languages supply no Rust recognizer or callback.
+=PreparedRegionPlan= admits static delimiters and pair scopes once, then borrows
+independent full sources through =source=. Every offset is an absolute UTF-8
+byte offset. Escape advancement follows Unicode scalar boundaries, and word
+stops use the pinned Scheme whitespace class.
+
+=PreparedRegionSource= lazily memoizes every nested quote/pair boundary closed
+by a requested match. Pair keys include the opener prefix and source offset;
+quote keys are separate. Scope restrictions apply to nested pairs, quote scopes
+remain declared on the quote, and longest-prefix selection resolves overlaps.
+Source preparation leaves unrequested quotes inert. Caches live with the source
+and are never shared across sources. Scanner-only matching disables cache writes
+because it publishes a word boundary without decomposing the interior.
+
+Scheme controls cover the production Bash declaration and a distinct Unicode
+configuration with restricted nested scopes. Rust recognizes the actual strings
+and compares exclusive boundaries and rejection outcomes. This qualifies region
+recognition. Word/assignment/parameter composition is qualified below; Command
+program execution remains the subsequent engine boundary. All loader/Source/C ABI
+schema versions remain unchanged.
+
+
+** Shared Word and Binding composition in Rust
+
+=part-profile-rust-source= admits the inherited POO PartProfile against the
+ResultProfile and region declaration, then lowers binding TextProfiles,
+prefix/operator vocabulary, scoped subscript regions and ordered recognition
+rules to =PartProfileSpec=. The language still declares grammar values; no Rust
+recognizer, callbacks or extra language interfaces are required.
+
+=PreparedPartProfile= admits all static tables once. It binds result signatures,
+name recognizers and quote contexts, then prepares per-context ASCII first-
+character dispatch with a Unicode map. Declaration order determines matching,
+including shorter-prefix overrides. It does not choose the longest part rule.
+Binding prefix/operator selection retains the declared longest literal match,
+and a prefix requires a following body character. Nullable names, duplicate
+rules, missing contexts, wrong projection signatures and conflicting derived
+subscript scopes reject before source execution.
+
+=word=, =assignment= and =here_content= borrow a full immutable source and an
+absolute UTF-8 capture range. Assignment returns no node for ordinary words.
+All nested captures borrow that same source/catalog owner. Explicit recognition
+and construction tasks compose parts, quotes, parameters, indexes, opaque
+substitutions and assignment values without recursive Rust parser calls or
+copies of accumulated token lists. Optional captures remain absent instead of
+becoming empty required tokens. ResultProfile instructions move the completed
+subtrees into the declared fields; ordered TreeEvents are published once.
+Region matches that cross the requested capture boundary reject.
+
+The Scheme generator executes the production Bash profile and an inherited
+POO profile with Unicode parameter prefixes, operators, index delimiters,
+quote/escape openers and a shorter-prefix rule override. Rust independently
+recognizes 110 bounded sources with nonzero byte origins. Complete events,
+preorder fields, rejection/no-assignment outcomes and lossless source text are
+compared. A 512-level parameter control uses the same explicit task stack.
+This qualifies shared Word/Binding execution. Command interpretation and full
+Source ParseArtifact admission/parity remain open, and no end-to-end parser
+speed improvement is inferred from these controls. No schema version changes.
+
+
+** Ordered catalog construction for Command integration
+
+=PreparedResultProfile.bind_node= binds a declared node and its allowed fields
+once. =PreparedResultNode.build= moves ordered =ResultChildCapture= values into
+that node. Unlike fixed projection instructions, this constructor preserves
+interleaved and repeated fields in their supplied lexical order, matching the
+Scheme =result-plan-node= contract. It validates UTF-8 parent/child ranges,
+declared token categories and exact source/catalog ownership for nested nodes.
+The shared result catalog remains the authority; no language-specific Rust node
+builder or separate constructor schema is introduced.
+
+Scheme-executed catalog controls cover interleaved SimpleCommand children,
+repeated Pipeline commands, Unicode fields and an empty root. The Rust tests
+compare complete events and lossless source-index output. A separate integration
+recognizes Words in Rust and moves them into Command and Source nodes through
+one shared catalog. These controls qualify construction and composition only;
+they do not establish Command syntax recognition or full Source AOT. The next
+executor must preserve these ordered captures while interpreting command
+control programs, then qualify complete ParseArtifact parity.
+
+
+** Shared Command control and Source recognition in Rust
+
+=CommandProfile.= lowers through the engine-owned producer to closed trigger,
+form and instruction tables. =PreparedCommandProgram= binds ordered result
+constructors, descriptor text and literal/fallback selectors once. Its explicit
+frame/task stack interprets =as/raw/take/word/command/list/call/node= and
+=optional/many/until/branch/choose/balance=. Lookahead skips declared trivia;
+adjacent selectors also require contiguous byte spans. Literal entries win
+priority ties; fallback selectors retain Scheme's reverse declaration ordering.
+Roles and all Source projection fields are admitted before execution. Duplicate
+selectors, call cycles, foreign fields and nullable loop/call bodies reject.
+Consumption widths follow a topological form order: a shared call DAG is not
+recursively expanded during admission. A 32-level, two-edge-per-level DAG
+control exercises this boundary.
+
+An engine-owned cursor consumes scanner tokens, recognizes Word/Binding values,
+constructs command/list/pipeline/and-or and redirection results, and associates
+heredoc bodies with their markers in FIFO order. Quoted marker bodies retain raw
+tokens; unquoted bodies use the shared PartProfile. =CommandParse.events= inserts
+scanner trivia at the same recognition boundaries as Scheme, validates source
+order and publishes complete syntax events. Languages supply data; the internal
+cursor/VM bridge is private and requires no downstream callbacks.
+
+The public =rust-runtime-support= facade exports
+=generate-command-source-rust-module=. Its input is one admitted POO
+=ShellSourceStrategy.= value, including inherited slots; its output is one
+immutable =CommandSourceSpec= combining scanner, regions, parts, commands and
+results. The Rust host prepares the product once and reuses it:
+
+#+begin_src scheme
+(import :gerbil-parser/rust-runtime-support)
+(generate-command-source-rust-module my-source-strategy "src/generated.rs")
+#+end_src
+
+#+begin_src rust
+let engine = PreparedCommandSource::new(&generated::SOURCE)?;
+let parsed = engine.parse(source)?;
+let events = parsed.events()?;
+#+end_src
+
+The actual Scheme Source engine generates 54 accepted/rejected controls.
+Production controls cover all 14 Bash forms and nested constructs; a second POO
+value overrides Unicode command keywords, pipeline membership, root projection
+and the nullable prefix declaration. Rust compares complete events, preorder
+fields and marker/body links, then verifies lossless source text. Negative gates
+cover malformed tapes, source/catalog ownership, selectors and cyclic/nullable
+programs. Regeneration is byte-exact after rustfmt under the existing 90/5 fence.
+These controls qualify standalone Source recognition and publication, including
+its syntax outcomes; they do not establish full versioned ParseArtifact/hash/
+diagnostic parity or switch the public C ABI from the Scheme Source engine.
+The cursor currently rejects command/list nesting above 256; replacing that
+remaining Source recursion with an explicit task stack is a separate execution
+obligation. Region and Word stacks retain their existing deeper-nesting controls.
+No schema bump or end-to-end speed improvement is claimed.

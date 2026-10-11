@@ -1,0 +1,336 @@
+//! Scheme-generated scanner IR executes identical UTF-8 token traces in Rust.
+#[path = "../fixtures/shared_scanner_generated.rs"]
+mod generated;
+use gerbil_parser_runtime::scanner::ContextualScanner;
+
+#[test]
+fn prefix_replay_reaches_new_source_state_without_relocating_checkpoints() {
+    use gerbil_parser_runtime::scanner::{ScannerCheckpoint, ScannerSpec};
+    static OTHER: ScannerSpec = ScannerSpec {
+        ..generated::SCANNER
+    };
+    fn advance<'a, 'b>(
+        scanner: &'a ContextualScanner<'b>,
+        count: usize,
+    ) -> ScannerCheckpoint<'a, 'b> {
+        let mut state = scanner.initial_state();
+        for _ in 0..count {
+            state = scanner.step(&state, "command").unwrap().1;
+        }
+        state
+    }
+    let old = ContextualScanner::new(&generated::SCANNER, "猫 <<A\nα\nA\n").unwrap();
+    let new = ContextualScanner::new(&generated::SCANNER, "猫 <<A\nβ\nA\n").unwrap();
+    for count in [0, 4, 5] {
+        let checkpoint = advance(&old, count);
+        let replayed = new
+            .replay_prefix(&checkpoint, &vec!["command"; count])
+            .unwrap();
+        let fresh = advance(&new, count);
+        assert_eq!(replayed.byte_offset(), fresh.byte_offset());
+        assert!(replayed.converges_with(&fresh));
+        assert_eq!(
+            new.step(&replayed, "command").unwrap().0,
+            new.step(&fresh, "command").unwrap().0
+        );
+        assert!(new.step(&checkpoint, "command").is_err());
+        assert_eq!(checkpoint.byte_offset(), advance(&old, count).byte_offset());
+    }
+    let checkpoint = advance(&old, 5);
+    assert!(new.replay_prefix(&checkpoint, &["command"]).is_err());
+    assert!(new.replay_prefix(&checkpoint, &["command"; 6]).is_err());
+    assert!(new.replay_prefix(&checkpoint, &["unknown"]).is_err());
+    assert!(
+        new.replay_prefix(
+            &old.with_mode(&checkpoint, "command").unwrap(),
+            &["command"; 5]
+        )
+        .is_err()
+    );
+    for (before, after) in [
+        ("cat", "catx"),
+        ("<<A", "<<-A"),
+        ("\"x\"", "\"x\"tail"),
+        ("猫 ", "犬 "),
+        ("cat ", "ca"),
+    ] {
+        let a = ContextualScanner::new(&generated::SCANNER, before).unwrap();
+        let b = ContextualScanner::new(&generated::SCANNER, after).unwrap();
+        assert!(
+            b.replay_prefix(&advance(&a, 1), &["command"]).is_err(),
+            "{before} -> {after}"
+        );
+    }
+    let foreign = ContextualScanner::new(&OTHER, "猫 <<A\nβ\nA\n").unwrap();
+    assert!(foreign.replay_prefix(&checkpoint, &["command"; 5]).is_err());
+}
+#[test]
+fn scheme_traces_execute_without_language_callbacks() {
+    for (source, expected) in generated::TRACES {
+        let scanner = ContextualScanner::new(&generated::SCANNER, source).expect("compiled spec");
+        assert_eq!(scanner.scan("command").expect("complete scan"), *expected);
+    }
+}
+#[test]
+fn checkpoints_are_immutable_source_and_scanner_bound() {
+    let scanner = ContextualScanner::new(&generated::SCANNER, "cat <<A\nα\nA\n").expect("spec");
+    let initial = scanner.initial_state();
+    let (first, state) = scanner.step(&initial, "command").expect("step");
+    assert_eq!(first.expect("token").end, 3);
+    assert_eq!(initial.byte_offset(), 0);
+    assert_eq!(scanner.step(&initial, "command").expect("repeat").0, first);
+    let other = ContextualScanner::new(&generated::SCANNER, "cat <<A\nα\nA\n").expect("spec");
+    assert!(other.step(&state, "command").is_err());
+    assert!(scanner.step(&state, "unknown").is_err());
+}
+#[test]
+fn unfinished_input_fails_closed() {
+    for source in ["cat <<A\nα\n", "cat <<\n", "echo \"${x}", "cat <<A"] {
+        assert!(
+            ContextualScanner::new(&generated::SCANNER, source)
+                .expect("spec")
+                .scan("command")
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn opcode_admission_and_equal_rank_ambiguity_fail_closed() {
+    use gerbil_parser_runtime::scanner::{
+        ScannerAction, ScannerCell, ScannerMatcher, ScannerRule, ScannerSpec,
+    };
+    static EMPTY: ScannerSpec = ScannerSpec {
+        rules: &[ScannerRule {
+            name: "bad",
+            mode: "command",
+            form: "word",
+            matcher: ScannerMatcher::Literal(""),
+            rank: 0,
+            action: ScannerAction::Keep,
+        }],
+        ..generated::SCANNER
+    };
+    static TIE: ScannerSpec = ScannerSpec {
+        modes: &["command"],
+        positions: &["command"],
+        cells: &[
+            ScannerCell {
+                mode: "command",
+                position: "command",
+                form: "word",
+                terminal: "word",
+            },
+            ScannerCell {
+                mode: "command",
+                position: "command",
+                form: "space",
+                terminal: "space",
+            },
+        ],
+        rules: &[
+            ScannerRule {
+                name: "word",
+                mode: "command",
+                form: "word",
+                matcher: ScannerMatcher::Literal("x"),
+                rank: 0,
+                action: ScannerAction::Keep,
+            },
+            ScannerRule {
+                name: "space",
+                mode: "command",
+                form: "space",
+                matcher: ScannerMatcher::Literal("x"),
+                rank: 0,
+                action: ScannerAction::Keep,
+            },
+        ],
+        ..generated::SCANNER
+    };
+    assert!(ContextualScanner::new(&EMPTY, "x").is_err());
+    assert!(
+        ContextualScanner::new(&TIE, "x")
+            .expect("admitted rules")
+            .scan("command")
+            .is_err()
+    );
+}
+#[test]
+fn large_fifo_preserves_old_checkpoints_and_drains_in_order() {
+    use std::fmt::Write;
+    let mut source = String::from("cat");
+    for i in 0..2000 {
+        write!(source, " <<M{i}").expect("string");
+    }
+    source.push('\n');
+    for i in 0..2000 {
+        writeln!(source, "M{i}").expect("string");
+    }
+    let scanner = ContextualScanner::new(&generated::SCANNER, &source).expect("spec");
+    let initial = scanner.initial_state();
+    assert!(scanner.scan("command").is_ok());
+    assert_eq!(initial.pending_markers(), 0);
+    assert_eq!(initial.byte_offset(), 0);
+}
+
+#[test]
+fn shared_plan_keeps_parallel_inputs_and_obligations_independent() {
+    std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..8)
+            .map(|_| {
+                scope.spawn(|| {
+                    for _ in 0..8 {
+                        for (source, expected) in generated::TRACES {
+                            let scanner =
+                                ContextualScanner::new(&generated::SCANNER, source).expect("spec");
+                            assert_eq!(scanner.scan("command").expect("complete scan"), *expected);
+                        }
+                    }
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().expect("independent parser thread");
+        }
+    });
+}
+
+#[test]
+fn declared_regions_handle_deep_nesting_and_reject_partial_suffixes() {
+    let source = format!("echo {}α{}\n", "$(".repeat(5000), ")".repeat(5000));
+    let tokens = ContextualScanner::new(&generated::SCANNER, &source)
+        .expect("region spec")
+        .scan("command")
+        .expect("complete nested word");
+    assert_eq!(tokens[2].start, 5);
+    assert_eq!(tokens[2].end, source.len() - 1);
+    for source in ["echo $((1)", "echo <(cat", "echo `opaque", "echo \"${x}"] {
+        assert!(
+            ContextualScanner::new(&generated::SCANNER, source)
+                .expect("region spec")
+                .scan("command")
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn region_declarations_control_initial_stops_and_scalar_depth_admission() {
+    use gerbil_parser_runtime::scanner::{
+        RegionPair, ScannerAction, ScannerMatcher, ScannerRule, ScannerSpec,
+    };
+    static INITIAL: ScannerSpec = ScannerSpec {
+        rules: &[ScannerRule {
+            name: "initial",
+            mode: "command",
+            form: "word",
+            rank: 0,
+            matcher: ScannerMatcher::RegionWord {
+                stops: &[";"],
+                quotes: &[],
+                pairs: &[],
+                consume_initial_stop: true,
+            },
+            action: ScannerAction::Keep,
+        }],
+        ..generated::SCANNER
+    };
+    static BAD_DEPTH: ScannerSpec = ScannerSpec {
+        rules: &[ScannerRule {
+            name: "invalid-depth",
+            mode: "command",
+            form: "word",
+            rank: 0,
+            matcher: ScannerMatcher::RegionWord {
+                stops: &[";"],
+                quotes: &[],
+                pairs: &[RegionPair {
+                    prefix: "α(",
+                    opening: '(',
+                    closing: ')',
+                    depth: 3,
+                }],
+                consume_initial_stop: false,
+            },
+            action: ScannerAction::Keep,
+        }],
+        ..generated::SCANNER
+    };
+    let tokens = ContextualScanner::new(&INITIAL, ";α")
+        .expect("consume initial stop")
+        .scan("command")
+        .expect("one word");
+    assert_eq!(tokens.len(), 1);
+    assert_eq!((tokens[0].start, tokens[0].end), (0, 3));
+    assert!(ContextualScanner::new(&BAD_DEPTH, "α(x)))").is_err());
+}
+
+#[test]
+fn independently_reached_edited_suffix_requires_full_context() {
+    use gerbil_parser_runtime::scanner::ScannerCheckpoint;
+    fn advance<'a, 'b>(
+        scanner: &'a ContextualScanner<'b>,
+        count: usize,
+    ) -> ScannerCheckpoint<'a, 'b> {
+        let mut state = scanner.initial_state();
+        for _ in 0..count {
+            state = scanner.step(&state, "command").expect("step").1;
+        }
+        state
+    }
+    static OTHER: gerbil_parser_runtime::scanner::ScannerSpec =
+        gerbil_parser_runtime::scanner::ScannerSpec {
+            ..generated::SCANNER
+        };
+    let old = ContextualScanner::new(&generated::SCANNER, "cat <<A\nα\nA\n").unwrap();
+    let new = ContextualScanner::new(&generated::SCANNER, "猫猫 <<A\nα\nA\n").unwrap();
+    let before = advance(&old, 5);
+    let after = advance(&new, 5);
+    assert!(before.converges_with(&after));
+    assert_ne!(before.byte_offset(), after.byte_offset());
+    let mut left = before.clone();
+    let mut right = after.clone();
+    loop {
+        let (a, next_a) = old.step(&left, "command").unwrap();
+        let (b, next_b) = new.step(&right, "command").unwrap();
+        assert_eq!(
+            a.as_ref().map(|t| (
+                t.terminal,
+                t.start - before.byte_offset(),
+                t.end - before.byte_offset()
+            )),
+            b.as_ref().map(|t| (
+                t.terminal,
+                t.start - after.byte_offset(),
+                t.end - after.byte_offset()
+            ))
+        );
+        if a.is_none() {
+            break;
+        }
+        left = next_a;
+        right = next_b;
+    }
+    for source in [
+        "cat <<B\nα\nA\n",
+        "cat <<-A\nα\nA\n",
+        "cat <<'A'\nα\nA\n",
+        "cat <<A\nβ\nA\n",
+    ] {
+        let changed = ContextualScanner::new(&generated::SCANNER, source).unwrap();
+        assert!(!before.converges_with(&advance(&changed, 5)), "{source}");
+    }
+    let q1 = ContextualScanner::new(&generated::SCANNER, "<<A <<B\ntail").unwrap();
+    let q2 = ContextualScanner::new(&generated::SCANNER, "<<B <<A\ntail").unwrap();
+    assert!(!advance(&q1, 5).converges_with(&advance(&q2, 5)));
+    assert!(advance(&old, 4).converges_with(&advance(&new, 4)));
+    let expect = ContextualScanner::new(&generated::SCANNER, "<< tail").unwrap();
+    let plain = ContextualScanner::new(&generated::SCANNER, "ab tail").unwrap();
+    let strip = ContextualScanner::new(&generated::SCANNER, "<<- tail").unwrap();
+    assert!(!advance(&expect, 1).converges_with(&advance(&plain, 1)));
+    assert!(!advance(&expect, 1).converges_with(&advance(&strip, 1)));
+    assert!(!before.converges_with(&old.with_mode(&before, "command").unwrap()));
+    let foreign = ContextualScanner::new(&OTHER, "cat <<A\nα\nA\n").unwrap();
+    assert!(!before.converges_with(&advance(&foreign, 5)));
+}

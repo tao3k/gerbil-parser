@@ -1,0 +1,800 @@
+#+title: Scheme DSL author interfaces and complete package examples
+#+date: 2026-10-08
+
+Scope: complete grammar.ss, parser.ss and parser-test.ss declarations for the same
+call/array package. The [[file:scheme-deflanguage-design-synthesis.org][design overview]] owns the fixed interface boundary and decisions.
+Compiler responsibilities are specified in [[file:scheme-dsl-engine-admission.org][engine admission]]; observable contracts
+and field evolution are specified in [[file:scheme-dsl-semantic-contracts.org][semantic contracts]].
+
+* Closed author contract and migration gate
+
+The author grammar has exactly two blocks: =syntax= selects a vocabulary and
+its recognition policy; =rules= supplies local productions. Release metadata and
+validated execution backends belong to =parser.ss=. The former flat declaration,
+its release =identity= clause, the old source-adapter macro exports and authored
+canonical =alias/sequence/precedence= constructors are removed from this API.
+Engine IR still has its own closed encoding; it is not an alternative author DSL.
+
+#+begin_src scheme
+;; grammar.ss: names and fields are collected through hygienic expansion.
+(defgrammar-syntax (named kind item)
+  (node kind (field value item)))
+(deflanguage example
+  (syntax (lexical
+    (root name)
+    (lex (identifier Identifier (identifier)))))
+  (rules (name (named Name identifier))))
+
+;; parser.ss: release identity is owned by the public parser entry.
+(deflanguage-parser-loader example-language
+  (grammar example-syntax)
+  (parse parse-example)
+  (slots metadata: '((language . "example") (version . "1")
+              (contract . "example.v1"))))
+
+;; Question 1: Why is this design better?
+;; The author declares token recognition, node construction and release identity
+;; once under their respective owners. Defsyntax/rules express reusable grammar
+;; abstractions; the compiler derives consistent catalogs and admitted products.
+;; POO extends values where inheritance is needed; ordinary values need no wrapper.
+;; Question 2: Why is this scientifically defensible?
+;; Old declarations must fail before publication. The new declarations must keep
+;; independently specified acceptance, fields, spans, diagnostics and roundtrip.
+;; A shared wire format or a successful import alone cannot establish alignment.
+#+end_src
+
+The strict macro boundary, all production grammar declarations, native source
+vocabularies and test declarations are migrated together. Qualification of the
+previous contextual IR commit establishes engine-product admission only; it does
+not qualify this new author-contract migration. Current migration receipts are
+recorded only after their actual tests finish. No timing improvement is inferred.
+
+** Migration evidence, 2026-10-08
+
+The complete DSL closure passed all 28 child processes under the existing
+10-second completion fence. The four runtime research controls now expose native
+Scheme procedures in the same conformance executable; their assertions remain
+unchanged. Their earlier interpreted-import timeout is retained as a failed run.
+The source rejection controls cover flat declarations with and without identity,
+retired constructors, duplicate blocks and author-supplied execution recipes.
+
+The existing Scheme producer regenerated all 20 native language controls. A
+separate Rust comparison resolved every event symbol through its catalog before
+comparing node/field/terminal names, event identifiers, spans, root kinds, source
+bytes and statuses. All controls retain those semantics. GQL catalog ordering
+and product digests can change; bytewise equality alone would obscure the
+distinction between a catalog index change and an event behavior change.
+
+Native compilation is a separate gate. An isolated Cypher C diagnostic took
+24.71 seconds, including 22.29 seconds in parsing/preprocessing and 2.41 seconds
+in optimization/code generation. Its preceding five-second silence-gate failures
+remain failures. A successful independent link and semantic closure do not turn
+that diagnostic into cold-build qualification or parser latency evidence.
+
+The existing full conformance build entry subsequently passed in 101.58 seconds
+with its unchanged 240-second completion and five-second silence gates. This was
+an incremental run reusing admitted production objects. All 28 closure children
+passed again after that build. The refreshed Rust fixtures pass 151 workspace
+tests (two ignored), strict Clippy and formatting checks. No cold-build speedup
+is claimed.
+
+Ten additional native gxtest source owners pass 40 cases with propagated zero
+exits and final OK. They cover header delimiters, catalog admission, layout,
+first-character dispatch, lexical plans, empty LR actions, module source, quoted
+profiles and structured lexical/text profiles. The catalog rejection probe
+expands the invalid grammar directly; a fixture-release wrapper must not mask
+the intended rejection with an unrelated expansion-context error.
+
+* Historical public API audit before the closed author migration
+
+The three-file topology is implemented, but it is not evidence that the entire
+public DSL is minimal. On 2026-10-07 the eight grammar.ss modules contain neither
+=setq= nor =set!=. Their =(seq ...)= forms express grammatical sequence, not
+Scheme assignment. Sequence is a necessary semantic distinction; requiring every
+author to spell every lowered sequence, reference and token wrapper is a separate
+interface decision that must be justified with complete examples.
+
+The current public boundary has concrete remaining leaks:
+
+| Current surface | Responsibility | Design direction |
+|-----------------+----------------+------------------|
+| Grammar exports of grammar IR, parser IR and generated parser bindings | Compiler products | Keep diagnostic inspection explicit; ordinary parsing must not require these bindings |
+| Whole grammar re-export from parser.ss | Consumer API | Publish the checked language entry, parse operation and deliberate metadata; keep compiler products out of that ordinary entry |
+| Arithmetic/HCL imports of generated direct drivers and digest bindings | Backend admission | Derive or bind validated backend products behind the compiler/library boundary |
+| GQL lexical recognition and token bindings | Source adapter and lexical semantics | Catalogs are derived from one lexical declaration; token policy stays explicit |
+| Repeated literal/reference/token/sequence wrappers | Grammar vocabulary | Use existing hygienic grammar syntax to express recurring constructs and preserve their source origins |
+
+These are design obligations, not changes already shipped. Removing an export
+without tracing generators, semantic tests and artifact inspection would merely
+hide a dependency. Moving language-specific semantics into the generic engine
+would also violate the engine/library boundary. The source adapter owns source
+format translation; the engine owns canonical admission and compilation.
+
+The compiler already implements these shorthand rules in
+[[file:../../src/compiler/concise-language.ss::175][surface-body and surface-expression]]:
+strings lower to literals; unambiguous declared names lower to token/reference
+forms; multiple rule/node body expressions lower to a sequence. Explicit token
+or reference forms remain required for a token/rule name collision. Therefore
+removing those redundant wrappers needs no new DSL constructor or parser runtime.
+The complete call/array package below now uses these existing facilities; its
+inline control, accepted/rejected expectations, field counts and exact AST/span
+test remain independently authored. Language-specific lexical and conflict
+policies remain explicit.
+
+The existing =defgrammar-syntax= example below is an executable starting point:
+
+#+begin_src scheme
+;; Existing author vocabulary: express a required separated list once.
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Rule use states language intent. The macro owns the repeated lowered shape.
+(required-items argument name ",")
+
+;; Question 1: Why is this interface better?
+;; It removes duplicated implementation of the separated-list policy while
+;; keeping the author-visible field, item and separator choices explicit.
+;; Hygienic expansion preserves binding and origin; parentheses alone do not.
+;; Question 2: Why is this scientifically defensible?
+;; The inline and macro forms must agree on accepted/rejected strings, exact
+;; AST fields and spans, source roundtrip, diagnostics and published identity
+;; rules. Those independent observations can falsify the proposed abstraction.
+#+end_src
+
+The updated whole package completed its native eleven-case suite and the
+independent inline-control program's 85 checks with actual exit zero, each under
+the unchanged ten-second fence. The native test build completed in 32.44 seconds
+under its existing 240/5-second fences. These receipts cover the list package;
+they do not qualify rewriting every language declaration or removing public IR
+exports. Such migration must preserve each language's independent expectations.
+
+This example qualifies one reusable construct, not a universal syntax redesign.
+The next design comparison must cover complete arithmetic and GQL packages,
+including their exports, backend admission and source adaptation. It must show
+what ordinary callers import and what grammar authors write, alongside macro
+expansion, native POO selection and canonical IR. A shorter surface is admitted
+only when these observables remain equivalent and the number of concepts authors
+must understand actually decreases. The cited macro and language-implementation
+research in [[file:scheme-dsl-research-basis.org][the research basis]] supplies mechanisms and proof obligations;
+it does not by itself establish that every current API choice is elegant.
+
+* Parser metadata ownership
+
+Release identity is authored in parser.ss and bound to syntax products by the
+engine. Metadata accepts ordinary association-list values or native POO objects;
+only extension users need object construction/inheritance syntax. All eight
+production packages use the value form. The complete
+[[file:scheme-bash-source-frontend.org][source frontend study]] owns the Scheme witness, domain contract and
+value/object equivalence controls. Upstream grammar provenance remains an input
+identity in grammar.ss, not a second parser release declaration.
+
+* Bash source frontend
+
+The complete [[file:scheme-bash-source-frontend.org][Bash author grammar and source frontend study]] owns the implemented
+=deflanguage= syntax/rules migration, common compiler boundary and independent
+admission evidence. Legacy author recipes have been removed. Native Bash tests
+pass; precise macro origins, general ambiguity analysis and clean-build/downstream
+qualification remain explicit limits.
+
+* Complete authoring comparison across the three package interfaces
+
+A coherent package keeps =grammar.ss=, =parser.ss= and =parser-test.ss= as
+intentional interfaces. Their shared descriptor connects author intent, checked
+entry and qualification. This proposal does not collapse them into a single
+macro. The existing engine already derives terminal, lexical, node and field
+catalogs; eliminating their duplication is an existing capability, not a new
+research contribution. See [[file:../../languages/README.org][the language package contract]].
+
+** Complete current grammar declaration
+
+The following is the complete inline control from the running list fixture.
+The import shown here isolates its grammar dependency from that fixture's
+additional POO study. This is a declaration comparison, not a newly qualified
+standalone package.
+
+#+include: "../../t/fixtures/language-pack-research/list-language.ss" src scheme
+
+** Complete candidate grammar module using existing Scheme vocabulary
+
+The candidate below expresses the same list policy with the existing
+=defgrammar-syntax= interface. It introduces no new constructor. Both list
+instances remain optional at their container boundary; trailing commas remain
+excluded. Explicit policy sections are retained to make the comparison inspectable.
+The new package identity names this candidate; it is not a claim that its
+persisted artifact identity equals the control's identity.
+
+#+include: "../../t/fixtures/language-pack-research/package-expression-grammar.ss" src scheme
+
+At each use, expansion produces =seq(field(item), repeat(seq(separator,
+field(item))))=, the same expression as the control. It does not create helper
+rules or an additional AST node. The exact candidate grammar has now been exercised
+through a checked Loader and the local package control described below. The earlier
+POO receipts remain separate evidence; they do not qualify this path by implication.
+
+The local executable package is
+[[file:../../t/fixtures/language-pack-research/package-expression-grammar.ss][package-expression-grammar.ss]],
+[[file:../../t/fixtures/language-pack-research/package-expression-parser.ss][package-expression-parser.ss]] and
+[[file:../../t/fixtures/language-pack-research/package-expression-runtime.ss][package-expression-runtime.ss]]. On 2026-10-06 its driver ran with
+=GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" gtimeout -k 2 10 gxi t/fixtures/language-pack-research/package-expression-runtime.ss=:
+85 checks passed, the final =PACKAGE-EXPRESSION-OK= marker was emitted and the
+process exited 0. It checks five Loader identity/dispatch expectations, eight
+accepted inputs with complete event parity and repeated field counts, and eight
+rejected inputs with independent rejection expectations, valid artifacts and
+lossless source roundtrip. Full event comparison includes the event offsets.
+
+This is an integrated local expression-vocabulary/Loader control. Its manual
+probe implementation is research infrastructure, not the intended author test DSL.
+The later declarative-suite receipt below separately qualifies selected test DSL
+clauses. Neither receipt qualifies canonical POO metadata admission, exact origin
+propagation, cold-start timing,
+Rust/AOT products or a performance improvement. The preceding timeout receipt
+from provenance-language remains a failed invocation of a different driver.
+The earlier timeout is not cleared by this successful package invocation.
+
+A shared vocabulary module may export =required-items= instead of defining it
+locally. Ordinary Gerbil imports then select the vocabulary. The simple example
+needs only =defrules= through =defgrammar-syntax=. Procedural =defsyntax= becomes
+useful when parameter contracts or context need elaboration. Checked POO roles
+become useful when a contribution owns multiple rules or participates in explicit
+merge/append/override/remove. These are different responsibilities in the same
+architecture; a simple expression idiom need not generate multi-rule roles.
+
+** Native Scheme abstraction is the author baseline
+
+The previous contribution/owner/compose candidate is withdrawn. It introduced
+public bookkeeping without establishing a language-author task that required it.
+Checked POO roles are existing engine capabilities; they do not justify making
+ordinary authors learn a contribution protocol. No new author form is selected.
+
+The design starts from the complete existing package above: grammar.ss declares
+language meaning, parser.ss declares the checked entry, and parser-test.ss declares
+observable expectations. A reusable grammar idiom can use the existing
+=defgrammar-syntax= template or ordinary Gerbil =defrules/defsyntax=. More powerful
+macro facilities are useful only when they make a concrete declaration or change
+clearer. A new name or shorter expansion is not a sufficient improvement.
+
+#+begin_src scheme
+;; Existing author vocabulary: an expression abstraction with language meaning.
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Existing grammar expression. No contribution owner or compiler metadata.
+(node Call
+  (seq (field callee (token identifier)) (literal "(")
+       (optional (required-items argument (reference name) (literal ",")))
+       (literal ")")))
+
+;; Question 1: Why is this DSL design better?
+;; Compared with repeated list productions, a named grammar idiom centralizes
+;; list policy while leaving the node, fields and delimiters visible to the author.
+;; The engine derives catalogs and compiles the result through the existing entry.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Compare the complete explicit and macro-based packages using independent tree,
+;; event, span and rejection expectations, then evaluate real edit/diagnosis tasks.
+;; Falsifiers: hidden policy changes, worse diagnosis or manual metadata required.
+;; Limit: native package controls establish stated semantics, not measured author
+;; effort, universal superiority or a completed source-aware POO admission path.
+#+end_src
+
+Keep the engine dependency order explicit: preserve syntax during elaboration;
+resolve effective declarations; derive and validate catalogs; finalize canonical
+data and receipt; compile and publish consistent runtime inputs. These are engine
+obligations, not a sequence users must configure. Host macro availability and
+language-domain reference validation remain distinct. The engine must diagnose
+errors in terms of authored rules and parameters rather than internal role names.
+
+Existing keyed POO operations remain available at their current lower-level API.
+The concise DSL does not acquire new composition forms by implication. If a
+complete language-package task later needs multi-rule reuse, first express its
+before/after declarations and observable contract with normal Scheme facilities.
+Only a demonstrated limitation can justify another public form. The same rule
+applies to helper identity, registration and inspection protocols.
+
+The paper-to-source rationale is in [[file:scheme-dsl-research-basis.org][the research basis]]. The corresponding
+selection/finalization/publication responsibilities are in
+[[file:scheme-dsl-engine-admission.org][engine admission]]. The checked entry and test declarations below complete the
+same author package; they do not depend on the withdrawn candidate.
+
+** Complete checked entry and declarative conformance module
+
+The same candidate now exercises all three DSL interfaces. The two modules below
+use existing loader and test declarations. Research filenames are mapped to
+=./grammar= and =./parser= here to show the normal package layout; no fourth user
+interface is required. The runner is test infrastructure, not authoring syntax.
+
+#+begin_src scheme
+;;; -*- Gerbil -*-
+;;; Complete research package entry using the existing checked Loader.
+(import (only-in :gerbil-parser/language-support/entry
+                 deflanguage-parser-loader LanguageLoader.)
+        ./grammar)
+(export list-study-language parse-list-study)
+
+(deflanguage-parser-loader (list-study-language :: self LanguageLoader.)
+  (grammar list-study-language-grammar)
+  (parse parse-list-study))
+#+end_src
+
+#+begin_src scheme
+;;; -*- Gerbil -*-
+;;; User-facing test declarations for the same expression-vocabulary package.
+(import :gerbil-parser/language-test-support ./parser)
+
+(deflanguage-parser-tests package-expression-parser-test "expression vocabulary package DSL"
+  (loader list-study-language)
+  (identity "package identity"
+    (language "list-study") (version "v1") (contract "list-study.local.v1")
+    (schema "gerbil-parser.language-entry.v2"))
+  (accepted "empty call" "f()"
+    (root SourceFile) (counts (Call 1) (Name 0))
+    (field-counts Call argument (0)))
+  (accepted "empty array" "[]"
+    (root SourceFile) (counts (Array 1) (Name 0))
+    (field-counts Array element (0)))
+  (accepted "single call argument" "f(a)"
+    (counts (Call 1) (Name 1)) (field-counts Call argument (1)))
+  (accepted "three call arguments" "f(a,b,c)"
+    (counts (Call 1) (Name 3)) (field-counts Call argument (3)))
+  (accepted "call whitespace" "f( a , b )"
+    (counts (Call 1) (Name 2)) (field-counts Call argument (2)))
+  (accepted "single array element" "[a]"
+    (counts (Array 1) (Name 1)) (field-counts Array element (1)))
+  (accepted "three array elements" "[a,b,c]"
+    (counts (Array 1) (Name 3)) (field-counts Array element (3)))
+  (accepted "array whitespace and newline" "[ a ,\n b ]"
+    (counts (Array 1) (Name 2)) (field-counts Array element (2)))
+  (rejected-many "separator and closing policies"
+    '("f(,)" "f(a,)" "f(a b)" "f(a" "[,]" "[a,]" "[a b]" "[a"))
+  (ast "exact empty call tree and spans" "f()"
+    (node SourceFile 0 3
+      (field form 0 3
+        (node Call 0 3
+          (field callee 0 1 (token identifier "f" 0 1))
+          (token punctuation "(" 1 2)
+          (token punctuation ")" 2 3))))))
+#+end_src
+
+The executable test declaration is
+[[file:../../t/fixtures/language-pack-research/package-expression-parser-test.ss][package-expression-parser-test.ss]]. Its existing engine support is
+[[file:../../src/testing/language-parser.ss][language-parser.ss]] and [[file:../../src/testing/parser-ast.ss][parser-ast.ss]]. Accepted/rejected clauses automatically
+check artifact validity, intended status, lossless source roundtrip and source
+digest. Field-count and exact AST expectations then add independent author intent;
+they do not replace those shared invariants with per-package traversal code.
+
+On 2026-10-06 the
+[[file:../../t/fixtures/language-pack-research/package-expression-test-runner.ss][bounded research runner]] emitted all 11 =CASE-OK= results, =SUITE-OK= and
+=PACKAGE-EXPRESSION-DSL-OK=, then exited 0 under =gtimeout -k 2 10=.
+It explicitly tests =test-result-ok?= and exits 1 on a failed suite, so the receipt
+does not rely on a printed suite sentinel alone. The 11 cases comprise identity,
+eight accepted examples, one rejection group containing eight sources, and one
+independently specified exact AST/span example. These counts are not added to the
+85 manual-control checks: the two drivers intentionally overlap.
+
+Two earlier runner invocations exited 70 before suite execution: the first imported
+execution bindings from =:std/test= instead of their defining =:std/test/base=
+module; the second called =TestConfig= positionally instead of using its required
+=verbosity:= and =capture-output?:= keywords. The installed Gerbil source guided
+both corrections. They were research infrastructure mistakes, not failures of
+the package's declarative Grammar or test clauses. The corrected run preserves
+failure propagation and the same execution limit.
+
+The loader binds its parse method once and derives identity and capabilities
+from the grammar descriptor. Tooling slots, corpus fixtures and build strategies
+are explicit DSL extensions when needed. Repeating identity in the test is an
+independent expectation; production metadata remains descriptor-owned.
+The shown loader does not declare Rust or AOT qualification. Backend capability,
+artifact loading and performance gates remain separate obligations.
+
+*** Two questions for the test interface
+
+#+begin_src scheme
+;; Author intent inside deflanguage-parser-tests:
+(accepted "three array elements" "[a,b,c]"
+  (counts (Array 1) (Name 3))
+  (field-counts Array element (3)))
+
+;; Question 1: Why is this DSL design better?
+;; The author states observable language expectations within parser-test.ss.
+;; Engine support performs artifact, roundtrip, digest and field comparison.
+;; Grammar changes do not require copied traversal or custom assertion reporting.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Independent accepted/rejected expectations supplement the matched control.
+;; Exact AST nodes, children, tokens and byte spans supplement field counts.
+;; Native suite result and process exit jointly establish this local receipt.
+;; Falsifiers: accepted malformed input, mismatched tree/spans, swallowed test errors,
+;; or a required routine expectation that needs per-language engine reimplementation.
+;; Limit: selected examples do not prove all-input equivalence or faster parsing.
+;; Full event parity remains supported by the separate matched-control driver.
+#+end_src
+
+** What the author writes, what the engine derives, what still needs evidence
+
+| Responsibility | Author interface | Derivation or qualification owner |
+|----------------+------------------+-----------------------------------|
+| Identity, root, lexical and tree policy | grammar.ss | Existing deflanguage validates and expands |
+| Reusable expression intent | Imported or local Scheme vocabulary | Hygienic expression expansion into existing core |
+| Existing lower-level grammar composition | No new concise author protocol | Existing checked POO API; source-aware admission remains an engine study |
+| Catalogs and reference resolution | No duplicate terminal/field catalog | Existing compiler, canonical IR and Bound IR |
+| Runtime entry and tooling extensions | parser.ss | Existing descriptor-bound POO Loader |
+| Corpus and exact semantic expectations | parser-test.ss and fixture values | Existing test support plus explicit tree/event/span controls |
+| Target products | Explicit existing build-strategy declarations | Backend capability and native artifact gates |
+| Performance evidence | Matched language/package benchmark cases | Separate elaboration, compilation, loading and parse measurements |
+
+The local expression package now covers selected acceptance/rejection, full event
+parity, field counts, lossless roundtrip and an independent exact tree/span example.
+Complete closure still needs canonical composition metadata, effective origins and
+product-loading gates for the same package. Finite example coverage is not a proof
+of all-input equivalence.
+Developer-facing benchmarks must identify the measured stage: macro expansion
+and grammar compilation are not request-time parsing. A concurrent application
+service can add queue/execution/cancellation measurements without changing the
+library grammar or treating actor throughput as single-request parser latency.
+
+** Two questions applied to the complete authoring path
+
+#+begin_src scheme
+;; Question 1: Why is this DSL design better?
+;; The comparison preserves the complete lexical/root/tree/policy declaration.
+;; required-items names one reusable intention; its uses state field, item and separator.
+;; Host modules reuse the vocabulary, syntax objects preserve binding context,
+;; and defsyntax can elaborate contracts before the existing compiler takes ownership.
+;; Checked POO adds explicit multi-rule composition when that responsibility exists.
+;; The descriptor connects grammar, loader and tests without another configuration model.
+;; This is a proposed reduction in duplicated author intent, not measured usability.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Its expansion is inspectable against the explicit control, with recognition and
+;; full public tree events as separate equivalence obligations.
+;; Hygienic macro research informs binding preservation; staged DSL research informs
+;; elaboration to a shared core; composition studies inform explicit contribution ownership.
+;; These transfers are hypotheses bounded by actual Gerbil and parser-engine checks.
+;; Falsifiers include changed accepted language, extra tree wrappers, captured host names,
+;; dropped composition metadata, misleading source attribution or slower author tasks.
+;; Limit: the expression package and selected test DSL clauses have local checks;
+;; POO admission, developer tasks, target products and performance need separate qualification.
+#+end_src
+
+Review the complete author package first: reusable grammar intent, explicit
+language policy, existing compiler admission and declared product expectations.
+Internal POO integration cannot independently justify an additional public author
+model. The actual GQL review below checks that this discipline reaches a real pack.
+
+* Complete package review: the actual GQL declaration and its consumers
+
+The call/array package isolates semantic preservation. It cannot establish that
+an entire production language pack is easy to author. The
+[[file:../../languages/gql/grammar.ss][GQL grammar]], [[file:../../languages/gql/parser.ss][checked parser entry]] and
+[[file:../../languages/gql/parser-test.ss][parser-test declarations]] provide the real package review here. The baseline audit below led to the local
+implementation and native receipts recorded at the end of this section. It does
+not establish measured author effort or standalone Rust/AOT qualification.
+
+** Follow one declaration through all three interfaces
+
+| Boundary | GQL implementation route | Review obligation |
+|----------+----------------------------+-------------------|
+| grammar.ss | Pins edition, upstream version/commit/digest, source path, root and parsing policy; exports admitted products and source metadata | Distinguish intentional language policy from repeated derivable metadata |
+| Expansion | antlr4 vocabulary reads/checks the pinned source, derives catalogs/rules/origins and submits a language-declaration record directly | Keep the accepted source identity attached to every generated product |
+| Canonical compilation | Existing binding, Parser IR and LR owners compile the lowered data | Reuse these owners; expansion templates must not implement another parser |
+| parser.ss | Binds gql-language-grammar through the production Loader, supplies metadata, exports parse-gql; parser-test.ss owns the corpus | Preserve entry identity, immutable products and admission guarantees |
+| parser-test.ss | Checks independent identity literals, Parser/Bound IR structure, accepted/rejected syntax, precedence and corpus fixtures | Preserve independent expectations rather than derive the oracle from implementation |
+| Source catalog tests | t/antlr4-source-test.ss consumes the exported typed source catalog | Preserve that consumer contract while reviewing repeated source processing |
+
+GQL's source resource is ANTLR4 text. The implementation processing it is Scheme;
+this source-import path differs from a grammar authored directly in Scheme.
+Research on concise native grammar templates and research on imported grammar
+admission share compiler obligations but must not be presented as the same author
+workflow. No source-format migration is proposed by this audit.
+
+** Three files are responsibility boundaries, not frozen implementations
+
+The complete migration changes the contents of all three author modules. Keeping
+three interfaces does not require preserving the old declarations, assembly or
+test layout. The compiler route is:
+
+#+begin_src scheme
+;; Architecture, not a new author syntax:
+;; grammar.ss -> hygienic expansion and POO composition -> canonical IR
+;;            -> binding, compilation and publication -> generated machine
+;; parser.ss -> checked public entry over the accepted descriptor and machine
+;; parser-test.ss -> independent obligations across the complete route
+#+end_src
+
+The arrows express product dependencies. parser-test.ss is authored conformance,
+not a generated final compiler stage. It must independently test semantics,
+fields, effective origins, immutable products and public entry behavior. Likewise,
+parser.ss consumes the machine but need not implement parsing algorithms.
+
+The GQL migration applies this split to an actual language package:
+
+| File or engine owner | Implemented change | Contract retained |
+|----------------------+--------------------+-------------------|
+| languages/gql/grammar.ss | Contains the pinned source declaration and metadata derived from accepted products; corpus leaves this module | Standard edition, source pins, root, policy and exported grammar products |
+| language-support/antlr4-language.ss | Builds language-declaration directly from the accepted source catalog; no canonical author replay | Canonical admission, original author syntax, source ownership and lineage |
+| src/language/assembly.ss | Shares hygienic emission between native and imported declarations | Existing immutable artifact loading and machine constructor owner |
+| languages/gql/parser.ss | Owns the corpus-free production entry; corpus and development services move to parser-test.ss | Public parse-gql and descriptor identity |
+| languages/gql/parser-test.ss | Adds shared-product and entry-service identity checks alongside independent semantic expectations | 574 rules, 1176 bindings, 14 official fixtures, source locations, precedence and rejection checks |
+
+#+begin_src scheme
+;; Current imported-source compiler handoff, inside the existing source macro.
+(expand-language-declaration-syntax
+ declaration compile-parser bind-grammar-ir
+ #'assemble-language-parser #'make-language-grammar #'begin #'def)
+
+;; Current independent package test, abbreviated from parser-test.ss.
+(property "published products and checked entry share one declaration" (bindings)
+  (equal (eq? (language-grammar-grammar gql-language-grammar) gql-grammar) #t)
+  (equal (eq? (language-grammar-ir gql-language-grammar) gql-parser-ir) #t)
+  (equal (eq? (language-grammar-machine gql-language-grammar) gql-parser) #t)
+  (equal (language-parser-entry-ref gql-language 'contract)
+         "iso-iec-39075-2024.opengql-1.9.0-syntax.v1")
+  (equal (language-loader-fixture-count gql-test-language) 14))
+
+;; Question 1: Why is this design better?
+;; Scheme syntax remains contextual until canonical admission. Native macros
+;; and imported-source elaboration use the same compiler without reconstructing
+;; another complete DSL declaration. Runtime entry and corpus policy live in
+;; parser.ss; parser-test.ss holds independent obligations for those products.
+;; S-expression shape enables structured handoffs; hygiene and phase ownership
+;; make them safe to compose. Shape alone does not establish the advantage.
+;; Question 2: Why does this design have a scientific basis?
+;; Compiler-oriented elaboration and context-preserving macros motivate this
+;; separation. Shared-product assertions and independent semantic controls can
+;; falsify accidental divergence. Neither these assertions nor the cited papers
+;; prove optimal author effort, parser speed or the unfinished POO route.
+#+end_src
+
+Local qualification on 2026-10-07 compiles six declaration/assembly/source
+compiler modules through sequential std/make in isolated output. The unchanged
+240-second total and five-second genuine-output watchdog admits the build at
+17.24 seconds with exit 0. Against those newly compiled owners, the six bounded
+verification processes pass 87 cases (17 source/GQL, 5 surface, 13 diagnostics,
+11 complete expression package, 31 composition, 10 publication), all exit 0.
+The representative expression package's complete 6661-byte Grammar/Parser IR
+snapshot remains byte-identical to its earlier canonical control, also exit 0.
+This comparison concerns the expression fixture, not a complete GQL/Bound IR
+byte comparison. GQL retains its independent counts, source and semantic controls.
+
+These receipts compile declaration owners and exercise runtime consumers from
+source. They do not close full GQL native machine/runtime linkage, installed
+consumer qualification or Rust/AOT publication. Test verbosity markers alone
+are not sufficient evidence; the recorded process exits are part of admission.
+
+This realizes the imported-source edge and migrates all three GQL modules. It
+does not by itself complete the native Scheme/POO author route. The subsequent
+[[file:scheme-dsl-engine-admission.org::*Effective origins follow composition before binding][composed canonical implementation]] now qualifies effective source selection,
+shared emission and checked Loader variants in the existing Scheme fixture. A
+production public composition clause and full native runtime closure remain required. Completion means migrating a representative composed Scheme
+package through all three interfaces, then validating those exact products.
+The [[file:scheme-dsl-research-basis.org][research basis]] explains the paper mechanisms and their limits;
+[[file:scheme-dsl-engine-admission.org][engine admission]] owns the unresolved composition and source-selection gates.
+
+** A concrete duplication with a concrete owner
+
+At baseline =783381f33fa1b309ac4cc4b0012696f24c852d93=, the grammar module repeats upstream version, commit and digest in exported
+metadata constants, the =antlr4 vocabulary= declaration and the separate
+=defsyntax-antlr4-source= declaration. Both macros resolve/read the source and call
+=parse-antlr4-source/expected=. Source inspection therefore identifies two source
+processing sites when both declarations expand. It does not establish two parses
+per request or per module load: compiled products and cached expansion can avoid
+executing transformer code on those paths.
+
+The separate catalog has a real consumer. The
+[[file:../../t/antlr4-source-test.ss][source catalog tests]] assert total/parser/lexer rule counts, known rules and
+canonical lowering. Deleting it simply to shorten grammar.ss would remove an
+existing contract. Likewise, parser-test.ss deliberately repeats expected identity
+literals: changing implementation identity must not silently change its oracle.
+
+Both declaration macros require literal string syntax for identity and digest.
+Replacing those literals with existing runtime constants does not satisfy their
+current transformer contract. Ordinary Scheme values and transformer inputs are
+different stages; an apparent deduplication must specify how it crosses that
+boundary before claiming the complete module remains valid.
+
+#+begin_src scheme
+;; GQL uses (deflanguage gql (syntax (antlr4 ...)) (rules)).
+;; The complete checked declaration is languages/gql/grammar.ss.
+;; Question 1: Why is this DSL design better?
+;; A declaration expresses source identity and language policy; Scheme expansion
+;; can derive consistent definitions and compiled products from that accepted input.
+;; Compared with synchronized declarations, an engine-owned common source result
+;; removes repeated source pins while retaining the Loader, catalog and test contracts.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Trace one source identity into source catalog, Grammar/Bound/Parser IR and Loader.
+;; Keep independent identity, structure, precedence and rejection expectations.
+;; Test mismatched digests before publication and compare complete package behavior.
+;; Falsifiers: a removed consumer, stale metadata/origins, changed recognition/tree
+;; policy, or tests whose expected values are regenerated from the changed input.
+;; Limit: bounded local conformance does not measure author effort, compilation
+;; speedup, standalone generated products or parse-latency improvement.
+#+end_src
+
+** Local implementation through the existing declaration
+
+The refactor is now implemented locally in
+[[file:../../language-support/antlr4-language.ss][antlr4 vocabulary]] and [[file:../../languages/gql/grammar.ss][the GQL declaration]]. The macro serializes its already
+validated catalog and emits =prefix-antlr4-source= alongside the existing grammar,
+Parser IR, machine and descriptor. The runtime constructor binding is imported
+by the macro module, preserving hygiene; the public generated name uses the prefix
+syntax context, following the existing generated binding convention.
+
+GQL keeps its existing =gql-antlr4-source= export and removes its separate
+=defsyntax-antlr4-source= invocation. Its source-version, commit and digest metadata
+now come from that catalog; edition and syntax contract come from the descriptor.
+The pin is declared once. Its parser.ss entry and parser-test.ss declarations retain
+their existing contracts and independent expected identity literals. The standalone
+source macro remains available for separate resources such as FHIRPath's normative
+catalog. No contribution, owner or compose interface was added.
+
+| Before | After | Semantic obligation |
+|--------+-------+---------------------|
+| Two GQL source-processing macro invocations | One accepted catalog in the grammar macro | Digest validation occurs before canonical emission |
+| Independent typed catalog materialization | Typed catalog emitted from that accepted catalog | Existing source export and consumers remain usable |
+| Metadata pins repeated in runtime constants | Constants derived from catalog/descriptor | Independent literal expectations retain their values |
+| Existing checked Loader and grammar compiler | Same Loader and compiler owners | Recognition, precedence, corpus, origins and rejection remain qualified locally |
+
+The existing [[file:../../t/antlr4-source-test.ss][source suite]] now additionally compares all lowered catalog rule rows
+with the published Grammar IR's rule rows. This is a cross-product consistency
+assertion, not an independent recognition oracle; it supplements the unchanged
+independent source identities, rule counts and language semantics.
+
+On 2026-10-06, a temporary Scheme runner invoked =test-suite!= for the existing
+=antlr4-source-test= and =gql-parser-test= with case verbosity and capture disabled.
+It checked =test-result-ok?= and propagated a failed suite as exit 1. The invocation
+used =GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" gtimeout -k 2 10 gxi=.
+Both runs completed within that bound with all 6 source cases and all 10 GQL cases
+passing, =GQL-DECLARATION-REVIEW-OK= and exit 0. The second run included the new
+rule-row consistency assertion. The corpus check includes 14 official fixtures;
+these are not 14 additional independently counted suite cases.
+
+A separate expansion control used the real GQL source and an intentionally wrong
+all-zero digest with the same 10-second bound. It exited 70 with
+=ANTLR4 source digest mismatch= from =parse-antlr4-source/expected= inside the
+language transformer. This is the expected negative rejection, not a passing
+process invocation. The call precedes catalog serialization and parser emission.
+It establishes neither artifact-corruption recovery nor a complete negative-source
+matrix.
+
+This implements a concrete use of Scheme macros: one accepted declaration expands
+into consistent definitions and compiled products. The common-core principle in
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]] motivates that boundary; dependent
+validation in [[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]] motivates rejecting invalid pins before downstream
+emission. Their Racket mechanisms and miniKanren algorithms are not runtime
+dependencies or GQL performance evidence.
+
+** Whole-package gate: compiler products must match the source contract
+
+The implementation is local and uncommitted. The next check on 2026-10-06 used
+an isolated output directory, the project GERBIL_PATH, and the same 10-second bound
+for each compiler invocation. SDKROOT and Nix C/linker flags were cleared for the
+native compiler. This gate adds compiler-product evidence to the preceding
+semantic receipts; it does not replace or broaden them.
+
+| Stage | Result | Evidence boundary |
+|-------+--------+-------------------|
+| Existing source and GQL semantic suites | exit 0; 6 + 10 cases pass | Catalog, published rules, checked entry, identities, sources, corpus and selected parse semantics |
+| Wrong source pin | expected exit 70, digest mismatch in expansion | Invalid identity is rejected before downstream emission |
+| Changed macro, gxc -O with Gambit compilation | exit 0 | Native phase products for the changed transformer were built |
+| GQL grammar, gxc -O against that output | exit 70, constructor arity mismatch | Whole native package compilation is not qualified |
+| Rebuild current machine dependency, gxc -O | exit 124 | Optimized dependency refresh did not complete within the bound |
+| Same dependency, standard gxc | exit 124 | Standard compilation is also unqualified; partial outputs are not a pass |
+| GQL grammar, separate gxc -S stage | exit 124, no completed interface | Scheme emission alone is not qualified by this invocation |
+
+The typed failure is specific: the source =parser-machine= structure in
+[[file:../../src/compiler/machine.ss][machine.ss]] has 12 fields, while the installed optimization metadata at
+=.gerbil/lib/gerbil-parser/src/compiler/machine.ssxi.ss= declares 9, ending in
+=contextual-product=. The optimized GQL expansion calls the source's current
+constructor shape; the optimizer reports an illegal struct constructor application.
+This identifies a concrete source/optimizer-metadata mismatch. It does not establish
+a root cause for the subsequent refresh timeouts or the reported parse P50/P95.
+
+Partial machine interfaces and objects appeared in the isolated directory after
+the standard-build timeout. They were not installed or admitted as successful
+products. A process check found no surviving compiler child belonging to this
+temporary verification. The isolated output is evidence, not a replacement
+for a complete installed package.
+
+The next implementation obligation is a consistent compiler-product closure for
+this exact source, followed by a consumer outside the checkout. Refresh the
+identified dependency and its required closure through the existing build owner;
+do not patch generated optimizer metadata by hand, consume partial outputs,
+relax timeouts or report source tests as installed/AOT success. Rust/AOT products
+and measured author/expansion costs remain separate gates.
+
+This distinction completes the research argument: the declaration and macro can
+be simpler only if the compiler and published products retain the same contract.
+The semantic controls answer whether the current source behaves correctly; the
+compiler gate answers whether that source can produce a consistent reusable
+package. Neither establishes a quantitative author-effort or performance result.
+No LR or runtime parser algorithm was changed by the refactor.
+
+* Engine and common-library responsibility boundary
+
+The follow-up [[file:scheme-engine-library-boundary.org][engine/library boundary contract]] moves the GQL lexical
+profile into grammar.ss, separates production entry from optional development
+services, and records semantic limits and executable falsifiers. The earlier
+corpus-in-parser implementation above is superseded by that contract.
+
+* Complete parser-entry alignment
+
+All eight shipped language packages and ten public parser entries use the same
+slot declaration. The old metadata section and three-argument descriptor alias
+form are removed from the production macro. Public descriptor accessors remain
+ordinary definitions after entry admission. Arithmetic and HCL install their
+backends through the canonical slots declaration, without a separate entry DSL.
+
+| Package | Public entries | Configuration |
+|---------+----------------+---------------|
+| arithmetic | arithmetic | ordinary metadata value |
+| bash | bash | ordinary metadata value |
+| cypher | opencypher | ordinary metadata and source-schema values |
+| fhirpath | fhirpath | ordinary metadata value |
+| gql | gql | ordinary metadata value |
+| hcl | hcl | ordinary metadata value |
+| hl7 | hl7v2 | ordinary metadata value; parser-owned projection |
+| tla-plus | core, layout, SANY candidate | inherited POO metadata |
+
+The HL7 patient projection is a parser-side product adapter. Its columns, message
+identity, schema and source digest do not define token recognition or grammar
+construction. The grammar no longer imports POO or RecordProjection, and the
+three-interface authoring contract rejects projection declarations in grammar.ss.
+The public parser continues to export the same patient projection.
+
+#+begin_src scheme
+;; Shared configuration only needs POO when variants inherit and override it.
+(def source-metadata
+  (.o language: "example" grammar-format: 'concise-dsl
+      source-catalog: pinned-source))
+(deflanguage-parser-loader example-language
+  (grammar example-syntax)
+  (parse parse-example)
+  (slots metadata: (.o (:: @ source-metadata)
+                       version: "v2" contract: "example.syntax.v2")))
+;; Question 1: Why is this design better?
+;; The same slot interface covers normal values and native inheritance. Shared
+;; fields have one owner; variants declare overrides. Recognition stays in
+;; grammar.ss, configuration and product adapters in parser.ss, witnesses in
+;; parser-test.ss. Removed forms cannot continue to publish competing entries.
+;; Question 2: Why is this scientifically defensible?
+;; Expansion rejects old forms. Independent topology checks cover every pack.
+;; Matched accepted/rejected controls preserve descriptors and named parse events;
+;; projection fields and source identity have their own independent witnesses.
+#+end_src
+
+** Qualification
+
+The complete topology suite passed in 2.69 seconds. All eight parser modules
+expanded successfully against the current macro phase, and all current parser
+runtime objects compiled. Semantic emission used optimize: #f; these are
+correctness receipts, not production optimization or latency measurements.
+The existing native alignment publisher exercised twenty accepted/rejected cases
+across all ten entries. Its complete output is byte-identical to the preceding
+literal-construction baseline; the independent Rust decoder also reported
+ALL-20-NAMED-EVENT-SEMANTICS-UNCHANGED. These controls do not cover every input in
+each language standard. The relocated HL7 projection independently preserved its
+schema, patient identifier, family name, given names and artifact source digest.
+
+Four expansion controls reject development-service slots, the removed metadata
+section and the removed descriptor alias form. The prior exact-head CI failure
+also exposed a missing native phase owner for fixture-release and list-stage:
+emitted Gambit Scheme was imported as Gerbil source. The conformance compiler now
+builds those exported macro phases through compile-module. A fresh output directory
+compiled and imported both helpers successfully. This repair does not establish
+full conformance-image linking or exact-head CI success; those gates remain
+separate. All receipts retain the existing 240-second source/build and 5-second
+silence fences. The closed native child still has its separate 10-second fence.
+
+The migrated source-entry fixtures, production-entry boundary suite and topology
+suite also compile against the current expander. One separate cold macro import
+attempt hit the existing silence fence before completion; its result is retained
+as a negative receipt rather than replaced by the successful build/import run.
+A further separate process admitted the fresh native helper dependencies and
+imported both newly built macro phases successfully in 30.20 seconds, with exit
+status zero. Its real module boundaries supplied progress; no synthetic output
+or wider silence allowance was used.
+
+** Native publication qualification
+
+The compiler, artifact representation, rebase and build-product receipts are
+maintained together in [[file:scheme-native-build-ownership.org][native build ownership]]. Author interface examples
+remain here; native backend changes do not add a language-pack interface.

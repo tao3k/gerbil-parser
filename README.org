@@ -2,30 +2,94 @@
 
 =gerbil-parser= is a Gerbil-owned programmable syntax engine built on hygienic
 macros, POO composition, parser-flow normalization, and AOT-compiled parser
-artifacts.  The optional Rust/Rowan product executes those same immutable
+artifacts.  The optional Rust product executes those same immutable
 Parser IR tables without running Scheme at parse-request time.
 
 The language-neutral compiler and runtime live under =src/=.  Their public
 language-import API is the top-level =language-support.ss= facade beside
 =build.ss=, so package imports do not expose the physical =src/= directory.
-Its implementations remain under =src/language-support/=.  Bundled and downstream language packs live under
-=languages/<language>/<version>/=; grammar, parser entry, fixtures, tests, and
-native corpus stay together.  POO and =poo-flow=
+Its implementations live under the top-level =language-support/=.  Bundled and downstream language packs live under
+=languages/<language>/=. The authoring target is three Scheme interfaces:
+=grammar.ss= for declarations/metadata/fixtures, =parser.ss= for the public POO
+loader and parse entry, and =parser-test.ss= for regression tests. Version and
+source digests belong to loader metadata, not directory or module names.
+Remaining procedural language modules are tracked in the closure roadmap.  POO and =poo-flow=
 are used only while compiling grammar object graphs; generated parser hot paths
 do not perform dynamic POO dispatch.
 
-The repository owns the generic Rust/Rowan runtime and generated language
+The repository owns the generic Rust runtime and generated language
 products under =rust/=.  Downstream repositories consume these products rather
-than rebuilding ParseArtifact-to-Rowan sinks.  Gerbil remains the sole grammar,
+than rebuilding ParseArtifact-to-extra tree sinks.  Gerbil remains the sole grammar,
 normalization, conflict-resolution, and table-generation authority.  The first
 executable reference grammar proves both the pure Scheme runtime and the
-Rust/Rowan AOT path from the same immutable Parser IR.
+Rust AOT path from the same immutable Parser IR.
 
-* Rust/Rowan AOT product
+* Optional library actors and language benchmarks
 
-=src/compiler/rust-rowan.ss= lowers canonical Parser IR v1 to immutable Rust
-tables.  =rust/gerbil-parser-rowan= owns their generic lexer/LR executor,
-lossless Rowan green-tree construction, diagnostics, and source/grammar-bound
+=parser-actor-support.ss= is the public facade for explicitly created local
+Gerbil actors. Applications own worker count and lifecycle; imports start no
+background service. =spawn-parser-actor= accepts an already prepared machine,
+=parser-actor-parse= returns the same lossless artifact as synchronous parsing,
+and =parser-actor-stop!= joins the worker. Timeout bounds reply waiting rather
+than preempting an active parse. Keep the shared machine immutable after
+initialization; actor scheduling does not change the LR algorithm.
+
+GQL owns its performance contract, semantic profiling tests, component controls
+and actor request benchmarks beside its parser under
+=languages/gql/=. See
+[[file:t/benchmarks/gql/README.org][GQL benchmark commands and measured cost boundaries]].
+=just benchmark-gql= reports CPU/wall P50/P95, GC and allocation;
+=just benchmark-gql-actors= reports separate concurrent request batch costs.
+
+* Declarative language tests
+
+=:gerbil-parser/language-test-support= publishes =deflanguage-parser-tests=.
+The test declaration names a POO loader and syntax obligations. The engine owns
+parser invocation, artifact validity, acceptance, lossless source and digest
+checks; the =fixtures= clause runs the loader's named fixture service and checks
+its results. Test imports do not start actors or change the loader schema.
+
+#+begin_src scheme
+(import :gerbil-parser/language-test-support ./parser)
+(deflanguage-parser-tests example-parser-test "Example syntax"
+  (loader example-language)
+  (identity "identity" (language "example") (version "v1"))
+  (fixtures "declared corpus")
+  (accepted "nested expression" "(1)" (nodes Expression))
+  (rejected "missing delimiter" "(1" (diagnostics)))
+#+end_src
+
+Accepted/rejected collections, token and node kinds/counts, exact ASTs and
+projection values are closed test clauses. Unknown clauses, duplicate labels,
+empty assertions and malformed expectations reject during expansion. A
+=property= extension has explicit local =bindings= and =equal= assertions;
+it supports implementation-specific receipts/projections, not arbitrary
+=test-case= bodies. Loader, source and parser are evaluated once per obligation.
+See [[file:docs/architecture/0018-downstream-language-products.org][the downstream extension guide]]
+for the full syntax and migration boundary.
+
+* Shared contextual scanner and language C products
+
+=:gerbil-parser/rust-runtime-support= exports
+=generate-contextual-language-rust-runtime-module output descriptor product=.
+The generated =CONTEXTUAL= value runs with
+=gerbil_parser_runtime::parse_contextual(&CONTEXTUAL, source)=; both LR positions
+and deferred scanner state come from shared Scheme IR.
+
+=:gerbil-parser/language-abi-support= exports
+=generate-language-pack source header module-id grammar-module descriptor-export c-prefix [contextual-export]=.
+Compile its Scheme output through the normal native builder; C clients call
+the generated =PREFIX_language_create()= then the generic length-bearing
+=gerbil_parser_language_parse(handle, bytes, length, result)= in
+=include/gerbil-parser/language.h=. The embedding host initializes the Gerbil
+runtime; calls belong to its owner thread. See RFC 0018 for lifecycle boundaries
+and the independent Records example.
+
+* Rust AOT product
+
+=src/compiler/rust-runtime.ss= lowers canonical Parser IR v1 to immutable Rust
+tables.  =rust/gerbil-parser-runtime= owns their generic lexer/LR executor,
+lossless source-range indexing, diagnostics, and source/grammar-bound
 receipt.  Generated modules are ordinary Cargo source artifacts; downstream
 parse requests do not initialize Gambit and do not interpret Scheme.
 
@@ -38,18 +102,29 @@ first GQL admission gate.  Pinned external scanners, recovery parity,
 generated field accessors, and wider differential corpora remain explicit
 downstream-cutover gates; directory presence alone does not claim them.
 
+** POO graph-query extension
+
+=graph-query-support.ss= admits a language-owned POO graph view and constructs
+one native query context with indexed record identities. Its generic map,
+lineage, and scoped =any=/=at=/=child-of=/=descendant-of= selection take a
+language-owned predicate; graph traversal does not interpret Org fields or
+Contract assertions. The Cargo-only counterpart is the reusable
+=GraphIndex= / =GraphRelation= API in =gerbil-parser-runtime=. A downstream
+language supplies its own property semantics and AOT query declarations while
+reusing these graph operations; neither API parses source a second time.
+
 ** Rust consumer contract
 
 An upstream-maintained language is a generated Rust crate layered over the
 small generic runtime. A Rust consumer imports its =LANGUAGE= value (or its
 convenience =parse= function); it does not rebuild a lexer, precedence table,
-Rowan sink, or ParseArtifact adapter, and a custom DSL does not compile the GQL
+extra tree sink, or ParseArtifact adapter, and a custom DSL does not compile the GQL
 tables:
 
 #+begin_src rust
-use gerbil_parser_rowan_gql::LANGUAGE;
+use gerbil_parser_runtime_gql::LANGUAGE;
 
-let parsed = gerbil_parser_rowan::parse(&LANGUAGE, source)?;
+let parsed = gerbil_parser_runtime::parse(&LANGUAGE, source)?;
 let root = parsed.syntax();
 #+end_src
 
@@ -60,17 +135,17 @@ projection of that same declared language, not a separate grammar. A direct
 custom grammar imports only the narrow authoring facade:
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/rust-rowan-grammar-support deflanguage))
+(import (only-in :gerbil-parser/rust-runtime-grammar-support deflanguage))
 #+end_src
 
 Repository-owned generation may import the grammar binding and the public
-=:gerbil-parser/rust-rowan-support= facade, then emit an ordinary Rust module:
+=:gerbil-parser/rust-runtime-support= facade, then emit an ordinary Rust module:
 
 #+begin_src scheme
-(import :gerbil-parser/rust-rowan-support
+(import :gerbil-parser/rust-runtime-support
         :my-dsl/languages/example/v1/grammar)
 
-(generate-language-rust-rowan-module
+(generate-language-rust-runtime-module
  "src/generated/example_v1.rs"
  example-v1-language-grammar)
 #+end_src
@@ -81,15 +156,15 @@ is the AOT grammar/compiler authority; Cargo consumers depend only on the Rust
 engine and their generated module.
 
 Rust-driven authoring uses the same authority through the dedicated build-only
-=gerbil_parser_rowan_compile= ABI. Build Support passes a =grammar.ss= path to
-the precompiled Gerbil generator, receives the existing Rust/Rowan backend
+=gerbil_parser_runtime_compile= ABI. Build Support passes a =grammar.ss= path to
+the precompiled Gerbil generator, receives the existing Rust backend
 output as owned bytes, and writes it into Cargo's =OUT_DIR=. It does not parse
 Scheme or rebuild Grammar IR/LR tables in Rust, and the parse-time dependency
-still contains only the Rowan engine plus generated tables. The generator is a
+still contains only the AOT engine plus generated tables. The generator is a
 separate native product; the Cargo-only authoring claim remains open until that
 product can be distributed and used on admitted Linux and macOS targets
 without a Gerbil installation.
-The same owner is exposed as the =gerbil-parser-rowan-aot= executable for
+The same owner is exposed as the =gerbil-parser-runtime-aot= executable for
 standalone bundle qualification; it initializes Gerbil's expander internally
 and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
 Its =defbuild-script= declaration projects a public ASP Building API package
@@ -100,50 +175,52 @@ Gerbil command on =PATH= and explicit expansion-metadata roots. Packaging
 those immutable interfaces with the executable remains a release boundary;
 runtime object-cache reconstruction is gone.
 
-=t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
+=t/fixtures/runtime-record-assignments= is the executable consumer contract. It has
 no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
 Upstream generation CI verifies its Scheme source pack and checks the
 committed Rust module through the public AOT facade. The independent Cargo
-workspace then compiles and tests that module for lossless Rowan structure,
+workspace then compiles and tests that module for lossless indexed structure,
 receipts, and typed rejection using only the Rust runtime dependency.
 
 After building the Gerbil package, regenerate and verify the committed module:
 
 #+begin_src sh
-gerbil env gxi generate-rust-rowan.ss \
-  rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
+gerbil env gxi generate-rust-runtime.ss \
+  build-support/gerbil-parser-build-support/tests/fixtures/generated/arithmetic.rs
 cargo fmt --all
 cargo test --workspace --locked
-cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- \
+cargo test --release -p gerbil-parser-build-support --test performance_test -- \
   --ignored --nocapture --test-threads=1
 #+end_src
 
-The workspace =Build Support= crate owns the ASP Rust policy and its
-=tests/asp-rust-gate.rs= activation once. Product crates do not depend on Build
-Support; =cargo test -p gerbil-parser-build-support --test asp-rust-gate=
-activates the =Dev Gate= only in the development workspace.
+The workspace =Build Support= crate owns shared policy and Scenario macros.
+Its ASP Rust packages are =dev-dependencies=, and the ASP-backed policy and
+performance targets live in that crate's =tests/= directory. Other packages
+depend only on Build Support for dependency-free test helpers.
+=cargo test -p gerbil-parser-build-support --test asp-rust-gate= activates the
+=Dev Gate= once in the development workspace.
 The gate runs in =deny= mode, so every ASP Rust warning or error is
 test-blocking. CI runs that target separately with =--nocapture= so policy
 diagnostics remain visible instead of being hidden by libtest output capture.
 Immutable language-crate tables are compiler output verified against Grammar IR
 in native CI; policy governs their generator and handwritten runtime owners.
-Normal and build dependency graphs do not contain Build Support or ASP Rust.
+Normal and build dependency graphs do not contain ASP Rust.
 
 * Native command
 
 =build.ss= is the package AOT entry. It discovers and installs the reusable
-library, runtime ParseArtifact FFI, and build-only Rust/Rowan generator FFI as
+library, runtime ParseArtifact FFI, and build-only Rust generator FFI as
 separate products without forcing downstream library consumers to compile a
 command they do not use. =build-gparse.ss= is the sibling first-party
 =defbuild-script= entry for the optional native =gparse= command; it adds no
 second command implementation or package scheduler.
-=build-rust-rowan-aot.ss= independently materializes the build-time
-=gerbil-parser-rowan-aot= executable.
+=build-rust-runtime-aot.ss= independently materializes the build-time
+=gerbil-parser-runtime-aot= executable.
 
 #+begin_src sh
 GERBIL_BUILD_CORES=12 gerbil build
 GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
-GERBIL_BUILD_CORES=12 gerbil env gxi build-rust-rowan-aot.ss compile
+GERBIL_BUILD_CORES=12 gerbil env gxi build-rust-runtime-aot.ss compile
 gparse help
 gparse check "1 + 2 * value"
 #+end_src
@@ -161,7 +238,7 @@ ParseArtifact events, and diagnostics remain in their library owners.
 
 The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
 grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
-small performance-sensitive parser functions.  The single public authoring
+small performance-sensitive parser functions. The grammar authoring
 boundary is the top-level =language-support.ss= facade; its re-exported
 =deflanguage-grammar= macro expands
 one declaration into the grammar object, canonical Parser IR, native machine,
@@ -171,7 +248,7 @@ utility boundary rather than becoming parser-module miscellany.
 A supported language uses one colocated package surface:
 
 #+begin_src text
-languages/hcl/v2-24/
+languages/hcl/
   grammar.ss
   parser.ss
   fixtures.ss
@@ -181,7 +258,7 @@ languages/hcl/v2-24/
 
 =grammar.ss= owns the versioned identity and one =deflanguage-grammar= or
 =deflanguage-antlr4-grammar= declaration.  =parser.ss= uses
-=deflanguage-parser= with that descriptor to
+=deflanguage-parser-loader= with that descriptor to
 generate the public parse function; it cannot repeat or replace the identity,
 contract, or machine.  Fixtures and tests never move into =src/= and do not
 enter the =gparse= executable closure.
@@ -194,7 +271,7 @@ structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
 
 Grammar-source formats are language-neutral engine adapters.  ISO WG3 BNF,
 ANTLR4 source admission, and fixture/corpus declaration machinery are internal
-to =src/language-support/= and exported only through
+to =language-support/= and exported through
 =:gerbil-parser/language-support=.  A language pack only
 selects a pinned source and declares its versioned lowering under
 =languages/<language>/<version>/=.  The openCypher 2024.1 pack validates and
@@ -243,5 +320,5 @@ syntax corpus remain explicit future contracts.
   syntax files at macro expansion, while =defsyntax-corpus= owns multi-file
   manifests, so downstream conformance tests and
   benchmarks share one declarative source contract without runtime file I/O.
-- =docs/architecture/0006-rust-rowan-aot.org= keeps =grammar.ss= authoritative
-  while publishing reusable Rust parser and Rowan CST products.
+- =docs/architecture/0006-rust-aot.org= keeps =grammar.ss= authoritative
+  while publishing reusable Rust parser and indexed CST products.

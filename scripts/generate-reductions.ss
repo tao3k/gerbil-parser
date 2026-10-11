@@ -1,0 +1,18 @@
+;;; Build entry for any module exporting one admitted language descriptor.
+(import :gerbil/expander
+        (only-in :std/misc/ports read-all-as-string)
+        (only-in :gerbil-parser/language-build-support make-fused-reduction-strategy emit-build-strategy)
+        (only-in :gerbil-parser/src/language/module-input language-module-descriptor))
+(def (main . args)
+  (unless (and (= (length args) 3) (member (car args) '("module" "check")))
+    (error "expected module|check grammar-module output-path" args))
+  (let* ((strategy (make-fused-reduction-strategy (language-module-descriptor (cadr args))))
+         (emit (lambda (port) (emit-build-strategy strategy port))))
+    (if (equal? (car args) "module")
+      (call-with-output-file (caddr args) emit)
+      (let ((expected (call-with-output-string emit)) (repeated (call-with-output-string emit))
+            (actual (call-with-input-file (caddr args) read-all-as-string)))
+        (unless (and (equal? expected repeated) (equal? expected actual))
+          (error "generated fused reduction product is stale or nondeterministic" (caddr args)))
+        (displayln "GENERATED-REDUCTIONS-OK " (cadr args))))))
+(export main)

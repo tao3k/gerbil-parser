@@ -6,13 +6,18 @@
         (only-in :std/sync/barrier
                  barrier-post! barrier-wait! make-barrier)
         (only-in :std/test check check-exception test-case test-suite)
-        (only-in :std/encoding/base64 base64-encode)
+        (only-in :gerbil-parser/src/runtime/embedded-image
+                 pack-language-artifact-image unpack-language-artifact-image)
         (only-in :std/encoding/zlib compress)
+        (only-in :std/misc/ports read-all-as-u8vector)
         (only-in :gerbil-parser/src/compiler/language-artifact
                  compile-language-declaration-artifacts/output-dirs
+                 make-admitted-language-declaration compile-admitted-language-declaration
                  compile-language-parser-artifact/output-dirs
                  materialize-compiled-language-artifact/output-dirs)
-        (only-in :gerbil-parser/src/runtime/identity sha256-text)
+        (only-in :gerbil-parser/src/compiler/parser-ir compile-parser)
+        (only-in :gerbil-parser/src/compiler/lr current-grammar-source-map)
+        (only-in :gerbil-parser/src/runtime/identity sha256-bytes sha256-text)
         (only-in :gerbil-parser/src/runtime/language-artifact
                  compiled-language-artifact-relative-path
                  load-compiled-language-artifact/embedded
@@ -59,6 +64,91 @@
 
 (def language-artifact-tests
   (test-suite "compiled language artifact admission"
+    (test-case "Unicode publication preserves text identity and compressed bytes across both loaders"
+      (call-with-temporary-directory
+       (lambda (root)
+         (let* ((value `((schema . ,test-schema)
+                        (payload . (中文 λ "line\r\nvalue" "𝄞"))))
+                (expected-bytes (string->utf8 (serialize value)))
+                (expected-digest (sha256-text (serialize value)))
+                (expected-compressed (compress expected-bytes compression: 9))
+                (locator (materialize-compiled-language-artifact/output-dirs value (list root)))
+                (path (path-expand (car locator) root)))
+           (check locator => (list (compiled-language-artifact-relative-path expected-digest)
+                                  expected-digest))
+           (check (call-with-input-file path read-all-as-u8vector) => expected-compressed)
+           (check (load-compiled-language-artifact/roots test-schema locator (list root)) => value)
+           (check (load-compiled-language-artifact/embedded
+                   test-schema locator (pack-language-artifact-image expected-compressed)) => value)
+           (check (materialize-compiled-language-artifact/output-dirs value (list root)) => locator)
+           (check (call-with-input-file path read-all-as-u8vector) => expected-compressed)))))
+    (test-case "authenticated artifacts reject BOM framing and malformed UTF-8 in trailing comments"
+      (let (datum (string->utf8 (serialize test-value)))
+        (for-each
+         (lambda (bytes)
+           (let* ((digest (sha256-bytes bytes))
+                  (locator (list (compiled-language-artifact-relative-path digest) digest))
+                  (image (pack-language-artifact-image (compress bytes compression: 9))))
+             (check-exception
+              (load-compiled-language-artifact/embedded test-schema locator image) exception?)))
+         (list (u8vector-append #u8(239 187 191) datum)
+               (u8vector-append datum (string->utf8 " ;") #u8(255))
+               (u8vector-append datum (string->utf8 " ;") #u8(192 128))
+               (u8vector-append datum (string->utf8 " ;") #u8(226 130))))))
+    (test-case "declaration compiler passes selected origins into LR rejection and restores context"
+      (call-with-temporary-directory
+       (lambda (root)
+         (let* ((grammar '((schema . "gerbil-parser.grammar-ir.v1")
+                           (grammar . nullable-origin)
+                           (syntax-kinds (Start node ())) (terminals) (lexical-rules)
+                           (rules (start (alias Start (repeat (reference item)))) (item (empty)))
+                           (extras) (parser-entrypoints (start Start))
+                           (flow (source lexical) (lexical cst))))
+                (source-map '((rule (start (componentOwner . selected-base))
+                                   (item (componentOwner . selected-override)))))
+                (admitted (make-admitted-language-declaration grammar 'test-origin '() source-map))
+                (condition
+                 (with-catch (lambda (condition) condition)
+                   (lambda ()
+                     (compile-admitted-language-declaration
+                      admitted compile-parser
+                      (lambda (_grammar _origin _lineage _sources)
+                        '((schema . "gerbil-parser.bound-grammar-ir.v1")))
+                      output-dirs: (list root)) #f))))
+           (check (error-message condition) => "resolved repetition operand accepts empty input")
+           (let* ((details (list-ref (error-irritants condition) 3))
+                  (references (cdr (assq 'nullableReferencePath details))))
+             (check (cdr (assq 'componentOwner (cdr (assq 'source (car references)))))
+                    => 'selected-override))
+           (check (current-grammar-source-map) => '())))))
+    (test-case "complete cached declarations cannot bypass resolved repetition admission"
+      (call-with-temporary-directory
+       (lambda (root)
+         (let* ((grammar '((schema . "gerbil-parser.grammar-ir.v1") (grammar . stale-admission)
+                           (rules (start (repeat (reference item))) (item (empty)))))
+                (source-map '((rule (item (componentOwner . cached-override)))))
+                (origin 'test-origin) (lineage '())
+                (admitted (make-admitted-language-declaration grammar origin lineage source-map)))
+           ;; Seed a complete old-generation receipt with its unchanged nullable facts.
+           (compile-language-declaration-artifacts/output-dirs
+            (list origin lineage source-map) grammar
+            (lambda () '((schema . "gerbil-parser.bound-grammar-ir.v1")))
+            (lambda () '((schema . "gerbil-parser.parser-ir.v1")
+                          (lr-spec (schema . "gerbil-parser.lr-spec.v1") (nullable item start))))
+            (list root))
+           (let ((calls 0)
+                 (condition #f))
+             (set! condition
+               (with-catch (lambda (condition) condition)
+                 (lambda ()
+                   (compile-admitted-language-declaration admitted
+                    (lambda (_) (set! calls (+ calls 1)) (error "unexpected generation"))
+                    (lambda (_grammar _origin _lineage _sources)
+                      (set! calls (+ calls 1)) (error "unexpected binding"))
+                    output-dirs: (list root)) #f)))
+             (check calls => 0)
+             (check (error-message condition) => "resolved repetition operand accepts empty input")
+             (check (current-grammar-source-map) => '()))))))
     (test-case "content identities use a portable physical filename"
       (check
        (sha256-identity-filename
@@ -80,21 +170,76 @@
            (check (load-compiled-language-artifact/roots
                    test-schema locator (list root))
                   => test-value)))))
+    (test-case "native image framing preserves every tail length and unsigned word"
+      (for-each
+       (lambda (size)
+         (let (bytes (make-u8vector size))
+           (let loop ((index 0))
+             (when (< index size)
+               (u8vector-set! bytes index (modulo index 256))
+               (loop (fx+ index 1))))
+           (check (unpack-language-artifact-image (pack-language-artifact-image bytes))
+                  => bytes)))
+       '(0 1 2 3 4 5 6 7 8 9 15 16 17 255 256 257
+         4095 4096 4097 8191 8192 8193 65535 65536 65537))
+      (check (pack-language-artifact-image #u8(1 2 3 4 5 6 7 8))
+             => '#u64(8 #x0102030405060708))
+      (check (unpack-language-artifact-image '#u64(8 #xffffffffffffffff))
+             => #u8(255 255 255 255 255 255 255 255))
+      (for-each
+       (lambda (invalid)
+         (check-exception (unpack-language-artifact-image invalid) true))
+       (list "encoded" #u8(1) '#u64() '#u64(1) '#u64(0 0)
+             '#u64(#xffffffffffffffff) '#u64(1 #x0100000000000001))))
+    (test-case "native producer preserves high-bit full words and partial tails"
+      (check (pack-language-artifact-image #u8(255)) => '#u64(1 #xff00000000000000))
+      (check (pack-language-artifact-image #u8(255 254 253 252 251 250 249))
+             => '#u64(7 #xfffefdfcfbfaf900))
+      (check (pack-language-artifact-image #u8(255 255 255 255 255 255 255 255 128))
+             => '#u64(9 #xffffffffffffffff #x8000000000000000))
+      (let* ((bytes (make-u8vector 17 255))
+             (image (pack-language-artifact-image bytes)))
+        (u8vector-set! bytes 0 0)
+        (check (unpack-language-artifact-image image) => (make-u8vector 17 255))))
     (test-case "an AOT image consumes the same compressed artifact without roots"
       (let* ((serialized (serialize test-value))
              (digest (sha256-text serialized))
              (locator
               (list (compiled-language-artifact-relative-path digest) digest))
              (encoded
-              (base64-encode
+              (pack-language-artifact-image
                (compress (string->utf8 serialized) compression: 9))))
         (check (load-compiled-language-artifact/embedded
                 test-schema locator encoded)
                => test-value)
         (check-exception
          (load-compiled-language-artifact/embedded
-          test-schema locator "not-base64")
+          test-schema locator "not-a-native-image")
          true)))
+    (test-case "byte hashing preserves Unicode artifact identity in sidecars and AOT images"
+      (let* ((value `((schema . ,test-schema) (payload . "λ中😀é\x0;")))
+             (serialized (serialize value)) (bytes (string->utf8 serialized))
+             (digest (sha256-text serialized))
+             (locator (list (compiled-language-artifact-relative-path digest) digest)))
+        (check (sha256-bytes bytes) => digest)
+        (check (load-compiled-language-artifact/embedded
+                test-schema locator (pack-language-artifact-image (compress bytes compression: 9))) => value)
+        (call-with-temporary-directory
+         (lambda (root)
+           (write-serialized-sidecar root serialized)
+           (check (load-compiled-language-artifact/roots test-schema locator (list root)) => value)))))
+    (test-case "a matching raw digest cannot admit malformed UTF-8 inside an artifact string"
+      (for-each
+       (lambda (invalid)
+         (let* ((prefix (string->utf8
+                         (string-append "((schema . " (object->string test-schema) ") (payload . \"")))
+                (bytes (u8vector-append prefix invalid #u8(34 41 41)))
+                (digest (sha256-bytes bytes))
+                (locator (list (compiled-language-artifact-relative-path digest) digest)))
+           (check-exception
+            (load-compiled-language-artifact/embedded
+             test-schema locator (pack-language-artifact-image (compress bytes compression: 9))) true)))
+       '(#u8(255) #u8(192 175) #u8(237 160 128) #u8(244 144 128 128) #u8(226 130))))
     (test-case "locator identity prevents absolute and traversal reads"
       (call-with-temporary-directory
        (lambda (root)
@@ -270,3 +415,7 @@
                  (check parser-count => 1))))))))))
 
 (export language-artifact-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def language-artifact-test language-artifact-tests)
+(export language-artifact-test)

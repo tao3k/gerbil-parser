@@ -1,11 +1,12 @@
 ;;; -*- Gerbil -*-
 ;;; Parser-event algorithms execute in Scheme before AOT and stay AST-backed.
 
-(import (only-in :std/test check check-exception test-case test-suite)
+(import (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in :std/test check check-exception test-case test-suite)
         (only-in "event-strategy-fixture.ss"
                  event-lines-language-grammar parse-event-lines parse_event_lines)
         (only-in :gerbil-parser/src/compiler/event-strategy-aot
-                 compile-line-event-parser)
+                 compile-line-event-parser generate-line-event-module)
         (only-in :gerbil-parser/src/compiler/rust-syntax
                  rust-line-event-function-form-digest)
         (only-in "rust-aot-test-syntax.ss" check-rust-event-strategy))
@@ -26,6 +27,15 @@
                   (start Text) (token Line 0 6) (finish)
                   (start Heading) (token Line 6 10) (finish)
                   (finish))))
+    (test-case "line extents retain NUL and all UTF-8 widths across CRLF and CR"
+      (let (prefix (list->string
+                    (map integer->char '(0 127 128 2047 2048 55295 57344 65535 65536 1114111))))
+        (check (parse-event-lines (string-append prefix "\r\nx\rY"))
+               => '((start Document)
+                    (start Text) (token Line 0 28) (finish)
+                    (start Text) (token Line 28 30) (finish)
+                    (start Text) (token Line 30 31) (finish)
+                    (finish)))))
     (test-case "AOT is a structured parser function, not source assembly"
       (check-rust-event-strategy parse_event_lines
                                  'parse_event_lines 0)
@@ -40,6 +50,14 @@
                 'Document '(line start end)
                 '(event-node Text (event-token Line start end)))))
              => #f))
+    (test-case "compiled event strategy materializes its Rust module"
+      (let (path (make-temporary-file-name "gerbil-parser-event-strategy"))
+        (try
+         (begin
+           (generate-line-event-module path parse_event_lines)
+           (check (file-exists? path) => #t))
+         (finally
+          (when (file-exists? path) (delete-file path))))))
     (test-case "AOT admits only declared event kinds and pure expressions"
       (check-exception
        (compile-line-event-parser

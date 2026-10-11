@@ -2,9 +2,9 @@
 ;;; Grammar-owned Core phase observation without global instrumentation.
 
 (import :core/observability/debug
-        (only-in :gerbil-parser/languages/cypher/opencypher-2024-1/parser
-                 opencypher-2024-1-language-grammar
-                 parse-opencypher-2024-1)
+        (only-in :gerbil-parser/languages/cypher/parser
+                 opencypher-language-grammar
+                 parse-opencypher)
         (only-in :gerbil-parser/src/language/descriptor
                  language-grammar-observability
                  language-grammar-with-observability)
@@ -25,11 +25,11 @@
 
 (def (opencypher-grammar-observability-scenario)
   (let* ((source "RETURN count(*) AS n\n")
-         (plain (parse-opencypher-2024-1 source))
+         (plain (parse-opencypher source))
          (policy (poo-flow-debug-call-policy 'gerbil-parser/runtime 4))
          (observed-grammar
           (language-grammar-with-observability
-           opencypher-2024-1-language-grammar policy))
+           opencypher-language-grammar policy))
          (port (open-output-string))
          (observed
           (parameterize ((current-error-port port))
@@ -39,7 +39,7 @@
      (cons 'schema "gerbil-parser.grammar-observability.v1")
      (cons 'defaultUnobserved
            (not (language-grammar-observability
-                 opencypher-2024-1-language-grammar)))
+                 opencypher-language-grammar)))
      (cons 'observedPhases
            (filter (lambda (phase)
                      (string-contains output (symbol->string phase)))

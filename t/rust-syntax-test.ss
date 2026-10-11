@@ -10,12 +10,19 @@
                  rust-function-value rust-block
                  rust-function-ir-json
                  rust-function-form-name rust-function-form-parameters
+                 rust-function-form-result
                  rust-struct-form? rust-struct-form-name rust-struct-form-fields
                  rust-field-name rust-module-form-item
+                 rust-module-form-origin
                  rust-static-form-value)
         (only-in "pure-function-fixture.ss"
                  normalized_title normalized_title_rust
                  classify_first_word classify_first_word_rust)
+        (only-in "pure-function-fixture.ss"
+                 trim_start_only trim_start_only_rust)
+        (only-in "pure-function-fixture.ss"
+                 replace_and_append replace_and_append_rust)
+        (only-in "pure-function-fixture.ss" slug_words slug_words_rust)
         (only-in "pure-function-fixture.ss"
                  classify_or_unknown classify_or_unknown_rust)
         (only-in "pure-function-fixture.ss"
@@ -23,11 +30,14 @@
                  owned_rest_after_first_word owned_rest_after_first_word_rust)
         (only-in "pure-function-fixture.ss" count_words count_words_rust)
         (only-in "pure-function-fixture.ss"
+                 map_word_annotations map_word_annotations_rust)
+        (only-in "pure-function-fixture.ss"
                  last_word last_word_rust
                  before_last_word before_last_word_rust
                  boundary_token? boundary_token_rust)
         (only-in :gerbil-parser/src/compiler/rust-pure-aot
-                 scheme-pure->rust ascii-ci=? string-words string-after)
+                 scheme-pure->rust ascii-ci=? string-words string-after
+                 string-single-ascii-uppercase? string-unsigned-at-most?)
         (only-in "rust-aot-test-syntax.ss"
                  check-rust-aot-function check-rust-aot-conditional
                  check-rust-aot-any check-rust-aot-artifact
@@ -44,13 +54,19 @@
                 (table (rust-none))
                 (blocks (rust-array '()))))
              (module (rust-module '("LineStructureSpec")
-                                  (rust-static STRUCTURE LineStructureSpec value))))
+                                  (rust-static STRUCTURE LineStructureSpec value)
+                                  "line-structure-runtime.ss")))
         (check (rust-struct-form? value) => #t)
         (check (rust-struct-form-name value) => 'LineStructureSpec)
         (check (map rust-field-name (rust-struct-form-fields value))
                => '(grammar_digest paragraph_node table blocks))
         (check (rust-static-form-value (rust-module-form-item module))
-               => value)))
+               => value)
+        (check (rust-module-form-origin module)
+               => "line-structure-runtime.ss")
+        (check-exception
+         (rust-module '("LineStructureSpec") value "invalid\norigin")
+         true)))
     (test-case "pure function body is a structured syntax value"
       (check-rust-aot-function
        normalized_title_rust 'normalized_title '((input . "&str"))
@@ -59,7 +75,25 @@
       (check (normalized_title "\tBeta\n") => "Beta")
       (check-rust-aot-artifact
        normalized_title_rust
-       "rust/gerbil-parser-rowan/tests/unit/pure_function_generated.rs"))
+       "rust/gerbil-parser-runtime/tests/unit/pure_function_generated.rs"))
+    (test-case "left trim keeps source trailing whitespace"
+      (check (trim_start_only "  Alpha  ") => "Alpha  ")
+      (check (trim_start_only "\tβ ") => "β ")
+      (check-rust-aot-function
+       trim_start_only_rust 'trim_start_only '((input . "&str"))
+       "String" 'to_owned))
+    (test-case "pure replacement and append lower as typed string operations"
+      (check (replace_and_append "a/%s" "b") => "a/bb")
+      (check (replace_and_append "a/" "b") => "a/b")
+      (check (rust-function-form-name replace_and_append_rust)
+             => 'replace_and_append)
+      (check (rust-function-form-result replace_and_append_rust)
+             => "String"))
+    (test-case "pure lowercase word joins retain Scheme and Rust syntax parity"
+      (check (slug_words "  Mixed  Case  ") => "mixed-case")
+      (check (slug_words "RÉSUMÉ Notes") => "résumé-notes")
+      (check (rust-function-form-name slug_words_rust) => 'slug_words)
+      (check (rust-function-form-result slug_words_rust) => "String"))
     (test-case "pure string boundaries retain Scheme and AOT parity"
       (check (last_word "α beta :tag:") => ":tag:")
       (check (before_last_word "α beta :tag:") => "α beta")
@@ -71,6 +105,30 @@
              => 'before_last_word)
       (check (rust-function-form-name boundary_token_rust)
              => 'boundary_token_p))
+    (test-case "uppercase ASCII and bounded unsigned checks stay typed"
+      (check (string-single-ascii-uppercase? "A") => #t)
+      (check (string-single-ascii-uppercase? "a") => #f)
+      (check (string-single-ascii-uppercase? "É") => #f)
+      (check (string-single-ascii-uppercase? "AB") => #f)
+      (check (string-unsigned-at-most? "064" 64) => #t)
+      (check (string-unsigned-at-most? "65" 64) => #f)
+      (check (string-unsigned-at-most? "+1" 64) => #f)
+      (let* ((single
+              (string->json
+               (rust-function-ir-json
+                (scheme-pure->rust 'single '((value . "&str")) "bool"
+                                    '(string-single-ascii-uppercase? value)))
+               (JSONReadOptions object-as-hash: #t)))
+             (bounded
+              (string->json
+               (rust-function-ir-json
+                (scheme-pure->rust 'bounded '((value . "&str")) "bool"
+                                    '(string-unsigned-at-most? value 64)))
+               (JSONReadOptions object-as-hash: #t))))
+        (check (hash-ref (hash-ref (hash-ref single "body") "result") "kind")
+               => "single_ascii_uppercase")
+        (check (hash-ref (hash-ref (hash-ref bounded "body") "result") "kind")
+               => "unsigned_at_most")))
     (test-case "pure conditional and membership stay structural"
       (check-rust-aot-conditional
        classify_first_word_rust 'classify_first_word
@@ -85,7 +143,7 @@
              => "")
       (check-rust-aot-artifact
        classify_first_word_rust
-       "rust/gerbil-parser-rowan/tests/unit/classify_first_word_generated.rs"))
+       "rust/gerbil-parser-runtime/tests/unit/classify_first_word_generated.rs"))
     (test-case "typed pure function composition shares Scheme algorithm"
       (check (classify_or_unknown "WAIT Task" '("WAIT") '("DONE"))
              => "active")
@@ -93,7 +151,7 @@
              => "unknown")
       (check-rust-aot-artifact
        classify_or_unknown_rust
-       "rust/gerbil-parser-rowan/tests/unit/classify_or_unknown_generated.rs")
+       "rust/gerbil-parser-runtime/tests/unit/classify_or_unknown_generated.rs")
       (check-exception
        (scheme-pure->rust 'invalid '((input . "&str")) "&str"
                           '(classify_first_word input)
@@ -104,13 +162,26 @@
       (check (owned_first_word "  WAIT Task" #f) => "")
       (check-rust-aot-artifact
        owned_first_word_rust
-       "rust/gerbil-parser-rowan/tests/unit/owned_first_word_generated.rs")
+       "rust/gerbil-parser-runtime/tests/unit/owned_first_word_generated.rs")
       (check (owned_rest_after_first_word "  WAIT   [#A] Head :tag:  ")
              => "[#A] Head :tag:")
       (check (owned_rest_after_first_word "WAIT") => "")
       (check-rust-function-ir
        owned_rest_after_first_word_rust
        "t/fixtures/owned_rest_after_first_word.ir.json"))
+    (test-case "named pure maps collect typed Rust vectors"
+      (check (map_word_annotations "NEXT(n) WAIT(w@/!)")
+             => '("NEXT" "WAIT"))
+      (check (rust-function-form-result map_word_annotations_rust)
+             => "Vec<String>")
+      (check-rust-aot-function
+       map_word_annotations_rust 'map_word_annotations
+       '((input . "&str")) "Vec<String>" 'collect)
+      (check-exception
+       (scheme-pure->rust
+        'invalid '((input . "&str")) "Vec<String>"
+        '(map display (string-words input)))
+       true))
     (test-case "unsupported Scheme effects and free names fail closed"
       (check (ascii-ci=? "seq_todo" "SEQ_TODO") => #t)
       (check (ascii-ci=? "ＴＯＤＯ" "TODO") => #f)

@@ -1,0 +1,72 @@
+#+title: RFC 0017 — Checkpoint history cursor integrity
+#+date: 2026-10-04
+#+status: Implemented; verification owned by Scheme tests and ASP benchmarks
+
+* Structural invariant
+
+A resumed LR checkpoint owns a source byte cursor, the number of already
+consumed significant tokens, and a prepared-runtime identity. These values
+must describe the same parser prefix. Treating a resumed prefix as zero tokens
+produces an inconsistent initial capture even when its byte cursor is late in
+the source. Subsequent inverse edits can then lose a valid earlier checkpoint
+and fall back to fresh parsing.
+
+=src/runtime/parser.ss= captures the initial significant-token position as the
+length of the resumed prefix. =src/runtime/incremental.ss= retains earlier
+prefix checkpoints when the newly captured checkpoint collection is empty.
+The correction preserves checkpoint history across tail insertion/deletion
+and their inverses. It applies to canonical and event execution.
+
+Checkpoint reuse still requires the selected prepared runtime, source/token
+binding and fresh-equivalent complete artifacts. A label, digest alone or
+matching token text is insufficient to admit reuse. Failed parsing must clear
+reusable recognition state. The event backend remains opt-in.
+
+* Semantic verification owner
+
+=t/recognition-snapshot-test.ss= owns the short-tail forward/inverse regression
+for both backends, retained prefix sharing, independent grammar projection,
+Unicode shifts and rejection of foreign runtime identities.
+=t/recovery-incremental-test.ss= owns sequential edit history, checkpoint byte
+cursors, token insertion, lexical boundary changes, rejection and repair.
+=t/event-program-test.ss= owns immutable sequence joins, moved roots and
+complete publication equivalence.
+
+These assertions execute against ordinary compiled modules. Verification does
+not rewrite implementation source, replace runtime bindings or decode generated
+reports. Benchmark data is produced by the existing Scheme/ASP test owner at
+execution time and is not checked into documentation as result snapshots.
+
+* Performance verification owner
+
+=t/core-observability-test.ss= uses the ASP benchmark contract in
+=t/benchmarks/poo-grammar-objects/benchmark.ss=.
+=t/gql-runtime-benchmark-test.ss= uses
+=t/benchmarks/gql-runtime/benchmark.ss=.
+=t/incremental-suffix-benchmark-test.ss= uses
+=t/scenarios/performance/incremental-suffix/benchmark.ss=.
+
+Keep workload, sample count and admission thresholds in those Scheme contracts.
+Do not duplicate them in a document-side runner, results schema or analysis
+pipeline. Functional checks may run concurrently; timing gates run separately.
+An unsuccessful harness/child process is a failed run even if some cases finish.
+
+* Existing execution path
+
+#+begin_src sh
+gerbil env gxi build-test-driver.ss compile
+GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+  GAMBOPT=max-heap=1G,debug=q \
+  gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .gerbil/parser-checkpoint-history.log \
+  --require 'TEST-SUITE-OK modules=3' --require '^OK$' \
+  -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
+  t/recognition-snapshot-test.ss t/recovery-incremental-test.ss t/event-program-test.ss
+
+just test-local gql
+#+end_src
+
+The first command selects functional owners using the shared native harness.
+The second selects the existing ASP GQL gate. The native package and declared
+dependencies must be built first. Compiler work has its own budget; test
+execution retains the five-second real-output watchdog. Neither local command
+substitutes for Linux/macOS integration CI.

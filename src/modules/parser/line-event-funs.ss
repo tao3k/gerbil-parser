@@ -1,0 +1,142 @@
+;;; -*- Gerbil -*-
+;;; Pure native event lowering of admitted contextual line declarations.
+;;; Domain nodes and content helpers are supplied by the language, not the engine.
+(import (only-in ./line-structure-objects
+                 table-line? text-line?
+                 table-line-delimiter table-line-row-node table-line-rule-row-node
+                 table-line-cell-node table-line-separator-token table-line-cell-token
+                 table-line-trivia-token table-line-rule-token
+                 text-line-node text-line-token text-line-paragraph-node))
+(import (only-in ./source-event-scope-funs source-event-name))
+(export source-table-row-initial source-table-row-forms
+        source-paragraph-initial source-paragraph-close-form source-paragraph-line-form
+        source-paragraph-open-condition source-paragraph-span-forms source-paragraph-blank-forms)
+
+;;; Named helper references are bindings, never arbitrary raw-form callbacks.
+(def (content-call helper parameters from until token)
+  (unless (and (or (not helper) (symbol? helper))
+               (list? parameters) (andmap symbol? parameters)
+               (let loop ((rest parameters) (seen '()))
+                 (or (null? rest)
+                     (and (not (memq (car rest) seen))
+                          (loop (cdr rest) (cons (car rest) seen))))))
+    (error "invalid native content helper binding" helper parameters))
+  (when (and (not helper) (pair? parameters))
+    (error "content parameters require a helper" parameters))
+  (if helper
+    `(call-source-helper ,helper ,from ,until
+                         ,@(if (null? parameters) '()
+                             (list (map (lambda (name) `(state ,name)) parameters))))
+    `(token ,token ,from ,until)))
+
+(def (source-table-row-initial rule scope)
+  (unless (table-line? rule) (error "unadmitted native table rule" rule))
+  `((,(source-event-name scope 'table-seen-separator) #f)
+    (,(source-event-name scope 'table-escaped) #f)
+    (,(source-event-name scope 'table-cell-start) 0)))
+
+(def (source-table-row-forms rule scope (helper #f) (parameters '())
+                           rule-bytes: (rule-bytes '()) rule-marker: (rule-marker #f)
+                           escape-byte: (escape-byte #f))
+  (source-table-row-initial rule scope)
+  (def (name role) (source-event-name scope role))
+  (def (byte? value) (and (integer? value) (<= 0 value 255)))
+  (unless (and (list? rule-bytes) (andmap byte? rule-bytes)
+               (or (not rule-marker) (and (byte? rule-marker) (memv rule-marker rule-bytes)))
+               (or (not escape-byte) (byte? escape-byte)))
+    (error "invalid native table lexical policy" rule-bytes rule-marker escape-byte))
+  (let* ((byte (char->integer (string-ref (table-line-delimiter rule) 0)))
+         (indent '(line-skip-horizontal start))
+         (until '(line-content-end))
+         (index `(line-index ,(name 'table-byte-index)))
+         (next `(line-step ,index))
+         (cell-start `(state-offset ,(name 'table-cell-start)))
+         (trivia (table-line-trivia-token rule)))
+    (def (cell end)
+      `((start-node ,(table-line-cell-node rule))
+        ,(content-call helper parameters cell-start end (table-line-cell-token rule))
+        (finish-node)))
+    (let (row
+         `((start-node ,(table-line-row-node rule))
+          (for-line-bytes ,(name 'table-byte-index) ,indent ,until
+            ((if ,(if escape-byte `(line-byte-equal? ,index ,escape-byte)
+                      '(uint-equal? (uint 0) (uint 1)))
+                 ((set-bool ,(name 'table-escaped) (not (state ,(name 'table-escaped)))))
+                 ((if (and (line-byte-equal? ,index ,byte) (not (state ,(name 'table-escaped))))
+                      ((if (state ,(name 'table-seen-separator))
+                           ,(cell index) ((token ,trivia start ,index)))
+                       (token ,(table-line-separator-token rule) ,index ,next)
+                       (set-uint ,(name 'table-cell-start) (offset ,next))
+                       (set-bool ,(name 'table-seen-separator) (bool #t))) ())
+                  (set-bool ,(name 'table-escaped) (bool #f))))))
+          (if (state ,(name 'table-seen-separator))
+              ((if (line-bytes-all-in? ,cell-start ,until (9 32))
+                   ((token ,trivia ,cell-start ,until)) ,(cell until))) ())
+          (token ,trivia ,until end) (finish-node)
+          (set-bool ,(name 'table-seen-separator) (bool #f))
+          (set-bool ,(name 'table-escaped) (bool #f))))
+      (if rule-marker
+        (list `(if (and (line-bytes-all-in? ,indent ,until ,(cons byte rule-bytes))
+                  (line-bytes-any-in? ,indent ,until (,rule-marker)))
+             ((start-node ,(table-line-rule-row-node rule))
+              (token ,(table-line-rule-token rule) start end) (finish-node))
+             ,row))
+        row))))
+
+(def (source-paragraph-initial rule scope pending-blank?: (pending? #t))
+  (unless (and (text-line? rule) (text-line-paragraph-node rule))
+    (error "native paragraph requires a declared paragraph node" rule))
+  (unless (boolean? pending?) (error "invalid paragraph blank policy" pending?))
+  (append
+   `((,(source-event-name scope 'paragraph-open) #f)
+    (,(source-event-name scope 'paragraph-start) 0)
+    (,(source-event-name scope 'paragraph-end) 0))
+   (if pending?
+     `((,(source-event-name scope 'paragraph-blank-end) 0)
+       (,(source-event-name scope 'paragraph-post-blank) #f)) '())))
+
+(def (source-paragraph-close-form rule scope (helper #f) (parameters '()) (reset? #t)
+                                   pending-blank?: (pending? #t))
+  (source-paragraph-initial rule scope pending-blank?: pending?)
+  (def (name role) (source-event-name scope role))
+  (unless (boolean? reset?) (error "invalid native paragraph reset policy" reset?))
+  `(if (state ,(name 'paragraph-open))
+       (,(content-call helper parameters `(state-offset ,(name 'paragraph-start))
+                       `(state-offset ,(name 'paragraph-end)) (text-line-token rule))
+        ,@(if pending?
+          `((if (state ,(name 'paragraph-post-blank))
+            ((start-node ,(text-line-node rule))
+             (token ,(text-line-token rule) (state-offset ,(name 'paragraph-end))
+                    (state-offset ,(name 'paragraph-blank-end))) (finish-node)) ())) '())
+        (finish-node)
+        ,@(if reset?
+            (append `((set-bool ,(name 'paragraph-open) (bool #f)))
+                    (if pending? `((set-bool ,(name 'paragraph-post-blank) (bool #f))) '()))
+            '())) ()))
+
+(def (source-paragraph-open-condition scope)
+  `(state ,(source-event-name scope 'paragraph-open)))
+
+(def (source-paragraph-span-forms rule scope from until)
+  (source-paragraph-initial rule scope)
+  (def (name role) (source-event-name scope role))
+  `((if (not ,(source-paragraph-open-condition scope))
+        ((start-node ,(text-line-paragraph-node rule))
+         (set-bool ,(name 'paragraph-open) (bool #t))
+         (set-uint ,(name 'paragraph-start) (offset ,from))) ())
+    (set-uint ,(name 'paragraph-end) (offset ,until))))
+
+(def (source-paragraph-blank-forms scope until)
+  `((set-bool ,(source-event-name scope 'paragraph-post-blank) (bool #t))
+    (set-uint ,(source-event-name scope 'paragraph-blank-end) (offset ,until))))
+
+(def (source-paragraph-line-form rule scope (helper #f) (parameters '()))
+  (def (name role) (source-event-name scope role))
+  (let (close (source-paragraph-close-form rule scope helper parameters))
+    `(if (line-blank?)
+         ((if (state ,(name 'paragraph-open))
+              ,(source-paragraph-blank-forms scope 'end)
+              ((start-node ,(text-line-node rule))
+               (token ,(text-line-token rule) start end) (finish-node))))
+         ((if (state ,(name 'paragraph-post-blank)) (,close) ())
+          ,@(source-paragraph-span-forms rule scope 'start 'end)))))

@@ -1,0 +1,276 @@
+#+title: Historical scanner alignment receipts
+
+This module preserves prior design and qualification records. Its status notes
+are historical; the active execution plan is [[file:../0001-versioned-language-pack-closure.org][the convergence plan]].
+
+** Shared scanner migration — implementation and remaining gates
+
+The first closed text-profile migration replaces all five FHIRPath lexical
+callbacks and removes its scanner module. HL7 segment identifiers and CR/LF
+terminators use the same IR; its six source-dependent callbacks have been replaced
+by closed header opcodes. TLA+ identifier, proof-start and proof-reference are
+closed text profiles. Its module-text context now prepares source-owned indexes.
+Bash source state remains S2 work. This does not close all of S2.
+
+The engine admits character classes, bounded maximal runs, sequences,
+rollback optionals, committed next-character branches and non-consuming guards.
+Fragments expand during declaration compilation; callbacks and fragment names
+never survive in the published IR. Scheme prepares matching closures once;
+Rust consumes static AOT data with UTF-8 spans and the Scheme numeric table.
+Admission rejects invalid bounds, excessive nesting and nullable roots.
+No language-entry schema or upstream source edition was changed.
+
+Declaration expansion now normalizes the six existing low-level clause shapes
+in one compiler function. Grammar identity, bound ownership, parser authority,
+immutable artifact caching and hygienic assembly remain engine responsibilities.
+Final grammar-composition tests passed natively in 31.70 seconds, with
+explicit =OK= and exit status zero. This is semantic evidence, not a runtime
+throughput claim.
+
+Native compilation exposed two distinct local verification problems. A missing
+=.o6= in the scanner cache made Gerbil stop at the earlier contiguous object
+version; these ignored products were archived and rebuilt from the emitted
+Scheme/C. Eager evaluation during a private compiler dependency probe also
+executed unfinished targets; that probe now imports interfaces without target
+evaluation. Initial idle-timeout receipts remain failures. Exact C backend
+phases use the original SDK/GCC optimization settings and the same 90/30
+compiler bounds, with real GCC intermediate-file progress.
+
+The shared scanner's repaired native product compiled in 77.28 seconds; a
+Unicode endpoint smoke check passed in 7.76 seconds. Further qualified gates:
+
+| Gate | Result | Bounded wall time |
+|---+---+---|
+| Shared profile Scheme suite, real FHIRPath/HL7 IR | 4 cases; Unicode, rollback/commitment, maximal-run/CRLF and invalid-root admission pass | 45.69 s |
+| Original native FHIRPath scanner control | 1,554 endpoints match across suffixes and nonzero offsets | 41.08 s |
+| Complete native FHIRPath parser suite | 5 cases, normative source identity, accepted/rejected and lossless fixtures pass | 43.28 s |
+| Complete native HL7 parser suite | 3 cases, message-local delimiter and lossless rejection controls pass | 42.37 s |
+| Full FHIRPath Scheme-to-Rust producer | Real native descriptor; no language callbacks in generated AOT | 41.22 s |
+| Second full AOT generation | Formatted artifact agrees byte for byte, 540,361 bytes | 39.51 s |
+| Rust native unit compilation | Original optimized/debug profile | 26.72 s |
+| Rust lexical consumer | 16 actual tests, including complete FHIRPath parse and malformed/deep-profile admission | 0.83 s |
+| Complete Rust engine unit suite | 88 tests, including existing scanner/contextual/incremental controls | 0.87 s |
+| Rust strict Clippy | All crate targets/features, =-D warnings= | 9.54 s |
+| Complete POO loader inventory | Ten admitted loaders, external counts, fixture services and Bash worker isolation pass | 33.16 s |
+
+The initial Rust filter selected zero tests and is not test evidence; the
+corrected lexical filter executes the 16 tests above. The complete ten-loader
+inventory initially rejected a stale cached TLA loader, then hit its five-second
+silence gate while loading missing GQL/Cypher/HCL native products. The current
+sources and all their required native products were compiled with the same
+SDK/GCC settings; the final inventory suite passed as recorded above. No
+measured runtime speedup or new C ABI qualification is claimed for this slice.
+
+** Stable language modules and metadata
+
+Language editions are data rather than module identity. The seven edition
+subdirectories and the two edition-labelled reference-corpus directories are
+flattened into stable family paths. Public language/parser bindings omit edition
+suffixes; tests, generators, native FFI callers, CI commands and documentation
+use those same paths. Upstream grammar/corpus bytes and pinned authority values
+remain unchanged. This is an in-place correction of the unreleased loader
+contract, with no v3 schema bump and no compatibility aliases.
+
+Loader metadata is an inherited POO value augmented by the engine with
+=language=, =version=, =contract=, =digest= and =digest-kind=. The effective
+identity is checked against the descriptor; language/user metadata fields such
+as grammar format and upstream references remain extensible. Grammar digests
+bind Parser IR; source-language digests bind declared source identity and must
+not be described as hashes of scanner implementation code.
+
+** Fixture value-slot correction
+
+The unreleased =gerbil-parser.language-entry.v2= contract exposes =fixtures=
+as a data slot,
+defaulting to an empty list. Every shipped entry assigns its corpus directly;
+no =lambda= wrapper is required or admitted. POO inheritance, replacement and
+computed value slots support extension using ordinary values. Loader admission
+checks the list/fixture brands; the engine fixture service owns whole-corpus
+identity, duplicate-id and parse-result validation. Test execution and scanner
+factories remain explicit descriptor-bound services.
+
+** Stable namespace correction: current qualification boundary
+
+The loader schema remains v2. The complete =t/language-loader-test.ss= suite
+passed all 15 native cases in 69.67 seconds. The three cases in
+=t/language-loader-value-test.ss= passed in 49.07 seconds, including an inherited
+computed slot reading the final metadata via =self=. Both suites produced
+explicit =OK= and propagated gxtest status 0 within the unchanged 90/5 fences.
+The independent Rust Records consumer compiled and passed both structural/
+lossless and rejected-input tests after its module/path migration.
+
+The Scheme reader accepted all 114 changed Scheme modules, and their declared
+internal import paths resolve. These reader/path checks do not establish macro
+expansion, native compilation or language conformance. The staged GQL,
+openCypher and FHIRPath authority sources retain their exact Git blob identity;
+the generated Records Rust source is also an exact rename. FHIRPath's =-text=
+attribute follows its new path, preserving its pinned CRLF bytes. HL7 external
+scanner protocol stamps retain their declared identity.
+
+The first complete-loader attempt failed at the five-second cold-import fence
+before assertions. Preparing the new namespace's native dependencies resolved
+that failure; the later complete-suite pass above is a separate receipt.
+The fresh Arithmetic generated module and an exact-C GCC backend diagnostic
+also reached the 90-second construction fence. The same generated C subsequently
+passed the SDK GCC backend in 32.07 seconds with the original optimization
+options and without the large internal-tree diagnostic dumps. Its source SHA-256
+remained =2fdea5852d54b29e1b2ea2dbc5889723bd460dca5edf1a0eddb48944cf3c91ae=.
+The new Arithmetic grammar/fixture modules compiled in 53.10 seconds.
+A Bash dependency batch produced word/word-scanning/scanner products before
+hitting the total fence during parser-core dependencies; the follow-up native
+parser-core, grammar, Bash parser and Arithmetic parser batch passed in 73.76
+seconds. Earlier failed invocations remain failed receipts.
+
+No interpreter fallback, compiler-profile switch or timeout relaxation is used
+as native evidence. Whole-pack conformance, generated Scheme checks and installed
+native consumers still require the new PR head's complete CI qualification.
+The earlier e1d0cf2 CI is green on Rust, Ubuntu and macOS, and is not evidence for
+this namespace correction. This work does not close the remaining 17 external
+scanner declarations or the Bash source-parser strategy stages.
+
+** Resource-path follow-up
+
+Head =5bc7a05= failed Ubuntu/macOS native package construction: the fixture
+macro still referenced =corpus/opengql-1.9.0/= after moving the corpus to
+=corpus/reference/=. HCL had the corresponding local-path omission as well.
+The prior import-path audit did not inspect fixture resource declarations.
+Both manifests now use the stable reference path; a Scheme reader audit checks
+all 54 declared fixture/grammar-source paths across languages and the downstream
+Records pack. This fixes the identified missing-file error, and does not turn
+the failed native jobs into passes; the follow-up head requires fresh CI.
+
+** Generated HCL backend identity follow-up
+
+Head =0a8f1cd= passes Rust but native CI rejects the stale HCL backend digest.
+The namespace correction changes the canonical Grammar/Parser IR name from
+=hcl-v2-24-grammar= to =hcl-grammar=. A Scheme check of the admitted old Parser
+IR and the freshly compiled declaration proves that all other rows are equal.
+The fresh digest is
+=sha256:657e59afd49381fda2d88ecd2ec0615a8c7e68b1b2f7c5b5074ac27b87a26852=.
+
+The official step/recursive generators regenerate both products and pass their
+reproducibility checks in 69.70 seconds. Generation uses a temporary copy of the
+exact declaration without backend installation, resolving the stale-product
+bootstrap cycle; public backend admission remains enabled. The generator's
+reviewed closed-path digest changes with the identity. Full installed native
+qualification remains the next CI gate; the failed native jobs stay failed.
+
+** Records dependency ordering follow-up
+
+Head =6a107af= passes both HCL generator checks on Ubuntu and macOS, then fails
+while compiling downstream Records test support: =parser.ss= now imports the
+fixture value, but CI still compiles the parser before =fixtures.ss=. Both CI
+commands now follow grammar → fixtures → parser. No producer or runtime check
+is skipped; fresh CI at the follow-up head remains required.
+
+** Historical S0 implementation and qualification (e1d0cf2)
+
+The v2 loader migration covers all ten public entries. Test services use private,
+descriptor-bound declarations and engine-owned execution; arbitrary procedure
+rows and foreign/duplicate declarations reject. The inherited default declares the fixture test without executing fixture parses. Source-worker creation checks source identity, and
+checkpoints now bind the creating worker even when two workers share one string.
+
+Native Scheme verification used the project SDK and GCC 16:
+
+| Check | Cases | Total seconds | Result |
+|---+---+---+---|
+| Loader POO admission and service extension | 15 | 50.18 | Passed |
+| Source-worker checkpoint ownership and UTF-8 replay | 2 | 18.54 | Passed |
+| All ten public loaders, admitted IR inventory and fixture corpora | 4 | 56.64 | Passed |
+| Bash structured syntax and deferred obligations | 16 | 56.02 | Passed |
+
+Each test retains the 90-second total / 5-second silence gate, explicit =OK=,
+propagated child status and final zero exit. These are semantic qualification
+receipts, not throughput benchmarks.
+
+The first complete entry compilation timed out at 91.04 seconds while loading
+aggregate facade type interfaces. Imports now name the loader, fixture and
+policy-descriptor modules directly. A verbose retry still timed out at 91.26
+seconds in type expansion. Disabling detailed compiler type printing retained
+all optimization/GCC settings and real interface/artifact observations: all
+entry products were emitted, but the aggregate invocation still timed out at
+90.61 seconds during final completion. Those invocations remain failed; the
+native corpus check does not turn their process statuses into passes. Complete
+compile exits passed for the ordinary-entry target (78.95 seconds) and the
+independent SANY policy target (45.03 seconds), each with the unchanged 90 / 30
+compiler gate. The final loader core (73.29 seconds) and public facade (71.24
+seconds) also compiled successfully. Direct entry imports avoid the aggregate
+facade, but existing grammar/compiler metadata still brings it into some
+transitive type closures; that remaining dependency is not declared removed.
+
+** Design obligations for each stage
+
+=deflanguage-parser-loader= is the enforcement point, not merely an entry-name
+macro. Its descriptor/identity/dispatch slots are sealed; POO extension
+contracts validate the effective inherited object. Grammar compiler admission
+owns canonical IR, fixture services pre-admit the entire native corpus, and
+scanner services require an engine-owned declaration tied to the descriptor.
+A row containing an arbitrary procedure is not a scanner declaration.
+
+The remaining source-parser bridge is explicitly named
+=declare-language-source-scan-worker= and is admitted only for source descriptors.
+It constrains descriptor ownership, factory result type, source identity and
+checkpoint isolation. It does not qualify the callback as portable Scanner IR.
+S1/S2 remove the remaining callback implementations; they do not grandfather
+undeclared downstream callbacks. Test/fixture extensions must retain their
+loader-bound admission and conformance checks, and future IR worker services
+must use the same declaration boundary rather than a second registry.
+
+
+- POO remains the extension boundary. =grammars= and metadata are exposed by the
+  loader; fixture data uses ordinary POO values; test/worker execution remains explicit. Engine identity, descriptor
+  binding and dispatch remain sealed against inherited overrides. Downstream
+  users declare options/rules/services rather than maintain scanner drivers.
+- Lexical profiles must preserve committed malformed suffix rejection. For
+  example, FHIRPath's incomplete =-MM= / =:mm= groups must not quietly fall back
+  to a shorter accepted token. HL7 segment ids reject a maximal four-character
+  run instead of accepting its first three characters. Preserve Unicode class
+  semantics through Scheme-generated classes and exact UTF-8 endpoint tests.
+- HL7 source captures are validated once per parse: the five MSH delimiters
+  are distinct and non-alphanumeric. The prepared plan retains no source;
+  per-source execution owns captures. No global mutable delimiter cache.
+- TLA+ module depth is source state rather than repeated scans from offset zero.
+  Comments, quoted strings, module borders and proof lexemes keep their existing
+  boundaries. Source-sensitive checks become transitions/guards, not arbitrary
+  callbacks executed by Rust.
+- Bash retains nested Word/WordPart/expansion nodes and stable fields. Generic
+  queues/checkpoints and marker-to-body links belong to the engine; an opaque
+  balanced-word token does not qualify structured Bash syntax. Traversal and
+  child accumulation must avoid repeated copying as input grows.
+- Native C ownership and standalone Rust are separate product gates. A common
+  loader is not a portable-policy receipt; source descriptors are currently
+  rejected by native artifact serialization and standalone Rust generation.
+  Runtime creation/FFI handles are reused across calls, not recreated per parse.
+
+** Qualification and progress tracking
+
+=t/language-pack-metadata-test.ss= is the executable whole-inventory boundary:
+all ten admitted entries, POO metadata/services, native fixture conformance and
+explicit external-role counts. Update its reviewed expectations when callbacks
+are removed. Native Scheme/ASP remains the semantic authority; no JSON result
+snapshots or document-side audit scripts are introduced.
+
+For each stage:
+1. Preserve old endpoint/tree/artifact behavior as a native Scheme differential
+   witness before removing the old implementation. Include malformed input,
+   Unicode, adjacency, EOF and source-dependent state cases.
+2. Regenerate Rust from the same Scheme-owned declaration. Run its real Cargo
+   consumer and compare required source spans/CST/field obligations.
+3. Preserve identity/catalog ordering; regenerate and review any digest change.
+   A syntax-coverage change requires an explicit contract decision.
+4. Use existing ASP benchmarks for cold/warm execution, FFI handle reuse and
+   work/allocation growth. Report structural work and paired semantics before
+   claiming runtime improvement; AOT build time is a separate measurement.
+5. Keep native test gates at 90 seconds total / 5 seconds silence and compiler
+   gates at 90 / 30. Real output and nonzero exits remain required. Do not split
+   a failing case merely to evade its gate or switch Scheme away from GCC.
+6. Commit the qualified owner slice to the existing PR and verify its exact
+   remote head. Ubuntu native and Rust are the requested publication gate;
+   inspect macOS failures without treating queued macOS as a reason to stop.
+
+Current implementation sequence: S0 authoring contracts and S1 closed lexical
+roles are implemented. S2 header/module contexts prepare once; Bash source state
+still needs portable lowering. S3/S4 use the same descriptor/result/strategy
+contracts, and S5 proof policy must become portable data. These remaining stages
+must not introduce alternate pack APIs.
+

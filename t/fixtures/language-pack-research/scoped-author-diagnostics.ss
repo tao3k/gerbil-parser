@@ -1,0 +1,65 @@
+#!/usr/bin/env gxi
+;;; -*- Gerbil -*-
+(import "located-component" "scoped-author-vocabulary"
+        (rename-in "scoped-author-vocabulary" (scoped-arguments imported-scoped-arguments))
+        (for-syntax (only-in :gerbil/expander core-expand)))
+(defsyntax (scoped-errors stx)
+  (def (capture form)
+    (display "SCOPED-EXPAND-BEGIN: ") (write (syntax->datum (stx-car form)))
+    (newline) (force-output)
+    (with-catch
+     (lambda (condition)
+       (display "SCOPED-EXPAND-CAUGHT: ") (write (error-message condition))
+       (newline) (force-output)
+       (let* ((details (slot-ref condition 'irritants)) (blame (car details))
+              (loc (stx-source blame))
+              (start (and loc (##position->filepos (##locat-start-position loc)))))
+         (list (syntax-error? condition) (error-message condition)
+               (syntax->datum blame)
+               (and start (list (##container->path (##locat-container loc))
+                                (+ 1 (##filepos-line start)) (+ 1 (##filepos-col start))))
+               (map syntax->datum (cdr details)))))
+     (lambda () (core-expand form) #f)))
+  (syntax-case stx ()
+    ((_ form ...)
+     (datum->syntax #'scoped-errors (list 'quote (stx-map capture #'(form ...)))))))
+(def checked 0)
+(def (probe label actual expected)
+  (unless (equal? actual expected) (error "scoped author mismatch" label actual expected))
+  (set! checked (+ checked 1))
+  (display "SCOPED-AUTHOR-CASE-OK: ") (display label) (newline) (force-output))
+(def (line-at path number)
+  (call-with-input-file path
+    (lambda (port)
+      (let loop ((index 1))
+        (let (line (read-line port))
+          (when (eof-object? line) (error "scoped source line absent" path number))
+          (if (= index number) line (loop (+ index 1))))))))
+(for-each
+ (lambda (result token parameter context-head depth)
+   (probe (list 'typed token) (car result) #t)
+   (probe (list 'message token) (cadr result)
+     (string-append "deflocated-list: " parameter " must be an identifier"))
+   (probe (list 'blame token) (caddr result) token)
+   (let* ((loc (list-ref result 3)) (line (line-at (car loc) (cadr loc)))
+          (offset (- (caddr loc) 1)) (text (number->string token)))
+     (probe (list 'source token) (substring line offset (+ offset (string-length text))) text))
+   (let (contexts (list-ref result 4))
+     (probe (list 'contexts-count token) (length contexts) depth)
+     (probe (list 'author-or-direct-context token) (caar contexts) context-head)
+     (probe (list 'inner-context token) (car (last contexts)) 'deflocated-list)))
+ (scoped-errors
+   (scoped-arguments component 91 arguments
+     (reference name) (literal ",") argument)
+   (imported-scoped-arguments component call-arguments 92
+     (reference name) (literal ",") argument)
+   (scoped-arguments component call-arguments arguments
+     (reference name) (literal ",") 93)
+   ;; A prior failed scoped expansion must not change this direct invocation.
+   (deflocated-list component 94 arguments
+     (reference name) (literal ",") (field argument)))
+ '(91 92 93 94) '("owner" "entry" "field label" "owner")
+ '(scoped-arguments imported-scoped-arguments scoped-arguments deflocated-list) '(2 2 2 1))
+(display "SCOPED-AUTHOR-DIAGNOSTICS-OK: ") (display checked)
+(display " checks passed") (newline) (force-output)
+(exit 0)

@@ -1,0 +1,399 @@
+#+title: Scheme language pack semantics: binding, fields and author tasks
+#+date: 2026-10-06
+
+* Research status
+
+This study develops the questions in [[file:scheme-language-pack-design.org][Scheme language pack design]].
+Source baseline: =b455d402281aa1e0d9616a3acc210ba6c6b52cca=, whose runtime
+and authoring implementation is unchanged from =d4a99ef=. The rules below are
+candidate analyses and paper/design conclusions, not new public APIs or a
+completed correctness proof. Source inspection and small mathematical checks
+are distinguished from native parser execution.
+
+* Additional literature and its precise role
+
+** Binding as Sets of Scopes
+
+Matthew Flatt, POPL 2016; [[https://www-old.cs.utah.edu/plt/scope-sets/][author's extended paper]], especially
+[[https://www-old.cs.utah.edu/plt/scope-sets/general-macros.html][section 3: procedural macros, modules and phases]]. The model attaches scope
+information to syntax and explains binding comparisons, expansion contexts and
+module phases. It provides a way to reason about composition beyond comparing
+identifier spellings.
+
+Our use is a model for independently composable grammar vocabulary. Gerbil need not adopt Racket's expander
+implementation or scope representation. We must preserve the host's established
+binding behavior where host references occur, and independently specify the
+meaning of symbolic grammar names. The paper's comparisons are not a guarantee
+that the corresponding Gerbil operations have identical edge-case behavior.
+
+** Abstract interpretation
+
+Patrick Cousot and Radhia Cousot, POPL 1977,
+[[https://www.di.ens.fr/~cousot/COUSOTpapers/POPL77.shtml][author publication and summary]]. The source describes abstract domains,
+monotone equations, fixpoints and consistency with concrete semantics. It
+motivates finite conservative analysis of recursive grammar products.
+
+Our field-count domain and transfers below are our proposed specialization,
+not algorithms supplied by this paper. Their correctness must be checked
+against this repository's reduction semantics. A finite domain can guarantee
+termination of monotone iteration while still being too expensive or too
+imprecise for a useful compiler pass.
+
+Official [[https://gerbil.scheme.org/reference/gerbil/expander/utilities.html][Gerbil syntax utilities]] document source access and syntax traversal.
+They support an implementation direction using existing facilities. Retaining
+syntax objects does not itself establish correct DSL binding or useful errors.
+
+* Binding model: distinguish six kinds of names
+
+| Name | Current role | Candidate policy |
+|------+--------------+------------------|
+| Rule reference | Pack-local symbolic Grammar IR reference | Resolve in the grammar's rule namespace |
+| Token reference | Pack-local terminal reference | Resolve in the terminal namespace; ambiguity remains an error |
+| Node/field label | Public tree/catalog identity | Preserve intentional labels and published ordering |
+| Fragment macro | Gerbil expansion binding | Honor module imports, aliases and definition context |
+| Generated private helper | Implementation detail | Keep private host bindings distinct from caller bindings |
+| Host expression | Identity values, backend digest/procedure expressions | Preserve the caller's original syntax context |
+
+The existing Bound IR already creates structured identities containing package,
+grammar, namespace and name. Fields are qualified by their node owner.
+=src/compiler/bound-ir.ss= rejects unresolved references during admission.
+This is a real DSL binding product, not evidence that every intermediate syntax
+context survives expansion. Conversely, symbolic rule resolution is deliberate;
+replacing it wholesale with host-variable lookup would change the language.
+
+** Candidate designs and tradeoffs
+
+A. Keep pack-local symbolic rule names; fragments explicitly receive all rule
+   dependencies as arguments. This retains the current core identity model and
+   makes reusable fragments easy to inspect. Large fragments may need many
+   parameters. Implicit free rule names remain a documented use-site dependency.
+
+B. Introduce scoped fragment-private rules and explicit exports. This can support
+   independently composed larger fragments, but requires a new definition and
+   dependency model. Private IDs must lower deterministically without leaking
+   generated names into public catalogs. No such author API is proposed yet.
+
+C. Treat all rule names as ordinary Scheme bindings. This enables host-style
+   imports but changes existing resolution and identity assumptions. It needs
+   substantially stronger evidence than a shorter syntax example.
+
+Research preference: evaluate A with ordinary macro/module composition first;
+consider B only when real author tasks demonstrate an unmet need. Preserve the
+canonical IR and current public identities throughout the comparison.
+
+** Syntax roles in composed declarations
+
+=src/language/grammar.ss= expands extensions using =core-expand1= and then
+constructs canonical datum expressions. A grammar vocabulary specification should
+classify which arguments are DSL data and which carry host syntax context. This
+makes fragment parameters, introduced labels and generated products explainable
+to an author using the existing implementation.
+
+The lower-level compiler in =src/compiler/language-artifact.ss= already derives
+source maps from syntax rows and accepts an explicit source map. The concise
+surface records macro names in =expansionLineage=; this is not a complete map of
+every macro invocation to its original argument location. The current surface
+test checks a rule's origin path, not exact imported argument spans.
+
+| Case | Expected observation | What would falsify the design |
+|------+----------------------+------------------------------|
+| Imported fragment renamed at import | Expansion uses the imported transformer | Behavior changes merely because its local spelling changes |
+| Fragment parameter names a caller rule | Reference resolves to that declared rule | Parameter is confused with a macro-private helper |
+| Fragment introduces a public field label | Label stays intentional symbolic data | Host binding/shadowing accidentally renames the public label |
+| Two fragments reuse a private helper spelling | Independent private bindings | Composition silently joins their implementations |
+| Macro supplies private backend expressions | Host references retain their original context | Reconstruction resolves them in the consumer module |
+| Invalid nested fragment argument | Error points to the argument with expansion context | Only the outer language declaration can be identified |
+| Same spelling in rule and token namespaces | Bare use rejects; explicit use resolves | New shorthand silently changes namespace precedence |
+
+These cases require executable expansion tests before any implementation defect
+is reported. =t/language-surface-test.ss= already exercises a local fragment,
+Bound IR lineage, namespace disambiguation and field union. Extend its evidence
+with cross-module and precise-location cases; do not recreate its existing tests.
+
+* Field semantics: catalog membership is not cardinality
+
+** Concrete reduction observations
+
+=src/runtime/reduce.ss:recognition-children-field= has three cases:
+
+- Zero children: emit no fielded child.
+- One unfielded child: attach the field directly to its value.
+- One already fielded child, or multiple children: attach the outer field to
+  a fragment containing those children.
+
+=src/runtime/event-reduce.ss:event-children-field= implements corresponding
+empty, direct and fragment cases. Named aliases wrap their children in a node,
+even when the body is empty. These observations require analysis of emitted
+structure rather than occurrences of constructor names.
+
+Two deliberately different forms illustrate the issue:
+
+#+begin_src scheme
+;; Study expressions only, not complete language declarations.
+(repeat (field item word))
+(field items (repeat word))
+#+end_src
+
+The first can emit many =item= field instances. The second emits zero or one
+=items= field instance; when it wraps several words, that field contains a
+fragment. A proposed typed product must define how fragments are exposed before
+claiming a field has a single node/token type.
+
+The existing =surface-fields= gathers declared field names through transparent
+helpers and stops at named nodes. It supplies a catalog. It does not claim to
+compute exact instance counts or correlated field presence.
+
+** Define the observation before choosing the analysis
+
+Candidate observation: the sequence of immediate recognition children before a
+named-node wrapper, and the labels attached to that sequence. Named nodes and
+fragments also carry their own nested summaries. A field inside a fragment is
+not automatically another immediate field of the enclosing named node.
+
+An alternative public API might flatten fragments. Its counts and possible types
+would be a different projection. Keep both questions explicit; do not publish
+Tree-sitter-style node types from catalog membership alone.
+
+Recovery is a separate observation class. The initial analysis covers ordinary
+successful finite derivations. A recovery-enabled artifact may widen or omit
+fields; required-field claims must either exclude that class in the contract or
+include its behavior conservatively.
+
+** A finite candidate count domain
+
+For a fixed finite set of declared field labels F, let =cap(n)= be 0, 1 or 2,
+where 2 means two or more. A summary is a set of reachable abstract tuples:
+
+#+begin_example
+(arity, count[f1], ..., count[fk])  with every component in {0, 1, 2}
+bottom = {}                       ; no finite productive derivation yet
+epsilon = {(0, 0, ..., 0)}         ; productive derivation emitting no children
+join = set union
+sequence = pairwise componentwise capped addition
+#+end_example
+
+Do not replace bottom with epsilon. Recursive rules without a productive base
+must not manufacture successful empty parses. Keep arity and field counts in
+joint tuples; independent unions can lose the relation needed by field wrapping.
+
+Candidate transfers for immediate children:
+
+| Form | Transfer |
+|------+----------|
+| Token or recognized literal | One unfielded child |
+| Empty production | Epsilon |
+| Sequence | Capped sums across productive child tuples |
+| Choice | Union of alternative summaries |
+| Optional | Union with epsilon |
+| Repeat | Least fixpoint X = epsilon union sequence(body, X) |
+| Repeat1 | Sequence(body, repeat(body)) |
+| Reference | Read the referenced rule's current summary |
+| Precedence | Preserve this structural summary; actual conflict resolution remains separate |
+| Field f around body | Arity 0 remains empty; nonzero arity emits one child labeled f |
+| Named node/alias K | Record body's owned facts for K; emit one unfielded node to its parent |
+
+For =field=, outer immediate counts become one for f and zero for other labels;
+existing inner labels remain in nested values/fragments, not in this immediate
+projection. This transfer only addresses counts. A useful type analysis must also
+track whether the single child is already fielded, its node/token identity and
+whether wrapping produces a fragment. That shape component is not formalized
+here, so these rules do not yet generate a complete typed schema.
+
+Resolve recursive equations by monotone worklist iteration from bottom.
+With fixed F there are at most =3^(|F|+1)= tuple values per sequence summary;
+the powerset lattice has finite height. This proves termination for these
+monotone count equations, not practical efficiency or exactness. Partition by
+reachable owner/field sets, track iterations, and consider a cheaper sound
+product approximation if relational tuples grow too large.
+
+For a reachable node kind, join facts across its productive occurrences. A field
+is potentially present if any tuple has a positive count, required if all tuples
+have positive counts, and potentially repeated if any tuple has count 2. An empty
+node-summary set means unreachable/unknown admission status; never use vacuous
+truth to mark all fields required.
+
+Choice over all grammar derivations can overapproximate actual parses selected
+by conflicts, precedence and lexical constraints. Such extra alternatives reduce
+precision; they must not be discarded solely because a few fixtures omit them.
+A soundness proof must relate summaries to actual reduction output, separately
+from a precision assessment on reachable language inputs.
+
+** Worked source-level predictions
+
+The following are manual predictions for ordinary successful derivations, not
+native artifact receipts or claims of an implemented analysis.
+
+| Current case | Expected immediate field counts | Remaining qualification |
+|--------------+---------------------------------+-------------------------|
+| HCL ConditionalExpression | condition: 1; consequent/alternative: 0 or 1 | Their presence is correlated; expression must produce a child |
+| HCL BinaryExpression | left: 1; operator/right: 0, 1 or many | operator and right counts are correlated; grammar semantics stay unchanged |
+| HCL CallExpression | argument: 0, 1 or many | Parentheses do not make argument required |
+| Arithmetic Expression | left/operator/right: 1 per binary node | Recursion builds child nodes; it does not repeat these fields on that node |
+| Transparent recursive helper witness | item: 1; tail: 0, 1 or many | Named-node barriers and recursion must both be respected |
+| Field around empty | no emitted field | Catalog reservation is still a distinct public declaration |
+| Field around a repeated token | zero or one outer field | Its value may be a fragment, unlike repeated field instances |
+
+The transparent witness is the grammar in =t/language-surface-test.ss=:
+=helper= chooses a fielded word or a parenthesized helper followed by a fielded
+word. Existing tests check the inferred =item/tail= catalog and roundtrip.
+They do not assert these cardinality facts. Correlations such as both HCL
+conditional branches appearing together belong to a richer schema than separate
+per-field flags; defer them unless an actual consumer needs that precision.
+
+** Reproducible checks of the proposed equations
+
+This Gerbil Scheme block checks the mathematical candidate only. It does not import the
+parser, qualify a backend, or serve as the semantic oracle for native tests.
+Tuple layout is =(arity, item, tail, other)=; nonempty field wrapping resets the
+outer immediate counts. Seven checks passed under Gerbil when this block was revised (exit status 0).
+Save the block to a =.ss= file and run =gerbil env gxi <file.ss>=.
+
+#+begin_src scheme
+(def count-zero '(0 0 0 0))
+(def count-epsilon (list count-zero))
+(def count-word '((1 0 0 0)))
+
+(def (count-set values)
+  (let loop ((rest values) (result '()))
+    (cond
+     ((null? rest) result)
+     ((member (car rest) result) (loop (cdr rest) result))
+     (else (loop (cdr rest) (cons (car rest) result))))))
+
+(def (count-subset? left right)
+  (let loop ((rest left))
+    (or (null? rest)
+        (and (member (car rest) right) (loop (cdr rest))))))
+
+(def (count-set=? left right)
+  (and (count-subset? left right) (count-subset? right left)))
+
+(def (count-join left right)
+  (count-set (append left right)))
+
+(def (count-sequence left right)
+  (count-set
+   (apply append
+    (map (lambda (x)
+           (map (lambda (y) (map (lambda (a b) (min 2 (+ a b))) x y))
+                right))
+         left))))
+
+(def (count-field index body)
+  (count-set
+   (map (lambda (row)
+          (if (zero? (car row)) count-zero
+            (list 1
+                  (if (= index 1) 1 0)
+                  (if (= index 2) 1 0)
+                  (if (= index 3) 1 0))))
+        body)))
+
+(def (count-fixpoint step)
+  (let loop ((current '()) (iterations 0))
+    ;; Four capped components give 81 tuples and at most 81 strict additions.
+    (when (> iterations 81) (error "count model did not converge"))
+    (let (updated (step current))
+      (unless (count-subset? current updated)
+        (error "count model is not ascending"))
+      (if (count-set=? updated current) current
+        (loop updated (+ iterations 1))))))
+
+(def (count-check label actual expected)
+  (unless (count-set=? actual expected)
+    (error "count model mismatch" label actual expected))
+  (display "COUNT-CASE-OK: ") (display label) (newline))
+
+(def count-items (count-field 1 count-word))
+(def count-repeated-fields
+  (count-fixpoint
+   (lambda (x) (count-join count-epsilon (count-sequence count-items x)))))
+(count-check 'repeated-fields (map cadr count-repeated-fields) '(0 1 2))
+
+(def count-repeated-words
+  (count-fixpoint
+   (lambda (x) (count-join count-epsilon (count-sequence count-word x)))))
+(count-check 'wrapped-repeat
+  (map cadr (count-field 1 count-repeated-words)) '(0 1))
+(count-check 'empty-field (count-field 1 count-epsilon) count-epsilon)
+(count-check 'nonproductive-recursion
+  (count-fixpoint (lambda (x) (count-sequence x count-word))) '())
+(count-check 'nullable-repeat
+  (count-fixpoint
+   (lambda (x) (count-join count-epsilon (count-sequence count-epsilon x))))
+  count-epsilon)
+
+(def count-helper
+  (count-fixpoint
+   (lambda (x)
+     (count-join count-items
+       (count-sequence count-word
+         (count-sequence x
+           (count-sequence count-word (count-field 2 count-word))))))))
+(count-check 'transparent-helper
+  (map cdr count-helper) '((1 0 0) (1 1 0) (1 2 0)))
+
+(def count-branches
+  (count-join count-epsilon
+    (count-sequence (count-field 2 count-word) (count-field 3 count-word))))
+(def count-conditional (count-sequence count-items count-branches))
+(count-check 'conditional-correlation
+  (map cdr count-conditional) '((1 0 0) (1 1 1)))
+(display "COUNT-MODEL: 7 checks passed") (newline)
+#+end_src
+
+The recursive helper uses =word= for punctuation because both emit one unfielded
+child in this count projection. Nullable alias bodies, fragment value types,
+recovery and precedence need additional native witnesses; these checks establish
+only the stated count examples and do not prove the full abstraction sound.
+
+* Whole-package author task study
+
+The current three interfaces are the starting point. Inspection shows an
+important ownership exception: FHIRPath declares =defsyntax-corpus= in
+=parser.ss=, while arithmetic/HCL fixture declarations are in =grammar.ss=.
+This is an organizational choice to describe accurately in author guidance.
+The overview should describe allowed placement accurately before further
+consolidation is considered.
+
+| Task | Current required decisions | Potential derivation | Must remain explicit |
+|------+----------------------------+----------------------+----------------------|
+| Add an arithmetic operator | Rule, precedence, node/fields, acceptance and AST tests | Catalog membership | Associativity and expected tree |
+| Add an HCL optional clause | Field placement, nullability, accepted/rejected examples | Presence/count facts | Recognition and recovery policy |
+| Share a fragment | Macro parameters/imports, reference dependencies | Repeated structure | Public node/field meaning and conflicts |
+| Update normative FHIRPath input | Source identity/digest, grammar/profile changes, fixtures | Mechanical source checks | Version provenance and intentional divergence |
+| Publish a native product | Loader exports and qualified target/build strategy | Product assembly from admitted IR | Target capability and semantic qualification |
+| Add concurrent application parsing | Runtime service policy and workload tests | Existing parser reuse | Queueing, cancellation and resource limits |
+
+Separate three cost measurements: concepts the author must understand, facts
+they maintain in more than one place, and steps to finish a real change. Count
+source edits as supporting evidence, not as a substitute for comprehension.
+Use matched tasks and a declared rubric: correctness, omitted obligations,
+completion time, and the author's explanation of the generated result.
+
+Our study should first remove derivable repetition, improve error localization
+and clarify ownership. Whether grammar, loader and tests should merge is a
+later empirical question; a file-count reduction does not establish a benefit.
+
+* Next research gates
+
+1. Binding policy review: classify each syntax-to-datum boundary by name role;
+   specify use-site dependencies and host-context preservation.
+2. Observation review: choose immediate versus fragment-flattened public fields,
+   ordinary versus recovered artifacts, and the type vocabulary.
+3. Mathematical checks: exercise capped sums, nullable bodies, recursion without
+   a base, repeated wrappers and repeated field instances.
+4. Native witnesses: compare predicted field events and exact ASTs with existing
+   Scheme and qualified generated products before publishing metadata.
+5. Author tasks: perform the same operator/optional-clause/fragment changes with
+   the current surface and a small proposed abstraction; preserve negative cases.
+
+This study advances gates 1–3 through source inspection and a candidate model.
+It does not close gate 4, a new schema/API, or a performance claim.
+
+* Executable host binding evidence
+
+[[file:scheme-macro-binding-experiments.org][Gerbil macro binding experiments]] now supply six native Gerbil host-expansion
+controls for imported/renamed macros, caller parameters and local shadowing.
+They explain the contextual choices available to authors of a composable
+grammar vocabulary; they are host-expansion controls.

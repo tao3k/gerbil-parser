@@ -3,17 +3,20 @@
 
 (import :std/test
         :gerbil-parser/language-support
-        :gerbil-parser/languages/tla-plus/v1/source)
+        :gerbil-parser/languages/tla-plus/parser)
+
+(def metadata (language-parser-entry-ref tla-plus-layout-language 'metadata))
+(def sany-source (language-metadata-ref metadata 'source-catalog))
 
 (def javacc-source-tests
   (test-suite "JavaCC native grammar source"
     (test-case "the complete pinned SANY production inventory is immutable"
-      (check (javacc-source-digest tla-plus-sany-source)
-             => +tla-plus-sany-grammar-digest+)
-      (check (length (javacc-source-productions tla-plus-sany-source)) => 99)
+      (check (javacc-source-digest sany-source)
+             => (language-metadata-ref metadata 'sany-grammar-digest))
+      (check (length (javacc-source-productions sany-source)) => 99)
       (for-each
        (lambda (name)
-         (check (javacc-source-production tla-plus-sany-source name)
+         (check (javacc-source-production sany-source name)
                 ? javacc-production?))
        '("CompilationUnit" "Module" "Body" "Expression" "LetIn"
          "Proof" "Step" "PrimitiveExp" "ExtendableExpr"
@@ -43,3 +46,7 @@
        true))))
 
 (export javacc-source-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def javacc-source-test javacc-source-tests)
+(export javacc-source-test)

@@ -1,0 +1,207 @@
+#+title: RFC 0013 — Ordered semantic sequence publication
+#+startup: overview
+
+* Algorithm and actual seam
+
+RFCs 0010–0012 reduce scanner and grammar replay work. The complete artifact
+still requires every canonical event, current token binding, trivia and digest.
+This experiment targets the remaining intermediate semantic children lists.
+
+[[https://homepages.inf.ed.ac.uk/wadler/topics/deforestation.html][Wadler, Deforestation, TCS 73 (1990), 231–248]] supplies the idea of
+eliminating intermediate trees between a producer and its consumer. Its
+syntactic transformation applies to a restricted function form. This runtime
+implements an explicit producer/consumer fusion at a known seam; it does not
+implement that general compiler transformation or inherit its performance.
+
+The semantic producer is =reduce-value= / =apply-operand-action= in
+=src/runtime/lr-parser.ss=. The consumer is =recognition-events= in
+=src/runtime/artifact.ss=. Previously each field/alias action flattened its
+ordered recognition sequence before storing node/fragment children. Publication
+then traversed that intermediate list. Generated HCL/arithmetic operand actions
+also use the same =recognition-sequence-for-action= boundary; root acceptance
+still explicitly materializes and validates the singleton root.
+
+The candidate retains the ordered sequence in multi-child fields and aliases.
+Publication consumes leaves directly with an explicit traversal stack and a
+cumulative position delta. It allocates neither an intermediate children list
+nor relocated child/value wrappers for those leaves. Single-child fields still
+materialize the singleton because nested field wrapping has distinct semantics.
+
+* Nonempty concatenation invariant and cost model
+
+=recognition-sequence-append= removes empty operands. Relocating an empty
+sequence returns the empty sequence. Consequently a branch contains at least
+two semantic children, and field cardinality is determined by shape alone:
+empty list, singleton list, other list or branch. No count field is necessary.
+
+Both controls now retain the original two-field concatenation nodes. There is
+no fusion switch read, cached summary update or extra summary allocation on
+concatenation. Field/alias bounds follow only the relevant left/right edge with
+a tail-recursive walker and compose position deltas. The bound cost is O(edge
+depth), and an arbitrary proper-list leaf still requires its last element for
+an end bound. Publication consumes the ordered leaves with an explicit stack. The walker
+descends left in local variables and saves only the deferred right side, using
+one pending vector/cons per branch instead of two. List materialization also
+uses this walker; that common improvement is not isolated by the fusion switch.
+
+An explicit traversal stack avoids Scheme recursion on a left-associated
+sequence. Position views compose translation without copying a subtree.
+Publication remains O(events + tokens); source hashing and canonical output
+remain linear. This experiment cannot remove that output lower bound.
+
+* Semantic contract and independent oracle
+
+- Original production and operand action order is unchanged.
+- Empty fields, already-named singleton field wrapping, alias bounds and
+  existing nested fields retain their behavior.
+- The event publisher accumulates sequence and value translations, validates
+  moved leaves against current tokens, and retains strict identity for unmoved
+  tokens. A view remains a moved view even when cumulative delta cancels to zero.
+- Trivia interleaving, root clamps, event IDs, digest and artifact schema remain
+  the existing publisher's responsibility.
+- =lr-recognition-project= explicitly disables fusion while independently
+  replaying original productions and rebinding current tokens. This preserves
+  a materialized semantic oracle for the candidate.
+- Selective GLR explicitly disables fusion while constructing alternatives:
+  candidate tree equality must compare canonical children lists. A pre-fork
+  deterministic prefix is shared by all alternatives. The new scenario test
+  requests fusion and checks the established fork completion evidence.
+- Recognition child fields have a public mutator. No object-identity event tape
+  cache or assumption of deep immutability is introduced.
+
+The experimental switch is =current-recognition-sequence-fusion-enabled?=,
+initially false. Semantic children exposed by private runtime accessors may be
+ordered sequences under this switch; callers needing a list use the existing
+=recognition-sequence->list= boundary.
+
+* Reproduction and evidence
+
+Use the existing native incremental session matrix, with both variant orders
+and two repetitions. Each measurement uses 20 CPU samples. The 112 rows cover
+flat HCL 400/800, nested HCL 8/16 (80 declarations per group), first/middle/last
+insert/delete, and six-edit histories. Fresh full artifacts, inverse edits and
+independent production replay are checked outside timed samples.
+
+The existing five-second real child-output inactivity and 180-second batch
+limits are unchanged. Only normal-exit completed rows qualify. Retained failed
+attempts are not admitted as timing or test passes.
+
+Focused native qualification checks a 10,000-child left-associated sequence,
+nested fields, positive/negative views, Unicode source edits, canonical LR
+references and selective GLR evidence. Full qualification additionally runs
+all repository native test modules. Suite selection and remaining qualification
+gates are recorded below; a loaded module is not a passed suite.
+
+* Completed fusion matrix and admission
+
+Fusion is not admitted as the production default. Flat and nested results do
+not show a stable complete-request benefit. In particular, the flat 800-unit
+six-edit history is 19.1–33.0% slower, and the nested 16-unit history is
+20.4–20.9% slower. The switch remains false. The common single-continuation
+walker reduces pending frame creation by construction; the fusion matrix does
+not isolate its production throughput effect.
+
+A separate comparison therefore builds the preceding production head
+=44aab77710ce79fd3952588803650732360211b3= in an isolated archive/output
+namespace and compares it with the current default, using the exact same
+preceding-head benchmark source in both processes. Runtime/language/fixture
+sources are checked against the archived Git tree. This comparison includes
+all current default-path overhead; it does not attribute a combined result
+to the walker alone.
+
+* Next structural seam
+
+The repository already provides
+=make-success-parse-artifact/raw-event-tape= in =src/runtime/artifact.ss= and
+uses it in =src/compiler/hcl-source.ss=. This publishes a flat
+operation/name/offset tape, resolves trivia and assigns canonical IDs once.
+The next falsifiable algorithm experiment is to lower original LR operand
+semantics to that existing event-program seam and retain reusable relative
+program fragments. Its acceptance conditions must include named singleton
+field nesting, multi-child wrapping, source-token identity after relocation,
+root clamps, exact canonical IDs, trivia and digest. Original production replay
+remains the independent artifact oracle. Dynamic/GLR alternatives retain their
+canonical semantic merge path until equivalence is separately proved.
+
+No direct LR event lowering or reusable event program is claimed implemented
+by this RFC. A blind event cache indexed by mutable semantic child identity
+would not establish the required contract. Full canonical output and source
+digests still impose a linear publication cost.
+
+* Native suite-selection audit and remaining gates
+
+The native harness selects exported names ending in =-test=. Twenty-two old
+suites exported only =-tests=, and the language-pack wrapper constructed an
+empty suite instead of registering its six imported language suites. The new
+sequence suite initially had the same naming error. These are now corrected;
+qualification separately counts each module's started and passed cases and
+rejects empty modules. The four new sequence cases actually execute, including
+the 10,000-child case. RFC 0012's historical 57-module claim is corrected;
+its 315 passed selected cases and original sealed logs are preserved.
+
+Performance thresholds remain 100ms p95 for 50 checked GrammarRole/Grammar
+pairs and 150ms p95 for 100 complete GQL parses, with the original 20/40
+samples. The complete intermediate audit observes approximately 251ms and
+321ms respectively. Independent processes do not close these gates: object
+construction triggers the five-second real-output watchdog, while GQL exits
+normally with a failed timing receipt. Several unrelated long-running host
+processes were simultaneously consuming CPU. This observation does not prove
+that contention explains every timing failure. No thresholds, sample counts,
+GC policies or inactivity limits are relaxed, and no production speedup or
+fully green native gate is claimed. The next required performance receipt is
+an unchanged-gate run in an adequately available execution environment.
+
+* Default-path regression and correction
+
+The experiment had routed already materialized ordinary children through a
+general sequence visitor, adding a callback and zero-delta composition for
+every child even with fusion disabled. =recognition-events= now retains the
+preceding direct list consumer whenever children are a proper list, and uses
+the deferred-sequence visitor only for branches/views. Token proofs, event
+ordering, nested fields, canonical IDs, trivia and digest are unchanged.
+A fresh full default comparison and native audit qualify this correction.
+
+* Completed default comparison and overall decision
+
+| Six-edit history | Preceding CPU ms | Candidate CPU ms | Paired changes |
+|------------------+------------------+------------------+----------------|
+| Flat 400         |           10.153 |           10.489 | +5.2%, +1.0%   |
+| Flat 800         |           19.964 |           19.762 | -1.9%, -0.1%   |
+| Nested 8         |           11.508 |           11.587 | -0.7%, +2.2%   |
+| Nested 16        |           19.638 |           19.220 | -7.4%, +4.0%   |
+
+Times in the table are medians of the two row medians; paired changes retain
+each run order rather than using a ratio of pooled values. Across all 28
+workloads, 16 slow in both orders, one improves in both and 11 are mixed.
+Several flat workloads still slow by approximately 2–6% in both orders after
+the direct list consumer is restored. These small effects are not a sufficient
+basis for claiming a throughput benefit. The single-continuation walker still
+halves pending frame creation at each branch by construction, but that source
+fact does not justify admitting the combined runtime change.
+
+Accordingly neither fusion nor the combined default-path candidate is
+performance-admitted. Fusion remains disabled; the implementation and receipts
+are retained in this local research branch, and no remote production update is
+made. In particular, “fusion disabled” does not imply that the combined default
+has no overhead. The remaining representation/action boundaries need further
+work before publication. The raw LR event-program seam described above is the
+next structural hypothesis, with the existing canonical publisher and original
+production replay oracle as its required contract. No claim of implemented
+LR event lowering, fully green native timing gates or remote CI is made.
+
+* Subsequent event-program implementation
+
+RFC [[file:0014-persistent-lr-event-programs.org][0014]] records the subsequent persistent LR event program implementation,
+its runtime ownership correction and its measured evidence. The negative
+sequence-fusion evidence above remains a historical receipt for its pinned
+source. The new implementation has a separate performance admission boundary.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

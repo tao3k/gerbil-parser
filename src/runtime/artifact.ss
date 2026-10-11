@@ -1,29 +1,44 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical backend-neutral ParseArtifact v1 and CST event authority.
 
-(import (only-in :std/func compose every-of)
+(import (only-in :std/string/utf8 string-utf8-length)
+        (only-in :std/list/list-builder with-list-builder)
+        (only-in ./parse-cost with-parser-cost-stage)
+        (only-in ./event-program event-program-value? event-program-value-kind
+                 event-program-value-code event-program-walk/inline event-program-relocate)
+        (only-in ./funcs recognition-sequence-for-each)
+        (only-in :std/func compose every-of)
+        (only-in :std/string/misc string-concatenate-reverse)
         (only-in ../modules/parser/types
                  +diagnostic-schema+ +parse-artifact-schema+)
-        (only-in ./identity sha256-text)
+        (only-in ./identity sha256-bytes sha256-text)
         (only-in ./recognition
+                 recognition-relocation? recognition-relocation-value recognition-relocation-delta
                  recognition-child-field recognition-child-value
                  recognition-fragment-children recognition-fragment-end
+                 recognition-fragment-start
                  recognition-fragment? recognition-node-children
                  recognition-node-end recognition-node-kind recognition-node?
-                 recognition-node-start recognition-value-end
-                 recognition-value-start)
+                 recognition-node-start)
         (only-in ./token
                  token? token-end token-kind token-lexeme token-start))
 (export +parse-artifact-schema+
         +diagnostic-schema+
         sha256-text
         make-success-parse-artifact
+        make-success-parse-artifact/canonical-events
+        make-raw-parse-event
+        make-success-parse-artifact/raw-event-tape
+        make-same-width-token-artifact
+        make-shifted-token-artifact
+        make-certified-window-artifact
         make-failure-parse-artifact
         parse-artifact-ref
         parse-artifact-events
+        with-parse-event-walk
         parse-artifact-status
         parse-artifact-success?
-        parse-artifact-valid?
+        parse-artifact-valid? parse-artifact-valid-for-source?
         parse-artifact-roundtrip
         event-kind
         token-event?
@@ -114,124 +129,506 @@
 ;;; Node/token identifiers are allocated once; source gaps become trivia only here.
 ;; recognition-events
 ;; : (-> List Recognition Boolean Fixnum List)
+(defrule (with-recognition-event-walk tokens root trivia? source-byte-length
+                                            node-emitter field-emitter token-emitter)
+  (let* ((remaining tokens)
+         (next-node-id 0) (next-token-id 0))
+    (def (emit-source-token! source-token)
+      (token-emitter next-token-id source-token)
+      (set! next-token-id (+ next-token-id 1))
+      (set! remaining (cdr remaining)))
+    (def (emit-trivia-until! boundary)
+      (let loop ()
+        (when (and (pair? remaining) (<= (token-end (car remaining)) boundary))
+          (unless (trivia? (car remaining))
+            (error "unclaimed significant token" (token-kind (car remaining))
+                   (token-start (car remaining))))
+          (emit-source-token! (car remaining)) (loop))))
+    (def (emit-token! source-token delta translated?)
+      (unless (and (pair? remaining)
+                   (if translated?
+                     (let (current (car remaining))
+                       (and (= (token-start current) (+ (token-start source-token) delta))
+                            (= (token-end current) (+ (token-end source-token) delta))
+                            (eq? (token-kind current) (token-kind source-token))
+                            (equal? (token-lexeme current) (token-lexeme source-token))))
+                     (eq? source-token (car remaining))))
+        (error "recognition token does not match source order"
+               (token-kind source-token) (+ delta (token-start source-token))))
+      ;; The canonical event always uses this request's actual source token.
+      (emit-source-token! (car remaining)))
+    (def (emit-children! children end delta translated?)
+      ;; Most production children already are canonical lists. Retain their
+      ;; direct consumer rather than adding sequence callbacks and zero deltas.
+      (if (list? children)
+        (for-each (lambda (child)
+                    (emit-value! (recognition-child-value child)
+                                 (recognition-child-field child) delta translated? #f)) children)
+        (recognition-sequence-for-each
+         (lambda (child child-delta child-translated?)
+           (emit-value! (recognition-child-value child) (recognition-child-field child)
+                        (+ delta child-delta) (or translated? child-translated?) #f)) children))
+      (emit-trivia-until! end))
+    (def (emit-value! value field delta translated? root?)
+      (cond
+       ((recognition-relocation? value)
+        (emit-value! (recognition-relocation-value value) field
+                     (+ delta (recognition-relocation-delta value)) #t root?))
+       ((token? value)
+        (when root? (error "parse root must be a recognition node" value))
+        (let ((start (+ delta (token-start value))) (end (+ delta (token-end value))))
+          (emit-trivia-until! start)
+          (when field (field-emitter 'start-field field start))
+          (emit-token! value delta translated?)
+          (when field (field-emitter 'finish-field field end))))
+       ((recognition-node? value)
+        (let* ((start (if root? 0 (+ delta (recognition-node-start value))))
+               (end (if root? source-byte-length (+ delta (recognition-node-end value))))
+               (id next-node-id) (kind (recognition-node-kind value)))
+          (emit-trivia-until! start)
+          (when field (field-emitter 'start-field field start))
+          (set! next-node-id (+ next-node-id 1))
+          (node-emitter 'start-node id kind start)
+          (emit-children! (recognition-node-children value) end delta translated?)
+          (node-emitter 'finish-node id kind end)
+          (when field (field-emitter 'finish-field field end))))
+       ((recognition-fragment? value)
+        (when root? (error "parse root must be a recognition node" value))
+        (let ((start (+ delta (recognition-fragment-start value)))
+              (end (+ delta (recognition-fragment-end value))))
+          (emit-trivia-until! start)
+          (when field (field-emitter 'start-field field start))
+          (emit-children! (recognition-fragment-children value) end delta translated?)
+          (when field (field-emitter 'finish-field field end))))
+       (else (error "invalid recognition value" value))))
+    (emit-value! root #f 0 #f #t)
+    (unless (null? remaining) (error "source tokens remain outside parse root" remaining))
+    (void)))
+
+(defrule (collect-canonical-events node-emitter field-emitter token-emitter walk)
+  (with-list-builder (emit!)
+    (def (node-emitter tag id kind position) (emit! (vector tag id kind position)))
+    (def (field-emitter tag field position) (emit! (vector tag field position)))
+    (def (token-emitter id token) (emit! (make-token-event id token)))
+    walk))
 (def (recognition-events tokens root trivia? source-byte-length)
-  (let ((remaining tokens)
-        (events '())
-        (next-node-id 0)
-        (next-token-id 0))
-    (letrec
-        ((emit!
-          (lambda (event)
-            (set! events (cons event events))))
-         (emit-source-token!
-          (lambda (source-token)
-            (emit! (make-token-event next-token-id source-token))
-            (set! next-token-id (+ next-token-id 1))
-            (set! remaining (cdr remaining))))
-         (emit-trivia-until!
-          (lambda (boundary)
-            (let loop ()
-              (when (and (pair? remaining)
-                         (<= (token-end (car remaining)) boundary))
-                (unless (trivia? (car remaining))
-                  (error "unclaimed significant token"
-                         (token-kind (car remaining))
-                         (token-start (car remaining))))
-                (emit-source-token! (car remaining))
-                (loop)))))
-         (emit-child!
-          (lambda (child)
-            (let* ((value (recognition-child-value child))
-                   (field (recognition-child-field child))
-                   (start (recognition-value-start value))
-                   (end (recognition-value-end value)))
-              (emit-trivia-until! start)
-              (when field (emit! (vector 'start-field field start)))
-              (emit-value! value)
-              (when field (emit! (vector 'finish-field field end))))))
-         (emit-children!
-          (lambda (children end)
-            (for-each emit-child! children)
-            (emit-trivia-until! end)))
-         (emit-node!
-          (lambda (node root?)
-            (let* ((id next-node-id)
-                   (kind (recognition-node-kind node))
-                   (start (if root? 0 (recognition-node-start node)))
-                   (end (if root?
-                          source-byte-length
-                          (recognition-node-end node))))
-              (set! next-node-id (+ next-node-id 1))
-              (emit! (vector 'start-node id kind start))
-              (emit-children! (recognition-node-children node) end)
-              (emit! (vector 'finish-node id kind end)))))
-         (emit-fragment!
-          (lambda (fragment)
-            (emit-children! (recognition-fragment-children fragment)
-                            (recognition-fragment-end fragment))))
-         (emit-token!
-          (lambda (source-token)
-            (emit-trivia-until! (token-start source-token))
-            (unless (and (pair? remaining)
-                         (eq? source-token (car remaining)))
-              (error "recognition token does not match source order"
-                     (token-kind source-token)
-                     (token-start source-token)))
-            (emit-source-token! source-token)))
-         (emit-value!
-          (lambda (value)
-            (cond
-             ((token? value) (emit-token! value))
-             ((recognition-node? value) (emit-node! value #f))
-             ((recognition-fragment? value) (emit-fragment! value))
-             (else (error "invalid recognition value" value))))))
-      (unless (recognition-node? root)
-        (error "parse root must be a recognition node" root))
-      (emit-node! root #t)
-      (unless (null? remaining)
-        (error "source tokens remain outside parse root" remaining))
-      (let reverse! ((rest events) (found '()))
-        (if (null? rest)
-          found
-          (let (next (cdr rest))
-            (set-cdr! rest found)
-            (reverse! next rest)))))))
+  (collect-canonical-events node-emitter field-emitter token-emitter
+    (with-recognition-event-walk tokens root trivia? source-byte-length
+                                node-emitter field-emitter token-emitter)))
 
 ;; flat-token-events
 ;; : (-> List List)
 (def (flat-token-events tokens)
-  (map make-token-event (iota (length tokens)) tokens))
+  (with-list-builder (emit)
+    (let loop ((rest tokens) (id 0))
+      (unless (null? rest)
+        (emit (make-token-event id (car rest)))
+        (loop (cdr rest) (+ id 1))))))
 
 ;; artifact
-;; : (-> String String Symbol List List Alist)
-(def (artifact grammar-digest source status events diagnostics)
-  (map cons
-       '(schema grammarDigest sourceDigest sourceByteLength
-                status events diagnostics)
-       (list +parse-artifact-schema+
-             grammar-digest
-             (sha256-text source)
-             (u8vector-length (string->utf8 source))
-             status
-             events
-             diagnostics)))
+;; : (-> String String Symbol List List (? U8Vector) Alist)
+(def (artifact grammar-digest source status events diagnostics
+               (source-bytes #f))
+  (let (bytes (or source-bytes
+                 (with-parser-cost-stage 'artifact-source-encoding (string->utf8 source))))
+    (with-parser-cost-stage 'artifact-source-identity
+      (map cons
+           '(schema grammarDigest sourceDigest sourceByteLength
+                    status events diagnostics)
+           (list +parse-artifact-schema+
+                 grammar-digest
+                 (sha256-bytes bytes)
+                 (u8vector-length bytes)
+                 status
+                 events
+                 diagnostics)))))
 
 ;; make-success-parse-artifact
 ;; : (-> String String List Recognition Boolean Alist)
 (def (make-success-parse-artifact grammar-digest source tokens root trivia?)
-  (let* ((source-byte-length (u8vector-length (string->utf8 source)))
+  (let* ((source-bytes
+          (with-parser-cost-stage 'artifact-source-encoding (string->utf8 source)))
+         (source-byte-length (u8vector-length source-bytes))
          (value
           (artifact grammar-digest source 'accepted
-                    (recognition-events tokens root trivia? source-byte-length)
-                    '())))
+                    (with-parser-cost-stage 'artifact-event-publication
+                     (if (or (event-program-value? root)
+                            (and (recognition-relocation? root)
+                                 (event-program-root? root)))
+                      (event-program-events tokens root trivia? source-byte-length)
+                      (recognition-events tokens root trivia? source-byte-length)))
+                    '() source-bytes)))
     value))
+
+;;; Interpret committed event bytecode directly into the canonical artifact.
+;;; The program retains old source tokens only as proof operands: moved leaves
+;;; bind and verify the actual current source token, never a copied substitute.
+(def (event-program-root? value)
+  (if (recognition-relocation? value)
+    (event-program-root? (recognition-relocation-value value))
+    (event-program-value? value)))
+(def (event-program-root-code root)
+  (let loop ((value root) (delta 0) (moved? #f))
+    (if (recognition-relocation? value)
+      (loop (recognition-relocation-value value)
+            (+ delta (recognition-relocation-delta value)) #t)
+      (begin
+        (unless (and (event-program-value? value) (event-program-value-kind value))
+          (error "event program root must be a node"))
+        (event-program-relocate (event-program-value-code value) delta moved?)))))
+(defrule (with-event-program-walk tokens root trivia? source-byte-length
+                                       node-emitter field-emitter token-emitter)
+  (let ((remaining tokens) (next-token-id 0)
+        (next-node-id 0))
+    (let ()
+      (def (emit-source-token!)
+        (let (input (car remaining))
+          (token-emitter next-token-id input)
+          (set! next-token-id (+ next-token-id 1))
+          (set! remaining (cdr remaining))))
+      (def (emit-trivia-until! boundary)
+        (let loop ()
+          (when (and (pair? remaining) (<= (token-end (car remaining)) boundary))
+            (unless (trivia? (car remaining))
+              (error "unclaimed significant program token" (token-kind (car remaining))))
+            (emit-source-token!) (loop))))
+      (event-program-walk/inline
+       (lambda (operation name offset delta moved? node-id)
+         (let (position (+ offset delta))
+           (case operation
+             ((token)
+              (emit-trivia-until! position)
+              (unless (and (pair? remaining)
+                           (if moved?
+                             (let (actual (car remaining))
+                               (and (= (token-start actual) (+ (token-start name) delta))
+                                    (= (token-end actual) (+ (token-end name) delta))
+                                    (eq? (token-kind actual) (token-kind name))
+                                    (equal? (token-lexeme actual) (token-lexeme name))))
+                             (eq? name (car remaining))))
+                (error "event program token does not bind current source"))
+              (emit-source-token!))
+             ((open-node)
+              (let ((start (if (= next-node-id 0) 0 position)) (id next-node-id))
+                (emit-trivia-until! start)
+                (node-emitter 'start-node id name start)
+                (set! next-node-id (+ next-node-id 1))
+                id))
+             ((close-node)
+              ;; The immutable node instruction supplies its own footer. Its
+              ;; opening ID is retained by the traversal frame, including the
+              ;; iterative depth fallback, rather than a second node-ID stack.
+              (unless (integer? node-id) (error "event node has no opening ID"))
+              (let (end (if (= node-id 0) source-byte-length position))
+                (emit-trivia-until! end)
+                (node-emitter 'finish-node node-id name end)))
+             ((open-field)
+              (emit-trivia-until! position)
+              (field-emitter 'start-field name position))
+             ((close-field) (field-emitter 'finish-field name position))
+             ((boundary) (emit-trivia-until! position))
+             (else (error "unknown committed event program operation" operation)))))
+       (event-program-root-code root))
+      (unless (null? remaining)
+        (error "event program is incomplete"))
+      (void))))
+
+(def (event-program-events tokens root trivia? source-byte-length)
+  (collect-canonical-events node-emitter field-emitter token-emitter
+    (with-event-program-walk tokens root trivia? source-byte-length
+                             node-emitter field-emitter token-emitter)))
+
+;;; One source-order authority; sinks choose their own representation. Expansion
+;;; keeps canonical emitters local and avoids imposing a generic event object.
+(defrule (with-parse-event-walk tokens root trivia? source-byte-length
+                              node-emitter field-emitter token-emitter)
+  (if (or (event-program-value? root)
+          (and (recognition-relocation? root) (event-program-root? root)))
+    (with-event-program-walk tokens root trivia? source-byte-length
+                             node-emitter field-emitter token-emitter)
+    (with-recognition-event-walk tokens root trivia? source-byte-length
+                                node-emitter field-emitter token-emitter)))
+
+;;; Assemble already canonical events from a committed generated path.
+(def (make-success-parse-artifact/canonical-events
+      grammar-digest source events source-bytes)
+  (artifact grammar-digest source 'accepted events '() source-bytes))
+
+;;; Named raw descriptors remain available for inspection. The generated HCL
+;;; hot path stores their operation, name, and byte offset in a flat tape.
+(defstruct raw-parse-event (operation name byte-offset) transparent: #t)
+
+;;; Resolve trivia and allocate canonical IDs once, after the speculative
+;;; parser commits a populated prefix of the request-local tape.
+(def (make-success-parse-artifact/raw-event-tape
+      grammar-digest source tokens tape raw-count trivia? source-bytes)
+  (let (events
+        (with-parser-cost-stage 'artifact-event-publication
+          (raw-event-tape-events tokens tape raw-count trivia?
+                                 (u8vector-length source-bytes))))
+    (artifact grammar-digest source 'accepted events '() source-bytes)))
+
+;; Event resolution owns exactly the committed tape and canonical event list.
+;; Keep source encoding/hash/header construction outside this boundary.
+(def (raw-event-tape-events tokens tape raw-count trivia? source-byte-length)
+  (let* ((remaining tokens)
+         (events (cons #f '()))
+         (tail events)
+         (next-token-id 0)
+         (next-node-id 0)
+         (node-ids '()))
+    (def (emit! event)
+      (let (cell (cons event '()))
+        (set-cdr! tail cell)
+        (set! tail cell)))
+    (def (emit-token! input)
+      (unless (and (pair? remaining) (eq? input (car remaining)))
+        (error "event token differs from source order" input))
+      (emit! (vector 'token next-token-id
+                     (token-kind input) (token-lexeme input)
+                     (token-start input) (token-end input)))
+      (set! next-token-id (fx+ next-token-id 1))
+      (set! remaining (cdr remaining)))
+    (def (emit-trivia-until! boundary)
+      (let loop ()
+        (when (and (pair? remaining)
+                   (<= (token-end (car remaining)) boundary))
+          (unless (trivia? (car remaining))
+            (error "unclaimed significant event token"
+                   (token-kind (car remaining))))
+          (emit-token! (car remaining))
+          (loop))))
+    (let loop ((index 0))
+      (when (< index raw-count)
+        (let* ((base (* 3 index))
+               (operation (vector-ref tape base))
+               (name (vector-ref tape (fx+ base 1)))
+               (byte-offset (vector-ref tape (fx+ base 2))))
+          (case operation
+            ((token)
+             (emit-trivia-until! (token-start name))
+             (emit-token! name))
+            ((open-node)
+             (let* ((start (if (= next-node-id 0) 0 byte-offset))
+                    (id next-node-id))
+               (emit-trivia-until! start)
+               (emit! (vector 'start-node id name start))
+               (set! next-node-id (fx+ next-node-id 1))
+               (set! node-ids (cons id node-ids))))
+            ((close-node)
+             (let ((end (if (null? (cdr node-ids))
+                          source-byte-length byte-offset))
+                   (id (car node-ids)))
+               (emit-trivia-until! end)
+               (emit! (vector 'finish-node id name end))
+               (set! node-ids (cdr node-ids))))
+            ((open-field)
+             (emit-trivia-until! byte-offset)
+             (emit! (vector 'start-field name byte-offset)))
+            ((close-field)
+             (emit! (vector 'finish-field name byte-offset)))
+            (else (error "unknown generated event" operation)))
+          (loop (fx+ index 1)))))
+    (unless (and (null? remaining) (null? node-ids))
+      (error "generated event stream is incomplete"))
+    (cdr events)))
+
+;;; A certified same-width edit changes exactly one token event. The unchanged
+;;; suffix remains shared, including node and field events.
+(def (make-same-width-token-artifact old-artifact source token-id source-token)
+  (unless (parse-artifact-success? old-artifact)
+    (error "token event reuse requires an accepted artifact"))
+  (let (events
+        (let loop ((remaining (parse-artifact-events old-artifact))
+                   (prefix '()))
+          (cond
+           ((null? remaining)
+            (error "token event id is absent" token-id))
+           ((and (token-event? (car remaining))
+                 (= (token-event-id (car remaining)) token-id))
+            (foldl cons
+                   (cons (make-token-event token-id source-token)
+                         (cdr remaining))
+                   prefix))
+           (else (loop (cdr remaining)
+                       (cons (car remaining) prefix))))))
+    (artifact (parse-artifact-ref old-artifact 'grammarDigest)
+              source 'accepted events '())))
+
+;;; Preserve the event topology while rebasing offsets after one token whose
+;;; byte width changed. Event boundaries inside a token are not admissible.
+(def (make-shifted-token-artifact old-artifact source token-id
+                                  token-start token-end source-token delta)
+  (unless (parse-artifact-success? old-artifact)
+    (error "shifted token reuse requires an accepted artifact"))
+  (let ((replaced? #f) (shared 0))
+    (def (offset value)
+      (cond
+       ((<= value token-start) value)
+       ((>= value token-end) (+ value delta))
+       (else (error "event boundary is inside the edited token" value))))
+    (def (keep event)
+      (set! shared (+ shared 1))
+      event)
+    (let (events
+          (map
+           (lambda (event)
+             (case (event-kind event)
+               ((token)
+                (let ((id (token-event-id event))
+                      (start (event-start event))
+                      (end (event-end event)))
+                  (cond
+                   ((= id token-id)
+                    (set! replaced? #t)
+                    (make-token-event id source-token))
+                   ((<= end token-start) (keep event))
+                   ((>= start token-end)
+                    (vector 'token id (token-event-token-kind event)
+                            (token-event-lexeme event)
+                            (+ start delta) (+ end delta)))
+                   (else (error "token overlaps the edited token" event)))))
+               ((start-node finish-node)
+                (let* ((value (vector-ref event 3))
+                       (shifted (offset value)))
+                  (if (= value shifted)
+                    (keep event)
+                    (vector (event-kind event) (vector-ref event 1)
+                            (vector-ref event 2) shifted))))
+               ((start-field finish-field)
+                (let* ((value (vector-ref event 2))
+                       (shifted (offset value)))
+                  (if (= value shifted)
+                    (keep event)
+                    (vector (event-kind event) (vector-ref event 1)
+                            shifted))))
+               (else (error "unknown recognition event" event))))
+           (parse-artifact-events old-artifact)))
+      (unless replaced?
+        (error "token event id is absent" token-id))
+      (values
+       (artifact (parse-artifact-ref old-artifact 'grammarDigest)
+                 source 'accepted events '())
+       shared))))
+
+;;; Each old token boundary in a certified window has one new boundary. LR
+;;; reductions can only place node and field boundaries at token boundaries,
+;;; so the event topology remains valid when their offsets are remapped.
+(def (token-groups-match? groups tokens)
+  (let groups-loop ((groups groups) (tokens tokens))
+    (if (null? groups) (null? tokens)
+      (let group-loop ((group (car groups)) (tokens tokens))
+        (cond
+         ((null? group) (groups-loop (cdr groups) tokens))
+         ((or (null? tokens) (not (equal? (car group) (car tokens)))) #f)
+         (else (group-loop (cdr group) (cdr tokens))))))))
+
+(def (make-certified-window-artifact old-artifact source first-id
+                                      old-window new-window delta
+                                      (assigned #f) (boundaries #f))
+  (unless (and (parse-artifact-success? old-artifact)
+               (pair? old-window)
+               (or (not assigned)
+                   (and (= (length assigned) (length old-window))
+                        (token-groups-match? assigned new-window))))
+    (error "invalid certified token window"))
+  (let* ((boundary-map (make-table test: equal?))
+         (start (token-start (car old-window)))
+         (old-count (length old-window))
+         (end (token-end (list-ref old-window (- old-count 1))))
+         (limit (+ first-id old-count))
+         (id-delta (- (length new-window) old-count))
+         (groups
+          (or assigned
+              (if (zero? id-delta)
+                (map list new-window)
+                (cons new-window
+                      (make-list (- old-count 1) '())))))
+         (next-id first-id)
+         ;; Borrow certified token groups until publication; construct each
+         ;; replacement event directly in its final request-owned list spine.
+         (replacement-vector (list->vector groups))
+         (shared 0))
+    (table-set! boundary-map start start)
+    (table-set! boundary-map end (+ end delta))
+    (cond
+     (boundaries
+      (for-each (lambda (entry)
+                  (table-set! boundary-map (car entry) (cdr entry)))
+                boundaries))
+     ((zero? id-delta)
+      (for-each
+       (lambda (old-token new-token)
+         (table-set! boundary-map (token-start old-token)
+                     (token-start new-token))
+         (table-set! boundary-map (token-end old-token)
+                     (token-end new-token)))
+       old-window new-window)))
+    (def (offset value)
+      (cond
+       ((< value start) value)
+       ((> value end) (+ value delta))
+       (else
+        (let (mapped (table-ref boundary-map value 'missing))
+          (if (eq? mapped 'missing)
+            (error "event boundary is inside a certified token" value)
+            mapped)))))
+    (def (keep event)
+      (set! shared (+ shared 1))
+      event)
+    (let (events
+          (with-list-builder (emit)
+           (for-each
+            (lambda (event)
+             (case (event-kind event)
+               ((token)
+                (let ((id (token-event-id event))
+                      (old-start (event-start event))
+                      (old-end (event-end event)))
+                  (cond
+                   ((< id first-id) (emit (keep event)))
+                   ((< id limit)
+                    (for-each
+                     (lambda (source-token)
+                       (emit (make-token-event next-id source-token))
+                       (set! next-id (+ next-id 1)))
+                     (vector-ref replacement-vector (- id first-id))))
+                   ((and (zero? delta) (zero? id-delta))
+                    (emit (keep event)))
+                   (else
+                    (emit
+                     (vector 'token (+ id id-delta)
+                             (token-event-token-kind event)
+                             (token-event-lexeme event)
+                             (offset old-start) (offset old-end)))))))
+               ((start-node finish-node)
+                (let* ((value (vector-ref event 3))
+                       (mapped (offset value)))
+                  (if (= value mapped)
+                    (emit (keep event))
+                    (emit (vector (event-kind event) (vector-ref event 1)
+                                  (vector-ref event 2) mapped)))))
+               ((start-field finish-field)
+                (let* ((value (vector-ref event 2))
+                       (mapped (offset value)))
+                  (if (= value mapped)
+                    (emit (keep event))
+                    (emit (vector (event-kind event) (vector-ref event 1)
+                                  mapped)))))
+               (else (error "unknown recognition event" event))))
+            (parse-artifact-events old-artifact))))
+      (values
+       (artifact (parse-artifact-ref old-artifact 'grammarDigest)
+                 source 'accepted events '())
+       shared))))
 
 ;; make-failure-parse-artifact
 ;; : (-> String String List Datum Alist)
 (def (make-failure-parse-artifact grammar-digest source tokens diagnostic)
   (let (value
         (artifact grammar-digest source 'rejected
-                  (flat-token-events tokens)
+                  (with-parser-cost-stage 'artifact-event-publication
+                    (flat-token-events tokens))
                   (list diagnostic)))
     value))
 
@@ -250,11 +647,16 @@
 
 ;;; Validates identity, byte ranges, nesting, and terminal balance before publication.
 ;;; The admitted source string is returned so roundtrip does not traverse and
-;;; concatenate the complete event stream a second time. Malformed streams
+;;; concatenate the complete event stream a second time. Validated lexemes are
+;;; copied into one exactly sized string; no general text port participates in
+;;; reconstruction and no advertised byte length drives an eager allocation.
+;;; Publication can instead bind the actual input: compare admitted lexemes
+;;; directly, prove complete character coverage and hash that input once.
+;;; Malformed streams
 ;;; still fail closed and never become observable parse artifacts.
 ;; validate-parse-artifact!
 ;; : (-> Alist String)
-(def (validate-parse-artifact! artifact)
+(def (validate-parse-artifact! artifact (expected-source #f))
   (unless (and (list? artifact)
                (equal? (parse-artifact-ref artifact 'schema)
                        +parse-artifact-schema+)
@@ -271,7 +673,8 @@
         (expected-token-id 0)
         (expected-node-id 0)
         (root-count 0)
-        (source-port (open-output-string)))
+        (source-chunks '())
+        (character-coverage 0))
     (unless (and (integer? source-byte-length)
                  (>= source-byte-length 0)
                  (memq status '(accepted rejected))
@@ -337,16 +740,23 @@
                          (= start coverage)
                          (> end start)
                          (= (- end start)
-                            (u8vector-length (string->utf8 lexeme))))
+                            (string-utf8-length lexeme)))
               (error "invalid token event coverage" event coverage))
-            (display lexeme source-port)
+            (if expected-source
+              (let (width (string-length lexeme))
+                (unless (and (<= (+ character-coverage width) (string-length expected-source))
+                             (source-lexeme-at? expected-source character-coverage lexeme))
+                  (error "ParseArtifact lexeme differs from input source" event))
+                (set! character-coverage (+ character-coverage width)))
+              (set! source-chunks (cons lexeme source-chunks)))
             (set! coverage end)
             (set! expected-token-id (+ expected-token-id 1))))
          (else (error "unknown CST event" event))))
      events)
-    (let (source (get-output-string source-port))
+    (let (source (or expected-source (string-concatenate-reverse source-chunks)))
       (unless (and (null? stack)
                    (= coverage source-byte-length)
+                   (or (not expected-source) (= character-coverage (string-length expected-source)))
                    (equal? (sha256-text source)
                            (parse-artifact-ref artifact 'sourceDigest)))
         (error "ParseArtifact source coverage mismatch" artifact))
@@ -358,6 +768,20 @@
          (unless (and (= root-count 0) (= (length diagnostics) 1))
            (error "rejected ParseArtifact exposes partial structure" artifact))))
       source)))
+
+(def (source-lexeme-at? source offset lexeme)
+  ;; Callers prove containment first. Compare characters directly, without a
+  ;; temporary substring or encoding; byte coverage is checked independently.
+  (let (width (string-length lexeme))
+    (let loop ((index 0))
+      (or (= index width)
+          (and (char=? (string-ref source (+ offset index)) (string-ref lexeme index))
+               (loop (+ index 1)))))))
+
+(def (parse-artifact-valid-for-source? artifact source)
+  (and (string? source)
+       (with-catch (lambda (_) #f)
+         (lambda () (validate-parse-artifact! artifact source) #t))))
 
 ;; parse-artifact-valid?
 ;; : (forall (a) (-> [(Pair Symbol a)] Boolean))

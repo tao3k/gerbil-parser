@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
-;;; Full-size incremental LR checkpoint and suffix-convergence workload.
+;;; Full-size incremental LR checkpoint and mode-certified suffix workload.
 
-(import :gerbil-parser/languages/arithmetic/v1/parser
+(import :gerbil-parser/languages/arithmetic/parser
         :gerbil-parser/src/runtime/incremental)
 (export incremental-suffix-scenario
         incremental-suffix-scenario-pass?)
@@ -11,10 +11,10 @@
   (string-append
    "(" (string-join (make-list +operand-count+ "001") " + ") ")"))
 (def +edit-start+ (+ 1 (* 50 6)))
-(def +edit+ (make-edit +edit-start+ 3 "002"))
-(def +base-artifact+ (parse-arithmetic-v1 +source+))
+(def +edit+ (make-edit +edit-start+ 3 "0+2"))
+(def +base-artifact+ (parse-arithmetic +source+))
 (def +fresh-artifact+
-  (parse-arithmetic-v1 (apply-edit +source+ +edit+)))
+  (parse-arithmetic (apply-edit +source+ +edit+)))
 
 (def (row-ref row key)
   (let (entry (assq key row)) (and entry (cdr entry))))
@@ -36,10 +36,15 @@
            (row-ref receipt 'relocatedSuffixTokenCount))
      (cons 'resumedSignificantTokenCount
            (row-ref receipt 'resumedSignificantTokenCount))
+     (cons 'reusedSignificantTokenCount
+           (row-ref receipt 'reusedSignificantTokenCount))
      (cons 'remainingSignificantTokenCount
            (row-ref receipt 'remainingSignificantTokenCount)))))
 
 (def (incremental-suffix-scenario-pass? receipt)
+  (let ((resumed (row-ref receipt 'resumedSignificantTokenCount))
+        (reused (row-ref receipt 'reusedSignificantTokenCount))
+        (remaining (row-ref receipt 'remainingSignificantTokenCount)))
   (and (equal? (row-ref receipt 'schema)
                "gerbil-parser.incremental-suffix.v1")
        (= (row-ref receipt 'operandCount) +operand-count+)
@@ -49,5 +54,11 @@
        (= (row-ref receipt 'reusedSuffixTokenCount)
           (row-ref receipt 'convergedSuffixTokenCount))
        (zero? (row-ref receipt 'relocatedSuffixTokenCount))
-       (> (row-ref receipt 'resumedSignificantTokenCount) 90)
-       (< (row-ref receipt 'remainingSignificantTokenCount) 120)))
+       (integer? resumed) (>= resumed 0)
+       (integer? reused) (>= reused 0)
+       (integer? remaining) (>= remaining 0)
+       (> (+ resumed reused) 90)
+       ;; Replacing one number with "0+2" adds a second number and operator.
+       ;; Count the edited stream (203), not the original 201-token stream.
+       (= (+ resumed reused remaining) (+ (* 2 +operand-count+) 3))
+       (< remaining 120))))

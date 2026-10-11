@@ -1,11 +1,36 @@
 [workspace]
 members = [
   "build-support/gerbil-parser-build-support",
-  "rust/gerbil-parser-rowan",
-  "rust/gerbil-parser-rowan-arithmetic",
-  "rust/gerbil-parser-rowan-scenarios",
+  "rust/gerbil-parser-runtime",
+  "rust/gerbil-parser-ffi",
+  "rust/gerbil-parser-artifact",
+  "rust/gerbil-parser-runtime-external",
 ]
 resolver = "2"
+
+# Dependency workspaces do not export profiles to this Cargo root. Match the
+# native Gerbil AOT contract while retaining debugger and safety checks.
+[profile.dev]
+opt-level = 2
+debug = 2
+debug-assertions = true
+overflow-checks = true
+
+# Source-policy tooling is a build/test dependency, not a parser hot path.
+# Avoid optimizing its large syn visitors during a cold qualification build.
+[profile.dev.package.asp-rust]
+opt-level = 0
+
+[profile.dev.build-override]
+opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+overflow-checks = true
+
+[profile.release.build-override]
+opt-level = 3
 
 [workspace.package]
 version = "0.1.0"
@@ -15,13 +40,12 @@ repository = "https://github.com/tao3k/gerbil-parser"
 rust-version = "1.95"
 
 [workspace.dependencies]
-asp-rust = { git = "https://github.com/tao3k/asp-rust", rev = "2419414ee5379bad89506496e3eaab928df68daf", version = "0.1.2", default-features = false }
-asp-rust-build-support = { git = "https://github.com/tao3k/asp-rust", rev = "2419414ee5379bad89506496e3eaab928df68daf", version = "0.1.0" }
+asp-rust = { git = "https://github.com/tao3k/asp-rust", rev = "9b95fd6744a89f3f38e87f9bda33ea762f1f65e1", version = "0.1.2", default-features = false }
+asp-rust-build-support = { git = "https://github.com/tao3k/asp-rust", rev = "9b95fd6744a89f3f38e87f9bda33ea762f1f65e1", version = "0.1.0" }
 gerbil-parser-build-support = { path = "build-support/gerbil-parser-build-support", version = "0.1.0" }
-gerbil-scheme-rust-ir = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "2aac6d5b24b9c4d1382b232035f6e242a31a5130", version = "0.1.0" }
-gerbil-parser-rowan = { path = "rust/gerbil-parser-rowan", version = "0.1.0" }
-gerbil-parser-rowan-arithmetic = { path = "rust/gerbil-parser-rowan-arithmetic", version = "0.1.0" }
-rowan = "0.16.1"
+gerbil-scheme-rust-ir = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "7d172c9487c53c8d3544ca3ae945ceed50f20920", version = "0.1.0" }
+gerbil-parser-runtime = { path = "rust/gerbil-parser-runtime", version = "0.1.0" }
+gerbil-parser-artifact = { path = "rust/gerbil-parser-artifact", version = "0.1.0" }
 sha2 = "0.10.9"
 
 [workspace.lints.rust]

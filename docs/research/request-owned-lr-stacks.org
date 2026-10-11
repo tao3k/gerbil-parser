@@ -1,0 +1,150 @@
+#+title: Request-owned LR stacks: measured rejection
+
+* Decision and shared engine scope
+
+The request-owned vector-stack experiment is rejected for production. It
+removes substantial allocation, but does not establish a CPU improvement
+across shared-engine workloads. The runtime implementation remains unchanged.
+The retained deliverable is the reproducible Scheme benchmark
+=t/benchmarks/lr-request-stack/benchmark.ss= and this decision record.
+
+This study extends [[file:engine-reduction-generation.org][shared reduction generation]] and
+[[file:lr-request-cost-boundaries.org][complete-request cost boundaries]]. The target is the
+deterministic LR executor, rather than a GQL grammar special case. Grammar
+authors receive no new option. Persistent checkpoints and generated reduction
+protocols have independent ownership requirements.
+
+* Choosing the larger cost
+
+An untimed derivation census counted executed reductions, canonical identity
+unary reductions, and the longest consecutive identity-unary chain. The census
+does not claim these counts for every valid source in a language.
+
+| Source family | Tokens | Reductions | Identity unary | Longest chain |
+|---------------+--------+------------+----------------+---------------|
+| GQL representative | 37 | 288 | 81 | 1 |
+| GQL return 64 | 128 | 935 | 197 | 1 |
+| FHIRPath invocation | 12 | 135 | 15 | 1 |
+| FHIRPath addition 64 | 127 | 985 | 191 | 1 |
+| Arithmetic addition 64 | 127 | 318 | 127 | 1 |
+
+These observations weaken the case for collapsing long identity chains in
+these samples. They motivate examining storage and semantic-result construction
+paid at every reduction. The vector experiment replaces per-action state/value
+conses with reusable buffers for one uninterrupted request. It snapshots lists
+only when a frontier escapes to a persistent checkpoint or GLR fallback.
+
+* Official Gerbil mechanism and ownership proof
+
+The installed Gerbil source was inspected through its toolchain source tree:
+=std/io/bio/types.ss= and =std/io/bio/output.ss=. Typed slots and =using= make
+private buffer access visible to the compiler. The experiment followed that
+mechanism; it did not add a language-level mutable-stack declaration.
+
+#+begin_src scheme
+;; Private engine experiment, not a grammar author interface.
+(defstruct request-stack
+  ((states :- :vector) (values :- :vector) (top :- :fixnum))
+  final: #t)
+
+(def (current-state stack)
+  (using (s stack :- request-stack)
+    (vector-ref s.states s.top)))
+#+end_src
+
+Why is this DSL design preferable? Canonical rules describe syntax and closed
+semantic actions. Scheme lexical scope, typed slots, and hygienic macros allow
+the engine to change storage without changing those declarations. Responsibility
+for bounds, growth, continuation ownership, and fallback belongs to the engine.
+
+Why is it scientifically testable? The implementation must preserve complete
+artifacts, not merely accepted token counts. Independent GLR materialization,
+both semantic backends, retained snapshots, epsilon growth, consumed-reference
+clearing, and underflow rejection provide separate controls. Performance then
+requires matched native complete requests as well as prepared recognition.
+An elegant representation is not evidence of faster execution.
+
+The private invariant was states[0..top] and values[0..top-1]. Growth precedes
+epsilon writes. Reduction validates width before access, clears consumed value
+slots, and publishes the result and goto together. Callback consumers requiring
+the complete immutable frontier keep persistent lists. The last candidate used
+typed =using= accesses and a closed reduction transaction; scoped unchecked
+accesses depended on these private bounds. It is not shipped.
+
+* Matched native experiment
+
+The checked-in benchmark reconstructs prepared tokens from each public parser's
+source-valid artifact outside timing. It compares the complete artifact with
+independent GLR materialization before measurement. Prepared recognition and
+full-source parsing are measured separately; they are not additive stages of
+the streaming parser. Workloads cover GQL, FHIRPath, and Arithmetic at 64 and
+512 operands. Arithmetic's generated full-source backend is a control outside
+the candidate arena path.
+
+Use the existing source import and qualification entrypoints:
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/lr-request-stack/benchmark)
+(benchmark-lr-request-stack 20 20)
+#+end_src
+
+The final native trial order was baseline, candidate, candidate, baseline.
+Each trial used 20 samples of 20 calls per workload/route. Compilation was
+outside timing. The initial GC per component is outside timing; naturally
+occurring GC remains inside the samples. Allocation is admitted only for
+single-caller intervals without GC. CPU P50 below is a batch median divided
+by 20, not a distribution of individual-request latencies.
+
+| Workload and route | CPU A1 ms/call | B1 | B2 | A2 | Bytes A/call | Bytes B/call |
+|--------------------+----------------+----+----+----+--------------+--------------|
+| GQL 64 prepared | 0.20975 | 0.22465 | 0.22855 | 0.20980 | 230932 | 129508 |
+| GQL 64 full | 0.34890 | 0.31690 | 0.31755 | 0.32395 | 542941.6 | 441613.6 |
+| FHIRPath 64 prepared | 0.21905 | 0.22920 | 0.22850 | 0.22785 | 255540 | 149412 |
+| FHIRPath 64 full | 0.35060 | 0.36065 | 0.35705 | 0.35030 | 695181.6 | 589149.6 |
+| Arithmetic 64 prepared | 0.10285 | 0.10590 | 0.10425 | 0.09950 | 134804 | 92708 |
+| Arithmetic 64 full | 0.14825 | 0.15995 | 0.15980 | 0.14965 | 462141.6 | 462189.6 |
+| GQL 512 prepared | 1.78120 | 1.74195 | 1.75250 | 1.62140 | 1894004 | 1104452 |
+| GQL 512 full | 2.68365 | 2.44415 | 2.44240 | 2.35910 | 4330101.6 | 3540645.6 |
+| FHIRPath 512 prepared | 1.74330 | 1.78440 | 1.77340 | 1.71580 | 2104980 | 1267716 |
+| FHIRPath 512 full | 3.76565 | 2.81500 | 2.79360 | 3.24585 | 5585421.6 | 4748253.6 |
+| Arithmetic 512 prepared | 0.79720 | 0.83995 | 0.84050 | 0.79585 | 1080980 | 737828 |
+| Arithmetic 512 full | 1.21860 | 1.16620 | 1.15970 | 1.15835 | 3696477.6 | 3696525.6 |
+
+Full-source allocation falls about 18.2% for GQL 512 and 15.0% for FHIRPath
+512. Arithmetic full-source allocation increases by 48 bytes because the
+candidate introduced an extra publication callback closure. Several prepared
+CPU measurements regress despite the allocation reduction. Full-source CPU
+does not show a consistent cross-workload improvement. GC and host scheduling
+also vary in the generated Arithmetic control. No end-to-end P95 improvement,
+live-heap reduction, or language-wide speedup is established.
+
+Earlier generic-buffer, typed-buffer, and typed-access candidates also failed
+to establish the required CPU result. Their allocation reductions remained
+similar; repeatedly changing access details did not turn the representation
+into an admitted performance improvement.
+
+* Receipts and next engine question
+
+All four final native children returned exit zero with
+=LR-REQUEST-STACK-OK= and no supervision reason. Receipts are the
+unarchived local execution
+files. They are local evidence, not portable CI artifacts. The last candidate
+compiled in 18.746 seconds and passed 19 focused source cases in 9.409 seconds.
+Earlier source and native controls covered checkpoint/contextual ownership and
+all-language ABI products. These establish experiment validity, not adoption.
+
+The rejected runtime sources are retained locally under
+unarchived local execution for diagnosis. The repository
+contains neither an unused arena backend nor a compatibility switch.
+The final retained benchmark also passed from source with one sample/call per
+route, including equality of the prepared root and independent GLR root. Its
+child returned exit zero in 9.800 seconds with the required completion marker;
+receipt: unarchived local execution.
+That source run qualifies the benchmark contract and is not a timing result.
+
+The next question is which semantic operations dominate each reduction:
+closed operand actions, sequence assembly, node construction, or event
+publication. Attribute those costs with a representative shared workload and
+retain complete artifact controls. The census alone cannot identify the
+dominant operation. Any change must improve the admitted complete request and
+avoid transferring work into publication or generated-backend preparation.

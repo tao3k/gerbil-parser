@@ -3,10 +3,11 @@
 ;;; Non-semantic whitespace may change source/trivia spans, never syntax.
 
 (import (only-in :std/test check test-case test-suite)
-        :gerbil-parser/languages/cypher/opencypher-2024-1/parser
-        :gerbil-parser/languages/gql/iso-39075-2024/parser
-        :gerbil-parser/languages/hcl/v2-24/parser
-        :gerbil-parser/languages/tla-plus/v1/parser
+        :gerbil-parser/languages/cypher/parser
+        :gerbil-parser/languages/gql/parser
+        :gerbil-parser/languages/hcl/parser
+        :gerbil-parser/languages/tla-plus/parser
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?)
@@ -55,20 +56,24 @@
   (test-suite "native AST indentation invariance"
     (test-case "non-semantic indentation preserves native syntax shape"
       (check-indentation-invariance
-       opencypher-2024-1-parser parse-opencypher-2024-1
+       opencypher-parser parse-opencypher
        "MATCH (n)\nRETURN n\n"
        "  MATCH   (n)\n      RETURN   n\n")
       (check-indentation-invariance
-       gql-iso-parser parse-gql-iso-39075-2024
+       gql-parser parse-gql
        "MATCH (n)\nRETURN n\n"
        "  MATCH   (n)\n      RETURN   n\n")
       (check-indentation-invariance
-       hcl-v2-24-parser parse-hcl-v2-24
+       hcl-parser parse-hcl
        "resource \"x\" \"y\" {\nvalue = 1\n}\n"
        "resource   \"x\"   \"y\" {\n      value   =   1\n}\n")
       (check-indentation-invariance
-       tla-plus-v1-parser parse-tla-plus-v1
+       (language-grammar-machine tla-plus-core-language-grammar) parse-tla-plus-core
        "---- MODULE Indent ----\nVARIABLE x\nInit == x = 1\n====\n"
        "---- MODULE Indent ----\n    VARIABLE   x\n        Init   ==   x   =   1\n====\n"))))
 
 (export indentation-invariance-tests)
+
+;; gxtest discovers only exported names ending in -test.
+(def indentation-invariance-test indentation-invariance-tests)
+(export indentation-invariance-test)

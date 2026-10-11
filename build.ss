@@ -41,6 +41,7 @@
     "src/main.ss"
     "src/cli.ss"
     "src/ffi/language-abi.ss"
+    "src/ffi/language-abi-context.ss"
     "src/ffi/rust-aot-abi.ss"
     "src/ffi/rust-runtime-aot-main.ss"
     "languages/bash/parser-test.ss"
@@ -67,6 +68,7 @@
     (map (lambda (module)
            `(gxc: ,module "-cc-options" ,include-option ,@link-options))
          '("src/ffi/language-abi"
+           "src/ffi/language-abi-context"
            "src/ffi/rust-aot-abi"))))
 
 ;; PackageSpec remains here because the Build API derives project ownership

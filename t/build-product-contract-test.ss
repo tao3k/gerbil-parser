@@ -37,10 +37,17 @@
         (check (cadr (member 'depend: (call-with-input-string package-source read)))
                => '("github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
                     "github.com/tao3k/asp-gerbil-scheme@v0.1.2.2"
-                    "github.com/tao3k/gerbil-scheme-rust@345b172765e5607b09049614d10520c2439dcac3"))
+                    "github.com/tao3k/gerbil-scheme-rust@fbb43ca63d3740cb4e19b26fa2abd1ea3ee4ecdb"))
         (check (string-contains library-source
                                 "(exe: \"src/main\"")
                => #f)
+        ;; A foreign context must be excluded from generic discovery and
+        ;; included in the explicit FFI specs that carry Darwin bundle flags.
+        (check (and (string-contains library-source "\"src/ffi/language-abi-context.ss\"")
+                    (string-contains library-source "\"src/ffi/language-abi-context\"")
+                    (string-contains library-source "-Wl,-undefined,dynamic_lookup")
+                    #t)
+               => #t)
         (check (and (string-contains command-source
                                      "defbuild-script")
                     (string-contains command-source

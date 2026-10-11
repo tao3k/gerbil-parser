@@ -1,4 +1,6 @@
 ;;; Language ABI context and descriptor catalogs shared by ABI publication.
+;;; Contains foreign allocation/comparison leaves; package builds must use the
+;;; explicit FFI module policy, including Darwin loadable-bundle linker flags.
 (import (only-in :gerbil-scheme-rust/scheme/utf8 gerbil-rs-encode-utf8-into)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in ../grammar/algebra grammar-expression-fields)

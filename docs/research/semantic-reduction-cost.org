@@ -20,6 +20,11 @@ original source/tokens. This retains its own source encoding, event traversal
 and source identity work. Prepared execution, semantic replay, publication and
 the public source request remain separate observations.
 
+The untimed source witness selects prepared checkpoints for GQL and FHIRPath,
+but a generated drive for Arithmetic. Arithmetic's manual prepared-LR and
+semantic replay rows are representation controls; they do not attribute the
+generated source driver's CPU to the prepared semantic kernel.
+
 * Implementation and responsibility
 
 =t/benchmarks/lr-request-stack/derivation.ss= captures the deterministic
@@ -131,11 +136,68 @@ semantic replay was over 50 microseconds for each language. This directs further
 investigation toward semantic construction rather than diagnostic traversal.
 It does not establish an additive request percentage or an engine speedup.
 
-Final sampling uses at least 100 semantic replays per batch and 10,000 traversal
-controls. The observed minimum 64-unit semantic replay exceeds 50 microseconds,
+Final sampling uses at least 100 semantic replays and publications per batch,
+and 10,000 traversal controls. The observed minimum 64-unit semantic replay median exceeds 50 microseconds,
 so even its smallest semantic batch is above one millisecond. The larger
 traversal batch independently exceeds the timer resolution. Batch sizes are
 published with each component; independent medians must not be subtracted.
+
+The full existing entry subsequently passed with =LR-REQUEST-STACK-OK= and exit
+zero inside its 90-second budget: 42 component summaries and six paired request
+controls. The smallest new semantic/control/publication CPU batch was 2.478ms.
+The previous small Arithmetic paired control rejected 900 calls because one
+leg was below 1ms. Small-request repetition is now 4,096 calls; the threshold
+and timeout are unchanged. No CI declaration was changed by this investigation.
+
+** Final native component receipt
+
+The core execution and shared-root source are from =71554da=. The later
+small-request and publication sampling corrections change batch sizes only.
+The concurrent =0e02190= FFI integration does not change this core source closure;
+local core measurements do not qualify that integration. Remote exact-head
+CI owns combined repository qualification.
+
+Measurement SDK: Gerbil =2591dcd= on Gambit =dcd677c=, using the existing pinned
+toolchain. The =1cfb032= source study above is an implementation reference, not
+the measurement SDK. Each component has 20 samples. CPU includes naturally
+occurring GC. Values below are CPU P50 milliseconds per corpus:
+
+| Workload | Units | Prepared LR | Semantic replay | Traversal control | Publication | Full source |
+|----------+-------+-------------+-----------------+-------------------+-------------+-------------|
+| GQL RETURN | 64 | 0.19090 | 0.10352 | 0.000628 | 0.04425 | 0.27810 |
+| FHIRPath addition | 64 | 0.19435 | 0.12413 | 0.000661 | 0.04065 | 0.31910 |
+| Arithmetic addition | 64 | 0.08710 | 0.05231 | 0.000253 | 0.02531 | 0.14470 |
+| GQL RETURN | 512 | 1.43355 | 1.04256 | 0.004475 | 0.57790 | 3.34060 |
+| FHIRPath addition | 512 | 1.51640 | 1.26184 | 0.004784 | 0.60643 | 4.02110 |
+| Arithmetic addition | 512 | 0.81045 | 0.51949 | 0.001710 | 0.45123 | 1.24630 |
+
+At 64 units, each semantic replay admitted 19/20 allocation intervals, with
+110,995.36, 133,955.36 and 77,251.36 observed bytes per corpus respectively.
+At 512 units, semantic replay admitted 7/20, 5/20 and 12/20 intervals. FHIRPath's
+512-unit publication admitted no allocation intervals; its allocation result
+is absent, not zero. Changing batch size also changes GC exposure, so the
+earlier probe medians are not a before/after performance comparison.
+
+GQL's 64-unit derivation executes 935 reductions: 661 unary, including 197
+identity unary, and 464 decorated operands. FHIRPath has 985 reductions and
+657 decorated operands. These counts and the replay measurements justify
+prioritizing field/alias construction and semantic sequence materialization.
+They do not prove that one particular constructor, allocation site or rule
+dominates fresh requests. The previously rejected unary corridors, identity
+reuse and universal deferred sequences remain rejected.
+
+** Reproduction
+
+After the existing native production and CI benchmark-support preparation,
+the exported entry is sufficient; it does not require a new executable:
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/lr-request-stack/benchmark)
+(benchmark-lr-request-stack 20 20)
+#+end_src
+
+Repository documentation records the configuration, results and evidence
+boundary. Raw local logs and output-directory paths are not tracked.
 
 Further performance conclusions require a coherent current native graph and
 the complete request controls. No engine speedup follows from adding replay

@@ -275,3 +275,50 @@ exit zero in 67.328 seconds. Final full ABI tests, including oversized C leaf
 ranges and short destination sentinels, returned =OK= and exit zero in 6.933
 seconds. These final event proofs compare independent writers with the same
 final admission and the actual complete public C transport.
+
+* Matched ASCII batch resolution
+
+The =4d19730= Ubuntu candidate passed the ASCII benefit limit with production
+P50/P90 0.847186/0.930900. Admission nevertheless correctly rejected control
+P90 values 1.101847 before and 1.100156 after. No result from this run is
+admitted. [[https://github.com/tao3k/gerbil-parser/actions/runs/38136884097][Second new-head qualification]] retains that failure.
+
+Its 960 measured sub-batches include 678 with zero collections and 282 with
+one collection. Collection CPU P90 is 13.644 ms against total sub-batch CPU
+P50 53.318 ms. This exposes sensitivity to whole-collection granularity, in
+addition to possible runner variation. A matched 2,048-call pilot did not solve the control problem: it admitted
+production P50/P90 0.817170/0.880954 but rejected after-control P90 1.111759,
+with exit one at 91.282 seconds. The nominal budgets remain unchanged.
+
+The sampler retains eight full-quanta legs instead of sixteen half-quanta
+legs. Both orders balance constant, linear and quadratic time position, and
+both variants still execute exactly four nominal quanta per observation,
+including odd budgets. This increases each retained timing interval without
+adding requests, extending runtime limits or dropping any sample. All twenty
+groups, natural GC, 0.90--1.10 controls, 0.95 benefit and 120-second child
+limits are retained. The request conservation and position-moment tests cover
+both group parities and even, odd and singleton budgets. Fresh CPU receipts
+qualify the changed sampler before CI admission.
+The
+64-record proof now runs first to produce its independent target evidence
+before the separate UTF-8 obligations.
+
+The full-quanta sampler passed its budget/execution and quadratic-position
+suite with =OK= and exit zero in 26.903 seconds. Its formerly unstable ASCII
+obligation passed at the original 1,024 calls: CPU P10/P50/P90 was
+0.782721/0.822706/0.864566. Control P10/P90 was 0.917876/1.045868 before
+and 0.936697/1.041502 after. All samples and natural GC remain charged;
+=ABI-UTF8-CPU-PROOF-OK= and exit zero arrived in 78.921 seconds. Increased
+wall scheduling delay is retained rather than subtracted from the receipt.
+
+The full-quanta 64-record ASCII experiment retains 20 groups and 256 calls.
+CPU P10/P50/P90 is 0.606520/0.646482/0.677537, a 35.35% median decrease.
+Control P10/P90 is 0.938066/1.027473 before and 0.929851/1.041150 after.
+The complete C ABI/GPA1 proof returned =ABI-EVENT-CPU-PROOF-OK= and exit zero
+in 70.174 seconds, with all natural GC charged.
+
+The full-quanta Unicode 64-record proof also passes at 20 groups/256 calls.
+CPU P10/P50/P90 is 0.615277/0.640854/0.686611 (35.91% median decrease).
+Control P10/P90 is 0.912586/1.038488 before and 0.953002/1.066427 after.
+All complete GPA1 comparisons passed; =ABI-EVENT-CPU-PROOF-OK= and exit zero
+arrived in 79.846 seconds. No CPU or collection observation was removed.

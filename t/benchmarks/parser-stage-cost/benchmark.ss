@@ -253,20 +253,14 @@
       (displayln "PARSER-STAGE-COST-OK samples=" samples) (force-output)
       summary)))
 
-;;; Complementary half-quantum blocks share one observation. Each variant
-;;; still executes four nominal quanta, including an odd quantum's remainder.
-;;; Subdivision changes timing boundaries, never the complete request budget.
+;;; Eight full-quanta legs balance constant, linear and quadratic time position.
+;;; Keep four nominal quanta per variant without splitting the timed intervals;
+;;; a whole natural collection is less dominant in each retained observation.
 (def (cpu-pair-request-plan calls group)
   (require-parser-batch! calls 1)
-  (let* ((order (if (even? group) '(left right right left right left left right)
-                   '(right left left right left right right left)))
-         (half (quotient calls 2))
-         (work (lambda (order count)
-                 (map (lambda (variant) (cons variant count)) order))))
-    (if (zero? half) (work order calls)
-      (append (work order half)
-              (work (map (lambda (variant) (if (eq? variant 'left) 'right 'left)) order)
-                    (- calls half))))))
+  (let (order (if (even? group) '(left right right left right left left right)
+                 '(right left left right left right right left)))
+    (map (lambda (variant) (cons variant calls)) order)))
 
 ;;; Same-process CPU comparison with complete products and alternating order.
 (def (cpu-pair-field row key) (cdr (assq key row)))

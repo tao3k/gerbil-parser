@@ -31,6 +31,7 @@
          (for-each
           (lambda (group)
             (let (plan (cpu-pair-request-plan calls group))
+              (check (length plan) => 8)
               (check (andmap (lambda (work) (and (exact-integer? (cdr work)) (positive? (cdr work)))) plan) => #t)
               (for-each
                (lambda (variant)

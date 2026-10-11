@@ -105,6 +105,87 @@ the unchanged 90-second budget. Benchmark support uses the existing CI flags.
 Source-owned construction, source-span and sequence suites pass with exit zero.
 Fresh exact-head platform CI remains a separate qualification boundary.
 
+** Closed private recognition variants
+
+The repeated field/alias work above uses private recognition records. Their
+subclass protocol was open even though the engine owns their construction and
+exports no class descriptor. The installed Gerbil optimizer supplies a concrete
+alternative: =compiler/optimize-call.ss= selects =struct-direct-instance?= and
+checked =struct-direct-ref= for final classes. Official =std/io/counter.ss=
+uses final private records. This is a representation contract, not a new
+dispatch facility or an unchecked calling convention.
+
+The four variants in =src/runtime/recognition.ss= are now final: nodes,
+fragments, children and relocation views. Their layout, constructors, child
+mutation and source-offset behavior are unchanged. Public parser POO objects
+remain extensible. Generated optimized reducers confirm checked
+=##direct-structure-ref= instead of inherited =##structure-ref=; constructor
+allocation remains. No module-wide unsafe declaration is introduced.
+
+*** Question: why does this exploit Gerbil's abstraction facilities?
+
+The engine states its closed representation once and lets Gerbil specialize
+all compiled consumers. Language grammars need no type switch or helper DSL.
+Existing constructor rules and preparation-time Core CLOS selection keep their
+owners. This applies the partial-evaluation principle from the research
+synthesis to an invariant the engine can actually guarantee:
+
+#+begin_src scheme
+(defstruct recognition-child (field value) transparent: #t final: #t)
+
+;; Checked access; the compiler selects the direct final-class instruction.
+(recognition-child-value child)
+#+end_src
+
+*** Question: how is the benefit scientifically tested?
+
+The independent reference is the six-module recognition/funcs/reduce/plan/LR/
+artifact graph at =d8f91c5=, compiled with =-O= under distinct module names.
+Each graph owns its recognition classes and publisher; combining old records
+with the candidate publisher would invalidate the comparison. The existing
+=compare-lr-staged-case= accepts that independent publisher. Its matrix entry
+=compare-lr-staged-actions= now forwards the same publisher consistently.
+Neither production runtime bindings nor class descriptors are replaced.
+
+Both sides use the same canonical grammar, public-source tokens and complete
+source-admitted artifact oracle. Every timed invocation executes fresh
+prepared LR recognition and artifact publication. Twenty groups use the shared
+eight alternating full-quanta legs, natural GC and the 1ms CPU precision gate.
+Scanning and preparation are excluded from these ratios. These observations
+do not establish end-to-end latency or allocate CPU shares by subtracting
+component medians. On Gerbil =2591dcd= / Gambit =dcd677c=:
+
+| Request | Scale | Calls | CPU ratio P10 | P50 | P90 |
+|---------+-------+-------+---------------+-----+-----|
+| FHIRPath addition | 64 | 256 | 0.817 | 0.882 | 0.985 |
+| FHIRPath addition | 512 | 32 | 0.793 | 0.853 | 0.995 |
+| GQL RETURN, initial | 512 | 32 | 0.624 | 0.901 | 1.223 |
+| GQL RETURN, larger batch | 512 | 64 | 0.824 | 0.899 | 1.003 |
+| Arithmetic addition | 64 | 256 | 0.860 | 0.896 | 0.979 |
+
+All five cases pass complete-product equality and exit zero inside their
+unchanged 90-second process budgets. The CPU medians improve by about 10--15%
+in this prepared-request scope. GQL's dispersed initial result is retained;
+the larger-batch observation does not support a stable tail-latency gain.
+Arithmetic is a small grammar control and shows no median regression here.
+
+Two earlier candidates were withdrawn: synchronous state/value stack popping
+gave FHIRPath-64 P10/P50/P90 ratios 0.897/0.969/1.101; a prepared
+zero/unary/multiple reduction descriptor gave 0.934/1.007/1.127. Both passed
+product checks but failed to establish useful CPU improvement. Neither is
+production code.
+
+The source-recognition Suite rejects subclass construction for all four private
+variants and wrong-kind slot access, while checking child mutation and relocated
+bounds. It passes with the LR reduction and artifact publication Suites.
+The old open reference admits subclass construction, providing a positive
+control for the new rejection test. The existing full request matrix passes
+50 component summaries, eight source workloads and six paired controls with
+exit zero inside 90 seconds. Those controls retain their observed dispersion;
+they are not measurements of this representation change. Platform CI remains
+a separate gate;
+no workflow, threshold or mandatory build entry is added by this change.
+
 ** Publication traversal follow-up
 
 The recognition publisher classified every child list with =list?= before

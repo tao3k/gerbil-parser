@@ -80,12 +80,13 @@
       (else (error "unknown staged LR benchmark family" family))))
   (displayln "LR-STAGED-ACTION-CASE-OK " family " " units) (force-output))
 
-(def (compare-lr-staged-actions original-prepare original-parse (groups 20) (calls 200))
+(def (compare-lr-staged-actions original-prepare original-parse (groups 20) (calls 200)
+                               (original-publish make-success-parse-artifact))
   (for-each
    (lambda (units)
      (for-each
       (lambda (family)
-        (compare-lr-staged-case family units original-prepare original-parse groups calls))
+        (compare-lr-staged-case family units original-prepare original-parse groups calls original-publish))
       '(gql-return fhirpath-addition arithmetic-addition)))
    '(64 512))
   (displayln "LR-STAGED-ACTIONS-COMPARISON-OK") (force-output))

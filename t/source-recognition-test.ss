@@ -7,6 +7,26 @@
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-recognition-test
   (test-suite "source-backed recognition spans"
+    (test-case "private recognition variants reject extension and wrong-kind access"
+      (let* ((token (make-token 'value "x" 4 5))
+             (child (make-recognition-child #f token))
+             (node (make-recognition-node 'Expression 4 5 (list child)))
+             (fragment (make-recognition-fragment 4 5 (list child)))
+             (view (relocate-recognition-value node 3)))
+        (for-each
+         (lambda (value)
+           (check (rejects?
+                   (lambda ()
+                     (make-class-type 'recognition-extension 'recognition-extension
+                                      (list (class-of value)) '() '() #f))) => #t))
+         (list node fragment child view))
+        (check (rejects? (lambda () (recognition-node-start fragment))) => #t)
+        (check (rejects? (lambda () (recognition-child-value node))) => #t)
+        (recognition-child-field-set! child 'value)
+        (check (recognition-child-field child) => 'value)
+        (check (recognition-child-value child) => token)
+        (let-values (((start end) (recognition-value-bounds view)))
+          (check (list start end) => '(7 8)))))
     (test-case "all Unicode widths and nonmonotonic endpoints agree with UTF-8"
       (let* ((text "aα中😀\n")
              (source (prepare-recognition-source (make-token 'source text 13 24))))

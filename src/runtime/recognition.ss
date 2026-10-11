@@ -26,14 +26,16 @@
         recognition-value-start
         recognition-value-end recognition-value-bounds)
 
-(defstruct recognition-node (kind start end children) transparent: #t)
-(defstruct recognition-fragment (start end children) transparent: #t)
-(defstruct recognition-child (field value) transparent: #t)
+;;; These engine-owned values have no subclass protocol. Final classes let the
+;;; compiler emit checked direct predicates and slot access in hot reducers.
+(defstruct recognition-node (kind start end children) transparent: #t final: #t)
+(defstruct recognition-fragment (start end children) transparent: #t final: #t)
+(defstruct recognition-child (field value) transparent: #t final: #t)
 
 
 ;;; Position views share the semantic subtree. Collapse repeated moves of the
 ;;; same view so successive edits do not retain a chain of source snapshots.
-(defstruct recognition-relocation (value delta) transparent: #t)
+(defstruct recognition-relocation (value delta) transparent: #t final: #t)
 (def (relocate-recognition-value value delta (force? #f))
   (cond
    ((recognition-relocation? value)

@@ -212,7 +212,7 @@ control was still running. This is a rejected matrix, not an AST mismatch or
 a successful cross-host receipt. Large GQL and FHIRPath component corpora took
 about 22 and 26 seconds with 100 semantic/publication calls per batch.
 
-Current repetition retains 100 calls for 64-unit semantic/publication corpora,
+The first correction retained 100 calls for 64-unit semantic/publication corpora,
 20 for 512 units and 10,000 for traversal controls. The earlier 512-unit local
 per-corpus medians put these 20-call batches above 9ms, providing resolution
 without small-corpus repetition at every scale. Twenty samples and all complete
@@ -228,3 +228,24 @@ summaries and all six paired request controls. Across the 360 new
 semantic/control/publication samples, the smallest CPU batch was 2.429ms.
 This admits the local sampling correction; exact-head remote CI still owns
 cross-host qualification.
+
+The =8cd2da5= macOS matrix also rejected the 90-second deadline. All six
+component corpora and four paired controls completed; the fifth paired
+control was still running. The remaining dominant sampling cost was the 512-unit
+traversal control: CPU P50 per 10,000-call batch was 765.708ms for GQL,
+862.501ms for FHIRPath and 270.777ms for Arithmetic. The local support had
+been compiled with =gxc -O=; CI's existing support owner uses =gxc= without
+that option. These are different support compilation configurations, not an
+engine regression. The revised 1,250-call large traversal control reduces
+that sampling work by eight while the earlier optimized local medians still
+predict more than 2ms for its smallest batch. Qualification rebuilds both
+support modules with CI's flags before repeating the complete matrix.
+No CI declaration or precision threshold changes.
+
+After that rebuild, the revised native matrix passed all 42 component
+summaries and six paired controls inside 90 seconds, with exit zero and
+=LR-REQUEST-STACK-OK=. The smallest CPU batch among the 360 new component
+samples was 2.449ms. GQL's 64-unit traversal-control CPU P50 was 86.002ms per
+10,000-call batch, consistent with the slower CI support configuration rather
+than the earlier optimized support receipt. Remote exact-head qualification
+remains a separate gate.

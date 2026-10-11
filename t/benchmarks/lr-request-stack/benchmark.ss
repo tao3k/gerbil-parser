@@ -188,7 +188,8 @@
         (write (list 'LR-SEMANTIC-REPLAY-WORK family units
                      (cons 'reductions (lr-semantic-replay-count replay))))
         (newline) (force-output)
-        (measure (list family units 'semantic-replay-control) samples 10000
+        (measure (list family units 'semantic-replay-control) samples
+          (if (< units 512) 10000 1250)
           (lambda () (replay-lr-semantic-control replay)) (car parsed))
         (measure (list family units 'semantic-replay) samples calls
           (lambda () (replay-lr-semantics replay)) (car parsed))))

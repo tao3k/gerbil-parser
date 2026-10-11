@@ -8,14 +8,15 @@ The parser imports the actual upstream =scheme/utf8= module; it does not copy
 its encoder or initialize a second Scheme VM. The public Rust and C parse
 signatures, GPA1 format and language declarations remain unchanged.
 
-[[file:../../src/ffi/language-abi-context.ss][Prepared ABI contexts]] own a source-admission procedure. The default decodes
-incoming bytes and calls upstream =gerbil-rs-encode-utf8-into= to compare the
-canonical encoding against the original bytes. [[file:../../src/ffi/language-artifact-codec.ss][Both fresh and session publication]]
+[[file:../../src/ffi/language-abi-context.ss][Prepared ABI contexts]] own a source-admission procedure. The default proves ASCII and decodes it directly into owned Scheme storage.
+For other bytes it decodes and calls upstream
+=gerbil-rs-encode-utf8-into= to compare the canonical scalar encoding against
+the original bytes. [[file:../../src/ffi/language-artifact-codec.ss][Both fresh and session publication]]
 use that admission before parsing. [[file:../../src/ffi/language-handles.ss][Prepared context registration]] gives each
 handle its existing independent history; it adds no process or VM isolation.
 The private context record is an engine protocol, not a new language DSL slot.
 
-Each nonempty admission allocates stable C storage with capacity four times
+Each nonempty non-ASCII admission allocates stable C storage with capacity four times
 its decoded character count. Upstream writes bounded 256-character chunks,
 retaining Scheme polling and strict Unicode scalar checks. The consumer passes
 a typed =void*= foreign object, not an integer address. Its no-allocation
@@ -216,3 +217,61 @@ The final complete language ABI suite, including row extremes, adjacent-byte
 sentinels, unsigned overflow and atomic bounds rejection, returned =OK= and
 exit zero in 7.205 seconds. Workflow YAML parsing and patch whitespace checks
 also passed locally; remote qualification is a separate gate.
+
+* ASCII admission proof and first Ubuntu rejection
+
+The first new-head Ubuntu qualification at commit =18e95e6= rejected the
+existing ASCII UTF-8 obligation: controls passed, but complete identifier CPU
+P50/P90 was 0.939820/0.979701. Its P90 fails the unchanged 0.95 benefit limit.
+The new event proof was not reached. The same head passed macOS Scheme and
+Rust AOT qualification. This failed Ubuntu result remains part of the evidence:
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38134751349][First new-head qualification]].
+
+The shared admission now proves canonical ASCII directly. Every byte below
+128 is its unique UTF-8 scalar encoding, including NUL. Bounded byte
+classification admits precisely this subset, then direct scalar stores decode
+it into owned Scheme string storage. This removes generic decoding, redundant
+re-encoding, C scratch allocation and chunked encoder calls. Both ASCII
+classification and copying enforce 4,096-byte leaves and return to Scheme
+between chunks. Copying checks high bits again; a changed non-ASCII byte fails
+admission before result publication. Native string stores follow the fixed
+Gambit header representation. Every
+other byte source still uses the upstream strict scalar encoder and full
+canonical-byte comparison. The proof has no grammar, language, input-length or
+benchmark-specific conditions. Capacity and malformed input checks are retained.
+
+Tests cover classification of all 256 byte values, decoding all 128 ASCII
+scalars, empty input, Unicode chunk/scalar boundaries and noncanonical sources.
+The complete ABI suite returned =OK= and exit zero in 10.972 seconds. The
+candidate was recompiled with GCC in 9.184 seconds. Fresh complete-request
+CPU receipts for this final admission follow; prior row receipts remain scoped
+to their recorded admission implementation.
+
+The first ASCII-classification-only local experiment still rejected benefit:
+P50/P90 was 0.895506/0.951157 with stable controls, and exit was one after
+48.749 seconds. Direct bounded decoding was added instead of changing the
+0.95 limit, dropping observations or increasing the timeout. The final producer
+compiled with GCC in 9.296 seconds. The 4,095/4,096/4,097 and
+8,191/8,192/8,193 boundaries include both pure ASCII and late Unicode fallback.
+
+Final bounded ASCII decoding passed the complete ABI suite in 9.015 seconds.
+The formerly failing complete 4,099-byte identifier obligation now passes:
+CPU P10/P50/P90 is 0.764338/0.813574/0.895873, an 18.64% median decrease.
+Before control P10/P90 is 0.955807/1.052675 and after is 0.988543/1.086949.
+The unchanged 20-group, 1,024-call child returned =ABI-UTF8-CPU-PROOF-OK=
+and exit zero in 53.505 seconds, with natural GC charged.
+
+With final bounded ASCII decoding installed identically in both event lanes,
+the 64-record ASCII proof passes: CPU P10/P50/P90 is
+0.616443/0.647460/0.686067 (35.25% median decrease). Control P10/P90 is
+0.954784/1.056653 before and 0.959466/1.029376 after. The complete 15,488-byte
+payload matches; the unchanged 20-group/256-call child returned
+=ABI-EVENT-CPU-PROOF-OK= and exit zero in 69.144 seconds.
+
+Final Unicode 64-record CPU P10/P50/P90 is 0.621700/0.647574/0.688848
+(35.24% median decrease). Control P10/P90 is 0.968489/1.034803 before and
+0.956032/1.043374 after. The child returned =ABI-EVENT-CPU-PROOF-OK= and
+exit zero in 67.328 seconds. Final full ABI tests, including oversized C leaf
+ranges and short destination sentinels, returned =OK= and exit zero in 6.933
+seconds. These final event proofs compare independent writers with the same
+final admission and the actual complete public C transport.

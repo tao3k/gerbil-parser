@@ -56,33 +56,59 @@
 ;;; Pack a complete GPA1 row in one synchronous bounded leaf. Conversion of
 ;;; every integer completes before C touches the buffer; no allocation or
 ;;; callback can move the borrowed Scheme body during the write.
-(extern pack-abi-row! allocate-admission-buffer release-admission-buffer admission-buffer-equal?)
+(extern copy-ascii-source-range! ascii-source-range? pack-abi-row!
+        allocate-admission-buffer release-admission-buffer admission-buffer-equal?)
 (def (write-abi-row! payload offset tag index id start end)
   (unless (and (u8vector? payload) (exact-integer? offset) (>= offset 0))
     (error "invalid ABI row buffer or offset"))
   (unless (pack-abi-row! payload offset tag index id start end)
     (error "ABI row exceeds publication buffer" offset)))
-;;; Upstream caller storage is stable across Scheme polling and collections.
-;;; The buffer is local to this admission; no Scheme body pointer is retained.
+;;; Bounded ASCII leaves return to Scheme between chunks. Upstream caller
+;;; storage is stable across polls; no Scheme body pointer survives a leaf.
+(def (ascii-source-bytes? bytes)
+  (and (u8vector? bytes)
+    (let (length (u8vector-length bytes))
+      (let loop ((start 0))
+        (or (= start length)
+          (let (end (min length (+ start 4096)))
+            (and (ascii-source-range? bytes start end) (loop end))))))))
+(def (copy-ascii-source! bytes source)
+  (and (u8vector? bytes) (string? source)
+       (= (u8vector-length bytes) (string-length source))
+    (let (length (u8vector-length bytes))
+      (let loop ((start 0))
+        (or (= start length)
+          (let (end (min length (+ start 4096)))
+            (and (copy-ascii-source-range! bytes source start end) (loop end))))))))
 (def (abi-source-text bytes)
-  (let* ((source (utf8->string bytes)) (capacity (* 4 (string-length source))))
-    (unless (fixnum? capacity) (error "native UTF-8 admission capacity exceeds fixnum range"))
-    (if (zero? capacity)
-      (begin
-        (unless (zero? (u8vector-length bytes)) (error "native source is not canonical UTF-8"))
-        source)
-      (let (buffer (allocate-admission-buffer capacity))
-        (unless buffer (error "native UTF-8 admission allocation failed"))
-        (dynamic-wind void
-          (lambda ()
-            (let (written (gerbil-rs-encode-utf8-into source buffer capacity))
-              (unless (admission-buffer-equal? buffer bytes written)
-                (error "native source is not canonical UTF-8"))
-              source))
-          (lambda () (release-admission-buffer buffer)))))))
+  (unless (u8vector? bytes) (error "native source requires byte storage"))
+  ;; Every 7-bit byte is its unique UTF-8 scalar encoding, including NUL.
+  ;; Decode the proven subset directly into owned Scheme string storage.
+  ;; All other input retains the upstream canonical scalar encoder.
+  (if (ascii-source-bytes? bytes)
+    (let (source (make-string (u8vector-length bytes) #\nul))
+      (unless (copy-ascii-source! bytes source)
+        (error "ASCII source changed during admission"))
+      source)
+    (let* ((source (utf8->string bytes)) (capacity (* 4 (string-length source))))
+      (unless (fixnum? capacity) (error "native UTF-8 admission capacity exceeds fixnum range"))
+      (if (zero? capacity)
+        (begin
+          (unless (zero? (u8vector-length bytes)) (error "native source is not canonical UTF-8"))
+          source)
+        (let (buffer (allocate-admission-buffer capacity))
+          (unless buffer (error "native UTF-8 admission allocation failed"))
+          (dynamic-wind void
+            (lambda ()
+              (let (written (gerbil-rs-encode-utf8-into source buffer capacity))
+                (unless (admission-buffer-equal? buffer bytes written)
+                  (error "native source is not canonical UTF-8"))
+                source))
+            (lambda () (release-admission-buffer buffer))))))))
 (begin-foreign
  (namespace ("gerbil-parser/src/ffi/language-abi-context#"
-             pack-abi-row! allocate-admission-buffer release-admission-buffer admission-buffer-equal?))
+             copy-ascii-source-range! ascii-source-range? pack-abi-row!
+             allocate-admission-buffer release-admission-buffer admission-buffer-equal?))
  (c-declare #<<END-C
 #include <stdint.h>
 #include <stdlib.h>
@@ -92,6 +118,27 @@ static void gp_store_le(uint8_t *p, uint64_t value, unsigned width) {
 }
 END-C
  )
+ (define copy-ascii-source-range!
+   (c-lambda (scheme-object scheme-object unsigned-int64 unsigned-int64) bool
+     "___SCMOBJ ___temp;
+      if (!___U8VECTORP(___arg1) || !___STRINGP(___arg2)) { ___return(0); }
+      size_t length = ___HD_BYTES(___HEADER(___arg1));
+      if ((size_t)___STRINGSIZE(___arg2) != length || ___arg3 > ___arg4 || ___arg4 > length || ___arg4 - ___arg3 > 4096) { ___return(0); }
+      const uint8_t *p = (const uint8_t*)___BODY_AS(___arg1, ___tSUBTYPED);
+      for (size_t i = (size_t)___arg3; i < (size_t)___arg4; ++i) {
+        uint8_t scalar = p[i]; if (scalar & 0x80) { ___return(0); }
+        ___STRINGSET(___arg2, ___FIX(i), ___CHR(scalar));
+      }
+      ___return(1);"))
+ (define ascii-source-range?
+   (c-lambda (scheme-object unsigned-int64 unsigned-int64) bool
+     "___SCMOBJ ___temp;
+      if (!___U8VECTORP(___arg1)) { ___return(0); }
+      size_t length = ___HD_BYTES(___HEADER(___arg1));
+      if (___arg2 > ___arg3 || ___arg3 > length || ___arg3 - ___arg2 > 4096) { ___return(0); }
+      const uint8_t *p = (const uint8_t*)___BODY_AS(___arg1, ___tSUBTYPED);
+      for (size_t i = (size_t)___arg2; i < (size_t)___arg3; ++i) { if (p[i] & 0x80) { ___return(0); } }
+      ___return(1);"))
  (define pack-abi-row!
    (c-lambda (scheme-object unsigned-int64 unsigned-int32 unsigned-int32 unsigned-int64 unsigned-int32 unsigned-int32) bool
      "___SCMOBJ ___temp;

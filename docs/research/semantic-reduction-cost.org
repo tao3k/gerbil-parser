@@ -1,5 +1,123 @@
 #+title: Actual LR reductions and AST construction cost
 
+* Constructor shape and endpoint projection
+
+The next implementation targets the shared recognition constructor boundary.
+Selected-derivation reexecution validates every production result before
+reporting action shapes. These are work counts, not CPU percentages:
+
+| Request | Scale | Fields | Aliases | Materializations | Singleton bounded actions | Widest input |
+|---------+-------+--------+---------+------------------+---------------------------+--------------|
+| GQL RETURN | 64 | 0 | 464 | 2 | 462 | 127 |
+| GQL RETURN | 512 | 0 | 3600 | 2 | 3598 | 1023 |
+| FHIRPath addition | 64 | 456 | 330 | 1 | 329 | 127 |
+| FHIRPath addition | 512 | 3592 | 2570 | 1 | 2569 | 1023 |
+| Arithmetic addition | 512 | 2046 | 1024 | 511 | 513 | 3 |
+| FHIRPath property/invocation | 1 | 55 | 49 | 3 | 46 | 7 |
+
+The GQL and FHIRPath list requests materialize only one or two wide sequences.
+Thousands of bounded singleton actions instead repeat input-shape selection
+and recognition-value classification. This makes singleton construction the
+first common-path target. GQL's zero field count applies to these requests and
+does not describe other grammars or an omitted measurement.
+
+=recognition-value-bounds= returns both endpoints after one checked variant
+selection. Tokens, nodes, fragments, event values and relocation views retain
+the existing admission and displacement behavior. In =reduce.ss=, hygienic
+constructor rules select empty, singleton or general input once. Empty aliases
+use the current invocation offset; singleton constructors call the combined
+endpoint reader. General sequences read their boundaries before action
+normalization, avoiding the subsequent list-tail scan. Raw sequence boundary
+walks still have a cost; this is not a constant-time-bound claim for every tree.
+Fields retain their capped-cardinality policy and supplied fragment constructor.
+The borrowed and action-normalized constructor families share this one rule.
+The prepared backend/action factory catalog remains the existing Core CLOS
+multiple-dispatch owner, selected outside request execution.
+
+** Question: why does this exploit Scheme's syntax and rule facilities?
+
+The constructor prefix, child policy and bounded projection are fixed in
+hygienic syntax. Multiple values express the two endpoints without a new list
+or result record. The installed Gerbil compiler's =with-primitive-bind+args=
+and the standard =with-list-builder= supply the organization pattern: bind an
+ordered operation once and expose its result to the enclosing construction.
+Language grammar and parser declarations acquire no additional switches.
+
+#+begin_src scheme
+(define-recognition-alias recognition-action-alias recognition-sequence-for-action)
+
+;; One checked classification for a bounded singleton.
+(let-values (((start end) (recognition-value-bounds value)))
+  (make-recognition-node kind start end children))
+#+end_src
+
+** Question: how is the benefit scientifically tested?
+
+=t/benchmarks/lr-request-stack/constructors.ss= preserves the construction
+algorithm from =4f50dd3= as a qualification reference. Each side receives its
+own cloned runtime, with the original selector and shared immutable grammar
+tables. Private record bindings are resolved before timing. Both sides run
+the current scanner, LR driver and complete artifact publisher. Complete
+source admission, artifact equality and executor witnesses precede timing.
+Arithmetic's cloned prepared executor is explicitly a representation control;
+its public generated drive has separate full-matrix observations.
+
+Twenty groups retain the existing sixteen alternating legs, natural GC and
+1ms CPU precision gate. The first normalization-order-only probe exceeded its
+90-second combined budget after completing the small controls; its partial
+result is retained as a rejection, not a matrix receipt. Small-batch ratios
+also had large GC-dependent dispersion. Subsequent complete cases keep the
+90-second process budget and use 16,384 GQL or 32,768 FHIRPath small requests,
+and the =calls= argument is 256 at scale 64 and 64 at scale 512. Each group
+executes four times =calls= per variant, distributed across sixteen legs.
+No collection interval is removed from the CPU result.
+
+On Gerbil =2591dcd= / Gambit =dcd677c= with both engine and reference compiled
+with =-O=, the frozen original-module comparisons give these local ratios:
+
+| Request | Scale | CPU ratio P10 | P50 | P90 |
+|---------+-------+---------------+-----+-----|
+| GQL RETURN | 1 | 0.863 | 0.921 | 0.981 |
+| GQL RETURN | 64 | 0.865 | 0.899 | 0.987 |
+| GQL RETURN | 512 | 0.874 | 0.917 | 0.945 |
+| FHIRPath addition | 1 | 0.870 | 0.891 | 0.914 |
+| FHIRPath addition | 64 | 0.815 | 0.911 | 1.029 |
+| FHIRPath addition | 512 | 0.845 | 0.910 | 0.964 |
+
+These are candidate/reference complete-request ratios, with roughly 8--11%
+lower CPU medians in this local configuration. Percentile ratios are empirical
+observations, not confidence intervals or an attribution of all request CPU.
+The committed comparison owner independently passes actual MATCH/WHERE GQL
+and FHIRPath property/invocation requests: median ratios 0.960 and 0.975, with
+P90 ratios 1.326 and 1.122. Their dispersion prevents a stable benefit claim
+for those two structured workloads at the measured batch sizes.
+
+The structured GQL request requires a GLR path whose deterministic derivation
+trace is unavailable. The existing six deterministic corpora retain strict
+trace admission. This additional request reports the unavailable scope
+explicitly and still requires complete source, GLR-product and executor
+equality. It contributes full-request/publication observations without a fake
+semantic replay or zero action count. The complete matrix now passes with
+50 component summaries, eight source workloads and six paired controls inside
+the unchanged 90-second budget. Benchmark support uses the existing CI flags.
+Source-owned construction, source-span and sequence suites pass with exit zero.
+Fresh exact-head platform CI remains a separate qualification boundary.
+
+For an optional reproducible comparison, first build the production library
+through its existing owner, then use the same production optimization setting:
+
+#+begin_src sh
+gerbil env gxc -O t/benchmarks/lr-request-stack/constructors.ss
+gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+  --log .cache/constructor-case.log --require LR-CONSTRUCTOR-CASE-OK \
+  -- gxi -e '(import :gerbil-parser/t/benchmarks/lr-request-stack/constructors)' \
+  -e '(benchmark-lr-constructor-case (quote gql-return) 64) (exit 0)'
+#+end_src
+
+The owner also accepts =fhirpath-addition= and =arithmetic-addition= at scales
+1, 64 and 512, and the two structured request names at scale 1. This optional
+comparison adds no CI job, production option or mandatory executable.
+
 * One investigation boundary
 
 This study follows [[file:request-lookahead-classification.org][the rejected lookahead cache]] and the

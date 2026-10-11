@@ -1,7 +1,7 @@
 ;;; Complete requests and prepared recognition at matched source scales.
 (import (only-in ./derivation profile-lr-request-reductions
                  prepare-lr-semantic-replay replay-lr-semantics replay-lr-semantic-control
-                 lr-semantic-replay-count)
+                 lr-semantic-replay-count profile-lr-semantic-actions)
         (only-in ./lookahead benchmark-lr-lookahead)
         (only-in :gerbil-parser/t/scenarios/performance/selective-glr/scenario
                  selective-glr-scenario selective-glr-scenario-pass?)
@@ -121,7 +121,7 @@
                               selective-glr-scenario reference)
     (displayln "LR-COMPLETION-OK") (force-output)))
 (def (benchmark-family family units machine parse source samples iterations
-                       (measure measure-parser-component))
+                       (measure measure-parser-component) (require-derivation? #t))
   (let* ((reference (parameterize ((current-lr-event-program-enabled? #f)) (parse source)))
          (tokens (map (lambda (event)
                         (make-token (token-event-token-kind event) (token-event-lexeme event)
@@ -173,26 +173,29 @@
     (newline) (force-output)
     (write (list 'LR-STACK-WORKLOAD family units 'source-characters (string-length source)
                  'tokens (length significant))) (newline) (force-output)
-    (write (list 'LR-REQUEST-REDUCTIONS family units
-                 (parameterize ((current-lr-event-program-enabled? #f))
-                   (profile-lr-request-reductions machine significant))))
-    (newline) (force-output)
-    (measure (list family units 'prepared-lr) samples iterations
-      (lambda () (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)) parsed)
-    (unless (lr-runtime-event-program? runtime)
-      (let ((replay (prepare-lr-semantic-replay materialized-runtime
-                     (cdr (assq 'lr-spec (parser-machine-ir machine))) significant))
-            (calls (max iterations (if (< units 512) 100 20))))
-        (unless (equal? (replay-lr-semantics replay) (car parsed))
-          (error "semantic replay changed the complete recognition root" family units))
-        (write (list 'LR-SEMANTIC-REPLAY-WORK family units
-                     (cons 'reductions (lr-semantic-replay-count replay))))
-        (newline) (force-output)
-        (measure (list family units 'semantic-replay-control) samples
-          (if (< units 512) 10000 1250)
-          (lambda () (replay-lr-semantic-control replay)) (car parsed))
-        (measure (list family units 'semantic-replay) samples calls
-          (lambda () (replay-lr-semantics replay)) (car parsed))))
+    (let (work (parameterize ((current-lr-event-program-enabled? #f))
+                (profile-lr-request-reductions machine significant require-derivation?)))
+      (write (list 'LR-REQUEST-REDUCTIONS family units work))
+      (newline) (force-output)
+      (measure (list family units 'prepared-lr) samples iterations
+        (lambda () (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)) parsed)
+      (when (and (not (lr-runtime-event-program? runtime))
+                 (eq? (cdr (assq 'scope work)) 'selected-fresh-derivation))
+        (let ((replay (prepare-lr-semantic-replay materialized-runtime
+                       (cdr (assq 'lr-spec (parser-machine-ir machine))) significant))
+              (calls (max iterations (if (< units 512) 100 20))))
+          (unless (equal? (replay-lr-semantics replay) (car parsed))
+            (error "semantic replay changed the complete recognition root" family units))
+          (write (list 'LR-SEMANTIC-REPLAY-WORK family units
+                       (cons 'reductions (lr-semantic-replay-count replay))))
+          (newline) (force-output)
+          (write (list 'LR-SEMANTIC-ACTION-WORK family units (profile-lr-semantic-actions replay)))
+          (newline) (force-output)
+          (measure (list family units 'semantic-replay-control) samples
+            (if (< units 512) 10000 1250)
+            (lambda () (replay-lr-semantic-control replay)) (car parsed))
+          (measure (list family units 'semantic-replay) samples calls
+            (lambda () (replay-lr-semantics replay)) (car parsed)))))
     (measure (list family units 'artifact-publication) samples
       (max iterations (if (< units 512) 100 20))
       (lambda () (make-success-parse-artifact (parser-machine-grammar-digest machine)
@@ -217,6 +220,13 @@
 
 (def (benchmark-lr-request-stack (samples 20) (iterations 20))
   (benchmark-request-families samples iterations identity)
+  ;; Retain actual clause/property and invocation forms beside scalable lists.
+  ;; They use the same full-product, executor and independent GLR admission.
+  (benchmark-family 'gql-match-filter 1 gql-parser parse-gql
+    "MATCH (n) WHERE n.score > 2 AND n.active = TRUE RETURN n"
+    samples (max iterations 100) measure-parser-component #f)
+  (benchmark-family 'fhirpath-property-invocation 1 fhirpath-parser parse-fhirpath
+    "Patient.name.where(use = 'official').given" samples (max iterations 100))
   ;; Keep one existing optional request gate. Complete paired controls include
   ;; the small workload and the unchanged generated Arithmetic executor.
   (for-each

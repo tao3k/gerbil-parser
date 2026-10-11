@@ -33,6 +33,10 @@ The [[file:../research/semantic-reduction-cost.org][semantic reduction cost stud
 production-kernel replay and a traversal control. Captured production results,
 request offsets and complete roots are validated outside timing. Retained-input
 replay is a component experiment, not an additive attribution or a speedup claim.
+Its [[file:../research/semantic-reduction-cost.org::*Constructor shape and endpoint projection][constructor investigation]] now connects selected-action counts to the shared
+runtime shape/endpoint projection, independent constructor controls, actual
+structured source requests and the existing complete matrix. GLR requests report
+unavailable deterministic traces explicitly; full-product admission still applies.
 
 The [[file:../research/request-lookahead-classification.org][lookahead classification study]] connects grammar preparation,
 deterministic action selection, callback mutation controls and complete paired

@@ -4,8 +4,8 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr production-rhs operand-actions)
         (only-in ./recognition make-recognition-fragment)
-        (only-in ./reduce recognition-children-field recognition-children-alias)
-        (only-in ./funcs recognition-sequence-for-action recognition-sequence-append
+        (only-in ./reduce recognition-action-field recognition-action-alias)
+        (only-in ./funcs recognition-sequence-append
                  recognition-sequence-start)
         (only-in ./event-reduce event-children-field event-children-alias)
         (only-in ./event-program event-program-append))
@@ -34,11 +34,10 @@
 ;;; fragment constructor. An absent step is the identity operand.
 (def (recognition-field-kernel name)
   (lambda (value offset constructor)
-    (recognition-children-field name (recognition-sequence-for-action value)
-                                offset constructor)))
+    (recognition-action-field name value offset constructor)))
 (def (recognition-alias-kernel name)
   (lambda (value offset _constructor)
-    (recognition-children-alias name (recognition-sequence-for-action value) offset)))
+    (recognition-action-alias name value offset)))
 (def (event-field-kernel name)
   (lambda (value offset _constructor) (event-children-field name value offset)))
 (def (event-alias-kernel name)

@@ -24,7 +24,7 @@
         recognition-child-field-set!
         recognition-child-value
         recognition-value-start
-        recognition-value-end)
+        recognition-value-end recognition-value-bounds)
 
 (defstruct recognition-node (kind start end children) transparent: #t)
 (defstruct recognition-fragment (start end children) transparent: #t)
@@ -52,6 +52,23 @@
    ((recognition-node? value) (recognition-node-start value))
    ((recognition-fragment? value) (recognition-fragment-start value))
    ((event-program-value? value) (event-program-value-start value))
+   (else (error "invalid recognition value" value))))
+
+;;; Constructors need both endpoints. Classify the closed recognition value
+;;; once rather than repeating token admission and variant dispatch for each
+;;; endpoint. Position views retain their own displacement and source identity.
+(def (recognition-value-bounds value)
+  (cond
+   ((recognition-relocation? value)
+    (let-values (((start end) (recognition-value-bounds (recognition-relocation-value value))))
+      (let (delta (recognition-relocation-delta value))
+        (values (+ delta start) (+ delta end)))))
+   ((token? value) (values (token-start value) (token-end value)))
+   ((recognition-node? value) (values (recognition-node-start value) (recognition-node-end value)))
+   ((recognition-fragment? value)
+    (values (recognition-fragment-start value) (recognition-fragment-end value)))
+   ((event-program-value? value)
+    (values (event-program-value-start value) (event-program-value-end value)))
    (else (error "invalid recognition value" value))))
 
 ;; : (-> RecognitionValue Nat)

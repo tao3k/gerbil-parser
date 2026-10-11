@@ -5,17 +5,25 @@
         (only-in :gerbil-parser/src/compiler/lr operand-actions-valid? validate-production-semantics)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/recognition
-                 make-recognition-child make-recognition-node)
+                 make-recognition-child make-recognition-node make-recognition-fragment
+                 recognition-child-value recognition-value-start recognition-value-end
+                 recognition-value-bounds recognition-node-children relocate-recognition-value)
+        (only-in :gerbil-parser/src/runtime/event-program event-program-node-value event-program-fragment-value)
+        (only-in :gerbil-parser/src/runtime/reduce
+                 recognition-children-field recognition-children-alias
+                 recognition-action-field recognition-action-alias)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
                  install-lr-runtime-direct-step! lr-rejection-condition?
                  current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend)
-        (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref)
+        (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref
+                 recognition-sequence-append recognition-sequence-relocate
+                 recognition-sequence-for-action)
         (only-in :gerbil-parser/src/runtime/artifact
                  make-success-parse-artifact parse-artifact-valid? parse-artifact-roundtrip)
         (only-in :gerbil-parser/t/benchmarks/lr-request-stack/derivation
                  prepare-lr-semantic-replay replay-lr-semantics replay-lr-semantic-control
-                 lr-semantic-replay-count))
+                 lr-semantic-replay-count profile-lr-semantic-actions))
 (export lr-stack-reduction-test)
 
 ;;; Installed procedures are arbitrary callbacks. They may change the current
@@ -82,6 +90,53 @@
 
 (def lr-stack-reduction-test
   (test-suite "shared LR stack reduction"
+    (test-case "action boundaries precede normalization without changing child ownership"
+      (let* ((a (list (make-recognition-child #f (make-token 'word "a" 5 6))))
+             (b (list (make-recognition-child 'inner (make-token 'word "b" 9 10))))
+             (branch (recognition-sequence-append a b))
+             (deep (foldl recognition-sequence-append '() (make-list 2048 a))))
+        (check (eq? a (recognition-node-children
+                       (recognition-child-value (car (recognition-action-alias 'Node a 0))))) => #t)
+        (for-each
+         (lambda (children)
+           (for-each
+            (lambda (offset)
+              (let ((ready (recognition-sequence-for-action children)) (calls '()))
+                (def (construct start end values)
+                  (check (list start end)
+                         => (if (null? ready) (list offset offset)
+                              (list (recognition-value-start (recognition-child-value (car ready)))
+                                    (recognition-value-end (recognition-child-value (last ready))))))
+                  (set! calls (cons (list start end values) calls))
+                  (make-recognition-fragment start end values))
+                (check (recognition-action-alias 'Node children offset)
+                       => (recognition-children-alias 'Node ready offset))
+                (check (recognition-action-field 'outer children offset construct)
+                       => (recognition-children-field 'outer ready offset construct))
+                (when (pair? calls)
+                  (check (car calls) => (cadr calls)))
+                (check (recognition-sequence-for-action children) => ready)))
+            '(0 37)))
+         (list '() a b branch deep
+               (recognition-sequence-relocate a 11)
+               (recognition-sequence-relocate b -3)
+               (recognition-sequence-relocate branch 7)
+               (recognition-sequence-append (recognition-sequence-relocate a 11)
+                                            (recognition-sequence-relocate b -3))))))
+    (test-case "combined recognition endpoints retain checked value admission"
+      (for-each
+       (lambda (value)
+         (check (call-with-values (lambda () (recognition-value-bounds value)) list)
+                => (list (recognition-value-start value) (recognition-value-end value))))
+       (list (make-token 'word "a" 5 6)
+             (make-recognition-node 'Node 7 9 '())
+             (make-recognition-fragment 11 11 '())
+             (event-program-node-value 'Event 17 19 #f)
+             (event-program-fragment-value 21 22 #f)
+             (relocate-recognition-value (make-recognition-node 'Moved 31 33 '()) -7)))
+      (for-each
+       (lambda (value) (check-exception (recognition-value-bounds value) true))
+       (list #f #() (make-token 'word "a" 6 5))))
     (test-case "semantic replay retains decorated operands and request boundaries"
       (let* ((spec (compile-lr-spec
                     '((source-file
@@ -95,6 +150,10 @@
            (let* ((tokens (list (make-token 'word "a" offset (+ offset 1))))
                   (replay (prepare-lr-semantic-replay runtime spec tokens)))
              (check (positive? (lr-semantic-replay-count replay)) => #t)
+             (let (work (profile-lr-semantic-actions replay))
+               (check (cdr (assq 'fieldActions work)) => 2)
+               (check (cdr (assq 'aliasActions work)) => 4)
+               (check (cdr (assq 'widestActionInput work)) => 3))
              (let-values (((expected rest) (lr-parse/prepared runtime tokens)))
                (check rest => '())
                (check (replay-lr-semantics replay) => expected)

@@ -187,8 +187,8 @@
           condition)))
      (lambda ()
        (let-values (((status payload)
-                     (lr-checkpoint-drive/contextual
-                      initial next-input after-shift)))
+                     (with-parser-cost-stage 'contextual-drive
+                       (lr-checkpoint-drive/contextual initial next-input after-shift))))
          (unless (eq? status 'accepted)
            (error "contextual LR drive requires deterministic acceptance"
                   status))

@@ -21,9 +21,9 @@
       (newline) (force-output) (leave 1))
     (lambda ()
       (unless (member unicode '("true" "false")) (error "expected true or false" unicode))
-      (unless (member admission '("benefit" "regression")) (error "unknown CPU admission" admission))
-      ((eval (if (equal? admission "benefit")
-                 'gerbil-parser/t/benchmarks/language-abi/utf8-cpu#qualify-abi-utf8-cpu
-                 'gerbil-parser/t/benchmarks/language-abi/utf8-cpu#qualify-abi-utf8-regression))
+      (unless (member admission '("benefit" "regression" "events")) (error "unknown CPU admission" admission))
+      ((eval (cond ((equal? admission "events") 'gerbil-parser/t/benchmarks/language-abi/utf8-cpu#qualify-abi-event-cpu)
+                 ((equal? admission "benefit") 'gerbil-parser/t/benchmarks/language-abi/utf8-cpu#qualify-abi-utf8-cpu)
+                 (else 'gerbil-parser/t/benchmarks/language-abi/utf8-cpu#qualify-abi-utf8-regression)))
        (count groups) (count calls) (count lines) (equal? unicode "true") (string->symbol shape))
       (leave 0))))

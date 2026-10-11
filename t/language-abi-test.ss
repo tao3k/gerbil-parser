@@ -1,13 +1,13 @@
 ;;; Native language admission uses independent descriptors, never builtin names.
 (import :std/test
-        (only-in :gerbil-parser/src/ffi/language-abi-context language-abi-context-source-admission)
+        (only-in :gerbil-parser/src/ffi/language-abi-context language-abi-context-source-admission write-abi-row!)
         (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/language/source declare-source-language source-language-result-catalog source-language-digest)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
         (only-in :gerbil-parser/languages/bash/parser bash-source-language)
         (only-in :gerbil-parser/t/fixtures/ffi/language-probe probe-source-language)
         (only-in :gerbil-parser/t/abi-datum-support abi-datum-read)
-        (only-in :std/vector/u8vector little u8vector-u32-ref)
+        (only-in :std/vector/u8vector little u8vector-u32-ref u8vector-u64-ref)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records records-language-grammar records-contextual-product)
         (only-in :gerbil-parser/src/ffi/language-handles register-language! release-language!
                  language-handle-descriptor language-handle-parse
@@ -28,6 +28,22 @@
         (only-in :gerbil-parser/src/compiler/language-pack generate-language-pack))
 (def language-abi-tests
   (test-suite "independent language native admission"
+    (test-case "bounded GPA1 rows preserve little endian widths and adjacent bytes"
+      (let (bytes (make-u8vector 26 170))
+        (write-abi-row! bytes 1 4294967295 2147483648 18446744073709551615 0 4294967295)
+        (check (u8vector-ref bytes 0) => 170)
+        (check (u8vector-ref bytes 25) => 170)
+        (check (u8vector-u32-ref bytes 1 little) => 4294967295)
+        (check (u8vector-u32-ref bytes 5 little) => 2147483648)
+        (check (u8vector-u64-ref bytes 9 little) => 18446744073709551615)
+        (check (u8vector-u32-ref bytes 17 little) => 0)
+        (check (u8vector-u32-ref bytes 21 little) => 4294967295)
+        (let (before (u8vector-copy bytes))
+          (for-each (lambda (offset)
+            (check-exception (write-abi-row! bytes offset 1 2 3 4 5) true)
+            (check bytes => before)) '(-1 3 26 18446744073709551615))
+          (check-exception (write-abi-row! bytes 1 4294967296 0 0 0 0) true)
+          (check bytes => before))))
     (test-case "native Source handles own edit histories and publish fresh payload parity"
       (let* ((baseline (language-handle-count))
              (a (register-language! bash-source-language))

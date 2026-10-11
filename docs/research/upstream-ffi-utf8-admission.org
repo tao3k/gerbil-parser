@@ -138,3 +138,81 @@ contract's two-dependency expectation. The integration adds a third actual
 Scheme dependency, so its exact expected dependency list is corrected. These
 attempts do not qualify the full workflow; final closure requires the corrected
 revision's complete Ubuntu job to pass.
+
+* Complete 64-record publication algorithm
+
+The UTF-8-only 64-record result above remains a negative benefit result. The
+next experiment changes the shared GPA1 publication algorithm independently
+of source admission. A request-local diagnostic measured 100 accepted ASCII
+64-record C ABI calls: complete CPU was 54.732 ms, contextual scan/LR drive
+21.860 ms, event validation 2.528 ms and event publication 27.962 ms. The
+publication stage was approximately 51% of complete CPU. These inclusive
+observer measurements locate costs; they are not a paired speedup proof.
+
+The fixed Gerbil SDK's =std/vector/u8vector= integer setters dispatch byte
+order and check each scalar span before shifting/storing each byte. GPA1 rows
+have an invariant 24-byte layout. The shared engine now packs that whole row
+through one bounded synchronous leaf instead of five generic scalar writes.
+The leaf converts unsigned integers before accessing storage, checks the
+bytevector and complete remaining span without offset-addition overflow, and
+writes explicit little-endian bytes. It requires neither aligned stores nor
+host endianness. The Scheme buffer body is borrowed only during the leaf;
+there is no callback, allocation, poll or retained pointer inside it.
+
+Both deferred contextual publication and already materialized Source artifacts
+use the prepared context's row writer. Parsing, two-pass event validation,
+source ownership, canonical IDs, descriptor lookups, publication error
+classification, exact buffer sizing and history commit ownership are preserved.
+No language declarations or scanner rules change. Invalid integer widths and
+short output spans fail before writing any part of the row.
+
+The =events= Benchmark registers two independent public C ABI handles with
+identical production UTF-8 admission and parsing. Its reference context owns
+the former five-setter row writer; its candidate uses whole-row packing. Both
+produce the entire 15,488-byte GPA1 for 64 accepted assignments, including input
+copy, parsing, source hash, publication, C result copy, readback and release.
+Empty, rejected, quoted, CRLF, Unicode and field-bearing products are compared
+byte-for-byte outside timing. The existing 20-group paired CPU admission,
+resolution, natural GC and before/after controls remain unchanged.
+
+The initial ASCII experiment passed with CPU P10/P50/P90
+0.624346/0.642045/0.683865, a 35.80% median decrease. Before-control P10/P90
+were 0.928303/1.037129 and after-control 0.928605/1.047672. The child completed
+in 66.762 seconds with exit zero and =ABI-EVENT-CPU-PROOF-OK=. This receipt
+predates the extra internal bytevector guard; final receipts are recorded below.
+A guard compilation rejected a missing Gambit predicate temporary, and the
+premature Unicode child was stopped. Neither is admitted as final evidence.
+
+Reproduce the independent complete-request proof after the normal builds:
+
+#+begin_src sh
+for unicode in false true; do
+  gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+    --log ".data/ffi-event-records-${unicode}-cpu.log" \
+    --require ABI-EVENT-CPU-PROOF-OK \
+    -- gxi t/benchmarks/language-abi/utf8-proof.ss \
+       20 256 64 records "$unicode" events
+done
+#+end_src
+
+The Ubuntu manual qualification runs these independent proof children in
+addition to the existing UTF-8 obligations. A gain here proves the specified
+complete multi-record requests faster; it does not establish an arbitrary
+language speedup or close the separate Bash/Tree-sitter performance gap.
+
+The final guarded Unicode 64-record child used 320 source bytes and 15,488
+payload bytes. CPU P10/P50/P90 was 0.620822/0.648361/0.690914 (35.16% median
+reduction); controls were 0.946849/1.045681 before and 0.958388/1.046244 after.
+It returned =ABI-EVENT-CPU-PROOF-OK= and exit zero in 68.784 seconds.
+
+The final guarded ASCII child used 256 source bytes and the same 15,488-byte
+complete payload. CPU P10/P50/P90 was 0.615059/0.655528/0.687218 (34.45% median
+reduction); controls were 0.938971/1.043902 before and 0.936834/1.043005 after.
+It returned =ABI-EVENT-CPU-PROOF-OK= and exit zero in 67.669 seconds. The final
+producer compiled with the fixed GCC SDK in 7.991 seconds. All these results
+charge natural GC and retain every sample.
+
+The final complete language ABI suite, including row extremes, adjacent-byte
+sentinels, unsigned overflow and atomic bounds rejection, returned =OK= and
+exit zero in 7.205 seconds. Workflow YAML parsing and patch whitespace checks
+also passed locally; remote qualification is a separate gate.

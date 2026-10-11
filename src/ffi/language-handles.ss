@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Language-independent ABI admission. All calls belong to one runtime thread.
 (import (only-in ./language-abi-context language-abi-context?
-                 language-abi-context-source-admission)
+                 language-abi-context-source-admission language-abi-context-event-row-writer)
         (only-in ./language-artifact-codec bind-language-abi
                  abi-parse-binary-payload/bytes/session abi-descriptor-payload)
         (only-in ../language/source source-language-session-scanned-token-count
@@ -29,7 +29,8 @@
 (def (register-language-context! language)
   (language-handle-owner!)
   (unless (and (language-abi-context? language)
-               (procedure? (language-abi-context-source-admission language)))
+               (procedure? (language-abi-context-source-admission language))
+               (procedure? (language-abi-context-event-row-writer language)))
     (error "expected prepared language ABI context"))
   (when (>= +next-handle+ 18446744073709551615)
     (error "language ABI handle space exhausted"))

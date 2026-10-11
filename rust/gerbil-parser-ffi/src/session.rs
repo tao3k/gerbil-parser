@@ -19,7 +19,7 @@ pub enum NativeError {
 /// Handles borrow this session, and results borrow their handle.
 ///
 /// ```compile_fail
-/// fn send(session: gerbil_parser_native::NativeSession) {
+/// fn send(session: gerbil_parser_ffi::NativeSession) {
 ///     std::thread::spawn(move || drop(session));
 /// }
 /// ```

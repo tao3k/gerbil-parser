@@ -1,4 +1,4 @@
-#+title: Rust native language ownership
+#+title: Rust FFI language ownership
 
 This crate calls the language-independent C ABI from an already initialized
 Gerbil embedding host. It owns language handles and C result buffers. The
@@ -12,7 +12,7 @@ builder. Rust declares only the generated factory; the generic ABI functions
 are supplied by =LanguageApi::linked=:
 
 #+begin_src rust
-use gerbil_parser_native::{LanguageApi, NativeSession};
+use gerbil_parser_ffi::{LanguageApi, NativeSession};
 unsafe extern "C" {
     fn my_language_create() -> u64;
 }
@@ -100,7 +100,7 @@ Cargo hosts enable this crate's =standalone= feature, link that library in their
 usual =build.rs=, and declare only their generated factory:
 
 #+begin_src rust
-use gerbil_parser_native::{NativeRuntime, RuntimeApi};
+use gerbil_parser_ffi::{NativeRuntime, RuntimeApi};
 unsafe extern "C" { fn my_language_create() -> u64; }
 // SAFETY: this is the only Gambit VM, and its library remains loaded.
 let mut runtime = unsafe { NativeRuntime::start(RuntimeApi::linked(my_language_create)) }?;

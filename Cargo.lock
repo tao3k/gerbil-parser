@@ -225,7 +225,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gerbil-parser-native"
+name = "gerbil-parser-ffi"
 version = "0.1.0"
 dependencies = [
  "gerbil-parser-artifact",

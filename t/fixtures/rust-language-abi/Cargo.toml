@@ -8,9 +8,9 @@ publish = false
 crate-type = ["staticlib"]
 
 [features]
-standalone = ["gerbil-parser-native/standalone"]
+standalone = ["gerbil-parser-ffi/standalone"]
 
 [dependencies]
-gerbil-parser-native = { path = "../../../rust/gerbil-parser-native" }
+gerbil-parser-ffi = { path = "../../../rust/gerbil-parser-ffi" }
 
 [workspace]

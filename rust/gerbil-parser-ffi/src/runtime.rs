@@ -4,7 +4,7 @@ use crate::{NativeError, NativeLanguage, NativeSession, RuntimeApi};
 /// Owner of the bundle's process-wide, one-shot SDK lifecycle.
 /// Language/result borrows prevent closing or dropping their runtime.
 /// ```compile_fail
-/// fn close(runtime: &mut gerbil_parser_native::NativeRuntime) {
+/// fn close(runtime: &mut gerbil_parser_ffi::NativeRuntime) {
 ///     let language = runtime.language().unwrap();
 ///     let parsed = language.parse("a=1\n").unwrap();
 ///     runtime.close().unwrap();

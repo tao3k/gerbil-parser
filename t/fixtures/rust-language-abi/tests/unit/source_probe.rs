@@ -1,5 +1,5 @@
 //! Own two transferred Source handles and exercise actual Scheme/C edit calls.
-use gerbil_parser_native::{LanguageApi, NativeSession};
+use gerbil_parser_ffi::{LanguageApi, NativeSession};
 use std::cell::Cell;
 
 unsafe extern "C" {

@@ -538,7 +538,7 @@ once and release results and handles through the generic ABI. Per-call VM or
 process creation is outside the loader contract.
 
 For working native ownership examples see
-[[file:../rust/gerbil-parser-native/README.org][Rust native wrapper guide]]. For the standalone build ABI, portable scanner
+[[file:../rust/gerbil-parser-ffi/README.org][Rust FFI wrapper guide]]. For the standalone build ABI, portable scanner
 admission and external consumer witness see
 [[file:../docs/architecture/0006-rust-aot.org][Rust AOT design]].
 

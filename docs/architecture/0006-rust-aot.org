@@ -32,7 +32,7 @@ its owned syntax index. There is no conversion facade between the products.
 | Package | Responsibility | Runtime dependency |
 |---------+----------------+--------------------|
 | gerbil-parser-artifact | Inert descriptor reader, GPA1 admission, borrowed navigation; separate validated flat index for AOT | SHA-256 and descriptor data representation |
-| gerbil-parser-native | Generic FFI, handle/result lifetimes, owner-thread sessions, optional standalone VM ownership | Artifact package |
+| gerbil-parser-ffi | Generic FFI, handle/result lifetimes, owner-thread sessions, optional standalone VM ownership | Artifact package |
 | gerbil-parser-runtime | Independent generated-table/event execution, diagnostics and source indexes | Artifact package and SHA-256 |
 | gerbil-parser-runtime-external | Optional external event producer and provider receipt | Generic runtime |
 | gerbil-parser-build-support | Source policy, integration tests and benchmark scenario data | Development dependencies only |

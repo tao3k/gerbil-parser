@@ -1,6 +1,6 @@
 //! Exercise the Rust ownership boundary through actual compiled Gerbil callbacks.
-use gerbil_parser_native::NativeElement;
-use gerbil_parser_native::{LanguageApi, NativeSession, RawResult};
+use gerbil_parser_ffi::NativeElement;
+use gerbil_parser_ffi::{LanguageApi, NativeSession, RawResult};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 unsafe extern "C" {
@@ -31,7 +31,7 @@ fn api() -> LanguageApi {
     api
 }
 
-fn check_tokens(view: &gerbil_parser_native::NativeArtifactView<'_>, source: &str) {
+fn check_tokens(view: &gerbil_parser_ffi::NativeArtifactView<'_>, source: &str) {
     let mut offset = 0;
     for (ordinal, token) in view.tokens().enumerate() {
         assert_eq!(token.id(), u64::try_from(ordinal).unwrap());
@@ -58,7 +58,7 @@ fn check() {
         // SAFETY: the linked API is live; its owner guard is safe on any thread.
         assert!(matches!(
             unsafe { NativeSession::attach(api()) },
-            Err(gerbil_parser_native::NativeError::OwnerThread)
+            Err(gerbil_parser_ffi::NativeError::OwnerThread)
         ));
     })
     .join()
@@ -141,7 +141,7 @@ pub extern "C" fn gerbil_parser_rust_native_host_probe() -> i32 {
         // SAFETY: a fresh independent process links exactly this standalone
         // bundle, which stays loaded until process exit. No other VM is live.
         let mut runtime = unsafe {
-            gerbil_parser_native::NativeRuntime::start(gerbil_parser_native::RuntimeApi::linked(
+            gerbil_parser_ffi::NativeRuntime::start(gerbil_parser_ffi::RuntimeApi::linked(
                 records_language_create,
             ))
         }
@@ -157,21 +157,21 @@ pub extern "C" fn gerbil_parser_rust_native_host_probe() -> i32 {
         runtime.close().expect("Rust close is idempotent");
         assert!(matches!(
             runtime.language(),
-            Err(gerbil_parser_native::NativeError::RuntimeClosed)
+            Err(gerbil_parser_ffi::NativeError::RuntimeClosed)
         ));
         // SAFETY: the linked library is still loaded; admission guards reject
         // both a new session and VM restart without entering the cleaned VM.
         assert!(matches!(
             unsafe { NativeSession::attach(api()) },
-            Err(gerbil_parser_native::NativeError::OwnerThread)
+            Err(gerbil_parser_ffi::NativeError::OwnerThread)
         ));
         assert!(matches!(
             unsafe {
-                gerbil_parser_native::NativeRuntime::start(
-                    gerbil_parser_native::RuntimeApi::linked(records_language_create),
+                gerbil_parser_ffi::NativeRuntime::start(
+                    gerbil_parser_ffi::RuntimeApi::linked(records_language_create),
                 )
             },
-            Err(gerbil_parser_native::NativeError::Runtime(-3))
+            Err(gerbil_parser_ffi::NativeError::Runtime(-3))
         ));
         println!("RUST-HOST-CLEANUP-OK");
     });

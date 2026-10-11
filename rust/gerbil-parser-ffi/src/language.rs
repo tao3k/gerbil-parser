@@ -23,7 +23,7 @@ pub struct NativePayload<'language, 'runtime> {
 ///
 /// A live result prevents releasing its handle:
 /// ```compile_fail
-/// fn release(language: gerbil_parser_native::NativeLanguage<'_>) {
+/// fn release(language: gerbil_parser_ffi::NativeLanguage<'_>) {
 ///     let parsed = language.parse("a=1\\n").unwrap();
 ///     drop(language);
 ///     parsed.bytes().unwrap();
@@ -31,7 +31,7 @@ pub struct NativePayload<'language, 'runtime> {
 /// ```
 /// A live view prevents freeing its C payload:
 /// ```compile_fail
-/// fn free(language: &gerbil_parser_native::NativeLanguage<'_>) {
+/// fn free(language: &gerbil_parser_ffi::NativeLanguage<'_>) {
 ///     let parsed = language.parse("a=1\\n").unwrap();
 ///     let view = parsed.view().unwrap();
 ///     drop(parsed);

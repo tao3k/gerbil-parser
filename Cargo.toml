@@ -2,7 +2,7 @@
 members = [
   "build-support/gerbil-parser-build-support",
   "rust/gerbil-parser-runtime",
-  "rust/gerbil-parser-native",
+  "rust/gerbil-parser-ffi",
   "rust/gerbil-parser-artifact",
   "rust/gerbil-parser-runtime-external",
 ]

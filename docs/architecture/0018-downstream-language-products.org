@@ -834,7 +834,7 @@ for result publication. It does not define a second grammar or parser engine.
 Use =abi= for foreign-call and ownership boundaries, =rust-aot= for Rust code
 generation, and =test= for Scheme test ownership. Use =compiled= when distinguishing
 loaded machine-code modules from interpreted source. The Rust
-=gerbil-parser-native= crate is the C ABI host binding; it invokes the Scheme
+=gerbil-parser-ffi= crate is the C ABI host binding; it invokes the Scheme
 runtime. The =gerbil-parser-runtime= crate executes Scheme-generated Rust plans.
 These are separate deployment products with the same Scheme-owned IR authority.
 

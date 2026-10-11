@@ -65,7 +65,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gerbil-parser-native"
+name = "gerbil-parser-ffi"
 version = "0.1.0"
 dependencies = [
  "gerbil-parser-artifact",
@@ -111,7 +111,7 @@ dependencies = [
 name = "rust-language-abi-fixture"
 version = "0.0.0"
 dependencies = [
- "gerbil-parser-native",
+ "gerbil-parser-ffi",
 ]
 
 [[package]]

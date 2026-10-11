@@ -5,7 +5,7 @@
 =gerbil-parser-artifact= admits the Scheme-owned GPA1 result and the inert
 native descriptor from the same language handle. It contains no language
 recognizer and depends on no execution backend or third-party tree representation.
-=gerbil-parser-native= obtains and caches this catalog through its handle;
+=gerbil-parser-ffi= obtains and caches this catalog through its handle;
 callers use =parsed.view()= without passing a generated parser specification.
 
 #+begin_src rust

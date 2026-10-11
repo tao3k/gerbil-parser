@@ -162,12 +162,36 @@ component medians. On Gerbil =2591dcd= / Gambit =dcd677c=:
 | GQL RETURN, initial | 512 | 32 | 0.624 | 0.901 | 1.223 |
 | GQL RETURN, larger batch | 512 | 64 | 0.824 | 0.899 | 1.003 |
 | Arithmetic addition | 64 | 256 | 0.860 | 0.896 | 0.979 |
+| Arithmetic single value, initial | 1 | 4096 | 0.331 | 1.640 | 1.714 |
+| Arithmetic single value, longer batch | 1 | 65536 | 0.846 | 0.922 | 1.037 |
 
-All five cases pass complete-product equality and exit zero inside their
+All seven cases pass complete-product equality and exit zero inside their
 unchanged 90-second process budgets. The CPU medians improve by about 10--15%
 in this prepared-request scope. GQL's dispersed initial result is retained;
 the larger-batch observation does not support a stable tail-latency gain.
 Arithmetic is a small grammar control and shows no median regression here.
+
+The single-value request tests the shortest reduction path separately. Its
+initial paired median regresses despite identical per-batch allocation
+(20,382,032 bytes per 4,096 calls) and lower candidate component CPU medians
+(6.938ms versus 8.001ms). Retained natural collections take about 26ms,
+dominating the 7--8ms collection-free batches; their placement changes which
+variant pays that interval. This is an observed sampling imbalance, not a
+reason to remove collection time or blame Gambit. At 65,536 calls per leg,
+with the same twenty groups and 90-second limit, the paired median is 0.922
+and P90 is 1.037. This resolves the observed median reversal while still
+preventing a stable tiny-request tail improvement claim. Both observations
+remain evidence; the longer batch does not retroactively turn the first into
+a passing speed proof.
+
+The existing comparison entry keeps this diagnosis reproducible without a
+new runner or mandatory CI workload. Supply the independent =d8f91c5=
+module graph's preparation, execution and publication procedures:
+
+#+begin_src scheme
+(compare-lr-staged-case 'arithmetic-addition 1
+  baseline-prepare baseline-parse 20 65536 baseline-publish)
+#+end_src
 
 Two earlier candidates were withdrawn: synchronous state/value stack popping
 gave FHIRPath-64 P10/P50/P90 ratios 0.897/0.969/1.101; a prepared

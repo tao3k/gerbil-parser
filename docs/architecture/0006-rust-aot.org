@@ -94,6 +94,10 @@ The C/Scheme boundary copies input and allocates the output payload. Rust views
 borrow those buffers and the original Rust source; this is not a claim of zero
 allocation across the ABI. The caller releases views before releasing the result.
 
+Strict input admission uses the pinned upstream Scheme caller-buffer UTF-8 encoder.
+Its C scratch allocation is released on success and exceptions; it is distinct
+from the source and result buffers. See [[file:../research/upstream-ffi-utf8-admission.org][the complete request CPU qualification]].
+
 * Runtime and lifetime contract
 
 An application with an initialized VM uses =NativeSession::attach=. A standalone

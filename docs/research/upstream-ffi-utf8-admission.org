@@ -1,0 +1,122 @@
+#+title: Upstream caller-owned UTF-8 admission in complete parser requests
+
+* Ownership and integration
+
+Both =gerbil.pkg= and the Rust IR dependency pin
+=gerbil-scheme-rust= revision =345b172765e5607b09049614d10520c2439dcac3=.
+The parser imports the actual upstream =scheme/utf8= module; it does not copy
+its encoder or initialize a second Scheme VM. The public Rust and C parse
+signatures, GPA1 format and language declarations remain unchanged.
+
+[[file:../../src/ffi/language-abi-context.ss][Prepared ABI contexts]] own a source-admission procedure. The default decodes
+incoming bytes and calls upstream =gerbil-rs-encode-utf8-into= to compare the
+canonical encoding against the original bytes. [[file:../../src/ffi/language-artifact-codec.ss][Both fresh and session publication]]
+use that admission before parsing. [[file:../../src/ffi/language-handles.ss][Prepared context registration]] gives each
+handle its existing independent history; it adds no process or VM isolation.
+The private context record is an engine protocol, not a new language DSL slot.
+
+Each nonempty admission allocates stable C storage with capacity four times
+its decoded character count. Upstream writes bounded 256-character chunks,
+retaining Scheme polling and strict Unicode scalar checks. The consumer passes
+a typed =void*= foreign object, not an integer address. Its no-allocation
+comparison leaf borrows the Scheme bytevector body only during that call.
+No Scheme body pointer survives a poll, callback or allocation. =dynamic-wind=
+frees C storage on success and exceptions; empty input requires no allocation.
+Allocation failure and malformed/noncanonical UTF-8 remain errors before result
+publication and history commit. This changes temporary encoding storage, not
+the original source copy or the owned C result lifetime.
+
+The upstream encoder and its pointer contract are primary implementation inputs:
+[[https://github.com/tao3k/gerbil-scheme-rust/blob/345b172765e5607b09049614d10520c2439dcac3/scheme/utf8.ss][Pinned Scheme encoder source]]. Existing parser transport already uses bulk
+=memcpy= for source and GPA1 bytes; reimplementing those copies would not consume
+a missing upstream optimization.
+
+* Complete request experiment
+
+[[file:../../t/benchmarks/language-abi/utf8-cpu.ss][The Scheme Benchmark]] registers two prepared contextual record parsers. The
+reference context independently reproduces the former =utf8->string= plus
+=string->utf8= equality admission. The candidate uses the production upstream
+caller-buffer admission. Grammar, scanner, parser, catalog, byte source and
+expected complete GPA1 payload are shared in meaning. Workloads must be accepted.
+
+Both timed thunks call the actual length-bearing public C parse ABI through
+[[file:../../t/benchmarks/source-edits/abi-call.ss][the existing owned C caller]]. Timing includes input allocation/copy, callback,
+strict admission, contextual parsing, GPA1 encoding, C result allocation/copy,
+readback and all releases. Complete payload equality is checked by the common
+sampler; initialization and context preparation are outside both timed lanes.
+This is a Scheme measurement of the public C path also used by Rust callers,
+not a measurement of Rust wrapper instruction costs.
+
+Twenty groups retain complementary paired order and equal request budgets.
+Every natural collection remains charged to CPU. Identical reference controls
+run before and after the production comparison. Both control P10/P90 bounds
+remain 0.90--1.10; positive benefit additionally requires production P90 below
+0.95 and every timed sub-batch to resolve at least one millisecond. Each fresh
+proof child retains 120 seconds total, five seconds of real-output idle time,
+three GiB maximum heap and typed nonzero rejection. No collection is forced
+between sub-batches, no sample is dropped and GC CPU is not subtracted.
+
+* Local executable receipts
+
+The fixed CI Gerbil 2591dcd/Gambit dcd677c SDK and its GCC toolchain compiled the
+final producers in 8.111 seconds. The complete ABI GxTest suite, including
+Unicode scalar extremes and 256-character boundaries, returned =OK= and exit
+zero in 11.460 seconds. Initial completion followed by an idle kill is retained
+as rejected; the standard disposable-child exit owner closes the final process.
+
+| Complete accepted input | Bytes | Nominal calls | CPU P50 ratio | CPU P90 ratio | Median decrease | Elapsed seconds | Benefit admitted |
+|-------------------------+-------+---------------+---------------+---------------+-----------------+-----------------+------------------|
+| 4096-character ASCII identifier | 4099 | 1024 | 0.889677 | 0.918142 | 11.03% | 46.890 | yes |
+| 4096-character Unicode identifier | 8195 | 1024 | 0.847645 | 0.889088 | 15.24% | 51.331 | yes |
+| 64 complete record assignments | 256 | 256 | 1.003263 | 1.035410 | none proved | 71.737 | no |
+
+ASCII controls have P10/P90 0.957433/1.023836 before and
+0.976223/1.020410 after. Unicode controls have 0.969120/1.022878 before and
+0.987238/1.018941 after. The many-record controls also pass, but its production
+series does not establish positive CPU benefit. A separate no-regression
+obligation requires stable controls and production P90 at most 1.05; it cannot
+be reported as a speedup. Fresh CI verifies both obligations separately.
+
+Two independent 256-call regression children retained continuous real-batch
+progress but hit the unchanged 120-second bound under host scheduling delays.
+Neither is admitted. An equal 128-call experiment completed in 40.993 seconds
+but rejected its before-control P10 of 0.894746; its production P90 of 1.024535
+does not qualify the run. The regression obligation retains the original
+256-call budget and every statistical/control threshold.
+
+The final independent 256-call regression child completed in 71.671 seconds
+with exit zero and =ABI-UTF8-CPU-REGRESSION-OK=. Its control P10/P90 were
+0.940476/1.070487 before and 0.961524/1.039007 after; production P50/P90
+were 0.994419/1.031232. This admits the bounded regression obligation and
+still reports =cpu-benefit: false=. The Rust workspace consumer checks against
+the synchronized pin passed 167 tests with two ignored.
+
+Negative experiments are part of the boundary. The ordinary upstream encoder
+still allocates/fills a maximum-sized Scheme bytevector. With 128 nominal calls,
+ASCII CPU P50/P90 was 0.949521/1.111697 and the controls rejected. With 1024 calls,
+controls passed but production 0.959259/1.032450 did not admit benefit. Its
+Unicode exploratory series also rejected benefit; it is not positive evidence.
+The final caller-owned route removes that temporary Scheme vector rather than
+relaxing the admission rule. A wrong integer-pointer integration was rejected by
+the upstream typed pointer guard and fixed before final semantic qualification.
+
+These receipts qualify the specified complete contextual requests. They do not
+prove every grammar faster, solve the Bash/Tree-sitter gap, or attribute a gain
+to the unlinked upstream Rust runtime. The many-record result makes the limited
+CPU contribution of UTF-8 admission visible when parsing/publication dominates.
+
+* Reproduction and remote closure
+
+Use the normal package dependency/build owners followed by =build-ffi-tests.ss=.
+The compiled entry and its source proof runner are part of that existing owner.
+
+#+begin_src sh
+gerbil env gxi t/benchmarks/language-abi/utf8-proof.ss 20 1024 128 identifier false
+gerbil env gxi t/benchmarks/language-abi/utf8-proof.ss 20 1024 128 identifier true
+gerbil env gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records false regression
+#+end_src
+
+The existing manual performance workflow executes both positive benefit gates
+and the distinct many-record regression obligation on Ubuntu. Ordinary CI keeps
+its ABI, source callback/GC, complete conformance and generated-product checks.
+Exact-head CI remains a separate gate after integration with concurrent PR work.

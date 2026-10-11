@@ -466,6 +466,20 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/fixtures/ffi/language-probe")' \
             -e '(import :gerbil-parser/t/fixtures/ffi/language-probe) (main)'
 
+      - name: Prove upstream FFI UTF-8 complete request CPU improvement
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
+        env:
+          GAMBOPT: max-heap=3G,debug=q
+        run: |
+          for unicode in false true; do
+            gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+              --log ".data/ffi-utf8-${unicode}-cpu.log" --require ABI-UTF8-CPU-PROOF-OK \
+              -- gxi t/benchmarks/language-abi/utf8-proof.ss 20 1024 128 identifier "$unicode"
+          done
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/ffi-utf8-records-cpu.log --require ABI-UTF8-CPU-REGRESSION-OK \
+            -- gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records false regression
+
       - name: Verify Source caller survives natural collection
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \

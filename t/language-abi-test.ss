@@ -1,5 +1,6 @@
 ;;; Native language admission uses independent descriptors, never builtin names.
 (import :std/test
+        (only-in :gerbil-parser/src/ffi/language-abi-context language-abi-context-source-admission)
         (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/src/language/source declare-source-language source-language-result-catalog source-language-digest)
         (only-in :gerbil-parser/src/runtime/source-engines LineSourceStrategy.)
@@ -123,6 +124,16 @@
                  (map (lambda (row) (apply string-append (make-list 4096 row)))
                       '("a=1\n" "α=1\r\n")))))))
        '(#f #t)))
+    (test-case "upstream bulk admission preserves Unicode scalars and chunk boundaries"
+      (let* ((language (bind-language-abi records-language-grammar records-contextual-product))
+             (admit (language-abi-context-source-admission language))
+             (scalars (map integer->char '(0 127 128 2047 2048 55295 57344 65535 65536 1114111))))
+        (for-each
+         (lambda (width)
+           (let* ((source (list->string (append (make-list width #\a) scalars)))
+                  (bytes (string->utf8 source)))
+             (check (admit bytes) => source)))
+         '(0 245 246 255 256 257 511 512))))
     (test-case "strict byte admission rejects noncanonical UTF-8 before publication"
       (let (language (bind-language-abi records-language-grammar records-contextual-product))
         (for-each

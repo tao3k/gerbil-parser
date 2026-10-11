@@ -6,7 +6,8 @@
         (only-in ./language-abi-context prepare-language-abi-context language-abi-context?
                  descriptor-section abi-terminal-rows language-abi-context-id
                  language-abi-context-descriptor language-abi-context-parser language-abi-context-field-symbols
-                 language-abi-context-plan language-abi-context-plan-set!)
+                 language-abi-context-plan language-abi-context-plan-set!
+                 language-abi-context-source-admission)
         (only-in ./event-binary +binary-header-size+ +binary-event-size+
                  copy-digest! write-event! abi-event-payload)
         (only-in :std/crypto/digest sha256)
@@ -80,26 +81,19 @@
         (loop (cdr remaining) (+ row 1))))
     payload))
 
-(def (abi-source-text bytes)
-  (let (source (utf8->string bytes))
-    ;; Preserve strict admission even on decoders that replace invalid sequences.
-    (unless (equal? bytes (string->utf8 source))
-      (error "native source is not canonical UTF-8"))
-    source))
-
 ;;; Publish before returning history: any transport/admission exception leaves
 ;;; the handle's previous history untouched. Syntax rejection remains GPA1.
 (def (abi-parse-binary-payload/bytes/session language bytes previous)
   (let (descriptor (language-abi-context-descriptor language))
     (if (source-language? descriptor)
-      (let* ((session (parse-source-language/session descriptor (with-parser-cost-stage 'utf8-decode (abi-source-text bytes)) previous))
+      (let* ((session (parse-source-language/session descriptor (with-parser-cost-stage 'utf8-decode ((language-abi-context-source-admission language) bytes)) previous))
              (payload (with-parser-cost-stage 'payload-encoding
                         (abi-artifact-binary-payload language (source-language-session-artifact session)))))
         (values payload (source-language-session-history session)))
       (values (abi-parse-binary-payload/bytes language bytes) #f))))
 
 (def (abi-parse-binary-payload/bytes language bytes)
-  (let (source (abi-source-text bytes))
+  (let (source ((language-abi-context-source-admission language) bytes))
     (let (plan (language-abi-context-plan language))
       (if (or (not plan)
               (language-grammar-parser-policy (language-abi-context-descriptor language)))

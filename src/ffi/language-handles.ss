@@ -1,10 +1,12 @@
 ;;; -*- Gerbil -*-
 ;;; Language-independent ABI admission. All calls belong to one runtime thread.
-(import (only-in ./language-artifact-codec bind-language-abi
+(import (only-in ./language-abi-context language-abi-context?
+                 language-abi-context-source-admission)
+        (only-in ./language-artifact-codec bind-language-abi
                  abi-parse-binary-payload/bytes/session abi-descriptor-payload)
         (only-in ../language/source source-language-session-scanned-token-count
                  source-language-session-reused-token-count))
-(export register-language! release-language!
+(export register-language! register-language-context! release-language!
         language-handle-descriptor language-handle-parse
         language-handle-parse/publish
         language-handle-scan-counts
@@ -22,13 +24,18 @@
   (language-handle-owner!)
   (hash-length +languages+))
 (def (register-language! descriptor (contextual-product #f))
+  (register-language-context! (bind-language-abi descriptor contextual-product)))
+;;; Prepared contexts retain their decoder and publication catalogs per handle.
+(def (register-language-context! language)
   (language-handle-owner!)
-  (let (language (bind-language-abi descriptor contextual-product))
-    (when (>= +next-handle+ 18446744073709551615)
-      (error "language ABI handle space exhausted"))
-    (set! +next-handle+ (+ +next-handle+ 1))
-    (hash-put! +languages+ +next-handle+ (make-language-handle-entry language #f))
-    +next-handle+))
+  (unless (and (language-abi-context? language)
+               (procedure? (language-abi-context-source-admission language)))
+    (error "expected prepared language ABI context"))
+  (when (>= +next-handle+ 18446744073709551615)
+    (error "language ABI handle space exhausted"))
+  (set! +next-handle+ (+ +next-handle+ 1))
+  (hash-put! +languages+ +next-handle+ (make-language-handle-entry language #f))
+  +next-handle+)
 (def (release-language! handle)
   (language-handle-owner!)
   (hash-remove! +languages+ handle))

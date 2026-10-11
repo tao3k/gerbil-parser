@@ -62,14 +62,16 @@ source admission, artifact equality and executor witnesses precede timing.
 Arithmetic's cloned prepared executor is explicitly a representation control;
 its public generated drive has separate full-matrix observations.
 
-Twenty groups retain the existing sixteen alternating legs, natural GC and
-1ms CPU precision gate. The first normalization-order-only probe exceeded its
+The historical measurements below use twenty groups with sixteen alternating
+legs, natural GC and the 1ms CPU precision gate. The first normalization-order-only probe exceeded its
 90-second combined budget after completing the small controls; its partial
 result is retained as a rejection, not a matrix receipt. Small-batch ratios
 also had large GC-dependent dispersion. Subsequent complete cases keep the
 90-second process budget and use 16,384 GQL or 32,768 FHIRPath small requests,
 and the =calls= argument is 256 at scale 64 and 64 at scale 512. Each group
-executes four times =calls= per variant, distributed across sixteen legs.
+executes four times =calls= per variant. The later shared sampling correction
+in =1e5a099= retains that request budget in eight full-length legs rather than
+sixteen half-length legs; the current comparison owner uses this shared plan.
 No collection interval is removed from the CPU result.
 
 On Gerbil =2591dcd= / Gambit =dcd677c= with both engine and reference compiled

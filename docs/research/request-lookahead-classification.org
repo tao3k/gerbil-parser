@@ -76,7 +76,8 @@ the deterministic executor must observe that change and reject the input.
 
 The final lookahead producer compiled natively under the existing 120-second
 and five-second idle bounds in 37.094 seconds. The five action projection cases
-passed against that producer in 16.141 seconds. Twelve current-source stack
+passed against that producer in 16.254 seconds, including a 256-character
+identifier whose width is absent from the literal vocabulary. Twelve current-source stack
 reduction cases passed in 53.889 seconds using the standard GxTest owner. The
 latter loaded the current parser forms into a temporary source test module with
 absolute module identities; it qualifies the source algorithm, not a newly

@@ -72,6 +72,8 @@
                             (repeat (- remaining 1) (compile)))))
                  (cpu-ms (* 1000.0 (- (cpu-time) started)))
                  (after (##process-statistics)))
+            (when (and (> calls 1) (< cpu-ms 1.0))
+              (error "construction CPU batch does not resolve one millisecond" workload route calls))
             (unless (equal? reference found)
               (error "complete compiler product changed" workload route sample))
             (write (list 'ITEM-SPACE-SAMPLE workload route sample

@@ -131,8 +131,10 @@ bytes for LALR (16/20 admitted original samples and 20/20 candidate samples),
 8,749,368 to 3,496,640 for canonical LR(1) (10/20 on each side), and 9,262,480
 to 4,009,624 for follow partition (5/20 and 6/20). The shared allocation contract
 rejects GC-contaminated or invalid deltas; its subsets are separate from CPU
-samples. The small-grammar regressions remain visible: preparing inverse owners
-and accessor costs are not free, and padding was small in those controls.
+samples. The small-grammar regressions remain visible in this historical run.
+Inverse-owner preparation and accessor costs were hypotheses, not measured
+causes of those single-call observations. The phase and batch controls below
+test that attribution separately.
 
 Negative results remain outside admission. Initial untraced imports and an
 unchanged follow-automaton GCC rebuild exceeded the idle bound. The full source
@@ -142,3 +144,53 @@ construction exceeded the idle bound and supply no admitted language timing.
 The focused local tests used retained runtime dependencies and qualify compiler
 behavior only. Fresh complete semantic and generated-product qualification
 belongs to the existing exact-head CI gates. No deadline or CI stage was added.
+
+* Small-grammar attribution controls
+
+The [[file:../../t/benchmarks/lr1-partition/item-space.ss][same benchmark owner]] now separates layout preparation from layout plus
+symbol-catalog construction. Four sequential original/dense/dense/original runs
+passed the existing 120-second total and five-second idle bounds in 20.551,
+13.611, 9.004 and 16.121 seconds. Each phase has forty observations per side,
+with 2,000 preparations per observation. Symbol projection is checked outside
+the timed interval; CPU includes natural GC.
+
+| Fixture | Phase | Original CPU us/call | Dense CPU us/call |
+|---------+-------+----------------------+-------------------|
+| 32 / 16 | Layout | 0.80525 | 0.76300 |
+| 32 / 16 | Layout and symbol catalog | 1.76075 | 1.46150 |
+| 128 / 64 | Layout | 2.42900 | 2.70225 |
+| 128 / 64 | Layout and symbol catalog | 24.27075 | 4.94850 |
+
+At 32 / 16, admitted layout allocation rises from 1,952.616 to 2,272.616 bytes
+per call (36/40 samples on each side), while layout plus catalog falls from
+6,760.616 to 3,648.616 (34/40 and 36/40). These process-counter observations
+include the equal per-call measurement loop overhead. They are not retained
+heap sizes. At 128 / 64, all original catalog allocation observations include
+GC and are rejected; no allocation comparison is admitted for that phase.
+
+The small complete-compiler control additionally repeats one hundred
+compilations per measured batch. Four original/dense/dense/original runs passed
+in 29.520, 20.926, 17.284 and 15.138 seconds. All three complete LRSpecs match
+across all four runs. Each route has forty batches per side; every batch exceeds
+one millisecond of process CPU. Reported CPU is per compilation.
+
+| Route, 32 / 16 | Original CPU ms | Dense CPU ms |
+|----------------+-----------------+--------------|
+| LALR | 0.152220 | 0.127615 |
+| Canonical LR(1) | 0.148555 | 0.130990 |
+| Follow partition | 0.157000 | 0.125810 |
+
+The earlier regression does not reproduce in these resolved batches. Preparation
+does not exhibit the earlier 62--107 microsecond growth either. This rejects
+inverse-owner initialization as a sufficient explanation. It does not establish
+which combination of timing resolution, heap state, host contention and compiler
+optimization context produced the earlier single-call medians.
+
+These diagnostics reuse the qualified native producer graphs. The original
+producers were rebuilt against common helper interfaces; the first four dense
+producers retain their earlier compilation context. Matching products does not
+remove that optimization-context confound. Fresh dense rebuild attempts exceeded
+the idle bound during optimizer admission and GCC compilation, respectively;
+partial products were excluded. The batched medians are descriptive diagnostics,
+not a newly admitted causal speedup. A fresh common-context comparison remains
+required before attributing a small-fixture timing difference to representation.

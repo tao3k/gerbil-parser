@@ -23,7 +23,7 @@
                     (set! eof-observations (+ eof-observations 1))
                     (begin
                       (set! observations (+ observations 1))
-                      (table-set! lookaheads (car tokens) #t)))
+                      (table-set! lookaheads tokens #t)))
                   (select state tokens)))))
            (observed (parse-source (parser-machine-with-lr-action-selector machine factory) source)))
       (unless (equal? observed expected) (error "lookahead observation changes complete product"))

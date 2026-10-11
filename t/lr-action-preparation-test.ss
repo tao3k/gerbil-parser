@@ -41,7 +41,8 @@
                         '(0 1 2 1 0))
               (check (eq? (left 0 '()) (reference 0 '())) => #t)
               (check (eq? (left 1 tokens) (reference 1 tokens)) => #t)))
-          '("end" "END" "End" "é" "ß" "" "+" "key11" "unknown"))))
+          (cons (make-string 256 #\x)
+                '("end" "END" "End" "é" "ß" "" "+" "key11" "unknown")))))
      '(#f #t))))
 
 (def lr-action-preparation-test

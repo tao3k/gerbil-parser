@@ -182,7 +182,7 @@
     (unless (lr-runtime-event-program? runtime)
       (let ((replay (prepare-lr-semantic-replay materialized-runtime
                      (cdr (assq 'lr-spec (parser-machine-ir machine))) significant))
-            (calls (max iterations 100)))
+            (calls (max iterations (if (< units 512) 100 20))))
         (unless (equal? (replay-lr-semantics replay) (car parsed))
           (error "semantic replay changed the complete recognition root" family units))
         (write (list 'LR-SEMANTIC-REPLAY-WORK family units
@@ -192,7 +192,8 @@
           (lambda () (replay-lr-semantic-control replay)) (car parsed))
         (measure (list family units 'semantic-replay) samples calls
           (lambda () (replay-lr-semantics replay)) (car parsed))))
-    (measure (list family units 'artifact-publication) samples (max iterations 100)
+    (measure (list family units 'artifact-publication) samples
+      (max iterations (if (< units 512) 100 20))
       (lambda () (make-success-parse-artifact (parser-machine-grammar-digest machine)
                    source tokens (car parsed) (parser-machine-trivia machine))) reference)
     (measure (list family units 'full-source) samples iterations
@@ -219,14 +220,15 @@
   ;; the small workload and the unchanged generated Arithmetic executor.
   (for-each
    (lambda (units)
-     (let ((calls (if (= units 1) 4096 64))
+     (let ((calls (if (= units 1) 900 64))
            (addition (string-join (make-list units "1") " + ")))
        (benchmark-lr-lookahead (list 'gql-return units) gql-parser
          (string-append "RETURN "
            (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota units)) ", ")
            "\n") 20 calls)
        (benchmark-lr-lookahead (list 'fhirpath-addition units) fhirpath-parser addition 20 calls)
-       (benchmark-lr-lookahead (list 'arithmetic-addition units) arithmetic-parser addition 20 calls)))
+       (benchmark-lr-lookahead (list 'arithmetic-addition units) arithmetic-parser addition
+         20 (if (= units 1) 4096 calls))))
    '(1 64))
   (displayln "LR-REQUEST-STACK-OK") (force-output))
 

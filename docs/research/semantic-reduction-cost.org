@@ -136,7 +136,7 @@ semantic replay was over 50 microseconds for each language. This directs further
 investigation toward semantic construction rather than diagnostic traversal.
 It does not establish an additive request percentage or an engine speedup.
 
-Final sampling uses at least 100 semantic replays and publications per batch,
+The local receipt below uses at least 100 semantic replays and publications per batch,
 and 10,000 traversal controls. The observed minimum 64-unit semantic replay median exceeds 50 microseconds,
 so even its smallest semantic batch is above one millisecond. The larger
 traversal batch independently exceeds the timer resolution. Batch sizes are
@@ -202,3 +202,29 @@ boundary. Raw local logs and output-directory paths are not tracked.
 Further performance conclusions require a coherent current native graph and
 the complete request controls. No engine speedup follows from adding replay
 diagnostics or reducing the number of observed allocations.
+
+** Cross-host budget rejection and scale-aware repetition
+
+The macOS matrix at =6d7f5c5= passed the Scheme semantic suite, then exceeded
+the unchanged 90-second request-matrix budget with exit 137 and no completion
+marker. The six component corpora completed; the first small GQL paired
+control was still running. This is a rejected matrix, not an AST mismatch or
+a successful cross-host receipt. Large GQL and FHIRPath component corpora took
+about 22 and 26 seconds with 100 semantic/publication calls per batch.
+
+Current repetition retains 100 calls for 64-unit semantic/publication corpora,
+20 for 512 units and 10,000 for traversal controls. The earlier 512-unit local
+per-corpus medians put these 20-call batches above 9ms, providing resolution
+without small-corpus repetition at every scale. Twenty samples and all complete
+product controls remain. Small GQL and FHIRPath paired requests use 900 calls;
+the faster generated Arithmetic control alone retains 4,096 calls to resolve
+its original one-millisecond minimum. The paired precision gate and total
+deadline are unchanged. Batch changes alter GC exposure, so results must not
+be compared as an engine before/after speedup.
+
+The coherent local native matrix with these batch sizes completed inside the
+same 90-second budget with exit zero and =LR-REQUEST-STACK-OK=: 42 component
+summaries and all six paired request controls. Across the 360 new
+semantic/control/publication samples, the smallest CPU batch was 2.429ms.
+This admits the local sampling correction; exact-head remote CI still owns
+cross-host qualification.

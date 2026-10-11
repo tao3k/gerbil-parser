@@ -20,6 +20,7 @@
         recognition-sequence-append
         recognition-sequence-concatenate
         recognition-sequence->list
+        recognition-sequence-root-child
         recognition-sequence-for-action
         recognition-sequence-relocate
         current-recognition-sequence-fusion-enabled?
@@ -221,6 +222,14 @@
                            (relocate-recognition-value (recognition-child-value child) delta #t)))))
            current))))
       (collect-sequence! sequence 0))))
+
+;;; Acceptance requires one unfielded child. Return the child rather than its
+;;; payload so rejection remains distinct from a payload whose value is #f.
+(def (recognition-sequence-root-child sequence)
+  (let (children (recognition-sequence->list sequence))
+    (and (pair? children) (null? (cdr children))
+         (not (recognition-child-field (car children)))
+         (car children))))
 
 ;;; The interpreter and generated operand actions share this one boundary.
 (def (recognition-sequence-for-action children)

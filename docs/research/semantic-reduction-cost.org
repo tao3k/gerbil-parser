@@ -1,0 +1,142 @@
+#+title: Actual LR reductions and AST construction cost
+
+* One investigation boundary
+
+This study follows [[file:request-lookahead-classification.org][the rejected lookahead cache]] and the
+[[file:lr-request-cost-boundaries.org][request cost study]]. Action-query counts and selected-derivation counts do
+not identify CPU ownership. The next experiment isolates the existing semantic
+kernel using operands captured from real deterministic requests. It does not
+replace the scanner, LR driver, semantic implementation or published artifact.
+
+The existing =lr-request-stack= benchmark owns three language controls: GQL
+RETURN lists, FHIRPath additions and generated Arithmetic additions. At each
+source scale it measures prepared LR execution and complete source parsing.
+The new =semantic-replay= and =semantic-replay-control= components use the same
+request, production IDs and recognition root. No language author configuration
+or CI job is added.
+
+Artifact publication is also measured with the prepared complete root and the
+original source/tokens. This retains its own source encoding, event traversal
+and source identity work. Prepared execution, semantic replay, publication and
+the public source request remain separate observations.
+
+* Implementation and responsibility
+
+=t/benchmarks/lr-request-stack/derivation.ss= captures the deterministic
+recognition derivation outside timing. Each private =semantic-invocation= names
+its prepared production plan, immutable operand stack, actual lookahead offset
+and expected result. Token leaves become the engine's ordinary recognition
+children; production children retain the values captured during execution.
+The capture validates every invocation against its original result.
+
+The replay invokes =src/runtime/reduction-plan.ss=, including its real staged
+field/alias closures and =src/runtime/reduce.ss= AST constructors. There is no
+copied reduction implementation. The traversal control reads the captured
+results through the same ordered vector traversal. Both return the complete
+root, and the benchmark also compares that root with the prepared parse whose
+complete artifact already matches the public parser's source-admitted product.
+
+=src/runtime/funcs.ss= now owns =recognition-sequence-root-child=: acceptance
+requires exactly one unfielded child. Deterministic LR, GLR completion and replay
+use that boundary. Returning the child keeps absence separate from its payload;
+the refactor preserves the previous acceptance guards and payload behavior.
+It does not change production plans, AST constructors or backend preference.
+
+The corpus retains operands. Replaying each reduction independently does not
+rebuild the producer-to-consumer dependency chain of a fresh request. Its CPU
+and allocation results therefore describe component work on retained inputs.
+They must not be subtracted from request medians or presented as an exact AST
+percentage of request time. The control is traversal/result-access work, not
+an AST-free parser. Installed noncanonical reduction procedures, GLR fallback
+and event-program backends require separate admission; this experiment rejects
+missing deterministic derivations and mismatching production results.
+
+* Gerbil implementation study
+
+The installed =1cfb032= sources provide two concrete organization patterns:
+
+- =src/std/list/list-builder.ss= defines =with-list-builder= through hygienic
+  =defrules=. One lexical builder owns its private list head and tail; the
+  caller supplies the traversal rather than copying builder mechanics.
+- =src/gerbil/compiler/compile.ss= defines =with-primitive-bind+args= through
+  =defrules=. Syntax binds one ordered traversal and exposes its final
+  bindings to the surrounding compiler operation.
+- =src/std/hash/misc.ss= uses =absent-value= in =hash-ref/default= so a present
+  false value does not mean absence. The root-child result follows the same
+  separation of presence from payload.
+
+The replay uses the standard list builder during untimed capture and a small
+=defrule= for its two ordered traversals. The macro stages the fixed operation
+into each traversal. Named records express ownership; dense vectors express
+numeric addressing. This follows =scheme-coding-style.org= without introducing
+a generic dispatch or callback selection inside each measured reduction.
+
+* Two design questions
+
+** Why does this use Scheme's syntax and rule facilities well?
+
+One engine reduction implementation remains authoritative. Hygienic syntax
+shares the traversal between the control and actual execution while keeping
+their operations explicit. Grammar declarations remain pure syntax; parser
+metadata and language tests retain their existing interfaces. This is the
+implemented shape, not a new grammar DSL:
+
+#+begin_src scheme
+(define-semantic-replay replay-lr-semantics execute-semantic-invocation)
+(define-semantic-replay replay-lr-semantic-control semantic-invocation-expected)
+
+;; Preparation validates every captured invocation before timing.
+(let (replay (prepare-lr-semantic-replay runtime spec significant-tokens))
+  (equal? (replay-lr-semantics replay)
+          (replay-lr-semantic-control replay)))
+#+end_src
+
+** Why is the proposed attribution scientifically testable?
+
+The experiment can fail at capture, per-production equality, complete-root
+equality, source admission or native dependency admission. Nullable aliases,
+ordered field/alias composition and different request offsets are exercised
+by =t/lr-stack-reduction-test.ss=. Repeated replay checks that the captured
+operands remain usable. Shared sampling retains raw CPU and GC observations;
+allocation intervals crossing GC remain inadmissible.
+
+* Qualification and reproducibility
+
+Use the existing production =build.ss= owner, native benchmark-support build
+and optional =benchmark-lr-request-stack= entry. The ordinary CI support step
+already compiles =derivation.ss= before =benchmark.ss=; the remaining source
+test owner runs the reduction suite. The workflow declaration is unchanged.
+
+Initial local imports exposed a stale scanner symbol. A rebuilt scanner fixed
+that request control, but later compiler controls exposed stale LR producer
+objects. An incremental production build exited zero yet native admission
+still reported missing =validate-production-semantics= and
+=layout-end-action?= symbols, followed by exit 139. Those runs are rejected;
+successful compilation alone does not qualify a mixed native graph.
+
+The clean-output production build subsequently exited zero. Its current
+compiler, machine, scanner and LR runtime were rebuilt together. The reduction
+suite first caught a replay-only error: an invocation returns a semantic child
+sequence, whereas acceptance returns the root payload. Per-invocation equality
+had passed; the complete-root control rejected the mismatched boundary. After
+correction, the suite passed, including decorated operands, nullable origins,
+three request offsets and repeated replay.
+
+An initial whole matrix hit its unchanged 90-second deadline during the
+512-unit replay: 1,000 calls per batch were excessive at that scale. The partial
+run is not a complete matrix receipt. The subsequent probe completed all six
+workloads and 24 components with complete product controls. Its traversal
+controls were below one microsecond per corpus at 64 units, while production
+semantic replay was over 50 microseconds for each language. This directs further
+investigation toward semantic construction rather than diagnostic traversal.
+It does not establish an additive request percentage or an engine speedup.
+
+Final sampling uses at least 100 semantic replays per batch and 10,000 traversal
+controls. The observed minimum 64-unit semantic replay exceeds 50 microseconds,
+so even its smallest semantic batch is above one millisecond. The larger
+traversal batch independently exceeds the timer resolution. Batch sizes are
+published with each component; independent medians must not be subtracted.
+
+Further performance conclusions require a coherent current native graph and
+the complete request controls. No engine speedup follows from adding replay
+diagnostics or reducing the number of observed allocations.

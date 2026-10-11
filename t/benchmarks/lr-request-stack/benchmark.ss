@@ -1,5 +1,7 @@
 ;;; Complete requests and prepared recognition at matched source scales.
-(import (only-in ./derivation profile-lr-request-reductions)
+(import (only-in ./derivation profile-lr-request-reductions
+                 prepare-lr-semantic-replay replay-lr-semantics replay-lr-semantic-control
+                 lr-semantic-replay-count)
         (only-in ./lookahead benchmark-lr-lookahead)
         (only-in :gerbil-parser/t/scenarios/performance/selective-glr/scenario
                  selective-glr-scenario selective-glr-scenario-pass?)
@@ -177,6 +179,22 @@
     (newline) (force-output)
     (measure (list family units 'prepared-lr) samples iterations
       (lambda () (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)) parsed)
+    (unless (lr-runtime-event-program? runtime)
+      (let ((replay (prepare-lr-semantic-replay materialized-runtime
+                     (cdr (assq 'lr-spec (parser-machine-ir machine))) significant))
+            (calls (max iterations 100)))
+        (unless (equal? (replay-lr-semantics replay) (car parsed))
+          (error "semantic replay changed the complete recognition root" family units))
+        (write (list 'LR-SEMANTIC-REPLAY-WORK family units
+                     (cons 'reductions (lr-semantic-replay-count replay))))
+        (newline) (force-output)
+        (measure (list family units 'semantic-replay-control) samples 10000
+          (lambda () (replay-lr-semantic-control replay)) (car parsed))
+        (measure (list family units 'semantic-replay) samples calls
+          (lambda () (replay-lr-semantics replay)) (car parsed))))
+    (measure (list family units 'artifact-publication) samples iterations
+      (lambda () (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                   source tokens (car parsed) (parser-machine-trivia machine))) reference)
     (measure (list family units 'full-source) samples iterations
       (lambda () (parse source)) reference)))
 (def (benchmark-request-families samples iterations label

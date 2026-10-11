@@ -29,6 +29,11 @@ The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qu
 
 * One implementation sequence
 
+The [[file:../research/semantic-reduction-cost.org][semantic reduction cost study]] extends the existing request matrix with
+production-kernel replay and a traversal control. Captured production results,
+request offsets and complete roots are validated outside timing. Retained-input
+replay is a component experiment, not an additive attribution or a speedup claim.
+
 The [[file:../research/request-lookahead-classification.org][lookahead classification study]] connects grammar preparation,
 deterministic action selection, callback mutation controls and complete paired
 requests in one implementation slice. Exact-head native tests passed, but

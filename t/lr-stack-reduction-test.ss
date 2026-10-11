@@ -12,7 +12,10 @@
                  current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend)
         (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref)
         (only-in :gerbil-parser/src/runtime/artifact
-                 make-success-parse-artifact parse-artifact-valid? parse-artifact-roundtrip))
+                 make-success-parse-artifact parse-artifact-valid? parse-artifact-roundtrip)
+        (only-in :gerbil-parser/t/benchmarks/lr-request-stack/derivation
+                 prepare-lr-semantic-replay replay-lr-semantics replay-lr-semantic-control
+                 lr-semantic-replay-count))
 (export lr-stack-reduction-test)
 
 ;;; Installed procedures are arbitrary callbacks. They may change the current
@@ -79,6 +82,25 @@
 
 (def lr-stack-reduction-test
   (test-suite "shared LR stack reduction"
+    (test-case "semantic replay retains decorated operands and request boundaries"
+      (let* ((spec (compile-lr-spec
+                    '((source-file
+                       (alias SourceFile
+                         (sequence (alias Before (empty))
+                                   (field outer (alias Word (field inner (token word))))
+                                   (alias After (empty)))))) 'source-file))
+             (runtime (lr-prepare spec)))
+        (for-each
+         (lambda (offset)
+           (let* ((tokens (list (make-token 'word "a" offset (+ offset 1))))
+                  (replay (prepare-lr-semantic-replay runtime spec tokens)))
+             (check (positive? (lr-semantic-replay-count replay)) => #t)
+             (let-values (((expected rest) (lr-parse/prepared runtime tokens)))
+               (check rest => '())
+               (check (replay-lr-semantics replay) => expected)
+               (check (replay-lr-semantic-control replay) => expected)
+               (check (replay-lr-semantics replay) => expected))))
+         '(0 17 3))))
     (test-case-add! (TestCase "installed reduction callbacks retain fresh lookahead queries"
                       installed-step-lookahead-case))
     (test-case "prepared nullable aliases receive each request's actual boundaries"

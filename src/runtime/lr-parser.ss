@@ -31,6 +31,7 @@
                  recognition-sequence-append
                  recognition-sequence-start
                  recognition-sequence->list recognition-sequence-for-action current-recognition-sequence-fusion-enabled?
+                 recognition-sequence-root-child
                  value-interner-created-count
                  value-interner-hit-count
                  value-interner-intern
@@ -802,12 +803,9 @@
          (and (or (not (lr-runtime-layout? runtime))
                   (null? (current-layout-frames)))
               (pair? semantic-values)
-              (let (children
-                    (recognition-sequence->list (car semantic-values)))
-                (and (pair? children)
-                     (null? (cdr children))
-                     (not (recognition-child-field (car children)))
-                     (let (root (recognition-child-value (car children)))
+              (let (child (recognition-sequence-root-child (car semantic-values)))
+                (and child
+                     (let (root (recognition-child-value child))
                        (record-completion! root rest)
                        (make-candidate root rest score))))))
         ((fork)
@@ -1158,13 +1156,11 @@
                      states semantic-values rest actions shifts #f)))
                    (fallback states semantic-values rest actions shifts)))
                 ((accept)
-                 (let (children
+                 (let (child
                        (and (pair? semantic-values)
-                            (recognition-sequence->list
+                            (recognition-sequence-root-child
                              (car semantic-values))))
-                   (if (and (pair? children)
-                            (null? (cdr children))
-                            (not (recognition-child-field (car children))))
+                   (if child
                      (begin
                        (when (current-lr-recognition-observer)
                          ((current-lr-recognition-observer)
@@ -1173,7 +1169,7 @@
                                (car recognition-stack))))
                        (values
                         'accepted
-                        (list (recognition-child-value (car children)) rest)))
+                        (list (recognition-child-value child) rest)))
                      (fallback
                       states semantic-values rest actions shifts))))
                 (else

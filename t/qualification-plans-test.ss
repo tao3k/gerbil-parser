@@ -1,9 +1,9 @@
 (import :std/test :gerbil-parser/t/support/qualification/plans
         (only-in :gerbil-parser/t/support/qualification/process process-child-arguments))
-(export native-plans-test)
-(def native-plans-test
-  (test-suite "native qualification plans"
-    (test-case "native child argv is quoted data, without source imports"
+(export qualification-plans-test)
+(def qualification-plans-test
+  (test-suite "qualification plans"
+    (test-case "child argv is quoted data, without source imports"
       (let (args (process-child-arguments "session" "" '("fixture" "λ a;$(not-a-command)")))
         (check (car args) => "-e")
         (check (cadr args)

@@ -32,7 +32,7 @@ build-qualification:
 
 # Focused native suites; test-all discovers the same suites once.
 test-qualification-suites: build-qualification
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/native-plans-test.ss t/bootstrap-test.ss
+    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/qualification-plans-test.ss t/bootstrap-test.ss
 
 # Exercise the downstream admission caller after support-module relocation.
 test-process-admission: build-qualification
@@ -51,27 +51,27 @@ test-workers output=".data/worker-controls": build-qualification
     gerbil env gxi test-processes.ss workers "{{output}}"
 
 # Compile the suite's own fixtures, not only its import declarations.
-build-event-fold-native output load_path:
+build-event-fold-controls output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-ir.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss t/event-strategy-fixture.ss
-    just generate-event-fold-native "{{output}}" "{{load_path}}"
+    just generate-event-fold-executable "{{output}}" "{{load_path}}"
 
-generate-event-fold-native output load_path:
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil env gxi t/generate-event-fold-native.ss "{{output}}/event-fold-native-generated.ss"
-    ! rg --quiet 'fold-statements|fold-predicate|fold-offset |fold-uint |run-event-fold|eval ' "{{output}}/event-fold-native-generated.ss"
+generate-event-fold-executable output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil env gxi t/generate-event-fold-executable.ss "{{output}}/event-fold-generated.ss"
+    ! rg --quiet 'fold-statements|fold-predicate|fold-offset |fold-uint |run-event-fold|eval ' "{{output}}/event-fold-generated.ss"
 
 # Native std/test caller for the source-owned Fold, scanner and LR suites.
-build-native-engine-controls output load_path:
+build-engine-controls output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/event-fold-scheme-test.ss t/ranked-regular-scanner-test.ss t/parser-runtime-test.ss
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/native-engine-controls" t/native-engine-controls.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/engine-controls" t/engine-controls.ss
 
-test-native-engine-controls output:
-    GAMBOPT=max-heap=1G,debug=q "{{output}}/native-engine-controls" > "{{output}}/native-engine-controls.log" 2>&1
-    rg '^CASE-OK |^OK$' "{{output}}/native-engine-controls.log"
-    test "$(rg --count '^MODULE-OK ' '{{output}}/native-engine-controls.log')" = 3
-    test "$(rg --count '^CASE-OK ' '{{output}}/native-engine-controls.log')" = 18
-    rg --quiet '^OK$' "{{output}}/native-engine-controls.log"
-    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/native-engine-controls.log"
+test-engine-controls output:
+    GAMBOPT=max-heap=1G,debug=q "{{output}}/engine-controls" > "{{output}}/engine-controls.log" 2>&1
+    rg '^CASE-OK |^OK$' "{{output}}/engine-controls.log"
+    test "$(rg --count '^MODULE-OK ' '{{output}}/engine-controls.log')" = 3
+    test "$(rg --count '^CASE-OK ' '{{output}}/engine-controls.log')" = 18
+    rg --quiet '^OK$' "{{output}}/engine-controls.log"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/engine-controls.log"
 
 build-event-fold-modules output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-scheme-modules.ss src/compiler/event-fold-scheme-build.ss
@@ -90,15 +90,15 @@ benchmark-prefix-families binary samples="8":
 benchmark-event-fold-frames binary samples="7":
     GAMBOPT=max-heap=1G,debug=q "{{binary}}" "{{samples}}" 1000 2000 10000
 
-link-event-fold-native output load_path:
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/event-fold-native" "{{output}}/event-fold-native-generated.ss"
+link-event-fold-controls output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/event-fold-controls" "{{output}}/event-fold-generated.ss"
 
-test-event-fold-native output load_path:
-    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" "{{output}}/event-fold-native" > "{{output}}/event-fold-native.log" 2>&1
-    rg '^CASE-OK |^OK$' "{{output}}/event-fold-native.log"
-    test "$(rg --count '^CASE-OK ' '{{output}}/event-fold-native.log')" = 100
-    rg --quiet '^OK$' "{{output}}/event-fold-native.log"
-    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/event-fold-native.log"
+test-event-fold-controls output load_path:
+    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" "{{output}}/event-fold-controls" > "{{output}}/event-fold-controls.log" 2>&1
+    rg '^CASE-OK |^OK$' "{{output}}/event-fold-controls.log"
+    test "$(rg --count '^CASE-OK ' '{{output}}/event-fold-controls.log')" = 100
+    rg --quiet '^OK$' "{{output}}/event-fold-controls.log"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/event-fold-controls.log"
 
 build-event-fold-compiled output load_path:
     mkdir -p "{{output}}"

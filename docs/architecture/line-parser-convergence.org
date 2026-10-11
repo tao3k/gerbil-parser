@@ -1,4 +1,4 @@
-#+title: Native line declaration compilation ownership
+#+title: Line declaration compilation ownership
 
 * Engine boundary
 

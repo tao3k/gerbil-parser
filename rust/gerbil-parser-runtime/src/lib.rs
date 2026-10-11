@@ -38,5 +38,5 @@ mod records_contextual_fixture;
 pub use gerbil_parser_artifact::syntax::{SyntaxTree, TextRange, TextSize};
 
 #[cfg(test)]
-#[path = "../tests/unit/native_artifact.rs"]
-mod native_artifact_tests;
+#[path = "../tests/unit/artifact_generation.rs"]
+mod artifact_generation_tests;

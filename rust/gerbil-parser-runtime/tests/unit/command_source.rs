@@ -554,7 +554,7 @@ fn source_budget_also_bounds_a_vm_call_chain_without_source_suspensions() {
     assert!(program.parse_scanned("echo ok", &tokens, &parts).is_ok());
 }
 // Scheme emits this through the same codec used by the language-independent C ABI.
-const NATIVE_CASES: &[u8] = include_bytes!("../fixtures/generated/command_source_native.bin");
+const NATIVE_CASES: &[u8] = include_bytes!("../fixtures/generated/command_source.bin");
 fn native_bytes<'a>(input: &mut &'a [u8]) -> &'a [u8] {
     let (length, rest) = input.split_at(4);
     let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;

@@ -4,7 +4,7 @@ use crate::{SyntaxNode, parse, parse_contextual};
 use gerbil_parser_artifact::{
     NativeArtifactView, NativeCatalog, NativeElement, NativeEventKind, NativeNode,
 };
-#[path = "../fixtures/native_artifact_generated.rs"]
+#[path = "../fixtures/artifact_generated.rs"]
 mod native;
 
 fn catalog(contextual: bool) -> &'static NativeCatalog {

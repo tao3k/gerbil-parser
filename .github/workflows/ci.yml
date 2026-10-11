@@ -373,10 +373,10 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/command-source-generation.log --require COMMAND-SOURCE-RUST-GENERATED \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-command-source.ss")' \
-            t/generate-command-source.ss /tmp/command-source.rs /tmp/command-source-native.bin
+            t/generate-command-source.ss /tmp/command-source.rs /tmp/command-source.bin
           rustfmt --edition 2024 /tmp/command-source.rs
           cmp /tmp/command-source.rs rust/gerbil-parser-runtime/tests/fixtures/generated/command_source.rs
-          cmp /tmp/command-source-native.bin rust/gerbil-parser-runtime/tests/fixtures/generated/command_source_native.bin
+          cmp /tmp/command-source.bin rust/gerbil-parser-runtime/tests/fixtures/generated/command_source.bin
 
       - name: Verify shared Word and Binding Rust AOT regeneration
         run: |
@@ -412,9 +412,9 @@ jobs:
           rustfmt --edition 2024 /tmp/binding-names.rs
           cmp /tmp/binding-names.rs rust/gerbil-parser-runtime/tests/fixtures/generated/binding_names.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
-          gerbil env gxi t/fixtures/shared-scanner/generate-artifact.ss /tmp/native-artifact.rs
-          rustfmt --edition 2024 /tmp/native-artifact.rs
-          cmp /tmp/native-artifact.rs rust/gerbil-parser-runtime/tests/fixtures/native_artifact_generated.rs
+          gerbil env gxi t/fixtures/shared-scanner/generate-artifact.ss /tmp/artifact.rs
+          rustfmt --edition 2024 /tmp/artifact.rs
+          cmp /tmp/artifact.rs rust/gerbil-parser-runtime/tests/fixtures/artifact_generated.rs
           rustfmt --edition 2024 /tmp/shared-scanner.rs /tmp/records-contextual.rs
           cmp /tmp/shared-scanner.rs rust/gerbil-parser-runtime/tests/fixtures/shared_scanner_generated.rs
           cmp /tmp/records-contextual.rs rust/gerbil-parser-runtime/tests/fixtures/records_contextual_generated.rs

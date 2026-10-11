@@ -1,5 +1,6 @@
 ;;; Complete requests and prepared recognition at matched source scales.
 (import (only-in ./derivation profile-lr-request-reductions)
+        (only-in ./lookahead benchmark-lr-lookahead)
         (only-in :gerbil-parser/t/scenarios/performance/selective-glr/scenario
                  selective-glr-scenario selective-glr-scenario-pass?)
         (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql)
@@ -196,6 +197,19 @@
 
 (def (benchmark-lr-request-stack (samples 20) (iterations 20))
   (benchmark-request-families samples iterations identity)
+  ;; Keep one existing optional request gate. Complete paired controls include
+  ;; the small workload and the unchanged generated Arithmetic executor.
+  (for-each
+   (lambda (units)
+     (let ((calls (if (= units 1) 900 64))
+           (addition (string-join (make-list units "1") " + ")))
+       (benchmark-lr-lookahead (list 'gql-return units) gql-parser
+         (string-append "RETURN "
+           (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota units)) ", ")
+           "\n") 20 calls)
+       (benchmark-lr-lookahead (list 'fhirpath-addition units) fhirpath-parser addition 20 calls)
+       (benchmark-lr-lookahead (list 'arithmetic-addition units) arithmetic-parser addition 20 calls)))
+   '(1 64))
   (displayln "LR-REQUEST-STACK-OK") (force-output))
 
 ;;; Complete request controls for the shared casefold algorithm. Source and

@@ -3,6 +3,7 @@
 
 (import (only-in ./reduction-plan prepare-lr-reduction-plans reduce-lr-stack-plan
                  reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets)
+        (only-in ./lr-lookahead prepare-lr-lookahead-selector)
         (only-in ./lr-completion
                  make-candidate candidate-root candidate-rest candidate-score
                  candidate-ambiguities candidate-winner-reason candidate-completion-count
@@ -100,7 +101,7 @@
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
-               reduction-plans action-selector)
+               reduction-plans action-selector-factory)
   transparent: #t)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
@@ -172,7 +173,7 @@
            (lr-runtime-lexical-mode-catalog runtime)
            (lr-runtime-event-step runtime) (lr-runtime-event-reducer runtime) #f #f #f
            (prepare-lr-reduction-plans 'event (lr-runtime-table runtime))
-           (lr-runtime-action-selector runtime)))
+           (lr-runtime-action-selector-factory runtime)))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -419,16 +420,22 @@
          (select-lr-semantic-reducer 'event capability) #f #f plans
          (make-lr-action-selector actions action-index case-insensitive? layout?))))))
 
+(def (make-ordinary-lr-action-selector index case-insensitive?)
+  (lambda (state tokens)
+    (let (row (vector-ref index state))
+      (if (null? tokens) (lr-action-row-eof row)
+        (let (token (car tokens))
+          (or (lookup-literal-action-entry row (token-lexeme token))
+              (and case-insensitive? (lookup-casefolded-literal-action-entry row (token-lexeme token)))
+              (lookup-action-entry (lr-action-row-tokens row) (token-kind token))))))))
+
 (def (make-lr-action-selector rows index case-insensitive? layout?)
   (if layout?
-    (prepare-layout-action-selector rows index case-insensitive?)
-    (lambda (state tokens)
-      (let (row (vector-ref index state))
-        (if (null? tokens) (lr-action-row-eof row)
-          (let (token (car tokens))
-            (or (lookup-literal-action-entry row (token-lexeme token))
-                (and case-insensitive? (lookup-casefolded-literal-action-entry row (token-lexeme token)))
-                (lookup-action-entry (lr-action-row-tokens row) (token-kind token)))))))))
+    (let (selector (prepare-layout-action-selector rows index case-insensitive?))
+      (lambda (_closed?) selector))
+    (let ((fresh (prepare-lr-lookahead-selector rows index case-insensitive?))
+          (ordinary (make-ordinary-lr-action-selector index case-insensitive?)))
+      (lambda (closed?) (if closed? (fresh) ordinary)))))
 
 ;;; Qualification/extension preparation replaces only the action lookup
 ;;; primitive. Immutable grammar tables, semantic plans and modes stay owned.
@@ -445,7 +452,7 @@
      (lr-runtime-case-insensitive? runtime) (lr-runtime-dynamic? runtime) (lr-runtime-layout? runtime)
      (lr-runtime-lexical-modes runtime) (lr-runtime-lexical-mode-catalog runtime)
      #f (lr-runtime-semantic-reducer runtime) (lr-runtime-event-reducer runtime) #f #f
-     (lr-runtime-reduction-plans runtime) selector)))
+     (lr-runtime-reduction-plans runtime) (lambda (_closed?) selector))))
 
 ;; apply-operand-action
 ;; : (-> List List Fixnum List)
@@ -623,7 +630,7 @@
          (widths (lr-runtime-reduction-widths runtime))
          (actions (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
-         (select-action (lr-runtime-action-selector runtime))
+         (select-action ((lr-runtime-action-selector-factory runtime) #f))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
          (layout? (lr-runtime-layout? runtime))
@@ -999,7 +1006,7 @@
          (reduction-plans (lr-runtime-reduction-plans runtime))
          (actions-table (lr-runtime-actions runtime))
          (action-index (lr-runtime-action-index runtime))
-         (select-action (lr-runtime-action-selector runtime))
+         (select-action ((lr-runtime-action-selector-factory runtime) (not direct-step)))
          (goto-index (lr-runtime-goto-index runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
          (layout? (lr-runtime-layout? runtime))

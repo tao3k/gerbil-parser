@@ -39,6 +39,7 @@
     "t/layout-column-storage-test"
     "t/language-artifact-test"
     "t/benchmarks/parser-stage-cost/benchmark"
+    "t/benchmarks/lr-request-stack/lookahead"
     "t/fixtures/lr-action-selection"
     "t/lr-action-preparation-test"
     "t/fixtures/ranked-publication"

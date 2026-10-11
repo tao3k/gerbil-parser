@@ -1,5 +1,6 @@
 ;;; Shared deterministic stack reduction versus independent materialized GLR.
 (import :std/test
+        (only-in :std/test/base TestCase test-case-add!)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr operand-actions-valid? validate-production-semantics)
         (only-in :gerbil-parser/src/runtime/token make-token)
@@ -7,10 +8,29 @@
                  make-recognition-child make-recognition-node)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
+                 install-lr-runtime-direct-step! lr-rejection-condition?
                  current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend)
+        (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref)
         (only-in :gerbil-parser/src/runtime/artifact
                  make-success-parse-artifact parse-artifact-valid? parse-artifact-roundtrip))
 (export lr-stack-reduction-test)
+
+;;; Installed procedures are arbitrary callbacks. They may change the current
+;;; lookahead during a reduction, so their executor must not cache its class.
+(def (installed-step-lookahead-case)
+  (let* ((runtime (lr-prepare
+                   (compile-lr-spec '((start (sequence (reference first) (literal "b")))
+                                      (first (literal "a"))) 'start)))
+         (tokens (list (make-token 'literal "a" 0 1) (make-token 'literal "b" 1 2)))
+         (calls 0))
+    (install-lr-runtime-direct-step! runtime
+      (lambda (_production states semantic-values rest _end gotos)
+        (set! calls (+ calls 1))
+        (let (target (cdr (association-row-index-ref gotos (cadr states) 'first)))
+          (vector-set! (car rest) 1 "c")
+          (values target (cons target (cdr states)) semantic-values))))
+    (check-exception (lr-parse/prepared runtime tokens) lr-rejection-condition?)
+    (check calls => 1)))
 
 (def (production-spec productions)
   ;; Isolate production admission with an already accepting table graph.
@@ -59,6 +79,8 @@
 
 (def lr-stack-reduction-test
   (test-suite "shared LR stack reduction"
+    (test-case-add! (TestCase "installed reduction callbacks retain fresh lookahead queries"
+                      installed-step-lookahead-case))
     (test-case "prepared nullable aliases receive each request's actual boundaries"
       (let (runtime
             (lr-prepare

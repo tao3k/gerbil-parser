@@ -29,6 +29,11 @@ The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qu
 
 * One implementation sequence
 
+The [[file:../research/request-lookahead-classification.org][invocation-owned lookahead study]] connects grammar preparation,
+deterministic action selection, callback mutation controls and complete paired
+requests in one implementation slice. Focused semantic receipts are available;
+fresh complete native request performance remains a separate admission gate.
+
 The architecture remains declaration and POO composition -> canonical IR ->
 compiler publication -> prepared machine -> request execution -> artifact.
 Shared engine mechanisms belong beneath this sequence. Language authors do not

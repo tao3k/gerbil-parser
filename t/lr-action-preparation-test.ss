@@ -1,13 +1,53 @@
 ;;; Prepared layout projections preserve the former pure action decision.
 (import :std/test
+        (only-in :std/test/base TestCase test-case-add!)
         (only-in :gerbil-parser/src/runtime/layout
                  prepare-layout-action-selector make-layout-columns
                  current-layout-columns current-layout-frames)
         (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows)
+        (only-in :gerbil-parser/src/runtime/lr-lookahead prepare-lr-lookahead-selector)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in ./fixtures/lr-action-selection reference-lr-action-selector))
+(def (lookahead-projection-case)
+  (let* ((entries '(((terminal literal "end") shift 1)
+                   ((terminal literal "end") reduce 2)
+                   ((terminal literal "END") reduce 3)
+                   ((terminal literal "É") fork (shift 4) (reduce 5))
+                   ((terminal literal "SS") shift 6)
+                   ((terminal literal "") reduce 7)
+                   ((terminal literal "+") shift 8)
+                   ((terminal token word) reduce 9)
+                   ((terminal eof) accept)))
+         (wide (map (lambda (i)
+                      (cons (list 'terminal 'literal (string-append "KEY" (number->string i)))
+                            (list 'reduce (+ 10 i)))) (iota 12)))
+         (rows (vector entries (append wide entries) '(((terminal token word) shift 40)))))
+    (for-each
+     (lambda (casefold?)
+       (let* ((index (index-action-rows rows casefold?))
+              (fresh (prepare-lr-lookahead-selector rows index casefold?))
+              (left (fresh)) (right (fresh))
+              (reference (reference-lr-action-selector rows index casefold? #f)))
+         (for-each
+          (lambda (text)
+            (let ((tokens (list (make-token 'word text 0 (string-length text))))
+                  (other (list (make-token 'word "KEY11" 0 5))))
+              ;; Change LR states while retaining one lookahead; interleave
+              ;; two invocation caches and then revisit the first input tail.
+              (for-each (lambda (state)
+                          (check (eq? (left state tokens) (reference state tokens)) => #t)
+                          (check (eq? (right state other) (reference state other)) => #t)
+                          (check (eq? (left state tokens) (reference state tokens)) => #t))
+                        '(0 1 2 1 0))
+              (check (eq? (left 0 '()) (reference 0 '())) => #t)
+              (check (eq? (left 1 tokens) (reference 1 tokens)) => #t)))
+          '("end" "END" "End" "é" "ß" "" "+" "key11" "unknown"))))
+     '(#f #t))))
+
 (def lr-action-preparation-test
-  (test-suite "prepared layout action projections"
+  (test-suite "prepared LR action projections"
+    (test-case-add! (TestCase "request lookahead identities preserve all original entries"
+                      lookahead-projection-case))
     (test-case "all action forms, frame states, token refinements and EOF agree"
       (for-each (lambda (action)
         (let* ((entries

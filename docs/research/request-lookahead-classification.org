@@ -1,0 +1,108 @@
+#+title: Invocation-owned LR lookahead classification
+
+* One request-cost obligation
+
+The [[file:lr-request-cost-boundaries.org][request-cost study]] identifies prepared LR execution as a major phase
+of complete GQL requests. A lookahead can survive several reductions; selecting
+its literal independently in each state repeats a grammar-only classification.
+The [[file:unary-reduction-corridors.org][corridor experiments]] retain their negative complete-request results. This
+candidate changes action selection without changing the reduction representation,
+recognition tree, lexer, language DSL or published artifact.
+
+The staging rationale remains the Scheme LR specialization and static-analysis
+papers discussed in [[file:dsl-effective-grammar-admission.org][effective grammar admission]]. Their contribution here is the
+separation of grammar facts from invocation facts. They do not establish a CPU
+benefit for this implementation. Complete matched requests must establish that.
+
+* Ownership and semantic invariant
+
+The [[file:../../src/runtime/lr-lookahead.ss][preparation owner]] interns private copies of declared literal strings.
+Sparse length buckets avoid hashing a long identifier when the grammar contains
+no literal of that width. Prepared rows map those private identities to the
+original action entries, retaining the first duplicate entry and fork identity.
+Small rows retain an association list; wider rows use an identity table.
+
+The immutable prepared vocabulary and rows are shared. Each deterministic
+invocation receives a fresh selector closure. It classifies an input tail once,
+then applies exact literal, folded literal and token-kind precedence in every
+visited state. Folded classification is lazy and reuses the existing grammar
+trie. Unicode retains whole-string uppercase semantics. EOF remains a row fact.
+
+The cache key is the remaining token list, not a token object that a later
+scanner position could reuse. Checkpoint calls and interleaved requests never
+share mutable classification state. GLR and layout retain their stateless
+selectors. Installed arbitrary reduction callbacks retain the original selector:
+a callback may mutate the pending token during a reduction. Custom selector
+factories retain their original calling contract.
+
+#+begin_src scheme
+;; Prepared grammar facts own no mutable request position.
+(def fresh-selector (prepare-lr-lookahead-selector rows index casefold?))
+(def select-left (fresh-selector))
+(def select-right (fresh-selector))
+
+;; Reductions revisit one input tail in different states. The original action
+;; entry, including a selected fork, is the observable result.
+(eq? (select-left state tokens) (original-select state tokens))
+(eq? (select-right other-state other-tokens)
+     (original-select other-state other-tokens))
+#+end_src
+
+** Question: why does this exploit Scheme beyond S-expression notation?
+
+Canonical terminal declarations remain inspectable data. Static preparation
+projects them into a private named row record and grammar-owned identity keys.
+Lexical closures express invocation ownership directly; no global request cache,
+new author configuration or public dispatch protocol is required. POO continues
+to own extensible declarations. Fixed action-selection algorithms remain named
+procedures, keeping generic resolution outside the numerical execution loop.
+
+** Question: how is the design scientifically justified?
+
+The required equivalence is original action-entry identity for every visited
+state and input tail. Exact/folded/kind priority, duplicate order, EOF and Unicode
+are independent semantic controls. A callback mutation control falsifies unsafe
+reuse. Performance is a separate hypothesis: fewer repeated classifications can
+still lose to preparation, extra lookups or invocation closure allocation.
+A passing semantic suite therefore does not admit this candidate as faster.
+
+* Executable controls and admission
+
+[[file:../../t/lr-action-preparation-test.ss][Action projection tests]] compare the independent original selector across
+three rows, both casefold modes, duplicate entries, forks, empty literals,
+Unicode, wide identity indexes, EOF and interleaved invocations.
+[[file:../../t/lr-stack-reduction-test.ss][Stack reduction tests]] include a callback that changes the pending literal;
+the deterministic executor must observe that change and reject the input.
+
+The final lookahead producer compiled natively under the existing 120-second
+and five-second idle bounds in 37.094 seconds. The five action projection cases
+passed against that producer in 16.141 seconds. Twelve current-source stack
+reduction cases passed in 53.889 seconds using the standard GxTest owner. The
+latter loaded the current parser forms into a temporary source test module with
+absolute module identities; it qualifies the source algorithm, not a newly
+compiled complete parser runtime.
+
+Local complete-runtime native compilation exceeded the unchanged idle limit.
+An interrupted package build also left incompatible scanner metadata/products;
+those products were excluded from the admitted projection graph. Neither failed
+builds nor partial logs qualify complete native requests.
+
+[[file:../../t/benchmarks/lr-request-stack/lookahead.ss][Complete request controls]] extend the existing optional request benchmark.
+They compare the original selector and the candidate on GQL and FHIRPath at one
+and 64 units, validate complete source-bound products, and retain an identical
+executor control for generated, layout or installed callback paths. An untimed
+stage witness establishes the actual executor. Timing contains no observer.
+The shared sampler supplies twenty paired groups, alternating request order,
+and requires every leg to resolve at least one millisecond. CPU includes natural
+GC; allocation uses the existing counter admission contract.
+
+The existing entry remains:
+
+#+begin_src scheme
+(benchmark-lr-request-stack 20 20)
+#+end_src
+
+Fresh complete native request measurements and exact-head CI remain admission
+gates. Until those receipts exist, this is a semantically qualified candidate,
+not an admitted request speedup. No workflow, deadline or compatibility layer
+is added for this study.

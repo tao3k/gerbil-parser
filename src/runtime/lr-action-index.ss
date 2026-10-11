@@ -9,7 +9,7 @@
         lookup-layout-start-action-entry
         lookup-layout-next-action-entry
         lr-action-row-eof
-        lr-action-row-tokens lr-action-row-has-literals?)
+        lr-action-row-tokens lr-action-row-has-literals? lr-action-row-casefold-literals)
 
 ;;; ASCII punctuation has a direct action slot; longer/Unicode literals and
 ;;; token kinds retain their existing indexes. Entries remain the original

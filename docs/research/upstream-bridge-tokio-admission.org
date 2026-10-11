@@ -1,0 +1,61 @@
+#+TITLE: Upstream Bridge Revision and Tokio Admission Boundary
+#+DATE: 2026-10-11
+
+* Revision and consumed code
+
+The Gerbil package declaration, Cargo workspace dependency and Cargo lockfile
+now pin =gerbil-scheme-rust= PR 18 at
+=9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e=, replacing
+=345b172765e5607b09049614d10520c2439dcac3=.
+The standalone parser fixture lockfiles do not contain this dependency.
+
+The parser consumes the upstream Rust IR compiler through
+=gerbil-parser-build-support=, and the Scheme UTF-8 encoder through
+=src/ffi/language-abi-context.ss=. This revision advances the encoder's checked
+output using a local cursor. The public encoder and caller-owned capacity
+contract remain unchanged. Upstream rooted snapshots and numeric/identifier
+bulk conversion APIs are separate capabilities; the parser's GPA1 byte-buffer
+transport does not implicitly consume them.
+
+* Tokio evidence and downstream ownership
+
+At this exact revision, Tokio is a dev dependency of =gerbil-scheme=. Its Tokio
+handoff tests and transport benchmarks qualify requests sent from async callers
+to a dedicated Scheme owner thread. The safe production crate does not expose
+a Tokio parser executor. The active performance benchmark retains bounded mpsc
+and per-request oneshot responses. Receive batching and reused-response-channel
+performance candidates were rejected; functional receive-batching tests do not
+establish a production scheduling speedup.
+
+The parser's =NativeSession= and borrowed language/results remain confined to
+the initialized VM's original OS thread. Any downstream asynchronous adapter
+must create and use them on that owner, bound admission, return owned products,
+and qualify cancellation, shutdown and latency. Tokio worker concurrency alone
+does not establish concurrent Scheme parsing or lower complete-parser CPU.
+
+Pinned primary sources:
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/crates/gerbil-scheme/Cargo.toml][Production and development dependency declarations]].
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/docs/bridge-numeric-vectors-20261011.org][Bulk conversion and scheduler evidence boundaries]].
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/docs/bridge-utf8-tokio-recv-many-20261011.org][Rejected receive-batching performance candidate]].
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/scheme/utf8.ss][Consumed checked Scheme encoder]].
+
+* Qualification
+
+Cargo build-support tests validate the consumed upstream IR revision. Existing
+Scheme C ABI tests validate UTF-8 admission and complete artifact parity. The
+complete 64-record scanner/LR, event-publication, ranked-request and UTF-8 CPU
+proofs remain unchanged in the workflow dispatch. CPU includes GC and the strict
+before/after controls remain mandatory.
+
+A passed scanner/LR comparison at the new pin confirms its complete-request
+benefit remains admitted. It is not a comparison of old and new upstream
+revisions and must not be relabeled an incremental Tokio or encoder speedup.
+
+Before publication, upstream advanced from =4d71a12= to =9cd2604=. The added
+composite object APIs do not change the consumed =scheme/utf8.ss= source.
+
+At the preliminary =4d71a12= pin, the local Unicode 64-record complete-request engine proof passed with 20 groups
+and 256 calls per batch: production P50 0.825059, P90 0.878090; before-control
+P10/P90 0.918958/1.048539 and after-control 0.920178/1.065327. Both sides use the
+new upstream encoder. This retains a 17.49% median engine benefit in this local
+workload, not an incremental upstream speed claim. Exit status was zero.

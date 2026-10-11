@@ -223,34 +223,24 @@ jobs:
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
 
+      - name: Select an allowed processor for Linux CPU proofs
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
+        run: |
+          allowed=$(awk '/^Cpus_allowed_list:/ {print $2}' /proc/self/status)
+          processor=${allowed%%[-,]*}
+          test -n "$processor"
+          echo "CPU_PROOF_PROCESSOR=$processor" >> "$GITHUB_ENV"
+
       - name: Prove shared Scheme scanner CPU improvement
         if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
         env:
           GAMBOPT: max-heap=3G,debug=q
         run: |
+          # Affinity is inherited by each Scheme child; GC and CPU remain charged.
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
             --log .data/scanner-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
             -- gxi t/benchmarks/ranked-literal/cpu-proof.ss bounded 20 2000000
-
-      - name: Prove complete ranked scanning and public parser CPU improvement
-        if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
-        env:
-          GAMBOPT: max-heap=3G,debug=q
-        run: |
-          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
-            --log .data/ranked-parser-long-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
-            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 256 layout 48
-          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
-            --log .data/ranked-parser-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
-            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 1024 layout 12
-          for scenario in keyword identifier; do
-            gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
-              --log ".data/ranked-${scenario}-cpu-proof.log" --require SCANNER-CPU-PROOF-OK \
-              -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 250000 "$scenario"
-          done
-          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
-            --log .data/ranked-literal-prefix-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
-            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 750000 literal-prefix
 
       - name: Save admitted conformance preparation
         if: steps.conformance-cache.outputs.cache-hit != 'true'
@@ -471,17 +461,43 @@ jobs:
         env:
           GAMBOPT: max-heap=3G,debug=q
         run: |
+          # Affinity is inherited by each Scheme child; GC and CPU remain charged.
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           for unicode in false true; do
             gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
               --log ".data/ffi-event-records-${unicode}-cpu.log" --require ABI-EVENT-CPU-PROOF-OK \
               -- gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records "$unicode" events
           done
 
+      - name: Prove complete ranked scanning and public parser CPU improvement
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
+        env:
+          GAMBOPT: max-heap=3G,debug=q
+        run: |
+          # Affinity is inherited by each Scheme child; GC and CPU remain charged.
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/ranked-parser-long-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 256 layout 48
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/ranked-parser-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 1024 layout 12
+          for scenario in keyword identifier; do
+            gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+              --log ".data/ranked-${scenario}-cpu-proof.log" --require SCANNER-CPU-PROOF-OK \
+              -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 250000 "$scenario"
+          done
+          gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+            --log .data/ranked-literal-prefix-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
+            -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 750000 literal-prefix
+
       - name: Prove upstream FFI UTF-8 complete request CPU improvement
         if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
         env:
           GAMBOPT: max-heap=3G,debug=q
         run: |
+          # Affinity is inherited by each Scheme child; GC and CPU remain charged.
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           for unicode in false true; do
             gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
               --log ".data/ffi-utf8-${unicode}-cpu.log" --require ABI-UTF8-CPU-PROOF-OK \

@@ -322,3 +322,23 @@ CPU P10/P50/P90 is 0.615277/0.640854/0.686611 (35.91% median decrease).
 Control P10/P90 is 0.912586/1.038488 before and 0.953002/1.066427 after.
 All complete GPA1 comparisons passed; =ABI-EVENT-CPU-PROOF-OK= and exit zero
 arrived in 79.846 seconds. No CPU or collection observation was removed.
+
+* Linux scheduler control admission
+
+The =0544706= complete ranked-parser gate rejected a fresh Ubuntu control:
+12-clause production P10/P50/P90 was 0.747103/0.883760/0.901997, while
+before-control P10 was 0.862753. Two retained groups show one 1,024-request
+control leg at approximately 160 ms versus ordinary legs near 95 ms, despite
+the same two collections and unchanged 194.8 MiB heap. The collection CPU
+also rose from approximately 33 ms to 52 ms. This is CPU cost variation;
+the evidence does not identify processor migration as its sole cause.
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38140263156][Latest-head rejected control]] retains all samples and exit one.
+
+Linux CPU proof shells now select the first processor from their actual
+allowed processor set and bind themselves with =taskset=. All Scheme children
+inherit that affinity. This removes processor migration as one uncontrolled
+measurement variable without changing production algorithms, GC accounting,
+heap limits, sample admission, request budgets or timeouts. A fresh CI run
+must still pass the original controls; affinity itself is not a CPU benefit
+receipt. The independent 64-record event proof precedes the ranked-parser
+obligations so its target evidence is retained even if another gate rejects.

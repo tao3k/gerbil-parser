@@ -3,4 +3,4 @@
 depend:
  ("github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
   "github.com/tao3k/asp-gerbil-scheme@v0.1.2.2"
-  "github.com/tao3k/gerbil-scheme-rust@9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e"))
+  "github.com/tao3k/gerbil-scheme-rust@fbb43ca63d3740cb4e19b26fa2abd1ea3ee4ecdb"))

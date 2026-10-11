@@ -7,6 +7,7 @@
 #include <gerbil-parser/language.h>
 #include "t/fixtures/shared-scanner/records-abi.h"
 extern int gerbil_parser_rust_native_host_probe(void);
+extern int gerbil_parser_rust_tokio_host_probe(void);
 extern int gerbil_parser_rust_native_probe(void);
 static double seconds(void) {
   struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts);
@@ -18,6 +19,7 @@ static void *foreign_shutdown(void *argument) {
 }
 int main(int argc, char **argv) {
   if (argc == 2 && !strcmp(argv[1],"rust")) return gerbil_parser_rust_native_host_probe();
+  if (argc == 2 && !strcmp(argv[1],"tokio")) return gerbil_parser_rust_tokio_host_probe();
   puts("NATIVE-HOST-SETUP");fflush(stdout);
   double started = seconds();
   if (gerbil_parser_runtime_init()) return 1;

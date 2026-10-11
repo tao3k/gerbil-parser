@@ -43,7 +43,7 @@ rust-version = "1.95"
 asp-rust = { git = "https://github.com/tao3k/asp-rust", rev = "9b95fd6744a89f3f38e87f9bda33ea762f1f65e1", version = "0.1.2", default-features = false }
 asp-rust-build-support = { git = "https://github.com/tao3k/asp-rust", rev = "9b95fd6744a89f3f38e87f9bda33ea762f1f65e1", version = "0.1.0" }
 gerbil-parser-build-support = { path = "build-support/gerbil-parser-build-support", version = "0.1.0" }
-gerbil-scheme-rust-ir = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e", version = "0.1.0" }
+gerbil-scheme-rust-ir = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "fbb43ca63d3740cb4e19b26fa2abd1ea3ee4ecdb", version = "0.1.0" }
 gerbil-parser-runtime = { path = "rust/gerbil-parser-runtime", version = "0.1.0" }
 gerbil-parser-artifact = { path = "rust/gerbil-parser-artifact", version = "0.1.0" }
 sha2 = "0.10.9"

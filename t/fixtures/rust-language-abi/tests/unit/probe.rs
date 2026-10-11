@@ -167,13 +167,71 @@ pub extern "C" fn gerbil_parser_rust_native_host_probe() -> i32 {
         ));
         assert!(matches!(
             unsafe {
-                gerbil_parser_ffi::NativeRuntime::start(
-                    gerbil_parser_ffi::RuntimeApi::linked(records_language_create),
-                )
+                gerbil_parser_ffi::NativeRuntime::start(gerbil_parser_ffi::RuntimeApi::linked(
+                    records_language_create,
+                ))
             },
             Err(gerbil_parser_ffi::NativeError::Runtime(-3))
         ));
         println!("RUST-HOST-CLEANUP-OK");
+    });
+    if result.is_ok() { 0 } else { -1 }
+}
+
+/// Independent process: native owner affinity through the Rust async interface.
+#[cfg(feature = "tokio")]
+#[unsafe(no_mangle)]
+pub extern "C" fn gerbil_parser_rust_tokio_host_probe() -> i32 {
+    let result = std::panic::catch_unwind(|| {
+        let executor = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        executor.block_on(async {
+            println!("RUST-TOKIO-HOST-SETUP");
+            // SAFETY: this independent process links one bundle for its lifetime.
+            let parser = unsafe {
+                gerbil_parser_ffi::TokioParser::start(
+                    gerbil_parser_ffi::RuntimeApi::linked(records_language_create),
+                    4,
+                )
+                .await
+            }
+            .expect("owner startup");
+            let mut requests = Vec::new();
+            for i in 0..32 {
+                let client = parser.clone();
+                requests.push(tokio::spawn(async move {
+                    let source = if i % 2 == 0 { "a=1\n" } else { "α=1\n" }.repeat(64);
+                    let parsed = client.parse(source).await.unwrap();
+                    let view = parsed.view().unwrap();
+                    assert!(view.accepted());
+                    assert_eq!(view.root().unwrap().children().count(), 64);
+                    assert_eq!(view.events().len(), 642);
+                    parsed
+                }));
+            }
+            let mut retained = Vec::new();
+            for request in requests {
+                retained.push(request.await.unwrap());
+            }
+            println!("RUST-TOKIO-HOST-PARSE-OK requests=32 records=64");
+            let rejected = parser.parse("α=@\n".into()).await.unwrap();
+            assert!(!rejected.view().unwrap().accepted());
+            parser.shutdown().await.expect("normal owner cleanup");
+            assert!(matches!(
+                parser.parse("a=1\n".into()).await,
+                Err(gerbil_parser_ffi::TokioParserError::OwnerStopped)
+            ));
+            for parsed in retained {
+                assert!(parsed.view().unwrap().accepted());
+                assert_eq!(
+                    parsed.view().unwrap().root().unwrap().children().count(),
+                    64
+                );
+            }
+            assert!(!rejected.view().unwrap().accepted());
+            println!("RUST-TOKIO-HOST-OK");
+        });
     });
     if result.is_ok() { 0 } else { -1 }
 }

@@ -59,3 +59,38 @@ and 256 calls per batch: production P50 0.825059, P90 0.878090; before-control
 P10/P90 0.918958/1.048539 and after-control 0.920178/1.065327. Both sides use the
 new upstream encoder. This retains a 17.49% median engine benefit in this local
 workload, not an incremental upstream speed claim. Exit status was zero.
+
+* Rust downstream integration at fbb43ca
+
+The current manifest and lockfile pin is
+=fbb43ca63d3740cb4e19b26fa2abd1ea3ee4ecdb=. Its additional upstream receipt
+rejects an admission fast path; it does not change the production encoder.
+The earlier qualification above remains historical evidence at its stated pin.
+
+The optional =tokio= feature of =gerbil-parser-ffi= now exposes =TokioParser=.
+It initializes the standalone bundle and retains a single language handle on
+one dedicated OS thread. Bounded mpsc admission and per-request oneshot replies
+follow the upstream qualified ownership design. Admission uses normal async
+reservation; the rejected upstream fast path is not included.
+
+The owner copies the completed GPA1 payload into independent Rust storage,
+releases its C result before publication, and shares an immutable catalog.
+=OwnedParsed= retains the exact source and supports normal artifact views after
+VM shutdown. Native handles and GC-managed Scheme values never cross threads.
+Queued cancelled requests skip execution. An in-flight cancelled request still
+releases its C allocation. Explicit shutdown closes admission and releases the
+language before normal SDK cleanup; dropping all clients drains the queue.
+
+This is an async downstream ownership interface, not evidence of concurrent
+Scheme execution or an incremental CPU speedup. The existing =qualify.ss host=
+entry now includes a real Tokio consumer in a separate one-shot VM process:
+32 concurrent requests, alternating ASCII/Unicode, 64 records per request,
+642 events, syntax rejection, closed admission, and views retained after cleanup.
+Transport unit tests additionally cover queue bounds, queued cancellation and
+shutdown ordering. Rust lint and workspace all-feature gates cover the new API.
+
+Local GCC qualification completed with =NATIVE-HOST-OK= and exit zero. The
+Tokio process completed its 32 full requests, rejection and retained-view checks
+with =RUST-TOKIO-HOST-OK= in 0.332 seconds total process wall time. This is a
+functional receipt, not a matched CPU performance result. Native SDK linking
+required the local OpenSSL library search path; no compiler was replaced.

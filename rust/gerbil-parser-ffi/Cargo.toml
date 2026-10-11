@@ -10,9 +10,14 @@ readme = "README.org"
 
 [features]
 standalone = []
+tokio = ["standalone", "dep:tokio"]
 
 [dependencies]
 gerbil-parser-artifact.workspace = true
+tokio = { version = "1.53.1", features = ["sync"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.53.1", features = ["rt", "macros", "sync"] }
 
 # Unsafe code is confined to this FFI crate; the AOT runtime remains forbidden.
 [lints.rust]

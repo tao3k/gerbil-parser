@@ -105,7 +105,7 @@
    (let* ((library (path-expand (cond-expand (darwin "libparsernative.dylib") (else "libparsernative.so")) directory))
           (host (path-expand "native-host" directory)) (compiler (sdk-compiler)))
     (build-language-library! library '("gerbil-parser/t/fixtures/shared-scanner/records-abi"))
-    (run-qualified! ["cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml" "--features" "standalone"]
+    (run-qualified! ["cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml" "--features" "standalone,tokio"]
                     ".data/native-host/rust-build.log" timeout: 90 idle-timeout: 30)
     (run-qualified! (append [compiler "-std=c11" "-D_POSIX_C_SOURCE=200809L" "-Iinclude" "-I." "t/runtime-host.c"
                             (path-expand "target/debug/librust_language_abi_fixture.a") library "-lpthread" "-lm"]
@@ -116,6 +116,7 @@
                    (string-append ".data/native-host/" (car row) ".log") timeout: 90 idle-timeout: 5
                    require: [(cond ((equal? (car row) "c") "NATIVE-HOST-CLEANUP-OK")
                                   ((equal? (car row) "rust") "RUST-HOST-CLEANUP-OK")
+                                  ((equal? (car row) "tokio") "RUST-TOKIO-HOST-OK")
                                   (else "RUST-BORROWED-HOST-OK"))]))
-              '(("c") ("rust" "rust") ("borrowed" "borrowed"))))))
+              '(("c") ("rust" "rust") ("borrowed" "borrowed") ("tokio" "tokio"))))))
  (displayln "NATIVE-HOST-OK") (force-output))

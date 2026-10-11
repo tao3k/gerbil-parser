@@ -21,3 +21,8 @@ pub use gerbil_parser_artifact::{
     NativeArtifactView, NativeCatalog, NativeElement, NativeField, NativeNode, NativeToken,
     SourceRange,
 };
+
+#[cfg(feature = "tokio")]
+mod tokio_owner;
+#[cfg(feature = "tokio")]
+pub use tokio_owner::{OwnedParsed, TokioParser, TokioParserError};

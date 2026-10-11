@@ -123,3 +123,35 @@ requires normal cleanup, live-resource barriers, foreign-thread rejection and
 closed-runtime rejection. Builds retain 90/30 second total/inactivity limits;
 execution retains 90/5 seconds. Build progress reports actual preprocessed, IR,
 assembly and object file writes. No forced child exit qualifies this path.
+
+* Tokio callers
+
+Enable =features = ["tokio"]= for async callers of a standalone bundle. Link the
+same generated language library and use =TokioParser=:
+
+#+begin_src rust
+use gerbil_parser_ffi::{RuntimeApi, TokioParser};
+unsafe extern "C" { fn my_language_create() -> u64; }
+// SAFETY: the process owns exactly one VM; the bundle stays loaded.
+let parser = unsafe {
+    TokioParser::start(RuntimeApi::linked(my_language_create), 32).await?
+};
+let parsed = parser.parse(source.to_owned()).await?;
+assert!(parsed.view()?.accepted());
+parser.shutdown().await?;
+// The independent Rust snapshot remains valid after native cleanup.
+let view = parsed.view()?;
+#+end_src
+
+Clients may be cloned and sent to Tokio tasks. The dedicated owner thread
+retains the VM and language; each reply owns its source and a GPA1 byte snapshot.
+The synchronous =NativeRuntime= interface continues to offer borrowed C payloads.
+Async transfer copies each completed payload once before freeing the C allocation.
+Queue capacity bounds admitted pending requests. Caller-held sources and retained
+results have independent lifetimes. A shutdown request stops every clone; later
+requests return =OwnerStopped=. Dropping all clients drains pending requests and
+performs cleanup. The VM is one-shot and cannot be restarted in the same process.
+
+=qualify.ss host= exercises 32 concurrent complete 64-record requests, Unicode,
+syntax rejection and views retained after shutdown. Async ownership support
+alone does not establish lower parser CPU or parallel Scheme execution.

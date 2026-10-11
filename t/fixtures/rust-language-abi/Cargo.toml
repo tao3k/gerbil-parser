@@ -9,8 +9,10 @@ crate-type = ["staticlib"]
 
 [features]
 standalone = ["gerbil-parser-ffi/standalone"]
+tokio = ["gerbil-parser-ffi/tokio", "dep:tokio"]
 
 [dependencies]
 gerbil-parser-ffi = { path = "../../../rust/gerbil-parser-ffi" }
+tokio = { version = "1.53.1", features = ["rt", "sync"], optional = true }
 
 [workspace]

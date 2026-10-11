@@ -120,3 +120,21 @@ The existing manual performance workflow executes both positive benefit gates
 and the distinct many-record regression obligation on Ubuntu. Ordinary CI keeps
 its ABI, source callback/GC, complete conformance and generated-product checks.
 Exact-head CI remains a separate gate after integration with concurrent PR work.
+
+* Ubuntu integration receipt
+
+The complete request gates on PR revision =30106c5= passed in workflow
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38124481599/attempts/2][Ubuntu attempt 2]]. ASCII production CPU P50/P90 were 0.901757/0.945452
+(9.82% median decrease); Unicode were 0.871052/0.883793 (12.89% decrease).
+Both before/after controls passed. The 64-record request had production
+0.990466/1.022054 and passed the distinct regression obligation; it did not
+admit positive CPU benefit. Complete payload equality and natural GC charging
+remain unchanged.
+
+Attempt 1 rejected an existing public-parser benchmark before-control P10 of
+0.883024; its candidate P90 of 0.867271 was not enough to admit the run.
+Attempt 2 reached the final Scheme suites and caught the existing package
+contract's two-dependency expectation. The integration adds a third actual
+Scheme dependency, so its exact expected dependency list is corrected. These
+attempts do not qualify the full workflow; final closure requires the corrected
+revision's complete Ubuntu job to pass.

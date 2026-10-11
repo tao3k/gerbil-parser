@@ -29,10 +29,12 @@ The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qu
 
 * One implementation sequence
 
-The [[file:../research/request-lookahead-classification.org][invocation-owned lookahead study]] connects grammar preparation,
+The [[file:../research/request-lookahead-classification.org][lookahead classification study]] connects grammar preparation,
 deterministic action selection, callback mutation controls and complete paired
-requests in one implementation slice. Focused semantic receipts are available;
-fresh complete native request performance remains a separate admission gate.
+requests in one implementation slice. Exact-head native tests passed, but
+complete requests rejected the cache: GQL CPU medians regressed on both hosts.
+The production cache is withdrawn; action-work diagnostics, independent selector
+controls and callback mutation tests remain.
 
 The architecture remains declaration and POO composition -> canonical IR ->
 compiler publication -> prepared machine -> request execution -> artifact.

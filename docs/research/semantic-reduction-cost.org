@@ -105,6 +105,36 @@ the unchanged 90-second budget. Benchmark support uses the existing CI flags.
 Source-owned construction, source-span and sequence suites pass with exit zero.
 Fresh exact-head platform CI remains a separate qualification boundary.
 
+** Publication traversal follow-up
+
+The recognition publisher classified every child list with =list?= before
+=for-each= consumed it. The existing engine sequence consumer already uses
+=pair?=/=null?= for this private proper-list-or-record protocol. Publication
+now follows the same outer classification; =for-each= still rejects improper
+tails. This removes a repeated linear preflight, while complete publication
+remains linear in the number of children and events.
+
+The existing prepared-request comparison accepts an independent original
+publisher in addition to original LR preparation/execution. Passing the same
+current LR procedures on both sides isolates the publication change; every
+timed result must equal the source-admitted public artifact:
+
+#+begin_src scheme
+;; baseline-publish is the independently compiled publisher from 58a069d.
+(compare-lr-staged-case 'fhirpath-addition 512
+  lr-prepare lr-parse/prepared 20 64 baseline-publish)
+#+end_src
+
+With both publishers compiled at =-O= on the SDK above, the 20-group fresh
+prepared-recognition-plus-artifact comparison gave P10/P50/P90 CPU ratios
+0.934811/0.982823/1.047521 and exit zero. Scanning and preparation are outside
+this timed scope. This small, dispersed result does not establish a stable
+CPU benefit or explain the dominant request cost. Natural GC and every sample
+remain included. The source-owned publication Suite additionally checks empty,
+singleton and 1,024-child field-bearing artifacts, exact event counts and
+source admission, and rejects improper tails. It passes together with the
+reduction and source-recognition Suites.
+
 For an optional reproducible comparison, first build the production library
 through its existing owner, then use the same production optimization setting:
 

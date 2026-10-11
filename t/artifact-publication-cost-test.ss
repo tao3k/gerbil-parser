@@ -26,6 +26,21 @@
 
 (def artifact-publication-cost-test
   (test-suite "artifact publication cost contracts"
+    (test-case "wide field-bearing children retain source order and reject improper tails"
+      (for-each
+       (lambda (width)
+         (let* ((source (make-string width #\a))
+                (tokens (map (lambda (at) (make-token 'word "a" at (+ at 1))) (iota width)))
+                (children (map (lambda (token) (make-recognition-child 'value token)) tokens))
+                (root (make-recognition-node 'Root 0 width children))
+                (artifact (make-success-parse-artifact +publication-test-grammar+ source tokens root never-trivia?)))
+           (check (parse-artifact-valid-for-source? artifact source) => #t)
+           (check (length (parse-artifact-events artifact)) => (+ 2 (* 3 width)))
+           (when (pair? children)
+             (check-exception
+              (make-success-parse-artifact +publication-test-grammar+ source tokens
+                (make-recognition-node 'Root 0 width (cons (car children) #f)) never-trivia?) true))))
+       '(0 1 1024)))
     (test-case "shared sampler validates dimensions before warmup side effects"
       (let* ((calls 0) (thunk (lambda () (set! calls (+ calls 1)) 'complete)))
         (for-each

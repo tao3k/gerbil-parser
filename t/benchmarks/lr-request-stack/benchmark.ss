@@ -30,7 +30,8 @@
 
 ;;; Original runtime procedures are independent experiment inputs. Both sides
 ;;; publish the entire artifact, with the same source, tokens and grammar ID.
-(def (compare-lr-staged-family family units machine parse source original-prepare original-parse groups calls)
+(def (compare-lr-staged-family family units machine parse source original-prepare original-parse groups calls
+                              (original-publish make-success-parse-artifact))
   (let* ((expected (parse source))
          (tokens (map (lambda (event)
                         (make-token (token-event-token-kind event) (token-event-lexeme event)
@@ -41,19 +42,19 @@
          (original (original-prepare spec))
          (current (lr-prepare spec))
          (publish
-          (lambda (execute runtime)
+          (lambda (execute runtime publisher)
             (let-values (((root rest) (execute runtime significant)))
               (unless (null? rest) (error "staged reduction leaves unconsumed input" family units))
-              (make-success-parse-artifact (parser-machine-grammar-digest machine)
+              (publisher (parser-machine-grammar-digest machine)
                 source tokens root (parser-machine-trivia machine)))))
-         (left (lambda () (publish original-parse original)))
-         (right (lambda () (publish lr-parse/prepared current))))
+         (left (lambda () (publish original-parse original original-publish)))
+         (right (lambda () (publish lr-parse/prepared current make-success-parse-artifact))))
     (unless (parse-artifact-valid-for-source? expected source)
       (error "invalid complete staged reduction reference" family units))
     (measure-parser-component (list family units 'original-preparation-and-request) 20 1
-      (lambda () (publish original-parse (original-prepare spec))) expected)
+      (lambda () (publish original-parse (original-prepare spec) original-publish)) expected)
     (measure-parser-component (list family units 'staged-preparation-and-request) 20 1
-      (lambda () (publish lr-parse/prepared (lr-prepare spec))) expected)
+      (lambda () (publish lr-parse/prepared (lr-prepare spec) make-success-parse-artifact)) expected)
     (measure-parser-component (list family units 'original-prepared-artifact) 20 calls left expected)
     (measure-parser-component (list family units 'staged-prepared-artifact) 20 calls right expected)
     (let (ratios (measure-parser-cpu-pairs 'staged-lr-actions (list family units)
@@ -61,20 +62,21 @@
       (write (list 'LR-STAGED-ACTION-CPU-RATIOS family units ratios))
       (newline) (force-output))))
 
-(def (compare-lr-staged-case family units original-prepare original-parse (groups 20) (calls 200))
+(def (compare-lr-staged-case family units original-prepare original-parse (groups 20) (calls 200)
+                            (original-publish make-success-parse-artifact))
   (parameterize ((current-lr-event-program-enabled? #f))
     (case family
       ((gql-return)
        (compare-lr-staged-family family units gql-parser parse-gql
          (string-append "RETURN "
            (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota units)) ", ")
-           "\n") original-prepare original-parse groups calls))
+           "\n") original-prepare original-parse groups calls original-publish))
       ((fhirpath-addition)
        (compare-lr-staged-family family units fhirpath-parser parse-fhirpath
-         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls))
+         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls original-publish))
       ((arithmetic-addition)
        (compare-lr-staged-family family units arithmetic-parser parse-arithmetic
-         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls))
+         (string-join (make-list units "1") " + ") original-prepare original-parse groups calls original-publish))
       (else (error "unknown staged LR benchmark family" family))))
   (displayln "LR-STAGED-ACTION-CASE-OK " family " " units) (force-output))
 

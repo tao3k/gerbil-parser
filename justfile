@@ -117,6 +117,9 @@ test-lexical-mode:
     GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/grammar-composition-contract-test.ss t/grammar-composition-execution-test.ss t/grammar-composition-lowering-test.ss
 
 # Full qualification after the focused algorithm loop.
+test-build-product-contract output load_path:
+    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/build-product-contract-test.ss
+
 test-all: build-qualification
     GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/... languages/...
 

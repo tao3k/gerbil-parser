@@ -342,3 +342,39 @@ heap limits, sample admission, request budgets or timeouts. A fresh CI run
 must still pass the original controls; affinity itself is not a CPU benefit
 receipt. The independent 64-record event proof precedes the ranked-parser
 obligations so its target evidence is retained even if another gate rejects.
+
+* Checked tagged row scalars at the Scheme boundary
+
+The =92f68d8= Ubuntu affinity experiment stabilized both 64-record ASCII
+controls (P10/P90 0.967133/1.030082 before, 0.965834/1.033623 after), but
+production P10/P50/P90 0.894996/0.938913/0.966094 failed the unchanged 0.95
+benefit gate. The Linux result is a rejected 6.11% median decrease, not the
+approximately 35% admitted Darwin result. Exit one at 86.506 seconds is
+retained by [[https://github.com/tao3k/gerbil-parser/actions/runs/38141039420][Pinned Linux rejected benefit]].
+
+The shared row writer previously entered seven generic foreign argument
+converters on every event. Upstream =scheme/utf8.ss= already demonstrates a
+checked =##c-code= leaf with tagged fixnum input and disabled interrupts.
+The writer now applies that convention: admit the byte vector, every scalar's
+exact fixnum type, unsigned width and complete 24-byte span before borrowing
+the buffer. The bounded inline body writes one row and retains no pointer.
+Non-fixnum unsigned values, including the full uint64 maximum, retain the
+general integer conversion leaf. The public row representation and full
+C ABI benchmark control remain unchanged.
+
+GCC compiled the checked inline producer in 8.789 seconds. The independent
+language ABI suite passed with final =OK= and exit zero in 10.779 seconds,
+including unaligned unsigned extremes, negative and fractional ids/positions,
+late-field overflow without partial writes, natural collection, source history
+and complete ABI product parity.
+
+The checked inline row writer passes the fresh complete 64-record ASCII
+experiment: CPU P10/P50/P90 is 0.576581/0.622262/0.682581, a 37.77% median
+decrease. Controls are 0.950086/1.050963 before and 0.960248/1.057124 after
+(P10/P90). The proof retains 20 groups and 256 nominal calls, complete GPA1
+parity and natural GC, with =ABI-EVENT-CPU-PROOF-OK= and exit zero in 73.616
+seconds. The matching Unicode experiment also passes: production
+0.602479/0.646371/0.686731, a 35.36% median decrease; before controls
+0.949225/1.061191 and after 0.939566/1.067563. Its marker and exit zero arrive
+in 74.295 seconds. These are local Darwin receipts; Linux admission remains
+a separate exact-head CI obligation.

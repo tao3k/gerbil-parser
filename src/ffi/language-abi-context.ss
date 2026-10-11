@@ -59,9 +59,16 @@
 (extern copy-ascii-source-range! ascii-source-range? pack-abi-row!
         allocate-admission-buffer release-admission-buffer admission-buffer-equal?)
 (def (write-abi-row! payload offset tag index id start end)
-  (unless (and (u8vector? payload) (exact-integer? offset) (>= offset 0))
-    (error "invalid ABI row buffer or offset"))
-  (unless (pack-abi-row! payload offset tag index id start end)
+  (declare (not interrupts-enabled))
+  ;; Match the upstream encoder's inline checked leaf: ordinary row scalars
+  ;; remain tagged fixnums instead of entering seven generic FFI converters.
+  ;; The general integer leaf retains the full unsigned 64-bit ABI domain.
+  (unless (or (##c-code #<<C-END
+___RESULT = gp_pack_fixnum_row(___ARG1, ___ARG2, ___ARG3, ___ARG4,
+                              ___ARG5, ___ARG6, ___ARG7) ? ___TRU : ___FAL;
+C-END
+                payload offset tag index id start end)
+              (pack-abi-row! payload offset tag index id start end))
     (error "ABI row exceeds publication buffer" offset)))
 ;;; Bounded ASCII leaves return to Scheme between chunks. Upstream caller
 ;;; storage is stable across polls; no Scheme body pointer survives a leaf.
@@ -115,6 +122,30 @@
 #include <string.h>
 static void gp_store_le(uint8_t *p, uint64_t value, unsigned width) {
   for (unsigned i = 0; i < width; ++i) { p[i] = (uint8_t)value; value >>= 8; }
+}
+/* All type, width and full-span checks precede the first borrowed write. */
+static int gp_pack_fixnum_row(___SCMOBJ bytes, ___SCMOBJ position,
+                             ___SCMOBJ tag, ___SCMOBJ index, ___SCMOBJ id,
+                             ___SCMOBJ start, ___SCMOBJ end) {
+  ___SCMOBJ ___temp;
+  if (!___U8VECTORP(bytes) || !___FIXNUMP(position) || !___FIXNUMP(tag) ||
+      !___FIXNUMP(index) || !___FIXNUMP(id) || !___FIXNUMP(start) || !___FIXNUMP(end))
+    return 0;
+  if (___INT(position) < 0 || ___INT(tag) < 0 || ___INT(index) < 0 ||
+      ___INT(id) < 0 || ___INT(start) < 0 || ___INT(end) < 0)
+    return 0;
+  uint64_t offset = (uint64_t)___INT(position);
+  uint64_t number = (uint64_t)___INT(tag), symbol = (uint64_t)___INT(index);
+  uint64_t first = (uint64_t)___INT(start), last = (uint64_t)___INT(end);
+  size_t length = ___HD_BYTES(___HEADER(bytes));
+  if (number > UINT32_MAX || symbol > UINT32_MAX || first > UINT32_MAX ||
+      last > UINT32_MAX || offset > length || length - (size_t)offset < 24)
+    return 0;
+  uint8_t *p = (uint8_t*)___BODY_AS(bytes, ___tSUBTYPED) + (size_t)offset;
+  gp_store_le(p, number, 4); gp_store_le(p+4, symbol, 4);
+  gp_store_le(p+8, (uint64_t)___INT(id), 8);
+  gp_store_le(p+16, first, 4); gp_store_le(p+20, last, 4);
+  return 1;
 }
 END-C
  )

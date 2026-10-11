@@ -129,3 +129,21 @@ CI runs the source alignment Suite before optional command/conformance executabl
 construction. Its shared fixture entry list is independent of any compiled Suite.
 The source CLI loads compiler and benchmark services only for the selected
 profile, so basic external-command observation does not initialize those services.
+
+* CI correctness and performance acceptance
+
+Pull requests and main pushes run production builds, Scheme/Rust semantic
+tests, generated-product comparisons, ABI ownership, lifecycle and natural-GC
+correctness controls. Standalone scanner/public-parser CPU benefit proofs,
+Source edit cost observations, GQL component/actor reports and the repeated
+complete LR request matrix run through the same workflow's native
+=workflow_dispatch= event. Their existing assertions, samples and deadlines
+remain required when selected. Semantic tests for those engine paths remain
+in the ordinary test suites; an optional cost report is not their replacement.
+
+Before claiming an optimization benefit or accepting a performance release,
+run the workflow manually for the exact candidate revision. A passing ordinary
+PR run establishes its executed correctness gates, not the skipped performance
+proofs. The =ae13f1b= run qualified all these paths before this scheduling split;
+its performance evidence remains tied to that revision. No additional script,
+job, dependency or benchmark dispatcher is introduced.

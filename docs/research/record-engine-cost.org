@@ -97,6 +97,11 @@ for unicode in false true; do
 done
 #+end_src
 
+The first remote qualification stopped before CPU sampling: the new ordinary
+LR Suite was exported but omitted from =t/conformance-main.ss=. The ownership
+gate rejected this omission. The Suite is now both imported and executed in the
+existing conformance group, with no duplicate source execution.
+
 Use =scanner= or =lr= in place of =combined= for independent component controls.
 The existing workflow dispatch runs both complete combined workloads on Linux,
 with unchanged ranked-parser, FFI event-publication and UTF-8 obligations. Local

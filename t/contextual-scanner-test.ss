@@ -17,7 +17,7 @@
         (only-in :gerbil-parser/src/runtime/token
                  token-end token-kind token-lexeme token-start)
         (only-in :gerbil-parser/src/runtime/identity sha256-text))
-(export contextual-scanner-test)
+(export contextual-scanner-test contextual-literal-width-test)
 
 (def (method name mode position form result)
   (make-contextual-method name mode position form result))
@@ -482,3 +482,26 @@
             (compile-contextual-scanner (list first) altered 'normal)
             #f))
          => "invalid contextual scanner declaration")))))
+
+(def contextual-literal-width-test
+  (test-suite "prepared literal scalar byte widths"
+    (test-case "ASCII and every Unicode width retain byte endpoints"
+      (let* ((role (make-contextual-role 'widths
+                     (list (method 'literal 'any 'any 'literal 'literal))))
+             (dispatch (compile-contextual-dispatch (list role) '(normal) '(token) '(literal)))
+             (ir (compile-contextual-scanner
+                  (map (lambda (text) (rule (string->symbol text) 'normal 'literal
+                                            (list 'literal text) 0))
+                       '("a" "α" "猫" "😀")) dispatch 'normal)))
+        (for-each (lambda (input)
+          (let ((scanner (prepare-contextual-scanner input "aα猫😀")) (start 0))
+            (let loop ((state (contextual-scanner-initial-state scanner))
+                       (expected '(1 3 6 10)))
+              (unless (null? expected)
+                (let-values (((token next) (contextual-scanner-step scanner state 'token)))
+                  (check (token-start token) => start)
+                  (check (token-end token) => (car expected))
+                  (check (contextual-scan-state-byte-offset next) => (car expected))
+                  (set! start (car expected))
+                  (loop next (cdr expected)))))))
+          (list ir (prepare-contextual-scanner-plan ir)))))))

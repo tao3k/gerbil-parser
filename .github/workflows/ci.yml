@@ -469,6 +469,18 @@ jobs:
               -- gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records "$unicode" events
           done
 
+      - name: Prove scanner and LR CPU improvement on complete 64-record requests
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
+        env:
+          GAMBOPT: max-heap=3G,debug=q
+        run: |
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
+          for unicode in false true; do
+            gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+              --log ".data/record-engine-${unicode}-cpu.log" --require ENGINE-CPU-PROOF-OK \
+              -- gxi t/benchmarks/language-abi/engine-proof.ss combined "$unicode"
+          done
+
       - name: Prove complete ranked scanning and public parser CPU improvement
         if: github.event_name == 'workflow_dispatch' && runner.os == 'Linux'
         env:

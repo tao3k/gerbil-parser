@@ -68,4 +68,33 @@
         (parameterize ((current-layout-columns #f)
                        (current-layout-frames '((100 . "outer"))))
           (check (eq? (candidate 0 (list (make-token 'word "end" 0 3))) entry) => #t))))))
-(export lr-action-preparation-test)
+(export lr-action-preparation-test lr-ordinary-action-preparation-test)
+
+(import (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare))
+(def lr-ordinary-action-preparation-test
+  (test-suite "prepared ordinary LR state selectors"
+    (test-case "token-only, literal priority, casefold, duplicates, wide rows and EOF retain entries"
+      (let ((factory (eval 'gerbil-parser/src/runtime/lr-parser#make-lr-action-selector))
+            (rows
+             (vector
+              (list (cons '(terminal token word) '(shift 1))
+                    (cons '(terminal token word) '(reduce 2))
+                    (cons '(terminal eof) '(accept)))
+              (list (cons '(terminal literal "IF") '(reduce 3))
+                    (cons '(terminal token word) '(fork (shift 4) (reduce 5)))
+                    (cons '(terminal eof) '(reduce 6)))
+              (map (lambda (n) (cons (list 'terminal 'token (string->symbol (number->string n)))
+                                     (list 'shift n))) (iota 16)))))
+        (for-each (lambda (casefold?)
+          (let* ((index (index-action-rows rows casefold?))
+                 (reference (reference-lr-action-selector rows index casefold? #f))
+                 (candidate (factory rows index casefold? #f)))
+            (for-each (lambda (state)
+              (for-each (lambda (input)
+                (check (eq? (candidate state input) (reference state input)) => #t))
+                (append (list '() (list (make-token 'word "if" 0 2))
+                              (list (make-token 'word "IF" 0 2))
+                              (list (make-token 'word "猫" 0 3))
+                              (list (make-token 'missing "?" 0 1)))
+                        (map (lambda (n) (list (make-token (string->symbol (number->string n)) "x" 0 1)))
+                             (iota 16))))) '(0 1 2)))) '(#f #t))))))

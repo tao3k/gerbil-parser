@@ -37,7 +37,7 @@
                  value-interner-intern
                  vector-intern-map)
         (only-in ./lr-action-index
-                 index-action-rows
+                 index-action-rows lr-action-row-has-literals?
                  lookup-action-entry
                  lookup-literal-action-entry
                  lr-action-row-eof
@@ -420,16 +420,37 @@
          (select-lr-semantic-reducer 'event capability) #f #f plans
          (make-lr-action-selector actions action-index case-insensitive? layout?))))))
 
+;;; Token terminals are admitted symbols. Specialize the owned row shape once;
+;;; first duplicate entries and exact action-pair identity remain unchanged.
+(def (prepare-token-action-lookup entries)
+  (cond
+   ((null? entries) (lambda (_kind) #f))
+   ((and (pair? entries) (null? (cdr entries)))
+    (let ((kind (caar entries)) (entry (cdar entries)))
+      (lambda (candidate) (and (eq? kind candidate) entry))))
+   ((pair? entries)
+    (lambda (kind) (let (entry (assq kind entries)) (and entry (cdr entry)))))
+   (else (lambda (kind) (table-ref entries kind #f)))))
+
 (def (make-lr-action-selector rows index case-insensitive? layout?)
   (if layout?
     (prepare-layout-action-selector rows index case-insensitive?)
-    (lambda (state tokens)
-      (let (row (vector-ref index state))
-        (if (null? tokens) (lr-action-row-eof row)
-          (let (token (car tokens))
-            (or (lookup-literal-action-entry row (token-lexeme token))
-                (and case-insensitive? (lookup-casefolded-literal-action-entry row (token-lexeme token)))
-                (lookup-action-entry (lr-action-row-tokens row) (token-kind token)))))))))
+    (let (selectors
+          (vector-map/index
+           (lambda (_state row)
+             (let ((eof (lr-action-row-eof row)) (lookup-token (prepare-token-action-lookup (lr-action-row-tokens row))))
+               (if (lr-action-row-has-literals? row)
+                 (lambda (input)
+                   (if (null? input) eof
+                     (let (token (car input))
+                       (or (lookup-literal-action-entry row (token-lexeme token))
+                           (and case-insensitive?
+                             (lookup-casefolded-literal-action-entry row (token-lexeme token)))
+                           (lookup-token (token-kind token))))))
+                 (lambda (input)
+                   (if (null? input) eof
+                     (lookup-token (token-kind (car input)))))))) index))
+      (lambda (state input) ((vector-ref selectors state) input)))))
 
 ;;; Qualification/extension preparation replaces only the action lookup
 ;;; primitive. Immutable grammar tables, semantic plans and modes stay owned.

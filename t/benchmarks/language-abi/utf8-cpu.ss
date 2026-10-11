@@ -7,7 +7,31 @@
         (only-in :gerbil-parser/src/ffi/language-handles register-language-context! release-language!)
         (only-in :gerbil-parser/t/benchmarks/source-edits/abi-call parse-source/abi!)
         (only-in :gerbil-parser/t/benchmarks/ranked-literal/benchmark ranked-cpu-admission))
+(import (only-in :gerbil-parser/t/fixtures/contextual-result-selection install-reference-contextual-results!)
+        (only-in :gerbil-parser/t/fixtures/lr-action-selection reference-lr-action-selector)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-with-lr-action-selector parser-machine-runtime
+                 parser-machine-grammar-digest install-parser-machine-direct-step!)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-runtime-direct-step)
+        (only-in :gerbil-parser/src/language/descriptor make-language-grammar
+                 +language-grammar-schema+ language-grammar-language language-grammar-version
+                 language-grammar-contract language-grammar-grammar language-grammar-ir
+                 language-grammar-machine language-grammar-observability))
 (export benchmark-abi-utf8-cpu qualify-abi-utf8-cpu qualify-abi-utf8-regression qualify-abi-event-cpu)
+(def (records-with-selector factory)
+  (let* ((base (language-grammar-machine records-language-grammar))
+         (machine (parser-machine-with-lr-action-selector base factory))
+         (step (lr-runtime-direct-step (parser-machine-runtime base))))
+    ;; Both controls retain the identical generated reduction step, when present.
+    (when step
+      (install-parser-machine-direct-step! machine (parser-machine-grammar-digest base) step))
+    (make-language-grammar +language-grammar-schema+
+      (language-grammar-language records-language-grammar)
+      (language-grammar-version records-language-grammar)
+      (language-grammar-contract records-language-grammar)
+      (language-grammar-grammar records-language-grammar)
+      (language-grammar-ir records-language-grammar) machine
+      (language-grammar-observability records-language-grammar))))
+
 ;;; The former admission primitive is an independent control, not a runtime mode.
 (def (reference-source-admission bytes)
   (let (source (utf8->string bytes))
@@ -22,7 +46,7 @@
   (u8vector-u64-set! payload (+ offset 8) id little)
   (u8vector-u32-set! payload (+ offset 16) start little)
   (u8vector-u32-set! payload (+ offset 20) end little))
-(def (benchmark-abi-utf8-cpu (groups 20) (calls 128) (lines 32) (unicode? #f) (shape 'records) (events? #f))
+(def (benchmark-abi-utf8-cpu (groups 20) (calls 128) (lines 32) (unicode? #f) (shape 'records) (events? #f) (engine 'none))
   (unless (and (exact-integer? lines) (positive? lines))
     (error "ABI workload requires positive exact record count"))
   (let* ((source (case shape
@@ -31,23 +55,32 @@
                    ((padding) (string-append "a=" (make-string (* 32 lines) #\space) "1\n"))
                    (else (error "unknown complete ABI source shape" shape))))
          (bytes (string->utf8 source))
-         (original (bind-language-abi records-language-grammar records-contextual-product))
-         (candidate (bind-language-abi records-language-grammar records-contextual-product))
+         (control-grammar (if (memq engine '(lr combined))
+                            (records-with-selector reference-lr-action-selector)
+                            records-language-grammar))
+         (candidate-grammar (if (memq engine '(lr combined))
+                              (records-with-selector
+                               (eval 'gerbil-parser/src/runtime/lr-parser#make-lr-action-selector))
+                              records-language-grammar))
+         (original (bind-language-abi control-grammar records-contextual-product))
+         (candidate (bind-language-abi candidate-grammar records-contextual-product))
          (expected (abi-parse-binary-payload candidate source))
          (left-output (make-u8vector (u8vector-length expected)))
          (right-output (make-u8vector (u8vector-length expected))))
     (unless (zero? (u8vector-u32-ref expected 8 little))
       (error "complete ABI CPU workload must be accepted" shape))
+    (when (memq engine '(scanner combined)) (install-reference-contextual-results! original))
     (if events?
       (language-abi-context-event-row-writer-set! original reference-event-row!)
-      (language-abi-context-source-admission-set! original reference-source-admission))
+      (when (eq? engine 'none)
+        (language-abi-context-source-admission-set! original reference-source-admission)))
     (let ((left (register-language-context! original))
           (right (register-language-context! candidate)))
       (dynamic-wind void
         (lambda ()
           ;; Validate accepted, rejected, empty and multibyte complete products
           ;; outside timing, through both independent public C ABI handles.
-          (when events?
+          (when (or events? (not (eq? engine 'none)))
             (for-each
              (lambda (text)
                (let* ((input (string->utf8 text))
@@ -66,7 +99,7 @@
           (write (list 'ABI-UTF8-WORKLOAD 'source-bytes (u8vector-length bytes)
                        'payload-bytes (u8vector-length expected) 'records (if (eq? shape 'records) lines 1) 'units lines 'unicode unicode? 'shape shape))
           (newline) (force-output)
-          (ranked-cpu-admission (list (if events? 'complete-c-abi-event-rows 'complete-c-abi-utf8) shape lines unicode?) groups calls expected
+          (ranked-cpu-admission (list (cond ((not (eq? engine 'none)) (list 'complete-c-abi-engine engine)) (events? 'complete-c-abi-event-rows) (else 'complete-c-abi-utf8)) shape lines unicode?) groups calls expected
             (lambda () (call left left-output)) (lambda () (call right right-output))))
         (lambda () (release-language! left) (release-language! right))))))
 (def (qualify-abi-utf8-cpu (groups 20) (calls 128) (lines 32) (unicode? #f) (shape 'records))

@@ -48,7 +48,7 @@
 (defstruct contextual-scan-state
   (scanner character-offset byte-offset mode pending active expecting)
   transparent: #t)
-(defstruct runtime-scan-rule (name mode form matcher executor rank action)
+(defstruct runtime-scan-rule (name mode form matcher executor rank action result action-step byte-width)
   transparent: #t)
 (defstruct contextual-matcher-plan (expression executor))
 (defstruct scan-match (rule end) transparent: #t)
@@ -130,13 +130,16 @@
         (table-set! cache matcher plan)
         plan)))
 
-(def (decode-rule row source-length cache)
+(def (decode-rule row source-length cache positions cells)
   (match row
     ([name mode form matcher rank action]
      ;; Stage record construction with lexical rule metadata, without a closure
      ;; or multiple-value carrier for each primitive rule.
      (defrule (finish expression executor)
-       (make-runtime-scan-rule name mode form expression executor rank action))
+       (make-runtime-scan-rule name mode form expression executor rank action
+         (prepare-rule-result mode form positions cells)
+         (if (eq? action 'keep) (lambda (_action _lexeme state) state) apply-scan-action)
+         (match expression (['literal value] (string-utf8-length value)) (else #f))))
      (match matcher
        (['literals values]
         ;; Literal catalogs already share their trie. Preserve that admission
@@ -158,11 +161,11 @@
        (else (finish matcher (prepare-matcher matcher)))))
     (else (error "invalid contextual scanner rule" row))))
 
-(def (index-rules rows source-length (prefix-index? #f) (matcher-cache (make-table test: equal?)))
+(def (index-rules rows source-length (prefix-index? #f) (matcher-cache (make-table test: equal?)) (positions '()) (cells #f))
   (let (index (make-table test: eq?))
     (for-each
      (lambda (row)
-       (let* ((rule (decode-rule row source-length matcher-cache))
+       (let* ((rule (decode-rule row source-length matcher-cache positions cells))
               (mode (runtime-scan-rule-mode rule)))
          (table-set! index mode
                      (cons rule (table-ref index mode '())))))
@@ -343,7 +346,9 @@
     (validate-scanner-ir! owned)
     (let* ((rules (ir-ref owned 'rules))
            (matcher-cache (make-table test: equal?))
-           (short-rules (index-rules rules 0 #t matcher-cache))
+           (positions (ir-ref owned 'positions))
+           (cells (index-cells (ir-ref owned 'cells)))
+           (short-rules (index-rules rules 0 #t matcher-cache positions cells))
            (has-trie? (any (lambda (row)
                             (match (list-ref row 3)
                               (['literals values] (>= (length values) 128))
@@ -351,8 +356,8 @@
       (make-contextual-scanner-plan
        (ir-ref owned 'digest) (ir-ref owned 'initial-mode)
        (ir-ref owned 'modes) (ir-ref owned 'positions)
-       short-rules (if has-trie? (index-rules rules 64 #t matcher-cache) short-rules)
-       (index-cells (ir-ref owned 'cells))))))
+       short-rules (if has-trie? (index-rules rules 64 #t matcher-cache positions cells) short-rules)
+       cells))))
 
 (def (prepare-contextual-scanner ir source)
   (unless (string? source)
@@ -374,7 +379,8 @@
         (make-contextual-scanner
          owned identity (string-copy (ir-ref ir 'digest)) (ir-ref ir 'initial-mode)
          (ir-ref ir 'modes) (ir-ref ir 'positions)
-         (index-rules (ir-ref ir 'rules) (string-length owned)) (index-cells (ir-ref ir 'cells)) (list 'request-local))))))
+         (index-rules (ir-ref ir 'rules) (string-length owned) #f (make-table test: equal?)
+                      (ir-ref ir 'positions) (index-cells (ir-ref ir 'cells))) (index-cells (ir-ref ir 'cells)) (list 'request-local))))))
 
 (def (contextual-scanner-initial-state scanner)
   (make-contextual-scan-state scanner 0 0
@@ -674,8 +680,13 @@
          (and (contextual-scan-state-active state) (profile-line-end source start ch)))))
     (['literal value]
      (let (width (string-length value))
-       (lambda (source start _state)
-         (and (source-prefix-at? source start value) (+ start width)))))
+       (if (= width 1)
+         (let (character (string-ref value 0))
+           (lambda (source start _state)
+             (and (< start (string-length source))
+                  (char=? character (string-ref source start)) (+ start 1))))
+         (lambda (source start _state)
+           (and (source-prefix-at? source start value) (+ start width))))))
     (['literal-trie scanner _values]
      (lambda (source start _state) (scanner source start)))
     (['literals values]
@@ -728,18 +739,28 @@
             (select (cdr rules) rule candidate-end)
             (select (cdr rules) current end)))))))
 
-(def (result-kind scanner mode position form)
-  (let* ((index (contextual-scanner-cells scanner))
-         (kind (if (table? index)
+(def (find-result-kind index mode position form)
+  (let* ((kind (if (table? index)
                  (table-ref index (list mode position form) #f)
                  (let* ((positions (table-ref (grouped-dispatch-modes index) mode #f))
                         (row (and positions (table-ref positions position '())))
                         (cell (and row (assq form row))))
                    (and cell (cdr cell))))))
-    (unless kind
-      (error "missing contextual scanner dispatch"
-             mode position form))
     kind))
+
+;;; Resolve mode/form once for each rule. Missing cells still fail only when
+;;; that rule wins, preserving longest-match and ambiguity admission semantics.
+(def (prepare-rule-result mode form positions cells)
+  (let (entries
+        (map (lambda (position)
+               (cons position
+                 (find-result-kind cells mode position form))) positions))
+    (if (and (pair? entries) (null? (cdr entries)) (cdar entries))
+      (let (kind (cdar entries)) (lambda (_scanner _position) kind))
+      (lambda (_scanner position)
+        (let (entry (assq position entries))
+          (or (and entry (cdr entry))
+              (error "missing contextual scanner dispatch" mode position form)))))))
 
 (def (decode-shell-delimiter word)
   (let (length (string-length word))
@@ -866,15 +887,13 @@
                (end (scan-match-end match))
                (lexeme (substring source start end))
                (byte-end (+ byte-start
-                            (string-utf8-length lexeme)))
-               (kind (result-kind scanner mode position
-                                  (runtime-scan-rule-form rule))))
+                            (or (runtime-scan-rule-byte-width rule) (string-utf8-length lexeme))))
+               (kind ((runtime-scan-rule-result rule) scanner position)))
           (unless (< start end)
             (error "contextual scanner did not advance" mode start))
           (values
            (make-token kind lexeme byte-start byte-end)
-           (apply-scan-action
-            (runtime-scan-rule-action rule) lexeme
+           ((runtime-scan-rule-action-step rule) (runtime-scan-rule-action rule) lexeme
             (make-contextual-scan-state
              scanner end byte-end mode
              (contextual-scan-state-pending state)

@@ -1,0 +1,103 @@
+#+TITLE: Prepared Scanner and LR Kernels for Complete Record Requests
+#+DATE: 2026-10-11
+
+* Scope and algorithm
+
+This change moves grammar-static work into engine preparation. It does not
+change language grammars, the Loader schema, longest-match ranking, semantic
+reductions, or the public C ABI.
+
+The contextual scanner prepares the result kind for each rule and declared
+parser position. A single-position rule captures its kind; other rules retain
+a position lookup. Missing dispatch still fails only when its rule wins, so
+candidate ranking and ambiguity checks retain their meaning. The keep action
+has a prepared identity kernel. Single-character literals capture their scalar
+value, and fixed literals capture their UTF-8 byte width. Variable-width
+matchers still count the actual matched text.
+
+The ordinary LR action selector prepares one kernel per state. Token-only
+states skip literal and case-fold probes. Token indexes specialize empty,
+singleton, small symbol alist, and table shapes once during preparation. Literal
+states preserve exact-literal priority, case-folding, EOF, duplicate-entry
+selection and original action-pair identity. Layout selection is unchanged.
+
+* Conformance and independent controls
+
+The scanner tests cover direct IR and prepared plans, including successive
+1/2/3/4-byte scalar offsets. Existing tests cover modes, queued actions,
+longest-match, ambiguity, missing dispatch and checkpoint ownership. LR tests
+compare the prepared selector with the independent reference on EOF, literal
+priority, case-folding, duplicate entries, forks and small/wide token indexes;
+they require identical action pairs.
+
+The Scheme benchmark constructs two independent public C ABI handles. Its
+scanner control restores the former dispatch body, action interpretation,
+literal prefix matcher and per-lexeme UTF-8 counting. Its LR control uses the
+existing independent action selector. Both handles retain the same generated
+reduction step, source decoder, event writer and complete GPA1 publication.
+Private accessor resolution and preparation occur outside timing.
+
+Every timed call includes C input ownership, source admission, contextual
+scanning, LR parsing, semantic construction, GPA1 publication, C result ownership
+and readback. The 64-record sources are 256 ASCII bytes or 320 Unicode bytes;
+both produce the complete 15,488-byte payload. Accepted, rejected, empty and
+Unicode products are compared outside timing as well.
+
+The controls are source-owned former-algorithm kernels in the current binary,
+not a historical binary comparison. These measurements qualify this record
+workload; they do not establish a speedup for every language or grammar.
+
+* Admission and retained results
+
+The existing Scheme sampler uses 20 groups, 256 calls per batch and eight
+balanced legs per comparison. CPU includes GC. Before/after control P10 must
+be at least 0.90 and P90 at most 1.10; production P90 must be below 0.95. No
+sample deletion, forced GC or threshold adjustment is used. Linux CI inherits
+one allowed processor's affinity; each child retains the 120-second total,
+5-second idle and 3-GiB heap limits.
+
+Initial controls with additional dispatch wrappers were invalid and are not
+admitted as performance evidence. After correcting call depth, the earlier
+scanner-only candidate had P50 0.897780 but P90 0.966302 and failed admission.
+The earlier LR-only candidate had P50 0.918003 but P90 0.992806 and also failed.
+Those failures motivated fixed-width scanner staging and token-row LR kernels;
+median-only improvements were not treated as proof.
+
+| Final local combined workload | Control before P10/P50/P90 | Production P10/P50/P90 | Control after P10/P50/P90 | Admission |
+|-------------------------------+---------------------------+-----------------------+--------------------------+-----------|
+| ASCII, 64 records | 0.943768 / 1.020346 / 1.081533 | 0.735750 / 0.814937 / 0.890024 | 0.907160 / 0.999437 / 1.087364 | Passed |
+
+The local Unicode combined run had production P50 0.832936 and P90 0.880413,
+but before-control P10 0.898407 failed the 0.90 gate. It is rejected, not admitted
+as a speedup. The final scanner-only run had stable controls and P50 0.904196,
+but P90 0.967412 failed the strict benefit gate. These receipts are retained;
+Linux affinity qualification is a separate environment, not a discarded-sample
+retry.
+
+The final LR-only run had P50 0.907958 and P90 1.017276, with after-control
+P10 0.899800. It failed both control stability and strict benefit admission.
+
+The ASCII complete-request median CPU reduction is 18.51%. Individual scanner
+and LR isolation runs are diagnostic obligations and are reported separately;
+the combined result is not a claim that each component meets the benefit gate.
+
+* Reproduction and qualification ownership
+
+The fixture is =t/fixtures/contextual-result-selection.ss=. The complete-request
+sampler is =t/benchmarks/language-abi/utf8-cpu.ss= and the strict entrypoint is
+=t/benchmarks/language-abi/engine-proof.ss=. =build-ffi-tests.ss= owns fixture
+and sampler compilation. From a prepared repository environment:
+
+#+begin_src sh
+for unicode in false true; do
+  gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+    --log ".data/record-engine-${unicode}-cpu.log" \
+    --require ENGINE-CPU-PROOF-OK \
+    -- gxi t/benchmarks/language-abi/engine-proof.ss combined "$unicode"
+done
+#+end_src
+
+Use =scanner= or =lr= in place of =combined= for independent component controls.
+The existing workflow dispatch runs both complete combined workloads on Linux,
+with unchanged ranked-parser, FFI event-publication and UTF-8 obligations. Local
+receipts and exact-head CI receipts remain distinct evidence.

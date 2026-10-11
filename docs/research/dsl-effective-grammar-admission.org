@@ -483,6 +483,11 @@ operations also depend on terminal count; no constant-time bitset assumption or
 whole-parser linear bound is claimed. The analysis adds no language-author slot,
 loader schema, public grammar rewrite or admission restriction.
 
+The [[file:dense-lr-item-space.org][dense dotted-position implementation]] now addresses that retained padding
+obligation across all construction and diagnostic consumers. Its bijection,
+independent controls and compiler-cost evidence are separate from this suffix
+analysis and from complete-request latency admission.
+
 ** Semantic and matched native controls
 
 The resolved grammar suite compares both entire catalog vectors against

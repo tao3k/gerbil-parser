@@ -16,7 +16,7 @@
                  production-rhs production-terminal-catalog)
         (only-in ./lr-automaton
                  build-lr0-automaton
-                 make-core-item
+                 make-core-item core-item-count
                  make-core-symbol-catalog make-item-layout
                  materialize-transitions))
 (export build-states-via-lr0 build-states-via-canonical-lr1
@@ -46,10 +46,10 @@
 ;;; Completed FIRST/nullable facts for every valid suffix, including the
 ;; empty suffix at the completed core. Consumers select core or core+1;
 ;; padding remains zero/false. Marks were unwrapped by the symbol catalog.
-;; : (-> Vector Pair Vector Table Table Table (values Vector Vector))
+;; : (-> Vector lr-item-layout Vector Table Table Table (values Vector Vector))
 (def (make-core-suffix-catalog table layout core-symbols first nullable
                               terminal-index)
-  (let* ((size (* (vector-length table) (cdr layout)))
+  (let* ((size (core-item-count layout))
          (first-masks (make-vector size 0))
          (nullable-suffixes (make-vector size #f))
          (nonterminal-masks (make-table test: eq?)))

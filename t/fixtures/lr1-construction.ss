@@ -8,7 +8,18 @@
         mixed-context-family-rules acyclic-mixed-context-family-rules
         split-shared-context-family-rules
         unreachable-repeated-context-family-rules
-        inactive-core-conflict-rules)
+        inactive-core-conflict-rules skew-width-rules)
+
+;;; Declared short rules remain legal composition members. Put the reachable
+;;; wide rule last to expose padding in every packed-item construction route.
+(def (skew-width-rules short-count width)
+  (cons '(source-file (reference wide))
+        (append
+         (map (lambda (index)
+                (list (string->symbol (string-append "short-" (number->string index)))
+                      '(literal "y")))
+              (iota short-count))
+         (list (list 'wide (cons 'sequence (make-list width '(literal "x"))))))))
 
 ;; The c-rule item after "c" has no raw action before its nullable optional
 ;; symbol. It shares an LR(0) state with completed a-rule/b-rule items that do

@@ -6,8 +6,10 @@
                  lower-rules production-lhs production-rhs production-table production-terminal-catalog
                  sequence-first sequence-nullable? base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union)
-        (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-symbol-catalog)
+        (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-symbol-catalog
+                 make-core-item core-item-count core-item-production-id core-item-dot)
         (only-in :gerbil-parser/src/compiler/lr-lookahead make-core-suffix-catalog)
+        (only-in :gerbil-parser/src/compiler/lr-conflict-candidates initial-backward-follow-partitions)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-rejection-condition?)
@@ -20,8 +22,48 @@
                  lr1-not-lalr-rules shared-lookahead-rules precedence-expression-rules
                  mixed-context-rules lr1-context-family-rules
                  state-local-candidate-family-rules mixed-context-family-rules
-                 acyclic-mixed-context-family-rules inactive-core-conflict-rules))
+                 acyclic-mixed-context-family-rules inactive-core-conflict-rules skew-width-rules))
 (export resolved-grammar-test)
+
+;;; Independent coordinates include epsilon, unary and uneven-width rules.
+;;; The expected enumeration is explicit, not decoded from the packed value.
+(def (dense-item-coordinates-case)
+  (let* ((productions (lower-rules '((start (sequence (literal "a") (literal "b") (literal "c")))
+                                   (empty (sequence)) (short (literal "z"))) 'start))
+         (table (production-table productions)))
+    (let-values (((terminals _index) (production-terminal-catalog productions)))
+      (let* ((layout (make-item-layout table terminals))
+             (symbols (make-core-symbol-catalog table layout))
+             (coordinates '((0 0) (0 1) (1 0) (1 1) (1 2) (1 3) (2 0) (3 0) (3 1))))
+        (check (core-item-count layout) => 9)
+        (check (vector->list symbols)
+          => '((nonterminal start) #f (terminal literal "a") (terminal literal "b")
+               (terminal literal "c") #f #f (terminal literal "z") #f))
+        (for-each
+         (lambda (coordinate item)
+           (check (make-core-item (car coordinate) (cadr coordinate) layout) => item)
+           (check (core-item-production-id item layout) => (car coordinate))
+           (check (core-item-dot item layout) => (cadr coordinate)))
+         coordinates (iota 9))))))
+
+(def (skew-item-space-case)
+  (let* ((productions (lower-rules (skew-width-rules 128 64) 'source-file))
+         (table (production-table productions)))
+    (let-values (((terminals _index) (production-terminal-catalog productions)))
+      (let* ((layout (make-item-layout table terminals))
+             (symbols (make-core-symbol-catalog table layout)))
+        ;; Two unary entry rules, 128 unary composition members and one wide
+        ;; rule. The old padded domain had 8,515 positions for this grammar.
+        (check (vector-length symbols) => 325)
+        (check (make-core-item 130 0 layout) => 260)
+        (check (make-core-item 130 64 layout) => 324)
+        (check (vector-ref symbols 324) => #f)))
+    (check-suffix-catalog productions)
+    (let-values (((_names nullable) (compute-nullable productions)))
+      (let-values (((_rows first) (compute-first productions nullable)))
+        (let-values (((partitions _candidates _terminals)
+                      (initial-backward-follow-partitions productions table first nullable)))
+          (check (vector-length partitions) => 325))))))
 
 (def (admission-result rules (construction 'lalr) (policy 'reject))
   (with-catch
@@ -166,7 +208,7 @@
         (let production-loop ((id 0))
           (when (< id (vector-length table))
             (let suffix-loop ((rest (production-rhs (vector-ref table id))) (dot 0))
-              (let (item (+ dot (* id (cdr layout))))
+              (let (item (make-core-item id dot layout))
                 (vector-set! expected-masks item
                   (foldl (lambda (terminal mask)
                            (compiler-index-set-union mask
@@ -636,6 +678,10 @@
 
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case-add! (TestCase "dense item coordinates preserve epsilon and production boundaries"
+                      dense-item-coordinates-case))
+    (test-case-add! (TestCase "uneven rule widths allocate only actual dotted positions"
+                      skew-item-space-case))
     (test-case-add! (TestCase "suffix facts preserve forward scans and marked operands"
                       suffix-facts-case))
     (test-case-add! (TestCase "joint completion preserves delayed and coalesced domain publications"

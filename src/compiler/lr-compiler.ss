@@ -3,6 +3,7 @@
 
 (import (only-in :std/iter for in-range)
         (only-in ./lr-table validate-lr-tables)
+        (only-in ./lr-automaton core-item-production-id core-item-dot)
         (only-in ./funcs compiler-index-set-for-each)
         (only-in ./lr
                  compute-first compute-completion
@@ -157,9 +158,9 @@
       (filter-map
        (lambda (item)
          (and (equal? terminal (vector-ref core-symbols item))
-           (list (cons 'dot (modulo item (cdr layout)))
+           (list (cons 'dot (core-item-dot item layout))
                  (cons 'expressionOrigin
-                       (vector-ref origins (quotient item (cdr layout)))))))
+                       (vector-ref origins (core-item-production-id item layout))))))
        items)
       '()))
   (apply error (error-message condition)
@@ -252,7 +253,7 @@
          (for-each
           (lambda (item)
             (set! processed-items (+ processed-items 1))
-            (let* ((production-id (quotient item (cdr layout)))
+            (let* ((production-id (core-item-production-id item layout))
                    (symbol (vector-ref core-symbols item))
                    (terminal-id (vector-ref core-terminal-ids item)))
               (cond

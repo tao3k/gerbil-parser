@@ -1,0 +1,144 @@
+#+title: Dense dotted-position ownership across LR construction
+
+* Research obligation and scope
+
+The [[file:dsl-effective-grammar-admission.org::*LR suffix facts: compositional reverse evaluation][prepared suffix study]] removes repeated RHS suffix scans but explicitly leaves
+production-count times maximum-width padding unresolved. This implementation
+closes that representation obligation in the compiler, before LR(0), lookahead,
+canonical LR(1), partition refinement and conflict-source publication diverge.
+It changes no language declaration, request executor, ABI or CI job.
+
+The staging argument in the parent study connects grammar-only facts to
+Krishnaswami and Yallop's static Null/First analysis and Sperber and Thiemann's
+Scheme LR specialization. Those papers motivate preparation ownership. They do
+not prove this particular representation correct or supply its measured speedup.
+The argument below is a separate bijection over the admitted production table.
+
+* Representation and invariant
+
+For production i with RHS width w_i, define o_0 = 0 and
+o_(i+1) = o_i + w_i + 1. The dotted position (i,d), where 0 <= d <= w_i,
+has core ID o_i + d. The domain size M is sum_i(w_i + 1), rather than
+P times (1 + max_i w_i). Every production owns one completed position, including
+epsilon productions. There are no holes or overlapping production intervals.
+
+The private =lr-item-layout= record owns terminal count, production offsets and
+a dense inverse owner catalog. Prepared owner lookup is constant time; dot
+lookup subtracts that owner's offset. Storage and preparation are O(P + M).
+This does not make arbitrary big-integer bitset operations constant time.
+It bounds the core-ID domain on which those operations run.
+
+Order by production then dot is preserved. Advancing a noncompleted core by one
+stays inside its production. Completion, FIRST suffix lookup, prediction,
+action masks and shift-origin diagnostics consume the same layout functions.
+Public production IDs, state discovery order and rule origins are unchanged.
+There is one representation; no padded-layout compatibility branch remains.
+
+#+begin_src scheme
+;; Independent fixture: widths 1, 3, 0, 1, including augmented start.
+;; Every completed item is retained, and the epsilon interval has width one.
+;; Expected IDs are explicit rather than reconstructed through the decoder.
+'((0 0) (0 1) (1 0) (1 1) (1 2) (1 3) (2 0) (3 0) (3 1))
+
+;; Engine consumers inspect logical coordinates, never numeric packing details.
+(core-item-production-id item layout)
+(core-item-dot item layout)
+(make-core-item production-id dot layout)
+#+end_src
+
+** Question: why does this exploit Scheme beyond S-expression notation?
+
+The canonical grammar remains inspectable data. A named preparation algorithm
+derives one immutable layout; a private named record makes ownership explicit;
+dense vectors implement its finite domain. Consumers share named coordinate
+operations rather than copying arithmetic conventions. POO continues to own
+extensible grammar composition and hygienic DSL rules own declaration lowering.
+This fixed numeric representation needs neither a public extension slot nor
+generic dispatch in bitset traversal. Authors express rules, not allocation
+strides or packed-item decoding.
+
+** Question: how is the design scientifically justified?
+
+Disjoint intervals establish injectivity, every valid dot lies in an interval,
+and their concatenation covers exactly [0,M). Ordering and successor preservation
+establish the representation obligations used by existing LR algorithms.
+Independent coordinate and suffix controls falsify boundary errors; canonical
+reference and origin tests falsify altered construction and diagnostics.
+Complete original/candidate LRSpecs test publication equivalence separately
+from CPU and allocation observations. A reduced domain is a deterministic
+storage result, not evidence of complete-request latency improvement.
+
+* Executable coverage and reproduction
+
+- [[file:../../src/compiler/lr-automaton.ss][Layout owner]] and all packed-coordinate consumers use the new representation.
+- [[file:../../t/resolved-grammar-test.ss][Resolved controls]] check explicit epsilon/unary/wide coordinates and 325 real
+  positions instead of 8,515 padded positions; independent forward FIRST/nullable
+  scans check every suffix of the skew-width fixture.
+- [[file:../../t/canonical-lr1-reference-test.ss][Canonical reference controls]] retain their independent construction oracle.
+- [[file:../../t/lr-conflict-origins-test.ss][Conflict origin controls]] check public logical dots and selected source paths.
+- [[file:../../t/benchmarks/lr1-partition/item-space.ss][Construction benchmark]] checks complete LRSpecs at three scales across LALR,
+  canonical LR(1) and follow-partition LR(1). CPU includes natural in-call GC;
+  allocation is admitted only by the existing shared counter contract.
+
+Run the normal package build and the existing conformance build, which owns
+the shared construction fixture, then source-owned tests. The benchmark entry is:
+
+#+begin_src sh
+gerbil env gxi t/benchmarks/lr1-partition/item-space.ss 10
+#+end_src
+
+For a matched comparison, run the same benchmark source and fixture against
+separate original/candidate compiler products from the same toolchain, and
+compare every =ITEM-SPACE-PRODUCT= datum before interpreting samples. Do not
+combine old and new compiler modules in one dependency graph. Normal CI keeps
+its existing semantic and generated-product gates; this research benchmark
+does not add a required PR stage.
+
+* Qualification boundary
+
+The changed compiler producers were compiled natively. The five original
+producers were rebuilt from the parent commit with the same toolchain and
+compiler flags. Focused source GxTest qualification passed 49 cases covering
+resolved grammar admission, conflict origins and Scheme style contracts in
+43.714 seconds, with exit zero and no supervisor failure. Tests exposed and
+removed a duplicate padded-layout constructor in backward follow seeds and an
+old stride assumption in the independent partition oracle.
+
+Four sequential original/candidate/candidate/original runs passed the unchanged
+120-second total and five-second real-output idle limits in 11.221, 9.906,
+9.727 and 12.709 seconds. Each run checked ten measured compilations per workload
+against its complete warmup LRSpec. All nine published products were identical
+across all four runs. The fixture scales have 85, 325 and 1,285 actual positions,
+compared with 595, 8,515 and 132,355 padded positions respectively.
+
+These are descriptive local CPU medians, including natural GC, over twenty
+observations per side. They are not confidence-qualified speedup claims.
+
+| Short rules / wide RHS | Route | Original CPU ms | Dense CPU ms |
+|------------------------+-------+-----------------+--------------|
+| 32 / 16 | LALR | 0.1215 | 0.1835 |
+| 32 / 16 | Canonical LR(1) | 0.1020 | 0.2085 |
+| 32 / 16 | Follow partition | 0.2070 | 0.1285 |
+| 128 / 64 | LALR | 0.9780 | 0.4540 |
+| 128 / 64 | Canonical LR(1) | 0.4510 | 0.3155 |
+| 128 / 64 | Follow partition | 0.9890 | 0.3565 |
+| 512 / 256 | LALR | 21.2215 | 1.8265 |
+| 512 / 256 | Canonical LR(1) | 2.1455 | 1.5990 |
+| 512 / 256 | Follow partition | 2.6025 | 1.7285 |
+
+At the largest scale, admitted allocation medians were 19,047,904 to 2,328,248
+bytes for LALR (16/20 admitted original samples and 20/20 candidate samples),
+8,749,368 to 3,496,640 for canonical LR(1) (10/20 on each side), and 9,262,480
+to 4,009,624 for follow partition (5/20 and 6/20). The shared allocation contract
+rejects GC-contaminated or invalid deltas; its subsets are separate from CPU
+samples. The small-grammar regressions remain visible: preparing inverse owners
+and accessor costs are not free, and padding was small in those controls.
+
+Negative results remain outside admission. Initial untraced imports and an
+unchanged follow-automaton GCC rebuild exceeded the idle bound. The full source
+canonical matrix reached its total bound during the mixed-context compression
+case; partial cases do not qualify that matrix. Attempts to include actual GQL
+construction exceeded the idle bound and supply no admitted language timing.
+The focused local tests used retained runtime dependencies and qualify compiler
+behavior only. Fresh complete semantic and generated-product qualification
+belongs to the existing exact-head CI gates. No deadline or CI stage was added.

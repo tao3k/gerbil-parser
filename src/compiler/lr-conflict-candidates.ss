@@ -11,7 +11,8 @@
                  production-id production-index-by-lhs production-rhs
                  production-terminal-catalog
                  terminal-symbol?)
-        (only-in ./lr-automaton make-item-layout make-core-symbol-catalog make-core-item)
+        (only-in ./lr-automaton make-item-layout make-core-symbol-catalog make-core-item
+                 core-item-production-id core-item-count)
         (only-in ./lr-lookahead build-states-via-lr0 make-core-suffix-catalog))
 (export forward-reachable-follow-masks
         initial-backward-follow-partitions
@@ -121,7 +122,7 @@
           (for-each
            (lambda (core)
              (let ((symbol (vector-ref core-symbols core))
-                   (production-id (quotient core (cdr layout))))
+                   (production-id (core-item-production-id core layout)))
                (cond
                 ((and symbol (terminal-symbol? symbol))
                  (let (index (table-ref terminal-index symbol #f))
@@ -168,13 +169,9 @@
       (unless (equal? terminals follow-terminals)
         (error "LR terminal catalogues disagree"))
       (let* ((terminal-index (make-table test: equal?))
-             (dot-width
-              (foldl (lambda (production width)
-                       (max width (+ 1 (length (production-rhs production)))))
-                     1 (vector->list table)))
-             (layout (cons (vector-length terminals) dot-width))
+             (layout (make-item-layout table terminals))
              (core-symbols (make-core-symbol-catalog table layout))
-             (core-count (* (vector-length table) dot-width))
+             (core-count (core-item-count layout))
              (action-by-core (make-vector core-count 0))
              (completed-core (make-vector core-count #f))
              (candidate-by-core (make-vector core-count 0))
@@ -194,7 +191,7 @@
             (when (< id (vector-length table))
               (let dot-loop ((tail (production-rhs (vector-ref table id)))
                              (dot 0))
-                (let* ((core (+ dot (* dot-width id)))
+                (let* ((core (make-core-item id dot layout))
                        (symbol (and (pair? tail) (base-symbol (car tail))))
                        (action-mask
                         (cond
@@ -235,7 +232,7 @@
             (when (< id (vector-length table))
               (let dot-loop ((tail (production-rhs (vector-ref table id)))
                              (dot 0))
-                (let* ((core (+ dot (* dot-width id)))
+                (let* ((core (make-core-item id dot layout))
                        (first-mask (vector-ref suffix-first core))
                        (tail-nullable? (vector-ref nullable-suffixes core))
                        (candidate-mask (vector-ref candidate-by-core core))

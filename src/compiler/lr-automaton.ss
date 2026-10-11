@@ -13,23 +13,38 @@
         core-item-after-dot core-item-tail-after-next item-after-dot
         item-complete? item-lookahead item-production-id item<?
         make-core-item make-core-symbol-catalog make-item-layout
+        core-item-count core-item-production-id core-item-dot
         materialize-transitions
         transition-index transition-target)
 
-;; make-item-layout
-;; : (-> Vector Vector (Pair Fixnum Fixnum))
-(def (make-item-layout table terminal-values)
-  (cons (vector-length terminal-values)
-        (foldl (lambda (production dot-width)
-                 (max dot-width (+ (length (production-rhs production)) 1)))
-               1
-               (vector->list table))))
+;;; Dense dotted positions preserve production/dot ordering without padding
+;;; every rule to the widest RHS. The inverse catalog stages decoding once;
+;;; all construction routes share this private representation.
+(defstruct lr-item-layout (terminal-count offsets owners) final: #t)
 
-(def (item-lookahead item layout) (modulo item (car layout)))
-(def (item-body item layout) (quotient item (car layout)))
+(def (make-item-layout table terminal-values)
+  (let* ((count (vector-length table)) (offsets (make-vector (+ count 1))))
+    (let index ((id 0) (offset 0))
+      (vector-set! offsets id offset)
+      (if (= id count)
+        (let (owners (make-vector offset))
+          (let production-loop ((id 0))
+            (when (< id count)
+              (let fill ((item (vector-ref offsets id))
+                         (end (vector-ref offsets (+ id 1))))
+                (when (< item end)
+                  (vector-set! owners item id)
+                  (fill (+ item 1) end)))
+              (production-loop (+ id 1))))
+          (make-lr-item-layout (vector-length terminal-values) offsets owners))
+        (index (+ id 1)
+               (+ offset 1 (length (production-rhs (vector-ref table id)))))))))
+
+(def (item-lookahead item layout) (modulo item (lr-item-layout-terminal-count layout)))
+(def (item-body item layout) (quotient item (lr-item-layout-terminal-count layout)))
 (def (item-production-id item layout)
-  (quotient (item-body item layout) (cdr layout)))
-(def (item-dot item layout) (modulo (item-body item layout) (cdr layout)))
+  (core-item-production-id (item-body item layout) layout))
+(def (item-dot item layout) (core-item-dot (item-body item layout) layout))
 
 (def (item-after-dot item layout table)
   (let* ((production (vector-ref table (item-production-id item layout)))
@@ -63,16 +78,19 @@
   (table-ref transitions (list state symbol) #f))
 
 (def (make-core-item production-id dot layout)
-  (+ dot (* (cdr layout) production-id)))
-(def (core-item-production-id item layout) (quotient item (cdr layout)))
-(def (core-item-dot item layout) (modulo item (cdr layout)))
+  (+ dot (vector-ref (lr-item-layout-offsets layout) production-id)))
+(def (core-item-count layout) (vector-length (lr-item-layout-owners layout)))
+(def (core-item-production-id item layout)
+  (vector-ref (lr-item-layout-owners layout) item))
+(def (core-item-dot item layout)
+  (- item (vector-ref (lr-item-layout-offsets layout) (core-item-production-id item layout))))
 
 ;; Pre-index every valid dotted production position once. LR closure,
 ;; propagation, and action construction then resolve after-dot symbols with one
 ;; vector-ref instead of repeated quotient/modulo/length/list-ref traversal.
-;; : (-> Vector Pair Vector)
+;; : (-> Vector lr-item-layout Vector)
 (def (make-core-symbol-catalog table layout)
-  (let ((catalog (make-vector (* (vector-length table) (cdr layout)) #f)))
+  (let ((catalog (make-vector (core-item-count layout) #f)))
     (let production-loop ((production-id 0))
       (when (< production-id (vector-length table))
         (let symbol-loop

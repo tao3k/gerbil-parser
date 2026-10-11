@@ -8,6 +8,7 @@
         (only-in ./funcs
                  compiler-index-set-for-each compiler-index-set-union)
         (only-in ./lr terminal-symbol?)
+        (only-in ./lr-automaton core-item-production-id)
         (only-in ./lr-lookahead build-states-via-canonical-lr1))
 (export build-states-via-partitioned-lr1)
 
@@ -24,7 +25,7 @@
           (for-each
            (lambda (core)
              (let ((symbol (vector-ref core-symbols core))
-                   (production-id (quotient core (cdr layout))))
+                   (production-id (core-item-production-id core layout)))
                (cond
                 ((and symbol (terminal-symbol? symbol))
                  (let (terminal-id (table-ref terminal-index symbol))

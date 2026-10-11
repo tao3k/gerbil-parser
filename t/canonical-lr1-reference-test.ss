@@ -13,7 +13,8 @@
                  compute-first compute-nullable lower-rules lr-spec-ref
                  production-rhs production-table production-terminal-catalog)
         (only-in :gerbil-parser/src/compiler/lr-automaton
-                 build-lr0-automaton make-item-layout make-core-symbol-catalog)
+                 build-lr0-automaton make-item-layout make-core-symbol-catalog
+                 core-item-production-id core-item-dot)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates
                  forward-reachable-follow-masks
@@ -133,7 +134,7 @@
                     (for-each
                      (lambda (core)
                        (unless (vector-ref core-symbols core)
-                         (let (production-id (quotient core (cdr layout)))
+                         (let (production-id (core-item-production-id core layout))
                            (vector-set!
                             completed production-id
                             (compiler-index-set-union
@@ -162,21 +163,23 @@
                         (initial-backward-follow-partitions
                          productions table first-index nullable-index)))
             (check (equal? terminals partition-terminals) => #t)
-            (let ((width (quotient (vector-length partitions)
-                                   (vector-length table))))
-              (let production-loop ((id 0))
-                (when (< id (vector-length table))
-                  (let dot-loop ((dot 0))
-                    (when (<= dot (length
-                                   (production-rhs (vector-ref table id))))
-                      (let (blocks (vector-ref partitions (+ dot (* id width))))
-                        (check
-                         (foldl (lambda (block mask)
-                                  (compiler-index-set-union mask (cdr block)))
-                                0 blocks)
-                         => (vector-ref follows id)))
-                      (dot-loop (+ dot 1))))
-                  (production-loop (+ id 1)))))
+            ;; Walk actual RHS intervals independently of the layout decoder.
+            ;; A constant stride inferred from vector size hides padding.
+            (let production-loop ((id 0) (start 0))
+              (when (< id (vector-length table))
+                (let dot-loop ((dot 0))
+                  (when (<= dot (length
+                                 (production-rhs (vector-ref table id))))
+                    (let (blocks (vector-ref partitions (+ start dot)))
+                      (check
+                       (foldl (lambda (block mask)
+                                (compiler-index-set-union mask (cdr block)))
+                              0 blocks)
+                       => (vector-ref follows id)))
+                    (dot-loop (+ dot 1))))
+                (production-loop
+                 (+ id 1)
+                 (+ start 1 (length (production-rhs (vector-ref table id)))))))
             partitions))))))
 
 ;; Kernel identity is independent of closure construction and key encoding.
@@ -197,7 +200,7 @@
               (when (< state count)
                 (let (kernel
                       (filter (lambda (item)
-                                (not (zero? (modulo item (cdr layout)))))
+                                (not (zero? (core-item-dot item layout))))
                               (vector-ref states state)))
                   (vector-set! kernels state kernel)
                   (if (zero? state)

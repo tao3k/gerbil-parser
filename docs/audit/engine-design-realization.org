@@ -247,6 +247,14 @@ platform results remain separate from document and local native qualification.
 
 ** Engine qualification sequence
 
+The [[file:../research/dense-lr-item-space.org][dense item-space implementation]] addresses the suffix study's remaining
+production-count times maximum-width padding. One private layout and logical
+coordinate operations now serve all LR construction routes and conflict-origin
+publication. Explicit epsilon/production-boundary controls, independent suffix
+scans and complete compiler-product benchmarks own its qualification. This is
+a compiler representation change; complete-request latency remains a separate
+measurement obligation. Existing CI jobs and required stages are unchanged.
+
 Rejected LR action provenance is now implemented in the existing lowering and
 table-publication owners. The [[file:../research/lr-conflict-source-origins.org][focused origin module]] records the Scheme witness,
 two design questions, selected POO source contract and qualification boundary.

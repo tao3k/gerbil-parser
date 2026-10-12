@@ -20,6 +20,8 @@
    ;; The generated language entry calls the runtime owner-thread guard.
    (compiled-spec "t/fixtures/contextual-result-selection")
    (compiled-spec "t/fixtures/lr-action-selection")
+   ;; The reusable library must carry the interface producer before its ABI consumers.
+   (compiled-spec "t/fixtures/shared-scanner/records")
    (compiled-spec "t/fixtures/shared-scanner/records-engine-control")
    (compiled-spec "t/fixtures/shared-scanner/records-abi"
     '("lib/gerbil-parser/src/ffi/language-abi~0.o1"))

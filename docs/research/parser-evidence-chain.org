@@ -1,0 +1,170 @@
+#+title: Parser model and implementation evidence chain
+
+* One optimization chain
+
+The optimization unit is an engine change with four distinct obligations:
+
+| Evidence layer | Owner | Qualified claim |
+|----------------+-------+-----------------|
+| Algorithm semantics and counted operations | Lean + LeanPoo | =lean-model= |
+| Finite publication protocol | Quint | =quint-protocol= |
+| Implementation/product conformance | Existing Scheme suites | =scheme-conformance= |
+| Complete-request matched measurements | Existing Scheme benchmark admission | =matched-performance= |
+
+Python transports observations and content identities into native Scheme
+ASCENT. ASCENT derives usable receipts, missing requirements and transitive
+invalidity. It neither implements the parser nor proves Lean theorems or
+computes new performance statistics. The evidence adapter is verification-only.
+The production grammar.ss / parser.ss / parser-test.ss interfaces are unchanged.
+
+This extends [[file:parser-engine-formal-model.org][the reduction and sequence model]]. The existing
+[[file:parser-execution-evidence.org][measurement admission]] remains authoritative for actual requests.
+Passing a model does not establish implementation conformance or improvement.
+
+* Source study and dependency ownership
+
+The designated Gambit study file =evidence/suite-review-rules.ss= was absent
+in the inspected checkout. Its adjacent =review-rules.ss= and
+=research-rules.ss= supplied the study pattern: finite current-input snapshots,
+receipt/claim dependencies, cycle rejection and explicit missing premises.
+Those local study files are not imported or copied into the parser runtime.
+
+The reusable implementation is
+[[https://github.com/tao3k/gerbil-ascent/blob/0ea9d96dda03b620edebc5930410bcd060529c54/python/src/ascent_engine/review.py][gerbil-ascent's pinned EvidenceReview]]. Its Python binding delegates relational
+execution to the native Scheme engine. =formal/evidence/requirements.txt=
+pins that source revision and runtime Python dependencies. The ABI library
+remains an upstream build product: this repository checks its sidecar ABI and
+library SHA256 before loading it, then records the artifact, sidecar and Python
+binding-source identities. A valid digest establishes artifact identity, not
+the authenticity or correctness of the upstream build declaration.
+
+Quint 0.33.0 and its dependency integrity records are fixed by the repository's
+=package.json= / =package-lock.json=. Lean retains its separate toolchain and
+LeanPoo lock. No native library, environment-specific receipt or raw output is
+committed. Generated observations live under ignored =.data/parser-evidence/=.
+
+* Protocol model and its limits
+
+=Publication.qnt= models a prepared request's source generation, cancellation
+and publication. A result can become public only while its basis matches the
+current generation and it has not been cancelled. Editing withdraws an old
+published result. Rejected results remain private.
+
+Seven deterministic tests cover successful publication, stale requests,
+cancellation, edit withdrawal, and mutation witnesses that omit admission.
+The closure test evaluates every state in the explicit 360-state domain:
+source/basis generations 0--2, five phases, two cancellation values and four
+output-generation values. It checks one-step preservation from every valid
+state for each admitted transition. This is finite evaluation, not Apalache
+verification, an unbounded temporal proof, a liveness theorem, or conformance
+of the current actor/session implementation. The exact test command and domain
+are included in the observation's bound inputs.
+
+* Receipt admission and traceability
+
+=parser_evidence.py= records command arguments, working directory, deadline,
+exit code, expected markers, output digest, executable digest and declared
+input-file digests. Commands execute without a shell. Nonzero exits, missing
+markers, timeouts and input changes do not produce passed facts. Source/input
+paths are repository-relative and cannot escape through parent components or
+symlinks. Tool versions, dependency locks and relevant source closures must be
+included by the caller; a launcher fingerprint alone does not identify all
+interpreter or imported dependency contents.
+
+Each immutable observation has a content ID derived from its full record.
+Its raw output and record are stored under that ID. Review rechecks current
+source/executable/output/metadata contents. Deleted or changed inputs invalidate reuse.
+Receipt dependencies identify those same content IDs. Upstream Scheme ASCENT
+rejects absent, failed, stale and circular dependencies, including transitive
+invalidity. The review packet contains the exact input facts, observations,
+native result and reviewer identities for subsequent inspection.
+
+Host observations are trusted local observations, not signed attestations.
+The host still owns input-set completeness, checker selection and claim scope.
+The optional =required= argument supports scoped reviews; the model collector
+uses the complete four-layer requirement set. Even a complete set produces
+=REVIEW_REQUIRED= rather than execution authorization. No result packet is a
+substitute for inspecting its assumptions and the actual benchmark admission.
+
+Python's deadline covers its direct checker child. It is not a replacement for
+the existing Scheme descendant-process supervisor. Scheme qualification calls
+must retain their own established process-control owner.
+
+* Executable Scheme witness and design questions
+
+This is the upstream review's relational pattern, not a new parser DSL:
+
+#+begin_src scheme
+;; CurrentInput and ReceiptInput are supplied observations.
+;; Recursive ReceiptPath keeps transitive dependency identity explicit.
+((ReceiptPath R D) <-- (ReceiptDepends R D))
+((ReceiptPath R D) <-- (ReceiptPath R X) (ReceiptDepends X D))
+((Unusable R (lit 'circular-justification)) <-- (ReceiptPath R R))
+((Unusable R (lit 'stale-or-missing-input))
+ <-- (ReceiptInput R K V) (not (CurrentInput K V)))
+#+end_src
+
+** Question: why does this exploit Scheme's strengths?
+
+The parser retains its higher-order prepared functions and engine-owned
+representations. A second Scheme engine supplies declarative relational review
+and retained derivation components through its C ABI. Python supplies bytes and
+observations; it does not duplicate Scheme inference with imperative rule loops.
+This preserves producer ownership and keeps language authors free of verification
+or storage machinery. Component reuse may reduce repeated review work, but no
+review-time speedup is claimed without measurement.
+
+** Question: how is this scientifically checked?
+
+Lean proves properties of its algorithms; Quint evaluates a named finite
+transition domain; Scheme tests compare semantic products; benchmarks preserve
+matched measurement controls. Each observation binds the relevant source,
+tool/lock context and raw output. Mutation and negative controls test whether
+invalid evidence is rejected. The combination exposes missing proof and
+measurement obligations instead of converting one successful layer into a
+whole-engine claim.
+
+* Reproduction and CI boundary
+
+From the repository root:
+
+#+begin_src sh
+just formal
+npm ci --ignore-scripts --prefix formal/quint
+just formal-protocol
+uv venv .data/parser-evidence-venv
+uv pip install --python .data/parser-evidence-venv/bin/python -r formal/evidence/requirements.txt
+#+end_src
+
+Select an upstream-built native ABI artifact and its adjacent JSON receipt
+through =ASCENT_ENGINE_LIBRARY=. With the prepared environment:
+
+#+begin_src sh
+.data/parser-evidence-venv/bin/python -m unittest discover -s formal/evidence -v
+.data/parser-evidence-venv/bin/python formal/evidence/collect_models.py
+#+end_src
+
+The collector executes real Lean and Quint commands and sends their saved
+observations to native ASCENT. Its expected result establishes the two model
+claims and explicitly reports =scheme-conformance= and =matched-performance=
+as missing. Success qualifies that model-layer experiment only.
+
+Nine host/native controls cover nonzero exits despite success markers,
+missing markers, source mutation during execution, retained timeout, changed
+source/log/metadata rejection, dependency cycles, failed transitive dependencies,
+partial bundles and absent execution authority.
+
+CI adds locked Quint tests and Python host controls to the existing contracts
+lane. The native ASCENT integration is locally exercised against an upstream
+artifact; CI does not rebuild an unrelated Scheme dependency or pretend that
+host tests qualify native inference. A future native CI gate needs an immutable
+upstream artifact provisioned by that project's build owner.
+
+* Next implementation unit
+
+Use the same receipt API for the existing Scheme conformance and complete-request
+benchmark commands, with their actual source/toolchain/workload and admission
+inputs. Record negative observations as well as passing ones. Then evaluate a
+single measured engine change against all four requirements and its declared
+baseline dependencies. There is no parser speed claim from this infrastructure
+change and no new statistics or parser implementation in Python.

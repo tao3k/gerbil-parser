@@ -199,3 +199,13 @@ benchmark-source-edits samples="20" lines="128": build-qualification
 # Verification-only model; production parser stays Scheme.
 formal:
     cd formal && lake build
+
+# Native ASCENT is supplied by its upstream build owner, never rebuilt here.
+evidence-controls:
+    python3 -m unittest discover -s formal/evidence -v
+
+evidence-models:
+    python3 formal/evidence/collect_models.py
+
+formal-protocol:
+    npm --prefix formal/quint test

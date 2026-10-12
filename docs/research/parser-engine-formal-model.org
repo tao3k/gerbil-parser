@@ -147,6 +147,6 @@ qualify the exact pushed revision separately.
 
 Extend the model with checked LR transitions and table/grammar correspondence,
 then prove an implementation refinement for the same reduction path. Use the
-same action and source contracts in Scheme controls. Quint can subsequently
-model session publication, cancellation and worker lifecycle protocols; it
-should not duplicate this algorithmic semantics as a second grammar authority.
+same action and source contracts in Scheme controls. The [[file:parser-evidence-chain.org][evidence-chain study]] now adds a finite Quint publication/cancellation
+model and native ASCENT dependency review. Worker lifecycle and implementation
+conformance remain open; the protocol model is not a second grammar authority.

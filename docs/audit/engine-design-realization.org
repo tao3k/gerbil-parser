@@ -27,6 +27,32 @@ policy test product scans current sources successfully (one case, exit zero);
 this proves current-source policy admission, not fresh policy-tool compilation.
 The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qualification record]] retains failed compilation and harness attempts.
 
+* Reusable FFI fixture producer correction
+
+CI at =11df5d0= rejected standalone library preparation on both platforms:
+=records-abi.ssi= imported =t/fixtures/shared-scanner/records=, whose producer
+was absent from =build-ffi-tests.ss=. The native build declaration now includes
+that producer before its ABI consumers. This preserves the same standalone
+library gate and does not add a workflow-specific compilation wrapper.
+
+Local qualification preparation compiled, but loading an existing
+=ownership~0.o1= rejected incompatible C compiler/options. That failed local
+attempt is not a passing FFI receipt; the fresh remote Scheme build remains
+the qualification gate for this correction.
+
+* Cross-tool evidence realization
+
+[[file:../research/parser-evidence-chain.org][The evidence-chain study]] owns =formal/quint/Publication.qnt= and
+=formal/evidence/=. Locked Quint tests check finite publication/cancellation
+invariants; Python binds completed checker output to content identities;
+pinned gerbil-ascent EvidenceReview runs dependency/invalidation rules in
+native Scheme. The model collector reports Scheme conformance and matched
+performance as missing until those actual observations are supplied.
+
+Host and native negative controls qualify separate layers. CI retains one
+contracts lane; native ASCENT artifact provisioning remains an upstream-owned
+prerequisite and is not inferred from passing host controls.
+
 * Formal reduction and operation model
 
 [[file:../research/parser-engine-formal-model.org][The formal-model study]] maps the deterministic reduction chain to LeanPoo's

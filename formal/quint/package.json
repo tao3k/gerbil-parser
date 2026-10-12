@@ -1,0 +1,8 @@
+{
+  "name": "parser-protocol-models",
+  "private": true,
+  "dependencies": {"@informalsystems/quint": "0.33.0"},
+  "scripts": {
+    "test": "quint test Publication.qnt --backend typescript --seed 1 --max-samples 1"
+  }
+}

@@ -35,6 +35,12 @@ jobs:
           test: false
           lint: false
           use-mathlib-cache: false
+      - name: Verify publication model and evidence host controls
+        if: matrix.lane == 'contracts'
+        run: |
+          npm ci --ignore-scripts --prefix formal/quint
+          npm --prefix formal/quint test
+          cd formal/evidence && python3 -m unittest test_parser_evidence.HostControls -v
       - name: Identify Rust toolchain
         id: rust-version
         run: echo "version=$(rustc -Vv | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"

@@ -30,9 +30,9 @@ receipt/claim dependencies, cycle rejection and explicit missing premises.
 Those local study files are not imported or copied into the parser runtime.
 
 The reusable implementation is
-[[https://github.com/tao3k/gerbil-ascent/blob/0ea9d96dda03b620edebc5930410bcd060529c54/python/src/ascent_engine/review.py][gerbil-ascent's pinned EvidenceReview]]. Its Python binding delegates relational
+[[https://github.com/tao3k/gerbil-ascent/blob/0ec0f436951ee7f84bb1d535733145c255ece05b/python/src/ascent_engine/review.py][gerbil-ascent's pinned EvidenceReview]]. Its Python binding delegates relational
 execution to the native Scheme engine. =formal/evidence/pyproject.toml= and =uv.lock=
-pins that source revision and runtime Python dependencies. The ABI library
+pin that source revision and runtime Python dependencies. The ABI library
 remains an upstream build product: this repository checks its sidecar ABI and
 library SHA256 before loading it, then records the artifact, sidecar and Python
 binding-source identities. A valid digest establishes artifact identity, not
@@ -148,7 +148,7 @@ observations to native ASCENT. Its expected result establishes the two model
 claims and explicitly reports =scheme-conformance= and =matched-performance=
 as missing. Success qualifies that model-layer experiment only.
 
-Nine host/native controls cover nonzero exits despite success markers,
+Ten host/native controls cover nonzero exits despite success markers,
 missing markers, source mutation during execution, retained timeout, changed
 source/log/metadata rejection, dependency cycles, failed transitive dependencies,
 partial bundles and absent execution authority.
@@ -167,3 +167,117 @@ inputs. Record negative observations as well as passing ones. Then evaluate a
 single measured engine change against all four requirements and its declared
 baseline dependencies. There is no parser speed claim from this infrastructure
 change and no new statistics or parser implementation in Python.
+
+* Complete engine observation entry
+
+=just evidence-engine= executes the four evidence layers in one review. It
+uses the same locked uv project as =evidence-controls= and =evidence-models=.
+The model-only entry remains useful for diagnosing missing runtime evidence;
+it does not substitute for this entry.
+
+The sequence is:
+
+1. Execute Lean and Quint against their declared source and dependency inputs.
+2. Build production Scheme, the standard test driver, FFI test owners and the
+   composed benchmark owner. These are =scheme-build= prerequisite receipts,
+   not semantic evidence. Native =std/make= and =gxc= own compilation.
+3. Execute six Scheme suites covering prepared reductions, fused actions,
+   persistent sequences, publication costs, the GQL stage controls and native
+   language admission. Require process success, the exact suite count and
+   the test driver's final =OK=.
+4. Execute the existing GQL stage sampler and the matched GQL, FHIRPath and
+   arithmetic request backend sampler. Both retain their existing semantic
+   artifact checks and sampling/admission rules.
+5. Submit source-bound observations and receipt dependency edges to native
+   Ascent =EvidenceReview=. Conformance depends on every build receipt;
+   measurement depends on those receipts and conformance. Failed preparation
+   stops dependent execution and leaves both runtime requirements missing.
+
+The production declarations, Scheme source closure, tests and workloads are
+hashed before and after each command. Runtime observations additionally bind
+prepared library products. Logs and metadata have content identities and
+are checked again by the review host. This supplies finite provenance for
+explicitly chosen inputs; it is not a proof that the supplied closure includes
+all external compiler, operating-system or hardware influences.
+
+Build supervision uses the existing 240-second / 30-second inactivity
+budgets. Runtime tests and measurements use the existing 120-second /
+5-second inactivity budgets. The Python direct-child deadline exceeds the
+Scheme supervisor's budget; Python adds no descendant-process supervisor.
+The previous five-second exploratory build failures remain failures.
+
+=matched-performance= means that the matched measurement executed and its
+output is available for review. It does not mean that an optimization won.
+The Scheme sampler's =LR-BACKEND-PERFORMANCE-ADMISSION= output remains the
+owner of control stability and complete-request benefit admission. Ascent
+establishes receipt dependency validity, not CPU improvement or a
+Scheme-to-Lean refinement theorem. No new CI job or compiler is introduced.
+
+* Scheme dependency boundary
+
+The parser package no longer imports =gerbil-scheme-rust= from Scheme. Native
+language admission uses SDK UTF-8 decoding, a Unicode scalar predicate and
+canonical SDK re-encoding. This rejects surrogate encodings as well as
+noncanonical byte encodings without foreign admission allocation. Existing
+ASCII admission, Unicode boundary and malformed-input controls remain in
+=language-abi-test.ss=. No Unicode throughput benefit is claimed from the
+dependency removal. Rust code generation still has its separate Cargo IR
+consumer; deleting a Scheme package dependency does not remove that Rust
+contract.
+
+* Input-set transport and local admission results
+
+Each observation retains its complete sorted =(relative-path, SHA256)= input
+manifest. For native review, the host transports one SHA256 commitment of the
+canonical manifest as =ReceiptInput= and recomputes the same commitment as
+=CurrentInput=. Missing files omit the current commitment; changed file
+contents change it. Ascent owns the equality and dependency inference. This
+reduces repeated relational input rows without weakening per-file mutation
+checks or introducing Python inference.
+
+The local upstream artifact still rejects requests beyond its ABI transport
+limit. The earlier expanded-input request returned status =-4=; it is retained
+as a failure, not hidden by increasing an engine limit. Compact commitments
+allow the existing source-bound review to execute under that same artifact.
+The ten native/host controls include a complete runtime bundle and rejection
+of both semantic and measurement receipts through a failed build prerequisite.
+
+The CI at =77d13f7= completed successfully. Its configured CPU/diagnostic skips
+are not benchmark qualification. New local engine observations apply to their
+recorded source and prepared-product manifests, including any local study
+changes; they do not retroactively qualify that CI revision.
+
+* Executed complete-chain qualification
+
+The complete local entry passed both model checks, all four Scheme build
+prerequisites, six semantic suite owners and the composed request workload.
+Native Ascent returned =Missing = []= and =executionAuthorized = false=.
+The six semantic owners executed 15, 10, 8, 10, 11 and 17 Cases respectively.
+Their source manifests include local study edits; these counts qualify that
+recorded local manifest rather than an unchanged Git head.
+
+Preparation uncovered two separate admission failures: stale helper
+interfaces, and a generated Scheme phase body without its compiled test-helper
+object. The standard benchmark build owner now owns the required arithmetic
+and HCL test helpers as well as the sampling workload closure. Compilation
+uses =std/build-script= / =std/make=; Python no longer lists compiler targets.
+The completed source harness uses the existing disposable-child exit owner
+only after its =main= returns successfully. Earlier =OK= output followed by
+an inactivity failure remains a failed observation.
+
+The matched workload also exposed an asymmetric diagnostic catalog: the
+recognition semantic replay has no event-program counterpart for eligible
+FHIRPath and arithmetic machines. Such diagnostic pairs are explicitly
+reported as =LR-BACKEND-PAIR-UNSUPPORTED=. A missing =full-source= pair still
+raises an error. Sampling counts, ABBA/BAAB order, negative-control admission
+and the five-percent decision margin are unchanged.
+
+The latest complete workload reported =control-stable = false= and
+=complete-request-benefit-admitted = false=. Those negative decisions remain
+in its receipt. Completion of all evidence layers is not an optimization win.
+The representative GQL stage experiment identifies prepared LR as the next
+cost investigation: one completed local run reported CPU P50 of 6.712 ms per
+100 prepared parses, versus 9.058 ms per 100 complete requests. Lexing and
+publication controls reported 0.763 and 0.836 ms per 100 calls. These are
+independent prepared controls, not an additive source-execution decomposition
+or a portable performance target. No parser backend default changes.

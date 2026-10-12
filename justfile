@@ -207,5 +207,8 @@ evidence-controls:
 evidence-models:
     uv run --project formal/evidence --locked python formal/evidence/collect_models.py
 
+evidence-engine:
+    uv run --project formal/evidence --locked python formal/evidence/collect_engine.py
+
 formal-protocol:
     npm --prefix formal/quint test

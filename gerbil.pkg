@@ -2,5 +2,4 @@
  gerbil-parser
 depend:
  ("github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
-  "github.com/tao3k/asp-gerbil-scheme@v0.1.2.2"
-  "github.com/tao3k/gerbil-scheme-rust@0c18941cc6b6b7ff0ef3943abdb2b5fac8e92ccb"))
+  "github.com/tao3k/asp-gerbil-scheme@f5b7c009d2cab61144a8af18008a0bfba3056584"))

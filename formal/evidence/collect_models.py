@@ -6,7 +6,7 @@ from pathlib import Path
 from parser_evidence import Check, NativeReview, observe, review
 
 
-def collect(root: Path):
+def model_checks(root: Path):
     lean_inputs = tuple(str(path.relative_to(root)) for path in sorted((root / "formal").rglob("*.lean"))
                         if ".lake" not in path.parts)
     lean_inputs += ("formal/lean-toolchain", "formal/lakefile.toml", "formal/lake-manifest.json",
@@ -18,7 +18,7 @@ def collect(root: Path):
         raise RuntimeError("prepare the locked Lean dependency with just formal first")
     policy_inputs = ("formal/evidence/parser_evidence.py", "formal/evidence/collect_models.py",
                      "formal/evidence/pyproject.toml", "formal/evidence/uv.lock")
-    checks = (
+    return (
         Check("lean-model", ("lake", "build"), lean_inputs + policy_inputs,
               ("Build completed successfully",), cwd="formal"),
         Check("quint-protocol", ("npm", "test"),
@@ -26,6 +26,10 @@ def collect(root: Path):
                "formal/quint/package-lock.json", "formal/quint/node_modules/@informalsystems/quint/package.json") + policy_inputs,
               ("7 passing",), cwd="formal/quint"),
     )
+
+
+def collect(root: Path):
+    checks = model_checks(root)
     observations = tuple(observe(root, check) for check in checks)
     for item in observations:
         item.save(root)

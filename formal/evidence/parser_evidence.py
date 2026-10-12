@@ -57,7 +57,7 @@ class Check:
     timeout: int = 120
 
     def __post_init__(self):
-        if self.claim not in REQUIREMENTS or not self.argv or not self.markers:
+        if self.claim not in (*REQUIREMENTS, "scheme-build") or not self.argv or not self.markers:
             raise ValueError("known claim, command and explicit success markers required")
         if any(not marker for marker in self.markers) or self.timeout <= 0:
             raise ValueError("nonempty markers and positive deadline required")
@@ -154,12 +154,19 @@ def review(engine, root: Path, observations: tuple[Observation, ...],
     if not required or len(set(required)) != len(required) or any(
             claim not in REQUIREMENTS for claim in required):
         raise ValueError("explicit distinct known requirements required")
-    inputs = sorted({name for item in observations for name, _ in item.inputs})
+    # Transport one canonical input-set commitment per observation. Detailed
+    # per-file digests remain in its record. Native inference checks this root
+    # exactly as it checks individual inputs; no host relational rules are added.
     current = []
-    for name in inputs:
-        path = source_path(root, name)
-        if path.is_file():
-            current.append([name, digest(path.read_bytes())])
+    for item in observations:
+        key = "inputs:" + digest(canonical(item.inputs))
+        try:
+            refreshed = snapshot(root, tuple(name for name, _ in item.inputs))
+            row = [key, digest(canonical(refreshed))]
+            if row not in current:
+                current.append(row)
+        except FileNotFoundError:
+            pass
     for command in sorted({item.executable[0] for item in observations}):
         try:
             current.append(["tool:" + command, executable_identity(command)])
@@ -176,7 +183,8 @@ def review(engine, root: Path, observations: tuple[Observation, ...],
         path = source_path(root, log)
         if path.is_file():
             facts["CurrentInput"].append([log, digest(path.read_bytes())])
-        facts["ReceiptInput"].extend([[receipt, key, value] for key, value in item.inputs])
+        facts["ReceiptInput"].append([receipt, "inputs:" + digest(canonical(item.inputs)),
+                                      digest(canonical(item.inputs))])
         facts["ReceiptInput"].append([receipt, log, digest(item.output)])
         metadata = f".data/parser-evidence/{receipt}.json"
         metadata_path = source_path(root, metadata)

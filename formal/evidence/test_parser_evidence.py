@@ -89,6 +89,26 @@ class NativeReviewControls(unittest.TestCase):
                          ((self.item.identity, other.identity), (other.identity, failed.identity)))
         self.assertEqual(rows["Reusable"], [])
 
+    def test_complete_runtime_bundle_requires_successful_build(self):
+        items = []
+        for claim in ("lean-model", "quint-protocol", "scheme-build",
+                      "scheme-conformance", "matched-performance"):
+            check = Check(claim, self.check.argv, self.check.inputs, self.check.markers)
+            item = observe(self.root, check)
+            item.save(self.root)
+            items.append(item)
+        build, semantics, measurement = items[2:]
+        edges = ((semantics.identity, build.identity),
+                 (measurement.identity, semantics.identity))
+        self.assertEqual(self.rows(tuple(items), edges)["Missing"], [])
+        failed = Observation(build.check, build.inputs, b"failure", 1, "failed", build.executable)
+        failed.save(self.root)
+        edges = ((semantics.identity, failed.identity),
+                 (measurement.identity, semantics.identity))
+        rows = self.rows(tuple(items[:2] + [failed, semantics, measurement]), edges)
+        self.assertEqual({row[1] for row in rows["Missing"]},
+                         {"scheme-conformance", "matched-performance"})
+
     def test_review_never_authorizes_execution(self):
         result = review(self.engine, self.root, (self.item,))
         self.assertFalse(result["review"]["executionAuthorized"])

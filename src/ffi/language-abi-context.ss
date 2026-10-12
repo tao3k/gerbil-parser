@@ -1,8 +1,8 @@
 ;;; Language ABI context and descriptor catalogs shared by ABI publication.
-;;; Contains foreign allocation/comparison leaves; package builds must use the
+;;; Contains bounded foreign byte leaves; package builds must use the
 ;;; explicit FFI module policy, including Darwin loadable-bundle linker flags.
-(import (only-in :gerbil-scheme-rust/scheme/utf8 gerbil-rs-encode-utf8-into)
-        (only-in :std/list/list delete-duplicates/hash)
+(import (only-in :std/list/list delete-duplicates/hash)
+        (only-in :std/string/misc string-every)
         (only-in ../grammar/algebra grammar-expression-fields)
         (only-in ../language/descriptor language-grammar-grammar)
         (only-in ../language/source source-language? source-language-result-catalog))
@@ -58,8 +58,7 @@
 ;;; Pack a complete GPA1 row in one synchronous bounded leaf. Conversion of
 ;;; every integer completes before C touches the buffer; no allocation or
 ;;; callback can move the borrowed Scheme body during the write.
-(extern copy-ascii-source-range! ascii-source-range? pack-abi-row!
-        allocate-admission-buffer release-admission-buffer admission-buffer-equal?)
+(extern copy-ascii-source-range! ascii-source-range? pack-abi-row!)
 (def (write-abi-row! payload offset tag index id start end)
   (declare (not interrupts-enabled))
   ;; Match the upstream encoder's inline checked leaf: ordinary row scalars
@@ -93,35 +92,28 @@ C-END
   (unless (u8vector? bytes) (error "native source requires byte storage"))
   ;; Every 7-bit byte is its unique UTF-8 scalar encoding, including NUL.
   ;; Decode the proven subset directly into owned Scheme string storage.
-  ;; All other input retains the upstream canonical scalar encoder.
+  ;; Other input uses SDK decoding and canonical Unicode scalar admission.
   (if (ascii-source-bytes? bytes)
     (let (source (make-string (u8vector-length bytes) #\nul))
       (unless (copy-ascii-source! bytes source)
         (error "ASCII source changed during admission"))
       source)
-    (let* ((source (utf8->string bytes)) (capacity (* 4 (string-length source))))
-      (unless (fixnum? capacity) (error "native UTF-8 admission capacity exceeds fixnum range"))
-      (if (zero? capacity)
-        (begin
-          (unless (zero? (u8vector-length bytes)) (error "native source is not canonical UTF-8"))
-          source)
-        (let (buffer (allocate-admission-buffer capacity))
-          (unless buffer (error "native UTF-8 admission allocation failed"))
-          (dynamic-wind void
-            (lambda ()
-              (let (written (gerbil-rs-encode-utf8-into source buffer capacity))
-                (unless (admission-buffer-equal? buffer bytes written)
-                  (error "native source is not canonical UTF-8"))
-                source))
-            (lambda () (release-admission-buffer buffer))))))))
+    (let (source (utf8->string bytes))
+      ;; Gambit characters may extend beyond Unicode scalars. Re-encoding alone
+      ;; cannot reject surrogate encodings accepted by a permissive decoder.
+      (unless (and (string-every unicode-scalar? source)
+                   (equal? (string->utf8 source) bytes))
+        (error "native source is not canonical UTF-8"))
+      source)))
+(def (unicode-scalar? character)
+  (let (scalar (char->integer character))
+    (and (<= 0 scalar #x10ffff)
+         (not (<= #xd800 scalar #xdfff)))))
 (begin-foreign
  (namespace ("gerbil-parser/src/ffi/language-abi-context#"
-             copy-ascii-source-range! ascii-source-range? pack-abi-row!
-             allocate-admission-buffer release-admission-buffer admission-buffer-equal?))
+             copy-ascii-source-range! ascii-source-range? pack-abi-row!))
  (c-declare #<<END-C
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 static void gp_store_le(uint8_t *p, uint64_t value, unsigned width) {
   for (unsigned i = 0; i < width; ++i) { p[i] = (uint8_t)value; value >>= 8; }
 }
@@ -182,12 +174,4 @@ END-C
       gp_store_le(p, ___arg3, 4); gp_store_le(p+4, ___arg4, 4);
       gp_store_le(p+8, ___arg5, 8); gp_store_le(p+16, ___arg6, 4);
       gp_store_le(p+20, ___arg7, 4); ___return(1);"))
- (define allocate-admission-buffer
-   (c-lambda (unsigned-int64) (pointer void)
-     "___return(malloc((size_t)___arg1));"))
- (define release-admission-buffer
-   (c-lambda ((pointer void)) void
-     "free(___arg1); ___return;"))
- (define admission-buffer-equal?
-   (c-lambda ((pointer void) scheme-object unsigned-int64) bool
-     "___return(___arg3 == ___HD_BYTES(___HEADER(___arg2)) && (!___arg3 || memcmp(___arg1, ___BODY_AS(___arg2, ___tSUBTYPED), (size_t)___arg3) == 0));")))
+)

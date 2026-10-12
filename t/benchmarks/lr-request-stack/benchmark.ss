@@ -394,9 +394,22 @@
                  (begin (set! keys (cons key keys))
                         (hash-put! catalog key (list variant)))))))))
      '(#f #t))
-    (let* ((summaries (map (lambda (key)
+    ;; Recognition-only diagnostic phases have no event-program counterpart.
+    ;; Report their absence; complete-source requests must still be paired.
+    (let* ((paired
+             (filter (lambda (key)
+                       (let (variants (hash-ref catalog key))
+                         (if (= (length variants) 2) #t
+                           (begin
+                             (when (eq? (caddr key) 'full-source)
+                               (error "complete request lacks its backend pair" key))
+                             (write (list 'LR-BACKEND-PAIR-UNSUPPORTED key
+                                          'available-variants (length variants)))
+                             (newline) (force-output) #f))))
+                     (reverse keys)))
+           (summaries (map (lambda (key)
                             (measure-backend-pair key (hash-ref catalog key) groups iterations))
-                          (reverse keys)))
+                          paired))
            (controls (filter (lambda (row)
                                (eq? (car (batch-value row 'workload)) 'gql-return)) summaries))
            (stable? (every (lambda (row)

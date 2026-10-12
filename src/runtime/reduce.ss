@@ -9,7 +9,8 @@
                  recognition-sequence-end recognition-sequence->list
                  recognition-sequence-for-action))
 (export recognition-children-field
-        recognition-children-alias recognition-action-field recognition-action-alias)
+        recognition-children-alias recognition-action-field recognition-action-alias
+        make-recognition-field-kernel make-recognition-alias-kernel)
 
 ;;; Stage one input-shape decision and one singleton-value classification into
 ;;; both constructor families. Empty aliases retain their invocation boundary.
@@ -24,9 +25,7 @@
                                (recognition-sequence-end children offset))))))
     (constructor prefix ... start end (prepare children))))
 
-(defrule (define-recognition-field reducer prepare)
-  (def (reducer name children default-offset
-                (fragment-constructor make-recognition-fragment))
+(defrule (construct-recognition-field name children default-offset fragment-constructor prepare)
     (case (recognition-sequence-arity children)
       ((0) '())
       ((1)
@@ -39,13 +38,29 @@
       (else
        (list (make-recognition-child name
                (construct-recognition-bounded (fragment-constructor)
-                 children default-offset prepare)))))))
+                 children default-offset prepare))))))
 
-(defrule (define-recognition-alias name prepare)
-  (def (name kind children default-offset)
-    (list (make-recognition-child #f
-            (construct-recognition-bounded (make-recognition-node kind)
-              children default-offset prepare)))))
+(defrule (construct-recognition-alias kind children default-offset prepare)
+  (list (make-recognition-child #f
+          (construct-recognition-bounded (make-recognition-node kind)
+            children default-offset prepare))))
+
+(defrule (define-recognition-field reducer prepare)
+  (def (reducer name children default-offset
+                (fragment-constructor make-recognition-fragment))
+    (construct-recognition-field name children default-offset fragment-constructor prepare)))
+(defrule (define-recognition-alias reducer prepare)
+  (def (reducer kind children default-offset)
+    (construct-recognition-alias kind children default-offset prepare)))
+
+;;; Bind grammar-static names outside the request. The canonical constructor
+;;; body expands into the kernel, removing its extra semantic wrapper call.
+(def (make-recognition-field-kernel name)
+  (lambda (children offset constructor)
+    (construct-recognition-field name children offset constructor recognition-sequence-for-action)))
+(def (make-recognition-alias-kernel kind)
+  (lambda (children offset _constructor)
+    (construct-recognition-alias kind children offset recognition-sequence-for-action)))
 
 ;;; Stage normalization into action constructors. Reading the endpoints from
 ;;; the shared sequence before flattening avoids a second linear list-tail

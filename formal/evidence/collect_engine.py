@@ -10,7 +10,7 @@ from parser_evidence import Check, NativeReview, REQUIREMENTS, observe, review
 
 TESTS = (
     "t/lr-stack-reduction-test.ss", "t/fused-reduction-test.ss",
-    "t/lr-action-preparation-test.ss",
+    "t/lr-action-preparation-test.ss", "t/recognition-prepend-test.ss",
     "t/recognition-sequence-test.ss", "t/artifact-publication-cost-test.ss",
     "t/gql/benchmark-profile-test.ss", "t/language-abi-test.ss",
 )
@@ -57,6 +57,12 @@ def collect(root, record_study=None):
         ("test-driver-build", ("gxi", "build-test-driver.ss", "compile")),
         ("ffi-build", ("gxi", "build-ffi-tests.ss", "compile")),
         ("request-build", ("gxi", "t/benchmarks/build.ss", "compile")),
+        # Static conformance preparation can leave source-only test interfaces.
+        # Reuse CI's std/make owner before source Suite admission.
+        ("gxtest-source-prepare", ("gxi", "-e",
+            '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)',
+            "-e", '(call-with-compiled-interface-trace (lambda () '
+            '(load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)')),
     )
     prepared = []
     for name, command in builds:
@@ -72,6 +78,7 @@ def collect(root, record_study=None):
         semantics = execute(supervised("scheme-conformance", "conformance",
             ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
              '(prefer-compiled-interfaces!) '
+             '(preload-module "std/test") '
              '(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
              "-e", '(import :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) '
              '(load "t/fixtures/tla-sany-differential/test-suite.ss") '
@@ -82,10 +89,13 @@ def collect(root, record_study=None):
             ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
              '(prefer-compiled-interfaces!) '
              '(preload-runtime-module "gerbil-parser/t/benchmarks/parser-evidence") '
+             '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/request-cost") '
              '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
              "-e", '(gerbil-parser/t/benchmarks/parser-evidence#evidence-main) '
+             '(gerbil-parser/t/benchmarks/lr-request-stack/request-cost#main) '
              '(gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'), runtime_inputs,
-            ("GQL-STAGES-OK", "LR-REQUEST-BACKENDS-OK", "PARSER-EVIDENCE-REQUESTS-OK")))
+            ("GQL-STAGES-OK", "LR-REQUEST-BACKENDS-OK", "PARSER-EVIDENCE-REQUESTS-OK",
+             "REQUEST-COST-BOUNDARIES-OK")))
         dependencies.extend((semantics.identity, item.identity) for item in prepared)
         dependencies.extend((benchmark.identity, item.identity) for item in (*prepared, semantics))
         if record_study is not None:
@@ -98,14 +108,21 @@ def collect(root, record_study=None):
                              for path in (study / "baseline/lib").rglob("*") if path.is_file()))
             if not baseline:
                 raise ValueError("record admission requires an independently retained baseline")
-            admission_inputs = runtime_inputs + receipts + baseline + (str((study / "baseline.json").relative_to(root)),)
+            scope_path = study / "scope.json"
+            scope = json.loads(scope_path.read_text())
+            # Roles are declared inputs; fixed margins and admission stay in Scheme.
+            scope_arguments = " " + json.dumps(scope["imageMarker"])
+            for role in ("targets", "controls"):
+                scope_arguments += " (map string->symbol '(" + " ".join(json.dumps(name) for name in scope[role]) + "))"
+            admission_inputs = runtime_inputs + receipts + baseline + (
+                str((study / "baseline.json").relative_to(root)), str(scope_path.relative_to(root)))
             admission = execute(supervised("record-cpu-improvement", "record-admission",
                 ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
                  '(prefer-compiled-interfaces!) '
                  '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/record-evidence") '
                  '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
                  "-e", '(gerbil-parser/t/benchmarks/lr-request-stack/record-evidence#main '
-                 + " ".join(json.dumps(path) for path in receipts) + ') '
+                 + " ".join(json.dumps(path) for path in receipts) + scope_arguments + ') '
                  '(gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'),
                 admission_inputs, ("RECORD-CPU-ADMISSION-OK",)))
             dependencies.extend((admission.identity, item.identity) for item in (*prepared, semantics, benchmark))

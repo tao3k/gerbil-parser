@@ -160,12 +160,15 @@
     (def (emit-children! children end delta translated?)
       ;; Most production children already are canonical lists. Retain their
       ;; direct consumer rather than adding sequence callbacks and zero deltas.
-      ;; Classify the outer representation; for-each owns proper-tail admission.
+      ;; Classify the outer representation; the checked visitor owns tail admission.
       ;; A list? preflight would traverse every child again on each publication.
       (if (or (null? children) (pair? children))
-        (for-each (lambda (child)
-                    (emit-value! (recognition-child-value child)
-                                 (recognition-child-field child) delta translated? #f)) children)
+        (let visit ((remaining children))
+          (unless (null? remaining)
+            (let (child (car remaining))
+              (emit-value! (recognition-child-value child)
+                           (recognition-child-field child) delta translated? #f))
+            (visit (cdr remaining))))
         (recognition-sequence-for-each
          (lambda (child child-delta child-translated?)
            (emit-value! (recognition-child-value child) (recognition-child-field child)

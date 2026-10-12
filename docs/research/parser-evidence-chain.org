@@ -20,6 +20,8 @@ The production grammar.ss / parser.ss / parser-test.ss interfaces are unchanged.
 This extends [[file:parser-engine-formal-model.org][the reduction and sequence model]]. The existing
 [[file:parser-execution-evidence.org][measurement admission]] remains authoritative for actual requests.
 Passing a model does not establish implementation conformance or improvement.
+The [[file:lr-owned-stack.org][request-owned LR stack study]] applies the chain to execution storage and
+immutable-frontier publication.
 
 * Source study and dependency ownership
 

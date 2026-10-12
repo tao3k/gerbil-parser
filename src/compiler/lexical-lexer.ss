@@ -192,11 +192,15 @@
                                  (vector-ref ascii-scanners code)
                                  scanners))
                               (selected
-                               (fold
-                                (lambda (entry selected)
-                                  (prefer-generated-match
-                                   selected ((car entry) source offset)))
-                                #f candidates)))
+                               ;; Candidate order is prepared. Carry the winner
+                               ;; through one traversal without allocating a
+                               ;; source/offset callback for every token.
+                               (let scan-candidates ((remaining candidates) (selected #f))
+                                 (if (null? remaining) selected
+                                   (scan-candidates
+                                    (cdr remaining)
+                                    (prefer-generated-match
+                                     selected ((caar remaining) source offset)))))))
                          (cond
                           ((and ranked-scanner
                                 (or (and has-literals?

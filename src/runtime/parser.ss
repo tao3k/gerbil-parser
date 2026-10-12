@@ -37,6 +37,7 @@
         (only-in ./significant
                  parser-significant-tokens parser-significant-joined)
         (only-in ./token make-token token-end token-lexeme))
+(import (only-in ./lr-stack-storage make-lr-token-observer))
 (export current-source-stream-observer parse-source
         parse-source/contextual
         prepare-contextual-parser contextual-parser-grammar-digest
@@ -169,7 +170,6 @@
           (if (and input-token (trivia? input-token))
             (next-input _mode lr-state)
             input-token))))
-    (def (after-shift _token _states _values _actions _shifts) (void))
     (with-catch
      (lambda (condition)
        (let* ((offset (contextual-scan-state-character-offset state))
@@ -188,7 +188,7 @@
      (lambda ()
        (let-values (((status payload)
                      (with-parser-cost-stage 'contextual-drive
-                       (lr-checkpoint-drive/contextual initial next-input after-shift))))
+                       (lr-checkpoint-drive/contextual initial next-input #f))))
          (unless (eq? status 'accepted)
            (error "contextual LR drive requires deterministic acceptance"
                   status))
@@ -295,7 +295,8 @@
 ;;; owns sparse incremental captures and observed phase boundaries.
 (def (parse-source/directed/stream machine grammar-digest source initial
                                    (use-generated? #t))
-  (let ((source-length (string-length source))
+  (let ((direct-drive (and use-generated? (parser-machine-direct-drive machine)))
+        (source-length (string-length source))
         (trivia? (parser-machine-trivia machine))
         (character-offset 0)
         (byte-offset 0)
@@ -322,10 +323,15 @@
                 (set! pending-character start-character)
                 (set! pending-byte start-byte)
                 input-token))))))
-    (def (after-shift input-token _states _values _actions _shifts)
-      (set! tokens-reversed (cons input-token tokens-reversed))
-      (set! pending-character #f)
-      (set! pending-byte #f))
+    (defrule (record-shift! input-token)
+      (begin
+        (set! tokens-reversed (cons input-token tokens-reversed))
+        (set! pending-character #f)
+        (set! pending-byte #f)))
+    (def after-shift
+      (if direct-drive
+        (lambda (input-token _states _values _actions _shifts) (record-shift! input-token))
+        (make-lr-token-observer (lambda (input-token) (record-shift! input-token)))))
     (def (publish tokens root rest)
       (unless (null? rest)
         (error "unexpected trailing token" (token-lexeme (car rest))))
@@ -336,17 +342,14 @@
     ;; its whole recognition interval rather than instrumenting every token.
     (let-values (((status payload)
                   (with-parser-cost-stage 'source-recognition
-                    (let (direct-drive
-                          (and use-generated?
-                               (parser-machine-direct-drive machine)))
-                      (if direct-drive
+                    (if direct-drive
                         (with-parser-cost-stage 'generated-drive-execution
                           (direct-drive
                            (parser-machine-runtime machine)
                            next-input after-shift))
                         (with-parser-cost-stage 'prepared-checkpoint-execution
                           (lr-checkpoint-drive
-                           initial next-input after-shift)))))))
+                           initial next-input after-shift))))))
       (case status
         ((accepted)
          (unless (and (= character-offset source-length)

@@ -3,7 +3,7 @@
         (only-in :gerbil-parser/src/runtime/layout
                  prepare-layout-action-selector make-layout-columns
                  current-layout-columns current-layout-frames)
-        (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows
+        (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows lookup-literal-action-entry
                  lr-action-row-eof lr-action-row-tokens)
         (only-in :gerbil-parser/src/runtime/event-program event-program-value-kind)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-checkpoint-state)
@@ -87,6 +87,19 @@
 (import (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare))
 (def lr-ordinary-action-preparation-test
   (test-suite "prepared ordinary LR state selectors"
+    (test-case "wide string indexes retain first duplicates and independent source entry identity"
+      (let* ((names (append (map (lambda (i) (string-append "WORD" (number->string i))) (iota 24))
+                            '("é" "É" "ß" "SS" "猫" "🦊")))
+             (entries (append (map (lambda (name) (cons (list 'terminal 'literal name) '(shift 1))) names)
+                              '(((terminal literal "WORD0") reduce 99))))
+             (row (vector-ref (index-action-rows (vector entries) #f) 0)))
+        (for-each
+         (lambda (name)
+           ;; Fresh equal strings must select the original first declaration,
+           ;; independently of the index implementation and string identity.
+           (let (expected (find (lambda (entry) (equal? (caddar entry) name)) entries))
+             (check (eq? (lookup-literal-action-entry row (string-copy name)) expected) => #t)))
+         (append names '("word0" "missing" "")))))
     (test-case "token-only, literal priority, casefold, duplicates, wide rows and EOF retain entries"
       (let ((factory (eval 'gerbil-parser/src/runtime/lr-parser#make-lr-action-selector))
             (rows

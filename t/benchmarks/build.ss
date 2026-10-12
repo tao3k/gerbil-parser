@@ -13,5 +13,6 @@
     "gql/runtime/matched-stages"
     "lr-request-stack/benchmark"
     "lr-request-stack/record-access"
+    "lr-request-stack/request-cost"
     "lr-request-stack/record-evidence"
     "parser-evidence"))

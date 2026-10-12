@@ -4,6 +4,7 @@ import ParserEngine.Sequence
 import ParserEngine.Reduction
 import ParserEngine.Examples
 import ParserEngine.Fold
+import ParserEngine.OwnedStack
 
 /-! Proofs for logical deterministic reduction and an explicit operation model.
 No theorem asserts that Scheme execution refines this model or establishes CPU speed. -/
@@ -17,3 +18,11 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.materialize_into_exact
 #print axioms ParserEngine.prepared_reverse_reduction_equivalent
+
+#print axioms ParserEngine.freeze_stack_length
+#print axioms ParserEngine.freeze_stack_ext
+#print axioms ParserEngine.freeze_stack_roundtrip
+#print axioms ParserEngine.frozen_frame_aligned
+#print axioms ParserEngine.freeze_stack_push
+
+#print axioms ParserEngine.staged_action_equivalent

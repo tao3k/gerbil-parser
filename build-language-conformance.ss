@@ -96,7 +96,10 @@
      (displayln "STATIC-TEST-SCHEME " module) (force-output)
      (compile-module (string-append module ".ss")
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
-        optimize: #f generate-ssxi: #t static: #t keep-scm: #t
+        ;; Stage test construction with the SDK optimizer before native
+        ;; lowering to reduce generated host size and compiler work. Keep
+        ;; every assertion and the native tail-call compilation policy.
+        optimize: #t generate-ssxi: #t static: #t keep-scm: #t
         invoke-gsc: #f verbose: #f])
      (when (string-suffix? "-test" module)
        (displayln "CONFORMANCE-EXPORT-CHECK " module) (force-output)

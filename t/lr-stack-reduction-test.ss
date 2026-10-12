@@ -11,9 +11,14 @@
         (only-in :gerbil-parser/src/runtime/event-program event-program-node-value event-program-fragment-value)
         (only-in :gerbil-parser/src/runtime/reduce
                  recognition-children-field recognition-children-alias
-                 recognition-action-field recognition-action-alias)
+                 recognition-action-field recognition-action-alias
+                 make-recognition-field-kernel make-recognition-alias-kernel)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
+                 lr-initial-checkpoint lr-checkpoint-frontier lr-checkpoint-state
+                 lr-checkpoint-rebind-suffix lr-checkpoint-resume lr-checkpoint-drive
+                 lr-checkpoint-deterministic-actions lr-checkpoint-deterministic-shifts
+                 lr-checkpoint-remaining-token-count
                  install-lr-runtime-direct-step! lr-rejection-condition?
                  current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend)
         (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref
@@ -24,6 +29,7 @@
         (only-in :gerbil-parser/t/benchmarks/lr-request-stack/derivation
                  prepare-lr-semantic-replay replay-lr-semantics replay-lr-semantic-control
                  lr-semantic-replay-count profile-lr-semantic-actions))
+(import (only-in :gerbil-parser/src/runtime/lr-stack-storage make-lr-token-observer))
 (export lr-stack-reduction-test)
 
 ;;; Installed procedures are arbitrary callbacks. They may change the current
@@ -90,6 +96,43 @@
 
 (def lr-stack-reduction-test
   (test-suite "shared LR stack reduction"
+    (test-case "owned failure frontiers remain immutable across later requests and resumption"
+      (let* ((runtime (lr-prepare (compile-lr-spec
+                                   '((start (alias Source (sequence (literal "a") (literal "b"))))) 'start)))
+             (a (make-token 'literal "a" 0 1)) (b (make-token 'literal "b" 1 2))
+             (wrong (make-token 'literal "x" 1 2)) (good (list a b)))
+        (let-values (((status frontier) (lr-checkpoint-frontier (lr-initial-checkpoint runtime (list a wrong)))))
+          (check status => 'failure)
+          (let* ((checkpoint ((eval 'gerbil-parser/src/runtime/lr-parser#lr-failure-frontier-checkpoint) frontier))
+                 (before (list (lr-checkpoint-state checkpoint) (lr-checkpoint-deterministic-actions checkpoint)
+                               (lr-checkpoint-deterministic-shifts checkpoint) (lr-checkpoint-remaining-token-count checkpoint)))
+                 (expected (call-with-values (lambda () (lr-parse/prepared runtime good)) list)))
+            (check (lr-checkpoint-deterministic-shifts checkpoint) => 1)
+            (let-values (((root rest) (lr-checkpoint-resume (lr-checkpoint-rebind-suffix checkpoint good (list b)))))
+              (check (list root rest) => expected))
+            (check (list (lr-checkpoint-state checkpoint) (lr-checkpoint-deterministic-actions checkpoint)
+                         (lr-checkpoint-deterministic-shifts checkpoint) (lr-checkpoint-remaining-token-count checkpoint))
+                   => before)))))
+    (test-case "token-only and arbitrary stack observers preserve their distinct contracts"
+      (let* ((runtime (lr-prepare (compile-lr-spec
+                                   '((start (alias Source (sequence (literal "a") (literal "b"))))) 'start)))
+             (tokens (list (make-token 'literal "a" 0 1) (make-token 'literal "b" 1 2)))
+             (expected (call-with-values (lambda () (lr-parse/prepared runtime tokens)) list)))
+        (for-each
+         (lambda (owned?)
+           (let ((remaining tokens) (seen '()))
+             (def (next-input _mode)
+               (and (pair? remaining)
+                    (let (token (car remaining)) (set! remaining (cdr remaining)) token)))
+             (def observer
+               (if owned?
+                 (make-lr-token-observer (lambda (token) (set! seen (cons token seen))))
+                 (lambda (token states values _actions _shifts)
+                   (check (list? states) => #t) (check (list? values) => #t)
+                   (set! seen (cons token seen)))))
+             (let-values (((status actual) (lr-checkpoint-drive (lr-initial-checkpoint runtime '()) next-input observer)))
+               (check status => 'accepted) (check actual => expected)
+               (check (reverse seen) => tokens)))) '(#f #t))))
     (test-case "action boundaries precede normalization without changing child ownership"
       (let* ((a (list (make-recognition-child #f (make-token 'word "a" 5 6))))
              (b (list (make-recognition-child 'inner (make-token 'word "b" 9 10))))
@@ -113,6 +156,12 @@
                        => (recognition-children-alias 'Node ready offset))
                 (check (recognition-action-field 'outer children offset construct)
                        => (recognition-children-field 'outer ready offset construct))
+                (when (pair? calls)
+                  (check (car calls) => (cadr calls)))
+                (check ((make-recognition-alias-kernel 'Node) children offset construct)
+                       => (recognition-action-alias 'Node children offset))
+                (check ((make-recognition-field-kernel 'outer) children offset construct)
+                       => (recognition-action-field 'outer children offset construct))
                 (when (pair? calls)
                   (check (car calls) => (cadr calls)))
                 (check (recognition-sequence-for-action children) => ready)))

@@ -136,6 +136,11 @@
   (cond
    ((null? left) right)
    ((null? right) left)
+   ;; A singleton list prepends to an ordinary list without a branch record
+   ;; or later materialization. Both borrowed operands remain immutable.
+   ;; Views and arbitrary sequence variants retain their explicit structure.
+   ((and (pair? left) (null? (cdr left)) (pair? right))
+    (cons (car left) right))
    (else (make-recognition-sequence-branch left right))))
 
 ;; : (-> (List RecognitionSequence) RecognitionSequence)

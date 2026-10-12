@@ -17,6 +17,17 @@ def executeAction : Action → Context → Children
   | .field name, ctx => field name ctx.children ctx.offset
   | .alias kind, ctx => alias kind ctx.children ctx.offset
 
+
+/-- Stage the action kind and declared name into a retained semantic closure. -/
+def stagedAction : Action → Context → Children
+  | .field name => fun ctx => field name ctx.children ctx.offset
+  | .alias kind => fun ctx => alias kind ctx.children ctx.offset
+
+/-- This is semantic staging, not a theorem about native call cost or allocation. -/
+theorem staged_action_equivalent (action : Action) (ctx : Context) :
+    stagedAction action ctx = executeAction action ctx := by
+  cases action <;> rfl
+
 def provider : LeanPoo.Functional.Provider Context Action (fun _ _ => Children) :=
   fun action => some (executeAction action)
 
@@ -75,5 +86,10 @@ def retainedSelections {actions : List Action} (_plan : Plan actions) : Nat := 0
 
 theorem retained_selections_zero {actions : List Action} (plan : Plan actions) :
     retainedSelections plan = 0 := rfl
+
+/-- Singleton prepending preserves ordered concatenation without copying its suffix.
+    Native tail sharing and allocation are checked separately in Scheme. -/
+theorem singleton_prepend_equivalent {α : Type} (child : α) (suffix : List α) :
+    [child] ++ suffix = child :: suffix := rfl
 
 end ParserEngine

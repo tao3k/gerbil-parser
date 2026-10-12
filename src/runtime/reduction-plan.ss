@@ -4,12 +4,12 @@
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr production-rhs operand-actions)
         (only-in ./recognition make-recognition-fragment)
-        (only-in ./reduce recognition-action-field recognition-action-alias)
+        (only-in ./reduce make-recognition-field-kernel make-recognition-alias-kernel)
         (only-in ./funcs recognition-sequence-append
                  recognition-sequence-start)
         (only-in ./event-reduce event-children-field event-children-alias)
         (only-in ./event-program event-program-append))
-(export prepare-lr-reduction-plans reduce-lr-stack-plan
+(export prepare-lr-reduction-plans reduce-lr-stack-plan reduce-lr-vector-plan
         reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets)
 
 ;;; An empty marked operand is anchored at the next semantic input boundary,
@@ -32,12 +32,6 @@
 ;;; Canonical operands remain diagnostic data. Preparation stages the finite
 ;;; backend/action dispatch once; request calls receive their own offset and
 ;;; fragment constructor. An absent step is the identity operand.
-(def (recognition-field-kernel name)
-  (lambda (value offset constructor)
-    (recognition-action-field name value offset constructor)))
-(def (recognition-alias-kernel name)
-  (lambda (value offset _constructor)
-    (recognition-action-alias name value offset)))
 (def (event-field-kernel name)
   (lambda (value offset _constructor) (event-children-field name value offset)))
 (def (event-alias-kernel name)
@@ -47,9 +41,9 @@
 ;;; once at module initialization; grammar preparation binds only rule names.
 (.defgeneric select-lr-action-factory (backend kind))
 (.defmethod (select-lr-action-factory (backend (eql 'recognition)) (kind (eql 'field)))
-  recognition-field-kernel)
+  make-recognition-field-kernel)
 (.defmethod (select-lr-action-factory (backend (eql 'recognition)) (kind (eql 'alias)))
-  recognition-alias-kernel)
+  make-recognition-alias-kernel)
 (.defmethod (select-lr-action-factory (backend (eql 'event)) (kind (eql 'field)))
   event-field-kernel)
 (.defmethod (select-lr-action-factory (backend (eql 'event)) (kind (eql 'alias)))
@@ -94,26 +88,29 @@
 ;;; Each prepared field/alias chain retains declaration order. Prepending each
 ;;; completed operand restores source order without an intermediate value list.
 ;;; The canonical projection reducer remains an independent consumer.
+(defrule (reduce-lr-cursor-plan actions offset (cursor initial read-value advance))
+  (let ((width (vector-length actions)) (cursor initial))
+    (case width
+      ((0) '())
+      ((1)
+       (let ((step (vector-ref actions 0)) (input read-value))
+         (if step (step input offset make-recognition-fragment) input)))
+      (else
+       (let loop ((index (fx- width 1)) (cursor cursor) (children '()))
+         (if (fx>= index 0)
+           (let* ((step (vector-ref actions index)) (input read-value)
+                  (value (if step
+                           (step input (if (null? input)
+                                         (recognition-sequence-start children offset) offset)
+                                 make-recognition-fragment)
+                           input)))
+             (loop (fx- index 1) advance (recognition-sequence-append value children)))
+           children))))))
 (def (reduce-lr-stack-plan actions stack offset)
-  (case (vector-length actions)
-    ((0) '())
-    ((1)
-     (let (step (vector-ref actions 0))
-       (if step (step (car stack) offset make-recognition-fragment) (car stack))))
-    (else
-     (let loop ((index (fx- (vector-length actions) 1)) (stack stack)
-                (children '()))
-       (if (fx>= index 0)
-         (let* ((step (vector-ref actions index))
-                (input (car stack))
-                (value (if step
-                         (step input (if (null? input)
-                                       (recognition-sequence-start children offset) offset)
-                               make-recognition-fragment)
-                         input)))
-           (loop (fx- index 1) (cdr stack)
-                 (recognition-sequence-append value children)))
-         children)))))
+  (reduce-lr-cursor-plan actions offset (cursor stack (car cursor) (cdr cursor))))
+(def (reduce-lr-vector-plan actions storage top offset)
+  (reduce-lr-cursor-plan actions offset
+    (cursor top (vector-ref storage (fx- cursor 1)) (fx- cursor 1))))
 
 ;;; GLR retains its source-order association and request-local interner.
 ;;; Event construction retains its own sequential append discipline. Stage

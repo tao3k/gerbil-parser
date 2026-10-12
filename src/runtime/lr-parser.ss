@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Immutable LR table execution and lossless recognition reduction.
 
-(import (only-in ./reduction-plan prepare-lr-reduction-plans reduce-lr-stack-plan
+(import (only-in ./reduction-plan prepare-lr-reduction-plans reduce-lr-stack-plan reduce-lr-vector-plan
                  reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets)
         (only-in ./lr-completion
                  make-candidate candidate-root candidate-rest candidate-score
@@ -24,7 +24,6 @@
         (only-in ./reduce
                  recognition-children-alias recognition-children-field)
         (only-in ./funcs
-                 association-row-index-ref
                  association-row-vector->index
                  make-value-interner
                  recognition-sequence-relocate
@@ -49,6 +48,13 @@
                  call-with-parser-observed-phase)
         (only-in ./token
                  make-token token? token-end token-kind token-lexeme token-start))
+(import (only-in ./lr-stack-storage
+                 with-lr-stack-storage lr-stack-policy-value lr-stack-current
+                 lr-stack-present? lr-semantic-stack-present? lr-stack-value
+                 lr-stack-freeze-states lr-stack-freeze-values
+                 lr-stack-push-state lr-stack-shift-value lr-stack-push-value
+                 with-pop-driver-reduction reduce-driver-plan
+                 lr-token-observer? lr-stack-shift-observer lr-stack-notify-shift))
 (export lr-runtime-with-action-selector
         lr-checkpoint-state lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
         lr-recognition-relocate lr-checkpoint-before-shift
@@ -101,7 +107,7 @@
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
-               reduction-plans action-selector)
+               reduction-plans action-selector owned-stack?)
   transparent: #t final: #t)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
@@ -111,6 +117,7 @@
                (not (lr-runtime-direct-step runtime)))
     (error "invalid generated LR reduction step"))
   (lr-runtime-direct-step-set! runtime step)
+  (lr-runtime-owned-stack?-set! runtime #f)
   (lr-runtime-event-runtime-set! runtime #f))
 
 (def current-lr-event-program-enabled? (make-parameter #f))
@@ -173,7 +180,7 @@
            (lr-runtime-lexical-mode-catalog runtime)
            (lr-runtime-event-step runtime) (lr-runtime-event-reducer runtime) #f #f #f
            (prepare-lr-reduction-plans 'event (lr-runtime-table runtime))
-           (lr-runtime-action-selector runtime)))
+           (lr-runtime-action-selector runtime) #f))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -418,7 +425,8 @@
          mode-catalog
          #f (select-lr-semantic-reducer 'recognition capability)
          (select-lr-semantic-reducer 'event capability) #f #f plans
-         (make-lr-action-selector actions action-index case-insensitive? layout?))))))
+         (make-lr-action-selector actions action-index case-insensitive? layout?)
+         (not layout?))))))
 
 ;;; Token terminals are admitted symbols. Specialize the owned row shape once;
 ;;; first duplicate entries and exact action-pair identity remain unchanged.
@@ -467,7 +475,9 @@
      (lr-runtime-case-insensitive? runtime) (lr-runtime-dynamic? runtime) (lr-runtime-layout? runtime)
      (lr-runtime-lexical-modes runtime) (lr-runtime-lexical-mode-catalog runtime)
      #f (lr-runtime-semantic-reducer runtime) (lr-runtime-event-reducer runtime) #f #f
-     (lr-runtime-reduction-plans runtime) selector)))
+     (lr-runtime-reduction-plans runtime) selector
+     (and (not (lr-runtime-layout? runtime))
+          (not (lr-runtime-event-program? runtime))))))
 
 ;; apply-operand-action
 ;; : (-> List List Fixnum List)
@@ -611,9 +621,16 @@
 
 ;; goto-target
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Symbol (OrFalse Fixnum))
-(def (goto-target gotos state lhs)
-  (let (row (association-row-index-ref gotos state lhs))
-    (and row (cdr row))))
+;;; Canonical production admission requires symbolic nonterminals. Stage the
+;;; private lookup into each transition: symbol equality is identity equality,
+;;; and the original first entry remains authoritative. General association
+;;; indexes retain their equal?-keyed contract.
+(defrule (goto-target gotos-expr state-expr lhs-expr)
+  (let* ((gotos gotos-expr) (state state-expr) (lhs lhs-expr)
+         (index (vector-ref gotos state))
+         (entry (if (or (pair? index) (null? index))
+                  (assq lhs index) (hash-get index lhs))))
+    (and entry (cdr entry))))
 
 ;;; Executes immutable tables and evaluates every admitted fork within a
 ;;; deterministic branch budget. Dynamic precedence scores complete branches;
@@ -997,204 +1014,235 @@
 ;;; frontier directly to selective GLR without replay.
 ;; : (-> LRCheckpoint (OrFalse Nat) PooFlowDebugCallPolicy
 ;;        (Values Symbol Datum))
-(def (lr-run-checkpoint checkpoint action-budget observability
+(defrule (define-lr-driver policy name)
+  (def (name (checkpoint : lr-checkpoint) action-budget observability
+                          (stop-at-failure? #f) (shift-target #f)
+                          (stop-at-fork? #f) (feed-token #f)
+                          (next-input #f) (after-shift #f)
+                          (direct-step-override 'installed)
+                          (next-input-state? #f) (stop-before-shift? #f))
+    (let* ((runtime (lr-checkpoint-runtime checkpoint))
+           (selected-observer (lr-stack-shift-observer policy after-shift))
+           (direct-step
+            (if (eq? direct-step-override 'installed)
+              (lr-runtime-direct-step runtime)
+              direct-step-override))
+           (event-semantics? (lr-stack-policy-value policy
+                               (eq? (lr-runtime-semantic-reducer runtime) reduce-value/events) #f))
+           (table (lr-runtime-table runtime))
+           (widths (lr-runtime-reduction-widths runtime))
+           (modes (lr-runtime-lexical-modes runtime))
+           (reduction-plans (lr-runtime-reduction-plans runtime))
+           (actions-table (lr-runtime-actions runtime))
+           (select-action (lr-runtime-action-selector runtime))
+           (goto-index (lr-runtime-goto-index runtime))
+           (tokens
+            (if feed-token
+              (cons feed-token (lr-checkpoint-tokens checkpoint))
+              (lr-checkpoint-tokens checkpoint)))
+           (input-end-offset
+            (if feed-token
+              (max (lr-checkpoint-input-end-offset checkpoint)
+                   (token-end feed-token))
+              (lr-checkpoint-input-end-offset checkpoint))))
+      (with-lr-stack-storage policy
+        (lr-checkpoint-states checkpoint) (lr-checkpoint-semantic-values checkpoint)
+        (state-storage value-storage initial-states initial-values)
+        (def (fallback states semantic-values rest actions shifts)
+          (when (current-lr-recognition-observer)
+            ((current-lr-recognition-observer) #f))
+          (let-values
+              (((root remaining _receipt)
+                (call-with-parser-observed-phase
+                 observability 'selective-glr-execution
+                 (lambda ()
+                   (lr-parse/prepared/receipt
+                    runtime tokens (current-lr-branch-budget)
+                    (lr-stack-freeze-states policy states state-storage)
+                    (lr-stack-freeze-values policy semantic-values states value-storage) rest
+                    actions shifts)))))
+            (values 'accepted (list root remaining))))
+        (let loop ((states initial-states)
+                   (semantic-values initial-values)
+                   (rest (if feed-token
+                           (list feed-token)
+                           (lr-checkpoint-rest checkpoint)))
+                   (actions (lr-checkpoint-deterministic-actions checkpoint))
+                   (shifts (lr-checkpoint-deterministic-shifts checkpoint))
+                   (remaining-budget (lr-stack-policy-value policy action-budget #f))
+                   (recognition-stack (lr-stack-policy-value policy (lr-checkpoint-recognition-stack checkpoint) #f)))
+          (if (lr-stack-policy-value policy
+                (or (and remaining-budget (zero? remaining-budget))
+                    (and shift-target (>= shifts shift-target))) #f)
+            (values
+             'checkpoint
+             (make-lr-checkpoint
+              runtime tokens input-end-offset
+              (lr-stack-freeze-states policy states state-storage)
+              (lr-stack-freeze-values policy semantic-values states value-storage)
+              rest actions shifts recognition-stack))
+            (let* ((state (lr-stack-current policy states state-storage))
+                   (rest
+                    (if (and next-input (null? rest))
+                      (let (input-token
+                            (if next-input-state?
+                              (next-input
+                               (vector-ref modes state)
+                               state)
+                              (next-input
+                               (vector-ref modes state))))
+                        (if input-token
+                          (begin
+                            (set! tokens (cons input-token tokens))
+                            (set! input-end-offset
+                                  (max input-end-offset
+                                       (token-end input-token)))
+                            (list input-token))
+                          '()))
+                      rest))
+                   (action-row
+                    (select-action state rest)))
+              (if (not action-row)
+                (if stop-at-failure?
+                  (values
+                   'failure
+                   (make-lr-failure-frontier
+                    (make-lr-checkpoint
+                     runtime tokens input-end-offset
+                     (lr-stack-freeze-states policy states state-storage)
+                     (lr-stack-freeze-values policy semantic-values states value-storage)
+                     rest actions shifts recognition-stack)
+                    state
+                    (map car (vector-ref actions-table state))))
+                  (fallback states semantic-values rest actions shifts))
+                (let (action (cdr action-row))
+                  (case (car action)
+                    ((shift)
+                     (if (lr-stack-policy-value policy stop-before-shift? #f)
+                       (values 'checkpoint
+                               (make-lr-checkpoint runtime tokens input-end-offset
+                                 (lr-stack-freeze-states policy states state-storage)
+                                 (lr-stack-freeze-values policy semantic-values states value-storage)
+                                 rest actions shifts recognition-stack))
+                     (if (pair? rest)
+                       (let ((next-states (lr-stack-push-state policy (cadr action) states state-storage value-storage))
+                             (next-values
+                              (lr-stack-shift-value policy
+                               (if event-semantics? (car rest) (list (make-recognition-child #f (car rest))))
+                               semantic-values states value-storage))
+                             (next-actions (fx+ actions 1))
+                             (next-shifts (fx+ shifts 1)))
+                         (when selected-observer
+                           (lr-stack-notify-shift policy selected-observer (car rest) next-states next-values
+                                               next-actions next-shifts))
+                         (loop next-states next-values (cdr rest)
+                               next-actions next-shifts
+                               (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
+                               (and recognition-stack
+                                    (cons (car rest) recognition-stack))))
+                       (fallback states semantic-values rest actions shifts))))
+                    ((reduce)
+                     (let (production-id (cadr action))
+                       (if direct-step
+                         (let-values (((target next-states next-values)
+                                       (direct-step
+                                        production-id states semantic-values rest
+                                        input-end-offset goto-index)))
+                           (if target
+                             (loop next-states next-values rest
+                                   (fx+ actions 1) shifts
+                                   (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
+                                   (and recognition-stack
+                                        (capture-reduction
+                                         runtime direct-step production-id states recognition-stack rest
+                                         (if (pair? rest) (token-start (car rest)) input-end-offset)
+                                         (lr-stack-value policy next-values next-states value-storage) target)))
+                             (fallback states semantic-values rest
+                                       actions shifts)))
+                         (let* ((production (vector-ref table production-id))
+                                (count (vector-ref widths production-id)))
+                           (with-pop-driver-reduction policy with-pop-runtime-reduction
+                             states semantic-values count event-semantics?
+                             (source-values remaining-values remaining-states)
+                             (let* ((offset
+                                     (if (pair? rest) (token-start (car rest))
+                                         input-end-offset))
+                                    (value
+                                     (reduce-driver-plan policy reduce-prepared-plan reduce-lr-vector-plan
+                                      (vector-ref reduction-plans production-id)
+                                      source-values offset event-semantics? value-storage))
+                                    (target
+                                     (and (lr-stack-present? policy remaining-states)
+                                          (goto-target
+                                           goto-index (lr-stack-current policy remaining-states state-storage)
+                                           (production-lhs production)))))
+                               (if target
+                                 (loop
+                                  (lr-stack-push-state policy target remaining-states state-storage value-storage)
+                                  (lr-stack-push-value policy value remaining-values remaining-states states value-storage)
+                                  rest (fx+ actions 1) shifts
+                                  (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
+                                  (and recognition-stack
+                                       (capture-reduction runtime direct-step production-id states
+                                         recognition-stack rest offset value target)))
+                                 (fallback
+                                  states semantic-values rest
+                                  actions shifts))))))))
+                    ((fork)
+                     (if stop-at-fork?
+                       (begin
+                        (when (current-lr-recognition-observer)
+                          ((current-lr-recognition-observer) #f))
+                        (values
+                        'fork
+                        (make-lr-checkpoint
+                         runtime tokens input-end-offset
+                         (lr-stack-freeze-states policy states state-storage)
+                         (lr-stack-freeze-values policy semantic-values states value-storage)
+                         rest actions shifts #f)))
+                       (fallback states semantic-values rest actions shifts)))
+                    ((accept)
+                     (let (child
+                           (and (lr-semantic-stack-present? policy semantic-values states)
+                                (recognition-sequence-root-child
+                                 (lr-stack-value policy semantic-values states value-storage))))
+                       (if child
+                         (begin
+                           (when (current-lr-recognition-observer)
+                             ((current-lr-recognition-observer)
+                              (and recognition-stack (pair? recognition-stack)
+                                   (null? (cdr recognition-stack))
+                                   (car recognition-stack))))
+                           (values
+                            'accepted
+                            (list (recognition-child-value child) rest)))
+                         (fallback
+                          states semantic-values rest actions shifts))))
+                    (else
+                     (fallback states semantic-values rest actions shifts))))))))))))
+
+;;; One transition body has two compile-time storage policies. Immutable
+;;; checkpoints and arbitrary stack observers retain persistent frontiers;
+;;; unbounded private recognition may own reusable vectors within one call.
+(define-lr-driver #f lr-run-persistent-checkpoint)
+(define-lr-driver #t lr-run-owned-checkpoint)
+
+(def (lr-run-checkpoint (checkpoint : lr-checkpoint) action-budget observability
                         (stop-at-failure? #f) (shift-target #f)
                         (stop-at-fork? #f) (feed-token #f)
                         (next-input #f) (after-shift #f)
                         (direct-step-override 'installed)
                         (next-input-state? #f) (stop-before-shift? #f))
-  (unless (lr-checkpoint? checkpoint)
-    (error "LR execution requires an immutable checkpoint" checkpoint))
-  (let* ((runtime (lr-checkpoint-runtime checkpoint))
-         (direct-step
-          (if (eq? direct-step-override 'installed)
-            (lr-runtime-direct-step runtime)
-            direct-step-override))
-         (semantic-reducer (lr-runtime-semantic-reducer runtime))
-         (event-semantics? (eq? semantic-reducer reduce-value/events))
-         (table (lr-runtime-table runtime))
-         (widths (lr-runtime-reduction-widths runtime))
-         (modes (lr-runtime-lexical-modes runtime))
-         (reduction-plans (lr-runtime-reduction-plans runtime))
-         (actions-table (lr-runtime-actions runtime))
-         (action-index (lr-runtime-action-index runtime))
-         (select-action (lr-runtime-action-selector runtime))
-         (goto-index (lr-runtime-goto-index runtime))
-         (case-insensitive? (lr-runtime-case-insensitive? runtime))
-         (layout? (lr-runtime-layout? runtime))
-         (tokens
-          (if feed-token
-            (cons feed-token (lr-checkpoint-tokens checkpoint))
-            (lr-checkpoint-tokens checkpoint)))
-         (input-end-offset
-          (if feed-token
-            (max (lr-checkpoint-input-end-offset checkpoint)
-                 (token-end feed-token))
-            (lr-checkpoint-input-end-offset checkpoint))))
-    (def (fallback states semantic-values rest actions shifts)
-      (when (current-lr-recognition-observer)
-        ((current-lr-recognition-observer) #f))
-      (let-values
-          (((root remaining _receipt)
-            (call-with-parser-observed-phase
-             observability 'selective-glr-execution
-             (lambda ()
-               (lr-parse/prepared/receipt
-                runtime tokens (current-lr-branch-budget) states semantic-values rest
-                actions shifts)))))
-        (values 'accepted (list root remaining))))
-    (let loop ((states (lr-checkpoint-states checkpoint))
-               (semantic-values
-                (lr-checkpoint-semantic-values checkpoint))
-               (rest (if feed-token
-                       (list feed-token)
-                       (lr-checkpoint-rest checkpoint)))
-               (actions (lr-checkpoint-deterministic-actions checkpoint))
-               (shifts (lr-checkpoint-deterministic-shifts checkpoint))
-               (remaining-budget action-budget)
-               (recognition-stack (lr-checkpoint-recognition-stack checkpoint)))
-      (if (or (and remaining-budget (zero? remaining-budget))
-              (and shift-target (>= shifts shift-target)))
-        (values
-         'checkpoint
-         (make-lr-checkpoint
-          runtime tokens input-end-offset
-          states semantic-values rest actions shifts recognition-stack))
-        (let* ((state (car states))
-               (rest
-                (if (and next-input (null? rest))
-                  (let (input-token
-                        (if next-input-state?
-                          (next-input
-                           (vector-ref modes state)
-                           state)
-                          (next-input
-                           (vector-ref modes state))))
-                    (if input-token
-                      (begin
-                        (set! tokens (cons input-token tokens))
-                        (set! input-end-offset
-                              (max input-end-offset
-                                   (token-end input-token)))
-                        (list input-token))
-                      '()))
-                  rest))
-               (action-row
-                (select-action state rest)))
-          (if (not action-row)
-            (if stop-at-failure?
-              (values
-               'failure
-               (make-lr-failure-frontier
-                (make-lr-checkpoint
-                 runtime tokens input-end-offset
-                 states semantic-values rest actions shifts recognition-stack)
-                state
-                (map car (vector-ref actions-table state))))
-              (fallback states semantic-values rest actions shifts))
-            (let (action (cdr action-row))
-              (case (car action)
-                ((shift)
-                 (if stop-before-shift?
-                   (values 'checkpoint
-                           (make-lr-checkpoint runtime tokens input-end-offset
-                             states semantic-values rest actions shifts recognition-stack))
-                 (if (pair? rest)
-                   (let ((next-states (cons (cadr action) states))
-                         (next-values
-                          (cons (if event-semantics? (car rest)
-                                    (list (make-recognition-child #f (car rest))))
-                                semantic-values))
-                         (next-actions (fx+ actions 1))
-                         (next-shifts (fx+ shifts 1)))
-                     (when after-shift
-                       (after-shift (car rest) next-states next-values
-                                    next-actions next-shifts))
-                     (loop next-states next-values (cdr rest)
-                           next-actions next-shifts
-                           (and remaining-budget
-                                (fx- remaining-budget 1))
-                           (and recognition-stack
-                                (cons (car rest) recognition-stack))))
-                   (fallback states semantic-values rest actions shifts))))
-                ((reduce)
-                 (let (production-id (cadr action))
-                   (if direct-step
-                     (let-values (((target next-states next-values)
-                                   (direct-step
-                                    production-id states semantic-values rest
-                                    input-end-offset goto-index)))
-                       (if target
-                         (loop next-states next-values rest
-                               (fx+ actions 1) shifts
-                               (and remaining-budget
-                                    (fx- remaining-budget 1))
-                               (and recognition-stack
-                                    (capture-reduction
-                                     runtime direct-step production-id states recognition-stack rest
-                                     (if (pair? rest) (token-start (car rest)) input-end-offset)
-                                     (car next-values) target)))
-                         (fallback states semantic-values rest
-                                   actions shifts)))
-                     (let* ((production (vector-ref table production-id))
-                            (count (vector-ref widths production-id)))
-                       (with-pop-runtime-reduction states semantic-values count event-semantics?
-                         (source-values remaining-values remaining-states)
-                         (let* ((offset
-                                 (if (pair? rest) (token-start (car rest))
-                                     input-end-offset))
-                                (value
-                                 (reduce-prepared-plan
-                                  (vector-ref reduction-plans production-id)
-                                  source-values offset event-semantics?))
-                                (target
-                                 (and (pair? remaining-states)
-                                      (goto-target
-                                       goto-index (car remaining-states)
-                                       (production-lhs production)))))
-                           (if target
-                             (loop
-                              (cons target remaining-states)
-                              (cons value remaining-values)
-                              rest (fx+ actions 1) shifts
-                              (and remaining-budget
-                                   (fx- remaining-budget 1))
-                              (and recognition-stack
-                                   (capture-reduction runtime direct-step production-id states
-                                     recognition-stack rest offset value target)))
-                             (fallback
-                              states semantic-values rest
-                              actions shifts))))))))
-                ((fork)
-                 (if stop-at-fork?
-                   (begin
-                    (when (current-lr-recognition-observer)
-                      ((current-lr-recognition-observer) #f))
-                    (values
-                    'fork
-                    (make-lr-checkpoint
-                     runtime tokens input-end-offset
-                     states semantic-values rest actions shifts #f)))
-                   (fallback states semantic-values rest actions shifts)))
-                ((accept)
-                 (let (child
-                       (and (pair? semantic-values)
-                            (recognition-sequence-root-child
-                             (car semantic-values))))
-                   (if child
-                     (begin
-                       (when (current-lr-recognition-observer)
-                         ((current-lr-recognition-observer)
-                          (and recognition-stack (pair? recognition-stack)
-                               (null? (cdr recognition-stack))
-                               (car recognition-stack))))
-                       (values
-                        'accepted
-                        (list (recognition-child-value child) rest)))
-                     (fallback
-                      states semantic-values rest actions shifts))))
-                (else
-                 (fallback states semantic-values rest actions shifts))))))))))
+  (let (runtime (lr-checkpoint-runtime checkpoint))
+    (if (and (lr-runtime-owned-stack? runtime) (not action-budget) (not shift-target)
+             (not observability) (not stop-before-shift?) (not (current-lr-recognition-observer))
+             (not (lr-checkpoint-recognition-stack checkpoint))
+             (or (eq? direct-step-override 'installed) (not direct-step-override))
+             (or (not after-shift) (lr-token-observer? after-shift)))
+      (lr-run-owned-checkpoint checkpoint action-budget observability stop-at-failure? shift-target
+        stop-at-fork? feed-token next-input after-shift direct-step-override next-input-state? stop-before-shift?)
+      (lr-run-persistent-checkpoint checkpoint action-budget observability stop-at-failure? shift-target
+        stop-at-fork? feed-token next-input after-shift direct-step-override next-input-state? stop-before-shift?))))
 
 ;;; Advances through the same executor and materializes one checkpoint only at
 ;;; the requested deterministic action boundary.

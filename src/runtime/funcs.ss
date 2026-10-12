@@ -118,9 +118,9 @@
 ;; wrapper. This turns left-recursive repetition from repeated list copying
 ;; into constant-time concatenation.
 (def current-recognition-sequence-fusion-enabled? (make-parameter #f))
-(defstruct recognition-sequence-branch (left right) transparent: #t)
+(defstruct recognition-sequence-branch (left right) transparent: #t final: #t)
 
-(defstruct recognition-sequence-position-view (value delta) transparent: #t)
+(defstruct recognition-sequence-position-view (value delta) transparent: #t final: #t)
 (def (recognition-sequence-relocate value delta)
   (cond
    ((event-program-sequence? value) (event-program-relocate value delta))

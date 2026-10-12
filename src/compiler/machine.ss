@@ -55,7 +55,7 @@
 ;;     %
 (defstruct parser-machine
   (ir grammar-digest lex trivia runtime parse direct-drive direct-source lexical-plans lexical-certificates lexer-factory source-plan owned-program)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;;; The machine caches the exact instruction object in its canonical owner.
 ;;; Both fields reference the same object; parser hot paths retain a native accessor.

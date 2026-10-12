@@ -1,14 +1,16 @@
 """Execute model, Scheme and request checks; native ASCENT joins their receipts."""
+import argparse
 import json
 import os
 from pathlib import Path
 
 from collect_models import model_checks
-from parser_evidence import Check, NativeReview, observe, review
+from parser_evidence import Check, NativeReview, REQUIREMENTS, observe, review
 
 
 TESTS = (
     "t/lr-stack-reduction-test.ss", "t/fused-reduction-test.ss",
+    "t/lr-action-preparation-test.ss",
     "t/recognition-sequence-test.ss", "t/artifact-publication-cost-test.ss",
     "t/gql/benchmark-profile-test.ss", "t/language-abi-test.ss",
 )
@@ -36,7 +38,7 @@ def supervised(claim, name, command, inputs, markers=(), build=False):
                  ("PROCESS-RESULT",) + tuple(marker.strip("^$") for marker in markers), timeout=budget + 20)
 
 
-def collect(root):
+def collect(root, record_study=None):
     inputs = engine_inputs(root)
     observations = []
     dependencies = []
@@ -75,20 +77,41 @@ def collect(root):
              '(load "t/fixtures/tla-sany-differential/test-suite.ss") '
              '(eval (quote (main ' + " ".join(json.dumps(file) for file in TESTS) + '))) '
              '(test-child-process-exit! 0)'),
-            runtime_inputs, ("TEST-SUITE-OK modules=6", "^OK$")))
+            runtime_inputs, (f"TEST-SUITE-OK modules={len(TESTS)}", "^OK$")))
         benchmark = execute(supervised("matched-performance", "requests",
             ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
              '(prefer-compiled-interfaces!) '
-             '(preload-module "gerbil-parser/t/benchmarks/parser-evidence") '
-             '(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
-             "-e", '(import :gerbil-parser/t/benchmarks/parser-evidence '
-             ':gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) '
-             '(main) (test-child-process-exit! 0)'), runtime_inputs,
+             '(preload-runtime-module "gerbil-parser/t/benchmarks/parser-evidence") '
+             '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
+             "-e", '(gerbil-parser/t/benchmarks/parser-evidence#evidence-main) '
+             '(gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'), runtime_inputs,
             ("GQL-STAGES-OK", "LR-REQUEST-BACKENDS-OK", "PARSER-EVIDENCE-REQUESTS-OK")))
         dependencies.extend((semantics.identity, item.identity) for item in prepared)
         dependencies.extend((benchmark.identity, item.identity) for item in (*prepared, semantics))
+        if record_study is not None:
+            # Scheme recomputes admission from raw samples. Python transports
+            # receipts and both product closures, without computing statistics.
+            study = root / record_study
+            receipts = tuple(str((study / f"{name}.log").relative_to(root))
+                             for name in ("reference-a", "candidate-a", "candidate-b", "reference-b"))
+            baseline = tuple(sorted(str(path.relative_to(root))
+                             for path in (study / "baseline/lib").rglob("*") if path.is_file()))
+            if not baseline:
+                raise ValueError("record admission requires an independently retained baseline")
+            admission_inputs = runtime_inputs + receipts + baseline + (str((study / "baseline.json").relative_to(root)),)
+            admission = execute(supervised("record-cpu-improvement", "record-admission",
+                ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
+                 '(prefer-compiled-interfaces!) '
+                 '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/record-evidence") '
+                 '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
+                 "-e", '(gerbil-parser/t/benchmarks/lr-request-stack/record-evidence#main '
+                 + " ".join(json.dumps(path) for path in receipts) + ') '
+                 '(gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'),
+                admission_inputs, ("RECORD-CPU-ADMISSION-OK",)))
+            dependencies.extend((admission.identity, item.identity) for item in (*prepared, semantics, benchmark))
     engine = NativeReview(Path(os.environ["ASCENT_ENGINE_LIBRARY"]))
-    result = review(engine, root, tuple(observations), dependencies=tuple(dependencies))
+    required = REQUIREMENTS + (("record-cpu-improvement",) if record_study is not None else ())
+    result = review(engine, root, tuple(observations), required=required, dependencies=tuple(dependencies))
     output = root / ".data/parser-evidence/engine.json"
     output.write_text(json.dumps(result, indent=2) + "\n")
     rows = result["review"]["result"]["relations"]
@@ -99,4 +122,7 @@ def collect(root):
 
 
 if __name__ == "__main__":
-    collect(Path(__file__).resolve().parents[2])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--record-study", help="repository-relative independent CPU receipt directory")
+    args = parser.parse_args()
+    collect(Path(__file__).resolve().parents[2], args.record_study)

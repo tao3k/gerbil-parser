@@ -16,7 +16,7 @@
 ;;; (terminal . action) pairs for GLR receipt and action identity semantics.
 (defstruct lr-action-row
   (ascii-literals literals tokens eof layout-start layout-next casefold-literals)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def (index-action-entries entries)
   (if (<= (length entries) 8)

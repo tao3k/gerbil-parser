@@ -3,11 +3,25 @@
         (only-in :gerbil-parser/src/runtime/layout
                  prepare-layout-action-selector make-layout-columns
                  current-layout-columns current-layout-frames)
-        (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows)
+        (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows
+                 lr-action-row-eof lr-action-row-tokens)
+        (only-in :gerbil-parser/src/runtime/event-program event-program-value-kind)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-checkpoint-state)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in ./fixtures/lr-action-selection reference-lr-action-selector))
 (def lr-action-preparation-test
   (test-suite "prepared layout action projections"
+    (test-case "closed engine record access retains checked rejection"
+      (let* ((entry '((terminal eof) accept))
+             (row (vector-ref (index-action-rows (vector (list entry)) #f) 0)))
+        (check (eq? (lr-action-row-eof row) entry) => #t)
+        (for-each
+         (lambda (invalid)
+           (check-exception (lr-action-row-eof invalid) true)
+           (check-exception (lr-action-row-tokens invalid) true)
+           (check-exception (event-program-value-kind invalid) true)
+           (check-exception (lr-checkpoint-state invalid) true))
+         (list #f 0 '() '#() (make-token 'word "a" 0 1)))))
     (test-case "all action forms, frame states, token refinements and EOF agree"
       (for-each (lambda (action)
         (let* ((entries

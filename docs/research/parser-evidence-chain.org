@@ -148,10 +148,10 @@ observations to native ASCENT. Its expected result establishes the two model
 claims and explicitly reports =scheme-conformance= and =matched-performance=
 as missing. Success qualifies that model-layer experiment only.
 
-Ten host/native controls cover nonzero exits despite success markers,
+Eleven host/native controls cover nonzero exits despite success markers,
 missing markers, source mutation during execution, retained timeout, changed
 source/log/metadata rejection, dependency cycles, failed transitive dependencies,
-partial bundles and absent execution authority.
+partial bundles, measurement without CPU admission, and absent execution authority.
 
 CI adds locked Quint tests and Python host controls to the existing contracts
 lane. The native ASCENT integration is locally exercised against an upstream
@@ -159,14 +159,13 @@ artifact; CI does not rebuild an unrelated Scheme dependency or pretend that
 host tests qualify native inference. A future native CI gate needs an immutable
 upstream artifact provisioned by that project's build owner.
 
-* Next implementation unit
+* Engine implementation study
 
-Use the same receipt API for the existing Scheme conformance and complete-request
-benchmark commands, with their actual source/toolchain/workload and admission
-inputs. Record negative observations as well as passing ones. Then evaluate a
-single measured engine change against all four requirements and its declared
-baseline dependencies. There is no parser speed claim from this infrastructure
-change and no new statistics or parser implementation in Python.
+[[file:engine-record-access.org][Closed engine records]] applies this chain to measured LR recognition and AST
+construction. It includes the official compiler contract, independently loaded
+reference products, complete artifact equality, repeated native CPU admission
+and rejected preliminary candidates. The infrastructure alone makes no parser
+speed claim and implements no new statistics or parser semantics in Python.
 
 * Complete engine observation entry
 
@@ -181,7 +180,7 @@ The sequence is:
 2. Build production Scheme, the standard test driver, FFI test owners and the
    composed benchmark owner. These are =scheme-build= prerequisite receipts,
    not semantic evidence. Native =std/make= and =gxc= own compilation.
-3. Execute six Scheme suites covering prepared reductions, fused actions,
+3. Execute seven Scheme suites covering prepared reductions, fused actions,
    persistent sequences, publication costs, the GQL stage controls and native
    language admission. Require process success, the exact suite count and
    the test driver's final =OK=.
@@ -281,3 +280,21 @@ cost investigation: one completed local run reported CPU P50 of 6.712 ms per
 publication controls reported 0.763 and 0.836 ms per 100 calls. These are
 independent prepared controls, not an additive source-execution decomposition
 or a portable performance target. No parser backend default changes.
+
+* Independently admitted engine CPU change
+
+The optional =--record-study= entry additionally requires
+=record-cpu-improvement=. A =matched-performance= receipt cannot establish it.
+The new claim is produced only by the Scheme =record-evidence.ss= checker,
+whose strict repeated CPU, tail and unchanged-SDK control checks consume four
+independently loaded complete-request receipts. Native Ascent rejects the
+missing or failed admission even when the ordinary measurement layer passed.
+A native negative control checks this distinction explicitly.
+
+CPU admission depends on all build receipts, semantic conformance and the
+ordinary request measurement. Its input closure additionally includes the
+reference products, reference source/product manifest and all four raw logs.
+The host's detailed manifests and the upstream ABI identity remain separate
+from a proof of the compiler or the completeness of the supplied inputs.
+See [[file:engine-record-access.org][the engine implementation study]] for the workload scope and conservative
+results. CI retains the existing contracts and native semantic lanes.

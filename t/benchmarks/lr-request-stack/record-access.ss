@@ -1,0 +1,50 @@
+;;; Closed engine records: prepared LR and complete source requests.
+(import (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql +gql-representative-query+)
+        (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-parser parse-fhirpath)
+        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-grammar-digest parser-machine-trivia)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/prepared lr-parse/prepared/receipt)
+        (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)
+        (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact parse-artifact-valid-for-source?
+                 parse-artifact-events token-event? token-event-token-kind token-event-lexeme event-start event-end sha256-text)
+        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in ../parser-stage-cost/benchmark measure-parser-component))
+(export main)
+
+(def (measure-record-request family machine parse source)
+  (let* ((expected (parse source))
+         (tokens (map (lambda (event) (make-token (token-event-token-kind event) (token-event-lexeme event)
+                                      (event-start event) (event-end event)))
+                      (filter token-event? (parse-artifact-events expected))))
+         (runtime (parser-machine-runtime machine))
+         (significant (parser-significant-tokens machine tokens))
+         (prepared (lambda () (call-with-values (lambda () (lr-parse/prepared runtime significant)) list)))
+         (recognized (prepared)))
+    (unless (and (parse-artifact-valid-for-source? expected source) (null? (cadr recognized)))
+      (error "record request lacks a valid complete artifact" family))
+    (let-values (((root rest _receipt) (lr-parse/prepared/receipt runtime significant)))
+      (unless (and (null? rest)
+                   (equal? (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                             source tokens root (parser-machine-trivia machine)) expected))
+        (error "independent GLR publication differs" family)))
+    (unless (equal? (make-success-parse-artifact (parser-machine-grammar-digest machine)
+                     source tokens (car recognized) (parser-machine-trivia machine)) expected)
+      (error "prepared publication differs" family))
+    ;; Canonical public data is portable across independently loaded products.
+    (write (list 'RECORD-REQUEST-ARTIFACT family (sha256-text (object->string expected))))
+    (newline) (force-output)
+    (measure-parser-component (list family 'prepared-lr) 40 1000 prepared recognized)
+    (measure-parser-component (list family 'full-source) 40 1000 (lambda () (parse source)) expected)))
+
+(def (main)
+  (measure-record-request 'gql-request gql-parser parse-gql +gql-representative-query+)
+  (measure-record-request 'gql-return gql-parser parse-gql
+    (string-append "RETURN " (string-join (map (lambda (i) (string-append "v" (number->string i))) (iota 64)) ", ") "\n"))
+  (measure-record-request 'fhirpath-addition fhirpath-parser parse-fhirpath (string-join (make-list 64 "1") " + "))
+  (measure-record-request 'arithmetic-control arithmetic-parser parse-arithmetic "1")
+  ;; The SDK encoder is an identical implementation control. Arithmetic still
+  ;; exercises the generated parser, whose shared machine getters may change.
+  (let* ((source (make-string 4096 #\a)) (expected (string->utf8 source)))
+    (measure-parser-component '(sdk-control utf8) 40 1000
+      (lambda () (string->utf8 source)) expected))
+  (displayln "RECORD-REQUESTS-OK") (force-output))

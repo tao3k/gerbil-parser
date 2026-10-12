@@ -109,6 +109,25 @@ class NativeReviewControls(unittest.TestCase):
         self.assertEqual({row[1] for row in rows["Missing"]},
                          {"scheme-conformance", "matched-performance"})
 
+    def test_measurement_receipt_cannot_establish_cpu_improvement(self):
+        check = Check("matched-performance", self.check.argv, self.check.inputs, self.check.markers)
+        measured = observe(self.root, check)
+        measured.save(self.root)
+        required = ("matched-performance", "record-cpu-improvement")
+        rows = review(self.engine, self.root, (measured,), required=required)["review"]["result"]["relations"]
+        self.assertEqual({row[1] for row in rows["Missing"]}, {"record-cpu-improvement"})
+        check = Check("record-cpu-improvement", self.check.argv, self.check.inputs, self.check.markers)
+        admitted = observe(self.root, check)
+        admitted.save(self.root)
+        edges = ((admitted.identity, measured.identity),)
+        rows = review(self.engine, self.root, (measured, admitted), required=required,
+                      dependencies=edges)["review"]["result"]["relations"]
+        self.assertEqual(rows["Missing"], [])
+        failed = Observation(check, admitted.inputs, b"rejected", 1, "failed", admitted.executable)
+        failed.save(self.root)
+        rows = review(self.engine, self.root, (measured, failed), required=required)["review"]["result"]["relations"]
+        self.assertEqual({row[1] for row in rows["Missing"]}, {"record-cpu-improvement"})
+
     def test_review_never_authorizes_execution(self):
         result = review(self.engine, self.root, (self.item,))
         self.assertFalse(result["review"]["executionAuthorized"])

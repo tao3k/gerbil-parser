@@ -102,7 +102,7 @@
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
                reduction-plans action-selector)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
 (def (install-lr-runtime-direct-step! runtime step)
@@ -179,7 +179,7 @@
 
 ;;; Interned parser-directed lexical expectation shared by LR states with the
 ;;; same terminal row.
-(defstruct lr-lexical-mode (id terminals) transparent: #t)
+(defstruct lr-lexical-mode (id terminals) transparent: #t final: #t)
 
 ;;; Immutable continuation of the deterministic LR machine.  The constructor
 ;;; remains private: every public checkpoint is tied to the exact prepared
@@ -187,22 +187,22 @@
 (defstruct lr-checkpoint
   (runtime tokens input-end-offset states semantic-values rest
            deterministic-actions deterministic-shifts recognition-stack)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;;; A reusable prefix keeps parser state and recognition values but does not
 ;;; retain a complete historical token stream across incremental edits.
 (defstruct lr-prefix-snapshot
   (runtime states semantic-values deterministic-actions deterministic-shifts recognition-stack)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;;; Private grammar structure, captured before pass/concat/alias projection.
 ;;; This is execution metadata, never a second published parse authority.
 (defstruct lr-recognition-fragment
   (runtime executor production-id entry-state exit-state children lookahead value
            start end token-count offset terminal-yield)
-  transparent: #t)
+  transparent: #t final: #t)
 
-(defstruct lr-recognition-view (base delta) transparent: #t)
+(defstruct lr-recognition-view (base delta) transparent: #t final: #t)
 (def (lr-recognition-relocate piece delta)
   (if (lr-recognition-view? piece)
     (make-lr-recognition-view (lr-recognition-view-base piece)
@@ -212,8 +212,8 @@
 ;;; A reduction shares its terminal yield instead of materializing a flat
 ;;; token list at every ancestor. Empty/unary grammar wrappers allocate no
 ;;; yield nodes; only concatenation and coordinate views need records.
-(defstruct lr-terminal-yield-branch (left right))
-(defstruct lr-terminal-yield-view (base delta))
+(defstruct lr-terminal-yield-branch (left right) final: #t)
+(defstruct lr-terminal-yield-view (base delta) final: #t)
 (def (terminal-yield-append left right)
   (cond ((not left) right) ((not right) left)
         (else (make-lr-terminal-yield-branch left right))))
@@ -336,7 +336,7 @@
 ;;; and the terminals admitted by its LR state. Recovery can therefore test a
 ;;; local edit without replaying the already accepted prefix.
 (defstruct lr-failure-frontier (checkpoint state expected-terminals)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;;; Checkpoints own all continuation state. Layout execution also needs source
 ;;; columns and branch frames, which this record does not capture.

@@ -13,12 +13,12 @@
         event-program-sequence-height
         event-program-value-body)
 
-(defstruct event-code-branch (left right start end height))
-(defstruct event-code-view (code delta))
-(defstruct event-code-append (prefix blocks tail start end height))
-(defstruct event-code-chunk (items start end))
-(defstruct event-field-frame (name start end body))
-(defstruct event-program-value (kind start end body))
+(defstruct event-code-branch (left right start end height) final: #t)
+(defstruct event-code-view (code delta) final: #t)
+(defstruct event-code-append (prefix blocks tail start end height) final: #t)
+(defstruct event-code-chunk (items start end) final: #t)
+(defstruct event-field-frame (name start end body) final: #t)
+(defstruct event-program-value (kind start end body) final: #t)
 
 ;; A value is itself its node/boundary instruction: no duplicate opcode packet.
 (def (event-program-value-code value) value)

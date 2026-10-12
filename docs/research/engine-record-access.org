@@ -1,0 +1,184 @@
+#+title: Closed engine records in LR recognition and AST construction
+
+* Measured implementation unit
+
+This study follows [[file:parser-engine-formal-model.org][the reduction and sequence model]] and
+[[file:parser-evidence-chain.org][the executable evidence chain]]. The production change declares nineteen
+fixed internal records final across the LR runtime, action rows, recognition
+sequences, event program and prepared parser machine. The measured boundary is
+prepared LR recognition through complete source parsing and artifact publication.
+
+The model's counted reductions and sequence operations locate algorithmic work.
+They do not establish its CPU share. Three preliminary candidates were withheld:
+combined stack-prefix traversal and unary value reuse, prepared production
+closures, and fused undecorated unit dispatch. Unit dispatch reduced allocation
+by roughly 2% in a long request but did not improve the representative GQL CPU
+median. No execution algorithm from those candidates is in this change.
+
+* Official implementation study
+
+The installed Gerbil compiler's =gerbil/compiler/optimize-call.ss= accessor
+specializer distinguishes a final class from an extensible class. For a final
+class, it emits =%#struct-direct-ref= when the input still needs a check; only an
+already admitted unchecked calling convention selects =%#struct-unchecked-ref=.
+The ordinary extensible case emits =%#struct-ref=. Mutator specialization has the
+corresponding distinction. This is the compiler's existing contract.
+
+The study follows [[https://gerbil.scheme.org/reference/dev/profiler.html][Gerbil's statistical profiler]] and the installed
+=tools/gxprof.ss= continuation sampler. Separate prepared and full-source runs
+sampled 30,000 representative GQL requests at a one-millisecond interval.
+Prepared recognition produced 2,027 continuation samples; full-source parsing
+produced 2,995. Top-frame generic structure access accounted for 218 and 285
+samples respectively (about 10.8% and 9.5%). The LR checkpoint loop itself was
+40.8% and 31.2%; sequence bounds, alias construction, action selection, table
+lookup and source publication also appeared. Inclusive call graphs overlap and
+must not be added as disjoint CPU percentages.
+
+These samples identify an implementation candidate, not a precise causal CPU
+breakdown. The installed SDK did not package the profiler command and its
+source referenced older standard-library imports. A local adapter retained its
+sampling and analysis routines; the adapter, workload and raw profiles remain
+ignored study evidence. Profiling and compiler-interface loading affect the
+sampled heap. Performance admission therefore uses separate processes and the
+unmodified request sampler, without the profiler or source-interface expansion.
+
+* Scheme representation contract
+
+#+begin_src scheme
+;; Execution metadata has a fixed engine-owned layout.
+(defstruct lr-action-row
+  (ascii-literals literals tokens eof layout-start layout-next casefold-literals)
+  transparent: #t final: #t)
+
+;; Native access remains checked for an unadmitted receiver.
+(lr-action-row-tokens row)
+#+end_src
+
+** Question: why does this exploit Scheme's strengths?
+
+Named native records expose ownership and field meaning to readers and Gerbil's
+compiler. The final declaration states that execution metadata has no subclass
+protocol. The compiler specializes ordinary accessors without manual unsafe
+primitives, duplicated dispatch, positional vectors or foreign AST storage.
+Public grammar composition and POO extension remain separate responsibilities.
+Existing runtime initialization setters retain their mutation contract; final
+means a closed type, not immutable fields.
+
+** Question: how is this scientifically checked?
+
+The compiled action-index module contains seven generic =##structure-ref=
+operations in the retained reference and seven =##direct-structure-ref=
+operations in the candidate. Default checked access rejects scalars, lists,
+vectors and an unrelated token record. Complete semantic suites cover reduction
+order, checkpoints, persistent sequences, field/alias events and publication.
+The performance experiment checks independent public artifacts before timing.
+Neither generated-code inspection nor the abstract Lean model alone establishes
+runtime equivalence or improvement.
+
+* Independently loaded matched requests
+
+The reference production revision is =9a5d6d9956ca1fcc1e1b37e62c077917a69e734e=.
+Its compiled library was retained before applying the final declarations.
+Both images execute the same compiled workload under the same Gerbil SDK
+(=2591dcd= with the configured patch set). Each sample group runs in a fresh
+process. The loader selects retained reference products or candidate products;
+the runtime class flag is checked as false or true respectively. Baseline
+source identities, every retained product and the workload digest are saved
+in a repository-relative manifest under ignored =.data/parser-lr-unit-study/=.
+This host declaration is not a compiler attestation.
+
+Four groups run in reference, candidate, candidate, reference order. Each stage
+has forty samples of 1,000 calls. Preparation, validation and artifact hashing
+are outside the clock. The representative GQL query, a 64-value GQL RETURN,
+a 64-term FHIRPath addition and Arithmetic =1= are tested. Prepared results
+and an independently materialized GLR result publish the same canonical artifact
+as full-source parsing. All four artifact hashes match across every group.
+
+The SDK's unchanged 4,096-character UTF-8 encoder supplies the environment
+control. Arithmetic exercises the changed shared parser machine and is retained
+as a small grammar workload. It cannot be an unchanged implementation control.
+The encoder's candidate/reference aggregate CPU median ratio is =0.994453=;
+its repeated median bands overlap and satisfy the existing 5% drift margin.
+
+| Workload | Prepared LR CPU ratio | Complete source CPU ratio |
+|----------+-----------------------+---------------------------|
+| Representative GQL | 0.920224 | 0.925755 |
+| GQL RETURN, 64 values | 0.929880 | 0.943689 |
+| FHIRPath addition, 64 terms | 0.899957 | 0.944110 |
+
+Every ratio divides the largest candidate CPU median by the smallest reference
+CPU median. All six are below =0.95=. For each stage, the largest candidate CPU
+P95 is at most =1.05= times the largest reference CPU P95. These are batch CPU
+quantiles for 1,000 calls, not individual-request latency quantiles, and they do
+not establish concurrent throughput. Arithmetic prepared medians are below one
+millisecond per batch; its full-source tail varies substantially between runs.
+No small-grammar P95 improvement is claimed.
+
+Large-request intervals all include collections. Their allocation sample count
+is zero, so allocation bytes are unavailable. No allocation benefit is inferred
+from counter deltas crossing a GC. This study admits a repeated CPU improvement
+only; the existing backend allocation admission remains unchanged.
+
+* Native admission and evidence ownership
+
+=t/benchmarks/lr-request-stack/record-access.ss= owns the workload and complete
+artifact comparisons. =record-evidence.ss= reads all four supervised outputs,
+requires exact class flags, complete sample indices, summary/sample agreement,
+artifact equality, successful exits and the fixed CPU/control/tail thresholds.
+It recomputes percentiles using the existing Scheme sampler. Duplicate completion
+and changed-artifact mutation witnesses are rejected. Python does not compute
+performance statistics.
+
+The full engine collector retains model, source/FFI/test/benchmark preparation,
+Scheme conformance and request observations. The optional record-study review
+also binds all four raw receipts, baseline products, current products and the
+baseline manifest. Native Ascent separately requires =record-cpu-improvement= in this scoped
+review and reviews content identity and dependencies. A successful ordinary
+measurement cannot substitute for a missing or rejected CPU admission.
+Its evidence is not a Scheme-to-Lean refinement theorem, a native compiler proof
+or permission to execute a parser change.
+
+* Reproduction and qualification boundary
+
+Build the reference revision in a separate checkout with the same SDK and retain
+its compiled library. Build the current workload against both images, preserving
+all numbered native load products. Execute the workload with the existing
+=preload-runtime-module= owner; do not import source interfaces into timed
+benchmark processes. Save the supervised outputs as =reference-a.log=,
+=candidate-a.log=, =candidate-b.log= and =reference-b.log= beside =baseline.json=
+and =baseline/lib/=. Select the upstream Ascent ABI artifact through
+=ASCENT_ENGINE_LIBRARY=, then run:
+
+#+begin_src sh
+uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -v
+uv run --project formal/evidence --locked python formal/evidence/collect_engine.py --record-study .data/parser-lr-unit-study
+#+end_src
+
+The standard =t/benchmarks/build.ss= owns both new benchmark modules. Build
+supervision retains 240 seconds total and 30 seconds inactivity; runtime retains
+120 seconds and 5 seconds. Cold-loader failures and rejected candidates remain
+failed local observations. No CI job, wrapper compiler, deadline increase or
+reduced semantic gate is introduced.
+
+The =2cd75d9= CI failure was a stale package-ownership test requiring the removed
+Scheme Rust dependency and an old ASP pin. The precise test repair landed as
+=9a5d6d9=. That revision's CI completed successfully after retrying a Darwin
+preparation inactivity failure with unchanged thresholds. Local semantic results
+and matched CPU admission are separate from the new revision's remote CI.
+
+* Local closure
+
+The final collector completed nine passed observations: Lean, Quint, four
+standard build owners, seven Scheme modules, the composed request sampler and
+strict record CPU admission. Native Ascent established all five scoped
+requirements, returned no missing requirements and kept execution authorization
+false. Eleven host/native controls passed; native Scheme also rejected duplicate
+completion and changed-artifact receipts. Local semantics covered 77 Cases;
+two belong to pre-existing uncommitted tests, whose edits are not included in
+this engine commit. Remote exact-head CI remains a distinct clean-source gate.
+
+The existing LR backend sampler separately reported unstable control and no
+admitted complete-request benefit. That negative result remains intact; it does
+not establish or invalidate the separately loaded record experiment. The
+record study's raw samples, products, manifests and review packet remain ignored
+local artifacts, with content identities and repository-relative input names.

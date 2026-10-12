@@ -16,6 +16,8 @@ REQUIREMENTS = (
 )
 
 
+OPTIONAL_REQUIREMENTS = ("record-cpu-improvement",)
+
 def digest(value: bytes) -> str:
     return sha256(value).hexdigest()
 
@@ -57,7 +59,7 @@ class Check:
     timeout: int = 120
 
     def __post_init__(self):
-        if self.claim not in (*REQUIREMENTS, "scheme-build") or not self.argv or not self.markers:
+        if self.claim not in (*REQUIREMENTS, *OPTIONAL_REQUIREMENTS, "scheme-build") or not self.argv or not self.markers:
             raise ValueError("known claim, command and explicit success markers required")
         if any(not marker for marker in self.markers) or self.timeout <= 0:
             raise ValueError("nonempty markers and positive deadline required")
@@ -152,7 +154,7 @@ def review(engine, root: Path, observations: tuple[Observation, ...],
     EvidenceReview = native_review.EvidenceReview
 
     if not required or len(set(required)) != len(required) or any(
-            claim not in REQUIREMENTS for claim in required):
+            claim not in (*REQUIREMENTS, *OPTIONAL_REQUIREMENTS) for claim in required):
         raise ValueError("explicit distinct known requirements required")
     # Transport one canonical input-set commitment per observation. Detailed
     # per-file digests remain in its record. Native inference checks this root

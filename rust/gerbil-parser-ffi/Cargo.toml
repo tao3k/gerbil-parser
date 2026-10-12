@@ -10,6 +10,7 @@ readme = "README.org"
 
 [features]
 standalone = []
+benchmark-controls = ["gerbil-parser-artifact/benchmark-controls"]
 tokio = ["standalone", "dep:tokio"]
 
 [dependencies]

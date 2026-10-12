@@ -95,7 +95,12 @@ async fn batch(
             for _ in 0..calls / 8 {
                 let parsed = parser.parse(source.clone()).await.unwrap();
                 assert_eq!(parsed.bytes(), expected);
-                let view = parsed.view().unwrap();
+                let view = if reference {
+                    parsed.reference_view()
+                } else {
+                    parsed.view()
+                }
+                .unwrap();
                 assert!(view.accepted());
                 assert_eq!(view.events().len(), 642);
                 assert_eq!(view.root().unwrap().children().count(), 64);
@@ -136,7 +141,7 @@ async fn phase(
         let mut costs = [0.0; 8];
         for (leg, is_right) in order.into_iter().enumerate() {
             let reference = !is_right || right_reference;
-            let cost = batch(parser, source, expected, reference, 128).await;
+            let cost = batch(parser, source, expected, reference, 256).await;
             if is_right {
                 right += cost;
             } else {
@@ -167,7 +172,7 @@ async fn qualify(unicode: bool) -> bool {
     assert_eq!(expected.len(), 15488);
     // Identical complete requests, actor, catalog, decoder and row writer.
     println!(
-        "RUST-TOKIO-CPU-METHOD records=64 events=642 payload=15488 profile=release groups-per-phase=20 calls=128 legs=8 phases=3 queue=4 owners=1 clients=8 workload=closed-loop cpu=process-user+system gc=included source-bytes={} unicode={unicode}",
+        "RUST-TOKIO-CPU-METHOD records=64 events=642 payload=15488 profile=release groups-per-phase=20 calls=256 legs=8 phases=3 queue=4 owners=1 clients=8 workload=closed-loop candidate=fused-admission control=former-engine+two-pass-admission cpu=process-user+system gc=included source-bytes={} unicode={unicode}",
         source.len()
     );
     // Fixed symmetric warmup for the one-shot VM, including normal GC cycles.

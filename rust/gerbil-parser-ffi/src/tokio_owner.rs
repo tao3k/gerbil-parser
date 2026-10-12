@@ -27,6 +27,13 @@ impl OwnedParsed {
     pub fn view(&self) -> Result<NativeArtifactView<'_>, NativeArtifactError> {
         NativeArtifactView::decode(&self.payload, &self.source, &self.catalog)
     }
+    /// Frozen artifact decoder for complete-request benchmark qualification.
+    /// # Errors
+    /// Rejects artifacts under the independent former admission contract.
+    #[cfg(feature = "benchmark-controls")]
+    pub fn reference_view(&self) -> Result<NativeArtifactView<'_>, NativeArtifactError> {
+        NativeArtifactView::decode_reference(&self.payload, &self.source, &self.catalog)
+    }
 }
 
 /// Owner startup, transport, or shutdown failure.

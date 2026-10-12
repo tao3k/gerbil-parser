@@ -84,6 +84,8 @@ jobs:
           gerbil env gxi build-rust-runtime-aot.ss compile
       - name: Compile test exit support
         run: gerbil env gxi build-test-driver.ss compile
+      - name: Compile qualification boundary
+        run: gerbil env gxi build-qualification.ss compile
       - name: Compile reusable Scheme library objects
         run: |
           gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \

@@ -9,10 +9,10 @@ pub struct SourceRange {
     pub start: usize,
     pub end: usize,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct Index {
-    end: usize,
-    parent: Option<usize>,
+    pub(super) end: usize,
+    pub(super) parent: Option<usize>,
 }
 /// Validated native bytes and source borrowed from the same parse result.
 #[derive(Debug)]
@@ -54,6 +54,24 @@ impl<'a> NativeArtifactView<'a> {
             accepted: navigation.accepted,
             index: Cow::Borrowed(&navigation.index),
         }
+    }
+    /// Frozen two-pass decoder for complete-request benchmark controls.
+    /// # Errors
+    /// Rejects invalid artifacts under the same former admission contract.
+    #[cfg(feature = "benchmark-controls")]
+    pub fn decode_reference(
+        payload: &'a [u8],
+        source: &'a str,
+        catalog: &'a NativeCatalog,
+    ) -> Result<Self, NativeArtifactError> {
+        let navigation = reference_navigation::decode(payload, source, catalog)?;
+        Ok(Self {
+            payload,
+            source,
+            catalog,
+            accepted: navigation.accepted,
+            index: Cow::Owned(navigation.index),
+        })
     }
     /// Whether Scheme accepted this source without repair.
     #[must_use]
@@ -312,8 +330,8 @@ impl<'v, 'a> Iterator for NativeFields<'v, 'a> {
 /// Admission and navigation contain no references into their payload owner.
 #[derive(Debug)]
 pub(crate) struct Navigation {
-    accepted: bool,
-    index: Vec<Index>,
+    pub(super) accepted: bool,
+    pub(super) index: Vec<Index>,
 }
 impl Navigation {
     pub(crate) fn decode(
@@ -321,45 +339,17 @@ impl Navigation {
         source: &str,
         catalog: &NativeCatalog,
     ) -> Result<Self, NativeArtifactError> {
-        let accepted = admission::admit(payload, source, catalog)?;
-        let count = (payload.len() - 80) / 24;
-        let mut index = vec![
-            Index {
-                end: 0,
-                parent: None
-            };
-            count
-        ];
-        let mut stack = Vec::new();
-        let mut nodes = Vec::new();
-        for (at, row) in payload[80..].as_chunks::<24>().0.iter().enumerate() {
-            let event = wire::event(row);
-            index[at].parent = nodes.last().copied();
-            match event.kind {
-                Kind::StartNode | Kind::StartField => {
-                    stack.push(at);
-                    if event.kind == Kind::StartNode {
-                        nodes.push(at);
-                    }
-                }
-                Kind::FinishNode | Kind::FinishField => {
-                    let start = stack
-                        .pop()
-                        .ok_or_else(|| wire::error("index-nesting", Some(at)))?;
-                    index[start].end = at;
-                    if event.kind == Kind::FinishNode {
-                        nodes.pop();
-                    }
-                }
-                Kind::Token => {
-                    index[at].end = at;
-                }
-            }
-        }
-        Ok(Self { accepted, index })
+        admission::admit(payload, source, catalog)
     }
 }
 
 #[cfg(test)]
 #[path = "../tests/unit/storage.rs"]
 mod storage_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/admission_fusion.rs"]
+mod admission_fusion_tests;
+#[cfg(any(test, feature = "benchmark-controls"))]
+#[path = "../tests/support/reference_navigation.rs"]
+mod reference_navigation;

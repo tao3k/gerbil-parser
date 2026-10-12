@@ -1,5 +1,6 @@
 //! Validate identities, canonical records, nesting, and exact UTF-8 coverage.
 use super::wire::{self, NativeArtifactError, NativeEventKind as Kind};
+use crate::view::{Index, Navigation};
 use crate::{KindCategory, NativeCatalog};
 use sha2::{Digest, Sha256};
 
@@ -7,7 +8,7 @@ pub(super) fn admit(
     payload: &[u8],
     source: &str,
     language: &NativeCatalog,
-) -> Result<bool, NativeArtifactError> {
+) -> Result<Navigation, NativeArtifactError> {
     let fail = |reason| wire::error(reason, None);
     if source.len() > 67_108_864
         || payload.len() < 80
@@ -38,8 +39,8 @@ pub(super) fn admit(
         return Err(fail("source-digest"));
     }
     let accepted = wire::u32_at(payload, 8) == 0;
-    validate_events(payload, source, language, language.fields.len(), accepted)?;
-    Ok(accepted)
+    let index = validate_events(payload, source, language, language.fields.len(), accepted)?;
+    Ok(Navigation { accepted, index })
 }
 
 fn validate_events(
@@ -48,15 +49,23 @@ fn validate_events(
     language: &NativeCatalog,
     fields: usize,
     accepted: bool,
-) -> Result<(), NativeArtifactError> {
+) -> Result<Vec<Index>, NativeArtifactError> {
     let (mut offset, mut nodes, mut tokens, mut roots) = (0, 0, 0, 0);
     let mut stack = Vec::new();
+    // Do not reserve an untrusted declared event count before row admission.
+    // Larger valid inputs grow with admitted records, not the wire header.
+    let mut navigation = Vec::with_capacity(((payload.len() - 80) / 24).min(1024));
+    let mut owner: Option<(usize, u32)> = None;
     for (index, row) in payload[80..].as_chunks::<24>().0.iter().enumerate() {
         let fail = |reason| wire::error(reason, Some(index));
         if !(1..=5).contains(&wire::u32_at(row, 0)) {
             return Err(fail("event-tag"));
         }
         let event = wire::event(row);
+        navigation.push(Index {
+            end: 0,
+            parent: owner.map(|(at, _)| at),
+        });
         match event.kind {
             Kind::StartNode => {
                 if !accepted
@@ -76,15 +85,19 @@ fn validate_events(
                     roots += 1;
                 }
                 nodes += 1;
-                stack.push((Kind::StartNode, event.id, event.symbol));
+                stack.push((Kind::StartNode, event.id, event.symbol, index, owner));
+                owner = Some((index, event.symbol));
             }
             Kind::FinishNode => {
+                let frame = stack.pop().ok_or_else(|| fail("finish-node"))?;
                 if event.start != 0
                     || event.end != offset
-                    || stack.pop() != Some((Kind::StartNode, event.id, event.symbol))
+                    || (frame.0, frame.1, frame.2) != (Kind::StartNode, event.id, event.symbol)
                 {
                     return Err(fail("finish-node"));
                 }
+                navigation[frame.3].end = index;
+                owner = frame.4;
             }
             Kind::StartField => {
                 if stack.is_empty()
@@ -95,27 +108,25 @@ fn validate_events(
                 {
                     return Err(fail("start-field"));
                 }
-                let owner = stack
-                    .iter()
-                    .rev()
-                    .find(|(kind, _, _)| *kind == Kind::StartNode)
-                    .ok_or_else(|| fail("field-owner"))?;
-                if !language.kinds[owner.2 as usize]
+                let owner_kind = owner.ok_or_else(|| fail("field-owner"))?.1;
+                if !language.kinds[owner_kind as usize]
                     .fields
                     .contains(&language.fields[event.symbol as usize])
                 {
                     return Err(fail("field-owner"));
                 }
-                stack.push((Kind::StartField, 0, event.symbol));
+                stack.push((Kind::StartField, 0, event.symbol, index, owner));
             }
             Kind::FinishField => {
+                let frame = stack.pop().ok_or_else(|| fail("finish-field"))?;
                 if event.id != 0
                     || event.start != 0
                     || event.end != offset
-                    || stack.pop() != Some((Kind::StartField, 0, event.symbol))
+                    || (frame.0, frame.1, frame.2) != (Kind::StartField, 0, event.symbol)
                 {
                     return Err(fail("finish-field"));
                 }
+                navigation[frame.3].end = index;
             }
             Kind::Token => {
                 if event.id != tokens
@@ -127,6 +138,7 @@ fn validate_events(
                 {
                     return Err(fail("token"));
                 }
+                navigation[index].end = index;
                 tokens += 1;
                 offset = event.end;
             }
@@ -135,5 +147,5 @@ fn validate_events(
     if !stack.is_empty() || offset != source.len() || roots != usize::from(accepted) {
         return Err(wire::error("coverage", None));
     }
-    Ok(())
+    Ok(navigation)
 }

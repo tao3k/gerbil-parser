@@ -62,7 +62,7 @@ workload, not an incremental upstream speed claim. Exit status was zero.
 
 * Rust downstream integration at fbb43ca
 
-The current manifest and lockfile pin is
+This integration stage used the manifest and lockfile pin
 =fbb43ca63d3740cb4e19b26fa2abd1ea3ee4ecdb=. Its additional upstream receipt
 rejects an admission fast path; it does not change the production encoder.
 The earlier qualification above remains historical evidence at its stated pin.
@@ -122,7 +122,7 @@ The production fixture uses the workspace's release policy: optimization level
 Tokio executor, with a bounded queue of four. This measures concurrent admission
 and complete requests, not parallel Scheme execution.
 Each of the before, production and after phases has 20 groups. A group has eight
-alternating ABBA/BAAB legs, 128 requests per leg and four legs per side, matching
+alternating ABBA/BAAB legs, 256 requests per leg and four legs per side, matching
 the Scheme Benchmark protocol. Each batch must resolve at least one millisecond.
 Nearest-rank P10/P50/P90 use every group. Before/after P10 must be at least 0.90
 and P90 at most 1.10; production P90 must be strictly below 0.95.
@@ -178,8 +178,8 @@ is not selected from timed results and no measured group is discarded.
 ** Concurrent complete-request receipts
 
 The eight-caller, 256-request protocol also reached the 90-second process limit
-before completing its production phase. It was rejected. The current bounded
-protocol uses 128 requests per leg and eight symmetric warmup legs of 256
+before completing its production phase. It was rejected. That bounded
+protocol used 128 requests per leg and eight symmetric warmup legs of 256
 requests (1,024 per variant). All 20 groups in each of the three phases remain
 mandatory, with unchanged percentile and control thresholds. One progress line
 records all eight completed leg costs; no group or GC cycle is removed.
@@ -246,3 +246,80 @@ library completed with =NATIVE-HOST-OK=. The latter reused the shared library
 without another AOT build and completed its 32-request Tokio lifecycle probe
 with =RUST-TOKIO-HOST-OK=. These local results do not replace remote Linux/macOS
 qualification of the committed head.
+
+
+* Single-pass admission and complete ASCII qualification (2026-10-12)
+
+** Structural change
+
+The Rust artifact consumer previously decoded every GPA1 event once to validate
+it and again to construct its navigation index. Field validation also searched
+the open-event stack backwards for its owning node. The production decoder now
+builds navigation while validating the same event, retaining the current owner
+and restoring it when a node closes. Field-owner lookup is constant time. One
+open-event stack supplies both nesting validation and closing-row navigation;
+the separate navigation pass and node stack are removed.
+
+Identity, canonical record, vocabulary, UTF-8, field ownership, nesting and
+coverage checks are retained. Invalid artifacts expose no navigation. Initial
+index reservation is bounded to 1,024 rows; a malicious declared event count
+cannot force a full index allocation before row admission. Larger valid inputs
+grow with admitted records.
+
+The former two-pass decoder is frozen under test support. The optional
+=benchmark-controls= feature makes that independent decoder available to the
+Rust qualification fixture. Normal consumers use single-pass admission. This
+is a test control, not a production compatibility path.
+
+A semantic test compares all navigation entries and admission errors against
+the former implementation for all 20 real native-language fixtures. It also
+corrupts every payload byte independently, tests truncation and mismatched
+sources, and requires identical rejection reasons and event indices.
+
+** Matched full-request evidence
+
+The reference requests use both the independent former scanner/LR kernels and
+the frozen two-pass artifact decoder. Production uses the prepared scanner/LR
+kernels and fused admission. Both retain the same current upstream UTF-8
+encoder, full row writer, source/catalog identities, bounded Tokio owner and
+C allocation ownership. Therefore these results qualify the complete combined
+engine/consumer path; they do not attribute the entire gain to decoder fusion.
+
+The initial fused 128-request ASCII experiment was rejected despite production
+P90 0.855386: before P10/P90 was 0.978785/1.050850, after was
+0.980403/1.102040. Its failed control remains recorded. The fixed qualification
+protocol now uses 256 requests per leg, eight balanced legs per group, 20
+groups per phase and three phases. Warmup remains eight balanced legs of 256
+requests. Thresholds, inclusion of natural GC, all-group admission and the
+90-second process limit are unchanged.
+
+| Complete request | Before P10/P90 | Production P50/P90 | After P10/P90 | Admission |
+|------------------+----------------+--------------------+---------------+-----------|
+| ASCII 64 records | 0.949719 / 1.072802 | 0.836486 / 0.879088 | 0.922525 / 1.036930 | Passed |
+| Unicode 64 records | 0.930487 / 1.045828 | 0.832003 / 0.892620 | 0.963446 / 1.052294 | Passed |
+
+Both independent complete-request processes returned zero and
+=RUST-TOKIO-CPU-PROOF-OK=. ASCII process wall time was 50.021 seconds; Unicode
+was 51.478 seconds. ASCII production P90 CPU was 12.09% lower than the frozen
+combined control; Unicode was 10.74% lower. These are process user+system CPU
+ratios for 64 records, including Tokio/FFI, source allocation, Scheme parse/GC,
+full publication, C result release, Rust admission/traversal and result drop.
+Every timed request checks the complete 15,488-byte snapshot, 642 events and
+64 root children. These are local matched receipts, not remote CI completion.
+
+** CI preparation dependency repair
+
+The =8805047= Ubuntu producer failed before library-object qualification:
+=qualify.ss= imported the uncompiled qualification process module. Moving the
+process-contract tests into a consumer had removed their earlier implicit
+build prerequisite. Preparation now explicitly compiles =build-qualification.ss=
+before its first =qualify.ss= call. This restores build ownership and leaves the
+independent consumer job structure and existing deadlines intact.
+
+
+Final local regression validation passed 171 workspace tests (including the ASP
+source gate), workspace and fixture clippy, formatting, the explicit Scheme
+qualification-boundary build and independent C/Rust/Tokio lifecycle probes.
+The real 32-request Tokio host returned =RUST-TOKIO-HOST-OK= and the complete
+host qualification returned =NATIVE-HOST-OK=. Actionlint accepted the repaired
+producer dependency graph. The latest committed CI remains a separate gate.

@@ -195,3 +195,7 @@ benchmark-gql-actors gerbil_path=".gerbil": build-qualification
 # Real C ABI edits, full payload parity, natural GC; phase tracing is separate.
 benchmark-source-edits samples="20" lines="128": build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log /private/tmp/parser-source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "{{samples}}" "{{lines}}")))))'
+
+# Verification-only model; production parser stays Scheme.
+formal:
+    cd formal && lake build

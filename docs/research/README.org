@@ -43,6 +43,10 @@ claim; elapsed build time and an older CI run cannot qualify the current parser.
 
 * Research map
 
+The [[file:parser-engine-formal-model.org][Lean semantics and operation model]] connects typed preparation,
+reverse-stack reduction and counted AST sequence materialization. It distinguishes
+kernel proofs from Scheme conformance and measured performance.
+
 The paper/framework synthesis remains in
 [[file:scheme-parser-performance-framework.org][scheme-parser-performance-framework.org]].
 

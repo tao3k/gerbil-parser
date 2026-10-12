@@ -1,0 +1,152 @@
+#+title: Parser engine semantics and operation model
+
+* Objective and evidence boundary
+
+This model connects one complete deterministic reduction path: canonical
+field/alias actions, retained factories, reverse LR operands, logical AST
+children and sequence materialization. Production remains Scheme. Lean checks
+universal properties of the reference algorithms; Scheme controls check the
+implementation; matched benchmarks measure CPU and allocation. These are
+three separate obligations, not interchangeable receipts.
+
+The executable package is [[file:../../formal/ParserEngine.lean][formal/ParserEngine.lean]]. It pins Lean 4.34.0
+and LeanPoo revision =0a111f6c5de43b261de5bba9287b48540d9f7c2e= in both
+the Lake declaration and manifest. LeanPoo is a verification dependency only.
+Its =Functional.Requirements.Factories= and =Selected= retain typed factories;
+=prepare_ok_iff= establishes that successful preparation selected exactly
+those factories. Our executor threads transformed children through that tuple:
+LeanPoo's independent-result =build= is deliberately not used for sequential
+actions. No new Scheme dispatch facility or author interface is introduced.
+
+* Papers, obligations and implementation owners
+
+Sperber and Thiemann's [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] separates grammar-static
+information from request-dependent execution through partial evaluation.
+Our immediate obligation is narrower: retaining selected action functions must
+preserve their declaration order and semantics. This is not a reproduction of
+the paper's full LR generator or its speed measurements.
+
+Wagner and Graham's [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] motivates
+explicit treatment of retained parsing structure. Here persistent child joins
+are modeled separately from complete publication. Incremental invalidation,
+reuse certificates and grammar recognition soundness remain later obligations;
+existing [[file:../architecture/0010-persistent-recognition-snapshots.org][snapshot architecture]] owns those implementation requirements.
+
+| Obligation / Lean theorem | Scheme owner | Implementation controls |
+|---------------------------+--------------+-------------------------|
+| Prepared action chain equals interpretation: =prepared_plan_equivalent= | =src/runtime/reduction-plan.ss= | =t/fused-reduction-test.ss= |
+| Prepared reverse reduction preserves source order and operand anchors: =prepared_reverse_reduction_equivalent= | =src/runtime/reduction-plan.ss= | =t/lr-stack-reduction-test.ss= |
+| Field labels survive nesting; empty aliases retain supplied anchors | =src/runtime/reduce.ss= | =t/fused-reduction-test.ss= |
+| Materialization preserves children and suffix: =materialize_into_exact= | =src/runtime/funcs.ss= | =t/recognition-sequence-test.ss= |
+| Shift/reduction preserve state/value depth relation | =src/runtime/lr-parser.ss= | =t/lr-stack-reduction-test.ss= |
+| Full publication has byte and event obligations | =src/runtime/artifact.ss= | =t/artifact-publication-cost-test.ss= |
+
+The table identifies conformance owners, not a proved refinement from Scheme
+into Lean. Existing controls must be inspected and extended when either side
+changes. =Examples.lean= also checks both action orders, nested fields, distinct
+empty-operand anchors, empty leaves, suffix preservation and a prefix-copy
+count. They complement the general theorems; finite examples do not prove them.
+
+* Cost model: count work before estimating time
+
+For a logical sequence with R leaf/branch records and N emitted children,
+=materializeInto= is an executable suffix builder. =copyLeaf= counts one
+emission per recursive cell; branches count one structural visit and combine
+child counts. The theorem proves both its output and exactly R + N counted
+operations, for arbitrary sequence shape and an arbitrary retained suffix.
+The append-based =flatten= is only the reference denotation: its own runtime
+is not claimed linear. This recursive Lean algorithm does not prove the
+bounded control-stack behavior of Scheme's builder/iterative visitor, nor
+cover position views or event-program sequences.
+
+=stackSequence= allocates branches rather than copying accumulated prefixes.
+A branch has constant logical construction work; =join_allocations_linear=
+counts n branch constructions. Repeated singleton append in the reference
+list implementation copies 0 + 1 + ... + (n - 1) prefix cells;
+=copied_prefix_triangular= proves 2 C(n) + n = n squared. This comparison
+formalizes the engine's existing persistent representation; it is not a new
+optimization or a measured speedup. Empty-join normalization is abstracted
+away, so logical branch counts need not equal Scheme allocations.
+
+Prepared factories make no provider selections in the modeled request
+executor. Interpreted action selections equal the action-list length.
+Factory-body costs, field/alias boundary walks, allocations and GC are outside
+that selection count. They must still be measured on real requests.
+
+=publicationWork= is an explicit contract charging every source byte and flat
+event. Its lower-bound theorem is arithmetic under that contract, not a proof
+of the SHA256 implementation or event publisher. Full digest and flat output
+prevent a sublinear complete-publication claim even when recognition is local.
+
+* Question: why does this design exploit Scheme and its DSL?
+
+The advantage is staging and higher-order composition, not parentheses alone.
+Canonical syntax describes actions once. Engine-owned generic selection turns
+those declarations into retained functions; each request supplies its own
+children and source anchors. Grammar authors need not select storage, dispatch
+or traversal strategies. Scheme closures preserve that separation naturally.
+
+The existing engine pattern is illustrated below; this is an implementation
+witness, not a new public DSL form:
+
+#+begin_src scheme
+;; src/runtime/reduction-plan.ss: select before repeated requests.
+;; Each retained action receives request-local children and offsets.
+(prepare-operand-actions field-factory alias-factory actions)
+#+end_src
+
+The LeanPoo tuple models selection provenance, while the parser model adds the
+ordered context-threading law. A generic method may choose the implementation
+at preparation time without forcing generic selection into every child visit.
+The three language interfaces remain grammar.ss, parser.ss and parser-test.ss.
+
+* Question: how is the design scientifically checked?
+
+Each claim names its counted operation and assumptions, a kernel-checked
+semantic law, a Scheme conformance owner and a measurement owner. The
+integration theorem connects preparation to reverse-stack reduction instead
+of treating local equalities as a complete parser proof. The materializer
+counts the operations of a defined algorithm instead of assigning a desired
+linear formula to an unspecified traversal.
+
+The remaining proof boundary is explicit: input/span admission, derivation of
+nullable offsets, LR table/CFG soundness, GLR ambiguity, arbitrary external
+actions, relocation views, Scheme refinement, digest correctness and reuse
+validation are not proved. Operands carry already supplied individual anchors.
+Stack-depth preservation requires admitted width; it does not validate goto
+entries. No theorem establishes P50/P95, heap bytes or hardware performance.
+
+* Reproduction and qualification
+
+#+begin_src sh
+cd formal
+lake build
+#+end_src
+
+Or run =just formal= from the repository root. Entering =formal= selects its
+pinned toolchain; a root-level Lake directory option alone does not select it.
+Every module is imported by the aggregate target. Warnings are errors; the
+aggregate prints axiom dependencies of the main theorems. Proofs introduce
+no custom axioms, sorry placeholders or native_decide shortcuts. Standard
+Lean logical axioms reported by the build remain visible.
+
+CI adds this build to the existing contracts lane through a pinned official
+Lean action. It does not add a qualification script or relax Scheme gates.
+The existing complete-request and sequence measurement owners remain:
+
+- =t/benchmarks/semantic-sequence/benchmark.ss= for sequence representation.
+- =t/gql/benchmark-profile-test.ss= for request phases and complete entry.
+- =t/artifact-publication-cost-test.ss= for publication controls.
+
+This change alters no production execution path and makes no CPU speed claim.
+Benchmark reruns become necessary when the corresponding Scheme implementation
+changes. A successful formal build qualifies the model only; remote CI must
+qualify the exact pushed revision separately.
+
+* Next coherent proof boundary
+
+Extend the model with checked LR transitions and table/grammar correspondence,
+then prove an implementation refinement for the same reduction path. Use the
+same action and source contracts in Scheme controls. Quint can subsequently
+model session publication, cancellation and worker lifecycle protocols; it
+should not duplicate this algorithmic semantics as a second grammar authority.

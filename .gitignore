@@ -2,3 +2,4 @@
 .data/
 manifest.ss
 target/
+formal/.lake/

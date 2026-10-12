@@ -27,6 +27,20 @@ policy test product scans current sources successfully (one case, exit zero);
 this proves current-source policy admission, not fresh policy-tool compilation.
 The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qualification record]] retains failed compilation and harness attempts.
 
+* Formal reduction and operation model
+
+[[file:../research/parser-engine-formal-model.org][The formal-model study]] maps the deterministic reduction chain to LeanPoo's
+selected-factory contract, ordered action execution, operand-local anchors,
+reverse-stack child order and a counted sequence materializer. The executable
+owner is =formal/ParserEngine.lean=; =just formal= kernel-checks its proofs and
+regression examples. CI uses the existing contracts lane.
+
+This establishes properties of the reference model, not Scheme refinement,
+complete grammar recognition, CPU improvement or incremental reuse validity.
+Production owners and existing tests/benchmarks are listed in the study.
+The next proof boundary is checked LR/table correspondence and implementation
+refinement, before claiming a verified parser engine.
+
 * One implementation sequence
 
 The [[file:../research/semantic-reduction-cost.org][semantic reduction cost study]] extends the existing request matrix with

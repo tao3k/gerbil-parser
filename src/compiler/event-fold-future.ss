@@ -26,9 +26,8 @@
             (+ cursor 2) (+ cursor 1)))
         (loop (+ cursor 1))))))
 
-(def (fold-future-marker-line? bytes start end marker indent?)
-  (let* ((prefix (string->utf8 marker))
-         (begin (if indent?
+(def (fold-future-marker-line? bytes start end prefix indent?)
+  (let* ((begin (if indent?
                   (let skip ((cursor start))
                     (if (and (< cursor end)
                              (memv (u8vector-ref bytes cursor) '(9 32)))
@@ -130,6 +129,7 @@
         (fixed-stops '())
         (headings '())
         (target-prefix-bytes (string->utf8 target-prefix))
+        (stop-bytes (and stop (string->utf8 stop)))
         (parent-prefix-bytes (and parent? (string->utf8 parent-prefix))))
     (let scan ((cursor 0))
       (when (< cursor (u8vector-length bytes))
@@ -160,8 +160,8 @@
                    (fold-normalize-marker bytes cursor end indent?
                                           stop-ascii-ci?)
                    cursor)))
-          (when (and stop
-                     (fold-future-marker-line? bytes cursor end stop indent?))
+          (when (and stop-bytes
+                     (fold-future-marker-line? bytes cursor end stop-bytes indent?))
             (set! fixed-stops (cons cursor fixed-stops)))
           (when (and stop-at-heading?
                      (fold-future-heading? bytes cursor end
@@ -218,8 +218,8 @@
   (let search ((cursor from) (visited '()))
     (cond
      ((>= cursor (u8vector-length bytes)) (finish #f visited))
-     ((hash-get cache cursor)
-      (finish (= (hash-get cache cursor) 1) visited))
+     ((hash-get cache cursor) =>
+      (lambda (answer) (finish (= answer 1) visited)))
      (else
       (let* ((end (fold-future-line-end bytes cursor))
              (decision (classify cursor end))
@@ -311,17 +311,27 @@
                                            heading-marker heading-separator
                                            indent? stop-at-heading? body-key-marker
                                            cache)
-  (fold-future-line-search
-   bytes from cache
-   (lambda (cursor end)
-     (cond
-      ((and stop-at-heading?
-            (fold-future-heading? bytes cursor end
-                                  heading-marker heading-separator)) 'stop)
-      ((and stop (fold-future-marker-line? bytes cursor end stop indent?))
-       'stop)
-      ((fold-future-marker-line? bytes cursor end target indent?) 'match)
-      ((and body-key-marker
-            (not (fold-future-key-value-line? bytes cursor end
-                                              body-key-marker))) 'stop)
-      (else 'continue)))))
+  ;; Encode query markers once, not once per searched source line. Cached
+  ;; answers and terminal positions allocate no marker buffers at all.
+  (cond
+   ((>= from (u8vector-length bytes)) #f)
+   ((hash-get cache from) => (lambda (answer) (= answer 1)))
+   (else
+    ;; Generated products pass private constant byte literals; dynamic callers
+    ;; retain the checked text route. No request buffer or cache is shared.
+    (let ((target-bytes (if (u8vector? target) target (string->utf8 target)))
+          (stop-bytes (and stop (if (u8vector? stop) stop (string->utf8 stop)))))
+      (fold-future-line-search
+       bytes from cache
+       (lambda (cursor end)
+         (cond
+          ((and stop-at-heading?
+                (fold-future-heading? bytes cursor end
+                                      heading-marker heading-separator)) 'stop)
+          ((and stop-bytes
+                (fold-future-marker-line? bytes cursor end stop-bytes indent?)) 'stop)
+          ((fold-future-marker-line? bytes cursor end target-bytes indent?) 'match)
+          ((and body-key-marker
+                (not (fold-future-key-value-line? bytes cursor end
+                                                  body-key-marker))) 'stop)
+          (else 'continue))))))))

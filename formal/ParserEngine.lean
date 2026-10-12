@@ -3,6 +3,7 @@ import ParserEngine.Preparation
 import ParserEngine.Sequence
 import ParserEngine.Reduction
 import ParserEngine.Examples
+import ParserEngine.Fold
 
 /-! Proofs for logical deterministic reduction and an explicit operation model.
 No theorem asserts that Scheme execution refines this model or establishes CPU speed. -/

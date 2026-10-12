@@ -11,6 +11,14 @@ def model_checks(root: Path):
                         if ".lake" not in path.parts)
     lean_inputs += ("formal/lean-toolchain", "formal/lakefile.toml", "formal/lake-manifest.json",
                     "src/runtime/reduce.ss", "src/runtime/reduction-plan.ss", "src/runtime/funcs.ss")
+    lean_inputs += ("src/compiler/event-fold-analysis.ss",
+                    "src/compiler/event-fold-zero-state.ss",
+                    "src/compiler/event-fold-byte-dispatch.ss",
+                    "src/compiler/event-fold-shared-probes.ss",
+                    "src/compiler/event-fold-scheme-context.ss",
+                    "src/compiler/event-fold-scheme-modules.ss",
+                    "src/compiler/event-fold-scheme-expressions.ss",
+                    "src/compiler/event-fold-scheme-statements.ss")
     # Materialized dependency contents are bound separately from the lockfile pin.
     dependency = root / "formal/.lake/packages/LeanPoo/LeanPoo"
     lean_inputs += tuple(str(path.relative_to(root)) for path in sorted(dependency.rglob("*.lean")))
@@ -22,9 +30,9 @@ def model_checks(root: Path):
         Check("lean-model", ("lake", "build"), lean_inputs + policy_inputs,
               ("Build completed successfully",), cwd="formal"),
         Check("quint-protocol", ("npm", "test"),
-              ("formal/quint/Publication.qnt", "formal/quint/package.json",
+              ("formal/quint/Publication.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/package.json",
                "formal/quint/package-lock.json", "formal/quint/node_modules/@informalsystems/quint/package.json") + policy_inputs,
-              ("7 passing",), cwd="formal/quint"),
+              ("7 passing", "8 passing", "4 passing", "No violation found"), cwd="formal/quint"),
     )
 
 

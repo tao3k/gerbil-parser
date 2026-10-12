@@ -52,6 +52,9 @@
                        (let (byte (u8vector-ref bytes cursor)) ,test))
                 (loop (+ cursor 1)) cursor)))))
       ((line-trim-end line-trim-end-from line-content-end)
+       (let (fact (and (eq? (car expression) 'line-content-end)
+                      (assq '%shared-content-end indices)))
+         (if fact (cdr fact)
        `(let (bytes source-bytes)
           (let ((floor ,(if (eq? (car expression) 'line-trim-end-from)
                          (offset (cadr expression)) 'start)))
@@ -60,7 +63,7 @@
                        (memv (u8vector-ref bytes (- cursor 1))
                              ',(if (eq? (car expression) 'line-content-end)
                                  '(10 13) '(9 10 11 12 13 32))))
-                (loop (- cursor 1)) cursor)))))
+                (loop (- cursor 1)) cursor)))))))
       (else (error "unadmitted native fold offset" expression))))))
 
 (def (fold-scheme-uint expression bindings indices)
@@ -148,37 +151,61 @@
      `(fold-line-has-key-after-prefix? #f ,(cadr expression) source-bytes
                                      ',(string->utf8 (cadr expression)) start end))
     ((line-byte-equal?)
-     `(let ((at ,(offset (cadr expression))) (bytes source-bytes))
-        (and (< at end) (= (u8vector-ref bytes at) ,(caddr expression)))))
+     (let (proof (assq '%validated-loop-byte indices))
+       (if (and proof (equal? (cadr expression) (list 'line-index (cadr proof))))
+         `(fx= ,(cddr proof) ,(caddr expression))
+         `(let ((at ,(offset (cadr expression))) (bytes source-bytes))
+            (and (< at end) (= (u8vector-ref bytes at) ,(caddr expression)))))))
     ((line-bytes-all-in? line-bytes-any-in? line-bytes-in-set?)
      (let* ((all? (eq? (car expression) 'line-bytes-all-in?))
             (names? (eq? (car expression) 'line-bytes-in-set?))
+            ;; The admitted byte-at-cursor idiom denotes zero or one byte.
+            ;; Do not turn every inline character predicate into a scan loop.
+            ;; Keep the same range admission and empty-span truth values.
+            (single-byte? (equal? (caddr expression)
+                                 (list 'line-step (cadr expression))))
+            (proof (assq '%validated-loop-byte indices))
+            (validated-byte? (and single-byte? proof (not names?)
+                                  (equal? (cadr expression)
+                                          (list 'line-index (cadr proof)))))
             (members (cadddr expression))
             (byte-set (and (not names?) (fold-byte-set-for members expression))))
-       `(let ((from ,(offset (cadr expression))) (until ,(offset (caddr expression)))
+       (if validated-byte?
+         ;; The loop already admitted start <= cursor < limit <= end. Its
+         ;; line-step span contains exactly one byte, so no scan, offset
+         ;; arithmetic, range admission or second source read is necessary.
+         `(fx= 1 (u8vector-ref ',byte-set ,(cddr proof)))
+         `(let ((from ,(offset (cadr expression))) (until ,(offset (caddr expression)))
               (bytes source-bytes))
           (unless (<= start from until end) (error "native fold range outside source line"))
-          ,(if names?
+          ,(cond
+            (names?
              `(fold-line-name-set-contains? bytes from until
-                                             ',(list->vector members))
+                                             ',(list->vector members)))
+            (single-byte?
+             `(,(if all? 'or 'and)
+               (,(if all? 'fx= 'fx<) from until)
+               (fx= 1 (u8vector-ref ',byte-set (u8vector-ref bytes from)))))
+            (else
              `(let loop ((cursor from))
                 ,(if all?
-                   `(or (= cursor until)
+                   `(or (fx= cursor until)
                          (and (= 1 (u8vector-ref ',byte-set
                                                (u8vector-ref bytes cursor)))
-                              (loop (+ cursor 1))))
-                   `(and (< cursor until)
+                              (loop (fx+ cursor 1))))
+                   `(and (fx< cursor until)
                           (or (= 1 (u8vector-ref ',byte-set
                                                 (u8vector-ref bytes cursor)))
-                              (loop (+ cursor 1))))))))))
+                              (loop (fx+ cursor 1))))))))))))
     ((source-slices-equal? source-slices-equal-ascii-ci?)
      `(fold-source-slices-equal? source-bytes
           ,@(map offset (cdr expression))
           ,(eq? (car expression) 'source-slices-equal-ascii-ci?)))
     ((future-line-marker-before-boundary?)
      `(fold-future-marker-before-boundary?
-        source-bytes end ,(cadr expression)
-        ,(and (> (string-length (caddr expression)) 0) (caddr expression))
+        source-bytes end ',(string->utf8 (cadr expression))
+        ,(and (> (string-length (caddr expression)) 0)
+              `(quote ,(string->utf8 (caddr expression))))
         ,(fold-marker-byte (cadddr expression))
         ,(fold-marker-byte (list-ref expression 4))
         ,(list-ref expression 5) ,(list-ref expression 6)

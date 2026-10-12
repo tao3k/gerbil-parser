@@ -12,6 +12,143 @@ This is an active implementation and research project. Supported syntax and
 portable products are qualified per language and target; a shared authoring
 interface does not imply complete language coverage or backend parity.
 
+* Experimental Fold qualification (not accepted)
+
+The engine-owned [[file:t/benchmarks/parser-throughput/README.org][parser throughput qualification protocol]]
+defines hard 1000/10000/100000-request wall gates of 0.010/0.100/1.000 seconds
+and a minimum 100000 requests/s. It reports per-request P95/P99 with explicit
+units, fails inadequate candidates at preflight, and requires twenty batches
+per load for full acceptance. Its included generated line fixture is NOT full
+Org, Rust/Tokio or Python acceptance; real adapters must retain their own
+compiled source identity and semantic oracle. No achieved Org speed is claimed.
+
+The actual generated Org Fold now has upstream =real.ss= admission and a
+separate diagnostic =profile.ss=. Both compare complete independent events;
+neither uses an Orgize runtime or FFI queue. The real-Fold preflight remains
+failed, and the source-fact reuse experiment was reverted. See the
+[[file:docs/research/event-fold-whole-path-performance.org][whole-path evidence and optimization plan]];
+diagnostic call counts are not uninstrumented performance claims.
+
+The guarded idle-state experiment removes irrelevant mutable-state execution
+without assuming read-only configuration is zero. Two sequential changing-input
+preflights measure 102.591/103.150 ms per 1000 requests (P95 135/152 us,
+P99 403/392 us, 9747.444/9694.619 requests/s, 30 GCs), versus same-source control
+131.982/138.163 ms and 56 GCs. No-GC request allocation counter means decrease
+36-44 percent, including observer overhead; peak RSS increases slightly.
+The 10 ms gate remains failed. This is not twenty-batch, FFI, Tokio, Python or
+baseline acceptance. Lean transition obligations and Quint lifecycle histories
+are bound to actual AOT controls by the native ASCENT evidence owner; successful
+models and conformance cannot fill the missing matched-performance requirement.
+
+A single common-byte kernel adds necessary-byte classification without
+generating a separate kernel for every byte region. Two subsequent matched
+preflights measure 88.284/90.422 ms per 1000 changing requests, P95 112/113 us,
+P99 312/356 us, 11327.081/11059.255 requests/s and 27 GCs; current-source control
+is 122.040/120.904 ms and 56 GCs. No-GC allocation means decrease 38-52 percent
+but process peak RSS increases about 1.2 MB. Real AOT complete-tape controls
+pass; the 10 ms gate still fails. These opt-in experiments do not change the
+accepted baseline or qualify Rust/FFI/Python/Tokio performance.
+
+Subsequent active-state cofactoring and loop-local guard caching both passed
+24 real AOT controls but regressed matched preflight wall time. Both were
+reverted; modest RSS savings do not substitute for throughput acceptance.
+The existing best experimental product and production baseline remain intact.
+
+Direct-tape effect-only transitions remove private owner-return plumbing and
+restore syntactic tail positions without adding a runtime cache. Two matched
+1000-request preflights measure 72.575/73.322 ms, P95 96/96 us, P99 142/142 us,
+13778.849/13638.471 requests/s, five GCs and peak RSS 29.64/29.67 MB, versus
+the previous best experimental control at 96.537/90.398 ms and 27 GCs.
+All 24 real AOT event-tape controls pass. This is additional preflight evidence,
+not the still-failed 10 ms gate, twenty-batch acceptance or a production change.
+Matched no-GC request allocation means decrease from 123/231/122 KB to
+16/25/32 KB across plain-links/quote-heavy/doc inputs, including observation
+overhead and excluding GC-interrupted requests. Lean, Quint and native Ascent
+bind source controls to the actual AOT product; performance admission is open.
+
+The next experimental =tape-pruned= product removes discarded pure branches,
+including ordered cursor-derived scans only inside a validated byte loop.
+Errors, future queries, unknown effects and frame changes remain barriers.
+Matched sequential 1000-request preflights are 69.201/71.196 ms, P95 90/96 us,
+P99 144/156 us, 14450.658/14045.733 requests/s and peak RSS 29.475/29.491 MB;
+the retained tail control is 74.197/73.520 ms. GC remains five per batch.
+All 24 real AOT tapes and four effect/range controls pass. The <=10 ms gate
+still fails: no twenty-batch acceptance or production baseline promotion.
+Removing the remaining named-helper owner results or reusing token offsets
+regressed wall time and was reverted despite smaller static call graphs.
+
+The next =tape-run= experiment coalesces overwrite-only ordinary-byte segments:
+one segment scan, then the last byte's seven inline metadata overwrites. No
+runtime cache; active modes, eventful/state-dependent bodies and special bytes
+retain their original execution. All 24 real AOT tapes and five admission
+regressions pass. Candidate 1000-request diagnostic wall is 62.059--103.421 ms,
+P95 86--263 us, P99 96--575 us, 9669--16114 requests/s, peak RSS 29.426--29.458 MB,
+with five GCs. Matched controls include major non-CPU pauses; one pair regresses
+amid unrelated host CPU contention. These measurements do not qualify a stable
+speedup, the <=10 ms gate, or the still-unrun 100000-request twenty-batch matrix.
+The baseline is unchanged; the path remains an opt-in research candidate.
+
+The rejected dependency/effect execution-plan experiment reused official list
+utilities and the compile-time list builder. Its 1000-request matched preflight
+is 216.313 ms (4622.931 requests/s), versus 218.790 ms for the control; both
+fail the 10 ms gate. This single batch is not an accepted speedup or a full
+twenty-batch result. Its lowering integration was rolled back; conservative
+analysis tests remain. Shared source classification, typed state execution
+and actual event-consumer integration remain open architectural work.
+
+The combined frame/current-byte/dependency-ABI/event-buffer candidate was also
+rejected and rolled back: 1000 real changing requests took 245.616 ms versus
+219.381 ms for the matched immutable control (4071.396 versus 4558.280
+requests/s). P95/P99 were 193/6280 us versus 234/730 us; GC counts were
+15 versus 10, and whole-process peak RSS was 194.859 versus 181.750 MiB.
+RSS includes retained oracle/input and code; Rust capacity is outside this
+Scheme-only boundary. Neither product passed the 10 ms preflight. The
+canonical consumer still materialized lists after buffer production, so this
+experiment did not qualify removal of consumer work. No twenty-batch or
+baseline-promotion claim follows. Post-rollback source/native controls passed.
+
+The new direct OEV1 consumer candidate eliminates event-list materialization
+and the two consumer list traversals, while prepared loop-byte regions select
+only relevant ordered rules. Actual Org native wire/override controls passed
+24 cases, alongside 100 canonical and 90 independent wire differential cases.
+Matched single-batch changing-input results for 1000 real Org requests:
+
+| Fold + OEV1 path | Batch wall (ms) | Request P95/P99 (us) | Requests/s | GC | Process peak RSS (MiB) |
+|-----------------+-----------------+---------------------+------------+----+------------------------|
+| Canonical list + existing consumer | 198.975 | 254/304 | 5025.757 | 8 | 170.781 |
+| Direct consumer + byte regions | 171.141 | 212/247 | 5843.135 | 6 | 169.875 |
+
+Both failed the unchanged 10 ms preflight. This is NOT a twenty-batch result,
+baseline promotion, FFI/Tokio/Python acceptance or proof of memory savings.
+RSS retains the input/oracle and loaded grammar; allocation totals under GC
+and Rust capacity are not admitted here. Candidate code remains experimental.
+Residual scan/state execution still prevents the requested throughput gate.
+
+The next validated-loop-byte candidate removes duplicate reads/range checks
+and filters total state guards by byte before slot reads. Five freshly linked
+Rust/FFI integration suites passed separately (public parse/Tokio, index,
+owned projection, Org parity and host child-wait ownership). Matched sequential
+single preflights, with the previous direct product as control:
+
+| Fold + direct OEV1 | Wall (ms) | P95/P99 (us) | Requests/s | GC | Process peak RSS (MiB) |
+|-------------------+-----------+-------------+------------+----+------------------------|
+| Previous direct product | 181.078 | 221/284 | 5522.482 | 7 | 177.641 |
+| Validated loop byte | 142.709 | 157/192 | 7007.267 | 7 | 172.422 |
+
+Both fail the unchanged 10 ms gate. This 21.19 percent singleton wall reduction
+is NOT twenty-batch qualification or baseline promotion. CPU was 178.319 versus
+142.525 ms; equal GC counts do not explain the gain. Memory includes retained
+oracle/input/code, not Rust reserved capacity. These request timings do not
+include FFI, graph projection or Tokio; separate integration correctness does
+not extend their boundary. Shared whole-range prescan fusion remains open.
+
+=parser-actor-support.ss= is the public facade for explicitly created local
+Gerbil actors. Applications own worker count and lifecycle; imports start no
+background service. =spawn-parser-actor= accepts an already prepared machine,
+=parser-actor-parse= returns the same lossless artifact as synchronous parsing,
+and =parser-actor-stop!= joins the worker. Timeout bounds reply waiting rather
+than preempting an active parse. Keep the shared machine immutable after
+initialization; actor scheduling does not change the LR algorithm.
 * Language authoring
 
 A language pack exposes three Scheme interfaces:

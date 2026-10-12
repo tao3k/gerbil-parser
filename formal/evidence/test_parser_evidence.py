@@ -128,6 +128,27 @@ class NativeReviewControls(unittest.TestCase):
         rows = review(self.engine, self.root, (measured, failed), required=required)["review"]["result"]["relations"]
         self.assertEqual({row[1] for row in rows["Missing"]}, {"record-cpu-improvement"})
 
+    def test_models_and_conformance_cannot_hide_failed_performance(self):
+        """Admission mutation control, not a real parser benchmark result."""
+        items = []
+        for claim in ("lean-model", "quint-protocol", "scheme-build", "scheme-conformance"):
+            check = Check(claim, self.check.argv, self.check.inputs, self.check.markers)
+            item = observe(self.root, check)
+            item.save(self.root)
+            items.append(item)
+        check = Check("matched-performance",
+                      (sys.executable, "-c", "print('BENCHMARK-COMPLETED'); exit(70)"),
+                      self.check.inputs, ("BENCHMARK-COMPLETED",))
+        failed = observe(self.root, check)
+        failed.save(self.root)
+        self.assertEqual((failed.outcome, failed.exit_code), ("failed", 70))
+        result = review(self.engine, self.root, tuple(items + [failed]),
+                        dependencies=((failed.identity, items[-1].identity),))
+        rows = result["review"]["result"]["relations"]
+        self.assertEqual({row[1] for row in rows["Missing"]}, {"matched-performance"})
+        self.assertNotIn("matched-performance", {row[0] for row in rows["Established"]})
+        self.assertFalse(result["review"]["executionAuthorized"])
+
     def test_review_never_authorizes_execution(self):
         result = review(self.engine, self.root, (self.item,))
         self.assertFalse(result["review"]["executionAuthorized"])

@@ -58,11 +58,11 @@
               (string->list value))))
 
 (def (event-fold-scheme-module-sources name grammar root initial line finish
-                                      (helpers '()) (parameters '()) (width 64))
+                                      (helpers '()) (parameters '()) (width 64) (consumer 'events))
   (unless (and (symbol? name) (safe-component? (symbol->string name))
                (exact-integer? width) (<= 1 width 64))
     (error "invalid native fold compilation namespace or unit width"))
-  (let* ((source (event-fold-scheme-source name grammar root initial line finish helpers parameters))
+  (let* ((source (event-fold-scheme-source name grammar root initial line finish helpers parameters consumer))
          (forms (call-with-input-string source
                   (lambda (port)
                     (let read-forms ((forms '()))

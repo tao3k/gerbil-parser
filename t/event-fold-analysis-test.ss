@@ -1,0 +1,36 @@
+(import :std/test ../src/compiler/event-fold-analysis)
+(export event-fold-analysis-test)
+(def event-fold-analysis-test
+  (test-suite "Fold dependence and effect plan"
+    (test-case "pure scan dominance is lexical and short-circuit safe"
+      (let ((scan '(line-skip-horizontal start)))
+        (check (fold-shared-scans `(and (offset-less? ,scan end)
+                                      (offset-less? ,scan (line-trim-end)))) => (list scan))
+        (check (fold-shared-scans `(and (state ready) (offset-less? ,scan ,scan))) => '())
+        (check (fold-shared-scans `(or (bool #t) (offset-less? ,scan ,scan))) => '())
+        (check (fold-shared-scans `(and (offset-less? ,scan end)
+                                      (future-heading-title? "*" " " 1 "END")
+                                      (offset-less? ,scan end))) => '())
+        (check (fold-rewrite-scans `(offset-less? ,scan end) (list (cons scan 'memo)))
+               => '(offset-less? (line-index memo) end))))
+    (test-case "prefix guards cannot skip effects errors or unknown instructions"
+      (check (fold-prefix-guard '(and (state ready) (line-starts-with-ascii-ci "Ab")))
+             => (vector 'start '(65 97)))
+      (check (fold-prefix-guard '(line-byte-equal? (line-index cursor) 97))
+             => (vector '(line-index cursor) '(97)))
+      (check (fold-prefix-guard '(or (state ready) (line-starts-with "ab"))) => #f)
+      (check (fold-prefix-guard '(line-starts-with "")) => #f)
+      (check (fold-prefix-guard '(and (future-heading-title? "*" " " 1 "END")
+                                     (line-starts-with "ab"))) => #f)
+      (check (fold-prefix-guard '(and (line-byte-equal? (state-offset at) 97)
+                                     (line-starts-with "ab"))) => #f)
+      (check (fold-prefix-guard '(and (unknown-query) (line-starts-with "ab"))) => #f))
+    (test-case "state effects frame changes and emissions remain distinct"
+      (let (facts (fold-statement-analysis
+                   '((set-uint at (offset (state-offset previous)))
+                     (with-source-bounds start end ((token Line start end)))
+                     (call-source-helper nested start end))))
+        (check (vector-ref facts 0) => '(previous))
+        (check (vector-ref facts 1) => '(at))
+        (for-each (lambda (effect) (check (not (not (memq effect (vector-ref facts 2)))) => #t))
+                  '(bounds range-error events helper))))))

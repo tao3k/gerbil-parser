@@ -3,12 +3,15 @@
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in ./event-strategy-fixture event-lines-language-grammar)
         (only-in ../src/compiler/event-fold-scheme event-fold-scheme-source)
+        (only-in ../src/compiler/event-fold-scheme-context current-fold-scheme-diagnostics)
+        (only-in ../src/compiler/event-fold-future fold-future-marker-before-boundary?
+                 fold-future-named-index)
         (only-in ../src/compiler/event-fold-prefix-family fold-scheme-prefix-family)
         (only-in ../src/compiler/event-fold-scheme-modules event-fold-scheme-module-sources)
         (only-in ../src/runtime/event-fold-lines fold-line-name-set-contains?)
         (only-in ../src/runtime/byte-spans byte-span-skip byte-span-all?)
         (only-in ../src/runtime/source-lines fold-source-lines fold-source-byte-lines
-                 fold-source-byte-spans fold-source-frame-boundaries!))
+                 fold-source-byte-spans fold-source-frame-boundaries! fold-source-input-bytes))
 (export event-fold-scheme-test)
 
 (def (source initial line finish (helpers '()))
@@ -18,6 +21,11 @@
 (def event-fold-scheme-test
   (test-suite "Native EventFold source admission"
     (test-case "native byte frames preserve Unicode CR LF CRLF and terminal bounds"
+      (check-exception (fold-source-input-bytes 42) true)
+      (for-each
+       (lambda (invalid) (check-exception (fold-source-input-bytes invalid) true))
+       (list (u8vector 255) (u8vector 192 128) (u8vector 237 160 128)
+             (u8vector 244 144 128 128) (u8vector 226 130) (u8vector 128)))
       (check-exception (fold-source-byte-lines "not bytes" '() void) true)
       (let (bytes (u8vector 99 32 9 97 98))
         (check (byte-span-skip bytes 1 5 (lambda (byte) (memv byte '(9 32)))) => 3)
@@ -36,6 +44,8 @@
                             (check (string->utf8 line) => view)
                             (check (u8vector-length view) => (- end start))
                             (cons (list line start end) rows)))))
+           (check (eq? (fold-source-input-bytes bytes) bytes) => #t)
+           (check (fold-source-input-bytes text) => bytes)
            (check actual => oracle)
            (check (fold-source-byte-spans bytes '()
                     (lambda (start end rows)
@@ -52,7 +62,56 @@
         (for-each (lambda (bounds)
                     (fold-source-frame-boundaries! bytes (car bounds) (cadr bounds)))
                   '((0 9) (0 2) (2 5) (5 9) (1 1) (9 9)))))
+    (test-case "runtime marker encoding preserves boundaries and cache fast paths"
+      (def (query text target stop indent? heading?)
+        (fold-future-marker-before-boundary?
+         (string->utf8 text) 0 target stop 42 32 indent? heading? #f
+         (make-hash-table-eqv)))
+      (check (query "x\n  EnD \r\n" "END" #f #t #f) => #t)
+      (check (query "x\n  EnD \r\n" "END" #f #f #f) => #f)
+      (check (query "stop\nEND\n" "END" "STOP" #f #f) => #f)
+      (check (query "END\n" "END" "END" #f #f) => #f)
+      (check (query "* Heading\nEND\n" "END" #f #f #t) => #f)
+      (check (query "x\n中\n" "中" #f #f #f) => #t)
+      (check (fold-future-marker-before-boundary?
+              (string->utf8 "x\n中\n") 0 (string->utf8 "中") #f
+              42 32 #f #f #f (make-hash-table-eqv)) => #t)
+      (check (fold-future-marker-before-boundary?
+              (string->utf8 "STOP\nEND\n") 0 (string->utf8 "END") (string->utf8 "STOP")
+              42 32 #f #f #f (make-hash-table-eqv)) => #f)
+      (check (query "ENDING\n" "END" #f #f #f) => #f)
+      (let* ((bytes (string->utf8 "  Stop\r\nEND n\nSTOP\n"))
+             (index (fold-future-named-index bytes "END " "" "STOP"
+                                            42 32 #t #f #t #f #t)))
+        (check (vector->list (vector-ref index 2)) => '(14 0)))
+      (check (fold-future-marker-before-boundary?
+              (string->utf8 ":KEY: value\nEND\n") 0 "END" #f
+              42 32 #f #f 58 (make-hash-table-eqv)) => #t)
+      (check (fold-future-marker-before-boundary?
+              (string->utf8 "ordinary body\nEND\n") 0 "END" #f
+              42 32 #f #f 58 (make-hash-table-eqv)) => #f)
+      (let ((bytes (string->utf8 "END\n")) (cache (make-hash-table-eqv)))
+        (hash-put! cache 0 1)
+        ;; Invalid marker values deliberately prove that these paths never
+        ;; invoke the encoder, matching the original cached search semantics.
+        (check (fold-future-marker-before-boundary?
+                bytes 0 #f #f 42 32 #f #f #f cache) => #t)
+        (hash-put! cache 0 2)
+        (check (fold-future-marker-before-boundary?
+                bytes 0 #f #f 42 32 #f #f #f cache) => #f)
+        (check (fold-future-marker-before-boundary?
+                bytes (u8vector-length bytes) #f #f 42 32 #f #f #f cache) => #f)))
     (test-case "generated source is deterministic and has no interpreted request path"
+      (for-each
+       (lambda (operator)
+         (let (generated
+               (source '()
+                       `((if (,operator start (line-step start) (97 98))
+                             ((token Line start end)) ())) '()))
+           (check (not (string-contains generated "(let loop ((cursor from))")) => #t)
+           (check (not (not (string-contains generated "native fold range outside source line"))) => #t)
+           (check (not (not (string-contains generated "(u8vector-ref bytes from)"))) => #t)))
+       '(line-bytes-all-in? line-bytes-any-in?))
       (let* ((family '((line-starts-with-ascii-ci "#+TITLE:")
                        (line-starts-with-ascii-ci "#+AUTHOR:")
                        (line-starts-with-ascii-ci "#+DATE:")
@@ -68,6 +127,17 @@
                          ((token Line start end)) ())))
              (first (source '() forms '())))
         (check (equal? first (source '() forms '())) => #t)
+        (check (not (string-contains first "call-with-fold-cost")) => #t)
+        (let (observed (parameterize ((current-fold-scheme-diagnostics #t))
+                        (source '() forms '())))
+          (check (not (not (string-contains observed "call-with-fold-cost"))) => #t)
+          (check (not (not (string-contains observed "diagnostic Fold cannot bind"))) => #t))
+        (let (counted (parameterize ((current-fold-scheme-diagnostics 'counts))
+                       (source '() forms '())))
+          (check (not (not (string-contains counted "(fold-cost-count!"))) => #t)
+          (check (not (string-contains counted "(call-with-fold-cost '")) => #t)
+          (check (not (not (string-contains counted "diagnostic Fold cannot bind"))) => #t))
+        (check (source '() forms '()) => first)
         (for-each (lambda (forbidden)
                     (check (not (string-contains first forbidden)) => #t))
                   '("event-fold-runtime" "fold-statements" "fold-predicate" "run-event-fold" "eval "

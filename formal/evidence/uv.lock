@@ -5,7 +5,7 @@ requires-python = ">=3.10"
 [[package]]
 name = "ascent-test-support"
 version = "1"
-source = { git = "https://github.com/tao3k/gerbil-ascent.git?subdirectory=python&rev=0ec0f436951ee7f84bb1d535733145c255ece05b#0ec0f436951ee7f84bb1d535733145c255ece05b" }
+source = { git = "https://github.com/tao3k/gerbil-ascent.git?subdirectory=python&rev=64742af763486f37e4318ed26f83b8bec46e4906#64742af763486f37e4318ed26f83b8bec46e4906" }
 dependencies = [
     { name = "cffi" },
 ]
@@ -132,7 +132,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ascent-test-support", git = "https://github.com/tao3k/gerbil-ascent.git?subdirectory=python&rev=0ec0f436951ee7f84bb1d535733145c255ece05b" },
+    { name = "ascent-test-support", git = "https://github.com/tao3k/gerbil-ascent.git?subdirectory=python&rev=64742af763486f37e4318ed26f83b8bec46e4906" },
     { name = "cffi", specifier = "==2.1.1" },
     { name = "pycparser", specifier = "==3.11" },
 ]

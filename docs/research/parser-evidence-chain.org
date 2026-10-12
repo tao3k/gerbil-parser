@@ -30,7 +30,7 @@ receipt/claim dependencies, cycle rejection and explicit missing premises.
 Those local study files are not imported or copied into the parser runtime.
 
 The reusable implementation is
-[[https://github.com/tao3k/gerbil-ascent/blob/0ec0f436951ee7f84bb1d535733145c255ece05b/python/src/ascent_engine/review.py][gerbil-ascent's pinned EvidenceReview]]. Its Python binding delegates relational
+[[https://github.com/tao3k/gerbil-ascent/blob/64742af763486f37e4318ed26f83b8bec46e4906/python/src/ascent_engine/review.py][gerbil-ascent's pinned EvidenceReview]]. Its Python binding delegates relational
 execution to the native Scheme engine. =formal/evidence/pyproject.toml= and =uv.lock=
 pin that source revision and runtime Python dependencies. The ABI library
 remains an upstream build product: this repository checks its sidecar ABI and

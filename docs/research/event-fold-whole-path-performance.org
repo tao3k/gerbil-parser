@@ -1,0 +1,851 @@
+#+title: EventFold whole-path performance design and admission
+#+startup: overview
+
+* Decision
+
+** Overwrite-only ordinary-byte segments
+
+The =tape-run= candidate changes the execution unit from one byte to one
+admitted contiguous ordinary-byte segment. Its static classifier depends on
+the actual IR, not a fixed document scenario. Entry zero-mode facts are checked
+on every segment; write targets must not change them. A stable skipped-prefix
+bound may be admitted only after the cursor reaches it. Only total, pure,
+state-independent overwrite families can execute once at the segment's last
+byte. Events, queries, helpers, state read-modify-write and frame changes reject
+coalescing. Exceptional bytes and active modes retain the original body.
+
+Exceptional-byte cofactoring removes unreachable effect barriers before the
+entry facts are reapplied. Facts come from explicit guards, never prior request
+values. The actual inline kernels qualify with 16/12 guard cells and seven
+overwrite fields; 33 of 285 static loop forms admit runs. This is not a dynamic
+frequency or physical performance proof. There is no runtime cache or cache
+invalidation maintenance. Lean owns the overwrite-last algebra; Quint retains
+separate lifecycle/publication histories. Concrete compiler admission still
+requires source regressions and actual native complete-tape conformance.
+
+Five admission controls and all 24 real AOT tapes pass. Two full sequential
+control/run/run/control preflight rounds show candidate walls
+62.097/65.347/103.421/62.059 ms for 1000 changing requests. Controls are
+132.238/76.472/87.628/363.383 ms; the large wall-minus-CPU pauses and host CPU
+contention prevent a qualified speedup claim, and one corresponding pair
+regresses. Keep every receipt; do not select only the fast candidates or slow
+controls. The <=10 ms gate fails in every lane. Baseline promotion, PR push and
+the three-load twenty-batch matrix remain prohibited until preflight passes.
+No inferred 100000-request time substitutes for an actual measurement.
+
+** Effect-admitted elimination of inert observations
+
+The opt-in =tape-pruned= compiler pass removes nested =if= forms only when
+both rewritten branches are empty and evaluating the predicate is total and
+pure. Unknown predicates, future-line queries and unproved range checks remain
+observable. In a validated byte loop, membership scans from its cursor through
+clamped forward steps have ordered in-frame bounds; their discarded results
+can be removed. Reversed ranges and =with-source-bounds= invalidate this
+admission. No request value cache, global owner or invalidation maintenance.
+
+Four regression cases cover pure nested observations, query/error barriers,
+ordered writes/events, validated forward ranges, reversed ranges and frame
+changes. All 24 actual Org AOT complete tapes and source-owned controls pass.
+Lean owns clamped-range arithmetic and pure discarded-condition equivalence;
+the concrete Scheme effect checker remains a separate implementation boundary.
+Quint's lifecycle/publication model is unchanged, not a second algebra proof.
+
+Strict sequential tail/pruned/pruned/tail preflight: tail 74.197/73.520 ms,
+pruned 69.201/71.196 ms per 1000 changing inputs. Candidate P95 90/96 us,
+P99 144/156 us, throughput 14450.658/14045.733 requests/s, CPU 69.001/69.988 ms,
+five GCs and peak RSS 29474816/29491200 bytes. Control P95 94/97 us,
+P99 218/186 us, throughput 13477.634/13601.741 requests/s, CPU 73.473/73.235 ms,
+five GCs and RSS 29687808/29671424 bytes. Approximately five percent diagnostic
+wall improvement, not the requested throughput breakthrough. All exit 70 at
+the unchanged <=10 ms gate; no full matrix or baseline promotion.
+
+Separate named-helper owner elimination and token-local offset reuse passed
+semantic controls but regressed matched wall time and were removed. Their
+static reductions (zero owner assignments and fewer calls) are negative
+evidence: operation-count changes cannot replace actual runtime acceptance.
+Retained negative artifacts and detailed boundaries are recorded in Orgize's
+=PERFORMANCE_WORK_RECEIPT.md=; no kernel/SDK or Automation changes.
+
+** Effect-only direct-tape call graph
+
+The request-owned tape already mutates in place, but interned statement
+procedures returned it and their callers reassigned =events=. The opt-in
+=tape-tail= product removes that internal result plumbing. The root still
+retains and publishes the tape; named source helpers retain their current
+contract. List-producing Fold and default generation remain unchanged.
+There is no runtime value cache, invalidation maintenance or extra scan.
+Installed Gerbil =compile.ss= enables =proper-tail-calls=; Gambit's headers
+separate continuation-frame allocation from movable heap allocation.
+
+Static generated call-site analysis changes 3689 definitions / 7734 private
+calls / 0 confirmed tail sites / 3281 owner assignments to
+3648 / 7679 / 2127 / 70. Tail counts are conservative syntactic evidence,
+not executed counts, optimizer guarantees or exclusive CPU attribution.
+Two structural tests, 24 complete actual Org AOT tapes and the source-owned
+canonical/wire controls passed. Lean adds ordered effect/private-owner
+threading refinement; Quint separately checks publication and invalidation
+histories. Native Ascent binds those observations to the actual copied AOT
+artifacts; required matched-performance remains missing, not passed.
+
+Strict ordinary/tail/tail/ordinary 1000 changing-request preflight:
+ordinary 96.537/90.398 ms, candidate 72.575/73.322 ms. Candidate P95 96/96 us,
+P99 142/142 us, throughput 13778.849/13638.471 requests/s, CPU 72.440/73.006 ms,
+GC 5, peak RSS 29638656/29671424 bytes. Ordinary GC 27 and RSS
+30654464/30572544 bytes. The unchanged 10 ms gate still fails (exit 70);
+there is no twenty-batch, FFI/Tokio/Python/Org graph acceptance or promotion.
+
+Matched request-local no-GC allocation means, including observation overhead:
+plain-links 122976 -> 15904 bytes (327/332 samples), quote-heavy
+231408 -> 24976 bytes (318/332), doc 122384 -> 31888 bytes (325/333).
+GC-interrupted requests are excluded. These do not establish all-request
+allocated bytes, peak heap or attribution of every byte to continuation frames.
+Repeated horizontal scans remain separate work; this change removes the
+call-graph continuation burden rather than claiming scan elimination.
+
+** Rejected active-state and guard-validity kernels
+
+Two further engine candidates reached real AOT controls, not only a model.
+Both preserved the 24 complete native Org event tapes and failed the unchanged
+1000-request 10 ms gate. Their source integrations were removed; compiled
+negative artifacts and complete timing receipts are retained.
+
+Removing the all-zero restriction from the common-byte cofactor regressed
+strict ordinary/active/active/ordinary walls from 91.652/90.694 ms to
+137.734/137.686 ms. Active P95 was 341/344 us, P99 465/465 us, throughput
+7260.371/7262.903 requests/s and 57 GCs versus 27 for ordinary. Peak RSS fell
+from approximately 30.6 MB to 29.9--30.0 MB, insufficient to justify the loss.
+Byte rejection alone leaves active-state work that idle specialization avoids.
+
+A loop-local invalidated guard cache also regressed: ordinary 118.218/104.248 ms,
+cached 133.954/140.565 ms, cached P95 351/321 us, P99 526/567 us and
+7465.249/7114.146 requests/s. GC was 29 versus 27; RSS 29.85--30.00 MB versus
+30.62--30.67 MB. The second candidate has 27.094 ms wall-minus-CPU, without
+request-level causal attribution. Guard invalidation maintenance did not
+remove the dominant allocation path. GC-spanning raw allocation counters are
+not admitted allocated-byte comparisons. Lean's arbitrary-state ordered
+refinement obligations and Quint's lifecycle histories passed separately;
+neither establishes a runtime gain or complete compiler proof. No twenty-batch
+matrix, baseline promotion, FFI/Orgize acceptance or upstream push occurred.
+
+** Guarded idle-state specialization and request allocation
+
+The new opt-in engine plan derives uint guard cells from admitted IR rather
+than Org-specific names. It retains the original body outside the all-zero
+guard. Ordered writes invalidate individual facts; opaque, helper and frame
+effects invalidate all facts. Known tape appends, cache queries and possible
+range errors are observable but do not alias the private slot vector: retain
+their evaluation and order without discarding unrelated zero-state facts.
+Read-only configuration cells must not enter an idle guard. The initial plan
+included nonzero inline policy, preventing that ordinary path from entering
+its specialization; the corrected plan intersects guard candidates with
+actual loop writes. Tests cover that regression and tape-effect preservation.
+The corrected plan passed fresh actual AOT controls but still fails the
+physical throughput preflight; it remains opt-in, not the accepted baseline.
+
+A whole-loop common-byte plan combines this zero-state specialization with
+necessary-byte regions. Only the common fallback region is generated as a
+fast kernel; exceptional bytes retain the complete original body. The validated
+current-byte membership table is reused, not a new source scan. Current native
+Ascent evidence binds model/source controls and 24 actual AOT tape controls;
+matched-performance remains missing and executionAuthorized=false.
+
+Strict control/ordinary/idle/idle/ordinary/control preflight: common-byte
+walls 88.284/90.422 ms per 1000 changing requests against 122.040/120.904 ms
+current-source control. P95 112/113 microseconds, P99 312/356 microseconds,
+throughput 11327.081/11059.255 requests/s, CPU 88.186/90.279 ms, GC 27 and RSS
+30605312/30621696 bytes. Control GC is 56 and RSS 29442048/29491200 bytes.
+No-GC observed allocation means are 122976/231408/122384 bytes per
+plain-links/quote-heavy/doc request, including observer overhead (38-52 percent
+lower than identical diagnostic control). RSS rises about 1.2 MB. Every
+preflight still fails exit 70 at 10 ms; no full matrix or promotion follows.
+These are pure Scheme Fold/direct-tape boundaries, not FFI, Rust/Tokio, Python
+or public Org parsing acceptance. All processes completed; negative receipts
+and immutable baseline executables remain.
+
+Request-local allocation observations exclude complete-tape comparison from
+the measured parser interval. In no-GC samples, the current control records
+74912192 bytes over 334 plain-links requests, 133141712 bytes over 277
+quote-heavy requests, and 65326608 bytes over 333 doc requests. These are
+admitted SDK counter deltas including observation overhead; requests with GC
+are not admitted allocation samples. They are not peak heap or RSS figures.
+Compact helper arguments leave all three sums exactly unchanged. Its strictly
+sequential same-source A/B/B/A walls are 122.866/133.232 ms against
+140.371/129.364 ms control; one wall regresses and both fail the 10 ms gate.
+That candidate's source integration is removed, with negative receipts kept.
+It is not a solution for the observed request allocation pressure.
+
+Lean owns guarded transition refinement with an explicit specialization
+equivalence premise, not a proof of the whole Scheme transformation. Quint
+owns activation, invalidation and re-entry histories (four directed tests,
+1000 seeded bounded histories), not duplicate Boolean/uint algebra. Native
+ASCENT now binds copied real AOT binaries, generated units, program IR and
+complete expected tapes along with the current model/source tests. A passing
+model/conformance bundle still leaves matched-performance missing and cannot
+authorize a baseline promotion. The compact bundle precedes the corrected
+idle plan and must not be reused as its current-source proof.
+
+** Dynamic call attribution and bounded call-graph candidates
+
+A count-only product avoids per-leaf clocks, timing closures and frames. It
+still performs aggregation-table updates and is diagnostic-only; zero timing
+fields are placeholders, not measured zero cost. Its production binder rejects
+performance admission. All 24 actual Org controls passed with the unchanged IR
+SHA256 =d37b4b160c9d956a549e86486e0b590b0cbdbf2a273ccb16f683c100d3158c38=.
+The native counter product recorded 84538 private-helper calls across 928
+executed helper identities. The leading row is a horizontal-prefix scanner
+with 4518 calls; multiple subsequent offset helpers invoke it again. Simple
+backslash and brace byte checks recorded 2124 and 2007 calls respectively.
+Call frequency is not an exclusive CPU-cost measurement.
+
+An opt-in horizontal-prefix candidate binds the immutable root-line offset
+once and removes the fact at source-bound transitions. Six source controls and
+24 actual Org AOT controls passed. Sequential A/B/B/A 1000-request preflights:
+control 126.312/144.855 ms, candidate 118.076/176.429 ms. Candidate P95 was
+322/376 microseconds and P99 370/1341 microseconds; control P95 344/357 and P99
+423/478 microseconds. GC remained 56 in every batch. Candidate throughput was
+8469.122/5668.002 requests/s, RSS 29327360/29261824 bytes; control throughput
+7916.904/6903.455 requests/s, RSS 29507584/29523968 bytes. No gain or gate pass
+is admitted; default remains disabled. The historical nested-guard control is
+not an isolated control of only the prefix rewrite because earlier builder
+and shared-probe edits also differ. No causal percentage improvement is claimed.
+
+The rejected experimental graph pass substituted only bounded nonrecursive scalar
+leaves without private callees or loops. Parallel lexical argument bindings
+preserve call-by-value evaluation without duplicating expressions. It retains
+leaf definitions for first-class references and excludes event-producing
+procedures. Full IR-to-AOT refinement and physical performance are still
+required; this is not authorization to inline the entire Fold graph. Six source
+controls and 24 actual Org AOT controls passed. A preliminary group was excluded
+because one process yielded before the following invocation; all its receipts
+are retained. A new strictly sequential A/B/B/A group (each process explicitly
+awaited to completion) failed: control 131.747/126.461 ms, candidate
+214.002/158.763 ms. Candidate P95 638/431 microseconds, P99 1666/789 microseconds,
+throughput 4672.854/6298.697 requests/s, RSS 29687808/29622272 bytes, CPU
+154.238/146.770 ms and 56 GCs. Control P95 344/335 microseconds, P99 466/463
+microseconds, throughput 7590.306/7907.576 requests/s, RSS 29540352/29491200
+bytes, CPU 130.865/125.615 ms and 56 GCs. The candidate failed both the unchanged
+10 ms gate and this control comparison; the historical-control boundary above
+still applies, so no isolated causal cost claim is made.
+
+Both failed candidate source entrypoints and graph rewrites have been removed.
+Generated products, binaries and negative receipts remain for investigation.
+The count-only diagnostic and its regression controls remain, not production
+optimizations. Expression and statement source hashes match their pre-turn
+values. Counts show real redundant work, but neither removing one scan nor
+expanding small leaves establishes the needed order-of-magnitude improvement.
+
+** Whole-loop byte-region execution
+
+Status: experimental planner retained for conformance/model work, NOT enabled
+in the default Fold lowering. The recursive candidate failed its unchanged gate
+and its default integration was withdrawn after the measurements below.
+
+=fold-byte-regions= classifies a validated current byte once for an entire
+loop body, rather than testing every independent state-machine gate for ordinary
+text. The current candidate descends through decisions and lexical joins but
+not source-bound changes or nested byte loops. A mismatching necessary-byte condition contributes its original else
+branch; matched conditions retain their full predicate and query suffix.
+Identical ordered bodies are grouped with the standard hash table and ordered
+list builder. Source frames, helper handoffs and nested loops remain separate
+owners; cofactoring does not descend through them. This is an execution-plan
+change, not a request cache or a grammar-specific alphabet whitelist.
+
+Engine controls passed (100 canonical/90 wire/six source cases). Lean proves
+the pure-prefix mismatch/query-trace obligation and composition through ordered
+state transitions, assuming each individual compiler refinement is established.
+Quint tests every byte with both state values and a same-byte state mutation
+witness; its Fold suite now has eight checks alongside seven publication checks.
+Neither establishes a physical clock bound or complete IR/compiler refinement.
+Both the initial top-level and subsequent recursive candidates passed all 24
+actual Org controls. The top-level candidate failed its 1000-request preflight
+at 131.683/136.540 ms; those singleton results establish no gain. Source inspection
+showed nested state decisions left unpruned, leading to the recursive candidate.
+It generated 5056 private definitions: code-size/working-set cost is an explicit
+admission concern. Native preflights failed at 231.825/112.404 ms for 1000
+requests, P95 340/175 microseconds, P99 582/392 microseconds, throughput
+4313.599/8896.481 requests/s, RSS 32030720/31981568 bytes. GC fell from 56 to
+46, but the first request maximum reached 58237 microseconds. Its measured
+batch wall minus process CPU was 106.641 ms versus 0.228 ms in the second run.
+Whole-process involuntary context switches were 221/61 and page faults 599/599;
+these do not identify the specific request stall as scheduling or GC. Allocated
+bytes remain unavailable across GC. The condition control was 132.240 ms,
+CPU 124.873 ms and RSS 29409280 bytes. No favorable singleton was admitted.
+
+Default lowering and predicate sources were restored exactly to their
+pre-experiment SHA256 values: statements
+=dd6b0b99175f4e694a3059e77b82c8a009587859f89ddf1f5bed7fb0e039a8ca=,
+expressions =33dbe3c2ea47bf88bae0c1aba4bd42b6e170aec56eb1ccff61e9def4e4e86906=.
+The planner/model controls remain research evidence, not a speed claim. The
+remaining architectural obligation is the generated execution/call graph and
+its live continuation/state traffic, not importing a library or reducing GC
+in isolation. Neither diagnostic counts nor model step bounds establish time.
+
+After withdrawal, the fresh native evidence join =.fold-restored-final= passed
+Lean, seven publication/eight Fold Quint checks, and the Scheme control owner
+(100 canonical/90 wire plus six source cases). Native ASCENT leaves
+=matched-performance= missing and =executionAuthorized= false. A preceding
+link failure (=libcrypto= not found) is retained; the successful retry used the
+already installed OpenSSL library directory, not an SDK rebuild or widened gate.
+
+** Actual Org integration and model coverage
+
+The shared-scan and standard-builder candidate was regenerated and compiled
+into the actual Org Fold product in =target/fold-stdlib-real= in the private
+consumer checkout. All 24 native Org controls passed. Its IR input SHA256
+=d37b4b160c9d956a549e86486e0b590b0cbdbf2a273ccb16f683c100d3158c38=
+matches the preserved nested-guard control; the three fixtures are unchanged.
+The candidate contains three shared-probe regions and 3577 private procedures
+across 56 units. These are static counts, NOT measured dynamic call costs.
+
+| Obligation | Current evidence | Remaining boundary |
+| Shared immutable scan | Lean exact classification and ordered consumers | Compiler summary/refinement over the complete IR |
+| Guard eligibility | Lean frame/write/opaque rejection | Correct computation of every implementation summary |
+| Guard evaluation order | Executable Lean Boolean subset with query traces and a harmful-reordering witness | All instructions, exceptions, aliases and source helpers |
+| Scan lifecycle and consumer interleavings | Quint invalidation, rescan, stale-use mutation and ordered-consumption histories | Mapping actual compiler frames and effects to lifecycle actions |
+| Native behavior | Engine 100 canonical/90 wire controls and actual Org 24 controls | Complete public syntax/recovery/query coverage |
+| Physical performance | Unchanged 1000-request/10 ms preflight | A successful matched native run; models do not prove time |
+
+=formal/quint/FoldPlan.qnt= augments, rather than replaces, the seven publication
+checks with eight Fold lifecycle checks and 1000 seeded histories of at most
+20 transitions. These are bounded simulations, not exhaustive Scheme/VM
+verification. =collect_models.py= binds both source models and their commands.
+
+Lean exclusively owns denotational equivalence, ordered query traces, byte
+guard refinement and source-visit bounds. Quint exclusively owns the execution
+history of scan validity, invalidation barriers, rescan and consumer admission;
+it does not repeat Lean's Boolean/byte equivalence checks. Neither model proves
+clock time or validates its own abstraction against generated AOT code. Actual
+IR-to-generated-helper mapping, native semantic controls and matched runtime
+receipts remain separate obligations. The existing AOT receipts predate this
+model revision and must not be relabeled as qualification of the revised chain.
+
+The ordinary benchmark static link failed once on disk exhaustion; a subsequent
+retry stopped without child compiler activity and was terminated narrowly.
+A source-driver SDK attempt failed because the products were static-only; no
+interpreted Fold result was admitted and that temporary entrypoint was removed.
+The independent full-program optimization experiment was stopped after about
+18 minutes of construction, with C compilation reaching roughly 3.5 GiB RSS.
+It produced no admitted runtime measurement and is not the default build route.
+A missing OpenSSL header on its first C compilation was also a build dependency
+failure, not a runtime measurement. No kernel/SDK modification or performance
+gate relaxation was used.
+
+The next lowering candidate distinguishes condition truth from strict Boolean
+publication, following the installed compiler's =generate-runtime-if%= and its
+=current-compile-boolean-context=. Short-circuit bodies are normalized once
+when published as Boolean values, not at every nested branch condition. Engine
+controls (100 canonical, 90 wire and six source cases) and all 24 actual Org
+controls passed. Lean additionally proves truth/ordered-trace preservation and
+a witness forbidding removal of normalization at value-publication boundaries.
+These are bounded model properties, not complete implementation refinement.
+
+An independently prepared 1000-input corpus retains the original changing
+indices 1000--1999 and complete canonical OEV1 outputs. Only untimed oracle
+construction is removed from the native executable dependency closure; the
+existing per-request clock, full tape comparison and 10 ms gate are unchanged.
+The initial candidate preflight failed: 140.334 ms batch wall, 7125.857 requests/s,
+request P95/P99 391/509 microseconds, process CPU 136.041 ms, 56 GCs and RSS
+29376512 bytes. Allocation bytes are explicitly unavailable across these GCs.
+This singleton is not a qualified gain or a full twenty-batch matrix. A matched
+preserved-control build is required before assessing relative speed; interpreter
+or static procedure counts must never be substituted for this measurement.
+
+The preserved nested control now builds with its original runtime closure.
+Two final strictly sequential diagnostic preflights per lane used the identical
+prepared corpus/protocol/SDK: control 131.021/126.030 ms, candidate
+129.231/121.161 ms. Candidate request P95/P99 were 327/437 and 311/405
+microseconds; throughput 7738.081/8253.481 requests/s and RSS
+29360128/29392896 bytes. Both lanes still collected 56 times and allocation
+bytes remained unavailable. The small provisional difference is not an accepted
+optimization or an architectural breakthrough: every 10 ms gate failed. An early
+pair overlapped due to an unawaited running session; its receipts are retained
+but excluded from matched claims. No full matrix or promotion was performed.
+The intermediate standard/shared control's stalled link was stopped by exact
+task PID; no task compiler or benchmark remains active.
+
+** Rebased evidence-chain integration
+
+The study checkout is now based on parser PR #13 commit
+=2cd75d9f3a449a83dbb474cb618571e24ab31d61=. Previous Fold experiments
+and immutable benchmark controls were preserved; their old results do not
+qualify the new source head. The upstream Lean/Quint/Scheme/native ASCENT
+chain is a verification owner, not a second parser or runtime scheduler.
+
+=formal/ParserEngine/Fold.lean= models shared immutable classification and
+counts source visits. It proves agreement with two independent predicates,
+preservation of ordered arbitrary state consumers, and necessary-first-byte
+reordering across total Boolean state reads. The compiler must independently
+establish source/bounds stability and effect barriers; the model does not
+prove implementation refinement. Its full-scan visit bound is NOT a twofold
+speed assertion: two early-exit probes may visit fewer bytes. Physical time,
+allocation, GC and Rust capacity require matched implementation measurements.
+
+The model observation now binds the actual Fold analysis/planning/lowering
+sources in addition to the Lean sources and dependency locks. The complete
+engine collector's existing LR/GQL benchmark is not the real Org Fold
+preflight. Its successful observation must not close the 10 ms Org gate.
+Failed Fold receipts remain failures even when model and conformance pass.
+
+** Shared scanning and necessary-byte plan qualification in progress
+
+The engine now prepares adjacent admitted any-in probes over identical bounds
+as one immutable two-bit classification table. It scans once, then executes
+the original branches in order. State writes to bound dependencies, helper
+handoffs, source-frame changes and opaque effects block fusion. The real Org
+product contains three such regions and passes its 24 native wire controls.
+Dominating content-end values are also reused within the matching probe and
+byte-loop frame; nested source bounds discard that proof. This product has
+passed engine differential controls but has not passed the 10 ms preflight.
+
+Literal patterns contain nested conjunctions. A further compiler candidate
+exposes their necessary cursor byte before total state reads, without moving
+queries, errors or opaque effects. Conjunction flattening must preserve order:
+the installed std/list/list append-map did not preserve the returned inner
+term order in this use, and the new order assertion rejected that candidate.
+The subsequent implementation uses the official =std/list/list-builder=
+=with-list-builder= macro: traverse conjunctions in source order and emit each
+leaf once, without recursively copying child lists with =append=. This is a
+compiler-planning allocation change, not a runtime throughput claim. Native
+differential qualification and actual Fold timing remain separate gates.
+No benchmark assertion was weakened.
+
+** Standard-library contracts in the model
+
+Standard-library selection is now an explicit dimension of the Fold admission
+model. =LibraryAdmission= requires preservation of order, observable effects,
+and ownership, plus a matched runtime performance gate. Its theorem rejects
+a failed runtime gate regardless of the library-selection flag. The ordered
+builder sequence contract is modeled with Lean's =List.flatten= and proved
+equivalent to ordered =foldr List.append=. This proves a sequence property,
+not refinement of the Gerbil macro or a GC/time guarantee.
+
+The installed SDK sources =src/std/list/list.ss= and
+=src/std/list/list-builder.ss= were inspected before this change. Reuse the
+official hash-backed deduplication for compiler byte sets and the official
+builder for ordered compiler output; do not replace the request-owned byte
+tape with a list. Compiler lists and runtime event buffers have different
+ownership and allocation requirements. The builder's mutable tail remains
+local to one compiler traversal: no continuation escape or shared publication
+is introduced. The current =append-map= implementation must not be assumed
+to satisfy ordered inner-list emission; differential order controls govern
+that choice. A library import alone never establishes performance evidence.
+
+=just evidence-fold-controls <fresh-output> <prepared-load-path>= now links
+the existing Python observation adapter to the actual Just-owned Fold
+qualification and native Ascent review. The fresh run established Lean,
+Quint and native differential Scheme conformance; =matched-performance=
+remained Missing and =executionAuthorized= stayed false. The collector does
+not claim actual Org conformance or start a performance matrix. Its packet is
+=.data/parser-evidence/fold-controls.json=. The standalone native admission
+controls also passed all eleven cases. No performance baseline was promoted.
+
+These refinements do not eliminate ordinary-text metadata transitions that
+are required by later delimiters, nor qualify full FFI, Tokio or graph costs.
+The validated-byte control and accepted baseline remain unchanged. No full
+twenty-batch matrix starts until the real upstream preflight passes.
+
+Shared-probe plus content-end singleton preflight: 142.433 ms for 1000 changing
+requests, 7020.845 requests/s, request P95/P99 164/194 us, CPU 142.236 ms,
+six collections and peak process RSS 183042048 bytes. Its sequential preserved
+validated-byte control: 143.669 ms, 6960.444 requests/s, P95/P99 165/233 us,
+CPU 142.839 ms, six collections and RSS 179585024 bytes. The 0.86 percent wall
+difference does not establish a meaningful improvement, especially with higher
+process RSS and uncontrolled host background work. Both reject the unchanged
+10 ms gate. RSS includes retained oracle/input/code, not exclusive parser
+allocation or Rust capacity. These results are not full FFI/Org acceptance.
+
+The nested necessary-byte candidate subsequently passed 100 canonical and 90
+independent wire cases, plus all 24 actual Org native controls. Its singleton
+preflight was 132.841 ms/1000 changing requests, 7527.796 requests/s,
+P95/P99 151/173 us, CPU 132.837 ms, six collections and RSS 180174848 bytes.
+This is approximately 7.54 percent lower wall than the sequential preserved
+143.669 ms control, not twenty-batch qualification. It still fails the 10 ms
+gate by 13.28 times, and RSS is slightly higher. The accepted baseline is not
+promoted. Necessary-byte preparation reduces irrelevant guard evaluation;
+it does not eliminate all state transitions or private procedure costs.
+
+** Direct-consumer experiment, not performance admission
+
+The current engine candidate emits OEV1 directly from the same admitted Fold.
+The grammar fixes numeric kind IDs at generation. Request-owned byte storage
+reserves once per event and seals before publication; no event descriptor list
+or canonical-list materialization sits between production and the consumer.
+The existing canonical product remains an independent control. Ordinary Org
+request/batch source wiring selects the generated tape product and passes an
+admitted byte slice, avoiding a string decode/encode round trip; this wiring
+has passed focused native Rust/FFI integration controls, not performance
+acceptance. Diagnostic operations 5/7
+still measure the older decomposed canonical path, not this ordinary path.
+
+The tape specialization prepares ordered byte decision regions before private
+procedure expansion. Only a validated loop byte and a total guard prefix may
+select a region; duplicate rules preserve order and residual state conditions.
+Errors, query-cache effects and opaque prefixes prohibit bypass, while nested
+source bounds discard the proof. The actual Org product has 59 such regions;
+the immutable old product has none. This is structural evidence, not a claim
+that all repeated source scans or generic state work have been removed.
+
+The current compiler also reuses the dominating validated byte for equality
+and singleton byte-set predicates. This removes repeated offset arithmetic,
+source reads and range checks without removing their admission: the enclosing
+loop proves start <= cursor < limit <= end. Safe total state guards can move
+behind a byte test to reject irrelevant branches before slot reads. Queries,
+opaque operations and errors retain their order; a nested source frame drops
+the proof. Ninety-two predicate references in the real generated Org product
+use this refinement. Whole-range LaTeX/trigger prescan fusion remains open.
+
+The production program was separately generated under orgize/fold (document,
+inline and tape); its staged closure contains all 58 tape units and the newly
+compiled event-runtime/event-tape. The stage owner compiles both modules to
+avoid selecting a stale interface. Five release Rust binaries then passed
+public parser/Tokio controls (11 cases), index handoff (23), owned projection
+(7), tracked Org parity (3) and host child-wait ownership. This admits those
+actual FFI semantics, not parallel Scheme execution or an end-to-end speedup.
+
+Final controls passed 3 analysis, 2 decision-effect/order, 3 tape-owner/source,
+6 source, 100 native canonical differential and 90 native independent wire
+cases. Full actual Org generation, native link and 24 complete wire/override
+controls passed separately. The matched throughput adapter compares the old
+canonical product plus the existing two-pass OEV1 consumer against direct
+OEV1, with grammar catalogs outside timing and a separate interpreter/wire
+oracle. The 10 ms preflight is unchanged. No full twenty-batch acceptance,
+baseline promotion, kernel change or Automation restart follows from controls.
+
+The sequential matched OEV1 preflight failed for both products. Direct:
+171.141 ms, 5843.135 requests/s, request P95/P99 212/247 us, CPU
+170.744 ms, six collections and process peak RSS 178126848 bytes.
+List plus existing consumer: 198.975 ms, 5025.757 requests/s, P95/P99
+254/304 us, CPU 198.918 ms, eight collections and peak RSS 179077120
+bytes. These are single 1000-request batches, not a qualified matrix or
+exclusive allocation/Rust-capacity measurements. The direct path is still
+approximately 17 times above the 10 ms gate. No full matrix or production
+baseline promotion was performed. This eliminates an intermediate consumer
+representation but does not close residual source scanning/state execution.
+
+The subsequent loop-byte candidate versus the previous direct product uses
+the same consumer, changing corpus/indexes and identity. Sequential singleton
+preflights: 142.709 versus 181.078 ms, 7007.267 versus 5522.482 requests/s,
+P95/P99 157/192 versus 221/284 us, CPU 142.525 versus 178.319 ms, both seven
+collections, process peak RSS 180797440 versus 186269696 bytes. The candidate
+still fails by 14.27 times; no full matrix follows. Twenty-batch acceptance,
+exclusive allocation and Rust capacity remain unqualified. Complete oracle
+generation takes most of process wall and is outside request timing; do not
+interpret the 53.30/54.71 second process walls as Fold latency. Equal GC counts
+and CPU near batch wall do not support a GC-frequency or non-CPU-wait cause.
+
+Optimize the upstream compiled Fold as a complete execution plan, rather than
+accumulating isolated encoder, channel or capacity changes. The installed
+official implementation is the implementation reference, not evidence that
+our generated program has inherited its performance. Downstream FFI, graph,
+Tokio and Python qualification follows an admitted upstream engine result.
+
+The baseline remains unchanged. No kernel/SDK modification, unsupported SMP
+pass, acceptance relaxation or Automation restart is part of this design.
+This document proposes work; it does not claim the architecture is implemented.
+
+** Architecture correction after the rejected local execution-plan experiment
+
+The subsequent combined frame/current-byte/dependency-ABI/owned-buffer candidate
+also failed and has been removed from ordinary lowering. It passed 100 native
+differential cases and 24 complete actual Org controls, but its matched actual
+1000-request preflight took 245.616 ms versus the immutable old-algorithm
+219.381 ms. Throughput was 4071.396 versus 4558.280 requests/s; request
+P95/P99 were 193/6280 us versus 234/730 us. CPU was 245.615 versus
+217.961 ms; GC counts were 15 versus 10. Whole-process peak RSS was
+204324864 versus 190578688 bytes, including oracle/input retention and code.
+This is a regression, not a qualified architecture or memory improvement.
+Raw allocation-counter deltas under GC do not establish allocated bytes.
+No full twenty-batch matrix was started; the unchanged 10 ms gate rejected
+both products. Negative artifacts remain in =.fold-execution-final=, but
+ordinary source no longer uses that experiment. A flat buffer followed by
+canonical list materialization did not qualify elimination of consumer work.
+
+The expression-level scan hoists, prefix guards and event-run emitter are
+removed from ordinary lowering. A 1.1 percent singleton difference with a
+failed gate does not justify accumulating a new production execution path.
+The conservative analysis tests and negative receipts remain; they are not
+an admitted compiler optimization. Inherited byte-input, graph projection and
+single-byte lowering changes are outside this rollback.
+
+The architectural seam is before procedural Fold expansion, not after each
+expression has become a shared procedure. The current actual Org inline
+strategy performs a LaTeX prescan, an inline-trigger scan, and a conditional
+per-byte state pass. Its generated body updates boundary facts through
+separate shared procedures. The diagnostic 84538 calls / 1767 events identify
+an execution-amplification hypothesis, not an uninstrumented cost attribution.
+
+The next implementation must retain source-pattern identity, precedence,
+state dependencies and effect barriers in one engine-owned execution plan:
+
+1. Source classification: partition byte/prefix tests and prescan facts by
+   source frame and cursor; assign shared immutable byte classes once in the
+   compiled product. Keep context-dependent and future queries explicit.
+2. State execution: lower the admitted ordered decisions into bounded typed
+   control regions with lexical cursor/facts. Do not turn every small leaf
+   into a cross-unit call, inline the whole grammar, or move state/error
+   effects past a decision. Typed refinement and SSXI metadata follow the
+   installed compiler's optimization boundary.
+3. Event consumption: integrate the producer with its actual event-tape and
+   graph consumer, retaining one owned output and numeric kind metadata.
+   Merely replacing token lists or adding a packed producer is insufficient:
+   RFCs 0013/0015 contain slower consumer results despite producer fusion.
+4. Public integration: the same admitted plan owns Scheme AOT execution and
+   its FFI boundary. The Org pack supplies declarations, not a second generic
+   scanner/dispatcher; Rust/Tokio remains transport/scheduling, not evidence
+   of Scheme parsing parallelism.
+
+Acceptance requires complete independent events and existing recovery/override
+controls, structural evidence that ordinary text avoids irrelevant rule work,
+and the unchanged actual-Fold preflight. No new execution backend or result
+representation is admitted until its actual consumer is measured. Encoding,
+allocation and GC remain measured components; none is assumed to explain the
+entire approximately twentyfold throughput gap.
+
+* Implemented experimental slice; admission remains failed
+
+The diagnostic compiler mode now emits nested call observations only in a
+diagnostic product. Its binder rejects production performance admission;
+ordinary products do not import or call the observer. The upstream native
+actual-Fold case compares complete results against an independent engine
+interpreter, without an Orgize runtime, FFI, Tokio or Python boundary.
+
+Twenty-four diagnostic controls emitted 1767 events and entered shared
+procedures 84538 times; frame-start horizontal scanning was entered 4518
+times. Counts identify repeated work, not its uninstrumented wall share.
+Observer intervals include measurement overhead. Publication already uses
+destructive reversal of the request-owned event spine, so proposing ordinary
+=reverse!= as a new allocation optimization would be redundant.
+
+The experimental source-fact cell reuses horizontal start, trimmed end and
+content end only for identical request bytes and bounds. It follows admitted
+state slots without changing their ordinals; state-dependent values and events
+are not cached. Nested clamped successor expressions are collapsed at compile
+time. Six source controls and 100 native differential controls passed.
+
+The observer-free actual-Fold preflight still FAILED: 1000 changing requests
+in 0.201576 s, 4960.908 requests/s, request P95 219 us and P99 361 us; CPU
+0.201187 s and nine collections. Allocation under GC remains unqualified,
+and this receipt has no RSS measurement. This is not an accepted speedup:
+a same-harness old-algorithm control is required before relative claims.
+The baseline is untouched and twenty-batch admission has not started.
+
+A matched resource-controlled old-algorithm preflight measured 0.197398 s;
+the candidate measured 0.195332 s. Request P95/P99 were 227/397 us and
+219/280 us respectively. Process maximum RSS rose from 191987712 to
+192413696 bytes, including retained oracle/input storage, and collections
+rose from seven to eight. These singleton observations do not establish a
+stable benefit. The source-fact cache and successor collapse were conservatively
+rolled back; diagnostic tooling and negative receipts remain. Neither product
+is admitted. The next transformation must address dependency/effect staging
+and shared execution structure rather than promote this small difference.
+
+* Current evidence and boundaries
+
+At parser source =461a4bfe3a0101c42e71327dc372d8fd2ab640e7=, the privately
+compiled actual Org product has 3746 private procedure definitions across its
+generated part files, totalling 2319323 source bytes. This is a static count,
+not a dynamic call count or proof that the procedure split is the bottleneck.
+The source compiler interns code bodies into procedures; it does not generally
+reuse the results of repeated computations at execution time.
+
+The actual changing-input Fold preflight uses three complete Org fixtures and
+an independent interpreted oracle. A fresh control measured 1000 requests in
+0.209919 s, 4763.742 requests/s, request P95 241 us and P99 614 us. Batch wall
+includes sample recording and complete event comparisons; request latency is
+the compiled parser call. Neither boundary includes FFI/Tokio/Python delivery.
+One preflight is not a qualified twenty-batch baseline.
+
+The full pre-encoded-marker/owned-normalization candidate measured 0.216429 s,
+P95 236 us and P99 431 us, and was rejected and rolled back. Its wall was
+3.10% slower in this single comparison. It also included earlier experimental
+byte lowering, so the difference cannot be causally assigned to encoding.
+CPU was 0.215711 s and ten collections occurred. Raw allocation-counter deltas
+under GC are not allocated bytes; no RSS or Rust-capacity benefit was measured.
+The semantic controls passed, but correctness alone did not admit the candidate.
+
+* Official source principles and their application
+
+References are read directly from the installed SDK's =current/src= tree.
+
+| Official owner | Observed mechanism | Required engine application |
+|----------------+--------------------+-----------------------------|
+| gerbil/compiler/optimize.ss | type collection/refinement before optimized calls; SSXI metadata | Preserve admitted argument/result types and optimizer metadata across generated units; inspect generated code before claiming unboxing/inlining |
+| gerbil/runtime/util.ss | constrained inline rules with explicit AST patterns | Specialize bounded pure leaves without indiscriminate whole-grammar expansion |
+| gerbil/runtime/hash.ss | generic tables default to equal?; specialized key families exist | Stable grammar queries must not repeatedly process large structural descriptions; choose the representation before choosing a table |
+| std/string/utf8.ss | typed bounds and official UTF-8 length/encoding primitives | Decode/validate input once at the appropriate owner; retain malformed scalar and boundary rejection |
+| std/io/util.ss and std/io/bio/memory.ss | bulk subu8vector-move! into explicitly owned destination buffers | Fuse known producer/consumer copies where ownership permits; do not expose borrowed mutable buffers |
+
+These observations support design choices, not a speed guarantee. The rejected
+copy candidate demonstrates why fewer allocations alone do not admit a change.
+
+* One request plan, four coordinated transformations
+
+** Experimental execution-plan implementation
+
+Historical experiment only: the lowering integration below has been rolled
+back after the architecture correction; the measured binary is retained as
+negative evidence, not the current ordinary compiler product.
+
+=event-fold-analysis.ss= now summarizes admitted state reads/writes and
+effects, conservatively marking unknown operations, dynamic range errors and
+future-query cache work. Shared scan lowering uses guaranteed evaluation
+dominance inside a single expression, never a request cache or reuse across
+state/bounds/helper changes. Pure necessary byte guards may reject impossible
+branches only when the entire condition is effect-free and total.
+
+The implementation uses installed official =:std/list/list= operations
+=delete-duplicates/hash=, =duplicates= and =append-map= rather than private
+uniqueness/counting/flattening loops. Event runs use the official
+=:std/list/list-builder= at compile time and emit linear =let*= chains,
+preserving offset evaluation, allocation order, zero-token suppression and
+the existing payload ABI. This fuses intermediary emitter calls; it does NOT
+eliminate token payload cells or constitute compact event/sink closure.
+
+Three dependence/effect cases, six source cases, 100 native differential
+controls and 24 full actual-Org/override controls passed. An initial emitter
+duplicated conditional chains, expanding the test source to 6175306 bytes;
+that obsolete compilation was stopped. Linear generation is 279011 bytes
+(the original unoptimized fixture was 200134 bytes). Fixing an experimental
+regression is not a performance improvement over the baseline. This execution
+plan remains experimental pending observer-free actual-Fold admission.
+
+The matched observer-free preflight completed with nonzero exit 70 for BOTH
+control and execution-plan candidate; neither passes admission:
+
+| Metric (1000 changing requests, one batch) | Control | Candidate |
+|------------------------------------------+---------+-----------|
+| Batch wall, ms                           | 218.790 | 216.313   |
+| Throughput, requests/s                   | 4570.593 | 4622.931 |
+| Per-request P95, us                       | 237     | 230       |
+| Per-request P99, us                       | 812     | 507       |
+| Process CPU during batch, ms             | 217.207 | 216.207   |
+| GC count during batch                    | 10      | 10        |
+| Whole-process peak RSS, bytes            | 203063296 | 192905216 |
+
+The approximately 1.1 percent singleton wall difference is not a qualified
+speedup. The 10 ms / 100000 requests/s gate is still failed; no twenty-batch
+matrix, baseline promotion or downstream acceptance follows. RSS includes
+code, retained inputs and independent interpreted oracle preparation, not
+exclusive request allocation or Rust reserved capacity. The raw allocation
+counter deltas (399372032 / 397958912) are not admitted allocated bytes under
+GC. Whole-process walls (50.33 / 50.02 s) include oracle preparation and must
+not be reported as the measured batch wall. Receipts are
+=.fold-value-control/plan-control-resources.log= and
+=.fold-plan-final/real-resources.log=.
+
+** 1. Stage grammar knowledge; preserve execution semantics
+
+Build-time admission should produce dependency/read/write/effect information
+for Fold expressions and transitions. The generated request should consume
+that prepared plan, not repeatedly interpret or structurally hash grammar data.
+Intern equivalent static future-query specifications once into compact product-
+local identifiers; dynamic heading levels remain a separate key component.
+The scope is the request, including nested parse restoration, not a global
+content cache. Different query semantics must never share an identifier.
+
+The present prefix-family lowering already builds a trie for a restricted pure
+alternative family. Extend shared classification only where precedence and
+effect analysis permit it; reuse this facility rather than introduce a second
+dispatcher. Ordered alternatives, state mutation, source-bound changes and
+helper effects must retain their original order.
+
+** 2. Eliminate repeated work, not merely procedure calls
+
+Construct a typed execution DAG with source-only computations separated from
+state-dependent predicates. Compute shared line bounds, whitespace ends,
+prefix classification and other admitted scans once per applicable frame.
+Use dominance and dependency information for reuse; changing start/end,
+helper parameters or a written slot invalidates dependent values. A global
+memo table or text snapshot is not a substitute for this analysis.
+
+Represent small state values in the owning lexical frame when they do not
+escape or cross procedure joins. Keep explicit slots where aliasing is needed.
+Bound specialization by generated size and compilation/retained-code cost;
+making all 3746 procedures inline is not the design. Inspect emitted SSXI/SCM
+and the actual call graph to qualify the intended compiler optimization.
+
+** 3. Fuse event production with its admitted consumer
+
+Current token transitions allocate token lists and an outer event spine;
+later consumers traverse the materialized result. Establish event counts,
+bytes and traversal costs before selecting a representation. Evaluate an
+engine-owned compact event builder consumed directly by publication/projection,
+with immutable kind metadata and request-owned output storage.
+
+Use the existing event/sequence architecture and its ownership contracts; RFCs
+0013 and 0015 already record producer/consumer fusion and slower consumers.
+Do not build a competing event framework or assume a packed representation is
+faster. A changing-input complete-result oracle must compare every event, kind,
+offset, ordering and recovery decision. The old representation may remain a
+test oracle during evaluation, not a permanent second production parser.
+
+Offsets select physical width only after admitted bounds; overflow must reject
+or use an already-supported wider representation, never truncate. Publication
+requires a frozen owner/lease; cancellation, errors and retained results must
+not permit reuse of live mutable storage. No per-token FFI callback is allowed.
+
+** 4. Keep one admitted source representation and bounded storage
+
+Map the full lifecycle: Rust input -> byte ownership/validation -> Fold scans
+-> events -> metadata/projection -> output ownership. Remove only demonstrated
+decode/encode/copy duplicates. Encoding a required result is not redundant.
+Borrowing bytes does not authorize bypassing UTF-8 validation or retaining a
+Rust pointer after its lease. Buffers and pools must have explicit reset,
+retention and high-water policies rather than unconditional worst-case reserve.
+
+Measure Scheme natural GC and Rust live length/reserved capacity together.
+Prefer a supported bulk primitive over hand-written per-byte FFI. Any retained
+memory reduction must be evaluated with CPU, wall and tail latency; lower GC
+without better total cost is not a throughput improvement.
+
+* Attribution before transformation
+
+Use one upstream diagnostic case containing the actual admitted Org Fold
+product; no Rust queues or Python runtime participate in this gate. Count
+dynamic predicate/helper calls, repeated source ranges, future-key lookups,
+index-build visits, emitted events and output bytes. Separate encoding,
+Fold evaluation, future-index construction and event publication intervals.
+Parent/child intervals overlap; never sum them as exclusive costs.
+
+Optional observers are diagnostic-only. Preserve observer-free immutable
+control/candidate executables for admission; do not qualify performance with
+instrumentation enabled or compare incompatible harnesses. Sampling overhead,
+clock resolution, CPU totals and GC counter limitations must be reported.
+Never modify installed SDK/kernel code to add attribution.
+
+* Acceptance order and stop rules
+
+1. Preserve the exact baseline executable, grammar/compiler identities, corpus,
+   SDK, configuration and resource conditions. Rebuild rejected diagnostic
+   libraries before reuse; revision pins alone do not identify loaded code.
+2. Validate complete semantic equality, Unicode/CR/LF/CRLF, malformed UTF-8,
+   empty slices, helper reentrancy, overrides, ownership and overflow paths.
+3. Run the upstream actual-Fold 1000-request preflight. Require at least
+   100000 requests/s and at most 0.010 s batch wall. Reject grossly inadequate
+   candidates before repeating long matrices. Tail values are reported only.
+4. Only after preflight passes, run changing input for twenty batches EACH of
+   1000, 10000 and 100000 requests. Hard walls are 0.010/0.100/1.000 s.
+   Report request P95/P99 in us or ms, batch wall in s, throughput in requests/s,
+   process RSS in MiB, capacity in bytes and explicitly scoped GC/allocation
+   counters. Do not present percentiles of twenty batch totals as request tails.
+5. Reject slower candidates conservatively; retain negative receipts and revert
+   only owned changes. Promote nothing based on a small synthetic grammar,
+   fewer allocations, one faster sample or a compiler flag change.
+6. Admit accepted upstream changes to the existing parser PR, then align
+   immutable GitHub revisions and actual compiled consumers. Qualify Orgize
+   publication/projection, FFI and asynchronous delivery separately. Rust queue
+   concurrency is not Scheme parsing parallelism. Unsupported SMP remains an
+   explicit skip, not a successful acceptance result.
+
+The 100000 requests/s objective gives an inclusive average budget of 10 us per
+request, not a P95/P99 standard. No phase budget or memory limit is silently
+invented. Output size and fixture complexity remain explicit; constant-size
+bridge calls and tiny line grammars cannot satisfy the real workload gate.
+
+* Implementation status
+
+The encoding/copy candidate is rolled back. The whole-plan dependency analysis,
+value-reuse lowering and compact producer/consumer path are proposals, not
+implemented or qualified. The next implementation starts with the upstream
+request plan and attribution, and must justify which transformation addresses
+the measured dominant cost before another downstream acceptance matrix.

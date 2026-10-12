@@ -2,7 +2,20 @@
 ;;; Request source traversal has no grammar/compiler initialization dependency.
 (import (only-in :std/string/utf8 string-utf8-length utf8->string))
 (export fold-source-lines fold-source-byte-lines fold-source-byte-spans
-        fold-source-frame-boundaries! source-line-events line-starts-with?)
+        fold-source-frame-boundaries! fold-source-input-bytes source-line-events line-starts-with?)
+
+;; A call-scoped UTF-8 buffer can drive the same byte Fold without an
+;; encode/decode/encode round trip. Retain official decoder admission: do not
+;; reinterpret arbitrary bytes as valid text or weaken scalar checks.
+;; The caller must not mutate the owned buffer during synchronous traversal;
+;; no body pointer or mutable buffer is retained in published event cells.
+(def (fold-source-input-bytes source)
+  (cond
+   ((string? source) (string->utf8 source))
+   ((u8vector? source)
+    (utf8->string source)
+    source)
+   (else (error "event Fold requires text or UTF-8 byte storage"))))
 
 ;; Generated native products already own the UTF-8 source. Traverse that
 ;; representation once, retaining each frame's bytes instead of encoding its
@@ -31,7 +44,7 @@
               (loop after after (visit start after state)))
             (loop start next state))))))))
 
-;; The native source is string->utf8 output. A nonempty slice of that valid
+;; The source is string->utf8 output or checked UTF-8 input. A nonempty slice of that valid
 ;; buffer is valid UTF-8 iff both ends are character boundaries. Empty slices
 ;; remain valid even inside a codepoint, matching utf8->string of an empty view.
 (def (fold-source-frame-boundaries! bytes from until)

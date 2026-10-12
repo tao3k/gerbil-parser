@@ -2,12 +2,37 @@
 ;;; Build-local interning of code, never memoization of request values.
 (export current-fold-scheme-counter current-fold-scheme-prefix
         current-fold-scheme-expressions current-fold-scheme-definitions
+        current-fold-scheme-diagnostics current-fold-scheme-idle-plan fold-scheme-observed
+        current-fold-scheme-tape-kinds current-fold-scheme-effect-only fold-scheme-event
         fold-scheme-fresh-name fold-scheme-share-expression fold-scheme-share-statements)
 
 (def current-fold-scheme-counter (make-parameter 0))
 (def current-fold-scheme-prefix (make-parameter 'native))
 (def current-fold-scheme-expressions (make-parameter #f))
 (def current-fold-scheme-definitions (make-parameter '()))
+(def current-fold-scheme-diagnostics (make-parameter #f))
+(def current-fold-scheme-idle-plan (make-parameter #f))
+(def current-fold-scheme-tape-kinds (make-parameter #f))
+(def current-fold-scheme-effect-only (make-parameter #f))
+(def (fold-scheme-event tag (kind #f) (from 0) (until 0))
+  (let (kinds (current-fold-scheme-tape-kinds))
+    (if kinds
+      (case tag
+        ((finish) '(fold-tape-finish! events))
+        (else
+         (let (entry (assq kind kinds))
+           (unless entry (error "missing compiled Fold kind" kind))
+           (if (eq? tag 'start) `(fold-tape-start! events ,(cadr entry))
+             `(fold-tape-token! events ,(cadr entry) ,from ,until)))))
+      (case tag
+        ((finish) '(set! events (cons '(finish) events)))
+        ((start) `(set! events (cons '(start ,kind) events)))
+        ((token) `(set! events (cons (list 'token ',kind ,from ,until) events)))))))
+(def (fold-scheme-observed name code)
+  (case (current-fold-scheme-diagnostics)
+    ((counts) `(begin (fold-cost-count! ',name) ,code))
+    ((#f) code)
+    (else `(call-with-fold-cost ',name (lambda () ,code)))))
 
 (def (fold-scheme-fresh-name prefix)
   (let (ordinal (current-fold-scheme-counter))
@@ -71,7 +96,7 @@
                          (current-fold-scheme-definitions
                           (cons `(def (,name source-bytes start end slots
                                             ,@(if statements? '(events) '()) ,@formals)
-                                   ,normalized)
+                                   ,(fold-scheme-observed name normalized))
                                 (current-fold-scheme-definitions)))
                          name)))
             `(,name source-bytes start end slots
@@ -82,7 +107,12 @@
   (share-code code bindings indices #f))
 
 (def (fold-scheme-share-statements statements bindings indices)
-  (let* ((code `(begin ,@statements events))
+  ;; A direct tape is a private mutable owner. Internal transitions need no
+  ;; owner-valued result: publication and the outer source fold retain it.
+  ;; Keep list-producing Fold's result threading unchanged.
+  (let* ((effect-only? (and (current-fold-scheme-tape-kinds)
+                           (current-fold-scheme-effect-only)))
+         (code (if effect-only? `(begin ,@statements) `(begin ,@statements events)))
          (shared (share-code code bindings indices #t)))
     (if (eq? code shared) statements
-      (list `(set! events ,shared)))))
+      (list (if effect-only? shared `(set! events ,shared))))))

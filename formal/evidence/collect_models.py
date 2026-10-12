@@ -17,7 +17,7 @@ def collect(root: Path):
     if not dependency.is_dir():
         raise RuntimeError("prepare the locked Lean dependency with just formal first")
     policy_inputs = ("formal/evidence/parser_evidence.py", "formal/evidence/collect_models.py",
-                     "formal/evidence/requirements.txt")
+                     "formal/evidence/pyproject.toml", "formal/evidence/uv.lock")
     checks = (
         Check("lean-model", ("lake", "build"), lean_inputs + policy_inputs,
               ("Build completed successfully",), cwd="formal"),

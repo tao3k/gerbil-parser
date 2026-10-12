@@ -1,0 +1,11 @@
+[project]
+name = "parser-evidence"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["ascent-test-support", "cffi==2.1.1", "pycparser==3.11"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+ascent-test-support = { git = "https://github.com/tao3k/gerbil-ascent.git", rev = "0ea9d96dda03b620edebc5930410bcd060529c54", subdirectory = "python" }

@@ -35,12 +35,17 @@ jobs:
           test: false
           lint: false
           use-mathlib-cache: false
+      - name: Set up uv
+        if: matrix.lane == 'contracts'
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.11.3'
       - name: Verify publication model and evidence host controls
         if: matrix.lane == 'contracts'
         run: |
           npm ci --ignore-scripts --prefix formal/quint
           npm --prefix formal/quint test
-          cd formal/evidence && python3 -m unittest test_parser_evidence.HostControls -v
+          uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -k HostControls -v
       - name: Identify Rust toolchain
         id: rust-version
         run: echo "version=$(rustc -Vv | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"

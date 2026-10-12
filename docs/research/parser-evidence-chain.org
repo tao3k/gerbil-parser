@@ -31,7 +31,7 @@ Those local study files are not imported or copied into the parser runtime.
 
 The reusable implementation is
 [[https://github.com/tao3k/gerbil-ascent/blob/0ea9d96dda03b620edebc5930410bcd060529c54/python/src/ascent_engine/review.py][gerbil-ascent's pinned EvidenceReview]]. Its Python binding delegates relational
-execution to the native Scheme engine. =formal/evidence/requirements.txt=
+execution to the native Scheme engine. =formal/evidence/pyproject.toml= and =uv.lock=
 pins that source revision and runtime Python dependencies. The ABI library
 remains an upstream build product: this repository checks its sidecar ABI and
 library SHA256 before loading it, then records the artifact, sidecar and Python
@@ -132,16 +132,15 @@ From the repository root:
 just formal
 npm ci --ignore-scripts --prefix formal/quint
 just formal-protocol
-uv venv .data/parser-evidence-venv
-uv pip install --python .data/parser-evidence-venv/bin/python -r formal/evidence/requirements.txt
+uv sync --project formal/evidence --locked
 #+end_src
 
 Select an upstream-built native ABI artifact and its adjacent JSON receipt
 through =ASCENT_ENGINE_LIBRARY=. With the prepared environment:
 
 #+begin_src sh
-.data/parser-evidence-venv/bin/python -m unittest discover -s formal/evidence -v
-.data/parser-evidence-venv/bin/python formal/evidence/collect_models.py
+uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -v
+uv run --project formal/evidence --locked python formal/evidence/collect_models.py
 #+end_src
 
 The collector executes real Lean and Quint commands and sends their saved

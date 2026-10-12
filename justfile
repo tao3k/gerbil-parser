@@ -202,10 +202,10 @@ formal:
 
 # Native ASCENT is supplied by its upstream build owner, never rebuilt here.
 evidence-controls:
-    python3 -m unittest discover -s formal/evidence -v
+    uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -v
 
 evidence-models:
-    python3 formal/evidence/collect_models.py
+    uv run --project formal/evidence --locked python formal/evidence/collect_models.py
 
 formal-protocol:
     npm --prefix formal/quint test

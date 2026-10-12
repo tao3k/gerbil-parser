@@ -40,8 +40,7 @@
         (check (and bridge #t) => #t)
         (check (cadr (member 'depend: (call-with-input-string package-source read)))
                => (list "github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
-                         "github.com/tao3k/asp-gerbil-scheme@v0.1.2.2"
-                         (string-append "github.com/tao3k/gerbil-scheme-rust@" (cadr bridge))))
+                         "github.com/tao3k/asp-gerbil-scheme@f5b7c009d2cab61144a8af18008a0bfba3056584"))
         (check (string-contains library-source
                                 "(exe: \"src/main\"")
                => #f)

@@ -1,324 +1,142 @@
 #+title: gerbil-parser
 
-=gerbil-parser= is a Gerbil-owned programmable syntax engine built on hygienic
-macros, POO composition, parser-flow normalization, and AOT-compiled parser
-artifacts.  The optional Rust product executes those same immutable
-Parser IR tables without running Scheme at parse-request time.
+A programmable syntax engine in Gerbil Scheme, with declarative language packs,
+lossless parse artifacts, and Rust integration.
 
-The language-neutral compiler and runtime live under =src/=.  Their public
-language-import API is the top-level =language-support.ss= facade beside
-=build.ss=, so package imports do not expose the physical =src/= directory.
-Its implementations live under the top-level =language-support/=.  Bundled and downstream language packs live under
-=languages/<language>/=. The authoring target is three Scheme interfaces:
-=grammar.ss= for declarations/metadata/fixtures, =parser.ss= for the public POO
-loader and parse entry, and =parser-test.ss= for regression tests. Version and
-source digests belong to loader metadata, not directory or module names.
-Remaining procedural language modules are tracked in the closure roadmap.  POO and =poo-flow=
-are used only while compiling grammar object graphs; generated parser hot paths
-do not perform dynamic POO dispatch.
+Languages declare syntax and metadata; the engine owns scanning, grammar
+normalization, LR construction, parsing and result publication. Hygienic macros
+and POO prototypes provide constrained extension points. Gerbil remains the
+compiler authority for generated Rust products.
 
-The repository owns the generic Rust runtime and generated language
-products under =rust/=.  Downstream repositories consume these products rather
-than rebuilding ParseArtifact-to-extra tree sinks.  Gerbil remains the sole grammar,
-normalization, conflict-resolution, and table-generation authority.  The first
-executable reference grammar proves both the pure Scheme runtime and the
-Rust AOT path from the same immutable Parser IR.
+This is an active implementation and research project. Supported syntax and
+portable products are qualified per language and target; a shared authoring
+interface does not imply complete language coverage or backend parity.
 
-* Optional library actors and language benchmarks
+* Language authoring
 
-=parser-actor-support.ss= is the public facade for explicitly created local
-Gerbil actors. Applications own worker count and lifecycle; imports start no
-background service. =spawn-parser-actor= accepts an already prepared machine,
-=parser-actor-parse= returns the same lossless artifact as synchronous parsing,
-and =parser-actor-stop!= joins the worker. Timeout bounds reply waiting rather
-than preempting an active parse. Keep the shared machine immutable after
-initialization; actor scheduling does not change the LR algorithm.
+A language pack exposes three Scheme interfaces:
 
-GQL owns its performance contract, semantic profiling tests, component controls
-and actor request benchmarks beside its parser under
-=languages/gql/=. See
-[[file:t/benchmarks/gql/README.org][GQL benchmark commands and measured cost boundaries]].
-=just benchmark-gql= reports CPU/wall P50/P95, GC and allocation;
-=just benchmark-gql-actors= reports separate concurrent request batch costs.
+| File | Responsibility |
+|------+----------------|
+| =grammar.ss= | Declarative syntax and pinned grammar resources |
+| =parser.ss= | Production POO Loader, metadata and parse entry |
+| =parser-test.ss= | Development Loader, fixtures and declarative conformance tests |
 
-* Declarative language tests
+Grammar sources and corpus files remain resources beside these interfaces.
+Versions, contracts and source digests belong to metadata, not versioned module
+names. Scanner implementations, parser state and C/Rust bridge code belong to
+the engine.
 
-=:gerbil-parser/language-test-support= publishes =deflanguage-parser-tests=.
-The test declaration names a POO loader and syntax obligations. The engine owns
-parser invocation, artifact validity, acceptance, lossless source and digest
-checks; the =fixtures= clause runs the loader's named fixture service and checks
-its results. Test imports do not start actors or change the loader schema.
+For example, a small identifier language declares its syntax in =grammar.ss=:
 
 #+begin_src scheme
-(import :gerbil-parser/language-test-support ./parser)
-(deflanguage-parser-tests example-parser-test "Example syntax"
-  (loader example-language)
-  (identity "identity" (language "example") (version "v1"))
-  (fixtures "declared corpus")
-  (accepted "nested expression" "(1)" (nodes Expression))
-  (rejected "missing delimiter" "(1" (diagnostics)))
+(import (only-in :gerbil-parser/language-support/grammar deflanguage))
+(export example-syntax)
+
+(deflanguage example
+  (syntax
+    (lexical
+      (root name)
+      (lex (identifier Identifier (identifier)))))
+  (rules (name (node Name (field value identifier)))))
 #+end_src
 
-Accepted/rejected collections, token and node kinds/counts, exact ASTs and
-projection values are closed test clauses. Unknown clauses, duplicate labels,
-empty assertions and malformed expectations reject during expansion. A
-=property= extension has explicit local =bindings= and =equal= assertions;
-it supports implementation-specific receipts/projections, not arbitrary
-=test-case= bodies. Loader, source and parser are evaluated once per obligation.
-See [[file:docs/architecture/0018-downstream-language-products.org][the downstream extension guide]]
-for the full syntax and migration boundary.
-
-* Shared contextual scanner and language C products
-
-=:gerbil-parser/rust-runtime-support= exports
-=generate-contextual-language-rust-runtime-module output descriptor product=.
-The generated =CONTEXTUAL= value runs with
-=gerbil_parser_runtime::parse_contextual(&CONTEXTUAL, source)=; both LR positions
-and deferred scanner state come from shared Scheme IR.
-
-=:gerbil-parser/language-abi-support= exports
-=generate-language-pack source header module-id grammar-module descriptor-export c-prefix [contextual-export]=.
-Compile its Scheme output through the normal native builder; C clients call
-the generated =PREFIX_language_create()= then the generic length-bearing
-=gerbil_parser_language_parse(handle, bytes, length, result)= in
-=include/gerbil-parser/language.h=. The embedding host initializes the Gerbil
-runtime; calls belong to its owner thread. See RFC 0018 for lifecycle boundaries
-and the independent Records example.
-
-* Rust AOT product
-
-=src/compiler/rust-runtime.ss= lowers canonical Parser IR v1 to immutable Rust
-tables.  =rust/gerbil-parser-runtime= owns their generic lexer/LR executor,
-lossless source-range indexing, diagnostics, and source/grammar-bound
-receipt.  Generated modules are ordinary Cargo source artifacts; downstream
-parse requests do not initialize Gambit and do not interpret Scheme.
-
-The arithmetic v1 reference grammar and ISO/IEC 39075:2024 GQL are generated
-products.  The generic runtime closes deterministic LALR and bounded
-selective-GLR execution, the closed native lexical algebra, dynamic precedence,
-equivalent-completion merging, trivia-preserving byte roundtrip, and
-fail-closed ambiguity rejection.  The pinned 14-source OpenGQL corpus is the
-first GQL admission gate.  Pinned external scanners, recovery parity,
-generated field accessors, and wider differential corpora remain explicit
-downstream-cutover gates; directory presence alone does not claim them.
-
-** POO graph-query extension
-
-=graph-query-support.ss= admits a language-owned POO graph view and constructs
-one native query context with indexed record identities. Its generic map,
-lineage, and scoped =any=/=at=/=child-of=/=descendant-of= selection take a
-language-owned predicate; graph traversal does not interpret Org fields or
-Contract assertions. The Cargo-only counterpart is the reusable
-=GraphIndex= / =GraphRelation= API in =gerbil-parser-runtime=. A downstream
-language supplies its own property semantics and AOT query declarations while
-reusing these graph operations; neither API parses source a second time.
-
-** Rust consumer contract
-
-An upstream-maintained language is a generated Rust crate layered over the
-small generic runtime. A Rust consumer imports its =LANGUAGE= value (or its
-convenience =parse= function); it does not rebuild a lexer, precedence table,
-extra tree sink, or ParseArtifact adapter, and a custom DSL does not compile the GQL
-tables:
-
-#+begin_src rust
-use gerbil_parser_runtime_gql::LANGUAGE;
-
-let parsed = gerbil_parser_runtime::parse(&LANGUAGE, source)?;
-let root = parsed.syntax();
-#+end_src
-
-A downstream custom DSL follows the same =languages/<dsl>/<version>/grammar.ss=
-contract. The complete pack keeps =grammar.ss=, =parser.ss=, =fixtures.ss=,
-=parser-test.ss=, and its native =corpus/= together; the Rust product is a
-projection of that same declared language, not a separate grammar. A direct
-custom grammar imports only the narrow authoring facade:
+Its =parser.ss= publishes the entry through the Loader:
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/rust-runtime-grammar-support deflanguage))
+(import (only-in :gerbil-parser/language-support/entry
+                 deflanguage-parser-loader)
+        ./grammar)
+(export example-language parse-example)
+
+(deflanguage-parser-loader example-language
+  (grammar example-syntax)
+  (parse parse-example)
+  (slots metadata: '((language . "example")
+                    (version . "v1")
+                    (contract . "example.syntax.v1"))))
 #+end_src
 
-Repository-owned generation may import the grammar binding and the public
-=:gerbil-parser/rust-runtime-support= facade, then emit an ordinary Rust module:
+The Loader is a POO object. Inheritance, value overrides and extension contracts
+are admitted before publishing the parse entry. Fixture values are ordinary
+slots; the engine owns evaluation, catalog construction and service binding.
+=deflanguage-parser-tests= constrains test declarations and checks acceptance,
+lossless source, identities and structural expectations.
 
-#+begin_src scheme
-(import :gerbil-parser/rust-runtime-support
-        :my-dsl/languages/example/v1/grammar)
+See the [[file:languages/README.org][language authoring guide]] and
+[[file:docs/architecture/0018-downstream-language-products.org][downstream product guide]] for development Loaders,
+POO extensions, fixtures and product generation.
 
-(generate-language-rust-runtime-module
- "src/generated/example_v1.rs"
- example-v1-language-grammar)
-#+end_src
+* Execution and integration
 
-The generated module is compiled into the downstream Rust crate and executes
-without Gerbil, Python, a subprocess, or a runtime grammar interpreter.  Gerbil
-is the AOT grammar/compiler authority; Cargo consumers depend only on the Rust
-engine and their generated module.
+| Product | Execution boundary |
+|---------+--------------------|
+| Scheme library | Prepared engine parser returns a lossless ParseArtifact |
+| Independent Rust AOT | Generated immutable scanner/parser tables run in the generic Rust runtime; no Scheme VM at request time |
+| C ABI and Rust FFI | A reusable Gerbil runtime and language handle execute Scheme parsing; Rust owns result buffers and borrows indexed views |
 
-Rust-driven authoring uses the same authority through the dedicated build-only
-=gerbil_parser_runtime_compile= ABI. Build Support passes a =grammar.ss= path to
-the precompiled Gerbil generator, receives the existing Rust backend
-output as owned bytes, and writes it into Cargo's =OUT_DIR=. It does not parse
-Scheme or rebuild Grammar IR/LR tables in Rust, and the parse-time dependency
-still contains only the AOT engine plus generated tables. The generator is a
-separate native product; the Cargo-only authoring claim remains open until that
-product can be distributed and used on admitted Linux and macOS targets
-without a Gerbil installation.
-The same owner is exposed as the =gerbil-parser-runtime-aot= executable for
-standalone bundle qualification; it initializes Gerbil's expander internally
-and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
-Its =defbuild-script= declaration projects a public ASP Building API package
-spec into std/make, so the declared Scheme module graph and native TLS options
-remain ordinary build data instead of a release script tracing and copying
-Gerbil's mutable object cache. CI executes the result under =env -i= with no
-Gerbil command on =PATH= and explicit expansion-metadata roots. Packaging
-those immutable interfaces with the executable remains a release boundary;
-runtime object-cache reconstruction is gone.
+Parse artifacts preserve source text, syntax structure and spans, with source
+and grammar identities. The artifact is the shared publication boundary for
+traversal and downstream tooling.
 
-=t/fixtures/runtime-record-assignments= is the executable consumer contract. It has
-no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
-Upstream generation CI verifies its Scheme source pack and checks the
-committed Rust module through the public AOT facade. The independent Cargo
-workspace then compiles and tests that module for lossless indexed structure,
-receipts, and typed rejection using only the Rust runtime dependency.
+The language-independent C ABI initializes the runtime once and reuses handles
+across requests. Its optional Rust Tokio integration queues requests to a
+persistent Scheme owner thread. Applications own queue limits and lifecycle.
+See [[file:rust/gerbil-parser-ffi/README.org][Rust FFI and Tokio ownership]] and
+[[file:rust/gerbil-parser-artifact/README.org][Rust artifact admission and navigation]].
 
-After building the Gerbil package, regenerate and verify the committed module:
+Independent AOT uses the same admitted Grammar/Parser IR through a separate
+product gate. It does not automatically support every Scheme source parser or
+POO policy. See [[file:docs/architecture/0006-rust-aot.org][Rust AOT design]] and the
+[[file:t/fixtures/runtime-record-assignments/README.org][standalone record-language consumer]].
+
+* Build and try
+
+Use the repository's Gerbil SDK environment and dependencies pinned in
+=gerbil.pkg=. Scheme compilation uses the SDK's GCC configuration.
 
 #+begin_src sh
-gerbil env gxi generate-rust-runtime.ss \
-  build-support/gerbil-parser-build-support/tests/fixtures/generated/arithmetic.rs
-cargo fmt --all
-cargo test --workspace --locked
-cargo test --release -p gerbil-parser-build-support --test performance_test -- \
-  --ignored --nocapture --test-threads=1
-#+end_src
-
-The workspace =Build Support= crate owns shared policy and Scenario macros.
-Its ASP Rust packages are =dev-dependencies=, and the ASP-backed policy and
-performance targets live in that crate's =tests/= directory. Other packages
-depend only on Build Support for dependency-free test helpers.
-=cargo test -p gerbil-parser-build-support --test asp-rust-gate= activates the
-=Dev Gate= once in the development workspace.
-The gate runs in =deny= mode, so every ASP Rust warning or error is
-test-blocking. CI runs that target separately with =--nocapture= so policy
-diagnostics remain visible instead of being hidden by libtest output capture.
-Immutable language-crate tables are compiler output verified against Grammar IR
-in native CI; policy governs their generator and handwritten runtime owners.
-Normal and build dependency graphs do not contain ASP Rust.
-
-* Native command
-
-=build.ss= is the package AOT entry. It discovers and installs the reusable
-library, runtime ParseArtifact FFI, and build-only Rust generator FFI as
-separate products without forcing downstream library consumers to compile a
-command they do not use. =build-gparse.ss= is the sibling first-party
-=defbuild-script= entry for the optional native =gparse= command; it adds no
-second command implementation or package scheduler.
-=build-rust-runtime-aot.ss= independently materializes the build-time
-=gerbil-parser-runtime-aot= executable.
-
-#+begin_src sh
+gxpkg deps --install
 GERBIL_BUILD_CORES=12 gerbil build
 GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
-GERBIL_BUILD_CORES=12 gerbil env gxi build-rust-runtime-aot.ss compile
-gparse help
-gparse check "1 + 2 * value"
+.gerbil/bin/gparse help
+.gerbil/bin/gparse check "1 + 2 * value"
 #+end_src
 
-The package manager exposes its native binary directory on =PATH= for the bare
-command. Before package activation, the same native artifact can be invoked
-directly from that standard build directory; the repository does not own a
-second shell launcher.
+The command is an optional consumer of the library. It does not own a separate
+parser implementation. Rust workspace checks run with:
 
-=src/main.ss= owns only =:std/getopt= declarations and dispatch.
-=src/cli.ss= is the thin command adapter.  Grammar compilation, lexing, parsing,
-ParseArtifact events, and diagnostics remain in their library owners.
-
-* Package layout
-
-The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
-grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
-small performance-sensitive parser functions. The grammar authoring
-boundary is the top-level =language-support.ss= facade; its re-exported
-=deflanguage-grammar= macro expands
-one declaration into the grammar object, canonical Parser IR, native machine,
-and immutable language descriptor.  General list utilities stay at the package
-utility boundary rather than becoming parser-module miscellany.
-
-A supported language uses one colocated package surface:
-
-#+begin_src text
-languages/hcl/
-  grammar.ss
-  parser.ss
-  fixtures.ss
-  parser-test.ss
-  corpus/
+#+begin_src sh
+cargo test --workspace --all-features --locked
 #+end_src
 
-=grammar.ss= owns the versioned identity and one =deflanguage-grammar= or
-=deflanguage-antlr4-grammar= declaration.  =parser.ss= uses
-=deflanguage-parser-loader= with that descriptor to
-generate the public parse function; it cannot repeat or replace the identity,
-contract, or machine.  Fixtures and tests never move into =src/= and do not
-enter the =gparse= executable closure.
-=defsyntax-corpus= declares all files in one expansion-time manifest.  The HCL
-pack vendors all 15 raw =.hcl= inputs from the v2.24.0 official specsuite.  The
-GQL pack pins OpenGQL grammar 1.9.0 by commit and SHA-256 digest, validates all
-1,018 source rules, and AOT-materializes all 574 parser rules with 444 lexer or
-fragment rules.  Its 14 upstream sample programs then prove typed terminals,
-structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
+Native Scheme, generated products and real C/Rust hosts have separate
+qualification lanes. See the [[file:docs/architecture/qualification.org][qualification guide]] for their commands and
+[[file:.github/workflows/ci.yml][CI entrypoint]] for the current job graph.
 
-Grammar-source formats are language-neutral engine adapters.  ISO WG3 BNF,
-ANTLR4 source admission, and fixture/corpus declaration machinery are internal
-to =language-support/= and exported through
-=:gerbil-parser/language-support=.  A language pack only
-selects a pinned source and declares its versioned lowering under
-=languages/<language>/<version>/=.  The openCypher 2024.1 pack validates and
-structures all 352 productions from the official BNF.  Exact-source overlays
-right-factor the result-statement path, normalize nullable prefixes and
-qualified references, and remove duplicate list/map constructor parses without
-mutating the pinned source.  The commit-bound TCK syntax audit expands 3,897
-queries from 220 feature files: all 3,298 expected-success or runtime-error
-queries are accepted with byte-exact roundtrip, while the remaining 39 parser
-rejections are compile-error cases.  This closes syntax acceptance for that
-manifest; it does not claim execution or semantic-result conformance.
+* Reference languages and implementation boundaries
 
-The TLA+ =v1= pack exercises the same native generation path for module
-envelopes, declarations, structured precedence expressions, conditionals,
-quantifiers, collections, function constructors, theorem lines, comments, and
-nested block comments.  Its syntax authority is the native
-=TLAPlusGrammar= in chapter 15 of /Specifying Systems/; the official SANY
-=tla+.jj= source at release =v1.7.4= is pinned for executable conformance.  It
-does not enter the runtime or replace the Gerbil parser engine.  The pack also
-pins a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
-repository.  The pinned 99-production SANY inventory is admitted at expansion
-time, while malformed recognized syntax fails closed without an unknown-token
-fallback.  The optional =qualification.ss= boundary composes that native
-syntax admission with the official external TLC executable and returns one
-typed Gerbil receipt binding source, configuration, tool and state-space
-identities.  TLC remains the model-checking authority and is never copied into
-the parser engine; a syntax rejection stops before TLC is launched.  PlusCal,
-proof syntax, multiline layout, and the full official
-syntax corpus remain explicit future contracts.
+The builtin packs are Arithmetic, Bash, HCL, HL7, FHIRPath, openCypher, GQL and
+TLA+. All use the three-interface authoring boundary. Their syntax coverage,
+source admission and portable capabilities differ; consult the
+[[file:languages/README.org][per-language status]] before selecting a product.
 
-* Architecture RFCs
+Bash currently uses the shared Scheme source engine. Complete standalone Bash
+Command/Source AOT remains open. Scheme-only CST policies also require a shared
+representation and parity evidence before independent Rust execution.
 
-- =docs/architecture/0001-parser-compiler.org= fixes the pure Gerbil/AOT
-  authority boundary.
-- =docs/architecture/0002-typed-structural-algebras.org= defines distinct
-  LexicalExpr, GrammarExpr, QueryPattern, and ProjectionPlan feature contracts.
-  The current implementation admits LexicalExpr v1 and the canonical
-  generic hygienic GrammarExpr machine plus fixed HCL v2.24.0 and ISO/IEC
-  39075:2024 reference contracts; later features require independent executable
-  evidence rather than directory presence.
-- =docs/architecture/0003-parse-artifact.org= establishes ParseArtifact v1 as
-  the sole parse publication, with lossless CST events and replay-only sinks.
-- =docs/architecture/0004-versioned-language-contracts.org= defines fixed HCL
-  v2.24.0 and ISO/IEC 39075:2024 conformance identities plus the public
-  downstream DSL grammar boundary.  =defsyntax-fixture= embeds versioned native
-  syntax files at macro expansion, while =defsyntax-corpus= owns multi-file
-  manifests, so downstream conformance tests and
-  benchmarks share one declarative source contract without runtime file I/O.
-- =docs/architecture/0006-rust-aot.org= keeps =grammar.ss= authoritative
-  while publishing reusable Rust parser and indexed CST products.
+* Research and performance evidence
+
+Research informs executable engine changes and matched benchmarks. Performance
+claims apply to the measured workload, runtime and control, rather than every
+language or a general comparison with tree-sitter.
+
+- [[file:docs/research/README.org][Research map and reproduction commands]]
+- [[file:docs/research/upstream-bridge-tokio-admission.org][Complete Rust request CPU evidence]]: ASCII and Unicode 64-record requests
+  through Tokio, FFI, Scheme scanning/LR parsing, publication and Rust admission;
+  includes controls, rejected experiments and the qualified comparison scope.
+- [[file:docs/research/parser-engine-formal-model.org][Parser engine formal model]] and
+  [[file:docs/research/parser-evidence-chain.org][evidence chain]]: model-level obligations and their connection to native
+  observations, with explicit proof boundaries.
+- [[file:docs/architecture/0001-parser-compiler.org][Compiler architecture]] and
+  [[file:docs/architecture/0003-parse-artifact.org][ParseArtifact design]]

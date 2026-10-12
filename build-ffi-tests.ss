@@ -18,7 +18,12 @@
       "lib/gerbil-parser/src/ffi/rust-aot-abi~0.o1"))
    ;; ELF resolves each loadable module's native references independently.
    ;; The generated language entry calls the runtime owner-thread guard.
+   (compiled-spec "t/fixtures/contextual-result-selection")
+   (compiled-spec "t/fixtures/lr-action-selection")
+   (compiled-spec "t/fixtures/shared-scanner/records-engine-control")
    (compiled-spec "t/fixtures/shared-scanner/records-abi"
+    '("lib/gerbil-parser/src/ffi/language-abi~0.o1"))
+   (compiled-spec "t/fixtures/shared-scanner/records-engine-abi"
     '("lib/gerbil-parser/src/ffi/language-abi~0.o1"))
    (compiled-spec "t/fixtures/ffi/language-probe"
     '("lib/gerbil-parser/src/ffi/language-abi~0.o1"
@@ -26,5 +31,4 @@
    (compiled-spec "t/benchmarks/source-edits/abi-call"
     '("lib/gerbil-parser/src/ffi/language-abi~0.o1"))
    (compiled-spec "t/benchmarks/source-edits/benchmark")
-   (compiled-spec "t/fixtures/contextual-result-selection")
    (compiled-spec "t/benchmarks/language-abi/utf8-cpu")))

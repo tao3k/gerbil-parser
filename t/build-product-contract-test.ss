@@ -3,6 +3,7 @@
 
 (import (only-in :std/misc/ports read-all-as-string)
         (only-in :std/test check test-case test-suite)
+        (only-in :std/text/pregexp pregexp-match)
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities)
         (only-in :gerbil-parser/src/build-support/rust-runtime-aot
@@ -16,7 +17,9 @@
 (def build-product-contract-tests
   (test-suite "build product ownership"
     (test-case "default package build excludes optional commands"
-      (let ((library-source
+      (let* ((cargo-source (call-with-input-file "Cargo.toml" read-all-as-string))
+             (bridge (pregexp-match "gerbil-scheme-rust-ir = [^\n]*rev = \"([0-9a-f]{40})\"" cargo-source))
+             (library-source
              (call-with-input-file "build.ss" read-all-as-string))
             (package-source
              (call-with-input-file "gerbil.pkg" read-all-as-string))
@@ -34,10 +37,11 @@
                                      "\"src/ffi/rust-runtime-aot-main.ss\"")
                     #t)
                => #t)
+        (check (and bridge #t) => #t)
         (check (cadr (member 'depend: (call-with-input-string package-source read)))
-               => '("github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
-                    "github.com/tao3k/asp-gerbil-scheme@v0.1.2.2"
-                    "github.com/tao3k/gerbil-scheme-rust@724d8cb10cde0dd936c0aae523a6186b986f606b"))
+               => (list "github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
+                         "github.com/tao3k/asp-gerbil-scheme@v0.1.2.2"
+                         (string-append "github.com/tao3k/gerbil-scheme-rust@" (cadr bridge))))
         (check (string-contains library-source
                                 "(exe: \"src/main\"")
                => #f)

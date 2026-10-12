@@ -3,3 +3,7 @@
 mod probe;
 #[path = "../tests/unit/source_probe.rs"]
 mod source_probe;
+
+#[cfg(feature = "tokio")]
+#[path = "../tests/unit/tokio_cpu.rs"]
+mod tokio_cpu;

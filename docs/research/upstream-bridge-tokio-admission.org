@@ -94,3 +94,155 @@ Tokio process completed its 32 full requests, rejection and retained-view checks
 with =RUST-TOKIO-HOST-OK= in 0.332 seconds total process wall time. This is a
 functional receipt, not a matched CPU performance result. Native SDK linking
 required the local OpenSSL library search path; no compiler was replaced.
+
+* Complete Rust request CPU qualification
+
+The Rust consumer now exercises the same independent former scanner/LR kernels
+as the Scheme engine benchmark. A test-only factory prepares the reference
+context, preserving the generated direct reduction step and descriptor identity.
+Both handles live on the same Tokio owner; a benchmark-only routing wrapper
+selects the handle without modifying the production parser or scheduler.
+Both sides use the current upstream UTF-8 encoder and GPA1 row writer.
+
+Every timed request includes Rust source ownership, bounded Tokio admission,
+oneshot completion, C ABI parsing, canonical UTF-8 admission, scanner/LR,
+complete semantic publication, a Rust-owned GPA1 snapshot, C result release,
+full Rust artifact admission, event-count and root traversal and final Rust result drop.
+The source contains 64 assignments: 256 ASCII or 320 Unicode bytes. Every
+accepted payload contains 15,488 bytes, 642 events and 64 root children.
+Complete byte parity also covers empty, rejected and Unicode quoted inputs.
+
+CPU is process user plus system time from =getrusage(RUSAGE_SELF)=, including
+the owner thread, Tokio caller and natural Scheme GC. VM/library startup and
+producer compilation are outside timing. No timed GC is excluded, no sample is
+dropped, and no per-request observer changes the runtime schedule.
+
+The production fixture uses the workspace's release policy: optimization level
+3, thin LTO and overflow checks enabled. The current workload has one owner and eight closed-loop async callers on one
+Tokio executor, with a bounded queue of four. This measures concurrent admission
+and complete requests, not parallel Scheme execution.
+Each of the before, production and after phases has 20 groups. A group has eight
+alternating ABBA/BAAB legs, 128 requests per leg and four legs per side, matching
+the Scheme Benchmark protocol. Each batch must resolve at least one millisecond.
+Nearest-rank P10/P50/P90 use every group. Before/after P10 must be at least 0.90
+and P90 at most 1.10; production P90 must be strictly below 0.95.
+
+** Rejected exploratory receipts
+
+The initial debug run used 64 calls and only two single-batch controls per group.
+Before P10/P90 was 0.716998/1.110200; production P50/P90 0.899910/1.128070;
+after P10/P90 0.870028/1.056283. It was rejected.
+
+Increasing that exploratory debug batch to 512 calls did not admit a benefit:
+before P10/P90 0.856625/1.128430, production P50/P90 0.903464/0.998036,
+after P10/P90 0.756212/1.067461. It was rejected.
+
+Release with the same exploratory control layout produced P50/P90
+0.810413/0.937457, but before P10/P90 0.765034/1.164918 and after P10/P90
+0.774124/1.178976 were unstable. It was also rejected. The final protocol fixes
+the unequal control sampling to match Scheme Benchmark's four-batch-per-side
+sums; it does not relax any acceptance threshold.
+
+** Reproduction and scope
+
+Set =GERBIL_PARSER_RUST_CPU_PROOF=1= and run =gerbil env gxi qualify.ss host=.
+The existing producer owner builds one Scheme library and one release Rust
+consumer, then reuses the same linked host for lifecycle and both CPU processes.
+Build/link and execution retain their existing 90-second limits; execution
+retains a five-second idle limit with real completed-batch output.
+Linux CI applies =taskset= only to the CPU host processes, preserving producer
+build parallelism. The full manual Linux workflow enables both CPU proofs;
+ordinary lifecycle qualification continues using its debug build.
+
+This qualifies whether the earlier scanner/LR algorithm benefit reaches complete
+Rust Tokio/FFI requests. It must not be reported as an incremental benefit from
+the latest upstream revision, or as a Tokio scheduler optimization.
+
+The first eight-leg release run remained rejected: before P10/P90
+0.914546/1.117402, production P50/P90 0.843691/0.922004, after P10/P90
+0.842646/1.175472. Neither production ratios nor profile changes excuse an
+unstable control. A subsequent controlled Darwin experiment explicitly sets
+and verifies the same =QOS_CLASS_USER_INTERACTIVE= request on the caller and
+owner threads before warmup. This is test-only scheduling setup, not a core
+pin or a production API optimization. Linux uses the existing CPU affinity.
+
+The initial Darwin QoS run also remained rejected: before P10/P90
+0.834763/1.084355, production P50/P90 0.837017/0.907827, after P10/P90
+0.925992/1.082593. The after control passed; the before control did not.
+The single-caller warmup experiment used eight balanced legs of 1,024 complete
+requests, 4,096 requests per variant, and hit the existing 90-second limit. It includes natural GC and establishes
+both independent contexts before the unchanged 20-group timed phases. Warmup
+is not selected from timed results and no measured group is discarded.
+
+
+** Concurrent complete-request receipts
+
+The eight-caller, 256-request protocol also reached the 90-second process limit
+before completing its production phase. It was rejected. The current bounded
+protocol uses 128 requests per leg and eight symmetric warmup legs of 256
+requests (1,024 per variant). All 20 groups in each of the three phases remain
+mandatory, with unchanged percentile and control thresholds. One progress line
+records all eight completed leg costs; no group or GC cycle is removed.
+
+| Workload | Before P10/P90 | Production P50/P90 | After P10/P90 | Admission |
+|----------+----------------+--------------------+---------------+-----------|
+| ASCII 64 records | 0.940151 / 1.013562 | 0.844709 / 0.863701 | 0.981808 / 1.114173 | Rejected: after control |
+| Unicode 64 records | 0.949809 / 1.031382 | 0.836406 / 0.875211 | 0.920825 / 1.033180 | Passed locally |
+
+The Unicode receipt proves a local complete-request CPU benefit for this
+concurrent workload: production P90 is 12.48% lower than the independent engine
+control. The ASCII control failure prevents an ASCII performance claim. These
+measurements precede the final dependency synchronization; they are not an
+exact-head CI receipt or an incremental upstream-revision performance claim.
+
+* Dependency synchronization and parallel CI
+
+The latest inspected bridge PR revision is
+=0c18941cc6b6b7ff0ef3943abdb2b5fac8e92ccb=. Scheme and Cargo pins and the Cargo
+lock agree. Changes since =ce8d781= concern build-launcher environment and
+upstream qualification, not a new parser or Tokio scheduling kernel. The
+concurrent parser PR changes at =461a4bf= were retained, including the explicit
+Darwin FFI compilation policy for the foreign language context.
+
+The failing macOS run at =51bbe88= compared the installed bridge against an
+obsolete hardcoded =345b172= dependency. The contract now derives the expected
+bridge revision from Cargo and verifies the Scheme dependency agrees, while
+retaining the other package-ownership assertions.
+
+CI now has three independent Rust jobs and one preparation producer per Scheme
+platform. Each producer builds parser, commands, conformance, test support,
+FFI fixtures and the standalone language library once. Its consumers run
+semantics, Rust regeneration, FFI lifecycle, and Linux corpus qualification in
+parallel. Manual runs add independent diagnostic jobs and six Linux CPU jobs:
+scanner, events, engine, ranked parser, UTF-8 and complete Rust Tokio requests.
+Ubuntu consumers do not wait for macOS preparation.
+
+Compiled products are transferred inside a tar archive to retain symlinks,
+permissions and mtimes. Admission checks the exact Git head, full SDK digest,
+OS, architecture and workspace path before extraction. The native host uses
+the admitted standalone library instead of compiling it in every consumer.
+The ordinary PR graph has 12 runner jobs; manual qualification adds eight jobs.
+Actual concurrency is subject to the account's runner capacity.
+
+The immutable SDK archive is cached by full SHA-256 and verified on every
+restore. Gerbil package and content-admitted conformance cache keys include that
+SDK digest and dependency identity. Cargo caches include the Rust toolchain,
+platform, lane and manifest/lock identities. Preparation is saved before CPU
+qualification, so a rejected CPU proof cannot discard reusable preparation.
+Each consumer uploads its own qualification logs, including failed runs.
+Existing test gates and bounded child-process deadlines remain in force.
+
+
+Local validation after the final synchronization passed actionlint, original
+CI-gate ownership parity, and the producer/consumer dependency graph. Artifact
+controls rejected mismatched head, SDK, OS, architecture and workspace and
+preserved executable permissions, symlinks and mtimes. The real Scheme product
+contract ran both cases with =BUILD-PRODUCT-CONTRACT-OK=. Rust build-support
+reported eight passed and two intentionally ignored tests; FFI reported seven
+passed tests. Consumer clippy and formatting passed.
+
+Both ordinary library production and consumption of the already prepared
+library completed with =NATIVE-HOST-OK=. The latter reused the shared library
+without another AOT build and completed its 32-request Tokio lifecycle probe
+with =RUST-TOKIO-HOST-OK=. These local results do not replace remote Linux/macOS
+qualification of the committed head.

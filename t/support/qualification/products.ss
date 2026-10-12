@@ -103,20 +103,36 @@
  (with-product-directory "parser-native-host-"
   (lambda (directory)
    (let* ((library (path-expand (cond-expand (darwin "libparsernative.dylib") (else "libparsernative.so")) directory))
-          (host (path-expand "native-host" directory)) (compiler (sdk-compiler)))
-    (build-language-library! library '("gerbil-parser/t/fixtures/shared-scanner/records-abi"))
-    (run-qualified! ["cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml" "--features" "standalone,tokio"]
+          (host (path-expand "native-host" directory)) (compiler (sdk-compiler))
+          (cpu-proof? (equal? (getenv "GERBIL_PARSER_RUST_CPU_PROOF" #f) "1"))
+          (archive (path-expand (if cpu-proof? "target/release/librust_language_abi_fixture.a"
+                                                 "target/debug/librust_language_abi_fixture.a"))))
+    (let (prepared (getenv "GERBIL_PARSER_NATIVE_HOST_LIBRARY" #f))
+     (if prepared
+      (begin
+       (unless (file-exists? prepared) (error "prepared language library missing" prepared))
+       (set! library (path-expand prepared)))
+      (build-language-library! library '("gerbil-parser/t/fixtures/shared-scanner/records-engine-abi"))))
+    (run-qualified! (append ["cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml" "--features" "standalone,tokio"]
+                           (if cpu-proof? '("--release") '()))
                     ".data/native-host/rust-build.log" timeout: 90 idle-timeout: 30)
     (run-qualified! (append [compiler "-std=c11" "-D_POSIX_C_SOURCE=200809L" "-Iinclude" "-I." "t/runtime-host.c"
-                            (path-expand "target/debug/librust_language_abi_fixture.a") library "-lpthread" "-lm"]
+                            archive library "-lpthread" "-lm"]
                             (cond-expand (darwin '()) (else '("-ldl"))) ["-o" host])
                     ".data/native-host/link.log" timeout: 90 idle-timeout: 30)
     (for-each (lambda (row)
-                (run-qualified! (cons host (cdr row))
+                (run-qualified! (append
+                   (if (and (member (car row) '("tokio-cpu-ascii" "tokio-cpu-unicode"))
+                            (getenv "CPU_PROOF_PROCESSOR" #f))
+                     ["taskset" "-c" (getenv "CPU_PROOF_PROCESSOR")] '())
+                   (cons host (cdr row)))
                    (string-append ".data/native-host/" (car row) ".log") timeout: 90 idle-timeout: 5
                    require: [(cond ((equal? (car row) "c") "NATIVE-HOST-CLEANUP-OK")
                                   ((equal? (car row) "rust") "RUST-HOST-CLEANUP-OK")
                                   ((equal? (car row) "tokio") "RUST-TOKIO-HOST-OK")
+                                  ((member (car row) '("tokio-cpu-ascii" "tokio-cpu-unicode")) "RUST-TOKIO-CPU-PROOF-OK")
                                   (else "RUST-BORROWED-HOST-OK"))]))
-              '(("c") ("rust" "rust") ("borrowed" "borrowed") ("tokio" "tokio"))))))
+              (append '(("c") ("rust" "rust") ("borrowed" "borrowed") ("tokio" "tokio"))
+                (if cpu-proof?
+                  '(("tokio-cpu-ascii" "tokio-cpu-ascii") ("tokio-cpu-unicode" "tokio-cpu-unicode")) '()))))))
  (displayln "NATIVE-HOST-OK") (force-output))

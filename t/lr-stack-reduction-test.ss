@@ -31,6 +31,7 @@
                  prepare-lr-semantic-replay replay-lr-semantics replay-lr-semantic-control
                  lr-semantic-replay-count profile-lr-semantic-actions))
 (import (only-in :gerbil-parser/src/runtime/lr-stack-storage make-lr-token-observer))
+(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-failure-frontier-checkpoint))
 (import (only-in :gerbil-parser/t/fixtures/lr-action-selection reference-lr-action-selector))
 (export lr-stack-reduction-test)
 
@@ -105,7 +106,7 @@
              (wrong (make-token 'literal "x" 1 2)) (good (list a b)))
         (let-values (((status frontier) (lr-checkpoint-frontier (lr-initial-checkpoint runtime (list a wrong)))))
           (check status => 'failure)
-          (let* ((checkpoint ((eval 'gerbil-parser/src/runtime/lr-parser#lr-failure-frontier-checkpoint) frontier))
+          (let* ((checkpoint (lr-failure-frontier-checkpoint frontier))
                  (before (list (lr-checkpoint-state checkpoint) (lr-checkpoint-deterministic-actions checkpoint)
                                (lr-checkpoint-deterministic-shifts checkpoint) (lr-checkpoint-remaining-token-count checkpoint)))
                  (expected (call-with-values (lambda () (lr-parse/prepared runtime good)) list)))

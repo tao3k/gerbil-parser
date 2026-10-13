@@ -1,5 +1,11 @@
 set shell := ["sh", "-eu", "-c"]
 
+# Same native gxtest suite values, linked before the bounded runtime gate.
+test-runtime-organization:
+    GAMBOPT=max-heap=1G,debug=q gxi build-qualification.ss compile --optimized
+    ASP_GERBIL_SCHEME_POLICY=1 GAMBOPT=max-heap=1G,debug=q gxi t/build-runtime-organization-tests.ss
+    GAMBOPT=max-heap=1G,debug=q gxi t/check-runtime-organization.ss
+
 # Public native declaration lowering; test-all discovers this suite once.
 test-line-events output load_path:
     mkdir -p "{{output}}"

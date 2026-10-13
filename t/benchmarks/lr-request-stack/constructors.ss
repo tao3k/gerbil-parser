@@ -1,5 +1,7 @@
 ;;; Complete source requests against the construction algorithm at 4f50dd3.
 ;;; Compile with -O, matching the measured production constructor modules.
+(import (only-in :gerbil-parser/src/runtime/lr-parser/state
+                 lr-runtime-action-selector lr-runtime-reduction-plans-set!))
 (import (only-in :std/vector/vector vector-map/index)
         (only-in :gerbil-parser/src/compiler/lr production-table production-rhs operand-actions lr-spec-ref)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
@@ -67,8 +69,8 @@
 ;;; newly cloned qualification runtimes are modified; grammar tables and the
 ;;; public language machines remain shared and untouched. Record migrations
 ;;; belong in this qualification owner.
-(def runtime-selector (eval 'gerbil-parser/src/runtime/lr-parser#lr-runtime-action-selector))
-(def install-reference-plans! (eval 'gerbil-parser/src/runtime/lr-parser#lr-runtime-reduction-plans-set!))
+(def runtime-selector lr-runtime-action-selector)
+(def install-reference-plans! lr-runtime-reduction-plans-set!)
 
 (def (source-executor-witness machine source expected)
   (let (stages '())

@@ -1,0 +1,41 @@
+#+title: Native runtime owner decomposition
+
+* Source and ownership
+
+This change starts from PR 13 revision
+=f57d2aa6502bd39b62119cdd2e5a95469ef6fd9f=, not an older installed dependency.
+The public =src/runtime/lr-parser.ss=, =incremental.ss= and =scan.ss= facades
+retain their export lists. Internal owners separate private positional state,
+runtime preparation, semantic reductions, recognition projection, checkpoint
+execution, transfer, incremental reuse and pure lexical algorithms.
+
+No fallback evaluator, compatibility layer, policy exemption or timeout
+increase is introduced. Existing POO dispatch remains at preparation boundaries;
+hot algorithms remain named functions. Private =defstruct= execution state is
+not converted into a new public extension API.
+
+* Correspondence and reproduction
+
+[[file:../t/runtime-module-organization-test.ss][Native source-form controls]] compare facade exports and the multiset of
+all original execution forms against the named baseline Git revision. They
+reject omitted, duplicated or changed forms. The baseline commit must be
+available in the invoking Git clone. This checks source correspondence, not
+compiler correctness or end-to-end performance.
+
+Use the current Scheme package environment, with installed dependencies at
+the revisions declared in =gerbil.pkg=. Qualify production source policy with
+=ASP_GERBIL_SCHEME_POLICY=1 gxpkg build github.com/tao3k/gerbil-parser=.
+Then run =just test-runtime-organization= to prepare the existing qualification
+FFI owner, link the declared native gxtest values and execute organization, semantic/action
+preparation, stack reduction, fragment transfer and recovery/incremental.
+The existing native process owner enforces 120-second total / five-second
+idle budgets and checks a deliberate failed assertion exits 42.
+Provide the current OpenSSL =pkg-config= metadata for AOT linking rather than
+depending on a previously installed Homebrew version directory.
+Build and test-closure preparation run
+serially because they write the same package-native products.
+
+Keep the existing one-GiB runtime heap, five-second genuine-output watchdog
+and 120-second overall native test budget. A source policy pass, build pass,
+runtime suite pass and downstream consumer pass are distinct evidence.
+Local monitoring output is not a retained evidence reference.

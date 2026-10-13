@@ -1,5 +1,6 @@
 ;;; Complete C ABI calls: input ownership, strict admission, parsing, GPA1
 ;;; publication, C result ownership and readback all remain inside timing.
+(import (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector))
 (import (only-in :std/vector/u8vector little u8vector-u32-ref u8vector-u32-set! u8vector-u64-set!)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records records-language-grammar records-contextual-product)
         (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-parse-binary-payload)
@@ -60,7 +61,7 @@
                             records-language-grammar))
          (candidate-grammar (if (memq engine '(lr combined))
                               (records-with-selector
-                               (eval 'gerbil-parser/src/runtime/lr-parser#make-lr-action-selector))
+                               make-lr-action-selector)
                               records-language-grammar))
          (original (bind-language-abi control-grammar records-contextual-product))
          (candidate (bind-language-abi candidate-grammar records-contextual-product))

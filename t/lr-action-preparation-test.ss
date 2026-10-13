@@ -8,7 +8,9 @@
         (only-in :gerbil-parser/src/runtime/event-program event-program-value-kind)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-checkpoint-state)
         (only-in :gerbil-parser/src/runtime/token make-token)
-        (only-in ./fixtures/lr-action-selection reference-lr-action-selector))
+        (only-in ./fixtures/lr-action-selection reference-lr-action-selector)
+        (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector))
+(export lr-action-preparation-test)
 (def lr-action-preparation-test
   (test-suite "prepared layout action projections"
     (test-case "closed engine record access retains checked rejection"
@@ -101,7 +103,7 @@
              (check (eq? (lookup-literal-action-entry row (string-copy name)) expected) => #t)))
          (append names '("word0" "missing" "")))))
     (test-case "token-only, literal priority, casefold, duplicates, wide rows and EOF retain entries"
-      (let ((factory (eval 'gerbil-parser/src/runtime/lr-parser#make-lr-action-selector))
+      (let ((factory make-lr-action-selector)
             (rows
              (vector
               (list (cons '(terminal token word) '(shift 1))

@@ -1,7 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Report real compiled-module admission before the test entry imports it.
 ;;; Dependency boundaries keep cold imports subject to the same silence gate.
-(def +preloaded-modules+ (make-table test: equal?))
 (def +compiled-files+ (make-table test: equal?))
 
 (def (prefer-compiled-interfaces!)
@@ -53,32 +52,32 @@
    (lambda ()
      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
 
-(def (preload-compiled-module! module interfaces?)
-  (let (key (cons module interfaces?))
-  (unless (table-ref +preloaded-modules+ key #f)
-    (table-set! +preloaded-modules+ key #t)
-    ;; Generated wrapper modules list dependencies without evaluating their
-    ;; initializers. Phase bodies (~0/~1) are admitted directly, never decoded.
-    (unless (string-contains module "~")
-      (let (source (compiled-file module ".scm"))
-        (when source
-          (for-each (lambda (dependency) (preload-compiled-module! dependency interfaces?))
-                    (call-with-input-file source
-                      (lambda (port)
-                        (let loop ((dependencies '()))
-                          (let (value (read port))
-                            (if (eof-object? value) dependencies
-                              (loop (append dependencies (compiled-dependencies value))))))))))))
-    (displayln "MODULE-LOAD " module) (force-output)
-    (load-module module)
-    (displayln "MODULE-LOADED " module) (force-output)
-    ;; Admit phase bindings incrementally as well. Deferring all .ssi imports
-    ;; until gxtest loads its first source module hides cold macro work.
-    (when (and interfaces? (not (string-contains module "~"))
-               (compiled-file module ".ssi"))
-      (displayln "MODULE-IMPORT " module) (force-output)
-      (import-compiled-interface! module)
-      (displayln "MODULE-IMPORTED " module) (force-output)))))
+(def (preload-compiled-module! module interfaces? (visiting #f))
+  ;; SDK states are authoritative, including loading and failed states.
+  ;; Inspect wrappers only for a cold module so its dependencies report real
+  ;; progress before the SDK initializes the entry. Warm entries never scan.
+  (let (visiting (or visiting (make-table test: equal?)))
+    (unless (table-ref visiting module #f)
+      (table-set! visiting module #t)
+      (unless (or (assoc module (list-modules)) (string-contains module "~"))
+        (let (source (compiled-file module ".scm"))
+          (when source
+            (for-each
+              (lambda (dependency) (preload-compiled-module! dependency interfaces? visiting))
+              (call-with-input-file source
+                (lambda (port)
+                  (let loop ((dependencies '()))
+                    (let (value (read port))
+                      (if (eof-object? value) dependencies
+                        (loop (append dependencies (compiled-dependencies value))))))))))))
+      (displayln "MODULE-LOAD " module) (force-output)
+      (load-module module)
+      (displayln "MODULE-LOADED " module) (force-output)
+      (when (and interfaces? (not (string-contains module "~"))
+                 (compiled-file module ".ssi"))
+        (displayln "MODULE-IMPORT " module) (force-output)
+        (import-compiled-interface! module)
+        (displayln "MODULE-IMPORTED " module) (force-output)))))
 
 (def (preload-module module) (preload-compiled-module! module #t))
 
@@ -141,13 +140,20 @@
 (def (preload-test-imports file)
   (let (source (path-expand file))
     (unless (table-ref +preloaded-sources+ source #f)
+      ;; The in-progress marker bounds cyclic source imports. Failed admission
+      ;; removes it so a fixed file can be inspected on the next attempt.
       (table-set! +preloaded-sources+ source #t)
-      (call-with-input-file source
-        (lambda (port)
-          (let loop ()
-            (let (form (read port))
-              (unless (eof-object? form)
-                (when (and (pair? form) (eq? (car form) 'import))
-                  (for-each (lambda (entry) (preload-import-set entry source))
-                            (cdr form)))
-                (loop)))))))))
+      (with-catch
+        (lambda (exception)
+          (table-set! +preloaded-sources+ source #f)
+          (raise exception))
+        (lambda ()
+          (call-with-input-file source
+            (lambda (port)
+              (let loop ()
+                (let (form (read port))
+                  (unless (eof-object? form)
+                    (when (and (pair? form) (eq? (car form) 'import))
+                      (for-each (lambda (entry) (preload-import-set entry source))
+                                (cdr form)))
+                    (loop)))))))))))

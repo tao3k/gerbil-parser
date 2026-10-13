@@ -430,3 +430,10 @@ evidence-engine:
 
 formal-protocol:
     npm --prefix formal/quint test
+
+# SDK-owned module caching, source changes and initializer failure recovery.
+test-module-loading: build-qualification
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-controls.log --require MODULE-LOADING-CONTROLS-OK -- gxi t/benchmarks/module-loading/controls.ss
+
+benchmark-module-loading mode="generation": build-qualification
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-{{mode}}.log --require MODULE-LOADING-CPU-PROOF-OK -- gxi t/benchmarks/module-loading/benchmark.ss {{mode}}

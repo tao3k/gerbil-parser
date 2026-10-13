@@ -176,3 +176,13 @@ lineage, general recovery and incremental subtree certificates remain separate
 open contracts. Benchmark execution, ABI transport, digest admission, navigation
 index construction and field traversal separately. Representation changes alone
 establish no end-to-end latency or throughput improvement.
+
+* Build-host module snapshots
+
+File-based generation inputs are admitted by complete content identity.
+Unchanged source reuses the official Gerbil module context; changed source
+triggers official reload before descriptor selection. Library inputs retain
+SDK snapshot semantics and accept an explicit =reload?: #t= request through
+=language-module-descriptor= or =rust-runtime-source=. Imported helper changes
+require refreshing those dependencies or the build host; root reload is not
+recursive invalidation. See [[file:../research/module-loading-reuse.org][module loading controls and CPU evidence]].

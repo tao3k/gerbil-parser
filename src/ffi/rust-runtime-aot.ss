@@ -21,6 +21,6 @@
           (call-with-output-string
            (lambda (port) (display-exception exception port)))))))
 
-(def (rust-runtime-source grammar-path)
-  (import-module ':gerbil-parser/rust-runtime-grammar-support #t #t)
-  (language-rust-runtime-module-source (language-module-descriptor grammar-path)))
+(def (rust-runtime-source grammar-path reload?: (reload? #f))
+  (import-module ':gerbil-parser/rust-runtime-grammar-support #f #t)
+  (language-rust-runtime-module-source (language-module-descriptor grammar-path reload?: reload?)))

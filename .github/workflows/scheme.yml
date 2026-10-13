@@ -191,6 +191,12 @@ jobs:
         run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Verify native process contracts
         run: just test-process-contracts
+      - name: Verify official module loading and source invalidation
+        run: |
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/module-loading-controls.log \
+            --require MODULE-LOADING-CONTROLS-OK \
+            -- gxi t/benchmarks/module-loading/controls.ss
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
       - name: Verify generic POO Scheme reductions are current
@@ -656,6 +662,8 @@ jobs:
           - ranked
           - utf8
           - tokio
+          - module-generation
+          - module-preload
     env:
       GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
       GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
@@ -766,6 +774,20 @@ jobs:
             --log .data/ffi-utf8-records-cpu.log --require ABI-UTF8-CPU-REGRESSION-OK \
             -- gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records false regression
         if: matrix.lane == 'utf8'
+      - name: Prove complete Rust generation CPU improvement
+        if: matrix.lane == 'module-generation'
+        run: |
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/module-generation-cpu.log --require MODULE-LOADING-CPU-PROOF-OK \
+            -- gxi t/benchmarks/module-loading/benchmark.ss generation
+      - name: Prove warm runtime preparation CPU improvement
+        if: matrix.lane == 'module-preload'
+        run: |
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/module-preload-cpu.log --require MODULE-LOADING-CPU-PROOF-OK \
+            -- gxi t/benchmarks/module-loading/benchmark.ss preload
       - name: Prove Rust Tokio complete 64-record requests
         if: matrix.lane == 'tokio'
         env:

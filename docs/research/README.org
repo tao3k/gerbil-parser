@@ -43,6 +43,10 @@ claim; elapsed build time and an older CI run cannot qualify the current parser.
 
 * Research map
 
+[[file:module-loading-reuse.org][SDK module loading reuse]] documents source-content invalidation, official
+failure/reload semantics, test preparation and Scheme CPU controls.
+
+
 The [[file:parser-evidence-chain.org][model and implementation evidence chain]] connects Lean, Quint,
 native Scheme ASCENT review and source-bound Python observations. It preserves
 missing implementation/performance obligations and records negative controls.

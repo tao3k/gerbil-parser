@@ -44,3 +44,16 @@ Keep the existing one-GiB runtime heap, five-second genuine-output watchdog
 and 120-second overall native test budget. A source policy pass, build pass,
 runtime suite pass and downstream consumer pass are distinct evidence.
 Local monitoring output is not a retained evidence reference.
+
+* Exact-head CI input and cold-loading corrections
+
+The semantics job fetches repository history so the named source-form baseline
+is available in the CI clone. A shallow checkout failed all three controls;
+missing baseline input is not a reason to skip the comparisons.
+
+Module-loading controls initialize their existing preloader before importing
+the two public compiler boundaries. The preloader reports real native module
+and interface admission, with the original static imports and control bodies
+unchanged. The controls passed locally in 9.75 seconds, retaining a five-second
+idle limit, 90-second total limit and one-GiB heap. Interface tracing is not a
+synthetic heartbeat or an initializer-failure exemption.

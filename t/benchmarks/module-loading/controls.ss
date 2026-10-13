@@ -1,10 +1,13 @@
 ;;; File content changes invalidate source admission without per-parse reload.
+(load "t/fixtures/tla-sany-differential/preload.ss")
+(prefer-compiled-interfaces!)
+(preload-module "gerbil-parser/src/language/module-input")
+(preload-module "gerbil-parser/src/ffi/rust-runtime-aot")
 (import :gerbil/expander
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-language)
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
-(load "t/fixtures/tla-sany-differential/preload.ss")
 
 (def (require! value message)
   (unless value (error message)))

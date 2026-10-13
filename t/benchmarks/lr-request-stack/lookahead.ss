@@ -3,6 +3,7 @@
 (import (only-in :gerbil-parser/src/compiler/machine parser-machine-with-lr-action-selector
                  parser-machine-runtime)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
+        (only-in :gerbil-parser/src/runtime/token token-lexeme)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid-for-source?)
         (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-runtime-direct-step lr-runtime-layout?)
@@ -16,7 +17,9 @@
 ;;; eligibility, not an additive CPU decomposition or a measured speedup.
 (def (profile-lr-lookahead machine source expected)
   (let ((observations 0) (literal-observations 0) (eof-observations 0)
-        (lookaheads (make-table test: eq?)))
+        (lookaheads (make-table test: eq?))
+        (literal-lookaheads (make-table test: eq?))
+        (literal-characters 0) (unique-literal-characters 0))
     (let* ((factory
             (lambda (rows index casefold? layout?)
               (let (select (reference-lr-action-selector rows index casefold? layout?))
@@ -26,7 +29,12 @@
                     (begin
                       (set! observations (+ observations 1))
                       (when (lr-action-row-has-literals? (vector-ref index state))
-                        (set! literal-observations (+ literal-observations 1)))
+                        (set! literal-observations (+ literal-observations 1))
+                        (let (width (string-length (token-lexeme (car tokens))))
+                          (set! literal-characters (+ literal-characters width))
+                          (unless (table-ref literal-lookaheads tokens #f)
+                            (table-set! literal-lookaheads tokens #t)
+                            (set! unique-literal-characters (+ unique-literal-characters width)))))
                       (table-set! lookaheads tokens #t)))
                   (select state tokens)))))
            (observed (parse-source (parser-machine-with-lr-action-selector machine factory) source)))
@@ -34,6 +42,9 @@
       (list (cons 'actionObservations observations)
             (cons 'literalRowObservations literal-observations)
             (cons 'lookaheads (table-length lookaheads))
+            (cons 'literalLookaheads (table-length literal-lookaheads))
+            (cons 'literalCharactersObserved literal-characters)
+            (cons 'literalCharactersOnce unique-literal-characters)
             (cons 'eofObservations eof-observations)))))
 
 (def (benchmark-lr-lookahead workload machine source (groups 20) (calls 100))

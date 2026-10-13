@@ -12,7 +12,10 @@
     "gql/runtime/reduction-counts"
     "gql/runtime/matched-stages"
     "lr-request-stack/benchmark"
+    "lr-request-stack/sdk-control"
     "lr-request-stack/record-access"
+    "lr-request-stack/record-repeatability"
     "lr-request-stack/request-cost"
+    "lr-request-stack/request-profile"
     "lr-request-stack/record-evidence"
     "parser-evidence"))

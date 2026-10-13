@@ -1,12 +1,29 @@
 ;;; Source-backed recognition spans are independent of language semantics.
 (import :std/test
         :gerbil-parser/src/runtime/recognition
-        (only-in :gerbil-parser/src/runtime/token make-token token-lexeme token-start token-end))
+        (only-in :gerbil-parser/src/runtime/token make-token token? token-kind token-lexeme token-start token-end))
 (export source-recognition-test)
 (def (rejects? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def source-recognition-test
   (test-suite "source-backed recognition spans"
+    (test-case "token inline calls retain first-class procedures and live checked vector reads"
+      (let* ((token (make-token 'word "x" 4 5))
+             (readers (list token-kind token-lexeme token-start token-end)))
+        (check (every procedure? readers) => #t)
+        (check (map (lambda (read) (read token)) readers) => '(word "x" 4 5))
+        (vector-set! token 0 'changed)
+        (vector-set! token 1 "y")
+        (check (list (token-kind token) (token-lexeme token)
+                     (token-start token) (token-end token)) => '(changed "y" 4 5))
+        (check (map (lambda (read) (read token)) readers) => '(changed "y" 4 5))
+        (check (token? token) => #t)
+        (for-each (lambda (read) (check-exception (read '#()) true)) readers)
+        (check-exception (token-kind '#()) true)
+        (check-exception (token-lexeme #f) true))
+      (for-each (lambda (value) (check (token? value) => #f))
+                (list #f 0 '#() '#(word "x" -1 2) '#(word "x" 3 2)))
+      (check (token? (make-token 0 "x" 0 1)) => #f))
     (test-case "private recognition variants reject extension and wrong-kind access"
       (let* ((token (make-token 'value "x" 4 5))
              (child (make-recognition-child #f token))

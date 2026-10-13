@@ -7,7 +7,7 @@
                  parse-artifact-valid-for-source? parse-artifact-events parse-artifact-ref))
 (export measure-parser-stages measure-artifact-event-storage copy-canonical-event-storage
         measure-parser-component measure-parser-batch measure-parser-cpu-pairs cpu-pair-request-plan sample-at-percentile
-        gc-statistics-snapshot sample-gc-snapshot component-allocation-summary)
+        gc-statistics-snapshot sample-gc-snapshot component-allocation-summary parser-cpu-milliseconds)
 
 (def (require-parser-batch! batch-count calls-per-thunk)
   (unless (and (and (integer? batch-count) (exact? batch-count)) (positive? batch-count)
@@ -68,9 +68,11 @@
 
 ;; One warmup and one initial GC per component; timed samples retain naturally
 ;; occurring GC. Validation and logging are outside the measured batch.
-(def (measure-parser-component name samples batch-count thunk expected (calls-per-thunk 1) (allocation-scope 'single-caller))
+(def (measure-parser-component name samples batch-count thunk expected (calls-per-thunk 1) (allocation-scope 'single-caller) sample-output: (sample-output 'immediate))
   (unless (and (integer? samples) (exact? samples) (positive? samples))
     (error "parser component requires a positive integral sample count" samples))
+  (unless (memq sample-output '(immediate deferred))
+    (error "invalid parser sample output policy" sample-output))
   (require-parser-batch! batch-count calls-per-thunk)
   (unless (equal? (thunk) expected)
     (error "parser warmup changed its semantic result" name))
@@ -86,7 +88,9 @@
                     (cons 'wallP50Ms (row-percentile rows 'wall-ms 50))
                     (cons 'wallP95Ms (row-percentile rows 'wall-ms 95))
                     (cons 'cpuP50Ms (row-percentile rows 'cpu-ms 50))
+                    (cons 'cpuP50Ns (row-percentile rows 'cpu-ns 50))
                     (cons 'cpuP95Ms (row-percentile rows 'cpu-ms 95))
+                    (cons 'cpuP95Ns (row-percentile rows 'cpu-ns 95))
                     (cons 'wallP50Sample (sample-at-percentile rows 'wall-ms 50))
                     (cons 'wallP95Sample (sample-at-percentile rows 'wall-ms 95))
                     (cons 'maxWallSample (sample-at-percentile rows 'wall-ms 100))
@@ -95,12 +99,30 @@
                     (cons 'gcBaseline baseline)
                     (cons 'samples (reverse rows)))
                (component-allocation-summary rows batch-count allocation-scope)))
+          (when (eq? sample-output 'deferred)
+            (for-each (lambda (row)
+                        (write (list 'PARSER-COMPONENT-SAMPLE name row)) (newline))
+                      (reverse rows)))
           (write (list 'PARSER-COMPONENT-SUMMARY
                        (filter (lambda (row) (not (eq? (car row) 'samples))) summary))) (newline) (force-output)
           summary)
         (let (row (measure-parser-batch name sample batch-count thunk expected calls-per-thunk))
-          (write (list 'PARSER-COMPONENT-SAMPLE name row)) (newline) (force-output)
+          (when (eq? sample-output 'immediate)
+            (write (list 'PARSER-COMPONENT-SAMPLE name row)) (newline) (force-output))
           (loop (+ sample 1) (cons row rows)))))))
+
+;; Canonicalize cumulative CPU counters before subtraction. Bounded benchmark
+;; processes retain nanosecond integer precision; equal OS ticks must not yield
+;; different interval endpoints through floating-point cancellation.
+(def (parser-cpu-ticks statistics index)
+  (inexact->exact (round (* 1000000000 (f64vector-ref statistics index)))))
+
+(def (parser-cpu-nanoseconds before after (user-index 0) (system-index 1))
+  (+ (- (parser-cpu-ticks after user-index) (parser-cpu-ticks before user-index))
+     (- (parser-cpu-ticks after system-index) (parser-cpu-ticks before system-index))))
+
+(def (parser-cpu-milliseconds before after (user-index 0) (system-index 1))
+  (exact->inexact (/ (parser-cpu-nanoseconds before after user-index system-index) 1000000)))
 
 ;;; Shared timed batch primitive. It owns no warmup, forced GC or output, so
 ;;; matched callers can alternate variants without perturbing GC at each switch.
@@ -114,18 +136,21 @@
             (repeat (- remaining 1) (thunk)))))
        (wall-ms (* 1000 (- (##current-time-point) wall-start)))
        (after (##process-statistics))
+       (cpu-ns (parser-cpu-nanoseconds before after))
+       (cpu-ms (exact->inexact (/ cpu-ns 1000000)))
        (delta (lambda (index)
                 (- (f64vector-ref after index) (f64vector-ref before index))))
        (row (list (cons 'sample sample)
                   (cons 'wall-ms wall-ms)
-                  (cons 'cpu-ms (* 1000 (+ (delta 0) (delta 1))))
+                  (cons 'cpu-ms cpu-ms)
+                  (cons 'cpu-ns cpu-ns)
                   ;; Signed observation, not a scheduler attribution. It
                   ;; includes counter/timing noise and may be negative.
                   (cons 'wall-minus-cpu-ms
-                        (- wall-ms (* 1000 (+ (delta 0) (delta 1)))))
+                        (- wall-ms cpu-ms))
                   (cons 'gc-count (delta 6))
                   (cons 'gc-wall-ms (* 1000 (delta 5)))
-                  (cons 'gc-cpu-ms (* 1000 (+ (delta 3) (delta 4))))
+                  (cons 'gc-cpu-ms (parser-cpu-milliseconds before after 3 4))
                   (cons 'latest-gc (sample-gc-snapshot before after))
                   (cons 'allocation-counter-delta (delta 7))
                   (cons 'allocated-bytes

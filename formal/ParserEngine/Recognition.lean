@@ -50,4 +50,56 @@ theorem empty_alias_anchor (kind : String) (offset : Nat) :
 theorem alias_children (kind : String) (children : Children) (offset : Nat) :
     alias kind children offset = [(none, .node kind (bounds children offset) children)] := rfl
 
+
+/-- The constructor continuation classifies a closed logical value and receives
+    scalar endpoints directly. This model does not describe native allocation. -/
+def withTreeBounds (tree : Tree) (consume : Nat → Nat → α) : α :=
+  match tree with
+  | .token _ span | .node _ span _ | .fragment span _ => consume span.start span.finish
+
+theorem tree_bounds_continuation_equivalent (tree : Tree) (consume : Nat → Nat → α) :
+    withTreeBounds tree consume = consume tree.span.start tree.span.finish := by
+  cases tree <;> rfl
+
+/-- Empty and singleton inputs keep their original constructor boundary; wider
+    children retain first/last source endpoints and exact ordered child data. -/
+def withChildBounds (children : Children) (offset : Nat) (consume : Nat → Nat → α) : α :=
+  match children with
+  | [] => consume offset offset
+  | [child] => withTreeBounds child.2 consume
+  | first :: second :: rest =>
+    consume first.2.span.start
+      ((first :: second :: rest).getLast (by simp)).2.span.finish
+
+theorem child_bounds_continuation_equivalent (children : Children) (offset : Nat)
+    (consume : Nat → Nat → α) :
+    withChildBounds children offset consume =
+      consume (bounds children offset).start (bounds children offset).finish := by
+  cases children with
+  | nil => rfl
+  | cons first rest =>
+    cases rest with
+    | nil => simp [withChildBounds, bounds, tree_bounds_continuation_equivalent]
+    | cons second rest => rfl
+
+
+/-- Physical child storage separates a bare value from explicit field metadata.
+    The model concerns logical labels and tree identity, not native heap layout. -/
+inductive ChildStorage where
+  | unfielded (value : Tree)
+  | labelled (name : String) (value : Tree)
+
+def storeChild : Child → ChildStorage
+  | (none, value) => .unfielded value
+  | (some name, value) => .labelled name value
+
+def restoreChild : ChildStorage → Child
+  | .unfielded value => (none, value)
+  | .labelled name value => (some name, value)
+
+theorem compact_child_roundtrip (child : Child) :
+    restoreChild (storeChild child) = child := by
+  rcases child with ⟨name, value⟩
+  cases name <;> rfl
+
 end ParserEngine

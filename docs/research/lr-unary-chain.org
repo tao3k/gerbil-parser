@@ -1,0 +1,193 @@
+#+title: LR Unary Chains: Complete-Request Cost and Rejected Optimization
+
+* Question and baseline
+
+This study continues [[file:lr-owned-stack.org][the request-owned LR study]] from production revision
+=b5e1895=. The question is whether carrying consecutive unary reductions in
+registers removes enough execution work to pass the unchanged four-stage CPU
+gate. Earlier improvements against =e6cebe9= are not incremental evidence here.
+
+* Actual complete-request attribution
+
+The representative GQL source was parsed 30,000 times with the pinned Gerbil
+=2591dcd= SDK. The workload checks its final result against the initial complete
+product. Statistical continuation sampling produced 4,242 samples:
+
+| Top continuation | Samples | Share |
+|------------------+---------+-------|
+| Owned LR driver | 1409 | 33.2% |
+| Streaming source driver | 518 | 12.2% |
+| Recognition event publication | 383 | 9.0% |
+| Gambit table access | 371 | 8.7% |
+| Generated lexer closures | 281 | 6.6% |
+| Prepared action selector closures | 209 | 4.9% |
+| Raw table lookup | 134 | 3.2% |
+| Alias kernels | 131 | 3.1% |
+| Sequence normalization | 97 | 2.3% |
+
+These are sampled top frames, not additive component CPU shares. GC and the
+sampler remain in the observation. A closure may carry its enclosing factory's
+name: =prepare-generated-lexer= does not establish repeated lexer preparation.
+The source prepares its mode scanners before requests and calls those closures
+during token scanning. No GC defect or universal workload ranking is inferred.
+
+The tracked =t/benchmarks/lr-request-stack/request-profile.ss= entry uses the
+existing benchmark build owner. Its =source= and =prepared= modes retain the
+same 30,000 real calls and result check. It is a workload, not another parser
+or statistical admission implementation.
+
+The pinned SDK advertises =gerbil prof= but does not contain its dynamic
+=:gerbil/tools/gxprof= module. Its retained source frontend also imports the
+unavailable =:std/sort= module. Therefore an official CLI profiling command is
+not qualified on this installation. This observation uses an ignored
+source-derived adaptation of the upstream heartbeat sampler with the compiled
+workload; it does not add a production sampler or CI lane. Sampling remains
+independent of the original matched CPU gate. The missing SDK tool is a
+reproducibility limitation, not evidence of parser execution overhead.
+
+* Scheme design and scientific hypothesis
+
+Gerbil's =std/list/list.ss= names the traversal, carries intermediate results
+through recursive bindings, and separates collection from final publication.
+The existing LR storage policy already owns mutable vectors for unbounded,
+unobserved requests. A unary reduction changes their active heads while
+retaining depth and the predecessor state. This suggests carrying those heads
+through a selected chain and committing once:
+
+#+begin_src scheme
+;; Conceptual operation over admitted unary transitions, not a public DSL.
+(let chain ((state state) (children children) (row row) (actions actions))
+  (if (admitted-unary-transition? row)
+    (let-values (((next-state next-children) (reduce-selected-unary row children)))
+      (chain next-state next-children (select next-state input) (fx+ actions 1)))
+    (values state children actions row)))
+#+end_src
+
+Question: why is this a useful Scheme design? Lexical ownership and proper tail
+calls express the live state directly; the caller commits storage at one
+boundary. Existing canonical operand factories retain field/alias semantics.
+No user grammar configuration, new dispatch mechanism or AST omission is needed.
+
+Question: what makes the optimization hypothesis scientific? The unchanged
+artifact, selector-call count, nullable boundaries and failure/GLR handoff are
+independently checked. The complete request is measured against a separately
+retained current baseline. Failure of the fixed CPU gate rejects the candidate
+even when the representation argument and conditional Lean theorem are valid.
+
+This follows the engine's existing prepared-action and stack-equivalence design;
+it does not introduce a new parsing theorem or change the selected grammar.
+
+* Contract hazards and negative results
+
+The first implementation selected the chain's exit action again in the outer
+driver. It measured representative prepared LR at 53.641 versus 50.139 ms per
+1,000 parses and complete requests at 100.673 versus 95.306 ms. It failed the
+performance gate and also added selector invocations. Its source and receipts
+remain separate from the corrected experiment.
+
+The corrected implementation carries the selected exit row to the outer driver,
+reads the actual request boundary for each reduction, and leaves streamed EOF
+processing in the original driver so arbitrary input callbacks retain their
+invocation contract. It retains all AST aliases and fields. A conditional Lean
+fold theorem states that repeated head replacement equals one final commit;
+it does not certify native memory, termination, selection or performance.
+
+The corrected candidate's first complete-request block still fails the target
+margin: representative GQL prepared/full CPU medians are 51.503/98.015 ms versus
+50.139/95.306 ms. Long RETURN medians improve only from 144.105/259.605 to
+142.062/252.689 ms. A second candidate block is retained; all four roles are
+submitted to the original Scheme admission before any positive claim.
+
+* Execution identity and qualification boundaries
+
+Gerbil =src/gerbil/runtime/loader.ss= resolves the last contiguous =.oN= file for
+each module, beginning with =.o1=. Checking only =.o1= is insufficient when later
+native versions exist. The independent baseline retains the complete library,
+and the experiment binds the selected native versions and workload closure.
+
+The first cold baseline attempt reaches the unchanged 120-second total timeout.
+It remains a failed receipt. A repeat with the same library and budgets exits
+zero in 46.532 seconds; no causal explanation of the cold-load difference is
+established. Measurement order is reference A, candidate A, candidate B,
+reference B. Each block includes 40 samples of 1,000 calls for both stages of
+all four admitted families and the identical SDK encoder control.
+
+The four target stages still require =max(candidate median) / min(reference
+median) < 0.95=. FHIRPath and arithmetic remain non-regression controls; P95 and
+SDK repeat-band checks remain unchanged. Native Scheme admits the statistics;
+uv-managed Python transports and hashes evidence; native Ascent determines
+missing claims. There is no CI timeout change or additional CI lane.
+
+* Final disposition
+
+The corrected four-block experiment is rejected. Conservative CPU median ratios
+are approximately 1.027/1.028 for representative GQL and 1.001/0.994 for long
+RETURN (prepared/full). None passes its fixed target margin. The arithmetic
+prepared control also exceeds its non-regression margin (approximately 1.074).
+These ratios summarize the retained blocks; the authoritative native admission
+rejects at its first target failure. Its SDK repeat-band check passes with ratio
+0.985643. No later target or control is relabeled as admitted.
+
+The candidate's source and 1,403 selected native modules remain bound in ignored
+=.data/parser-unary-chain-study/=, alongside the original timeout and rejected
+first implementation. The baseline executes =lr-parser~0.o58= and the corrected
+candidate executes =lr-parser~0.o61=; they are distinct native products.
+
+The candidate passes all 18 stack-reduction Cases, including the added deep
+decorated chains, request offsets, exact selector counts and failure handoff.
+The Lean build passes its conditional equivalence theorem. Native Ascent records
+the failed CPU receipt and reports =record-cpu-improvement= missing with
+=executionAuthorized: false=. This is a rejected performance candidate, not a
+completed positive engine qualification.
+
+Production =src/runtime/lr-parser.ss= is restored to =b5e1895= and rebuilt. The
+regression contract, official-profiler workload and research result remain local
+for the next engine study. CI configuration and thresholds are unchanged; no
+GitHub commit is published for this candidate.
+
+* Controlled continuation-materialization ablation
+
+The corrected function-based candidate allocates 45,824.336 bytes per
+representative prepared request versus 41,104.336 in both reference blocks.
+Full requests allocate 127,648.720 versus 123,888.720 bytes. Emitted SCM returns
+a four-value object and checks/extracts that object at each chain boundary.
+This motivates a controlled compilation experiment, rather than another
+source-level claim that fewer vector writes must be faster.
+
+A hygienic =with-owned-unary-chain= rule directly binds the chain exit state
+to its caller's continuation. It retains selector calls, request-local
+boundaries and the same semantic kernels; it removes the four-value return
+and its caller extraction. The emitted SCM shows the direct nested recurrence.
+It follows the compiler's syntax-owned binding/continuation pattern without
+introducing an extensible object or public grammar operation.
+
+One complete native preflight reproduces baseline allocation exactly:
+41,104.336 prepared and 123,888.720 full bytes per representative GQL request.
+CPU medians are still 56.163/100.050 ms per 1,000 calls; long RETURN measures
+142.237/252.656 ms. Its SDK control is 7.114 ms. The 18 semantic Cases pass,
+including exact selector counts. This is evidence of eliminating the added
+materialization cost, not a passing four-block CPU result. The preflight is
+rejected and no additional repeated-benefit claim is made.
+
+The exact macro candidate and selected native images remain in ignored
+=.data/parser-unary-continuation-study/=. Production is restored again. The
+experiment demonstrates why a better Scheme expression layer and lower
+allocation must still face the unchanged whole-request CPU gate. It does not
+establish that vector writes, aliases or GC dominate CPU, and it does not
+justify retaining a slower executor.
+
+* Restored-source closure
+
+After the final restoration, the unchanged production LR source is rebuilt by
+the existing complete collector. All five build/source-preparation receipts,
+all eight semantic Suites (86 Cases), the real-request workload owner, Lean and
+Quint pass. The separate uv-managed native Ascent controls pass 12 tests.
+The fixed repeated CPU admission remains failed and native Ascent reports only
+=record-cpu-improvement= missing. Its negative result is preserved rather than
+turning semantic validity or allocation evidence into a CPU claim.
+
+PR #13 remains at =b5e1895= with its executed checks successful and configured
+Scheme CPU checks skipped. No source change to production LR or CI is retained
+from the rejected candidates, and no commit is pushed. The local additions are
+the deep-chain/selector regression contract, reusable request workload,
+conditional model theorem and this integrated negative study.

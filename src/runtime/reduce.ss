@@ -4,7 +4,7 @@
 (import (only-in ./recognition
                  make-recognition-child make-recognition-fragment
                  make-recognition-node recognition-child-field
-                 recognition-child-value recognition-value-bounds))
+                 recognition-child-value with-recognition-value-bounds))
 (import (only-in ./funcs recognition-sequence-arity recognition-sequence-start
                  recognition-sequence-end recognition-sequence->list
                  recognition-sequence-for-action))
@@ -14,15 +14,19 @@
 
 ;;; Stage one input-shape decision and one singleton-value classification into
 ;;; both constructor families. Empty aliases retain their invocation boundary.
+(defrule (with-recognition-children-bounds children-expr offset-expr (start end) body ...)
+  (let ((children children-expr) (offset offset-expr))
+    (cond
+     ((null? children) (let ((start offset) (end offset)) body ...))
+     ((and (pair? children) (null? (cdr children)))
+      (with-recognition-value-bounds (recognition-child-value (car children))
+        (start end) body ...))
+     (else
+      (let ((start (recognition-sequence-start children offset))
+            (end (recognition-sequence-end children offset))) body ...)))))
+
 (defrule (construct-recognition-bounded (constructor prefix ...) children offset prepare)
-  (let-values (((start end)
-                (cond
-                 ((null? children) (values offset offset))
-                 ((and (pair? children) (null? (cdr children)))
-                  (let (value (recognition-child-value (car children)))
-                    (recognition-value-bounds value)))
-                 (else (values (recognition-sequence-start children offset)
-                               (recognition-sequence-end children offset))))))
+  (with-recognition-children-bounds children offset (start end)
     (constructor prefix ... start end (prepare children))))
 
 (defrule (construct-recognition-field name children default-offset fragment-constructor prepare)

@@ -24,7 +24,7 @@
         recognition-child-field-set!
         recognition-child-value
         recognition-value-start
-        recognition-value-end recognition-value-bounds)
+        recognition-value-end recognition-value-bounds with-recognition-value-bounds)
 
 ;;; These engine-owned values have no subclass protocol. Final classes let the
 ;;; compiler emit checked direct predicates and slot access in hot reducers.
@@ -59,19 +59,31 @@
 ;;; Constructors need both endpoints. Classify the closed recognition value
 ;;; once rather than repeating token admission and variant dispatch for each
 ;;; endpoint. Position views retain their own displacement and source identity.
+;;; Constructors need both endpoints. Classify the closed recognition value
+;;; once rather than repeating token admission and variant dispatch for each
+;;; endpoint. Position views retain their own displacement and source identity.
+(defrule (with-recognition-value-bounds value-expr (start end) body ...)
+  (let (current value-expr)
+    (cond
+     ((recognition-relocation? current)
+      (let-values (((inner-start inner-end)
+                    (recognition-value-bounds (recognition-relocation-value current))))
+        (let ((start (+ (recognition-relocation-delta current) inner-start))
+              (end (+ (recognition-relocation-delta current) inner-end))) body ...)))
+     ((token? current)
+      (let ((start (token-start current)) (end (token-end current))) body ...))
+     ((recognition-node? current)
+      (let ((start (recognition-node-start current)) (end (recognition-node-end current))) body ...))
+     ((recognition-fragment? current)
+      (let ((start (recognition-fragment-start current)) (end (recognition-fragment-end current))) body ...))
+     ((event-program-value? current)
+      (let ((start (event-program-value-start current)) (end (event-program-value-end current))) body ...))
+     (else (error "invalid recognition value" current)))))
+
+;;; External callers retain the multiple-value protocol. Constructor bodies
+;;; expand at this classification boundary and need no transient values object.
 (def (recognition-value-bounds value)
-  (cond
-   ((recognition-relocation? value)
-    (let-values (((start end) (recognition-value-bounds (recognition-relocation-value value))))
-      (let (delta (recognition-relocation-delta value))
-        (values (+ delta start) (+ delta end)))))
-   ((token? value) (values (token-start value) (token-end value)))
-   ((recognition-node? value) (values (recognition-node-start value) (recognition-node-end value)))
-   ((recognition-fragment? value)
-    (values (recognition-fragment-start value) (recognition-fragment-end value)))
-   ((event-program-value? value)
-    (values (event-program-value-start value) (event-program-value-end value)))
-   (else (error "invalid recognition value" value))))
+  (with-recognition-value-bounds value (start end) (values start end)))
 
 ;; : (-> RecognitionValue Nat)
 (def (recognition-value-end value)

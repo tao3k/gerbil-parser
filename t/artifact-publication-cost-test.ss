@@ -11,7 +11,7 @@
         (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer with-parser-cost-stage)
         (only-in ./benchmarks/parser-stage-cost/benchmark measure-parser-stages
                  measure-artifact-event-storage copy-canonical-event-storage
-                 measure-parser-component measure-parser-batch))
+                 measure-parser-component measure-parser-batch parser-cpu-milliseconds))
 (export artifact-publication-cost-test)
 
 (def (observe-publication thunk)
@@ -26,6 +26,22 @@
 
 (def artifact-publication-cost-test
   (test-suite "artifact publication cost contracts"
+    (test-case "equal CPU clock intervals retain exact endpoint identity"
+      (let ((before (make-f64vector 8 0.0)) (after (make-f64vector 8 0.0)))
+        (f64vector-set! before 0 40.1)
+        (f64vector-set! after 0 40.106735)
+        (let (first (parser-cpu-milliseconds before after))
+          (f64vector-set! before 0 30.1)
+          (f64vector-set! after 0 30.106735)
+          (check first => 6.735)
+          (check (parser-cpu-milliseconds before after) => first)
+          ;; A genuine one-microsecond separation must remain separated.
+          (f64vector-set! after 1 0.000001)
+          (check (parser-cpu-milliseconds before after) => 6.736)
+          (check (< first (parser-cpu-milliseconds before after)) => #t)
+          ;; User and system intervals use the same clock representation.
+          (f64vector-set! after 0 30.106734)
+          (check (parser-cpu-milliseconds before after) => first))))
     (test-case "wide field-bearing children retain source order and reject improper tails"
       (for-each
        (lambda (width)

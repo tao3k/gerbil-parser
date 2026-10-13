@@ -53,4 +53,22 @@ theorem owned_shift_index_fits (top capacity : Nat) (fits : top < capacity) :
     top + 1 < (if top + 1 < capacity then capacity else capacity * 2) := by
   split <;> omega
 
+/-- One admitted unary transition replaces the active head and retains its
+    predecessor stack. Selection and semantic callbacks are assumptions here. -/
+def unaryStackStep (step : α → α) (stack : List α) : List α :=
+  match stack with
+  | [] => []
+  | head :: tail => step head :: tail
+
+/-- Carrying the current head through a chain and committing once is equivalent
+    to committing each selected unary transition. Native bounds, termination,
+    selector identity and CPU benefit remain separate executable obligations. -/
+theorem unary_chain_keeps_tail (steps : List (α → α)) (head : α) (tail : List α) :
+    steps.foldl (fun stack step => unaryStackStep step stack) (head :: tail) =
+      steps.foldl (fun value step => step value) head :: tail := by
+  induction steps generalizing head with
+  | nil => rfl
+  | cons step rest ih =>
+    simpa only [List.foldl_cons, unaryStackStep] using ih (step head)
+
 end ParserEngine

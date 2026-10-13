@@ -361,3 +361,15 @@ and the original four-stage CPU check. Native Ascent has no missing required
 evidence. All 591 retained production/benchmark native images are byte-identical
 to the measured candidate. The rejected chain remains failed. The twelve
 uv-managed evidence rejection/admission controls also pass after this change.
+
+The subsequent [[file:lr-unary-chain.org][unary-chain study]] starts from this admitted production
+revision and retains its own negative results and complete-request gate.
+
+
+The next complete engine unit is [[file:compact-recognition-children.org][compact recognition children and constructor continuations]],
+including action-selection negative results, logical representation proofs and
+unchanged complete-request admission obligations.
+
+The failed compact representation and subsequent real-request native sampling
+lead to [[file:lr-request-dispatch-cost.org][official inline contracts at the token boundary]].
+Its semantic, compiler-lowering and CPU-admission claims are kept separate.

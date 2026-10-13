@@ -1,5 +1,6 @@
 """Execute model, Scheme and request checks; native ASCENT joins their receipts."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ TESTS = (
     "t/lr-action-preparation-test.ss", "t/recognition-prepend-test.ss",
     "t/recognition-sequence-test.ss", "t/artifact-publication-cost-test.ss",
     "t/gql/benchmark-profile-test.ss", "t/language-abi-test.ss",
+    "t/source-recognition-test.ss", "t/event-program-test.ss",
 )
 
 
@@ -38,7 +40,53 @@ def supervised(claim, name, command, inputs, markers=(), build=False):
                  ("PROCESS-RESULT",) + tuple(marker.strip("^$") for marker in markers), timeout=budget + 20)
 
 
+# The encoder's caller and sampler must be the same native images in both roles.
+MEASUREMENT_MODULES = (
+    "gerbil-parser/t/benchmarks/lr-request-stack/sdk-control",
+    "gerbil-parser/t/benchmarks/lr-request-stack/record-access",
+    "gerbil-parser/t/benchmarks/parser-stage-cost/benchmark",
+)
+
+
+def shared_measurement_inputs(root, study, candidate_manifest):
+    baseline_path = study / "baseline.json"
+    baseline = json.loads(baseline_path.read_text())["selectedNativeModules"]
+    candidate = candidate_manifest["selectedNativeModules"]
+    inputs = [str(baseline_path.relative_to(root))]
+    for owner in MEASUREMENT_MODULES:
+        for module in (owner, owner + "~0"):
+            reference = baseline.get(module)
+            measured = candidate.get(module)
+            if reference is None or measured is None or reference["sha256"] != measured["sha256"]:
+                raise ValueError(f"measurement native image differs between roles: {module}")
+            path = study / "baseline/lib" / reference["file"]
+            if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != reference["sha256"]:
+                raise ValueError(f"measurement reference product changed: {module}")
+            inputs.append(str(path.relative_to(root)))
+    return tuple(inputs)
+
+
+def measured_candidate_inputs(root, study):
+    candidate = tuple(sorted(str(path.relative_to(root))
+                      for path in (study / "candidate/lib").rglob("*") if path.is_file()))
+    manifest_path = study / "candidate.json"
+    manifest = json.loads(manifest_path.read_text())
+    if not candidate or not manifest["sourceSha256"] or not manifest["selectedNativeModules"]:
+        raise ValueError("record admission requires a source-bound candidate product")
+    for source, expected in manifest["sourceSha256"].items():
+        path = root / source
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise ValueError(f"measured candidate source changed: {source}")
+    for product in manifest["selectedNativeModules"].values():
+        path = study / "candidate/lib" / product["file"]
+        if hashlib.sha256(path.read_bytes()).hexdigest() != product["sha256"]:
+            raise ValueError(f"measured candidate product changed: {product['file']}")
+    return candidate + (str(manifest_path.relative_to(root)),) + shared_measurement_inputs(root, study, manifest)
+
+
 def collect(root, record_study=None):
+    if record_study is not None:
+        measured_candidate_inputs(root, root / record_study)
     inputs = engine_inputs(root)
     observations = []
     dependencies = []
@@ -89,12 +137,14 @@ def collect(root, record_study=None):
             ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
              '(prefer-compiled-interfaces!) '
              '(preload-runtime-module "gerbil-parser/t/benchmarks/parser-evidence") '
+             '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/request-profile") '
              '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/request-cost") '
              '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
-             "-e", '(gerbil-parser/t/benchmarks/parser-evidence#evidence-main) '
+             "-e", '(gerbil-parser/t/benchmarks/lr-request-stack/request-profile#profile-work) '
+             '(gerbil-parser/t/benchmarks/parser-evidence#evidence-main) '
              '(gerbil-parser/t/benchmarks/lr-request-stack/request-cost#main) '
              '(gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'), runtime_inputs,
-            ("GQL-STAGES-OK", "LR-REQUEST-BACKENDS-OK", "PARSER-EVIDENCE-REQUESTS-OK",
+            ("REQUEST-WORK-OK", "GQL-STAGES-OK", "LR-REQUEST-BACKENDS-OK", "PARSER-EVIDENCE-REQUESTS-OK",
              "REQUEST-COST-BOUNDARIES-OK")))
         dependencies.extend((semantics.identity, item.identity) for item in prepared)
         dependencies.extend((benchmark.identity, item.identity) for item in (*prepared, semantics))
@@ -106,6 +156,7 @@ def collect(root, record_study=None):
                              for name in ("reference-a", "candidate-a", "candidate-b", "reference-b"))
             baseline = tuple(sorted(str(path.relative_to(root))
                              for path in (study / "baseline/lib").rglob("*") if path.is_file()))
+            candidate = measured_candidate_inputs(root, study)
             if not baseline:
                 raise ValueError("record admission requires an independently retained baseline")
             scope_path = study / "scope.json"
@@ -114,8 +165,11 @@ def collect(root, record_study=None):
             scope_arguments = " " + json.dumps(scope["imageMarker"])
             for role in ("targets", "controls"):
                 scope_arguments += " (map string->symbol '(" + " ".join(json.dumps(name) for name in scope[role]) + "))"
-            admission_inputs = runtime_inputs + receipts + baseline + (
-                str((study / "baseline.json").relative_to(root)), str(scope_path.relative_to(root)))
+            # Shared measurement images also belong to the baseline closure.
+            # Bind each artifact once; snapshot rejects duplicate input paths.
+            admission_inputs = tuple(sorted(set(runtime_inputs + receipts + baseline + candidate + (
+                str((study / "baseline.json").relative_to(root)),
+                str(scope_path.relative_to(root))))))
             admission = execute(supervised("record-cpu-improvement", "record-admission",
                 ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
                  '(prefer-compiled-interfaces!) '

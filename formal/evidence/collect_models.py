@@ -10,7 +10,7 @@ def model_checks(root: Path):
     lean_inputs = tuple(str(path.relative_to(root)) for path in sorted((root / "formal").rglob("*.lean"))
                         if ".lake" not in path.parts)
     lean_inputs += ("formal/lean-toolchain", "formal/lakefile.toml", "formal/lake-manifest.json",
-                    "src/runtime/reduce.ss", "src/runtime/reduction-plan.ss", "src/runtime/funcs.ss")
+                    "src/runtime/recognition.ss", "src/runtime/token.ss", "src/runtime/reduce.ss", "src/runtime/reduction-plan.ss", "src/runtime/funcs.ss")
     lean_inputs += ("src/compiler/event-fold-analysis.ss",
                     "src/compiler/event-fold-zero-state.ss",
                     "src/compiler/event-fold-byte-dispatch.ss",

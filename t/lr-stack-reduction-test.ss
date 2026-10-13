@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/src/runtime/recognition
                  make-recognition-child make-recognition-node make-recognition-fragment
                  recognition-child-value recognition-value-start recognition-value-end
-                 recognition-value-bounds recognition-node-children relocate-recognition-value)
+                 recognition-value-bounds with-recognition-value-bounds recognition-node-children relocate-recognition-value)
         (only-in :gerbil-parser/src/runtime/event-program event-program-node-value event-program-fragment-value)
         (only-in :gerbil-parser/src/runtime/reduce
                  recognition-children-field recognition-children-alias
@@ -20,7 +20,8 @@
                  lr-checkpoint-deterministic-actions lr-checkpoint-deterministic-shifts
                  lr-checkpoint-remaining-token-count
                  install-lr-runtime-direct-step! lr-rejection-condition?
-                 current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend)
+                 current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend
+                 current-lr-recognition-observer lr-runtime-with-action-selector)
         (only-in :gerbil-parser/src/runtime/funcs association-row-index-ref
                  recognition-sequence-append recognition-sequence-relocate
                  recognition-sequence-for-action)
@@ -30,6 +31,7 @@
                  prepare-lr-semantic-replay replay-lr-semantics replay-lr-semantic-control
                  lr-semantic-replay-count profile-lr-semantic-actions))
 (import (only-in :gerbil-parser/src/runtime/lr-stack-storage make-lr-token-observer))
+(import (only-in :gerbil-parser/t/fixtures/lr-action-selection reference-lr-action-selector))
 (export lr-stack-reduction-test)
 
 ;;; Installed procedures are arbitrary callbacks. They may change the current
@@ -133,6 +135,69 @@
              (let-values (((status actual) (lr-checkpoint-drive (lr-initial-checkpoint runtime '()) next-input observer)))
                (check status => 'accepted) (check actual => expected)
                (check (reverse seen) => tokens)))) '(#f #t))))
+    (test-case "owned unary chains preserve decorated ASTs, boundaries and failure handoff"
+      (for-each
+       (lambda (depth)
+         (def (name index) (string->symbol (string-append "unit" (number->string index))))
+         (let* ((rules
+                 (cons '(start (alias Root (sequence (reference unit0) (literal "b"))))
+                   (map (lambda (index)
+                          (let (child (if (= index depth) '(token word)
+                                        (list 'reference (name (+ index 1)))))
+                            (list (name index)
+                              (if (even? index) child
+                                (list 'alias (name index) (list 'field 'value child))))))
+                        (iota (+ depth 1)))))
+                (selections 0)
+                (runtime (lr-runtime-with-action-selector
+                           (lr-prepare (compile-lr-spec rules 'start))
+                           (lambda (rows index casefold? layout?)
+                             (let (select (reference-lr-action-selector rows index casefold? layout?))
+                               (lambda (state tokens)
+                                 (set! selections (+ selections 1))
+                                 (select state tokens)))))))
+           (for-each
+            (lambda (offset)
+              (let* ((tokens (list (make-token 'word "a" offset (+ offset 1))
+                                   (make-token 'literal "b" (+ offset 1) (+ offset 2))))
+                     (expected (call-with-values
+                                (lambda () (lr-parse/prepared/receipt runtime tokens)) list))
+                     (owned (begin (set! selections 0)
+                              (call-with-values (lambda () (lr-parse/prepared runtime tokens)) list)))
+                     (owned-selections selections)
+                     (persistent
+                      (begin (set! selections 0)
+                       (parameterize ((current-lr-recognition-observer (lambda (_) (void))))
+                        (call-with-values (lambda () (lr-parse/prepared runtime tokens)) list)))))
+                (check owned => (list (car expected) (cadr expected)))
+                (check persistent => owned)
+                (check selections => owned-selections)
+                (check-exception
+                 (lr-parse/prepared runtime
+                   (list (car tokens) (make-token 'literal "c" (+ offset 1) (+ offset 2))))
+                 lr-rejection-condition?))) '(0 37)))) '(1 16 96)))
+    (test-case "constructor bounds continuation retains scalar endpoints and evaluates once"
+      (for-each
+       (lambda (value)
+         (let ((evaluations 0) (current 'caller-binding) (delta 999))
+           (check
+            (with-recognition-value-bounds
+              (begin (set! evaluations (+ evaluations 1)) value)
+              (start end) (list start end current delta))
+            => (list (recognition-value-start value) (recognition-value-end value)
+                     'caller-binding 999))
+           (check evaluations => 1)))
+       (let ((token (make-token 'word "a" 5 6))
+             (node (make-recognition-node 'Node 9 13 '())))
+         (list token node (make-recognition-fragment 17 19 '())
+               (event-program-node-value 'Event 21 23 #f)
+               (event-program-fragment-value 25 26 #f)
+               (relocate-recognition-value token 37)
+               (relocate-recognition-value (relocate-recognition-value node 11) -4))))
+      (for-each
+       (lambda (value)
+         (check-exception (with-recognition-value-bounds value (start end) (list start end)) true))
+       (list #f 0 '() '#())))
     (test-case "action boundaries precede normalization without changing child ownership"
       (let* ((a (list (make-recognition-child #f (make-token 'word "a" 5 6))))
              (b (list (make-recognition-child 'inner (make-token 'word "b" 9 10))))

@@ -9,6 +9,7 @@
                  parse-artifact-events token-event? token-event-token-kind token-event-lexeme event-start event-end sha256-text)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in ../parser-stage-cost/benchmark measure-parser-component))
+(import (only-in ./sdk-control call-with-record-sdk-control require-record-sdk-code-identity!))
 (export main)
 
 (def (measure-record-request family machine parse source)
@@ -44,7 +45,11 @@
   (measure-record-request 'arithmetic-control arithmetic-parser parse-arithmetic "1")
   ;; The SDK encoder is an identical implementation control. Arithmetic still
   ;; exercises the generated parser, whose shared machine getters may change.
-  (let* ((source (make-string 4096 #\a)) (expected (string->utf8 source)))
-    (measure-parser-component '(sdk-control utf8) 40 1000
-      (lambda () (string->utf8 source)) expected))
-  (displayln "RECORD-REQUESTS-OK") (force-output))
+  (call-with-record-sdk-control
+    (lambda (encode expected)
+      (measure-parser-component '(sdk-control utf8) 40 1000 encode expected sample-output: 'deferred)
+      (call-with-record-sdk-control
+        (lambda (peer _expected)
+          (require-record-sdk-code-identity! encode peer)))
+      (displayln "RECORD-REQUESTS-OK") (force-output)
+      encode)))

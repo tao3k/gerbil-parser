@@ -14,6 +14,25 @@ the checkpoint starts from 16f539901aeaf231ad65f0236a6c2b60283d5f4e.
 Upstream module-admission work must be preserved during alignment. The
 1000-request 10 ms gate remains open; no full matrix or Automation restart.
 
+Checkpoint 450c27e44845ad9fa477b491fff2bf936fcd1128 is rebased on that
+GitHub head. The sole Justfile conflict retained both independent recipes.
+Post-rebase checks passed: 13 run controls, 8 tape/buffer controls, 6 single-use
+call controls, and 24 retained actual Org AOT controls. The latter reruns the
+qualified retained binary; it does not qualify a newly regenerated upstream
+module-loading closure. The fresh model collector passed Lean and Quint:
+Lean faa7c2ec17f4844c986094f4f84a244115a857f14967a12d792a9f03cf4a1050;
+Quint dd6abc197b27fa3bd83d3f1ad13551cef82c32556b9c6996334c6c94c2b44ba3.
+Model-only collection leaves Scheme/performance joins Missing and execution
+unauthorized, as expected. Initial cache permission and missing Ascent library
+environment failures were setup failures, not passing model runs.
+
+Continuation closes the observed diagnostic-link workflow gap: attribution,
+stall and allocation link recipes now use the existing static object-lock
+precheck, as prepared preflight already does. The existing lock rejection and
+evidence-preservation test passes. This is fail-fast detection, not an atomic
+cross-process lock or a throughput improvement. Links must still run only
+after their owned compilation has completed; no SDK locks are removed.
+
 ## Whole-span recognition/state/consumer fusion trial
 
 An architectural span candidate replaces the generated per-byte Scheme loop

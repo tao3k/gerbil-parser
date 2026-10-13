@@ -128,6 +128,7 @@ test-fold-inert output load_path:
     rg --quiet '^OK$' "{{output}}/fold-inert-test.log"
 
 link-fold-attribution output load_path:
+    gxi t/benchmarks/parser-throughput/link-locks.ss "{{output}}/lib/static" "{{output}}/../lib/static"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/fold-profile" t/benchmarks/parser-throughput/profile.ss
 
 run-fold-prepared-counts binary corpus digest receipt:
@@ -162,10 +163,12 @@ link-prepared-fold-tape-preflight output load_path:
 
 link-fold-stalls output load_path:
     mkdir -p "{{output}}"
+    gxi t/benchmarks/parser-throughput/link-locks.ss "{{output}}/lib/static" "{{output}}/../lib/static"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/fold-stalls" t/benchmarks/parser-throughput/stalls.ss
 
 link-fold-allocation-diagnostic output load_path:
     mkdir -p "{{output}}"
+    gxi t/benchmarks/parser-throughput/link-locks.ss "{{output}}/lib/static" "{{output}}/../lib/static"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/allocation-diagnostic" t/benchmarks/parser-throughput/allocation.ss
 
 run-fold-stalls binary corpus receipt:

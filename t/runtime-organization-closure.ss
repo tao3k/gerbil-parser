@@ -14,7 +14,7 @@
     (error "runtime organization closure accepts no suite filters"))
   (let* ((suites (if (null? arguments)
                   (list runtime-module-organization-test lr-semantic-preparation-test
-                        lr-stack-reduction-test lr-action-preparation-test
+                        lr-stack-reduction-test lr-action-preparation-test lr-ordinary-action-preparation-test
                         lr-fragment-transfer-test recovery-incremental-test)
                   (list (test-suite "failure exit control"
                           (test-case "intentional failure reaches the process exit"

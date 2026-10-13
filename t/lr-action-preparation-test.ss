@@ -10,7 +10,6 @@
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in ./fixtures/lr-action-selection reference-lr-action-selector)
         (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector))
-(export lr-action-preparation-test)
 (def lr-action-preparation-test
   (test-suite "prepared layout action projections"
     (test-case "closed engine record access retains checked rejection"

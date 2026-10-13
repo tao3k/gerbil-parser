@@ -13,6 +13,8 @@
   (.o (:: @ asp-gerbil-scheme-library-package-prototype)
       public-entry-modules:
       '("t/runtime-module-organization-test.ss"
+        "t/test-style-contract-test.ss"
+        "t/benchmarks/parser-throughput/link-locks-test.ss"
         "t/check-runtime-organization.ss"
         "t/lr-semantic-preparation-test.ss"
         "t/lr-stack-reduction-test.ss"

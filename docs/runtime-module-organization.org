@@ -30,6 +30,11 @@ FFI owner, link the declared native gxtest values and execute organization, sema
 preparation, stack reduction, fragment transfer and recovery/incremental.
 The existing native process owner enforces 120-second total / five-second
 idle budgets and checks a deliberate failed assertion exits 42.
+The native closure also runs the test-style contract and the AOT lock control:
+74 Cases passed locally. The lock control uses native assertions and an owned
+fixture port, rather than console snapshots; dirty locks remain rejected and
+their evidence remains unchanged. This repairs a baseline CI rejection without
+exempting that control from the source contract.
 Provide the current OpenSSL =pkg-config= metadata for AOT linking rather than
 depending on a previously installed Homebrew version directory.
 Build and test-closure preparation run

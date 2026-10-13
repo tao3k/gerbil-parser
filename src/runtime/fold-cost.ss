@@ -13,14 +13,16 @@
 
 ;; Count-only products avoid timing thunks and frame allocation at every leaf.
 ;; They still incur table updates and are never admitted as timing products.
-(def (fold-cost-count! name)
+(def (fold-cost-count! name (amount 1))
+  (unless (and (exact-integer? amount) (>= amount 0))
+    (error "invalid diagnostic count increment" amount))
   (let (session (current-fold-cost-session))
     (when session
       (let* ((table (vector-ref session 0))
              (row (or (hash-get table name)
                       (let (created (vector 0 0 0 0))
                         (hash-put! table name created) created))))
-        (vector-set! row 0 (+ 1 (vector-ref row 0)))))))
+        (vector-set! row 0 (+ amount (vector-ref row 0)))))))
 
 (def (call-with-fold-cost name thunk)
   (let (session (current-fold-cost-session))

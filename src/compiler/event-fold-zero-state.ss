@@ -1,7 +1,29 @@
 ;;; Guarded idle-state specialization over admitted IR, not value memoization.
 (import (only-in ./event-fold-analysis fold-statement-analysis fold-expression-analysis)
         (only-in ./event-fold-byte-dispatch fold-byte-regions))
-(export fold-zero-state-plan fold-ordinary-state-plan)
+(export fold-zero-state-plan fold-zero-state-support fold-ordinary-state-plan fold-consumer-state-body)
+
+;; Minimize the *external* guard by an exact cofactor witness. A payload
+;; predicate in an eliminated consumer branch must not make another consumer
+;; unavailable. Dropping a cell is admitted only when rerunning specialization
+;; without that premise produces the identical ordered body. Build-time only.
+(def (fold-zero-state-support forms (complete-zero? #f))
+  (let (plan (fold-zero-state-plan forms complete-zero?))
+    (and plan
+      (let* ((body (vector-ref plan 1))
+             (support
+               (foldl (lambda (name current)
+                        (let* ((remaining (filter (lambda (cell) (not (eq? cell name))) current))
+                               (witness (fold-zero-state-plan forms complete-zero? remaining)))
+                          (if (equal? body (if witness (vector-ref witness 1) forms)) remaining current)))
+                      (vector-ref plan 0) (vector-ref plan 0))))
+        (vector support body)))))
+
+;; Facts come from each consumer's executed selector, not an all-machine
+;; idle guard. They are compile-time control-flow facts, never retained state.
+(def (fold-consumer-state-body forms)
+  (let (plan (fold-zero-state-plan forms #t '() #t))
+    (if plan (vector-ref plan 1) forms)))
 
 ;;; A single common-byte kernel, not one generated kernel per byte region.
 ;;; The original complete body remains the fallback for every exceptional byte.
@@ -14,7 +36,7 @@
                  (foldr append '() (map car (vector-ref regions 0)))
                  (vector-ref regions 1)))))
 
-(def (fold-zero-state-plan forms (complete-zero? #f) (guarded-cells #f))
+(def (fold-zero-state-plan forms (complete-zero? #f) (guarded-cells #f) (consumer-local? #f))
   (let ((seen (make-hash-table-eq)) (names '()))
     (def (collect value)
       (when (pair? value)
@@ -77,6 +99,26 @@
                               (if (barrier? (vector-ref (fold-expression-analysis value) 2)) '() facts)))))))))
        (else predicate)))
     (def (intersection left right) (filter (cut memq <> right) left))
+    (def (selector-facts predicate truth facts)
+      ;; Unknown predicate effects discard knowledge before any deduction.
+      ;; Only admitted unsigned cells justify not-positive => exactly zero.
+      (if (or (not consumer-local?)
+              (barrier? (vector-ref (fold-expression-analysis predicate) 2))) facts
+        (case (car predicate)
+          ((not) (selector-facts (cadr predicate) (not truth) facts))
+          ((and or)
+           (if (eq? truth (eq? (car predicate) 'and))
+             (foldl (lambda (part known) (selector-facts part truth known)) facts (cdr predicate))
+             facts))
+          ((uint-positive? uint-equal? uint-not-equal?)
+           (if (and (pair? (cadr predicate)) (eq? (caadr predicate) 'state)
+                    (or (and (eq? (car predicate) 'uint-positive?) (not truth))
+                        (and (not (eq? (car predicate) 'uint-positive?))
+                             (equal? (caddr predicate) '(uint 0))
+                             (eq? truth (eq? (car predicate) 'uint-equal?)))))
+             (let (name (cadadr predicate)) (if (memq name facts) facts (cons name facts)))
+             facts))
+          (else facts))))
     (def (walk body facts)
       (let loop ((rest body) (facts facts) (out '()))
         (if (null? rest) (vector (reverse out) facts)
@@ -89,7 +131,8 @@
                      (loop (cdr rest) (vector-ref chosen 1)
                            (append (reverse (vector-ref chosen 0)) out)))
                    (let* ((branch-facts (if (barrier? (vector-ref (fold-expression-analysis predicate) 2)) '() facts))
-                          (yes (walk (caddr form) branch-facts)) (no (walk (cadddr form) branch-facts)))
+                          (yes (walk (caddr form) (selector-facts predicate #t branch-facts)))
+                          (no (walk (cadddr form) (selector-facts predicate #f branch-facts))))
                      (loop (cdr rest) (intersection (vector-ref yes 1) (vector-ref no 1))
                        (cons (list 'if predicate (vector-ref yes 0) (vector-ref no 0)) out))))))
               ((join-once)
@@ -103,7 +146,13 @@
                       (remaining (if (not (barrier? (vector-ref effect 2)))
                                    (filter (lambda (name) (not (memq name (vector-ref effect 1)))) facts)
                                    '())))
-                 (loop (cdr rest) remaining (cons form out)))))))))
-    (and (pair? names) (<= (length names) 32)
+                 ;; Only a literal zero write establishes a new local fact;
+                 ;; all other writes invalidate just their declared support.
+                 (loop (cdr rest)
+                   (if (and consumer-local? (eq? (car form) 'set-uint)
+                            (equal? (caddr form) '(uint 0)))
+                     (cons (cadr form) remaining) remaining)
+                   (cons form out)))))))))
+    (and (or consumer-local? (pair? names)) (<= (length names) 32)
          (let (body (vector-ref (walk forms names) 0))
            (and (not (equal? body forms)) (vector (reverse names) body))))))

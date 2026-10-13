@@ -1,7 +1,14 @@
 ;;; -*- Gerbil -*-
 ;;; Stage homogeneous pure prefix alternatives into shared byte decisions.
 ;;; This is a private lowering of existing admitted IR, not a new author DSL.
-(export fold-scheme-prefix-family)
+(export fold-scheme-prefix-family fold-scheme-negative-prefix-test)
+
+;; A conservative shared recognition trie. ASCII folding widens case-sensitive
+;; triggers; a false result therefore rejects all original trigger predicates.
+;; True retains the untouched original program, including suffixes and effects.
+(def (fold-scheme-negative-prefix-test paths (cursor 'start))
+  (if (null? paths) #f
+    (prefix-tree-code (prefix-tree (map (lambda (path) (map lower-byte path)) paths)) cursor #t)))
 
 (def (prefix-alternative? opcode form)
   (and (list? form) (= (length form) 2) (eq? (car form) opcode)

@@ -2,7 +2,8 @@
 (export main)
 
 (def (main product)
-  (let ((definitions (make-hash-table-eq)) (calls 0) (tail-calls 0) (owner-assignments 0))
+  (let ((definitions (make-hash-table-eq)) (calls 0) (tail-calls 0)
+        (argument-slots 0) (owner-assignments 0))
     (for-each
      (lambda (file)
        (when (and (string-prefix? "parse-org-compiled-events" file)
@@ -46,6 +47,7 @@
           (else
            (when (and (symbol? (car code)) (hash-get definitions (car code)))
              (set! calls (+ calls 1))
+             (set! argument-slots (+ argument-slots (length (cdr code))))
              (when tail? (set! tail-calls (+ tail-calls 1))))
            ;; Other syntax is conservatively non-tail; do not overstate edges.
            (for-each (cut visit <> #f) code)))))
@@ -53,5 +55,6 @@
     (write (list 'static-fold-call-sites
                  (cons 'definitions (hash-length definitions))
                  (cons 'private-calls calls) (cons 'syntactic-tail-calls tail-calls)
+                 (cons 'static-private-argument-slots argument-slots)
                  (cons 'events-assignments owner-assignments)))
     (newline)))

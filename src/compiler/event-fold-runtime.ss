@@ -6,7 +6,7 @@
                  line-starts-with-ascii-ci? fold-line-prefix-boundary? fold-line-blank?
                  fold-line-has-key-after-prefix? fold-line-has-word-after-prefix?)
         (only-in ./event-fold-byte-set.ss
-                 current-fold-byte-set-cache fold-byte-set-for)
+                 current-fold-byte-set-cache fold-byte-set-for fold-marker-byte)
         (only-in ./event-fold-state-frame.ss
                  instantiate-fold-state-frame fold-state-frame?
                  fold-frame-ref fold-frame-update! fold-frame-bound?
@@ -100,13 +100,6 @@
 
 (def (fold-unsigned? value)
   (and (exact-integer? value) (>= value 0)))
-
-(def (fold-marker-byte value)
-  (unless (and (string? value) (= (string-length value) 1)
-               (< (char->integer (string-ref value 0)) 128))
-    (error "event fold marker must be one ASCII byte" value))
-  (char->integer (string-ref value 0)))
-
 
 (def (fold-offset expression line start end states indices)
   (cond

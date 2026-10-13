@@ -1,11 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Build-time lowering only. Generated requests never dispatch expression data.
 (import (only-in :std/string/utf8 string-utf8-length)
-        (only-in ./event-fold-byte-set fold-byte-set-for)
+        (only-in ./event-fold-byte-set fold-byte-set-for fold-marker-byte)
         (only-in ./event-fold-prefix-family fold-scheme-prefix-family)
-        (only-in ./event-fold-scheme-context fold-scheme-share-expression)
-        (only-in ./event-fold-runtime fold-marker-byte))
-(export fold-scheme-offset fold-scheme-uint fold-scheme-predicate)
+        (only-in ./event-fold-scheme-context fold-scheme-share-expression))
+(export fold-scheme-offset fold-scheme-uint fold-scheme-predicate fold-scheme-condition)
 
 ;; Bindings map admitted names to generated lvalues, not runtime name tables.
 (def (slot bindings name)
@@ -33,7 +32,10 @@
       ((line-step) `(min end (+ 1 ,(offset (cadr expression)))))
       ((line-skip-horizontal line-scan-word line-scan-key
         line-scan-nonspace-until line-scan-until line-physical-end)
-       (let* ((kind (car expression))
+       (let (fact (and (equal? expression '(line-skip-horizontal start))
+                       (assq '%frame-horizontal indices)))
+        (if fact (cdr fact)
+        (let* ((kind (car expression))
               (from (offset (cadr expression)))
               (test
                (case kind
@@ -50,7 +52,7 @@
                                  `(max start (min ,from end)) from)))
               (if (and (< cursor end)
                        (let (byte (u8vector-ref bytes cursor)) ,test))
-                (loop (+ cursor 1)) cursor)))))
+                (loop (+ cursor 1)) cursor)))))))
       ((line-trim-end line-trim-end-from line-content-end)
        (let (fact (and (eq? (car expression) 'line-content-end)
                       (assq '%shared-content-end indices)))
@@ -95,6 +97,11 @@
   (fold-scheme-share-expression
    (fold-scheme-predicate/body expression bindings indices) bindings indices))
 
+(def current-fold-condition (make-parameter #f))
+(def (fold-scheme-condition expression bindings indices)
+  (parameterize ((current-fold-condition #t))
+    (fold-scheme-predicate expression bindings indices)))
+
 (def (bounded-boolean-code operator operands bindings indices)
   ;; Preserve left-to-right short circuiting, but do not feed a monolithic
   ;; branch chain to the native compiler. Shared groups remain ordinary
@@ -119,6 +126,7 @@
   (def (offset value) (fold-scheme-offset value bindings indices))
   (case (car expression)
     ((bool) (cadr expression))
+    ((%line-prefix-hit) (cdr (assq '%line-prefix-hit indices)))
     ((state) (slot bindings (cadr expression)))
     ((uint-positive?) `(> ,(uint (cadr expression)) 0))
     ((uint-equal? uint-greater? uint-not-equal?)
@@ -129,11 +137,14 @@
     ((stack-nonempty?) `(pair? ,(slot bindings (cadr expression))))
     ((not) `(not ,(predicate (cadr expression))))
     ;; The interpreter normalizes successful Boolean combinations to #t.
-    ((and or) `(if ,(or (and (eq? (car expression) 'or)
-                            (fold-scheme-prefix-family (cdr expression)))
-                       (bounded-boolean-code (car expression)
-                                        (map predicate (cdr expression)) bindings indices))
-                  #t #f))
+    ((and or)
+     (let (code (or (and (eq? (car expression) 'or)
+                         (fold-scheme-prefix-family (cdr expression)))
+                    (bounded-boolean-code (car expression)
+                      (map predicate (cdr expression)) bindings indices)))
+       ;; Branch conditions observe truthiness only. Boolean state publication
+       ;; still normalizes, and ordered short-circuit/query evaluation stays.
+       (if (current-fold-condition) code `(if ,code #t #f))))
     ((line-starts-with)
      `(fold-byte-prefix? source-bytes start end ',(string->utf8 (cadr expression)) #f))
     ((line-starts-with-ascii-ci)

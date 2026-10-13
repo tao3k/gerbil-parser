@@ -1,8 +1,26 @@
 ;;; -*- Gerbil -*-
 ;;; Request source traversal has no grammar/compiler initialization dependency.
-(import (only-in :std/string/utf8 string-utf8-length utf8->string))
+(import (only-in :std/string/utf8 string-utf8-length utf8->string) :std/ffi)
 (export fold-source-lines fold-source-byte-lines fold-source-byte-spans
         fold-source-frame-boundaries! fold-source-input-bytes source-line-events line-starts-with?)
+
+;; The visitor still runs once for each original line, in order. Scan only
+;; up to its next boundary before invoking it; no speculative scan past a
+;; callback and no retained foreign pointer or new line-index allocation.
+(C-ffi-macrology)
+(C-include "<stdint.h>")
+(def-C-lambda source-next-line-end (scheme-object unsigned-int64 unsigned-int64) unsigned-int64
+  "const uint8_t *bytes = U8_DATA(___arg1);
+   uint64_t cursor = ___arg2, size = ___arg3;
+   while (cursor < size) {
+     uint8_t byte = bytes[cursor++];
+     if (byte == 10) break;
+     if (byte == 13) {
+       if (cursor < size && bytes[cursor] == 10) ++cursor;
+       break;
+     }
+   }
+   ___return(cursor);")
 
 ;; A call-scoped UTF-8 buffer can drive the same byte Fold without an
 ;; encode/decode/encode round trip. Retain official decoder admission: do not
@@ -29,20 +47,10 @@
 ;; Borrow the request buffer; no line byte slice or decoded string is created.
 (def (fold-source-byte-spans (bytes : :u8vector) initial visit)
   (let (size (u8vector-length bytes))
-    (let loop ((start 0) (cursor 0) (state initial))
-      (cond
-       ((fx= cursor size)
-        (if (fx= start size) state (visit start size state)))
-       (else
-        ;; Vector lengths and guarded cursors are fixnums. next <= size,
-        ;; including a terminal CR; no unchecked read or overflow assumption.
-        (let ((byte (u8vector-ref bytes cursor)) (next (fx+ cursor 1)))
-          (if (or (fx= byte 10) (fx= byte 13))
-            (let (after (if (and (fx= byte 13) (fx< next size)
-                                 (fx= (u8vector-ref bytes next) 10))
-                          (fx+ next 1) next))
-              (loop after after (visit start after state)))
-            (loop start next state))))))))
+    (let loop ((start 0) (state initial))
+      (if (fx= start size) state
+        (let (after (source-next-line-end bytes start size))
+          (loop after (visit start after state)))))))
 
 ;; The source is string->utf8 output or checked UTF-8 input. A nonempty slice of that valid
 ;; buffer is valid UTF-8 iff both ends are character boundaries. Empty slices

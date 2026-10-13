@@ -1,8 +1,27 @@
 ;;; Build-time dependence and effect analysis over already admitted Fold IR.
 ;;; Unknown forms are opaque, never evidence of purity. No request cache.
 (import (only-in :std/list/list delete-duplicates/hash duplicates append-map))
-(export fold-expression-analysis fold-statement-analysis
-        fold-shared-scans fold-rewrite-scans fold-prefix-guard fold-eliminate-inert-branches)
+(export fold-expression-analysis fold-statement-analysis fold-zero-support-preserved?
+        fold-shared-scans fold-rewrite-scans fold-prefix-guard fold-eliminate-inert-branches
+        fold-share-statement-scans)
+
+;; An entry support is an invariant, not necessarily an untouched cell.
+;; Whole ordered regions may reset that support to zero, but may not change it
+;; transiently: a subsequent consumer could observe the intermediate value.
+;; Frames, publication and unknown handoffs remain explicit owner boundaries.
+(def (fold-zero-support-preserved? forms support)
+  (or (null? support)
+  (every
+   (lambda (form)
+     (case (car form)
+       ((if)
+        (and (null? (vector-ref (fold-expression-analysis (cadr form)) 2))
+             (fold-zero-support-preserved? (caddr form) support)
+             (fold-zero-support-preserved? (cadddr form) support)))
+       ((set-uint set-bool)
+        (or (not (memq (cadr form) support))
+            (and (eq? (car form) 'set-uint) (equal? (caddr form) '(uint 0)))))
+       (else #f))) forms)))
 
 ;;; Drop discarded observations only after admitting the absence of effects.
 ;;; Queries, errors and unknown predicates retain their original execution.
@@ -50,7 +69,7 @@
        (else (list form)))) forms))
 
 ;; Summary fields: state reads, state writes, effects. Source bounds/cursors
-;; remain lexical dependencies; reuse never crosses a statement or frame.
+;; remain lexical dependencies; admitted reuse may cross statements, never frames.
 (def (summary reads writes effects) (vector reads writes effects))
 (def (unique items) (delete-duplicates/hash items from-end?: #t))
 (def (merge summaries)
@@ -64,13 +83,19 @@
       (case op
         ((state state-offset stack-top stack-nonempty?)
          (summary (list (cadr value)) '() '()))
-        ((uint bool offset line-index line-prefix-end line-content-end line-trim-end
+        ((uint bool %line-prefix-hit offset line-index line-prefix-end line-content-end line-trim-end
           line-step line-marker-end line-marker-level line-indent-column
-          uint-add uint-multiply uint-divide uint-positive? uint-equal?
+          uint-add uint-multiply uint-positive? uint-equal?
           uint-greater? uint-not-equal? offset-less? not and or
           line-starts-with line-starts-with-ascii-ci line-prefix-boundary-ascii-ci
           line-marker-ascii-ci line-blank? line-has-word-after-prefix?
           line-has-key-after-prefix?) children)
+        ((uint-divide)
+         ;; A necessary-prefix rejection cannot suppress division by zero.
+         (let (divisor (caddr value))
+           (if (and (pair? divisor) (eq? (car divisor) 'uint)
+                    (number? (cadr divisor)) (> (cadr divisor) 0)) children
+             (merge (list children (summary '() '() '(division-error)))))))
         ;; Bounded scans are total only when starting at admitted frame bounds.
         ((line-skip-horizontal line-scan-word line-scan-key line-scan-until
           line-scan-nonspace-until line-trim-end-from line-physical-end)
@@ -132,7 +157,11 @@
 
 (def (shared-scan? value)
   (or (equal? value '(line-content-end)) (equal? value '(line-trim-end))
-      (equal? value '(line-skip-horizontal start))))
+      (equal? value '(line-skip-horizontal start))
+      (and (pair? value) (memq (car value) '(line-scan-until line-scan-word line-scan-key))
+           (eq? (cadr value) 'start)
+           (null? (vector-ref (fold-expression-analysis value) 0))
+           (null? (vector-ref (fold-expression-analysis value) 2)))))
 (def (scan-occurrences value)
   (cond ((shared-scan? value) (list value))
         ((not (pair? value)) '())
@@ -161,6 +190,42 @@
         ((not (pair? expression)) expression)
         (else (cons (car expression)
                     (map (cut fold-rewrite-scans <> replacements) (cdr expression))))))
+
+;; Straight-line source facts are lexical values, not request memoization.
+;; Only a total source scan already guaranteed by the first statement may
+;; dominate later statements. Never cross a loop, frame or opaque handoff.
+(def (fold-share-statement-scans forms (delimiter-only? #f))
+  (def (barrier? form)
+    (any (cut memq <> '(opaque helper bounds iteration))
+         (vector-ref (fold-statement-analysis (list form)) 2)))
+  (def (leading form)
+    (case (car form)
+      ((set-bool set-uint) (guaranteed-scans (caddr form)))
+      ((if) (guaranteed-scans (cadr form)))
+      ((token) (append (guaranteed-scans (caddr form))
+                       (guaranteed-scans (cadddr form))))
+      (else '())))
+  (def (occurs? scan value)
+    (or (equal? scan value)
+        (and (pair? value) (or (occurs? scan (car value))
+                               (occurs? scan (cdr value))))))
+  (let loop ((rest forms))
+    (cond ((null? rest) '())
+          ((barrier? (car rest)) (cons (car rest) (loop (cdr rest))))
+          (else
+           (let split ((tail rest) (region '()))
+             (if (or (null? tail) (barrier? (car tail)))
+               (let* ((region (reverse region))
+                      (scans (filter (lambda (scan)
+                                       (and (or (not delimiter-only?)
+                                                (memq (car scan) '(line-scan-until line-scan-word line-scan-key)))
+                                            (every (cut eq? <> 'events)
+                                              (vector-ref (fold-statement-analysis (list (car rest))) 2))
+                                            (occurs? scan (cdr region))))
+                                     (unique (leading (car rest))))))
+                 (if (null? scans) (cons (car rest) (loop (cdr rest)))
+                   (cons (list '%shared-scans scans region) (loop tail))))
+               (split (cdr tail) (cons (car tail) region))))))))
 
 (def (fold-prefix-guard expression)
   (and (null? (vector-ref (fold-expression-analysis expression) 2))

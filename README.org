@@ -22,6 +22,160 @@ per load for full acceptance. Its included generated line fixture is NOT full
 Org, Rust/Tokio or Python acceptance; real adapters must retain their own
 compiled source identity and semantic oracle. No achieved Org speed is claimed.
 
+Consumer-local selector facts now have explicit read/write support and barrier
+invalidation, with separate Lean semantic lemmas and bounded Quint scope tests.
+Actual AOT controls pass, but matched changing-input preflights remain below
+the throughput gate. The latest supported-run experiment measures 41.504-44.692
+ms per 1000 requests (P95 60-64 us, P99 75-171 us; 22375-24094 requests/s;
+process RSS 28884992-28934144 bytes), versus 42.048-44.423 ms for its control.
+This is not a qualified improvement or twenty-batch acceptance. Full lane
+results, artifact hashes and source-bound model receipts are retained in
+[[file:FOLD-TASK-RECEIPT.md][the task receipt]]. No baseline promotion follows from model success.
+
+An additional scalar-expression inlining candidate passed the actual AOT and
+model chain but failed matched performance: 39.846-128.127 ms per 1000 requests,
+with process RSS 30883840-30916608 bytes versus 28753920-28819456 bytes for the
+control. It was withdrawn; isolated faster lanes do not justify promotion.
+The twenty-batch matrix remains gated on the unchanged 10 ms preflight.
+
+Whole-program single-use call fusion is now connected to production tape AOT,
+before module partitioning. Six directed controls and 24 complete actual tapes
+pass with source-bound Lean/Quint/AOT receipts. The generated product has 1300
+functions instead of 3310 and 5371 private call sites instead of 7381. These
+are static counts, not proof of fewer dynamic scans or allocations.
+
+Six matched changing-input 1000-request preflights per product (NOT full
+acceptance) have wall medians 36.666 ms candidate versus 43.726 ms control,
+CPU medians 36.339 versus 43.615 ms, and process RSS medians 26550272 versus
+28803072 bytes. Candidate call P95 is 51-55 us, P99 63-156 us; throughput
+21368.43-27753.11 requests/s. The 46.798 ms candidate spike remains a negative
+observation, not excluded; five GCs occur in every lane. The 10 ms hard gate
+still fails. Baseline is unchanged; no large-load twenty-batch matrix or
+public Org/FFI/Python/SMP speed admission. Full controls and negative results
+are in the task receipt, with logical/model versus runtime boundaries.
+Serial allocation diagnostics show identical observed bytes per no-GC request
+for all three fixtures (15904/24976/31888 bytes); this subset includes observer
+overhead and is not total allocation. Call fusion has not demonstrated reduced
+allocation or GC pressure.
+
+An additional exclusive-publication candidate follows official =std/io/bio=:
+seal the tape owner, clear its buffer reference, shrink the privately owned
+=u8vector=, and transfer it instead of copying the complete output. Real AOT
+tapes agree. Three fixture no-GC-request allocation observations decrease from
+15904/24976/31888 to 14608/23456/28528 bytes/request (observation overhead is
+included, GC-crossing requests excluded). Eight diagnostic lanes per product
+have wall medians 35.6985 versus 37.3205 ms and CPU medians 35.6645 versus
+36.279 ms; candidate P95 50-56 us, P99 60-133 us, 25957.84-28354.32 requests/s.
+GC count is 4 versus 5. Four RSS-qualified lanes each have medians 26583040
+versus 26558464 bytes: slightly higher RSS, not memory reclamation evidence.
+Concurrent compiler activity and retained negative lanes preclude a stable
+speed admission. Every 1000-request lane still fails the 10 ms gate.
+
+A subsequent shared-next-byte lowering passed model/AOT and NUL/empty/end
+controls, but was withdrawn: CPU median 36.5015 versus 36.2355 ms and P50
+30 versus 29 us, with slightly higher RSS. Fewer source reads alone did not
+offset the added per-byte binding/guard. Independent semantic controls remain.
+Stall probes captured an 8157 us call with only 319 us CPU, no GC and three
+involuntary switches under compiler contention; they do not retrospectively
+classify the earlier 46.798 ms batch. Neither trial promotes a baseline or
+admits a large-load matrix, public Org parsing, Python, Tokio or SMP performance.
+
+Two whole-span recognition/counter/ordered-residual leaf implementations were
+also executed and withdrawn, rather than admitted on model results. The first
+four matched 1000-request lanes have CPU medians 37.066 versus 36.2945 ms;
+the revised compiler-owned entry has 36.691 versus 36.001 ms, wall medians
+37.041 versus 36.119 ms, and RSS medians 26648576 versus 26566656 bytes.
+Revised candidate P95 is 52-56 us, P99 89-116 us, throughput
+12873.66-27386.76 requests/s; its 77.678 ms slow lane is retained. Every lane
+passes complete tape comparison but fails the unchanged 10 ms gate. These
+are four diagnostic lanes/product, NOT the requested twenty-batch acceptance.
+
+The retained real-Fold count-only product now records span and consumer work:
+1000 changing requests execute 45996 admitted spans over 326949 byte visits
+(mean 7.108 bytes/span), plus 71640 fallback byte transitions. Span buckets
+are 6335 at length1, 11332 at2-4, 25995 at5-16 and2334 over16. These are
+dynamic visits, not unique source coverage or timing; diagnostic hooks are
+absent from production products. Static traversal finds33 admitted loop
+occurrences out of285; the inline guard cells are not loop-invariant. The next
+execution-region design must account for their dependency writes, rather than
+hoist stale state, cache input/results or turn each short span into an FFI call.
+Lean reuses the existing counter semantics and proves length/carry encoding;
+Quint separately checks borrow/commit/residual lifecycle. The retained actual
+AOT conformance is source-bound; matched-performance remains explicitly open.
+
+The whole-engine Execution.lean model now treats ordered dependent consumers
+and immutable recognition facts together; existing Quint lifecycle checks
+retain source/bounds invalidation and event order. A local-zero-transition
+trial passed 13 directed controls and 24 actual AOT tapes, but was withdrawn:
+matched 1000-request walls were 42.116-46.836 ms (P95 63-67 us, P99 84-129 us;
+21351.10-23743.95 requests/s; process RSS 28803072-28868608 bytes), versus
+stable controls 43.244-43.803 ms. A 55.164 ms control spike remains recorded.
+This did not establish consistent improvement or the 10 ms gate. The overall
+compiler-to-model refinement and cost attribution remain open; no full matrix,
+baseline promotion or downstream speed claim follows from model success.
+
+Dependency-selected interval execution now chooses a narrow or wide byte
+classification once per ordinary interval; both use one scanner without
+per-byte state guards or a maintained runtime cache. Eleven run controls and
+24 real AOT tape controls pass, with Lean/Quint source binding requalified at
+head 16f5399. The first 240 s qualification timeout remains recorded; a fresh
+retry passed without widening the budget. Matched changing-input preflights
+measure 41.011-43.931 ms per 1000 requests, Fold-call P95 58-63 us and P99
+63-109 us, throughput 22762.97-24383.70 requests/s, and whole-process RSS
+28770304-28803072 bytes. Stable controls measure 42.219-42.779 ms; the first
+57.987 ms control spike is retained. These observations establish neither a
+stable speed improvement nor the 10 ms gate. No baseline promotion or full
+twenty-batch matrix; dependent active consumer transitions remain open.
+
+The independent AOT link now completes after recovery of an unowned object
+lock; build entrypoints reject existing locks without deleting them. The
+single-body recognition prototype and its horizontal-anchor extension each
+pass 24 actual Org complete-tape controls. The latter's four changing-input
+1000-request preflights take 44.320-45.312 ms, with request P95 63-64 us,
+P99 96-124 us, throughput 22069-22563 requests/s and whole-process peak RSS
+27.5625-27.578125 MiB. The 10 ms gate still fails: no baseline promotion or
+three-load twenty-batch acceptance is claimed. See the
+[[file:docs/research/event-fold-recognition-architecture.org][recognition architecture and evidence boundaries]].
+
+The newer dependency-derived private calling convention passes four focused
+controls and the complete source-bound Lean/Quint/Scheme-to-real-AOT chain.
+It removes unused helper environment arguments without request caches. One
+matched 1000-request round measures 43.217-43.471 ms (P95 60-62 us, P99 95-107 us,
+23004-23139 requests/s, peak RSS 28803072-28835840 bytes); a reversed round is
+unstable for both control and candidate, reaching 142.624-148.276 ms for the
+candidate. Neither round passes 10 ms or qualifies a speed claim. The borrowed
+ordinary-run C scan was rejected and rolled back. All raw negative results are
+retained in the [[file:FOLD-TASK-RECEIPT.md][task receipt]]. No baseline promotion or full matrix.
+
+An exact-byte reset/increment run-summary experiment also passed seven native
+admission controls, 24 actual Org tapes and the complete source-bound model/AOT
+chain. It reduced static inline trigger alphabets to 16/17, but strictly serial
+reverse control/candidate CPU remained about 43-44 ms for 1000 requests, with no
+material throughput gain and slightly higher candidate RSS (28852224-28868608
+bytes). It was withdrawn; mathematical refinement is not performance acceptance.
+Live baseline probes reproduce a 111.849 ms diagnostic batch (71.842 ms CPU):
+a 4.908 ms request has only 0.438 ms CPU, zero GC and two involuntary switches.
+Monotonic time agrees, supporting OS descheduling for that reproduced stall;
+the historical 142-148 ms batches remain unclassified. Probe overhead excludes
+these results from throughput acceptance. The 10 ms gate and full-matrix rule
+remain unchanged; the baseline binaries are preserved.
+
+Whole-residual byte-region dispatch was also tested and withdrawn. Its actual
+Org controls and source-bound Lean/Quint/AOT checks passed, but the last reversed
+1000-request batch regressed to 82.181 ms (P95/P99 209/603 us, 12168 requests/s,
+RSS 30801920 bytes) versus 43.807 ms for the preceding control. The stable
+reverse comparison improved CPU only about five percent while process RSS grew
+roughly 2 MB. Lower GC counts do not establish a speedup. All eight lanes retain
+complete independent tape comparisons and failed preflight; no full matrix or
+promotion follows. A separate idle-state/byte-trigger admission implementation
+also passes the complete source-bound model/AOT chain and 24 actual Org tapes,
+but is withdrawn: eight serial matched lanes still fail 10 ms. Its candidate
+range is 42.067-75.223 ms, P95/P99 reaches 157/428 us, throughput is
+13294-23772 requests/s and process RSS is 28884992-28901376 bytes. Controls are
+44.102-46.747 ms. These are preflight observations, not twenty-batch acceptance;
+the fastest singleton is not a promoted baseline. Dependency-supported state
+partitioning and executed admission coverage remain open.
+
 The actual generated Org Fold now has upstream =real.ss= admission and a
 separate diagnostic =profile.ss=. Both compare complete independent events;
 neither uses an Orgize runtime or FFI queue. The real-Fold preflight remains

@@ -1,0 +1,22 @@
+(import :std/io/tempfile
+        (rename-in (only-in "./link-locks.ss" static-link-locks main) (main check-locks)))
+(export main)
+
+(def (main)
+  (let (directory (make-temporary-file-name "parser-aot-lock-test-"))
+    (create-directory directory)
+    (try
+      (let (lock (path-expand "part.o.lock" directory))
+        (check-locks directory)
+        (call-with-output-file lock (cut display "retained evidence" <>))
+        (unless (equal? (static-link-locks directory) (list lock))
+          (error "object lock was not detected"))
+        (unless (with-catch (lambda (_) #t)
+                  (lambda () (check-locks directory) #f))
+          (error "dirty AOT closure was admitted"))
+        (unless (equal? (call-with-input-file lock read-line) "retained evidence")
+          (error "lock evidence was altered"))
+        (delete-file lock)
+        (check-locks directory)
+        (displayln "OK AOT lock rejection and evidence preservation"))
+      (finally (delete-file-or-directory directory #t)))))

@@ -3,7 +3,62 @@
 (import (only-in :std/list/list delete-duplicates/hash)
         (only-in :std/list/list-builder with-list-builder)
         (only-in ./event-fold-analysis fold-expression-analysis))
-(export fold-byte-dispatch fold-byte-prefilter fold-necessary-bytes fold-byte-regions)
+(export fold-byte-dispatch fold-byte-prefilter fold-necessary-bytes fold-byte-regions fold-line-negative-region)
+
+;; One shared negative classification across ordered line consumers. Retain
+;; each original transition once, guarded by the frame-local classification.
+;; No successful suffix/state match follows from a positive classification.
+;; Frames, loops and helper handoffs remain opaque boundaries.
+(def (fold-line-negative-region forms)
+  (def prefixes '())
+  (def (necessary predicate)
+    (cond
+      ((and (pair? predicate)
+            (memq (car predicate) '(line-starts-with line-starts-with-ascii-ci
+                                   line-prefix-boundary-ascii-ci line-marker-ascii-ci
+                                   line-has-word-after-prefix? line-has-key-after-prefix?)))
+       (let (bytes (u8vector->list (string->utf8 (cadr predicate))))
+         (and (pair? bytes) (list (cons 'start bytes)))))
+      ((and (pair? predicate) (eq? (car predicate) 'line-byte-equal?)
+            (member (cadr predicate) '(start (line-skip-horizontal start))))
+       (list (cons (if (eq? (cadr predicate) 'start) 'start 'horizontal)
+                   (list (caddr predicate)))))
+      ((and (pair? predicate) (eq? (car predicate) 'line-bytes-any-in?)
+            (member (cadr predicate) '(start (line-skip-horizontal start)))
+            (equal? (caddr predicate) (list 'line-step (cadr predicate))))
+       (and (pair? (list-ref predicate 3))
+            (map (lambda (byte)
+                   (cons (if (eq? (cadr predicate) 'start) 'start 'horizontal)
+                         (list byte))) (list-ref predicate 3))))
+      ((and (pair? predicate) (eq? (car predicate) 'and))
+       (let loop ((rest (conjunction-terms predicate)))
+         (and (pair? rest)
+              (or (necessary (car rest))
+                  (and (null? (vector-ref (fold-expression-analysis (car rest)) 2))
+                       (loop (cdr rest)))))))
+      ((and (pair? predicate) (eq? (car predicate) 'or))
+       (let (alternatives (map necessary (cdr predicate)))
+         (and (every list? alternatives) (foldr append '() alternatives))))
+      (else #f)))
+  (def (walk body)
+    (with-list-builder (emit)
+      (for-each
+       (lambda (form)
+         (case (car form)
+           ((if)
+            (let (needed (necessary (cadr form)))
+              (if needed
+                (begin
+                  (set! prefixes (append needed prefixes))
+                  (emit (list 'if (list 'and '(%line-prefix-hit) (cadr form))
+                              (walk (caddr form)) (walk (cadddr form)))))
+                (emit (list 'if (cadr form) (walk (caddr form)) (walk (cadddr form)))))))
+           ((join-once)
+            (emit (list 'join-once (cadr form) (walk (caddr form)) (walk (cadddr form)))))
+           (else (emit form)))) body)))
+  (let ((residual (walk forms)))
+    (and (pair? prefixes) (not (equal? forms residual))
+         (vector (delete-duplicates/hash prefixes from-end?: #t) residual))))
 
 ;; One classification for the entire validated byte-loop body, not one guard
 ;; per independent state machine. Descend only through decisions and lexical

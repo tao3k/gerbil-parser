@@ -150,3 +150,112 @@ then prove an implementation refinement for the same reduction path. Use the
 same action and source contracts in Scheme controls. The [[file:parser-evidence-chain.org][evidence-chain study]] now adds a finite Quint publication/cancellation
 model and native ASCENT dependency review. Worker lifecycle and implementation
 conformance remain open; the protocol model is not a second grammar authority.
+
+* Fold run specialization: distinct proof responsibilities
+
+* Whole-engine execution boundary: not another Fold-only speed model
+
+=Execution.lean= models ordered, dependent consumers over one immutable source
+extent. The shared recognition fact is source-only; consumers retain their
+original order and may observe earlier state writes. State includes the event
+owner and rejection outcome, rather than only a Boolean mode. The general
+=transition_list_preserves= theorem permits writes that preserve the admission
+invariant; requiring every relevant cell to remain untouched is unnecessarily
+strong. The source-visit count theorem is conditional logical work, NOT elapsed
+time, an allocation estimate or proof that the Scheme optimizer is sound.
+
+The whole-span trial reuses =Fold.count_summary_identity=, rather than adding
+a duplicate counter model. =Execution.count_summary_extent= proves that the
+summary carry is true exactly when its suffix length equals consumed length;
+=count_summary_length_encoding= justifies that ABI representation without
+truncating the initial Scheme integer. It does not prove a C implementation or
+physical speed. =RunPlan.qnt= separately models the synchronous borrowed phase:
+no source invalidation, state commit or residual publication during the borrow,
+and ordered commit/consumer execution after release. Directed Scheme tests and
+complete actual AOT tapes bind implementation observations. Both span-leaf
+implementations were slower and withdrawn despite passing those controls.
+The model is an obligation for a future execution-region candidate, not a
+claim that the retained production code now uses this foreign span executor.
+
+The rejected implementation derived local completion support after byte-region
+classification and reapplies explicit entry facts after unreachable trigger
+effects disappear. Literal zero resets preserve unsigned zero support. A
+nonzero intermediate write, unknown handoff or observable publication rejects
+this admission. The original triggering transition and event order remain
+unchanged. Matched timing did not establish a consistent improvement, and the
+admission/lowering policy was restored to the prior baseline. The invariant
+checker and directed controls remain verification tooling, not an enabled
+runtime optimization. This is one part of the engine execution plan, not whole-engine
+performance closure and not a maintained state/text cache.
+
+The architecture audit must account for the complete request, not add up
+instrumented leaf durations or mistake fewer guards for fewer executed visits:
+
+| Execution boundary | Implementation owner | Required observation |
+|--------------------+----------------------+----------------------|
+| Input admission and byte ownership | =src/runtime/source-lines.ss= | Encoding versus UTF-8 validation; retained source; no per-line decoding in the byte-span path |
+| Source recognition and consumer execution | =event-fold-analysis.ss=, =event-fold-byte-dispatch.ss=, =event-fold-scheme-statements.ss= | Dynamic scans/bytes, state dependencies and helper/frame barriers; one admitted extent, ordered consumers |
+| AOT closure and owner return | =event-fold-scheme.ss=, =event-fold-scheme-modules.ss= | Generated call graph versus actual call counts; lexical/slot ownership and retained outputs |
+| Event allocation and publication | =src/runtime/fold-tape.ss= | Record count, growth/copies, final sealing and GC; no intermediate event-list authority |
+| Downstream graph consumption | =graph-projection-runtime.ss= and the consumer adapter | Separate full-chain measurement; cannot inherit direct Fold timing |
+
+Existing =FoldPlan.qnt= owns source/bounds epochs, effect barriers and ordered
+consumer histories. Its local-preserving-transition history requires the same
+extent and scan basis; unknown transitions still invalidate. =RunPlan.qnt=
+owns interval commit/residual ordering. No second grammar or duplicated Lean
+semantic proof is introduced in Quint. Neither model proves processor
+activation, garbage-collector behavior or Tokio latency.
+
+Real AOT conformance and observer-free complete-request timing remain mandatory.
+The latest historical count-only census reports many repeated generated calls,
+but its instrumentation and GC prevent treating those counts as exclusive CPU
+or allocated bytes. The new architectural model is deliberately not a claim
+that the 1000-request 10 ms gate has passed. The compiler-to-model dependency
+analysis and complete pipeline cost attribution remain explicit open work.
+
+* Generated call-region fusion
+
+The call planner operates on the complete generated program before module
+partitioning. Private expression references are counted across bodies and
+value/export references. Only a unique call edge with scalar-reference
+arguments and bounded expanded size is spliced. Shared consumers and helper
+frame entries retain their boundary; effectful arguments are not moved.
+Consumer effects and events retain order. Fresh lexical names preserve let,
+let*, single-binding Gerbil let and named-loop scope. Quotes are opaque.
+Final reachability prevents a rejected parent from deleting needed callees.
+
+The budget bounds generated code, not request concurrency or runtime dispatch.
+No request cache, event representation or runtime graph is added. Production
+direct tapes use this pass; list consumers and diagnostic products do not.
+Six directed controls cover scope, shared calls, argument effects, skipped
+errors, size rejection and mutable owners. Lean splice_call_preserves_order
+proves the ordered transition-region contract, not Scheme alpha conversion.
+Existing Quint FoldPlan checks a fused-call/frame invalidation history rather
+than duplicating the semantic proof. The collector binds the planner, tests,
+models and real AOT. Static call reductions are not performance admission.
+
+* Existing interval contracts
+
+=Fold.lean= owns pure transition refinement: =overwrite_run_last= and
+=overwrite_run_residual= retain the final overwrite and the original trigger
+transition; =run_partition= preserves contiguous source extents. These theorems
+do not establish the compiler's eligibility analysis or physical scan cost.
+
+=RunPlan.qnt= owns lifecycle histories, not the same denotational proof:
+frame invalidation prevents stale commits, a committed ordinary run must
+execute its residual before the next scan, and a mutation witness rejects
+stale admission. The seeded 1000-trace/20-step check is bounded testing, not
+an exhaustive proof over all executions or a throughput guarantee.
+
+The model collector binds the ordinary-run admission and lowering, generated
+module owner, borrowed byte scanner, source-line visitor, event-tape writer,
+and implementation controls. Complete real AOT tapes and matched timing remain
+separate evidence obligations. Model success never promotes a candidate that
+fails the 1000-request <=10 ms preflight.
+
+The foreign ordinary-run leaf experiment passed boundary and complete-tape
+controls but did not improve matched whole-call timing and was reverted.
+The retained models describe the existing run contract, not a deployed foreign
+scanner. Diagnostic =t/benchmarks/parser-throughput/stalls.ss= reads the
+installed Gambit header's GC counters and OS resource counters; its extra
+probes and cold first call make it diagnostic only, not acceptance timing.

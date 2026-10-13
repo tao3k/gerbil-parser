@@ -3,6 +3,35 @@
 (def fold-byte-dispatch-test
   (test-suite "Prepared byte dispatch effects"
     (test-case "distinct bytes select only relevant ordered state branches"
+      (let (plan (fold-line-negative-region
+                  '((if (and (state active) (line-starts-with "#+"))
+                        ((set-bool active (bool #f))) ((token Line start end)))
+                    (if (line-has-word-after-prefix? "Clock:")
+                        ((finish-node)) ()))))
+        (check (vector-ref plan 0) => '((start 67 108 111 99 107 58) (start 35 43)))
+        (check (vector-ref plan 1)
+          => '((if (and (%line-prefix-hit) (and (state active) (line-starts-with "#+")))
+                   ((set-bool active (bool #f))) ((token Line start end)))
+               (if (and (%line-prefix-hit) (line-has-word-after-prefix? "Clock:"))
+                   ((finish-node)) ()))))
+      (for-each
+       (lambda (predicate)
+         (check (fold-line-negative-region
+                  (list `(if ,predicate ((token Line start end)) ()))) => #f))
+       '((and (future-heading-title? "*" " " (uint 1) "END") (line-starts-with "#"))
+         (line-starts-with "")))
+      (check (fold-line-negative-region
+               '((with-source-bounds start end
+                    ((if (line-starts-with "#") ((token Line start end)) ()))))) => #f)
+      (let (plan (fold-line-negative-region
+                  '((if (and (state active)
+                             (line-byte-equal? (line-skip-horizontal start) 35))
+                        ((token Line start end)) ()))))
+        (check (vector-ref plan 0) => '((horizontal 35))))
+      (check (fold-line-negative-region
+               '((if (and (future-heading-title? "*" " " (uint 1) "END")
+                          (line-byte-equal? (line-skip-horizontal start) 35))
+                     ((token Line start end)) ()))) => #f)
       (let ((plan (fold-byte-dispatch
         '(if (and (state ready) (line-byte-equal? (line-index cursor) 97))
              ((set-bool ready (bool #f)))

@@ -15,15 +15,30 @@ module FoldPlan {
   action BoundsChange = q' = invalidate(q)
   action EffectBarrier = q' = invalidate(q)
   action HelperBarrier = q' = invalidate(q)
+  // Generated consumers may borrow a fact only for the identical immutable
+  // extent. The event owner and next consumer stay with the caller.
+  action SameExtentConsumer = q' = q
+  // A proven zero-preserving local reset does not invalidate immutable source
+  // facts. This is a lifecycle abstraction, not a proof of the IR checker.
+  action LocalPreservingTransition = all {q.ready,q.basis == q.epoch,q' = q}
+  // Rejection neither publishes an event nor hands off the current owner.
+  action NegativeConsumer = all {q.ready, q.basis == q.epoch, q' = q}
   action First = q' = consume(q,0)
   action Second = q' = consume(q,1)
-  action step = any {Scan, SourceEdit, BoundsChange, EffectBarrier, HelperBarrier, First, Second}
+  action step = any {Scan, SourceEdit, BoundsChange, EffectBarrier, HelperBarrier, SameExtentConsumer, LocalPreservingTransition, NegativeConsumer, First, Second}
   val CurrentScan = not(q.ready) or q.basis == q.epoch
   val OrderedConsumers = q.events == [] or q.events == [0] or q.events == [0,1]
   val ExecutionSafety = CurrentScan and OrderedConsumers
   // Epochs abstract frame identity. Detecting every implementation write,
   // alias and helper effect remains a compiler-to-AOT refinement obligation.
   run sharedScanLifecycleTest = init.then(Scan).then(First).then(Second)
+    .expect(ExecutionSafety and q.scans == 1 and q.events == [0,1])
+  run sameExtentConsumerTest = init.then(Scan).then(First).then(SameExtentConsumer).then(Second)
+    .expect(ExecutionSafety and q.scans == 1 and q.events == [0,1])
+  run localTransitionSharedSourceTest = init.then(Scan).then(First)
+    .then(LocalPreservingTransition).then(Second)
+    .expect(ExecutionSafety and q.scans == 1 and q.events == [0,1])
+  run negativeConsumerTest = init.then(Scan).then(NegativeConsumer).then(First).then(Second)
     .expect(ExecutionSafety and q.scans == 1 and q.events == [0,1])
   run sourceInvalidationTest = init.then(Scan).then(SourceEdit).then(First)
     .expect(ExecutionSafety and q.events == [])
@@ -37,6 +52,11 @@ module FoldPlan {
     .expect(ExecutionSafety and q.scans == 2 and q.events == [0])
   run consumerInterleavingTest = init.then(Scan).then(Second).then(First).then(Second)
     .expect(ExecutionSafety and q.events == [0,1])
+  // Call fusion borrows the same extent; a changed owner/frame cannot borrow
+  // the preceding recognition fact merely because a call boundary vanished.
+  run fusedCallInvalidationTest = init.then(Scan).then(First).then(BoundsChange)
+    .then(Second).then(Scan).then(Second)
+    .expect(ExecutionSafety and q.events == [0,1] and q.scans == 2)
   // Mutation witness: retaining ready=true while advancing the epoch is unsafe.
   run staleReuseMutationTest = init.then(Scan).expect(
     not(not(q.ready) or q.basis == q.epoch + 1))

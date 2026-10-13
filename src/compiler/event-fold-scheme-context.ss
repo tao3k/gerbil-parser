@@ -85,6 +85,13 @@
                      (string->symbol (string-append "%fold-free-" (number->string index))))
                    (iota (length free))))
              (normalized (rename-variables code (map cons free formals)))
+             ;; Derive the private calling convention from the lowered body.
+             ;; Nested callees have already been projected, so unused source,
+             ;; bounds and owner arguments disappear transitively. This is
+             ;; build-time closure conversion, not request caching or inlining.
+             (base (filter (cut contains-variable? normalized <>)
+                           (if statements? '(source-bytes start end slots events)
+                             '(source-bytes start end slots))))
              (key (list statements? formals normalized)))
         ;; A mutable join temporary stays in its lexical owner. Base slots
         ;; are vector cells shared explicitly, not free-variable mutation.
@@ -94,13 +101,11 @@
                        (let (name (fold-scheme-fresh-name 'expression))
                          (table-set! cache key name)
                          (current-fold-scheme-definitions
-                          (cons `(def (,name source-bytes start end slots
-                                            ,@(if statements? '(events) '()) ,@formals)
+                          (cons `(def (,name ,@base ,@formals)
                                    ,(fold-scheme-observed name normalized))
                                 (current-fold-scheme-definitions)))
                          name)))
-            `(,name source-bytes start end slots
-                    ,@(if statements? '(events) '()) ,@free))))
+            `(,name ,@base ,@free))))
       code)))
 
 (def (fold-scheme-share-expression code bindings indices)

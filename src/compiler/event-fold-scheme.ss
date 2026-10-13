@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Engine-owned native strategy source. No eval or runtime opcode fallback.
 (import (only-in ./event-fold-ir event-fold-ir)
+        (only-in ./event-fold-call-plan fold-fuse-single-use-calls)
         (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
         (only-in ./machine parser-machine-grammar-digest)
         (only-in ./event-fold-program snapshot-fold-data)
@@ -10,7 +11,7 @@
                  current-fold-scheme-diagnostics fold-scheme-observed
                  current-fold-scheme-tape-kinds)
         (only-in ./event-fold-scheme-statements
-                 fold-scheme-statements fold-scheme-bindings fold-scheme-initial
+                 fold-scheme-statements fold-scheme-frame-statements fold-scheme-bindings fold-scheme-initial
                  current-fold-scheme-counter fold-scheme-fresh-name))
 (export event-fold-scheme-source)
 
@@ -51,7 +52,7 @@
          ,@(map (lambda (parameter argument)
                   `(vector-set! slots ,(caddr (cdr (assq parameter bindings))) ,argument))
                 parameters arguments)
-         ,@(fold-scheme-statements (caddr helper) bindings '() names)
+         ,@(fold-scheme-frame-statements (caddr helper) bindings '() names)
          events))))))
 
 (def (event-fold-scheme-source name grammar root initial line finish
@@ -143,7 +144,7 @@
                              `(list '(start ,root)))
                           (lambda (start end events)
                             (begin
-                              ,@(fold-scheme-statements line bindings '() names)
+                              ,@(fold-scheme-frame-statements line bindings '() names)
                               events))))
                        (start 0) (end 0))
                   (begin
@@ -160,5 +161,7 @@
                                           '(reverse! (cons '(finish) events))))))))))
          (for-each
           (lambda (form) (write form port) (newline port))
-          (cons (car forms)
-                (append (reverse (current-fold-scheme-definitions)) (cdr forms)))))))))
+          (let (complete (cons (car forms)
+                            (append (reverse (current-fold-scheme-definitions)) (cdr forms))))
+            (if (and tape? (not (current-fold-scheme-diagnostics)))
+              (fold-fuse-single-use-calls complete) complete))))))))

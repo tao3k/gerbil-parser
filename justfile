@@ -53,17 +53,24 @@ test-workers output=".data/worker-controls": build-qualification
 # Compile the suite's own fixtures, not only its import declarations.
 build-fold-attribution output load_path:
     mkdir -p "{{output}}"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/scan.ss src/compiler/event-list-marker.ss src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-fold-future.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/scan.ss src/runtime/byte-spans.ss src/compiler/event-list-marker.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-fold-future.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/fold-cost.ss t/fold-cost-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-cost-test.ss > "{{output}}/fold-cost-test.log" 2>&1
     rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-cost-test.log"
     rg --quiet '^OK$' "{{output}}/fold-cost-test.log"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-set.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-consumer-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-call-plan.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-zero-state-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-zero-state-test.ss > "{{output}}/fold-zero-state-test.log" 2>&1
     rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-zero-state-test.log"
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-zero-state-test.log')" = 5
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-zero-state-test.log')" = 8
     rg --quiet '^OK$' "{{output}}/fold-zero-state-test.log"
+
+test-fold-consumer-state output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-consumer-state-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-consumer-state-test.ss > "{{output}}/fold-consumer-state-test.log" 2>&1
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-consumer-state-test.log')" = 5
+    rg --quiet '^OK$' "{{output}}/fold-consumer-state-test.log"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/fold-consumer-state-test.log"
 
 test-fold-tape-tail output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-tape-tail-test.ss
@@ -84,9 +91,34 @@ inspect-fold-runs program load_path:
 test-fold-runs output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-run-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-run-test.ss > "{{output}}/fold-run-test.log" 2>&1
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-run-test.log')" = 5
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-run-test.log')" = 13
     rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-run-test.log"
     rg --quiet '^OK$' "{{output}}/fold-run-test.log"
+
+test-fold-statement-scans output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-statement-scans-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-statement-scans-test.ss > "{{output}}/fold-statement-scans-test.log" 2>&1
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-statement-scans-test.log')" = 5
+    rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-statement-scans-test.log"
+    rg --quiet '^OK$' "{{output}}/fold-statement-scans-test.log"
+
+# Rebuild package dependencies only; installed SDK and global libraries stay read-only.
+test-fold-buffer-consumer output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/fold-tape.ss t/event-strategy-fixture.ss t/fold-tape-test.ss t/fold-buffer-consumer-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-tape-test.ss t/fold-buffer-consumer-test.ss > "{{output}}/fold-buffer-consumer-test.log" 2>&1
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-buffer-consumer-test.log')" = 8
+    rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-buffer-consumer-test.log"
+    rg --quiet '^OK$' "{{output}}/fold-buffer-consumer-test.log"
+
+prepare-fold-buffer-compiler output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss
+
+prepare-fold-dependency source output load_path:
+    mkdir -p "{{output}}"
+    cd "{{source}}" && GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil env gxi build.ss compile --optimized
+
+prepare-real-fold-inputs output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-ir.ss src/runtime/fold-tape.ss t/fold-tape-oracle.ss src/compiler/event-fold-scheme-build.ss
 
 test-fold-inert output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-inert-test.ss
@@ -97,6 +129,13 @@ test-fold-inert output load_path:
 
 link-fold-attribution output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/fold-profile" t/benchmarks/parser-throughput/profile.ss
+
+run-fold-prepared-counts binary corpus digest receipt:
+    test ! -e "{{receipt}}"
+    GAMBOPT=max-heap=1G,debug=q "{{binary}}" "{{corpus}}" prepared-counts "{{digest}}" > "{{receipt}}" 2>&1
+    rg --quiet '^DIAGNOSTIC-OK real-fold; NOT PERFORMANCE ACCEPTANCE' "{{receipt}}"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{receipt}}"
+    rg '^\(diagnostic-only|^FIELDS|^DIAGNOSTIC-OK' "{{receipt}}"
 
 link-real-fold-throughput output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/benchmarks/parser-throughput/protocol.ss
@@ -112,14 +151,51 @@ prepare-real-fold-tape-preflight fixtures program digest corpus load_path:
     test ! -e "{{corpus}}"
     GERBIL_LOADPATH="{{load_path}}" gxi t/benchmarks/parser-throughput/prepare-tape-preflight.ss "{{fixtures}}" "{{program}}" "{{digest}}" "{{corpus}}"
 
+prepare-fold-throughput-protocol output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/benchmarks/parser-throughput/protocol.ss
+
 link-prepared-fold-tape-preflight output load_path:
     mkdir -p "{{output}}"
+    gxi t/benchmarks/parser-throughput/link-locks.ss "{{output}}/lib/static" "{{output}}/../lib/static"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/benchmarks/parser-throughput/protocol.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/prepared-tape-fold" t/benchmarks/parser-throughput/prepared-tape.ss
+
+link-fold-stalls output load_path:
+    mkdir -p "{{output}}"
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/fold-stalls" t/benchmarks/parser-throughput/stalls.ss
 
 link-fold-allocation-diagnostic output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/allocation-diagnostic" t/benchmarks/parser-throughput/allocation.ss
+
+run-fold-stalls binary corpus receipt:
+    test ! -e "{{receipt}}"
+    GAMBOPT=max-heap=1G,debug=q "{{binary}}" "{{corpus}}" > "{{receipt}}" 2>&1
+    rg --quiet '^FOLD-STALLS-OK' "{{receipt}}"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{receipt}}"
+    rg '^BATCH-DIAGNOSTIC|^FIELDS|^\(|^FOLD-STALLS-OK' "{{receipt}}"
+
+# One existing AOT process; OS sampling is diagnostic, never acceptance.
+[script]
+profile-fold-stacks binary corpus receipt sample:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test ! -e "{{receipt}}"
+    test ! -e "{{sample}}"
+    GAMBOPT=max-heap=1G,debug=q "{{binary}}" "{{corpus}}" profile > "{{receipt}}" 2>&1 &
+    task_pid=$!
+    trap 'kill "$task_pid" 2>/dev/null || true' EXIT
+    ready=false
+    for attempt in {1..200}; do
+        if rg --quiet '^FOLD-PROFILE-READY' "{{receipt}}"; then ready=true; break; fi
+        kill -0 "$task_pid"
+        sleep 0.01
+    done
+    test "$ready" = true
+    /usr/bin/sample "$task_pid" 1 1 -file "{{sample}}"
+    wait "$task_pid"
+    trap - EXIT
+    rg --quiet '^FOLD-PROFILE-OK' "{{receipt}}"
 
 run-fold-allocation-diagnostic binary corpus receipt:
     test ! -e "{{receipt}}"
@@ -167,27 +243,23 @@ run-fold-attribution binary controls receipt mode="timed":
 build-event-fold-controls output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/fold-tape.ss t/fold-tape-oracle.ss
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss t/event-fold-analysis-test.ss t/fold-zero-state-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-consumer-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss t/event-fold-analysis-test.ss t/fold-zero-state-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-zero-state-test.ss > "{{output}}/fold-zero-state-test.log" 2>&1
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-zero-state-test.log')" = 5
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-zero-state-test.log')" = 8
     rg --quiet '^OK$' "{{output}}/fold-zero-state-test.log"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/event-fold-analysis-test.ss > "{{output}}/fold-analysis-test.log" 2>&1
     test "$(rg --count '^CASE-OK ' '{{output}}/fold-analysis-test.log')" = 3
     rg --quiet '^HARNESS-OK' "{{output}}/fold-analysis-test.log"
     rg --quiet '^OK$' "{{output}}/fold-analysis-test.log"
     ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/fold-analysis-test.log"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-byte-dispatch-test.ss
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-byte-dispatch-test.ss > "{{output}}/fold-byte-dispatch-test.log" 2>&1
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-byte-dispatch-test.log')" = 2
-    rg --quiet '^OK$' "{{output}}/fold-byte-dispatch-test.log"
-    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/fold-byte-dispatch-test.log"
+    just test-fold-byte-dispatch "{{output}}" "{{load_path}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-shared-probes-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-shared-probes-test.ss > "{{output}}/fold-shared-probes-test.log" 2>&1
     test "$(rg --count '^CASE-OK ' '{{output}}/fold-shared-probes-test.log')" = 2
     rg --quiet '^OK$' "{{output}}/fold-shared-probes-test.log"
     ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/fold-shared-probes-test.log"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-future.ss
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-ir.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss t/event-strategy-fixture.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-ir.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-call-plan.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss t/event-strategy-fixture.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-tape-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-tape-test.ss > "{{output}}/fold-tape-test.log" 2>&1
     test "$(rg --count '^CASE-OK ' '{{output}}/fold-tape-test.log')" = 3
@@ -196,14 +268,36 @@ build-event-fold-controls output load_path:
     just generate-event-fold-executable "{{output}}" "{{load_path}}"
 
 # One owner: any failed compile or semantic gate stops subsequent steps.
+test-fold-byte-dispatch output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-byte-dispatch-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-byte-dispatch-test.ss > "{{output}}/fold-byte-dispatch-test.log" 2>&1
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-byte-dispatch-test.log')" = 2
+    rg --quiet '^OK$' "{{output}}/fold-byte-dispatch-test.log"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/fold-byte-dispatch-test.log"
+
 qualify-fold-plan output load_path:
+    just test-aot-link-locks
     just build-event-fold-controls "{{output}}" "{{load_path}}"
+    just test-fold-consumer-state "{{output}}" "{{load_path}}"
+    just test-fold-condition "{{output}}" "{{load_path}}"
+    just test-fold-call-environment "{{output}}" "{{load_path}}"
+    just test-fold-call-plan "{{output}}" "{{load_path}}"
+    just test-fold-frame-facts "{{output}}" "{{load_path}}"
+    just test-fold-statement-scans "{{output}}" "{{load_path}}"
     just test-fold-tape-tail "{{output}}" "{{load_path}}"
     just test-fold-inert "{{output}}" "{{load_path}}"
     just test-fold-runs "{{output}}" "{{load_path}}"
     just test-fold-source-controls "{{output}}" "{{load_path}}"
     just link-event-fold-controls "{{output}}" "{{load_path}}"
     just test-event-fold-controls "{{output}}" "{{load_path}}"
+
+# Copy immutable generated artifacts, not dependency manifests or SDK state.
+test-fold-call-plan output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-call-plan.ss t/fold-call-plan-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-call-plan-test.ss > "{{output}}/fold-call-plan-test.log" 2>&1
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-call-plan-test.log')" = 6
+    rg --quiet '^OK$' "{{output}}/fold-call-plan-test.log"
+    ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/fold-call-plan-test.log"
 
 # Copy immutable generated artifacts, not dependency manifests or SDK state.
 stage-real-fold-evidence source output:
@@ -300,7 +394,7 @@ test-event-fold-controls output load_path:
 build-event-fold-compiled output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-aot.ss rust-runtime-event-support.ss
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-ir.ss src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss t/event-fold-scheme-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-ir.ss src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-consumer-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-call-plan.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss t/event-fold-scheme-test.ss
 
 test-event-fold-compiled binary output: build-qualification
     gerbil env gxi qualify.ss compiled-event-fold "{{binary}}" "{{output}}"
@@ -411,6 +505,53 @@ formal:
 formal-fold:
     cd formal && lean ParserEngine/Fold.lean
 
+test-fold-call-environment output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-call-environment-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-call-environment-test.ss > "{{output}}/fold-call-environment-test.log" 2>&1
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-call-environment-test.log')" = 4
+    rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-call-environment-test.log"
+    rg --quiet '^OK$' "{{output}}/fold-call-environment-test.log"
+
+# Materialize the exact manifest pin from existing objects; no SDK/network build.
+prepare-locked-lean-dependency source:
+    test ! -e formal/.lake/packages/LeanPoo
+    git -C "{{source}}" cat-file -e "$(jq -r '.packages[] | select(.name == "LeanPoo") | .rev' formal/lake-manifest.json)^{commit}"
+    git clone --no-hardlinks --no-checkout "{{source}}" formal/.lake/packages/LeanPoo
+    git -C formal/.lake/packages/LeanPoo remote set-url origin https://github.com/tao3k/lean-poo.git
+    git -C formal/.lake/packages/LeanPoo checkout --detach "$(jq -r '.packages[] | select(.name == "LeanPoo") | .rev' formal/lake-manifest.json)"
+    test "$(git -C formal/.lake/packages/LeanPoo rev-parse HEAD)" = "$(jq -r '.packages[] | select(.name == "LeanPoo") | .rev' formal/lake-manifest.json)"
+
+formal-run-plan:
+    quint test formal/quint/RunPlan.qnt --backend typescript --seed 1 --max-samples 1
+    quint run formal/quint/RunPlan.qnt --backend typescript --seed 1 --max-samples 1000 --max-steps 20 --invariant RunSafety
+
+test-fold-condition output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-condition-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-condition-test.ss
+
+test-fold-frame-facts output load_path:
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-frame-facts-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-frame-facts-test.ss > "{{output}}/fold-frame-facts-test.log" 2>&1
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-frame-facts-test.log')" = 5
+    rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-frame-facts-test.log"
+    rg --quiet '^OK$' "{{output}}/fold-frame-facts-test.log"
+
+# Actual consumer declarations; engine owns generated-unit compilation.
+prepare-org-fold-candidate consumer output load_path mode="tape-run":
+    test ! -e "{{output}}"
+    mkdir -p "{{output}}"
+    cd "{{consumer}}" && GERBIL_LOADPATH="{{load_path}}" gerbil env gxi t/generate-org-fold.ss "{{output}}/org-fold.ss" "{{output}}/org-fold-controls.ss" gerbil-parser/benchmarks/real-fold "{{mode}}"
+    GERBIL_PATH="{{output}}/sdk" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil env gxi "{{output}}/build-fold.ss"
+    just link-org-fold-candidate "{{output}}" "{{load_path}}"
+
+# Resume an existing generated closure without regenerating it or racing links.
+test-aot-link-locks:
+    gxi t/benchmarks/parser-throughput/link-locks-test.ss
+
+link-org-fold-candidate output load_path:
+    gxi t/benchmarks/parser-throughput/link-locks.ss "{{output}}/lib/static" "{{output}}/sdk/lib/static"
+    GERBIL_PATH="{{output}}/sdk" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/org-fold" "{{output}}/org-fold.ss"
+
 # Native ASCENT is supplied by its upstream build owner, never rebuilt here.
 evidence-controls:
     uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -v
@@ -437,3 +578,6 @@ test-module-loading: build-qualification
 
 benchmark-module-loading mode="generation": build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-{{mode}}.log --require MODULE-LOADING-CPU-PROOF-OK -- gxi t/benchmarks/module-loading/benchmark.ss {{mode}}
+
+prepare-formal-protocol:
+    npm --prefix formal/quint ci --offline --ignore-scripts

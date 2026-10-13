@@ -117,6 +117,33 @@ theorem dominating_scan_visit_saving (bytes : Nat) :
   simp [repeatedScanVisits]
   omega
 
+/-- Cross-consumer reuse supplies the same immutable observation to each ordered
+consumer. Source/frame equality is a compiler obligation; ownership remains
+in the state passed through the fold, not in the observation. -/
+theorem shared_consumer_observation {α β σ : Type} (observe : α → β) (source : α)
+    (consumers : List (β → σ → σ)) (state : σ) :
+    consumers.foldl (fun s consume => consume (observe source) s) state =
+    (let fact := observe source
+     consumers.foldl (fun s consume => consume fact s) state) := rfl
+
+/-- Representation changes must commute with every admitted transition.
+This obligation includes writes, stack operations and parameter overrides;
+it is not discharged by simply replacing vector reads with local variables. -/
+theorem frame_representation_refinement {σ τ α : Type}
+    (encode : σ → τ) (oldStep : σ → α → σ) (newStep : τ → α → τ)
+    (stepLaw : ∀ state action, encode (oldStep state action) =
+                                newStep (encode state) action)
+    (actions : List α) (state : σ) :
+    encode (actions.foldl oldStep state) = actions.foldl newStep (encode state) := by
+  induction actions generalizing state with
+  | nil => rfl
+  | cons action rest ih =>
+    simp only [List.foldl_cons]
+    rw [ih, stepLaw]
+
+-- Quint owns owner/frame lifecycle histories, not this transition algebra.
+#print axioms ParserEngine.frame_representation_refinement
+
 /-- A typed Boolean subset with observable query traces. This is executable
 model semantics, not semantics of every Fold instruction or Scheme exception. -/
 inductive FoldPredicate where
@@ -186,6 +213,17 @@ theorem ordered_region_refinement (steps : List (α → α))
     intro next member current
     exact refinement next (by simp [member]) current
 
+/-- A negative shared recognition result selects the original else transition
+without evaluating irrelevant pure state guards. Necessity and effect freedom
+must be established by IR admission; this is not a grammar-wide speed proof. -/
+theorem negative_line_consumer {σ : Type} (trigger condition : Bool)
+    (necessary : condition = true → trigger = true) (negative : trigger = false)
+    (yes no : σ → σ) (state : σ) :
+    (if condition then yes state else no state) = no state := by
+  cases condition with
+  | false => rfl
+  | true => have impossible := necessary rfl; simp [negative] at impossible
+
 /-- Scheme conditions consume truthiness, but Boolean slots publish actual
 Booleans. This models that distinction without erasing observable traces. -/
 inductive ConditionValue where
@@ -234,6 +272,32 @@ theorem zero_mode_guard (mode : Nat) (idle : mode = 0) : (0 < mode) = False := b
   subst mode
   simp
 
+/-- Consumer-local selector facts require an admitted unsigned cell. This
+does not apply to a signed integer or an opaque predicate. -/
+theorem consumer_false_positive_zero (mode : Nat) (branch : ¬ 0 < mode) : mode = 0 := by
+  exact Nat.eq_zero_of_not_pos branch
+
+/-- Fact support is independent: refining one consumer never assigns the
+other consumer's state. Runtime mutation/invalidation histories belong to Quint. -/
+theorem consumer_zero_support (mode other : Nat) (branch : ¬ 0 < mode) :
+    (mode, other) = (0, other) := by
+  rw [consumer_false_positive_zero mode branch]
+
+/-- Reusing a selector's branch truth requires its extracted read support to
+be sound. This proves the disjoint-write rule, not the IR dependency extractor. -/
+theorem consumer_disjoint_write (reads : List Nat) (predicate : (Nat → Nat) → Bool)
+    (support : ∀ before after, (∀ name, name ∈ reads → before name = after name) →
+       predicate before = predicate after)
+    (state : Nat → Nat) (written value : Nat) (disjoint : written ∉ reads) :
+    predicate state = predicate (fun name => if name = written then value else state name) := by
+  apply support
+  intro name member
+  have different : name ≠ written := by
+    intro same
+    subst name
+    exact disjoint member
+  simp [different]
+
 /-- Removing internal owner-valued results preserves ordered effects when
 each transition retains the same private owner. This is not a proof of mutable
 alias admission, the generated compiler, or physical continuation allocation. -/
@@ -281,7 +345,165 @@ theorem overwrite_run_last {κ ρ α : Type} (encode : α → ρ) (state : κ ×
     rw [ih]
     rfl
 
+/-- Independent consumer selectors read only untouched context. Active and
+inactive consumers therefore coalesce without an all-idle assumption. The
+Scheme checker must establish that context/write separation; it is not assumed
+sound merely because this conditional transfer theorem is proven. -/
+def selectiveOverwrite {κ ρ α : Type} (enabled : κ → Bool) (encode : κ → α → ρ)
+    (state : κ × ρ) (input : α) : κ × ρ :=
+  (state.1, if enabled state.1 then encode state.1 input else state.2)
+
+theorem selective_run_last {κ ρ α : Type} (enabled : κ → Bool) (encode : κ → α → ρ)
+    (state : κ × ρ) (earlier : List α) (last : α) :
+    (earlier ++ [last]).foldl (selectiveOverwrite enabled encode) state =
+      selectiveOverwrite enabled encode state last := by
+  induction earlier generalizing state with
+  | nil => rfl
+  | cons head rest ih =>
+    simp only [List.cons_append, List.foldl_cons]
+    rw [ih]
+    cases h : enabled state.1 <;> simp [selectiveOverwrite, h]
+
+/-- Two independent consumers share one input traversal; neither needs the
+other to be idle. This product theorem does not authorize shared write cells. -/
+def independentConsumerStep {κ ρ τ α : Type}
+    (first : κ → Bool) (firstEncode : κ → α → ρ)
+    (second : κ → Bool) (secondEncode : κ → α → τ)
+    (state : (κ × ρ) × (κ × τ)) (input : α) : (κ × ρ) × (κ × τ) :=
+  (selectiveOverwrite first firstEncode state.1 input,
+   selectiveOverwrite second secondEncode state.2 input)
+
+theorem independent_consumer_run_last {κ ρ τ α : Type}
+    (first : κ → Bool) (firstEncode : κ → α → ρ)
+    (second : κ → Bool) (secondEncode : κ → α → τ)
+    (state : (κ × ρ) × (κ × τ)) (earlier : List α) (last : α) :
+    (earlier ++ [last]).foldl
+      (independentConsumerStep first firstEncode second secondEncode) state =
+      independentConsumerStep first firstEncode second secondEncode state last := by
+  induction earlier generalizing state with
+  | nil => rfl
+  | cons head rest ih =>
+    simp only [List.cons_append, List.foldl_cons]
+    rw [ih]
+    apply Prod.ext
+    · simpa [independentConsumerStep] using
+        (selective_run_last first firstEncode state.1 [head] last)
+    · simpa [independentConsumerStep] using
+        (selective_run_last second secondEncode state.2 [head] last)
+
+/-- A scanner returns an ordinary prefix and leaves the first trigger for
+the original transition. Refinement includes that residual transition;
+dropping it would preserve final overwrite cells but lose observations. -/
+theorem overwrite_run_residual {κ ρ α : Type} (encode : α → ρ)
+    (state : κ × ρ) (earlier : List α) (last : α)
+    (residual : κ × ρ → κ × ρ) :
+    residual ((earlier ++ [last]).foldl (overwriteOnly encode) state) =
+      residual (overwriteOnly encode state last) := by
+  rw [overwrite_run_last]
+
+/-- The source partition is contiguous: scanning a run never consumes the
+trigger at its limit. Actual byte membership and alias admission are Scheme
+and complete AOT differential obligations, not consequences of this theorem. -/
+theorem run_partition (start stop limit : Nat)
+    (lower : start ≤ stop) (upper : stop ≤ limit) :
+    stop - start + (limit - stop) = limit - start := by omega
+
+/-- Pure contract of the bounded leaf: split at the first trigger, not after
+it. Actual C byte classification and bounds remain native AOT obligations. -/
+def ordinaryPrefix (trigger : α → Bool) : List α → List α × List α
+  | [] => ([], [])
+  | head :: tail =>
+    if trigger head then ([], head :: tail)
+    else let rest := ordinaryPrefix trigger tail
+         (head :: rest.1, rest.2)
+
+theorem ordinary_prefix_partition (trigger : α → Bool) (source : List α) :
+    (ordinaryPrefix trigger source).1 ++ (ordinaryPrefix trigger source).2 = source := by
+  induction source with
+  | nil => rfl
+  | cons head tail ih =>
+    cases h : trigger head <;> simp [ordinaryPrefix, h, ih]
+
+theorem ordinary_prefix_leaves_trigger (trigger : α → Bool) (source : List α) :
+    match (ordinaryPrefix trigger source).2 with
+    | [] => True
+    | head :: _ => trigger head = true := by
+  induction source with
+  | nil => trivial
+  | cons head tail ih =>
+    cases h : trigger head <;> simp [ordinaryPrefix, h, ih]
+
+/-- Environment projection has a different obligation from run coalescing.
+This concrete expression fragment models reads and ordered composition;
+compiler name resolution and effects still require complete AOT controls. -/
+inductive EnvironmentExpr (name value : Type) where
+  | literal : value → EnvironmentExpr name value
+  | read : name → EnvironmentExpr name value
+  | combine : (value → value → value) → EnvironmentExpr name value →
+      EnvironmentExpr name value → EnvironmentExpr name value
+
+def EnvironmentExpr.evaluate (env : name → value) : EnvironmentExpr name value → value
+  | .literal v => v
+  | .read n => env n
+  | .combine op left right => op (left.evaluate env) (right.evaluate env)
+
+def EnvironmentExpr.reads : EnvironmentExpr name value → List name
+  | .literal _ => []
+  | .read n => [n]
+  | .combine _ left right => left.reads ++ right.reads
+
+theorem EnvironmentExpr.project_required (expr : EnvironmentExpr name value)
+    (original projected : name → value)
+    (same : ∀ n ∈ expr.reads, original n = projected n) :
+    expr.evaluate original = expr.evaluate projected := by
+  induction expr with
+  | literal v => rfl
+  | read n => exact same n (by simp [reads])
+  | combine op left right ihLeft ihRight =>
+    simp only [evaluate]
+    rw [ihLeft (fun n hn => same n (by simp [reads, hn])),
+        ihRight (fun n hn => same n (by simp [reads, hn]))]
+
+/-- Ordinary reset/increment machines have a constant-size run summary.
+No event is published inside this fragment; the residual observes the final
+counter after the owner commits it. Exact byte eligibility is an AOT duty. -/
+def runCountStep (count : Nat) (member : Bool) : Nat :=
+  if member then count + 1 else 0
+
+def countSummaryStep (summary : Bool × Nat) (member : Bool) : Bool × Nat :=
+  if member then (summary.1, summary.2 + 1) else (false, 0)
+
+def applyCountSummary (summary : Bool × Nat) (initial : Nat) : Nat :=
+  (if summary.1 then initial else 0) + summary.2
+
+theorem count_summary_step (summary : Bool × Nat) (initial : Nat) (member : Bool) :
+    applyCountSummary (countSummaryStep summary member) initial =
+      runCountStep (applyCountSummary summary initial) member := by
+  cases member <;> simp [countSummaryStep, applyCountSummary, runCountStep, Nat.add_assoc]
+
+theorem count_summary_fold (members : List Bool) (summary : Bool × Nat) (initial : Nat) :
+    applyCountSummary (members.foldl countSummaryStep summary) initial =
+      members.foldl runCountStep (applyCountSummary summary initial) := by
+  induction members generalizing summary with
+  | nil => rfl
+  | cons head tail ih =>
+    simp only [List.foldl_cons]
+    rw [ih, count_summary_step]
+
+theorem count_summary_identity (members : List Bool) (initial : Nat) :
+    applyCountSummary (members.foldl countSummaryStep (true, 0)) initial =
+      members.foldl runCountStep initial := by
+  simpa [applyCountSummary] using count_summary_fold members (true, 0) initial
+
 end ParserEngine
+
+#print axioms ParserEngine.count_summary_identity
+
+#print axioms ParserEngine.overwrite_run_residual
+#print axioms ParserEngine.run_partition
+#print axioms ParserEngine.ordinary_prefix_partition
+#print axioms ParserEngine.ordinary_prefix_leaves_trigger
+#print axioms ParserEngine.EnvironmentExpr.project_required
 
 #print axioms ParserEngine.shared_probe_exact
 #print axioms ParserEngine.shared_probe_visit_bound
@@ -305,7 +527,12 @@ end ParserEngine
 #print axioms ParserEngine.boolean_publication_cannot_be_erased
 #print axioms ParserEngine.guarded_idle_refinement
 #print axioms ParserEngine.zero_mode_guard
+#print axioms ParserEngine.consumer_false_positive_zero
+#print axioms ParserEngine.consumer_zero_support
+#print axioms ParserEngine.consumer_disjoint_write
 #print axioms ParserEngine.effect_only_owner_threading
 #print axioms ParserEngine.clamped_forward_range
 #print axioms ParserEngine.discarded_pure_condition
 #print axioms ParserEngine.overwrite_run_last
+#print axioms ParserEngine.selective_run_last
+#print axioms ParserEngine.independent_consumer_run_last

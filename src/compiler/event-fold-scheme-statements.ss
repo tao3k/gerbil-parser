@@ -4,15 +4,17 @@
                  current-fold-scheme-counter fold-scheme-fresh-name fold-scheme-share-statements
                  fold-scheme-event current-fold-scheme-tape-kinds current-fold-scheme-idle-plan
                  current-fold-scheme-effect-only)
-        (only-in ./event-fold-zero-state fold-zero-state-plan fold-ordinary-state-plan)
+        (only-in ./event-fold-zero-state fold-zero-state-plan fold-ordinary-state-plan fold-consumer-state-body)
+        (only-in ./event-fold-consumer-state fold-consumer-selector-body)
         (only-in ./event-fold-ordinary-run fold-ordinary-run-plan)
         (only-in ./event-fold-scheme-runs fold-scheme-run-loop)
         (only-in ./event-fold-scheme-expressions
-                 fold-scheme-offset fold-scheme-uint fold-scheme-predicate)
-        (only-in ./event-fold-byte-dispatch fold-byte-dispatch fold-byte-prefilter)
+                 fold-scheme-offset fold-scheme-uint fold-scheme-predicate fold-scheme-condition)
+        (only-in ./event-fold-byte-dispatch fold-byte-dispatch fold-byte-prefilter fold-line-negative-region)
         (only-in ./event-fold-shared-probes fold-fuse-byte-probes)
-        (only-in ./event-fold-analysis fold-eliminate-inert-branches))
-(export fold-scheme-statements fold-scheme-bindings fold-scheme-initial
+        (only-in ./event-fold-prefix-family fold-scheme-negative-prefix-test)
+        (only-in ./event-fold-analysis fold-eliminate-inert-branches fold-share-statement-scans fold-rewrite-scans))
+(export fold-scheme-statements fold-scheme-frame-statements fold-scheme-bindings fold-scheme-initial
         current-fold-scheme-counter fold-scheme-fresh-name)
 
 (def (fold-scheme-bindings initial)
@@ -35,10 +37,48 @@
   (if (symbol? target) `(set! ,target ,value)
     `(vector-set! slots ,(caddr target) ,value)))
 
+;; Source and frame extents are immutable within generated transitions. Hoist
+;; only the total start-anchored horizontal scan, never state-dependent scans,
+;; queries or scans across a nested frame. Lexical facts have no cache lookup,
+;; allocation, invalidation table or request lifetime beyond their frame.
+(def (fold-scheme-frame-statements forms bindings indices helpers)
+  (let (plan (and (current-fold-scheme-tape-kinds)
+                 (fold-line-negative-region forms)))
+    (if plan
+      (let* ((paths (vector-ref plan 0))
+             (at-start (map cdr (filter (lambda (path) (eq? (car path) 'start)) paths)))
+             (at-horizontal (map cdr (filter (lambda (path) (eq? (car path) 'horizontal)) paths)))
+             (horizontal (and (pair? at-horizontal)
+                              (or (cond ((assq '%frame-horizontal indices) => cdr) (else #f))
+                                  (fold-scheme-fresh-name 'frame-horizontal))))
+             (hit (fold-scheme-fresh-name 'frame-prefix-hit))
+             (facts (if horizontal (cons (cons '%frame-horizontal horizontal) indices) indices)))
+        (list `(let* (,@(if (and horizontal (not (assq '%frame-horizontal indices)))
+                         `((,horizontal ,(fold-scheme-offset '(line-skip-horizontal start) bindings indices))) '())
+                       (,hit (or ,(fold-scheme-negative-prefix-test at-start)
+                                 ,(fold-scheme-negative-prefix-test at-horizontal horizontal))))
+                 ,@(fold-scheme-frame-body (vector-ref plan 1) bindings
+                     (cons (cons '%line-prefix-hit hit) facts) helpers))))
+      (fold-scheme-frame-body forms bindings indices helpers))))
+
+(def (fold-scheme-frame-body forms bindings indices helpers)
+  (def (count value)
+    (cond ((equal? value '(line-skip-horizontal start)) 1)
+          ((not (pair? value)) 0)
+          ((memq (car value) '(with-source-bounds quote)) 0)
+          (else (foldl + 0 (map count value)))))
+  (if (and (not (assq '%frame-horizontal indices)) (> (count forms) 1))
+    (let (horizontal (fold-scheme-fresh-name 'frame-horizontal))
+      (list `(let ((,horizontal ,(fold-scheme-offset '(line-skip-horizontal start) bindings indices)))
+               ,@(fold-scheme-statements forms bindings
+                   (cons (cons '%frame-horizontal horizontal) indices) helpers))))
+    (fold-scheme-statements forms bindings indices helpers)))
+
 (def (fold-scheme-statements forms bindings indices helpers)
   (def (offset value) (fold-scheme-offset value bindings indices))
   (def (uint value) (fold-scheme-uint value bindings indices))
   (def (predicate value) (fold-scheme-predicate value bindings indices))
+  (def (condition value) (fold-scheme-condition value bindings indices))
   (def (body statements (locals bindings) (cursors indices))
     (if (null? statements) '((void))
       (fold-scheme-statements statements locals cursors helpers)))
@@ -48,6 +88,13 @@
    (map
    (lambda (form)
      (case (car form)
+       ((%shared-scans)
+        (let* ((scans (cadr form))
+               (names (map (lambda (_) (fold-scheme-fresh-name 'consumer-scan)) scans))
+               (replacements (map cons scans names)))
+          `(let ,(map (lambda (scan name) (list name (offset scan))) scans names)
+             ,@(body (map (cut fold-rewrite-scans <> replacements) (caddr form)) bindings
+                     (append (map cons names names) indices)))))
        ((%shared-byte-probes)
         (let* ((first (cadr form)) (second (caddr form)) (probe (cadr first))
                (mask (fold-scheme-fresh-name 'probe-mask))
@@ -86,7 +133,7 @@
                ,@(map (lambda (entry) `((,(car entry)) ,@(body (cdr entry))))
                       (vector-ref plan 0))
                (else ,@(body (vector-ref plan 1))))
-            `(if ,(predicate (or (and proof (fold-byte-prefilter (cadr form) (cadr proof)))
+            `(if ,(condition (or (and proof (fold-byte-prefilter (cadr form) (cadr proof)))
                                 (cadr form)))
                  (begin ,@(body (caddr form))) (begin ,@(body (cadddr form)))))))
        ((join-once)
@@ -96,7 +143,10 @@
              ,@(body (caddr form) locals)
              (unless ,handled ,@(body (cadddr form) locals)))))
        ((for-line-bytes)
-        (let* ((cursor (fold-scheme-fresh-name 'cursor)) (limit (fold-scheme-fresh-name 'limit))
+        (let* ((form (if (current-fold-scheme-tape-kinds)
+                       (append (take form 4)
+                         (list (fold-consumer-selector-body (fold-consumer-state-body (list-ref form 4))))) form))
+               (cursor (fold-scheme-fresh-name 'cursor)) (limit (fold-scheme-fresh-name 'limit))
                (byte (fold-scheme-fresh-name 'byte))
                (run (and (current-fold-scheme-tape-kinds)
                          (eq? (current-fold-scheme-idle-plan) 'ordinary-run)
@@ -139,9 +189,10 @@
         `(let ((from ,(offset (cadr form))) (until ,(offset (caddr form))))
            (fold-source-frame-boundaries! source-bytes from until)
            (let ((start from) (end until))
-             ,@(body (cadddr form) bindings
+             ,@(fold-scheme-frame-statements (cadddr form) bindings
                      (filter (lambda (entry)
-                               (not (memq (car entry) '(%validated-loop-byte %loop-byte-value %shared-content-end)))) indices)))))
+                               (not (memq (car entry) '(%validated-loop-byte %loop-byte-value %shared-content-end %frame-horizontal %line-prefix-hit)))) indices)
+                     helpers))))
        ((call-source-helper)
         (let (helper (assq (cadr form) helpers))
           (unless helper (error "unknown native fold helper" form))
@@ -179,7 +230,7 @@
        ((close-frames-while)
         (let (target (lvalue bindings (cadr form)))
           `(let close ()
-             (when (and (pair? ,target) ,(predicate (caddr form)))
+               (when (and (pair? ,target) ,(condition (caddr form)))
                ,(assign target `(cdr ,target))
                ,@(finishes (list-ref form 3))
                (close)))))
@@ -195,8 +246,8 @@
              ,(assign target ''()))))
        (else (error "unadmitted native fold transition" form))))
    (if (current-fold-scheme-tape-kinds)
-     (fold-fuse-byte-probes
+     (fold-share-statement-scans (fold-fuse-byte-probes
       (if (eq? (current-fold-scheme-effect-only) 'pruned)
         (let (proof (assq '%validated-loop-byte indices))
           (fold-eliminate-inert-branches forms (and proof (cadr proof))))
-        forms)) forms)) bindings indices))
+        forms)) #t) forms)) bindings indices))

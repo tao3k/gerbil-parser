@@ -1,6 +1,13 @@
 ;;; -*- Gerbil -*-
 ;;; Request-local preparation of immutable grammar byte sets.
-(export current-fold-byte-set-cache fold-byte-set-for)
+(export current-fold-byte-set-cache fold-byte-set-for fold-marker-byte)
+
+;; Shared scalar admission must not import the interpreter/runtime closure.
+(def (fold-marker-byte value)
+  (unless (and (string? value) (= (string-length value) 1)
+               (< (char->integer (string-ref value 0)) 128))
+    (error "event fold marker must be one ASCII byte" value))
+  (char->integer (string-ref value 0)))
 
 (def current-fold-byte-set-cache (make-parameter #f))
 

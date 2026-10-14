@@ -43,6 +43,10 @@ claim; elapsed build time and an older CI run cannot qualify the current parser.
 
 * Research map
 
+[[file:history-commit-model-implementation.org][History commit across the three layers]] records the same-owner callback
+re-entry gap, formal commit obligations and the actual Scheme repair.
+
+
 [[file:../architecture/0019-model-responsibilities.org][Lean/Quint responsibility boundary]] separates semantic proofs, lifecycle
 checks, native conformance and matched performance, and derives explicit reuse
 and amortization questions from the parsing papers.

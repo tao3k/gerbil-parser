@@ -151,3 +151,11 @@ controls passed (five host tests). The native ASCENT review suite was attempted
 but could not initialize without =ASCENT_ENGINE_LIBRARY=; no native review or
 full evidence-chain closure is claimed for this model-only change. No runtime
 CPU Benchmark was run or inferred from the operation theorems.
+
+* Executable callback bridge
+
+[[file:../research/history-commit-model-implementation.org][History commit model and implementation]] applies the boundary to actual
+same-owner callback re-entry. It records a failing old implementation control,
+a Lean value-preservation theorem, a Quint mutation witness and the Scheme
+generation/liveness repair. Its claim concerns committed history correctness;
+it does not imply asynchronous publication scheduling or CPU improvement.

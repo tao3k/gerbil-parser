@@ -86,4 +86,37 @@ theorem checked_reuse_break_even (additional prepare execute check : Nat)
 example : checkedRetainedCost 64 100 20 5 < repeatedCost 64 100 20 := by decide
 example : repeatedCost 1 100 20 < checkedRetainedCost 1 100 20 5 := by decide
 
+/-- Publication callbacks may re-enter on the same runtime owner. A failed
+or superseded attempt cannot replace the current committed history. -/
+def commitHistory (current attempt : Nat) (live published : Bool)
+    (previous pending : History) : History :=
+  if current = attempt ∧ live = true ∧ published = true then pending else previous
+
+theorem superseded_history_preserved (current attempt : Nat) (live published : Bool)
+    (previous pending : History) (obsolete : current ≠ attempt) :
+    commitHistory current attempt live published previous pending = previous := by
+  simp [commitHistory, obsolete]
+
+theorem failed_publication_preserves_history (current attempt : Nat) (live : Bool)
+    (previous pending : History) :
+    commitHistory current attempt live false previous pending = previous := by
+  simp [commitHistory]
+
+theorem released_owner_preserves_history (current attempt : Nat) (published : Bool)
+    (previous pending : History) :
+    commitHistory current attempt false published previous pending = previous := by
+  simp [commitHistory]
+
+theorem current_publication_commits (attempt : Nat) (previous pending : History) :
+    commitHistory attempt attempt true true previous pending = pending := by
+  simp [commitHistory]
+
+/-- A newer committed snapshot survives the completion of an older callback.
+The caller supplies distinct generations; arithmetic overflow is not modeled. -/
+theorem nested_commit_survives_outer (outer newer : Nat) (old inner outerPending : History)
+    (distinct : newer ≠ outer) :
+    commitHistory newer outer true true
+      (commitHistory newer newer true true old inner) outerPending = inner := by
+  rw [current_publication_commits, superseded_history_preserved _ _ _ _ _ _ distinct]
+
 end ParserEngine.Reuse

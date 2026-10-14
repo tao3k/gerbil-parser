@@ -35,3 +35,6 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Reuse.retained_cost_decomposition
 
 #print axioms ParserEngine.Reuse.checked_reuse_break_even
+
+#print axioms ParserEngine.Reuse.nested_commit_survives_outer
+#print axioms ParserEngine.Reuse.failed_publication_preserves_history

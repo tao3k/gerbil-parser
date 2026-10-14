@@ -123,6 +123,13 @@ def collect(root, record_study=None):
         products = tuple(sorted(str(path.relative_to(root))
                          for path in (root / ".gerbil/lib").rglob("*") if path.is_file()))
         runtime_inputs = inputs + products
+        # Independent native owner: callbacks and existing Suite workers must
+        # not share a handle runtime across different OS/VM owner threads.
+        history = execute(supervised("scheme-conformance", "history-commit",
+            ("gxi", "scripts/tests/history-commit-test.ss"), runtime_inputs,
+            ("HISTORY-COMMIT-CONTROLS-OK",)))
+        if history.outcome != "passed":
+            raise RuntimeError("history commit controls failed before semantic admission")
         semantics = execute(supervised("scheme-conformance", "conformance",
             ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
              '(prefer-compiled-interfaces!) '
@@ -146,6 +153,7 @@ def collect(root, record_study=None):
              '(gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'), runtime_inputs,
             ("REQUEST-WORK-OK", "GQL-STAGES-OK", "LR-REQUEST-BACKENDS-OK", "PARSER-EVIDENCE-REQUESTS-OK",
              "REQUEST-COST-BOUNDARIES-OK")))
+        dependencies.append((semantics.identity, history.identity))
         dependencies.extend((semantics.identity, item.identity) for item in prepared)
         dependencies.extend((benchmark.identity, item.identity) for item in (*prepared, semantics))
         if record_study is not None:

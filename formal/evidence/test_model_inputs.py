@@ -20,6 +20,10 @@ class ModelInputControls(unittest.TestCase):
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
             self.assertIn("formal/ParserEngine/Reuse.lean", lean.inputs)
             self.assertIn("formal/quint/ReuseAdmission.qnt", quint.inputs)
+            self.assertIn("formal/quint/HistoryCommit.qnt", quint.inputs)
+            for check in (lean, quint):
+                self.assertIn("src/ffi/language-handles.ss", check.inputs)
+                self.assertIn("scripts/tests/history-commit-test.ss", check.inputs)
             self.assertNotIn("formal/quint/ReuseAdmission.qnt", lean.inputs)
             for name in quint.inputs:
                 path = root / name

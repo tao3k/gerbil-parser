@@ -15,7 +15,7 @@
 (def +owner-thread+ #f)
 (def +next-handle+ 0)
 (def +languages+ (make-hash-table-eqv))
-(defstruct language-handle-entry (language history))
+(defstruct language-handle-entry (language history generation))
 (def (language-handle-owner!)
   (unless +owner-thread+ (set! +owner-thread+ (current-thread)))
   (unless (eq? +owner-thread+ (current-thread))
@@ -35,7 +35,7 @@
   (when (>= +next-handle+ 18446744073709551615)
     (error "language ABI handle space exhausted"))
   (set! +next-handle+ (+ +next-handle+ 1))
-  (hash-put! +languages+ +next-handle+ (make-language-handle-entry language #f))
+  (hash-put! +languages+ +next-handle+ (make-language-handle-entry language #f 0))
   +next-handle+)
 (def (release-language! handle)
   (language-handle-owner!)
@@ -58,9 +58,16 @@
     (unless (and (u8vector? bytes)
                  (<= (u8vector-length bytes) +language-source-byte-limit+))
       (error "invalid or oversized ABI source bytes"))
-    (let-values (((payload history)
+    ;; Advance before recognition: even a failed newer attempt supersedes the
+    ;; older callback. Exact integers do not wrap back to an earlier ticket.
+    (let (generation (+ 1 (language-handle-entry-generation entry)))
+     (language-handle-entry-generation-set! entry generation)
+     (let-values (((payload history)
                   (abi-parse-binary-payload/bytes/session
                    (language-handle-entry-language entry) bytes
                    (language-handle-entry-history entry))))
-      (when (publish payload) (language-handle-entry-history-set! entry history))
-      payload)))
+      (when (and (publish payload)
+                 (= generation (language-handle-entry-generation entry))
+                 (eq? entry (hash-get +languages+ handle)))
+        (language-handle-entry-history-set! entry history))
+      payload))))

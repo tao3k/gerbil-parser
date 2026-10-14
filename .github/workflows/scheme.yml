@@ -193,6 +193,11 @@ jobs:
         run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Verify native process contracts
         run: just test-process-contracts
+      - name: Verify callback history commit admission
+        run: |
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK \
+            -- gxi scripts/tests/history-commit-test.ss
       - name: Verify official module loading and source invalidation
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \

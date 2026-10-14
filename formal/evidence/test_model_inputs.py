@@ -18,15 +18,21 @@ class ModelInputControls(unittest.TestCase):
             source.write_text("namespace Example\nend Example\n")
             capture = root / "formal/ParserEngine/Capture.lean"
             capture.write_text("namespace Capture\nend Capture\n")
+            lookahead = root / "formal/ParserEngine/Lookahead.lean"
+            lookahead.write_text("namespace Lookahead\nend Lookahead\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
             self.assertIn("formal/ParserEngine/Reuse.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Capture.lean", lean.inputs)
+            self.assertIn("formal/ParserEngine/Lookahead.lean", lean.inputs)
+            self.assertIn("formal/quint/LookaheadScope.qnt", quint.inputs)
             self.assertIn("formal/quint/ReuseAdmission.qnt", quint.inputs)
             self.assertIn("formal/quint/HistoryCommit.qnt", quint.inputs)
             self.assertIn("formal/quint/CapturePlan.qnt", quint.inputs)
             for check in (lean, quint):
                 self.assertIn("src/ffi/language-handles.ss", check.inputs)
+                self.assertIn("src/runtime/lr-parser/checkpoint.ss", check.inputs)
+                self.assertIn("src/runtime/token.ss", check.inputs)
                 self.assertIn("scripts/tests/history-commit-test.ss", check.inputs)
             self.assertNotIn("formal/quint/ReuseAdmission.qnt", lean.inputs)
             for name in quint.inputs:
@@ -36,6 +42,12 @@ class ModelInputControls(unittest.TestCase):
             first = snapshot(root, quint.inputs)
             (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
             self.assertNotEqual(first, snapshot(root, quint.inputs))
+            for name in ("formal/quint/LookaheadScope.qnt", "src/runtime/lr-parser/checkpoint.ss",
+                         "src/runtime/token.ss"):
+                with self.subTest(input=name):
+                    before = snapshot(root, quint.inputs)
+                    (root / name).write_text("changed extent premise")
+                    self.assertNotEqual(before, snapshot(root, quint.inputs))
             self.assertEqual({lean.claim, quint.claim}, {"lean-model", "quint-protocol"})
 
 

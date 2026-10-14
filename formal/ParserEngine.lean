@@ -1,3 +1,4 @@
+import ParserEngine.Lookahead
 import ParserEngine.Capture
 import ParserEngine.Reuse
 import ParserEngine.Recognition
@@ -44,3 +45,9 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Capture.capture_visits_strict
 
 #print axioms ParserEngine.Capture.token_count_order_independent
+
+#print axioms ParserEngine.Lookahead.admitted_projection
+#print axioms ParserEngine.Lookahead.extent_break_even
+#print axioms ParserEngine.Lookahead.complete_request_with_extra_work
+#print axioms ParserEngine.Lookahead.extent_observations_equal
+#print axioms ParserEngine.Lookahead.singleton_overhead_regresses

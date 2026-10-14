@@ -1,0 +1,154 @@
+#+title: LR request modeling before optimization selection
+
+* Order of work
+
+Research and current implementation establish the model vocabulary and its
+hypotheses. Model qualification then identifies feasible optimization questions.
+Only a candidate whose obligations can be established proceeds to an engine
+change and complete-request Benchmark. This change extends the research and
+model layers; it adds no runtime optimization or new performance result.
+
+* Paper findings and transfer limits
+
+Sperber and Thiemann's [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], sections 3.1 and 4.1,
+separates grammar-static choices from dynamic input. Its binding-time work and
+list-loop specialization motivate auditing repeated operations at their actual
+binding scope. Constructor elimination must preserve computation order and
+multiplicity. Their functional parser is not our explicit-stack executor;
+the paper does not establish that our token metadata can be shared.
+
+Wagner and Graham's [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]], sections 7
+and 8, ties reuse to context/content obligations and discusses when matching
+conditions cost more than the reconstruction they avoid. It motivates charging
+admission and maintenance work rather than treating a correct reuse guard as a
+speedup. Its subtree reuse theorem does not authorize metadata reuse here.
+
+The following scope and cost definitions are derived from those principles and
+our code. They are our model hypotheses, not claims made by either paper.
+
+* Current code audit
+
+| Owner | Current behavior | Model consequence |
+|-------+------------------+-------------------|
+| [[file:../../src/runtime/lr-parser/checkpoint.ss][LR driver]] binding | Runtime, widths, modes, action selector, reduction plans and goto index are bound at driver entry | Grammar-static binding is already present; repeated preparation is not inferred from a reduction count |
+| LR input admission | Empty =rest= invokes =next-input= using lexical mode and optionally LR state | An extent starts at actual input admission, not at an offset or mode name alone |
+| LR successful reduce | Both executor paths retain =rest= while updating states and values | A stable input can span several reductions, but action selection still depends on the new LR state |
+| LR shift | Consumes =cdr rest= | The previous input extent ends; a cache cannot cross this boundary by pointer coincidence |
+| [[file:../../src/runtime/lr-parser/recognition.ss][Capture reduction]] | Capture-enabled reductions project token kind/lexeme and construct a pair for nonempty input | Repeated metadata work is a question to measure, distinct from stack prefix work |
+| [[file:../../src/runtime/token.ss][Token representation]] | A four-field vector with a string lexeme; no immutable token contract or mutation revision is enforced | Pointer equality and source identity do not prove projection stability |
+| Checkpoint/failure/fork return | May pause execution or transfer into selective GLR | The proposed local scope is conservatively withdrawn; resumed and fallback execution need fresh admission |
+| EOF | Empty input projects =#f= and may invoke the scanner again on a later iteration | No pair allocation can be saved at EOF; an empty-list sentinel is not an admission generation |
+
+This audit identifies a missing implementation premise: the current token vector
+and lexeme can be mutated, but they carry no revision that establishes the
+model's stability key. No metadata-sharing implementation is admitted by this
+model-only change. It also does not change scanner calls, action selection,
+semantic callbacks or fragment pair identity.
+
+* Lean responsibilities
+
+[[file:../../formal/ParserEngine/Lookahead.lean][Lookahead.lean]] uses a logical key with =owner=, =source=, =contract=,
+=extent= and =revision=. The contract must bind grammar, prepared plan and
+lexical policy. Extent identity denotes actual admitted input. Revision denotes
+metadata mutation; neither is an implemented hash or pointer address.
+
+=admitted_projection= requires both key equality and an explicit producer
+premise: the stored value equals the pure projection of its basis.
+=extent_observations_equal= preserves the ordered sequence of those projected
+values within one stable extent. Supersession and mutation reject the old key.
+An included counterexample shows why equal keys alone cannot prove correctness.
+Effects, mutable object identity, atomic snapshot construction, Scheme compiler
+correctness and the producer premise remain implementation obligations.
+
+For an extent with =r= capture reductions, projected metadata cost =M=,
+per-reduction check cost =C= and scope setup cost =S=, define:
+
+#+begin_example
+Repeated metadata: r * M
+Scoped metadata:   0                         when r = 0
+                   M + r * C + S             when r > 0
+Break-even:        r * C + S <= (r - 1) * M   when r > 0
+#+end_example
+
+These are weighted abstract operation costs in one chosen unit. Weights are
+hypotheses to validate, not CPU samples. The scoped expression describes a
+hypothetical demand-driven strategy and does not select a runtime design.
+A singleton extent strictly regresses when =C + S > 0=. An EOF extent with
+=M = 0= cannot pay positive admission overhead from saved materialization.
+The model retains these negative regimes alongside a beneficial example.
+
+=SharedWork= names preparation, scan, LR, other capture work, validation,
+publication, FFI and scheduling. Each =ExtentWork= carries its own reduction count and materialization, check
+and setup weights, so EOF and lexeme-dependent snapshot checks need not share
+ordinary-token costs. Complete-request baseline/candidate costs add all extent
+costs to the shared terms. =complete_request_break_even= includes every
+extent, so singleton losses cannot be discarded. Common work may cancel only
+under the explicit equal-work assumption. =complete_request_with_extra_work=
+charges additional work instead of silently canceling it. The equations are
+conditional arithmetic statements, not complete parser semantics or CPU proofs.
+Scheme-only measurements set consumer FFI/scheduling scope explicitly; they
+cannot qualify an unmeasured Tokio request.
+
+* Quint responsibilities
+
+[[file:../../formal/quint/LookaheadScope.qnt][LookaheadScope.qnt]] models scope histories, not LR language acceptance.
+=Bind= abstracts a successfully established snapshot and its producer premise.
+=Read= requires active scope and exact basis/current key equality.
+Reduction retains the admitted extent; shift, EOF admission and mutation change
+its identity. Source/contract change, cancellation, failure, supersession,
+completion, pause and fallback withdraw observations. A new scope starts cold.
+
+Directed witnesses show that ignoring mutation revision or treating EOF as a
+permanent sentinel permits stale observations. The finite coordinates are
+=0/1= abstractions without wraparound. Actions are atomic; concurrent mutation
+during snapshot construction, real reentrant callbacks, unbounded token
+streams, queue fairness and liveness are not established by sampled histories.
+The Lean producer premise and Quint =Bind= abstraction are a named assumption
+bridge, not a checked translation between the tools.
+
+* Model-derived decisions and remaining evidence
+
+| Question | Model result | Next evidence before implementation |
+|----------+--------------+-------------------------------------|
+| Can repeated capture metadata be scoped? | Conditional on stable producer/key and request-wide break-even | Establish immutable admission or mutation detection, including callbacks and string mutation; count its overhead |
+| Does the 64-record request benefit? | Not established; total production count/width histogram is insufficient | Record reductions per actual input extent, including singleton, zero-capture, EOF and fallback paths |
+| Can EOF be treated like an allocated lookahead pair? | No; the current EOF materialization has no pair allocation | Separate EOF weights and scanner admission behavior |
+| Can LR action selection be cached with token metadata? | No such theorem; action depends on changing LR state | A separate state/action equivalence model would be required |
+| Can a local capture gain prove end-to-end CPU improvement? | No; every extent and changed common cost must be charged | Existing matched complete-request Scheme Benchmark, then a distinct Rust/Tokio consumer qualification |
+
+The next step is an observation-only trace over existing complete requests to
+populate the extent distribution and audit stable-value admission. If the
+hypotheses or break-even condition fail, reject this candidate and use the same
+cost decomposition to investigate another engine cost. Do not implement a
+cache merely because some extents contain repeated reductions.
+
+* Reproduction
+
+#+begin_src sh
+just formal
+just formal-protocol
+PYTHONPATH=formal/evidence python3 -m unittest formal/evidence/test_model_inputs.py
+#+end_src
+
+The evidence collector binds both model checks to the actual LR driver, capture
+owner, token representation and existing controls. New Lean files are included
+by the existing source inventory. Model success still leaves native conformance
+and matched performance obligations open.
+
+* Local qualification
+
+Lean 4.34.0 built successfully (43 jobs). Projection admission and ordered
+extent observations report no axiom dependencies; arithmetic cost theorems
+report =propext=, =Classical.choice= and =Quot.sound=. No =sorry= or new axioms
+were introduced.
+
+The locked Quint 0.33.0 package passed all ten modules: 81 directed tests and
+nine sampled invariant runs. The new scope module passed 15 directed tests and
+1,000 sampled histories of at most 20 steps with seed 1. These runs establish
+only the declared bounded checks, not exhaustive or unbounded safety.
+
+The host input-binding control passed, including drift of the new protocol,
+actual LR driver and token representation. There is no runtime change, new
+native conformance qualification, Rust consumer result or CPU claim in this
+model foundation. The previous CI repair at =46b7938= completed successfully;
+it is a separate revision and does not qualify this new source.

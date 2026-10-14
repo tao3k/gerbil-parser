@@ -168,3 +168,18 @@ The complete chain is paper → model → generic engine → matched Benchmark.
 walks and grammar-width specialization. It records the theorem-derived cost,
 actual reduction distribution, production implementation, full-request CPU
 protocol and rejected controls. Model success is not a performance receipt.
+
+* Model-first LR request audit
+
+[[file:../research/lr-request-model-foundation.org][LR request modeling before optimization selection]] extends the existing
+capture model with producer/stability hypotheses and a complete-request cost
+partition. Research and current code precede model qualification; qualified
+models then constrain candidate selection. The input extent is distinct from
+LR state and source offset. Mutable token vectors currently leave the stability
+premise open, so no metadata-sharing runtime change is authorized by the model.
+
+The new Lean module owns projection equality, ordered observations and exact
+break-even including every extent and additional request work. Quint owns
+scope admission and invalidation histories, including mutation, EOF, pause and
+fallback. Actual extent counts, mutation admission, engine conformance and CPU
+qualification remain subsequent layers with explicit missing evidence.

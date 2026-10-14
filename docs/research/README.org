@@ -150,3 +150,9 @@ admission, with an ordered implementation and qualification plan.
 
 The focused [[file:scheme-source-edit-sessions.org][Source edit-session study]] defines the shared Scheme/Rust
 lexical reuse boundary, owned history and complete-recognition controls.
+
+* LR request model foundation
+
+[[file:lr-request-model-foundation.org][Research and current-code basis for complete-request modeling]] defines
+input-scope stability, lifecycle invalidation and request-wide break-even before
+selecting the next engine optimization.

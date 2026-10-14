@@ -70,23 +70,37 @@
 (def (capture-reduction runtime executor production-id states stack rest offset value target)
   (if (not stack) #f
     (let* ((count (vector-ref (lr-runtime-reduction-widths runtime) production-id))
-           (children (reverse (take stack count)))
-           (remaining (drop stack count))
-           (entry-state (list-ref states count))
            (lookahead (if (pair? rest)
-                        (cons (token-kind (car rest)) (token-lexeme (car rest)))
-                        #f))
-           (node (make-lr-recognition-fragment
-                  runtime executor production-id entry-state target children lookahead value
-                  (if (pair? children) (recognition-piece-start (car children)) offset)
-                  (if (pair? children) (recognition-piece-end (last children)) offset)
-                  (foldl (lambda (piece count)
-                           (+ count (recognition-piece-token-count piece)))
-                         0 children) offset
-                  (foldl (lambda (piece yield)
-                           (terminal-yield-append yield (recognition-piece-terminal-yield piece)))
-                         #f children))))
-      (cons node remaining))))
+                        (cons (token-kind (car rest)) (token-lexeme (car rest))) #f)))
+      ;; Nullable/unary productions dominate wrapper grammars. Their exact
+      ;; capture has no general list split or terminal-yield fold to execute.
+      (case count
+        ((0)
+         (cons (make-lr-recognition-fragment
+                runtime executor production-id (car states) target '() lookahead value
+                offset offset 0 offset #f) stack))
+        ((1)
+         (let (piece (car stack))
+           (cons (make-lr-recognition-fragment
+                  runtime executor production-id (cadr states) target (list piece) lookahead value
+                  (recognition-piece-start piece) (recognition-piece-end piece)
+                  (recognition-piece-token-count piece) offset
+                  (recognition-piece-terminal-yield piece)) (cdr stack))))
+        (else
+         ;; One prefix pass builds source-order children and shares the tail.
+         ;; Exact integer count addition is associative. The yield retains its
+         ;; original source-order left fold and exact branch association.
+         (let split ((left count) (remaining stack) (children '()) (tokens 0) (oldest #f))
+           (if (zero? left)
+             (cons (make-lr-recognition-fragment
+                    runtime executor production-id (list-ref states count) target children lookahead value
+                    (recognition-piece-start oldest) (recognition-piece-end (car stack)) tokens offset
+                    (foldl (lambda (piece yield)
+                             (terminal-yield-append yield (recognition-piece-terminal-yield piece)))
+                           #f children)) remaining)
+             (let (piece (car remaining))
+               (split (- left 1) (cdr remaining) (cons piece children)
+                      (+ tokens (recognition-piece-token-count piece)) piece)))))))))
 
 ;;; Iterative postorder projection reevaluates semantic actions from retained
 ;;; productions and token leaves. It deliberately does not trust cached values.

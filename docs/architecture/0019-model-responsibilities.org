@@ -2,7 +2,8 @@
 
 * Purpose
 
-Use models to expose architecture constraints and select measurable optimization
+Use the paper/model/engine/Benchmark chain to expose architecture constraints
+and select measurable optimization
 questions. Production syntax, scanners and parsing remain in Scheme. Lean and
 Quint are verification tools; neither becomes a runtime dependency or a second
 parser implementation.
@@ -159,3 +160,11 @@ same-owner callback re-entry. It records a failing old implementation control,
 a Lean value-preservation theorem, a Quint mutation witness and the Scheme
 generation/liveness repair. Its claim concerns committed history correctness;
 it does not imply asynchronous publication scheduling or CPU improvement.
+
+* Four-layer optimization obligation
+
+The complete chain is paper → model → generic engine → matched Benchmark.
+[[file:../research/capture-prefix-four-layer-optimization.org][Recognition capture optimization]] applies it to repeated reduction-prefix
+walks and grammar-width specialization. It records the theorem-derived cost,
+actual reduction distribution, production implementation, full-request CPU
+protocol and rejected controls. Model success is not a performance receipt.

@@ -21,6 +21,7 @@
   '("build-qualification.ss" "qualify.ss" "build-conformance.ss"
     "test-processes.ss"
     "scripts/tests/process-qualification-test.ss"
+    "scripts/tests/history-commit-test.ss"
     "scripts/generate-source-parser.ss"
     "scripts/generate-reductions.ss"
     "scripts/preparation-cache.ss"

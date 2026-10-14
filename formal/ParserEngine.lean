@@ -1,3 +1,4 @@
+import ParserEngine.Capture
 import ParserEngine.Reuse
 import ParserEngine.Recognition
 import ParserEngine.Preparation
@@ -38,3 +39,8 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Reuse.nested_commit_survives_outer
 #print axioms ParserEngine.Reuse.failed_publication_preserves_history
+
+#print axioms ParserEngine.Capture.split_prefix_exact
+#print axioms ParserEngine.Capture.capture_visits_strict
+
+#print axioms ParserEngine.Capture.token_count_order_independent

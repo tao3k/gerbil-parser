@@ -119,7 +119,10 @@ jobs:
             t/benchmarks/lr-request-stack/derivation.ss \
             t/scenarios/performance/selective-glr/scenario.ss \
             t/benchmarks/lr-request-stack/benchmark.ss \
-            t/benchmarks/gql/runtime/actors.ss
+            t/benchmarks/gql/runtime/actors.ss \
+            t/benchmarks/lr-request-stack/capture-reference.ss \
+            t/benchmarks/capture-prefix/controls.ss \
+            t/benchmarks/capture-prefix/qos.ss
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
               t/benchmarks/gql/runtime/compiled-timing.ss
@@ -193,6 +196,11 @@ jobs:
         run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Verify native process contracts
         run: just test-process-contracts
+      - name: Verify capture prefix field and tail parity
+        run: |
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/capture-prefix-controls.log --require CAPTURE-PREFIX-CONTROLS-OK \
+            -- gxi t/benchmarks/capture-prefix/controls.ss
       - name: Verify callback history commit admission
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
@@ -671,6 +679,7 @@ jobs:
           - tokio
           - module-generation
           - module-preload
+          - capture-prefix
     env:
       GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
       GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
@@ -781,6 +790,16 @@ jobs:
             --log .data/ffi-utf8-records-cpu.log --require ABI-UTF8-CPU-REGRESSION-OK \
             -- gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records false regression
         if: matrix.lane == 'utf8'
+      - name: Prepare frozen capture control through the SDK
+        if: matrix.lane == 'capture-prefix'
+        run: |
+          git fetch --depth=1 origin 76d6cc6c946cb8ca7692d8911e43801b951e340f
+          just prepare-capture-reference 76d6cc6c946cb8ca7692d8911e43801b951e340f
+      - name: Prove complete captured 64-record request CPU improvement
+        if: matrix.lane == 'capture-prefix'
+        run: |
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
+          just benchmark-capture-prefix
       - name: Prove complete Rust generation CPU improvement
         if: matrix.lane == 'module-generation'
         run: |

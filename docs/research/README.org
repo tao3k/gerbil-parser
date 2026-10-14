@@ -43,6 +43,10 @@ claim; elapsed build time and an older CI run cannot qualify the current parser.
 
 * Research map
 
+[[file:capture-prefix-four-layer-optimization.org][Recognition capture through four layers]] connects parsing papers, explicit
+work counts, generic LR implementation and complete 64-record CPU controls.
+
+
 [[file:history-commit-model-implementation.org][History commit across the three layers]] records the same-owner callback
 re-entry gap, formal commit obligations and the actual Scheme repair.
 

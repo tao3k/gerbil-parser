@@ -204,3 +204,20 @@ The engine operation assumes an admitted nonnegative width that fits the semanti
 and recognition stacks; validating arbitrary malformed LR tables is an upstream
 contract. Lean's list equation is more general than the Scheme operation's error
 behavior on an invalid stack, so no total error-equivalence claim is made.
+
+* Historical organization gate
+
+The Linux semantic lane at =857e6e6= rejected the changed capture body because
+the runtime organization gate still required every form to equal the pre-split
+source. That historical source remains pinned. The gate now permits exactly
+one =capture-reduction= definition, verifies the frozen semantic control equals
+the historical body after renaming, and compares all other forms unchanged.
+The independent capture controls compare the evolved body against that frozen
+control across every production, relocation, empty and Unicode lookahead,
+exact children, terminal-yield association, and physical suffix sharing.
+This bounds the admitted algorithm delta without replacing historical receipts.
+
+Local repair qualification passed all three organization cases in 2.955 seconds
+and all 44 capture combinations (11 productions times four input variants).
+No new CPU gain is claimed by these gate repairs; the preceding complete-request
+CPU result retains its original measurement scope.

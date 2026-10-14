@@ -195,3 +195,15 @@ gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
 The final six-case source Suite run, using that existing child-exit contract,
 exited zero in 15.221 seconds with =TEST-SUITE-OK=, =HARNESS-OK= and final =OK=.
 Any exception from the Suite prevents the explicit successful child exit.
+
+* Completed child lifecycle
+
+The macOS semantic lane at =857e6e6= reached every module-loading control
+receipt but stalled after completion. Local reproduction returned
+=exit 143, reason idle-timeout= after 22.397 seconds. The standalone control
+now uses the existing disposable-child exit interface only after all checks
+and cleanup complete. Exceptions still prevent that exit, and the qualification
+supervisor still requires the success receipt and exit zero under the same
+90-second total and 5-second idle budgets. The repaired local run completed
+in 4.983 seconds with exit zero. This is a test lifecycle repair, not a parser
+CPU optimization.

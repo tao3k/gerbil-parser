@@ -3,11 +3,13 @@
 (prefer-compiled-interfaces!)
 (preload-module "gerbil-parser/src/language/module-input")
 (preload-module "gerbil-parser/src/ffi/rust-runtime-aot")
+(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
 (import :gerbil/expander
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-language)
-        (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
+        (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source)
+        (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 
 (def (require! value message)
   (unless value (error message)))
@@ -96,3 +98,4 @@
       (displayln "SOURCE-PRELOAD-RETRY-OK"))
     (lambda () (when (file-exists? file) (delete-file file)))))
 (displayln "MODULE-LOADING-CONTROLS-OK") (force-output)
+(test-child-process-exit! 0)

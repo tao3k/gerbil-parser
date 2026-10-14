@@ -199,7 +199,7 @@ jobs:
       - name: Verify capture prefix field and tail parity
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/capture-prefix-controls.log --require CAPTURE-PREFIX-CONTROLS-OK \
+            --log .data/capture-prefix-controls.log --require '^CAPTURE-PREFIX-CONTROLS-OK productions=11$' \
             -- gxi t/benchmarks/capture-prefix/controls.ss
       - name: Verify callback history commit admission
         run: |
@@ -210,7 +210,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/module-loading-controls.log \
-            --require MODULE-LOADING-CONTROLS-OK \
+            --require '^MODULE-LOADING-CONTROLS-OK$' \
             -- gxi t/benchmarks/module-loading/controls.ss
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss

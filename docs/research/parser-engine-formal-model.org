@@ -259,3 +259,13 @@ The retained models describe the existing run contract, not a deployed foreign
 scanner. Diagnostic =t/benchmarks/parser-throughput/stalls.ss= reads the
 installed Gambit header's GC counters and OS resource counters; its extra
 probes and cold first call make it diagnostic only, not acceptance timing.
+
+* Explicit Lean and Quint responsibilities
+
+[[file:../architecture/0019-model-responsibilities.org][Model responsibility boundary]] maps paper arguments to separate algorithm,
+lifecycle, implementation and performance obligations. Lean's new
+=ParserEngine.Reuse= proves whole-result identity admission and counted
+preparation amortization including per-request validation. Quint's
+=ReuseAdmission= checks source/grammar/plan invalidation, cancelled/failed
+completion and superseded ownership with independent mutation witnesses.
+Neither qualifies cross-edit subtree reuse or a runtime speedup.

@@ -1,3 +1,4 @@
+import ParserEngine.Reuse
 import ParserEngine.Recognition
 import ParserEngine.Preparation
 import ParserEngine.Sequence
@@ -27,3 +28,10 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.freeze_stack_push
 
 #print axioms ParserEngine.staged_action_equivalent
+
+
+#print axioms ParserEngine.Reuse.admitted_identity
+#print axioms ParserEngine.Reuse.retained_cost_not_more
+#print axioms ParserEngine.Reuse.retained_cost_decomposition
+
+#print axioms ParserEngine.Reuse.checked_reuse_break_even

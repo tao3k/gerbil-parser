@@ -46,6 +46,7 @@ jobs:
           npm ci --ignore-scripts --prefix formal/quint
           npm --prefix formal/quint test
           uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -k HostControls -v
+          uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -p test_model_inputs.py -v
       - name: Identify Rust toolchain
         id: rust-version
         run: echo "version=$(rustc -Vv | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"

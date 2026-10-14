@@ -43,6 +43,11 @@ claim; elapsed build time and an older CI run cannot qualify the current parser.
 
 * Research map
 
+[[file:../architecture/0019-model-responsibilities.org][Lean/Quint responsibility boundary]] separates semantic proofs, lifecycle
+checks, native conformance and matched performance, and derives explicit reuse
+and amortization questions from the parsing papers.
+
+
 [[file:module-loading-reuse.org][SDK module loading reuse]] documents source-content invalidation, official
 failure/reload semantics, test preparation and Scheme CPU controls.
 

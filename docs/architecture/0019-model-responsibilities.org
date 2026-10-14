@@ -1,0 +1,153 @@
+#+title: Model responsibilities and reuse admission
+
+* Purpose
+
+Use models to expose architecture constraints and select measurable optimization
+questions. Production syntax, scanners and parsing remain in Scheme. Lean and
+Quint are verification tools; neither becomes a runtime dependency or a second
+parser implementation.
+
+* Paper basis
+
+Sperber and Thiemann's
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] specializes grammar-static decisions while leaving
+input-dependent execution dynamic. This motivates proving retained execution
+against interpretation in Lean and measuring preparation amortization separately.
+It does not justify caching request-dependent state in a prepared plan.
+
+Wagner and Graham's
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]], particularly section 8, distinguishes
+reuse justified by unchanged contents from reuse justified by context. Its
+reuse paths and duplicate-reuse guards motivate explicit ownership and context
+obligations. Whole-result identity checks do not prove subtree reuse across edits.
+The paper also discusses the cost of matching conditions; our admission checks
+must be charged when comparing saved work.
+
+Lamport's [[https://lamport.azurewebsites.net/pubs/lamport-actions.pdf][The Temporal Logic of Actions]] separates state-transition safety from
+liveness and fairness. Quint therefore models edit/cancel/failure/finish histories.
+Passing safety tests does not establish eventual completion, fairness, absence
+of starvation, or a wall-clock bound.
+
+* Responsibility boundary
+
+| Question | Owner | What establishes it | What it does not establish |
+|----------+-------+---------------------+----------------------------|
+| Does a transformation preserve values/order/spans? | Lean | Kernel-checked theorem over explicit inputs and hypotheses | Scheme compiler correctness or ABI behavior |
+| How much abstract work can be removed? | Lean | Operation-count equations, including admission overhead | CPU, allocation or GC improvement |
+| Can edit, failure, cancellation or obsolete completion publish stale output? | Quint | Named finite-state preservation and mutation witnesses; sampled histories | Unbounded temporal proof, fairness or implementation refinement |
+| Does the actual scanner/LR/FFI obey the proposed contract? | Scheme/native tests | Accepted/rejected behavior, identities, spans, failure controls | Mathematical universal proof |
+| Is the optimization faster for a complete workload? | Scheme Benchmark / native consumer | Matched controls including validation, copies and natural GC | General speedups across languages or machines |
+| Are observations current and complete? | Existing evidence admission | Source/dependency/product-bound observations | Replacing missing semantic or performance evidence |
+
+Lean owns algorithm semantics. Quint owns lifecycle interleavings. A property
+may cross the boundary only through named data and assumptions; repeating the
+algorithm in Quint is not an independent parser oracle. New lifecycle models
+must not silently infer language acceptance from a phase transition.
+
+* Shared vocabulary and scope
+
+[[file:../../formal/ParserEngine/Reuse.lean][Lean Reuse]] and [[file:../../formal/quint/ReuseAdmission.qnt][Quint ReuseAdmission]] share =source=, =grammar= and
+=plan= identities. In Lean they are arbitrary naturals. Quint uses =0/1= as a
+finite observation domain. They represent collision-free logical identities,
+not implemented hash functions; digest construction and collision assumptions
+remain outside both models.
+
+The common admission predicate is =basis = current=. Lean proves that admitted
+values retain the receipt's identity and value, and that a change in any one
+coordinate rejects. This does not prove that the retained value is semantically
+correct: that requires the producer's existing algorithm theorem and native
+conformance evidence.
+
+Quint adds =ticket/owner=, phase, cancellation and failure. Published output is
+valid only when all identity coordinates and the current owner match, with no
+cancel/failure. Invalidating a coordinate or superseding a ticket withdraws
+output. An obsolete completion cannot publish even when its syntax keys match.
+Ticket changes model supersession; they do not create a queue or model two
+simultaneously executing workers. A new attempt can recover after a rejected
+failure. Official module failure caches remain a separate SDK contract.
+
+The finite test evaluates all 8,192 explicit candidate states and checks
+one-step preservation from every invariant-satisfying state under the declared
+operations. Its successor coordinates remain in the declared domain. This is
+invariant preservation for these operations, not a complete implementation
+state-space exploration. The separate run samples 1,000 histories of 20 steps
+with seed 1. No liveness assertion is made.
+
+* Identity granularity is an architecture decision
+
+| Retained object | Necessary context | Optimization boundary |
+|-----------------+-------------------+-----------------------|
+| Prepared scanner/LR plan | Grammar, lexical policy, semantic backend and compiled plan identity | Bind once; source changes should not rebuild grammar-static tables |
+| Complete parse publication | Source identity plus admitted grammar/plan and request owner | Exact whole-result reuse; no cross-edit acceptance from a cache hit |
+| Incremental checkpoint/subtree | Mapped source interval, LR state, lexical mode, prefix/context and ownership | Must prove local admissibility; the new whole-result model does not qualify this |
+| Generated language product | Root grammar and transitive build inputs, generator/SDK/target identity | Root-file identity alone cannot qualify changed imported helpers |
+| Runtime module | Official SDK module state and explicit reload policy | Reuse official state; do not replace failure propagation with a local success bit |
+
+The =plan= coordinate abstracts the execution contract; it is not permission to
+collapse backend, lexical policy and target differences into a name. Concrete
+products need a documented identity encoding and tests for each dependency.
+Do not apply whole-result =source= equality to a grammar-static prepared plan:
+that would unnecessarily invalidate it on every edit. Conversely, a grammar
+match alone cannot admit a complete result for a different source.
+
+* Optimization questions derived from the models
+
+For =requests = additional + 1=, preparation cost =P=, execution cost =E= and
+per-request reuse check cost =C=, Lean establishes:
+
+#+begin_example
+Repeated preparation: requests * (P + E)
+Retained execution:   P + requests * E + requests * C
+Break-even condition: requests * C <= additional * P
+#+end_example
+
+These are natural-number operation costs. They are not elapsed-time predictions.
+The examples include a 64-request beneficial case and a one-request regression.
+No amount of correctness modeling proves that content hashing or context checks
+are free.
+
+| Candidate | Model obligation | Actual owner / required measurement |
+|-----------+------------------+-------------------------------------|
+| Retain prepared LR actions | Existing =prepared_plan_equivalent= plus plan identity | =src/runtime/lr-parser/prepare.ss=; complete request controls charge preparation, execution and admission |
+| Reduce repeated module preparation | Source invalidation and failure preservation | =src/language/module-input.ss=; [[file:../research/module-loading-reuse.org][existing generation/preloader CPU controls]], limited to their workloads |
+| Reuse incremental recognition | Context/span/owner validity; no duplicate mutable ownership | =src/runtime/incremental/reuse.ss= and =src/runtime/lr-parser/checkpoint.ss=; cross-edit parity and complete-request Benchmark needed |
+| Share recognition across consumers | Lean ordered-consumer theorem plus Quint borrow/invalidation constraints | Existing Fold owners; real source visits and consumer effects must match the model |
+| Publish without repeated traversal/copy | Exact value/prefix theorem plus tape ownership | Existing publication and artifact owners; count all validation, copying and natural GC |
+
+The next architecture audit should inventory these identities at their actual
+owners and look for repeated checks inside each request. It should not add a
+new universal cache before context and source obligations are established.
+
+* Reproduction and admission
+
+#+begin_src sh
+just formal
+npm ci --ignore-scripts --prefix formal/quint
+just formal-protocol
+#+end_src
+
+The existing formal CI builds Lean and runs the locked Quint package. The model
+collector binds the new =ReuseAdmission.qnt= source to its observation inputs;
+Lean sources are discovered by the existing source inventory. New theorems
+print their axiom dependencies through =formal/ParserEngine.lean=; no =sorry=
+or additional axioms are introduced.
+
+Model success qualifies only the model layer. The connection to production is
+currently an owner/obligation map and executable controls, not a checked
+Scheme-to-Lean refinement theorem or a Quint-to-Lean translation. Existing
+[[file:../research/parser-evidence-chain.org][evidence-chain admission]] must retain missing implementation and matched
+performance obligations. Runtime changes require their own current receipts.
+
+* Local model qualification (2026-10-14)
+
+The locked Lean 4.34.0 project built successfully (41 build jobs). New identity
+admission reports no axiom dependencies; cost theorems report Lean's =propext=
+and =Quot.sound=. Quint 0.33.0 passed all seven modules: 54 directed tests in
+total, including the new 16-test reuse module, and six sampled invariant runs.
+The new finite reuse check covers the declared 8,192-state candidate domain.
+
+Source-input binding, existing evidence HostControls and measured-product drift
+controls passed (five host tests). The native ASCENT review suite was attempted
+but could not initialize without =ASCENT_ENGINE_LIBRARY=; no native review or
+full evidence-chain closure is claimed for this model-only change. No runtime
+CPU Benchmark was run or inferred from the operation theorems.

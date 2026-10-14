@@ -26,4 +26,3 @@
                            (terminal-yield-append yield (recognition-piece-terminal-yield piece)))
                          #f children))))
       (cons node remaining))))
-

@@ -6,4 +6,5 @@
     (test-case "all modules load before shared-runtime Workers rendezvous"
       (check (worker-control-loaded-count) => 2)
       (worker-control-rendezvous!)
-      (check (worker-control-loaded-count) => 2))))
+      (check (worker-control-loaded-count) => 2)
+      (worker-control-finished! 'left))))

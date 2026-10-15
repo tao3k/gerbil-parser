@@ -32,6 +32,7 @@
              (caddr row) (cadddr row) 30 #f))
          '(("shared-runtime" ("worker-left" "worker-right") 0 #f)
            ("source-first-runtime" ("worker-left" "worker-right") 0 "TEST-SUITE-OK modules=2")
+           ("exclusive-phase" ("worker-exclusive" "worker-left" "worker-right") 0 "TEST-SUITE-EXCLUSIVE modules=1")
            ("runtime-affinity" ("affinity-left" "affinity-right") 0 #f)
            ("failure-propagation" ("worker-failure") nonzero #f)
            ("silence-watchdog" ("worker-timeout") 70 #f)

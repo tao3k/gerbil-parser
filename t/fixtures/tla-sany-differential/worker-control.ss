@@ -12,3 +12,11 @@
   (unless runtime-thread (set! runtime-thread (current-thread)))
   (eq? runtime-thread (current-thread)))
 (export worker-control-runtime-owner!)
+
+(def finished-left? #f)
+(def finished-right? #f)
+(def (worker-control-finished! side)
+  (case side ((left) (set! finished-left? #t)) ((right) (set! finished-right? #t))
+        (else (error "unknown Worker control side" side))))
+(def (worker-control-finished?) (and finished-left? finished-right?))
+(export worker-control-finished! worker-control-finished?)

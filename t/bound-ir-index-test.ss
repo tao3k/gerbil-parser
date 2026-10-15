@@ -133,3 +133,8 @@
         (grammar-ir '((SourceFile node ())) '((word Missing)))
         "bound-index-test" '())
        true))))
+
+;; The 20000-binding scalability Case owns its CPU/GC interval. Other owners
+;; must not consume that interval while its real work is silent.
+(def test-worker-affinity 'exclusive)
+(export test-worker-affinity)

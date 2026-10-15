@@ -73,3 +73,7 @@
 
 (def benchmark-test parser-benchmark-tests)
 (export parser-benchmark-tests benchmark-test)
+
+;; Admit wall/CPU contracts after all shared-runtime semantic owners join.
+(def test-worker-affinity 'exclusive)
+(export test-worker-affinity)

@@ -106,8 +106,8 @@
                (lambda ()
                  (let* ((last-progress started)
                         ;; One reader owns the pipe for the entire owner. It
-                        ;; reports real output directly; no per-line threads,
-                        ;; mailbox copies or acknowledgement round trips.
+                        ;; sends real messages to the shared console owner;
+                        ;; no per-line threads or acknowledgement round trips.
                         (reader
                          (spawn
                            (lambda ()
@@ -278,8 +278,16 @@
                    (emit "MODULE-PREPARE-OK " file)
                    (make-test-owner file (car harness) (- (##current-time-point) started) (cdr harness))))) files))
       (emit "TEST-SUITE-WORKERS " (min capacity (length files)))
-      (let (workers (map (lambda (index) (spawn (lambda () (worker index)))) (iota (min capacity (length files)))))
-        (for-each thread-join! workers))
+      ;; CPU/wall admission cannot share an execution phase with other owners.
+      ;; This is declared metadata, not a filename-specific scheduling rule.
+      (let (exclusive (filter (lambda (owner) (eq? (test-owner-affinity owner) 'exclusive)) pending))
+        (set! pending (filter (lambda (owner) (not (eq? (test-owner-affinity owner) 'exclusive))) pending))
+        (let (workers (map (lambda (index) (spawn (lambda () (worker index)))) (iota (min capacity (length pending)))))
+          (for-each thread-join! workers))
+        (when (and (null? failures) (pair? exclusive))
+          (emit "TEST-SUITE-EXCLUSIVE modules=" (length exclusive))
+          (set! pending exclusive)
+          (worker 0)))
       (stop-logger!)
       (unless (null? failures) (raise (cdar failures)))
       (emit "TEST-SUITE-OK modules=" (length files))

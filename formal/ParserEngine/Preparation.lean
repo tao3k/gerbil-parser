@@ -203,4 +203,10 @@ theorem absent_literal_probe (regular literal : Query → Option Candidate)
     choose (regular query) (literal query) = regular query := by
   rw [impossible, leftOnly]
 
+/-- A grammar-owned immutable empty-reference datum has one retained digest.
+Every caller still receives an independent mutable string in Scheme; this
+logical equality concerns contents, not native string aliasing or SHA proof. -/
+theorem retained_empty_digest (digest : List α → Value) (consume : Value → Result) :
+    consume (digest []) = consume (let retained := digest []; retained) := rfl
+
 end ParserEngine

@@ -43,3 +43,7 @@
 
 (def gql-runtime-benchmark-test gql-runtime-benchmark-tests)
 (export gql-runtime-benchmark-tests gql-runtime-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

@@ -108,7 +108,7 @@
            (lr-runtime-lexical-mode-catalog runtime)
            (lr-runtime-event-step runtime) (lr-runtime-event-reducer runtime) #f #f #f
            (prepare-lr-reduction-plans 'event (lr-runtime-table runtime))
-           (lr-runtime-action-selector runtime) #f (lr-runtime-goto-columns runtime)))
+           (lr-runtime-action-selector runtime) #f (lr-runtime-goto-columns runtime) (void)))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -153,7 +153,7 @@
          #f (select-lr-semantic-reducer 'recognition capability)
          (select-lr-semantic-reducer 'event capability) #f #f plans
          (make-lr-action-selector actions action-index case-insensitive? layout?)
-         (not layout?) (prepare-lr-goto-columns table goto-index))))))
+         (not layout?) (prepare-lr-goto-columns table goto-index) (void))))))
 
 ;;; Token terminals are admitted symbols. Specialize the owned row shape once;
 ;;; first duplicate entries and exact action-pair identity remain unchanged.
@@ -205,7 +205,7 @@
      (lr-runtime-reduction-plans runtime) selector
      (and (not (lr-runtime-layout? runtime))
           (not (lr-runtime-event-program? runtime)))
-     (lr-runtime-goto-columns runtime))))
+     (lr-runtime-goto-columns runtime) (void))))
 
 ;; goto-target
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Symbol (OrFalse Fixnum))

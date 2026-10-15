@@ -8,10 +8,12 @@
         (only-in ../token
                  make-token token? token-end token-kind token-lexeme token-start)
         (only-in "./state.ss"
-                 lr-runtime-table lr-runtime-reduction-widths make-lr-recognition-fragment lr-recognition-fragment? lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count lr-recognition-fragment-offset lr-recognition-fragment-terminal-yield make-lr-recognition-view lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta make-lr-terminal-yield-branch make-lr-terminal-yield-view lr-terminal-yield-view? lr-terminal-yield-view-base lr-terminal-yield-view-delta)
+                 lr-runtime-capture-contexts lr-runtime-capture-contexts-set! lr-runtime-actions make-lr-capture-context lr-capture-context lr-capture-context-executor lr-capture-context-exit-state lr-runtime-table lr-runtime-reduction-widths make-lr-recognition-fragment lr-recognition-fragment lr-recognition-fragment? lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count lr-recognition-fragment-offset lr-recognition-fragment-yield-cache lr-recognition-fragment-yield-cache-set! make-lr-recognition-view lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta make-lr-terminal-yield-branch make-lr-terminal-yield-view lr-terminal-yield-view? lr-terminal-yield-view-base lr-terminal-yield-view-delta)
         (only-in "./reduction.ss"
                  reduce-value))
-(export lr-recognition-relocate
+(export prepare-capture-contexts capture-context-from-row capture-context-for
+        lr-recognition-fragment-terminal-yield
+        lr-recognition-relocate
         terminal-yield-append
         terminal-yield-relocate
         recognition-piece-terminal-yield
@@ -67,39 +69,118 @@
         ((token? piece) 1)
         (else (lr-recognition-fragment-token-count piece))))
 
-(def (capture-reduction runtime executor production-id entry-state stack input offset value target)
+;;; Terminal transfer queries own this derived index. Fresh recognition already
+;;; retains immutable grammar topology and exact lookahead; building a second
+;;; terminal tree before anyone requests it adds allocation and GC pressure.
+;;; The cache is published only when complete. An explicit postorder stack
+;;; handles deep left-recursive grammar trees without a Scheme call chain.
+(def (lr-recognition-fragment-terminal-yield fragment)
+  (when (void? (lr-recognition-fragment-yield-cache fragment))
+    (let walk ((pending (list (cons fragment #f))))
+      (unless (null? pending)
+        (let* ((frame (car pending)) (piece (car frame)) (ready? (cdr frame))
+               (rest (cdr pending)))
+          (cond
+           ((lr-recognition-view? piece)
+            (walk (cons (cons (lr-recognition-view-base piece) #f) rest)))
+           ((token? piece) (walk rest))
+           ((not (void? (lr-recognition-fragment-yield-cache piece))) (walk rest))
+           (ready?
+            (lr-recognition-fragment-yield-cache-set! piece
+              (foldl (lambda (child yield)
+                       (terminal-yield-append yield (recognition-piece-terminal-yield child)))
+                     #f (lr-recognition-fragment-children piece)))
+            (walk rest))
+           (else
+            (walk (append (map (lambda (child) (cons child #f))
+                               (lr-recognition-fragment-children piece))
+                          (cons (cons piece #t) rest)))))))))
+  (lr-recognition-fragment-yield-cache fragment))
+
+(defrule (with-capture-bounds expression (start end tokens) body ...)
+  (let (piece expression)
+    (cond
+     ((lr-recognition-view? piece)
+      (let ((start (recognition-piece-start piece)) (end (recognition-piece-end piece))
+            (tokens (recognition-piece-token-count piece))) body ...))
+     ((token? piece)
+      (let ((start (token-start piece)) (end (token-end piece)) (tokens 1)) body ...))
+     (else
+      ;; Official checked class binding admits the final record once; its
+      ;; slot reads then share that fact, as std/struct/pqueue does.
+      (using (piece : lr-recognition-fragment)
+        (let ((start piece.start) (end piece.end) (tokens piece.token-count)) body ...))))))
+
+;;; Canonical drivers prepare the bounded directory once, before reductions.
+;;; A row capability is private to that runtime and production. Direct callers
+;;; retain checked coordinate admission through capture-context-for.
+(def (prepare-capture-contexts runtime)
+  (let (cached (lr-runtime-capture-contexts runtime))
+    (if (void? cached)
+      (let* ((width (vector-length (lr-runtime-table runtime)))
+             (states (vector-length (lr-runtime-actions runtime)))
+             (next (and (<= (* width states) 65536)
+                        (list->vector (map (lambda (_) (make-vector states #f)) (iota width))))))
+        (lr-runtime-capture-contexts-set! runtime next) next)
+      cached)))
+
+(definline (capture-context-from-row row runtime executor production entry target kind) => :t
+  (let (context (vector-ref row entry))
+    (if context
+      (using (context : lr-capture-context)
+        (if (and (eq? executor context.executor) (eqv? target context.exit-state) (eq? kind context.lookahead-kind))
+          context
+          (let (next (make-lr-capture-context runtime executor production entry target kind))
+            (vector-set! row entry next) next)))
+      (let (next (make-lr-capture-context runtime executor production entry target kind))
+        (vector-set! row entry next) next))))
+
+(def (capture-context-for runtime executor production entry target kind)
+  (let (directory (prepare-capture-contexts runtime))
+    (if (and directory (exact-integer? entry) (<= 0 entry)
+             (exact-integer? production) (<= 0 production)
+             (< production (vector-length directory))
+             (< entry (vector-length (vector-ref directory production))))
+      (capture-context-from-row (vector-ref directory production) runtime executor production entry target kind)
+      (make-lr-capture-context runtime executor production entry target kind))))
+
+(def (capture-reduction runtime executor production-id entry-state stack input offset value target context-row)
   (if (not stack) #f
     (let* ((count (vector-ref (lr-runtime-reduction-widths runtime) production-id))
-           (lookahead (and input (cons (token-kind input) (token-lexeme input)))))
-      ;; Nullable/unary productions dominate wrapper grammars. Their exact
-      ;; capture has no general list split or terminal-yield fold to execute.
-      (case count
-        ((0)
-         (cons (make-lr-recognition-fragment
-                runtime executor production-id entry-state target '() lookahead value
-                offset offset 0 offset #f) stack))
-        ((1)
-         (let (piece (car stack))
+           (kind (and input (token-kind input)))
+           (lookahead (and input (token-lexeme input))))
+      ;; The pending boundary representation reserves false for EOF and pairs
+      ;; for a published signature. Admit its live token values before storage.
+      (when (and input (not (and (symbol? kind) (string? lookahead))))
+        (error "capture lookahead requires symbolic kind and string lexeme" input))
+      (let (context
+            (if context-row
+              (capture-context-from-row context-row runtime executor production-id entry-state target kind)
+              (capture-context-for runtime executor production-id entry-state target kind)))
+        (case count
+          ((0)
            (cons (make-lr-recognition-fragment
-                  runtime executor production-id entry-state target (list piece) lookahead value
-                  (recognition-piece-start piece) (recognition-piece-end piece)
-                  (recognition-piece-token-count piece) offset
-                  (recognition-piece-terminal-yield piece)) (cdr stack))))
-        (else
-         ;; One prefix pass builds source-order children and shares the tail.
-         ;; Exact integer count addition is associative. The yield retains its
-         ;; original source-order left fold and exact branch association.
-         (let split ((left count) (remaining stack) (children '()) (tokens 0) (oldest #f))
-           (if (zero? left)
-             (cons (make-lr-recognition-fragment
-                    runtime executor production-id entry-state target children lookahead value
-                    (recognition-piece-start oldest) (recognition-piece-end (car stack)) tokens offset
-                    (foldl (lambda (piece yield)
-                             (terminal-yield-append yield (recognition-piece-terminal-yield piece)))
-                           #f children)) remaining)
-             (let (piece (car remaining))
-               (split (- left 1) (cdr remaining) (cons piece children)
-                      (+ tokens (recognition-piece-token-count piece)) piece)))))))))
+                  context '() lookahead value
+                  offset offset 0 offset #f) stack))
+          ((1)
+           (let (piece (car stack))
+             (with-capture-bounds piece (start end tokens)
+               (cons (make-lr-recognition-fragment
+                      context piece lookahead value
+                      start end tokens offset (void)) (cdr stack)))))
+          (else
+           ;; No terminal-index demand occurs in this bounds/count traversal.
+           (let split ((left count) (remaining stack) (children '())
+                       (tokens 0) (start offset) (end offset))
+             (if (zero? left)
+               (cons (make-lr-recognition-fragment
+                      context children lookahead value
+                      start end tokens offset (void)) remaining)
+               (let (piece (car remaining))
+                 (with-capture-bounds piece (piece-start piece-end piece-count)
+                   (split (- left 1) (cdr remaining) (cons piece children)
+                          (+ tokens piece-count) piece-start
+                          (if (= left count) piece-end end))))))))))))
 
 ;;; Iterative postorder projection reevaluates semantic actions from retained
 ;;; productions and token leaves. It deliberately does not trust cached values.

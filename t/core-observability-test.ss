@@ -87,3 +87,7 @@
 ;; gxtest discovers only exported names ending in -test.
 (def core-observability-test core-observability-tests)
 (export core-observability-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

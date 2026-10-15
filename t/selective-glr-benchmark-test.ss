@@ -40,3 +40,7 @@
 (def selective-glr-benchmark-test selective-glr-benchmark-tests)
 
 (export selective-glr-benchmark-tests selective-glr-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

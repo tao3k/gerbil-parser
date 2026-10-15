@@ -1,7 +1,7 @@
 ;;; Direct kernel parity plus nullable, Unicode, relocation and exact tail checks.
 (import (only-in :gerbil-parser/src/runtime/lr-parser/state
-                 lr-runtime-reduction-widths lr-recognition-fragment-children make-lr-recognition-view)
-        (only-in :gerbil-parser/src/runtime/lr-parser/recognition capture-reduction lr-recognition-relocate)
+                 lr-recognition-view? lr-recognition-view-base lr-recognition-fragment-lookahead lr-runtime-reduction-widths lr-recognition-fragment? lr-recognition-fragment-children make-lr-recognition-view)
+        (only-in :gerbil-parser/src/runtime/lr-parser/recognition capture-reduction prepare-capture-contexts lr-recognition-relocate lr-recognition-fragment-terminal-yield)
         (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
@@ -15,6 +15,11 @@
          (unary (find (lambda (id) (= (vector-ref widths id) 1)) ids))
          (nullable (find (lambda (id) (= (vector-ref widths id) 0)) ids))
          (combinations 0))
+    (def (observe-children! piece)
+      (cond ((lr-recognition-view? piece) (observe-children! (lr-recognition-view-base piece)))
+            ((lr-recognition-fragment? piece)
+             (lr-recognition-fragment-lookahead piece)
+             (for-each observe-children! (lr-recognition-fragment-children piece)))))
     (def (make-piece kind i)
       (let* ((token (make-token 'identifier "α" (* i 2) (+ 2 (* i 2))))
              (empty? (memq kind '(empty-fragment moved-empty nested-empty)))
@@ -43,7 +48,17 @@
                       (args (list runtime #f production states stack rest 7 '(value) 1))
                       (reference (apply reference-capture-reduction args))
                       (candidate (capture-reduction runtime #f production (list-ref states width) stack
-                                   (and (pair? rest) (car rest)) 7 '(value) 1)))
+                                   (and (pair? rest) (car rest)) 7 '(value) 1 #f)))
+                 (let* ((rows (prepare-capture-contexts runtime))
+                        (fast (capture-reduction runtime #f production (list-ref states width) stack
+                                (and (pair? rest) (car rest)) 7 '(value) 1
+                                (and rows (vector-ref rows production)))))
+                   (lr-recognition-fragment-terminal-yield (car fast))
+                   (observe-children! (car reference)) (observe-children! (car fast))
+                   (require! (equal? reference fast) "prepared row changed capture fields")
+                   (require! (eq? (cdr fast) suffix) "prepared row copied remaining stack"))
+                 (lr-recognition-fragment-terminal-yield (car candidate))
+                 (observe-children! (car reference)) (observe-children! (car candidate))
                  (require! (equal? reference candidate) "capture fields or yield association changed")
                  (require! (eq? (cdr candidate) suffix) "capture copied or changed the remaining stack")
                  (require! (equal? (lr-recognition-fragment-children (car candidate)) prefix)

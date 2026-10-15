@@ -36,3 +36,7 @@
 
 (def lalr-fixed-point-benchmark-test lalr-fixed-point-benchmark-tests)
 (export lalr-fixed-point-benchmark-tests lalr-fixed-point-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

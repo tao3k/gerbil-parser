@@ -14,6 +14,9 @@
                  lr-recognition-fragment? lr-recognition-fragment-children lr-recognition-fragment-token-count
                  lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
                  lr-recognition-project lr-recognition-relocate))
+(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
+                 lr-capture-context-exit-state lr-runtime-actions-set! lr-runtime-capture-contexts)
+        (only-in :gerbil-parser/src/runtime/lr-parser/recognition lr-recognition-fragment-terminal-yield capture-context-for capture-reduction))
 (export lr-fragment-transfer-test)
 ;;; Frozen f21204f grammar-tree yield traversal: matched admission reference.
 (def (reference-transfer-yield fragment delta tokens)
@@ -58,6 +61,80 @@
 
 (def lr-fragment-transfer-test
   (test-suite "LR fragment transfer admission"
+    (test-case "shared capture contexts replace changed executors and targets without rewriting old nodes"
+      (let* ((grammar '((source-file (alias SourceFile (token identifier)))))
+             (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
+             (other-runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
+             (executor (lambda _ #f))
+             (first (capture-context-for runtime #f 0 0 1 'identifier))
+             (changed (capture-context-for runtime executor 0 0 1 'identifier))
+             (retargeted (capture-context-for runtime executor 0 0 2 'identifier)))
+        (check (eq? first changed) => #f)
+        (check (lr-capture-context-executor first) => #f)
+        (check (eq? (lr-capture-context-executor changed) executor) => #t)
+        (check (lr-capture-context-exit-state changed) => 1)
+        (check (lr-capture-context-exit-state retargeted) => 2)
+        (check (eq? retargeted (capture-context-for runtime executor 0 0 2 'identifier)) => #t)
+        (check (eq? retargeted (capture-context-for other-runtime executor 0 0 2 'identifier)) => #f)
+        (check (eq? (lr-capture-context-runtime first) runtime) => #t)))
+    (test-case "oversized capture context directories retain exact uncached descriptors"
+      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file))))
+        (lr-runtime-actions-set! runtime (make-vector 65537 #f))
+        (let ((first (capture-context-for runtime #f 0 0 1 'identifier))
+              (second (capture-context-for runtime #f 0 0 1 'identifier)))
+          (check (lr-runtime-capture-contexts runtime) => #f)
+          (check (eq? first second) => #f)
+          (check (lr-capture-context-exit-state first) => 1)
+          (check (eq? (lr-capture-context-runtime second) runtime) => #t))))
+    (test-case "malformed live boundary values cannot masquerade as EOF or a ready pair"
+      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+             (stack (list (make-token 'identifier "a" 0 1))))
+        (for-each
+         (lambda (boundary)
+           (check-exception
+            (capture-reduction runtime #f 0 0 stack (vector (car boundary) (cdr boundary) 2 3) 2 'value 1 #f) true))
+         (list (cons 'identifier #f) (cons 'identifier '(not a lexeme)) (cons 17 "text")))
+        (check (void? (lr-runtime-capture-contexts runtime)) => #t)))
+    (test-case "boundary snapshots survive token mutation and materialize stable pairs"
+      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+             (kind 'identifier) (lexeme "next")
+             (input (make-token kind lexeme 2 6))
+             (first (capture-context-for runtime #f 0 0 1 kind))
+             (changed (capture-context-for runtime #f 0 0 1 'integer))
+             (fragment (car (capture-reduction runtime #f 0 0
+                             (list (make-token 'identifier "a" 0 1)) input 2 'value 1 #f))))
+        (check (eq? first changed) => #f)
+        (check (lr-capture-context-lookahead-kind first) => kind)
+        (check (lr-capture-context-lookahead-kind changed) => 'integer)
+        (check (eq? (lr-recognition-fragment-lookahead-cache fragment) lexeme) => #t)
+        (vector-set! input 0 'integer) (vector-set! input 1 "changed")
+        (let (signature (lr-recognition-fragment-lookahead fragment))
+          (check signature => (cons kind lexeme))
+          (check (eq? signature (lr-recognition-fragment-lookahead fragment)) => #t))))
+    (test-case "unary child lists materialize once without losing source order"
+      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+             (token (make-token 'identifier "a" 0 1))
+             (root (capture-transfer-root runtime (list token))))
+        (check (eq? (lr-recognition-fragment-children-cache root) token) => #t)
+        (let (first (lr-recognition-fragment-children root))
+          (check first => (list token))
+          (check (eq? first (lr-recognition-fragment-children root)) => #t)
+          (check (eq? (car first) token) => #t))))
+    (test-case "fresh capture defers its derived terminal index and repeated transfer queries share it"
+      (let* ((grammar '((source-file (alias SourceFile (sequence (token identifier) (token identifier))))))
+             (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
+             (tokens (list (make-token 'identifier "α" 0 2) (make-token 'identifier "b" 3 4)))
+             (captured (capture-transfer-root runtime tokens)))
+        (check (void? (lr-recognition-fragment-yield-cache captured)) => #t)
+        (let-values (((matches visits) (reference-transfer-yield captured 0 tokens)))
+          (check matches => #t))
+        (let (first (lr-recognition-fragment-terminal-yield captured))
+          (check (void? first) => #f)
+          (check (eq? first (lr-recognition-fragment-terminal-yield captured)) => #t)
+          (check-exception
+            (lr-checkpoint-inject-fragment
+              (lr-checkpoint-before-shift (lr-initial-checkpoint runtime '()) (car tokens))
+              captured 0 (list (car tokens) (make-token 'identifier "x" 3 4))) true))))
     (test-case "shared yields eliminate unary grammar traversal without relaxing terminal checks"
       (let* ((names (map (lambda (n) (string->symbol (string-append "layer" (number->string n)))) (iota 64)))
              (grammar

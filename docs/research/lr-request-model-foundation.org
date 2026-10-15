@@ -263,3 +263,6 @@ remains an implementation constraint for generated steps.
 The [[file:singleton-scanner-model-first.org][prepared scanner-start follow-up]] records rejected representation experiments,
 product-start producer premises and the bounded CI supervision repair before
 claiming any additional complete-request CPU benefit.
+
+The [[file:capture-fold-cost-model.org][capture allocation study]] models terminal-index demand, shared transition
+contexts and full-request cost obligations, retaining rejected CPU results.

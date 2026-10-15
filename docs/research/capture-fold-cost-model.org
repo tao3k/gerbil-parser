@@ -1,0 +1,442 @@
+#+title: Capture fold costs, terminal observations and complete-request qualification
+
+* Starting point
+
+This study starts at =459ec36e1961f3d8d95ce4ebec13843d164a4bdf=, including
+the earlier selector/goto/owned-stack optimization and the rejected scanner
+experiments. The sole PR is #13. This is a new candidate against that exact
+starting point; it cannot inherit an earlier CPU gain.
+
+* Paper and current-code model
+
+The representation and ordered-computation discussion in
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] motivates eliminating intermediate traversal.
+The context-maintenance costs in
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] require paying for retained
+capture and reuse data. Neither source proves an optimization in this engine.
+
+The [[file:singleton-scanner-model-first.org][preceding cost diagnosis]] found 322 fragments, 256 terminal leaves and eight
+sparse snapshots of semantic depth five in the actual 64-record request. Its
+captured-LR samples included substantial natural GC. These observations identify
+a paid path; they do not establish that object records alone explain allocation
+counters or that increasing a heap limit removes the work.
+
+The existing capture reduction restores source-order children and counts in one
+reverse-stack pass. It then traverses children again to build the terminal yield.
+Metadata accessors separately classify ordinary tokens, fragments and views.
+The first hypothesis fused terminal-yield construction into the existing pass;
+its measured rejection led to demand-driven derived-index construction.
+The nullable path, sparse snapshot policy, source grammar and published event
+representation remain the same. The later shared-context hypothesis changes the
+private fragment representation and therefore requires its own model and controls.
+
+* Four-layer obligations
+
+| Layer | Obligation | Boundary |
+|-------+------------+----------|
+| Papers and current code | Locate redundant capture work and retain reuse obligations | Motivation is not measured benefit |
+| [[file:../../formal/ParserEngine/Capture.lean][Lean]] | Exact terminal/list/boundary observations, prepared-row ownership and explicit cost charges | No native heap or GC refinement |
+| [[file:../../formal/quint/YieldMemo.qnt][Quint memo publication]], [[file:../../formal/quint/CaptureContext.qnt][context replacement]] and existing sparse-capture protocol | Complete observer-visible publication, old-node retention and live kind/executor/target checks | Finite protocols are not Scheme refinement |
+| Scheme controls and Benchmark | Frozen-oracle slots, ordered yields, exact frontiers, full artifact and source validity | CPU and allocation require actual measurements |
+
+=yield_join_order= preserves the ordered terminal sequence. The left and right
+fold lemmas imply =fused_yield_observation=. A relocated subtree remains an opaque
+piece; the transformation neither distributes nor reconstructs a view. Binary
+association is private metadata. Transfer's token comparisons and successful
+terminal/branch visit counts are preserved; the number of diagnostic visits
+before an early mismatch may depend on the changed binary association.
+
+=CaptureCost= accounts separately for transitions, allocated work, retained data
+and collection. =capture_cost_requires_all_charges= needs premises for each
+charge; fewer logical classifications alone does not prove lower total cost.
+The native allocation counter is not an inventory of retained Scheme objects.
+The fragment/children/terminal tree and snapshot results remain fully paid.
+
+* Rejected fusion and rejected premise
+
+The first candidate fused capture's reverse-prefix pass and yield construction,
+with a continuation macro for all piece metadata. All 198 frozen variants and 51
+semantic Cases passed. Its complete-request CPU ratios were:
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before reference control | 0.950364 | 1.018470 | 1.026300 |
+| Candidate/reference | 0.951798 | 0.977695 | 1.029913 |
+| After reference control | 0.944417 | 1.021300 | 1.093129 |
+
+The unchanged gate rejected it in 54.864556 seconds. A subsequent no-GC captured
+LR replay still allocated exactly 65,851,728 counter bytes per 256 calls, the
+same as the earlier observation. Faster no-GC samples did not remove the
+allocation or establish the complete-request gain. The implementation was
+withdrawn; reassociation remains a modeled hypothesis, not shipped code.
+
+An attempted dead-signature premise was invalidated by the actual
+=boundary-matches?= consumer in [[file:../../src/runtime/reuse.ss][source reuse]]. Captured lookahead signatures
+certify the exit lexical boundary independently of the consumed terminal yield.
+Their removal was withdrawn before qualification. The retained
+=changed_boundary_rejected= model explicitly rejects changed kind/lexeme
+signatures. No missing signature is treated as permission to transfer a fragment.
+
+* Demand-driven terminal index
+
+[[file:../../src/runtime/lr-parser/recognition.ss][The capture owner]] already retains a complete immutable grammar topology,
+span/count metadata, semantic values and exact lookahead. A terminal-yield tree
+is a derived index used by transfer admission. The new candidate keeps a pending
+cache in the same physical slot and constructs that index only upon a transfer
+query. Nullable productions retain their known empty index. No capture signature,
+source-boundary check, fragment production or public event is discarded.
+
+The first query uses an explicit postorder work list so deep left recursion does
+not create a recursive Scheme call chain. Each fragment publishes only a complete
+index. Children retain their original source-order left fold and exact binary
+association. Relocation wrappers retain their original nesting. Subsequent queries
+reuse the cached tree. Grammar topology and relocation metadata are engine-owned
+immutable inputs; changing them behind the index invalidates the producer premise.
+Token leaves remain the original objects, as in the eager index. Semantic observer
+updates do not alter that grammar topology.
+
+=delayed_yield_first_exact= and =delayed_yield_warm_exact= bind the memo to its
+immutable producer. =fresh_yield_allocations_eliminated= applies only when there
+is no index demand. =forced_yield_allocations_retained= keeps all construction
+charges in the forced case. [[file:../../formal/quint/YieldMemo.qnt][YieldMemo]] covers fresh capture without derived work,
+cold/warm queries, invalid topology and rejected partial publication. It passed
+four directed histories and 1,000 seeded invariant traces.
+
+The lazy-only candidate passed all 198 frozen structural cases in 9.347719
+seconds and all 51 semantic Cases in 52.939281 seconds. The historical
+[[file:../../t/benchmarks/lr-request-stack/capture-reference.ss][capture oracle]] is unchanged; controls force the candidate's derived index
+before comparing the complete representation, including binary association and
+exact remaining stack-tail identity.
+
+Its complete-request gate was still rejected: before-control P10/P50/P90
+=0.949026/0.990672/1.062209=; candidate =0.932465/0.968496/0.982648=;
+after-control =0.949487/0.991530/1.110078=. The candidate P90 and after-control
+upper limit both failed. The receipt completed in 63.331801 seconds. This is
+not admitted CPU improvement.
+
+The combined candidate stages only span/count classification through
+=with-capture-bounds=; =capture_bounds_exact= proves those fields independently
+of the derived yield. It must not accidentally force the deferred index while
+classifying pieces. A full forced-request diagnostic also includes both fresh
+capture and first-demand index construction inside its clock. Deferred work is
+not silently excluded from that scope.
+
+* CI source-first native admission
+
+At =459ec36=, both semantic lanes failed after the worker controls: the full
+runner explicitly sets =GERBIL_LOADPATH= to the source directory. Its direct
+FFI-helper import attempted to interpret =##c-declare=. A matched local
+source-first entry reproduced the error in 3.608364 seconds. Preloading alone
+still failed; a late import alone reached successful tests but left the exit
+name unbound. Neither intermediate run is accepted.
+
+The final entry first admits the compiled helper, evaluates its public import
+and binds the returned native procedure explicitly before defining the harness.
+The source-first eight-Case control then passed in 12.982582 seconds, exit zero.
+A new source-first worker control joins the seven existing lifecycle controls;
+all eight passed. The repair was pushed separately as =95a1ca3=. Exact-head CI
+is a separate gate. No compiler, heap limit, test budget or idle fence changed.
+
+* Reproduction and unchanged CPU gate
+
+#+begin_src sh
+just formal
+just formal-protocol
+just prepare-capture-reference 459ec36e1961f3d8d95ce4ebec13843d164a4bdf .data/capture-lazy/reference selector-input
+just benchmark-capture-prefix .data/capture-lazy/reference/lib selector-input
+just diagnose-capture-cost
+#+end_src
+
+The reference builds eleven frozen source owners: ten native owners and the
+interface-only LR facade. The incremental session and reuse consumers are rebuilt
+against each representation; scanner, record grammar, SDK and GCC are shared. Native image
+selection and full artifact/frontier fingerprints must agree before timing.
+The CPU gate still includes scanner, LR capture, publication, full artifact
+equality and source validation for fresh 64-record ASCII sessions. Independent
+recognition projection remains a preflight control. It uses 122,880 timed
+requests, 256 startup requests per worker, natural GC, a 90-second total fence,
+a five-second idle fence, stable 0.90..1.10 reference controls and candidate
+P90 below 0.95. No timing threshold or workload is changed for this candidate.
+
+* Combined candidate qualification
+
+The combined lazy-index and span-consumer candidate passed all 198 frozen
+variants in 7.424127 seconds and 52 semantic Cases in 14.812942 seconds.
+Its reference controls were stable, but the original CPU gate still rejected:
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before reference control | 0.975575 | 1.022228 | 1.080627 |
+| Candidate/reference | 0.889660 | 0.939904 | 0.980126 |
+| After reference control | 0.964964 | 0.978874 | 1.080939 |
+
+The run completed in 42.698281 seconds. All five candidate groups were below
+1.0, but candidate P90 failed the unchanged 0.95 criterion. This is retained as
+a rejected admission result, not promoted from its favorable median.
+
+The final span consumer uses the SDK's checked =using= class binding, as in
+=std/struct/pqueue=. It admits the private final fragment once for its three
+slot reads; view relocation keeps the checked generic path. This does not change
+the logical =capture_bounds_exact= contract or introduce unchecked module scope.
+
+
+* Checked binding and allocation evidence
+
+The checked-binding trial retained a rejected candidate P90 of 0.973094; its
+following control phase did not finish within the original 90-second fence.
+A subsequent complete run produced candidate P10/P50/P90 of
+0.940524/0.962280/0.962433 and following-control P90 of 1.101305. Both runs fail
+the unchanged gate. Three unrelated busy processes had already exited before
+an authorized temporary suspension could occur; no process was suspended.
+
+The recorded captured-LR replay reduced admitted no-GC allocation-counter bytes
+per request from 257233.3125 to 240913.3125: a reduction of 16320, consistent
+with eliminating 255 eagerly built terminal branches. This counter is not a
+measurement of retained object size. The whole-request and forced-index replay
+batches encountered collection and did not admit equivalent no-GC allocation
+values. Their stage timings are diagnostic scopes, not matched speedup evidence.
+The added =whole-forced-yield= stage pays for a fresh complete request and first
+terminal-index construction and validation inside its clock.
+
+* Shared transition context
+
+The next hypothesis separates request payload from repeated transition metadata.
+The initial immutable five-slot context retained runtime, executor, production, entry state
+and exit state. A fragment retains nine payload slots. The runtime owns a
+production/entry directory capped at 65536 row-entry cells, with rows prepared once at the canonical capture driver entrance.
+Executor and exit-target checks remain live; replacement publishes a new context
+and cannot change contexts already retained by old fragments. Cloned runtimes
+start with independent directories; oversized tables use uncached contexts.
+
+The Lean payload reconstruction theorem preserves arbitrary consumers, while
+its slot-cost condition explicitly charges contexts and directory cells. A
+smaller fragment alone does not establish lower total allocation. The Quint
+protocol exercises repeated acquisition, executor/target replacement, old-node
+retention and rejection of stale context reuse. Native controls passed 198
+frozen capture variants and 54 semantic Cases. The historical oracle reduction
+body remains unchanged; a test-only constructor adapter maps its logical fields
+to the new representation. The first shared-context run had stable reference controls, but candidate
+P10/P50/P90 0.919248/0.952465/0.975666 failed admission in 48.851939 seconds.
+The next hypothesis hoists directory admission to the canonical driver entrance.
+A private runtime/production row supplies coordinates. Lean requires that
+producer premise and retains live executor/target checks for each reduction.
+Direct calls retain checked coordinate admission. Uncaptured execution does not prepare rows. Custom captured execution uses the
+checked per-reduction path and can prepare a directory on first demand. Frozen controls also compare this prepared-row path.
+CPU admission remains a separate obligation.
+
+The terminal index relies on engine-owned immutable capture topology. It
+publishes only a complete derived index. Concurrent first queries may construct
+equivalent indexes more than once; the model does not claim a lock-free
+exactly-once allocation guarantee.
+
+* CI preparation and progress ingestion
+
+At published head =95a1ca37b675a1507439ce04844f7de325487af2= the native-exit
+source-first repair passed both FFI lanes. Ubuntu semantics instead exhausted
+its idle fence in the 20000-binding catalog Case; macOS semantics exhausted it
+in GQL generation. These failures are retained and not relabeled as passes.
+
+Empty reference catalogs now reuse a content-derived digest, returning a fresh
+string copy to every caller. The regression checks the independent text writer
+and mutation isolation. This eliminates repeated hashing and port preparation
+without exposing shared mutable digest strings.
+
+A single console logger drains at most 128 real messages per flush. Owner pipe
+readers can ingest progress without waiting for the console mutex; fatal
+watchdog receipts still flush before native exit. Queueing does not create
+progress, extend deadlines or change the official test verbosity. The mailbox
+can retain output while the console is slower; bounded drain batches do not
+constitute a bounded queue. A four-owner local batch covering both failing
+Cases passed in 34.711484 seconds with the original idle fence. Exact-head
+remote CI remains required after publication.
+
+
+* Driver rows and fixed protocol: retained negative CPU evidence
+
+The prepared-row trial had reference-control P10/P90 of 0.942814/1.053177 before
+and 0.902893/1.056581 afterwards. Candidate P10/P50/P90 was
+0.934300/0.954982/0.984585. Admission failed in 35.081605 seconds.
+
+The subsequent fixed-argument capture protocol and SDK checked context binding
+had before-control P10/P90 0.949444/1.048368 and after-control
+0.905698/1.052772. Candidate P10/P50/P90 was
+0.913759/0.942463/0.965977. Admission failed in 33.723967 seconds. Its complete
+reference controls were stable; neither its median nor the separate allocation
+result overrides the rejected P90.
+
+Both diagnostic versions admitted a no-GC captured-LR counter delta of
+56398160 per 256 requests, or 220305.3125 per request. Against the starting
+257233.3125 this is 36928 fewer counter bytes, approximately 14.36 percent.
+The slot model alone does not predict that native counter difference. Collection
+and full-request CPU remain distinct obligations. The fixed protocol passed
+198 frozen variants; the full seven-owner regression passed in 8.891532 seconds
+after rebuilding an existing stale diagnostic interface. The failed preparation
+with an unbound profiling function was not counted as a passing regression.
+
+* Unary child storage hypothesis
+
+The actual request has 193 unary reductions. Each eagerly allocates a one-cell
+children list even when fresh recognition only reads the child's bounds/count.
+The engine-owned child is a token vector or final fragment/view, distinguishable
+from an already materialized Scheme list. The next representation stores that
+child directly in the existing slot. First observation publishes a stable
+single-element list; empty and wider lists retain their representation.
+
+Lean establishes exact list observation, repeat observation and explicit cold
+allocation charges. The same complete-publication premise as =YieldMemo.qnt=
+applies: no partial list is published. Concurrent first observers can construct
+equivalent complete lists; there is no exactly-once allocation claim. Original
+token identities, ordered children and the persistent stack suffix must survive.
+Frozen controls materialize both observations before comparing private records;
+the historical reference reduction body is unchanged. Full forced-yield diagnosis
+must pay this child-list construction together with terminal-index construction.
+
+
+* Unary and boundary CPU receipts
+
+The unary representation passed 198 frozen combinations and 79 semantic Cases.
+Its first full CPU trial passed in 43.906424 seconds:
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before | 0.949968 | 0.988071 | 1.051620 |
+| Candidate | 0.912493 | 0.927410 | 0.940669 |
+| After | 0.910725 | 1.003436 | 1.044409 |
+
+An independent repeat had before P10/P90 0.947636/1.051921 and after
+0.903179/1.056393. Candidate P10/P50/P90 was
+0.915714/0.940165/0.972373, so its P90 failed. The first pass establishes a
+qualified local observation, not stable repeated admission.
+
+The next representation adds captured lookahead kind to the immutable context
+and retains the captured lexeme reference in the fragment. The kind, executor
+and target remain live cache checks. A boundary query constructs and retains its
+original kind/lexeme pair; it never reads a subsequently mutated token vector.
+Malformed live kind/lexeme values fail admission before a fragment is published.
+Each caller still gets the fragment's stable pair, and boundary checks remain
+mandatory. The actual 322-node record tree retained eleven distinct contexts.
+The revised slot inequality charges six context slots and nine fragment slots;
+it does not count the old lookahead pair as a free object.
+
+The first trial of this representation had candidate P10/P50/P90
+0.910560/0.921237/0.973357 and an invalid following-control P10 of 0.893484.
+It was rejected in 32.883676 seconds. Two following trials were declared in
+advance, with both required to pass:
+
+| Trial | Phase | P10 | P50 | P90 |
+|-------+-------+-----+-----+-----|
+| 1 | Before | 0.953359 | 1.002471 | 1.048658 |
+| 1 | Candidate | 0.921758 | 0.923183 | 0.945555 |
+| 1 | After | 0.903032 | 1.001349 | 1.057075 |
+| 2 | Before | 0.947887 | 0.973606 | 1.034462 |
+| 2 | Candidate | 0.905670 | 0.914851 | 1.000445 |
+| 2 | After | 0.893892 | 1.025717 | 1.055345 |
+
+Trial 1 passed in 31.496684 seconds; trial 2 failed the candidate criterion and
+following-control floor. The declared two-trial qualification failed. No
+outlier is removed and the passing run does not erase either rejection. The
+subsequent malformed-value guard is included in the final candidate and must be
+qualified in the independent runner; these local timings predate that guard.
+
+The dedicated Ubuntu =capture= CPU lane compiles current and frozen owners with
+the same SDK compiler options, selects one allowed processor and performs the
+original gate twice. Its baseline is the study's =459ec36=, not the older
+selector-input baseline. Dispatch =CI= with =cpu-scope=capture= to select that
+lane; the default =all= preserves every existing CPU lane. Both native image
+inventories are printed before timing. The immutable runner receipt is the separate acceptance gate.
+
+* CI isolation follow-up
+
+At =6b36512= Ubuntu's catalog still exceeded its idle fence while other owners
+ran; macOS's hot-path receipt measured 1.602186 seconds against its unchanged
+900ms ceiling. The test graph was co-scheduling CPU/GC admission with unrelated
+owners. A declared =test-worker-affinity= value of =exclusive= now defers those
+resource owners until every parallel owner joins. Ordinary runtime affinity
+retains Worker-zero execution. No new interpreter process is needed.
+
+The new control places the exclusive owner first in the input list and requires
+both parallel owners to have completed. All nine lifecycle controls passed. The
+four-owner failure-coverage batch passed in 25.346152 seconds, with the original
+20 sampler groups, 256 calls per leg, 20 hot-path samples and 900ms ceiling.
+An attempted two-group sampler control was rejected by its existing minimum and
+withdrawn; the failed preparation is not reported as a pass. =734015f= publishes
+the declaration/scheduler change. Exact-head CI can still reveal further work.
+
+* Diagnostic demand states and remaining model-directed work
+
+The topology preflight observes child lists, warming its own private caches.
+Fresh captured-LR samples now compare against an independently fresh reference,
+while the preflight retains independent semantic projection and mode validation.
+Forcing the timed result merely to match a warm private cache would change the
+scope, so it is not used. The rejected warm/cold comparison run is retained as
+a diagnostic failure. =whole-forced-yield= now pays for child-list and boundary
+materialization as well as terminal-index construction and full validation.
+Earlier terminal-only forced-scope medians cannot be compared with this scope.
+
+The bounded dense context directory is charged separately from row-entry cells.
+Oversized grammars use exact uncached contexts; their context count can approach
+the fragment count, violating the modeled slot break-even condition. Sparse
+bounded interning is a model-directed next hypothesis, not an established gain.
+Cold transfer must pay all deferred work. Neither fresh-request receipts nor
+finite models establish an incremental-transfer speedup across languages.
+
+
+* Complete resource ownership and final allocation receipt
+
+The =734015f= Ubuntu run failed in =t/gql/runtime-benchmark-test.ss= admission.
+Pending exclusive owners were not accepted as passing after that failure. The complete
+audit identified ten modules calling ASP benchmark admission. Each now declares
+boolean =test-worker-exclusive?= independently of symbolic =test-worker-affinity=.
+This includes the ABI benchmark, which retains its runtime affinity. Worker zero
+is the same caller thread during parallel and exclusive phases. An official
+=std/sync/barrier= acknowledges the preceding console drain before timed owners
+start; it does not emit progress or acknowledge individual lines.
+
+Eleven native lifecycle controls cover shared preparation, source-first loading,
+parallel completion before exclusive execution, cross-phase runtime affinity,
+invalid exclusivity type, failure propagation, silence, and duplicate ownership.
+The known-failure five-owner batch, including GQL runtime admission, passed in
+25.352558 seconds. The invalid-metadata Fixture's initial syntax error was fixed
+before accepting its intended rejection receipt. The final native LR regression and runner-hosted CPU qualification are separate
+acceptance gates.
+
+The final captured-LR diagnostic admitted a no-GC allocation-counter delta of
+50393424 per 256 fresh requests: 196849.3125 per request versus the starting
+257233.3125. This is 60384 fewer counter bytes, or approximately 23.47 percent.
+The complete seven-scope diagnostic passed in 14.306226 seconds. This includes
+a forced-observation scope, but is not a matched whole-request CPU comparison.
+Runtime preparation and directory retention remain explicit separate costs.
+Cached executor references can retain their closure environments until cache
+replacement or runtime release; bounded cell count alone is not a bound on all
+transitively retained memory.
+
+
+* Final validation protocol
+
+The guarded representation passed 81 native Cases in 19.670243 seconds and
+198 frozen combinations in 16.927932 seconds. Final admission rejects malformed
+kind/lexeme values before publishing a context or fragment. Its rejection control
+also checks that a fresh runtime's context directory remains pending. Both kind
+and lexeme tag collisions are covered. A source-consistency run repeats these
+controls after the compiler entry used by the Ubuntu CPU lane.
+
+Test declarations impose independent typed constraints: symbolic thread affinity
+and boolean resource exclusivity. An exclusive ABI owner retains its affinity.
+There is no reserved affinity symbol encoding resource ownership. The public
+preparation guide describes those slots; eleven lifecycle controls qualify their
+native behavior. These controls are not a Lean proof of Scheme scheduling.
+
+Runner logs bind source revision, both native inventories, the full artifact and
+frontier fingerprints, all timing groups and the original decision. Consult the
+=CPU capture= job for the dispatched revision. A local passing observation and
+allocation-counter reduction cannot substitute for its two successful trials.
+
+
+The final source-consistency regression passed 81 Cases in 19.230311 seconds and
+198 frozen combinations in 7.837042 seconds. These are correctness receipts;
+the independent Ubuntu CPU gate still determines performance acceptance.
+
+The final allocation replay passed in 10.163615 seconds after the admission-order
+change. Three no-GC captured-LR samples independently reported the same
+50393424 counter-byte delta per 256 requests; the 23.47 percent counter reduction
+therefore survives the final source-consistency check.

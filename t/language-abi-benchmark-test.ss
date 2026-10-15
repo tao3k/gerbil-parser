@@ -88,3 +88,7 @@
 ;;; Both ABI Suites share the persistent runtime owner thread.
 (def test-worker-affinity 'language-abi-runtime)
 (export test-worker-affinity)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

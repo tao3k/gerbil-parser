@@ -2,6 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; One runtime shares imported dependencies; worker-local harnesses own test state.
 (import :gerbil/expander
+        (only-in :std/sync/barrier Barrier? make-barrier barrier-post! barrier-wait!)
         (only-in :std/test/base TestSuite? TestModule TestHarness TestConfig test-run! test-result-ok?))
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (load "scripts/test-plan.ss")
@@ -56,6 +57,8 @@
                 (if (table-ref seen path #f) #f
                   (begin (table-set! seen path #t) #t)))) files)))
 
+(defstruct test-owner (file harness preparation-seconds affinity exclusive?))
+
 (def (prepare-test-owner file (covered-names '()) (seen-suites #f))
   ;; Only this admission section owns expander/module initialization. Public
   ;; expander exports and std/test objects are the normal gxtest suite protocol.
@@ -65,7 +68,7 @@
   (preload-test-imports file)
   (let* ((context (import-test-owner file))
          (exports (module-context-export context))
-         (suites '()) (setup void) (cleanup void) (affinity #f))
+         (suites '()) (setup void) (cleanup void) (affinity #f) (exclusive? #f))
     (for-each
       (lambda (exported)
         (when (zero? (module-export-phi exported))
@@ -75,6 +78,9 @@
               ((eq? name 'test-worker-affinity)
                (set! affinity (eval (binding-id binding)))
                (unless (symbol? affinity) (error "invalid test Worker affinity" file affinity)))
+              ((eq? name 'test-worker-exclusive?)
+               (set! exclusive? (eval (binding-id binding)))
+               (unless (boolean? exclusive?) (error "invalid test Worker exclusivity" file exclusive?)))
               ((eq? name 'test-setup!) (set! setup (eval (binding-id binding))))
               ((eq? name 'test-cleanup!) (set! cleanup (eval (binding-id binding))))
               ((source-test-suite-selected? name covered-names)
@@ -90,11 +96,10 @@
                    (table-set! seen-suites suite file))
                  (set! suites (cons suite suites)))))))) exports)
     (when (null? suites) (error "Scheme test module exports no suites" file))
-    (cons (TestHarness file (TestConfig verbosity: 6 capture-output?: #f)
-                       (list (TestModule file (reverse suites) '() setup cleanup)))
-          affinity)))
-
-(defstruct test-owner (file harness preparation-seconds affinity))
+    (make-test-owner file
+      (TestHarness file (TestConfig verbosity: 6 capture-output?: #f)
+                   (list (TestModule file (reverse suites) '() setup cleanup)))
+      0 affinity exclusive?)))
 
 (def (call-with-owner-budget file emit thunk (budget 90))
   (let-values (((input output) (open-string-pipe '(buffering: #f))))
@@ -216,6 +221,11 @@
                               '("MODULE-BATCH-TIMEOUT " "MODULE-BATCH-READER-FAILED "))))
         (thread-send logger values)
         (locked (lambda () (apply displayln values) (force-output)))))
+    (def (flush-logger!)
+      (when logger
+        (let (barrier (make-barrier 1))
+          (thread-send logger barrier)
+          (barrier-wait! barrier))))
     (def (stop-logger!)
       (when logger
         (let (active logger)
@@ -259,6 +269,10 @@
                           (let drain ((message message) (remaining 128))
                             (cond ((void? message) #t)
                                   ((not message) #f)
+                                  ((Barrier? message)
+                                   (force-output)
+                                   (barrier-post! message)
+                                   #f)
                                   (else
                                    (apply displayln message)
                                    (if (= remaining 1) #f
@@ -272,19 +286,27 @@
         (map (lambda (file)
                (emit "MODULE-PREPARE-START " file)
                (let (started (##current-time-point))
-                 (let-values (((harness _)
+                 (let-values (((owner _)
                                 (call-with-owner-budget file emit
                                   (lambda () (prepare-test-owner file (covered-suite-names file) seen-suites)))))
+                   (test-owner-preparation-seconds-set! owner (- (##current-time-point) started))
                    (emit "MODULE-PREPARE-OK " file)
-                   (make-test-owner file (car harness) (- (##current-time-point) started) (cdr harness))))) files))
+                   owner))) files))
       (emit "TEST-SUITE-WORKERS " (min capacity (length files)))
       ;; CPU/wall admission cannot share an execution phase with other owners.
       ;; This is declared metadata, not a filename-specific scheduling rule.
-      (let (exclusive (filter (lambda (owner) (eq? (test-owner-affinity owner) 'exclusive)) pending))
-        (set! pending (filter (lambda (owner) (not (eq? (test-owner-affinity owner) 'exclusive))) pending))
-        (let (workers (map (lambda (index) (spawn (lambda () (worker index)))) (iota (min capacity (length pending)))))
+      (let (exclusive (filter (lambda (owner) (test-owner-exclusive? owner)) pending))
+        (set! pending (filter (lambda (owner) (not (test-owner-exclusive? owner))) pending))
+        ;; The caller is persistent Worker zero across both phases. Affine ABI
+        ;; owners must not migrate from a spawned Worker to the caller later.
+        (let (workers (map (lambda (index) (spawn (lambda () (worker index))))
+                          (iota (max 0 (- (min capacity (length pending)) 1)) 1)))
+          (worker 0)
           (for-each thread-join! workers))
         (when (and (null? failures) (pair? exclusive))
+          ;; Official Barrier acknowledges a real console drain, once per
+          ;; phase. It emits no heartbeat and adds no per-line round trip.
+          (flush-logger!)
           (emit "TEST-SUITE-EXCLUSIVE modules=" (length exclusive))
           (set! pending exclusive)
           (worker 0)))

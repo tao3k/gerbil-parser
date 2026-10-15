@@ -172,4 +172,248 @@ theorem fused_driver_order (step : State → Action → State)
   | nil => rfl
   | cons chunk rest ih => simp [List.foldl_cons, List.flatten_cons, List.foldl_append, ih]
 
+/-- A capture yield is opaque execution metadata. Only its ordered terminal
+sequence is observed by transfer admission; binary association is not an ABI. -/
+inductive YieldTree (α : Type) where
+  | empty
+  | leaf (value : α)
+  | branch (left right : YieldTree α)
+
+def YieldTree.terminals : YieldTree α → List α
+  | .empty => []
+  | .leaf value => [value]
+  | .branch left right => left.terminals ++ right.terminals
+
+def yieldJoin (left right : YieldTree α) : YieldTree α :=
+  match left, right with
+  | .empty, right => right
+  | left, .empty => left
+  | left, right => .branch left right
+
+theorem yield_join_order (left right : YieldTree α) :
+    (yieldJoin left right).terminals = left.terminals ++ right.terminals := by
+  cases left <;> cases right <;> simp [yieldJoin, YieldTree.terminals]
+
+theorem left_yield_fold_order (pieces : List (YieldTree α)) (initial : YieldTree α) :
+    (pieces.foldl yieldJoin initial).terminals =
+      initial.terminals ++ (pieces.map YieldTree.terminals).flatten := by
+  induction pieces generalizing initial with
+  | nil => simp
+  | cons first rest ih =>
+    simp [List.foldl_cons, ih, yield_join_order, List.append_assoc]
+
+theorem right_yield_fold_order (pieces : List (YieldTree α)) :
+    (pieces.foldr yieldJoin .empty).terminals = (pieces.map YieldTree.terminals).flatten := by
+  induction pieces with
+  | nil => rfl
+  | cons first rest ih => simp [List.foldr_cons, yield_join_order, ih]
+
+/-- Reverse-stack accumulation prepends each complete piece yield. It can fuse
+capture's count/children traversal without changing any ordered terminal leaf.
+Existing relocation subtrees are opaque pieces and are not distributed/reboxed. -/
+theorem fused_yield_observation (pieces : List (YieldTree α)) :
+    (pieces.foldr yieldJoin .empty).terminals =
+      (pieces.foldl yieldJoin .empty).terminals := by
+  rw [right_yield_fold_order, left_yield_fold_order]
+  rfl
+
+/-- This counts logical piece classifications, not native heap bytes or GC.
+Published retained fragments, prefix frames and complete artifacts remain paid.
+For positive widths the old algorithm inspects endpoints plus count/yield. -/
+def separateWideDecisions (width : Nat) := 2 * width + 2
+def fusedWideDecisions (width : Nat) := width
+
+theorem fused_wide_decisions_strict (width : Nat) :
+    fusedWideDecisions width < separateWideDecisions width := by
+  unfold fusedWideDecisions separateWideDecisions
+  omega
+
+/-- A whole-request cost model must retain allocation and tracing charges.
+A reduction in logical visits alone places no bound on these supplied costs. -/
+structure CaptureCost where
+  transitions : Nat
+  allocated : Nat
+  retained : Nat
+  gc : Nat
+
+def CaptureCost.total (cost : CaptureCost) : Nat :=
+  cost.transitions + cost.allocated + cost.retained + cost.gc
+
+theorem capture_cost_requires_all_charges (before after : CaptureCost)
+    (allocation : after.allocated ≤ before.allocated)
+    (retention : after.retained ≤ before.retained)
+    (collection : after.gc ≤ before.gc)
+    (execution : after.transitions < before.transitions) :
+    after.total < before.total := by
+  unfold CaptureCost.total
+  omega
+
+/-- A capture signature is a live reuse premise: identical consumed yield
+alone does not certify an unchanged exit lexical boundary. -/
+structure BoundarySignature where
+  kind : Nat
+  lexeme : List Nat
+  deriving DecidableEq
+
+def boundaryAccepts (expected actual : Option BoundarySignature) : Bool := decide (expected = actual)
+
+theorem changed_boundary_rejected (expected actual : Option BoundarySignature)
+    (changed : expected ≠ actual) : boundaryAccepts expected actual = false := by
+  simp [boundaryAccepts, changed]
+
+example : boundaryAccepts (some ⟨1, [97]⟩) (some ⟨1, [98]⟩) = false := by decide
+
+/-- A memo belongs to one immutable grammar fragment. Token leaves are retained
+by identity; relocation wrappers keep their original nesting. The producer
+premise is essential: arbitrary writes to topology invalidate the memo. -/
+inductive YieldMemo (α : Type) where
+  | pending
+  | ready (value : α)
+
+def forceYield (produce : Unit → α) : YieldMemo α → α × YieldMemo α
+  | .pending => let value := produce (); (value, .ready value)
+  | .ready value => (value, .ready value)
+
+theorem delayed_yield_first_exact (produce : Unit → α) :
+    forceYield produce .pending = (produce (), .ready (produce ())) := rfl
+
+theorem delayed_yield_warm_exact (produce : Unit → α) :
+    forceYield produce (forceYield produce .pending).2 = forceYield produce .pending := rfl
+
+/-- Deferral removes fresh capture's parallel yield-tree allocations only when
+no consumer requests the yield. Forced reuse still pays its full construction,
+plus any memo traversal overhead; this is not free work or a GC-time proof. -/
+def eagerYieldAllocations (branches : Nat) := branches
+def delayedYieldAllocations (demand : Bool) (branches : Nat) := if demand then branches else 0
+
+theorem fresh_yield_allocations_eliminated (branches : Nat) :
+    delayedYieldAllocations false branches = 0 := rfl
+
+theorem forced_yield_allocations_retained (branches : Nat) :
+    delayedYieldAllocations true branches = eagerYieldAllocations branches := rfl
+
+/-- Fresh capture needs span/count metadata, not the deferred terminal index.
+A span consumer must not accidentally force the derived yield while classifying. -/
+def captureBounds : Piece Yield → Int × Int × Nat
+  | .token start finish _ => (start, finish, 1)
+  | .fragment metadata => (metadata.start, metadata.finish, metadata.tokens)
+  | .view delta base => (delta + pieceStart base, delta + pieceEnd base, pieceTokens base)
+
+theorem capture_bounds_exact (piece : Piece Yield) :
+    captureBounds piece = (pieceStart piece, pieceEnd piece, pieceTokens piece) := by
+  cases piece <;> rfl
+
+/-- A prepared reduction context contains only transition identity. Payload
+includes ordered children, exact lookahead, semantic value, bounds/count, anchor
+and derived-index memo; none of those request-local values are interned. -/
+structure TransitionContext (Runtime Executor : Type) where
+  runtime : Runtime
+  executor : Executor
+  production : Nat
+  entry : Nat
+  target : Nat
+  lookaheadKind : Option Nat
+
+structure FlatCapture (Runtime Executor Payload : Type) where
+  runtime : Runtime
+  executor : Executor
+  production : Nat
+  entry : Nat
+  target : Nat
+  lookaheadKind : Option Nat
+  payload : Payload
+
+structure SharedCapture (Runtime Executor Payload : Type) where
+  context : TransitionContext Runtime Executor
+  payload : Payload
+
+def shareCapture (value : FlatCapture Runtime Executor Payload) : SharedCapture Runtime Executor Payload :=
+  ⟨⟨value.runtime, value.executor, value.production, value.entry, value.target, value.lookaheadKind⟩, value.payload⟩
+
+def expandCapture (value : SharedCapture Runtime Executor Payload) : FlatCapture Runtime Executor Payload :=
+  ⟨value.context.runtime, value.context.executor, value.context.production,
+   value.context.entry, value.context.target, value.context.lookaheadKind, value.payload⟩
+
+theorem shared_context_roundtrip (value : FlatCapture Runtime Executor Payload) :
+    expandCapture (shareCapture value) = value := by cases value; rfl
+
+theorem shared_context_consumer (value : FlatCapture Runtime Executor Payload)
+    (consume : FlatCapture Runtime Executor Payload → Result) :
+    consume (expandCapture (shareCapture value)) = consume value := by rw [shared_context_roundtrip]
+
+/-- Coordinate admission includes runtime, production and entry identity.
+Mutable executor/target changes must replace a cached descriptor. -/
+theorem cached_context_admission (wanted cached : TransitionContext Runtime Executor)
+    (coordinates : cached.runtime = wanted.runtime ∧ cached.production = wanted.production ∧
+      cached.entry = wanted.entry)
+    (live : cached.executor = wanted.executor ∧ cached.target = wanted.target ∧
+      cached.lookaheadKind = wanted.lookaheadKind) : cached = wanted := by
+  cases wanted; cases cached
+  simp_all
+
+/-- Hoisted directory admission requires a row owned by this runtime and
+production. Executor and target remain live checks on every reduction. -/
+theorem prepared_row_context_admission
+    (row : Nat → Option (TransitionContext Runtime Executor))
+    (runtime : Runtime) (production : Nat)
+    (owned : ∀ entry context, row entry = some context →
+      context.runtime = runtime ∧ context.production = production ∧ context.entry = entry)
+    (wanted cached : TransitionContext Runtime Executor)
+    (found : row wanted.entry = some cached)
+    (sameRuntime : wanted.runtime = runtime) (sameProduction : wanted.production = production)
+    (live : cached.executor = wanted.executor ∧ cached.target = wanted.target ∧
+      cached.lookaheadKind = wanted.lookaheadKind) : cached = wanted := by
+  apply cached_context_admission wanted cached
+  · obtain ⟨hr, hp, he⟩ := owned wanted.entry cached found
+    exact ⟨hr.trans sameRuntime.symm, hp.trans sameProduction.symm, he⟩
+  · exact live
+
+/-- Engine-produced unary child storage is unambiguous: a token vector or
+final fragment/view is not a Scheme list. The first observation materializes
+its stable list; ordinary multi-child lists are already ready. -/
+inductive ChildStore (α : Type) where
+  | unary (child : α)
+  | ready (children : List α)
+
+def forceChildren : ChildStore α → List α × ChildStore α
+  | .unary child => ([child], .ready [child])
+  | .ready children => (children, .ready children)
+
+theorem unary_children_exact (child : α) :
+    (forceChildren (.unary child)).1 = [child] := rfl
+
+theorem unary_children_warm (child : α) :
+    forceChildren (forceChildren (.unary child)).2 = forceChildren (.unary child) := rfl
+
+/-- Only a request with no child-list demand avoids the unary cons. A first
+query pays one cell and memo publication; concurrent first queries may duplicate
+construction. This is not a whole-request CPU or exactly-once theorem. -/
+def unaryChildrenCells (demand : Bool) : Nat := if demand then 1 else 0
+
+theorem unary_children_no_demand : unaryChildrenCells false = 0 := rfl
+
+theorem unary_children_first_demand : unaryChildrenCells true = 1 := rfl
+
+/-- Snapshot the live kind and lexeme before deferring their pair allocation.
+Retaining a mutable token vector instead would not preserve this obligation. -/
+structure BoundarySnapshot (Lexeme : Type) where
+  kind : Nat
+  lexeme : Lexeme
+
+def expandBoundary (kind : Nat) (lexeme : Lexeme) : BoundarySnapshot Lexeme := ⟨kind, lexeme⟩
+
+theorem boundary_snapshot_exact (snapshot : BoundarySnapshot Lexeme) :
+    expandBoundary snapshot.kind snapshot.lexeme = snapshot := by cases snapshot; rfl
+
+/-- Logical data slots only. Cold descriptor objects and the bounded directory
+are charged; object headers, lookup work, allocator and GC are separate costs. -/
+def flatCaptureSlots (nodes : Nat) := 13 * nodes
+def sharedCaptureSlots (nodes contexts cells : Nat) := 9 * nodes + 6 * contexts + cells
+
+theorem shared_context_slot_break_even (nodes contexts cells : Nat) :
+    sharedCaptureSlots nodes contexts cells < flatCaptureSlots nodes ↔
+      6 * contexts + cells < 4 * nodes := by
+  unfold sharedCaptureSlots flatCaptureSlots
+  omega
+
 end ParserEngine.Capture

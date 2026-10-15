@@ -98,3 +98,31 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.prepared_start_query_exact
 #print axioms ParserEngine.absent_literal_probe
+
+#print axioms ParserEngine.Capture.fused_yield_observation
+#print axioms ParserEngine.Capture.fused_wide_decisions_strict
+#print axioms ParserEngine.Capture.capture_cost_requires_all_charges
+
+
+#print axioms ParserEngine.Capture.changed_boundary_rejected
+
+#print axioms ParserEngine.Capture.delayed_yield_first_exact
+#print axioms ParserEngine.Capture.delayed_yield_warm_exact
+#print axioms ParserEngine.Capture.fresh_yield_allocations_eliminated
+#print axioms ParserEngine.Capture.forced_yield_allocations_retained
+
+#print axioms ParserEngine.Capture.capture_bounds_exact
+
+#print axioms ParserEngine.Capture.shared_context_roundtrip
+#print axioms ParserEngine.Capture.shared_context_consumer
+#print axioms ParserEngine.Capture.cached_context_admission
+#print axioms ParserEngine.Capture.shared_context_slot_break_even
+
+#print axioms ParserEngine.retained_empty_digest
+
+#print axioms ParserEngine.Capture.prepared_row_context_admission
+
+#print axioms ParserEngine.Capture.unary_children_exact
+#print axioms ParserEngine.Capture.unary_children_warm
+
+#print axioms ParserEngine.Capture.boundary_snapshot_exact

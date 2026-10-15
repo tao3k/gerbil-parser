@@ -40,3 +40,7 @@
   opencypher-large-query-benchmark-tests)
 (export opencypher-large-query-benchmark-tests
         opencypher-large-query-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

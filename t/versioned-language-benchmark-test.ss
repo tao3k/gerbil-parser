@@ -45,3 +45,7 @@
 
 (def versioned-language-benchmark-test versioned-language-benchmark-tests)
 (export versioned-language-benchmark-tests versioned-language-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

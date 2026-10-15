@@ -1,7 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; lr-parser: state owner. Private execution state and named algorithms.
 
-(export lr-runtime
+(export lr-capture-context make-lr-capture-context
+        lr-capture-context-runtime lr-capture-context-executor
+        lr-capture-context-production-id lr-capture-context-entry-state lr-capture-context-exit-state lr-capture-context-lookahead-kind
+        lr-runtime
         make-lr-runtime
         lr-runtime?
         lr-runtime-productions
@@ -18,6 +21,8 @@
         lr-runtime-gotos-set!
         lr-runtime-goto-index
         lr-runtime-goto-columns
+        lr-runtime-capture-contexts
+        lr-runtime-capture-contexts-set!
         lr-runtime-goto-index-set!
         lr-runtime-case-insensitive?
         lr-runtime-case-insensitive?-set!
@@ -93,19 +98,14 @@
         make-lr-recognition-fragment
         lr-recognition-fragment?
         lr-recognition-fragment-runtime
-        lr-recognition-fragment-runtime-set!
         lr-recognition-fragment-executor
-        lr-recognition-fragment-executor-set!
         lr-recognition-fragment-production-id
-        lr-recognition-fragment-production-id-set!
         lr-recognition-fragment-entry-state
-        lr-recognition-fragment-entry-state-set!
         lr-recognition-fragment-exit-state
-        lr-recognition-fragment-exit-state-set!
         lr-recognition-fragment-children
-        lr-recognition-fragment-children-set!
+        lr-recognition-fragment-children-cache
         lr-recognition-fragment-lookahead
-        lr-recognition-fragment-lookahead-set!
+        lr-recognition-fragment-lookahead-cache
         lr-recognition-fragment-value
         lr-recognition-fragment-value-set!
         lr-recognition-fragment-start
@@ -116,8 +116,8 @@
         lr-recognition-fragment-token-count-set!
         lr-recognition-fragment-offset
         lr-recognition-fragment-offset-set!
-        lr-recognition-fragment-terminal-yield
-        lr-recognition-fragment-terminal-yield-set!
+        lr-recognition-fragment-yield-cache
+        lr-recognition-fragment-yield-cache-set!
         lr-recognition-view
         make-lr-recognition-view
         lr-recognition-view?
@@ -160,7 +160,7 @@
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
-               reduction-plans action-selector owned-stack? goto-columns)
+               reduction-plans action-selector owned-stack? goto-columns capture-contexts)
   transparent: #t final: #t)
 
 (def current-lr-event-program-enabled? (make-parameter #f))
@@ -185,10 +185,35 @@
 
 ;;; Private grammar structure, captured before pass/concat/alias projection.
 ;;; This is execution metadata, never a second published parse authority.
-(defstruct lr-recognition-fragment
-  (runtime executor production-id entry-state exit-state children lookahead value
-           start end token-count offset terminal-yield)
+;;; Immutable prepared transition identity is shared; request-local payloads
+;;; remain separate in each fragment. No context mutator is exported.
+(defstruct lr-capture-context (runtime executor production-id entry-state exit-state lookahead-kind)
   transparent: #t final: #t)
+(defstruct lr-recognition-fragment
+  (context children-cache lookahead-cache value start end token-count offset yield-cache)
+  transparent: #t final: #t)
+(definline (lr-recognition-fragment-lookahead (piece : lr-recognition-fragment)) => :t
+  (let (stored piece.lookahead-cache)
+    (if (or (not stored) (pair? stored)) stored
+      (let (signature (cons (lr-capture-context-lookahead-kind piece.context) stored))
+        (lr-recognition-fragment-lookahead-cache-set! piece signature)
+        signature))))
+(definline (lr-recognition-fragment-children (piece : lr-recognition-fragment)) => :t
+  (let (stored piece.children-cache)
+    (if (or (pair? stored) (null? stored)) stored
+      (let (children (list stored))
+        (lr-recognition-fragment-children-cache-set! piece children)
+        children))))
+(definline (lr-recognition-fragment-runtime (piece : lr-recognition-fragment)) => :t
+  (lr-capture-context-runtime piece.context))
+(definline (lr-recognition-fragment-executor (piece : lr-recognition-fragment)) => :t
+  (lr-capture-context-executor piece.context))
+(definline (lr-recognition-fragment-production-id (piece : lr-recognition-fragment)) => :t
+  (lr-capture-context-production-id piece.context))
+(definline (lr-recognition-fragment-entry-state (piece : lr-recognition-fragment)) => :t
+  (lr-capture-context-entry-state piece.context))
+(definline (lr-recognition-fragment-exit-state (piece : lr-recognition-fragment)) => :t
+  (lr-capture-context-exit-state piece.context))
 
 (defstruct lr-recognition-view (base delta) transparent: #t final: #t)
 

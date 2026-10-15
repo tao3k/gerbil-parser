@@ -33,3 +33,7 @@
 
 (def recovery-frontier-benchmark-test recovery-frontier-benchmark-tests)
 (export recovery-frontier-benchmark-tests recovery-frontier-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

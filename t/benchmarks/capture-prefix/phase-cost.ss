@@ -10,8 +10,9 @@
         (only-in :gerbil-parser/src/runtime/recognition recognition-child-value)
         (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact parse-artifact-valid-for-source?))
 (import (only-in :gerbil-parser/src/runtime/lr-parser/state
-                 lr-recognition-fragment? lr-recognition-fragment-children
-                 lr-checkpoint-states lr-checkpoint-semantic-values))
+                 lr-recognition-fragment-lookahead lr-recognition-fragment? lr-recognition-fragment-children
+                 lr-checkpoint-states lr-checkpoint-semantic-values)
+        (only-in :gerbil-parser/src/runtime/lr-parser/transfer fragment-yield-matches?))
 (export main)
 (defstruct replay-step (offset byte mode token end) final: #t)
 (def (main)
@@ -100,10 +101,35 @@
         (unless (and (incremental-session-recognition-root current)
                      (equal? artifact expected) (parse-artifact-valid-for-source? artifact source))
           (error "complete cost request changed")) artifact))
+    ;; A separate scope pays first-demand construction and terminal validation.
+    ;; It does not silently move that work outside the forced-request clock.
+    (def (force-boundaries! root)
+      (let loop ((pending (list root)))
+        (unless (null? pending)
+          (let (piece (car pending))
+            (if (lr-recognition-fragment? piece)
+              (begin (lr-recognition-fragment-lookahead piece)
+                (loop (append (lr-recognition-fragment-children piece) (cdr pending))))
+              (loop (cdr pending)))))))
+    (def (whole-forced)
+      (let* ((current (make-incremental-session records-parser source #t))
+             (artifact (incremental-session-artifact current)))
+        (force-boundaries! (incremental-session-recognition-root current))
+        (unless (and (fragment-yield-matches? (incremental-session-recognition-root current) 0
+                                             (incremental-session-state-tokens current))
+                     (equal? artifact expected) (parse-artifact-valid-for-source? artifact source))
+          (error "forced-yield request changed")) artifact))
+    ;; Topology/projection preflight observes and warms full-lr's private memos.
+    ;; Compare timed fresh captures with an independently fresh representation;
+    ;; do not force derived lists or indexes inside the captured-LR scope.
+    (def cold-full-lr (lr-replay #t))
+    (unless (equal? (vector-ref cold-full-lr 0) (vector-ref full-lr 0))
+      (error "fresh LR reference changed semantic output"))
     (def stages
       (list (list 'whole whole expected)
+            (list 'whole-forced-yield whole-forced expected)
             (list 'recorded-scan scan-replay tokens)
-            (list 'captured-lr (lambda () (lr-replay #t)) full-lr)
+            (list 'captured-lr (lambda () (lr-replay #t)) cold-full-lr)
             (list 'uncaptured-lr (lambda () (lr-replay #f)) bare-lr)
             (list 'publication publish expected)
             (list 'validation (lambda () (parse-artifact-valid-for-source? expected source)) #t)))

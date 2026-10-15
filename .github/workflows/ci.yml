@@ -4,7 +4,15 @@ name: CI
     branches:
       - main
   pull_request: null
-  workflow_dispatch: null
+  workflow_dispatch:
+    inputs:
+      cpu-scope:
+        description: CPU qualification scope
+        type: choice
+        options:
+          - all
+          - capture
+        default: all
 permissions:
   contents: read
 concurrency:
@@ -105,6 +113,7 @@ jobs:
     with:
       os: ${{ matrix.os }}
       gerbil-label: ${{ matrix.gerbil-label }}
+      cpu-scope: ${{ inputs.cpu-scope || 'all' }}
       release-os: ${{ matrix.release-os }}
       release-arch: ${{ matrix.release-arch }}
       release-tag: ${{ matrix.release-tag }}

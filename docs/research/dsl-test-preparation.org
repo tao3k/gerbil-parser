@@ -29,7 +29,12 @@ failure, and duration policies remain inherited unchanged. Each module owns its
 =std/test= harness and thread-local test parameters;
 shared-runtime barrier controls require two modules to rendezvous in one process.
 Modules may export a symbolic =test-worker-affinity= for runtime thread ownership.
-Declared owners execute on the same persistent Worker; independent modules use
+Modules may independently export a boolean =test-worker-exclusive?= for CPU/GC
+or wall-time admission. All resource-contract owners declare that constraint.
+Worker zero remains the caller across parallel and exclusive phases, preserving
+ABI thread ownership. An official =std/sync/barrier= drains preceding console
+messages before resource admission. The phase barrier creates no test progress.
+Declared affine owners execute on the same persistent Worker; independent modules use
 the shared queue. The output supervisor never moves a test onto another thread.
 Failures stop new admission, join active Workers, and return a failing status.
 The original five-second silence and ninety-second module budgets remain;

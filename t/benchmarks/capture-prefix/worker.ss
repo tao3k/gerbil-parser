@@ -75,7 +75,8 @@
     '("gerbil-parser/src/runtime/lr-parser/state~0" "gerbil-parser/src/runtime/layout~0" "gerbil-parser/src/runtime/lr-parser/prepare~0"
       "gerbil-parser/src/runtime/lr-parser/recognition~0" "gerbil-parser/src/runtime/lr-parser/batch~0"
       "gerbil-parser/src/runtime/lr-parser/checkpoint~0" "gerbil-parser/src/runtime/lr-parser/transfer~0"
-      "gerbil-parser/src/runtime/parser~0"))
+      "gerbil-parser/src/runtime/parser~0"
+      "gerbil-parser/src/runtime/reuse~0" "gerbil-parser/src/runtime/incremental/session~0"))
   (for-each
     (lambda (module)
       (let* ((file (image-file module))

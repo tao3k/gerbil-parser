@@ -33,3 +33,7 @@
 
 (def incremental-suffix-benchmark-test incremental-suffix-benchmark-tests)
 (export incremental-suffix-benchmark-tests incremental-suffix-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

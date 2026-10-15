@@ -2,6 +2,10 @@ name: Prepared Scheme qualification
 'on':
   workflow_call:
     inputs:
+      cpu-scope:
+        required: false
+        type: string
+        default: all
       os:
         required: true
         type: string
@@ -114,7 +118,8 @@ jobs:
           key: parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg') }}-${{ github.sha }}
       - name: Compile Scheme test support
         run: |
-          gerbil env gxc t/abi-datum-support.ss \
+          gerbil env gxc t/fixtures/tla-sany-differential/worker-control.ss \
+            t/abi-datum-support.ss \
             t/line-structure-assertions.ss \
             t/benchmarks/lr-request-stack/derivation.ss \
             t/scenarios/performance/selective-glr/scenario.ss \
@@ -670,16 +675,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane:
-          - scanner
-          - events
-          - engine
-          - ranked
-          - utf8
-          - tokio
-          - module-generation
-          - module-preload
-          - selector-input
+        lane: ${{ fromJSON(inputs.cpu-scope == 'capture' && '["capture"]' || '["scanner","events","engine","ranked","utf8","tokio","module-generation","module-preload","selector-input","capture"]') }}
     env:
       GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
       GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
@@ -800,6 +796,23 @@ jobs:
         run: |
           taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           just benchmark-capture-prefix
+      - name: Compile matched current capture owners
+        if: matrix.lane == 'capture'
+        run: gerbil env gxi t/benchmarks/capture-prefix/build-reference.ss src/runtime/lr-parser/recognition.ss .gerbil/lib selector-input
+      - name: Prepare captured LR allocation reference
+        if: matrix.lane == 'capture'
+        run: |
+          git fetch --depth=1 origin 459ec36e1961f3d8d95ce4ebec13843d164a4bdf
+          just prepare-capture-reference 459ec36e1961f3d8d95ce4ebec13843d164a4bdf .data/capture/reference selector-input
+      - name: Qualify captured LR complete request CPU twice
+        if: matrix.lane == 'capture'
+        run: |
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
+          for trial in 1 2; do
+            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+              --log ".data/capture-${trial}-cpu.log" --require '^CAPTURE-COMPLETE-CPU-PROOF-OK$' \
+              -- gxi t/benchmarks/capture-prefix/benchmark.ss .data/capture/reference/lib selector-input
+          done
       - name: Prove complete Rust generation CPU improvement
         if: matrix.lane == 'module-generation'
         run: |

@@ -14,4 +14,4 @@
          (list output-dir: output optimize: #t generate-ssxi: #t invoke-gsc: #t)))
      (map (lambda (name) (path-expand (string-append name ".ss") runtime))
           '("lr-parser/state" "layout" "lr-parser/prepare" "lr-parser/recognition" "lr-parser/batch"
-            "lr-parser/checkpoint" "lr-parser/transfer" "parser")))))
+            "lr-parser/checkpoint" "lr-parser/transfer" "parser" "lr-parser" "reuse" "incremental/session")))))

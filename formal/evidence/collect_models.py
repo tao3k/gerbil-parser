@@ -49,7 +49,7 @@ def model_checks(root: Path):
                      "t/fixtures/tla-sany-differential/worker-exclusive-invalid.ss", "test-processes.ss", "src/compiler/bound-ir.ss", "t/bound-ir-index-test.ss", "t/rust-runtime-generation-test.ss",
                      "src/runtime/scan/lexical.ss", "src/runtime/scan/literal.ss", "src/runtime/scan/regular.ss", "t/ranked-regular-scanner-test.ss",
                      "t/canonical-lr1-reference-test.ss", "src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
-                     "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss",
+                     "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss", "src/runtime/lr-parser/entry.ss",
                      "src/runtime/lr-parser/transfer.ss", "src/runtime/lr-parser/prepare.ss", "src/runtime/parser.ss",
                      "src/runtime/lr-parser/batch.ss", "src/runtime/layout.ss", "src/runtime/lr-stack-storage.ss",
                      "t/fixtures/tla-sany-differential/test-suite.ss", "t/lr-input-protocol-test.ss", "t/lr-goto-plan-test.ss",

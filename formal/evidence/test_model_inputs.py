@@ -38,6 +38,8 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("src/ffi/language-handles.ss", check.inputs)
                 self.assertIn("src/runtime/lr-parser/checkpoint.ss", check.inputs)
                 self.assertIn("src/runtime/lr-parser/prepare.ss", check.inputs)
+                self.assertIn("src/runtime/lr-parser/entry.ss", check.inputs)
+                self.assertIn("t/canonical-lr1-reference-test.ss", check.inputs)
                 self.assertIn("src/runtime/lr-stack-storage.ss", check.inputs)
                 self.assertIn("src/runtime/scan/regular.ss", check.inputs)
                 self.assertIn("t/ranked-regular-scanner-test.ss", check.inputs)

@@ -212,7 +212,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK \
-            -- gxi scripts/tests/history-commit-test.ss
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "scripts/tests/history-commit-test.ss")' scripts/tests/history-commit-test.ss
       - name: Verify official module loading and source invalidation
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \

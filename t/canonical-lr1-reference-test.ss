@@ -23,7 +23,7 @@
         (only-in :gerbil-parser/src/compiler/lr-lookahead
                  build-states-via-canonical-lr1 build-states-via-lr0)
         (only-in :gerbil-parser/src/runtime/lr-parser
-                 lr-parse lr-rejection-condition?)
+                 lr-parse lr-prepare lr-parse/prepared lr-rejection-condition?)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/t/fixtures/lr1-construction
                  lr1-not-lalr-rules shared-lookahead-rules
@@ -61,16 +61,30 @@
 (def (parse-result spec text)
   (parse-token-result spec (character-tokens text)))
 
+(def (prepared-result-parser spec)
+  ;; One immutable grammar/capability basis per sweep; requests still own fresh
+  ;; token vectors and LR state, including recovery after a rejected word.
+  (let (runtime (lr-prepare spec))
+    (lambda (tokens)
+      (with-catch
+       (lambda (condition)
+         (if (lr-rejection-condition? condition) 'rejected (raise condition)))
+       (lambda ()
+         (let-values (((root rest) (lr-parse/prepared runtime tokens)))
+           (unless (null? rest) (error "LR parser left a token suffix" rest))
+           root))))))
+
 (def (check-parse-equivalence canonical other alphabet length)
-  (let walk ((prefix "") (remaining length))
-    (if (zero? remaining)
-      (check (equal? (parse-result canonical prefix)
-                     (parse-result other prefix))
-             => #t)
-      (for-each
-       (lambda (part)
-         (walk (string-append prefix part) (- remaining 1)))
-       alphabet))))
+  (let ((left (prepared-result-parser canonical)) (right (prepared-result-parser other)))
+    (let walk ((prefix "") (remaining length))
+      (if (zero? remaining)
+        (check (equal? (left (character-tokens prefix))
+                       (right (character-tokens prefix)))
+               => #t)
+        (for-each
+         (lambda (part)
+           (walk (string-append prefix part) (- remaining 1)))
+         alphabet)))))
 
 (def (check-lr0-candidates-cover-canonical rules)
   (let* ((productions (lower-rules rules 'source-file))
@@ -238,6 +252,14 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "prepared corpus readers preserve fresh rejection and recovery"
+      (let* ((spec (compile-lr-spec lr1-not-lalr-rules 'source-file 'reject #f 'canonical-lr1))
+             (parse (prepared-result-parser spec)))
+        (check (eq? (parse-result spec "acd") 'rejected) => #f)
+        (for-each
+          (lambda (text)
+            (check (parse (character-tokens text)) => (parse-result spec text)))
+          '("" "acd" "bce" "bad" "ace" "bcd" "acd" ""))))
     (poo-flow-test-case "affected partition refinement matches exhaustive synchronous oracle"
       (def (signature predecessors node ids)
         (filter-map

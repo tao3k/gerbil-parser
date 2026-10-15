@@ -209,4 +209,16 @@ logical equality concerns contents, not native string aliasing or SHA proof. -/
 theorem retained_empty_digest (digest : List α → Value) (consume : Value → Result) :
     consume (digest []) = consume (let retained := digest []; retained) := rfl
 
+/-- A corpus sweep retains one semantic preparation basis per immutable
+ grammar/capability pair. Fresh per-input state remains the executor's premise;
+ this equality does not authorize reuse of mutable token vectors or parse state. -/
+theorem prepared_corpus_preserves (prepare : Grammar → Runtime)
+    (execute : Runtime → Input → Output) (grammar : Grammar) (inputs : List Input) :
+    inputs.map (fun input => execute (prepare grammar) input) =
+      (let runtime := prepare grammar; inputs.map (execute runtime)) := rfl
+
+/-- Counts only the two parser preparations in an equivalence sweep. -/
+theorem corpus_preparations_saved (requests : Nat) (multiple : 1 < requests) :
+    2 < 2 * requests := by omega
+
 end ParserEngine

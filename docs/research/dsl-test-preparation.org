@@ -143,3 +143,55 @@ or total budget. The same four-owner set passed in 22.245382 seconds with
 =TEST-SUITE-EXCLUSIVE modules=1=. This is a scheduling control, not a claimed
 wall-clock speedup or final macOS CI acceptance. Formal input binding includes
 the newly declared owner; independent macOS qualification remains required.
+
+
+* Canonical LR corpus preparation ownership
+
+Regular run =38773656015= at PR head =48607f3= exhausted the existing Source
+owner budget in =t/canonical-lr1-reference-test.ss= while continuously checking
+parse equivalence. Its helper called public =lr-parse= twice per enumerated
+word. That entry constructs =lr-prepare= on every call, repeating the same
+immutable grammar preparation throughout one sweep.
+
+Lean's =prepared_corpus_preserves= gives the pure preparation/execution equality;
+=corpus_preparations_saved= charges two preparations per sweep instead of two per
+word. Native execution must additionally preserve fresh request state and input
+ownership. The helper now retains one prepared runtime per parser within the
+sweep. Every word still allocates its own tokens and executes the full parser.
+There is no global preparation cache or mutable token reuse. A new control
+compares prepared and fresh public requests across accepted words, rejected
+words, and acceptance after rejection. Its first fixture invocation mistakenly
+passed a positional construction argument as a keyword; that failed run is
+retained and the call corrected without changing parser expectations.
+
+The corrected four-owner batch passed in 23.875752 seconds: canonical LR 22
+Cases, Rust syntax 17, Source index 7, and Rust generation 12. This is local
+functional/scheduling evidence. It is not a matched Scheme CPU measurement of
+the sweep or remote macOS acceptance.
+
+The separate manual run =38773702045= stopped earlier in the source callback
+history control. Its child log contains only =HISTORY-COMMIT-START= before the
+five-second idle fence. This establishes a pre-first-module-admission boundary;
+it does not identify the exact loader operation or prove that the corpus change
+repairs that earlier failure. Both failures retain their original deadlines.
+
+
+** Source-caller import admission before script expansion
+
+A local replay of the original history command stopped in 5.583568 seconds with
+zero child-log bytes. SDK =gerbil/main.ss= documents Gambit's script =##begin=
+wrapper, and =runtime/eval.ss= compiles begin bodies before evaluation. A
+script's first expression is therefore not a reliable boundary before its
+static import expansion. Its runtime preference/preload expressions can be too
+late to govern that expansion. This explains a possible cold admission path;
+the original remote 21-byte log does not by itself establish its exact stack.
+
+The CI invocation now uses the existing =preload-test-imports= in a preceding
+=-e= expression of the same =gxi=, then executes the original source script. The
+shared helper admits the script's declared dependencies through the official
+loader with actual module/interface boundary tracing. Every history assertion
+and native callback still executes from the same source caller. There is no
+extra process, synthetic heartbeat, timeout increase, or conversion of the
+control to an AOT caller. The revised invocation passed locally in 22.491491
+seconds with the unchanged five-second idle and 90-second total bounds. This is
+local source-caller acceptance; current-head macOS CI remains an independent gate.

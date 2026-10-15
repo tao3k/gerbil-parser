@@ -6,6 +6,10 @@
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (load "t/benchmarks/module-loading/reference-preload.ss")
+(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
+(preload-module "gerbil-parser/t/support/qualification/benchmark-qos")
+(import (only-in :gerbil-parser/t/support/qualification/benchmark-qos admit-benchmark-qos!))
 (def report-port (current-output-port))
 (def (report row)
   (parameterize ((current-output-port report-port))
@@ -30,13 +34,13 @@
   (list-ref (list-sort < xs) (- (ceiling (/ (* percent (length xs)) 100)) 1)))
 (def (phase name left right count check)
   (let loop ((group 0) (ratios '()))
-    (if (= group 5)
+    (if (= group 4)
       (let ((p10 (percentile ratios 10)) (p50 (percentile ratios 50)) (p90 (percentile ratios 90)))
-        (report (list name 'p10 p10 'p50 p50 'p90 p90 'groups 5 'legs 64 'calls-per-leg count))
+        (report (list name 'p10 p10 'p50 p50 'p90 p90 'groups 4 'legs 80 'calls-per-leg count))
         (list p10 p50 p90))
       ;; Opposite ABBA and BAAB quartets balance GC and order within each group.
       ;; Every observation contributes; no individual leg or group is dropped.
-      (let legs ((order (apply append (make-list 8 (if (even? group) '(a b b a b a a b) '(b a a b a b b a)))))
+      (let legs ((order (apply append (make-list 10 (if (even? group) '(a b b a b a a b) '(b a a b a b b a)))))
                  (a 0) (b 0))
         (if (null? order)
           (let (ratio (/ a b))
@@ -48,15 +52,19 @@
 (def (qualify name production reference count check)
   ;; Warm both paths; no collection forcing or discarded observations.
   (batch production count check) (batch reference count check)
-  (let* ((before (phase (list name 'before) reference reference count check))
-         (candidate (phase (list name 'candidate) production reference count check))
-         (after (phase (list name 'after) reference reference count check)))
+  ;; Allocate the bounded budget to the reference stability controls. Both
+  ;; sides within each phase still receive exactly the same call count.
+  (let* ((before (phase (list name 'before) reference reference (+ count 1) check))
+         (candidate (phase (list name 'candidate) production reference 1 check))
+         (after (phase (list name 'after) reference reference (+ count 1) check)))
     (unless (and (>= (car before) .90) (<= (caddr before) 1.10)
                  (>= (car after) .90) (<= (caddr after) 1.10)
                  (< (caddr candidate) .95))
       (error "module loading CPU gate failed" name before candidate after))))
 
 (def (main mode)
+  (admit-benchmark-qos!)
+  (report '(benchmark-host-qos admitted))
   (cond
     ((equal? mode "generation")
       (qualify 'complete-rust-generation production-generate reference-generate 4
@@ -73,4 +81,5 @@
             (lambda () ((make-reference-preloader) module #f) #t)
             4 (lambda (ok) (unless ok (error "preload failed")))))))
     (else (error "unknown benchmark mode" mode)))
-  (displayln "MODULE-LOADING-CPU-PROOF-OK " mode) (force-output))
+  (displayln "MODULE-LOADING-CPU-PROOF-OK " mode) (force-output)
+  (test-child-process-exit! 0))

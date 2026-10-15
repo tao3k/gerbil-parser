@@ -122,7 +122,7 @@ jobs:
             t/benchmarks/gql/runtime/actors.ss \
             t/benchmarks/lr-request-stack/capture-reference.ss \
             t/benchmarks/capture-prefix/controls.ss \
-            t/benchmarks/capture-prefix/qos.ss
+            t/support/qualification/benchmark-qos.ss
           if [ "$RUNNER_OS" = macOS ]; then
             gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
               t/benchmarks/gql/runtime/compiled-timing.ss
@@ -805,14 +805,14 @@ jobs:
         run: |
           taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/module-generation-cpu.log --require MODULE-LOADING-CPU-PROOF-OK \
+            --log .data/module-generation-cpu.log --require '^MODULE-LOADING-CPU-PROOF-OK generation$' \
             -- gxi t/benchmarks/module-loading/benchmark.ss generation
       - name: Prove warm runtime preparation CPU improvement
         if: matrix.lane == 'module-preload'
         run: |
           taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/module-preload-cpu.log --require MODULE-LOADING-CPU-PROOF-OK \
+            --log .data/module-preload-cpu.log --require '^MODULE-LOADING-CPU-PROOF-OK preload$' \
             -- gxi t/benchmarks/module-loading/benchmark.ss preload
       - name: Prove Rust Tokio complete 64-record requests
         if: matrix.lane == 'tokio'

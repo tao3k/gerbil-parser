@@ -189,3 +189,13 @@ The atomic observation itself remains a producer obligation; it is not derived
 from a later key match. Failed construction/validation/discard work is included
 in every complete request, including unused extents. The refined break-even
 condition can reject a candidate that was favorable under a no-retry model.
+
+* SDK source admission is not committed parse history
+
+[[file:../research/module-loading-reuse.org][Official module loading and failure restoration]] adds an explicit source
+admission protocol. Unlike a failed parse publication that leaves old committed
+history valid, an SDK reload may replace its registry context before evaluation
+fails. A historical successful source digest must then be withdrawn. Lean owns
+the withdrawal/retry predicate; Quint owns failed replacement and restoration
+histories. Scheme regression controls and repeated-generation/preloader CPU
+experiments qualify the implementation and cost separately.

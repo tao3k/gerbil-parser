@@ -46,6 +46,35 @@ theorem plan_change_rejects (current : Key) (receipt : Receipt Value)
   have different : receipt.basis ≠ current := fun equal => changed (congrArg Key.plan equal)
   simp [admit, different]
 
+/-- A source identity attests the current SDK context, not a historical success.
+A reload can replace that context before evaluation fails. Therefore withdraw
+identity before reload and restore it only after evaluation and selection. -/
+def sourceNeedsReload (admitted : Option Nat) (source : Nat) (explicit : Bool) : Bool :=
+  explicit || admitted != some source
+
+def beginSourceReload (_previous : Option Nat) : Option Nat := none
+
+def finishSourceAdmission (source : Nat) (accepted : Bool) : Option Nat :=
+  if accepted then some source else none
+
+theorem failed_source_retries_original (previous source : Nat) :
+    sourceNeedsReload (beginSourceReload (some previous)) source false = true := by
+  simp [sourceNeedsReload, beginSourceReload]
+
+theorem rejected_source_not_admitted (source : Nat) :
+    finishSourceAdmission source false = none := rfl
+
+theorem successful_source_reuses (source : Nat) :
+    sourceNeedsReload (finishSourceAdmission source true) source false = false := by
+  simp [sourceNeedsReload, finishSourceAdmission]
+
+theorem explicit_reload_not_skipped (admitted : Option Nat) (source : Nat) :
+    sourceNeedsReload admitted source true = true := by simp [sourceNeedsReload]
+
+-- Keeping the previous marker after a failed replacement wrongly skips reload.
+example (source : Nat) : sourceNeedsReload (some source) source false = false := by
+  simp [sourceNeedsReload]
+
 /-- Repeated static preparation versus a retained plan. Counts are abstract
 operations; hashing, eligibility checks, allocation and CPU require measurements. -/
 def repeatedCost (requests prepare execute : Nat) := requests * (prepare + execute)

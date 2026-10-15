@@ -37,6 +37,11 @@
       (write-text file "(export grammar)\n(def grammar (error \"initializer failed\"))\n")
       (require! (fails? (lambda () (language-module-descriptor file))) "initializer failure swallowed")
       (require! (fails? (lambda () (language-module-descriptor file))) "failed snapshot admitted")
+      ;; Restore the last admitted content after a failed replacement.
+      (write-text file (grammar-source "second"))
+      (require! (equal? (language-grammar-language (language-module-descriptor file)) "second")
+                "restored source retained failed replacement context")
+      (displayln "MODULE-RESTORED-SOURCE-OK") (force-output)
       (write-text file (grammar-source "recovered"))
       (require! (equal? (language-grammar-language (language-module-descriptor file)) "recovered")
                 "explicit reload failed to recover")

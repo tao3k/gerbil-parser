@@ -26,6 +26,7 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/Capture.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Lookahead.lean", lean.inputs)
             self.assertIn("formal/quint/LookaheadScope.qnt", quint.inputs)
+            self.assertIn("formal/quint/ModuleAdmission.qnt", quint.inputs)
             self.assertIn("formal/quint/ReuseAdmission.qnt", quint.inputs)
             self.assertIn("formal/quint/HistoryCommit.qnt", quint.inputs)
             self.assertIn("formal/quint/CapturePlan.qnt", quint.inputs)
@@ -33,6 +34,8 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("src/ffi/language-handles.ss", check.inputs)
                 self.assertIn("src/runtime/lr-parser/checkpoint.ss", check.inputs)
                 self.assertIn("src/runtime/token.ss", check.inputs)
+                self.assertIn("src/language/module-input.ss", check.inputs)
+                self.assertIn("t/fixtures/tla-sany-differential/preload.ss", check.inputs)
                 self.assertIn("scripts/tests/history-commit-test.ss", check.inputs)
             self.assertNotIn("formal/quint/ReuseAdmission.qnt", lean.inputs)
             for name in quint.inputs:
@@ -42,8 +45,9 @@ class ModelInputControls(unittest.TestCase):
             first = snapshot(root, quint.inputs)
             (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
             self.assertNotEqual(first, snapshot(root, quint.inputs))
-            for name in ("formal/quint/LookaheadScope.qnt", "src/runtime/lr-parser/checkpoint.ss",
-                         "src/runtime/token.ss"):
+            for name in ("formal/quint/LookaheadScope.qnt", "formal/quint/ModuleAdmission.qnt",
+                         "src/runtime/lr-parser/checkpoint.ss", "src/runtime/token.ss",
+                         "src/language/module-input.ss", "t/fixtures/tla-sany-differential/preload.ss"):
                 with self.subTest(input=name):
                     before = snapshot(root, quint.inputs)
                     (root / name).write_text("changed extent premise")

@@ -41,8 +41,12 @@ def model_checks(root: Path):
     bridge_inputs = ("src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
                      "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss",
                      "src/runtime/lr-parser/state.ss", "src/runtime/token.ss",
+                     "src/language/module-input.ss", "src/ffi/rust-runtime-aot.ss",
+                     "t/fixtures/tla-sany-differential/preload.ss",
+                     "t/benchmarks/module-loading/controls.ss", "t/benchmarks/module-loading/benchmark.ss",
+                     "t/benchmarks/module-loading/reference-preload.ss",
                      "t/benchmarks/capture-prefix/controls.ss", "t/benchmarks/capture-prefix/worker.ss",
-                     "t/benchmarks/capture-prefix/benchmark.ss", "t/benchmarks/capture-prefix/qos.ss",
+                     "t/benchmarks/capture-prefix/benchmark.ss", "t/support/qualification/benchmark-qos.ss",
                      "t/benchmarks/capture-prefix/build-reference.ss",
                      "t/benchmarks/lr-request-stack/capture-reference.ss")
     policy_inputs = ("formal/evidence/parser_evidence.py", "formal/evidence/collect_models.py",
@@ -51,9 +55,9 @@ def model_checks(root: Path):
         Check("lean-model", ("lake", "build"), lean_inputs + bridge_inputs + policy_inputs,
               ("Build completed successfully",), cwd="formal"),
         Check("quint-protocol", ("npm", "test"),
-              ("formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
+              ("formal/quint/ModuleAdmission.qnt", "formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
                "formal/quint/package-lock.json", "formal/quint/node_modules/@informalsystems/quint/package.json") + bridge_inputs + policy_inputs,
-              ("16 passing", "23 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
+              ("16 passing", "23 passing", "8 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
     )
 
 

@@ -56,3 +56,6 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Lookahead.one_failed_attempt_charged
 
 #print axioms ParserEngine.Lookahead.extent_with_retries_break_even
+
+#print axioms ParserEngine.Reuse.failed_source_retries_original
+#print axioms ParserEngine.Reuse.successful_source_reuses

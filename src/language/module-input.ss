@@ -23,9 +23,15 @@
                    (call-with-input-file canonical
                      (lambda (port) (read-line port #f))))))
          (changed? (and file? (not (equal? digest (hash-get source-identities canonical)))))
-         (context (import-module
-                   (if (char=? (string-ref path 0) #\:) (string->symbol path) path)
-                   (or reload? changed?) #t))
+         (context
+          (begin
+            ;; Official reload replaces the context before evaluation. A failed
+            ;; replacement must not leave a historical identity admitting it.
+            (when (and file? (or reload? changed?))
+              (hash-remove! source-identities canonical))
+            (import-module
+             (if (char=? (string-ref path 0) #\:) (string->symbol path) path)
+             (or reload? changed?) #t)))
          (descriptors
           (filter-map
            (lambda (exported)

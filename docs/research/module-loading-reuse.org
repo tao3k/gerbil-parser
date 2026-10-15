@@ -23,8 +23,11 @@ request. The identity is recorded only after successful evaluation and selection
 
 This does not depend on file size or timestamp. Missing files, invalid syntax,
 failed initializers and missing descriptor exports remain errors. Failed source
-admission does not establish a successful identity. A subsequent corrected file
-can be admitted normally.
+admission does not establish a successful identity. Before any actual file
+reload, the previous identity is withdrawn because official expansion installs
+a replacement context before its delayed initializer is evaluated. A corrected
+file, including restoration of the previously successful bytes, is therefore
+re-admitted normally after a failed replacement.
 
 Library inputs beginning with =:= reuse the SDK's library snapshot. A caller
 editing such an input explicitly requests reload. Reloading a module does not
@@ -207,3 +210,139 @@ supervisor still requires the success receipt and exit zero under the same
 90-second total and 5-second idle budgets. The repaired local run completed
 in 4.983 seconds with exit zero. This is a test lifecycle repair, not a parser
 CPU optimization.
+
+* Failure restoration model and regression (2026-10-15)
+
+Auditing the official =expander/module.ss= showed that =core-import-module=
+installs a new context in its registry before =eval-module= forces its delayed
+initializer. A previous successful digest therefore cannot attest that registry
+entry after a failed replacement. This differs from committed parse history:
+the parser's publication owner can retain an old result, whereas the SDK has
+already replaced its current module context.
+
+The new [[file:../../formal/quint/ModuleAdmission.qnt][ModuleAdmission]] protocol separates source bytes, current SDK context,
+accepted identity, pending admission and failure. Its mutation witness retains
+a historical marker after failure and demonstrates that it incorrectly skips
+reload when the original source is restored. Eight directed histories cover
+unchanged reuse, changed content, failed restoration/recovery, explicit reload
+failure, rejected selection and repeated failure. Its sampled invariant check
+runs 1,000 histories of at most 20 steps, seed 1. This does not model the SDK's
+internal mutex, concurrent source edits or recursive dependency invalidation.
+
+[[file:../../formal/ParserEngine/Reuse.lean][Lean Reuse]] proves that withdrawal forces a new attempt even for the original
+source, failed selection establishes no accepted identity, successful admission
+can reuse, and explicit reload cannot be skipped. Source must remain stable
+within each admission attempt; identities remain logical collision-free values.
+The actual module owner, preloader, controls and CPU experiment are included in
+the existing model source binding. Whole-request cost and CPU obligations remain
+separate from those lifecycle statements.
+
+The new Scheme control first reproduced the defect: load =second= successfully,
+fail a replacement twice, restore the exact =second= content, and observe the
+cached =initializer failed= exception. It terminated with =reason error-output=
+and no final success receipt. The fixed implementation withdraws identity only
+before actual file reload and commits it after successful evaluation/selection.
+Warm unchanged calls retain official context reuse. The full controls then
+passed in 7.223 seconds, including =MODULE-RESTORED-SOURCE-OK=, source-edit Rust
+output changes, repeated runtime failures and official explicit recovery.
+
+* Current measurement protocol
+
+Both module CPU experiments now share the existing
+[[file:../../t/support/qualification/benchmark-qos.ss][benchmark host QoS admission]] with the capture experiment. On macOS this
+sets and verifies the same host thread QoS before either variant is timed;
+Linux keeps the existing processor-affinity policy. This is test support and
+has no production runtime scheduling effect. That normalization run retained the original counts, order, natural
+collection, all control groups and 90/5-second budgets. Successful standalone
+experiments invoke the existing disposable-child exit only after all gates;
+CI requires an anchored workload-specific marker and exit zero.
+
+The first current generation rerun without QoS admission was rejected. Before
+P10/P50/P90 was =0.994409/1.041373/1.058727=, candidate
+=0.027589/0.041004/0.057543=, and after
+=0.983333/1.013864/1.113498=. The after maximum exceeded =1.10=; the apparent
+candidate gain is not an admitted CPU claim. The run ended at 58.882 seconds
+with an error and no success receipt. This negative result is retained.
+
+* macOS GCC link prerequisite
+
+The latest preparation failure at =edf9f8a= was =ld: library 'crypto' not found=
+while linking =gparse=. The macOS SDK setup already exported OpenSSL pkg-config
+metadata, but GCC's linker did not inherit a library search path for keg-only
+OpenSSL. Setup now exports the discovered OpenSSL and SQLite library directories
+through =LIBRARY_PATH=, preserving any existing value. A real GCC program linked
+against =libcrypto= and ran successfully locally. This does not establish remote
+CI success or change the selected Scheme compiler.
+
+The same 5-group/64-leg protocol with admitted QoS also failed: before
+P10/P50/P90 =0.957872/0.992398/1.028283=, candidate
+=0.040042/0.041113/0.052788= and after
+=0.982706/1.063867/1.139041=. The run ended at 82.282 seconds with error-output.
+QoS admission alone did not establish stable controls.
+
+The next bounded sampler allocates more work to reference stability rather
+than candidate precision: four groups of 80 alternating legs, five calls per
+control leg and one call per candidate leg. Each comparison still uses equal
+calls on both sides. That is 3,200 control calls plus 320 candidate calls,
+3,520 timed calls in total, with eight untimed warmup calls. Each control group
+aggregates 400 calls instead of 256; all observations remain admitted or rejected
+together. The same =0.90..1.10= reference bounds and candidate P90 below =0.95=
+remain, with natural GC and the original 90/5-second watchdog. Four-group
+P10/P90 are minimum/maximum, not population confidence bounds. This protocol
+change and the two failed experiments are retained explicitly.
+
+* Current admitted complete-generation result
+
+After the failure-restoration repair and explicit host admission, the bounded
+sampler completed 3,520 timed generation calls in 66.255 seconds. Every generated
+module matched the complete expected Rust source. No groups were dropped.
+
+| Phase | Calls per leg | P10 | P50 | P90 |
+|-------+---------------+-----+-----+-----|
+| Before reference/reference | 5 | 0.975825 | 0.993883 | 1.031791 |
+| Production/reference | 1 | 0.028644 | 0.028754 | 0.083046 |
+| After reference/reference | 5 | 0.969325 | 0.970802 | 0.994358 |
+
+The worst candidate group used 91.70% less process user-plus-system CPU than
+the forced support/grammar-reload control. This requalifies the existing SDK
+reuse design with the repaired failure path; it is not a 91.70% improvement
+over the preceding PR revision. Source hashing, export selection, generation,
+output comparison and natural GC are inside timed calls. Startup, test-host
+orchestration and diagnostics outside completed calls are not timed. It does
+not qualify cold module loading, complete test-suite duration, Rust/Tokio
+runtime execution or full parsing. The final workload-specific receipt appeared
+and the supervisor returned =exit 0, reason #f, missing ()=.
+
+* Current admitted warm-preparation result
+
+The independent preload experiment completed 3,520 timed calls in 71.287 seconds
+under the same revised sampler. Every group passed, with natural GC and output
+handling included in the measured preparation calls.
+
+| Phase | Calls per leg | P10 | P50 | P90 |
+|-------+---------------+-----+-----+-----|
+| Before reference/reference | 5 | 0.955111 | 1.002432 | 1.073114 |
+| Production/reference | 1 | 0.002682 | 0.002712 | 0.002990 |
+| After reference/reference | 5 | 0.904189 | 0.957122 | 1.012461 |
+
+The worst candidate group used 99.70% less process CPU than first diagnostic
+preparation with a fresh frozen preloader for an already-loaded SDK closure.
+This does not compare two warm calls to the frozen preloader's local cache,
+cold SDK initialization or full Suite execution. It requalifies the existing
+SDK-state reuse design, not an incremental speedup over the previous PR head.
+The workload-specific success receipt and exit zero were both observed.
+
+Final Lean qualification completed 43 jobs. The locked Quint package passed
+97 directed tests across 11 modules and ten sampled invariant runs. Source
+binding controls passed. Model qualification does not establish the SDK's
+implementation or CPU result; the actual source/failure controls and matched
+measurements above are the separate implementation and performance evidence.
+
+The optional full =gparse= rebuild was also attempted locally under a stricter
+90/5-second exploratory supervisor. Direct cold macro loading produced no output
+and hit the idle gate at 5.686 seconds. Repeating with real SDK dependency
+tracing reached executable C compilation, then hit the same idle gate at
+35.997 seconds during a compiler job. Neither is a completed-build receipt;
+these attempts do not qualify native command linking or remote CI. The separate
+GCC/libcrypto link control passed. The repository CI build owner retains its
+existing build budget, and no timeout was widened by this repair.

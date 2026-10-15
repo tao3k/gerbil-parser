@@ -108,7 +108,7 @@ the minimum and maximum: every control group must stay within =0.90..1.10=, and
 every production group must be below =0.95=. No outlier is dropped.
 
 Darwin workers use the same checked =QOS_CLASS_USER_INTERACTIVE= setting from the
-[[file:../../t/benchmarks/capture-prefix/qos.ss][test-only scheduling owner]]. Linux CI inherits the existing processor-affinity
+[[file:../../t/support/qualification/benchmark-qos.ss][test-only scheduling owner]]. Linux CI inherits the existing processor-affinity
 policy. Production scheduling is unchanged. Total timeout is 90 seconds and
 silence timeout is 5 seconds; only actual completed batches report progress.
 

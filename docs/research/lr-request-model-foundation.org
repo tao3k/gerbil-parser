@@ -81,7 +81,7 @@ The model retains these negative regimes alongside a beneficial example.
 publication, FFI and scheduling. Each =ExtentWork= carries its own reduction count and materialization, check
 and setup weights, so EOF and lexeme-dependent snapshot checks need not share
 ordinary-token costs. Complete-request baseline/candidate costs add all extent
-costs to the shared terms. =complete_request_break_even= includes every
+costs to the shared terms, including =failedAdmission= work. =complete_request_break_even= includes every
 extent, so singleton losses cannot be discarded. Common work may cancel only
 under the explicit equal-work assumption. =complete_request_with_extra_work=
 charges additional work instead of silently canceling it. The equations are
@@ -92,17 +92,26 @@ cannot qualify an unmeasured Tokio request.
 * Quint responsibilities
 
 [[file:../../formal/quint/LookaheadScope.qnt][LookaheadScope.qnt]] models scope histories, not LR language acceptance.
-=Bind= abstracts a successfully established snapshot and its producer premise.
-=Read= requires active scope and exact basis/current key equality.
+=Bind= remains the atomic specification of a successfully established snapshot
+and its producer premise. The additional =Observe=, =CommitObserved= and
+=DiscardObserved= actions expose the interval between coherent observation and
+admission. Commit requires the observed key to remain current; mutation, EOF
+admission and supersession invalidate an in-flight observation. Retry requires
+an explicit discard and a new observation. =Read= requires active scope and
+exact basis/current key equality.
 Reduction retains the admitted extent; shift, EOF admission and mutation change
 its identity. Source/contract change, cancellation, failure, supersession,
 completion, pause and fallback withdraw observations. A new scope starts cold.
 
 Directed witnesses show that ignoring mutation revision or treating EOF as a
 permanent sentinel permits stale observations. The finite coordinates are
-=0/1= abstractions without wraparound. Actions are atomic; concurrent mutation
-during snapshot construction, real reentrant callbacks, unbounded token
+=0/1= abstractions without wraparound. Each individual action is atomic;
+=Observe= still assumes a coherent initial key/value observation. Torn field
+reads within that observation, real reentrant callbacks, unbounded token
 streams, queue fairness and liveness are not established by sampled histories.
+A checked pre/post generation read or an exclusive immutable owner must be
+established by a future implementation; merely adding a post-check is not a
+proof of that producer premise.
 The Lean producer premise and Quint =Bind= abstraction are a named assumption
 bridge, not a checked translation between the tools.
 
@@ -152,3 +161,37 @@ actual LR driver and token representation. There is no runtime change, new
 native conformance qualification, Rust consumer result or CPU claim in this
 model foundation. The previous CI repair at =46b7938= completed successfully;
 it is a separate revision and does not qualify this new source.
+
+* Staged admission and failed-work accounting (2026-10-15)
+
+Revisiting section 3.1.3 of Sperber and Thiemann and the actual token accessors
+exposed a gap in the initial atomic =Bind= assumption. Construction cannot be
+moved across arbitrary effects just because a later key check succeeds.
+The current code reads a kind and a mutable lexeme reference; retaining that
+reference is not the same as taking a stable content snapshot. The extended
+Quint model makes changes between observation and admission explicit. Its
+unchecked-commit mutation witness demonstrates stale publication when that
+interval is ignored. It does not claim the Scheme runtime supplies revision
+numbers or coherent immutable snapshots today.
+
+Lean now records failed snapshot work for each extent, even when its reduction
+count is zero. =retryWork= charges each failed attempt's materialization,
+validation and discard. For a used extent, the refined condition is:
+
+#+begin_example
+r * C + S + failedAdmission <= (r - 1) * M
+#+end_example
+
+The earlier demand-driven =r = 0= formula applies only before failed or eager
+admission work. =unused_extent_can_pay_failed_admission= formalizes that limit.
+A retained counterexample has eight reductions and a favorable no-retry cost,
+yet loses after five failed attempts. These are symbolic examples, not observed
+request frequencies. Retry counts and lexeme-copy/hash work must be measured
+before selecting an implementation. Unbounded retries have no proven progress
+or latency guarantee; model safety does not justify a spinning retry loop.
+
+Local validation passed Lean (43 jobs), the complete locked Quint package
+(89 directed tests across ten modules and nine sampled invariant runs), and
+source-input binding. The scope module contributes 23 directed tests and 1,000
+sampled histories of at most 20 steps, seed 1. No runtime optimization or new
+CPU claim accompanies this model extension.

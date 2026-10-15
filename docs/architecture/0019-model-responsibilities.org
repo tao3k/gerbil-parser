@@ -183,3 +183,9 @@ break-even including every extent and additional request work. Quint owns
 scope admission and invalidation histories, including mutation, EOF, pause and
 fallback. Actual extent counts, mutation admission, engine conformance and CPU
 qualification remain subsequent layers with explicit missing evidence.
+
+Staged admission now separates coherent observation from commit and rejection.
+The atomic observation itself remains a producer obligation; it is not derived
+from a later key match. Failed construction/validation/discard work is included
+in every complete request, including unused extents. The refined break-even
+condition can reject a candidate that was favorable under a no-retry model.

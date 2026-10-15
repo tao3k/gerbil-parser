@@ -102,6 +102,24 @@ def shared (work : SharedWork) : Nat :=
   work.preparation + work.scan + work.lr + work.captureOther +
   work.validation + work.publication + work.ffi + work.scheduling
 
+/-- Failed snapshot attempts must be charged even if no capture later uses
+this extent. Each failed attempt materializes, validates and discards its work.
+These costs are logical weights, not measurements or a bounded retry policy. -/
+def retryWork (failed materialize validate discard : Nat) :=
+  failed * (materialize + validate + discard)
+
+theorem one_failed_attempt_charged (materialize validate discard : Nat) :
+    retryWork 1 materialize validate discard = materialize + validate + discard := by
+  simp [retryWork]
+
+theorem extent_with_retries_break_even (additional materialize check setup failed : Nat) :
+    scopedMetadata (additional + 1) materialize check setup + failed ≤
+      repeatedMetadata (additional + 1) materialize ↔
+    (additional + 1) * check + setup + failed ≤ additional * materialize := by
+  simp only [scopedMetadata, Nat.add_one_ne_zero, ↓reduceIte, repeatedMetadata,
+             Nat.add_mul, Nat.one_mul]
+  omega
+
 /-- Each extent has its own weights: EOF construction may be zero, and a
 mutation/snapshot check may depend on lexeme size. Uniform weights are not
 assumed when admitting the complete request. -/
@@ -110,13 +128,15 @@ structure ExtentWork where
   materialize : Nat
   check : Nat
   setup : Nat
+  failedAdmission : Nat := 0
   deriving Repr
 
 def repeatedTotal (extents : List ExtentWork) : Nat :=
   (extents.map (fun e => repeatedMetadata e.reductions e.materialize)).sum
 
 def scopedTotal (extents : List ExtentWork) : Nat :=
-  (extents.map (fun e => scopedMetadata e.reductions e.materialize e.check e.setup)).sum
+  (extents.map (fun e => scopedMetadata e.reductions e.materialize e.check e.setup +
+    e.failedAdmission)).sum
 
 def baseline (work : SharedWork) (extents : List ExtentWork) : Nat :=
   shared work + repeatedTotal extents
@@ -139,13 +159,21 @@ theorem complete_request_with_extra_work (work : SharedWork) (extents : List Ext
   unfold candidate baseline
   omega
 
+theorem unused_extent_can_pay_failed_admission (e : ExtentWork)
+    (unused : e.reductions = 0) : scopedTotal [e] = e.failedAdmission := by
+  simp [scopedTotal, unused, scopedMetadata]
+
+-- A candidate beneficial without retries can lose after failed admission work.
+example : scopedTotal [⟨8, 4, 1, 1, retryWork 5 4 1 1⟩] >
+    repeatedTotal [⟨8, 4, 1, 1, retryWork 5 4 1 1⟩] := by decide
+
 -- Retain singleton and EOF losses in a heterogeneous complete-request sum.
 -- These are illustrative weights, not measured parser or CPU observations.
-example : scopedTotal [⟨1, 4, 1, 1⟩, ⟨8, 4, 1, 1⟩, ⟨5, 0, 1, 0⟩] <
-    repeatedTotal [⟨1, 4, 1, 1⟩, ⟨8, 4, 1, 1⟩, ⟨5, 0, 1, 0⟩] := by decide
+example : scopedTotal [⟨1, 4, 1, 1, 0⟩, ⟨8, 4, 1, 1, 0⟩, ⟨5, 0, 1, 0, 0⟩] <
+    repeatedTotal [⟨1, 4, 1, 1, 0⟩, ⟨8, 4, 1, 1, 0⟩, ⟨5, 0, 1, 0, 0⟩] := by decide
 
-example : repeatedTotal [⟨1, 4, 1, 1⟩, ⟨1, 4, 1, 1⟩, ⟨5, 0, 1, 0⟩] <
-    scopedTotal [⟨1, 4, 1, 1⟩, ⟨1, 4, 1, 1⟩, ⟨5, 0, 1, 0⟩] := by decide
+example : repeatedTotal [⟨1, 4, 1, 1, 0⟩, ⟨1, 4, 1, 1, 0⟩, ⟨5, 0, 1, 0, 0⟩] <
+    scopedTotal [⟨1, 4, 1, 1, 0⟩, ⟨1, 4, 1, 1, 0⟩, ⟨5, 0, 1, 0, 0⟩] := by decide
 
 -- Both positive and negative regimes are part of the model.
 example : scopedMetadata 8 4 1 1 < repeatedMetadata 8 4 := by decide

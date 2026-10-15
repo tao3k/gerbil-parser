@@ -642,3 +642,83 @@ and after was 0.980494/1.002177/1.048464. Both controls are valid; candidate
 P90 exceeds 0.95. The second trial did not execute. This is an unresolved CPU
 qualification failure, even though its median improves. No rounding, workload
 change or discarded percentile can close that gate.
+
+
+* Owned packed children: reject a space leak before accepting a CPU result
+
+The paper/code review distinguishes representation specialization from retention.
+Sperber and Thiemann's sections 3 and 4 specialize static grammar work; Wagner
+and Graham's sections 3 and 7 make persistent tree representation and sequence
+costs part of the incremental design. Our inference is that a child container
+must account for everything it retains, including links outside its own span.
+Neither paper establishes native allocation or CPU improvement for this engine.
+
+A borrowed persistent-stack prototype passed 91 native Cases and 198 frozen
+combinations. Its two local complete-request trials passed, with candidate
+P10/P50/P90 of 0.881510/0.906677/0.933381 and
+0.889410/0.920909/0.941449. Nevertheless it is rejected: a fragment can retain
+an unrelated stack suffix, and later reuse can keep an obsolete prefix alive.
+The =PrefixChildren= model makes that retention premise explicit; its algebraic
+correctness does not discharge the resource obligation. No borrowed-stack code
+is retained in the engine. Initial fixture failures (a missing semantic alias and
+an outer unary wrapper assumption) remain recorded rather than being counted as
+native acceptance.
+
+The admitted representation instead uses a private one-slot POO record
+=lr-capture-children= holding an owned source-order array. Widths four and above
+copy only their child references into that array during the existing bounds/count
+traversal. Widths two and three keep eager lists; the existing unary and nullable
+paths are unchanged. First observation converts the array to a stable cached
+list. Token identity, source order, offsets, boundary signatures and yield-fold
+association are preserved. No stack link or unrelated suffix is stored. The
+threshold selects a generic representation, not a language or input size.
+
+Lean's =packed_children_exact= and =packed_children_warm= establish exact first
+and repeated observation. =packed_children_exclude_suffix= establishes the
+prefix-only snapshot. =packed_children_no_demand= charges both descriptor and
+array; =packed_children_first_demand= charges the later list too. Object counts
+do not prove byte, GC, or CPU costs. The existing Quint memo protocol checks
+publication/generation ownership; its finite traces are not native refinement.
+
+Native qualification passed 91 Cases in 14.368916 seconds and all 198 frozen
+combinations in 11.236343 seconds. The new regression mutates the original stack
+and suffix links after capture and retains exact children and suffix identity.
+Cross-request ownership and stable first-observation identity are also checked.
+Three organization Cases passed in 1.622812 seconds, including the descriptor's
+exact single-array slot. The full unchanged 20-by-20 LR diagnostic matrix passed
+in 28.956321 seconds. Lean and source-input binding controls passed.
+
+** Allocation scopes and first-demand cost
+
+Three no-collection captured-LR samples each used 49,344,848 bytes per 256 requests,
+compared with the preceding 50,393,424: 4096 fewer bytes per recorded request,
+or 2.08%. Four counter controls retained identical totals: recorded scan
+38,814,032; uncaptured LR 22,237,520; publication 22,749,520; validation
+10,920,656. This is a captured-LR allocation result, not a complete-request byte
+reduction or an isolated CPU speedup.
+
+The seven-scope diagnostic passed in 10.869075 seconds and still charges first
+child-list/boundary/yield demand in its forced-request scope. Three added
+allocation-only controls each observed zero collections and 133,591,760 bytes
+per 256 complete requests. They explicitly collect before the counter window
+and report no CPU result. This is an absolute allocation observation without a
+matched full-request byte baseline. The separate CPU gate retains natural GC;
+no collection is moved outside its clock.
+
+** Complete-request CPU qualification
+
+The first trial was rejected in 32.937010 seconds: before P10/P50/P90 was
+0.958691/1.001726/1.060223, candidate was 0.892406/0.914911/0.916655,
+and after was 0.898375/1.004041/1.051651. Its invalid following control is
+retained despite the candidate percentile. The planned second trial passed in
+32.603685 seconds: before was 0.955781/1.003807/1.051668, candidate was
+0.910066/0.915611/0.922253, and after was
+0.906807/1.001665/1.052147. It admits an 8.44% local median CPU reduction
+for the complete 64-record ASCII request against frozen =459ec36=, with valid
+reference controls and natural GC included.
+
+This is one admitted final-representation trial, not two consecutive admitted
+trials. It covers the accumulated capture implementation and does not isolate
+the packed array's incremental CPU contribution. Independent Ubuntu qualification
+remains required; the earlier stable-control Ubuntu P90 failure is not superseded
+by local measurements alone.

@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; lr-parser: state owner. Private execution state and named algorithms.
 
-(export lr-capture-plan make-lr-capture-plan
+(export lr-capture-children make-lr-capture-children lr-capture-children? lr-capture-children-items
+        lr-capture-plan make-lr-capture-plan
         lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts
         lr-capture-context make-lr-capture-context
         lr-capture-context-runtime lr-capture-context-executor
@@ -193,6 +194,9 @@
   transparent: #t final: #t)
 (defstruct lr-capture-context (runtime executor production-id entry-state exit-state lookahead-kind)
   transparent: #t final: #t)
+;;; Owned packed children contain only the current production's operands.
+;;; No recognition-stack link or unrelated suffix escapes into this payload.
+(defstruct lr-capture-children (items) transparent: #t final: #t)
 (defstruct lr-recognition-fragment
   (context children-cache lookahead-cache value start end token-count offset yield-cache)
   transparent: #t final: #t)
@@ -205,7 +209,10 @@
 (definline (lr-recognition-fragment-children (piece : lr-recognition-fragment)) => :t
   (let (stored piece.children-cache)
     (if (or (pair? stored) (null? stored)) stored
-      (let (children (list stored))
+      (let (children
+              (if (lr-capture-children? stored)
+                (vector->list (lr-capture-children-items stored))
+                (list stored)))
         (lr-recognition-fragment-children-cache-set! piece children)
         children))))
 (definline (lr-recognition-fragment-runtime (piece : lr-recognition-fragment)) => :t

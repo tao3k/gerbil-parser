@@ -46,7 +46,7 @@ def model_checks(root: Path):
                      "t/fixtures/tla-sany-differential/worker-left.ss", "t/fixtures/tla-sany-differential/worker-right.ss",
                      "t/fixtures/tla-sany-differential/worker-exclusive.ss",
                      "t/fixtures/tla-sany-differential/affinity-exclusive.ss",
-                     "t/fixtures/tla-sany-differential/worker-exclusive-invalid.ss", "test-processes.ss", "src/compiler/bound-ir.ss", "t/bound-ir-index-test.ss",
+                     "t/fixtures/tla-sany-differential/worker-exclusive-invalid.ss", "test-processes.ss", "src/compiler/bound-ir.ss", "t/bound-ir-index-test.ss", "t/rust-runtime-generation-test.ss",
                      "src/runtime/scan/lexical.ss", "src/runtime/scan/literal.ss", "src/runtime/scan/regular.ss", "t/ranked-regular-scanner-test.ss",
                      "t/canonical-lr1-reference-test.ss", "src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
                      "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss",

@@ -134,3 +134,14 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Capture.capture_row_partitions_disjoint
 #print axioms ParserEngine.Capture.capture_row_custom_index_bounded
+
+#print axioms ParserEngine.Capture.deferred_prefix_children_exact
+#print axioms ParserEngine.Capture.deferred_prefix_children_warm
+#print axioms ParserEngine.Capture.deferred_prefix_no_demand
+#print axioms ParserEngine.Capture.deferred_prefix_first_demand
+
+#print axioms ParserEngine.Capture.packed_children_exact
+#print axioms ParserEngine.Capture.packed_children_warm
+#print axioms ParserEngine.Capture.packed_children_exclude_suffix
+#print axioms ParserEngine.Capture.packed_children_no_demand
+#print axioms ParserEngine.Capture.packed_children_first_demand

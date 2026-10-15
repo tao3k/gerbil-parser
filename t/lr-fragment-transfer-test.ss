@@ -14,7 +14,7 @@
                  lr-recognition-fragment? lr-recognition-fragment-children lr-recognition-fragment-token-count
                  lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
                  lr-recognition-project lr-recognition-relocate))
-(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts lr-runtime-reduction-widths lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
+(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-capture-children? lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts lr-runtime-reduction-widths lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
                  lr-capture-context-exit-state lr-runtime-actions-set! lr-runtime-capture-plans lr-runtime-goto-columns)
         (only-in :gerbil-parser/src/runtime/lr-parser/recognition lr-recognition-fragment-terminal-yield capture-context-from-plan prepare-capture-plans capture-reduction))
 (export lr-fragment-transfer-test)
@@ -150,6 +150,35 @@
           (check first => (list token))
           (check (eq? first (lr-recognition-fragment-children root)) => #t)
           (check (eq? (car first) token) => #t))))
+    (test-case "packed children retain ownership across requests and materialize once"
+      (let* ((runtime (lr-prepare (compile-lr-spec
+                         '((source-file (alias SourceFile (sequence (token identifier) (token identifier)
+                                                 (token identifier) (token identifier))))) 'source-file)))
+             (tokens (map (lambda (i) (make-token 'identifier "a" i (+ i 1))) (iota 4)))
+             (captured (capture-transfer-root runtime tokens))
+             (root (let loop ((piece captured))
+                     (let (stored (lr-recognition-fragment-children-cache piece))
+                       (cond ((lr-capture-children? stored) piece)
+                             ((lr-recognition-fragment? stored) (loop stored))
+                             (else (error "wide production was not retained as packed children")))))))
+        (check (lr-capture-children? (lr-recognition-fragment-children-cache root)) => #t)
+        (check (void? (lr-recognition-fragment-yield-cache root)) => #t)
+        (let* ((widths (lr-runtime-reduction-widths runtime))
+               (id (find (lambda (id) (= (vector-ref widths id) 4)) (iota (vector-length widths))))
+               (suffix (list (make-token 'identifier "outside" 20 27)))
+               (stack (append (reverse tokens) suffix))
+               (captured (capture-reduction (vector-ref (prepare-capture-plans runtime) id)
+                           (lambda _ #f) 0 stack #f 4 'value 1)))
+          (set-car! stack (make-token 'identifier "changed-stack" 0 13))
+          (set-car! suffix (make-token 'identifier "changed-suffix" 20 34))
+          (check (eq? (cdr captured) suffix) => #t)
+          (check (lr-recognition-fragment-children (car captured)) => tokens))
+        (capture-transfer-root runtime
+          (map (lambda (i) (make-token 'identifier "next" (* 4 i) (+ 4 (* 4 i)))) (iota 4)))
+        (let (children (lr-recognition-fragment-children root))
+          (check children => tokens)
+          (check (eq? children (lr-recognition-fragment-children root)) => #t)
+          (for-each (lambda (left right) (check (eq? left right) => #t)) children tokens))))
     (test-case "fresh capture defers its derived terminal index and repeated transfer queries share it"
       (let* ((grammar '((source-file (alias SourceFile (sequence (token identifier) (token identifier))))))
              (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))

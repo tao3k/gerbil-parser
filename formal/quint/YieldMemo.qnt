@@ -1,4 +1,4 @@
-// A derived terminal index over engine-owned immutable grammar topology.
+// Derived child lists and terminal indexes over engine-owned immutable topology.
 // No allocation/CPU claim: Lean owns cost obligations; Scheme measures them.
 module YieldMemo {
   type Memo = {epoch:int,basis:int,phase:str,work:int,visible:bool,cacheEpoch:int}

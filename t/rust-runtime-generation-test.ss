@@ -20,7 +20,10 @@
                  generate-language-rust-runtime-module)
         (only-in :gerbil-parser/src/compiler/rust-runtime
                  rust-runtime-module-source generate-rust-runtime-module))
-(export rust-runtime-generation-test)
+(export rust-runtime-generation-test test-worker-exclusive?)
+;;; GQL emission builds a large transient Rust string in the shared VM. Keep
+;;; its allocation phase separate from other large compiler/index owners.
+(def test-worker-exclusive? #t)
 
 (def (arithmetic-rust-source)
   (rust-runtime-module-source

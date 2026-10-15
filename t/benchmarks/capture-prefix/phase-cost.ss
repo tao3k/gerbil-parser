@@ -149,4 +149,14 @@
           (let* ((name (car stage)) (samples (table-ref rows name))
                  (median (cdr (assq 'cpu-ms (sample-at-percentile samples 'cpu-ms 50)))))
             (write (list 'CAPTURE-COST-MEDIAN name 'cpu-ms-per-request (/ median 256))) (newline))) stages))
+    ;; Allocation-only controls have an explicit preceding collection. Their CPU
+    ;; is never admitted as a speedup; the separate complete CPU gate uses natural
+    ;; collection throughout. A collection inside this window still rejects bytes.
+    (for-each
+      (lambda (sample)
+        (##gc)
+        (let (row (measure-parser-batch 'allocation-only sample 256 whole expected))
+          (write (list 'CAPTURE-ALLOCATION-ONLY (assq 'sample row) '(calls . 256)
+                       (assq 'gc-count row) (assq 'allocated-bytes row)))
+          (newline) (force-output))) (iota 3))
     (displayln "CAPTURE-COST-REPLAY-OK tokens=256 significant=256") (force-output)))

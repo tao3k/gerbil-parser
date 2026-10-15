@@ -49,6 +49,7 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("t/benchmarks/parser-stage-cost/benchmark.ss", check.inputs)
                 self.assertIn("src/compiler/bound-ir.ss", check.inputs)
                 self.assertIn("t/bound-ir-index-test.ss", check.inputs)
+                self.assertIn("t/rust-runtime-generation-test.ss", check.inputs)
                 self.assertIn("test-processes.ss", check.inputs)
                 self.assertIn("src/runtime/token.ss", check.inputs)
                 self.assertIn("src/language/module-input.ss", check.inputs)

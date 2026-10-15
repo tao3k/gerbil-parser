@@ -121,3 +121,25 @@ and does not accept a failed exit. A controlled child exiting 3 retained its
 failure status while exposing its native phase and output tail; all four
 conformance process controls still passed. The historical Darwin runtime timeout
 remains unresolved pending reproducible stack or child-stage evidence.
+
+
+* Large Rust emission owner and the shared VM resource phase
+
+Runs =38766566952= and =38768502717= passed the compiled semantic entry, then
+failed the Source runner at the same Case in =t/rust-runtime-generation-test.ss=:
+GQL lexical/selective-GLR Rust table emission produced no new receipt for five
+seconds while canonical LR, Source index and other owners ran in the shared VM.
+The latter run retained hidden log artifacts, confirming the upload repair.
+These are distinct from the earlier historical native-startup timeout.
+
+The generator owner passed alone locally in 15.246849 seconds, including all
+12 Cases and module admission. The observed competing four-owner set also passed
+locally in 23.325765 seconds; the remote contention failure was not reproduced
+on this host. The candidate scheduling repair declares the existing typed
+=test-worker-exclusive?= slot for this large transient allocation owner. It
+executes after parallel owners join on the persistent caller Worker. It does not
+change the generator, expected Rust output, Case count, five-second idle fence,
+or total budget. The same four-owner set passed in 22.245382 seconds with
+=TEST-SUITE-EXCLUSIVE modules=1=. This is a scheduling control, not a claimed
+wall-clock speedup or final macOS CI acceptance. Formal input binding includes
+the newly declared owner; independent macOS qualification remains required.

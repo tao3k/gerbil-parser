@@ -394,6 +394,79 @@ theorem unary_children_no_demand : unaryChildrenCells false = 0 := rfl
 
 theorem unary_children_first_demand : unaryChildrenCells true = 1 := rfl
 
+/-- A deferred prefix borrows an engine-owned immutable recognition stack.
+Its width belongs to the same immutable prepared production. This deliberately
+retains the stack suffix; arbitrary pair mutation is outside the premise. -/
+inductive PrefixChildren (α : Type) where
+  | pending (stack : List α)
+  | ready (children : List α)
+
+def forcePrefixChildren (width : Nat) : PrefixChildren α → List α × PrefixChildren α
+  | .pending stack => let children := (stack.take width).reverse; (children, .ready children)
+  | .ready children => (children, .ready children)
+
+theorem deferred_prefix_children_exact (width : Nat) (stack : List α) :
+    (forcePrefixChildren width (.pending stack)).1 = (splitPrefix width stack []).1 := by
+  simp [forcePrefixChildren, source_order_preserved]
+
+theorem deferred_prefix_children_warm (width : Nat) (stack : List α) :
+    forcePrefixChildren width (forcePrefixChildren width (.pending stack)).2 =
+      forcePrefixChildren width (.pending stack) := rfl
+
+/-- Object counts only: one pending descriptor replaces width eager list cells.
+The first demand subsequently pays those cells too. Retained prefix/suffix cells,
+object headers, native allocation and collection are not erased by this count. -/
+def deferredPrefixObjects (width : Nat) (demand : Bool) : Nat :=
+  1 + if demand then width else 0
+
+theorem deferred_prefix_no_demand (width : Nat) (wide : 1 < width) :
+    deferredPrefixObjects width false < width := by
+  simp [deferredPrefixObjects]
+  omega
+
+theorem deferred_prefix_first_demand (width : Nat) :
+    deferredPrefixObjects width true = width + 1 := by simp [deferredPrefixObjects, Nat.add_comm]
+
+/-- An owned packed array snapshots only the used prefix. It cannot retain
+an unrelated recognition-stack suffix through list links. First observation
+materializes the same source-order list; subsequent observations reuse it. -/
+inductive PackedChildren (α : Type) where
+  | pending (children : Array α)
+  | ready (children : List α)
+
+def packChildren (width : Nat) (stack : List α) : PackedChildren α :=
+  .pending ((stack.take width).reverse.toArray)
+
+def forcePackedChildren : PackedChildren α → List α × PackedChildren α
+  | .pending children => (children.toList, .ready children.toList)
+  | .ready children => (children, .ready children)
+
+theorem packed_children_exact (width : Nat) (stack : List α) :
+    (forcePackedChildren (packChildren width stack)).1 = (splitPrefix width stack []).1 := by
+  simp [forcePackedChildren, packChildren, source_order_preserved]
+
+theorem packed_children_warm (width : Nat) (stack : List α) :
+    forcePackedChildren (forcePackedChildren (packChildren width stack)).2 =
+      forcePackedChildren (packChildren width stack) := by
+  simp [forcePackedChildren, packChildren]
+
+theorem packed_children_exclude_suffix (used suffix : List α) :
+    packChildren used.length (used ++ suffix) = .pending used.reverse.toArray := by
+  simp [packChildren]
+
+/-- Two cold objects (descriptor and array) replace width list cells. First
+query additionally pays width list cells; actual bytes and CPU remain measured. -/
+def packedChildrenObjects (width : Nat) (demand : Bool) : Nat :=
+  2 + if demand then width else 0
+
+theorem packed_children_no_demand (width : Nat) (wide : 3 < width) :
+    packedChildrenObjects width false < width := by
+  simp [packedChildrenObjects]
+  omega
+
+theorem packed_children_first_demand (width : Nat) :
+    packedChildrenObjects width true = width + 2 := by simp [packedChildrenObjects, Nat.add_comm]
+
 /-- Snapshot the live kind and lexeme before deferring their pair allocation.
 Retaining a mutable token vector instead would not preserve this obligation. -/
 structure BoundarySnapshot (Lexeme : Type) where
@@ -434,7 +507,7 @@ theorem prepared_capture_arguments_saved (nodes : Nat) :
 
 /-- Only canonical transitions enter this cache. The compiled grammar's goto
 mapping is immutable for this runtime/production/entry; arbitrary direct
-executors create uncached descriptors and cannot violate these premises. -/
+executors use a disjoint checked cache partition and cannot violate these premises. -/
 theorem canonical_context_admission (wanted cached : TransitionContext Runtime Executor)
     (canonical : Executor) (target : Nat)
     (coordinates : cached.runtime = wanted.runtime ∧ cached.production = wanted.production ∧
@@ -455,8 +528,9 @@ theorem capture_row_custom_index_bounded (states entry : Nat)
     (entryBound : entry < states) : states + entry < 2 * states := by
   omega
 
-/-- Logical data slots only. Cold descriptor objects and the bounded directory
-are charged; object headers, lookup work, allocator and GC are separate costs. -/
+/-- Context/node data slots only. Cold contexts and the bounded directory are
+charged; child-list/prefix storage, object headers, lookup, allocator and GC are
+separate costs. Deferred prefix descriptors are charged by deferredPrefixObjects. -/
 def flatCaptureSlots (nodes : Nat) := 13 * nodes
 def sharedCaptureSlots (nodes contexts plans cells : Nat) := 9 * nodes + 6 * contexts + 4 * plans + cells
 

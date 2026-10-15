@@ -23,12 +23,15 @@
    ((equal? profile "workers")
     (map (lambda (row)
            (process-case (car row)
-             (append ["gxi" "t/fixtures/tla-sany-differential/test-suite.ss" "--workers" "2"]
+             (append (if (equal? (car row) "source-first-runtime")
+                       ["env" (string-append "GERBIL_LOADPATH=" (current-directory))] '())
+               ["gxi" "t/fixtures/tla-sany-differential/test-suite.ss" "--workers" "2"]
                (map (lambda (name)
                       (string-append "t/fixtures/tla-sany-differential/" name ".ss"))
                     (cadr row)))
              (caddr row) (cadddr row) 30 #f))
          '(("shared-runtime" ("worker-left" "worker-right") 0 #f)
+           ("source-first-runtime" ("worker-left" "worker-right") 0 "TEST-SUITE-OK modules=2")
            ("runtime-affinity" ("affinity-left" "affinity-right") 0 #f)
            ("failure-propagation" ("worker-failure") nonzero #f)
            ("silence-watchdog" ("worker-timeout") 70 #f)

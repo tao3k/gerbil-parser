@@ -6,8 +6,14 @@
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (load "scripts/test-plan.ss")
 (prefer-compiled-interfaces!)
-(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process
-                 test-child-process-exit!))
+;; Source-first callers still need the prepared native FFI module before the
+;; public import. The interpreter cannot evaluate its C declarations.
+(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+(def native-test-exit!
+  (eval '(begin
+           (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process
+                            test-child-process-exit!))
+           test-child-process-exit!)))
 (import (only-in :clan/poo/object .o)
         (only-in :core/observability/testing-case
                  poo-flow-default-testing-case-profile
@@ -121,17 +127,17 @@
                                (lambda (e)
                                  (emit "MODULE-BATCH-READER-FAILED " file)
                                  (display-exception e)
-                                 (test-child-process-exit! 70))
+                                 (native-test-exit! 70))
                                (lambda () (thread-join! reader (max 0.001 remaining) 'quiet)))))
                        (if (eq? result 'quiet)
                          (let (now (##current-time-point))
                            (cond
                             ((>= (- now started) budget)
                              (emit "MODULE-BATCH-TIMEOUT " file " reason=total-budget")
-                             (test-child-process-exit! 70))
+                             (native-test-exit! 70))
                             ((>= (- now last-progress) 5)
                              (emit "MODULE-BATCH-TIMEOUT " file " reason=idle-timeout")
-                             (test-child-process-exit! 70))
+                             (native-test-exit! 70))
                             (else (watch))))
                          result))))))))
       (try
@@ -247,4 +253,4 @@
     (emit "OK")
     ;; All workers joined and every owner passed. The test child must release
     ;; its process now; SDK finalizers are outside the harness contract.
-    (test-child-process-exit! 0)))
+    (native-test-exit! 0)))

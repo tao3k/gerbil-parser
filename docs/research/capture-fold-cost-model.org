@@ -722,3 +722,81 @@ trials. It covers the accumulated capture implementation and does not isolate
 the packed array's incremental CPU contribution. Independent Ubuntu qualification
 remains required; the earlier stable-control Ubuntu P90 failure is not superseded
 by local measurements alone.
+
+
+* Checked width countdown and rejected static staging
+
+** Independent Ubuntu result for the owned representation
+
+Exact-head manual run =38773702045= at =48607f3= rejected the complete-request
+CPU trial despite valid controls. Before P10/P50/P90 was
+0.950547/0.997357/1.056113; production was
+0.926694/0.933375/0.951428; after was
+0.976627/1.001183/1.050118. The production P90 exceeds the unchanged strict
+0.95 ceiling. The following trial did not run. The preceding local admission
+is therefore not independent Ubuntu CPU closure.
+
+** A semantically valid specialization that increased allocation
+
+Following the static-grammar specialization argument in
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], an experimental macro expanded widths two, three
+and four into direct frame observations. Lean proves exact source order,
+suffix preservation and metadata observation order for those bounded shapes.
+The native experiment passed 92 Cases and all 198 metadata combinations.
+However, its complete-request CPU P10/P50/P90 was
+0.943139/0.948627/0.972223 with valid before and after controls. Two
+no-collection captured-LR samples allocated 58,782,032 bytes per 256 requests,
+compared with 49,344,848 for the owned-array implementation: approximately
+19.13% more. The experiment failed both the CPU gate and its allocation goal.
+Its mutable local joins may affect representation, but no profile establishes
+boxing as the root cause. The macro and unrolled runtime branches were removed;
+the semantic theorems and negative results remain research evidence.
+
+** Producer-checked countdown domain
+
+The retained candidate validates every capture width as a nonnegative fixnum
+before publishing the runtime's plan directory. The width slot carries that
+same type. Checked fixnum operations implement only the width countdown and
+packed-array index, with one shared decrement per packed child. Lean establishes
+that a positive admitted countdown remains bounded and yields a valid array
+index. Source positions and token totals remain general integers. No module-wide
+unchecked declaration is introduced. This follows the explicit typed-slot and
+fixnum style in Gerbil's =std/struct/pqueue.ss= without importing its unchecked
+execution policy.
+
+Negative, fractional, string and oversized widths all fail before the plan cache
+is published. The native eight-owner group passed 93 Cases in 12.029587 seconds;
+all 198 frozen metadata combinations passed in 9.465403 seconds.
+
+The first complete-request trial was rejected in 31.683993 seconds. Before was
+0.949247/1.024382/1.057254, production was
+0.915535/0.919205/0.929363, and after was
+0.905631/1.002836/1.109345. Its following control exceeds 1.10 and invalidates
+the trial. The planned second trial passed in 31.429802 seconds: before was
+0.948452/1.000623/1.055922, production was
+0.908671/0.913919/0.927657, and after was
+0.906122/0.998743/1.057086. This admits an accumulated local median CPU
+reduction of 8.61% against frozen =459ec36= over the unchanged complete
+64-record ASCII workload, including natural GC. It does not isolate the
+countdown's incremental contribution. The direct predecessor comparison is
+reported separately; failed controls and the Ubuntu rejection remain binding.
+
+
+** Direct predecessor control rejects a new countdown speed claim
+
+A separate native image was compiled from exact predecessor
+=48607f3957f8a7b68b891a1f2391fdad3ac93942= with the same selected owner list and
+compiler policy. The first build attempt omitted a relative Source support
+module; that incomplete image was not measured. The complete Source snapshot
+was then materialized and the selected closure rebuilt successfully.
+
+The unchanged full-request gate, now comparing against this immediate
+predecessor, reported before P10/P50/P90
+0.971273/1.000056/1.020767, production
+0.974875/1.003406/1.026985, and after
+0.970117/0.995106/0.997229. Both controls were valid and the candidate failed
+the original CPU ceiling. The point median is 0.34% slower; this single run
+establishes no incremental CPU gain. The earlier 8.61% remains an accumulated
+comparison to =459ec36=, not a countdown success. The countdown candidate is
+not admitted as an optimization. Runtime withdrawal and any subsequent child
+representation experiment require separate source and native receipts.

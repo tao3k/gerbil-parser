@@ -25,6 +25,35 @@ theorem source_order_preserved (width : Nat) (stack : List α) :
 theorem suffix_preserved (width : Nat) (stack : List α) :
     (splitPrefix width stack []).2 = stack.drop width := by rw [split_prefix_exact]
 
+/-- Bounded static arity staging preserves the reversed stack prefix and its
+suffix exactly. Metadata observations remain in stack order, before publication. -/
+theorem capture_two_static (last first : α) (tail : List α) :
+    splitPrefix 2 (last :: first :: tail) [] = ([first, last], tail) := by
+  simp [splitPrefix]
+
+theorem capture_three_static (last middle first : α) (tail : List α) :
+    splitPrefix 3 (last :: middle :: first :: tail) [] = ([first, middle, last], tail) := by
+  simp [splitPrefix]
+
+theorem capture_four_static (fourth third second first : α) (tail : List α) :
+    splitPrefix 4 (fourth :: third :: second :: first :: tail) [] =
+      ([first, second, third, fourth], tail) := by simp [splitPrefix]
+
+theorem capture_static_observation_order (observe : α → β)
+    (fourth third second first : α) (tail : List α) :
+    ((fourth :: third :: second :: first :: tail).take 4).map observe =
+      [observe fourth, observe third, observe second, observe first] := rfl
+
+/-- The prepared production width is a nonnegative machine-sized dimension.
+Positions and terminal counts remain arbitrary integers. A positive countdown
+step stays in the admitted range and is also the exact packed-array index. -/
+theorem capture_countdown_stays_bounded (left maximum : Int)
+    (positive : 0 < left) (bounded : left ≤ maximum) :
+    0 ≤ left - 1 ∧ left - 1 ≤ maximum ∧ (left - 1) + 1 = left := by omega
+
+theorem capture_countdown_index (width left : Nat)
+    (positive : 0 < left) (bounded : left ≤ width) : left - 1 < width := by omega
+
 /-- Counts are additive metadata. The fused stack-order sum equals the
 source-order sum; arbitrary effectful observers are not covered. -/
 theorem token_count_order_independent (stack : List α) (width : Nat) (count : α → Nat) :

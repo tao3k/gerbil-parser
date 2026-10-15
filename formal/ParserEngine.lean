@@ -145,3 +145,14 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Capture.packed_children_exclude_suffix
 #print axioms ParserEngine.Capture.packed_children_no_demand
 #print axioms ParserEngine.Capture.packed_children_first_demand
+
+#print axioms ParserEngine.Capture.capture_two_static
+#print axioms ParserEngine.Capture.capture_three_static
+#print axioms ParserEngine.Capture.capture_four_static
+#print axioms ParserEngine.Capture.capture_static_observation_order
+
+#print axioms ParserEngine.Capture.capture_countdown_stays_bounded
+#print axioms ParserEngine.Capture.capture_countdown_index
+
+#print axioms ParserEngine.prepared_corpus_preserves
+#print axioms ParserEngine.corpus_preparations_saved

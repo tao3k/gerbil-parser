@@ -445,6 +445,16 @@ theorem canonical_context_admission (wanted cached : TransitionContext Runtime E
   apply cached_context_admission wanted cached coordinates
   exact ⟨cachedExecutor.trans wantedExecutor.symm, cachedTarget.trans wantedTarget.symm, kind⟩
 
+/-- Canonical and custom entries occupy disjoint halves of one bounded row.
+The hot canonical index remains unchanged; the custom half retains exact checks. -/
+theorem capture_row_partitions_disjoint (states canonical custom : Nat)
+    (canonicalBound : canonical < states) : canonical ≠ states + custom := by
+  omega
+
+theorem capture_row_custom_index_bounded (states entry : Nat)
+    (entryBound : entry < states) : states + entry < 2 * states := by
+  omega
+
 /-- Logical data slots only. Cold descriptor objects and the bounded directory
 are charged; object headers, lookup work, allocator and GC are separate costs. -/
 def flatCaptureSlots (nodes : Nat) := 13 * nodes

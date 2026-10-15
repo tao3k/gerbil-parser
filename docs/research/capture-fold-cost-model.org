@@ -568,3 +568,43 @@ request sample in this run collected, so the diagnostic correctly reports no
 admissible allocation-byte estimate for those samples. No additional allocation
 reduction is claimed from removing the redundant canonical checks. The earlier
 23.47% no-GC allocation reduction and the matched CPU evidence remain separate.
+
+
+** Preserve custom reuse in disjoint bounded cache partitions
+
+The uncached custom branch above introduced a potential allocation regression for
+repeated custom transitions. It is superseded by two disjoint halves of each
+prepared row. Canonical entries keep their original index and live-kind check;
+custom entries use the second half and retain executor, target and kind checks.
+The original total 65536-cell cap now charges both halves before allocation.
+Oversized grammars retain the exact uncached fallback; the four-slot plan and
+six-slot context do not grow. Cached callback retention remains bounded by row
+replacement and runtime release, as described earlier; it is not eliminated.
+
+Lean proves that the halves cannot alias and every custom index is within its
+row. Existing =cached_context_admission= supplies the custom equality obligation;
+=canonical_context_admission= supplies the canonical obligation. Quint's nine
+directed histories and 1000 seeded invariant traces passed, including repeated
+custom reuse across canonical calls. Native tests additionally check identity
+reuse, different custom targets, canonical isolation and the aggregate cell cap.
+The earlier CPU trials describe the preceding uncached-custom revision. Both
+original complete-request trials must be repeated for this final partitioned
+revision before claiming its CPU qualification.
+
+
+Final partition qualification passed the same 90 native Cases in 22.842109
+seconds and all 198 frozen combinations in 11.942724 seconds. The two predeclared
+complete-request CPU trials both passed without changing their gates:
+
+| Trial | Reference before P10/P50/P90 | Candidate P10/P50/P90 | Reference after P10/P50/P90 | Seconds |
+|-------+-----------------------------+----------------------+----------------------------+---------|
+| First | 0.952443 / 1.000426 / 1.051520 | 0.912720 / 0.915341 / 0.938827 | 0.901624 / 1.000147 / 1.052192 | 30.073934 |
+| Second | 0.938748 / 1.000852 / 1.034124 | 0.912651 / 0.918500 / 0.942580 | 0.909949 / 1.007365 / 1.060078 | 30.111638 |
+
+This final partitioned implementation reduces local median complete-request CPU
+by 8.47% and 8.15% against the frozen =459ec36= reference, including scanning,
+LR, capture, publication and validation. Candidate P90 is below 0.95 and both
+reference controls are valid in each trial. The accumulated implementation is the
+comparison subject; the cache partition change alone has not been isolated.
+The uncached-custom intermediate results above remain historical evidence.
+Independent exact-head Ubuntu qualification is still a separate pending gate.

@@ -119,20 +119,29 @@
       (let* ((width (vector-length (lr-runtime-table runtime)))
              (states (vector-length (lr-runtime-actions runtime)))
              (widths (lr-runtime-reduction-widths runtime))
-             (indexed? (<= (* width states) 65536))
+             (indexed? (<= (* 2 width states) 65536))
              (plans (list->vector
                      (map (lambda (production)
                             (make-lr-capture-plan runtime production (vector-ref widths production)
-                              (and indexed? (make-vector states #f))))
+                              (and indexed? (make-vector (* 2 states) #f))))
                           (iota width)))))
         (lr-runtime-capture-plans-set! runtime plans) plans)
       cached)))
 
 (definline (capture-context-from-plan (plan : lr-capture-plan) executor entry target kind) => :t
-  ;; Only canonical goto transitions enter the prepared row. A custom executor
-  ;; owns its target and remains exact and uncached, including borrowed closures.
+  ;; Disjoint halves preserve custom reuse without weakening canonical admission.
+  ;; Only canonical goto transitions enter the first half of a bounded row.
   (if executor
-    (make-lr-capture-context plan.runtime executor plan.production-id entry target kind)
+    (let* ((row plan.contexts)
+           (index (and row (+ entry (quotient (vector-length row) 2))))
+           (context (and row (vector-ref row index))))
+      (if (and context
+               (using (context : lr-capture-context)
+                 (and (eq? executor context.executor) (eqv? target context.exit-state)
+                      (eq? kind context.lookahead-kind))))
+        context
+        (let (next (make-lr-capture-context plan.runtime executor plan.production-id entry target kind))
+          (when row (vector-set! row index next)) next)))
     (let* ((row plan.contexts) (context (and row (vector-ref row entry))))
       (if (and context (using (context : lr-capture-context) (eq? kind context.lookahead-kind)))
         context

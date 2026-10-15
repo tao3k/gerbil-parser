@@ -92,9 +92,12 @@
         (check (eq? (lr-capture-context-executor changed) executor) => #t)
         (check (lr-capture-context-exit-state changed) => target)
         (check (lr-capture-context-exit-state retargeted) => (+ target 1))
-        (check (eq? retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier)) => #f)
+        (check (eq? retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier)) => #t)
         (check (eq? first (capture-context-from-plan plan #f entry target 'identifier)) => #t)
         (check (eq? first (vector-ref (lr-capture-plan-contexts plan) entry)) => #t)
+        (check (eq? retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier)) => #t)
+        (check (<= (* (vector-length (prepare-capture-plans runtime))
+                      (vector-length (lr-capture-plan-contexts plan))) 65536) => #t)
         (check (eq? first (capture-context-from-plan (vector-ref (prepare-capture-plans other-runtime) production) #f entry target 'identifier)) => #f)
         (check (eq? (lr-capture-context-runtime first) runtime) => #t)))
     (test-case "oversized capture context directories retain exact uncached descriptors"

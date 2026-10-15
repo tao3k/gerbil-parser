@@ -131,3 +131,6 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Capture.prepared_capture_arguments_saved
 
 #print axioms ParserEngine.Capture.canonical_context_admission
+
+#print axioms ParserEngine.Capture.capture_row_partitions_disjoint
+#print axioms ParserEngine.Capture.capture_row_custom_index_bounded

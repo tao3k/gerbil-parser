@@ -133,7 +133,11 @@
   ;; Only canonical goto transitions enter the first half of a bounded row.
   (if executor
     (let* ((row plan.contexts)
-           (index (and row (+ entry (quotient (vector-length row) 2))))
+           (index (and row
+                    (let (states (quotient (vector-length row) 2))
+                      (unless (and (exact-integer? entry) (<= 0 entry) (< entry states))
+                        (error "custom capture entry is outside its prepared row" entry))
+                      (+ entry states))))
            (context (and row (vector-ref row index))))
       (if (and context
                (using (context : lr-capture-context)

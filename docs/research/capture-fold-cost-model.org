@@ -608,3 +608,28 @@ reference controls are valid in each trial. The accumulated implementation is th
 comparison subject; the cache partition change alone has not been isolated.
 The uncached-custom intermediate results above remain historical evidence.
 Independent exact-head Ubuntu qualification is still a separate pending gate.
+
+
+The custom half validates an exact nonnegative entry below the state count
+before adding the partition offset. Without this guard, a negative entry could
+land in a canonical cell even though its shifted index is in bounds. This is the
+native producer check for the Lean bounded-entry premise. Native controls reject
+negative, upper-bound and fractional entries before verifying that the canonical
+cell and previously returned custom contexts retain their identities.
+
+
+The guarded revision passed 90 native Cases in 19.168094 seconds and all 198
+frozen combinations in 8.117394 seconds. Its first complete-request CPU trial
+passed in 29.981083 seconds: before P10/P50/P90 was
+0.948623/1.003199/1.053786, candidate was 0.907454/0.911699/0.937180,
+and after was 0.908831/1.004442/1.050407. This is an admitted local median
+CPU reduction of 8.83% against the frozen complete-request reference.
+
+The identical second trial was rejected. Before was
+0.950133/1.002896/1.052643, candidate was 0.913246/0.916092/0.941963,
+and after was 0.899192/1.001904/1.047376. Following-control P10 is below
+0.90; it is not rounded into a pass. The candidate percentile does not override
+that invalid control. Consequently the guarded final revision has one admitted
+local complete-request trial, not two consecutively admitted trials. Independent
+Ubuntu qualification must decide the remaining gate. No local outlier is dropped
+and no workload, compiler, sample count, budget or threshold is changed.
